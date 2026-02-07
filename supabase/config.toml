@@ -2,3 +2,6 @@ project_id = "ubdvvvsiryenhrfmqsvw"
 
 [functions.unzip-file]
 verify_jwt = false
+
+[functions.extract-curriculum]
+verify_jwt = false
