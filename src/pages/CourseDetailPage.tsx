@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCourseProgress, type LessonStatus, getStatusBgColor } from '@/hooks/useCourseProgress';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/hooks/use-toast';
+import { CourseProgressBar } from '@/components/course/CourseProgressBar';
+import { LessonStatusBadge } from '@/components/course/LessonStatusBadge';
+import { ContinueLearningCard } from '@/components/course/ContinueLearningCard';
 import { 
   Loader2, 
   Clock, 
@@ -16,7 +20,8 @@ import {
   PlayCircle,
   Lock,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  RotateCcw
 } from 'lucide-react';
 
 interface Course {
@@ -61,6 +66,11 @@ export default function CourseDetailPage() {
   const [enrolling, setEnrolling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+
+  // Use the course progress hook for enrolled users
+  const { data: courseProgress, isLoading: progressLoading } = useCourseProgress(
+    isEnrolled ? slug : undefined
+  );
 
   useEffect(() => {
     if (slug) {
@@ -184,7 +194,38 @@ export default function CourseDetailPage() {
   };
 
   const isLessonCompleted = (lessonId: string) => {
+    // Use courseProgress if available
+    if (courseProgress?.lessons) {
+      const lessonProgress = courseProgress.lessons.find(l => l.lesson_id === lessonId);
+      return lessonProgress?.status === 'mastered' || lessonProgress?.status === 'partial';
+    }
     return progress.some(p => p.lesson_id === lessonId && p.completed);
+  };
+
+  const getLessonStatus = (lessonId: string): LessonStatus => {
+    if (courseProgress?.lessons) {
+      const lessonProgress = courseProgress.lessons.find(l => l.lesson_id === lessonId);
+      return lessonProgress?.status ?? 'not_started';
+    }
+    const lessonProgress = progress.find(p => p.lesson_id === lessonId);
+    if (lessonProgress?.completed) return 'mastered';
+    return 'not_started';
+  };
+
+  const getLessonNeedsReview = (lessonId: string): boolean => {
+    if (courseProgress?.lessons) {
+      const lessonProgress = courseProgress.lessons.find(l => l.lesson_id === lessonId);
+      return lessonProgress?.needs_review ?? false;
+    }
+    return false;
+  };
+
+  const getLessonScore = (lessonId: string): number | null => {
+    if (courseProgress?.lessons) {
+      const lessonProgress = courseProgress.lessons.find(l => l.lesson_id === lessonId);
+      return lessonProgress?.score_percent ?? null;
+    }
+    return null;
   };
 
   const getModuleLessons = (moduleId: string) => {
@@ -199,9 +240,38 @@ export default function CourseDetailPage() {
   };
 
   const getTotalProgress = () => {
+    if (courseProgress) return courseProgress.progress_percent;
     if (lessons.length === 0) return 0;
     const completed = lessons.filter(l => isLessonCompleted(l.id)).length;
     return Math.round((completed / lessons.length) * 100);
+  };
+
+  const getNextLessonId = (): string | null => {
+    if (courseProgress?.next_lesson) {
+      return courseProgress.next_lesson.lesson_id;
+    }
+    // Fallback: find first incomplete lesson
+    for (const module of modules) {
+      const moduleLessons = getModuleLessons(module.id);
+      for (const lesson of moduleLessons) {
+        if (!isLessonCompleted(lesson.id)) {
+          return lesson.id;
+        }
+      }
+    }
+    return lessons[0]?.id ?? null;
+  };
+
+  const handleContinue = () => {
+    const nextId = getNextLessonId();
+    if (nextId) {
+      navigate(`/lesson/${nextId}`);
+    }
+  };
+
+  const handleLessonClick = (lessonId: string, locked: boolean) => {
+    if (locked) return;
+    navigate(`/lesson/${lessonId}`);
   };
 
   const stepLabels: Record<string, string> = {
@@ -282,20 +352,33 @@ export default function CourseDetailPage() {
             </div>
           </div>
 
-          {/* Enrollment / Progress Bar */}
+        {/* Enrollment / Progress Bar */}
           <div className="p-6 border-t border-border">
             {isEnrolled ? (
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex-1 w-full md:w-auto">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-muted-foreground">Fortschritt</span>
-                    <span className="text-sm font-medium">{getTotalProgress()}%</span>
-                  </div>
-                  <Progress value={getTotalProgress()} className="h-2" />
+                  {courseProgress ? (
+                    <CourseProgressBar 
+                      summary={courseProgress.summary}
+                      progressPercent={courseProgress.progress_percent}
+                      showDetails={true}
+                    />
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-muted-foreground">Fortschritt</span>
+                        <span className="text-sm font-medium">{getTotalProgress()}%</span>
+                      </div>
+                      <Progress value={getTotalProgress()} className="h-2" />
+                    </>
+                  )}
                 </div>
-                <Button className="gradient-primary text-primary-foreground shadow-glow-sm">
+                <Button 
+                  onClick={handleContinue}
+                  className="gradient-primary text-primary-foreground shadow-glow-sm"
+                >
                   <PlayCircle className="h-4 w-4 mr-2" />
-                  Fortsetzen
+                  {getTotalProgress() > 0 ? 'Fortsetzen' : 'Kurs starten'}
                 </Button>
               </div>
             ) : (
@@ -319,6 +402,17 @@ export default function CourseDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Continue Learning Card for enrolled users with progress */}
+        {isEnrolled && courseProgress && courseProgress.progress_percent > 0 && (
+          <div className="mb-8">
+            <ContinueLearningCard
+              courseId={course.id}
+              courseTitle={course.title}
+              progress={courseProgress}
+            />
+          </div>
+        )}
 
         {/* Modules List */}
         <div className="space-y-4">
@@ -381,31 +475,35 @@ export default function CourseDetailPage() {
                     <CardContent className="pt-0 pb-4">
                       <div className="space-y-2">
                         {moduleLessons.map((lesson) => {
-                          const completed = isLessonCompleted(lesson.id);
+                          const status = getLessonStatus(lesson.id);
+                          const needsReview = getLessonNeedsReview(lesson.id);
+                          const score = getLessonScore(lesson.id);
                           const locked = !isEnrolled;
+                          const completed = status === 'mastered' || status === 'partial';
 
                           return (
                             <div 
                               key={lesson.id}
-                              className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                              onClick={() => handleLessonClick(lesson.id, locked)}
+                              className={`flex items-center justify-between p-3 rounded-lg transition-colors border ${
                                 locked 
-                                  ? 'bg-muted/30 opacity-60' 
-                                  : completed 
-                                    ? 'bg-green-500/10' 
-                                    : 'bg-muted/30 hover:bg-muted/50 cursor-pointer'
+                                  ? 'bg-muted/30 opacity-60 cursor-not-allowed' 
+                                  : `${getStatusBgColor(status)} hover:bg-muted/50 cursor-pointer`
                               }`}
                             >
                               <div className="flex items-center gap-3">
                                 {locked ? (
                                   <Lock className="h-5 w-5 text-muted-foreground" />
-                                ) : completed ? (
+                                ) : status === 'mastered' ? (
                                   <CheckCircle className="h-5 w-5 text-green-500" />
+                                ) : needsReview ? (
+                                  <RotateCcw className="h-5 w-5 text-orange-500" />
                                 ) : (
                                   <PlayCircle className="h-5 w-5 text-primary" />
                                 )}
-                                <div>
+                                <div className="flex-1">
                                   <span className="font-medium">{lesson.title}</span>
-                                  <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex flex-wrap items-center gap-2 mt-1">
                                     <Badge variant="secondary" className={`text-xs ${stepColors[lesson.step]} text-white`}>
                                       {stepLabels[lesson.step] || lesson.step}
                                     </Badge>
@@ -417,6 +515,19 @@ export default function CourseDetailPage() {
                                   </div>
                                 </div>
                               </div>
+                              
+                              {/* Status Badge for enrolled users */}
+                              {isEnrolled && status !== 'not_started' && (
+                                <div className="hidden sm:block">
+                                  <LessonStatusBadge 
+                                    status={status}
+                                    needsReview={needsReview}
+                                    scorePercent={score}
+                                    showScore={true}
+                                    size="sm"
+                                  />
+                                </div>
+                              )}
                             </div>
                           );
                         })}

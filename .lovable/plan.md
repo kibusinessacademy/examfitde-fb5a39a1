@@ -15,10 +15,10 @@
 
 | Prioritaet | Problem | Status |
 |------------|---------|--------|
-| P0-A | H5P Runtime Assets fehlen (`/h5p/frame.bundle.js`, `/h5p/styles/h5p.css`) | BLOCKER |
-| P0-B | Mini-Check Step ist nur Platzhalter (keine echte Quiz-UI) | BLOCKER |
-| P1-A | Kurs-Navigation: Lessons nicht anklickbar in CourseDetailPage | Core UX fehlt |
-| P1-B | Progress-Komponenten nicht integriert | Implementiert aber nicht eingebaut |
+| P0-A | H5P Runtime Assets fehlen | ✅ DONE (CDN) |
+| P0-B | Mini-Check Step ist nur Platzhalter | ✅ DONE (MiniCheckPlayer) |
+| P1-A | Kurs-Navigation: Lessons nicht anklickbar | ✅ DONE |
+| P1-B | Progress-Komponenten nicht integriert | ✅ DONE |
 
 ---
 
