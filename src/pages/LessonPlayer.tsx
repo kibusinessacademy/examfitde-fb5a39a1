@@ -7,11 +7,13 @@ import { toast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
 import type { Json } from '@/integrations/supabase/types';
+import type { LessonStatus } from '@/hooks/useCourseProgress';
 
 import LessonHeader from '@/components/lesson/LessonHeader';
 import StepIndicator from '@/components/lesson/StepIndicator';
 import LessonContent from '@/components/lesson/LessonContent';
 import LessonNavigation from '@/components/lesson/LessonNavigation';
+import { LearningGoalFeedback } from '@/components/course/LearningGoalFeedback';
 
 interface Lesson {
   id: string;
@@ -22,6 +24,7 @@ interface Lesson {
   module_id: string;
   sort_order: number | null;
   h5p_content_id: string | null;
+  competency_id: string | null;
 }
 
 interface Module {
@@ -42,6 +45,15 @@ interface LessonProgress {
   score: number | null;
 }
 
+interface LessonOutcome {
+  status: LessonStatus;
+  scorePercent: number | null;
+  needsReview: boolean;
+  attempts: number;
+  competencyTitle: string | null;
+  competencyCode: string | null;
+}
+
 export default function LessonPlayer() {
   const { lessonId } = useParams<{ lessonId: string }>();
   const { user } = useAuth();
@@ -55,6 +67,37 @@ export default function LessonPlayer() {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [startTime] = useState(Date.now());
+  const [lessonOutcome, setLessonOutcome] = useState<LessonOutcome | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+
+  const fetchLessonOutcome = useCallback(async (lId: string) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('lesson_outcomes')
+      .select(`
+        status,
+        score_percent,
+        needs_review,
+        attempts,
+        competency:competencies(title, code)
+      `)
+      .eq('lesson_id', lId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!error && data) {
+      const competency = data.competency as { title: string; code: string } | null;
+      setLessonOutcome({
+        status: data.status as LessonStatus,
+        scorePercent: data.score_percent,
+        needsReview: data.needs_review,
+        attempts: data.attempts,
+        competencyTitle: competency?.title ?? null,
+        competencyCode: competency?.code ?? null,
+      });
+    }
+  }, [user]);
 
   const fetchLessonData = useCallback(async () => {
     if (!lessonId || !user) return;
@@ -185,9 +228,14 @@ export default function LessonPlayer() {
     }
   };
 
-  const handleMiniCheckCompleted = (score: number, maxScore: number) => {
+  const handleMiniCheckCompleted = async (score: number, maxScore: number) => {
     if (!progress?.completed) {
-      completeLesson(score, maxScore);
+      await completeLesson(score, maxScore);
+    }
+    // Fetch updated outcome and show feedback
+    if (lessonId) {
+      await fetchLessonOutcome(lessonId);
+      setShowFeedback(true);
     }
   };
 
@@ -263,6 +311,20 @@ export default function LessonPlayer() {
               onH5PProgress={handleH5PProgress}
               onMiniCheckCompleted={handleMiniCheckCompleted}
             />
+
+            {/* Learning Goal Feedback after Mini-Check */}
+            {showFeedback && lessonOutcome && (
+              <div className="mt-8 pt-6 border-t">
+                <LearningGoalFeedback
+                  competencyTitle={lessonOutcome.competencyTitle}
+                  competencyCode={lessonOutcome.competencyCode}
+                  status={lessonOutcome.status}
+                  scorePercent={lessonOutcome.scorePercent}
+                  needsReview={lessonOutcome.needsReview}
+                  attempts={lessonOutcome.attempts}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
