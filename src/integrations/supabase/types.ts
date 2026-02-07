@@ -602,7 +602,67 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      job_deadletter: {
+        Row: {
+          attempts: number | null
+          completed_at: string | null
+          created_at: string | null
+          id: string | null
+          job_type: string | null
+          last_error: string | null
+          max_attempts: number | null
+          payload: Json | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string | null
+          job_type?: string | null
+          last_error?: string | null
+          max_attempts?: number | null
+          payload?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string | null
+          job_type?: string | null
+          last_error?: string | null
+          max_attempts?: number | null
+          payload?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      job_failure_analysis: {
+        Row: {
+          count: number | null
+          error_class: string | null
+          error_samples: string[] | null
+          job_type: string | null
+        }
+        Relationships: []
+      }
+      job_health_kpis: {
+        Row: {
+          cancelled: number | null
+          completed: number | null
+          failed: number | null
+          job_type: string | null
+          last_update: string | null
+          pending: number | null
+          processing: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
@@ -613,6 +673,11 @@ export type Database = {
           p_worker_id: string
         }
         Returns: Json
+      }
+      classify_job_error: { Args: { p_error: string }; Returns: string }
+      cleanup_stale_locks: {
+        Args: { p_timeout_minutes?: number }
+        Returns: number
       }
       complete_job: {
         Args: { p_job_id: string; p_result?: Json }
@@ -638,6 +703,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      job_maintenance: { Args: never; Returns: Json }
+      requeue_failed_jobs: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "teacher" | "learner"
