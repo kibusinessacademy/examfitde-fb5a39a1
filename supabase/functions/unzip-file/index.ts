@@ -14,14 +14,35 @@ interface FileInfo {
   isDirectory: boolean;
 }
 
+const textExtensions = [
+  '.ts', '.tsx', '.js', '.jsx', '.json', '.css', '.scss', '.less',
+  '.html', '.htm', '.xml', '.svg', '.md', '.txt', '.yaml', '.yml',
+  '.toml', '.env', '.gitignore', '.editorconfig', '.prettierrc',
+  '.eslintrc', '.babelrc', 'dockerfile', 'makefile', '.sql'
+];
+
+function isTextFile(path: string): boolean {
+  const lowPath = path.toLowerCase();
+  const fileName = lowPath.split('/').pop() || '';
+  return textExtensions.some(ext => 
+    lowPath.endsWith(ext) || fileName === ext.replace('.', '')
+  );
+}
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { bucketName, filePath, extractContent = true, maxFileSize = 500000 } = await req.json();
+    const { 
+      bucketName, 
+      filePath, 
+      extractContent = true, 
+      maxFileSize = 50000,
+      filterPath = null,
+      listOnly = false
+    } = await req.json();
 
     if (!bucketName || !filePath) {
       return new Response(
@@ -30,67 +51,54 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client with service role for storage access
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Download the ZIP file from storage
+    console.log(`Downloading ${filePath} from ${bucketName}...`);
+    
     const { data: fileData, error: downloadError } = await supabase.storage
       .from(bucketName)
       .download(filePath);
 
     if (downloadError || !fileData) {
       return new Response(
-        JSON.stringify({ error: `Failed to download file: ${downloadError?.message}` }),
+        JSON.stringify({ error: `Failed to download: ${downloadError?.message}` }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Read ZIP file
+    console.log('Loading ZIP...');
     const arrayBuffer = await fileData.arrayBuffer();
     const zip = await JSZip.loadAsync(arrayBuffer);
 
     const files: FileInfo[] = [];
-    const textExtensions = [
-      '.ts', '.tsx', '.js', '.jsx', '.json', '.css', '.scss', '.less',
-      '.html', '.htm', '.xml', '.svg', '.md', '.txt', '.yaml', '.yml',
-      '.toml', '.env', '.gitignore', '.editorconfig', '.prettierrc',
-      '.eslintrc', '.babelrc', 'Dockerfile', 'Makefile', '.sql'
-    ];
+    const entries = Object.entries(zip.files);
+    
+    console.log(`Processing ${entries.length} entries...`);
 
-    // Extract file information
-    for (const [relativePath, zipEntry] of Object.entries(zip.files)) {
+    for (const [relativePath, zipEntry] of entries) {
       const entry = zipEntry as JSZip.JSZipObject;
       
+      // Skip if filter is set and path doesn't match
+      if (filterPath && !relativePath.startsWith(filterPath)) {
+        continue;
+      }
+      
       if (entry.dir) {
-        files.push({
-          path: relativePath,
-          content: null,
-          size: 0,
-          isDirectory: true
-        });
+        files.push({ path: relativePath, content: null, size: 0, isDirectory: true });
         continue;
       }
 
-      // Check if it's a text file we should extract content from
-      const isTextFile = textExtensions.some(ext => 
-        relativePath.toLowerCase().endsWith(ext) || 
-        relativePath.split('/').pop()?.toLowerCase() === ext.replace('.', '')
-      );
-
       let content: string | null = null;
       
-      if (extractContent && isTextFile) {
+      if (!listOnly && extractContent && isTextFile(relativePath)) {
         try {
           const fileContent = await entry.async('string');
-          // Only include content if it's under the max size
           if (fileContent.length <= maxFileSize) {
             content = fileContent;
           }
-        } catch (e) {
-          // Binary file or encoding issue, skip content
+        } catch {
           content = null;
         }
       }
@@ -103,26 +111,23 @@ serve(async (req) => {
       });
     }
 
-    // Sort files: directories first, then by path
     files.sort((a, b) => {
       if (a.isDirectory && !b.isDirectory) return -1;
       if (!a.isDirectory && b.isDirectory) return 1;
       return a.path.localeCompare(b.path);
     });
 
+    console.log(`Returning ${files.length} files`);
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        totalFiles: files.length,
-        files 
-      }),
+      JSON.stringify({ success: true, totalFiles: files.length, files }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error processing ZIP:', error);
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ error: `Failed to process ZIP: ${error.message}` }),
+      JSON.stringify({ error: `Failed: ${error.message}` }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
