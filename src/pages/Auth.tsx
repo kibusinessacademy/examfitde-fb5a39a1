@@ -115,57 +115,65 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative overflow-hidden">
+      {/* Background orbs */}
+      <div className="orb orb-primary w-96 h-96 -top-48 -left-48 fixed" />
+      <div className="orb orb-accent w-80 h-80 bottom-20 right-20 fixed" />
+      <div className="orb orb-rose w-64 h-64 top-1/3 left-1/3 fixed" />
+
       {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 gradient-hero items-center justify-center p-12">
-        <div className="max-w-md text-center text-primary-foreground">
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12">
+        <div className="absolute inset-0 gradient-hero opacity-80" />
+        <div className="absolute inset-0 glass-subtle" />
+        <div className="max-w-md text-center relative z-10">
           <div className="flex justify-center mb-8">
-            <div className="p-4 rounded-2xl bg-primary-foreground/20 backdrop-blur-sm">
-              <GraduationCap className="h-16 w-16" />
+            <div className="p-5 rounded-3xl glass shadow-glow">
+              <GraduationCap className="h-16 w-16 text-foreground" />
             </div>
           </div>
-          <h1 className="text-4xl font-display font-bold mb-4">
+          <h1 className="text-4xl font-display font-bold mb-4 text-foreground">
             H5P Lernplattform
           </h1>
-          <p className="text-xl opacity-90 mb-8">
+          <p className="text-xl text-muted-foreground mb-8">
             Interaktives Lernen mit modernen didaktischen Methoden
           </p>
           <div className="space-y-4 text-left">
-            <div className="flex items-center gap-3 bg-primary-foreground/10 rounded-lg p-4">
-              <BookOpen className="h-6 w-6 flex-shrink-0" />
-              <span>Lernkurse mit 5-Schritte-Didaktik</span>
+            <div className="flex items-center gap-4 glass-card rounded-xl p-4">
+              <BookOpen className="h-6 w-6 text-primary flex-shrink-0" />
+              <span className="text-foreground">Lernkurse mit 5-Schritte-Didaktik</span>
             </div>
-            <div className="flex items-center gap-3 bg-primary-foreground/10 rounded-lg p-4">
-              <GraduationCap className="h-6 w-6 flex-shrink-0" />
-              <span>Prüfungstrainer mit KI-generierten Fragen</span>
+            <div className="flex items-center gap-4 glass-card rounded-xl p-4">
+              <GraduationCap className="h-6 w-6 text-accent flex-shrink-0" />
+              <span className="text-foreground">Prüfungstrainer mit KI-generierten Fragen</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Right side - Auth form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <Card className="w-full max-w-md shadow-lg animate-fade-in">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4 lg:hidden">
-              <div className="p-3 rounded-xl gradient-primary">
-                <GraduationCap className="h-8 w-8 text-primary-foreground" />
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative z-10">
+        <div className="glass-strong rounded-3xl w-full max-w-md animate-fade-in">
+          <div className="p-8">
+            <div className="text-center mb-8">
+              <div className="flex justify-center mb-6 lg:hidden">
+                <div className="p-4 rounded-2xl gradient-primary shadow-glow">
+                  <GraduationCap className="h-10 w-10 text-primary-foreground" />
+                </div>
               </div>
+              <h2 className="text-3xl font-display font-bold text-foreground mb-2">
+                {isLogin ? 'Anmelden' : 'Registrieren'}
+              </h2>
+              <p className="text-muted-foreground">
+                {isLogin 
+                  ? 'Willkommen zurück! Bitte melden Sie sich an.'
+                  : 'Erstellen Sie ein Konto, um zu beginnen.'}
+              </p>
             </div>
-            <CardTitle className="text-2xl font-display">
-              {isLogin ? 'Anmelden' : 'Registrieren'}
-            </CardTitle>
-            <CardDescription>
-              {isLogin 
-                ? 'Willkommen zurück! Bitte melden Sie sich an.'
-                : 'Erstellen Sie ein Konto, um zu beginnen.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            
+            <form onSubmit={handleSubmit} className="space-y-5">
               {!isLogin && (
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Vollständiger Name</Label>
+                  <Label htmlFor="fullName" className="text-foreground">Vollständiger Name</Label>
                   <Input
                     id="fullName"
                     type="text"
@@ -173,12 +181,13 @@ export default function Auth() {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     disabled={isSubmitting}
+                    className="h-12 bg-muted/50 border-border/50 focus:border-primary/50 rounded-xl text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
               )}
               
               <div className="space-y-2">
-                <Label htmlFor="email">E-Mail</Label>
+                <Label htmlFor="email" className="text-foreground">E-Mail</Label>
                 <Input
                   id="email"
                   type="email"
@@ -189,7 +198,7 @@ export default function Auth() {
                     if (errors.email) setErrors(prev => ({ ...prev, email: undefined }));
                   }}
                   disabled={isSubmitting}
-                  className={errors.email ? 'border-destructive' : ''}
+                  className={`h-12 bg-muted/50 border-border/50 focus:border-primary/50 rounded-xl text-foreground placeholder:text-muted-foreground ${errors.email ? 'border-destructive' : ''}`}
                 />
                 {errors.email && (
                   <p className="text-sm text-destructive">{errors.email}</p>
@@ -197,7 +206,7 @@ export default function Auth() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Passwort</Label>
+                <Label htmlFor="password" className="text-foreground">Passwort</Label>
                 <Input
                   id="password"
                   type="password"
@@ -208,7 +217,7 @@ export default function Auth() {
                     if (errors.password) setErrors(prev => ({ ...prev, password: undefined }));
                   }}
                   disabled={isSubmitting}
-                  className={errors.password ? 'border-destructive' : ''}
+                  className={`h-12 bg-muted/50 border-border/50 focus:border-primary/50 rounded-xl text-foreground placeholder:text-muted-foreground ${errors.password ? 'border-destructive' : ''}`}
                 />
                 {errors.password && (
                   <p className="text-sm text-destructive">{errors.password}</p>
@@ -217,12 +226,12 @@ export default function Auth() {
 
               <Button 
                 type="submit" 
-                className="w-full gradient-primary hover:opacity-90 transition-opacity"
+                className="w-full h-12 gradient-primary text-primary-foreground shadow-glow hover:shadow-glow hover:opacity-90 transition-all rounded-xl text-base font-medium"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Bitte warten...
                   </>
                 ) : (
@@ -231,7 +240,7 @@ export default function Auth() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
+            <div className="mt-8 text-center">
               <button
                 type="button"
                 onClick={() => {
@@ -246,8 +255,8 @@ export default function Auth() {
                   : 'Bereits ein Konto? Jetzt anmelden'}
               </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
