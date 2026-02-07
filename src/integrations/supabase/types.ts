@@ -14,6 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_worker_policies: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          job_type: string
+          max_attempts: number
+          max_cost_eur_per_day: number
+          max_parallel: number
+          max_tokens_per_run: number
+          pause_on_error_rate: number
+          timeout_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          job_type: string
+          max_attempts?: number
+          max_cost_eur_per_day?: number
+          max_parallel?: number
+          max_tokens_per_run?: number
+          pause_on_error_rate?: number
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          job_type?: string
+          max_attempts?: number
+          max_cost_eur_per_day?: number
+          max_parallel?: number
+          max_tokens_per_run?: number
+          pause_on_error_rate?: number
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_worker_usage_daily: {
+        Row: {
+          cost_eur: number
+          created_at: string
+          date: string
+          errors: number
+          id: string
+          job_type: string
+          runs: number
+          tokens_used: number
+          updated_at: string
+        }
+        Insert: {
+          cost_eur?: number
+          created_at?: string
+          date?: string
+          errors?: number
+          id?: string
+          job_type: string
+          runs?: number
+          tokens_used?: number
+          updated_at?: string
+        }
+        Update: {
+          cost_eur?: number
+          created_at?: string
+          date?: string
+          errors?: number
+          id?: string
+          job_type?: string
+          runs?: number
+          tokens_used?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       competencies: {
         Row: {
           code: string
@@ -602,6 +677,26 @@ export type Database = {
       }
     }
     Views: {
+      ai_worker_health: {
+        Row: {
+          cost_today: number | null
+          enabled: boolean | null
+          error_rate: number | null
+          errors_today: number | null
+          job_type: string | null
+          max_attempts: number | null
+          max_cost_eur_per_day: number | null
+          max_parallel: number | null
+          max_tokens_per_run: number | null
+          pause_on_error_rate: number | null
+          policy_updated_at: string | null
+          runs_today: number | null
+          status: string | null
+          timeout_seconds: number | null
+          tokens_today: number | null
+        }
+        Relationships: []
+      }
       job_deadletter: {
         Row: {
           attempts: number | null
@@ -666,6 +761,7 @@ export type Database = {
     }
     Functions: {
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
+      can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
       claim_next_job: {
         Args: {
           p_job_types?: string[]
@@ -679,10 +775,17 @@ export type Database = {
         Args: { p_timeout_minutes?: number }
         Returns: number
       }
-      complete_job: {
-        Args: { p_job_id: string; p_result?: Json }
-        Returns: undefined
-      }
+      complete_job:
+        | {
+            Args: {
+              p_cost_eur?: number
+              p_job_id: string
+              p_result?: Json
+              p_tokens_used?: number
+            }
+            Returns: undefined
+          }
+        | { Args: { p_job_id: string; p_result?: Json }; Returns: undefined }
       create_job: {
         Args: {
           p_job_type: string
@@ -704,6 +807,15 @@ export type Database = {
         Returns: boolean
       }
       job_maintenance: { Args: never; Returns: Json }
+      record_worker_usage: {
+        Args: {
+          p_cost_eur?: number
+          p_is_error?: boolean
+          p_job_type: string
+          p_tokens_used?: number
+        }
+        Returns: undefined
+      }
       requeue_failed_jobs: { Args: never; Returns: number }
     }
     Enums: {
