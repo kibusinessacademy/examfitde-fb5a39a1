@@ -5,29 +5,38 @@ import { Progress } from '@/components/ui/progress';
 import { Trophy, XCircle, BarChart3, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ExamResult } from '@/hooks/useExamSimulation';
+import { LessonRecommendations } from './LessonRecommendations';
 
 interface ResultsScreenProps {
   result: ExamResult;
+  sessionId?: string;
   onRestart: () => void;
 }
 
-export function ResultsScreen({ result, onRestart }: ResultsScreenProps) {
+export function ResultsScreen({ result, sessionId, onRestart }: ResultsScreenProps) {
+  const passedClass = result.passed 
+    ? "border-primary/50" 
+    : "border-destructive/50";
+  const passedBgClass = result.passed 
+    ? "bg-primary/20" 
+    : "bg-destructive/20";
+  const passedIconClass = result.passed 
+    ? "text-primary" 
+    : "text-destructive";
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       {/* Main Result Card */}
-      <Card className={cn(
-        "glass-card text-center",
-        result.passed ? "border-green-500/50" : "border-red-500/50"
-      )}>
+      <Card className={cn("glass-card text-center", passedClass)}>
         <CardContent className="pt-8 pb-6">
           <div className={cn(
             "w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-4",
-            result.passed ? "bg-green-500/20" : "bg-red-500/20"
+            passedBgClass
           )}>
             {result.passed ? (
-              <Trophy className="h-10 w-10 text-green-500" />
+              <Trophy className={cn("h-10 w-10", passedIconClass)} />
             ) : (
-              <XCircle className="h-10 w-10 text-red-500" />
+              <XCircle className={cn("h-10 w-10", passedIconClass)} />
             )}
           </div>
           
@@ -46,6 +55,11 @@ export function ResultsScreen({ result, onRestart }: ResultsScreenProps) {
           </p>
         </CardContent>
       </Card>
+      
+      {/* Lesson Recommendations - P0.3 */}
+      {sessionId && !result.passed && (
+        <LessonRecommendations sessionId={sessionId} />
+      )}
       
       {/* Breakdown by Difficulty */}
       <Card className="glass-card">

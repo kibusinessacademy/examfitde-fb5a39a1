@@ -1296,6 +1296,20 @@ export type Database = {
         Args: { p_pack_id: string }
         Returns: Json
       }
+      get_exam_lesson_recommendations: {
+        Args: { p_session_id: string }
+        Returns: {
+          competency_code: string
+          competency_id: string
+          competency_title: string
+          correct_count: number
+          learning_field_code: string
+          learning_field_title: string
+          recommended_lessons: Json
+          score_percent: number
+          total_count: number
+        }[]
+      }
       get_lessons_needing_review: {
         Args: { p_course_id?: string }
         Returns: {

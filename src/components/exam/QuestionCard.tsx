@@ -14,9 +14,19 @@ interface QuestionData {
     options: unknown;
     difficulty: string;
     explanation: string | null;
+    explanation_correct?: string | null;
+    explanation_wrong?: string | null;
   };
   user_answer: number | null;
   is_correct: boolean | null;
+}
+
+interface AnswerFeedback {
+  is_correct: boolean;
+  correct_answer: number;
+  explanation: string | null;
+  explanation_correct?: string | null;
+  explanation_wrong?: string | null;
 }
 
 interface QuestionCardProps {
@@ -26,7 +36,7 @@ interface QuestionCardProps {
   selectedAnswer: number | null;
   onAnswer: (answer: number) => void;
   showResult: boolean;
-  lastAnswer: { is_correct: boolean; correct_answer: number; explanation: string | null } | null;
+  lastAnswer: AnswerFeedback | null;
   isSubmitting: boolean;
   mode: string;
 }
@@ -127,15 +137,50 @@ export function QuestionCard({
           })}
         </RadioGroup>
         
-        {/* Explanation */}
-        {(showResult || question.user_answer !== null) && (lastAnswer?.explanation || question.question.explanation) && (
-          <div className="mt-4 p-4 rounded-lg bg-muted/50 border">
-            <h4 className="font-medium mb-2">Erklärung</h4>
-            <p className="text-sm text-muted-foreground">
-              {lastAnswer?.explanation || question.question.explanation}
-            </p>
-          </div>
-        )}
+        {/* Explanation - Enhanced for P0.4 */}
+        {(showResult || question.user_answer !== null) && (() => {
+          // Determine which explanation to show based on correctness
+          const isCorrect = lastAnswer?.is_correct ?? question.is_correct;
+          
+          // Priority: specific explanation > general explanation
+          let explanationText: string | null = null;
+          let explanationTitle = 'Erklärung';
+          
+          if (isCorrect) {
+            explanationText = lastAnswer?.explanation_correct 
+              || question.question.explanation_correct 
+              || lastAnswer?.explanation 
+              || question.question.explanation;
+            explanationTitle = 'Richtig!';
+          } else {
+            explanationText = lastAnswer?.explanation_wrong 
+              || question.question.explanation_wrong 
+              || lastAnswer?.explanation 
+              || question.question.explanation;
+            explanationTitle = 'Leider falsch';
+          }
+          
+          if (!explanationText) return null;
+          
+          return (
+            <div className={cn(
+              "mt-4 p-4 rounded-lg border",
+              isCorrect 
+                ? "bg-primary/5 border-primary/20" 
+                : "bg-destructive/5 border-destructive/20"
+            )}>
+              <h4 className={cn(
+                "font-medium mb-2",
+                isCorrect ? "text-primary" : "text-destructive"
+              )}>
+                {explanationTitle}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {explanationText}
+              </p>
+            </div>
+          );
+        })()}
       </CardContent>
       
       {question.user_answer === null && !showResult && (
