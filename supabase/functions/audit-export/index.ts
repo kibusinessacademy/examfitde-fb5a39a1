@@ -202,7 +202,23 @@ serve(async (req) => {
         }
         break;
       case 'course':
-        pack = await exportCoursePack(supabase, course_id!, include_raw_logs);
+        if (request.use_rpc) {
+          // Use the new database RPC function (recommended for AZAV compliance)
+          const { data: rpcData, error: rpcError } = await supabase.rpc('export_course_pack', {
+            p_course_id: course_id,
+            p_include_questions: include_raw_logs ?? false,
+            p_include_h5p: true
+          });
+          
+          if (rpcError) {
+            throw new Error(`RPC error: ${rpcError.message}`);
+          }
+          
+          pack = rpcData;
+        } else {
+          // Legacy edge function export
+          pack = await exportCoursePack(supabase, course_id!, include_raw_logs);
+        }
         break;
       case 'attempt':
         pack = await exportAttemptPack(supabase, attempt_id!, include_raw_logs);

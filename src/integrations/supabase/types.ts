@@ -1106,6 +1106,10 @@ export type Database = {
             Returns: undefined
           }
         | { Args: { p_job_id: string; p_result?: Json }; Returns: undefined }
+      course_pack_fingerprint: {
+        Args: { p_course_id: string }
+        Returns: string
+      }
       create_job: {
         Args: {
           p_job_type: string
@@ -1114,6 +1118,14 @@ export type Database = {
           p_run_after?: string
         }
         Returns: string
+      }
+      export_course_pack: {
+        Args: {
+          p_course_id: string
+          p_include_h5p?: boolean
+          p_include_questions?: boolean
+        }
+        Returns: Json
       }
       export_participant_pack: {
         Args: {

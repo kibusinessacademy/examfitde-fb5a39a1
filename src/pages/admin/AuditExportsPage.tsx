@@ -134,6 +134,7 @@ export default function AuditExportsPage() {
           return;
         }
         body.course_id = selectedCourse;
+        body.use_rpc = useRpcExport;
       } else if (type === 'attempt') {
         if (!selectedAttempt) {
           toast({ title: 'Fehler', description: 'Bitte Prüfungsversuch auswählen', variant: 'destructive' });
@@ -365,37 +366,61 @@ export default function AuditExportsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Kurs auswählen</Label>
-                <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Kurs wählen..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courses?.map(course => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.title}
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          {course.status}
-                        </Badge>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Kurs auswählen</Label>
+                  <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Kurs wählen..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courses?.map(course => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.title}
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            {course.status}
+                          </Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <Button 
-                onClick={() => handleExport('course')}
-                disabled={isExporting || !selectedCourse}
-                className="w-full"
-              >
-                {isExporting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 mr-2" />
-                )}
-                Kursakte exportieren
-              </Button>
+                <div className="space-y-4 pt-2 border-t">
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="use-rpc-course" 
+                      checked={useRpcExport}
+                      onCheckedChange={setUseRpcExport}
+                    />
+                    <Label htmlFor="use-rpc-course">
+                      Datenbank-Funktion verwenden (empfohlen für AZAV)
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="include-questions" 
+                      checked={includeRawLogs}
+                      onCheckedChange={setIncludeRawLogs}
+                    />
+                    <Label htmlFor="include-questions">Prüfungsfragen-Details einschließen</Label>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={() => handleExport('course')}
+                  disabled={isExporting || !selectedCourse}
+                  className="w-full"
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Kursakte exportieren
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
