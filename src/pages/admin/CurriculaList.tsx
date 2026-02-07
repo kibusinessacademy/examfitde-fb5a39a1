@@ -114,16 +114,13 @@ export default function CurriculaList() {
                         <div className="flex items-center justify-end gap-2">
                           <Link to={`/admin-v2/curricula/${curriculum.id}`}>
                             <Button variant="ghost" size="sm">
-                              <Eye className="h-4 w-4" />
+                              {curriculum.status === 'frozen' ? (
+                                <Eye className="h-4 w-4" />
+                              ) : (
+                                <Pencil className="h-4 w-4" />
+                              )}
                             </Button>
                           </Link>
-                          {curriculum.status !== 'frozen' && (
-                            <Link to={`/admin-v2/curricula/${curriculum.id}/edit`}>
-                              <Button variant="ghost" size="sm">
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                          )}
                         </div>
                       </TableCell>
                     </TableRow>
