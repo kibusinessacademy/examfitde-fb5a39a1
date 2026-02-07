@@ -1,7 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { Loader2, BookOpen, PlayCircle } from 'lucide-react';
+import { Loader2, BookOpen, PlayCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import type { Json } from '@/integrations/supabase/types';
-import MiniCheckPlayer, { type MiniCheckContent } from './MiniCheckPlayer';
+import MiniCheckPlayer, { type MiniCheckContent, type MiniCheckQuestion } from './MiniCheckPlayer';
 
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
@@ -18,7 +20,89 @@ interface ContentData {
   type?: string;
   html?: string;
   h5pContentId?: string;
+  questions?: MiniCheckQuestion[];
+  passing_score?: number;
   [key: string]: unknown;
+}
+
+// Quality Gate: Check if MiniCheck questions are valid (not generic/empty)
+function isMiniCheckValid(questions: MiniCheckQuestion[]): { valid: boolean; reason?: string } {
+  if (!questions || questions.length === 0) {
+    return { valid: false, reason: 'Keine Fragen vorhanden' };
+  }
+  
+  // Check for minimum number of questions
+  if (questions.length < 3) {
+    return { valid: false, reason: 'Zu wenige Fragen (mind. 3 erforderlich)' };
+  }
+  
+  // Check each question has required fields and meaningful content
+  for (const q of questions) {
+    if (!q.text || q.text.trim().length < 10) {
+      return { valid: false, reason: 'Fragetexte sind noch in Bearbeitung' };
+    }
+    if (!q.options || q.options.length < 2) {
+      return { valid: false, reason: 'Antwortoptionen fehlen' };
+    }
+    // Check for placeholder/generic text
+    const genericPatterns = [
+      /^frage\s*\d*$/i,
+      /^option\s*[a-d]?$/i,
+      /^placeholder/i,
+      /^test$/i,
+      /^beispiel/i,
+    ];
+    if (genericPatterns.some(p => p.test(q.text.trim()))) {
+      return { valid: false, reason: 'Fragen werden noch verfeinert' };
+    }
+    // Check options are not placeholders
+    const hasValidOptions = q.options.every(
+      opt => opt.text && opt.text.trim().length > 2 && !genericPatterns.some(p => p.test(opt.text.trim()))
+    );
+    if (!hasValidOptions) {
+      return { valid: false, reason: 'Antwortoptionen werden noch erstellt' };
+    }
+    // Ensure at least one correct answer
+    const hasCorrectAnswer = q.options.some(opt => opt.is_correct);
+    if (!hasCorrectAnswer) {
+      return { valid: false, reason: 'Korrekte Antworten werden noch definiert' };
+    }
+  }
+  
+  return { valid: true };
+}
+
+// Placeholder component for content under construction
+function ContentPlaceholder({ 
+  icon: Icon, 
+  title, 
+  description,
+  badge
+}: { 
+  icon: React.ElementType; 
+  title: string; 
+  description: string;
+  badge?: string;
+}) {
+  return (
+    <Card className="border-dashed border-2 bg-muted/20">
+      <CardContent className="py-12 text-center">
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+          <Icon className="h-8 w-8 text-primary" />
+        </div>
+        <h3 className="text-lg font-semibold mb-2">{title}</h3>
+        <p className="text-muted-foreground max-w-md mx-auto mb-4">
+          {description}
+        </p>
+        {badge && (
+          <Badge variant="secondary" className="gap-1">
+            <Sparkles className="h-3 w-3" />
+            {badge}
+          </Badge>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function LessonContent({ 
@@ -49,14 +133,12 @@ export default function LessonContent({
   // Handle content JSON
   if (!content) {
     return (
-      <div className="text-center py-12">
-        <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-medium mb-2">Inhalte werden erstellt</h3>
-        <p className="text-muted-foreground max-w-md mx-auto">
-          Die Lerninhalte für diese Lektion werden noch von der KI generiert. 
-          Bitte schauen Sie später wieder vorbei.
-        </p>
-      </div>
+      <ContentPlaceholder
+        icon={BookOpen}
+        title="Inhalte werden erstellt"
+        description="Die Lerninhalte für diese Lektion werden noch von der KI generiert. Bitte schauen Sie später wieder vorbei."
+        badge="In Arbeit"
+      />
     );
   }
 
@@ -91,45 +173,46 @@ export default function LessonContent({
     );
   }
 
-  // Quiz / Mini-Check content
+  // Quiz / Mini-Check content with Quality Gate
   if (contentData.type === 'quiz' || contentData.type === 'mini_check') {
     const miniCheckContent = contentData as unknown as MiniCheckContent;
     
-    // Check if questions array exists and has items
-    if (miniCheckContent.questions && miniCheckContent.questions.length > 0 && lessonId) {
+    // Quality Gate Check
+    const validation = isMiniCheckValid(miniCheckContent.questions || []);
+    
+    if (!validation.valid || !lessonId) {
       return (
-        <MiniCheckPlayer 
-          content={miniCheckContent}
-          lessonId={lessonId}
-          onCompleted={onMiniCheckCompleted}
+        <ContentPlaceholder
+          icon={AlertCircle}
+          title="Mini-Check wird optimiert"
+          description={validation.reason || 'Die Wissensüberprüfung wird gerade von unserer KI verbessert, um dir das beste Lernerlebnis zu bieten.'}
+          badge="Qualitätsprüfung"
         />
       );
     }
     
-    // Fallback if no questions defined yet
     return (
-      <div className="space-y-6">
-        <h3 className="text-lg font-semibold">Wissensüberprüfung</h3>
-        <p className="text-muted-foreground">
-          Die Fragen für diesen Mini-Check werden noch erstellt.
-        </p>
-      </div>
+      <MiniCheckPlayer 
+        content={miniCheckContent}
+        lessonId={lessonId}
+        onCompleted={onMiniCheckCompleted}
+      />
     );
   }
 
   // H5P placeholder (when type is h5p but no contentId yet)
   if (contentData.type === 'h5p') {
     return (
-      <div className="aspect-video bg-muted rounded-xl flex items-center justify-center">
-        <div className="text-center">
-          <PlayCircle className="h-16 w-16 text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">H5P-Inhalt wird vorbereitet...</p>
-        </div>
-      </div>
+      <ContentPlaceholder
+        icon={PlayCircle}
+        title="Interaktive Inhalte laden"
+        description="Die interaktiven Elemente für diese Lektion werden vorbereitet."
+        badge="H5P wird geladen"
+      />
     );
   }
 
-  // Fallback: show raw JSON
+  // Fallback: show raw JSON (development only)
   return (
     <pre className="text-sm bg-muted/30 p-4 rounded-xl overflow-auto">
       {JSON.stringify(content, null, 2)}

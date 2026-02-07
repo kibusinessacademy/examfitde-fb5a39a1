@@ -1,8 +1,9 @@
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Trophy, XCircle, BarChart3, BookOpen } from 'lucide-react';
+import { Trophy, XCircle, BarChart3, BookOpen, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ExamResult } from '@/hooks/useExamSimulation';
 import { LessonRecommendations } from './LessonRecommendations';
@@ -129,6 +130,14 @@ export function ResultsScreen({ result, sessionId, onRestart }: ResultsScreenPro
         <Button variant="outline" className="flex-1" onClick={onRestart}>
           Neue Prüfung
         </Button>
+        {sessionId && (
+          <Button variant="outline" className="flex-1 gap-2" asChild>
+            <Link to={`/exam-results/${sessionId}`}>
+              <FileText className="h-4 w-4" />
+              Detaillierte Analyse
+            </Link>
+          </Button>
+        )}
         <Button className="flex-1" onClick={() => window.location.href = '/dashboard'}>
           Zum Dashboard
         </Button>

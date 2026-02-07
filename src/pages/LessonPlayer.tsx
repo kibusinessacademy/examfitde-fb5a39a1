@@ -343,6 +343,7 @@ export default function LessonPlayer() {
           courseId={course.id}
           isCompleted={progress?.completed || false}
           completing={completing}
+          currentStep={lesson.step}
           onComplete={() => completeLesson()}
           onNavigate={navigateToLesson}
         />
