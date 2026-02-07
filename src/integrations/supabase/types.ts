@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_tutor_logs: {
+        Row: {
+          block_reason: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          mode: string
+          prompt_hash: string
+          prompt_length: number
+          response_hash: string
+          response_length: number
+          session_id: string | null
+          session_type: string
+          tokens_used: number | null
+          user_id: string
+          was_blocked: boolean
+        }
+        Insert: {
+          block_reason?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          mode: string
+          prompt_hash: string
+          prompt_length: number
+          response_hash: string
+          response_length: number
+          session_id?: string | null
+          session_type: string
+          tokens_used?: number | null
+          user_id: string
+          was_blocked?: boolean
+        }
+        Update: {
+          block_reason?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          mode?: string
+          prompt_hash?: string
+          prompt_length?: number
+          response_hash?: string
+          response_length?: number
+          session_id?: string | null
+          session_type?: string
+          tokens_used?: number | null
+          user_id?: string
+          was_blocked?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_worker_policies: {
         Row: {
           created_at: string
