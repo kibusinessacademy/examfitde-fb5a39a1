@@ -1,108 +1,223 @@
 # Single Source of Truth (SSOT) Dokumentation
 
-## Grundprinzip
+## 0️⃣ Leitprinzip
 
 **Ein Datum, eine Quelle, eine Wahrheit.**
 
-Jede Information im System hat genau eine autoritative Quelle. Alle anderen Stellen leiten davon ab.
+- SSOT gilt **ausschließlich für Persistenz** – niemals für Darstellung
+- Alles, was nicht persistiert wird (Slug, Titel, UI-Label), ist **kein SSOT**
+- Wenn es neu berechnet werden kann → kein SSOT
 
 ---
 
-## SSOT-Definitionen
+## 1️⃣ Curriculum – Primäre SSOT
 
-### 1. Curriculum (Rahmenlehrplan)
-
-**Quelle:** `curricula` Tabelle + `learning_fields` + `competencies`
+**Autoritative Quelle:** `curricula` → `learning_fields` → `competencies`
 
 ```
 curricula (FROZEN)
-    └── learning_fields
-            └── competencies
+  └── learning_fields
+        └── competencies
 ```
 
-**Regeln:**
-- Ein Curriculum durchläuft: `draft` → `extracting` → `normalizing` → `frozen`
-- Nach `frozen`: **KEINE Änderungen mehr erlaubt**
-- `frozen_at` Timestamp dokumentiert den Freeze-Zeitpunkt
-- Alle abhängigen Entitäten (Kurse, Fragen) referenzieren das gefrorene Curriculum
+### Status-Lifecycle (hart)
 
-**Warum:**
-- Kurse und Prüfungsfragen basieren auf Kompetenzen
-- Nachträgliche Änderungen würden Inkonsistenzen erzeugen
-- Audit-Trail bleibt intakt
+```
+draft → extracting → normalizing → frozen
+```
+
+### HARTREGELN
+
+| Regel | Beschreibung |
+|-------|--------------|
+| ❌ | Änderungen nach `frozen` **verboten** |
+| ✅ | Referenzen **ausschließlich über UUID** |
+| ✅ | `frozen_at` ist **Audit-relevant** |
+| ✅ | Alle Ableitungen (Kurse, Fragen, Jobs) müssen auf `frozen` zeigen |
+
+### Identifier-Regeln (kritisch)
+
+| Feld | Bedeutung | Darf Logik steuern |
+|------|-----------|-------------------|
+| `curriculum_id` (UUID) | **Wahrheit** | ✅ Ja |
+| `curriculum_code` | stabiler Identifier | ⚠️ nur Lookup |
+| `slug` | UI / SEO | ❌ **niemals** |
+
+> 🔒 **Slug ist explizit KEIN Bestandteil der Geschäftslogik.**
 
 ---
 
-### 2. Kurse & Module
+## 2️⃣ Kurse, Module, Lessons – Sekundäre Ableitung
 
 **Quelle:** `courses` → `modules` → `lessons`
 
 ```
 courses
-    └── modules (1 pro learning_field)
-            └── lessons (5 pro competency)
+  └── modules (1 pro learning_field)
+        └── lessons (5 pro competency)
 ```
 
-**Regeln:**
-- Ein Kurs gehört zu genau einem Curriculum (`curriculum_id`)
-- Module referenzieren Learning Fields (`learning_field_id`)
-- Lessons referenzieren Competencies (`competency_id`)
-- Lesson-Steps folgen der 5-Schritte-Didaktik
+### Zwangsregeln
 
-**5-Schritte-Didaktik (SSOT):**
+| Regel | Beschreibung |
+|-------|--------------|
+| ✅ | Jeder Kurs → genau 1 `curriculum_id` |
+| ✅ | Module → `learning_field_id` |
+| ✅ | Lessons → `competency_id` |
+| ❌ | Curriculum-Daten werden **niemals kopiert** |
+
+### 5-Schritte-Didaktik (fix)
+
 ```typescript
-const LESSON_STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'];
+const LESSON_STEPS = [
+  'einstieg',
+  'verstehen',
+  'anwenden',
+  'wiederholen',
+  'mini_check'
+] as const;
+```
+
+> ❌ **Andere Steps = Architekturbruch**
+
+---
+
+## 3️⃣ Prüfungsfragen – Kontrollierte Ableitung
+
+**Quelle:** `exam_questions`
+
+### Regeln
+
+| Feld | Pflicht |
+|------|---------|
+| `curriculum_id` | ✅ Pflicht |
+| `learning_field_id` | ⚠️ Optional |
+| `competency_id` | ⚠️ Optional |
+
+### Status-Workflow
+
+```
+draft → review → approved | rejected
+```
+
+> ✅ Nur `approved` Fragen erscheinen im Prüfungstrainer
+
+### Schwierigkeitsgrade (SSOT)
+
+```typescript
+const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
 ```
 
 ---
 
-### 3. Prüfungsfragen
+## 4️⃣ Job-System – Eigene SSOT-Ebene
 
-**Quelle:** `exam_questions` Tabelle
+**Quelle:** `job_queue` (konzeptionell) / Edge Functions (aktuell)
 
-**Regeln:**
-- Jede Frage gehört zu einem Curriculum (`curriculum_id`)
-- Optional: Zuordnung zu Learning Field und/oder Competency
-- Status-Workflow: `draft` → `review` → `approved` | `rejected`
-- Nur `approved` Fragen erscheinen im Prüfungstrainer
+> Jobs sind keine Logik, sondern **Ausführung von Wahrheit**.
 
-**Schwierigkeitsgrade (SSOT):**
+### HARTE JOB-REGELN
+
+| Regel | Beschreibung |
+|-------|--------------|
+| ❌ | Jobs dürfen **nichts erraten** |
+| ❌ | Jobs dürfen **keine Slugs auflösen** |
+| ✅ | Jobs müssen **vollständige Payloads** haben |
+| ✅ | Fehlende Pflichtfelder → **Hard-Fail** |
+
+### Verbindlicher Job-Contract
+
 ```typescript
-const DIFFICULTIES = ['easy', 'medium', 'hard'];
+interface JobPayload {
+  curriculum_id: string;        // UUID – PFLICHT
+  curriculum_code?: string;     // nur für Logs
+  learning_field_id?: string;   // UUID
+  competency_id?: string;       // UUID
+}
+```
+
+### VERBOTEN in Job-Payloads
+
+```typescript
+// ❌ NIEMALS VERWENDEN
+slug
+profession_slug
+curriculum.slug
+// ❌ Joins über Text-Felder
 ```
 
 ---
 
-### 4. User & Rollen
+## 5️⃣ User, Rollen, Auth – Externe SSOT
 
-**Quelle:** `auth.users` (Supabase Auth) + `user_roles` + `profiles`
+**Quelle:** Supabase Auth (respektiert)
 
 ```
 auth.users (managed by Supabase)
-    └── user_roles (role assignment)
-    └── profiles (additional user data)
+  └── user_roles
+  └── profiles
 ```
 
-**Regeln:**
-- `auth.users` wird von Supabase verwaltet - niemals direkt ändern
-- `profiles` speichert UI-relevante Daten (Name, Avatar)
-- `user_roles` definiert Berechtigungen
+### Regeln
 
-**Rollen (SSOT):**
+| Regel | Beschreibung |
+|-------|--------------|
+| ❌ | `auth.users` **niemals direkt anfassen** |
+| ✅ | Rollen nur **serverseitig** prüfen |
+| ✅ | `profiles` = reine UI-Daten |
+
+### Rollen (SSOT)
+
 ```typescript
-const ROLES = ['admin', 'teacher', 'learner'];
+const ROLES = ['admin', 'teacher', 'learner'] as const;
 ```
 
 ---
 
-### 5. Lernfortschritt
+## 6️⃣ Lernfortschritt
 
-**Quelle:** `learning_progress` + `course_enrollments` + `exam_attempts`
+**Quelle:** `course_enrollments` + `learning_progress` + `exam_attempts`
 
-**Regeln:**
-- `course_enrollments`: User → Kurs Zuordnung
-- `learning_progress`: Fortschritt pro Lesson
-- `exam_attempts`: Prüfungsversuche mit Antworten
+### Regeln
+
+| Regel | Beschreibung |
+|-------|--------------|
+| ✅ | `course_enrollments`: User → Kurs Zuordnung |
+| ✅ | `learning_progress`: Fortschritt pro Lesson |
+| ✅ | `exam_attempts`: Prüfungsversuche mit Antworten |
+| ❌ | Fortschritt referenziert **nie Curriculum direkt** |
+
+---
+
+## 7️⃣ Was explizit KEIN SSOT ist
+
+```markdown
+❌ slug
+❌ Titel
+❌ Anzeigenamen
+❌ URL-Pfade
+❌ Logs
+❌ Client-State
+❌ LocalStorage
+❌ abgeleitete Zähler
+❌ berechnete Felder
+```
+
+> **Regel:** Wenn es neu berechnet werden kann → kein SSOT.
+
+---
+
+## 8️⃣ Anti-Patterns (VERBOTEN)
+
+| Anti-Pattern | Grund |
+|--------------|-------|
+| ❌ Curriculum nach Freeze ändern | Bricht Audit-Trail |
+| ❌ `slug` / Text als Join | Instabil, fehleranfällig |
+| ❌ IDs aus Namen ableiten | Fragile Logik |
+| ❌ Curriculum-Daten duplizieren | Verletzt SSOT |
+| ❌ Jobs mit unvollständigem Payload | Hard-Fail-Regel |
+| ❌ Logik im Frontend | Architekturbruch |
+| ❌ Hardcoded IDs statt Referenzen | Wartungs-Albtraum |
 
 ---
 
@@ -114,36 +229,27 @@ const ROLES = ['admin', 'teacher', 'learner'];
 └────────┬─────────┘
          ▼
 ┌──────────────────┐
-│  extract-curriculum │  ← AI-Extraktion
+│ extract-curriculum│  ← AI-Extraktion (Edge Function)
 └────────┬─────────┘
          ▼
 ┌──────────────────┐
-│  curricula       │  ← SSOT (nach Freeze)
+│  curricula       │  ← PRIMÄRE SSOT (nach Freeze)
 │  (frozen)        │
 └────────┬─────────┘
          │
-    ┌────┴────┐
-    ▼         ▼
-┌───────┐  ┌───────────┐
-│courses│  │exam_questions│
-└───────┘  └───────────┘
+    ┌────┴────┬────────────┐
+    ▼         ▼            ▼
+┌───────┐  ┌───────────┐  ┌──────────┐
+│courses│  │exam_questions│  │job_queue│
+│(2°)   │  │(3°)         │  │(Executor)│
+└───────┘  └───────────┘  └──────────┘
 ```
 
 ---
 
 ## Änderungs-Protokoll
 
-| Datum      | Änderung                          | Autor  |
-|------------|-----------------------------------|--------|
-| 2025-02-07 | Initiale SSOT-Dokumentation       | System |
-
----
-
-## Anti-Patterns (VERBOTEN)
-
-❌ Curriculum-Daten nach Freeze ändern
-❌ Lesson-Steps außerhalb der 5-Schritte-Didaktik
-❌ Fragen ohne Curriculum-Referenz
-❌ Direkte Manipulation von `auth.users`
-❌ Hardcoded IDs statt Referenzen
-❌ Duplizierte Wahrheiten (z.B. Kompetenz-Titel in Lesson kopieren)
+| Datum      | Änderung                                    | Autor  |
+|------------|---------------------------------------------|--------|
+| 2025-02-07 | Initiale SSOT-Dokumentation                 | System |
+| 2025-02-07 | Überarbeitung: Job-System, Identifier-Regeln, Anti-Patterns | System |
