@@ -1322,6 +1322,7 @@ export type Database = {
           score_percent: number
         }[]
       }
+      get_user_dashboard_stats: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

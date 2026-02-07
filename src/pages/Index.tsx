@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   BookOpen, 
   GraduationCap, 
@@ -13,9 +13,11 @@ import {
   Settings,
   Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Index() {
   const { user, loading, isAdmin, signOut } = useAuth();
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,8 +37,12 @@ export default function Index() {
   if (!user) return null;
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/auth');
+    try {
+      await signOut();
+      navigate('/auth');
+    } catch (error) {
+      toast.error('Abmelden fehlgeschlagen. Bitte versuche es erneut.');
+    }
   };
 
   return (
@@ -83,7 +89,7 @@ export default function Index() {
             </span>
           </h1>
           <p className="text-xl text-muted-foreground mb-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-            Wählen Sie einen Bereich, um Ihr Lernen fortzusetzen
+            Wähle einen Bereich, um dein Lernen fortzusetzen
           </p>
         </div>
       </section>
@@ -134,7 +140,7 @@ export default function Index() {
               </div>
               <h2 className="text-2xl font-display font-bold mb-3 text-foreground">Prüfungstrainer</h2>
               <p className="text-muted-foreground mb-6">
-                Bereiten Sie sich optimal auf Prüfungen vor. 500+ KI-generierte Fragen mit Erklärungen.
+                Bereite dich optimal auf Prüfungen vor. 500+ KI-generierte Fragen mit Erklärungen.
               </p>
               <div className="space-y-3 mb-8">
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -162,19 +168,27 @@ export default function Index() {
           {/* Stats Section */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-10">
             <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
-              <div className="text-4xl font-display font-bold text-gradient mb-2">0</div>
+              <div className="text-4xl font-display font-bold text-gradient mb-2">
+                {statsLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : stats?.courses_completed ?? 0}
+              </div>
               <div className="text-sm text-muted-foreground">Kurse abgeschlossen</div>
             </div>
             <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.45s' }}>
-              <div className="text-4xl font-display font-bold text-gradient-accent mb-2">0</div>
+              <div className="text-4xl font-display font-bold text-gradient-accent mb-2">
+                {statsLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : stats?.questions_answered ?? 0}
+              </div>
               <div className="text-sm text-muted-foreground">Fragen beantwortet</div>
             </div>
             <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-              <div className="text-4xl font-display font-bold text-success text-glow-accent mb-2">0%</div>
+              <div className="text-4xl font-display font-bold text-success text-glow-accent mb-2">
+                {statsLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : `${stats?.success_rate ?? 0}%`}
+              </div>
               <div className="text-sm text-muted-foreground">Erfolgsquote</div>
             </div>
             <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.55s' }}>
-              <div className="text-4xl font-display font-bold text-warning mb-2">0</div>
+              <div className="text-4xl font-display font-bold text-warning mb-2">
+                {statsLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : stats?.streak ?? 0}
+              </div>
               <div className="text-sm text-muted-foreground">Tage Streak</div>
             </div>
           </div>
