@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useCourseProgress, type LessonStatus, getStatusBgColor } from '@/hooks/useCourseProgress';
+import { useCourseProgress, type LessonStatus, getStatusBgColor, getStatusLabel } from '@/hooks/useCourseProgress';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +53,14 @@ interface LearningProgress {
   completed: boolean;
 }
 
+interface CompetencyProgress {
+  competency_code: string;
+  competency_title: string | null;
+  status: LessonStatus;
+  mastery_level: number;
+  lesson_count: number;
+}
+
 export default function CourseDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
@@ -71,6 +79,64 @@ export default function CourseDetailPage() {
   const { data: courseProgress, isLoading: progressLoading } = useCourseProgress(
     isEnrolled ? slug : undefined
   );
+
+  // Derive competency progress from lessons
+  const competencyProgress = useMemo((): CompetencyProgress[] => {
+    if (!courseProgress?.lessons) return [];
+
+    const competencyMap = new Map<string, {
+      code: string;
+      title: string | null;
+      scores: number[];
+      statuses: LessonStatus[];
+    }>();
+
+    for (const lesson of courseProgress.lessons) {
+      if (!lesson.competency_code) continue;
+      
+      const key = lesson.competency_code;
+      if (!competencyMap.has(key)) {
+        competencyMap.set(key, {
+          code: lesson.competency_code,
+          title: lesson.competency_title,
+          scores: [],
+          statuses: [],
+        });
+      }
+      
+      const entry = competencyMap.get(key)!;
+      entry.statuses.push(lesson.status);
+      if (lesson.score_percent !== null) {
+        entry.scores.push(lesson.score_percent);
+      }
+    }
+
+    return Array.from(competencyMap.values()).map(c => {
+      const avgScore = c.scores.length > 0 
+        ? c.scores.reduce((a, b) => a + b, 0) / c.scores.length 
+        : 0;
+      
+      // Determine overall status based on lesson statuses
+      let overallStatus: LessonStatus = 'not_started';
+      if (c.statuses.every(s => s === 'mastered')) {
+        overallStatus = 'mastered';
+      } else if (c.statuses.some(s => s === 'not_mastered')) {
+        overallStatus = 'not_mastered';
+      } else if (c.statuses.some(s => s === 'partial')) {
+        overallStatus = 'partial';
+      } else if (c.statuses.some(s => s === 'in_progress' || s === 'mastered')) {
+        overallStatus = 'in_progress';
+      }
+
+      return {
+        competency_code: c.code,
+        competency_title: c.title,
+        status: overallStatus,
+        mastery_level: avgScore,
+        lesson_count: c.statuses.length,
+      };
+    });
+  }, [courseProgress?.lessons]);
 
   useEffect(() => {
     if (slug) {
@@ -411,6 +477,48 @@ export default function CourseDetailPage() {
               courseTitle={course.title}
               progress={courseProgress}
             />
+          </div>
+        )}
+
+        {/* Competency Progress Section */}
+        {isEnrolled && competencyProgress.length > 0 && (
+          <div className="space-y-4 mb-8">
+            <h2 className="text-2xl font-display font-bold">Kompetenz-Fortschritt</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {competencyProgress.map((c) => {
+                const statusVariant = c.status === 'mastered' 
+                  ? 'default' 
+                  : c.status === 'not_mastered' 
+                    ? 'destructive' 
+                    : 'secondary';
+                const statusClassName = c.status === 'mastered' 
+                  ? 'bg-green-500' 
+                  : c.status === 'partial' 
+                    ? 'bg-yellow-500 text-yellow-950' 
+                    : '';
+
+                return (
+                  <Card key={c.competency_code} className="glass-card">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{c.competency_title || 'Unbekannte Kompetenz'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{c.competency_code}</p>
+                        </div>
+                        <Badge variant={statusVariant} className={statusClassName}>
+                          {getStatusLabel(c.status)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{c.lesson_count} Lektionen</span>
+                        <span>{Math.round(c.mastery_level)}%</span>
+                      </div>
+                      <Progress value={Math.max(0, Math.min(100, c.mastery_level))} className="h-2" />
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
         )}
 
