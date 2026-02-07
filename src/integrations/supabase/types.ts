@@ -305,6 +305,51 @@ export type Database = {
           },
         ]
       }
+      job_queue: {
+        Row: {
+          attempts: number
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          job_type: string
+          max_attempts: number
+          payload: Json
+          result: Json | null
+          run_after: string | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_type: string
+          max_attempts?: number
+          payload: Json
+          result?: Json | null
+          run_after?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_type?: string
+          max_attempts?: number
+          payload?: Json
+          result?: Json | null
+          run_after?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       learning_fields: {
         Row: {
           code: string
