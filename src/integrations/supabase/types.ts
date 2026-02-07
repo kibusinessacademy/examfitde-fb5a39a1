@@ -307,6 +307,68 @@ export type Database = {
           },
         ]
       }
+      exam_blueprints: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          curriculum_id: string
+          description: string | null
+          difficulty_distribution: Json
+          frozen: boolean
+          frozen_at: string | null
+          id: string
+          pass_threshold: number
+          question_types: Json
+          section_weights: Json
+          time_limit_minutes: number
+          title: string
+          total_questions: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          curriculum_id: string
+          description?: string | null
+          difficulty_distribution?: Json
+          frozen?: boolean
+          frozen_at?: string | null
+          id?: string
+          pass_threshold?: number
+          question_types?: Json
+          section_weights?: Json
+          time_limit_minutes?: number
+          title: string
+          total_questions?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          curriculum_id?: string
+          description?: string | null
+          difficulty_distribution?: Json
+          frozen?: boolean
+          frozen_at?: string | null
+          id?: string
+          pass_threshold?: number
+          question_types?: Json
+          section_weights?: Json
+          time_limit_minutes?: number
+          title?: string
+          total_questions?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_questions: {
         Row: {
           ai_generated: boolean | null
@@ -376,6 +438,141 @@ export type Database = {
             columns: ["learning_field_id"]
             isOneToOne: false
             referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_session_questions: {
+        Row: {
+          answered_at: string | null
+          competency_code: string | null
+          created_at: string
+          difficulty: string
+          exam_session_id: string
+          id: string
+          is_correct: boolean | null
+          learning_field_code: string | null
+          order_index: number
+          question_id: string
+          time_spent_seconds: number | null
+          user_answer: number | null
+        }
+        Insert: {
+          answered_at?: string | null
+          competency_code?: string | null
+          created_at?: string
+          difficulty: string
+          exam_session_id: string
+          id?: string
+          is_correct?: boolean | null
+          learning_field_code?: string | null
+          order_index: number
+          question_id: string
+          time_spent_seconds?: number | null
+          user_answer?: number | null
+        }
+        Update: {
+          answered_at?: string | null
+          competency_code?: string | null
+          created_at?: string
+          difficulty?: string
+          exam_session_id?: string
+          id?: string
+          is_correct?: boolean | null
+          learning_field_code?: string | null
+          order_index?: number
+          question_id?: string
+          time_spent_seconds?: number | null
+          user_answer?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_session_questions_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_sessions: {
+        Row: {
+          blueprint_id: string
+          breakdown: Json | null
+          created_at: string
+          current_index: number
+          curriculum_id: string
+          finished_at: string | null
+          id: string
+          mode: string
+          passed: boolean | null
+          points_earned: number | null
+          points_total: number | null
+          score_percentage: number | null
+          seed: number
+          started_at: string
+          time_limit_minutes: number | null
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          blueprint_id: string
+          breakdown?: Json | null
+          created_at?: string
+          current_index?: number
+          curriculum_id: string
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          passed?: boolean | null
+          points_earned?: number | null
+          points_total?: number | null
+          score_percentage?: number | null
+          seed: number
+          started_at?: string
+          time_limit_minutes?: number | null
+          total_questions: number
+          user_id: string
+        }
+        Update: {
+          blueprint_id?: string
+          breakdown?: Json | null
+          created_at?: string
+          current_index?: number
+          curriculum_id?: string
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          passed?: boolean | null
+          points_earned?: number | null
+          points_total?: number | null
+          score_percentage?: number | null
+          seed?: number
+          started_at?: string
+          time_limit_minutes?: number | null
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_sessions_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "exam_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
             referencedColumns: ["id"]
           },
         ]
@@ -654,6 +851,70 @@ export type Database = {
         }
         Relationships: []
       }
+      user_competency_stats: {
+        Row: {
+          competency_id: string | null
+          correct_attempts: number
+          curriculum_id: string
+          id: string
+          last_difficulty: string | null
+          learning_field_id: string | null
+          mastery_level: number | null
+          streak: number
+          total_attempts: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competency_id?: string | null
+          correct_attempts?: number
+          curriculum_id: string
+          id?: string
+          last_difficulty?: string | null
+          learning_field_id?: string | null
+          mastery_level?: number | null
+          streak?: number
+          total_attempts?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competency_id?: string | null
+          correct_attempts?: number
+          curriculum_id?: string
+          id?: string
+          last_difficulty?: string | null
+          learning_field_id?: string | null
+          mastery_level?: number | null
+          streak?: number
+          total_attempts?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_competency_stats_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_competency_stats_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_competency_stats_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -799,6 +1060,17 @@ export type Database = {
         Args: { p_allow_retry?: boolean; p_error: string; p_job_id: string }
         Returns: undefined
       }
+      finish_exam_session: { Args: { p_session_id: string }; Returns: Json }
+      generate_exam_questions: {
+        Args: { p_blueprint_id: string; p_seed: number }
+        Returns: {
+          competency_code: string
+          difficulty: string
+          learning_field_code: string
+          order_index: number
+          question_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -817,11 +1089,25 @@ export type Database = {
         Returns: undefined
       }
       requeue_failed_jobs: { Args: never; Returns: number }
+      start_exam_session: {
+        Args: { p_blueprint_id: string; p_mode?: string }
+        Returns: string
+      }
+      submit_exam_answer: {
+        Args: {
+          p_answer: number
+          p_question_index: number
+          p_session_id: string
+          p_time_spent?: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "teacher" | "learner"
       course_status: "draft" | "generating" | "published" | "archived"
       curriculum_status: "draft" | "extracting" | "normalizing" | "frozen"
+      exam_mode: "simulation" | "practice" | "timed_exam"
       lesson_step:
         | "einstieg"
         | "verstehen"
@@ -960,6 +1246,7 @@ export const Constants = {
       app_role: ["admin", "teacher", "learner"],
       course_status: ["draft", "generating", "published", "archived"],
       curriculum_status: ["draft", "extracting", "normalizing", "frozen"],
+      exam_mode: ["simulation", "practice", "timed_exam"],
       lesson_step: [
         "einstieg",
         "verstehen",

@@ -1,0 +1,347 @@
+import { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import type { Json } from '@/integrations/supabase/types';
+
+export interface ExamBlueprint {
+  id: string;
+  curriculum_id: string;
+  title: string;
+  description: string | null;
+  total_questions: number;
+  time_limit_minutes: number;
+  pass_threshold: number;
+  difficulty_distribution: {
+    easy: number;
+    medium: number;
+    hard: number;
+  };
+  frozen: boolean;
+}
+
+export interface ExamSession {
+  id: string;
+  user_id: string;
+  curriculum_id: string;
+  blueprint_id: string;
+  mode: 'simulation' | 'practice' | 'timed_exam';
+  seed: number;
+  total_questions: number;
+  time_limit_minutes: number | null;
+  started_at: string;
+  finished_at: string | null;
+  current_index: number;
+  score_percentage: number | null;
+  passed: boolean | null;
+}
+
+export interface ExamSessionQuestion {
+  id: string;
+  exam_session_id: string;
+  question_id: string;
+  order_index: number;
+  difficulty: string;
+  learning_field_code: string | null;
+  competency_code: string | null;
+  user_answer: number | null;
+  is_correct: boolean | null;
+  answered_at: string | null;
+  time_spent_seconds: number;
+}
+
+export interface ExamQuestion {
+  id: string;
+  question_text: string;
+  options: string[];
+  difficulty: string;
+  explanation: string | null;
+}
+
+export interface AnswerResult {
+  is_correct: boolean;
+  correct_answer: number;
+  explanation: string | null;
+}
+
+export interface ExamResult {
+  total_questions: number;
+  correct_answers: number;
+  score_percentage: number;
+  passed: boolean;
+  pass_threshold: number;
+  breakdown: {
+    by_difficulty: Record<string, { total: number; correct: number }>;
+    by_learning_field: Record<string, { total: number; correct: number }>;
+  };
+}
+
+// Fetch available blueprints for a curriculum
+export function useExamBlueprints(curriculumId?: string) {
+  return useQuery({
+    queryKey: ['exam-blueprints', curriculumId],
+    queryFn: async () => {
+      let query = supabase
+        .from('exam_blueprints')
+        .select('*')
+        .eq('frozen', true);
+      
+      if (curriculumId) {
+        query = query.eq('curriculum_id', curriculumId);
+      }
+      
+      const { data, error } = await query.order('title');
+      if (error) throw error;
+      
+      return data.map(b => ({
+        ...b,
+        difficulty_distribution: b.difficulty_distribution as ExamBlueprint['difficulty_distribution'],
+      })) as ExamBlueprint[];
+    },
+    enabled: true,
+  });
+}
+
+// Fetch active exam session for user
+export function useActiveExamSession() {
+  return useQuery({
+    queryKey: ['active-exam-session'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('exam_sessions')
+        .select('*')
+        .is('finished_at', null)
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data as ExamSession | null;
+    },
+  });
+}
+
+// Fetch exam session details
+export function useExamSession(sessionId?: string) {
+  return useQuery({
+    queryKey: ['exam-session', sessionId],
+    queryFn: async () => {
+      if (!sessionId) return null;
+      
+      const { data, error } = await supabase
+        .from('exam_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+      
+      if (error) throw error;
+      return data as ExamSession;
+    },
+    enabled: !!sessionId,
+  });
+}
+
+// Fetch questions for a session
+export function useExamSessionQuestions(sessionId?: string) {
+  return useQuery({
+    queryKey: ['exam-session-questions', sessionId],
+    queryFn: async () => {
+      if (!sessionId) return [];
+      
+      const { data, error } = await supabase
+        .from('exam_session_questions')
+        .select(`
+          *,
+          exam_questions (
+            id,
+            question_text,
+            options,
+            difficulty,
+            explanation
+          )
+        `)
+        .eq('exam_session_id', sessionId)
+        .order('order_index');
+      
+      if (error) throw error;
+      
+      return data.map(sq => ({
+        ...sq,
+        question: sq.exam_questions as unknown as ExamQuestion,
+      }));
+    },
+    enabled: !!sessionId,
+  });
+}
+
+// Start new exam session
+export function useStartExamSession() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ 
+      blueprintId, 
+      mode = 'simulation' 
+    }: { 
+      blueprintId: string; 
+      mode?: 'simulation' | 'practice' | 'timed_exam';
+    }) => {
+      const { data, error } = await supabase
+        .rpc('start_exam_session', {
+          p_blueprint_id: blueprintId,
+          p_mode: mode,
+        });
+      
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: (sessionId) => {
+      queryClient.invalidateQueries({ queryKey: ['active-exam-session'] });
+      queryClient.invalidateQueries({ queryKey: ['exam-session', sessionId] });
+      toast.success('Prüfungssimulation gestartet');
+    },
+    onError: (error) => {
+      toast.error('Fehler beim Starten', { description: String(error) });
+    },
+  });
+}
+
+// Submit answer
+export function useSubmitAnswer() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({
+      sessionId,
+      questionIndex,
+      answer,
+      timeSpent = 0,
+    }: {
+      sessionId: string;
+      questionIndex: number;
+      answer: number;
+      timeSpent?: number;
+    }) => {
+      const { data, error } = await supabase
+        .rpc('submit_exam_answer', {
+          p_session_id: sessionId,
+          p_question_index: questionIndex,
+          p_answer: answer,
+          p_time_spent: timeSpent,
+        });
+      
+      if (error) throw error;
+      return data as unknown as AnswerResult;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['exam-session-questions', variables.sessionId] 
+      });
+    },
+  });
+}
+
+// Finish exam session
+export function useFinishExamSession() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { data, error } = await supabase
+        .rpc('finish_exam_session', {
+          p_session_id: sessionId,
+        });
+      
+      if (error) throw error;
+      return data as unknown as ExamResult;
+    },
+    onSuccess: (_, sessionId) => {
+      queryClient.invalidateQueries({ queryKey: ['exam-session', sessionId] });
+      queryClient.invalidateQueries({ queryKey: ['active-exam-session'] });
+      toast.success('Prüfung abgeschlossen');
+    },
+    onError: (error) => {
+      toast.error('Fehler beim Abschließen', { description: String(error) });
+    },
+  });
+}
+
+// Main hook for exam simulation state management
+export function useExamSimulation(sessionId?: string) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showResult, setShowResult] = useState(false);
+  const [lastAnswer, setLastAnswer] = useState<AnswerResult | null>(null);
+  
+  const { data: session, isLoading: sessionLoading } = useExamSession(sessionId);
+  const { data: questions, isLoading: questionsLoading } = useExamSessionQuestions(sessionId);
+  const submitAnswer = useSubmitAnswer();
+  const finishExam = useFinishExamSession();
+  
+  const currentQuestion = questions?.[currentIndex];
+  const totalQuestions = questions?.length || 0;
+  const answeredCount = questions?.filter(q => q.user_answer !== null).length || 0;
+  const isComplete = session?.finished_at !== null;
+  
+  const handleAnswer = useCallback(async (answer: number, timeSpent?: number) => {
+    if (!sessionId || !currentQuestion) return;
+    
+    const result = await submitAnswer.mutateAsync({
+      sessionId,
+      questionIndex: currentIndex,
+      answer,
+      timeSpent,
+    });
+    
+    setLastAnswer(result);
+    setShowResult(true);
+  }, [sessionId, currentQuestion, currentIndex, submitAnswer]);
+  
+  const handleNext = useCallback(() => {
+    setShowResult(false);
+    setLastAnswer(null);
+    
+    if (currentIndex < totalQuestions - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  }, [currentIndex, totalQuestions]);
+  
+  const handlePrevious = useCallback(() => {
+    setShowResult(false);
+    setLastAnswer(null);
+    
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  }, [currentIndex]);
+  
+  const handleFinish = useCallback(async () => {
+    if (!sessionId) return;
+    return finishExam.mutateAsync(sessionId);
+  }, [sessionId, finishExam]);
+  
+  const goToQuestion = useCallback((index: number) => {
+    setShowResult(false);
+    setLastAnswer(null);
+    setCurrentIndex(index);
+  }, []);
+  
+  return {
+    session,
+    questions,
+    currentQuestion,
+    currentIndex,
+    totalQuestions,
+    answeredCount,
+    isComplete,
+    showResult,
+    lastAnswer,
+    isLoading: sessionLoading || questionsLoading,
+    isSubmitting: submitAnswer.isPending,
+    isFinishing: finishExam.isPending,
+    handleAnswer,
+    handleNext,
+    handlePrevious,
+    handleFinish,
+    goToQuestion,
+  };
+}
