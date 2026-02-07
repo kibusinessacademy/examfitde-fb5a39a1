@@ -1,8 +1,9 @@
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { LessonStatusBadge } from "./LessonStatusBadge";
 import { type LessonStatus } from "@/hooks/useCourseProgress";
-import { Target, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Target, TrendingUp, AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
 
 interface LearningGoalFeedbackProps {
   competencyTitle: string | null;
@@ -12,6 +13,7 @@ interface LearningGoalFeedbackProps {
   needsReview: boolean;
   attempts: number;
   className?: string;
+  onRetry?: () => void;
 }
 
 export function LearningGoalFeedback({
@@ -22,6 +24,7 @@ export function LearningGoalFeedback({
   needsReview,
   attempts,
   className,
+  onRetry,
 }: LearningGoalFeedbackProps) {
   const getFeedbackMessage = () => {
     if (status === "mastered") {
@@ -120,6 +123,18 @@ export function LearningGoalFeedback({
             </span>
           )}
         </div>
+
+        {/* Retry button for non-mastered status */}
+        {onRetry && status !== "mastered" && (
+          <Button 
+            onClick={onRetry} 
+            variant="outline" 
+            className="w-full mt-2 gap-2"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Nochmal versuchen
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
