@@ -142,6 +142,7 @@ export default function ExamSimulation() {
         <div className="container max-w-4xl py-8">
           <ResultsScreen 
             result={result as ExamResult} 
+            sessionId={currentSessionId}
             onRestart={() => {
               setExamResult(null);
               navigate('/exam-simulation');
@@ -179,23 +180,31 @@ export default function ExamSimulation() {
       
       {/* Question Navigator */}
       <div className="flex gap-1 mb-6 overflow-x-auto pb-2">
-        {questions?.map((q, idx) => (
-          <button
-            key={q.id}
-            onClick={() => goToQuestion(idx)}
-            className={cn(
-              "w-8 h-8 rounded-lg text-xs font-medium transition-all flex-shrink-0",
-              idx === currentIndex && "ring-2 ring-primary",
-              q.user_answer !== null
-                ? q.is_correct
-                  ? "bg-green-500/20 text-green-600"
-                  : "bg-red-500/20 text-red-600"
-                : "bg-muted hover:bg-muted/80"
-            )}
-          >
-            {idx + 1}
-          </button>
-        ))}
+        {questions?.map((q, idx) => {
+          const isAnswered = q.user_answer !== null;
+          const isCurrentQuestion = idx === currentIndex;
+          let bgClass = "bg-muted hover:bg-muted/80";
+          
+          if (isAnswered) {
+            bgClass = q.is_correct 
+              ? "bg-primary/20 text-primary" 
+              : "bg-destructive/20 text-destructive";
+          }
+          
+          return (
+            <button
+              key={q.id}
+              onClick={() => goToQuestion(idx)}
+              className={cn(
+                "w-8 h-8 rounded-lg text-xs font-medium transition-all flex-shrink-0",
+                isCurrentQuestion && "ring-2 ring-primary",
+                bgClass
+              )}
+            >
+              {idx + 1}
+            </button>
+          );
+        })}
       </div>
       
       {/* Question */}

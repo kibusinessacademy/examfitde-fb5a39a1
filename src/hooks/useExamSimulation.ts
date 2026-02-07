@@ -62,6 +62,8 @@ export interface AnswerResult {
   is_correct: boolean;
   correct_answer: number;
   explanation: string | null;
+  explanation_correct?: string | null;
+  explanation_wrong?: string | null;
 }
 
 export interface ExamResult {
