@@ -36,6 +36,9 @@ const JobDeadLetter = lazy(() => import('@/pages/admin/JobDeadLetter'));
 // AI Worker Governance
 const AIWorkersPage = lazy(() => import('@/pages/admin/AIWorkersPage'));
 
+// AZAV Audit Exports
+const AuditExportsPage = lazy(() => import('@/pages/admin/AuditExportsPage'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
@@ -87,6 +90,8 @@ const AppRoutes = () => {
           <Route path="jobs/:jobId" element={<JobDetail />} />
           {/* AI Worker Governance */}
           <Route path="ai-workers" element={<AIWorkersPage />} />
+          {/* AZAV Audit Exports */}
+          <Route path="audit-exports" element={<AuditExportsPage />} />
         </Route>
 
         {/* Admin Redirects */}

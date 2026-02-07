@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.ai-tutor]
 verify_jwt = true
+
+[functions.audit-export]
+verify_jwt = true
