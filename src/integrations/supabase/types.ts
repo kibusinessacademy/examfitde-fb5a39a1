@@ -313,12 +313,17 @@ export type Database = {
           error: string | null
           id: string
           job_type: string
+          last_error: string | null
+          locked_at: string | null
+          locked_by: string | null
           max_attempts: number
           payload: Json
+          priority: number
           result: Json | null
           run_after: string | null
           started_at: string | null
           status: string
+          updated_at: string
         }
         Insert: {
           attempts?: number
@@ -327,12 +332,17 @@ export type Database = {
           error?: string | null
           id?: string
           job_type: string
+          last_error?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
           max_attempts?: number
           payload: Json
+          priority?: number
           result?: Json | null
           run_after?: string | null
           started_at?: string | null
           status?: string
+          updated_at?: string
         }
         Update: {
           attempts?: number
@@ -341,12 +351,17 @@ export type Database = {
           error?: string | null
           id?: string
           job_type?: string
+          last_error?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
           max_attempts?: number
           payload?: Json
+          priority?: number
           result?: Json | null
           run_after?: string | null
           started_at?: string | null
           status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -590,6 +605,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assert_job_payload: { Args: { job: Json }; Returns: undefined }
+      claim_next_job: {
+        Args: {
+          p_job_types?: string[]
+          p_lock_timeout_minutes?: number
+          p_worker_id: string
+        }
+        Returns: Json
+      }
+      complete_job: {
+        Args: { p_job_id: string; p_result?: Json }
+        Returns: undefined
+      }
+      create_job: {
+        Args: {
+          p_job_type: string
+          p_payload: Json
+          p_priority?: number
+          p_run_after?: string
+        }
+        Returns: string
+      }
+      fail_job: {
+        Args: { p_allow_retry?: boolean; p_error: string; p_job_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
