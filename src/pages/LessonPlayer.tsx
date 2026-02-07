@@ -69,6 +69,13 @@ export default function LessonPlayer() {
   const [startTime] = useState(Date.now());
   const [lessonOutcome, setLessonOutcome] = useState<LessonOutcome | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [miniCheckKey, setMiniCheckKey] = useState(0);
+
+  const handleRetryMiniCheck = () => {
+    setShowFeedback(false);
+    setLessonOutcome(null);
+    setMiniCheckKey(prev => prev + 1); // Force MiniCheckPlayer to remount
+  };
 
   const fetchLessonOutcome = useCallback(async (lId: string) => {
     if (!user) return;
@@ -304,6 +311,7 @@ export default function LessonPlayer() {
         <Card className="glass-card max-w-4xl mx-auto mb-8">
           <CardContent className="p-6 md:p-10">
             <LessonContent
+              key={miniCheckKey}
               content={lesson.content}
               h5pContentId={lesson.h5p_content_id}
               lessonId={lesson.id}
@@ -322,6 +330,7 @@ export default function LessonPlayer() {
                   scorePercent={lessonOutcome.scorePercent}
                   needsReview={lessonOutcome.needsReview}
                   attempts={lessonOutcome.attempts}
+                  onRetry={handleRetryMiniCheck}
                 />
               </div>
             )}
