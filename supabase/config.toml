@@ -1,1 +1,4 @@
 project_id = "ubdvvvsiryenhrfmqsvw"
+
+[functions.unzip-file]
+verify_jwt = false
