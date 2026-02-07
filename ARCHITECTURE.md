@@ -1,123 +1,174 @@
-# Architektur-Dokumentation
+# H5P Learning Hub – Architecture
 
-## Übersicht
+## Core Principles
 
-Diese Plattform ist eine produktive Lern- & Prüfungsplattform mit:
-- **H5P-Integration** für interaktive Lerninhalte
-- **AI-gestützte Generierung** von Kursen und Prüfungsfragen
-- **Curriculum-SSOT** als zentrale Datenquelle
-- **Admin-Dashboards** für Content-Management
-- **Prüfungstrainer** mit adaptiver Logik
+- **GitHub is the Single Source of Truth (SSOT)** for all code
+- **No implicit schema changes** – all DB changes via SQL migrations only
+- **No business logic in UI** – Frontend is stateless, reads only
+- **Jobs are state-driven** (`pending` → `processing` → `completed` | `failed`)
+- **Lovable builds, but does not decide architecture**
 
-## Tech Stack
+---
 
+## Frontend
+
+| Aspect | Rule |
+|--------|------|
+| Framework | React / Vite / TypeScript |
+| State | UI is stateless – no local business logic |
+| Data | Reads via Supabase Client / Edge Functions |
+| Writes | No direct DB writes for critical logic |
+| Styling | Tailwind CSS + shadcn/ui + semantic tokens |
+
+### Folder Structure
 ```
-Frontend:        React + Vite + TypeScript + Tailwind CSS + shadcn/ui
-Backend:         Lovable Cloud (Supabase)
-Database:        PostgreSQL
-Edge Functions:  Deno (Supabase Edge Functions)
-AI Gateway:      Lovable AI Gateway
-Authentication:  Supabase Auth (Email + Roles)
-Storage:         Supabase Storage (H5P-Content, Uploads)
-```
-
-## Architektur-Prinzipien
-
-### 1. GitHub = Single Source of Truth (Code)
-- **Alle Code-Änderungen müssen committed sein**
-- Lovable darf UI bauen, aber Architekturentscheidungen werden explizit dokumentiert
-- Rollbacks erfolgen über Git-History
-
-### 2. Datenbank-Änderungen nur via Migrations
-- Alle Schema-Änderungen über `supabase/migrations/`
-- Keine "magischen" DB-Änderungen ohne Review
-- Migrations sind versioniert und rollback-fähig
-
-### 3. Edge Functions für Business-Logik
-- AI-intensive Aufgaben in Edge Functions
-- Keine sensible Logik im Frontend
-- Alle Functions in `supabase/functions/`
-
-### 4. Strikte Trennung: UI vs. Business-Logik
-- Frontend: Präsentation + User Interaction
-- Backend: Validierung + Geschäftsregeln + AI-Calls
-- UI liest Daten, manipuliert sie nicht direkt
-
-## Systemkomponenten
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        FRONTEND                              │
-├─────────────────────────────────────────────────────────────┤
-│  Public Pages    │  Learner Area      │  Admin Area         │
-│  - Home          │  - Dashboard       │  - Curricula        │
-│  - Courses       │  - Lesson Player   │  - Courses          │
-│  - Auth          │  - Exam Trainer    │  - Questions        │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    EDGE FUNCTIONS                            │
-├─────────────────────────────────────────────────────────────┤
-│  extract-curriculum  │  generate-course  │  generate-questions│
-│  unzip-file          │  (future jobs)    │                    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      DATABASE                                │
-├─────────────────────────────────────────────────────────────┤
-│  curricula          │  courses           │  exam_questions   │
-│  learning_fields    │  modules           │  exam_attempts    │
-│  competencies       │  lessons           │  learning_progress│
-│  profiles           │  user_roles        │  course_enrollments│
-└─────────────────────────────────────────────────────────────┘
+src/
+├── components/       # UI components (stateless)
+│   ├── ui/          # shadcn/ui base components
+│   ├── layout/      # Layout wrappers
+│   ├── lesson/      # Lesson Player components
+│   └── auth/        # Auth components
+├── pages/           # Route pages
+│   └── admin/       # Admin area
+├── routes/          # Routing config
+├── hooks/           # React hooks (no business logic)
+├── lib/             # Pure utilities
+└── integrations/    # Auto-generated (DO NOT EDIT)
 ```
 
-## Rollen & Berechtigungen
+---
 
-| Rolle    | Beschreibung                              |
-|----------|-------------------------------------------|
-| admin    | Vollzugriff auf alle Admin-Funktionen     |
-| teacher  | Kurs-Management, Fragen-Review            |
-| learner  | Kurse belegen, Prüfungen absolvieren      |
+## Backend
 
-## Ordnerstruktur
+| Aspect | Rule |
+|--------|------|
+| Database | PostgreSQL (Lovable Cloud) |
+| Schema Changes | **Only via SQL migrations** in `supabase/migrations/` |
+| Edge Functions | Thin orchestrators – validate, call AI, persist |
+| Auth | Supabase Auth with RLS policies |
+| Storage | Supabase Storage (curriculum-files, h5p-content, course-media) |
 
+### Edge Functions
 ```
-/
-├── src/
-│   ├── components/       # UI-Komponenten
-│   │   ├── ui/          # shadcn/ui Basis-Komponenten
-│   │   ├── layout/      # Layout-Komponenten
-│   │   ├── lesson/      # Lesson Player Komponenten
-│   │   └── auth/        # Auth-bezogene Komponenten
-│   ├── pages/           # Seiten-Komponenten
-│   │   └── admin/       # Admin-Bereich
-│   ├── routes/          # Routing-Konfiguration
-│   ├── hooks/           # Custom React Hooks
-│   ├── lib/             # Utilities
-│   └── integrations/    # Externe Integrationen (auto-generated)
-├── supabase/
-│   ├── functions/       # Edge Functions
-│   ├── migrations/      # SQL Migrations (READ-ONLY)
-│   └── config.toml      # Supabase Config
-├── ARCHITECTURE.md      # Diese Datei
-├── SSOT.md             # Single Source of Truth Dokumentation
-└── JOB_MODEL.md        # Job/Queue Modell
+supabase/functions/
+├── extract-curriculum/   # AI curriculum extraction
+├── generate-course/      # AI course generation
+├── generate-questions/   # AI question generation
+└── unzip-file/          # ZIP extraction for H5P
 ```
 
-## Entwicklungs-Workflow
+---
 
-1. **Feature-Planung**: Architektur-Impact prüfen
-2. **Lovable**: UI-Entwicklung + kontrollierte Edge Functions
-3. **GitHub**: Review + Commit + Versionierung
-4. **Testing**: Preview-Umgebung validieren
-5. **Deploy**: Publish nach Freigabe
+## Job System
 
-## Sicherheits-Richtlinien
+### Job Queue Schema (Authoritative)
+```typescript
+interface Job {
+  id: string;              // UUID - mandatory
+  job_type: string;        // e.g., 'extract_curriculum', 'generate_course'
+  status: JobStatus;       // 'pending' | 'processing' | 'completed' | 'failed'
+  payload: object;         // Validated JSON payload
+  curriculum_id: string;   // UUID - MANDATORY (no slugs!)
+  attempts: number;
+  max_attempts: number;
+  error?: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+}
 
-- RLS-Policies auf allen Tabellen mit User-Daten
-- JWT-Validierung in Edge Functions
-- Keine API-Keys im Frontend-Code
-- Secrets nur über Lovable Cloud Secrets
+type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+```
+
+### Job State Machine
+```
+┌─────────┐     ┌────────────┐     ┌───────────┐
+│ pending │ ──► │ processing │ ──► │ completed │
+└─────────┘     └──────┬─────┘     └───────────┘
+                       │
+                       ▼
+                 ┌──────────┐
+                 │  failed  │
+                 └──────────┘
+```
+
+---
+
+## Data Model Hierarchy
+
+```
+curricula (FROZEN after approval)
+    └── learning_fields
+            └── competencies
+                    ├── lessons (5-step didactic)
+                    └── exam_questions
+```
+
+### Status Enums
+```typescript
+// Curriculum lifecycle
+type CurriculumStatus = 'draft' | 'extracting' | 'normalizing' | 'frozen';
+
+// Course lifecycle
+type CourseStatus = 'draft' | 'generating' | 'published' | 'archived';
+
+// Question review workflow
+type QuestionStatus = 'draft' | 'review' | 'approved' | 'rejected';
+
+// Lesson didactic steps (FIXED ORDER)
+type LessonStep = 'einstieg' | 'verstehen' | 'anwenden' | 'wiederholen' | 'mini_check';
+```
+
+---
+
+## Roles & Permissions
+
+| Role | Access |
+|------|--------|
+| `admin` | Full access to all admin functions |
+| `teacher` | Course management, question review |
+| `learner` | Enroll courses, take exams, track progress |
+
+---
+
+## FORBIDDEN ❌
+
+These patterns are **explicitly banned** and Lovable must never use them:
+
+| Anti-Pattern | Reason |
+|--------------|--------|
+| `curriculum.slug` | Use `curriculum_id` (UUID) only |
+| `profession_slug` in jobs | Jobs reference by UUID, not slugs |
+| Direct DB writes in UI | All writes via Edge Functions or controlled mutations |
+| Modifying `auth.users` | Managed by Supabase |
+| Schema changes without migration | All changes via `supabase/migrations/` |
+| Editing `src/integrations/supabase/*` | Auto-generated files |
+| Editing `.env` directly | Managed by Lovable Cloud |
+| Business logic in React components | Keep UI stateless |
+| Hardcoded IDs | Use references and foreign keys |
+
+---
+
+## File Ownership
+
+| File/Folder | Owner | Editable |
+|-------------|-------|----------|
+| `src/integrations/supabase/` | System | ❌ Never |
+| `supabase/migrations/` | System | ❌ Read-only |
+| `.env` | System | ❌ Never |
+| `supabase/config.toml` | System | ❌ Never |
+| `src/components/` | Developer | ✅ Yes |
+| `src/pages/` | Developer | ✅ Yes |
+| `supabase/functions/` | Developer | ✅ Yes |
+| `ARCHITECTURE.md` | Developer | ✅ Yes |
+| `SSOT.md` | Developer | ✅ Yes |
+| `JOB_MODEL.md` | Developer | ✅ Yes |
+
+---
+
+## Change Log
+
+| Date | Change | Author |
+|------|--------|--------|
+| 2025-02-07 | Initial architecture documentation | System |
+| 2025-02-07 | Added forbidden patterns and strict rules | System |
