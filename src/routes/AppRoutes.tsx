@@ -25,6 +25,7 @@ const CoursesList = lazy(() => import('@/pages/admin/CoursesList'));
 const CourseCreate = lazy(() => import('@/pages/admin/CourseCreate'));
 const CourseEdit = lazy(() => import('@/pages/admin/CourseEdit'));
 const QuestionsList = lazy(() => import('@/pages/admin/QuestionsList'));
+const ExamBlueprintsPage = lazy(() => import('@/pages/admin/ExamBlueprintsPage'));
 
 // Job Admin Pages
 const JobsDashboard = lazy(() => import('@/pages/admin/JobsDashboard'));
@@ -37,6 +38,7 @@ const AIWorkersPage = lazy(() => import('@/pages/admin/AIWorkersPage'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
+const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -61,6 +63,8 @@ const AppRoutes = () => {
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<LearnerDashboard />} />
             <Route path="/exam-trainer" element={<ExamTrainer />} />
+            <Route path="/exam-simulation" element={<ExamSimulation />} />
+            <Route path="/exam-simulation/:sessionId" element={<ExamSimulation />} />
             <Route path="/lesson/:lessonId" element={<LessonPlayer />} />
           </Route>
         </Route>
@@ -75,6 +79,7 @@ const AppRoutes = () => {
           <Route path="courses/new" element={<CourseCreate />} />
           <Route path="courses/:courseId/edit" element={<CourseEdit />} />
           <Route path="questions" element={<QuestionsList />} />
+          <Route path="exam-blueprints" element={<ExamBlueprintsPage />} />
           {/* Job Control Center */}
           <Route path="jobs/dashboard" element={<JobsDashboard />} />
           <Route path="jobs" element={<JobsList />} />
