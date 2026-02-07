@@ -45,6 +45,7 @@ const EvidencePacksPage = lazy(() => import('@/pages/admin/EvidencePacksPage'));
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
+const ExamResultsPage = lazy(() => import('@/pages/ExamResultsPage'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -71,6 +72,7 @@ const AppRoutes = () => {
             <Route path="/exam-trainer" element={<ExamTrainer />} />
             <Route path="/exam-simulation" element={<ExamSimulation />} />
             <Route path="/exam-simulation/:sessionId" element={<ExamSimulation />} />
+            <Route path="/exam-results/:sessionId" element={<ExamResultsPage />} />
             <Route path="/lesson/:lessonId" element={<LessonPlayer />} />
           </Route>
         </Route>

@@ -1,11 +1,22 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Loader2, Sparkles } from 'lucide-react';
+
+// Step order for didactic progression
+const STEP_ORDER = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'];
+const STEP_LABELS: Record<string, string> = {
+  einstieg: 'Einstieg',
+  verstehen: 'Verstehen',
+  anwenden: 'Anwenden',
+  wiederholen: 'Wiederholen',
+  mini_check: 'Mini-Check',
+};
 
 interface Lesson {
   id: string;
   title: string;
+  step: string;
 }
 
 interface LessonNavigationProps {
@@ -14,6 +25,7 @@ interface LessonNavigationProps {
   courseId: string;
   isCompleted: boolean;
   completing: boolean;
+  currentStep?: string;
   onComplete: () => void;
   onNavigate: (lesson: Lesson) => void;
 }
@@ -24,9 +36,18 @@ export default function LessonNavigation({
   courseId,
   isCompleted,
   completing,
+  currentStep,
   onComplete,
   onNavigate,
 }: LessonNavigationProps) {
+  // Determine the next step label for "Weiter mit..."
+  const getNextStepLabel = () => {
+    if (!nextLesson) return null;
+    return STEP_LABELS[nextLesson.step] || nextLesson.step;
+  };
+
+  const nextStepLabel = getNextStepLabel();
+
   return (
     <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
       <div>
@@ -64,17 +85,35 @@ export default function LessonNavigation({
         {nextLesson ? (
           <Button 
             onClick={() => onNavigate(nextLesson)}
-            className={isCompleted ? 'gradient-primary text-primary-foreground shadow-glow-sm' : ''}
+            className={isCompleted ? 'gradient-primary text-primary-foreground shadow-glow-sm gap-2' : 'gap-2'}
             variant={isCompleted ? 'default' : 'outline'}
           >
-            <span className="hidden sm:inline">Nächste</span>
-            <ArrowRight className="h-4 w-4 ml-2" />
+            {isCompleted && nextStepLabel && (
+              <>
+                <Sparkles className="h-4 w-4" />
+                <span className="hidden sm:inline">Weiter mit {nextStepLabel}</span>
+                <span className="sm:hidden">Weiter</span>
+              </>
+            )}
+            {!isCompleted && (
+              <>
+                <span className="hidden sm:inline">Nächste</span>
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+            {isCompleted && !nextStepLabel && (
+              <>
+                <span className="hidden sm:inline">Nächste</span>
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
           </Button>
         ) : isCompleted ? (
           <Link to={`/course/${courseId}`}>
-            <Button className="gradient-accent text-accent-foreground">
-              Modul beenden
-              <ArrowRight className="h-4 w-4 ml-2" />
+            <Button className="gradient-accent text-accent-foreground gap-2">
+              <CheckCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Modul abschließen</span>
+              <span className="sm:hidden">Fertig</span>
             </Button>
           </Link>
         ) : null}
