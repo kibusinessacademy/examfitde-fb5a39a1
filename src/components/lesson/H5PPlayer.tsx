@@ -1,0 +1,161 @@
+import { useEffect, useRef, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2, AlertCircle, PlayCircle } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
+interface H5PPlayerProps {
+  contentId: string;
+  onCompleted?: (score?: number, maxScore?: number) => void;
+  onProgress?: (progress: number) => void;
+}
+
+interface XAPIStatement {
+  verb?: {
+    id?: string;
+  };
+  result?: {
+    score?: {
+      raw?: number;
+      max?: number;
+      scaled?: number;
+    };
+    completion?: boolean;
+    success?: boolean;
+  };
+}
+
+export default function H5PPlayer({ contentId, onCompleted, onProgress }: H5PPlayerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const h5pInstanceRef = useRef<unknown>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [contentUrl, setContentUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchContentUrl = async () => {
+      try {
+        // Get the public URL for the H5P content from storage
+        const { data } = supabase
+          .storage
+          .from('h5p-content')
+          .getPublicUrl(`${contentId}/content.json`);
+
+        if (data?.publicUrl) {
+          // The base path for the H5P content folder
+          const basePath = data.publicUrl.replace('/content.json', '');
+          setContentUrl(basePath);
+        } else {
+          setError('H5P-Inhalt nicht gefunden');
+        }
+      } catch (err) {
+        console.error('Error fetching H5P content:', err);
+        setError('Fehler beim Laden des H5P-Inhalts');
+      }
+    };
+
+    fetchContentUrl();
+  }, [contentId]);
+
+  useEffect(() => {
+    if (!contentUrl || !containerRef.current) return;
+
+    const initH5P = async () => {
+      try {
+        setLoading(true);
+        
+        // Dynamically import h5p-standalone
+        const { H5P } = await import('h5p-standalone');
+        
+        // Clear any previous content
+        if (containerRef.current) {
+          containerRef.current.innerHTML = '';
+        }
+
+        // Initialize H5P player
+        const h5pInstance = new H5P(containerRef.current, {
+          h5pJsonPath: contentUrl,
+          frameJs: '/h5p/frame.bundle.js',
+          frameCss: '/h5p/styles/h5p.css',
+        });
+
+        h5pInstanceRef.current = h5pInstance;
+
+        // Listen for xAPI events
+        if (typeof window !== 'undefined') {
+          window.addEventListener('message', handleXAPIMessage);
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Error initializing H5P:', err);
+        setError('Fehler beim Initialisieren des H5P-Players');
+        setLoading(false);
+      }
+    };
+
+    initH5P();
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('message', handleXAPIMessage);
+      }
+    };
+  }, [contentUrl]);
+
+  const handleXAPIMessage = (event: MessageEvent) => {
+    // Handle xAPI statements from H5P content
+    if (event.data?.context === 'h5p' && event.data?.statement) {
+      const statement = event.data.statement as XAPIStatement;
+      
+      // Check for completion
+      if (statement.verb?.id?.includes('completed') || 
+          statement.verb?.id?.includes('answered')) {
+        
+        const score = statement.result?.score?.raw;
+        const maxScore = statement.result?.score?.max;
+        
+        if (statement.result?.completion) {
+          onCompleted?.(score, maxScore);
+        }
+        
+        // Calculate progress
+        if (statement.result?.score?.scaled !== undefined) {
+          onProgress?.(statement.result.score.scaled * 100);
+        }
+      }
+    }
+  };
+
+  if (error) {
+    return (
+      <Card className="glass-card">
+        <CardContent className="p-8 text-center">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Inhalt nicht verfügbar</h3>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <p className="text-sm text-muted-foreground">
+            Content ID: {contentId}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="relative w-full">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10 rounded-xl">
+          <div className="text-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">H5P-Inhalt wird geladen...</p>
+          </div>
+        </div>
+      )}
+      <div 
+        ref={containerRef} 
+        className="h5p-container w-full min-h-[400px] rounded-xl overflow-hidden bg-muted/30"
+      />
+    </div>
+  );
+}
