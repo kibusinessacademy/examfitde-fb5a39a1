@@ -12,6 +12,7 @@ const HomePage = lazy(() => import('@/pages/HomePage'));
 const CoursesPage = lazy(() => import('@/pages/CoursesPage'));
 const CourseDetailPage = lazy(() => import('@/pages/CourseDetailPage'));
 const LearnerDashboard = lazy(() => import('@/pages/LearnerDashboard'));
+const ExamTrainer = lazy(() => import('@/pages/ExamTrainer'));
 const Auth = lazy(() => import('@/pages/Auth'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
@@ -45,6 +46,7 @@ const AppRoutes = () => {
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<LearnerDashboard />} />
+            <Route path="/exam-trainer" element={<ExamTrainer />} />
           </Route>
         </Route>
 
