@@ -209,9 +209,11 @@ export default function LessonPlayer() {
       time_spent_seconds: (progress.time_spent_seconds || 0) + timeSpent,
     };
 
-    // If H5P provided a score, save it
+    // Calculate score percent if score provided
+    let scorePercent: number | null = null;
     if (score !== undefined && maxScore !== undefined && maxScore > 0) {
-      updateData.score = Math.round((score / maxScore) * 100);
+      scorePercent = Math.round((score / maxScore) * 100);
+      updateData.score = scorePercent;
     }
 
     const { error } = await supabase
@@ -221,11 +223,24 @@ export default function LessonPlayer() {
 
     if (error) {
       toast({ title: 'Fehler beim Speichern', variant: 'destructive' });
-    } else {
-      setProgress({ ...progress, completed: true, score: updateData.score as number | null });
-      toast({ title: 'Lektion abgeschlossen!', description: 'Gut gemacht!' });
+      setCompleting(false);
+      return;
     }
 
+    // Update lesson_outcomes via RPC for mastery tracking (SSOT)
+    if (scorePercent !== null) {
+      const { error: outcomeError } = await supabase.rpc('update_lesson_outcome', {
+        p_lesson_id: lesson.id,
+        p_score_percent: scorePercent,
+      });
+
+      if (outcomeError) {
+        console.error('Failed to update lesson outcome:', outcomeError);
+      }
+    }
+
+    setProgress({ ...progress, completed: true, score: scorePercent });
+    toast({ title: 'Lektion abgeschlossen!', description: 'Gut gemacht!' });
     setCompleting(false);
   };
 
