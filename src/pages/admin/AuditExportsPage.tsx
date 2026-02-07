@@ -36,6 +36,7 @@ export default function AuditExportsPage() {
   const [useRpcExport, setUseRpcExport] = useState(true);
   const [pseudonymize, setPseudonymize] = useState(true);
   const [verifyingPackId, setVerifyingPackId] = useState<string | null>(null);
+  const [useStorageFirst, setUseStorageFirst] = useState(true); // Storage-first mode
 
   // Fetch courses
   const { data: courses } = useQuery({
@@ -133,7 +134,9 @@ export default function AuditExportsPage() {
           is_immutable,
           storage_bucket,
           storage_path,
+          size_bytes,
           notes,
+          pack,
           courses (title),
           curricula (title)
         `)
@@ -144,25 +147,49 @@ export default function AuditExportsPage() {
     },
   });
 
-  // Archive pack mutation
+  // Archive pack mutation - supports both inline and storage-first
   const archivePackMutation = useMutation({
     mutationFn: async (courseId: string) => {
-      const { data, error } = await supabase.rpc('create_course_evidence_pack', {
-        p_course_id: courseId,
-        p_include_questions: includeRawLogs,
-        p_include_h5p: true,
-        p_store_inline: true,
-        p_notes: null
-      });
-      if (error) throw error;
-      return data;
+      if (useStorageFirst) {
+        // Storage-first via edge function
+        const { data, error } = await supabase.functions.invoke('generate-evidence-pack', {
+          body: { 
+            courseId, 
+            includeQuestions: includeRawLogs,
+            includeH5p: true 
+          }
+        });
+        if (error) throw error;
+        return { ...data, mode: 'storage' };
+      } else {
+        // Inline via RPC
+        const { data, error } = await supabase.rpc('create_course_evidence_pack', {
+          p_course_id: courseId,
+          p_include_questions: includeRawLogs,
+          p_include_h5p: true,
+          p_store_inline: true,
+          p_notes: null
+        });
+        if (error) throw error;
+        return { ...(data as object), mode: 'inline' };
+      }
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['evidence-packs'] });
-      toast({
-        title: data.status === 'existing' ? 'Pack existiert bereits' : 'Pack archiviert',
-        description: `Fingerprint: ${data.fingerprint?.substring(0, 16)}...`,
-      });
+      
+      if (data.mode === 'storage' && data.signed_url) {
+        toast({
+          title: 'Evidence Pack erstellt',
+          description: `Fingerprint: ${data.fingerprint_sha256?.substring(0, 16)}... (${(data.size_bytes / 1024).toFixed(1)} KB)`,
+        });
+        // Auto-download
+        window.open(data.signed_url, '_blank');
+      } else {
+        toast({
+          title: data.status === 'existing' ? 'Pack existiert bereits' : 'Pack archiviert',
+          description: `Fingerprint: ${(data.fingerprint || data.fingerprint_sha256)?.substring(0, 16)}...`,
+        });
+      }
     },
     onError: (error) => {
       toast({
@@ -201,33 +228,54 @@ export default function AuditExportsPage() {
     }
   };
 
-  // Download archived pack
-  const handleDownloadPack = async (packId: string) => {
+  // Download archived pack - supports both inline and storage
+  const handleDownloadPack = async (packId: string, hasInlinePack: boolean, storagePath: string | null) => {
     try {
-      const { data, error } = await supabase.rpc('get_evidence_pack', {
-        p_pack_id: packId
-      });
-      if (error) throw error;
-      
-      const packData = data as any;
-      if (!packData.pack) {
+      if (hasInlinePack) {
+        // Inline pack - use RPC
+        const { data, error } = await supabase.rpc('get_evidence_pack', {
+          p_pack_id: packId
+        });
+        if (error) throw error;
+        
+        const packData = data as any;
+        if (!packData.pack) {
+          toast({
+            title: 'Kein Inline-Pack',
+            description: 'Pack ist extern gespeichert',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const blob = new Blob([JSON.stringify(packData.pack, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `evidence-pack-${packData.fingerprint?.substring(0, 8)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else if (storagePath) {
+        // Storage pack - get signed URL via edge function
+        const { data, error } = await supabase.functions.invoke('get-evidence-pack-url', {
+          body: { packId }
+        });
+        if (error) throw error;
+        
+        if (data?.signed_url) {
+          window.open(data.signed_url, '_blank');
+        } else {
+          throw new Error('No signed URL returned');
+        }
+      } else {
         toast({
-          title: 'Kein Inline-Pack',
-          description: 'Pack ist extern gespeichert',
+          title: 'Download nicht möglich',
+          description: 'Pack hat weder Inline-Daten noch Storage-Pfad',
           variant: 'destructive',
         });
-        return;
       }
-
-      const blob = new Blob([JSON.stringify(packData.pack, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `evidence-pack-${packData.fingerprint?.substring(0, 8)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     } catch (error) {
       toast({
         title: 'Download fehlgeschlagen',
@@ -655,6 +703,16 @@ export default function AuditExportsPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch 
+                    id="storage-first" 
+                    checked={useStorageFirst}
+                    onCheckedChange={setUseStorageFirst}
+                  />
+                  <Label htmlFor="storage-first" className="text-sm">
+                    Storage
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch 
                     id="include-questions-archive" 
                     checked={includeRawLogs}
                     onCheckedChange={setIncludeRawLogs}
@@ -672,7 +730,7 @@ export default function AuditExportsPage() {
                   ) : (
                     <Archive className="h-4 w-4 mr-2" />
                   )}
-                  Archivieren
+                  {useStorageFirst ? 'Storage-Pack' : 'Inline-Pack'}
                 </Button>
               </div>
 
@@ -717,14 +775,20 @@ export default function AuditExportsPage() {
                           </code>
                         </TableCell>
                         <TableCell>
-                          {pack.is_immutable ? (
-                            <Badge variant="outline" className="text-green-600 border-green-600">
-                              <ShieldCheck className="h-3 w-3 mr-1" />
-                              Immutable
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline">Mutable</Badge>
-                          )}
+                          <div className="flex flex-col gap-1">
+                            {pack.is_immutable ? (
+                              <Badge variant="outline" className="text-green-600 border-green-600 w-fit">
+                                <ShieldCheck className="h-3 w-3 mr-1" />
+                                Immutable
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="w-fit">Mutable</Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {pack.storage_path ? 'Storage' : 'Inline'}
+                              {pack.size_bytes && ` • ${(pack.size_bytes / 1024).toFixed(1)} KB`}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
@@ -743,7 +807,11 @@ export default function AuditExportsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDownloadPack(pack.id)}
+                              onClick={() => handleDownloadPack(
+                                pack.id, 
+                                pack.pack !== null, 
+                                pack.storage_path
+                              )}
                             >
                               <Download className="h-4 w-4" />
                             </Button>
