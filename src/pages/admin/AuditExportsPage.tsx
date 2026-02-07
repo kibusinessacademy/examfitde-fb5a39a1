@@ -29,6 +29,8 @@ export default function AuditExportsPage() {
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [selectedAttempt, setSelectedAttempt] = useState<string>('');
   const [includeRawLogs, setIncludeRawLogs] = useState(false);
+  const [useRpcExport, setUseRpcExport] = useState(true); // Recommended: use DB function
+  const [pseudonymize, setPseudonymize] = useState(true); // GDPR default: on
 
   // Fetch courses
   const { data: courses } = useQuery({
@@ -112,7 +114,12 @@ export default function AuditExportsPage() {
   const handleExport = async (type: 'participant' | 'course' | 'attempt') => {
     setIsExporting(true);
     try {
-      let body: any = { type, include_raw_logs: includeRawLogs };
+      let body: any = { 
+        type, 
+        include_raw_logs: includeRawLogs,
+        use_rpc: type === 'participant' ? useRpcExport : undefined,
+        pseudonymize: type === 'participant' ? pseudonymize : undefined
+      };
       
       if (type === 'participant') {
         if (!selectedCourse || !selectedUser) {
@@ -300,13 +307,37 @@ export default function AuditExportsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Switch 
-                  id="raw-logs" 
-                  checked={includeRawLogs}
-                  onCheckedChange={setIncludeRawLogs}
-                />
-                <Label htmlFor="raw-logs">Detaillierte AI-Tutor Logs einschließen</Label>
+              <div className="space-y-4 pt-2 border-t">
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="use-rpc" 
+                    checked={useRpcExport}
+                    onCheckedChange={setUseRpcExport}
+                  />
+                  <Label htmlFor="use-rpc">
+                    Datenbank-Funktion verwenden (empfohlen für AZAV)
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="pseudonymize" 
+                    checked={pseudonymize}
+                    onCheckedChange={setPseudonymize}
+                  />
+                  <Label htmlFor="pseudonymize">
+                    Pseudonymisierung aktivieren (DSGVO)
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="raw-logs" 
+                    checked={includeRawLogs}
+                    onCheckedChange={setIncludeRawLogs}
+                  />
+                  <Label htmlFor="raw-logs">Detaillierte AI-Tutor Logs einschließen</Label>
+                </div>
               </div>
 
               <Button 

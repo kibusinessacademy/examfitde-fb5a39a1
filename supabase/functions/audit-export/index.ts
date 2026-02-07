@@ -16,6 +16,8 @@ interface ExportRequest {
   attempt_id?: string;
   curriculum_id?: string;
   include_raw_logs?: boolean;
+  use_rpc?: boolean; // Use new database RPC function for participant export
+  pseudonymize?: boolean; // Pseudonymize user data for GDPR compliance
 }
 
 // AZAV Evidence Pack Schema
@@ -158,7 +160,7 @@ serve(async (req) => {
     const isAdmin = roleData?.role === 'admin';
 
     const request: ExportRequest = await req.json();
-    const { type, user_id, course_id, attempt_id, curriculum_id, include_raw_logs } = request;
+    const { type, user_id, course_id, attempt_id, curriculum_id, include_raw_logs, use_rpc, pseudonymize } = request;
 
     // Permission check
     if (type === 'participant' && user_id) {
@@ -176,11 +178,28 @@ serve(async (req) => {
       );
     }
 
-    let pack: AZAVEvidencePack;
+    let pack: AZAVEvidencePack | any;
 
     switch (type) {
       case 'participant':
-        pack = await exportParticipantPack(supabase, user_id!, course_id!, include_raw_logs);
+        if (use_rpc) {
+          // Use the new database RPC function (recommended for AZAV compliance)
+          const { data: rpcData, error: rpcError } = await supabase.rpc('export_participant_pack', {
+            p_user_id: user_id,
+            p_course_id: course_id,
+            p_include_ai_logs: include_raw_logs ?? false,
+            p_pseudonymize: pseudonymize ?? true
+          });
+          
+          if (rpcError) {
+            throw new Error(`RPC error: ${rpcError.message}`);
+          }
+          
+          pack = rpcData;
+        } else {
+          // Legacy edge function export
+          pack = await exportParticipantPack(supabase, user_id!, course_id!, include_raw_logs);
+        }
         break;
       case 'course':
         pack = await exportCoursePack(supabase, course_id!, include_raw_logs);
