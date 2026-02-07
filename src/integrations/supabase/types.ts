@@ -847,6 +847,69 @@ export type Database = {
           },
         ]
       }
+      lesson_outcomes: {
+        Row: {
+          attempts: number
+          competency_id: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          last_attempt_at: string | null
+          lesson_id: string
+          needs_review: boolean
+          score_percent: number | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          competency_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          last_attempt_at?: string | null
+          lesson_id: string
+          needs_review?: boolean
+          score_percent?: number | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          competency_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          last_attempt_at?: string | null
+          lesson_id?: string
+          needs_review?: boolean
+          score_percent?: number | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_outcomes_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_outcomes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lessons: {
         Row: {
           competency_id: string | null
@@ -1227,10 +1290,23 @@ export type Database = {
           question_id: string
         }[]
       }
+      get_course_progress: { Args: { p_course_id: string }; Returns: Json }
       get_evidence_pack: { Args: { p_pack_id: string }; Returns: Json }
       get_evidence_pack_storage_info: {
         Args: { p_pack_id: string }
         Returns: Json
+      }
+      get_lessons_needing_review: {
+        Args: { p_course_id?: string }
+        Returns: {
+          attempts: number
+          competency_title: string
+          last_attempt_at: string
+          lesson_id: string
+          lesson_title: string
+          module_title: string
+          score_percent: number
+        }[]
       }
       has_role: {
         Args: {
@@ -1324,6 +1400,30 @@ export type Database = {
         Args: { p_blueprint_id: string; p_mode?: string }
         Returns: string
       }
+      start_lesson: {
+        Args: { p_lesson_id: string }
+        Returns: {
+          attempts: number
+          competency_id: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          last_attempt_at: string | null
+          lesson_id: string
+          needs_review: boolean
+          score_percent: number | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "lesson_outcomes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       submit_exam_answer: {
         Args: {
           p_answer: number
@@ -1332,6 +1432,30 @@ export type Database = {
           p_time_spent?: number
         }
         Returns: Json
+      }
+      update_lesson_outcome: {
+        Args: { p_lesson_id: string; p_score_percent: number }
+        Returns: {
+          attempts: number
+          competency_id: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          last_attempt_at: string | null
+          lesson_id: string
+          needs_review: boolean
+          score_percent: number | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "lesson_outcomes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       verify_evidence_pack_integrity: {
         Args: { p_pack_id: string }
