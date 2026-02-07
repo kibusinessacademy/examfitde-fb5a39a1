@@ -1240,6 +1240,44 @@ export type Database = {
         Returns: boolean
       }
       job_maintenance: { Args: never; Returns: Json }
+      list_course_evidence_packs: {
+        Args: {
+          p_course_id?: string
+          p_curriculum_id?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: {
+          course_id: string
+          curriculum_id: string
+          export_version: string
+          fingerprint_sha256: string
+          generated_at: string
+          generated_by: string
+          has_inline_pack: boolean
+          id: string
+          notes: string
+          size_bytes: number
+          storage_bucket: string
+          storage_path: string
+        }[]
+      }
+      list_latest_evidence_packs: {
+        Args: { p_limit?: number }
+        Returns: {
+          course_id: string
+          course_title: string
+          curriculum_id: string
+          curriculum_title: string
+          fingerprint_sha256: string
+          generated_at: string
+          latest_pack_id: string
+          pack_count: number
+          size_bytes: number
+          storage_bucket: string
+          storage_path: string
+        }[]
+      }
       record_worker_usage: {
         Args: {
           p_cost_eur?: number
