@@ -8,6 +8,7 @@ import {
   Settings,
   LogOut,
   GraduationCap,
+  Activity,
   ChevronLeft,
   Menu
 } from 'lucide-react';
@@ -21,6 +22,7 @@ const navItems = [
   { path: '/admin-v2/curricula', label: 'Curricula', icon: FileText },
   { path: '/admin-v2/courses', label: 'Kurse', icon: BookOpen },
   { path: '/admin-v2/questions', label: 'Prüfungsfragen', icon: HelpCircle },
+  { path: '/admin-v2/jobs/dashboard', label: 'Jobs', icon: Activity },
   { path: '/admin-v2/settings', label: 'Einstellungen', icon: Settings },
 ];
 
