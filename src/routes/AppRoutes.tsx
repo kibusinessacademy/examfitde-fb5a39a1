@@ -26,6 +26,12 @@ const CourseCreate = lazy(() => import('@/pages/admin/CourseCreate'));
 const CourseEdit = lazy(() => import('@/pages/admin/CourseEdit'));
 const QuestionsList = lazy(() => import('@/pages/admin/QuestionsList'));
 
+// Job Admin Pages
+const JobsDashboard = lazy(() => import('@/pages/admin/JobsDashboard'));
+const JobsList = lazy(() => import('@/pages/admin/JobsList'));
+const JobDetail = lazy(() => import('@/pages/admin/JobDetail'));
+const JobDeadLetter = lazy(() => import('@/pages/admin/JobDeadLetter'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 
@@ -66,6 +72,11 @@ const AppRoutes = () => {
           <Route path="courses/new" element={<CourseCreate />} />
           <Route path="courses/:courseId/edit" element={<CourseEdit />} />
           <Route path="questions" element={<QuestionsList />} />
+          {/* Job Control Center */}
+          <Route path="jobs/dashboard" element={<JobsDashboard />} />
+          <Route path="jobs" element={<JobsList />} />
+          <Route path="jobs/deadletter" element={<JobDeadLetter />} />
+          <Route path="jobs/:jobId" element={<JobDetail />} />
         </Route>
 
         {/* Admin Redirects */}
