@@ -1,14 +1,17 @@
 import { lazy, Suspense } from 'react';
-import { Loader2, BookOpen, ClipboardCheck, PlayCircle } from 'lucide-react';
+import { Loader2, BookOpen, PlayCircle } from 'lucide-react';
 import type { Json } from '@/integrations/supabase/types';
+import MiniCheckPlayer, { type MiniCheckContent } from './MiniCheckPlayer';
 
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
 interface LessonContentProps {
   content: Json | null;
   h5pContentId: string | null;
+  lessonId?: string;
   onH5PCompleted?: (score?: number, maxScore?: number) => void;
   onH5PProgress?: (progress: number) => void;
+  onMiniCheckCompleted?: (score: number, maxScore: number) => void;
 }
 
 interface ContentData {
@@ -21,8 +24,10 @@ interface ContentData {
 export default function LessonContent({ 
   content, 
   h5pContentId,
+  lessonId,
   onH5PCompleted,
-  onH5PProgress 
+  onH5PProgress,
+  onMiniCheckCompleted
 }: LessonContentProps) {
   // If there's a direct h5p_content_id on the lesson, use that
   if (h5pContentId) {
@@ -86,18 +91,28 @@ export default function LessonContent({
     );
   }
 
-  // Quiz placeholder
-  if (contentData.type === 'quiz') {
+  // Quiz / Mini-Check content
+  if (contentData.type === 'quiz' || contentData.type === 'mini_check') {
+    const miniCheckContent = contentData as unknown as MiniCheckContent;
+    
+    // Check if questions array exists and has items
+    if (miniCheckContent.questions && miniCheckContent.questions.length > 0 && lessonId) {
+      return (
+        <MiniCheckPlayer 
+          content={miniCheckContent}
+          lessonId={lessonId}
+          onCompleted={onMiniCheckCompleted}
+        />
+      );
+    }
+    
+    // Fallback if no questions defined yet
     return (
       <div className="space-y-6">
         <h3 className="text-lg font-semibold">Wissensüberprüfung</h3>
         <p className="text-muted-foreground">
-          Beantworten Sie die folgenden Fragen, um Ihr Verständnis zu testen.
+          Die Fragen für diesen Mini-Check werden noch erstellt.
         </p>
-        <div className="p-6 bg-muted/30 rounded-xl text-center">
-          <ClipboardCheck className="h-12 w-12 text-primary mx-auto mb-3" />
-          <p>Quiz-Komponente wird geladen...</p>
-        </div>
       </div>
     );
   }
