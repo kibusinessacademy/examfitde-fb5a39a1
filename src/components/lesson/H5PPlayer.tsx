@@ -72,11 +72,11 @@ export default function H5PPlayer({ contentId, onCompleted, onProgress }: H5PPla
           containerRef.current.innerHTML = '';
         }
 
-        // Initialize H5P player
+        // Initialize H5P player with CDN assets
         const h5pInstance = new H5P(containerRef.current, {
           h5pJsonPath: contentUrl,
-          frameJs: '/h5p/frame.bundle.js',
-          frameCss: '/h5p/styles/h5p.css',
+          frameJs: 'https://unpkg.com/h5p-standalone@3.8.0/dist/frame.bundle.js',
+          frameCss: 'https://unpkg.com/h5p-standalone@3.8.0/dist/styles/h5p.css',
         });
 
         h5pInstanceRef.current = h5pInstance;

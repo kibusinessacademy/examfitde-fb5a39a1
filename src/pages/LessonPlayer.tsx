@@ -185,6 +185,12 @@ export default function LessonPlayer() {
     }
   };
 
+  const handleMiniCheckCompleted = (score: number, maxScore: number) => {
+    if (!progress?.completed) {
+      completeLesson(score, maxScore);
+    }
+  };
+
   const handleH5PProgress = (progressPercent: number) => {
     // Could be used for real-time progress updates
     console.log('H5P Progress:', progressPercent);
@@ -252,8 +258,10 @@ export default function LessonPlayer() {
             <LessonContent
               content={lesson.content}
               h5pContentId={lesson.h5p_content_id}
+              lessonId={lesson.id}
               onH5PCompleted={handleH5PCompleted}
               onH5PProgress={handleH5PProgress}
+              onMiniCheckCompleted={handleMiniCheckCompleted}
             />
           </CardContent>
         </Card>
