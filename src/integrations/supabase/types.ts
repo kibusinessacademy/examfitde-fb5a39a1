@@ -224,6 +224,69 @@ export type Database = {
           },
         ]
       }
+      course_evidence_packs: {
+        Row: {
+          course_id: string
+          created_at: string
+          curriculum_id: string
+          export_version: string
+          fingerprint_sha256: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          is_immutable: boolean
+          notes: string | null
+          pack: Json | null
+          storage_bucket: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          curriculum_id: string
+          export_version?: string
+          fingerprint_sha256: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          is_immutable?: boolean
+          notes?: string | null
+          pack?: Json | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          curriculum_id?: string
+          export_version?: string
+          fingerprint_sha256?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          is_immutable?: boolean
+          notes?: string | null
+          pack?: Json | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_evidence_packs_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_evidence_packs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           created_at: string
@@ -1110,6 +1173,16 @@ export type Database = {
         Args: { p_course_id: string }
         Returns: string
       }
+      create_course_evidence_pack: {
+        Args: {
+          p_course_id: string
+          p_include_h5p?: boolean
+          p_include_questions?: boolean
+          p_notes?: string
+          p_store_inline?: boolean
+        }
+        Returns: Json
+      }
       create_job: {
         Args: {
           p_job_type: string
@@ -1151,6 +1224,7 @@ export type Database = {
           question_id: string
         }[]
       }
+      get_evidence_pack: { Args: { p_pack_id: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1180,6 +1254,10 @@ export type Database = {
           p_session_id: string
           p_time_spent?: number
         }
+        Returns: Json
+      }
+      verify_evidence_pack_integrity: {
+        Args: { p_pack_id: string }
         Returns: Json
       }
     }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,19 +18,24 @@ import {
   BookOpen, 
   FileCheck,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Archive,
+  RefreshCw,
+  ShieldCheck
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AuditExportsPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isExporting, setIsExporting] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [selectedAttempt, setSelectedAttempt] = useState<string>('');
   const [includeRawLogs, setIncludeRawLogs] = useState(false);
-  const [useRpcExport, setUseRpcExport] = useState(true); // Recommended: use DB function
-  const [pseudonymize, setPseudonymize] = useState(true); // GDPR default: on
+  const [useRpcExport, setUseRpcExport] = useState(true);
+  const [pseudonymize, setPseudonymize] = useState(true);
+  const [verifyingPackId, setVerifyingPackId] = useState<string | null>(null);
 
   // Fetch courses
   const { data: courses } = useQuery({
@@ -110,6 +115,127 @@ export default function AuditExportsPage() {
       return stats;
     },
   });
+
+  // Fetch archived evidence packs
+  const { data: evidencePacks, isLoading: packsLoading } = useQuery({
+    queryKey: ['evidence-packs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('course_evidence_packs')
+        .select(`
+          id,
+          course_id,
+          curriculum_id,
+          generated_at,
+          generated_by,
+          fingerprint_sha256,
+          export_version,
+          is_immutable,
+          storage_bucket,
+          storage_path,
+          notes,
+          courses (title),
+          curricula (title)
+        `)
+        .order('generated_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Archive pack mutation
+  const archivePackMutation = useMutation({
+    mutationFn: async (courseId: string) => {
+      const { data, error } = await supabase.rpc('create_course_evidence_pack', {
+        p_course_id: courseId,
+        p_include_questions: includeRawLogs,
+        p_include_h5p: true,
+        p_store_inline: true,
+        p_notes: null
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['evidence-packs'] });
+      toast({
+        title: data.status === 'existing' ? 'Pack existiert bereits' : 'Pack archiviert',
+        description: `Fingerprint: ${data.fingerprint?.substring(0, 16)}...`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Archivierung fehlgeschlagen',
+        description: error instanceof Error ? error.message : 'Unbekannter Fehler',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Verify pack integrity
+  const handleVerifyPack = async (packId: string) => {
+    setVerifyingPackId(packId);
+    try {
+      const { data, error } = await supabase.rpc('verify_evidence_pack_integrity', {
+        p_pack_id: packId
+      });
+      if (error) throw error;
+      
+      const result = data as any;
+      toast({
+        title: result.integrity_ok ? '✓ Integrität bestätigt' : '⚠ Manipulation erkannt!',
+        description: result.integrity_ok 
+          ? `Fingerprint verifiziert: ${result.stored_fingerprint?.substring(0, 16)}...`
+          : 'Der gespeicherte Pack wurde verändert!',
+        variant: result.integrity_ok ? 'default' : 'destructive',
+      });
+    } catch (error) {
+      toast({
+        title: 'Verifizierung fehlgeschlagen',
+        description: error instanceof Error ? error.message : 'Unbekannter Fehler',
+        variant: 'destructive',
+      });
+    } finally {
+      setVerifyingPackId(null);
+    }
+  };
+
+  // Download archived pack
+  const handleDownloadPack = async (packId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('get_evidence_pack', {
+        p_pack_id: packId
+      });
+      if (error) throw error;
+      
+      const packData = data as any;
+      if (!packData.pack) {
+        toast({
+          title: 'Kein Inline-Pack',
+          description: 'Pack ist extern gespeichert',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const blob = new Blob([JSON.stringify(packData.pack, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `evidence-pack-${packData.fingerprint?.substring(0, 8)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast({
+        title: 'Download fehlgeschlagen',
+        description: error instanceof Error ? error.message : 'Unbekannter Fehler',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleExport = async (type: 'participant' | 'course' | 'attempt') => {
     setIsExporting(true);
@@ -255,6 +381,10 @@ export default function AuditExportsPage() {
           <TabsTrigger value="attempt" className="gap-2">
             <FileCheck className="h-4 w-4" />
             Prüfungsprotokoll
+          </TabsTrigger>
+          <TabsTrigger value="archive" className="gap-2">
+            <Archive className="h-4 w-4" />
+            Archiv
           </TabsTrigger>
         </TabsList>
 
@@ -474,6 +604,162 @@ export default function AuditExportsPage() {
                 )}
                 Prüfungsprotokoll exportieren
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 9C: Evidence Pack Archive */}
+        <TabsContent value="archive">
+          <Card className="glass-card">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Archive className="h-5 w-5" />
+                    Evidence Pack Archiv
+                  </CardTitle>
+                  <CardDescription>
+                    Immutable, fingerprint-gesicherte Kurs-Snapshots für AZAV-Nachweis
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['evidence-packs'] })}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Aktualisieren
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Archive new pack */}
+              <div className="flex items-end gap-4 p-4 bg-muted/50 rounded-lg">
+                <div className="flex-1 space-y-2">
+                  <Label>Kurs archivieren</Label>
+                  <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Kurs wählen..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courses?.map(course => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.title}
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            {course.status}
+                          </Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="include-questions-archive" 
+                    checked={includeRawLogs}
+                    onCheckedChange={setIncludeRawLogs}
+                  />
+                  <Label htmlFor="include-questions-archive" className="text-sm">
+                    Fragen inkl.
+                  </Label>
+                </div>
+                <Button
+                  onClick={() => selectedCourse && archivePackMutation.mutate(selectedCourse)}
+                  disabled={!selectedCourse || archivePackMutation.isPending}
+                >
+                  {archivePackMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Archive className="h-4 w-4 mr-2" />
+                  )}
+                  Archivieren
+                </Button>
+              </div>
+
+              {/* Archived packs table */}
+              {packsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : evidencePacks && evidencePacks.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Kurs</TableHead>
+                      <TableHead>Curriculum</TableHead>
+                      <TableHead>Erstellt</TableHead>
+                      <TableHead>Fingerprint</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Aktionen</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {evidencePacks.map((pack: any) => (
+                      <TableRow key={pack.id}>
+                        <TableCell className="font-medium">
+                          {pack.courses?.title || pack.course_id.substring(0, 8)}
+                        </TableCell>
+                        <TableCell>
+                          {pack.curricula?.title || pack.curriculum_id.substring(0, 8)}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(pack.generated_at).toLocaleDateString('de-DE', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </TableCell>
+                        <TableCell>
+                          <code className="text-xs bg-muted px-2 py-1 rounded">
+                            {pack.fingerprint_sha256?.substring(0, 12)}...
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          {pack.is_immutable ? (
+                            <Badge variant="outline" className="text-green-600 border-green-600">
+                              <ShieldCheck className="h-3 w-3 mr-1" />
+                              Immutable
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">Mutable</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleVerifyPack(pack.id)}
+                              disabled={verifyingPackId === pack.id}
+                            >
+                              {verifyingPackId === pack.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <ShieldCheck className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadPack(pack.id)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Archive className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Noch keine Evidence Packs archiviert</p>
+                  <p className="text-sm">Wählen Sie einen Kurs und klicken Sie auf "Archivieren"</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
