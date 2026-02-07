@@ -32,6 +32,9 @@ const JobsList = lazy(() => import('@/pages/admin/JobsList'));
 const JobDetail = lazy(() => import('@/pages/admin/JobDetail'));
 const JobDeadLetter = lazy(() => import('@/pages/admin/JobDeadLetter'));
 
+// AI Worker Governance
+const AIWorkersPage = lazy(() => import('@/pages/admin/AIWorkersPage'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 
@@ -77,6 +80,8 @@ const AppRoutes = () => {
           <Route path="jobs" element={<JobsList />} />
           <Route path="jobs/deadletter" element={<JobDeadLetter />} />
           <Route path="jobs/:jobId" element={<JobDetail />} />
+          {/* AI Worker Governance */}
+          <Route path="ai-workers" element={<AIWorkersPage />} />
         </Route>
 
         {/* Admin Redirects */}
