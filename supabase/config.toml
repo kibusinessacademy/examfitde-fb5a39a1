@@ -17,3 +17,9 @@ verify_jwt = true
 
 [functions.audit-export]
 verify_jwt = true
+
+[functions.generate-evidence-pack]
+verify_jwt = false
+
+[functions.get-evidence-pack-url]
+verify_jwt = false

@@ -237,6 +237,7 @@ export type Database = {
           is_immutable: boolean
           notes: string | null
           pack: Json | null
+          size_bytes: number | null
           storage_bucket: string | null
           storage_path: string | null
         }
@@ -252,6 +253,7 @@ export type Database = {
           is_immutable?: boolean
           notes?: string | null
           pack?: Json | null
+          size_bytes?: number | null
           storage_bucket?: string | null
           storage_path?: string | null
         }
@@ -267,6 +269,7 @@ export type Database = {
           is_immutable?: boolean
           notes?: string | null
           pack?: Json | null
+          size_bytes?: number | null
           storage_bucket?: string | null
           storage_path?: string | null
         }
@@ -1225,6 +1228,10 @@ export type Database = {
         }[]
       }
       get_evidence_pack: { Args: { p_pack_id: string }; Returns: Json }
+      get_evidence_pack_storage_info: {
+        Args: { p_pack_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1241,6 +1248,38 @@ export type Database = {
           p_tokens_used?: number
         }
         Returns: undefined
+      }
+      register_course_evidence_pack: {
+        Args: {
+          p_course_id: string
+          p_export_version: string
+          p_fingerprint_sha256: string
+          p_size_bytes?: number
+          p_storage_bucket: string
+          p_storage_path: string
+        }
+        Returns: {
+          course_id: string
+          created_at: string
+          curriculum_id: string
+          export_version: string
+          fingerprint_sha256: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          is_immutable: boolean
+          notes: string | null
+          pack: Json | null
+          size_bytes: number | null
+          storage_bucket: string | null
+          storage_path: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "course_evidence_packs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       requeue_failed_jobs: { Args: never; Returns: number }
       start_exam_session: {
