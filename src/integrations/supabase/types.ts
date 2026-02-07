@@ -1115,6 +1115,15 @@ export type Database = {
         }
         Returns: string
       }
+      export_participant_pack: {
+        Args: {
+          p_course_id: string
+          p_include_ai_logs?: boolean
+          p_pseudonymize?: boolean
+          p_user_id: string
+        }
+        Returns: Json
+      }
       fail_job: {
         Args: { p_allow_retry?: boolean; p_error: string; p_job_id: string }
         Returns: undefined
