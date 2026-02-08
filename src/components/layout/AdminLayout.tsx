@@ -39,6 +39,7 @@ const navItems = [
   { path: '/admin-v2/audit-exports', label: 'AZAV Exports', icon: ClipboardList },
   { path: '/admin-v2/evidence-packs', label: 'Evidence Packs', icon: FileArchive },
   { path: '/admin-v2/bibb-seeding', label: 'BIBB Seeding', icon: Database },
+  { path: '/admin-v2/documentation', label: 'Dokumentation', icon: BookOpen },
   { path: '/admin-v2/settings', label: 'Einstellungen', icon: Settings },
 ];
 

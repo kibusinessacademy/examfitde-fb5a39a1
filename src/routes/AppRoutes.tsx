@@ -55,6 +55,9 @@ const SEOPage = lazy(() => import('@/pages/admin/SEOPage'));
 // AZAV Compliance
 const AZAVCompliancePage = lazy(() => import('@/pages/admin/AZAVCompliancePage'));
 
+// Documentation
+const DocumentationPage = lazy(() => import('@/pages/admin/DocumentationPage'));
+
 // BIBB Seeding
 const BIBBSeedingPage = lazy(() => import('@/pages/admin/BIBBSeedingPage'));
 
@@ -145,6 +148,8 @@ const AppRoutes = () => {
           <Route path="seo" element={<SEOPage />} />
           {/* AZAV Compliance */}
           <Route path="azav-compliance" element={<AZAVCompliancePage />} />
+          {/* Documentation */}
+          <Route path="documentation" element={<DocumentationPage />} />
           {/* BIBB Seeding */}
           <Route path="bibb-seeding" element={<BIBBSeedingPage />} />
         </Route>
