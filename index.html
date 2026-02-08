@@ -1,26 +1,84 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- TODO: Set the document title to the name of your application -->
-    <title>Lovable App</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    
+    <!-- Primary Meta Tags -->
+    <title>ExamFit.de – IHK Prüfung bestehen | Lernkurse & Prüfungstrainer</title>
+    <meta name="title" content="ExamFit.de – IHK Prüfung bestehen | Lernkurse & Prüfungstrainer" />
+    <meta name="description" content="Bereite dich optimal auf deine IHK-Prüfung vor. Interaktive Lernkurse, Prüfungstrainer mit echten Fragen und KI-gestützte mündliche Prüfungssimulation. Für Azubis, Betriebe & Berufsschulen." />
+    <meta name="author" content="ExamFit.de" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="IHK Prüfung, IHK Prüfungsvorbereitung, Ausbildung, Azubi, Prüfungstrainer, Lernkurs, mündliche Prüfung, Abschlussprüfung" />
 
-    <!-- TODO: Update og:title to match your application name -->
-    <meta property="og:title" content="Lovable App" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <!-- Theme & PWA -->
+    <meta name="theme-color" content="#0F3D3E" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ExamFit" />
+    <meta name="application-name" content="ExamFit.de" />
+    <meta name="msapplication-TileColor" content="#0F3D3E" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+
+    <!-- Favicons & Icons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#0F3D3E" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:url" content="https://examfit.de/" />
+    <meta property="og:title" content="ExamFit.de – IHK Prüfung bestehen" />
+    <meta property="og:description" content="Bereite dich optimal auf deine IHK-Prüfung vor. Interaktive Lernkurse, Prüfungstrainer und mündliche Prüfungssimulation." />
+    <meta property="og:image" content="https://examfit.de/og-image.png" />
+    <meta property="og:locale" content="de_DE" />
+    <meta property="og:site_name" content="ExamFit.de" />
 
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:url" content="https://examfit.de/" />
+    <meta name="twitter:title" content="ExamFit.de – IHK Prüfung bestehen" />
+    <meta name="twitter:description" content="Bereite dich optimal auf deine IHK-Prüfung vor. Interaktive Lernkurse, Prüfungstrainer und mündliche Prüfungssimulation." />
+    <meta name="twitter:image" content="https://examfit.de/og-image.png" />
+
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "EducationalOrganization",
+      "name": "ExamFit.de",
+      "url": "https://examfit.de",
+      "logo": "https://examfit.de/logo.png",
+      "description": "Deine Plattform für erfolgreiche IHK-Prüfungen. Lernkurse, Prüfungstrainer und mündliche Prüfungssimulation.",
+      "sameAs": [],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer service",
+        "availableLanguage": "German"
+      }
+    }
+    </script>
   </head>
 
-  <body>
+  <body class="no-transitions">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Remove no-transitions class after initial load
+      window.addEventListener('load', () => {
+        document.body.classList.remove('no-transitions');
+      });
+    </script>
   </body>
 </html>

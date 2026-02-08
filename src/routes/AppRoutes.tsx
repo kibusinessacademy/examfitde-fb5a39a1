@@ -17,6 +17,7 @@ const ExamTrainer = lazy(() => import('@/pages/ExamTrainer'));
 const Auth = lazy(() => import('@/pages/Auth'));
 const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
+const InstallPage = lazy(() => import('@/pages/InstallPage'));
 
 // SEO Pages
 const IHKPruefungenPage = lazy(() => import('@/pages/seo/IHKPruefungenPage'));
@@ -110,6 +111,7 @@ const AppRoutes = () => {
         {/* Public Routes */}
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
+        <Route path="/installieren" element={<InstallPage />} />
         
         {/* Shop Routes (standalone, not in MainLayout) */}
         <Route path="/shop" element={<ShopPage />} />
