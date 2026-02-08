@@ -1,0 +1,286 @@
+import { useState } from 'react';
+import { SEOHead } from '@/components/seo/SEOHead';
+import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
+import { SITE_URL, generateFAQSchema } from '@/lib/seo';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Search, HelpCircle, CreditCard, BookOpen, GraduationCap, Shield, Settings } from 'lucide-react';
+
+interface FAQItem {
+  question: string;
+  answer: string;
+  category: string;
+}
+
+const faqs: FAQItem[] = [
+  // Allgemein
+  {
+    category: 'Allgemein',
+    question: 'Was ist ExamFit?',
+    answer: 'ExamFit ist eine digitale Lernplattform zur Vorbereitung auf IHK-Abschlussprüfungen. Wir bieten strukturierte Lernkurse, einen Prüfungstrainer mit echten Prüfungsfragen und eine KI-gestützte mündliche Prüfungssimulation.',
+  },
+  {
+    category: 'Allgemein',
+    question: 'Für welche Berufe bietet ExamFit Prüfungsvorbereitung an?',
+    answer: 'Wir decken eine wachsende Anzahl von IHK-Ausbildungsberufen ab, darunter Kaufleute für Büromanagement, Industriekaufleute, IT-Berufe und viele weitere. Auf unserer Berufe-Seite findest du die vollständige Übersicht.',
+  },
+  {
+    category: 'Allgemein',
+    question: 'Basieren die Inhalte auf offiziellen Prüfungsanforderungen?',
+    answer: 'Ja, alle unsere Lerninhalte basieren auf den offiziellen Rahmenlehrplänen und Prüfungskatalogen der zuständigen IHKs. Wir aktualisieren die Inhalte regelmäßig gemäß den aktuellen Prüfungsordnungen.',
+  },
+
+  // Produkte
+  {
+    category: 'Produkte',
+    question: 'Was ist der Unterschied zwischen Lernkurs und Prüfungstrainer?',
+    answer: 'Der Lernkurs vermittelt dir das theoretische Wissen strukturiert nach Lernfeldern mit verständlichen Erklärungen. Der Prüfungstrainer enthält echte Prüfungsfragen zum Üben mit adaptiver Schwächenanalyse und Prüfungssimulation.',
+  },
+  {
+    category: 'Produkte',
+    question: 'Was beinhaltet das Komplett-Bundle?',
+    answer: 'Das Bundle enthält den Lernkurs, den Prüfungstrainer UND die KI-gestützte mündliche Prüfungssimulation. Du erhältst damit eine vollständige Vorbereitung auf schriftliche und mündliche Prüfungsteile.',
+  },
+  {
+    category: 'Produkte',
+    question: 'Wie funktioniert die mündliche Prüfungssimulation?',
+    answer: 'Unser KI-Prüfer stellt dir berufsspezifische Fragen und gibt dir individuelles Feedback zu deinen Antworten. Du kannst üben, wie du in einer echten Prüfungssituation reagierst und wirst auf typische Fragen vorbereitet.',
+  },
+  {
+    category: 'Produkte',
+    question: 'Was ist der KI-Tutor?',
+    answer: 'Der KI-Tutor ist dein persönlicher Lernassistent. Er beantwortet Fragen zu den Lerninhalten, erklärt komplexe Themen verständlich und hilft dir bei Verständnisproblemen – rund um die Uhr verfügbar.',
+  },
+
+  // Preise & Zahlung
+  {
+    category: 'Preise & Zahlung',
+    question: 'Was kosten die Produkte?',
+    answer: 'Der Lernkurs kostet 19€, der Prüfungstrainer 29€ und das Komplett-Bundle 39€ (statt 48€ einzeln). Alle Preise sind Einmalzahlungen für 12 Monate Zugang.',
+  },
+  {
+    category: 'Preise & Zahlung',
+    question: 'Ist ExamFit ein Abo?',
+    answer: 'Nein! Du zahlst einmal und hast 12 Monate vollen Zugang. Es gibt keine automatische Verlängerung, keine wiederkehrenden Zahlungen und keine Kündigungsfristen.',
+  },
+  {
+    category: 'Preise & Zahlung',
+    question: 'Welche Zahlungsmethoden gibt es?',
+    answer: 'Wir akzeptieren Kreditkarte, PayPal, SEPA-Lastschrift, Apple Pay und Google Pay. Für Unternehmen bieten wir auch Zahlung auf Rechnung an.',
+  },
+  {
+    category: 'Preise & Zahlung',
+    question: 'Bekomme ich eine Rechnung?',
+    answer: 'Ja, nach dem Kauf erhältst du automatisch eine ordnungsgemäße Rechnung mit ausgewiesener Mehrwertsteuer per E-Mail.',
+  },
+  {
+    category: 'Preise & Zahlung',
+    question: 'Gibt es Mengenrabatte für Unternehmen?',
+    answer: 'Ja, ab 5 Lizenzen erhältst du automatisch gestaffelte Rabatte bis zu 25%. Die Rabatte werden direkt im Checkout berechnet.',
+  },
+
+  // Nutzung
+  {
+    category: 'Nutzung',
+    question: 'Wie lange habe ich Zugang zu den Inhalten?',
+    answer: '12 Monate ab Kaufdatum. Das gibt dir genügend Zeit, dich optimal auf deine Prüfung vorzubereiten.',
+  },
+  {
+    category: 'Nutzung',
+    question: 'Kann ich ExamFit auf dem Smartphone nutzen?',
+    answer: 'Ja, ExamFit ist vollständig mobiloptimiert. Du kannst die Web-App nutzen oder sie als App auf deinem Startbildschirm installieren. So kannst du auch unterwegs lernen.',
+  },
+  {
+    category: 'Nutzung',
+    question: 'Benötige ich eine Internetverbindung?',
+    answer: 'Ja, für die Nutzung der Plattform ist eine Internetverbindung erforderlich. Offline-Nutzung ist derzeit nicht möglich.',
+  },
+  {
+    category: 'Nutzung',
+    question: 'Kann ich meinen Account mit anderen teilen?',
+    answer: 'Nein, die Lizenz ist an eine Person gebunden. Die Weitergabe von Zugangsdaten ist nicht gestattet und kann zur Sperrung des Accounts führen.',
+  },
+
+  // Prüfung
+  {
+    category: 'Prüfungsvorbereitung',
+    question: 'Wann sollte ich mit der Vorbereitung beginnen?',
+    answer: 'Wir empfehlen, 3-6 Monate vor der Prüfung zu starten. So hast du genug Zeit für gründliches Lernen und Wiederholen. Unser adaptives System hilft dir, die Zeit optimal zu nutzen.',
+  },
+  {
+    category: 'Prüfungsvorbereitung',
+    question: 'Sind die Prüfungsfragen identisch mit den echten IHK-Prüfungen?',
+    answer: 'Unsere Fragen orientieren sich an Inhalt, Stil und Schwierigkeitsgrad der echten IHK-Prüfungen. Da die Prüfungen urheberrechtlich geschützt sind, verwenden wir keine Originalfragen, aber vergleichbare Fragen zu allen prüfungsrelevanten Themen.',
+  },
+  {
+    category: 'Prüfungsvorbereitung',
+    question: 'Was ist der "Schwächenmodus"?',
+    answer: 'Der Schwächenmodus analysiert deine bisherigen Antworten und stellt dir gezielt Fragen zu Themen, bei denen du noch Verbesserungspotenzial hast. So lernst du effektiver.',
+  },
+  {
+    category: 'Prüfungsvorbereitung',
+    question: 'Garantiert ExamFit das Bestehen der Prüfung?',
+    answer: 'Wir können kein Bestehen garantieren, da der Prüfungserfolg von vielen Faktoren abhängt. Unsere Statistik zeigt jedoch, dass 98% unserer aktiven Nutzer ihre Prüfung bestehen.',
+  },
+
+  // Technisch
+  {
+    category: 'Technisches',
+    question: 'In welchen Browsern funktioniert ExamFit?',
+    answer: 'ExamFit funktioniert in allen modernen Browsern: Chrome, Firefox, Safari, Edge (jeweils aktuelle Versionen). Wir empfehlen Chrome oder Safari für die beste Erfahrung.',
+  },
+  {
+    category: 'Technisches',
+    question: 'Meine Fortschritte werden nicht gespeichert. Was tun?',
+    answer: 'Stelle sicher, dass du angemeldet bist und Cookies aktiviert sind. Bei Problemen melde dich ab und wieder an. Kontaktiere unseren Support, wenn das Problem bestehen bleibt.',
+  },
+
+  // Widerruf
+  {
+    category: 'Widerruf & Support',
+    question: 'Kann ich mein Produkt zurückgeben?',
+    answer: 'Du hast ein 14-tägiges Widerrufsrecht ab Kaufdatum. Beachte: Das Widerrufsrecht erlischt, sobald du mit der Nutzung der digitalen Inhalte beginnst und dem zugestimmt hast.',
+  },
+  {
+    category: 'Widerruf & Support',
+    question: 'Wie erreiche ich den Support?',
+    answer: 'Du erreichst uns per E-Mail an support@examfit.de. Wir antworten in der Regel innerhalb von 24 Stunden an Werktagen.',
+  },
+];
+
+const categories = [
+  { name: 'Alle', icon: HelpCircle },
+  { name: 'Allgemein', icon: HelpCircle },
+  { name: 'Produkte', icon: BookOpen },
+  { name: 'Preise & Zahlung', icon: CreditCard },
+  { name: 'Nutzung', icon: Settings },
+  { name: 'Prüfungsvorbereitung', icon: GraduationCap },
+  { name: 'Technisches', icon: Settings },
+  { name: 'Widerruf & Support', icon: Shield },
+];
+
+export default function FAQPage() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Alle');
+
+  const filteredFaqs = faqs.filter(faq => {
+    const matchesSearch = searchQuery === '' || 
+      faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      faq.answer.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesCategory = selectedCategory === 'Alle' || faq.category === selectedCategory;
+    
+    return matchesSearch && matchesCategory;
+  });
+
+  const structuredData = generateFAQSchema(faqs);
+
+  return (
+    <>
+      <SEOHead
+        title="Häufige Fragen (FAQ) | ExamFit"
+        description="Antworten auf häufig gestellte Fragen zu ExamFit: Preise, Produkte, Prüfungsvorbereitung, Zahlung und technischer Support."
+        canonical={`${SITE_URL}/faq`}
+        structuredData={structuredData}
+      />
+
+      <div className="min-h-screen py-12">
+        <div className="container max-w-4xl">
+          <Breadcrumbs
+            items={[{ label: 'Häufige Fragen' }]}
+            className="mb-8"
+          />
+
+          <div className="text-center mb-12">
+            <h1 className="text-3xl md:text-4xl font-display font-bold mb-4">
+              Häufige Fragen <span className="text-gradient">(FAQ)</span>
+            </h1>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Hier findest du Antworten auf die häufigsten Fragen rund um ExamFit, 
+              unsere Produkte und die Prüfungsvorbereitung.
+            </p>
+          </div>
+
+          {/* Search */}
+          <div className="relative mb-8">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Frage suchen..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-12 text-base"
+              aria-label="FAQ durchsuchen"
+            />
+          </div>
+
+          {/* Category Filters */}
+          <div className="flex flex-wrap gap-2 mb-8" role="group" aria-label="Kategorien filtern">
+            {categories.map((category) => (
+              <Badge
+                key={category.name}
+                variant={selectedCategory === category.name ? 'default' : 'outline'}
+                className="cursor-pointer py-2 px-4 text-sm transition-colors"
+                onClick={() => setSelectedCategory(category.name)}
+                role="button"
+                aria-pressed={selectedCategory === category.name}
+              >
+                {category.name}
+              </Badge>
+            ))}
+          </div>
+
+          {/* FAQ List */}
+          {filteredFaqs.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <HelpCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Keine Fragen gefunden. Versuche eine andere Suche.</p>
+            </div>
+          ) : (
+            <Accordion type="single" collapsible className="space-y-3">
+              {filteredFaqs.map((faq, index) => (
+                <AccordionItem 
+                  key={index} 
+                  value={`item-${index}`}
+                  className="glass-card rounded-xl border-0 px-6"
+                >
+                  <AccordionTrigger className="text-left hover:no-underline py-5">
+                    <div className="flex items-start gap-3">
+                      <Badge variant="secondary" className="shrink-0 text-xs">
+                        {faq.category}
+                      </Badge>
+                      <span className="font-medium">{faq.question}</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground pb-5 pl-[calc(theme(spacing.3)+4rem)]">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
+
+          {/* Contact CTA */}
+          <div className="mt-16 text-center glass-card rounded-2xl p-8">
+            <h2 className="text-xl font-semibold mb-2">Deine Frage nicht gefunden?</h2>
+            <p className="text-muted-foreground mb-4">
+              Kontaktiere uns direkt – wir helfen dir gerne weiter.
+            </p>
+            <a 
+              href="mailto:support@examfit.de" 
+              className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
+            >
+              support@examfit.de
+            </a>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
