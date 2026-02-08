@@ -60,6 +60,10 @@ const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
 const ExamResultsPage = lazy(() => import('@/pages/ExamResultsPage'));
 const OralExamTrainer = lazy(() => import('@/pages/OralExamTrainer'));
 
+// Shop Pages
+const ShopPage = lazy(() => import('@/pages/ShopPage'));
+const PurchaseSuccessPage = lazy(() => import('@/pages/PurchaseSuccessPage'));
+
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -73,6 +77,10 @@ const AppRoutes = () => {
         {/* Public Routes */}
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
+        
+        {/* Shop Routes (standalone, not in MainLayout) */}
+        <Route path="/shop" element={<ShopPage />} />
+        <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
         
         {/* Main Layout Routes */}
         <Route element={<MainLayout />}>

@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.oral-exam]
 verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.verify-purchase]
+verify_jwt = false
