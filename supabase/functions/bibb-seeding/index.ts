@@ -11,6 +11,7 @@ interface BerufProfile {
   zustaendigkeit: string;
   ausbildungsdauerMonate: number;
   profilUrl: string;
+  dqrNiveau?: number;
   taetigkeitsprofil?: string;
   einsatzgebiete?: string[];
   verordnungUrl?: string;
@@ -21,11 +22,24 @@ interface BerufProfile {
 }
 
 interface SeedingJob {
-  action: 'list_berufe' | 'scrape_beruf' | 'scrape_all' | 'status';
+  action: 'list_berufe' | 'scrape_beruf' | 'scrape_all' | 'status' | 'enrich_missing' | 'scrape_kmk';
   bibbId?: string;
   offset?: number;
   limit?: number;
 }
+
+// Known DQR levels by profession type (fallback mapping)
+const DQR_MAPPINGS: Record<string, number> = {
+  'IH': 4,   // Industrie- und Handelskammer
+  'Hw': 4,   // Handwerk
+  'ÖD': 4,   // Öffentlicher Dienst
+  'Fr': 4,   // Freie Berufe
+  'Lw': 4,   // Landwirtschaft
+  'HwEx': 4, // Handwerk (früher)
+};
+
+// KMK Rahmenlehrplan URL patterns
+const KMK_BASE_URL = 'https://www.kmk.org/fileadmin/Dateien/pdf/Bildung/BerufsbildendeSchulen/rlp/';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -49,21 +63,204 @@ Deno.serve(async (req) => {
     const { action } = body;
 
     if (action === 'status') {
-      const { data: berufeCount } = await supabase
+      // Extended status with missing data counts
+      const { data: berufeData, count: berufeCount } = await supabase
         .from('berufe')
-        .select('id', { count: 'exact' });
+        .select('id, dqr_niveau, rahmenlehrplan_url', { count: 'exact' });
       
-      const { data: dokumenteCount } = await supabase
+      const { count: dokumenteCount } = await supabase
         .from('beruf_dokumente')
         .select('id', { count: 'exact' });
+
+      const missingDqr = berufeData?.filter(b => !b.dqr_niveau).length || 0;
+      const missingRlp = berufeData?.filter(b => !b.rahmenlehrplan_url).length || 0;
 
       return new Response(
         JSON.stringify({
           success: true,
           stats: {
-            berufe: berufeCount?.length || 0,
-            dokumente: dokumenteCount?.length || 0,
+            berufe: berufeCount || 0,
+            dokumente: dokumenteCount || 0,
+            missingDqr,
+            missingRlp,
+            completeness: {
+              dqr: berufeCount ? Math.round(((berufeCount - missingDqr) / berufeCount) * 100) : 0,
+              rahmenlehrplan: berufeCount ? Math.round(((berufeCount - missingRlp) / berufeCount) * 100) : 0,
+            }
           }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'enrich_missing') {
+      // Find all berufe missing DQR or Rahmenlehrplan
+      const { data: berufeToEnrich, error: fetchError } = await supabase
+        .from('berufe')
+        .select('id, bibb_id, bezeichnung_kurz, zustaendigkeit, dqr_niveau, rahmenlehrplan_url, bibb_profil_url')
+        .or('dqr_niveau.is.null,rahmenlehrplan_url.is.null')
+        .limit(body.limit || 50);
+
+      if (fetchError) {
+        return new Response(
+          JSON.stringify({ success: false, error: fetchError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const results: Array<{ bibbId: string; status: string; updates: Record<string, any> }> = [];
+
+      for (const beruf of berufeToEnrich || []) {
+        const updates: Record<string, any> = {};
+        let status = 'no_changes';
+
+        // 1. Try to set DQR niveau if missing
+        if (!beruf.dqr_niveau) {
+          // First try scraping the profile for DQR info
+          try {
+            const dqrFromProfile = await scrapeDqrFromProfile(
+              beruf.bibb_profil_url || `https://www.bibb.de/dienst/berufesuche/de/index_berufesuche.php/profile/apprenticeship/${beruf.bibb_id}`,
+              FIRECRAWL_API_KEY
+            );
+            
+            if (dqrFromProfile) {
+              updates.dqr_niveau = dqrFromProfile;
+            } else {
+              // Fallback to mapping based on Zuständigkeit
+              updates.dqr_niveau = DQR_MAPPINGS[beruf.zustaendigkeit] || 4;
+            }
+            status = 'enriched';
+          } catch (err) {
+            console.error(`DQR scrape error for ${beruf.bibb_id}:`, err);
+            // Use fallback
+            updates.dqr_niveau = DQR_MAPPINGS[beruf.zustaendigkeit] || 4;
+            status = 'fallback_used';
+          }
+        }
+
+        // 2. Try to find Rahmenlehrplan if missing
+        if (!beruf.rahmenlehrplan_url) {
+          try {
+            const rlpUrl = await findRahmenlehrplanUrl(
+              beruf.bezeichnung_kurz,
+              beruf.bibb_profil_url || `https://www.bibb.de/dienst/berufesuche/de/index_berufesuche.php/profile/apprenticeship/${beruf.bibb_id}`,
+              FIRECRAWL_API_KEY
+            );
+            
+            if (rlpUrl) {
+              updates.rahmenlehrplan_url = rlpUrl;
+              status = 'enriched';
+
+              // Also add as document
+              await supabase
+                .from('beruf_dokumente')
+                .upsert({
+                  beruf_id: beruf.id,
+                  dokument_typ: 'rahmenlehrplan',
+                  titel: 'KMK-Rahmenlehrplan',
+                  url: rlpUrl,
+                }, {
+                  onConflict: 'beruf_id,dokument_typ,url',
+                  ignoreDuplicates: true,
+                });
+            }
+          } catch (err) {
+            console.error(`RLP scrape error for ${beruf.bibb_id}:`, err);
+          }
+        }
+
+        // Apply updates if any
+        if (Object.keys(updates).length > 0) {
+          updates.updated_at = new Date().toISOString();
+          
+          const { error: updateError } = await supabase
+            .from('berufe')
+            .update(updates)
+            .eq('id', beruf.id);
+
+          if (updateError) {
+            console.error(`Update error for ${beruf.bibb_id}:`, updateError);
+            status = 'update_failed';
+          }
+        }
+
+        results.push({
+          bibbId: beruf.bibb_id,
+          status,
+          updates,
+        });
+
+        // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          processed: results.length,
+          results,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'scrape_kmk') {
+      // Scrape KMK page to get all available Rahmenlehrplan links
+      const kmkUrl = 'https://www.kmk.org/themen/berufliche-schulen/duale-berufsausbildung/downloadbereich-rahmenlehrplaene.html';
+      
+      const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: kmkUrl,
+          formats: ['markdown', 'links'],
+          onlyMainContent: true,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: data.error || 'Firecrawl error' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const links = data.data?.links || [];
+      const rlpLinks = links.filter((link: string) => 
+        link.includes('.pdf') && 
+        (link.includes('rlp') || link.includes('Rahmenlehrplan') || link.includes('RLP'))
+      );
+
+      // Parse profession names from links
+      const rlpMap: Record<string, string> = {};
+      for (const link of rlpLinks) {
+        // Extract profession name from URL
+        const match = link.match(/\/([^\/]+)\.pdf$/i);
+        if (match) {
+          const filename = match[1];
+          // Clean up filename to get profession name
+          const cleanName = filename
+            .replace(/rlp|RLP|Rahmenlehrplan/gi, '')
+            .replace(/_/g, ' ')
+            .replace(/-/g, ' ')
+            .trim();
+          
+          if (cleanName.length > 3) {
+            rlpMap[cleanName.toLowerCase()] = link;
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          totalLinks: rlpLinks.length,
+          rlpMap,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -169,6 +366,7 @@ Deno.serve(async (req) => {
           zustaendigkeit: profile.zustaendigkeit,
           ausbildungsdauer_monate: profile.ausbildungsdauerMonate,
           bibb_profil_url: profile.profilUrl,
+          dqr_niveau: profile.dqrNiveau,
           taetigkeitsprofil: profile.taetigkeitsprofil,
           einsatzgebiete: profile.einsatzgebiete,
           verordnung_pdf_url: profile.verordnungUrl,
@@ -338,6 +536,100 @@ Deno.serve(async (req) => {
   }
 });
 
+// Helper: Scrape DQR niveau from BIBB profile page
+async function scrapeDqrFromProfile(profilUrl: string, apiKey: string): Promise<number | null> {
+  const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      url: profilUrl,
+      formats: ['markdown'],
+      onlyMainContent: true,
+    }),
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  const markdown = data.data?.markdown || '';
+
+  // Look for DQR mentions
+  const dqrPatterns = [
+    /DQR[:\s-]*Niveau[:\s]*(\d)/i,
+    /DQR[:\s]*(\d)/i,
+    /Qualifikationsniveau[:\s]*(\d)/i,
+    /Niveau[:\s]*(\d)[:\s]*\(DQR\)/i,
+    /Level[:\s]*(\d)/i,
+  ];
+
+  for (const pattern of dqrPatterns) {
+    const match = markdown.match(pattern);
+    if (match) {
+      const niveau = parseInt(match[1], 10);
+      if (niveau >= 1 && niveau <= 8) {
+        return niveau;
+      }
+    }
+  }
+
+  return null;
+}
+
+// Helper: Find Rahmenlehrplan URL by scraping BIBB profile or searching KMK
+async function findRahmenlehrplanUrl(
+  berufName: string, 
+  profilUrl: string, 
+  apiKey: string
+): Promise<string | null> {
+  // First try to find in BIBB profile
+  const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      url: profilUrl,
+      formats: ['links'],
+      onlyMainContent: true,
+    }),
+  });
+
+  if (response.ok) {
+    const data = await response.json();
+    const links = data.data?.links || [];
+    
+    // Look for KMK or Rahmenlehrplan links
+    for (const link of links) {
+      if (
+        (link.includes('kmk.org') && link.includes('.pdf')) ||
+        (link.includes('rahmenlehrplan') && link.includes('.pdf')) ||
+        (link.includes('RLP') && link.includes('.pdf'))
+      ) {
+        return link;
+      }
+    }
+  }
+
+  // Try direct KMK search
+  const cleanName = berufName
+    .replace(/\(m\/w\/d\)/gi, '')
+    .replace(/\s+/g, '-')
+    .toLowerCase();
+  
+  const possibleUrls = [
+    `${KMK_BASE_URL}${cleanName}.pdf`,
+    `${KMK_BASE_URL}rlp_${cleanName}.pdf`,
+  ];
+
+  // We can't easily verify URLs without making requests, so just return null
+  // The actual URL might need manual verification
+  return null;
+}
+
 function parseBerufProfile(
   markdown: string, 
   links: string[], 
@@ -355,6 +647,7 @@ function parseBerufProfile(
   // Extract Zuständigkeitsbereich and Duration from table
   let zustaendigkeit = 'IH';
   let ausbildungsdauerMonate = 36;
+  let dqrNiveau: number | undefined;
 
   const tableMatch = markdown.match(/\|\s*Zuständigkeitsbereich\s*\|\s*Ausbildungsdauer\s*\|[\s\S]*?\|\s*(\w+)\s*\|\s*(\d+)\s*Monate\s*\|/i);
   if (tableMatch) {
@@ -367,6 +660,29 @@ function parseBerufProfile(
     
     const dauerMatch = markdown.match(/(\d+)\s*Monate/);
     if (dauerMatch) ausbildungsdauerMonate = parseInt(dauerMatch[1], 10);
+  }
+
+  // Extract DQR Niveau
+  const dqrPatterns = [
+    /DQR[:\s-]*Niveau[:\s]*(\d)/i,
+    /DQR[:\s]*(\d)/i,
+    /Qualifikationsniveau[:\s]*(\d)/i,
+  ];
+
+  for (const pattern of dqrPatterns) {
+    const match = markdown.match(pattern);
+    if (match) {
+      const niveau = parseInt(match[1], 10);
+      if (niveau >= 1 && niveau <= 8) {
+        dqrNiveau = niveau;
+        break;
+      }
+    }
+  }
+
+  // Fallback DQR based on Zuständigkeit if not found
+  if (!dqrNiveau) {
+    dqrNiveau = DQR_MAPPINGS[zustaendigkeit] || 4;
   }
 
   // Extract Tätigkeitsprofil
@@ -405,8 +721,15 @@ function parseBerufProfile(
       }
     }
     
-    if (link.includes('kmk.org') && link.includes('Rahmenlehrplan')) {
-      rahmenlehrplanUrl = link;
+    // Enhanced Rahmenlehrplan detection
+    if (
+      (link.includes('kmk.org') && link.includes('.pdf')) ||
+      (link.toLowerCase().includes('rahmenlehrplan') && link.includes('.pdf')) ||
+      (link.includes('/rlp/') && link.includes('.pdf'))
+    ) {
+      if (!rahmenlehrplanUrl) {
+        rahmenlehrplanUrl = link;
+      }
     }
 
     if (link.includes('certificate_supplement')) {
@@ -432,6 +755,7 @@ function parseBerufProfile(
     zustaendigkeit,
     ausbildungsdauerMonate,
     profilUrl,
+    dqrNiveau,
     taetigkeitsprofil,
     einsatzgebiete: einsatzgebiete.length > 0 ? einsatzgebiete : undefined,
     verordnungUrl,
