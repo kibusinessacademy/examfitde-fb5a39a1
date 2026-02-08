@@ -6,14 +6,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AI Tutor Governance Modes (SSOT)
+// AI Tutor Governance Modes (SSOT - erweitert gemäß Projektanweisungen)
 const AI_MODES = {
-  LEARNING: 'learning',
-  PRACTICE: 'practice',
-  EXAM: 'exam'
+  LEARNING: 'learning',   // Vollständige Tutor-Unterstützung
+  PRACTICE: 'practice',   // Feedback nach Antwort
+  EXAM: 'exam'            // Nur technische Hilfe
+} as const;
+
+// Didaktische Rollen des AI Tutors (SSOT)
+const AI_ROLES = {
+  EXPLAINER: 'explainer',     // Erklärer - vereinfachte Erklärungen
+  COACH: 'coach',             // Coach - Lernstrategie & Tipps
+  EXAMINER: 'examiner',       // Prüfer - typische IHK-Fragen
+  FEEDBACK: 'feedback'        // Feedback-Geber - nach MiniChecks & Prüfungen
 } as const;
 
 type AIMode = typeof AI_MODES[keyof typeof AI_MODES];
+type AIRole = typeof AI_ROLES[keyof typeof AI_ROLES];
 
 // Mode-specific rules
 const MODE_RULES: Record<AIMode, {
@@ -27,8 +36,8 @@ const MODE_RULES: Record<AIMode, {
     allowExplanations: true,
     allowHints: true,
     allowSolutions: true,
-    allowedTopics: ['*'], // All topics allowed
-    systemPrompt: `Du bist ein hilfreicher Lern-Tutor für Fachinformatiker-Azubis.
+    allowedTopics: ['*'],
+    systemPrompt: `Du bist ein hilfreicher Lern-Tutor für Azubis in der dualen Ausbildung.
 Du darfst:
 - Inhalte erklären und Beispiele geben
 - Schritt-für-Schritt-Erklärungen liefern
@@ -36,14 +45,15 @@ Du darfst:
 - Lernpfade empfehlen
 - Alle Fragen beantworten
 
-Sei freundlich, ermutigend und pädagogisch wertvoll.`
+Sei freundlich, ermutigend und pädagogisch wertvoll.
+WICHTIG: Du erfindest KEINE neuen Inhalte, sondern referenzierst nur das Curriculum.`
   },
   [AI_MODES.PRACTICE]: {
     allowExplanations: true,
     allowHints: true,
-    allowSolutions: false, // Only after answer
+    allowSolutions: false,
     allowedTopics: ['feedback', 'hints', 'similar_questions'],
-    systemPrompt: `Du bist ein Übungs-Tutor für Fachinformatiker-Azubis im Trainingsmodus.
+    systemPrompt: `Du bist ein Übungs-Tutor im Trainingsmodus.
 
 WICHTIGE REGELN:
 - Gib NIEMALS die Lösung BEVOR der Nutzer geantwortet hat
@@ -59,13 +69,13 @@ Goldene Regel: Erst Antwort → dann Hilfe`
     allowHints: false,
     allowSolutions: false,
     allowedTopics: ['meta', 'technical'],
-    systemPrompt: `Du bist ein Prüfungsassistent. Du befindest dich im STRIKTEN PRÜFUNGSMODUS.
+    systemPrompt: `Du bist ein Prüfungsassistent im STRIKTEN PRÜFUNGSMODUS.
 
 🚨 STRIKT VERBOTEN:
 - Lösungen anzeigen oder andeuten
-- Hinweise geben ("Denk mal an...")
+- Hinweise geben
 - Erklärungen liefern
-- Fragen umschreiben oder paraphrasieren
+- Fragen umschreiben
 - Inhaltliche Hilfe jeglicher Art
 
 ✅ ERLAUBT (nur diese!):
@@ -76,6 +86,41 @@ Goldene Regel: Erst Antwort → dann Hilfe`
 Bei JEDER inhaltlichen Anfrage antworte:
 "Im Prüfungsmodus kann ich keine inhaltliche Hilfe geben. Bei technischen Problemen helfe ich gerne."`
   }
+};
+
+// Role-specific prompts (zusätzlich zum Mode)
+const ROLE_PROMPTS: Record<AIRole, string> = {
+  [AI_ROLES.EXPLAINER]: `
+ROLLE: Erklärer
+- Erkläre Konzepte einfach und verständlich
+- Nutze Analogien und Beispiele aus dem Alltag
+- Zerlege komplexe Themen in kleine Schritte
+- Verwende Fachbegriffe, aber erkläre sie
+- Prüfe am Ende, ob der Lernende verstanden hat`,
+
+  [AI_ROLES.COACH]: `
+ROLLE: Lern-Coach
+- Gib Tipps zur effektiven Lernstrategie
+- Hilf bei der Priorisierung von Themen
+- Motiviere und ermutige bei Schwierigkeiten
+- Schlage Wiederholungsintervalle vor
+- Identifiziere Lernblockaden und gib Lösungsvorschläge`,
+
+  [AI_ROLES.EXAMINER]: `
+ROLLE: Prüfungs-Trainer
+- Stelle typische IHK-Prüfungsfragen
+- Formuliere wie in echten Prüfungen
+- Gib nach Antworten konstruktives Feedback
+- Weise auf häufige Prüfungsfallen hin
+- Trainiere Zeitmanagement und Prüfungsstrategie`,
+
+  [AI_ROLES.FEEDBACK]: `
+ROLLE: Feedback-Geber
+- Analysiere die Leistung des Lernenden
+- Identifiziere Stärken und Schwächen
+- Gib konkrete Verbesserungsvorschläge
+- Verknüpfe Fehler mit relevanten Lerneinheiten
+- Erstelle einen Lernplan für Schwachstellen`
 };
 
 // Hash function for audit logging (privacy-preserving)
@@ -141,14 +186,33 @@ serve(async (req) => {
     const { 
       message, 
       mode, 
+      role = 'explainer',
       sessionId, 
       sessionType = 'learning',
-      conversationHistory = [] 
+      conversationHistory = [],
+      // SSOT Context - Curriculum/Kompetenz-Kontext
+      context = {}
     } = await req.json();
 
-    // Validate mode
+    const {
+      curriculumId,
+      curriculumTitle,
+      learningFieldId,
+      learningFieldTitle,
+      competencyId,
+      competencyTitle,
+      lessonId,
+      lessonTitle,
+      lessonStep,
+      miniCheckScore,
+      examSessionId
+    } = context;
+
+    // Validate mode and role
     const validMode = Object.values(AI_MODES).includes(mode) ? mode : AI_MODES.LEARNING;
+    const validRole = Object.values(AI_ROLES).includes(role) ? role : AI_ROLES.EXPLAINER;
     const modeRules = MODE_RULES[validMode as AIMode];
+    const rolePrompt = ROLE_PROMPTS[validRole as AIRole] || '';
 
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
@@ -197,10 +261,25 @@ serve(async (req) => {
         throw new Error("LOVABLE_API_KEY is not configured");
       }
 
-      // Build messages with mode-specific system prompt
+      // Build context-aware system prompt
+      let contextPrompt = '';
+      if (curriculumTitle || competencyTitle || lessonTitle) {
+        contextPrompt = `\n\n--- KONTEXT (SSOT) ---`;
+        if (curriculumTitle) contextPrompt += `\nCurriculum: ${curriculumTitle}`;
+        if (learningFieldTitle) contextPrompt += `\nLernfeld: ${learningFieldTitle}`;
+        if (competencyTitle) contextPrompt += `\nKompetenz: ${competencyTitle}`;
+        if (lessonTitle) contextPrompt += `\nLektion: ${lessonTitle}`;
+        if (lessonStep) contextPrompt += `\nAktueller Schritt: ${lessonStep}`;
+        if (miniCheckScore !== undefined) contextPrompt += `\nLetztes MiniCheck-Ergebnis: ${miniCheckScore}%`;
+        contextPrompt += `\n\nNutze diesen Kontext für präzise, curriculumbezogene Antworten.`;
+      }
+
+      // Build messages with mode + role + context
+      const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt;
+      
       const messages = [
-        { role: "system", content: modeRules.systemPrompt },
-        ...conversationHistory.slice(-10), // Keep last 10 messages for context
+        { role: "system", content: systemPrompt },
+        ...conversationHistory.slice(-10),
         { role: "user", content: message }
       ];
 
