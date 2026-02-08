@@ -55,6 +55,8 @@ export interface EvaluationResult {
   missed_points: string[];
   strengths: string[];
   improvements: string[];
+  sample_answer?: string;
+  follow_up_question?: string;
 }
 
 interface UseOralExamOptions {
