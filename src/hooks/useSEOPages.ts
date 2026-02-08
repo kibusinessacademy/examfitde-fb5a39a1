@@ -51,6 +51,20 @@ export function useCurriculumProducts() {
   });
 }
 
+// Mapping der Zuständigkeits-Kürzel zu lesbaren Kammer-Namen
+export const KAMMER_MAPPING: Record<string, { name: string; short: string; type: 'IHK' | 'HWK' | 'Sonstige' }> = {
+  'IH': { name: 'Industrie- und Handelskammer', short: 'IHK', type: 'IHK' },
+  'Hw': { name: 'Handwerkskammer', short: 'HWK', type: 'HWK' },
+  'Lw': { name: 'Landwirtschaftskammer', short: 'LWK', type: 'Sonstige' },
+  'FB': { name: 'Freie Berufe', short: 'FB', type: 'Sonstige' },
+  'ÖD': { name: 'Öffentlicher Dienst', short: 'ÖD', type: 'Sonstige' },
+  'Seeverk': { name: 'Seeverkehrswirtschaft', short: 'See', type: 'IHK' },
+};
+
+export function getKammerInfo(zustaendigkeit: string) {
+  return KAMMER_MAPPING[zustaendigkeit] || { name: zustaendigkeit, short: zustaendigkeit, type: 'Sonstige' as const };
+}
+
 export function useBerufPages() {
   return useQuery({
     queryKey: ['berufe-pages'],
@@ -63,16 +77,23 @@ export function useBerufPages() {
 
       if (error) throw error;
 
-      return data?.map(beruf => ({
-        id: beruf.id,
-        slug: generateSlug(beruf.bezeichnung_kurz),
-        title: beruf.bezeichnung_kurz,
-        fullTitle: beruf.bezeichnung_lang || beruf.bezeichnung_kurz,
-        description: beruf.taetigkeitsprofil,
-        duration: beruf.ausbildungsdauer_monate,
-        dqrLevel: beruf.dqr_niveau,
-        bibbUrl: beruf.bibb_profil_url,
-      }));
+      return data?.map(beruf => {
+        const kammerInfo = getKammerInfo(beruf.zustaendigkeit);
+        return {
+          id: beruf.id,
+          slug: generateSlug(beruf.bezeichnung_kurz),
+          title: beruf.bezeichnung_kurz,
+          fullTitle: beruf.bezeichnung_lang || beruf.bezeichnung_kurz,
+          description: beruf.taetigkeitsprofil,
+          duration: beruf.ausbildungsdauer_monate,
+          dqrLevel: beruf.dqr_niveau,
+          bibbUrl: beruf.bibb_profil_url,
+          zustaendigkeit: beruf.zustaendigkeit,
+          kammer: kammerInfo.short,
+          kammerName: kammerInfo.name,
+          kammerType: kammerInfo.type,
+        };
+      });
     },
   });
 }
