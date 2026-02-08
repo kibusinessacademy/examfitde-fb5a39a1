@@ -49,6 +49,7 @@ const KPIDashboard = lazy(() => import('@/pages/admin/KPIDashboard'));
 const MarketingHub = lazy(() => import('@/pages/admin/MarketingHub'));
 const CRMPage = lazy(() => import('@/pages/admin/CRMPage'));
 const SystemHealthPage = lazy(() => import('@/pages/admin/SystemHealthPage'));
+const SystemAuditPage = lazy(() => import('@/pages/admin/SystemAuditPage'));
 const SEOPage = lazy(() => import('@/pages/admin/SEOPage'));
 
 // BIBB Seeding
@@ -137,6 +138,7 @@ const AppRoutes = () => {
           <Route path="marketing" element={<MarketingHub />} />
           <Route path="crm" element={<CRMPage />} />
           <Route path="system-health" element={<SystemHealthPage />} />
+          <Route path="system-audit" element={<SystemAuditPage />} />
           <Route path="seo" element={<SEOPage />} />
           {/* BIBB Seeding */}
           <Route path="bibb-seeding" element={<BIBBSeedingPage />} />
