@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Target, Award } from 'lucide-react';
+import { ArrowRight, BookOpen, Target, Award, CheckCircle, Star, Shield, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,32 +22,32 @@ const productConfig: Record<ProductType, {
 }> = {
   lernkurs: {
     title: 'Lernkurse',
-    subtitle: 'Interaktive H5P-Module für alle Lernfelder',
-    description: 'Strukturierte Lernkurse für alle IHK-Ausbildungsberufe.',
+    subtitle: 'Verstehe alle Inhalte deines Ausbildungsberufs',
+    description: 'Strukturierte Lernkurse für alle IHK-Ausbildungsberufe. Verständliche Erklärungen zu allen Lernfeldern.',
     icon: BookOpen,
     color: 'primary',
     price: PRODUCT_PRICES.lernkurs,
-    features: ['Alle Lernfelder', 'H5P-Module', 'KI-Tutor', '12 Monate'],
+    features: ['Alle Lernfelder', 'Verständliche Erklärungen', 'KI-Tutor', '12 Monate'],
     urlPrefix: '/lernkurse',
   },
   pruefungstrainer: {
     title: 'Prüfungstrainer',
-    subtitle: 'Echte IHK-Prüfungsfragen üben',
-    description: 'Prüfungstrainer für alle IHK-Ausbildungsberufe.',
+    subtitle: 'Trainiere mit echten IHK-Prüfungsfragen',
+    description: 'Prüfungstrainer für alle IHK-Ausbildungsberufe. Lerne aus deinen Fehlern mit ausführlichen Erklärungen.',
     icon: Target,
     color: 'accent',
     price: PRODUCT_PRICES.pruefungstrainer,
-    features: ['IHK-Fragen', 'Adaptiv', 'Simulation', '12 Monate'],
+    features: ['Echte IHK-Fragen', 'Schwächenanalyse', 'Simulation', '12 Monate'],
     urlPrefix: '/pruefungstrainer',
   },
   bundle: {
     title: 'Komplett-Bundles',
-    subtitle: 'Lernen + Üben + Mündliche Prüfung',
-    description: 'Das Komplett-Paket für alle IHK-Ausbildungsberufe.',
+    subtitle: 'Lernen + Üben + mündliche Prüfung',
+    description: 'Das Komplett-Paket für alle IHK-Ausbildungsberufe. Maximale Prüfungssicherheit zum besten Preis.',
     icon: Award,
     color: 'success',
     price: PRODUCT_PRICES.bundle,
-    features: ['Alles inkl.', 'Mündlich', 'KI-Prüfer', '12 Monate'],
+    features: ['Lernkurs + Trainer', 'Mündliche Prüfung', 'KI-Prüfer', '12 Monate'],
     urlPrefix: '/bundle',
   },
 };
@@ -77,17 +77,32 @@ function ProductListPageComponent({ productType }: ProductListPageProps) {
             <Breadcrumbs items={[{ label: config.title }]} className="mb-8" />
 
             <div className="max-w-3xl">
-              <Badge className="mb-4 bg-primary/20 text-primary border-primary/30">
-                {config.title}
-              </Badge>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-4">
+                <Star className="h-4 w-4 text-warning fill-warning" />
+                <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
+              </div>
               <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
                 <span className="text-gradient">{config.title}</span>
                 <br />für alle IHK-Berufe
               </h1>
               <p className="text-xl text-muted-foreground mb-8">{config.subtitle}</p>
-              <div className="flex items-end gap-2">
+              <div className="flex items-end gap-3 mb-6">
                 <span className="text-4xl font-bold">{config.price}€</span>
                 <span className="text-muted-foreground mb-1">pro Beruf</span>
+                {productType === 'bundle' && (
+                  <Badge className="mb-1 bg-success text-success-foreground">Spare 9€</Badge>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Badge variant="outline" className="py-1.5 px-3">
+                  <Clock className="h-3 w-3 mr-1" />12 Monate Zugang
+                </Badge>
+                <Badge variant="outline" className="py-1.5 px-3">
+                  <Shield className="h-3 w-3 mr-1" />Einmalzahlung
+                </Badge>
+                <Badge variant="outline" className="py-1.5 px-3">
+                  <CheckCircle className="h-3 w-3 mr-1" />IHK-konform
+                </Badge>
               </div>
             </div>
           </div>
@@ -121,9 +136,16 @@ function ProductListPageComponent({ productType }: ProductListPageProps) {
                         <CardDescription>{config.title} für die IHK-Prüfung</CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <span className="text-sm text-primary flex items-center">
-                          Jetzt ansehen <ArrowRight className="ml-1 h-4 w-4" />
-                        </span>
+                        <div className="flex items-center justify-between">
+                          <div className="flex gap-2">
+                            {config.features.slice(0, 2).map((f, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">{f}</Badge>
+                            ))}
+                          </div>
+                          <span className="text-sm text-primary flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ArrowRight className="h-4 w-4" />
+                          </span>
+                        </div>
                       </CardContent>
                     </Card>
                   </Link>
@@ -140,6 +162,7 @@ function ProductListPageComponent({ productType }: ProductListPageProps) {
               <h2 className="text-2xl font-display font-bold mb-4">Spare mit dem Komplett-Bundle</h2>
               <p className="text-muted-foreground mb-6">
                 Lernkurs + Prüfungstrainer + mündliche Prüfungssimulation für nur {PRODUCT_PRICES.bundle}€.
+                Du sparst {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€!
               </p>
               <Button asChild>
                 <Link to="/bundle">Bundles entdecken <ArrowRight className="ml-2 h-5 w-5" /></Link>
@@ -147,6 +170,21 @@ function ProductListPageComponent({ productType }: ProductListPageProps) {
             </div>
           </section>
         )}
+
+        {/* CTA */}
+        <section className="py-20 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
+          <div className="container text-center">
+            <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
+              Starte deine Prüfungsvorbereitung
+            </h2>
+            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+              Einmalzahlung, 12 Monate Zugang. Kein Abo, keine versteckten Kosten.
+            </p>
+            <Button size="lg" className="shadow-glow" asChild>
+              <Link to="/shop">Zum Shop <ArrowRight className="ml-2 h-5 w-5" /></Link>
+            </Button>
+          </div>
+        </section>
       </div>
     </>
   );

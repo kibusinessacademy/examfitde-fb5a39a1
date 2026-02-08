@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { 
   BookOpen, 
   GraduationCap, 
-  Users, 
-  BarChart3, 
   ArrowRight, 
   LogOut,
   Settings,
-  Loader2
+  Loader2,
+  Target,
+  Mic
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -59,7 +59,7 @@ export default function Index() {
             <div className="p-2 rounded-xl gradient-primary shadow-glow-sm">
               <GraduationCap className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="font-display font-semibold text-lg text-foreground">H5P Lernplattform</span>
+            <span className="font-display font-semibold text-lg text-foreground">ExamFit</span>
           </div>
           
           <div className="flex items-center gap-2">
@@ -107,20 +107,20 @@ export default function Index() {
               </div>
               <h2 className="text-2xl font-display font-bold mb-3 text-foreground">Lernkurse</h2>
               <p className="text-muted-foreground mb-6">
-                Strukturiertes Lernen mit der 5-Schritte-Didaktik. Interaktive H5P-Inhalte für optimalen Lernerfolg.
+                Strukturiertes Lernen mit verständlichen Erklärungen für alle Lernfelder deines Berufs.
               </p>
               <div className="space-y-3 mb-8">
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-primary shadow-glow-sm" />
-                  Einstieg - Aktivierung des Vorwissens
+                  Alle Lernfelder abgedeckt
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-primary shadow-glow-sm" />
-                  Verstehen - Theorie und Konzepte
+                  Verständliche Erklärungen
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-primary shadow-glow-sm" />
-                  Anwenden - Praktische Übungen
+                  KI-Tutor für deine Fragen
                 </div>
               </div>
               <Link to="/courses">
@@ -135,25 +135,25 @@ export default function Index() {
             <div className="glass-card rounded-2xl p-8 group hover:border-accent/30 transition-all duration-500 hover:shadow-glow-accent animate-fade-in" style={{ animationDelay: '0.3s' }}>
               <div className="mb-6">
                 <div className="p-4 rounded-2xl gradient-accent w-fit shadow-glow-accent group-hover:shadow-glow-accent transition-shadow">
-                  <GraduationCap className="h-10 w-10 text-accent-foreground" />
+                  <Target className="h-10 w-10 text-accent-foreground" />
                 </div>
               </div>
               <h2 className="text-2xl font-display font-bold mb-3 text-foreground">Prüfungstrainer</h2>
               <p className="text-muted-foreground mb-6">
-                Bereite dich optimal auf Prüfungen vor. 500+ KI-generierte Fragen mit Erklärungen.
+                Trainiere mit echten IHK-Prüfungsfragen und lerne aus deinen Fehlern.
               </p>
               <div className="space-y-3 mb-8">
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-accent shadow-glow-accent" />
-                  Multiple-Choice-Fragen aller Schwierigkeitsgrade
+                  Prüfungsrelevante Fragen
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-accent shadow-glow-accent" />
-                  Sofortige Auswertung mit Erklärungen
+                  Ausführliche Erklärungen
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-accent shadow-glow-accent" />
-                  Personalisierte Schwächen-Analyse
+                  Schwächenanalyse
                 </div>
               </div>
               <Link to="/exams">
@@ -165,27 +165,48 @@ export default function Index() {
             </div>
           </div>
 
+          {/* Mündliche Prüfung Card */}
+          <div className="mt-8 glass-card rounded-2xl p-8 group hover:border-success/30 transition-all duration-500 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+              <div className="p-4 rounded-2xl bg-success w-fit shadow-lg">
+                <Mic className="h-10 w-10 text-success-foreground" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-2xl font-display font-bold mb-2 text-foreground">Mündliche Prüfung üben</h2>
+                <p className="text-muted-foreground">
+                  Simuliere das Fachgespräch mit unserem KI-Prüfer und bekomme Echtzeit-Feedback zu deinen Antworten.
+                </p>
+              </div>
+              <Link to="/oral-exam">
+                <Button variant="outline" className="rounded-xl h-12 px-8">
+                  Fachgespräch starten
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
           {/* Stats Section */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-10">
-            <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+            <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.5s' }}>
               <div className="text-4xl font-display font-bold text-gradient mb-2">
                 {statsLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : stats?.courses_completed ?? 0}
               </div>
               <div className="text-sm text-muted-foreground">Kurse abgeschlossen</div>
             </div>
-            <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.45s' }}>
+            <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.55s' }}>
               <div className="text-4xl font-display font-bold text-gradient-accent mb-2">
                 {statsLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : stats?.questions_answered ?? 0}
               </div>
               <div className="text-sm text-muted-foreground">Fragen beantwortet</div>
             </div>
-            <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.5s' }}>
+            <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.6s' }}>
               <div className="text-4xl font-display font-bold text-success text-glow-accent mb-2">
                 {statsLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : `${stats?.success_rate ?? 0}%`}
               </div>
               <div className="text-sm text-muted-foreground">Erfolgsquote</div>
             </div>
-            <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.55s' }}>
+            <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.65s' }}>
               <div className="text-4xl font-display font-bold text-warning mb-2">
                 {statsLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : stats?.streak ?? 0}
               </div>
@@ -219,7 +240,7 @@ export default function Index() {
                 <div className="glass-card rounded-xl p-6 hover:border-primary/30 transition-all duration-300 cursor-pointer group">
                   <div className="flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-muted/50 group-hover:gradient-primary group-hover:shadow-glow-sm transition-all">
-                      <Users className="h-5 w-5 text-muted-foreground group-hover:text-primary-foreground transition-colors" />
+                      <Target className="h-5 w-5 text-muted-foreground group-hover:text-primary-foreground transition-colors" />
                     </div>
                     <div>
                       <div className="font-medium text-foreground">Fragen</div>
@@ -229,14 +250,14 @@ export default function Index() {
                 </div>
               </Link>
               
-              <Link to="/admin/analytics">
+              <Link to="/admin/kpi">
                 <div className="glass-card rounded-xl p-6 hover:border-primary/30 transition-all duration-300 cursor-pointer group">
                   <div className="flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-muted/50 group-hover:gradient-primary group-hover:shadow-glow-sm transition-all">
-                      <BarChart3 className="h-5 w-5 text-muted-foreground group-hover:text-primary-foreground transition-colors" />
+                      <GraduationCap className="h-5 w-5 text-muted-foreground group-hover:text-primary-foreground transition-colors" />
                     </div>
                     <div>
-                      <div className="font-medium text-foreground">Analytics</div>
+                      <div className="font-medium text-foreground">KPI Dashboard</div>
                       <div className="text-sm text-muted-foreground">Statistiken einsehen</div>
                     </div>
                   </div>

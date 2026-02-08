@@ -7,7 +7,7 @@ import { ProductCards } from '@/components/shop/ProductCards';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, Clock, CreditCard, GraduationCap, LogOut, User, Menu, X } from 'lucide-react';
+import { Shield, Clock, CreditCard, GraduationCap, LogOut, User, Menu, X, CheckCircle, Star } from 'lucide-react';
 
 export default function ShopPage() {
   const { user, signOut, loading } = useAuth();
@@ -49,18 +49,18 @@ export default function ShopPage() {
                 <GraduationCap className="h-5 w-5 text-primary-foreground" />
               </div>
               <span className="font-display font-semibold text-lg text-foreground hidden sm:inline">
-                H5P Lernplattform
+                ExamFit
               </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            <Link to="/courses" className="text-muted-foreground hover:text-foreground transition-colors">
-              Kurse
+            <Link to="/berufe" className="text-muted-foreground hover:text-foreground transition-colors">
+              Berufe
             </Link>
-            <Link to="/exam-trainer" className="text-muted-foreground hover:text-foreground transition-colors">
-              Prüfungstrainer
+            <Link to="/ihk-pruefungen" className="text-muted-foreground hover:text-foreground transition-colors">
+              IHK-Prüfungen
             </Link>
             <Link to="/shop" className="text-foreground font-medium">
               Shop
@@ -109,11 +109,11 @@ export default function ShopPage() {
         {mobileMenuOpen && (
           <div className="md:hidden glass-strong border-t border-border">
             <nav className="container mx-auto px-4 py-4 flex flex-col gap-4">
-              <Link to="/courses" className="text-foreground py-2" onClick={() => setMobileMenuOpen(false)}>
-                Kurse
+              <Link to="/berufe" className="text-foreground py-2" onClick={() => setMobileMenuOpen(false)}>
+                Berufe
               </Link>
-              <Link to="/exam-trainer" className="text-foreground py-2" onClick={() => setMobileMenuOpen(false)}>
-                Prüfungstrainer
+              <Link to="/ihk-pruefungen" className="text-foreground py-2" onClick={() => setMobileMenuOpen(false)}>
+                IHK-Prüfungen
               </Link>
               <Link to="/shop" className="text-foreground py-2 font-medium" onClick={() => setMobileMenuOpen(false)}>
                 Shop
@@ -145,11 +145,15 @@ export default function ShopPage() {
         <div className="container py-12">
           {/* Header */}
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold mb-4">
-              Prüfungsvorbereitung kaufen
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6">
+              <Star className="h-4 w-4 text-warning fill-warning" />
+              <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
+              Investiere in deinen <span className="text-gradient">Prüfungserfolg</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Wähle das passende Paket für deine Prüfungsvorbereitung. 
+              Wähle das passende Paket für deine IHK-Prüfungsvorbereitung. 
               Einmalzahlung, 12 Monate Zugang, keine versteckten Kosten.
             </p>
           </div>
@@ -162,7 +166,7 @@ export default function ShopPage() {
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="w-4 h-4 text-primary" />
-              <span>Sofortiger Zugang</span>
+              <span>Sofortiger Zugang nach Kauf</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <CreditCard className="w-4 h-4 text-primary" />
@@ -207,12 +211,40 @@ export default function ShopPage() {
             </div>
           )}
 
+          {/* Guarantee Section */}
+          <div className="mt-16 glass-card rounded-2xl p-8 max-w-3xl mx-auto text-center">
+            <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
+            <h2 className="text-2xl font-display font-bold mb-4">
+              Deine Vorteile auf einen Blick
+            </h2>
+            <div className="grid md:grid-cols-3 gap-6 text-left">
+              <div>
+                <h3 className="font-semibold mb-2">IHK-konforme Inhalte</h3>
+                <p className="text-sm text-muted-foreground">
+                  Alle Inhalte basieren auf offiziellen Rahmenlehrplänen.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2">Adaptive Lernalgorithmen</h3>
+                <p className="text-sm text-muted-foreground">
+                  Das System erkennt deine Schwächen und trainiert gezielt.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2">Mündliche Prüfung</h3>
+                <p className="text-sm text-muted-foreground">
+                  Übe das Fachgespräch mit KI-Feedback im Bundle.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* B2B Info */}
           <div className="mt-16 text-center">
             <Badge variant="outline" className="mb-4">Für Unternehmen & Schulen</Badge>
-            <h2 className="text-2xl font-bold mb-2">Mehr als 5 Lizenzen?</h2>
+            <h2 className="text-2xl font-bold mb-2">Mehrere Azubis ausbilden?</h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Wähle einfach die gewünschte Menge im Shop aus. 
+              Wähle einfach die gewünschte Menge im Checkout. 
               Ab 5 Lizenzen erhältst du automatisch Mengenrabatt. 
               Keine Anfrage nötig – einfach kaufen!
             </p>
@@ -226,7 +258,7 @@ export default function ShopPage() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
               <GraduationCap className="h-5 w-5 text-primary" />
-              <span className="text-sm text-muted-foreground">© 2026 H5P Lernplattform</span>
+              <span className="text-sm text-muted-foreground">© 2026 ExamFit.de</span>
             </div>
             <nav className="flex gap-6 text-sm text-muted-foreground">
               <Link to="/impressum" className="hover:text-foreground transition-colors">Impressum</Link>
