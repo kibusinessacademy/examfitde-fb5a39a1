@@ -1,9 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from '../_shared/auth.ts';
 
 interface BerufProfile {
   bibbId: string;
@@ -46,6 +42,18 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ==================== AUTH CHECK ====================
+  // Require admin role to run BIBB seeding (expensive external API calls)
+  const auth = await validateAuth(req, true); // requireAdmin = true
+  
+  if (auth.error) {
+    if (auth.error === 'Admin access required') {
+      return forbiddenResponse(auth.error);
+    }
+    return unauthorizedResponse(auth.error);
+  }
+  // ====================================================
+
   try {
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     if (!FIRECRAWL_API_KEY) {
@@ -61,6 +69,8 @@ Deno.serve(async (req) => {
 
     const body: SeedingJob = await req.json();
     const { action } = body;
+
+    console.log(`[User: ${auth.user?.id}] BIBB seeding action: ${action}`);
 
     if (action === 'status') {
       // Extended status with missing data counts
