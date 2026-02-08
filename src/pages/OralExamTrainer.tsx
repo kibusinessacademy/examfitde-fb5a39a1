@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { 
   Mic, 
+  MicOff,
   Clock, 
   Send, 
   ArrowRight, 
@@ -21,7 +22,12 @@ import {
   BookOpen,
   Lightbulb,
   TrendingUp,
-  Loader2
+  Loader2,
+  Volume2,
+  VolumeX,
+  Square,
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,17 +35,123 @@ import { useOralExam, type EvaluationResult } from '@/hooks/useOralExam';
 import { useCheckEntitlement } from '@/hooks/useEntitlements';
 import { Paywall } from '@/components/shop/Paywall';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
-type ExamPhase = 'setup' | 'question' | 'evaluation' | 'results';
+type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
+
+// Web Speech API Types
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
 
 export default function OralExamTrainer() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [phase, setPhase] = useState<ExamPhase>('setup');
   const [selectedCurriculum, setSelectedCurriculum] = useState<string | null>(null);
   const [answer, setAnswer] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(180);
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [showSampleAnswer, setShowSampleAnswer] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognitionAPI();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'de-DE';
+
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          setAnswer(prev => prev + finalTranscript);
+        }
+      };
+
+      recognitionRef.current.onerror = () => {
+        setIsRecording(false);
+        toast({
+          title: 'Spracherkennung fehlgeschlagen',
+          description: 'Bitte überprüfe dein Mikrofon oder nutze die Texteingabe.',
+          variant: 'destructive'
+        });
+      };
+
+      recognitionRef.current.onend = () => {
+        if (isRecording) {
+          // Auto-restart if still in recording mode
+          try {
+            recognitionRef.current?.start();
+          } catch (e) {
+            setIsRecording(false);
+          }
+        }
+      };
+
+      setSpeechSupported(true);
+    }
+
+    return () => {
+      recognitionRef.current?.abort();
+      window.speechSynthesis?.cancel();
+    };
+  }, []);
 
   const { data: curricula } = useQuery({
     queryKey: ['curricula-for-oral-exam'],
@@ -78,13 +190,72 @@ export default function OralExamTrainer() {
     totalQuestions: 5
   });
 
+  // Text-to-Speech function
+  const speakText = useCallback((text: string, onEnd?: () => void) => {
+    if (!('speechSynthesis' in window)) {
+      toast({
+        title: 'Text-to-Speech nicht verfügbar',
+        description: 'Dein Browser unterstützt keine Sprachausgabe.',
+        variant: 'destructive'
+      });
+      onEnd?.();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'de-DE';
+    utterance.rate = 0.9;
+    
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      onEnd?.();
+    };
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      onEnd?.();
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, [toast]);
+
+  const stopSpeaking = useCallback(() => {
+    window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
+  }, []);
+
+  const toggleRecording = useCallback(() => {
+    if (!recognitionRef.current) return;
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsRecording(true);
+        toast({
+          title: 'Sprachaufnahme gestartet',
+          description: 'Sprich jetzt deine Antwort...',
+        });
+      } catch (e) {
+        toast({
+          title: 'Mikrofon nicht verfügbar',
+          description: 'Bitte erlaube den Zugriff auf dein Mikrofon.',
+          variant: 'destructive'
+        });
+      }
+    }
+  }, [isRecording, toast]);
+
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (isTimerActive && timeRemaining > 0) {
       interval = setInterval(() => {
         setTimeRemaining(prev => prev - 1);
       }, 1000);
-    } else if (timeRemaining === 0 && phase === 'question') {
+    } else if (timeRemaining === 0 && (phase === 'question' || phase === 'listening')) {
       handleSubmitAnswer();
     }
     return () => clearInterval(interval);
@@ -97,15 +268,28 @@ export default function OralExamTrainer() {
     setTimeRemaining(180);
     setIsTimerActive(true);
     setAnswer('');
+    setShowSampleAnswer(false);
+  };
+
+  const handleReadQuestion = () => {
+    if (currentQuestion?.question_text) {
+      speakText(currentQuestion.question_text, () => {
+        setPhase('listening');
+      });
+    }
   };
 
   const handleSubmitAnswer = async () => {
     setIsTimerActive(false);
-    const result = await submitAnswer(answer);
+    setIsRecording(false);
+    recognitionRef.current?.stop();
+    stopSpeaking();
+    await submitAnswer(answer);
     setPhase('evaluation');
   };
 
   const handleNextQuestion = async () => {
+    setShowSampleAnswer(false);
     if (progress && progress.current >= progress.total) {
       await finishSession();
       setPhase('results');
@@ -124,6 +308,9 @@ export default function OralExamTrainer() {
     setAnswer('');
     setTimeRemaining(180);
     setIsTimerActive(false);
+    setIsRecording(false);
+    setShowSampleAnswer(false);
+    stopSpeaking();
   };
 
   const formatTime = (seconds: number) => {
@@ -133,15 +320,15 @@ export default function OralExamTrainer() {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 0.8) return 'text-green-600 dark:text-green-400';
-    if (score >= 0.5) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
+    if (score >= 0.8) return 'text-emerald-600 dark:text-emerald-400';
+    if (score >= 0.5) return 'text-amber-600 dark:text-amber-400';
+    return 'text-rose-600 dark:text-rose-400';
   };
 
   const getScoreBg = (score: number) => {
-    if (score >= 0.8) return 'bg-green-500/10 border-green-500/30';
-    if (score >= 0.5) return 'bg-yellow-500/10 border-yellow-500/30';
-    return 'bg-red-500/10 border-red-500/30';
+    if (score >= 0.8) return 'bg-emerald-500/10 border-emerald-500/30';
+    if (score >= 0.5) return 'bg-amber-500/10 border-amber-500/30';
+    return 'bg-rose-500/10 border-rose-500/30';
   };
 
   // Show paywall if curriculum selected but no access
@@ -173,7 +360,7 @@ export default function OralExamTrainer() {
             <span className="text-sm text-muted-foreground">
               Frage {progress.current + 1} von {progress.total}
             </span>
-            {phase === 'question' && (
+            {(phase === 'question' || phase === 'listening') && (
               <Badge 
                 variant={timeRemaining < 30 ? 'destructive' : 'secondary'}
                 className="flex items-center gap-1"
@@ -227,6 +414,7 @@ export default function OralExamTrainer() {
                 <li>• 3 Minuten Antwortzeit pro Frage</li>
                 <li>• KI-Bewertung nach IHK-Kriterien</li>
                 <li>• Detailliertes Feedback nach jeder Antwort</li>
+                {speechSupported && <li>• <strong>Neu:</strong> Sprachaufnahme für authentische Prüfungssimulation</li>}
               </ul>
             </div>
 
@@ -247,15 +435,46 @@ export default function OralExamTrainer() {
         </Card>
       )}
 
-      {phase === 'question' && currentQuestion && (
+      {(phase === 'question' || phase === 'listening') && currentQuestion && (
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="text-lg">Prüfungsfrage</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Prüfungsfrage</CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={isSpeaking ? stopSpeaking : handleReadQuestion}
+                  disabled={isLoading}
+                >
+                  {isSpeaking ? (
+                    <>
+                      <VolumeX className="h-4 w-4 mr-1" />
+                      Stopp
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-4 w-4 mr-1" />
+                      Vorlesen
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
               <p className="text-lg font-medium">{currentQuestion.question_text}</p>
             </div>
+
+            {isRecording && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 animate-pulse">
+                <div className="h-3 w-3 rounded-full bg-rose-500 animate-ping" />
+                <span className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                  Aufnahme läuft... Sprich jetzt deine Antwort.
+                </span>
+              </div>
+            )}
 
             <div>
               <label className="text-sm font-medium mb-2 block">
@@ -265,9 +484,9 @@ export default function OralExamTrainer() {
                 ref={textareaRef}
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
-                placeholder="Formuliere deine Antwort wie in einer mündlichen Prüfung..."
+                placeholder="Formuliere deine Antwort wie in einer mündlichen Prüfung... oder nutze die Sprachaufnahme."
                 className="min-h-[200px] resize-none"
-                disabled={isLoading}
+                disabled={isLoading || isRecording}
               />
               <p className="text-xs text-muted-foreground mt-2">
                 Tipp: Strukturiere deine Antwort und verwende Fachbegriffe
@@ -275,9 +494,28 @@ export default function OralExamTrainer() {
             </div>
 
             <div className="flex gap-3">
+              {speechSupported && (
+                <Button
+                  variant={isRecording ? 'destructive' : 'secondary'}
+                  onClick={toggleRecording}
+                  disabled={isLoading}
+                >
+                  {isRecording ? (
+                    <>
+                      <Square className="h-4 w-4 mr-2" />
+                      Aufnahme beenden
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="h-4 w-4 mr-2" />
+                      Sprachaufnahme
+                    </>
+                  )}
+                </Button>
+              )}
               <Button 
                 className="flex-1"
-                disabled={!answer.trim() || isLoading}
+                disabled={!answer.trim() || isLoading || isRecording}
                 onClick={handleSubmitAnswer}
               >
                 {isLoading ? (
@@ -351,8 +589,8 @@ export default function OralExamTrainer() {
               )}
 
               {evaluation.missed_points?.length > 0 && (
-                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
-                  <h4 className="font-medium flex items-center gap-2 mb-2 text-red-600 dark:text-red-400">
+                <div className="p-4 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                  <h4 className="font-medium flex items-center gap-2 mb-2 text-rose-600 dark:text-rose-400">
                     <XCircle className="h-4 w-4" />
                     Verbesserungspotenzial
                   </h4>
@@ -361,6 +599,43 @@ export default function OralExamTrainer() {
                       <li key={idx}>• {point}</li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Musterantwort Toggle */}
+              {evaluation.sample_answer && (
+                <div className="border rounded-lg overflow-hidden">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-between p-4 h-auto"
+                    onClick={() => setShowSampleAnswer(!showSampleAnswer)}
+                  >
+                    <span className="flex items-center gap-2 font-medium">
+                      <FileText className="h-4 w-4" />
+                      Musterantwort anzeigen
+                    </span>
+                    <span className="text-muted-foreground">
+                      {showSampleAnswer ? '−' : '+'}
+                    </span>
+                  </Button>
+                  {showSampleAnswer && (
+                    <div className="p-4 pt-0 border-t bg-muted/30">
+                      <p className="text-sm text-muted-foreground">
+                        {evaluation.sample_answer}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Mögliche Nachfrage */}
+              {evaluation.follow_up_question && (
+                <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                  <h4 className="font-medium flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-400">
+                    <MessageSquare className="h-4 w-4" />
+                    Mögliche Nachfrage des Prüfers
+                  </h4>
+                  <p className="text-sm italic">"{evaluation.follow_up_question}"</p>
                 </div>
               )}
             </div>

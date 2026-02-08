@@ -299,7 +299,9 @@ Antworte NUR im folgenden JSON-Format:
   "missed_points": ["Punkt 2"],
   "feedback": "Detailliertes Feedback zur Antwort...",
   "strengths": ["Stärke 1"],
-  "improvements": ["Verbesserungsvorschlag 1"]
+  "improvements": ["Verbesserungsvorschlag 1"],
+  "sample_answer": "Eine optimale Musterantwort für diese Frage wäre...",
+  "follow_up_question": "Eine mögliche Nachfrage des Prüfers wäre..."
 }`;
 
   const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -343,7 +345,9 @@ Antworte NUR im folgenden JSON-Format:
       missed_points: question.expected_answer_points || [],
       feedback: "Die Bewertung konnte nicht automatisch durchgeführt werden.",
       strengths: [],
-      improvements: ["Bitte versuchen Sie es erneut."]
+      improvements: ["Bitte versuche es erneut."],
+      sample_answer: "",
+      follow_up_question: ""
     };
   }
 
