@@ -4503,16 +4503,17 @@ export type Database = {
       azav_dashboard_stats: {
         Row: {
           active_massnahmen: number | null
+          approved_massnahmen: number | null
           approved_qm_docs: number | null
-          approved_questions: number | null
           audits_this_year: number | null
-          avg_exam_score_30d: number | null
+          compliance_rate: number | null
           draft_qm_docs: number | null
           expiring_soon: number | null
-          frozen_curricula: number | null
           overdue_reviews: number | null
-          published_courses: number | null
+          recent_audits: number | null
           recent_evidence_packs: number | null
+          total_documents: number | null
+          total_massnahmen: number | null
         }
         Relationships: []
       }
