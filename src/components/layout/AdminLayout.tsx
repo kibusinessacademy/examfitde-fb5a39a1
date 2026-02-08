@@ -15,7 +15,9 @@ import {
   ClipboardList,
   Shield,
   FileArchive,
-  Database
+  Database,
+  Factory,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -26,6 +28,8 @@ const navItems = [
   { path: '/admin-v2/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/admin-v2/kpi-dashboard', label: 'KPI Analytics', icon: Activity },
   { path: '/admin-v2/curricula', label: 'Curricula', icon: FileText },
+  { path: '/admin-v2/product-factory', label: 'Produkt-Factory', icon: Factory },
+  { path: '/admin-v2/quality-gates', label: 'Quality Gates', icon: ShieldCheck },
   { path: '/admin-v2/courses', label: 'Kurse', icon: BookOpen },
   { path: '/admin-v2/questions', label: 'Prüfungsfragen', icon: HelpCircle },
   { path: '/admin-v2/exam-blueprints', label: 'Blueprints', icon: ClipboardList },
