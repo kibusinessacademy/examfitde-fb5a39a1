@@ -179,7 +179,7 @@ Antworte NUR im folgenden JSON-Format:
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-3-flash-preview",
       messages: [
         { role: "system", content: "Du bist ein erfahrener IHK-Prüfer. Antworte ausschließlich im angeforderten JSON-Format." },
         { role: "user", content: prompt }
@@ -309,7 +309,7 @@ Antworte NUR im folgenden JSON-Format:
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-3-flash-preview",
       messages: [
         { role: "system", content: "Du bist ein erfahrener IHK-Prüfer. Bewerte fair aber anspruchsvoll. Antworte nur im JSON-Format." },
         { role: "user", content: evaluationPrompt }

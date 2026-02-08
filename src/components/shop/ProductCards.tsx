@@ -37,7 +37,7 @@ export function ProductCards({ curriculumId }: ProductCardProps) {
 
   const handleCheckout = async (productKey: string) => {
     if (!user) {
-      toast.error('Bitte melden Sie sich an');
+      toast.error('Bitte melde dich an');
       navigate('/auth');
       return;
     }
@@ -167,7 +167,7 @@ function ProductCard({
           />
           {priceData?.tier_name && quantity > 1 && (
             <p className="text-xs text-primary text-center">
-              {priceData.tier_name} – Sie sparen!
+              {priceData.tier_name} – Du sparst!
             </p>
           )}
         </div>

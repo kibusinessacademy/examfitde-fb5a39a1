@@ -60,6 +60,11 @@ const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
 const ExamResultsPage = lazy(() => import('@/pages/ExamResultsPage'));
 const OralExamTrainer = lazy(() => import('@/pages/OralExamTrainer'));
 
+// Enhanced Learning Pages
+const SpacedRepetitionSession = lazy(() => import('@/pages/SpacedRepetitionSession'));
+const ExamAnxietyManager = lazy(() => import('@/pages/ExamAnxietyManager'));
+const VARKLerntypTest = lazy(() => import('@/pages/VARKLerntypTest'));
+
 // Shop Pages
 const ShopPage = lazy(() => import('@/pages/ShopPage'));
 const PurchaseSuccessPage = lazy(() => import('@/pages/PurchaseSuccessPage'));
@@ -97,6 +102,10 @@ const AppRoutes = () => {
             <Route path="/exam-simulation/:sessionId" element={<ExamSimulation />} />
             <Route path="/exam-results/:sessionId" element={<ExamResultsPage />} />
             <Route path="/lesson/:lessonId" element={<LessonPlayer />} />
+            {/* Enhanced Learning Routes */}
+            <Route path="/spaced-repetition" element={<SpacedRepetitionSession />} />
+            <Route path="/exam-anxiety" element={<ExamAnxietyManager />} />
+            <Route path="/vark-test" element={<VARKLerntypTest />} />
           </Route>
         </Route>
 
