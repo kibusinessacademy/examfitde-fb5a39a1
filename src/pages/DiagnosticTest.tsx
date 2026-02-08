@@ -33,7 +33,7 @@ interface DiagnosticQuestion {
   competency_title: string;
   question_text: string;
   options: string[];
-  correct_answer_index: number;
+  correct_answer: string; // The actual correct answer text from DB
 }
 
 type TestPhase = 'intro' | 'testing' | 'goals' | 'results';
@@ -72,12 +72,13 @@ export default function DiagnosticTest() {
     queryFn: async (): Promise<DiagnosticQuestion[]> => {
       if (!curriculumId) return [];
       
-      // Get questions directly
+      // Get questions directly with correct_answer
       const { data: questionsData, error } = await supabase
         .from('exam_questions')
-        .select('id, question_text, options, difficulty, competency_id')
+        .select('id, question_text, options, correct_answer, difficulty, competency_id')
         .eq('curriculum_id', curriculumId)
         .eq('difficulty', 'medium')
+        .eq('status', 'approved')
         .limit(30);
       
       if (error || !questionsData) return [];
@@ -97,14 +98,14 @@ export default function DiagnosticTest() {
       }
       
       const allQuestions: DiagnosticQuestion[] = questionsData
-        .filter(q => q.competency_id && competencyMap.has(q.competency_id))
+        .filter(q => q.competency_id && competencyMap.has(q.competency_id) && q.correct_answer)
         .map(q => ({
           id: q.id,
           competency_id: q.competency_id!,
           competency_title: competencyMap.get(q.competency_id!) || 'Unbekannt',
           question_text: q.question_text,
           options: q.options as string[],
-          correct_answer_index: 0,
+          correct_answer: String(q.correct_answer),
         }));
       
       // Shuffle and limit to max 15 questions
@@ -119,7 +120,9 @@ export default function DiagnosticTest() {
   const handleAnswer = (answerIndex: number) => {
     if (!currentQuestion) return;
     
-    const isCorrect = answerIndex === currentQuestion.correct_answer_index;
+    // Compare selected option text with correct_answer from DB
+    const selectedOption = currentQuestion.options[answerIndex];
+    const isCorrect = selectedOption === currentQuestion.correct_answer;
     
     setAnswers(prev => new Map(prev).set(currentQuestion.competency_id, {
       answer: answerIndex,
@@ -286,7 +289,7 @@ export default function DiagnosticTest() {
           <CardContent className="space-y-3">
             {currentQuestion.options.map((option, idx) => {
               const isSelected = userAnswer?.answer === idx;
-              const isCorrect = idx === currentQuestion.correct_answer_index;
+              const isCorrect = option === currentQuestion.correct_answer;
               const showResult = hasAnswered;
               
               return (
