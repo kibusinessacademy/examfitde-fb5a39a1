@@ -14,6 +14,7 @@ const CourseDetailPage = lazy(() => import('@/pages/CourseDetailPage'));
 const LearnerDashboard = lazy(() => import('@/pages/LearnerDashboard'));
 const ExamTrainer = lazy(() => import('@/pages/ExamTrainer'));
 const Auth = lazy(() => import('@/pages/Auth'));
+const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
 // Admin Pages
@@ -71,6 +72,7 @@ const AppRoutes = () => {
       <Routes>
         {/* Public Routes */}
         <Route path="/auth" element={<Auth />} />
+        <Route path="/auth/reset-password" element={<ResetPassword />} />
         
         {/* Main Layout Routes */}
         <Route element={<MainLayout />}>
