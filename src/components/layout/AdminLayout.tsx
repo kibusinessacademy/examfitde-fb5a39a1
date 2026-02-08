@@ -35,6 +35,7 @@ const navItems = [
   { path: '/admin-v2/jobs/dashboard', label: 'Jobs', icon: Activity },
   { path: '/admin-v2/ai-workers', label: 'AI Workers', icon: Bot },
   { path: '/admin-v2/system-health', label: 'System Health', icon: Shield },
+  { path: '/admin-v2/azav-compliance', label: 'AZAV Compliance', icon: Shield },
   { path: '/admin-v2/audit-exports', label: 'AZAV Exports', icon: ClipboardList },
   { path: '/admin-v2/evidence-packs', label: 'Evidence Packs', icon: FileArchive },
   { path: '/admin-v2/bibb-seeding', label: 'BIBB Seeding', icon: Database },

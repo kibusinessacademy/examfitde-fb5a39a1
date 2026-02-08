@@ -369,6 +369,328 @@ export type Database = {
         }
         Relationships: []
       }
+      azav_audit_log: {
+        Row: {
+          audit_date: string
+          audit_type: string
+          auditor_name: string | null
+          auditor_organization: string | null
+          corrective_actions: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          findings: Json | null
+          id: string
+          massnahme_id: string | null
+          overall_result: string | null
+          qm_document_id: string | null
+          score: number | null
+          title: string
+          verification_date: string | null
+          verification_status: string | null
+        }
+        Insert: {
+          audit_date?: string
+          audit_type: string
+          auditor_name?: string | null
+          auditor_organization?: string | null
+          corrective_actions?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          findings?: Json | null
+          id?: string
+          massnahme_id?: string | null
+          overall_result?: string | null
+          qm_document_id?: string | null
+          score?: number | null
+          title: string
+          verification_date?: string | null
+          verification_status?: string | null
+        }
+        Update: {
+          audit_date?: string
+          audit_type?: string
+          auditor_name?: string | null
+          auditor_organization?: string | null
+          corrective_actions?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          findings?: Json | null
+          id?: string
+          massnahme_id?: string | null
+          overall_result?: string | null
+          qm_document_id?: string | null
+          score?: number | null
+          title?: string
+          verification_date?: string | null
+          verification_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "azav_audit_log_massnahme_id_fkey"
+            columns: ["massnahme_id"]
+            isOneToOne: false
+            referencedRelation: "azav_massnahmen_zulassungen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "azav_audit_log_qm_document_id_fkey"
+            columns: ["qm_document_id"]
+            isOneToOne: false
+            referencedRelation: "qm_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      azav_compliance_checks: {
+        Row: {
+          automated_query: string | null
+          check_category: string
+          check_code: string
+          check_description: string | null
+          check_name: string
+          created_at: string
+          expected_result: string | null
+          id: string
+          is_automated: boolean | null
+          priority: string | null
+          sgb_referenz: string | null
+          weight: number | null
+        }
+        Insert: {
+          automated_query?: string | null
+          check_category: string
+          check_code: string
+          check_description?: string | null
+          check_name: string
+          created_at?: string
+          expected_result?: string | null
+          id?: string
+          is_automated?: boolean | null
+          priority?: string | null
+          sgb_referenz?: string | null
+          weight?: number | null
+        }
+        Update: {
+          automated_query?: string | null
+          check_category?: string
+          check_code?: string
+          check_description?: string | null
+          check_name?: string
+          created_at?: string
+          expected_result?: string | null
+          id?: string
+          is_automated?: boolean | null
+          priority?: string | null
+          sgb_referenz?: string | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      azav_compliance_results: {
+        Row: {
+          actual_value: string | null
+          check_date: string
+          check_id: string
+          checked_by: string | null
+          created_at: string
+          evidence_url: string | null
+          id: string
+          massnahme_id: string | null
+          notes: string | null
+          result: string
+        }
+        Insert: {
+          actual_value?: string | null
+          check_date?: string
+          check_id: string
+          checked_by?: string | null
+          created_at?: string
+          evidence_url?: string | null
+          id?: string
+          massnahme_id?: string | null
+          notes?: string | null
+          result: string
+        }
+        Update: {
+          actual_value?: string | null
+          check_date?: string
+          check_id?: string
+          checked_by?: string | null
+          created_at?: string
+          evidence_url?: string | null
+          id?: string
+          massnahme_id?: string | null
+          notes?: string | null
+          result?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "azav_compliance_results_check_id_fkey"
+            columns: ["check_id"]
+            isOneToOne: false
+            referencedRelation: "azav_compliance_checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "azav_compliance_results_massnahme_id_fkey"
+            columns: ["massnahme_id"]
+            isOneToOne: false
+            referencedRelation: "azav_massnahmen_zulassungen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      azav_fachbereiche: {
+        Row: {
+          beschreibung: string | null
+          bezeichnung: string
+          created_at: string
+          fachbereich_nummer: number
+          fachkundige_stelle: string | null
+          id: string
+          is_active: boolean | null
+          massnahmen_beispiele: Json | null
+          sgb_referenz: string | null
+          updated_at: string
+          zertifikat_nummer: string | null
+          zulassung_bis: string | null
+          zulassung_datum: string | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          bezeichnung: string
+          created_at?: string
+          fachbereich_nummer: number
+          fachkundige_stelle?: string | null
+          id?: string
+          is_active?: boolean | null
+          massnahmen_beispiele?: Json | null
+          sgb_referenz?: string | null
+          updated_at?: string
+          zertifikat_nummer?: string | null
+          zulassung_bis?: string | null
+          zulassung_datum?: string | null
+        }
+        Update: {
+          beschreibung?: string | null
+          bezeichnung?: string
+          created_at?: string
+          fachbereich_nummer?: number
+          fachkundige_stelle?: string | null
+          id?: string
+          is_active?: boolean | null
+          massnahmen_beispiele?: Json | null
+          sgb_referenz?: string | null
+          updated_at?: string
+          zertifikat_nummer?: string | null
+          zulassung_bis?: string | null
+          zulassung_datum?: string | null
+        }
+        Relationships: []
+      }
+      azav_massnahmen_zulassungen: {
+        Row: {
+          course_id: string
+          created_at: string
+          created_by: string | null
+          curriculum_id: string
+          dozenten_qualifikationen: Json | null
+          fachbereich_id: string
+          fachkundige_stelle: string | null
+          id: string
+          kosten_pro_teilnehmer: number | null
+          lehrgangsunterlagen_url: string | null
+          lernform: string | null
+          massnahmen_dauer_wochen: number | null
+          massnahmen_konzept_url: string | null
+          massnahmen_nummer: string | null
+          max_teilnehmer: number | null
+          notes: string | null
+          unterrichtseinheiten_gesamt: number | null
+          unterrichtseinheiten_pro_woche: number | null
+          updated_at: string
+          zertifikat_nummer: string | null
+          zulassung_bis: string | null
+          zulassung_datum: string | null
+          zulassung_status: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          curriculum_id: string
+          dozenten_qualifikationen?: Json | null
+          fachbereich_id: string
+          fachkundige_stelle?: string | null
+          id?: string
+          kosten_pro_teilnehmer?: number | null
+          lehrgangsunterlagen_url?: string | null
+          lernform?: string | null
+          massnahmen_dauer_wochen?: number | null
+          massnahmen_konzept_url?: string | null
+          massnahmen_nummer?: string | null
+          max_teilnehmer?: number | null
+          notes?: string | null
+          unterrichtseinheiten_gesamt?: number | null
+          unterrichtseinheiten_pro_woche?: number | null
+          updated_at?: string
+          zertifikat_nummer?: string | null
+          zulassung_bis?: string | null
+          zulassung_datum?: string | null
+          zulassung_status?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          curriculum_id?: string
+          dozenten_qualifikationen?: Json | null
+          fachbereich_id?: string
+          fachkundige_stelle?: string | null
+          id?: string
+          kosten_pro_teilnehmer?: number | null
+          lehrgangsunterlagen_url?: string | null
+          lernform?: string | null
+          massnahmen_dauer_wochen?: number | null
+          massnahmen_konzept_url?: string | null
+          massnahmen_nummer?: string | null
+          max_teilnehmer?: number | null
+          notes?: string | null
+          unterrichtseinheiten_gesamt?: number | null
+          unterrichtseinheiten_pro_woche?: number | null
+          updated_at?: string
+          zertifikat_nummer?: string | null
+          zulassung_bis?: string | null
+          zulassung_datum?: string | null
+          zulassung_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "azav_massnahmen_zulassungen_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "azav_massnahmen_zulassungen_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "azav_massnahmen_zulassungen_fachbereich_id_fkey"
+            columns: ["fachbereich_id"]
+            isOneToOne: false
+            referencedRelation: "azav_fachbereiche"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       backlinks: {
         Row: {
           anchor_text: string | null
@@ -2896,6 +3218,63 @@ export type Database = {
         }
         Relationships: []
       }
+      qm_documents: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          content: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          document_type: string
+          effective_from: string | null
+          effective_until: string | null
+          id: string
+          next_review_date: string | null
+          review_interval_months: number | null
+          status: string
+          title: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          content?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_type: string
+          effective_from?: string | null
+          effective_until?: string | null
+          id?: string
+          next_review_date?: string | null
+          review_interval_months?: number | null
+          status?: string
+          title: string
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          content?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_type?: string
+          effective_from?: string | null
+          effective_until?: string | null
+          id?: string
+          next_review_date?: string | null
+          review_interval_months?: number | null
+          status?: string
+          title?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       question_blueprints: {
         Row: {
           allowed_question_types: string[]
@@ -3972,6 +4351,22 @@ export type Database = {
         }
         Relationships: []
       }
+      azav_dashboard_stats: {
+        Row: {
+          active_massnahmen: number | null
+          approved_qm_docs: number | null
+          approved_questions: number | null
+          audits_this_year: number | null
+          avg_exam_score_30d: number | null
+          draft_qm_docs: number | null
+          expiring_soon: number | null
+          frozen_curricula: number | null
+          overdue_reviews: number | null
+          published_courses: number | null
+          recent_evidence_packs: number | null
+        }
+        Relationships: []
+      }
       blueprint_questions_view: {
         Row: {
           blueprint_id: string | null
@@ -4389,6 +4784,17 @@ export type Database = {
         }
       }
       requeue_failed_jobs: { Args: never; Returns: number }
+      run_azav_compliance_check: {
+        Args: never
+        Returns: {
+          actual_value: string
+          category: string
+          check_code: string
+          check_name: string
+          priority: string
+          result: string
+        }[]
+      }
       run_health_checks: { Args: never; Returns: Json }
       start_exam_session: {
         Args: { p_blueprint_id: string; p_mode?: string }
