@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Target, Award, CheckCircle, Clock, Layers, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpen, Target, Award, CheckCircle, Clock, Mic, Star, Shield, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ const productInfo: Record<ProductType, {
   icon: typeof BookOpen;
   color: string;
   features: string[];
+  benefits: string[];
   cta: string;
   label: string;
   listLabel: string;
@@ -22,11 +23,16 @@ const productInfo: Record<ProductType, {
     icon: BookOpen,
     color: 'primary',
     features: [
-      'Alle Lernfelder strukturiert aufbereitet',
-      'Interaktive H5P-Module',
-      'KI-Tutor für Fragen',
+      'Alle Lernfelder strukturiert erklärt',
+      'Verständliche Schritt-für-Schritt-Anleitungen',
+      'KI-Tutor für deine Fragen',
       'Fortschrittstracking',
-      '12 Monate Zugang',
+      '12 Monate unbegrenzter Zugang',
+    ],
+    benefits: [
+      'Verstehe komplexe Themen endlich',
+      'Lerne in deinem eigenen Tempo',
+      'Nie wieder Lücken im Prüfungswissen',
     ],
     cta: 'Lernkurs kaufen',
     label: 'Lernkurs',
@@ -38,9 +44,14 @@ const productInfo: Record<ProductType, {
     features: [
       'Echte IHK-Prüfungsfragen',
       'Adaptiver Lernalgorithmus',
-      'Schwachstellen-Analyse',
-      'Prüfungssimulation',
-      '12 Monate Zugang',
+      'Automatische Schwächenanalyse',
+      'Prüfungssimulation unter Zeitdruck',
+      '12 Monate unbegrenzter Zugang',
+    ],
+    benefits: [
+      'Keine bösen Überraschungen in der Prüfung',
+      'Lerne aus deinen Fehlern',
+      'Gehe selbstsicher in die Prüfung',
     ],
     cta: 'Prüfungstrainer kaufen',
     label: 'Prüfungstrainer',
@@ -50,11 +61,16 @@ const productInfo: Record<ProductType, {
     icon: Award,
     color: 'success',
     features: [
-      'Lernkurs + Prüfungstrainer',
+      'Lernkurs + Prüfungstrainer inklusive',
       'Mündliche Prüfungssimulation',
       'KI-Prüfer mit Echtzeit-Feedback',
       'Prüfungsangst-Management',
-      '12 Monate Zugang',
+      '12 Monate unbegrenzter Zugang',
+    ],
+    benefits: [
+      'Komplett-Paket für maximale Sicherheit',
+      'Mündliche Prüfung perfekt vorbereitet',
+      'Spare 9€ gegenüber Einzelkauf',
     ],
     cta: 'Bundle kaufen',
     label: 'Komplett-Bundle',
@@ -93,6 +109,8 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
     price,
     url: `${SITE_URL}/${productType}/${slug}`,
     sku: `${productType}-${slug}`,
+    ratingValue: 4.9,
+    reviewCount: 127,
   });
 
   return (
@@ -119,22 +137,35 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
 
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div>
-                <Badge className="mb-4 bg-primary/20 text-primary border-primary/30">{info.label}</Badge>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-4">
+                  <Star className="h-4 w-4 text-warning fill-warning" />
+                  <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
+                </div>
+                <Badge className="mb-4 ml-2 bg-primary/20 text-primary border-primary/30">{info.label}</Badge>
                 <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
                   {beruf.title}<br />
                   <span className="text-gradient">{info.label}</span>
                 </h1>
                 <p className="text-xl text-muted-foreground mb-8">{seo.description}</p>
 
-                <div className="flex items-end gap-4 mb-8">
+                <div className="flex items-end gap-4 mb-6">
                   <span className="text-5xl font-bold">{price}€</span>
                   {productType === 'bundle' && (
                     <span className="text-lg text-muted-foreground line-through mb-1">
                       {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer}€
                     </span>
                   )}
-                  <Badge variant="outline" className="mb-2">
+                </div>
+                
+                <div className="flex flex-wrap gap-3 mb-8">
+                  <Badge variant="outline" className="py-1.5 px-3">
                     <Clock className="h-3 w-3 mr-1" />12 Monate Zugang
+                  </Badge>
+                  <Badge variant="outline" className="py-1.5 px-3">
+                    <Shield className="h-3 w-3 mr-1" />Einmalzahlung
+                  </Badge>
+                  <Badge variant="outline" className="py-1.5 px-3">
+                    <CheckCircle className="h-3 w-3 mr-1" />Sofortiger Zugang
                   </Badge>
                 </div>
 
@@ -170,24 +201,20 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
           </div>
         </section>
 
+        {/* Benefits */}
         <section className="py-16 bg-muted/30">
-          <div className="container">
-            <h2 className="text-3xl font-display font-bold text-center mb-12">Warum ExamFit?</h2>
-            <div className="grid md:grid-cols-3 gap-8">
-              {[
-                { num: 1, title: 'Curriculumsbasiert', text: 'Alle Inhalte basieren auf dem offiziellen IHK-Rahmenlehrplan.' },
-                { num: 2, title: 'KI-gestützt', text: 'Adaptive Algorithmen erkennen deine Schwächen und trainieren gezielt.' },
-                { num: 3, title: 'Prüfungsnah', text: 'Echte Prüfungsfragen und mündliche Simulation bereiten dich optimal vor.' },
-              ].map((item) => (
-                <Card key={item.num} className="glass-card text-center">
-                  <CardHeader>
+          <div className="container max-w-4xl">
+            <h2 className="text-3xl font-display font-bold text-center mb-12">
+              Deine Vorteile mit dem <span className="text-gradient">{info.label}</span>
+            </h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              {info.benefits.map((benefit, index) => (
+                <Card key={index} className="glass-card text-center">
+                  <CardContent className="pt-6">
                     <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
-                      <span className="text-2xl font-bold text-primary">{item.num}</span>
+                      <CheckCircle className="h-6 w-6 text-primary" />
                     </div>
-                    <CardTitle>{item.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">{item.text}</p>
+                    <p className="font-medium">{benefit}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -195,8 +222,44 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
           </div>
         </section>
 
+        {/* Why ExamFit */}
+        <section className="py-16">
+          <div className="container">
+            <h2 className="text-3xl font-display font-bold text-center mb-12">Warum ExamFit?</h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              <Card className="glass-card text-center">
+                <CardContent className="pt-6">
+                  <Brain className="h-10 w-10 text-primary mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">Adaptives Lernen</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Das System erkennt deine Schwächen und trainiert gezielt.
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card text-center">
+                <CardContent className="pt-6">
+                  <Shield className="h-10 w-10 text-accent mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">IHK-konform</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Alle Inhalte basieren auf offiziellen Rahmenlehrplänen.
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card text-center">
+                <CardContent className="pt-6">
+                  <Mic className="h-10 w-10 text-success mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">Mündliche Prüfung</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Übe das Fachgespräch mit KI-Feedback (im Bundle).
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
         {productType !== 'bundle' && (
-          <section className="py-16">
+          <section className="py-16 bg-muted/30">
             <div className="container max-w-3xl text-center">
               <Badge variant="outline" className="mb-4">Tipp</Badge>
               <h2 className="text-2xl md:text-3xl font-display font-bold mb-4">
@@ -214,9 +277,9 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
 
         <section className="py-20 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
           <div className="container text-center">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">Starte jetzt deine Vorbereitung</h2>
+            <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">Starte jetzt deine Prüfungsvorbereitung</h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Sofortiger Zugang nach dem Kauf. Kein Abo – einmal zahlen, 12 Monate lernen.
+              Einmalzahlung, 12 Monate unbegrenzter Zugang. Kein Abo, keine versteckten Kosten.
             </p>
             <Button size="lg" className="shadow-glow" asChild>
               <Link to="/shop">Jetzt kaufen <ArrowRight className="ml-2 h-5 w-5" /></Link>

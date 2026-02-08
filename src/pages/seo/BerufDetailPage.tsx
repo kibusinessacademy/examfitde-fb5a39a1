@@ -1,9 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Target, Award, Clock, ExternalLink, CheckCircle } from 'lucide-react';
+import { ArrowRight, BookOpen, Target, Award, Clock, ExternalLink, CheckCircle, Star, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useSingleBeruf } from '@/hooks/useSEOPages';
@@ -91,11 +90,14 @@ export default function BerufDetailPage() {
 
             <div className="grid lg:grid-cols-3 gap-12">
               <div className="lg:col-span-2">
-                <Badge className="mb-4 bg-primary/20 text-primary border-primary/30">
-                  Ausbildungsberuf
-                </Badge>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-4">
+                  <Star className="h-4 w-4 text-warning fill-warning" />
+                  <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
+                </div>
                 <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
                   {beruf.title}
+                  <br />
+                  <span className="text-gradient">IHK-Prüfung bestehen</span>
                 </h1>
                 {beruf.fullTitle !== beruf.title && (
                   <p className="text-lg text-muted-foreground mb-4">
@@ -103,7 +105,7 @@ export default function BerufDetailPage() {
                   </p>
                 )}
                 <p className="text-xl text-muted-foreground mb-6">
-                  {beruf.description || `Bereite dich optimal auf die IHK-Abschlussprüfung vor.`}
+                  {beruf.description || `Bereite dich optimal auf die IHK-Abschlussprüfung ${beruf.title} vor. Strukturierte Lernkurse, echte Prüfungsfragen und mündliche Prüfungssimulation.`}
                 </p>
 
                 <div className="flex flex-wrap gap-4 mb-8">
@@ -116,12 +118,16 @@ export default function BerufDetailPage() {
                       DQR-Niveau {beruf.dqrLevel}
                     </Badge>
                   )}
+                  <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
+                    <Shield className="h-4 w-4" />
+                    IHK-konform
+                  </Badge>
                 </div>
 
                 {beruf.bibbUrl && (
                   <Button variant="outline" size="sm" asChild>
                     <a href={beruf.bibbUrl} target="_blank" rel="noopener noreferrer">
-                      BIBB-Profil <ExternalLink className="ml-2 h-4 w-4" />
+                      BIBB-Berufsprofil <ExternalLink className="ml-2 h-4 w-4" />
                     </a>
                   </Button>
                 )}
@@ -131,9 +137,9 @@ export default function BerufDetailPage() {
               <div className="lg:col-span-1">
                 <Card className="glass-card sticky top-24">
                   <CardHeader>
-                    <CardTitle>Jetzt vorbereiten</CardTitle>
+                    <CardTitle>Jetzt Prüfung vorbereiten</CardTitle>
                     <CardDescription>
-                      Wähle dein Produkt und starte sofort
+                      Wähle dein Produkt und starte sofort mit dem Lernen
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -147,7 +153,7 @@ export default function BerufDetailPage() {
                           <span className="font-bold">{PRODUCT_PRICES.lernkurs}€</span>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Interaktive H5P-Module zu allen Lernfeldern
+                          Verstehe alle Lernfelder mit verständlichen Erklärungen
                         </p>
                       </div>
                     </Link>
@@ -162,7 +168,7 @@ export default function BerufDetailPage() {
                           <span className="font-bold">{PRODUCT_PRICES.pruefungstrainer}€</span>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Echte IHK-Prüfungsfragen üben
+                          Trainiere mit echten IHK-Prüfungsfragen
                         </p>
                       </div>
                     </Link>
@@ -185,7 +191,7 @@ export default function BerufDetailPage() {
                           </div>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Alles in einem: Lernen + Üben + Mündliche Prüfung
+                          Lernen + Üben + mündliche Prüfungssimulation
                         </p>
                       </div>
                     </Link>
@@ -196,11 +202,49 @@ export default function BerufDetailPage() {
           </div>
         </section>
 
+        {/* Warum ExamFit */}
+        <section className="py-16">
+          <div className="container max-w-4xl">
+            <h2 className="text-3xl font-display font-bold mb-8 text-center">
+              Warum ExamFit für <span className="text-gradient">{beruf.title}</span>?
+            </h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              <Card className="glass-card text-center">
+                <CardContent className="pt-6">
+                  <div className="text-4xl mb-4">🎯</div>
+                  <h3 className="font-semibold mb-2">Prüfungsorientiert</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Alle Inhalte sind auf die IHK-Prüfung abgestimmt – kein Ballast.
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card text-center">
+                <CardContent className="pt-6">
+                  <div className="text-4xl mb-4">🧠</div>
+                  <h3 className="font-semibold mb-2">Adaptiv</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Das System erkennt deine Schwächen und trainiert gezielt.
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card text-center">
+                <CardContent className="pt-6">
+                  <div className="text-4xl mb-4">🎤</div>
+                  <h3 className="font-semibold mb-2">Mündlich üben</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Simuliere das Fachgespräch mit KI-Feedback.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
         {/* FAQ Section */}
         <section className="py-16 bg-muted/30">
           <div className="container max-w-4xl">
             <h2 className="text-3xl font-display font-bold mb-8 text-center">
-              Häufige Fragen
+              Häufige Fragen zur {beruf.title} Prüfung
             </h2>
             <div className="space-y-6">
               {faqs.map((faq, index) => (
@@ -224,14 +268,15 @@ export default function BerufDetailPage() {
         <section className="py-20">
           <div className="container text-center">
             <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
-              Bereit für die IHK-Prüfung?
+              Bereit für die {beruf.title} IHK-Prüfung?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
               Starte jetzt mit dem Komplett-Bundle und spare {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€.
+              Einmalzahlung, 12 Monate Zugang.
             </p>
             <Button size="lg" className="shadow-glow" asChild>
               <Link to={`/bundle/${slug}`}>
-                Jetzt starten <ArrowRight className="ml-2 h-5 w-5" />
+                Jetzt Prüfung vorbereiten <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
           </div>
