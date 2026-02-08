@@ -17,8 +17,21 @@
 |------------|---------|--------|
 | P0-A | H5P Runtime Assets fehlen | ✅ DONE (CDN) |
 | P0-B | Mini-Check Step ist nur Platzhalter | ✅ DONE (MiniCheckPlayer) |
-| P1-A | Kurs-Navigation: Lessons nicht anklickbar | ✅ DONE |
-| P1-B | Progress-Komponenten nicht integriert | ✅ DONE |
+| P1-A | Kurs-Navigation: Lessons nicht anklickbar | ✅ DONE (ModuleLessonList) |
+| P1-B | Progress-Komponenten nicht integriert | ✅ DONE (vollständig) |
+
+### Phase 3 & 4 - Implementierungsdetails
+
+**Phase 3 (Kurs-Navigation):**
+- `ModuleLessonList.tsx`: `handleLessonClick()` navigiert zu `/lesson/${lessonId}`
+- Klickbare Lektionen mit `cursor-pointer` und `hover:scale-[1.01]`
+- Lock-Status für nicht-eingeschriebene Nutzer
+
+**Phase 4 (Progress-Komponenten):**
+- `CourseDetailPage.tsx`: `SegmentedProgressBar`, `CompetencyProgressGrid`, `ContinueLearningCard`
+- `LessonPlayer.tsx`: `LearningGoalFeedback` nach Mini-Check Abschluss
+- `ModuleLessonList.tsx`: `LessonStatusBadge` bei jeder Lektion
+- Review-Filter für Wiederholungsempfehlungen
 
 ---
 
