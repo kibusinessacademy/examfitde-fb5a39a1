@@ -13,8 +13,16 @@
     <meta name="title" content="ExamFit.de – IHK Prüfung bestehen | Lernkurse & Prüfungstrainer" />
     <meta name="description" content="Bereite dich optimal auf deine IHK-Prüfung vor. Interaktive Lernkurse, Prüfungstrainer mit echten Fragen und KI-gestützte mündliche Prüfungssimulation. Für Azubis, Betriebe & Berufsschulen." />
     <meta name="author" content="ExamFit.de" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="keywords" content="IHK Prüfung, IHK Prüfungsvorbereitung, Ausbildung, Azubi, Prüfungstrainer, Lernkurs, mündliche Prüfung, Abschlussprüfung" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="google" content="notranslate" />
+
+    <!-- Geo Tags for German Market -->
+    <meta name="geo.region" content="DE" />
+    <meta name="geo.placename" content="Germany" />
+    <meta name="language" content="German" />
+    <meta name="content-language" content="de-DE" />
 
     <!-- Theme & PWA -->
     <meta name="theme-color" content="#0F3D3E" media="(prefers-color-scheme: light)" />
@@ -42,6 +50,9 @@
     <meta property="og:title" content="ExamFit.de – IHK Prüfung bestehen" />
     <meta property="og:description" content="Bereite dich optimal auf deine IHK-Prüfung vor. Interaktive Lernkurse, Prüfungstrainer und mündliche Prüfungssimulation." />
     <meta property="og:image" content="https://examfit.de/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ExamFit - IHK-Prüfungsvorbereitung mit KI" />
     <meta property="og:locale" content="de_DE" />
     <meta property="og:site_name" content="ExamFit.de" />
 
@@ -51,26 +62,63 @@
     <meta name="twitter:title" content="ExamFit.de – IHK Prüfung bestehen" />
     <meta name="twitter:description" content="Bereite dich optimal auf deine IHK-Prüfung vor. Interaktive Lernkurse, Prüfungstrainer und mündliche Prüfungssimulation." />
     <meta name="twitter:image" content="https://examfit.de/og-image.png" />
+    <meta name="twitter:image:alt" content="ExamFit - IHK-Prüfungsvorbereitung mit KI" />
 
     <!-- Preconnect for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://ubdvvvsiryenhrfmqsvw.supabase.co" />
 
     <!-- Structured Data -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "EducationalOrganization",
-      "name": "ExamFit.de",
-      "url": "https://examfit.de",
-      "logo": "https://examfit.de/logo.png",
-      "description": "Deine Plattform für erfolgreiche IHK-Prüfungen. Lernkurse, Prüfungstrainer und mündliche Prüfungssimulation.",
-      "sameAs": [],
-      "contactPoint": {
-        "@type": "ContactPoint",
-        "contactType": "customer service",
-        "availableLanguage": "German"
-      }
+      "@graph": [
+        {
+          "@type": "EducationalOrganization",
+          "@id": "https://examfit.de/#organization",
+          "name": "ExamFit.de",
+          "legalName": "ExamFit.de",
+          "url": "https://examfit.de",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://examfit.de/logo.png",
+            "width": 512,
+            "height": 512
+          },
+          "description": "KI-gestützte IHK-Prüfungsvorbereitung für Auszubildende in Deutschland",
+          "foundingDate": "2023-01-01",
+          "areaServed": {
+            "@type": "Country",
+            "name": "Germany"
+          },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer service",
+            "availableLanguage": "German",
+            "email": "support@examfit.de"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://examfit.de/#website",
+          "name": "ExamFit",
+          "url": "https://examfit.de",
+          "description": "IHK-Prüfungsvorbereitung mit KI-Unterstützung",
+          "publisher": {
+            "@id": "https://examfit.de/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://examfit.de/suche?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          },
+          "inLanguage": "de-DE"
+        }
+      ]
     }
     </script>
   </head>

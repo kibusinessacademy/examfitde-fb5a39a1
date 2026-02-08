@@ -57,6 +57,7 @@ export default function BerufDetailPage() {
     '@context': 'https://schema.org',
     '@graph': [
       generateCourseSchema({
+        id: slug || beruf.id,
         name: `${beruf.title} IHK-Prüfungsvorbereitung`,
         description: beruf.description || seo.description,
         url: `${SITE_URL}/berufe/${slug}`,
