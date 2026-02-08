@@ -14,8 +14,8 @@ interface ProductCardProps {
 }
 
 const FEATURES = {
-  learning_course: { icon: BookOpen, label: 'Lerninhaltekurs', description: 'Strukturiertes Lernen & MiniChecks' },
-  exam_trainer: { icon: GraduationCap, label: 'Prüfungstrainer', description: 'Prüfungssimulation nach IHK-Maßstäben' },
+  learning_course: { icon: BookOpen, label: 'Lerninhaltekurs', description: 'Strukturiertes Lernen basierend auf Rahmenlehrplänen' },
+  exam_trainer: { icon: GraduationCap, label: 'Prüfungstrainer', description: 'Prüfungssimulation nach Kammerstandards' },
   ai_tutor: { icon: Brain, label: 'KI-Tutor', description: 'Intelligente Lernunterstützung' },
   oral_trainer: { icon: Mic, label: 'Mündliche Prüfung', description: 'Simulation mit KI-Feedback' },
 };
