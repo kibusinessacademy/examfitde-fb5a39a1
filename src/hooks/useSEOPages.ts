@@ -1,0 +1,95 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { generateSlug } from '@/lib/seo';
+
+export interface SEOPageData {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  curriculum_id: string;
+  product_key: string;
+  product_name: string;
+  is_published: boolean;
+}
+
+export function useCurriculumProducts() {
+  return useQuery({
+    queryKey: ['curriculum-products-seo'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('curriculum_products')
+        .select(`
+          id,
+          slug,
+          seo_title,
+          seo_description,
+          is_published,
+          curriculum_id,
+          curricula (id, title, description),
+          store_products (product_key, name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data?.map(item => ({
+        id: item.id,
+        slug: item.slug || generateSlug((item.curricula as any)?.title || ''),
+        title: (item.curricula as any)?.title || '',
+        description: (item.curricula as any)?.description || null,
+        seo_title: item.seo_title,
+        seo_description: item.seo_description,
+        curriculum_id: item.curriculum_id,
+        product_key: (item.store_products as any)?.product_key || '',
+        product_name: (item.store_products as any)?.name || '',
+        is_published: item.is_published,
+      })) as SEOPageData[];
+    },
+  });
+}
+
+export function useBerufPages() {
+  return useQuery({
+    queryKey: ['berufe-pages'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('berufe')
+        .select('*')
+        .eq('ist_aktiv', true)
+        .order('bezeichnung_kurz');
+
+      if (error) throw error;
+
+      return data?.map(beruf => ({
+        id: beruf.id,
+        slug: generateSlug(beruf.bezeichnung_kurz),
+        title: beruf.bezeichnung_kurz,
+        fullTitle: beruf.bezeichnung_lang || beruf.bezeichnung_kurz,
+        description: beruf.taetigkeitsprofil,
+        duration: beruf.ausbildungsdauer_monate,
+        dqrLevel: beruf.dqr_niveau,
+        bibbUrl: beruf.bibb_profil_url,
+      }));
+    },
+  });
+}
+
+export function useSingleBeruf(slug: string) {
+  const { data: berufe } = useBerufPages();
+  return berufe?.find(b => b.slug === slug);
+}
+
+export function useCurriculumProductBySlug(slug: string, productKey?: string) {
+  const { data: products } = useCurriculumProducts();
+  
+  if (!products) return undefined;
+
+  return products.find(p => {
+    const matchesSlug = p.slug === slug || generateSlug(p.title) === slug;
+    if (!productKey) return matchesSlug;
+    return matchesSlug && p.product_key === productKey;
+  });
+}

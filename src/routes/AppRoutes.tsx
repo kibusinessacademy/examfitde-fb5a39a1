@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 // Guards & Layouts
 import MainLayout from '@/components/layout/MainLayout';
 import AdminLayout from '@/components/layout/AdminLayout';
+import SEOLayout from '@/components/layout/SEOLayout';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 // Lazy Loaded Pages
@@ -16,6 +17,19 @@ const ExamTrainer = lazy(() => import('@/pages/ExamTrainer'));
 const Auth = lazy(() => import('@/pages/Auth'));
 const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
+
+// SEO Pages
+const IHKPruefungenPage = lazy(() => import('@/pages/seo/IHKPruefungenPage'));
+const BerufePage = lazy(() => import('@/pages/seo/BerufePage'));
+const BerufDetailPage = lazy(() => import('@/pages/seo/BerufDetailPage'));
+const UnternehmenPage = lazy(() => import('@/pages/seo/UnternehmenPage'));
+const PreisePage = lazy(() => import('@/pages/seo/PreisePage'));
+const LernkurseListPage = lazy(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.LernkurseListPage })));
+const PruefungstrainerListPage = lazy(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.PruefungstrainerListPage })));
+const BundleListPage = lazy(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.BundleListPage })));
+const LernkursDetailPage = lazy(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.LernkursDetailPage })));
+const PruefungstrainerDetailPage = lazy(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.PruefungstrainerDetailPage })));
+const BundleDetailPage = lazy(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.BundleDetailPage })));
 
 // Admin Pages
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
@@ -97,6 +111,22 @@ const AppRoutes = () => {
         {/* Shop Routes (standalone, not in MainLayout) */}
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
+
+        {/* SEO Routes (Public Marketing Pages) */}
+        <Route element={<SEOLayout />}>
+          <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
+          <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
+          <Route path="/berufe" element={<BerufePage />} />
+          <Route path="/berufe/:slug" element={<BerufDetailPage />} />
+          <Route path="/lernkurse" element={<LernkurseListPage />} />
+          <Route path="/lernkurse/:slug" element={<LernkursDetailPage />} />
+          <Route path="/pruefungstrainer" element={<PruefungstrainerListPage />} />
+          <Route path="/pruefungstrainer/:slug" element={<PruefungstrainerDetailPage />} />
+          <Route path="/bundle" element={<BundleListPage />} />
+          <Route path="/bundle/:slug" element={<BundleDetailPage />} />
+          <Route path="/unternehmen" element={<UnternehmenPage />} />
+          <Route path="/preise" element={<PreisePage />} />
+        </Route>
         
         {/* Main Layout Routes */}
         <Route element={<MainLayout />}>
