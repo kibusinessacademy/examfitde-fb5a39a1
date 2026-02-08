@@ -140,7 +140,7 @@ export default function Index() {
               </div>
               <h2 className="text-2xl font-display font-bold mb-3 text-foreground">Prüfungstrainer</h2>
               <p className="text-muted-foreground mb-6">
-                Trainiere mit echten IHK-Prüfungsfragen und lerne aus deinen Fehlern.
+                Trainiere mit prüfungsrelevanten Fragen nach IHK-Maßstäben.
               </p>
               <div className="space-y-3 mb-8">
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">

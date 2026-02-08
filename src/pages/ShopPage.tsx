@@ -219,9 +219,9 @@ export default function ShopPage() {
             </h2>
             <div className="grid md:grid-cols-3 gap-6 text-left">
               <div>
-                <h3 className="font-semibold mb-2">IHK-konforme Inhalte</h3>
+                <h3 className="font-semibold mb-2">Basierend auf Rahmenlehrplänen</h3>
                 <p className="text-sm text-muted-foreground">
-                  Alle Inhalte basieren auf offiziellen Rahmenlehrplänen.
+                  Alle Inhalte orientieren sich an offiziellen Prüfungsordnungen.
                 </p>
               </div>
               <div>

@@ -23,8 +23,8 @@ import {
 const chapters = [
   {
     icon: BookOpen,
-    title: 'Die IHK richtig verstehen',
-    description: 'Wie IHK-Prüfungen aufgebaut sind, was wirklich zählt und welche Fallen auf dich warten.',
+    title: 'Die Prüfung verstehen',
+    description: 'Wie Abschlussprüfungen aufgebaut sind, was wirklich zählt und welche Fallen auf dich warten.',
   },
   {
     icon: Brain,
@@ -38,7 +38,7 @@ const chapters = [
   },
   {
     icon: AlertTriangle,
-    title: 'Typische IHK-Fehler',
+    title: 'Typische Prüfungsfehler',
     description: 'Die häufigsten Denkfehler, die Azubis Punkte kosten – und wie du sie vermeidest.',
   },
   {
@@ -75,8 +75,8 @@ export default function HandbookLandingPage() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
-    "name": "Prüfungstraining-Handbuch IHK",
-    "description": "Strategischer Begleiter zur IHK-Prüfung. Verstehe die Prüfungslogik, vermeide typische Fehler und bestehe mit System.",
+    "name": "Prüfungstraining-Handbuch – Bestehen mit System",
+    "description": "Strategischer Begleiter zur Abschlussprüfung. Verstehe die Prüfungslogik, vermeide typische Fehler und bestehe mit System.",
     "brand": { "@type": "Brand", "name": "ExamFit" },
     "offers": {
       "@type": "Offer",
@@ -95,8 +95,8 @@ export default function HandbookLandingPage() {
   return (
     <>
       <SEOHead
-        title="Prüfungstraining-Handbuch IHK – Bestehen mit System | ExamFit.de"
-        description="Dein strategischer Begleiter zur IHK-Prüfung: Verstehe die Prüfungslogik, vermeide typische Fehler und gehe mit einem klaren 30-Tage-Plan in die Prüfung."
+        title="Prüfungstraining-Handbuch – Bestehen mit System | ExamFit.de"
+        description="Dein strategischer Begleiter zur Abschlussprüfung: Verstehe die Prüfungslogik, vermeide typische Fehler und gehe mit einem klaren 30-Tage-Plan in die Prüfung."
         canonical="https://examfit.de/pruefungshandbuch"
         structuredData={jsonLd}
       />

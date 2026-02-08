@@ -302,7 +302,8 @@ export function generateOrganizationSchema() {
       width: 512,
       height: 512,
     },
-    description: 'KI-gestützte IHK-Prüfungsvorbereitung für Auszubildende in Deutschland',
+    // HINWEIS: "IHK" nur beschreibend, nicht als Partner/Zertifikation
+    description: 'Unabhängige Lernplattform zur Prüfungsvorbereitung für Auszubildende in Deutschland',
     foundingDate: '2023-01-01',
     areaServed: {
       '@type': 'Country',
@@ -329,7 +330,7 @@ export function generateWebSiteSchema() {
     '@id': `${SITE_URL}/#website`,
     name: SITE_NAME,
     url: SITE_URL,
-    description: 'IHK-Prüfungsvorbereitung mit KI-Unterstützung',
+    description: 'Prüfungsvorbereitung mit KI-Unterstützung',
     publisher: {
       '@id': `${SITE_URL}/#organization`,
     },
@@ -424,30 +425,31 @@ export function generateHowToSchema(howTo: {
 }
 
 // SEO content templates
+// WICHTIG: "IHK" nur beschreibend verwenden, nicht als offizieller Partner/Zertifikation
 export const SEO_TEMPLATES = {
   ihkPruefung: (beruf: string) => ({
-    title: `${beruf} IHK-Prüfung bestehen | ExamFit`,
-    description: `Bereite dich optimal auf die IHK-Prüfung ${beruf} vor. Interaktive Lernkurse, Prüfungstrainer & mündliche Prüfungssimulation. Jetzt starten!`,
+    title: `${beruf} Prüfung bestehen | ExamFit`,
+    description: `Bereite dich optimal auf die Abschlussprüfung ${beruf} vor. Interaktive Lernkurse, Prüfungstrainer & mündliche Prüfungssimulation. Jetzt starten!`,
   }),
   lernkurs: (beruf: string) => ({
-    title: `${beruf} Lernkurs | IHK-Prüfungsvorbereitung | ExamFit`,
-    description: `Strukturierter Lernkurs für ${beruf}. Alle Lernfelder, interaktive H5P-Module & KI-Tutor. 12 Monate Zugang für nur 19€.`,
+    title: `${beruf} Lernkurs | Prüfungsvorbereitung | ExamFit`,
+    description: `Strukturierter Lernkurs für ${beruf}. Alle Lernfelder, interaktive Module & KI-Tutor. 12 Monate Zugang für nur 19€.`,
   }),
   pruefungstrainer: (beruf: string) => ({
-    title: `${beruf} Prüfungstrainer | IHK-Fragen üben | ExamFit`,
-    description: `Trainiere mit echten IHK-Prüfungsfragen für ${beruf}. Adaptive Lernalgorithmen, Schwachstellen-Analyse & Prüfungssimulation. 29€.`,
+    title: `${beruf} Prüfungstrainer | Fragen üben | ExamFit`,
+    description: `Trainiere mit prüfungsrelevanten Fragen für ${beruf}. Adaptive Lernalgorithmen, Schwachstellen-Analyse & Prüfungssimulation. 29€.`,
   }),
   bundle: (beruf: string) => ({
     title: `${beruf} Komplett-Paket | Lernen + Üben | ExamFit`,
     description: `Das Komplett-Paket für ${beruf}: Lernkurs + Prüfungstrainer + mündliche Prüfungssimulation. Alles in einem für nur 39€.`,
   }),
   beruf: (beruf: string) => ({
-    title: `${beruf} – Ausbildung, IHK-Prüfung & Vorbereitung | ExamFit`,
+    title: `${beruf} – Ausbildung, Prüfung & Vorbereitung | ExamFit`,
     description: `Alles zur Ausbildung ${beruf}: Berufsbild, Prüfungsstruktur, typische Fehler & optimale Vorbereitung. Jetzt informieren!`,
   }),
   wissen: (topic: string) => ({
-    title: `${topic} | IHK-Prüfungswissen | ExamFit`,
-    description: `${topic} – Expertenwissen für deine IHK-Prüfung. Praktische Tipps, Lernstrategien & bewährte Methoden.`,
+    title: `${topic} | Prüfungswissen | ExamFit`,
+    description: `${topic} – Expertenwissen für deine Abschlussprüfung. Praktische Tipps, Lernstrategien & bewährte Methoden.`,
   }),
 };
 

@@ -66,7 +66,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-primary" />
-              <span>IHK-konforme Inhalte</span>
+              <span>Basierend auf Rahmenlehrplänen</span>
             </div>
           </div>
         </div>
@@ -191,12 +191,12 @@ export default function HomePage() {
                 <span className="text-muted-foreground text-sm">einmalig</span>
               </div>
               <p className="text-muted-foreground mb-4">
-                Trainiere mit echten IHK-Prüfungsfragen und lerne aus deinen Fehlern.
+                Trainiere mit prüfungsrelevanten Fragen und lerne aus deinen Fehlern.
               </p>
               <ul className="space-y-2 text-sm text-muted-foreground mb-6">
                 <li className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-accent" />
-                  Echte Prüfungsfragen
+                  Prüfungsrelevante Fragen
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-accent" />
@@ -289,7 +289,7 @@ export default function HomePage() {
             </div>
             <div className="glass-card rounded-2xl p-6 text-center">
               <GraduationCap className="h-10 w-10 text-warning mx-auto mb-4" />
-              <h3 className="font-semibold mb-2">IHK-konform</h3>
+              <h3 className="font-semibold mb-2">Nach Rahmenlehrplan</h3>
               <p className="text-sm text-muted-foreground">
                 Alle Inhalte basieren auf offiziellen Rahmenlehrplänen.
               </p>
