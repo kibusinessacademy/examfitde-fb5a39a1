@@ -57,6 +57,7 @@ const BIBBSeedingPage = lazy(() => import('@/pages/admin/BIBBSeedingPage'));
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
 const ExamResultsPage = lazy(() => import('@/pages/ExamResultsPage'));
+const OralExamTrainer = lazy(() => import('@/pages/OralExamTrainer'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -81,6 +82,7 @@ const AppRoutes = () => {
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<LearnerDashboard />} />
             <Route path="/exam-trainer" element={<ExamTrainer />} />
+            <Route path="/oral-exam" element={<OralExamTrainer />} />
             <Route path="/exam-simulation" element={<ExamSimulation />} />
             <Route path="/exam-simulation/:sessionId" element={<ExamSimulation />} />
             <Route path="/exam-results/:sessionId" element={<ExamResultsPage />} />

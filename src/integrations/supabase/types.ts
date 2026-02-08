@@ -2016,6 +2016,204 @@ export type Database = {
         }
         Relationships: []
       }
+      oral_exam_questions: {
+        Row: {
+          ai_feedback: string | null
+          answer_started_at: string | null
+          answer_submitted_at: string | null
+          begriffssicherheit_score: number | null
+          blueprint_id: string | null
+          competency_id: string | null
+          covered_points: string[] | null
+          created_at: string
+          expected_answer_points: string[] | null
+          fachlichkeit_score: number | null
+          follow_up_questions: string[] | null
+          id: string
+          learning_field_id: string | null
+          missed_points: string[] | null
+          order_index: number
+          praxisbezug_score: number | null
+          question_text: string
+          session_id: string
+          struktur_score: number | null
+          time_limit_seconds: number | null
+          time_spent_seconds: number | null
+          user_answer: string | null
+        }
+        Insert: {
+          ai_feedback?: string | null
+          answer_started_at?: string | null
+          answer_submitted_at?: string | null
+          begriffssicherheit_score?: number | null
+          blueprint_id?: string | null
+          competency_id?: string | null
+          covered_points?: string[] | null
+          created_at?: string
+          expected_answer_points?: string[] | null
+          fachlichkeit_score?: number | null
+          follow_up_questions?: string[] | null
+          id?: string
+          learning_field_id?: string | null
+          missed_points?: string[] | null
+          order_index: number
+          praxisbezug_score?: number | null
+          question_text: string
+          session_id: string
+          struktur_score?: number | null
+          time_limit_seconds?: number | null
+          time_spent_seconds?: number | null
+          user_answer?: string | null
+        }
+        Update: {
+          ai_feedback?: string | null
+          answer_started_at?: string | null
+          answer_submitted_at?: string | null
+          begriffssicherheit_score?: number | null
+          blueprint_id?: string | null
+          competency_id?: string | null
+          covered_points?: string[] | null
+          created_at?: string
+          expected_answer_points?: string[] | null
+          fachlichkeit_score?: number | null
+          follow_up_questions?: string[] | null
+          id?: string
+          learning_field_id?: string | null
+          missed_points?: string[] | null
+          order_index?: number
+          praxisbezug_score?: number | null
+          question_text?: string
+          session_id?: string
+          struktur_score?: number | null
+          time_limit_seconds?: number | null
+          time_spent_seconds?: number | null
+          user_answer?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oral_exam_questions_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_questions_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oral_exam_questions_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oral_exam_questions_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oral_exam_questions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "oral_exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      oral_exam_sessions: {
+        Row: {
+          begriffssicherheit_score: number | null
+          blueprint_id: string | null
+          created_at: string
+          current_question_index: number
+          curriculum_id: string
+          fachlichkeit_score: number | null
+          finished_at: string | null
+          id: string
+          improvement_suggestions: string[] | null
+          mode: string
+          overall_score: number | null
+          passed: boolean | null
+          praxisbezug_score: number | null
+          started_at: string
+          strengths: string[] | null
+          struktur_score: number | null
+          time_limit_minutes: number | null
+          total_questions: number
+          updated_at: string
+          user_id: string
+          weaknesses: string[] | null
+        }
+        Insert: {
+          begriffssicherheit_score?: number | null
+          blueprint_id?: string | null
+          created_at?: string
+          current_question_index?: number
+          curriculum_id: string
+          fachlichkeit_score?: number | null
+          finished_at?: string | null
+          id?: string
+          improvement_suggestions?: string[] | null
+          mode?: string
+          overall_score?: number | null
+          passed?: boolean | null
+          praxisbezug_score?: number | null
+          started_at?: string
+          strengths?: string[] | null
+          struktur_score?: number | null
+          time_limit_minutes?: number | null
+          total_questions?: number
+          updated_at?: string
+          user_id: string
+          weaknesses?: string[] | null
+        }
+        Update: {
+          begriffssicherheit_score?: number | null
+          blueprint_id?: string | null
+          created_at?: string
+          current_question_index?: number
+          curriculum_id?: string
+          fachlichkeit_score?: number | null
+          finished_at?: string | null
+          id?: string
+          improvement_suggestions?: string[] | null
+          mode?: string
+          overall_score?: number | null
+          passed?: boolean | null
+          praxisbezug_score?: number | null
+          started_at?: string
+          strengths?: string[] | null
+          struktur_score?: number | null
+          time_limit_minutes?: number | null
+          total_questions?: number
+          updated_at?: string
+          user_id?: string
+          weaknesses?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oral_exam_sessions_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "exam_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       process_documentation: {
         Row: {
           category: string
