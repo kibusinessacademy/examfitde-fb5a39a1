@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { ReadinessWidget } from '@/components/dashboard/ReadinessWidget';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -46,6 +47,7 @@ export default function LearnerDashboard() {
   const [enrollments, setEnrollments] = useState<EnrolledCourse[]>([]);
   const [progress, setProgress] = useState<Map<string, CourseProgress>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [activeCurriculumId, setActiveCurriculumId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -56,7 +58,7 @@ export default function LearnerDashboard() {
   const fetchDashboardData = async () => {
     if (!user) return;
 
-    // Fetch enrolled courses
+    // Fetch enrolled courses with curriculum info
     const { data: enrollmentData } = await supabase
       .from('course_enrollments')
       .select(`
@@ -64,7 +66,7 @@ export default function LearnerDashboard() {
         enrolled_at,
         last_accessed_at,
         completed_at,
-        course:courses(id, title, description, thumbnail_url, estimated_duration)
+        course:courses(id, title, description, thumbnail_url, estimated_duration, curriculum_id)
       `)
       .eq('user_id', user.id)
       .order('last_accessed_at', { ascending: false, nullsFirst: false });
@@ -73,10 +75,15 @@ export default function LearnerDashboard() {
       // Type assertion for the nested query result
       const typedEnrollments = enrollmentData.map(e => ({
         ...e,
-        course: e.course as unknown as EnrolledCourse['course']
-      })) as EnrolledCourse[];
+        course: e.course as unknown as EnrolledCourse['course'] & { curriculum_id?: string }
+      })) as (EnrolledCourse & { course: EnrolledCourse['course'] & { curriculum_id?: string } })[];
       
       setEnrollments(typedEnrollments);
+      
+      // Set active curriculum from most recent course
+      if (typedEnrollments.length > 0 && typedEnrollments[0].course?.curriculum_id) {
+        setActiveCurriculumId(typedEnrollments[0].course.curriculum_id);
+      }
 
       // Fetch progress for each course
       const progressMap = new Map<string, CourseProgress>();
@@ -161,6 +168,13 @@ export default function LearnerDashboard() {
             Hier ist eine Übersicht deiner Lernfortschritte.
           </p>
         </div>
+
+        {/* Readiness Widget - shows adaptive recommendations */}
+        {activeCurriculumId && (
+          <div className="mb-8">
+            <ReadinessWidget curriculumId={activeCurriculumId} />
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

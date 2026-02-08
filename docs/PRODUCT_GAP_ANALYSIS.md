@@ -21,12 +21,21 @@ Die ExamFit.de Plattform hat bereits eine **solide Grundarchitektur** mit:
 
 | Bereich | Status | Priorität |
 |---------|--------|-----------|
-| Diagnosetest bei Einstieg | ❌ Fehlt | 🔴 Kritisch |
-| Adaptive Steuerung (System entscheidet) | ⚠️ Teilweise | 🔴 Kritisch |
-| Schwächenmodus im Prüfungstrainer | ❌ Fehlt | 🟡 Hoch |
+| Diagnosetest bei Einstieg | ✅ Implementiert | 🔴 Kritisch |
+| Adaptive Steuerung (System entscheidet) | ✅ Implementiert | 🔴 Kritisch |
+| Schwächenmodus im Prüfungstrainer | ✅ Implementiert | 🟡 Hoch |
 | Quality Gates vor Publish | ⚠️ Manuell | 🟡 Hoch |
-| Bestehens-Prognose Dashboard | ❌ Fehlt | 🟡 Hoch |
+| Bestehens-Prognose Dashboard | ✅ Implementiert | 🟡 Hoch |
 | Lernziel-Tracking pro Lesson | ⚠️ Implizit | 🟢 Mittel |
+
+### Implementierungsstand (Stand: 2025-02-08)
+
+**Neu implementiert:**
+- `DiagnosticTest.tsx`: Kompetenzbasierter Einstiegstest mit 15 Fragen
+- `ReadinessWidget.tsx`: Bestehens-Prognose mit Trend & Tagesabschätzung
+- `useAdaptiveLearning.ts`: Hooks für Diagnose, Readiness & Empfehlungen
+- DB-Funktionen: `calculate_readiness_score`, `get_adaptive_recommendation`, `start_weakness_exam_session`
+- Tabellen: `learner_diagnostics`, `readiness_scores`
 
 ---
 
