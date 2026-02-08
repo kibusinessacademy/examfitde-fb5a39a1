@@ -4,88 +4,147 @@
 @tailwind components;
 @tailwind utilities;
 
-/* H5P Lernplattform - Glassmorphism Design System */
+/* ExamFit.de - Petrol/Dunkelmint Design System */
 
 @layer base {
   :root {
-    /* Dark glassmorphism base palette */
-    --background: 230 25% 8%;
-    --foreground: 0 0% 95%;
+    /* Light Mode - Clean, professional, learning-focused */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
 
-    --card: 230 25% 12%;
-    --card-foreground: 0 0% 95%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
 
-    --popover: 230 25% 12%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Primary: Vibrant purple-violet */
-    --primary: 265 85% 65%;
+    /* Primary: Petrol - Trust & Focus */
+    --primary: 181 61% 15%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary: Deep purple glass */
-    --secondary: 265 50% 20%;
-    --secondary-foreground: 265 85% 85%;
+    /* Secondary: Soft Petrol */
+    --secondary: 182 52% 25%;
+    --secondary-foreground: 0 0% 100%;
 
-    /* Muted: Dark glass tones */
-    --muted: 230 20% 18%;
-    --muted-foreground: 230 15% 60%;
+    /* Muted: Light gray tones */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 35%;
 
-    /* Accent: Cyan-teal glow */
-    --accent: 185 85% 55%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent: Mint - Progress & Success highlights */
+    --accent: 168 64% 50%;
+    --accent-foreground: 222 47% 11%;
 
-    /* Success: Emerald glow */
-    --success: 155 80% 50%;
+    /* Success: Passed/Mastered */
+    --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning: Amber glow */
-    --warning: 38 95% 55%;
-    --warning-foreground: 0 0% 10%;
+    /* Warning: Needs Review */
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 11%;
 
-    /* Destructive: Rose glow */
-    --destructive: 350 85% 60%;
+    /* Destructive: Errors only */
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 230 20% 25%;
-    --input: 230 20% 20%;
-    --ring: 265 85% 65%;
+    /* Info: Neutral information */
+    --info: 189 94% 37%;
+    --info-foreground: 0 0% 100%;
 
-    --radius: 1rem;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 181 61% 15%;
 
-    /* Sidebar */
-    --sidebar-background: 230 25% 10%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 265 85% 65%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 230 25% 18%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 230 20% 22%;
-    --sidebar-ring: 265 85% 65%;
+    --radius: 0.75rem;
 
-    /* Glassmorphism gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(265 85% 65%), hsl(290 80% 60%));
-    --gradient-accent: linear-gradient(135deg, hsl(185 85% 55%), hsl(200 90% 50%));
-    --gradient-hero: linear-gradient(135deg, hsl(265 85% 45%) 0%, hsl(290 80% 50%) 40%, hsl(320 75% 55%) 100%);
-    --gradient-mesh: radial-gradient(ellipse at 20% 20%, hsl(265 85% 65% / 0.2) 0%, transparent 50%), 
-                     radial-gradient(ellipse at 80% 80%, hsl(185 85% 55% / 0.15) 0%, transparent 50%),
-                     radial-gradient(ellipse at 50% 50%, hsl(290 80% 60% / 0.1) 0%, transparent 60%);
+    /* Sidebar - Petrol themed */
+    --sidebar-background: 181 64% 12%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 168 64% 50%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 182 52% 25%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 181 50% 20%;
+    --sidebar-ring: 168 64% 50%;
 
-    /* Glass effects */
-    --glass-bg: hsl(230 25% 15% / 0.6);
-    --glass-border: hsl(0 0% 100% / 0.1);
-    --glass-highlight: hsl(0 0% 100% / 0.05);
+    /* Gradients - Subtle and professional */
+    --gradient-primary: linear-gradient(135deg, hsl(181 61% 15%), hsl(182 52% 25%));
+    --gradient-accent: linear-gradient(135deg, hsl(168 64% 50%), hsl(142 71% 45%));
+    --gradient-hero: linear-gradient(135deg, hsl(181 61% 15%) 0%, hsl(182 52% 25%) 50%, hsl(168 64% 45%) 100%);
 
-    /* Glow shadows */
-    --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.3);
-    --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.4);
-    --shadow-lg: 0 12px 40px -8px hsl(0 0% 0% / 0.5);
-    --shadow-glow: 0 0 30px hsl(265 85% 65% / 0.4);
-    --shadow-glow-accent: 0 0 30px hsl(185 85% 55% / 0.4);
-    --shadow-glow-sm: 0 0 15px hsl(265 85% 65% / 0.3);
+    /* Shadows - Subtle for light mode */
+    --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.1);
+    --shadow-glow: 0 0 20px hsl(168 64% 50% / 0.2);
   }
 
   .dark {
-    /* Same as root - this is a dark-first design */
+    /* Dark Mode - Premium, focused, non-fatiguing */
+    --background: 222 84% 5%;
+    --foreground: 220 13% 91%;
+
+    --card: 181 64% 12%;
+    --card-foreground: 220 13% 91%;
+
+    --popover: 181 64% 12%;
+    --popover-foreground: 220 13% 91%;
+
+    /* Primary: Soft Petrol for dark */
+    --primary: 182 52% 25%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary: Darker petrol */
+    --secondary: 181 64% 12%;
+    --secondary-foreground: 220 13% 91%;
+
+    /* Muted: Dark surface */
+    --muted: 222 47% 11%;
+    --muted-foreground: 215 16% 55%;
+
+    /* Accent: Mint stays vibrant */
+    --accent: 168 64% 50%;
+    --accent-foreground: 222 47% 11%;
+
+    /* Success */
+    --success: 142 71% 45%;
+    --success-foreground: 222 47% 11%;
+
+    /* Warning */
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 11%;
+
+    /* Destructive */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Info */
+    --info: 189 94% 43%;
+    --info-foreground: 222 47% 11%;
+
+    --border: 181 50% 20%;
+    --input: 181 50% 20%;
+    --ring: 168 64% 50%;
+
+    /* Sidebar Dark */
+    --sidebar-background: 222 84% 4%;
+    --sidebar-foreground: 220 13% 91%;
+    --sidebar-primary: 168 64% 50%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 181 64% 12%;
+    --sidebar-accent-foreground: 220 13% 91%;
+    --sidebar-border: 181 50% 15%;
+    --sidebar-ring: 168 64% 50%;
+
+    /* Gradients Dark */
+    --gradient-primary: linear-gradient(135deg, hsl(181 64% 12%), hsl(182 52% 25%));
+    --gradient-accent: linear-gradient(135deg, hsl(168 64% 50%), hsl(142 71% 45%));
+    --gradient-hero: linear-gradient(135deg, hsl(222 84% 5%) 0%, hsl(181 64% 12%) 50%, hsl(182 52% 20%) 100%);
+
+    /* Shadows Dark - Glow effects */
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.4);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.5);
+    --shadow-glow: 0 0 30px hsl(168 64% 50% / 0.3);
   }
 }
 
@@ -96,8 +155,6 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background-image: var(--gradient-mesh);
-    background-attachment: fixed;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -106,6 +163,7 @@
 }
 
 @layer utilities {
+  /* Gradient utilities */
   .gradient-primary {
     background: var(--gradient-primary);
   }
@@ -118,56 +176,12 @@
     background: var(--gradient-hero);
   }
 
+  /* Shadow utilities */
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
 
-  .shadow-glow-accent {
-    box-shadow: var(--shadow-glow-accent);
-  }
-
-  .shadow-glow-sm {
-    box-shadow: var(--shadow-glow-sm);
-  }
-
-  /* Glassmorphism effects */
-  .glass {
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
-    box-shadow: 
-      inset 0 1px 0 0 var(--glass-highlight),
-      var(--shadow-md);
-  }
-
-  .glass-strong {
-    background: hsl(230 25% 12% / 0.8);
-    backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
-    border: 1px solid hsl(0 0% 100% / 0.15);
-    box-shadow: 
-      inset 0 1px 0 0 hsl(0 0% 100% / 0.08),
-      var(--shadow-lg);
-  }
-
-  .glass-subtle {
-    background: hsl(230 25% 15% / 0.4);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid hsl(0 0% 100% / 0.06);
-  }
-
-  .glass-card {
-    background: linear-gradient(135deg, hsl(230 25% 15% / 0.7), hsl(230 25% 10% / 0.5));
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid hsl(0 0% 100% / 0.1);
-    box-shadow: 
-      inset 0 1px 0 0 hsl(0 0% 100% / 0.05),
-      0 8px 32px -8px hsl(0 0% 0% / 0.4);
-  }
-
+  /* Text gradient */
   .text-gradient {
     background: var(--gradient-primary);
     -webkit-background-clip: text;
@@ -184,64 +198,80 @@
     color: transparent;
   }
 
-  /* Glow text effect */
-  .text-glow {
-    text-shadow: 0 0 20px hsl(265 85% 65% / 0.5);
+  /* Card styles - Clean and professional */
+  .card-elevated {
+    @apply bg-card border border-border rounded-lg;
+    box-shadow: var(--shadow-md);
   }
 
-  .text-glow-accent {
-    text-shadow: 0 0 20px hsl(185 85% 55% / 0.5);
+  .card-interactive {
+    @apply bg-card border border-border rounded-lg transition-all duration-200;
+    box-shadow: var(--shadow-sm);
   }
 
-  /* Animated gradient border */
-  .border-glow {
-    position: relative;
-  }
-  
-  .border-glow::before {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    background: var(--gradient-primary);
-    border-radius: inherit;
-    z-index: -1;
-    opacity: 0.5;
-    filter: blur(8px);
+  .card-interactive:hover {
+    box-shadow: var(--shadow-md);
+    @apply border-primary/30;
   }
 
-  /* Floating orb decorations */
-  .orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    opacity: 0.5;
-    pointer-events: none;
+  /* Status indicators - Didactic meaning */
+  .status-mastered {
+    @apply bg-success text-success-foreground;
   }
 
-  .orb-primary {
-    background: hsl(265 85% 65%);
+  .status-partial {
+    @apply bg-warning text-warning-foreground;
   }
 
-  .orb-accent {
-    background: hsl(185 85% 55%);
+  .status-not-mastered {
+    @apply bg-destructive text-destructive-foreground;
   }
 
-  .orb-rose {
-    background: hsl(320 75% 55%);
+  .status-in-progress {
+    @apply bg-info text-info-foreground;
   }
 
-  /* Noise texture overlay */
-  .noise {
-    position: relative;
+  .status-not-started {
+    @apply bg-muted text-muted-foreground;
   }
 
-  .noise::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-    opacity: 0.03;
-    pointer-events: none;
-    mix-blend-mode: overlay;
+  /* Progress bar variants */
+  .progress-mastered {
+    @apply bg-success;
   }
+
+  .progress-partial {
+    @apply bg-warning;
+  }
+
+  .progress-learning {
+    @apply bg-accent;
+  }
+
+  /* Petrol button glow on hover */
+  .btn-glow:hover {
+    box-shadow: 0 0 20px hsl(168 64% 50% / 0.3);
+  }
+
+  /* Focus ring - Accessible */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+/* Dark mode specific adjustments */
+.dark {
+  color-scheme: dark;
+}
+
+/* Smooth color transitions for theme switching */
+*, *::before, *::after {
+  transition-property: background-color, border-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-in-out;
+}
+
+/* Disable transitions on page load */
+.no-transitions *, .no-transitions *::before, .no-transitions *::after {
+  transition: none !important;
 }
