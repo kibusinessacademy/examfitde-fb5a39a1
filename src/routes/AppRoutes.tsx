@@ -26,6 +26,7 @@ const CourseCreate = lazy(() => import('@/pages/admin/CourseCreate'));
 const CourseEdit = lazy(() => import('@/pages/admin/CourseEdit'));
 const QuestionsList = lazy(() => import('@/pages/admin/QuestionsList'));
 const ExamBlueprintsPage = lazy(() => import('@/pages/admin/ExamBlueprintsPage'));
+const BlueprintTemplatesPage = lazy(() => import('@/pages/admin/BlueprintTemplatesPage'));
 
 // Job Admin Pages
 const JobsDashboard = lazy(() => import('@/pages/admin/JobsDashboard'));
@@ -98,6 +99,7 @@ const AppRoutes = () => {
           <Route path="courses/:courseId/edit" element={<CourseEdit />} />
           <Route path="questions" element={<QuestionsList />} />
           <Route path="exam-blueprints" element={<ExamBlueprintsPage />} />
+          <Route path="blueprint-templates" element={<BlueprintTemplatesPage />} />
           {/* Job Control Center */}
           <Route path="jobs/dashboard" element={<JobsDashboard />} />
           <Route path="jobs" element={<JobsList />} />
