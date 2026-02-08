@@ -1199,6 +1199,63 @@ export type Database = {
         }
         Relationships: []
       }
+      entitlements: {
+        Row: {
+          created_at: string | null
+          curriculum_id: string
+          has_ai_tutor: boolean | null
+          has_exam_trainer: boolean | null
+          has_learning_course: boolean | null
+          has_oral_trainer: boolean | null
+          id: string
+          seat_id: string | null
+          user_id: string
+          valid_from: string | null
+          valid_until: string
+        }
+        Insert: {
+          created_at?: string | null
+          curriculum_id: string
+          has_ai_tutor?: boolean | null
+          has_exam_trainer?: boolean | null
+          has_learning_course?: boolean | null
+          has_oral_trainer?: boolean | null
+          id?: string
+          seat_id?: string | null
+          user_id: string
+          valid_from?: string | null
+          valid_until: string
+        }
+        Update: {
+          created_at?: string | null
+          curriculum_id?: string
+          has_ai_tutor?: boolean | null
+          has_exam_trainer?: boolean | null
+          has_learning_course?: boolean | null
+          has_oral_trainer?: boolean | null
+          id?: string
+          seat_id?: string | null
+          user_id?: string
+          valid_from?: string | null
+          valid_until?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entitlements_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "license_seats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       error_patterns: {
         Row: {
           auto_fix_action: Json | null
@@ -1929,6 +1986,104 @@ export type Database = {
           },
         ]
       }
+      license_packages: {
+        Row: {
+          buyer_user_id: string
+          created_at: string | null
+          curriculum_id: string
+          expires_at: string
+          id: string
+          price_paid_cents: number
+          product_id: string
+          purchased_at: string | null
+          quantity: number
+          status: string | null
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+        }
+        Insert: {
+          buyer_user_id: string
+          created_at?: string | null
+          curriculum_id: string
+          expires_at: string
+          id?: string
+          price_paid_cents: number
+          product_id: string
+          purchased_at?: string | null
+          quantity: number
+          status?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+        }
+        Update: {
+          buyer_user_id?: string
+          created_at?: string | null
+          curriculum_id?: string
+          expires_at?: string
+          id?: string
+          price_paid_cents?: number
+          product_id?: string
+          purchased_at?: string | null
+          quantity?: number
+          status?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "license_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "license_packages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "store_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      license_seats: {
+        Row: {
+          assigned_at: string | null
+          assigned_user_id: string | null
+          created_at: string | null
+          id: string
+          invite_code: string | null
+          invite_email: string | null
+          package_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_user_id?: string | null
+          created_at?: string | null
+          id?: string
+          invite_code?: string | null
+          invite_email?: string | null
+          package_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_user_id?: string | null
+          created_at?: string | null
+          id?: string
+          invite_code?: string | null
+          invite_email?: string | null
+          package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "license_seats_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "license_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modules: {
         Row: {
           course_id: string
@@ -2302,6 +2457,44 @@ export type Database = {
             columns: ["process_id"]
             isOneToOne: false
             referencedRelation: "process_documentation"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_price_tiers: {
+        Row: {
+          created_at: string | null
+          id: string
+          max_quantity: number | null
+          min_quantity: number
+          price_cents: number
+          product_id: string
+          stripe_price_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          max_quantity?: number | null
+          min_quantity: number
+          price_cents: number
+          product_id: string
+          stripe_price_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          max_quantity?: number | null
+          min_quantity?: number
+          price_cents?: number
+          product_id?: string
+          stripe_price_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_price_tiers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "store_products"
             referencedColumns: ["id"]
           },
         ]
@@ -2719,6 +2912,57 @@ export type Database = {
           page_type?: string
           robots_directives?: string | null
           structured_data?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      store_products: {
+        Row: {
+          access_duration_days: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          includes_ai_tutor: boolean | null
+          includes_exam_trainer: boolean | null
+          includes_learning_course: boolean | null
+          includes_oral_trainer: boolean | null
+          is_active: boolean | null
+          name: string
+          product_key: string
+          sort_order: number | null
+          stripe_product_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          access_duration_days?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          includes_ai_tutor?: boolean | null
+          includes_exam_trainer?: boolean | null
+          includes_learning_course?: boolean | null
+          includes_oral_trainer?: boolean | null
+          is_active?: boolean | null
+          name: string
+          product_key: string
+          sort_order?: number | null
+          stripe_product_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          access_duration_days?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          includes_ai_tutor?: boolean | null
+          includes_exam_trainer?: boolean | null
+          includes_learning_course?: boolean | null
+          includes_oral_trainer?: boolean | null
+          is_active?: boolean | null
+          name?: string
+          product_key?: string
+          sort_order?: number | null
+          stripe_product_id?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -3210,7 +3454,20 @@ export type Database = {
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
       attempt_auto_recovery: { Args: { p_alert_id: string }; Returns: Json }
       calculate_daily_kpis: { Args: never; Returns: Json }
+      calculate_product_price: {
+        Args: { p_product_id: string; p_quantity: number }
+        Returns: {
+          tier_name: string
+          total_price_cents: number
+          unit_price_cents: number
+        }[]
+      }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
+      check_user_entitlement: {
+        Args: { p_curriculum_id: string; p_feature: string; p_user_id: string }
+        Returns: boolean
+      }
+      claim_license_seat: { Args: { p_invite_code: string }; Returns: string }
       claim_next_job: {
         Args: {
           p_job_types?: string[]
@@ -3290,6 +3547,7 @@ export type Database = {
           question_id: string
         }[]
       }
+      generate_invite_code: { Args: never; Returns: string }
       get_course_progress: { Args: { p_course_id: string }; Returns: Json }
       get_evidence_pack: { Args: { p_pack_id: string }; Returns: Json }
       get_evidence_pack_storage_info: {
@@ -3323,6 +3581,17 @@ export type Database = {
         }[]
       }
       get_user_dashboard_stats: { Args: never; Returns: Json }
+      get_user_entitlements: {
+        Args: { p_curriculum_id?: string; p_user_id: string }
+        Returns: {
+          curriculum_id: string
+          has_ai_tutor: boolean
+          has_exam_trainer: boolean
+          has_learning_course: boolean
+          has_oral_trainer: boolean
+          valid_until: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
