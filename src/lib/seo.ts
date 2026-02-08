@@ -443,9 +443,9 @@ export const SEO_TEMPLATES = {
     title: `${beruf} Komplett-Paket | Lernen + Üben | ExamFit`,
     description: `Das Komplett-Paket für ${beruf}: Lernkurs + Prüfungstrainer + mündliche Prüfungssimulation. Alles in einem für nur 39€.`,
   }),
-  beruf: (beruf: string) => ({
-    title: `${beruf} – Ausbildung, Prüfung & Vorbereitung | ExamFit`,
-    description: `Alles zur Ausbildung ${beruf}: Berufsbild, Prüfungsstruktur, typische Fehler & optimale Vorbereitung. Jetzt informieren!`,
+  beruf: (beruf: string, kammer: string = 'IHK') => ({
+    title: `${beruf} – ${kammer}-Prüfung & Vorbereitung | ExamFit`,
+    description: `Alles zur Ausbildung ${beruf}: Berufsbild, ${kammer}-Prüfungsstruktur, typische Fehler & optimale Vorbereitung. Jetzt informieren!`,
   }),
   wissen: (topic: string) => ({
     title: `${topic} | Prüfungswissen | ExamFit`,

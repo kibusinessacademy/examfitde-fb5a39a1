@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Target, Award, Clock, ExternalLink, CheckCircle, Star, Shield } from 'lucide-react';
+import { ArrowRight, BookOpen, Target, Award, Clock, ExternalLink, CheckCircle, Star, Shield, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +31,8 @@ export default function BerufDetailPage() {
     );
   }
 
-  const seo = SEO_TEMPLATES.beruf(beruf.title);
+  const kammerLabel = beruf.kammer || 'IHK';
+  const seo = SEO_TEMPLATES.beruf(beruf.title, kammerLabel);
   
   const faqs = [
     {
@@ -39,15 +40,15 @@ export default function BerufDetailPage() {
       answer: `Die Ausbildung dauert in der Regel ${beruf.duration} Monate (${Math.round(beruf.duration / 12)} Jahre).`,
     },
     {
-      question: `Was kostet die IHK-Prüfungsvorbereitung für ${beruf.title}?`,
+      question: `Was kostet die ${kammerLabel}-Prüfungsvorbereitung für ${beruf.title}?`,
       answer: `Der Lernkurs kostet ${PRODUCT_PRICES.lernkurs}€, der Prüfungstrainer ${PRODUCT_PRICES.pruefungstrainer}€. Das Komplett-Bundle gibt es für nur ${PRODUCT_PRICES.bundle}€ – du sparst also ${PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€.`,
     },
     {
-      question: `Wann findet die IHK-Prüfung für ${beruf.title} statt?`,
-      answer: `Die IHK-Abschlussprüfung findet deutschlandweit zu einheitlichen Terminen statt. Die genauen Termine werden von deiner zuständigen IHK bekanntgegeben.`,
+      question: `Wann findet die ${kammerLabel}-Prüfung für ${beruf.title} statt?`,
+      answer: `Die ${kammerLabel}-Abschlussprüfung findet deutschlandweit zu einheitlichen Terminen statt. Die genauen Termine werden von deiner zuständigen ${beruf.kammerName || kammerLabel} bekanntgegeben.`,
     },
     {
-      question: `Wie bereite ich mich am besten auf die IHK-Prüfung vor?`,
+      question: `Wie bereite ich mich am besten auf die ${kammerLabel}-Prüfung vor?`,
       answer: `ExamFit bietet eine strukturierte Vorbereitung: Erst lernst du mit dem Lernkurs alle Inhalte, dann übst du mit dem Prüfungstrainer echte Prüfungsfragen, und schließlich simulierst du die mündliche Prüfung mit unserem KI-Trainer.`,
     },
   ];
@@ -97,7 +98,7 @@ export default function BerufDetailPage() {
                 <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
                   {beruf.title}
                   <br />
-                  <span className="text-gradient">IHK-Prüfung bestehen</span>
+                  <span className="text-gradient">{kammerLabel}-Prüfung bestehen</span>
                 </h1>
                 {beruf.fullTitle !== beruf.title && (
                   <p className="text-lg text-muted-foreground mb-4">
@@ -105,10 +106,17 @@ export default function BerufDetailPage() {
                   </p>
                 )}
                 <p className="text-xl text-muted-foreground mb-6">
-                  {beruf.description || `Bereite dich optimal auf die IHK-Abschlussprüfung ${beruf.title} vor. Strukturierte Lernkurse, echte Prüfungsfragen und mündliche Prüfungssimulation.`}
+                  {beruf.description || `Bereite dich optimal auf die ${kammerLabel}-Abschlussprüfung ${beruf.title} vor. Strukturierte Lernkurse, prüfungsrelevante Fragen und mündliche Prüfungssimulation.`}
                 </p>
 
                 <div className="flex flex-wrap gap-4 mb-8">
+                  <Badge 
+                    variant={beruf.kammerType === 'IHK' ? 'default' : beruf.kammerType === 'HWK' ? 'secondary' : 'outline'}
+                    className="flex items-center gap-1.5 py-1.5 px-3"
+                  >
+                    <Building2 className="h-4 w-4" />
+                    {beruf.kammerName || kammerLabel}
+                  </Badge>
                   <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
                     <Clock className="h-4 w-4" />
                     {beruf.duration} Monate Ausbildung
@@ -120,7 +128,7 @@ export default function BerufDetailPage() {
                   )}
                   <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
                     <Shield className="h-4 w-4" />
-                    IHK-konform
+                    {kammerLabel}-Prüfungsstandards
                   </Badge>
                 </div>
 
@@ -206,7 +214,7 @@ export default function BerufDetailPage() {
         <section className="py-16">
           <div className="container max-w-4xl">
             <h2 className="text-3xl font-display font-bold mb-8 text-center">
-              Warum ExamFit für <span className="text-gradient">{beruf.title}</span>?
+              Warum ExamFit für <span className="text-gradient">{beruf.title}</span> ({kammerLabel})?
             </h2>
             <div className="grid md:grid-cols-3 gap-6">
               <Card className="glass-card text-center">
@@ -244,7 +252,7 @@ export default function BerufDetailPage() {
         <section className="py-16 bg-muted/30">
           <div className="container max-w-4xl">
             <h2 className="text-3xl font-display font-bold mb-8 text-center">
-              Häufige Fragen zur {beruf.title} Prüfung
+              Häufige Fragen zur {beruf.title} {kammerLabel}-Prüfung
             </h2>
             <div className="space-y-6">
               {faqs.map((faq, index) => (
@@ -268,7 +276,7 @@ export default function BerufDetailPage() {
         <section className="py-20">
           <div className="container text-center">
             <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
-              Bereit für die {beruf.title} IHK-Prüfung?
+              Bereit für die {beruf.title} {kammerLabel}-Prüfung?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
               Starte jetzt mit dem Komplett-Bundle und spare {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€.
