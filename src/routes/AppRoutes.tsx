@@ -52,6 +52,9 @@ const SystemHealthPage = lazy(() => import('@/pages/admin/SystemHealthPage'));
 const SystemAuditPage = lazy(() => import('@/pages/admin/SystemAuditPage'));
 const SEOPage = lazy(() => import('@/pages/admin/SEOPage'));
 
+// AZAV Compliance
+const AZAVCompliancePage = lazy(() => import('@/pages/admin/AZAVCompliancePage'));
+
 // BIBB Seeding
 const BIBBSeedingPage = lazy(() => import('@/pages/admin/BIBBSeedingPage'));
 
@@ -140,6 +143,8 @@ const AppRoutes = () => {
           <Route path="system-health" element={<SystemHealthPage />} />
           <Route path="system-audit" element={<SystemAuditPage />} />
           <Route path="seo" element={<SEOPage />} />
+          {/* AZAV Compliance */}
+          <Route path="azav-compliance" element={<AZAVCompliancePage />} />
           {/* BIBB Seeding */}
           <Route path="bibb-seeding" element={<BIBBSeedingPage />} />
         </Route>
