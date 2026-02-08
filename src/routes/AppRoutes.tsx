@@ -86,6 +86,9 @@ const QualityGatesPage = lazy(() => import('@/pages/admin/QualityGatesPage'));
 // App Store Builder
 const AppStoreBuilderPage = lazy(() => import('@/pages/admin/AppStoreBuilderPage'));
 
+// SEO Audit
+const SEOAuditPage = lazy(() => import('@/pages/admin/SEOAuditPage'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
@@ -204,6 +207,8 @@ const AppRoutes = () => {
           <Route path="quality-gates" element={<QualityGatesPage />} />
           {/* App Store Builder */}
           <Route path="app-store-builder" element={<AppStoreBuilderPage />} />
+          {/* SEO Audit */}
+          <Route path="seo-audit" element={<SEOAuditPage />} />
         </Route>
 
         {/* Admin Redirects */}

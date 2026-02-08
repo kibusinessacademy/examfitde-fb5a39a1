@@ -37,6 +37,7 @@ const navItems = [
   { path: '/admin-v2/marketing', label: 'Marketing', icon: Shield },
   { path: '/admin-v2/crm', label: 'CRM & Support', icon: Bot },
   { path: '/admin-v2/seo', label: 'SEO & Content', icon: FileArchive },
+  { path: '/admin-v2/seo-audit', label: 'SEO Audit', icon: Shield },
   { path: '/admin-v2/jobs/dashboard', label: 'Jobs', icon: Activity },
   { path: '/admin-v2/ai-workers', label: 'AI Workers', icon: Bot },
   { path: '/admin-v2/system-health', label: 'System Health', icon: Shield },

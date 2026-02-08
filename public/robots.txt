@@ -1,8 +1,20 @@
+# ExamFit.de Robots.txt
+# Optimized for Google Search
+
 User-agent: Googlebot
+Allow: /
+Disallow: /admin
+Disallow: /admin-v2
+Disallow: /api/
+Disallow: /auth/reset-password
+
+User-agent: Googlebot-Image
 Allow: /
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin
+Disallow: /admin-v2
 
 User-agent: Twitterbot
 Allow: /
@@ -10,5 +22,36 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+Disallow: /admin
+Disallow: /admin-v2
+
+User-agent: DuckDuckBot
+Allow: /
+Disallow: /admin
+Disallow: /admin-v2
+
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /admin-v2
+Disallow: /api/
+Disallow: /*.json$
+Disallow: /auth/reset-password
+
+# Sitemaps
+Sitemap: https://examfit.de/sitemap.xml
+
+# Crawl-delay for less aggressive bots
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+User-agent: SemrushBot
+Crawl-delay: 10
+
+User-agent: MJ12bot
+Crawl-delay: 10
