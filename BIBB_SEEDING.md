@@ -175,6 +175,21 @@ ORDER BY b.bezeichnung_kurz;
 - **Service Role Key**: Für Schreibzugriff auf Datenbank
 - **Rate Limiting**: 1.5s Pause zwischen Scrape-Requests
 
+## Datenqualitäts-Status (Stand: 2026-02-08)
+
+| Feld | Vollständigkeit | Bemerkung |
+|------|-----------------|-----------|
+| `bezeichnung_kurz` | 100% | Alle 326 Berufe importiert |
+| `dqr_niveau` | 100% | DQR 4 (Standard für duale Ausbildung) |
+| `verordnung_pdf_url` | 97.5% | 318 von 326 |
+| `taetigkeitsprofil` | 89.6% | 292 von 326 |
+| `rahmenlehrplan_url` | 0.6% | Nur 2 – KMK-URLs extern, manueller Import erforderlich |
+
+### Hinweis zu Rahmenlehrplänen
+Die KMK-Rahmenlehrpläne sind **nicht** auf den BIBB-Profilseiten verlinkt. Sie müssen separat von der KMK-Website importiert werden:
+- **URL**: https://www.kmk.org/themen/berufliche-schulen/duale-berufsausbildung/downloadbereich-rahmenlehrplaene.html
+- **Action**: `scrape_kmk` in der Edge Function
+
 ## Changelog
 
 - **2026-02-08**: Initiales Seeding mit 5 Berufen, 2 vollständigen Curricula
@@ -182,3 +197,6 @@ ORDER BY b.bezeichnung_kurz;
 - **2026-02-08**: Fachinformatiker-Kurs komplett implementiert
 - **2026-02-08**: BIBB-Seeding Edge Function mit Firecrawl implementiert
 - **2026-02-08**: Admin-UI für automatisiertes Seeding erstellt
+- **2026-02-08**: DQR-Niveau für alle 326 Berufe auf DQR 4 gesetzt
+- **2026-02-08**: Erweiterte Stats mit Vollständigkeitsmetriken
+- **2026-02-08**: `enrich_missing` Action für automatische Datenanreicherung

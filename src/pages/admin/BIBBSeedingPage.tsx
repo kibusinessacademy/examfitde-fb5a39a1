@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Download, 
@@ -15,13 +13,20 @@ import {
   Loader2,
   Database,
   FileText,
-  Building2
+  Building2,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SeedingStats {
   berufe: number;
   dokumente: number;
+  missingDqr: number;
+  missingRlp: number;
+  completeness: {
+    dqr: number;
+    rahmenlehrplan: number;
+  };
 }
 
 interface BerufItem {
@@ -36,9 +41,16 @@ interface SeedingLog {
 }
 
 export default function BIBBSeedingPage() {
-  const [stats, setStats] = useState<SeedingStats>({ berufe: 0, dokumente: 0 });
+  const [stats, setStats] = useState<SeedingStats>({ 
+    berufe: 0, 
+    dokumente: 0,
+    missingDqr: 0,
+    missingRlp: 0,
+    completeness: { dqr: 0, rahmenlehrplan: 0 }
+  });
   const [loading, setLoading] = useState(false);
   const [scanningList, setScanningList] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [seedingProgress, setSeedingProgress] = useState(0);
   const [pendingBerufe, setPendingBerufe] = useState<BerufItem[]>([]);
   const [currentBeruf, setCurrentBeruf] = useState<string | null>(null);
@@ -61,12 +73,50 @@ export default function BIBBSeedingPage() {
       });
 
       if (error) throw error;
-      setStats(data.stats || { berufe: 0, dokumente: 0 });
+      setStats(data.stats || { 
+        berufe: 0, 
+        dokumente: 0,
+        missingDqr: 0,
+        missingRlp: 0,
+        completeness: { dqr: 0, rahmenlehrplan: 0 }
+      });
     } catch (error) {
       console.error('Error fetching stats:', error);
       toast.error('Fehler beim Laden der Statistiken');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const enrichMissingData = async () => {
+    setEnriching(true);
+    addLog('Starte Anreicherung fehlender Daten (DQR-Niveau, Rahmenlehrpläne)...', 'info');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('bibb-seeding', {
+        body: { action: 'enrich_missing', limit: 50 },
+      });
+
+      if (error) throw error;
+
+      addLog(`${data.processed} Berufe verarbeitet`, 'success');
+      
+      for (const result of data.results || []) {
+        if (result.status === 'enriched') {
+          const updates = Object.keys(result.updates).filter(k => k !== 'updated_at').join(', ');
+          addLog(`✓ ${result.bibbId}: ${updates}`, 'success');
+        } else if (result.status === 'fallback_used') {
+          addLog(`~ ${result.bibbId}: Fallback-Werte verwendet`, 'info');
+        }
+      }
+
+      toast.success(`${data.processed} Berufe angereichert`);
+      fetchStats();
+    } catch (error: any) {
+      addLog(`Fehler: ${error.message}`, 'error');
+      toast.error('Fehler beim Anreichern');
+    } finally {
+      setEnriching(false);
     }
   };
 
@@ -85,11 +135,10 @@ export default function BIBBSeedingPage() {
       addLog(`${data.alreadyImported} bereits importiert`, 'info');
       addLog(`${data.pendingImport} noch zu importieren`, 'info');
 
-      // Store pending IDs
       setPendingBerufe(data.bibbIds.map((id: string) => ({ bibbId: id, profilUrl: '' })));
       
       toast.success(`${data.totalFound} Berufe gefunden, ${data.pendingImport} neu`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error scanning:', error);
       addLog(`Fehler beim Scannen: ${error.message}`, 'error');
       toast.error('Fehler beim Scannen');
@@ -125,12 +174,11 @@ export default function BIBBSeedingPage() {
 
         addLog(`✓ ${data.beruf.bezeichnung_kurz} importiert (${data.dokumenteCount} Dokumente)`, 'success');
         successCount++;
-      } catch (error) {
+      } catch (error: any) {
         addLog(`✗ Fehler bei ${beruf.bibbId}: ${error.message}`, 'error');
         errorCount++;
       }
 
-      // Small delay to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
@@ -141,7 +189,6 @@ export default function BIBBSeedingPage() {
     addLog(`Seeding abgeschlossen: ${successCount} erfolgreich, ${errorCount} Fehler`, successCount > 0 ? 'success' : 'error');
     toast.success(`Seeding abgeschlossen: ${successCount} Berufe importiert`);
     
-    // Refresh stats
     fetchStats();
     setPendingBerufe([]);
   };
@@ -160,7 +207,7 @@ export default function BIBBSeedingPage() {
       addLog(`✓ ${data.beruf.bezeichnung_kurz} importiert (${data.dokumenteCount} Dokumente)`, 'success');
       toast.success(`${data.beruf.bezeichnung_kurz} erfolgreich importiert`);
       fetchStats();
-    } catch (error) {
+    } catch (error: any) {
       addLog(`✗ Fehler: ${error.message}`, 'error');
       toast.error(`Fehler beim Importieren: ${error.message}`);
     } finally {
@@ -189,7 +236,7 @@ export default function BIBBSeedingPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <Card className="glass-card border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -222,6 +269,40 @@ export default function BIBBSeedingPage() {
         <Card className="glass-card border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
+              DQR-Niveau
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-bold text-primary">{stats.completeness?.dqr || 0}%</span>
+                <span className="text-xs text-muted-foreground">{stats.missingDqr} fehlen</span>
+              </div>
+              <Progress value={stats.completeness?.dqr || 0} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Rahmenlehrpläne
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-bold text-primary">{stats.completeness?.rahmenlehrplan || 0}%</span>
+                <span className="text-xs text-muted-foreground">{stats.missingRlp} fehlen</span>
+              </div>
+              <Progress value={stats.completeness?.rahmenlehrplan || 0} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Ausstehend
             </CardTitle>
           </CardHeader>
@@ -239,14 +320,14 @@ export default function BIBBSeedingPage() {
         <CardHeader>
           <CardTitle>Seeding-Aktionen</CardTitle>
           <CardDescription>
-            Schritt 1: Scanne das BIBB-Verzeichnis. Schritt 2: Importiere alle Berufe.
+            Schritt 1: Scanne das BIBB-Verzeichnis. Schritt 2: Importiere alle Berufe. Schritt 3: Reichere fehlende Daten an.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-4">
             <Button
               onClick={scanBerufeListe}
-              disabled={scanningList || isSeeding}
+              disabled={scanningList || isSeeding || enriching}
               variant="outline"
             >
               {scanningList ? (
@@ -259,7 +340,7 @@ export default function BIBBSeedingPage() {
 
             <Button
               onClick={startSeeding}
-              disabled={isSeeding || pendingBerufe.length === 0}
+              disabled={isSeeding || pendingBerufe.length === 0 || enriching}
               className="gradient-primary text-primary-foreground"
             >
               {isSeeding ? (
@@ -268,6 +349,19 @@ export default function BIBBSeedingPage() {
                 <Play className="h-4 w-4 mr-2" />
               )}
               Seeding starten ({pendingBerufe.length})
+            </Button>
+
+            <Button
+              onClick={enrichMissingData}
+              disabled={enriching || isSeeding || (stats.missingDqr === 0 && stats.missingRlp === 0)}
+              variant="secondary"
+            >
+              {enriching ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
+              Daten anreichern ({stats.missingDqr + stats.missingRlp})
             </Button>
           </div>
 
