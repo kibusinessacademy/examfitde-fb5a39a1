@@ -83,6 +83,9 @@ const BIBBSeedingPage = lazy(() => import('@/pages/admin/BIBBSeedingPage'));
 const ProductFactoryPage = lazy(() => import('@/pages/admin/ProductFactoryPage'));
 const QualityGatesPage = lazy(() => import('@/pages/admin/QualityGatesPage'));
 
+// App Store Builder
+const AppStoreBuilderPage = lazy(() => import('@/pages/admin/AppStoreBuilderPage'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
@@ -199,6 +202,8 @@ const AppRoutes = () => {
           {/* Product Factory & Quality Gates */}
           <Route path="product-factory" element={<ProductFactoryPage />} />
           <Route path="quality-gates" element={<QualityGatesPage />} />
+          {/* App Store Builder */}
+          <Route path="app-store-builder" element={<AppStoreBuilderPage />} />
         </Route>
 
         {/* Admin Redirects */}

@@ -385,6 +385,77 @@ const documentationData: FeatureDoc[] = [
       'Kosten werden pro Token berechnet',
       'Performance Metrics: p50, p95, p99 Latenz'
     ]
+  },
+  {
+    id: 'mobile-native-app',
+    title: 'Mobile Native App (iOS & Android)',
+    icon: <Settings className="h-5 w-5" />,
+    status: 'active',
+    lastUpdated: '2026-02-08',
+    description: 'Capacitor-basierte Native App für iOS und Android mit PWA-Fallback.',
+    workflow: [
+      '1. PWA läuft als Web-App mit Offline-Support (Service Worker)',
+      '2. Capacitor-Konfiguration ermöglicht Native-Build',
+      '3. Safe Area Support für iOS (Notch, Dynamic Island)',
+      '4. Native Tab Bar Navigation für Mobile UX',
+      '5. Platform-Detection via useNativeApp Hook',
+      '6. Für Store-Distribution: Projekt exportieren und lokal builden',
+      '7. iOS: npx cap add ios → Xcode öffnen → Archive → App Store',
+      '8. Android: npx cap add android → Android Studio → Signed APK → Play Store'
+    ],
+    technicalDetails: [
+      { label: 'Capacitor Config', value: 'capacitor.config.ts' },
+      { label: 'Native Hook', value: 'src/hooks/useNativeApp.ts' },
+      { label: 'Safe Area View', value: 'src/components/native/SafeAreaView.tsx' },
+      { label: 'Native Header', value: 'src/components/native/NativeHeader.tsx' },
+      { label: 'Tab Bar', value: 'src/components/native/NativeTabBar.tsx' },
+      { label: 'PWA Config', value: 'vite.config.ts (VitePWA Plugin)' },
+      { label: 'App ID', value: 'app.lovable.ad51e8f96cff41cf9723b4e49dbcd9db' },
+      { label: 'iOS Min Version', value: 'iOS 13+' },
+      { label: 'Android Min Version', value: 'API 22 (Android 5.1)' }
+    ],
+    apiEndpoints: [],
+    relatedTables: [],
+    notes: [
+      'PWA funktioniert sofort ohne Store-Veröffentlichung',
+      'Capacitor ermöglicht Zugriff auf native Device-Features',
+      'Hot-Reload während Entwicklung über Preview-URL',
+      'Produktions-Build benötigt npm run build && npx cap sync',
+      'Store-Automatisierung via Admin → App Store Builder'
+    ]
+  },
+  {
+    id: 'pwa-offline',
+    title: 'Progressive Web App (Offline-Modus)',
+    icon: <Settings className="h-5 w-5" />,
+    status: 'active',
+    lastUpdated: '2026-02-08',
+    description: 'Offline-fähige Web-App mit Service Worker und Cache-Strategien.',
+    workflow: [
+      '1. Service Worker registriert sich automatisch (vite-plugin-pwa)',
+      '2. Statische Assets werden beim ersten Load gecached',
+      '3. Google Fonts werden 1 Jahr gecached (CacheFirst)',
+      '4. API-Responses werden NetworkFirst gecached (24h TTL)',
+      '5. Offline-Indicator zeigt Verbindungsstatus',
+      '6. Bei Reconnect: Automatische Synchronisation',
+      '7. Install-Prompt nach 30 Sekunden (wenn nicht dismissed)',
+      '8. App kann auf Homescreen installiert werden'
+    ],
+    technicalDetails: [
+      { label: 'Vite Plugin', value: 'vite-plugin-pwa' },
+      { label: 'Manifest', value: 'Generiert via VitePWA Config' },
+      { label: 'Offline Indicator', value: 'src/components/pwa/OfflineIndicator.tsx' },
+      { label: 'Install Prompt', value: 'src/components/pwa/InstallPrompt.tsx' },
+      { label: 'Install Page', value: 'src/pages/InstallPage.tsx' },
+      { label: 'Cache Strategy', value: 'CacheFirst (Static) / NetworkFirst (API)' },
+      { label: 'Theme Color', value: '#0F3D3E (Petrol)' }
+    ],
+    notes: [
+      'iOS: Safari Share → Zum Home-Bildschirm',
+      'Android: Browser-Menü → App installieren',
+      'Prompt wird 7 Tage nach Dismiss nicht gezeigt',
+      'Standalone-Modus ohne Browser-Chrome'
+    ]
   }
 ];
 
