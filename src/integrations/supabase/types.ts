@@ -148,6 +148,119 @@ export type Database = {
         }
         Relationships: []
       }
+      beruf_dokumente: {
+        Row: {
+          beruf_id: string
+          created_at: string
+          dokument_typ: string
+          gueltig_ab: string | null
+          id: string
+          sprache: string | null
+          titel: string
+          url: string
+        }
+        Insert: {
+          beruf_id: string
+          created_at?: string
+          dokument_typ: string
+          gueltig_ab?: string | null
+          id?: string
+          sprache?: string | null
+          titel: string
+          url: string
+        }
+        Update: {
+          beruf_id?: string
+          created_at?: string
+          dokument_typ?: string
+          gueltig_ab?: string | null
+          id?: string
+          sprache?: string | null
+          titel?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beruf_dokumente_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "berufe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufe: {
+        Row: {
+          ausbildungsdauer_monate: number
+          bezeichnung_kurz: string
+          bezeichnung_lang: string | null
+          bgbl_referenz: string | null
+          bibb_id: string
+          bibb_profil_url: string | null
+          created_at: string
+          dqr_niveau: number | null
+          einsatzgebiete: Json | null
+          gueltig_ab: string | null
+          gueltig_bis: string | null
+          id: string
+          ist_aktiv: boolean
+          kldb_code: string | null
+          rahmenlehrplan_url: string | null
+          taetigkeitsprofil: string | null
+          updated_at: string
+          verordnung_datum: string | null
+          verordnung_pdf_url: string | null
+          verordnung_titel: string | null
+          zustaendigkeit: string
+        }
+        Insert: {
+          ausbildungsdauer_monate: number
+          bezeichnung_kurz: string
+          bezeichnung_lang?: string | null
+          bgbl_referenz?: string | null
+          bibb_id: string
+          bibb_profil_url?: string | null
+          created_at?: string
+          dqr_niveau?: number | null
+          einsatzgebiete?: Json | null
+          gueltig_ab?: string | null
+          gueltig_bis?: string | null
+          id?: string
+          ist_aktiv?: boolean
+          kldb_code?: string | null
+          rahmenlehrplan_url?: string | null
+          taetigkeitsprofil?: string | null
+          updated_at?: string
+          verordnung_datum?: string | null
+          verordnung_pdf_url?: string | null
+          verordnung_titel?: string | null
+          zustaendigkeit: string
+        }
+        Update: {
+          ausbildungsdauer_monate?: number
+          bezeichnung_kurz?: string
+          bezeichnung_lang?: string | null
+          bgbl_referenz?: string | null
+          bibb_id?: string
+          bibb_profil_url?: string | null
+          created_at?: string
+          dqr_niveau?: number | null
+          einsatzgebiete?: Json | null
+          gueltig_ab?: string | null
+          gueltig_bis?: string | null
+          id?: string
+          ist_aktiv?: boolean
+          kldb_code?: string | null
+          rahmenlehrplan_url?: string | null
+          taetigkeitsprofil?: string | null
+          updated_at?: string
+          verordnung_datum?: string | null
+          verordnung_pdf_url?: string | null
+          verordnung_titel?: string | null
+          zustaendigkeit?: string
+        }
+        Relationships: []
+      }
       competencies: {
         Row: {
           code: string
@@ -342,12 +455,16 @@ export type Database = {
       }
       curricula: {
         Row: {
+          beruf_id: string | null
+          bibb_quelle: string | null
           created_at: string
           created_by: string | null
+          curriculum_typ: string | null
           description: string | null
           extracted_data: Json | null
           frozen_at: string | null
           id: string
+          kmk_version: string | null
           normalized_data: Json | null
           source_file_name: string | null
           source_file_url: string | null
@@ -357,12 +474,16 @@ export type Database = {
           version: string | null
         }
         Insert: {
+          beruf_id?: string | null
+          bibb_quelle?: string | null
           created_at?: string
           created_by?: string | null
+          curriculum_typ?: string | null
           description?: string | null
           extracted_data?: Json | null
           frozen_at?: string | null
           id?: string
+          kmk_version?: string | null
           normalized_data?: Json | null
           source_file_name?: string | null
           source_file_url?: string | null
@@ -372,12 +493,16 @@ export type Database = {
           version?: string | null
         }
         Update: {
+          beruf_id?: string | null
+          bibb_quelle?: string | null
           created_at?: string
           created_by?: string | null
+          curriculum_typ?: string | null
           description?: string | null
           extracted_data?: Json | null
           frozen_at?: string | null
           id?: string
+          kmk_version?: string | null
           normalized_data?: Json | null
           source_file_name?: string | null
           source_file_url?: string | null
@@ -386,7 +511,15 @@ export type Database = {
           updated_at?: string
           version?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "berufe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       exam_attempts: {
         Row: {
