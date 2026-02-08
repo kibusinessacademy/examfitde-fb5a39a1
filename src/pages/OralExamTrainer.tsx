@@ -26,6 +26,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOralExam, type EvaluationResult } from '@/hooks/useOralExam';
+import { useCheckEntitlement } from '@/hooks/useEntitlements';
+import { Paywall } from '@/components/shop/Paywall';
 import { cn } from '@/lib/utils';
 
 type ExamPhase = 'setup' | 'question' | 'evaluation' | 'results';
@@ -51,6 +53,13 @@ export default function OralExamTrainer() {
       return data;
     }
   });
+
+  // Entitlement check
+  const { data: hasAccess, isLoading: entitlementLoading } = useCheckEntitlement(
+    selectedCurriculum || '',
+    'oral_trainer'
+  );
+  const curriculumTitle = curricula?.find(c => c.id === selectedCurriculum)?.title;
 
   const {
     session,
@@ -134,6 +143,17 @@ export default function OralExamTrainer() {
     if (score >= 0.5) return 'bg-yellow-500/10 border-yellow-500/30';
     return 'bg-red-500/10 border-red-500/30';
   };
+
+  // Show paywall if curriculum selected but no access
+  if (selectedCurriculum && !entitlementLoading && hasAccess === false) {
+    return (
+      <Paywall 
+        feature="oral_trainer" 
+        curriculumId={selectedCurriculum}
+        curriculumTitle={curriculumTitle}
+      />
+    );
+  }
 
   return (
     <div className="container max-w-4xl py-8">

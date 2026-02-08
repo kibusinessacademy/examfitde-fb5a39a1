@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useCheckEntitlement } from '@/hooks/useEntitlements';
+import { Paywall } from '@/components/shop/Paywall';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Brain, 
@@ -59,6 +61,13 @@ export default function ExamTrainer() {
   const [selectedLearningFieldId, setSelectedLearningFieldId] = useState('');
   const [selectedCompetencyId, setSelectedCompetencyId] = useState('');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+
+  // Entitlement check
+  const { data: hasAccess, isLoading: entitlementLoading } = useCheckEntitlement(
+    selectedCurriculumId, 
+    'exam_trainer'
+  );
+  const selectedCurriculum = curricula.find(c => c.id === selectedCurriculumId);
 
   // Session state
   const [step, setStep] = useState<TrainerStep>('select');
@@ -295,9 +304,19 @@ export default function ExamTrainer() {
   const progressPercent = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
   const scorePercent = questions.length > 0 ? (stats.correct / questions.length) * 100 : 0;
 
-  const selectedCurriculum = curricula.find(c => c.id === selectedCurriculumId);
   const selectedLearningField = learningFields.find(lf => lf.id === selectedLearningFieldId);
   const selectedCompetency = competencies.find(c => c.id === selectedCompetencyId);
+
+  // Show paywall if curriculum selected but no access
+  if (selectedCurriculumId && !entitlementLoading && hasAccess === false) {
+    return (
+      <Paywall 
+        feature="exam_trainer" 
+        curriculumId={selectedCurriculumId}
+        curriculumTitle={selectedCurriculum?.title}
+      />
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
