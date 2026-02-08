@@ -2197,6 +2197,7 @@ export type Database = {
           score_percentage: number | null
           seed: number
           started_at: string
+          target_competencies: string[] | null
           time_limit_minutes: number | null
           total_questions: number
           user_id: string
@@ -2216,6 +2217,7 @@ export type Database = {
           score_percentage?: number | null
           seed: number
           started_at?: string
+          target_competencies?: string[] | null
           time_limit_minutes?: number | null
           total_questions: number
           user_id: string
@@ -2235,6 +2237,7 @@ export type Database = {
           score_percentage?: number | null
           seed?: number
           started_at?: string
+          target_competencies?: string[] | null
           time_limit_minutes?: number | null
           total_questions?: number
           user_id?: string
@@ -2339,6 +2342,56 @@ export type Database = {
           snapshot_date?: string
         }
         Relationships: []
+      }
+      learner_diagnostics: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          curriculum_id: string
+          estimated_readiness_date: string | null
+          exam_date: string | null
+          focus_areas: string[] | null
+          id: string
+          recommended_path: string | null
+          results: Json
+          user_id: string
+          weekly_time_minutes: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          curriculum_id: string
+          estimated_readiness_date?: string | null
+          exam_date?: string | null
+          focus_areas?: string[] | null
+          id?: string
+          recommended_path?: string | null
+          results?: Json
+          user_id: string
+          weekly_time_minutes?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          curriculum_id?: string
+          estimated_readiness_date?: string | null
+          exam_date?: string | null
+          focus_areas?: string[] | null
+          id?: string
+          recommended_path?: string | null
+          results?: Json
+          user_id?: string
+          weekly_time_minutes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_diagnostics_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       learner_notes: {
         Row: {
@@ -3548,6 +3601,56 @@ export type Database = {
           },
         ]
       }
+      readiness_scores: {
+        Row: {
+          calculated_at: string | null
+          created_at: string | null
+          curriculum_id: string
+          days_until_ready: number | null
+          id: string
+          overall_readiness: number | null
+          predicted_exam_score: number | null
+          strong_areas: Json | null
+          trend: string | null
+          user_id: string
+          weak_areas: Json | null
+        }
+        Insert: {
+          calculated_at?: string | null
+          created_at?: string | null
+          curriculum_id: string
+          days_until_ready?: number | null
+          id?: string
+          overall_readiness?: number | null
+          predicted_exam_score?: number | null
+          strong_areas?: Json | null
+          trend?: string | null
+          user_id: string
+          weak_areas?: Json | null
+        }
+        Update: {
+          calculated_at?: string | null
+          created_at?: string | null
+          curriculum_id?: string
+          days_until_ready?: number | null
+          id?: string
+          overall_readiness?: number | null
+          predicted_exam_score?: number | null
+          strong_areas?: Json | null
+          trend?: string | null
+          user_id?: string
+          weak_areas?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "readiness_scores_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recovery_actions: {
         Row: {
           action_payload: Json | null
@@ -4731,6 +4834,17 @@ export type Database = {
           unit_price_cents: number
         }[]
       }
+      calculate_readiness_score: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: {
+          days_until_ready: number
+          overall_readiness: number
+          predicted_exam_score: number
+          strong_areas: Json
+          trend: string
+          weak_areas: Json
+        }[]
+      }
       calculate_sm2_next_review: {
         Args: {
           p_bloom_level: string
@@ -4832,6 +4946,10 @@ export type Database = {
         }[]
       }
       generate_invite_code: { Args: never; Returns: string }
+      get_adaptive_recommendation: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: Json
+      }
       get_bloom_level_stats: {
         Args: { p_curriculum_id: string }
         Returns: {
@@ -5032,6 +5150,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      start_weakness_exam_session: {
+        Args: { p_blueprint_id: string }
+        Returns: string
       }
       submit_exam_answer: {
         Args: {
