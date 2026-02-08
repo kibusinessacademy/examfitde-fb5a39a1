@@ -625,6 +625,13 @@ export type Database = {
             referencedRelation: "exam_questions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "exam_session_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       exam_sessions: {
@@ -1145,6 +1152,67 @@ export type Database = {
           tokens_today: number | null
         }
         Relationships: []
+      }
+      exam_questions_safe: {
+        Row: {
+          ai_generated: boolean | null
+          competency_id: string | null
+          created_at: string | null
+          curriculum_id: string | null
+          difficulty: Database["public"]["Enums"]["question_difficulty"] | null
+          id: string | null
+          learning_field_id: string | null
+          options: Json | null
+          question_text: string | null
+          status: Database["public"]["Enums"]["question_status"] | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          competency_id?: string | null
+          created_at?: string | null
+          curriculum_id?: string | null
+          difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
+          id?: string | null
+          learning_field_id?: string | null
+          options?: Json | null
+          question_text?: string | null
+          status?: Database["public"]["Enums"]["question_status"] | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          competency_id?: string | null
+          created_at?: string | null
+          curriculum_id?: string | null
+          difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
+          id?: string | null
+          learning_field_id?: string | null
+          options?: Json | null
+          question_text?: string | null
+          status?: Database["public"]["Enums"]["question_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_deadletter: {
         Row: {
