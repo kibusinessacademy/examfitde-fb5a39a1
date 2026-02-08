@@ -230,6 +230,7 @@ export default function MainLayout() {
                 <Link to="/impressum" className="hover:text-foreground transition-colors">Impressum</Link>
                 <Link to="/datenschutz" className="hover:text-foreground transition-colors">Datenschutz</Link>
                 <Link to="/agb" className="hover:text-foreground transition-colors">AGB</Link>
+                <Link to="/faq" className="hover:text-foreground transition-colors">FAQ</Link>
                 <Link to="/installieren" className="hover:text-foreground transition-colors">App installieren</Link>
               </nav>
             </div>

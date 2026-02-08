@@ -138,10 +138,10 @@ export default function Auth() {
               </div>
             </div>
             <h1 className="text-4xl font-display font-bold mb-4 text-foreground">
-              H5P Lernplattform
+              ExamFit
             </h1>
             <p className="text-xl text-muted-foreground mb-8">
-              Interaktives Lernen mit modernen didaktischen Methoden
+              Deine IHK-Prüfungsvorbereitung mit KI-Unterstützung
             </p>
           </div>
         </div>
@@ -179,10 +179,10 @@ export default function Auth() {
             </div>
           </div>
           <h1 className="text-4xl font-display font-bold mb-4 text-foreground">
-            H5P Lernplattform
+            ExamFit
           </h1>
           <p className="text-xl text-muted-foreground mb-8">
-            Interaktives Lernen mit modernen didaktischen Methoden
+            Deine IHK-Prüfungsvorbereitung mit KI-Unterstützung
           </p>
           <div className="space-y-4 text-left">
             <div className="flex items-center gap-4 glass-card rounded-xl p-4">

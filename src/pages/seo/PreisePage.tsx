@@ -18,7 +18,7 @@ export default function PreisePage() {
       description: 'Strukturiertes Lernen aller Prüfungsthemen',
       features: [
         'Alle Lernfelder abgedeckt',
-        'Interaktive H5P-Module',
+        'Interaktive Lernmodule',
         'KI-Tutor für Fragen',
         'Fortschrittstracking',
         'Mobile-optimiert',

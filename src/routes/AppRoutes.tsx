@@ -35,6 +35,12 @@ const WissenPage = lazy(() => import('@/pages/seo/WissenPage'));
 const WissenArticlePage = lazy(() => import('@/pages/seo/WissenArticlePage'));
 const WissenAllePage = lazy(() => import('@/pages/seo/WissenAllePage'));
 
+// Legal Pages
+const AGBPage = lazy(() => import('@/pages/seo/AGBPage'));
+const FAQPage = lazy(() => import('@/pages/seo/FAQPage'));
+const DatenschutzPage = lazy(() => import('@/pages/seo/DatenschutzPage'));
+const ImpressumPage = lazy(() => import('@/pages/seo/ImpressumPage'));
+
 // Admin Pages
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
 const CurriculaList = lazy(() => import('@/pages/admin/CurriculaList'));
@@ -142,6 +148,12 @@ const AppRoutes = () => {
           {/* Wissen / Blog */}
           <Route path="/wissen" element={<WissenPage />} />
           <Route path="/wissen/alle" element={<WissenAllePage />} />
+          
+          {/* Legal Pages */}
+          <Route path="/agb" element={<AGBPage />} />
+          <Route path="/faq" element={<FAQPage />} />
+          <Route path="/datenschutz" element={<DatenschutzPage />} />
+          <Route path="/impressum" element={<ImpressumPage />} />
           <Route path="/wissen/:slug" element={<WissenArticlePage />} />
         </Route>
         

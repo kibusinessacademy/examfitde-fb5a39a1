@@ -221,8 +221,8 @@ export default function HomePage() {
                   Bestseller
                 </Badge>
               </div>
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 w-fit shadow-lg mb-6">
-                <Award className="h-8 w-8 text-white" />
+              <div className="p-4 rounded-2xl gradient-accent w-fit shadow-glow-accent mb-6">
+                <Award className="h-8 w-8 text-accent-foreground" />
               </div>
               <h3 className="text-xl font-display font-bold mb-2">Komplett-Bundle</h3>
               <div className="flex items-baseline gap-2 mb-4">
