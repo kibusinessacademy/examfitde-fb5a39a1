@@ -14,7 +14,10 @@ import {
   ArrowRight,
   Target,
   Award,
-  Calendar
+  Calendar,
+  Brain,
+  Heart,
+  Sparkles,
 } from 'lucide-react';
 
 interface EnrolledCourse {
@@ -304,7 +307,7 @@ export default function LearnerDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="glass-card group hover:border-accent/30 transition-all">
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
@@ -314,7 +317,7 @@ export default function LearnerDashboard() {
                 <div className="flex-1">
                   <h3 className="font-display font-bold text-lg mb-1">Prüfungstrainer</h3>
                   <p className="text-muted-foreground text-sm mb-4">
-                    Übe mit über 500 KI-generierten Prüfungsfragen.
+                    KI-generierte Prüfungsfragen
                   </p>
                   <Link to="/exam-trainer">
                     <Button variant="outline" size="sm" className="group-hover:border-accent/50">
@@ -331,16 +334,60 @@ export default function LearnerDashboard() {
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
                 <div className="p-3 rounded-xl gradient-primary shadow-glow-sm">
-                  <GraduationCap className="h-6 w-6 text-primary-foreground" />
+                  <Brain className="h-6 w-6 text-primary-foreground" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-display font-bold text-lg mb-1">Neue Kurse</h3>
+                  <h3 className="font-display font-bold text-lg mb-1">Spaced Repetition</h3>
                   <p className="text-muted-foreground text-sm mb-4">
-                    Entdecke weitere Kurse zu deinem Ausbildungsberuf.
+                    Optimales Lernen mit SM-2
                   </p>
-                  <Link to="/courses">
+                  <Link to="/spaced-repetition">
                     <Button variant="outline" size="sm" className="group-hover:border-primary/50">
-                      Kurse entdecken
+                      Lernen starten
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card group hover:border-rose-500/30 transition-all">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-lg">
+                  <Heart className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-display font-bold text-lg mb-1">Prüfungsangst</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Entspannungstechniken
+                  </p>
+                  <Link to="/exam-anxiety">
+                    <Button variant="outline" size="sm" className="group-hover:border-rose-500/50">
+                      Übungen starten
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card group hover:border-yellow-500/30 transition-all">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 shadow-lg">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-display font-bold text-lg mb-1">VARK Lerntyp</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Finde deinen Lernstil
+                  </p>
+                  <Link to="/vark-test">
+                    <Button variant="outline" size="sm" className="group-hover:border-yellow-500/50">
+                      Test starten
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
                   </Link>

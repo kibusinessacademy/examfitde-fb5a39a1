@@ -149,7 +149,7 @@ export default function ShopPage() {
               Prüfungsvorbereitung kaufen
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Wählen Sie das passende Paket für Ihre Prüfungsvorbereitung. 
+              Wähle das passende Paket für deine Prüfungsvorbereitung. 
               Einmalzahlung, 12 Monate Zugang, keine versteckten Kosten.
             </p>
           </div>
@@ -174,7 +174,7 @@ export default function ShopPage() {
           {curricula && curricula.length > 1 && (
             <div className="max-w-md mx-auto mb-12">
               <label className="block text-sm font-medium mb-2">
-                Ausbildungsberuf wählen
+                Wähle deinen Ausbildungsberuf
               </label>
               <Select
                 value={selectedCurriculumId || ''}
@@ -212,8 +212,8 @@ export default function ShopPage() {
             <Badge variant="outline" className="mb-4">Für Unternehmen & Schulen</Badge>
             <h2 className="text-2xl font-bold mb-2">Mehr als 5 Lizenzen?</h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Wählen Sie einfach die gewünschte Menge im Shop aus. 
-              Ab 5 Lizenzen erhalten Sie automatisch Mengenrabatt. 
+              Wähle einfach die gewünschte Menge im Shop aus. 
+              Ab 5 Lizenzen erhältst du automatisch Mengenrabatt. 
               Keine Anfrage nötig – einfach kaufen!
             </p>
           </div>
