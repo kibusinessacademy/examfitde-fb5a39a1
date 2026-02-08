@@ -1601,6 +1601,92 @@ export type Database = {
           },
         ]
       }
+      curriculum_products: {
+        Row: {
+          blueprint_id: string | null
+          course_id: string | null
+          created_at: string
+          created_by: string | null
+          curriculum_id: string
+          generated_at: string | null
+          generation_error: string | null
+          generation_status: string
+          id: string
+          is_published: boolean
+          product_id: string
+          published_at: string | null
+          seo_description: string | null
+          seo_title: string | null
+          slug: string | null
+          updated_at: string
+        }
+        Insert: {
+          blueprint_id?: string | null
+          course_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          curriculum_id: string
+          generated_at?: string | null
+          generation_error?: string | null
+          generation_status?: string
+          id?: string
+          is_published?: boolean
+          product_id: string
+          published_at?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          slug?: string | null
+          updated_at?: string
+        }
+        Update: {
+          blueprint_id?: string | null
+          course_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          curriculum_id?: string
+          generated_at?: string | null
+          generation_error?: string | null
+          generation_status?: string
+          id?: string
+          is_published?: boolean
+          product_id?: string
+          published_at?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          slug?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_products_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "exam_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "store_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_campaigns: {
         Row: {
           content: string
@@ -3275,6 +3361,69 @@ export type Database = {
         }
         Relationships: []
       }
+      quality_checks: {
+        Row: {
+          check_type: string
+          created_at: string
+          curriculum_product_id: string
+          details: Json | null
+          executed_at: string | null
+          executed_by: string | null
+          id: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          score: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          check_type: string
+          created_at?: string
+          curriculum_product_id: string
+          details?: Json | null
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          score?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          check_type?: string
+          created_at?: string
+          curriculum_product_id?: string
+          details?: Json | null
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          score?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quality_checks_curriculum_product_id_fkey"
+            columns: ["curriculum_product_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_checks_curriculum_product_id_fkey"
+            columns: ["curriculum_product_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_products_overview"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_blueprints: {
         Row: {
           allowed_question_types: string[]
@@ -4386,6 +4535,65 @@ export type Database = {
           version: string | null
         }
         Relationships: []
+      }
+      curriculum_products_overview: {
+        Row: {
+          blueprint_id: string | null
+          blueprint_title: string | null
+          course_id: string | null
+          course_title: string | null
+          created_at: string | null
+          created_by: string | null
+          curriculum_id: string | null
+          curriculum_status:
+            | Database["public"]["Enums"]["curriculum_status"]
+            | null
+          curriculum_title: string | null
+          generated_at: string | null
+          generation_error: string | null
+          generation_status: string | null
+          id: string | null
+          is_published: boolean | null
+          product_id: string | null
+          product_key: string | null
+          product_name: string | null
+          published_at: string | null
+          quality_status: Json | null
+          seo_description: string | null
+          seo_title: string | null
+          slug: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_products_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "exam_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "store_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       exam_questions_safe: {
         Row: {
