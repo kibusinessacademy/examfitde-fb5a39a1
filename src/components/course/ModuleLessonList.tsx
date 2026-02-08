@@ -1,9 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { LessonStatusBadge } from "./LessonStatusBadge";
 import { 
   type LessonStatus, 
@@ -17,8 +19,11 @@ import {
   CheckCircle, 
   PlayCircle, 
   RotateCcw,
-  BookOpen
+  BookOpen,
+  Filter,
+  AlertCircle
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Module {
   id: string;
@@ -77,6 +82,13 @@ export function ModuleLessonList({
     }
     return initial;
   });
+  const [showOnlyReview, setShowOnlyReview] = useState(false);
+
+  // Count lessons needing review
+  const reviewCount = useMemo(() => {
+    if (!lessonProgress) return 0;
+    return lessonProgress.filter((l) => l.needs_review).length;
+  }, [lessonProgress]);
 
   const toggleModule = useCallback((moduleId: string) => {
     setExpandedModules((prev) => {
@@ -113,6 +125,31 @@ export function ModuleLessonList({
     [getModuleLessons, getLessonProgressData]
   );
 
+  // Get filtered lessons for a module
+  const getFilteredModuleLessons = useCallback(
+    (moduleId: string) => {
+      const moduleLessons = getModuleLessons(moduleId);
+      if (!showOnlyReview) return moduleLessons;
+      return moduleLessons.filter((l) => {
+        const progress = getLessonProgressData(l.id);
+        return progress?.needs_review;
+      });
+    },
+    [getModuleLessons, getLessonProgressData, showOnlyReview]
+  );
+
+  // Count review lessons per module
+  const getModuleReviewCount = useCallback(
+    (moduleId: string) => {
+      const moduleLessons = getModuleLessons(moduleId);
+      return moduleLessons.filter((l) => {
+        const progress = getLessonProgressData(l.id);
+        return progress?.needs_review;
+      }).length;
+    },
+    [getModuleLessons, getLessonProgressData]
+  );
+
   const handleLessonClick = (lessonId: string, locked: boolean) => {
     if (locked) return;
     navigate(`/lesson/${lessonId}`);
@@ -131,33 +168,103 @@ export function ModuleLessonList({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-display font-bold">Kursinhalt</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h2 className="text-2xl font-display font-bold">Kursinhalt</h2>
+        
+        {/* Review Filter Toggle */}
+        {isEnrolled && reviewCount > 0 && (
+          <div 
+            className={cn(
+              "flex items-center gap-3 p-3 rounded-lg border transition-all",
+              showOnlyReview 
+                ? "bg-orange-500/10 border-orange-500/30" 
+                : "bg-muted/30 border-border hover:border-orange-500/30"
+            )}
+          >
+            <RotateCcw className={cn(
+              "h-4 w-4 transition-colors",
+              showOnlyReview ? "text-orange-500" : "text-muted-foreground"
+            )} />
+            <Label 
+              htmlFor="review-filter" 
+              className={cn(
+                "text-sm cursor-pointer select-none transition-colors",
+                showOnlyReview ? "text-orange-500 font-medium" : "text-muted-foreground"
+              )}
+            >
+              Nur Wiederholungen ({reviewCount})
+            </Label>
+            <Switch
+              id="review-filter"
+              checked={showOnlyReview}
+              onCheckedChange={setShowOnlyReview}
+              className="data-[state=checked]:bg-orange-500"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* No review lessons message when filter is active */}
+      {showOnlyReview && reviewCount === 0 && (
+        <Card className="glass-card border-green-500/30 bg-green-500/5">
+          <CardContent className="p-6 text-center">
+            <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-3" />
+            <p className="text-green-500 font-medium">Keine Lektionen zur Wiederholung!</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Du hast alle Inhalte erfolgreich gemeistert.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {modules.map((module, index) => {
-        const moduleLessons = getModuleLessons(module.id);
+        const filteredLessons = getFilteredModuleLessons(module.id);
         const isExpanded = expandedModules.has(module.id);
         const moduleProgress = getModuleProgress(module.id);
+        const moduleReviewCount = getModuleReviewCount(module.id);
+
+        // Skip modules with no lessons when filter is active
+        if (showOnlyReview && filteredLessons.length === 0) return null;
 
         return (
-          <Card key={module.id} className="glass-card border-border overflow-hidden">
+          <Card 
+            key={module.id} 
+            className={cn(
+              "glass-card border-border overflow-hidden transition-all",
+              showOnlyReview && moduleReviewCount > 0 && "border-orange-500/30"
+            )}
+          >
             <CardHeader
               className="cursor-pointer hover:bg-muted/30 transition-colors"
               onClick={() => toggleModule(module.id)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground font-bold">
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center font-bold transition-colors",
+                    showOnlyReview && moduleReviewCount > 0 
+                      ? "bg-orange-500 text-white" 
+                      : "gradient-primary text-primary-foreground"
+                  )}>
                     {index + 1}
                   </div>
                   <div>
-                    <CardTitle className="text-lg">{module.title}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">{module.title}</CardTitle>
+                      {moduleReviewCount > 0 && !showOnlyReview && (
+                        <Badge variant="outline" className="border-orange-500/50 text-orange-500 text-xs">
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          {moduleReviewCount}
+                        </Badge>
+                      )}
+                    </div>
                     {module.description && (
                       <p className="text-sm text-muted-foreground mt-1">{module.description}</p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  {isEnrolled && (
+                  {isEnrolled && !showOnlyReview && (
                     <div className="text-right hidden sm:block">
                       <span className="text-sm text-muted-foreground">
                         {moduleProgress}% abgeschlossen
@@ -171,13 +278,13 @@ export function ModuleLessonList({
                   )}
                 </div>
               </div>
-              {isEnrolled && <Progress value={moduleProgress} className="h-1 mt-4" />}
+              {isEnrolled && !showOnlyReview && <Progress value={moduleProgress} className="h-1 mt-4" />}
             </CardHeader>
 
             {isExpanded && (
-              <CardContent className="pt-0 pb-4">
+              <CardContent className="pt-0 pb-4 animate-fade-in">
                 <div className="space-y-2">
-                  {moduleLessons.map((lesson) => {
+                  {filteredLessons.map((lesson) => {
                     const progressData = getLessonProgressData(lesson.id);
                     const status: LessonStatus = progressData?.status ?? "not_started";
                     const needsReview = progressData?.needs_review ?? false;
@@ -188,11 +295,13 @@ export function ModuleLessonList({
                       <div
                         key={lesson.id}
                         onClick={() => handleLessonClick(lesson.id, locked)}
-                        className={`flex items-center justify-between p-3 rounded-lg transition-colors border ${
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-lg transition-all border animate-fade-in",
                           locked
                             ? "bg-muted/30 opacity-60 cursor-not-allowed"
-                            : `${getStatusBgColor(status)} hover:bg-muted/50 cursor-pointer`
-                        }`}
+                            : `${getStatusBgColor(status)} hover:bg-muted/50 cursor-pointer hover:scale-[1.01]`,
+                          needsReview && "ring-1 ring-orange-500/50"
+                        )}
                       >
                         <div className="flex items-center gap-3">
                           {locked ? (
@@ -200,7 +309,7 @@ export function ModuleLessonList({
                           ) : status === "mastered" ? (
                             <CheckCircle className="h-5 w-5 text-green-500" />
                           ) : needsReview ? (
-                            <RotateCcw className="h-5 w-5 text-orange-500" />
+                            <RotateCcw className="h-5 w-5 text-orange-500 animate-pulse" />
                           ) : (
                             <PlayCircle className="h-5 w-5 text-primary" />
                           )}
