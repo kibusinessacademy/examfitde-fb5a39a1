@@ -236,7 +236,15 @@ export default function MainLayout() {
             </div>
           </div>
 
-          <div className="pt-8 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
+          {/* IHK/HWK Disclaimer */}
+          <div className="pt-6 text-center">
+            <p className="text-xs text-muted-foreground/70">
+              ExamFit ist ein unabhängiger Anbieter. Es besteht keine Verbindung, Partnerschaft 
+              oder Zusammenarbeit mit der Industrie- und Handelskammer (IHK) oder Handwerkskammer (HWK).
+            </p>
+          </div>
+
+          <div className="pt-6 border-t border-border mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <span className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} ExamFit.de – Alle Rechte vorbehalten.
             </span>

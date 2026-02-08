@@ -159,7 +159,15 @@ export default function SEOLayout() {
             </div>
           </div>
 
-          <div className="border-t border-border mt-8 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+          {/* IHK/HWK Disclaimer */}
+          <div className="border-t border-border mt-8 pt-8">
+            <p className="text-xs text-muted-foreground/70 text-center mb-6">
+              ExamFit ist ein unabhängiger Anbieter. Es besteht keine Verbindung, Partnerschaft 
+              oder Zusammenarbeit mit der Industrie- und Handelskammer (IHK) oder Handwerkskammer (HWK).
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} ExamFit. Alle Rechte vorbehalten.
             </p>

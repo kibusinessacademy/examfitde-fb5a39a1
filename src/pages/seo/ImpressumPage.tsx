@@ -168,6 +168,19 @@ export default function ImpressumPage() {
               </p>
             </section>
 
+            {/* IHK/HWK Disclaimer */}
+            <section className="bg-muted/30 rounded-lg p-6 border border-border">
+              <h2 className="text-xl font-semibold mb-4">Hinweis zu Kammerbezügen</h2>
+              <p className="text-muted-foreground">
+                ExamFit ist ein unabhängiger Anbieter von Lernmaterialien zur Prüfungsvorbereitung. 
+                Es besteht <strong>keine</strong> Zusammenarbeit, Partnerschaft, Zertifizierung oder 
+                offizielle Verbindung mit der Industrie- und Handelskammer (IHK), der Handwerkskammer (HWK) 
+                oder anderen Prüfungskammern. Sämtliche Verweise auf „IHK" oder „HWK" dienen ausschließlich 
+                der beschreibenden Bezugnahme auf die jeweiligen Prüfungsordnungen und -formate. 
+                Alle Lerninhalte basieren auf öffentlich zugänglichen Rahmenlehrplänen und Prüfungsordnungen.
+              </p>
+            </section>
+
           </div>
         </div>
       </div>

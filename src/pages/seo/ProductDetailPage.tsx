@@ -42,7 +42,7 @@ const productInfo: Record<ProductType, {
     icon: Target,
     color: 'accent',
     features: [
-      'Echte IHK-Prüfungsfragen',
+      'Prüfungsrelevante Fragen nach IHK-Standards',
       'Adaptiver Lernalgorithmus',
       'Automatische Schwächenanalyse',
       'Prüfungssimulation unter Zeitdruck',

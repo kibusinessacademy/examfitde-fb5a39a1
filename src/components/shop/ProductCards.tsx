@@ -14,9 +14,9 @@ interface ProductCardProps {
 }
 
 const FEATURES = {
-  learning_course: { icon: BookOpen, label: 'Lerninhaltekurs', description: '5-Schritte-Didaktik & MiniChecks' },
-  exam_trainer: { icon: GraduationCap, label: 'Prüfungstrainer', description: 'Blueprint-basierte Prüfungssimulation' },
-  ai_tutor: { icon: Brain, label: 'AI-Tutor', description: 'Intelligente Lernunterstützung' },
+  learning_course: { icon: BookOpen, label: 'Lerninhaltekurs', description: 'Strukturiertes Lernen & MiniChecks' },
+  exam_trainer: { icon: GraduationCap, label: 'Prüfungstrainer', description: 'Prüfungssimulation nach IHK-Maßstäben' },
+  ai_tutor: { icon: Brain, label: 'KI-Tutor', description: 'Intelligente Lernunterstützung' },
   oral_trainer: { icon: Mic, label: 'Mündliche Prüfung', description: 'Simulation mit KI-Feedback' },
 };
 

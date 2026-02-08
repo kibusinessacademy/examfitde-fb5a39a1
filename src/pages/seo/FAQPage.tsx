@@ -23,7 +23,7 @@ const faqs: FAQItem[] = [
   {
     category: 'Allgemein',
     question: 'Was ist ExamFit?',
-    answer: 'ExamFit ist eine digitale Lernplattform zur Vorbereitung auf IHK-Abschlussprüfungen. Wir bieten strukturierte Lernkurse, einen Prüfungstrainer mit echten Prüfungsfragen und eine KI-gestützte mündliche Prüfungssimulation.',
+    answer: 'ExamFit ist eine unabhängige digitale Lernplattform zur Vorbereitung auf Abschlussprüfungen. Wir bieten strukturierte Lernkurse, einen Prüfungstrainer mit prüfungsrelevanten Fragen und eine KI-gestützte mündliche Prüfungssimulation. Wir sind kein offizieller Partner der IHK oder HWK.',
   },
   {
     category: 'Allgemein',
@@ -33,14 +33,14 @@ const faqs: FAQItem[] = [
   {
     category: 'Allgemein',
     question: 'Basieren die Inhalte auf offiziellen Prüfungsanforderungen?',
-    answer: 'Ja, alle unsere Lerninhalte basieren auf den offiziellen Rahmenlehrplänen und Prüfungskatalogen der zuständigen IHKs. Wir aktualisieren die Inhalte regelmäßig gemäß den aktuellen Prüfungsordnungen.',
+    answer: 'Ja, alle unsere Lerninhalte basieren auf den öffentlich zugänglichen Rahmenlehrplänen und Prüfungsordnungen. Wir aktualisieren die Inhalte regelmäßig. Bitte beachte: ExamFit ist ein unabhängiger Anbieter ohne offizielle Verbindung zur IHK oder HWK.',
   },
 
   // Produkte
   {
     category: 'Produkte',
     question: 'Was ist der Unterschied zwischen Lernkurs und Prüfungstrainer?',
-    answer: 'Der Lernkurs vermittelt dir das theoretische Wissen strukturiert nach Lernfeldern mit verständlichen Erklärungen. Der Prüfungstrainer enthält echte Prüfungsfragen zum Üben mit adaptiver Schwächenanalyse und Prüfungssimulation.',
+    answer: 'Der Lernkurs vermittelt dir das theoretische Wissen strukturiert nach Lernfeldern mit verständlichen Erklärungen. Der Prüfungstrainer enthält prüfungsrelevante Fragen zum Üben mit adaptiver Schwächenanalyse und Prüfungssimulation.',
   },
   {
     category: 'Produkte',
@@ -115,8 +115,8 @@ const faqs: FAQItem[] = [
   },
   {
     category: 'Prüfungsvorbereitung',
-    question: 'Sind die Prüfungsfragen identisch mit den echten IHK-Prüfungen?',
-    answer: 'Unsere Fragen orientieren sich an Inhalt, Stil und Schwierigkeitsgrad der echten IHK-Prüfungen. Da die Prüfungen urheberrechtlich geschützt sind, verwenden wir keine Originalfragen, aber vergleichbare Fragen zu allen prüfungsrelevanten Themen.',
+    question: 'Sind die Prüfungsfragen identisch mit den echten Prüfungen?',
+    answer: 'Unsere Fragen orientieren sich an Inhalt, Stil und Schwierigkeitsgrad der offiziellen Abschlussprüfungen. Da die Prüfungen urheberrechtlich geschützt sind, verwenden wir keine Originalfragen, sondern vergleichbare Fragen zu allen prüfungsrelevanten Themen. ExamFit ist unabhängig und nicht mit IHK oder HWK verbunden.',
   },
   {
     category: 'Prüfungsvorbereitung',
@@ -151,6 +151,11 @@ const faqs: FAQItem[] = [
     category: 'Widerruf & Support',
     question: 'Wie erreiche ich den Support?',
     answer: 'Du erreichst uns per E-Mail an support@examfit.de. Wir antworten in der Regel innerhalb von 24 Stunden an Werktagen.',
+  },
+  {
+    category: 'Allgemein',
+    question: 'Ist ExamFit ein offizieller Partner der IHK oder HWK?',
+    answer: 'Nein. ExamFit ist ein unabhängiger Anbieter von Lernmaterialien. Es besteht keine Zusammenarbeit, Partnerschaft oder offizielle Verbindung mit der Industrie- und Handelskammer (IHK) oder der Handwerkskammer (HWK). Alle Inhalte basieren auf öffentlich zugänglichen Rahmenlehrplänen.',
   },
 ];
 
