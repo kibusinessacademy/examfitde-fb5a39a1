@@ -99,6 +99,7 @@ const OralExamTrainer = lazy(() => import('@/pages/OralExamTrainer'));
 const SpacedRepetitionSession = lazy(() => import('@/pages/SpacedRepetitionSession'));
 const ExamAnxietyManager = lazy(() => import('@/pages/ExamAnxietyManager'));
 const VARKLerntypTest = lazy(() => import('@/pages/VARKLerntypTest'));
+const DiagnosticTest = lazy(() => import('@/pages/DiagnosticTest'));
 
 // Shop Pages
 const ShopPage = lazy(() => import('@/pages/ShopPage'));
@@ -163,6 +164,7 @@ const AppRoutes = () => {
             <Route path="/spaced-repetition" element={<SpacedRepetitionSession />} />
             <Route path="/exam-anxiety" element={<ExamAnxietyManager />} />
             <Route path="/vark-test" element={<VARKLerntypTest />} />
+            <Route path="/diagnostic/:curriculumId" element={<DiagnosticTest />} />
           </Route>
         </Route>
 
