@@ -42,6 +42,13 @@ const AuditExportsPage = lazy(() => import('@/pages/admin/AuditExportsPage'));
 // Evidence Packs
 const EvidencePacksPage = lazy(() => import('@/pages/admin/EvidencePacksPage'));
 
+// Business Intelligence & Operations
+const KPIDashboard = lazy(() => import('@/pages/admin/KPIDashboard'));
+const MarketingHub = lazy(() => import('@/pages/admin/MarketingHub'));
+const CRMPage = lazy(() => import('@/pages/admin/CRMPage'));
+const SystemHealthPage = lazy(() => import('@/pages/admin/SystemHealthPage'));
+const SEOPage = lazy(() => import('@/pages/admin/SEOPage'));
+
 // BIBB Seeding
 const BIBBSeedingPage = lazy(() => import('@/pages/admin/BIBBSeedingPage'));
 
@@ -102,6 +109,12 @@ const AppRoutes = () => {
           <Route path="audit-exports" element={<AuditExportsPage />} />
           {/* Evidence Packs */}
           <Route path="evidence-packs" element={<EvidencePacksPage />} />
+          {/* Business Intelligence & Operations */}
+          <Route path="kpi-dashboard" element={<KPIDashboard />} />
+          <Route path="marketing" element={<MarketingHub />} />
+          <Route path="crm" element={<CRMPage />} />
+          <Route path="system-health" element={<SystemHealthPage />} />
+          <Route path="seo" element={<SEOPage />} />
           {/* BIBB Seeding */}
           <Route path="bibb-seeding" element={<BIBBSeedingPage />} />
         </Route>
