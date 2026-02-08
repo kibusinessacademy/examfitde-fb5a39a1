@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.verify-purchase]
 verify_jwt = false
+
+[functions.spaced-repetition]
+verify_jwt = true
+
+[functions.blooms-taxonomy]
+verify_jwt = false
