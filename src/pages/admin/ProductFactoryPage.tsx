@@ -167,6 +167,7 @@ export default function ProductFactoryPage() {
   });
 
   // Generate content for a curriculum product
+  // Generate content with Edge Functions
   const generateContentMutation = useMutation({
     mutationFn: async ({ cpId, productKey }: { cpId: string; productKey: string }) => {
       // Update status to generating
@@ -184,60 +185,106 @@ export default function ProductFactoryPage() {
       
       if (cpError) throw cpError;
 
-      // Simulate progress updates
-      for (let i = 10; i <= 90; i += 20) {
-        setGenerationProgress(prev => ({ ...prev, [cpId]: i }));
-        await new Promise(r => setTimeout(r, 500));
+      const curriculum = cp.curricula as { id: string; title: string };
+      const product = cp.store_products as { product_key: string; includes_learning_course: boolean; includes_exam_trainer: boolean };
+
+      setGenerationProgress(prev => ({ ...prev, [cpId]: 10 }));
+
+      // For learning_course or bundle: Generate course with Edge Function
+      if (product.includes_learning_course && !cp.course_id) {
+        setGenerationProgress(prev => ({ ...prev, [cpId]: 20 }));
+        
+        // Create course record first
+        const { data: course, error: courseError } = await supabase
+          .from('courses')
+          .insert({
+            curriculum_id: cp.curriculum_id,
+            title: `Lernkurs: ${curriculum.title}`,
+            status: 'generating',
+            created_by: user?.id,
+          })
+          .select()
+          .single();
+        
+        if (courseError) throw courseError;
+
+        // Update curriculum_products with course_id
+        await supabase
+          .from('curriculum_products')
+          .update({ course_id: course.id })
+          .eq('id', cpId);
+
+        setGenerationProgress(prev => ({ ...prev, [cpId]: 30 }));
+
+        // Call generate-course Edge Function
+        const { error: genError } = await supabase.functions.invoke('generate-course', {
+          body: {
+            courseId: course.id,
+            curriculumId: cp.curriculum_id,
+            title: `Lernkurs: ${curriculum.title}`,
+          },
+        });
+
+        if (genError) {
+          console.error('Course generation error:', genError);
+          // Don't throw, continue with other generation steps
+        }
+
+        setGenerationProgress(prev => ({ ...prev, [cpId]: 50 }));
       }
 
-      // For learning_course: Create course, modules, lessons
-      if (productKey === 'learning_course' || productKey === 'bundle') {
-        // Check if course already exists
-        if (!cp.course_id) {
-          const { data: course, error: courseError } = await supabase
-            .from('courses')
-            .insert({
-              curriculum_id: cp.curriculum_id,
-              title: `Lernkurs: ${cp.curricula.title}`,
-              status: 'draft',
-              created_by: user?.id,
-            })
-            .select()
-            .single();
-          
-          if (courseError) throw courseError;
+      // For exam_trainer or bundle: Create blueprint and generate questions
+      if (product.includes_exam_trainer && !cp.blueprint_id) {
+        setGenerationProgress(prev => ({ ...prev, [cpId]: 60 }));
 
-          // Update curriculum_products with course_id
-          await supabase
-            .from('curriculum_products')
-            .update({ course_id: course.id })
-            .eq('id', cpId);
+        // Create exam blueprint
+        const { data: blueprint, error: bpError } = await supabase
+          .from('exam_blueprints')
+          .insert({
+            curriculum_id: cp.curriculum_id,
+            title: `Prüfungsblueprint: ${curriculum.title}`,
+            total_questions: 40,
+            time_limit_minutes: 90,
+            pass_threshold: 0.5,
+            difficulty_distribution: { easy: 0.3, medium: 0.5, hard: 0.2 },
+          })
+          .select()
+          .single();
+        
+        if (bpError) throw bpError;
+
+        await supabase
+          .from('curriculum_products')
+          .update({ blueprint_id: blueprint.id })
+          .eq('id', cpId);
+
+        setGenerationProgress(prev => ({ ...prev, [cpId]: 70 }));
+
+        // Get question blueprints for this curriculum
+        const { data: questionBlueprints } = await supabase
+          .from('question_blueprints')
+          .select('id')
+          .eq('curriculum_id', cp.curriculum_id)
+          .eq('status', 'approved')
+          .limit(10);
+
+        // Generate questions from blueprints via Edge Function
+        if (questionBlueprints && questionBlueprints.length > 0) {
+          for (const qb of questionBlueprints.slice(0, 5)) {
+            try {
+              await supabase.functions.invoke('generate-blueprint-questions', {
+                body: {
+                  blueprintId: qb.id,
+                  count: 5,
+                },
+              });
+            } catch (err) {
+              console.error('Question generation error:', err);
+            }
+          }
         }
-      }
 
-      // For exam_trainer: Create blueprint
-      if (productKey === 'exam_trainer' || productKey === 'bundle') {
-        if (!cp.blueprint_id) {
-          const { data: blueprint, error: bpError } = await supabase
-            .from('exam_blueprints')
-            .insert({
-              curriculum_id: cp.curriculum_id,
-              title: `Prüfungsblueprint: ${cp.curricula.title}`,
-              total_questions: 40,
-              time_limit_minutes: 90,
-              pass_threshold: 0.5,
-              difficulty_distribution: { easy: 0.3, medium: 0.5, hard: 0.2 },
-            })
-            .select()
-            .single();
-          
-          if (bpError) throw bpError;
-
-          await supabase
-            .from('curriculum_products')
-            .update({ blueprint_id: blueprint.id })
-            .eq('id', cpId);
-        }
+        setGenerationProgress(prev => ({ ...prev, [cpId]: 90 }));
       }
 
       setGenerationProgress(prev => ({ ...prev, [cpId]: 100 }));
@@ -255,7 +302,7 @@ export default function ProductFactoryPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['curriculum-products-overview'] });
-      toast.success('Inhalt generiert');
+      toast.success('Inhalt generiert', { description: 'Kurs und/oder Prüfungsfragen wurden erstellt.' });
     },
     onError: async (error, variables) => {
       await supabase
@@ -271,25 +318,27 @@ export default function ProductFactoryPage() {
     },
   });
 
-  // Publish a curriculum product
+  // Publish a curriculum product with SEO slug generation
   const publishMutation = useMutation({
     mutationFn: async (cpId: string) => {
-      const { error } = await supabase
-        .from('curriculum_products')
-        .update({ 
-          is_published: true,
-          published_at: new Date().toISOString(),
-        })
-        .eq('id', cpId);
-      
+      // Call Edge Function to generate SEO slug and publish
+      const { data, error } = await supabase.functions.invoke('generate-seo-slug', {
+        body: { curriculumProductId: cpId },
+      });
+
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['curriculum-products-overview'] });
-      toast.success('Produkt veröffentlicht');
+      toast.success('Produkt veröffentlicht', { 
+        description: `SEO-Slug: ${data?.slug || 'generiert'}` 
+      });
     },
     onError: (error) => {
-      toast.error('Fehler', { description: String(error) });
+      toast.error('Fehler beim Veröffentlichen', { description: String(error) });
     },
   });
 

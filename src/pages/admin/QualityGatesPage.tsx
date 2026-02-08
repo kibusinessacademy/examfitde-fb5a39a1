@@ -141,80 +141,26 @@ export default function QualityGatesPage() {
     },
   });
 
-  // Run a quality check
+  // Run a quality check via Edge Function
   const runCheckMutation = useMutation({
     mutationFn: async ({ checkId, checkType, cpId }: { checkId: string; checkType: string; cpId: string }) => {
-      // Update status to running
-      await supabase
-        .from('quality_checks')
-        .update({ status: 'running' })
-        .eq('id', checkId);
-
-      // Simulate check execution (in real implementation, this would call an edge function)
-      await new Promise(r => setTimeout(r, 2000));
-
-      // Get sample data for the check
-      let score = 0;
-      let status = 'passed';
-      let details: Record<string, unknown> = {};
-
-      switch (checkType) {
-        case 'coverage':
-          score = 85;
-          details = {
-            total_competencies: 12,
-            covered_competencies: 10,
-            missing: ['K1.3', 'K2.5'],
-          };
-          status = score >= 80 ? 'passed' : score >= 60 ? 'warning' : 'failed';
-          break;
-
-        case 'duplicate':
-          score = 95;
-          details = {
-            total_questions: 150,
-            duplicates_found: 3,
-            similarity_threshold: 0.85,
-          };
-          status = score >= 90 ? 'passed' : 'warning';
-          break;
-
-        case 'correctness':
-          score = 100;
-          details = {
-            total_questions: 150,
-            valid_questions: 150,
-            issues: [],
-          };
-          status = score === 100 ? 'passed' : 'failed';
-          break;
-
-        case 'difficulty_distribution':
-          score = 88;
-          details = {
-            target: { easy: 30, medium: 50, hard: 20 },
-            actual: { easy: 28, medium: 52, hard: 20 },
-            deviation: 4,
-          };
-          status = score >= 85 ? 'passed' : 'warning';
-          break;
-      }
-
-      // Update check with results
-      const { error } = await supabase
-        .from('quality_checks')
-        .update({
-          status,
-          score,
-          details: details as unknown as null,
-          executed_at: new Date().toISOString(),
-          executed_by: user?.id,
-        })
-        .eq('id', checkId);
+      // Call the quality check Edge Function
+      const { data, error } = await supabase.functions.invoke('run-quality-checks', {
+        body: {
+          checkId,
+          checkType,
+          curriculumProductId: cpId,
+        },
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      return { status, score, details };
+      return { 
+        status: data.status, 
+        score: data.score, 
+        details: data.details 
+      };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quality-gates-overview'] });
