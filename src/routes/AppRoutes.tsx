@@ -30,6 +30,9 @@ const BundleListPage = lazy(() => import('@/pages/seo/ProductListPage').then(m =
 const LernkursDetailPage = lazy(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.LernkursDetailPage })));
 const PruefungstrainerDetailPage = lazy(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.PruefungstrainerDetailPage })));
 const BundleDetailPage = lazy(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.BundleDetailPage })));
+const WissenPage = lazy(() => import('@/pages/seo/WissenPage'));
+const WissenArticlePage = lazy(() => import('@/pages/seo/WissenArticlePage'));
+const WissenAllePage = lazy(() => import('@/pages/seo/WissenAllePage'));
 
 // Admin Pages
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
@@ -126,6 +129,11 @@ const AppRoutes = () => {
           <Route path="/bundle/:slug" element={<BundleDetailPage />} />
           <Route path="/unternehmen" element={<UnternehmenPage />} />
           <Route path="/preise" element={<PreisePage />} />
+          
+          {/* Wissen / Blog */}
+          <Route path="/wissen" element={<WissenPage />} />
+          <Route path="/wissen/alle" element={<WissenAllePage />} />
+          <Route path="/wissen/:slug" element={<WissenArticlePage />} />
         </Route>
         
         {/* Main Layout Routes */}
