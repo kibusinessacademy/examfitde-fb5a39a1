@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.bibb-seeding]
 verify_jwt = false
+
+[functions.oral-exam]
+verify_jwt = false
