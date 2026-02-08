@@ -157,6 +157,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_cost_budgets: {
+        Row: {
+          alert_sent_at: string | null
+          alert_threshold: number
+          budget_eur: number
+          created_at: string
+          id: string
+          month: string
+          spent_eur: number
+          updated_at: string
+        }
+        Insert: {
+          alert_sent_at?: string | null
+          alert_threshold?: number
+          budget_eur?: number
+          created_at?: string
+          id?: string
+          month: string
+          spent_eur?: number
+          updated_at?: string
+        }
+        Update: {
+          alert_sent_at?: string | null
+          alert_threshold?: number
+          budget_eur?: number
+          created_at?: string
+          id?: string
+          month?: string
+          spent_eur?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_tutor_logs: {
         Row: {
           block_reason: string | null
@@ -215,6 +248,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_usage_log: {
+        Row: {
+          cost_eur: number
+          created_at: string
+          error_message: string | null
+          id: string
+          input_tokens: number
+          job_type: string
+          latency_ms: number | null
+          metadata: Json | null
+          model: string | null
+          output_tokens: number
+          success: boolean
+          total_tokens: number | null
+        }
+        Insert: {
+          cost_eur?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_tokens?: number
+          job_type: string
+          latency_ms?: number | null
+          metadata?: Json | null
+          model?: string | null
+          output_tokens?: number
+          success?: boolean
+          total_tokens?: number | null
+        }
+        Update: {
+          cost_eur?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_tokens?: number
+          job_type?: string
+          latency_ms?: number | null
+          metadata?: Json | null
+          model?: string | null
+          output_tokens?: number
+          success?: boolean
+          total_tokens?: number | null
+        }
+        Relationships: []
       }
       ai_worker_policies: {
         Row: {
@@ -979,6 +1057,106 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_notes: {
+        Row: {
+          content: string
+          course_id: string | null
+          created_at: string
+          id: string
+          is_flagged_for_repeat: boolean
+          lesson_id: string | null
+          note_type: string
+          question_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          is_flagged_for_repeat?: boolean
+          lesson_id?: string | null
+          note_type?: string
+          question_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          is_flagged_for_repeat?: boolean
+          lesson_id?: string | null
+          note_type?: string
+          question_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_notes_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_reviews: {
+        Row: {
+          content: string | null
+          course_id: string
+          created_at: string
+          helpful_count: number
+          id: string
+          is_verified_purchase: boolean
+          rating: number
+          reported_count: number
+          status: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          course_id: string
+          created_at?: string
+          helpful_count?: number
+          id?: string
+          is_verified_purchase?: boolean
+          rating: number
+          reported_count?: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          course_id?: string
+          created_at?: string
+          helpful_count?: number
+          id?: string
+          is_verified_purchase?: boolean
+          rating?: number
+          reported_count?: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_reviews_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
         ]
@@ -2423,6 +2601,45 @@ export type Database = {
           },
         ]
       }
+      performance_metrics: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json | null
+          metric_date: string
+          metric_name: string
+          metric_type: string
+          metric_value: number
+          threshold_critical: number | null
+          threshold_warning: number | null
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_date?: string
+          metric_name: string
+          metric_type: string
+          metric_value: number
+          threshold_critical?: number | null
+          threshold_warning?: number | null
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_date?: string
+          metric_name?: string
+          metric_type?: string
+          metric_value?: number
+          threshold_critical?: number | null
+          threshold_warning?: number | null
+          unit?: string | null
+        }
+        Relationships: []
+      }
       process_documentation: {
         Row: {
           category: string
@@ -3395,6 +3612,45 @@ export type Database = {
         }
         Relationships: []
       }
+      system_optimization_reports: {
+        Row: {
+          created_at: string
+          generated_by: string | null
+          id: string
+          metrics: Json
+          recommendations: Json
+          report_date: string
+          report_type: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          metrics?: Json
+          recommendations?: Json
+          report_date?: string
+          report_type: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          metrics?: Json
+          recommendations?: Json
+          report_date?: string
+          report_type?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       ticket_messages: {
         Row: {
           attachments: Json | null
@@ -3657,6 +3913,45 @@ export type Database = {
       }
     }
     Views: {
+      ai_cost_overview: {
+        Row: {
+          alert_sent_at: string | null
+          alert_threshold: number | null
+          budget_eur: number | null
+          failed_requests: number | null
+          month: string | null
+          remaining_eur: number | null
+          spent_eur: number | null
+          total_requests: number | null
+          total_tokens: number | null
+          usage_percent: number | null
+        }
+        Insert: {
+          alert_sent_at?: string | null
+          alert_threshold?: number | null
+          budget_eur?: number | null
+          failed_requests?: never
+          month?: string | null
+          remaining_eur?: never
+          spent_eur?: number | null
+          total_requests?: never
+          total_tokens?: never
+          usage_percent?: never
+        }
+        Update: {
+          alert_sent_at?: string | null
+          alert_threshold?: number | null
+          budget_eur?: number | null
+          failed_requests?: never
+          month?: string | null
+          remaining_eur?: never
+          spent_eur?: number | null
+          total_requests?: never
+          total_tokens?: never
+          usage_percent?: never
+        }
+        Relationships: []
+      }
       ai_worker_health: {
         Row: {
           cost_today: number | null
