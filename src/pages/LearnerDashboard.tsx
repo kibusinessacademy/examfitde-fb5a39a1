@@ -316,10 +316,12 @@ export default function LearnerDashboard() {
                   <p className="text-muted-foreground text-sm mb-4">
                     Übe mit über 500 KI-generierten Prüfungsfragen.
                   </p>
-                  <Button variant="outline" size="sm" className="group-hover:border-accent/50">
-                    Zum Trainer
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  <Link to="/exam-trainer">
+                    <Button variant="outline" size="sm" className="group-hover:border-accent/50">
+                      Zum Trainer
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </CardContent>
