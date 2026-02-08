@@ -271,6 +271,17 @@ export default function OralExamTrainer() {
     setShowSampleAnswer(false);
   };
 
+  // Auto-Vorlesen bei neuer Frage (wie im Beispiel-Code)
+  useEffect(() => {
+    if (phase === 'question' && currentQuestion?.question_text && !isSpeaking) {
+      // Automatisch vorlesen wenn Frage erscheint
+      speakText(currentQuestion.question_text, () => {
+        // Nach dem Vorlesen automatisch auf "listening" wechseln
+        setPhase('listening');
+      });
+    }
+  }, [currentQuestion?.id, phase]);
+
   const handleReadQuestion = () => {
     if (currentQuestion?.question_text) {
       speakText(currentQuestion.question_text, () => {
@@ -290,12 +301,14 @@ export default function OralExamTrainer() {
 
   const handleNextQuestion = async () => {
     setShowSampleAnswer(false);
+    stopSpeaking(); // Stoppe ggf. laufende Sprachausgabe
+    
     if (progress && progress.current >= progress.total) {
       await finishSession();
       setPhase('results');
     } else {
       await nextQuestion();
-      setPhase('question');
+      setPhase('question'); // Wechselt zu 'question', useEffect triggert Auto-Vorlesen
       setTimeRemaining(180);
       setIsTimerActive(true);
       setAnswer('');
@@ -439,8 +452,14 @@ export default function OralExamTrainer() {
         <Card className="glass-card">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Prüfungsfrage</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-primary" />
+                Prüferfrage
+              </CardTitle>
               <div className="flex gap-2">
+                <Badge variant={phase === 'question' ? 'secondary' : 'default'}>
+                  {phase === 'question' ? 'Frage wird vorgelesen...' : 'Bereit zum Antworten'}
+                </Badge>
                 <Button
                   variant="outline"
                   size="sm"
@@ -463,13 +482,31 @@ export default function OralExamTrainer() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-              <p className="text-lg font-medium">{currentQuestion.question_text}</p>
+            <div className={cn(
+              "rounded-lg p-5 border-2 transition-all",
+              isSpeaking 
+                ? "bg-primary/10 border-primary/40 animate-pulse" 
+                : "bg-primary/5 border-primary/20"
+            )}>
+              <p className="text-lg font-medium leading-relaxed">{currentQuestion.question_text}</p>
             </div>
 
+            {/* Sprachstatus-Anzeige */}
+            {isSpeaking && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                <Volume2 className="h-5 w-5 text-blue-500 animate-pulse" />
+                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                  Der Prüfer stellt die Frage vor...
+                </span>
+              </div>
+            )}
+
             {isRecording && (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 animate-pulse">
-                <div className="h-3 w-3 rounded-full bg-rose-500 animate-ping" />
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                <div className="relative">
+                  <div className="h-4 w-4 rounded-full bg-rose-500" />
+                  <div className="absolute inset-0 h-4 w-4 rounded-full bg-rose-500 animate-ping" />
+                </div>
                 <span className="text-sm font-medium text-rose-600 dark:text-rose-400">
                   Aufnahme läuft... Sprich jetzt deine Antwort.
                 </span>
