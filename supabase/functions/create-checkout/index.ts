@@ -106,12 +106,13 @@ serve(async (req) => {
       logStep("Existing customer found", { customerId });
     }
 
-    // Create checkout session with calculated price
+    // Create checkout session with calculated price and automatic invoicing
     const origin = req.headers.get("origin") || "https://examfitde.lovable.app";
     
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
+      customer_creation: customerId ? undefined : 'always',
       line_items: [
         {
           price_data: {
@@ -123,8 +124,23 @@ serve(async (req) => {
         },
       ],
       mode: "payment",
+      // Enable automatic invoice creation for B2B compliance
+      invoice_creation: {
+        enabled: true,
+        invoice_data: {
+          description: `Lizenz: ${product.name} (${quantity}x) - ${curriculum.title}`,
+          metadata: {
+            user_id: user.id,
+            product_id: product.id,
+            curriculum_id: curriculum_id,
+          },
+          footer: 'Vielen Dank für Ihren Kauf! Zugang: 12 Monate ab Kaufdatum.',
+        },
+      },
       success_url: `${origin}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/shop?canceled=true`,
+      // Collect billing address for invoices
+      billing_address_collection: 'required',
       metadata: {
         user_id: user.id,
         product_id: product.id,

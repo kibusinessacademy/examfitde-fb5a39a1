@@ -3,12 +3,14 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCourseProgress, type LessonStatus } from "@/hooks/useCourseProgress";
+import { useCheckEntitlement } from "@/hooks/useEntitlements";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { SegmentedProgressBar } from "@/components/course/SegmentedProgressBar";
 import { CompetencyProgressGrid, type CompetencyProgress } from "@/components/course/CompetencyProgressGrid";
 import { ModuleLessonList } from "@/components/course/ModuleLessonList";
 import { ContinueLearningCard } from "@/components/course/ContinueLearningCard";
+import { Paywall } from "@/components/shop/Paywall";
 import { Loader2, Clock, BookOpen, ArrowLeft, PlayCircle } from "lucide-react";
 
 interface Course {
@@ -17,6 +19,7 @@ interface Course {
   description: string | null;
   thumbnail_url: string | null;
   estimated_duration: number | null;
+  curriculum_id: string;
 }
 
 interface Module {
@@ -46,6 +49,12 @@ export default function CourseDetailPage() {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Entitlement check - only when course is loaded
+  const { data: hasLearningAccess, isLoading: entitlementLoading } = useCheckEntitlement(
+    course?.curriculum_id || '',
+    'learning_course'
+  );
 
   // Use the course progress hook for enrolled users
   const { data: courseProgress, isLoading: progressLoading } = useCourseProgress(
@@ -179,6 +188,18 @@ export default function CourseDetailPage() {
       return;
     }
 
+    // Check entitlement before enrolling
+    if (!hasLearningAccess) {
+      // Redirect to shop
+      navigate("/shop");
+      toast({ 
+        title: "Lizenz erforderlich", 
+        description: "Bitte kaufen Sie eine Lizenz, um diesen Kurs zu starten.",
+        variant: "destructive" 
+      });
+      return;
+    }
+
     setEnrolling(true);
     const { error } = await supabase.from("course_enrollments").insert({
       user_id: user.id,
@@ -285,17 +306,36 @@ export default function CourseDetailPage() {
                   {progressPercent > 0 ? "Fortsetzen" : "Kurs starten"}
                 </Button>
               </div>
+            ) : user && hasLearningAccess === false && !entitlementLoading ? (
+              // User logged in but no license
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-muted-foreground mb-2">
+                    Du benötigst eine Lizenz, um diesen Kurs zu starten.
+                  </p>
+                  <Link to="/shop" className="text-primary hover:underline text-sm">
+                    Lizenz im Shop kaufen →
+                  </Link>
+                </div>
+                <Link to="/shop">
+                  <Button className="gradient-primary text-primary-foreground shadow-glow">
+                    <PlayCircle className="h-4 w-4 mr-2" />
+                    Lizenz kaufen
+                  </Button>
+                </Link>
+              </div>
             ) : (
+              // Not logged in or entitlement loading
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <p className="text-muted-foreground">
-                  Melde dich an, um mit diesem Kurs zu beginnen und deinen Fortschritt zu speichern.
+                  {entitlementLoading ? "Prüfe Berechtigung..." : "Melde dich an, um mit diesem Kurs zu beginnen und deinen Fortschritt zu speichern."}
                 </p>
                 <Button
                   onClick={handleEnroll}
-                  disabled={enrolling}
+                  disabled={enrolling || entitlementLoading}
                   className="gradient-primary text-primary-foreground shadow-glow"
                 >
-                  {enrolling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PlayCircle className="h-4 w-4 mr-2" />}
+                  {enrolling || entitlementLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PlayCircle className="h-4 w-4 mr-2" />}
                   {user ? "Jetzt einschreiben" : "Anmelden & Starten"}
                 </Button>
               </div>
