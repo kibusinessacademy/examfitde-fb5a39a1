@@ -4,6 +4,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* iOS/Android Safe Area Variables */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+}
+
 /* ExamFit.de - Petrol/Dunkelmint Design System */
 
 @layer base {
@@ -274,4 +282,103 @@
 /* Disable transitions on page load */
 .no-transitions *, .no-transitions *::before, .no-transitions *::after {
   transition: none !important;
+}
+
+/* Mobile Native App Styles */
+@layer utilities {
+  /* Safe area padding for native apps */
+  .safe-top {
+    padding-top: var(--safe-area-inset-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: var(--safe-area-inset-bottom);
+  }
+  
+  .safe-left {
+    padding-left: var(--safe-area-inset-left);
+  }
+  
+  .safe-right {
+    padding-right: var(--safe-area-inset-right);
+  }
+  
+  .safe-x {
+    padding-left: var(--safe-area-inset-left);
+    padding-right: var(--safe-area-inset-right);
+  }
+  
+  .safe-y {
+    padding-top: var(--safe-area-inset-top);
+    padding-bottom: var(--safe-area-inset-bottom);
+  }
+  
+  .safe-all {
+    padding-top: var(--safe-area-inset-top);
+    padding-right: var(--safe-area-inset-right);
+    padding-bottom: var(--safe-area-inset-bottom);
+    padding-left: var(--safe-area-inset-left);
+  }
+
+  /* iOS-style rubber band effect prevention */
+  .no-overscroll {
+    overscroll-behavior: none;
+  }
+  
+  /* Native touch behavior */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  /* Prevent text selection on native elements */
+  .select-none-native {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  
+  /* Hardware accelerated animations */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+  
+  /* Native scroll snap */
+  .snap-x-native {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .snap-y-native {
+    scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Capacitor/Native specific styles */
+body.capacitor {
+  /* Prevent pull-to-refresh on native apps */
+  overscroll-behavior-y: contain;
+  
+  /* Ensure content extends behind status bar on iOS */
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+}
+
+/* iOS status bar styling */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .ios-header {
+    padding-top: calc(var(--safe-area-inset-top) + 0.5rem);
+  }
+  
+  .ios-footer {
+    padding-bottom: calc(var(--safe-area-inset-bottom) + 0.5rem);
+  }
+}
+
+/* Android notch/cutout support */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .android-header {
+    padding-top: max(var(--safe-area-inset-top), 0.5rem);
+  }
 }
