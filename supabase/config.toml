@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.get-evidence-pack-url]
 verify_jwt = false
+
+[functions.bibb-seeding]
+verify_jwt = false

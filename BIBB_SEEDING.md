@@ -8,11 +8,13 @@ Dieses Dokument beschreibt den kompletten Seeding-Prozess für die Lernplattform
 
 ### 1. Verzeichnis der anerkannten Ausbildungsberufe
 - **Quelle**: BIBB Jahresausgabe 2025
-- **URL**: https://www.bibb.de/dienst/publikationen/de/19277
-- **Inhalt**: Alle aktuell anerkannten Ausbildungsberufe mit Metadaten
+- **URL**: https://www.bibb.de/dienst/publikationen/de/20423
+- **Inhalt**: Alle 327 aktuell anerkannten Ausbildungsberufe mit Metadaten
+- **Format**: PDF (manuell), Web-Scraping (automatisch)
 
 ### 2. Berufesuche (Profilseiten)
-- **URL**: https://www.bibb.de/dienst/berufesuche/de/
+- **Liste nach Jahr**: https://www.bibb.de/de/berufeinfo.php/legal_basis/
+- **Profil-URL-Schema**: `https://www.bibb.de/dienst/berufesuche/de/index_berufesuche.php/profile/apprenticeship/{BIBB_ID}`
 - **Inhalt**: Detaillierte Profilseiten je Beruf mit Links zu Dokumenten
 
 ### 3. KMK-Rahmenlehrpläne
@@ -20,27 +22,77 @@ Dieses Dokument beschreibt den kompletten Seeding-Prozess für die Lernplattform
 - **URL**: https://www.kmk.org/themen/berufliche-schulen/duale-berufsausbildung/downloadbereich-rahmenlehrplaene.html
 - **Inhalt**: Schulische Rahmenlehrpläne mit Lernfeldern
 
+## Automatisiertes Seeding
+
+### Edge Function: `bibb-seeding`
+
+Die Edge Function `supabase/functions/bibb-seeding/index.ts` ermöglicht automatisches Seeding via Firecrawl.
+
+**Aktionen:**
+
+| Action | Beschreibung |
+|--------|--------------|
+| `status` | Gibt aktuelle Statistiken zurück (Anzahl Berufe, Dokumente) |
+| `list_berufe` | Scrapt BIBB-Verzeichnis und listet alle Berufs-IDs |
+| `scrape_beruf` | Importiert einen einzelnen Beruf inkl. Dokumente |
+| `scrape_all` | Ermittelt alle noch nicht importierten Berufe |
+
+**API-Beispiele:**
+
+```bash
+# Status abrufen
+curl -X POST https://your-project.supabase.co/functions/v1/bibb-seeding \
+  -H "Content-Type: application/json" \
+  -d '{"action": "status"}'
+
+# Einzelnen Beruf importieren
+curl -X POST https://your-project.supabase.co/functions/v1/bibb-seeding \
+  -H "Content-Type: application/json" \
+  -d '{"action": "scrape_beruf", "bibbId": "rtretgf"}'
+```
+
+### Admin-UI
+
+Die Admin-Seite unter `/admin-v2/bibb-seeding` bietet:
+
+1. **Statistiken**: Anzahl importierter Berufe und Dokumente
+2. **BIBB-Verzeichnis scannen**: Ermittelt alle verfügbaren Berufe
+3. **Seeding starten**: Importiert alle ausstehenden Berufe automatisch
+4. **Einzelimport**: Manueller Import via BIBB-ID
+5. **Log-Ansicht**: Echtzeit-Protokoll des Import-Prozesses
+
 ## Datenbankstruktur
 
 ```
-berufe (5 Einträge)
-  └── curricula (2 Einträge: Digitalisierungsmanagement, Fachinformatiker)
-        └── learning_fields (25 Lernfelder total)
-              └── competencies (90+ Kompetenzen)
-                    └── modules → lessons (430+ Lektionen)
+berufe (327 Einträge geplant)
+  ├── bibb_id (eindeutige BIBB-Kennung)
+  ├── bezeichnung_kurz / bezeichnung_lang
+  ├── zustaendigkeit (IH, Hw, ÖD, Lw, etc.)
+  ├── ausbildungsdauer_monate
+  ├── dqr_niveau
+  ├── bibb_profil_url
+  ├── verordnung_pdf_url
+  ├── rahmenlehrplan_url
+  └── beruf_dokumente (1:n)
+        ├── dokument_typ (ausbildungsverordnung, rahmenlehrplan, zeugniserlaeuterung, etc.)
+        ├── titel
+        ├── url
+        └── sprache (de, en, fr)
 ```
 
-## Geseedete Berufe
+## Bekannte BIBB-IDs
 
-| BIBB-ID | Bezeichnung | Dauer | DQR | Status |
-|---------|-------------|-------|-----|--------|
-| kfdigmgmt | Kaufmann für Digitalisierungsmanagement | 36 Mon. | 4 | ✅ Vollständig |
-| kfitsysmgmt | Kaufmann für IT-System-Management | 36 Mon. | 4 | 📋 Beruf angelegt |
-| kfbuero | Kaufmann für Büromanagement | 36 Mon. | 4 | 📋 Beruf angelegt |
-| kfecomm | Kaufmann im E-Commerce | 36 Mon. | 4 | 📋 Beruf angelegt |
-| fchinfmtk | Fachinformatiker | 36 Mon. | 4 | ✅ Vollständig |
+| BIBB-ID | Bezeichnung | Jahr |
+|---------|-------------|------|
+| rtretgf | Kaufmann für Digitalisierungsmanagement | 2020 |
+| dsafsf | Kaufmann für IT-System-Management | 2020 |
+| 80000 | Fachinformatiker | 2020 |
+| hhffgdfd | IT-System-Elektroniker | 2020 |
+| indust24 | Industriekaufmann | 2024 |
+| kfmfb25 | Kaufmann für Büromanagement | 2025 |
+| 261016 | Kaufmann im E-Commerce | 2017 |
 
-## Seeding-Prozess
+## Seeding-Prozess (manuell)
 
 ### Schritt 1: Berufe-Tabelle befüllen
 ```sql
@@ -105,30 +157,28 @@ LEFT JOIN lessons l ON l.module_id = m.id
 GROUP BY c.id, c.title;
 ```
 
-### Erwartete Ergebnisse
+### Berufe-Dokumente prüfen
+```sql
+SELECT 
+  b.bezeichnung_kurz,
+  COUNT(bd.id) as dokumente,
+  array_agg(bd.dokument_typ) as typen
+FROM berufe b
+LEFT JOIN beruf_dokumente bd ON bd.beruf_id = b.id
+GROUP BY b.id, b.bezeichnung_kurz
+ORDER BY b.bezeichnung_kurz;
+```
 
-| Curriculum | Lernfelder | Kompetenzen | Lektionen |
-|------------|------------|-------------|-----------|
-| Digitalisierungsmanagement | 13 | 47 | 215 |
-| Fachinformatiker (AE) | 12 | 44 | 110+ |
+## Technische Abhängigkeiten
 
-## Erweiterung
-
-### Neuen Beruf hinzufügen
-1. Beruf in `berufe` anlegen
-2. Curriculum erstellen (Typ: betrieblich/schulisch)
-3. Lernfelder aus Rahmenlehrplan extrahieren
-4. Kompetenzen definieren
-5. Module und Lektionen generieren
-6. Kurs publizieren
-
-### Automatisierung (geplant)
-- PDF-Parser für Rahmenlehrpläne
-- KI-gestützte Kompetenzextraktion
-- Automatische Lektionsgenerierung
+- **Firecrawl Connector**: Muss in Lovable Cloud verbunden sein
+- **Service Role Key**: Für Schreibzugriff auf Datenbank
+- **Rate Limiting**: 1.5s Pause zwischen Scrape-Requests
 
 ## Changelog
 
 - **2026-02-08**: Initiales Seeding mit 5 Berufen, 2 vollständigen Curricula
 - **2026-02-08**: Testdaten bereinigt, Produktionsdaten eingefügt
 - **2026-02-08**: Fachinformatiker-Kurs komplett implementiert
+- **2026-02-08**: BIBB-Seeding Edge Function mit Firecrawl implementiert
+- **2026-02-08**: Admin-UI für automatisiertes Seeding erstellt

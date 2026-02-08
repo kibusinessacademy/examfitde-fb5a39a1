@@ -42,6 +42,9 @@ const AuditExportsPage = lazy(() => import('@/pages/admin/AuditExportsPage'));
 // Evidence Packs
 const EvidencePacksPage = lazy(() => import('@/pages/admin/EvidencePacksPage'));
 
+// BIBB Seeding
+const BIBBSeedingPage = lazy(() => import('@/pages/admin/BIBBSeedingPage'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
@@ -99,6 +102,8 @@ const AppRoutes = () => {
           <Route path="audit-exports" element={<AuditExportsPage />} />
           {/* Evidence Packs */}
           <Route path="evidence-packs" element={<EvidencePacksPage />} />
+          {/* BIBB Seeding */}
+          <Route path="bibb-seeding" element={<BIBBSeedingPage />} />
         </Route>
 
         {/* Admin Redirects */}
