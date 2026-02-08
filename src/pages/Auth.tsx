@@ -4,16 +4,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpen, GraduationCap, Loader2 } from 'lucide-react';
+import { BookOpen, GraduationCap, Loader2, Wand2 } from 'lucide-react';
 import { z } from 'zod';
+import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
+import MagicLinkForm from '@/components/auth/MagicLinkForm';
 
 const emailSchema = z.string().email('Bitte geben Sie eine gültige E-Mail-Adresse ein');
 const passwordSchema = z.string().min(6, 'Das Passwort muss mindestens 6 Zeichen haben');
 
+type AuthView = 'login' | 'register' | 'forgot-password' | 'magic-link';
+
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [view, setView] = useState<AuthView>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -23,6 +26,9 @@ export default function Auth() {
   const { signIn, signUp, user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const isLogin = view === 'login';
+  const isRegister = view === 'register';
 
   useEffect(() => {
     if (!loading && user) {
@@ -86,7 +92,7 @@ export default function Auth() {
               description: 'Diese E-Mail-Adresse ist bereits registriert. Bitte melden Sie sich an.',
               variant: 'destructive',
             });
-            setIsLogin(true);
+            setView('login');
           } else {
             toast({
               title: 'Fehler',
@@ -97,7 +103,7 @@ export default function Auth() {
         } else {
           toast({
             title: 'Konto erstellt!',
-            description: 'Willkommen auf der Lernplattform.',
+            description: 'Bitte bestätigen Sie Ihre E-Mail-Adresse.',
           });
         }
       }
@@ -110,6 +116,47 @@ export default function Auth() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Render special views
+  if (view === 'forgot-password' || view === 'magic-link') {
+    return (
+      <div className="min-h-screen flex relative overflow-hidden">
+        <div className="orb orb-primary w-96 h-96 -top-48 -left-48 fixed" />
+        <div className="orb orb-accent w-80 h-80 bottom-20 right-20 fixed" />
+        <div className="orb orb-rose w-64 h-64 top-1/3 left-1/3 fixed" />
+
+        <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12">
+          <div className="absolute inset-0 gradient-hero opacity-80" />
+          <div className="absolute inset-0 glass-subtle" />
+          <div className="max-w-md text-center relative z-10">
+            <div className="flex justify-center mb-8">
+              <div className="p-5 rounded-3xl glass shadow-glow">
+                <GraduationCap className="h-16 w-16 text-foreground" />
+              </div>
+            </div>
+            <h1 className="text-4xl font-display font-bold mb-4 text-foreground">
+              H5P Lernplattform
+            </h1>
+            <p className="text-xl text-muted-foreground mb-8">
+              Interaktives Lernen mit modernen didaktischen Methoden
+            </p>
+          </div>
+        </div>
+
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative z-10">
+          <div className="glass-strong rounded-3xl w-full max-w-md animate-fade-in">
+            <div className="p-8">
+              {view === 'forgot-password' ? (
+                <ForgotPasswordForm onBack={() => setView('login')} />
+              ) : (
+                <MagicLinkForm onBack={() => setView('login')} />
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -171,7 +218,7 @@ export default function Auth() {
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-5">
-              {!isLogin && (
+              {isRegister && (
                 <div className="space-y-2">
                   <Label htmlFor="fullName" className="text-foreground">Vollständiger Name</Label>
                   <Input
@@ -206,7 +253,18 @@ export default function Auth() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground">Passwort</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-foreground">Passwort</Label>
+                  {isLogin && (
+                    <button
+                      type="button"
+                      onClick={() => setView('forgot-password')}
+                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Passwort vergessen?
+                    </button>
+                  )}
+                </div>
                 <Input
                   id="password"
                   type="password"
@@ -240,11 +298,34 @@ export default function Auth() {
               </Button>
             </form>
 
-            <div className="mt-8 text-center">
+            {/* Magic Link Option */}
+            {isLogin && (
+              <div className="mt-4">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border/50" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background/50 px-2 text-muted-foreground">oder</span>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setView('magic-link')}
+                  className="w-full h-12 mt-4 rounded-xl border-border/50 hover:border-primary/50"
+                >
+                  <Wand2 className="h-5 w-5 mr-2" />
+                  Mit Magic Link anmelden
+                </Button>
+              </div>
+            )}
+
+            <div className="mt-6 text-center">
               <button
                 type="button"
                 onClick={() => {
-                  setIsLogin(!isLogin);
+                  setView(isLogin ? 'register' : 'login');
                   setErrors({});
                 }}
                 className="text-sm text-muted-foreground hover:text-primary transition-colors"
