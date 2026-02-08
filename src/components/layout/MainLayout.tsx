@@ -42,6 +42,9 @@ export default function MainLayout() {
             <Link to="/exam-trainer" className="text-muted-foreground hover:text-foreground transition-colors">
               Prüfungstrainer
             </Link>
+            <Link to="/shop" className="text-muted-foreground hover:text-foreground transition-colors">
+              Shop
+            </Link>
             {user && (
               <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
                 Dashboard
@@ -99,6 +102,13 @@ export default function MainLayout() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Prüfungstrainer
+              </Link>
+              <Link 
+                to="/shop" 
+                className="text-foreground py-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Shop
               </Link>
               {user && (
                 <Link 
