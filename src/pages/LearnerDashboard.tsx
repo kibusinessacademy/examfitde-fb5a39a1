@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -38,6 +39,7 @@ interface CourseProgress {
 
 export default function LearnerDashboard() {
   const { user } = useAuth();
+  const { data: dashboardStats } = useDashboardStats();
   const [enrollments, setEnrollments] = useState<EnrolledCourse[]>([]);
   const [progress, setProgress] = useState<Map<string, CourseProgress>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -193,7 +195,7 @@ export default function LearnerDashboard() {
             <CardContent className="p-6 text-center">
               <Calendar className="h-8 w-8 text-orange-500 mx-auto mb-2" />
               <div className="text-3xl font-display font-bold text-orange-500">
-                0
+                {dashboardStats?.streak ?? 0}
               </div>
               <div className="text-sm text-muted-foreground">Tage Streak</div>
             </CardContent>
