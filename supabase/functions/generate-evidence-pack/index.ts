@@ -1,9 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from "../_shared/auth.ts";
 
 interface RequestBody {
   courseId: string;
@@ -32,6 +28,17 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ==================== AUTH CHECK ====================
+  const auth = await validateAuth(req, true); // requireAdmin = true
+  
+  if (auth.error) {
+    if (auth.error === 'Admin access required') {
+      return forbiddenResponse(auth.error);
+    }
+    return unauthorizedResponse(auth.error);
+  }
+  // ====================================================
+
   try {
     if (req.method !== "POST") {
       return jsonResponse(405, { error: "Method not allowed" });
@@ -41,10 +48,7 @@ Deno.serve(async (req) => {
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const authHeader = req.headers.get("Authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return jsonResponse(401, { error: "Missing Authorization Bearer token" });
-    }
+    const authHeader = req.headers.get("Authorization")!;
 
     const body = (await req.json()) as RequestBody;
     const courseId = body.courseId?.trim();
@@ -56,30 +60,12 @@ Deno.serve(async (req) => {
     const includeQuestions = body.includeQuestions ?? false;
     const includeH5p = body.includeH5p ?? true;
 
-    // User client (respects RLS + validates admin)
+    // User client (respects RLS)
     const sbUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify user is admin via has_role check
-    const { data: userData, error: userError } = await sbUser.auth.getUser();
-    if (userError || !userData.user) {
-      return jsonResponse(401, { error: "Not authenticated" });
-    }
-
-    const { data: roleData, error: roleError } = await sbUser
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userData.user.id)
-      .eq('role', 'admin')
-      .maybeSingle();
-
-    if (roleError) {
-      return jsonResponse(500, { error: roleError.message });
-    }
-    if (!roleData) {
-      return jsonResponse(403, { error: "Forbidden (admin only)" });
-    }
+    console.log(`[User: ${auth.user?.id}] Generating evidence pack for course: ${courseId}`);
 
     // Generate pack via existing export_course_pack RPC
     const { data: pack, error: packErr } = await sbUser.rpc("export_course_pack", {

@@ -1,10 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from "../_shared/auth.ts";
 
 const systemPrompt = `Du bist ein Experte für die Erstellung von Prüfungsfragen für Berufsausbildungen (IHK-Prüfungen).
 Erstelle Multiple-Choice-Fragen basierend auf dem gegebenen Thema und der Kompetenz.
@@ -32,6 +27,18 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ==================== AUTH CHECK ====================
+  // Require admin role to generate questions (expensive AI operation)
+  const auth = await validateAuth(req, true); // requireAdmin = true
+  
+  if (auth.error) {
+    if (auth.error === 'Admin access required') {
+      return forbiddenResponse(auth.error);
+    }
+    return unauthorizedResponse(auth.error);
+  }
+  // ====================================================
+
   try {
     const { competencyId, competencyTitle, competencyDescription, learningFieldTitle, count = 3, difficulty = 'medium' } = await req.json();
 
@@ -40,7 +47,7 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log(`Generating ${count} ${difficulty} questions for: ${competencyTitle}`);
+    console.log(`[User: ${auth.user?.id}] Generating ${count} ${difficulty} questions for: ${competencyTitle}`);
 
     const userPrompt = `Erstelle ${count} ${difficulty === 'easy' ? 'leichte' : difficulty === 'medium' ? 'mittelschwere' : 'schwere'} Prüfungsfragen.
 

@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from "../_shared/auth.ts";
 
 const LESSON_STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'] as const;
 
@@ -20,6 +16,18 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // ==================== AUTH CHECK ====================
+  // Require admin role to generate courses (expensive AI operation)
+  const auth = await validateAuth(req, true); // requireAdmin = true
+  
+  if (auth.error) {
+    if (auth.error === 'Admin access required') {
+      return forbiddenResponse(auth.error);
+    }
+    return unauthorizedResponse(auth.error);
+  }
+  // ====================================================
 
   try {
     const { courseId, curriculumId, title, description } = await req.json();
@@ -41,7 +49,7 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    console.log(`Starting course generation for course: ${courseId}`);
+    console.log(`[User: ${auth.user?.id}] Starting course generation for course: ${courseId}`);
 
     // Update course status to generating
     await supabase

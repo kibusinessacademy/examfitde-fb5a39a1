@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "https://esm.sh/jszip@3.10.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from "../_shared/auth.ts";
 
 interface FileInfo {
   path: string;
@@ -34,6 +30,18 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ==================== AUTH CHECK ====================
+  // Require admin role to unzip files (potential for abuse)
+  const auth = await validateAuth(req, true); // requireAdmin = true
+  
+  if (auth.error) {
+    if (auth.error === 'Admin access required') {
+      return forbiddenResponse(auth.error);
+    }
+    return unauthorizedResponse(auth.error);
+  }
+  // ====================================================
+
   try {
     const { 
       bucketName, 
@@ -55,7 +63,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`Downloading ${filePath} from ${bucketName}...`);
+    console.log(`[User: ${auth.user?.id}] Downloading ${filePath} from ${bucketName}...`);
     
     const { data: fileData, error: downloadError } = await supabase.storage
       .from(bucketName)

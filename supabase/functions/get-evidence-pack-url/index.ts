@@ -1,9 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from "../_shared/auth.ts";
 
 interface RequestBody {
   packId: string;
@@ -22,6 +18,17 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ==================== AUTH CHECK ====================
+  const auth = await validateAuth(req, true); // requireAdmin = true
+  
+  if (auth.error) {
+    if (auth.error === 'Admin access required') {
+      return forbiddenResponse(auth.error);
+    }
+    return unauthorizedResponse(auth.error);
+  }
+  // ====================================================
+
   try {
     if (req.method !== "POST") {
       return jsonResponse(405, { error: "Method not allowed" });
@@ -31,10 +38,7 @@ Deno.serve(async (req) => {
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const authHeader = req.headers.get("Authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return jsonResponse(401, { error: "Missing Authorization Bearer token" });
-    }
+    const authHeader = req.headers.get("Authorization")!;
 
     const body = (await req.json()) as RequestBody;
     const packId = body.packId?.trim();
@@ -43,12 +47,14 @@ Deno.serve(async (req) => {
       return jsonResponse(400, { error: "packId is required" });
     }
 
-    // User client for auth and RPC
+    // User client for RPC
     const sbUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Get pack storage info via RPC (includes admin check)
+    console.log(`[User: ${auth.user?.id}] Getting evidence pack URL for: ${packId}`);
+
+    // Get pack storage info via RPC
     const { data: packInfo, error: packErr } = await sbUser.rpc("get_evidence_pack_storage_info", {
       p_pack_id: packId,
     });
