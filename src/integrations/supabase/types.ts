@@ -1295,6 +1295,60 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_anxiety_sessions: {
+        Row: {
+          anxiety_after: number | null
+          anxiety_before: number | null
+          breathing_pattern: string | null
+          breathing_rounds: number | null
+          checklist_items_completed: number | null
+          checklist_items_total: number | null
+          completed_at: string | null
+          duration_seconds: number | null
+          id: string
+          session_type: string
+          started_at: string
+          user_id: string
+          user_notes: string | null
+          visualization_duration_seconds: number | null
+          visualization_theme: string | null
+        }
+        Insert: {
+          anxiety_after?: number | null
+          anxiety_before?: number | null
+          breathing_pattern?: string | null
+          breathing_rounds?: number | null
+          checklist_items_completed?: number | null
+          checklist_items_total?: number | null
+          completed_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          session_type: string
+          started_at?: string
+          user_id: string
+          user_notes?: string | null
+          visualization_duration_seconds?: number | null
+          visualization_theme?: string | null
+        }
+        Update: {
+          anxiety_after?: number | null
+          anxiety_before?: number | null
+          breathing_pattern?: string | null
+          breathing_rounds?: number | null
+          checklist_items_completed?: number | null
+          checklist_items_total?: number | null
+          completed_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          session_type?: string
+          started_at?: string
+          user_id?: string
+          user_notes?: string | null
+          visualization_duration_seconds?: number | null
+          visualization_theme?: string | null
+        }
+        Relationships: []
+      }
       exam_attempts: {
         Row: {
           answers: Json | null
@@ -2916,6 +2970,221 @@ export type Database = {
         }
         Relationships: []
       }
+      spaced_repetition_cards: {
+        Row: {
+          bloom_level: string
+          bloom_modifier: number
+          blueprint_id: string | null
+          competency_id: string | null
+          created_at: string
+          curriculum_id: string
+          ease_factor: number
+          id: string
+          interval_days: number
+          is_graduated: boolean
+          is_new: boolean
+          is_suspended: boolean
+          lapses: number
+          last_reviewed_at: string | null
+          next_review_at: string
+          question_id: string | null
+          repetition_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bloom_level?: string
+          bloom_modifier?: number
+          blueprint_id?: string | null
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id: string
+          ease_factor?: number
+          id?: string
+          interval_days?: number
+          is_graduated?: boolean
+          is_new?: boolean
+          is_suspended?: boolean
+          lapses?: number
+          last_reviewed_at?: string | null
+          next_review_at?: string
+          question_id?: string | null
+          repetition_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bloom_level?: string
+          bloom_modifier?: number
+          blueprint_id?: string | null
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id?: string
+          ease_factor?: number
+          id?: string
+          interval_days?: number
+          is_graduated?: boolean
+          is_new?: boolean
+          is_suspended?: boolean
+          lapses?: number
+          last_reviewed_at?: string | null
+          next_review_at?: string
+          question_id?: string | null
+          repetition_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spaced_repetition_cards_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_cards_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_cards_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_cards_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_cards_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_cards_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spaced_repetition_reviews: {
+        Row: {
+          bloom_level: string
+          card_id: string
+          id: string
+          new_ease_factor: number
+          new_interval: number
+          previous_ease_factor: number
+          previous_interval: number
+          quality_rating: number
+          response_time_ms: number | null
+          reviewed_at: string
+          user_id: string
+        }
+        Insert: {
+          bloom_level: string
+          card_id: string
+          id?: string
+          new_ease_factor: number
+          new_interval: number
+          previous_ease_factor: number
+          previous_interval: number
+          quality_rating: number
+          response_time_ms?: number | null
+          reviewed_at?: string
+          user_id: string
+        }
+        Update: {
+          bloom_level?: string
+          card_id?: string
+          id?: string
+          new_ease_factor?: number
+          new_interval?: number
+          previous_ease_factor?: number
+          previous_interval?: number
+          quality_rating?: number
+          response_time_ms?: number | null
+          reviewed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spaced_repetition_reviews_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "spaced_repetition_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spaced_repetition_sessions: {
+        Row: {
+          correct_count: number
+          created_at: string
+          curriculum_id: string
+          duration_seconds: number | null
+          finished_at: string | null
+          id: string
+          incorrect_count: number
+          new_cards: number
+          review_cards: number
+          started_at: string
+          streak_continued: boolean | null
+          total_cards: number
+          user_id: string
+        }
+        Insert: {
+          correct_count?: number
+          created_at?: string
+          curriculum_id: string
+          duration_seconds?: number | null
+          finished_at?: string | null
+          id?: string
+          incorrect_count?: number
+          new_cards?: number
+          review_cards?: number
+          started_at?: string
+          streak_continued?: boolean | null
+          total_cards?: number
+          user_id: string
+        }
+        Update: {
+          correct_count?: number
+          created_at?: string
+          curriculum_id?: string
+          duration_seconds?: number | null
+          finished_at?: string | null
+          id?: string
+          incorrect_count?: number
+          new_cards?: number
+          review_cards?: number
+          started_at?: string
+          streak_continued?: boolean | null
+          total_cards?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spaced_repetition_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_products: {
         Row: {
           access_duration_days: number | null
@@ -3264,6 +3533,53 @@ export type Database = {
           },
         ]
       }
+      user_learning_streaks: {
+        Row: {
+          current_streak: number
+          curriculum_id: string | null
+          id: string
+          last_activity_date: string | null
+          longest_streak: number
+          streak_start_date: string | null
+          total_cards_reviewed: number
+          total_sessions: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          current_streak?: number
+          curriculum_id?: string | null
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number
+          streak_start_date?: string | null
+          total_cards_reviewed?: number
+          total_sessions?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          current_streak?: number
+          curriculum_id?: string | null
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number
+          streak_start_date?: string | null
+          total_cards_reviewed?: number
+          total_sessions?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_learning_streaks_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -3282,6 +3598,60 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      vark_assessments: {
+        Row: {
+          auditory_score: number
+          completed_at: string | null
+          created_at: string
+          id: string
+          is_multimodal: boolean
+          kinesthetic_score: number
+          modality_profile: Json | null
+          primary_type: string | null
+          questions_answered: number
+          raw_responses: Json | null
+          reading_score: number
+          secondary_type: string | null
+          updated_at: string
+          user_id: string
+          visual_score: number
+        }
+        Insert: {
+          auditory_score?: number
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          is_multimodal?: boolean
+          kinesthetic_score?: number
+          modality_profile?: Json | null
+          primary_type?: string | null
+          questions_answered?: number
+          raw_responses?: Json | null
+          reading_score?: number
+          secondary_type?: string | null
+          updated_at?: string
+          user_id: string
+          visual_score?: number
+        }
+        Update: {
+          auditory_score?: number
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          is_multimodal?: boolean
+          kinesthetic_score?: number
+          modality_profile?: Json | null
+          primary_type?: string | null
+          questions_answered?: number
+          raw_responses?: Json | null
+          reading_score?: number
+          secondary_type?: string | null
+          updated_at?: string
+          user_id?: string
+          visual_score?: number
         }
         Relationships: []
       }
@@ -3462,6 +3832,21 @@ export type Database = {
           unit_price_cents: number
         }[]
       }
+      calculate_sm2_next_review: {
+        Args: {
+          p_bloom_level: string
+          p_current_ease: number
+          p_current_interval: number
+          p_quality: number
+          p_repetition_count: number
+        }
+        Returns: {
+          is_lapse: boolean
+          new_ease_factor: number
+          new_interval: number
+          new_repetition_count: number
+        }[]
+      }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
       check_user_entitlement: {
         Args: { p_curriculum_id: string; p_feature: string; p_user_id: string }
@@ -3548,7 +3933,36 @@ export type Database = {
         }[]
       }
       generate_invite_code: { Args: never; Returns: string }
+      get_bloom_level_stats: {
+        Args: { p_curriculum_id: string }
+        Returns: {
+          bloom_level: string
+          description: string
+          ihk_weight: number
+          question_count: number
+        }[]
+      }
       get_course_progress: { Args: { p_course_id: string }; Returns: Json }
+      get_due_cards: {
+        Args: {
+          p_curriculum_id?: string
+          p_include_new?: boolean
+          p_limit?: number
+          p_user_id: string
+        }
+        Returns: {
+          bloom_level: string
+          card_id: string
+          correct_answer: number
+          ease_factor: number
+          interval_days: number
+          is_new: boolean
+          options: Json
+          question_id: string
+          question_text: string
+          repetition_count: number
+        }[]
+      }
       get_evidence_pack: { Args: { p_pack_id: string }; Returns: Json }
       get_evidence_pack_storage_info: {
         Args: { p_pack_id: string }
@@ -3718,6 +4132,14 @@ export type Database = {
         }
         Returns: Json
       }
+      update_learning_streak: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: {
+          current_streak: number
+          longest_streak: number
+          streak_continued: boolean
+        }[]
+      }
       update_lesson_outcome: {
         Args: { p_lesson_id: string; p_score_percent: number }
         Returns: {
@@ -3756,6 +4178,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "teacher" | "learner"
+      bloom_level:
+        | "remember"
+        | "understand"
+        | "apply"
+        | "analyze"
+        | "evaluate"
+        | "create"
       blueprint_status: "draft" | "review" | "approved" | "deprecated"
       cognitive_level: "remember" | "understand" | "apply" | "analyze"
       course_status: "draft" | "generating" | "published" | "archived"
@@ -3789,6 +4218,7 @@ export type Database = {
         | "numerical"
         | "contextual"
         | "distractor_rotation"
+      vark_type: "visual" | "auditory" | "reading" | "kinesthetic"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3917,6 +4347,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "teacher", "learner"],
+      bloom_level: [
+        "remember",
+        "understand",
+        "apply",
+        "analyze",
+        "evaluate",
+        "create",
+      ],
       blueprint_status: ["draft", "review", "approved", "deprecated"],
       cognitive_level: ["remember", "understand", "apply", "analyze"],
       course_status: ["draft", "generating", "published", "archived"],
@@ -3954,6 +4392,7 @@ export const Constants = {
         "contextual",
         "distractor_rotation",
       ],
+      vark_type: ["visual", "auditory", "reading", "kinesthetic"],
     },
   },
 } as const
