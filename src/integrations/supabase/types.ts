@@ -443,6 +443,329 @@ export type Database = {
         }
         Relationships: []
       }
+      blueprint_audit_log: {
+        Row: {
+          action: string
+          affected_variants_count: number | null
+          blueprint_id: string
+          change_reason: string | null
+          changes: Json | null
+          id: string
+          new_version: string | null
+          old_version: string | null
+          performed_at: string
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          affected_variants_count?: number | null
+          blueprint_id: string
+          change_reason?: string | null
+          changes?: Json | null
+          id?: string
+          new_version?: string | null
+          old_version?: string | null
+          performed_at?: string
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          affected_variants_count?: number | null
+          blueprint_id?: string
+          change_reason?: string | null
+          changes?: Json | null
+          id?: string
+          new_version?: string | null
+          old_version?: string | null
+          performed_at?: string
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_audit_log_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "blueprint_audit_log_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blueprint_constraints: {
+        Row: {
+          action_expression: Json
+          blueprint_id: string
+          condition_expression: Json
+          constraint_type: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          priority: number | null
+        }
+        Insert: {
+          action_expression: Json
+          blueprint_id: string
+          condition_expression: Json
+          constraint_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          priority?: number | null
+        }
+        Update: {
+          action_expression?: Json
+          blueprint_id?: string
+          condition_expression?: Json
+          constraint_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          priority?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_constraints_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "blueprint_constraints_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blueprint_correct_answers: {
+        Row: {
+          answer_template: string
+          blueprint_id: string
+          calculation_formula: string | null
+          created_at: string
+          id: string
+          is_primary: boolean
+        }
+        Insert: {
+          answer_template: string
+          blueprint_id: string
+          calculation_formula?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+        }
+        Update: {
+          answer_template?: string
+          blueprint_id?: string
+          calculation_formula?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_correct_answers_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "blueprint_correct_answers_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blueprint_distractors: {
+        Row: {
+          blueprint_id: string
+          created_at: string
+          distractor_template: string
+          error_explanation: string | null
+          error_type: Database["public"]["Enums"]["distractor_error_type"]
+          id: string
+          is_active: boolean
+          sort_order: number | null
+        }
+        Insert: {
+          blueprint_id: string
+          created_at?: string
+          distractor_template: string
+          error_explanation?: string | null
+          error_type: Database["public"]["Enums"]["distractor_error_type"]
+          id?: string
+          is_active?: boolean
+          sort_order?: number | null
+        }
+        Update: {
+          blueprint_id?: string
+          created_at?: string
+          distractor_template?: string
+          error_explanation?: string | null
+          error_type?: Database["public"]["Enums"]["distractor_error_type"]
+          id?: string
+          is_active?: boolean
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_distractors_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "blueprint_distractors_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blueprint_variables: {
+        Row: {
+          allowed_values: string[] | null
+          blueprint_id: string
+          created_at: string
+          default_value: string | null
+          id: string
+          is_required: boolean
+          range_max: number | null
+          range_min: number | null
+          range_step: number | null
+          text_pattern: string | null
+          variable_name: string
+          variable_type: string
+        }
+        Insert: {
+          allowed_values?: string[] | null
+          blueprint_id: string
+          created_at?: string
+          default_value?: string | null
+          id?: string
+          is_required?: boolean
+          range_max?: number | null
+          range_min?: number | null
+          range_step?: number | null
+          text_pattern?: string | null
+          variable_name: string
+          variable_type: string
+        }
+        Update: {
+          allowed_values?: string[] | null
+          blueprint_id?: string
+          created_at?: string
+          default_value?: string | null
+          id?: string
+          is_required?: boolean
+          range_max?: number | null
+          range_min?: number | null
+          range_step?: number | null
+          text_pattern?: string | null
+          variable_name?: string
+          variable_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_variables_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "blueprint_variables_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blueprint_variants: {
+        Row: {
+          blueprint_id: string
+          exam_question_id: string | null
+          generated_at: string
+          generated_by: string | null
+          generation_seed: number | null
+          id: string
+          similarity_score: number | null
+          validation_errors: string[] | null
+          validation_passed: boolean
+          variable_values: Json
+        }
+        Insert: {
+          blueprint_id: string
+          exam_question_id?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          generation_seed?: number | null
+          id?: string
+          similarity_score?: number | null
+          validation_errors?: string[] | null
+          validation_passed?: boolean
+          variable_values: Json
+        }
+        Update: {
+          blueprint_id?: string
+          exam_question_id?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          generation_seed?: number | null
+          id?: string
+          similarity_score?: number | null
+          validation_errors?: string[] | null
+          validation_passed?: boolean
+          variable_values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_variants_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "blueprint_variants_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_variants_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_variants_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competencies: {
         Row: {
           code: string
@@ -1911,6 +2234,130 @@ export type Database = {
         }
         Relationships: []
       }
+      question_blueprints: {
+        Row: {
+          allowed_question_types: string[]
+          approved_at: string | null
+          approved_by: string | null
+          canonical_statement: string
+          change_reason: string | null
+          cognitive_level: Database["public"]["Enums"]["cognitive_level"]
+          competency_id: string | null
+          created_at: string
+          created_by: string | null
+          curriculum_id: string
+          deprecated_at: string | null
+          didactic_intent: Database["public"]["Enums"]["didactic_intent"]
+          exam_relevance: Database["public"]["Enums"]["exam_relevance"]
+          explanation_template: string | null
+          id: string
+          knowledge_type: Database["public"]["Enums"]["knowledge_type"]
+          language_level: string | null
+          learning_field_id: string | null
+          max_similarity_score: number | null
+          max_variations: number | null
+          min_variation_distance: number | null
+          name: string
+          question_template: string
+          real_world_context: boolean
+          status: Database["public"]["Enums"]["blueprint_status"]
+          typical_exam_trap: string | null
+          updated_at: string
+          variation_modes:
+            | Database["public"]["Enums"]["variation_mode"][]
+            | null
+          version: string
+        }
+        Insert: {
+          allowed_question_types?: string[]
+          approved_at?: string | null
+          approved_by?: string | null
+          canonical_statement: string
+          change_reason?: string | null
+          cognitive_level?: Database["public"]["Enums"]["cognitive_level"]
+          competency_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          curriculum_id: string
+          deprecated_at?: string | null
+          didactic_intent?: Database["public"]["Enums"]["didactic_intent"]
+          exam_relevance?: Database["public"]["Enums"]["exam_relevance"]
+          explanation_template?: string | null
+          id?: string
+          knowledge_type?: Database["public"]["Enums"]["knowledge_type"]
+          language_level?: string | null
+          learning_field_id?: string | null
+          max_similarity_score?: number | null
+          max_variations?: number | null
+          min_variation_distance?: number | null
+          name: string
+          question_template: string
+          real_world_context?: boolean
+          status?: Database["public"]["Enums"]["blueprint_status"]
+          typical_exam_trap?: string | null
+          updated_at?: string
+          variation_modes?:
+            | Database["public"]["Enums"]["variation_mode"][]
+            | null
+          version?: string
+        }
+        Update: {
+          allowed_question_types?: string[]
+          approved_at?: string | null
+          approved_by?: string | null
+          canonical_statement?: string
+          change_reason?: string | null
+          cognitive_level?: Database["public"]["Enums"]["cognitive_level"]
+          competency_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          curriculum_id?: string
+          deprecated_at?: string | null
+          didactic_intent?: Database["public"]["Enums"]["didactic_intent"]
+          exam_relevance?: Database["public"]["Enums"]["exam_relevance"]
+          explanation_template?: string | null
+          id?: string
+          knowledge_type?: Database["public"]["Enums"]["knowledge_type"]
+          language_level?: string | null
+          learning_field_id?: string | null
+          max_similarity_score?: number | null
+          max_variations?: number | null
+          min_variation_distance?: number | null
+          name?: string
+          question_template?: string
+          real_world_context?: boolean
+          status?: Database["public"]["Enums"]["blueprint_status"]
+          typical_exam_trap?: string | null
+          updated_at?: string
+          variation_modes?:
+            | Database["public"]["Enums"]["variation_mode"][]
+            | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_blueprints_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recovery_actions: {
         Row: {
           action_payload: Json | null
@@ -2418,6 +2865,26 @@ export type Database = {
         }
         Relationships: []
       }
+      blueprint_questions_view: {
+        Row: {
+          blueprint_id: string | null
+          blueprint_name: string | null
+          cognitive_level: Database["public"]["Enums"]["cognitive_level"] | null
+          competency_code: string | null
+          competency_title: string | null
+          curriculum_title: string | null
+          exam_relevance: Database["public"]["Enums"]["exam_relevance"] | null
+          knowledge_type: Database["public"]["Enums"]["knowledge_type"] | null
+          learning_field_code: string | null
+          learning_field_title: string | null
+          question_template: string | null
+          status: Database["public"]["Enums"]["blueprint_status"] | null
+          variable_count: number | null
+          variant_count: number | null
+          version: string | null
+        }
+        Relationships: []
+      }
       exam_questions_safe: {
         Row: {
           ai_generated: boolean | null
@@ -2808,6 +3275,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      validate_blueprint_constraints: {
+        Args: { p_blueprint_id: string; p_variable_values: Json }
+        Returns: {
+          errors: string[]
+          is_valid: boolean
+        }[]
+      }
       verify_evidence_pack_integrity: {
         Args: { p_pack_id: string }
         Returns: Json
@@ -2815,9 +3289,26 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "teacher" | "learner"
+      blueprint_status: "draft" | "review" | "approved" | "deprecated"
+      cognitive_level: "remember" | "understand" | "apply" | "analyze"
       course_status: "draft" | "generating" | "published" | "archived"
       curriculum_status: "draft" | "extracting" | "normalizing" | "frozen"
+      didactic_intent:
+        | "transfer"
+        | "recognition"
+        | "error_detection"
+        | "comparison"
+        | "classification"
+      distractor_error_type:
+        | "common_misconception"
+        | "overgeneralization"
+        | "irrelevant_fact"
+        | "partial_truth"
+        | "outdated_info"
+        | "confusing_similar"
       exam_mode: "simulation" | "practice" | "timed_exam"
+      exam_relevance: "low" | "medium" | "high"
+      knowledge_type: "concept" | "procedure" | "calculation" | "regulation"
       lesson_step:
         | "einstieg"
         | "verstehen"
@@ -2826,6 +3317,11 @@ export type Database = {
         | "mini_check"
       question_difficulty: "easy" | "medium" | "hard"
       question_status: "draft" | "review" | "approved" | "rejected"
+      variation_mode:
+        | "lexical"
+        | "numerical"
+        | "contextual"
+        | "distractor_rotation"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2954,9 +3450,28 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "teacher", "learner"],
+      blueprint_status: ["draft", "review", "approved", "deprecated"],
+      cognitive_level: ["remember", "understand", "apply", "analyze"],
       course_status: ["draft", "generating", "published", "archived"],
       curriculum_status: ["draft", "extracting", "normalizing", "frozen"],
+      didactic_intent: [
+        "transfer",
+        "recognition",
+        "error_detection",
+        "comparison",
+        "classification",
+      ],
+      distractor_error_type: [
+        "common_misconception",
+        "overgeneralization",
+        "irrelevant_fact",
+        "partial_truth",
+        "outdated_info",
+        "confusing_similar",
+      ],
       exam_mode: ["simulation", "practice", "timed_exam"],
+      exam_relevance: ["low", "medium", "high"],
+      knowledge_type: ["concept", "procedure", "calculation", "regulation"],
       lesson_step: [
         "einstieg",
         "verstehen",
@@ -2966,6 +3481,12 @@ export const Constants = {
       ],
       question_difficulty: ["easy", "medium", "hard"],
       question_status: ["draft", "review", "approved", "rejected"],
+      variation_mode: [
+        "lexical",
+        "numerical",
+        "contextual",
+        "distractor_rotation",
+      ],
     },
   },
 } as const
