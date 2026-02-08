@@ -2259,6 +2259,281 @@ export type Database = {
           },
         ]
       }
+      handbook_chapters: {
+        Row: {
+          chapter_key: string
+          created_at: string | null
+          curriculum_id: string | null
+          description: string | null
+          estimated_reading_minutes: number | null
+          icon: string | null
+          id: string
+          is_premium: boolean | null
+          is_published: boolean | null
+          sort_order: number
+          subtitle: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          chapter_key: string
+          created_at?: string | null
+          curriculum_id?: string | null
+          description?: string | null
+          estimated_reading_minutes?: number | null
+          icon?: string | null
+          id?: string
+          is_premium?: boolean | null
+          is_published?: boolean | null
+          sort_order?: number
+          subtitle?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          chapter_key?: string
+          created_at?: string | null
+          curriculum_id?: string | null
+          description?: string | null
+          estimated_reading_minutes?: number | null
+          icon?: string | null
+          id?: string
+          is_premium?: boolean | null
+          is_published?: boolean | null
+          sort_order?: number
+          subtitle?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handbook_chapters_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      handbook_exercise_responses: {
+        Row: {
+          exercise_id: string
+          id: string
+          responded_at: string | null
+          response_text: string | null
+          self_rating: number | null
+          user_id: string
+        }
+        Insert: {
+          exercise_id: string
+          id?: string
+          responded_at?: string | null
+          response_text?: string | null
+          self_rating?: number | null
+          user_id: string
+        }
+        Update: {
+          exercise_id?: string
+          id?: string
+          responded_at?: string | null
+          response_text?: string | null
+          self_rating?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handbook_exercise_responses_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "handbook_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      handbook_exercises: {
+        Row: {
+          chapter_id: string
+          created_at: string | null
+          example_answer: string | null
+          exercise_type: string
+          explanation_text: string | null
+          hint_text: string | null
+          id: string
+          is_active: boolean | null
+          question_text: string
+          section_id: string | null
+          sort_order: number
+        }
+        Insert: {
+          chapter_id: string
+          created_at?: string | null
+          example_answer?: string | null
+          exercise_type: string
+          explanation_text?: string | null
+          hint_text?: string | null
+          id?: string
+          is_active?: boolean | null
+          question_text: string
+          section_id?: string | null
+          sort_order?: number
+        }
+        Update: {
+          chapter_id?: string
+          created_at?: string | null
+          example_answer?: string | null
+          exercise_type?: string
+          explanation_text?: string | null
+          hint_text?: string | null
+          id?: string
+          is_active?: boolean | null
+          question_text?: string
+          section_id?: string | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handbook_exercises_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "handbook_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handbook_exercises_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "handbook_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      handbook_progress: {
+        Row: {
+          chapter_id: string
+          completed_at: string | null
+          id: string
+          last_section_id: string | null
+          reading_time_minutes: number | null
+          started_at: string | null
+          user_id: string
+        }
+        Insert: {
+          chapter_id: string
+          completed_at?: string | null
+          id?: string
+          last_section_id?: string | null
+          reading_time_minutes?: number | null
+          started_at?: string | null
+          user_id: string
+        }
+        Update: {
+          chapter_id?: string
+          completed_at?: string | null
+          id?: string
+          last_section_id?: string | null
+          reading_time_minutes?: number | null
+          started_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handbook_progress_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "handbook_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handbook_progress_last_section_id_fkey"
+            columns: ["last_section_id"]
+            isOneToOne: false
+            referencedRelation: "handbook_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      handbook_recommendations: {
+        Row: {
+          chapter_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          priority: number | null
+          recommendation_text: string
+          trigger_condition: Json | null
+          trigger_type: string
+        }
+        Insert: {
+          chapter_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          recommendation_text: string
+          trigger_condition?: Json | null
+          trigger_type: string
+        }
+        Update: {
+          chapter_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          recommendation_text?: string
+          trigger_condition?: Json | null
+          trigger_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handbook_recommendations_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "handbook_chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      handbook_sections: {
+        Row: {
+          chapter_id: string
+          content_markdown: string
+          content_type: string | null
+          created_at: string | null
+          id: string
+          section_key: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          chapter_id: string
+          content_markdown: string
+          content_type?: string | null
+          created_at?: string | null
+          id?: string
+          section_key: string
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          chapter_id?: string
+          content_markdown?: string
+          content_type?: string | null
+          created_at?: string | null
+          id?: string
+          section_key?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handbook_sections_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "handbook_chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_queue: {
         Row: {
           attempts: number
@@ -4041,6 +4316,7 @@ export type Database = {
           id: string
           includes_ai_tutor: boolean | null
           includes_exam_trainer: boolean | null
+          includes_handbook: boolean | null
           includes_learning_course: boolean | null
           includes_oral_trainer: boolean | null
           is_active: boolean | null
@@ -4057,6 +4333,7 @@ export type Database = {
           id?: string
           includes_ai_tutor?: boolean | null
           includes_exam_trainer?: boolean | null
+          includes_handbook?: boolean | null
           includes_learning_course?: boolean | null
           includes_oral_trainer?: boolean | null
           is_active?: boolean | null
@@ -4073,6 +4350,7 @@ export type Database = {
           id?: string
           includes_ai_tutor?: boolean | null
           includes_exam_trainer?: boolean | null
+          includes_handbook?: boolean | null
           includes_learning_course?: boolean | null
           includes_oral_trainer?: boolean | null
           is_active?: boolean | null

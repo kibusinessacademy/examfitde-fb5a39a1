@@ -111,6 +111,11 @@ const DiagnosticTest = lazy(() => import('@/pages/DiagnosticTest'));
 const ShopPage = lazy(() => import('@/pages/ShopPage'));
 const PurchaseSuccessPage = lazy(() => import('@/pages/PurchaseSuccessPage'));
 
+// Handbook Pages
+const HandbookPage = lazy(() => import('@/pages/HandbookPage'));
+const HandbookChapterPage = lazy(() => import('@/pages/HandbookChapterPage'));
+const HandbookLandingPage = lazy(() => import('@/pages/seo/HandbookLandingPage'));
+
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -144,6 +149,7 @@ const AppRoutes = () => {
           <Route path="/bundle/:slug" element={<BundleDetailPage />} />
           <Route path="/unternehmen" element={<UnternehmenPage />} />
           <Route path="/preise" element={<PreisePage />} />
+          <Route path="/pruefungshandbuch" element={<HandbookLandingPage />} />
           
           {/* Wissen / Blog */}
           <Route path="/wissen" element={<WissenPage />} />
@@ -177,6 +183,9 @@ const AppRoutes = () => {
             <Route path="/exam-anxiety" element={<ExamAnxietyManager />} />
             <Route path="/vark-test" element={<VARKLerntypTest />} />
             <Route path="/diagnostic/:curriculumId" element={<DiagnosticTest />} />
+            {/* Handbook Routes */}
+            <Route path="/handbuch" element={<HandbookPage />} />
+            <Route path="/handbuch/:chapterKey" element={<HandbookChapterPage />} />
           </Route>
         </Route>
 
