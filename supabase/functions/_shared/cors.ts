@@ -54,11 +54,5 @@ export function handleCorsPreflightRequest(req: Request): Response | null {
   return null;
 }
 
-/**
- * Legacy corsHeaders for backwards compatibility.
- * @deprecated Use getCorsHeaders(origin) for production.
- */
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+// Legacy corsHeaders with wildcard origin has been REMOVED for production security.
+// All functions must use getCorsHeaders(origin) instead.
