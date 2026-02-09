@@ -388,7 +388,36 @@ serve(async (req) => {
       model_used: 'google/gemini-2.5-flash',
     };
 
-    await supabase.from('course_quality_audits').insert(auditRecord);
+    const { data: insertedAudit } = await supabase.from('course_quality_audits').insert(auditRecord).select('id').single();
+
+    // ─── Write per-lesson audit results to lesson_quality_audits ───
+    if (insertedAudit?.id && lessonAudits.length > 0) {
+      const lessonAuditRows = lessonAudits.map(a => ({
+        lesson_id: a.lessonId,
+        course_audit_id: insertedAudit.id,
+        audit_score: a.overall,
+        dimension_scores: a.scores,
+        failed_rules: Object.entries(a.verbesserungspotenzial).filter(([, v]) => v).map(([k]) => k),
+        verbesserungspotenzial: a.verbesserungspotenzial,
+      }));
+      await supabase.from('lesson_quality_audits').insert(lessonAuditRows);
+
+      // Write improvement suggestions for lessons needing work
+      const suggestions = lessonAudits.flatMap(a =>
+        Object.entries(a.verbesserungspotenzial)
+          .filter(([, needed]) => needed)
+          .map(([rule]) => ({
+            lesson_id: a.lessonId,
+            rule,
+            suggested_change: { audit_score: a.overall, step: a.step, competency: a.competencyCode },
+            applied: false,
+          }))
+      );
+      if (suggestions.length > 0) {
+        await supabase.from('lesson_improvement_suggestions').insert(suggestions);
+      }
+      console.log(`[IHK-Audit] Wrote ${lessonAuditRows.length} lesson audits, ${suggestions.length} suggestions`);
+    }
 
     console.log(`[IHK-Audit] ✅ Complete: "${course.title}" → ${overallScore}/100 (${grade})`);
 

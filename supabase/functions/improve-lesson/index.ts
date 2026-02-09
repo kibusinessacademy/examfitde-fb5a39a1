@@ -199,7 +199,7 @@ serve(async (req) => {
         continue;
       }
 
-      // Update lesson
+      // Update lesson with revision tracking
       const updatedContent = isMC
         ? { ...content, questions: improved.questions, objectives: improved.objectives, improved_at: new Date().toISOString(), improvements_applied: improved.improvements_applied, version: ((content?.version as number) || 4) + 1 }
         : { ...content, html: improved.html, objectives: improved.objectives, improved_at: new Date().toISOString(), improvements_applied: improved.improvements_applied, version: ((content?.version as number) || 4) + 1 };
@@ -208,6 +208,23 @@ serve(async (req) => {
       if (error) {
         results.push({ lessonId: la.lessonId, title: la.title, status: 'db_error', improvements: neededImprovements });
       } else {
+        // Write revision history (audit trail)
+        await supabase.from('lesson_revisions').insert({
+          lesson_id: lesson.id,
+          old_content: content,
+          new_content: updatedContent,
+          reason: 'auto_improvement',
+          improvements_applied: improved.improvements_applied || neededImprovements,
+          score_before: la.overall,
+        });
+
+        // Mark suggestions as applied
+        await supabase.from('lesson_improvement_suggestions')
+          .update({ applied: true, applied_at: new Date().toISOString() })
+          .eq('lesson_id', lesson.id)
+          .eq('applied', false)
+          .in('rule', neededImprovements);
+
         results.push({ lessonId: la.lessonId, title: la.title, status: 'improved', improvements: improved.improvements_applied || neededImprovements });
       }
 
