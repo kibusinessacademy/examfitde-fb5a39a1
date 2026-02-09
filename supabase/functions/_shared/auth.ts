@@ -8,25 +8,52 @@ export interface AuthResult {
   user: { id: string; email?: string } | null;
   error: string | null;
   isAdmin: boolean;
+  isServiceRole: boolean;
 }
 
 /**
  * Validates JWT token and optionally checks for admin role.
+ * Also accepts Service Role Key for internal/automated calls.
  * Required for Lovable Cloud which uses ES256 tokens (verify_jwt=false in config).
  */
 export async function validateAuth(
   req: Request,
   requireAdmin = false
 ): Promise<AuthResult> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+  // FIRST: Check x-service-role header for internal/automated calls (no Bearer required)
+  const serviceRoleHeader = req.headers.get('x-service-role');
+  if (serviceRoleHeader && serviceRoleHeader === supabaseServiceKey) {
+    console.log('[Auth] Service role via x-service-role header - bypassing user check');
+    return { 
+      user: { id: 'service-role', email: 'system@internal' }, 
+      error: null, 
+      isAdmin: true, 
+      isServiceRole: true 
+    };
+  }
+
   const authHeader = req.headers.get('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return { user: null, error: 'Missing or invalid authorization header', isAdmin: false };
+    return { user: null, error: 'Missing or invalid authorization header', isAdmin: false, isServiceRole: false };
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+  // Check if Bearer token IS the service role key
+  if (token === supabaseServiceKey) {
+    console.log('[Auth] Service role authentication via Bearer - bypassing user check');
+    return { 
+      user: { id: 'service-role', email: 'system@internal' }, 
+      error: null, 
+      isAdmin: true, 
+      isServiceRole: true 
+    };
+  }
 
   // Create client with auth header for RLS context
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -37,13 +64,12 @@ export async function validateAuth(
   const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
   if (userError || !user) {
-    return { user: null, error: 'Invalid or expired token', isAdmin: false };
+    return { user: null, error: 'Invalid or expired token', isAdmin: false, isServiceRole: false };
   }
 
   // Check admin role if required
   let isAdmin = false;
   if (requireAdmin) {
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     
     const { data: roles } = await adminClient
@@ -56,11 +82,11 @@ export async function validateAuth(
     isAdmin = !!roles;
     
     if (!isAdmin) {
-      return { user, error: 'Admin access required', isAdmin: false };
+      return { user, error: 'Admin access required', isAdmin: false, isServiceRole: false };
     }
   }
 
-  return { user: { id: user.id, email: user.email }, error: null, isAdmin };
+  return { user: { id: user.id, email: user.email }, error: null, isAdmin, isServiceRole: false };
 }
 
 /**
