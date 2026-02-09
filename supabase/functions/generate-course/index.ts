@@ -81,7 +81,6 @@ serve(async (req) => {
 
   // ==================== AUTH CHECK ====================
   const auth = await validateAuthWithServiceRole(req);
-  
   if (auth.error) {
     const status = auth.error === 'Admin access required' ? 403 : 401;
     return new Response(
