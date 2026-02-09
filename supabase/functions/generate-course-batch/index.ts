@@ -4,13 +4,216 @@ import { corsHeaders, getCorsHeaders } from "../_shared/cors.ts";
 
 const LESSON_STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'] as const;
 
+interface MiniCheckQuestion {
+  question: string;
+  options: string[];
+  correct_answer: number;
+  explanation: string;
+}
+
+// Separate prompts for regular content vs. mini_check
 const stepPrompts: Record<string, string> = {
   einstieg: 'Erstelle eine aktivierende Einstiegsaktivität, die das Vorwissen der Lernenden anspricht und Neugier für das Thema weckt.',
   verstehen: 'Erstelle Lernmaterial zum Verstehen der Konzepte mit klaren Erklärungen, Beispielen und visuellen Darstellungen.',
   anwenden: 'Erstelle praktische Übungen und Aufgaben, bei denen das Gelernte angewendet wird.',
   wiederholen: 'Erstelle Wiederholungsaktivitäten zur Festigung des Gelernten (Zusammenfassung, Karteikarten, etc.).',
-  mini_check: 'Erstelle ein kurzes Quiz mit 3-5 Fragen zur Selbstüberprüfung des Wissens.',
+  mini_check: 'Erstelle strukturierte Prüfungsfragen zur Selbstüberprüfung.',
 };
+
+// Tool definition for MiniCheck structured output
+const miniCheckTool = {
+  type: "function" as const,
+  function: {
+    name: "create_mini_check",
+    description: "Erstelle 4 Multiple-Choice-Fragen zur Wissensüberprüfung mit je 4 Antwortoptionen.",
+    parameters: {
+      type: "object",
+      properties: {
+        questions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              question: { type: "string", description: "Die Frage" },
+              options: { 
+                type: "array", 
+                items: { type: "string" },
+                description: "Genau 4 Antwortoptionen"
+              },
+              correct_answer: { 
+                type: "number", 
+                description: "Index der korrekten Antwort (0-3)" 
+              },
+              explanation: { 
+                type: "string", 
+                description: "Erklärung warum die Antwort korrekt ist" 
+              }
+            },
+            required: ["question", "options", "correct_answer", "explanation"],
+            additionalProperties: false
+          },
+          minItems: 4,
+          maxItems: 5
+        },
+        objectives: {
+          type: "array",
+          items: { type: "string" },
+          description: "Lernziele die mit diesem Quiz überprüft werden"
+        }
+      },
+      required: ["questions", "objectives"],
+      additionalProperties: false
+    }
+  }
+};
+
+// Generate content for regular steps (text/html)
+async function generateRegularContent(
+  LOVABLE_API_KEY: string,
+  comp: { title: string; description?: string; taxonomy_level?: string },
+  step: string
+): Promise<{ type: string; html: string; objectives: string[] } | null> {
+  try {
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-3-flash-preview',
+        messages: [
+          {
+            role: 'system',
+            content: `Du bist ein Experte für die Erstellung von Lerninhalten für die berufliche Ausbildung. 
+Erstelle strukturierte, praxisnahe Lerninhalte im JSON-Format.
+Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt, keine Markdown-Codeblöcke.`
+          },
+          {
+            role: 'user',
+            content: `Erstelle Lerninhalt für:
+
+Kompetenz: ${comp.title}
+Beschreibung: ${comp.description || 'Keine Beschreibung'}
+Taxonomiestufe: ${comp.taxonomy_level || 'Anwenden'}
+
+Lernschritt: ${step}
+Aufgabe: ${stepPrompts[step]}
+
+Format (JSON):
+{
+  "type": "text",
+  "html": "<h3>Titel</h3><p>Ausführlicher Inhalt mit mindestens 500 Zeichen...</p>",
+  "objectives": ["Lernziel 1", "Lernziel 2", "Lernziel 3"]
+}`
+          }
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    if (aiResponse.ok) {
+      const result = await aiResponse.json();
+      const content = result.choices?.[0]?.message?.content;
+      if (content) {
+        const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        return JSON.parse(cleanContent);
+      }
+    }
+  } catch (error) {
+    console.error(`[AI] Regular content error for ${step}:`, error);
+  }
+  return null;
+}
+
+// Generate MiniCheck with structured questions using tool calling
+async function generateMiniCheck(
+  LOVABLE_API_KEY: string,
+  comp: { title: string; description?: string; taxonomy_level?: string }
+): Promise<{ type: string; html: string; objectives: string[]; questions: MiniCheckQuestion[] } | null> {
+  try {
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-3-flash-preview',
+        messages: [
+          {
+            role: 'system',
+            content: `Du bist ein IHK-Prüfungsexperte für die berufliche Ausbildung.
+Erstelle realistische Multiple-Choice-Fragen auf IHK-Prüfungsniveau.
+Jede Frage muss:
+- Praxisbezogen und berufsspezifisch sein
+- Genau 4 plausible Antwortoptionen haben
+- Einen klaren Bezug zur Kompetenz haben
+- Distraktoren enthalten, die typische Fehler abbilden`
+          },
+          {
+            role: 'user',
+            content: `Erstelle 4 Multiple-Choice-Fragen zur Selbstüberprüfung für:
+
+Kompetenz: ${comp.title}
+Beschreibung: ${comp.description || 'Keine Beschreibung'}
+Taxonomiestufe: ${comp.taxonomy_level || 'Anwenden'}
+
+Die Fragen sollen das Verständnis der Kompetenz auf IHK-Niveau prüfen.`
+          }
+        ],
+        tools: [miniCheckTool],
+        tool_choice: { type: "function", function: { name: "create_mini_check" } },
+        temperature: 0.7,
+      }),
+    });
+
+    if (aiResponse.ok) {
+      const result = await aiResponse.json();
+      const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+      
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        
+        // Validate structure
+        if (Array.isArray(parsed.questions) && parsed.questions.length >= 3) {
+          // Validate each question
+          const validQuestions = parsed.questions.filter((q: MiniCheckQuestion) => 
+            q.question && 
+            Array.isArray(q.options) && 
+            q.options.length === 4 &&
+            typeof q.correct_answer === 'number' &&
+            q.correct_answer >= 0 && 
+            q.correct_answer <= 3 &&
+            q.explanation
+          );
+
+          if (validQuestions.length >= 3) {
+            // Build HTML summary for display
+            const questionsHtml = validQuestions.map((q: MiniCheckQuestion, i: number) => 
+              `<div class="question-preview"><strong>Frage ${i + 1}:</strong> ${q.question}</div>`
+            ).join('');
+
+            return {
+              type: 'mini_check',
+              html: `<h3>Wissensüberprüfung: ${comp.title}</h3>
+<p>Teste dein Wissen mit ${validQuestions.length} Multiple-Choice-Fragen.</p>
+${questionsHtml}`,
+              objectives: parsed.objectives || [`Wissen zu ${comp.title} überprüfen`],
+              questions: validQuestions
+            };
+          }
+        }
+      }
+    } else {
+      const errorText = await aiResponse.text();
+      console.error(`[AI] MiniCheck API error:`, aiResponse.status, errorText);
+    }
+  } catch (error) {
+    console.error(`[AI] MiniCheck generation error:`, error);
+  }
+  return null;
+}
 
 // Process ONE learning field at a time to avoid timeout
 serve(async (req) => {
@@ -125,6 +328,7 @@ serve(async (req) => {
     // Create lessons for each competency
     const competencies = lf.competencies || [];
     let lessonsCreated = 0;
+    let miniChecksWithQuestions = 0;
     let lessonSortOrder = 0;
 
     for (const comp of competencies) {
@@ -143,73 +347,43 @@ serve(async (req) => {
           continue;
         }
 
-        const stepDuration = step === 'mini_check' ? 5 : 10;
+        const stepDuration = step === 'mini_check' ? 10 : (step === 'verstehen' ? 25 : step === 'anwenden' ? 30 : step === 'wiederholen' ? 15 : 10);
 
-        // Generate AI content
-        let lessonContent = null;
-        try {
-          const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'google/gemini-3-flash-preview',
-              messages: [
-                {
-                  role: 'system',
-                  content: `Du bist ein Experte für die Erstellung von Lerninhalten. 
-                  Erstelle strukturierte Lerninhalte im JSON-Format.
-                  Die Inhalte sollen für die berufliche Ausbildung geeignet sein.
-                  Antworte AUSSCHLIESSLICH mit einem JSON-Objekt.`
-                },
-                {
-                  role: 'user',
-                  content: `Erstelle Lerninhalt für:
-                    
-Kompetenz: ${comp.title}
-Beschreibung: ${comp.description || 'Keine Beschreibung'}
-Taxonomiestufe: ${comp.taxonomy_level || 'Anwenden'}
+        let lessonContent: Record<string, unknown> | null = null;
 
-Lernschritt: ${step}
-Aufgabe: ${stepPrompts[step]}
-
-Antworte mit einem JSON-Objekt im Format:
-{
-  "type": "text",
-  "html": "<h3>Überschrift</h3><p>Inhalt...</p>",
-  "objectives": ["Lernziel 1", "Lernziel 2"]
-}`
-                }
-              ],
-              temperature: 0.7,
-            }),
-          });
-
-          if (aiResponse.ok) {
-            const result = await aiResponse.json();
-            const content = result.choices?.[0]?.message?.content;
-            if (content) {
-              try {
-                const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-                lessonContent = JSON.parse(cleanContent);
-              } catch {
-                console.error('Failed to parse AI content');
-              }
-            }
+        // Use different generation methods for mini_check vs regular steps
+        if (step === 'mini_check') {
+          lessonContent = await generateMiniCheck(LOVABLE_API_KEY, comp);
+          if (lessonContent?.questions) {
+            miniChecksWithQuestions++;
           }
-        } catch (aiError) {
-          console.error('AI error:', aiError);
+        } else {
+          lessonContent = await generateRegularContent(LOVABLE_API_KEY, comp, step);
         }
 
         // Fallback if AI fails
         if (!lessonContent) {
-          lessonContent = {
-            type: 'text',
-            html: `<h3>${comp.title} - ${step}</h3><p>Inhalt wird generiert...</p>`,
-            objectives: [`Verständnis von ${comp.title}`]
-          };
+          if (step === 'mini_check') {
+            lessonContent = {
+              type: 'mini_check',
+              html: `<h3>Wissensüberprüfung: ${comp.title}</h3><p>Fragen werden generiert...</p>`,
+              objectives: [`Wissen zu ${comp.title} überprüfen`],
+              questions: [
+                {
+                  question: `Was ist ein wesentlicher Aspekt von "${comp.title}"?`,
+                  options: ['Option A', 'Option B', 'Option C', 'Option D'],
+                  correct_answer: 0,
+                  explanation: 'Diese Frage wird noch generiert.'
+                }
+              ]
+            };
+          } else {
+            lessonContent = {
+              type: 'text',
+              html: `<h3>${comp.title} - ${step}</h3><p>Inhalt wird generiert...</p>`,
+              objectives: [`Verständnis von ${comp.title}`]
+            };
+          }
         }
 
         await supabase.from('lessons').insert({
@@ -226,7 +400,7 @@ Antworte mit einem JSON-Objekt im Format:
       }
     }
 
-    console.log(`[Batch] Created ${lessonsCreated} lessons for LF ${lf.code}`);
+    console.log(`[Batch] Created ${lessonsCreated} lessons (${miniChecksWithQuestions} MiniChecks with questions) for LF ${lf.code}`);
 
     return new Response(
       JSON.stringify({
@@ -237,6 +411,7 @@ Antworte mit einem JSON-Objekt im Format:
         nextIndex: learningFieldIndex + 1,
         learningFieldCode: lf.code,
         lessonsCreated,
+        miniChecksWithQuestions,
         message: `Processed LF ${learningFieldIndex + 1}/${learningFields.length}: ${lf.code}`
       }),
       { headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' } }
