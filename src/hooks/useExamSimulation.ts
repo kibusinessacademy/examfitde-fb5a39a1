@@ -149,32 +149,24 @@ export function useExamSessionQuestions(sessionId?: string) {
     queryKey: ['exam-session-questions', sessionId],
     queryFn: async () => {
       if (!sessionId) return [];
-      
-      const { data, error } = await supabase
-        .from('exam_session_questions')
-        .select(`
-          *,
-          exam_questions (
-            id,
-            question_text,
-            options,
-            difficulty,
-            explanation
-          )
-        `)
-        .eq('exam_session_id', sessionId)
-        .order('order_index');
-      
+
+      const { data, error } = await supabase.functions.invoke('get-exam-session-questions', {
+        body: { session_id: sessionId },
+      });
+
       if (error) throw error;
-      
-      return data.map(sq => ({
+
+      const items = (data?.questions || []) as Array<any>;
+      return items.map((sq) => ({
         ...sq,
-        question: sq.exam_questions as unknown as ExamQuestion,
+        // shape for UI: { ..., question: { question_text, options, difficulty } }
+        question: sq.question as unknown as ExamQuestion,
       }));
     },
     enabled: !!sessionId,
   });
 }
+
 
 // Start new exam session
 export function useStartExamSession() {
@@ -211,37 +203,44 @@ export function useStartExamSession() {
 // Submit answer
 export function useSubmitAnswer() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({
       sessionId,
-      questionIndex,
+      questionId,
       answer,
       timeSpent = 0,
     }: {
       sessionId: string;
-      questionIndex: number;
+      questionId: string;
       answer: number;
       timeSpent?: number;
     }) => {
-      const { data, error } = await supabase
-        .rpc('submit_exam_answer', {
-          p_session_id: sessionId,
-          p_question_index: questionIndex,
-          p_answer: answer,
-          p_time_spent: timeSpent,
-        });
-      
+      const { data, error } = await supabase.functions.invoke('submit-exam-answer', {
+        body: {
+          question_id: questionId,
+          selected_answer: answer,
+          session_id: sessionId,
+          time_spent: timeSpent,
+        },
+      });
+
       if (error) throw error;
-      return data as unknown as AnswerResult;
+
+      return {
+        is_correct: !!data?.is_correct,
+        correct_answer: Number(data?.correct_answer ?? -1),
+        explanation: (data?.explanation ?? null) as string | null,
+      } as AnswerResult;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['exam-session-questions', variables.sessionId] 
+      queryClient.invalidateQueries({
+        queryKey: ['exam-session-questions', variables.sessionId],
       });
     },
   });
 }
+
 
 // Finish exam session
 export function useFinishExamSession() {
@@ -286,17 +285,18 @@ export function useExamSimulation(sessionId?: string) {
   
   const handleAnswer = useCallback(async (answer: number, timeSpent?: number) => {
     if (!sessionId || !currentQuestion) return;
-    
+
     const result = await submitAnswer.mutateAsync({
       sessionId,
-      questionIndex: currentIndex,
+      questionId: currentQuestion.question_id,
       answer,
       timeSpent,
     });
-    
+
     setLastAnswer(result);
     setShowResult(true);
-  }, [sessionId, currentQuestion, currentIndex, submitAnswer]);
+  }, [sessionId, currentQuestion, submitAnswer]);
+
   
   const handleNext = useCallback(() => {
     setShowResult(false);

@@ -33,8 +33,8 @@ interface DiagnosticQuestion {
   competency_title: string;
   question_text: string;
   options: string[];
-  correct_answer: string; // The actual correct answer text from DB
 }
+
 
 type TestPhase = 'intro' | 'testing' | 'goals' | 'results';
 
@@ -46,7 +46,9 @@ export default function DiagnosticTest() {
   
   const [phase, setPhase] = useState<TestPhase>('intro');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Map<string, { answer: number; correct: boolean }>>(new Map());
+  const [answers, setAnswers] = useState<
+    Map<string, { answer: number; correct: boolean; correctAnswer: number }>
+  >(new Map());
   const [examDate, setExamDate] = useState<Date | undefined>();
   const [weeklyHours, setWeeklyHours] = useState(5);
   const [results, setResults] = useState<DiagnosticResult[]>([]);
@@ -66,78 +68,118 @@ export default function DiagnosticTest() {
     enabled: !!curriculumId,
   });
   
-  // Fetch diagnostic questions (sample from each competency)
+  // Fetch diagnostic questions (sample ~1 pro Kompetenz via Backend-Funktion, ohne Lösungen)
   const { data: questions, isLoading } = useQuery({
     queryKey: ['diagnostic-questions', curriculumId],
     queryFn: async (): Promise<DiagnosticQuestion[]> => {
       if (!curriculumId) return [];
-      
-      // Get questions directly with correct_answer
-      const { data: questionsData, error } = await supabase
-        .from('exam_questions')
-        .select('id, question_text, options, correct_answer, difficulty, competency_id')
-        .eq('curriculum_id', curriculumId)
-        .eq('difficulty', 'medium')
-        .eq('status', 'approved')
-        .limit(30);
-      
-      if (error || !questionsData) return [];
-      
-      // Get competencies for mapping
-      const competencyIds = [...new Set(questionsData.map(q => q.competency_id).filter(Boolean))];
-      const { data: competenciesData } = await supabase
+
+      // 1) Kompetenzen für dieses Curriculum laden (safe, keine Prüfungsfragen)
+      const { data: learningFields, error: lfError } = await supabase
+        .from('learning_fields')
+        .select('id')
+        .eq('curriculum_id', curriculumId);
+
+      if (lfError) throw lfError;
+      const learningFieldIds = (learningFields || []).map((lf) => lf.id);
+      if (learningFieldIds.length === 0) return [];
+
+      const { data: competencies, error: compError } = await supabase
         .from('competencies')
         .select('id, title')
-        .in('id', competencyIds);
-      
-      const competencyMap = new Map<string, string>();
-      if (competenciesData) {
-        for (const c of competenciesData) {
-          competencyMap.set(c.id, c.title);
+        .in('learning_field_id', learningFieldIds);
+
+      if (compError) throw compError;
+
+      const shuffledCompetencies = (competencies || [])
+        .slice()
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 15);
+
+      const questionsOut: DiagnosticQuestion[] = [];
+      const excludeIds: string[] = [];
+
+      // 2) Pro Kompetenz eine Frage serverseitig ziehen (sanitized)
+      for (const comp of shuffledCompetencies) {
+        const { data, error } = await supabase.functions.invoke('get-exam-questions', {
+          body: {
+            competency_id: comp.id,
+            difficulty: 'medium',
+            count: 1,
+            exclude_question_ids: excludeIds,
+          },
+        });
+
+        if (error) {
+          // Bei fehlender Berechtigung o.ä. einfach skippen
+          continue;
         }
-      }
-      
-      const allQuestions: DiagnosticQuestion[] = questionsData
-        .filter(q => q.competency_id && competencyMap.has(q.competency_id) && q.correct_answer)
-        .map(q => ({
+
+        const q = (data?.questions || [])[0];
+        if (!q) continue;
+
+        questionsOut.push({
           id: q.id,
-          competency_id: q.competency_id!,
-          competency_title: competencyMap.get(q.competency_id!) || 'Unbekannt',
+          competency_id: comp.id,
+          competency_title: comp.title,
           question_text: q.question_text,
-          options: q.options as string[],
-          correct_answer: String(q.correct_answer),
-        }));
-      
-      // Shuffle and limit to max 15 questions
-      return allQuestions.sort(() => Math.random() - 0.5).slice(0, 15);
+          options: q.options,
+        });
+
+        excludeIds.push(q.id);
+        if (questionsOut.length >= 15) break;
+      }
+
+      return questionsOut;
     },
     enabled: !!curriculumId && phase === 'testing',
   });
+
   
   const currentQuestion = questions?.[currentIndex];
   const progress = questions ? ((currentIndex + 1) / questions.length) * 100 : 0;
   
-  const handleAnswer = (answerIndex: number) => {
+  const handleAnswer = async (answerIndex: number) => {
     if (!currentQuestion) return;
-    
-    // Compare selected option text with correct_answer from DB
-    const selectedOption = currentQuestion.options[answerIndex];
-    const isCorrect = selectedOption === currentQuestion.correct_answer;
-    
-    setAnswers(prev => new Map(prev).set(currentQuestion.competency_id, {
-      answer: answerIndex,
-      correct: isCorrect,
-    }));
-    
+
+    // Serverseitig bewerten (inkl. Entitlement-Check) und erst dann Ergebnis anzeigen
+    const { data, error } = await supabase.functions.invoke('submit-exam-answer', {
+      body: {
+        question_id: currentQuestion.id,
+        selected_answer: answerIndex,
+      },
+    });
+
+    if (error) {
+      // Fallback: als falsch werten, aber Flow nicht killen
+      setAnswers((prev) =>
+        new Map(prev).set(currentQuestion.competency_id, {
+          answer: answerIndex,
+          correct: false,
+          correctAnswer: -1,
+        })
+      );
+      return;
+    }
+
+    setAnswers((prev) =>
+      new Map(prev).set(currentQuestion.competency_id, {
+        answer: answerIndex,
+        correct: !!data?.is_correct,
+        correctAnswer: Number(data?.correct_answer ?? -1),
+      })
+    );
+
     // Move to next question or finish
     setTimeout(() => {
       if (currentIndex < (questions?.length || 0) - 1) {
-        setCurrentIndex(prev => prev + 1);
+        setCurrentIndex((prev) => prev + 1);
       } else {
         calculateResults();
       }
     }, 1000);
   };
+
   
   const calculateResults = () => {
     // Group by competency and calculate scores
@@ -289,9 +331,9 @@ export default function DiagnosticTest() {
           <CardContent className="space-y-3">
             {currentQuestion.options.map((option, idx) => {
               const isSelected = userAnswer?.answer === idx;
-              const isCorrect = option === currentQuestion.correct_answer;
+              const isCorrect = idx === (userAnswer?.correctAnswer ?? -999);
               const showResult = hasAnswered;
-              
+
               return (
                 <button
                   key={idx}
