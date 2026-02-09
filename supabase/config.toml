@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.regenerate-minichecks]
 verify_jwt = false
+
+[functions.repair-lessons]
+verify_jwt = false

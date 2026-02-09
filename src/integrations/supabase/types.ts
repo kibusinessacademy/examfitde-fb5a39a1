@@ -5285,6 +5285,15 @@ export type Database = {
           question_count: number
         }[]
       }
+      get_content_quality_stats: {
+        Args: never
+        Returns: {
+          placeholder_count: number
+          quality_percent: number
+          total_lessons: number
+          valid_lessons: number
+        }[]
+      }
       get_course_progress: { Args: { p_course_id: string }; Returns: Json }
       get_due_cards: {
         Args: {
@@ -5335,6 +5344,20 @@ export type Database = {
           lesson_title: string
           module_title: string
           score_percent: number
+        }[]
+      }
+      get_placeholder_lessons: {
+        Args: { p_course_id?: string; p_limit?: number }
+        Returns: {
+          competency_code: string
+          competency_description: string
+          competency_taxonomy_level: string
+          competency_title: string
+          content: Json
+          course_id: string
+          id: string
+          step: string
+          title: string
         }[]
       }
       get_user_dashboard_stats: { Args: never; Returns: Json }
