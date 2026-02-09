@@ -165,6 +165,72 @@ function calculateSimilarity(
   return matches / keys.length;
 }
 
+// Safe math expression evaluator (replaces eval)
+// Supports: +, -, *, /, parentheses, decimals
+function safeEvaluateMath(expr: string): number | null {
+  const sanitized = expr.replace(/[^0-9+\-*/.() ]/g, "").trim();
+  if (!sanitized) return null;
+
+  let pos = 0;
+
+  function skipSpaces() { while (pos < sanitized.length && sanitized[pos] === " ") pos++; }
+  function isDigit(c: string) { return c >= "0" && c <= "9"; }
+
+  function parseExpression(): number {
+    let result = parseTerm();
+    while (pos < sanitized.length) {
+      skipSpaces();
+      if (sanitized[pos] === "+") { pos++; result += parseTerm(); }
+      else if (sanitized[pos] === "-") { pos++; result -= parseTerm(); }
+      else break;
+    }
+    return result;
+  }
+
+  function parseTerm(): number {
+    let result = parseFactor();
+    while (pos < sanitized.length) {
+      skipSpaces();
+      if (sanitized[pos] === "*") { pos++; result *= parseFactor(); }
+      else if (sanitized[pos] === "/") {
+        pos++;
+        const divisor = parseFactor();
+        if (divisor === 0) throw new Error("Division by zero");
+        result /= divisor;
+      }
+      else break;
+    }
+    return result;
+  }
+
+  function parseFactor(): number {
+    skipSpaces();
+    if (sanitized[pos] === "-") { pos++; return -parseFactor(); }
+    if (sanitized[pos] === "(") {
+      pos++;
+      const result = parseExpression();
+      if (sanitized[pos] === ")") pos++;
+      skipSpaces();
+      return result;
+    }
+    const start = pos;
+    while (pos < sanitized.length && (isDigit(sanitized[pos]) || sanitized[pos] === ".")) {
+      pos++;
+    }
+    if (pos === start) throw new Error("Unexpected token");
+    skipSpaces();
+    return parseFloat(sanitized.slice(start, pos));
+  }
+
+  try {
+    const result = parseExpression();
+    if (pos < sanitized.length) return null;
+    return isFinite(result) ? result : null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
@@ -283,13 +349,14 @@ serve(async (req) => {
       const correctAnswerTemplate = correctAnswers?.[0]?.answer_template || "";
       let correctAnswerText = renderTemplate(correctAnswerTemplate, values);
 
-      // Falls Formel vorhanden, berechnen
+      // Falls Formel vorhanden, sicher berechnen (kein eval!)
       if (correctAnswers?.[0]?.calculation_formula) {
         try {
           const formula = renderTemplate(correctAnswers[0].calculation_formula, values);
-          // Sichere Auswertung (nur Zahlen und Operatoren)
-          const result = eval(formula.replace(/[^0-9+\-*/.()]/g, ""));
-          correctAnswerText = String(result);
+          const result = safeEvaluateMath(formula);
+          if (result !== null) {
+            correctAnswerText = String(result);
+          }
         } catch {
           // Formel konnte nicht ausgewertet werden
         }
