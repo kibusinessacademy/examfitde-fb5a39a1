@@ -1,8 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "./cors.ts";
 
-// Re-export CORS utilities for backwards compatibility
-export { getCorsHeaders, handleCorsPreflightRequest, corsHeaders } from "./cors.ts";
+// Re-export CORS utilities for backwards compatibility (legacy corsHeaders removed for security)
+export { getCorsHeaders, handleCorsPreflightRequest } from "./cors.ts";
 
 export interface AuthResult {
   user: { id: string; email?: string } | null;
@@ -13,8 +13,8 @@ export interface AuthResult {
 
 /**
  * Validates JWT token and optionally checks for admin role.
- * Also accepts Service Role Key for internal/automated calls.
- * Required for Lovable Cloud which uses ES256 tokens (verify_jwt=false in config).
+ * Service Role bypasses have been removed for production security.
+ * Internal edge-to-edge calls must use createClient(url, serviceRoleKey) directly.
  */
 export async function validateAuth(
   req: Request,
@@ -24,18 +24,6 @@ export async function validateAuth(
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-  // FIRST: Check x-service-role header for internal/automated calls (no Bearer required)
-  const serviceRoleHeader = req.headers.get('x-service-role');
-  if (serviceRoleHeader && serviceRoleHeader === supabaseServiceKey) {
-    console.log('[Auth] Service role via x-service-role header - bypassing user check');
-    return { 
-      user: { id: 'service-role', email: 'system@internal' }, 
-      error: null, 
-      isAdmin: true, 
-      isServiceRole: true 
-    };
-  }
-
   const authHeader = req.headers.get('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -44,15 +32,10 @@ export async function validateAuth(
 
   const token = authHeader.replace('Bearer ', '');
 
-  // Check if Bearer token IS the service role key
+  // SECURITY: Reject if someone tries to use the service role key as a Bearer token
   if (token === supabaseServiceKey) {
-    console.log('[Auth] Service role authentication via Bearer - bypassing user check');
-    return { 
-      user: { id: 'service-role', email: 'system@internal' }, 
-      error: null, 
-      isAdmin: true, 
-      isServiceRole: true 
-    };
+    console.warn('[Auth] BLOCKED: Attempt to use service role key as Bearer token');
+    return { user: null, error: 'Invalid token', isAdmin: false, isServiceRole: false };
   }
 
   // Create client with auth header for RLS context
