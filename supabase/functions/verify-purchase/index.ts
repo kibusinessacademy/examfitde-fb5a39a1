@@ -81,7 +81,7 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if package already exists (idempotency)
+    // Status-only: prüfen, ob der Webhook bereits ein Package erzeugt hat
     const { data: existingPackage } = await adminClient
       .from('license_packages')
       .select('id')
@@ -89,130 +89,35 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existingPackage) {
-      logStep("Package already exists", { packageId: existingPackage.id });
-      
-      // Return existing package info
+      logStep("Package exists", { packageId: existingPackage.id });
+
       const { data: seats } = await adminClient
         .from('license_seats')
         .select('id, invite_code, assigned_user_id')
         .eq('package_id', existingPackage.id);
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
+          paid: true,
+          package_exists: true,
           package_id: existingPackage.id,
           seats: seats || [],
-          already_processed: true
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       );
     }
 
-    // Extract metadata
-    const { product_id, curriculum_id, quantity, unit_price_cents } = session.metadata!;
-    const quantityNum = parseInt(quantity);
-    const unitPriceCents = parseInt(unit_price_cents);
-    const totalPriceCents = quantityNum * unitPriceCents;
-
-    // Get product info
-    const { data: product, error: productError } = await adminClient
-      .from('store_products')
-      .select('*')
-      .eq('id', product_id)
-      .single();
-
-    if (productError || !product) {
-      throw new Error("Product not found");
-    }
-
-    // Calculate expiration date (12 months from now)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + (product.access_duration_days || 365));
-
-    // Create license package
-    const { data: licensePackage, error: packageError } = await adminClient
-      .from('license_packages')
-      .insert({
-        buyer_user_id: user.id,
-        product_id: product_id,
-        curriculum_id: curriculum_id,
-        quantity: quantityNum,
-        price_paid_cents: totalPriceCents,
-        stripe_checkout_session_id: session_id,
-        stripe_payment_intent_id: typeof session.payment_intent === 'string' 
-          ? session.payment_intent 
-          : session.payment_intent?.id,
-        expires_at: expiresAt.toISOString(),
-        status: 'active',
-      })
-      .select()
-      .single();
-
-    if (packageError || !licensePackage) {
-      logStep("Failed to create package", { error: packageError });
-      throw new Error("Failed to create license package");
-    }
-    logStep("License package created", { packageId: licensePackage.id });
-
-    // Create seats
-    const seatsToCreate = [];
-    for (let i = 0; i < quantityNum; i++) {
-      const isFirstSeat = i === 0;
-      seatsToCreate.push({
-        package_id: licensePackage.id,
-        assigned_user_id: isFirstSeat ? user.id : null, // First seat goes to buyer
-        invite_code: isFirstSeat ? null : generateInviteCode(),
-        assigned_at: isFirstSeat ? new Date().toISOString() : null,
-      });
-    }
-
-    const { data: seats, error: seatsError } = await adminClient
-      .from('license_seats')
-      .insert(seatsToCreate)
-      .select();
-
-    if (seatsError) {
-      logStep("Failed to create seats", { error: seatsError });
-      throw new Error("Failed to create license seats");
-    }
-    logStep("Seats created", { count: seats?.length });
-
-    // Create entitlement for buyer (first seat)
-    const buyerSeat = seats?.find(s => s.assigned_user_id === user.id);
-    if (buyerSeat) {
-      const { error: entitlementError } = await adminClient
-        .from('entitlements')
-        .insert({
-          user_id: user.id,
-          seat_id: buyerSeat.id,
-          curriculum_id: curriculum_id,
-          has_learning_course: product.includes_learning_course,
-          has_exam_trainer: product.includes_exam_trainer,
-          has_ai_tutor: product.includes_ai_tutor,
-          has_oral_trainer: product.includes_oral_trainer,
-          valid_until: expiresAt.toISOString(),
-        });
-
-      if (entitlementError) {
-        logStep("Failed to create entitlement", { error: entitlementError });
-      } else {
-        logStep("Entitlement created for buyer");
-      }
-    }
-
+    // Kein Package vorhanden → Webhook verarbeitet evtl. noch / fehlkonfiguriert
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        package_id: licensePackage.id,
-        seats: seats?.map(s => ({
-          id: s.id,
-          invite_code: s.invite_code,
-          assigned_user_id: s.assigned_user_id,
-        })) || [],
-        expires_at: expiresAt.toISOString(),
+      JSON.stringify({
+        success: true,
+        paid: true,
+        package_exists: false,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });

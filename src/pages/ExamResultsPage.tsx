@@ -74,40 +74,26 @@ export default function ExamResultsPage() {
     async function fetchResults() {
       if (!sessionId || !user) return;
 
-      const [sessionRes, questionsRes] = await Promise.all([
-        supabase
-          .from('exam_sessions')
-          .select(`
-            id, mode, total_questions, score_percentage, passed, 
-            started_at, finished_at, breakdown,
-            blueprint:exam_blueprints(title, pass_threshold),
-            curriculum:curricula(title)
-          `)
-          .eq('id', sessionId)
-          .eq('user_id', user.id)
-          .single(),
-        supabase
-          .from('exam_session_questions')
-          .select(`
-            id, order_index, is_correct, user_answer, difficulty,
-            learning_field_code, competency_code,
-            question:exam_questions(question_text, options, correct_answer, explanation)
-          `)
-          .eq('exam_session_id', sessionId)
-          .order('order_index')
-      ]);
+      try {
+        const { data, error } = await supabase.functions.invoke('get-exam-results', {
+          body: { session_id: sessionId },
+        });
 
-      if (sessionRes.data) {
-        setSession(sessionRes.data as unknown as ExamSessionData);
+        if (error) throw error;
+
+        setSession((data?.session || null) as ExamSessionData | null);
+        setQuestions((data?.questions || []) as QuestionDetail[]);
+      } catch (e) {
+        setSession(null);
+        setQuestions([]);
+      } finally {
+        setLoading(false);
       }
-      if (questionsRes.data) {
-        setQuestions(questionsRes.data as unknown as QuestionDetail[]);
-      }
-      setLoading(false);
     }
 
     fetchResults();
   }, [sessionId, user]);
+
 
   if (loading) {
     return (
