@@ -150,6 +150,7 @@ interface ProductStatus {
   lessons: { total: number; valid: number; invalid: number; percent: number };
   miniChecks: { total: number; valid: number; percent: number };
   examQuestions: { total: number; competenciesCovered: number; totalCompetencies: number; percent: number };
+  missingCompetencies: { id: string; code: string; title: string }[];
   overall: { complete: boolean; percent: number };
 }
 
@@ -157,6 +158,19 @@ async function assessProduct(supabase: ReturnType<typeof createClient>, courseId
   // Course info
   const { data: course } = await supabase.from('courses').select('id, title, curriculum_id').eq('id', courseId).single();
   if (!course) throw new Error(`Course ${courseId} not found`);
+
+  // ALL competencies from the curriculum (SSOT)
+  const { data: learningFields } = await supabase
+    .from('learning_fields')
+    .select('id')
+    .eq('curriculum_id', course.curriculum_id);
+  const lfIds = (learningFields || []).map((lf: { id: string }) => lf.id);
+
+  const { data: allCurriculumComps } = await supabase
+    .from('competencies')
+    .select('id, code, title, description, taxonomy_level')
+    .in('learning_field_id', lfIds.length > 0 ? lfIds : ['__none__']);
+  const totalComps = allCurriculumComps?.length || 0;
 
   // All lessons
   const { data: lessons } = await supabase
@@ -176,28 +190,27 @@ async function assessProduct(supabase: ReturnType<typeof createClient>, courseId
     if (isLessonValid(l.content as Record<string, unknown> | null, 'mini_check')) validMiniChecks++;
   }
 
-  // Exam questions coverage
-  const { data: competencies } = await supabase
-    .from('competencies')
-    .select('id')
-    .in('learning_field_id', 
-      (await supabase.from('learning_fields').select('id').eq('curriculum_id', course.curriculum_id)).data?.map((lf: { id: string }) => lf.id) || []
-    );
-  const totalComps = competencies?.length || 0;
+  // Detect missing competencies (no lessons at all)
+  const coveredCompIds = new Set(allLessons.map(l => l.competency_id).filter(Boolean));
+  const missingCompetencies = (allCurriculumComps || [])
+    .filter((c: { id: string }) => !coveredCompIds.has(c.id))
+    .map((c: { id: string; code: string; title: string }) => ({ id: c.id, code: c.code, title: c.title }));
 
+  // Exam questions coverage
   const { data: examQs } = await supabase
     .from('exam_questions')
     .select('id, competency_id')
     .eq('curriculum_id', course.curriculum_id);
-  const coveredComps = new Set((examQs || []).map((q: { competency_id: string }) => q.competency_id).filter(Boolean)).size;
+  const coveredExamComps = new Set((examQs || []).map((q: { competency_id: string }) => q.competency_id).filter(Boolean)).size;
 
   const lessonPercent = allLessons.length > 0 ? Math.round((validLessons / allLessons.length) * 100) : 0;
   const mcPercent = miniCheckLessons.length > 0 ? Math.round((validMiniChecks / miniCheckLessons.length) * 100) : 100;
-  const examPercent = totalComps > 0 ? Math.round((coveredComps / totalComps) * 100) : 0;
+  const examPercent = totalComps > 0 ? Math.round((coveredExamComps / totalComps) * 100) : 0;
 
   // Overall: lessons (60%) + minichecks (20%) + exam (20%)
   const overallPercent = Math.round(lessonPercent * 0.6 + mcPercent * 0.2 + examPercent * 0.2);
-  const complete = lessonPercent === 100 && mcPercent === 100;
+  // NOT complete if any competency is missing
+  const complete = lessonPercent === 100 && mcPercent === 100 && missingCompetencies.length === 0;
 
   return {
     courseId: course.id,
@@ -205,7 +218,8 @@ async function assessProduct(supabase: ReturnType<typeof createClient>, courseId
     curriculumId: course.curriculum_id,
     lessons: { total: allLessons.length, valid: validLessons, invalid: allLessons.length - validLessons, percent: lessonPercent },
     miniChecks: { total: miniCheckLessons.length, valid: validMiniChecks, percent: mcPercent },
-    examQuestions: { total: examQs?.length || 0, competenciesCovered: coveredComps, totalCompetencies: totalComps, percent: examPercent },
+    examQuestions: { total: examQs?.length || 0, competenciesCovered: coveredExamComps, totalCompetencies: totalComps, percent: examPercent },
+    missingCompetencies,
     overall: { complete, percent: overallPercent },
   };
 }
@@ -238,6 +252,83 @@ async function getCompetency(supabase: ReturnType<typeof createClient>, compId: 
     .eq('id', compId)
     .single();
   return data || { code: '', title: '', description: '', taxonomy_level: 'anwenden' };
+}
+
+// ─── Scaffold missing competency lessons ───
+
+const SCAFFOLD_STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'] as const;
+
+async function scaffoldMissingCompetencies(
+  supabase: ReturnType<typeof createClient>,
+  courseId: string,
+  missingComps: { id: string; code: string; title: string }[],
+  curriculumId: string
+): Promise<number> {
+  let created = 0;
+
+  for (const comp of missingComps) {
+    // Find which learning_field this competency belongs to
+    const { data: compFull } = await supabase
+      .from('competencies')
+      .select('learning_field_id')
+      .eq('id', comp.id)
+      .single();
+    if (!compFull) continue;
+
+    // Find or create the module for this learning field
+    let moduleId: string;
+    const { data: existingModule } = await supabase
+      .from('modules')
+      .select('id')
+      .eq('course_id', courseId)
+      .eq('learning_field_id', compFull.learning_field_id)
+      .single();
+
+    if (existingModule) {
+      moduleId = existingModule.id;
+    } else {
+      const { data: lf } = await supabase
+        .from('learning_fields')
+        .select('code, title, description')
+        .eq('id', compFull.learning_field_id)
+        .single();
+
+      const { data: newModule, error: modErr } = await supabase
+        .from('modules')
+        .insert({
+          course_id: courseId,
+          learning_field_id: compFull.learning_field_id,
+          title: lf ? `${lf.code}: ${lf.title}` : `Modul für ${comp.code}`,
+          description: lf?.description || null,
+          sort_order: 999,
+        })
+        .select('id')
+        .single();
+
+      if (modErr || !newModule) {
+        console.error(`[Scaffold] Failed to create module for LF ${compFull.learning_field_id}:`, modErr);
+        continue;
+      }
+      moduleId = newModule.id;
+    }
+
+    // Create all 5 step lessons for this competency
+    for (let i = 0; i < SCAFFOLD_STEPS.length; i++) {
+      const step = SCAFFOLD_STEPS[i];
+      const { error } = await supabase.from('lessons').insert({
+        module_id: moduleId,
+        competency_id: comp.id,
+        title: `${comp.code}: ${comp.title}`,
+        step,
+        content: { type: step === 'mini_check' ? 'mini_check' : 'text', html: '<p>Inhalt wird generiert...</p>', objectives: [] },
+        duration_minutes: step === 'mini_check' ? 5 : 10,
+        sort_order: 900 + i,
+      });
+      if (!error) created++;
+    }
+  }
+
+  return created;
 }
 
 // ─── Main orchestrator ───
@@ -290,9 +381,36 @@ serve(async (req) => {
     const initialStatus = await assessProduct(supabase, targetCourseId);
     console.log(`[Orchestrator] Iteration ${_iteration} | Course: ${initialStatus.courseTitle}`);
     console.log(`[Orchestrator] Lessons: ${initialStatus.lessons.percent}% | MiniChecks: ${initialStatus.miniChecks.percent}% | Exam: ${initialStatus.examQuestions.percent}%`);
+    console.log(`[Orchestrator] Missing competencies: ${initialStatus.missingCompetencies.length}`);
 
     if (dryRun) {
       return new Response(JSON.stringify({ dryRun: true, status: initialStatus }), { headers: jsonHeaders });
+    }
+
+    // ─── STEP 0: SCAFFOLD MISSING COMPETENCIES ───
+    // If any curriculum competency has zero lessons, create all 5 steps for it.
+    if (initialStatus.missingCompetencies.length > 0) {
+      console.log(`[Orchestrator] 🔴 ${initialStatus.missingCompetencies.length} competencies missing! Scaffolding lessons...`);
+      const scaffolded = await scaffoldMissingCompetencies(supabase, targetCourseId, initialStatus.missingCompetencies, initialStatus.curriculumId);
+      console.log(`[Orchestrator] ✅ Scaffolded ${scaffolded} lessons for missing competencies.`);
+      // Re-assess and continue in next iteration (new lessons need content)
+      const updatedStatus = await assessProduct(supabase, targetCourseId);
+      
+      // Self-invoke for content generation
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      fetch(`${supabaseUrl}/functions/v1/product-orchestrator`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+        body: JSON.stringify({ courseId: targetCourseId, autoAll, _iteration: _iteration + 1 }),
+      }).catch(e => console.error('[Orchestrator] Self-invoke failed:', e));
+
+      return new Response(JSON.stringify({
+        complete: false, shouldContinue: true, iteration: _iteration,
+        scaffolded,
+        status: updatedStatus,
+        message: `🔧 ${scaffolded} Lessons für ${initialStatus.missingCompetencies.length} fehlende Kompetenzen erstellt. Content-Generierung startet...`
+      }), { headers: jsonHeaders });
     }
 
     // Already complete?
