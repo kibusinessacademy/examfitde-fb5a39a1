@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.submit-exam-answer]
 verify_jwt = false
+
+[functions.run-quality-checks]
+verify_jwt = false
+
+[functions.generate-course-batch]
+verify_jwt = false
