@@ -13,6 +13,21 @@ interface QualityCheckResult {
   details: Record<string, unknown>;
 }
 
+interface CourseAuditResult {
+  courseId: string;
+  courseTitle: string;
+  checks: {
+    completeness: QualityCheckResult;
+    miniCheckQuality: QualityCheckResult;
+    objectivesPresent: QualityCheckResult;
+    noPlaceholders: QualityCheckResult;
+    duplicateDetection: QualityCheckResult;
+  };
+  overallScore: number;
+  overallStatus: 'passed' | 'failed' | 'warning';
+  recommendations: string[];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,18 +38,27 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { checkId, checkType, curriculumProductId } = await req.json();
+    const { courseId, checkType, curriculumProductId } = await req.json();
 
-    if (!checkId || !checkType || !curriculumProductId) {
+    // If courseId is provided, run course-specific audit
+    if (courseId) {
+      const result = await runCourseAudit(supabase, courseId);
       return new Response(
-        JSON.stringify({ error: "checkId, checkType, and curriculumProductId are required" }),
+        JSON.stringify(result),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Legacy: curriculum product quality checks
+    if (!checkType || !curriculumProductId) {
+      return new Response(
+        JSON.stringify({ error: "Either courseId OR (checkType + curriculumProductId) required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     console.log(`[QUALITY-CHECK] Running ${checkType} for curriculum_product ${curriculumProductId}`);
 
-    // Get curriculum product with related data
     const { data: cp, error: cpError } = await supabase
       .from('curriculum_products')
       .select(`
@@ -48,12 +72,6 @@ serve(async (req) => {
     if (cpError || !cp) {
       throw new Error(`Curriculum product not found: ${curriculumProductId}`);
     }
-
-    // Update check status to running
-    await supabase
-      .from('quality_checks')
-      .update({ status: 'running' })
-      .eq('id', checkId);
 
     let result: QualityCheckResult;
 
@@ -72,21 +90,6 @@ serve(async (req) => {
         break;
       default:
         throw new Error(`Unknown check type: ${checkType}`);
-    }
-
-    // Update check with results
-    const { error: updateError } = await supabase
-      .from('quality_checks')
-      .update({
-        status: result.status,
-        score: result.score,
-        details: result.details,
-        executed_at: new Date().toISOString(),
-      })
-      .eq('id', checkId);
-
-    if (updateError) {
-      console.error("Error updating quality check:", updateError);
     }
 
     console.log(`[QUALITY-CHECK] ${checkType} completed: ${result.status} (score: ${result.score})`);
@@ -108,7 +111,290 @@ serve(async (req) => {
   }
 });
 
-// Coverage Check: Verify all competencies have content
+// ============================================================
+// NEW: Course-level Quality Audit
+// ============================================================
+async function runCourseAudit(
+  supabase: ReturnType<typeof createClient>,
+  courseId: string
+): Promise<CourseAuditResult> {
+  // Get course info
+  const { data: course, error: courseError } = await supabase
+    .from('courses')
+    .select('id, title, status')
+    .eq('id', courseId)
+    .single();
+
+  if (courseError || !course) {
+    throw new Error(`Course not found: ${courseId}`);
+  }
+
+  // Get all lessons for this course
+  const { data: lessons, error: lessonsError } = await supabase
+    .from('lessons')
+    .select(`
+      id, title, step, content, competency_id,
+      modules!inner (course_id)
+    `)
+    .eq('modules.course_id', courseId);
+
+  if (lessonsError) throw lessonsError;
+
+  const allLessons = lessons || [];
+
+  // Run all quality checks
+  const completeness = checkCompleteness(allLessons);
+  const miniCheckQuality = checkMiniCheckQuality(allLessons);
+  const objectivesPresent = checkObjectivesPresent(allLessons);
+  const noPlaceholders = checkNoPlaceholders(allLessons);
+  const duplicateDetection = checkDuplicates(allLessons);
+
+  // Calculate overall score
+  const weights = { completeness: 30, miniCheckQuality: 25, objectivesPresent: 20, noPlaceholders: 15, duplicateDetection: 10 };
+  const overallScore = Math.round(
+    (completeness.score * weights.completeness +
+     miniCheckQuality.score * weights.miniCheckQuality +
+     objectivesPresent.score * weights.objectivesPresent +
+     noPlaceholders.score * weights.noPlaceholders +
+     duplicateDetection.score * weights.duplicateDetection) / 100
+  );
+
+  const overallStatus = overallScore >= 80 ? 'passed' : overallScore >= 60 ? 'warning' : 'failed';
+
+  // Generate recommendations
+  const recommendations: string[] = [];
+  if (completeness.status !== 'passed') {
+    recommendations.push('Fehlende Steps pro Kompetenz ergänzen (5 Steps erwartet: einstieg, verstehen, anwenden, wiederholen, mini_check)');
+  }
+  if (miniCheckQuality.status !== 'passed') {
+    recommendations.push('MiniCheck-Lessons mit strukturierten Fragen (questions-Array mit 3-5 Fragen) versehen');
+  }
+  if (objectivesPresent.status !== 'passed') {
+    recommendations.push('Lernziele (objectives) für alle Lessons definieren');
+  }
+  if (noPlaceholders.status !== 'passed') {
+    recommendations.push('Platzhalter-Texte durch echte Inhalte ersetzen');
+  }
+  if (duplicateDetection.status !== 'passed') {
+    recommendations.push('Doppelte Lessons konsolidieren');
+  }
+
+  return {
+    courseId,
+    courseTitle: course.title,
+    checks: {
+      completeness,
+      miniCheckQuality,
+      objectivesPresent,
+      noPlaceholders,
+      duplicateDetection,
+    },
+    overallScore,
+    overallStatus,
+    recommendations,
+  };
+}
+
+// Check 1: Completeness (5 steps per competency)
+function checkCompleteness(lessons: Record<string, unknown>[]): QualityCheckResult {
+  const EXPECTED_STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'];
+  
+  // Group by competency
+  const byCompetency = new Map<string, Set<string>>();
+  for (const lesson of lessons) {
+    const compId = lesson.competency_id as string;
+    const step = lesson.step as string;
+    if (!compId) continue;
+    
+    if (!byCompetency.has(compId)) {
+      byCompetency.set(compId, new Set());
+    }
+    byCompetency.get(compId)!.add(step);
+  }
+
+  let complete = 0;
+  const incomplete: { competencyId: string; missingSteps: string[] }[] = [];
+
+  for (const [compId, steps] of byCompetency) {
+    const missing = EXPECTED_STEPS.filter(s => !steps.has(s));
+    if (missing.length === 0) {
+      complete++;
+    } else {
+      incomplete.push({ competencyId: compId, missingSteps: missing });
+    }
+  }
+
+  const total = byCompetency.size;
+  const score = total > 0 ? Math.round((complete / total) * 100) : 0;
+
+  return {
+    checkType: 'completeness',
+    status: score >= 95 ? 'passed' : score >= 80 ? 'warning' : 'failed',
+    score,
+    details: {
+      totalCompetencies: total,
+      completeCompetencies: complete,
+      incompleteCompetencies: incomplete.slice(0, 5),
+    },
+  };
+}
+
+// Check 2: MiniCheck Quality (must have questions array)
+function checkMiniCheckQuality(lessons: Record<string, unknown>[]): QualityCheckResult {
+  const miniChecks = lessons.filter(l => l.step === 'mini_check');
+  
+  let withQuestions = 0;
+  const issues: { id: string; title: string; problem: string }[] = [];
+
+  for (const mc of miniChecks) {
+    const content = mc.content as Record<string, unknown> | null;
+    const questions = content?.questions as unknown[] | undefined;
+    
+    if (Array.isArray(questions) && questions.length >= 3) {
+      withQuestions++;
+    } else if (Array.isArray(questions)) {
+      issues.push({ 
+        id: mc.id as string, 
+        title: mc.title as string, 
+        problem: `Nur ${questions.length} Fragen (min. 3 erwartet)` 
+      });
+    } else {
+      issues.push({ 
+        id: mc.id as string, 
+        title: mc.title as string, 
+        problem: 'Keine questions-Array vorhanden' 
+      });
+    }
+  }
+
+  const total = miniChecks.length;
+  const score = total > 0 ? Math.round((withQuestions / total) * 100) : 100;
+
+  return {
+    checkType: 'miniCheckQuality',
+    status: score >= 90 ? 'passed' : score >= 50 ? 'warning' : 'failed',
+    score,
+    details: {
+      totalMiniChecks: total,
+      validMiniChecks: withQuestions,
+      issues: issues.slice(0, 10),
+    },
+  };
+}
+
+// Check 3: Objectives Present
+function checkObjectivesPresent(lessons: Record<string, unknown>[]): QualityCheckResult {
+  let withObjectives = 0;
+  const missing: string[] = [];
+
+  for (const lesson of lessons) {
+    const content = lesson.content as Record<string, unknown> | null;
+    const objectives = content?.objectives as unknown[] | undefined;
+    
+    if (Array.isArray(objectives) && objectives.length > 0) {
+      withObjectives++;
+    } else {
+      missing.push(lesson.id as string);
+    }
+  }
+
+  const total = lessons.length;
+  const score = total > 0 ? Math.round((withObjectives / total) * 100) : 100;
+
+  return {
+    checkType: 'objectivesPresent',
+    status: score >= 95 ? 'passed' : score >= 80 ? 'warning' : 'failed',
+    score,
+    details: {
+      totalLessons: total,
+      withObjectives,
+      missingCount: missing.length,
+    },
+  };
+}
+
+// Check 4: No Placeholders
+function checkNoPlaceholders(lessons: Record<string, unknown>[]): QualityCheckResult {
+  const placeholderPatterns = [
+    'wird generiert',
+    'inhalt wird',
+    'lorem ipsum',
+    'placeholder',
+    'TODO',
+    'FIXME',
+  ];
+
+  const issues: { id: string; title: string; pattern: string }[] = [];
+
+  for (const lesson of lessons) {
+    const content = lesson.content as Record<string, unknown> | null;
+    const html = (content?.html as string) || '';
+    
+    for (const pattern of placeholderPatterns) {
+      if (html.toLowerCase().includes(pattern.toLowerCase())) {
+        issues.push({
+          id: lesson.id as string,
+          title: lesson.title as string,
+          pattern,
+        });
+        break;
+      }
+    }
+  }
+
+  const total = lessons.length;
+  const clean = total - issues.length;
+  const score = total > 0 ? Math.round((clean / total) * 100) : 100;
+
+  return {
+    checkType: 'noPlaceholders',
+    status: issues.length === 0 ? 'passed' : 'failed',
+    score,
+    details: {
+      totalLessons: total,
+      cleanLessons: clean,
+      issues: issues.slice(0, 10),
+    },
+  };
+}
+
+// Check 5: Duplicate Detection
+function checkDuplicates(lessons: Record<string, unknown>[]): QualityCheckResult {
+  // Group by competency + step (should be unique)
+  const seen = new Map<string, string[]>();
+  
+  for (const lesson of lessons) {
+    const key = `${lesson.competency_id}-${lesson.step}`;
+    if (!seen.has(key)) {
+      seen.set(key, []);
+    }
+    seen.get(key)!.push(lesson.id as string);
+  }
+
+  const duplicates = Array.from(seen.entries())
+    .filter(([, ids]) => ids.length > 1)
+    .map(([key, ids]) => ({ key, count: ids.length, ids }));
+
+  const total = seen.size;
+  const unique = total - duplicates.length;
+  const score = total > 0 ? Math.round((unique / total) * 100) : 100;
+
+  return {
+    checkType: 'duplicateDetection',
+    status: duplicates.length === 0 ? 'passed' : 'warning',
+    score,
+    details: {
+      totalCombinations: total,
+      duplicatesFound: duplicates.length,
+      duplicates: duplicates.slice(0, 5),
+    },
+  };
+}
+
+// ============================================================
+// Legacy: Curriculum Product Quality Checks
+// ============================================================
+
 async function runCoverageCheck(
   supabase: ReturnType<typeof createClient>,
   cp: Record<string, unknown>
@@ -116,13 +402,6 @@ async function runCoverageCheck(
   const curriculumId = (cp.curricula as { id: string }).id;
   const product = cp.store_products as { product_key: string; includes_learning_course: boolean; includes_exam_trainer: boolean };
 
-  // Get all competencies for this curriculum
-  const { data: competencies, error: compError } = await supabase
-    .from('competencies')
-    .select('id, code, title, learning_field_id')
-    .eq('learning_field_id', supabase.raw(`(SELECT id FROM learning_fields WHERE curriculum_id = '${curriculumId}')`));
-
-  // Alternative: Get via learning_fields
   const { data: learningFields } = await supabase
     .from('learning_fields')
     .select('id')
@@ -141,7 +420,6 @@ async function runCoverageCheck(
   const missing: string[] = [];
 
   if (product.includes_learning_course && cp.course_id) {
-    // Check lessons coverage
     const { data: lessons } = await supabase
       .from('lessons')
       .select('competency_id')
@@ -159,7 +437,6 @@ async function runCoverageCheck(
   }
 
   if (product.includes_exam_trainer) {
-    // Check questions coverage
     const { data: questions } = await supabase
       .from('exam_questions')
       .select('competency_id')
@@ -190,20 +467,18 @@ async function runCoverageCheck(
     details: {
       total_competencies: totalCompetencies,
       covered_competencies: coveredCompetencies,
-      missing: missing.slice(0, 10), // Limit to first 10
+      missing: missing.slice(0, 10),
       missing_count: missing.length,
     },
   };
 }
 
-// Duplicate Check: Find similar questions
 async function runDuplicateCheck(
   supabase: ReturnType<typeof createClient>,
   cp: Record<string, unknown>
 ): Promise<QualityCheckResult> {
   const curriculumId = (cp.curricula as { id: string }).id;
 
-  // Get all questions for this curriculum
   const { data: questions } = await supabase
     .from('exam_questions')
     .select('id, question_text')
@@ -212,7 +487,6 @@ async function runDuplicateCheck(
   const totalQuestions = questions?.length || 0;
   const duplicates: { id1: string; id2: string; similarity: number }[] = [];
 
-  // Simple similarity check using normalized text comparison
   if (questions && questions.length > 1) {
     for (let i = 0; i < questions.length; i++) {
       for (let j = i + 1; j < questions.length; j++) {
@@ -243,20 +517,18 @@ async function runDuplicateCheck(
     details: {
       total_questions: totalQuestions,
       duplicates_found: duplicates.length,
-      duplicates: duplicates.slice(0, 5), // Show first 5
+      duplicates: duplicates.slice(0, 5),
       similarity_threshold: 85,
     },
   };
 }
 
-// Correctness Check: Verify question structure
 async function runCorrectnessCheck(
   supabase: ReturnType<typeof createClient>,
   cp: Record<string, unknown>
 ): Promise<QualityCheckResult> {
   const curriculumId = (cp.curricula as { id: string }).id;
 
-  // Get all questions
   const { data: questions } = await supabase
     .from('exam_questions')
     .select('id, options, correct_answer')
@@ -268,19 +540,16 @@ async function runCorrectnessCheck(
   for (const q of (questions || [])) {
     const options = q.options as string[] | null;
     
-    // Check: exactly 4 options
     if (!options || options.length !== 4) {
       issues.push({ id: q.id, issue: `Falsche Optionsanzahl: ${options?.length || 0}` });
       continue;
     }
 
-    // Check: correct_answer is valid index (0-3)
     if (typeof q.correct_answer !== 'number' || q.correct_answer < 0 || q.correct_answer > 3) {
       issues.push({ id: q.id, issue: `Ungültiger correct_answer: ${q.correct_answer}` });
       continue;
     }
 
-    // Check: no empty options
     const emptyOptions = options.filter((o: string) => !o || o.trim() === '');
     if (emptyOptions.length > 0) {
       issues.push({ id: q.id, issue: 'Leere Antwortoptionen' });
@@ -305,14 +574,12 @@ async function runCorrectnessCheck(
   };
 }
 
-// Difficulty Distribution Check
 async function runDifficultyCheck(
   supabase: ReturnType<typeof createClient>,
   cp: Record<string, unknown>
 ): Promise<QualityCheckResult> {
   const curriculumId = (cp.curricula as { id: string }).id;
 
-  // Get question counts by difficulty
   const { data: questions } = await supabase
     .from('exam_questions')
     .select('difficulty')
@@ -326,11 +593,10 @@ async function runDifficultyCheck(
     if (counts[diff] !== undefined) {
       counts[diff]++;
     } else {
-      counts.medium++; // Default unknown to medium
+      counts.medium++;
     }
   }
 
-  // Target distribution: 30% easy, 50% medium, 20% hard
   const target = { easy: 30, medium: 50, hard: 20 };
   const actual = {
     easy: totalQuestions > 0 ? Math.round((counts.easy / totalQuestions) * 100) : 0,
@@ -338,7 +604,6 @@ async function runDifficultyCheck(
     hard: totalQuestions > 0 ? Math.round((counts.hard / totalQuestions) * 100) : 0,
   };
 
-  // Calculate deviation
   const deviation = Math.abs(actual.easy - target.easy) + 
                     Math.abs(actual.medium - target.medium) + 
                     Math.abs(actual.hard - target.hard);
@@ -359,7 +624,6 @@ async function runDifficultyCheck(
   };
 }
 
-// Simple text similarity (Jaccard index on words)
 function calculateTextSimilarity(text1: string, text2: string): number {
   const normalize = (text: string) => 
     text.toLowerCase().replace(/[^a-zäöüß0-9\s]/g, '').split(/\s+/).filter(Boolean);
