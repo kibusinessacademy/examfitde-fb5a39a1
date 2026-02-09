@@ -13,6 +13,7 @@ interface CourseAuditResult {
   courseId: string;
   courseTitle: string;
   checks: {
+    competencyCoverage: QualityCheckResult;
     completeness: QualityCheckResult;
     miniCheckQuality: QualityCheckResult;
     objectivesPresent: QualityCheckResult;
@@ -119,13 +120,28 @@ async function runCourseAudit(
   // Get course info
   const { data: course, error: courseError } = await supabase
     .from('courses')
-    .select('id, title, status')
+    .select('id, title, status, curriculum_id')
     .eq('id', courseId)
     .single();
 
   if (courseError || !course) {
     throw new Error(`Course not found: ${courseId}`);
   }
+
+  // Get ALL competencies from the curriculum (the SSOT)
+  const { data: learningFields } = await supabase
+    .from('learning_fields')
+    .select('id')
+    .eq('curriculum_id', course.curriculum_id);
+
+  const lfIds = (learningFields || []).map((lf: { id: string }) => lf.id);
+
+  const { data: allCurriculumCompetencies } = await supabase
+    .from('competencies')
+    .select('id, code, title')
+    .in('learning_field_id', lfIds.length > 0 ? lfIds : ['__none__']);
+
+  const curriculumCompIds = new Set((allCurriculumCompetencies || []).map((c: { id: string }) => c.id));
 
   // Get all lessons for this course
   const { data: lessons, error: lessonsError } = await supabase
@@ -142,25 +158,31 @@ async function runCourseAudit(
 
   // Run all quality checks
   const completeness = checkCompleteness(allLessons);
+  const competencyCoverage = checkCompetencyCoverage(allLessons, allCurriculumCompetencies || []);
   const miniCheckQuality = checkMiniCheckQuality(allLessons);
   const objectivesPresent = checkObjectivesPresent(allLessons);
   const noPlaceholders = checkNoPlaceholders(allLessons);
   const duplicateDetection = checkDuplicates(allLessons);
 
-  // Calculate overall score
-  const weights = { completeness: 30, miniCheckQuality: 25, objectivesPresent: 20, noPlaceholders: 15, duplicateDetection: 10 };
+  // Calculate overall score (competencyCoverage is now the highest weight — it's a BLOCKER)
+  const weights = { competencyCoverage: 35, completeness: 25, miniCheckQuality: 20, objectivesPresent: 10, noPlaceholders: 5, duplicateDetection: 5 };
   const overallScore = Math.round(
-    (completeness.score * weights.completeness +
+    (competencyCoverage.score * weights.competencyCoverage +
+     completeness.score * weights.completeness +
      miniCheckQuality.score * weights.miniCheckQuality +
      objectivesPresent.score * weights.objectivesPresent +
      noPlaceholders.score * weights.noPlaceholders +
      duplicateDetection.score * weights.duplicateDetection) / 100
   );
 
-  const overallStatus = overallScore >= 80 ? 'passed' : overallScore >= 60 ? 'warning' : 'failed';
+  const overallStatus = competencyCoverage.status === 'failed' ? 'failed'
+    : overallScore >= 80 ? 'passed' : overallScore >= 60 ? 'warning' : 'failed';
 
   // Generate recommendations
   const recommendations: string[] = [];
+  if (competencyCoverage.status !== 'passed') {
+    recommendations.push(`🔴 BLOCKER: ${(competencyCoverage.details.missingCompetencies as unknown[]).length} Kompetenzen haben KEINE Lessons. Diese müssen zuerst angelegt werden.`);
+  }
   if (completeness.status !== 'passed') {
     recommendations.push('Fehlende Steps pro Kompetenz ergänzen (5 Steps erwartet: einstieg, verstehen, anwenden, wiederholen, mini_check)');
   }
@@ -181,6 +203,7 @@ async function runCourseAudit(
     courseId,
     courseTitle: course.title,
     checks: {
+      competencyCoverage,
       completeness,
       miniCheckQuality,
       objectivesPresent,
@@ -233,6 +256,45 @@ function checkCompleteness(lessons: Record<string, unknown>[]): QualityCheckResu
       totalCompetencies: total,
       completeCompetencies: complete,
       incompleteCompetencies: incomplete.slice(0, 5),
+    },
+  };
+}
+
+// Check: Competency Coverage (ALL curriculum competencies must have lessons)
+function checkCompetencyCoverage(
+  lessons: Record<string, unknown>[],
+  curriculumCompetencies: { id: string; code: string; title: string }[]
+): QualityCheckResult {
+  const EXPECTED_STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'];
+  
+  // Which competencies have at least one lesson?
+  const coveredCompIds = new Set<string>();
+  for (const lesson of lessons) {
+    const compId = lesson.competency_id as string;
+    if (compId) coveredCompIds.add(compId);
+  }
+
+  const missing: { id: string; code: string; title: string }[] = [];
+  for (const comp of curriculumCompetencies) {
+    if (!coveredCompIds.has(comp.id)) {
+      missing.push(comp);
+    }
+  }
+
+  const total = curriculumCompetencies.length;
+  const covered = total - missing.length;
+  const score = total > 0 ? Math.round((covered / total) * 100) : 100;
+
+  return {
+    checkType: 'competencyCoverage',
+    // This is a BLOCKER: 100% coverage required, anything less is 'failed'
+    status: score === 100 ? 'passed' : 'failed',
+    score,
+    details: {
+      totalCurriculumCompetencies: total,
+      coveredInCourse: covered,
+      missingCount: missing.length,
+      missingCompetencies: missing.slice(0, 20),
     },
   };
 }
