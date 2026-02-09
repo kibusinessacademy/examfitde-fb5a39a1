@@ -251,7 +251,20 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { courseId, dryRun = false, autoAll = false } = body;
+    const { courseId, dryRun = false, autoAll = false, _iteration = 0 } = body;
+
+    // Create supabase client FIRST (was a bug: referenced before creation)
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+
+    // Safety cap on iterations
+    if (_iteration >= MAX_ITERATIONS) {
+      return new Response(JSON.stringify({
+        complete: false, shouldContinue: false,
+        message: `⛔ Max iterations (${MAX_ITERATIONS}) reached. Manual review required.`
+      }), { headers: jsonHeaders });
+    }
 
     // Auto-all mode: find all incomplete courses and process the first one
     let targetCourseId = courseId;
@@ -273,13 +286,9 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "courseId is required or use autoAll:true" }), { status: 400, headers: jsonHeaders });
     }
 
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!API_KEY) throw new Error('LOVABLE_API_KEY not configured');
-
     // Initial assessment
     const initialStatus = await assessProduct(supabase, targetCourseId);
-    console.log(`[Orchestrator] Course: ${initialStatus.courseTitle}`);
+    console.log(`[Orchestrator] Iteration ${_iteration} | Course: ${initialStatus.courseTitle}`);
     console.log(`[Orchestrator] Lessons: ${initialStatus.lessons.percent}% | MiniChecks: ${initialStatus.miniChecks.percent}% | Exam: ${initialStatus.examQuestions.percent}%`);
 
     if (dryRun) {
@@ -341,16 +350,40 @@ serve(async (req) => {
     const finalStatus = await assessProduct(supabase, targetCourseId);
     const shouldContinue = !finalStatus.overall.complete && fixed > 0;
 
-    if (finalStatus.overall.complete) await logCompletion(supabase, targetCourseId, finalStatus);
+    if (finalStatus.overall.complete) {
+      await logCompletion(supabase, targetCourseId, finalStatus);
+    }
+
+    // ─── AUTO-CONTINUE: Self-invoke next iteration if not complete ───
+    if (shouldContinue) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      console.log(`[Orchestrator] ⏭️ Auto-continuing iteration ${_iteration + 1} (${finalStatus.lessons.invalid} lessons remaining)...`);
+      
+      // Fire-and-forget: invoke self for next batch
+      fetch(`${supabaseUrl}/functions/v1/product-orchestrator`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({
+          courseId: targetCourseId,
+          autoAll,
+          _iteration: _iteration + 1,
+        }),
+      }).catch(e => console.error('[Orchestrator] Self-invoke failed:', e));
+    }
 
     return new Response(JSON.stringify({
       complete: finalStatus.overall.complete,
       shouldContinue,
+      iteration: _iteration,
       fixed, failed, details,
       status: finalStatus,
       message: finalStatus.overall.complete
         ? `✅ FERTIG: "${finalStatus.courseTitle}" vollständig!`
-        : `⏳ ${finalStatus.lessons.percent}% valid (${finalStatus.lessons.invalid} verbleibend). ${shouldContinue ? 'Automatisch fortsetzen...' : 'Manuell erneut aufrufen.'}`
+        : `⏳ Iteration ${_iteration}: ${fixed} fixed, ${finalStatus.lessons.invalid} verbleibend. ${shouldContinue ? 'Nächste Iteration automatisch gestartet...' : 'Gestoppt (keine Fortschritte).'}`
     }), { headers: jsonHeaders });
 
   } catch (error) {
