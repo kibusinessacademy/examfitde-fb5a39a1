@@ -5033,6 +5033,57 @@ export type Database = {
       }
     }
     Views: {
+      affiliate_referrals_safe: {
+        Row: {
+          affiliate_id: string | null
+          commission_amount: number | null
+          confirmed_at: string | null
+          course_id: string | null
+          id: string | null
+          paid_at: string | null
+          purchase_amount: number | null
+          referred_at: string | null
+          status: string | null
+        }
+        Insert: {
+          affiliate_id?: string | null
+          commission_amount?: number | null
+          confirmed_at?: string | null
+          course_id?: string | null
+          id?: string | null
+          paid_at?: string | null
+          purchase_amount?: number | null
+          referred_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          affiliate_id?: string | null
+          commission_amount?: number | null
+          confirmed_at?: string | null
+          course_id?: string | null
+          id?: string | null
+          paid_at?: string | null
+          purchase_amount?: number | null
+          referred_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_referrals_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_referrals_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_cost_overview: {
         Row: {
           alert_sent_at: string | null
