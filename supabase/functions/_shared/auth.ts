@@ -1,9 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getCorsHeaders } from "./cors.ts";
 
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+// Re-export CORS utilities for backwards compatibility
+export { getCorsHeaders, handleCorsPreflightRequest, corsHeaders } from "./cors.ts";
 
 export interface AuthResult {
   user: { id: string; email?: string } | null;
@@ -67,19 +66,19 @@ export async function validateAuth(
 /**
  * Creates unauthorized response with proper CORS headers.
  */
-export function unauthorizedResponse(message = 'Unauthorized'): Response {
+export function unauthorizedResponse(message = 'Unauthorized', origin?: string): Response {
   return new Response(
     JSON.stringify({ error: message }),
-    { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    { status: 401, headers: { ...getCorsHeaders(origin || null), 'Content-Type': 'application/json' } }
   );
 }
 
 /**
  * Creates forbidden response with proper CORS headers.
  */
-export function forbiddenResponse(message = 'Forbidden'): Response {
+export function forbiddenResponse(message = 'Forbidden', origin?: string): Response {
   return new Response(
     JSON.stringify({ error: message }),
-    { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    { status: 403, headers: { ...getCorsHeaders(origin || null), 'Content-Type': 'application/json' } }
   );
 }

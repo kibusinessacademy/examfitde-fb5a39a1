@@ -41,3 +41,12 @@ verify_jwt = true
 
 [functions.blooms-taxonomy]
 verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.get-exam-questions]
+verify_jwt = false
+
+[functions.submit-exam-answer]
+verify_jwt = false

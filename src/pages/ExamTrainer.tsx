@@ -31,12 +31,18 @@ type LearningField = Tables<'learning_fields'>;
 type Competency = Tables<'competencies'>;
 
 interface Question {
-  id?: string;
+  id: string;
   question_text: string;
   options: string[];
+  difficulty: 'easy' | 'medium' | 'hard';
+  // NOTE: correct_answer and explanation are NEVER stored client-side
+  // They are fetched via submit-exam-answer after answering
+}
+
+interface AnswerResult {
+  is_correct: boolean;
   correct_answer: number;
   explanation: string;
-  difficulty: 'easy' | 'medium' | 'hard';
 }
 
 interface SessionStats {
@@ -74,8 +80,11 @@ export default function ExamTrainer() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [answerResult, setAnswerResult] = useState<AnswerResult | null>(null);
   const [stats, setStats] = useState<SessionStats>({ correct: 0, incorrect: 0, streak: 0, maxStreak: 0 });
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
+  const [sessionId] = useState(() => crypto.randomUUID());
 
   // Adaptive difficulty
   const [adaptiveDifficulty, setAdaptiveDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
@@ -161,30 +170,18 @@ export default function ExamTrainer() {
       const competency = competencies.find(c => c.id === selectedCompetencyId);
       const learningField = learningFields.find(lf => lf.id === selectedLearningFieldId);
 
-      // First try to get existing approved questions
-      const { data: existingQuestions } = await supabase
-        .from('exam_questions')
-        .select('*')
-        .eq('competency_id', selectedCompetencyId)
-        .eq('status', 'approved')
-        .eq('difficulty', difficulty)
-        .limit(5);
+      // SSOT: Use edge function to get sanitized questions (no correct_answer/explanation)
+      const { data: questionsData, error: questionsError } = await supabase.functions.invoke('get-exam-questions', {
+        body: {
+          competency_id: selectedCompetencyId,
+          difficulty: difficulty,
+          count: 5,
+        },
+      });
 
-      let questionsToUse: Question[] = [];
-
-      if (existingQuestions && existingQuestions.length >= 3) {
-        // Use existing questions
-        questionsToUse = existingQuestions.map(q => ({
-          id: q.id,
-          question_text: q.question_text,
-          options: (q.options as string[]) || [],
-          correct_answer: q.correct_answer,
-          explanation: q.explanation || '',
-          difficulty: q.difficulty as 'easy' | 'medium' | 'hard',
-        }));
-      } else {
-        // Generate new questions with AI
-        const { data: generatedData, error } = await supabase.functions.invoke('generate-questions', {
+      if (questionsError) {
+        // If no questions exist, generate new ones
+        const { data: generatedData, error: genError } = await supabase.functions.invoke('generate-questions', {
           body: {
             competencyId: selectedCompetencyId,
             competencyTitle: competency?.title,
@@ -195,39 +192,30 @@ export default function ExamTrainer() {
           },
         });
 
-        if (error) throw error;
+        if (genError) throw genError;
 
-        if (generatedData?.questions) {
-          questionsToUse = generatedData.questions;
-
-          // Save generated questions to database for future use
-          for (const q of generatedData.questions) {
-            await supabase.from('exam_questions').insert({
-              curriculum_id: selectedCurriculumId,
-              learning_field_id: selectedLearningFieldId,
-              competency_id: selectedCompetencyId,
-              question_text: q.question_text,
-              options: q.options,
-              correct_answer: q.correct_answer,
-              explanation: q.explanation,
-              difficulty: q.difficulty,
-              ai_generated: true,
-              status: 'draft',
-            });
-          }
+        if (generatedData?.questions && generatedData.questions.length > 0) {
+          // Generated questions come sanitized from edge function
+          const sanitizedQuestions: Question[] = generatedData.questions.map((q: any) => ({
+            id: q.id || crypto.randomUUID(),
+            question_text: q.question_text,
+            options: q.options,
+            difficulty: q.difficulty,
+          }));
+          setQuestions(sanitizedQuestions);
+        } else {
+          throw new Error('Keine Fragen verfügbar');
         }
-      }
-
-      if (questionsToUse.length === 0) {
+      } else if (questionsData?.questions && questionsData.questions.length > 0) {
+        // Use questions from edge function (already sanitized - no correct_answer)
+        setQuestions(questionsData.questions);
+      } else {
         throw new Error('Keine Fragen verfügbar');
       }
 
-      // Shuffle questions
-      questionsToUse.sort(() => Math.random() - 0.5);
-
-      setQuestions(questionsToUse);
       setCurrentIndex(0);
       setSelectedAnswer(null);
+      setAnswerResult(null);
       setStats({ correct: 0, incorrect: 0, streak: 0, maxStreak: 0 });
       setAdaptiveDifficulty(difficulty);
       setStep('question');
@@ -245,20 +233,46 @@ export default function ExamTrainer() {
     }
   };
 
-  const handleAnswer = (answerIndex: number) => {
-    if (selectedAnswer !== null) return;
+  const handleAnswer = async (answerIndex: number) => {
+    if (selectedAnswer !== null || isSubmittingAnswer) return;
+    
     setSelectedAnswer(answerIndex);
+    setIsSubmittingAnswer(true);
     
-    const isCorrect = answerIndex === questions[currentIndex].correct_answer;
-    
-    setStats(prev => ({
-      correct: prev.correct + (isCorrect ? 1 : 0),
-      incorrect: prev.incorrect + (isCorrect ? 0 : 1),
-      streak: isCorrect ? prev.streak + 1 : 0,
-      maxStreak: isCorrect ? Math.max(prev.maxStreak, prev.streak + 1) : prev.maxStreak,
-    }));
+    try {
+      // SSOT: Submit answer to server for evaluation
+      const { data: result, error } = await supabase.functions.invoke('submit-exam-answer', {
+        body: {
+          question_id: questions[currentIndex].id,
+          selected_answer: answerIndex,
+          session_id: sessionId,
+        },
+      });
 
-    setStep('feedback');
+      if (error) throw error;
+
+      const isCorrect = result.is_correct;
+      setAnswerResult(result);
+      
+      setStats(prev => ({
+        correct: prev.correct + (isCorrect ? 1 : 0),
+        incorrect: prev.incorrect + (isCorrect ? 0 : 1),
+        streak: isCorrect ? prev.streak + 1 : 0,
+        maxStreak: isCorrect ? Math.max(prev.maxStreak, prev.streak + 1) : prev.maxStreak,
+      }));
+
+      setStep('feedback');
+    } catch (error) {
+      console.error('Submit answer error:', error);
+      toast({
+        title: 'Fehler beim Auswerten',
+        description: 'Bitte versuche es erneut.',
+        variant: 'destructive',
+      });
+      setSelectedAnswer(null);
+    } finally {
+      setIsSubmittingAnswer(false);
+    }
   };
 
   const nextQuestion = () => {
@@ -268,6 +282,7 @@ export default function ExamTrainer() {
     } else {
       setCurrentIndex(prev => prev + 1);
       setSelectedAnswer(null);
+      setAnswerResult(null);
       setStep('question');
     }
   };
@@ -297,6 +312,7 @@ export default function ExamTrainer() {
     setQuestions([]);
     setCurrentIndex(0);
     setSelectedAnswer(null);
+    setAnswerResult(null);
     setStats({ correct: 0, incorrect: 0, streak: 0, maxStreak: 0 });
   };
 
@@ -494,14 +510,14 @@ export default function ExamTrainer() {
               <div className="space-y-3">
                 {currentQuestion.options.map((option, idx) => {
                   const isSelected = selectedAnswer === idx;
-                  const isCorrect = idx === currentQuestion.correct_answer;
-                  const showResult = step === 'feedback';
+                  const isCorrect = answerResult ? idx === answerResult.correct_answer : false;
+                  const showResult = step === 'feedback' && answerResult;
 
                   return (
                     <button
                       key={idx}
                       onClick={() => handleAnswer(idx)}
-                      disabled={step === 'feedback'}
+                      disabled={step === 'feedback' || isSubmittingAnswer}
                       className={cn(
                         "w-full p-4 rounded-xl border text-left transition-all",
                         "flex items-center gap-4",
@@ -531,18 +547,28 @@ export default function ExamTrainer() {
                 })}
               </div>
 
+              {/* Loading state during answer submission */}
+              {isSubmittingAnswer && (
+                <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-border animate-pulse">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm text-muted-foreground">Antwort wird ausgewertet...</span>
+                  </div>
+                </div>
+              )}
+
               {/* Feedback */}
-              {step === 'feedback' && (
+              {step === 'feedback' && answerResult && (
                 <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-border animate-fade-in">
                   <p className="text-sm font-medium text-foreground mb-2">
-                    {selectedAnswer === currentQuestion.correct_answer ? (
+                    {answerResult.is_correct ? (
                       <span className="text-green-500">✓ Richtig!</span>
                     ) : (
                       <span className="text-red-500">✗ Leider falsch</span>
                     )}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {currentQuestion.explanation}
+                    {answerResult.explanation}
                   </p>
                 </div>
               )}
