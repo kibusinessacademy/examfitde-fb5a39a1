@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-import { corsHeaders, getCorsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 const LESSON_STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'] as const;
 
@@ -217,11 +217,11 @@ ${questionsHtml}`,
 
 // Process ONE learning field at a time to avoid timeout
 serve(async (req) => {
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
+
   const origin = req.headers.get('origin');
-  
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: getCorsHeaders(origin) });
-  }
+  const corsHeaders = getCorsHeaders(origin);
 
   try {
     const { courseId, curriculumId, learningFieldIndex = 0 } = await req.json();

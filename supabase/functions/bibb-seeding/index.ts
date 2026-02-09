@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from '../_shared/auth.ts';
+import { validateAuth, unauthorizedResponse, forbiddenResponse } from '../_shared/auth.ts';
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 interface BerufProfile {
   bibbId: string;
@@ -38,9 +39,11 @@ const DQR_MAPPINGS: Record<string, number> = {
 const KMK_BASE_URL = 'https://www.kmk.org/fileadmin/Dateien/pdf/Bildung/BerufsbildendeSchulen/rlp/';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
+
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
 
   // ==================== AUTH CHECK ====================
   // Require admin role to run BIBB seeding (expensive external API calls)

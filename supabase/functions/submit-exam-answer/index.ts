@@ -156,7 +156,7 @@ serve(async (req) => {
     logStep("ERROR", { message: errorMessage });
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...getCorsHeaders(null), "Content-Type": "application/json" } }
+      { status: 500, headers: { ...getCorsHeaders(req.headers.get('origin')), "Content-Type": "application/json" } }
     );
   }
 });

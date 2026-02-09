@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from "../_shared/auth.ts";
+import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 const systemPrompt = `Du bist ein Experte für die Analyse von Berufsausbildungs-Rahmenlehrplänen (Curricula). 
 Deine Aufgabe ist es, aus dem bereitgestellten Dokument strukturierte Daten zu extrahieren.
@@ -43,9 +44,11 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt in folgendem Format:
 }`;
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
+
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
 
   // ==================== AUTH CHECK ====================
   // Require admin role to extract curriculum (expensive AI operation)

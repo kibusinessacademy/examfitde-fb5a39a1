@@ -106,7 +106,7 @@ serve(async (req) => {
     }
 
     // Create checkout session with calculated price and automatic invoicing
-    const origin = req.headers.get("origin") || "https://examfitde.lovable.app";
+    const sessionOrigin = req.headers.get("origin") || "https://examfitde.lovable.app";
     
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -136,8 +136,8 @@ serve(async (req) => {
           footer: 'Vielen Dank für Ihren Kauf! Zugang: 12 Monate ab Kaufdatum.',
         },
       },
-      success_url: `${origin}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/shop?canceled=true`,
+      success_url: `${sessionOrigin}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${sessionOrigin}/shop?canceled=true`,
       // Collect billing address for invoices
       billing_address_collection: 'required',
       metadata: {
