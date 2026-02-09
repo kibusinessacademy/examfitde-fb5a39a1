@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from "../_shared/auth.ts";
+import { corsHeaders, getCorsHeaders } from "../_shared/cors.ts";
 
 const LESSON_STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'] as const;
 
@@ -12,20 +12,82 @@ const stepPrompts: Record<string, string> = {
   mini_check: 'Erstelle ein kurzes Quiz mit 3-5 Fragen zur Selbstüberprüfung des Wissens.',
 };
 
+interface AuthResult {
+  user: { id: string; email?: string } | null;
+  error: string | null;
+  isAdmin: boolean;
+  isServiceRole: boolean;
+}
+
+// Inline auth for service role support
+async function validateAuthWithServiceRole(req: Request): Promise<AuthResult> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+  // Check x-service-role header first
+  const serviceRoleHeader = req.headers.get('x-service-role');
+  if (serviceRoleHeader && serviceRoleHeader === supabaseServiceKey) {
+    console.log('[Auth] Service role via x-service-role header');
+    return { user: { id: 'service-role', email: 'system@internal' }, error: null, isAdmin: true, isServiceRole: true };
+  }
+
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { user: null, error: 'Missing or invalid authorization header', isAdmin: false, isServiceRole: false };
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+
+  // Check if Bearer token IS the service role key
+  if (token === supabaseServiceKey) {
+    console.log('[Auth] Service role via Bearer token');
+    return { user: { id: 'service-role', email: 'system@internal' }, error: null, isAdmin: true, isServiceRole: true };
+  }
+
+  // Normal user auth
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+  if (userError || !user) {
+    return { user: null, error: 'Invalid or expired token', isAdmin: false, isServiceRole: false };
+  }
+
+  // Check admin role
+  const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: roles } = await adminClient
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'admin')
+    .maybeSingle();
+
+  if (!roles) {
+    return { user, error: 'Admin access required', isAdmin: false, isServiceRole: false };
+  }
+
+  return { user: { id: user.id, email: user.email }, error: null, isAdmin: true, isServiceRole: false };
+}
+
 serve(async (req) => {
+  const origin = req.headers.get('origin');
+  
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders(origin) });
   }
 
   // ==================== AUTH CHECK ====================
-  // Require admin role to generate courses (expensive AI operation)
-  const auth = await validateAuth(req, true); // requireAdmin = true
+  const auth = await validateAuthWithServiceRole(req);
   
   if (auth.error) {
-    if (auth.error === 'Admin access required') {
-      return forbiddenResponse(auth.error);
-    }
-    return unauthorizedResponse(auth.error);
+    const status = auth.error === 'Admin access required' ? 403 : 401;
+    return new Response(
+      JSON.stringify({ error: auth.error }),
+      { status, headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' } }
+    );
   }
   // ====================================================
 
@@ -35,7 +97,7 @@ serve(async (req) => {
     if (!courseId || !curriculumId) {
       return new Response(
         JSON.stringify({ error: 'courseId and curriculumId are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -212,14 +274,14 @@ Antworte mit einem JSON-Objekt im Format:
         modulesCreated: learningFields.length,
         totalDuration,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Generate course error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' } }
     );
   }
 });
