@@ -2893,6 +2893,36 @@ export type Database = {
           },
         ]
       }
+      lesson_improvement_suggestions: {
+        Row: {
+          applied: boolean
+          applied_at: string | null
+          created_at: string
+          id: string
+          lesson_id: string
+          rule: string
+          suggested_change: Json
+        }
+        Insert: {
+          applied?: boolean
+          applied_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_id: string
+          rule: string
+          suggested_change?: Json
+        }
+        Update: {
+          applied?: boolean
+          applied_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          rule?: string
+          suggested_change?: Json
+        }
+        Relationships: []
+      }
       lesson_outcomes: {
         Row: {
           attempts: number
@@ -2955,6 +2985,83 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      lesson_quality_audits: {
+        Row: {
+          audit_score: number
+          course_audit_id: string | null
+          created_at: string
+          dimension_scores: Json
+          failed_rules: string[]
+          id: string
+          lesson_id: string
+          verbesserungspotenzial: Json
+        }
+        Insert: {
+          audit_score?: number
+          course_audit_id?: string | null
+          created_at?: string
+          dimension_scores?: Json
+          failed_rules?: string[]
+          id?: string
+          lesson_id: string
+          verbesserungspotenzial?: Json
+        }
+        Update: {
+          audit_score?: number
+          course_audit_id?: string | null
+          created_at?: string
+          dimension_scores?: Json
+          failed_rules?: string[]
+          id?: string
+          lesson_id?: string
+          verbesserungspotenzial?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_quality_audits_course_audit_id_fkey"
+            columns: ["course_audit_id"]
+            isOneToOne: false
+            referencedRelation: "course_quality_audits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_revisions: {
+        Row: {
+          created_at: string
+          id: string
+          improvements_applied: string[]
+          lesson_id: string
+          new_content: Json | null
+          old_content: Json | null
+          reason: string
+          score_after: number | null
+          score_before: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          improvements_applied?: string[]
+          lesson_id: string
+          new_content?: Json | null
+          old_content?: Json | null
+          reason?: string
+          score_after?: number | null
+          score_before?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          improvements_applied?: string[]
+          lesson_id?: string
+          new_content?: Json | null
+          old_content?: Json | null
+          reason?: string
+          score_after?: number | null
+          score_before?: number | null
+        }
+        Relationships: []
       }
       lessons: {
         Row: {
