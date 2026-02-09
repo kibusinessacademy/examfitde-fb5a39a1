@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.generate-course-batch]
 verify_jwt = false
+
+[functions.regenerate-minichecks]
+verify_jwt = false
