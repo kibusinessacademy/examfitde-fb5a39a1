@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 // IHK-konforme Bewertungskriterien
 const EVALUATION_CRITERIA = {
@@ -31,9 +27,11 @@ const EVALUATION_CRITERIA = {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
+
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
 
   try {
     const { action, ...params } = await req.json();
@@ -89,7 +87,7 @@ serve(async (req) => {
     console.error("Oral exam error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...getCorsHeaders(req.headers.get('origin')), "Content-Type": "application/json" } }
     );
   }
 });
@@ -97,7 +95,6 @@ serve(async (req) => {
 async function startSession(supabase: any, userId: string, params: any) {
   const { curriculum_id, blueprint_id, mode = 'practice', total_questions = 5 } = params;
 
-  // Create session
   const { data: session, error } = await supabase
     .from('oral_exam_sessions')
     .insert({
@@ -113,7 +110,6 @@ async function startSession(supabase: any, userId: string, params: any) {
 
   if (error) throw error;
 
-  // Generate first question
   const firstQuestion = await generateQuestionForSession(supabase, session.id, curriculum_id, 0);
 
   return { session, firstQuestion };
@@ -125,7 +121,6 @@ async function generateQuestionForSession(
   curriculumId: string, 
   orderIndex: number
 ) {
-  // Get random competency from curriculum for variety
   const { data: competencies } = await supabase
     .from('competencies')
     .select(`
@@ -146,10 +141,8 @@ async function generateQuestionForSession(
     throw new Error('No competencies found for curriculum');
   }
 
-  // Select random competency
   const competency = competencies[Math.floor(Math.random() * competencies.length)];
 
-  // Generate oral exam question using AI
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
@@ -195,7 +188,6 @@ Antworte NUR im folgenden JSON-Format:
   const aiData = await aiResponse.json();
   const responseText = aiData.choices?.[0]?.message?.content || '';
   
-  // Parse JSON from response
   let questionData;
   try {
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -212,7 +204,6 @@ Antworte NUR im folgenden JSON-Format:
     };
   }
 
-  // Store question
   const { data: question, error } = await supabase
     .from('oral_exam_questions')
     .insert({
@@ -234,7 +225,6 @@ Antworte NUR im folgenden JSON-Format:
 async function generateQuestion(supabase: any, params: any) {
   const { session_id } = params;
 
-  // Get session
   const { data: session } = await supabase
     .from('oral_exam_sessions')
     .select('*, curriculum_id')
@@ -256,7 +246,6 @@ async function generateQuestion(supabase: any, params: any) {
 async function evaluateAnswer(supabase: any, params: any) {
   const { question_id, user_answer } = params;
 
-  // Get question with expected points
   const { data: question } = await supabase
     .from('oral_exam_questions')
     .select(`
@@ -269,7 +258,6 @@ async function evaluateAnswer(supabase: any, params: any) {
 
   if (!question) throw new Error('Question not found');
 
-  // AI evaluation
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
@@ -351,7 +339,6 @@ Antworte NUR im folgenden JSON-Format:
     };
   }
 
-  // Update question with evaluation
   const { data: updatedQuestion, error } = await supabase
     .from('oral_exam_questions')
     .update({
@@ -371,7 +358,6 @@ Antworte NUR im folgenden JSON-Format:
 
   if (error) throw error;
 
-  // Update session current index
   const { data: session } = await supabase
     .from('oral_exam_sessions')
     .select('current_question_index, total_questions')
@@ -402,7 +388,6 @@ Antworte NUR im folgenden JSON-Format:
 async function finishSession(supabase: any, params: any) {
   const { session_id } = params;
 
-  // Get all questions for session
   const { data: questions } = await supabase
     .from('oral_exam_questions')
     .select('*')
@@ -412,7 +397,6 @@ async function finishSession(supabase: any, params: any) {
     throw new Error('No questions found');
   }
 
-  // Calculate overall scores
   const avgFachlichkeit = questions.reduce((sum: number, q: any) => sum + (q.fachlichkeit_score || 0), 0) / questions.length;
   const avgStruktur = questions.reduce((sum: number, q: any) => sum + (q.struktur_score || 0), 0) / questions.length;
   const avgBegriffe = questions.reduce((sum: number, q: any) => sum + (q.begriffssicherheit_score || 0), 0) / questions.length;
@@ -425,7 +409,6 @@ async function finishSession(supabase: any, params: any) {
     avgPraxis * EVALUATION_CRITERIA.praxisbezug.weight
   ) * 100;
 
-  // Collect all strengths and weaknesses
   const allStrengths = new Set<string>();
   const allWeaknesses = new Set<string>();
   
@@ -434,7 +417,6 @@ async function finishSession(supabase: any, params: any) {
     if (q.missed_points) q.missed_points.forEach((p: string) => allWeaknesses.add(p));
   });
 
-  // Update session
   const { data: session, error } = await supabase
     .from('oral_exam_sessions')
     .update({

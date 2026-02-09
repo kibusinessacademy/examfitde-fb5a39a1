@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from "../_shared/auth.ts";
+import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 const systemPrompt = `Du bist ein Experte für die Erstellung von Prüfungsfragen für Berufsausbildungen (IHK-Prüfungen).
 Erstelle Multiple-Choice-Fragen basierend auf dem gegebenen Thema und der Kompetenz.
@@ -23,9 +24,11 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array:
 ]`;
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
+
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
 
   // ==================== AUTH CHECK ====================
   // Require admin role to generate questions (expensive AI operation)

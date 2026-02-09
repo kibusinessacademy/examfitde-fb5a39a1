@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { validateAuth, unauthorizedResponse, forbiddenResponse, corsHeaders } from "../_shared/auth.ts";
+import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 interface RequestBody {
   courseId: string;
@@ -7,10 +8,12 @@ interface RequestBody {
   includeH5p?: boolean;
 }
 
+let _reqOrigin: string | null = null;
+
 function jsonResponse(status: number, data: unknown) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...getCorsHeaders(_reqOrigin), "Content-Type": "application/json" },
   });
 }
 
@@ -24,9 +27,10 @@ async function sha256Hex(input: string): Promise<string> {
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
+
+  _reqOrigin = req.headers.get('origin');
 
   // ==================== AUTH CHECK ====================
   const auth = await validateAuth(req, true); // requireAdmin = true
