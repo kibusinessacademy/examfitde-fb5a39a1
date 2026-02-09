@@ -3752,6 +3752,54 @@ export type Database = {
           },
         ]
       }
+      question_attempts: {
+        Row: {
+          answered_at: string
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          selected_answer: number
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          answered_at?: string
+          created_at?: string
+          id?: string
+          is_correct: boolean
+          question_id: string
+          selected_answer: number
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          answered_at?: string
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          selected_answer?: number
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_blueprints: {
         Row: {
           allowed_question_types: string[]
@@ -5473,6 +5521,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_spaced_repetition: {
+        Args: {
+          p_is_correct: boolean
+          p_question_id: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       validate_blueprint_constraints: {
         Args: { p_blueprint_id: string; p_variable_values: Json }
