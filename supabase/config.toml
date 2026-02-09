@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.repair-lessons]
 verify_jwt = false
+
+[functions.product-orchestrator]
+verify_jwt = false
