@@ -350,38 +350,53 @@ serve(async (req) => {
         const stepDuration = step === 'mini_check' ? 10 : (step === 'verstehen' ? 25 : step === 'anwenden' ? 30 : step === 'wiederholen' ? 15 : 10);
 
         let lessonContent: Record<string, unknown> | null = null;
+        let contentValid = false;
+        const maxAttempts = 3;
 
-        // Use different generation methods for mini_check vs regular steps
-        if (step === 'mini_check') {
-          lessonContent = await generateMiniCheck(LOVABLE_API_KEY, comp);
-          if (lessonContent?.questions) {
-            miniChecksWithQuestions++;
+        for (let attempt = 0; attempt < maxAttempts && !contentValid; attempt++) {
+          // Use different generation methods for mini_check vs regular steps
+          if (step === 'mini_check') {
+            lessonContent = await generateMiniCheck(LOVABLE_API_KEY, comp);
+            if (lessonContent?.questions) {
+              const qs = lessonContent.questions as Record<string, unknown>[];
+              contentValid = Array.isArray(qs) && qs.length >= 4 && qs.every(q =>
+                q.question && (q.options as unknown[])?.length >= 4 && typeof q.correct_answer === 'number' && q.explanation
+              );
+              if (contentValid) miniChecksWithQuestions++;
+            }
+          } else {
+            lessonContent = await generateRegularContent(LOVABLE_API_KEY, comp, step);
+            if (lessonContent) {
+              const html = lessonContent.html as string;
+              contentValid = typeof html === 'string' && html.length >= 300 
+                && !html.includes('wird generiert') && !html.includes('Inhalt wird')
+                && Array.isArray(lessonContent.objectives) && (lessonContent.objectives as unknown[]).length >= 2;
+            }
           }
-        } else {
-          lessonContent = await generateRegularContent(LOVABLE_API_KEY, comp, step);
+
+          if (!contentValid && attempt < maxAttempts - 1) {
+            console.warn(`[Batch] Quality gate failed for ${comp.code}/${step}, retry ${attempt + 2}/${maxAttempts}`);
+            await new Promise(r => setTimeout(r, 1000));
+          }
         }
 
-        // Fallback if AI fails
-        if (!lessonContent) {
+        // Only use fallback as absolute last resort — mark clearly for repair
+        if (!lessonContent || !contentValid) {
+          console.error(`[Batch] QUALITY GATE FAILED after ${maxAttempts} attempts: ${comp.code}/${step}`);
           if (step === 'mini_check') {
             lessonContent = {
               type: 'mini_check',
-              html: `<h3>Wissensüberprüfung: ${comp.title}</h3><p>Fragen werden generiert...</p>`,
+              html: `<h3>Wissensüberprüfung: ${comp.title}</h3><p>⚠️ Inhalt wird durch Repair-System nachgeneriert.</p>`,
               objectives: [`Wissen zu ${comp.title} überprüfen`],
-              questions: [
-                {
-                  question: `Was ist ein wesentlicher Aspekt von "${comp.title}"?`,
-                  options: ['Option A', 'Option B', 'Option C', 'Option D'],
-                  correct_answer: 0,
-                  explanation: 'Diese Frage wird noch generiert.'
-                }
-              ]
+              questions: [],
+              _needs_repair: true,
             };
           } else {
             lessonContent = {
               type: 'text',
-              html: `<h3>${comp.title} - ${step}</h3><p>Inhalt wird generiert...</p>`,
-              objectives: [`Verständnis von ${comp.title}`]
+              html: `<h3>${comp.title} - ${step}</h3><p>⚠️ Inhalt wird durch Repair-System nachgeneriert.</p>`,
+              objectives: [`Verständnis von ${comp.title}`],
+              _needs_repair: true,
             };
           }
         }
