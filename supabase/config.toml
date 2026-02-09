@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.ihk-quality-audit]
 verify_jwt = false
+
+[functions.improve-lesson]
+verify_jwt = false

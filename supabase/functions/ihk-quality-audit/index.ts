@@ -20,7 +20,7 @@ const AUDIT_TOOL = {
   type: "function" as const,
   function: {
     name: "submit_lesson_audit",
-    description: "Bewerte eine Lektion aus Sicht eines IHK-Prüfers.",
+    description: "Bewerte eine Lektion aus Sicht eines IHK-Prüfers mit verschärften Qualitätskriterien.",
     parameters: {
       type: "object",
       properties: {
@@ -28,30 +28,49 @@ const AUDIT_TOOL = {
           type: "object",
           properties: {
             score: { type: "integer", minimum: 0, maximum: 100 },
+            has_betrieblicher_bezug: { type: "boolean", description: "Enthält konkreten betrieblichen/praxisbezug" },
+            has_ihk_wording: { type: "boolean", description: "Verwendet IHK-konforme Fachterminologie" },
             issues: { type: "array", items: { type: "string" } },
             verdict: { type: "string" }
           },
-          required: ["score", "issues", "verdict"]
+          required: ["score", "has_betrieblicher_bezug", "has_ihk_wording", "issues", "verdict"]
         },
         didaktische_qualitaet: {
           type: "object",
           properties: {
             score: { type: "integer", minimum: 0, maximum: 100 },
             bloom_level_achieved: { type: "string", enum: ["erinnern", "verstehen", "anwenden", "analysieren", "evaluieren", "erschaffen"] },
+            anwenden_is_decision_based: { type: "boolean", description: "Anwenden-Phase enthält Entscheidungsfragen statt reiner Beschreibung" },
+            has_gegenbeispiel: { type: "boolean", description: "Verstehen-Phase enthält Gegenbeispiele" },
             issues: { type: "array", items: { type: "string" } },
             verdict: { type: "string" }
           },
-          required: ["score", "bloom_level_achieved", "issues", "verdict"]
+          required: ["score", "bloom_level_achieved", "anwenden_is_decision_based", "has_gegenbeispiel", "issues", "verdict"]
         },
         pruefungsrelevanz: {
           type: "object",
           properties: {
             score: { type: "integer", minimum: 0, maximum: 100 },
             ihk_alignment: { type: "string", enum: ["hoch", "mittel", "niedrig", "nicht_relevant"] },
+            has_pruefungsbezug_block: { type: "boolean", description: "Enthält expliziten IHK-Prüfungsbezug-Block (typische Frage, Falle, Prüfer-Fokus)" },
+            has_typische_ihk_formulierung: { type: "boolean", description: "Mindestens 1 typische IHK-Fragestellung enthalten" },
+            has_fehlannahme: { type: "boolean", description: "Mindestens 1 typische Fehlannahme/Prüfungsfalle benannt" },
             issues: { type: "array", items: { type: "string" } },
             verdict: { type: "string" }
           },
-          required: ["score", "ihk_alignment", "issues", "verdict"]
+          required: ["score", "ihk_alignment", "has_pruefungsbezug_block", "has_typische_ihk_formulierung", "has_fehlannahme", "issues", "verdict"]
+        },
+        minicheck_qualitaet: {
+          type: "object",
+          properties: {
+            score: { type: "integer", minimum: 0, maximum: 100 },
+            distraktoren_plausibel: { type: "boolean", description: "Distraktoren sind nicht offensichtlich falsch" },
+            has_abwaegungsfrage: { type: "boolean", description: "Mind. 1 Frage: 'Welche Aussage trifft am ehesten zu?'" },
+            erklaerungen_begruenden_falsch: { type: "boolean", description: "Erklärungen sagen auch warum falsch, nicht nur warum richtig" },
+            issues: { type: "array", items: { type: "string" } },
+            verdict: { type: "string" }
+          },
+          required: ["score", "distraktoren_plausibel", "has_abwaegungsfrage", "erklaerungen_begruenden_falsch", "issues", "verdict"]
         },
         formale_qualitaet: {
           type: "object",
@@ -62,11 +81,28 @@ const AUDIT_TOOL = {
           },
           required: ["score", "issues", "verdict"]
         },
+        gewichtungs_einordnung: {
+          type: "string",
+          enum: ["sehr_pruefungsrelevant", "haeufige_fehlerquelle", "ergaenzendes_wissen"],
+          description: "Empfohlene Gewichtungs-Markierung für diese Lesson"
+        },
         overall_verdict: { type: "string" },
         critical_issues: { type: "array", items: { type: "string" } },
-        recommendations: { type: "array", items: { type: "string" } }
+        recommendations: { type: "array", items: { type: "string" } },
+        verbesserungspotenzial: {
+          type: "object",
+          description: "Konkrete Verbesserungsvorschläge für den AI-Verbesserungsagenten",
+          properties: {
+            pruefungsbezug_ergaenzen: { type: "boolean" },
+            anwenden_umformulieren: { type: "boolean" },
+            minicheck_verbessern: { type: "boolean" },
+            betriebsbezug_ergaenzen: { type: "boolean" },
+            gegenbeispiel_ergaenzen: { type: "boolean" }
+          },
+          required: ["pruefungsbezug_ergaenzen", "anwenden_umformulieren", "minicheck_verbessern", "betriebsbezug_ergaenzen", "gegenbeispiel_ergaenzen"]
+        }
       },
-      required: ["fachliche_korrektheit", "didaktische_qualitaet", "pruefungsrelevanz", "formale_qualitaet", "overall_verdict", "critical_issues", "recommendations"]
+      required: ["fachliche_korrektheit", "didaktische_qualitaet", "pruefungsrelevanz", "minicheck_qualitaet", "formale_qualitaet", "gewichtungs_einordnung", "overall_verdict", "critical_issues", "recommendations", "verbesserungspotenzial"]
     }
   }
 };
@@ -113,11 +149,14 @@ interface LessonAuditResult {
     fachliche_korrektheit: number;
     didaktische_qualitaet: number;
     pruefungsrelevanz: number;
+    minicheck_qualitaet: number;
     formale_qualitaet: number;
   };
   overall: number;
   issues: string[];
   critical: boolean;
+  gewichtung: string;
+  verbesserungspotenzial: Record<string, boolean>;
   fullAudit: Record<string, unknown>;
 }
 
@@ -221,15 +260,28 @@ serve(async (req) => {
           fachliche_korrektheit: auditResult.fachliche_korrektheit?.score || 0,
           didaktische_qualitaet: auditResult.didaktische_qualitaet?.score || 0,
           pruefungsrelevanz: auditResult.pruefungsrelevanz?.score || 0,
+          minicheck_qualitaet: auditResult.minicheck_qualitaet?.score || 0,
           formale_qualitaet: auditResult.formale_qualitaet?.score || 0,
         };
-        const overall = Math.round(
-          scores.fachliche_korrektheit * 0.30 +
+        // Penalty system: missing critical elements cap the score
+        let penaltyFactor = 1.0;
+        const pr = auditResult.pruefungsrelevanz as Record<string, unknown> | undefined;
+        if (pr && !pr.has_pruefungsbezug_block) penaltyFactor -= 0.10;
+        const did = auditResult.didaktische_qualitaet as Record<string, unknown> | undefined;
+        if (did && !did.anwenden_is_decision_based) penaltyFactor -= 0.05;
+        const fach = auditResult.fachliche_korrektheit as Record<string, unknown> | undefined;
+        if (fach && !fach.has_betrieblicher_bezug) penaltyFactor -= 0.05;
+
+        const rawOverall = Math.round(
+          scores.fachliche_korrektheit * 0.25 +
           scores.didaktische_qualitaet * 0.25 +
           scores.pruefungsrelevanz * 0.20 +
-          scores.formale_qualitaet * 0.10
+          scores.minicheck_qualitaet * 0.15 +
+          scores.formale_qualitaet * 0.15
         );
-        // Note: weighting (15%) is assessed at course level, not lesson level
+        const overall = Math.max(0, Math.round(rawOverall * penaltyFactor));
+
+        const verbesserung = (auditResult.verbesserungspotenzial || {}) as Record<string, boolean>;
 
         lessonAudits.push({
           lessonId: lesson.id,
@@ -244,6 +296,8 @@ serve(async (req) => {
             ...(auditResult.recommendations || []),
           ],
           critical: (auditResult.critical_issues || []).length > 0,
+          gewichtung: (auditResult.gewichtungs_einordnung as string) || 'ergaenzendes_wissen',
+          verbesserungspotenzial: verbesserung,
           fullAudit: auditResult,
         });
       }
@@ -270,17 +324,28 @@ serve(async (req) => {
       fachliche_korrektheit: avg(lessonAudits.map(a => a.scores.fachliche_korrektheit)),
       didaktische_qualitaet: avg(lessonAudits.map(a => a.scores.didaktische_qualitaet)),
       pruefungsrelevanz: avg(lessonAudits.map(a => a.scores.pruefungsrelevanz)),
+      minicheck_qualitaet: avg(lessonAudits.map(a => a.scores.minicheck_qualitaet)),
       formale_qualitaet: avg(lessonAudits.map(a => a.scores.formale_qualitaet)),
       themengewichtung: weightingAudit?.score || 0,
     };
 
     const overallScore = Math.round(
-      avgScores.fachliche_korrektheit * 0.30 +
+      avgScores.fachliche_korrektheit * 0.25 +
       avgScores.didaktische_qualitaet * 0.25 +
       avgScores.pruefungsrelevanz * 0.20 +
-      avgScores.themengewichtung * 0.15 +
+      avgScores.minicheck_qualitaet * 0.10 +
+      avgScores.themengewichtung * 0.10 +
       avgScores.formale_qualitaet * 0.10
     );
+
+    // Count improvement needs across all lessons
+    const improvementNeeds = {
+      pruefungsbezug_ergaenzen: lessonAudits.filter(a => a.verbesserungspotenzial.pruefungsbezug_ergaenzen).length,
+      anwenden_umformulieren: lessonAudits.filter(a => a.verbesserungspotenzial.anwenden_umformulieren).length,
+      minicheck_verbessern: lessonAudits.filter(a => a.verbesserungspotenzial.minicheck_verbessern).length,
+      betriebsbezug_ergaenzen: lessonAudits.filter(a => a.verbesserungspotenzial.betriebsbezug_ergaenzen).length,
+      gegenbeispiel_ergaenzen: lessonAudits.filter(a => a.verbesserungspotenzial.gegenbeispiel_ergaenzen).length,
+    };
 
     const grade = overallScore >= 92 ? 'sehr gut'
       : overallScore >= 81 ? 'gut'
@@ -300,10 +365,10 @@ serve(async (req) => {
     // ─── Persist audit result ───
     const auditRecord = {
       course_id: courseId,
-      audit_type: 'ihk_pruefer',
+      audit_type: 'ihk_pruefer_v2',
       overall_score: overallScore,
       overall_grade: grade,
-      dimensions: avgScores,
+      dimensions: { ...avgScores, improvement_needs: improvementNeeds },
       recommendations: uniqueRecs.slice(0, 20),
       critical_issues: [...new Set(allCritical)].slice(0, 15),
       lesson_audits: lessonAudits.map(a => ({
@@ -315,9 +380,11 @@ serve(async (req) => {
         scores: a.scores,
         overall: a.overall,
         critical: a.critical,
+        gewichtung: a.gewichtung,
+        verbesserungspotenzial: a.verbesserungspotenzial,
         issues: a.issues.slice(0, 5),
       })),
-      audited_by: 'ai-ihk-pruefer',
+      audited_by: 'ai-ihk-pruefer-v2',
       model_used: 'google/gemini-2.5-flash',
     };
 
@@ -331,6 +398,7 @@ serve(async (req) => {
       overallScore,
       grade,
       dimensions: avgScores,
+      improvementNeeds,
       sampleSize: finalSample.length,
       totalLessons,
       criticalIssues: [...new Set(allCritical)],
@@ -341,8 +409,11 @@ serve(async (req) => {
         competency: a.competencyCode,
         overall: a.overall,
         critical: a.critical,
+        gewichtung: a.gewichtung,
+        verbesserungspotenzial: a.verbesserungspotenzial,
       })),
       weightingAudit: weightingAudit || null,
+      needsImprovement: overallScore < 92,
     }), { headers: jsonHeaders });
 
   } catch (error) {
@@ -360,17 +431,41 @@ async function auditLesson(apiKey: string, ctx: {
   title: string; step: string; competencyCode: string; competencyTitle: string;
   taxonomyLevel: string; moduleName: string; contentSummary: string; objectives: string[];
 }): Promise<Record<string, unknown> | null> {
-  const systemPrompt = `Du bist ein erfahrener IHK-Prüfungsausschuss-Vorsitzender und Ausbildungsleiter mit 20+ Jahren Erfahrung. 
-Du prüfst Lerninhalte für die IHK-Abschlussprüfung mit höchsten Qualitätsansprüchen.
+  const systemPrompt = `Du bist ein erfahrener IHK-Prüfungsausschuss-Vorsitzender und Ausbildungsleiter mit 20+ Jahren Erfahrung.
+Du prüfst Lerninhalte für die IHK-Abschlussprüfung mit HÖCHSTEN Qualitätsansprüchen.
 
-Bewertungskriterien:
-- Fachliche Korrektheit: Sind alle Fakten, Definitionen, Prozesse korrekt? Stimmt die Fachterminologie?
-- Didaktische Qualität: Passt die Methodik zum Lernziel? Wird die richtige Bloom-Stufe erreicht? Gibt es Aktivierung, Vertiefung, Transfer?
-- Prüfungsrelevanz: Bereitet der Inhalt gezielt auf die IHK-Prüfung vor? Werden typische Prüfungsformate berücksichtigt?
-- Formale Qualität: Ist der Inhalt gut strukturiert, ausreichend lang, frei von Platzhaltern?
+VERSCHÄRFTE Bewertungskriterien (IHK-sehr-gut-Standard):
 
-Sei streng aber fair. Ein "sehr gut" gibt es nur bei exzellenter Qualität.
-Nenne konkrete Probleme mit Zitat aus dem Inhalt.`;
+1. Fachliche Korrektheit:
+   - Begriffe MÜSSEN prüfungskonform definiert sein (IHK-Wording, kein Marketing)
+   - Kein "man", "oft", "häufig" ohne Kontext
+   - Mindestens 1 konkreter betrieblicher Bezug (Ausbildungsbetrieb, Praxisfall)
+   - Prüferfrage: "Kann ein Azubi damit im Betrieb argumentieren?"
+
+2. Didaktische Qualität:
+   - Einstieg = konkretes Szenario, KEINE Theorie
+   - Verstehen = Definition + Beispiel + GEGENBEISPIEL
+   - Anwenden = ENTSCHEIDUNG, nicht Beschreibung ("Was würdest du tun? Warum?")
+   - Wenn Anwenden nur erklärt → DURCHGEFALLEN
+   - Wiederholen = prüfungsnahe Zusammenfassung, nicht Inhaltswiederholung
+
+3. Prüfungsrelevanz (KRITISCHER HEBEL):
+   - Jede Lesson MUSS einen expliziten IHK-Prüfungsbezug-Block enthalten:
+     • "So fragt die IHK das Thema ab"
+     • "Häufige Prüfungsfalle"
+     • "Worauf Prüfer achten"
+   - Ohne diesen Block → maximal "gut", NIE "sehr gut"
+
+4. MiniCheck-Qualität:
+   - Distraktoren MÜSSEN plausibel sein (nicht offensichtlich falsch)
+   - Mind. 1 Frage: "Welche Aussage trifft am ehesten zu?"
+   - Erklärungen MÜSSEN sagen warum falsch, nicht nur warum richtig
+
+5. Formale Qualität: Struktur, Länge, Formatierung
+
+Sei STRENG. Ein "sehr gut" gibt es nur bei EXZELLENTER Qualität.
+Nenne konkrete Probleme mit Zitat aus dem Inhalt.
+Identifiziere gezielt Verbesserungspotenzial für den AI-Verbesserungsagenten.`;
 
   const userPrompt = `Prüfe diese Lektion:
 

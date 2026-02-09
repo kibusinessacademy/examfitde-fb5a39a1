@@ -377,26 +377,44 @@ async function logCompletion(supabase: ReturnType<typeof createClient>, courseId
     updated_at: new Date().toISOString(),
   }).eq('id', courseId);
 
-  // ─── Auto-trigger IHK-Prüfer Quality Audit ───
+  // ─── Auto-trigger IHK-Prüfer Quality Audit → Improvement Loop ───
   console.log(`[Orchestrator] 🔍 Triggering IHK-Prüfer audit for "${status.courseTitle}"...`);
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // Step 1: Run IHK Audit
     const auditResp = await fetch(`${supabaseUrl}/functions/v1/ihk-quality-audit`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
       body: JSON.stringify({ courseId, sampleSize: 15 }),
     });
+
     if (auditResp.ok) {
       const auditResult = await auditResp.json();
       console.log(`[Orchestrator] ✅ IHK-Audit: ${auditResult.overallScore}/100 (${auditResult.grade})`);
+
+      // Step 2: If below "sehr gut" (< 92), trigger improvement agent
+      if (auditResult.needsImprovement) {
+        console.log(`[Orchestrator] 🔧 Score < 92 → Triggering AI improvement agent...`);
+        const improveResp = await fetch(`${supabaseUrl}/functions/v1/improve-lesson`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
+          body: JSON.stringify({ courseId, maxLessons: 5 }),
+        });
+        if (improveResp.ok) {
+          const improveResult = await improveResp.json();
+          console.log(`[Orchestrator] ✅ Improved ${improveResult.improved} lessons. Re-audit in next cycle.`);
+        } else {
+          console.warn(`[Orchestrator] Improve agent returned ${improveResp.status}`);
+        }
+      } else {
+        console.log(`[Orchestrator] 🏆 Score ≥ 92 → IHK-sehr-gut erreicht! Keine Verbesserung nötig.`);
+      }
     } else {
       console.warn(`[Orchestrator] IHK-Audit returned ${auditResp.status}`);
     }
   } catch (e) {
-    console.error(`[Orchestrator] IHK-Audit trigger failed:`, e);
+    console.error(`[Orchestrator] IHK-Audit/Improve trigger failed:`, e);
   }
 }
