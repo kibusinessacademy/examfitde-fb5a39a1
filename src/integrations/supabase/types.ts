@@ -1430,6 +1430,62 @@ export type Database = {
           },
         ]
       }
+      course_quality_audits: {
+        Row: {
+          audit_type: string
+          audited_at: string
+          audited_by: string
+          course_id: string
+          created_at: string
+          critical_issues: Json
+          dimensions: Json
+          id: string
+          lesson_audits: Json
+          model_used: string | null
+          overall_grade: string
+          overall_score: number
+          recommendations: Json
+        }
+        Insert: {
+          audit_type?: string
+          audited_at?: string
+          audited_by?: string
+          course_id: string
+          created_at?: string
+          critical_issues?: Json
+          dimensions?: Json
+          id?: string
+          lesson_audits?: Json
+          model_used?: string | null
+          overall_grade?: string
+          overall_score?: number
+          recommendations?: Json
+        }
+        Update: {
+          audit_type?: string
+          audited_at?: string
+          audited_by?: string
+          course_id?: string
+          created_at?: string
+          critical_issues?: Json
+          dimensions?: Json
+          id?: string
+          lesson_audits?: Json
+          model_used?: string | null
+          overall_grade?: string
+          overall_score?: number
+          recommendations?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_quality_audits_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_reviews: {
         Row: {
           content: string | null

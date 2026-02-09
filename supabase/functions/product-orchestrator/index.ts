@@ -370,10 +370,33 @@ async function logCompletion(supabase: ReturnType<typeof createClient>, courseId
   console.log(`  MiniChecks: ${status.miniChecks.total} (${status.miniChecks.percent}%)`);
   console.log(`  Exam Questions: ${status.examQuestions.total} covering ${status.examQuestions.competenciesCovered}/${status.examQuestions.totalCompetencies} competencies`);
 
-  // Update course status to reflect completion
+  // Update course status
   await supabase.from('courses').update({
     status: 'published',
     published_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }).eq('id', courseId);
+
+  // ─── Auto-trigger IHK-Prüfer Quality Audit ───
+  console.log(`[Orchestrator] 🔍 Triggering IHK-Prüfer audit for "${status.courseTitle}"...`);
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const auditResp = await fetch(`${supabaseUrl}/functions/v1/ihk-quality-audit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({ courseId, sampleSize: 15 }),
+    });
+    if (auditResp.ok) {
+      const auditResult = await auditResp.json();
+      console.log(`[Orchestrator] ✅ IHK-Audit: ${auditResult.overallScore}/100 (${auditResult.grade})`);
+    } else {
+      console.warn(`[Orchestrator] IHK-Audit returned ${auditResp.status}`);
+    }
+  } catch (e) {
+    console.error(`[Orchestrator] IHK-Audit trigger failed:`, e);
+  }
 }
