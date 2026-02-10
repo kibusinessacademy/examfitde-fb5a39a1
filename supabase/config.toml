@@ -74,3 +74,9 @@ verify_jwt = false
 
 [functions.export-course-package]
 verify_jwt = false
+
+[functions.qc-snapshot]
+verify_jwt = false
+
+[functions.qc-ai-analyze]
+verify_jwt = false

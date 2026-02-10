@@ -98,6 +98,9 @@ const SEOAuditPage = lazy(() => import('@/pages/admin/SEOAuditPage'));
 // Course Exports
 const CourseExportsPage = lazy(() => import('@/pages/admin/CourseExportsPage'));
 
+// QC Dashboard
+const QCDashboardPage = lazy(() => import('@/pages/admin/QCDashboardPage'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
@@ -237,6 +240,8 @@ const AppRoutes = () => {
           <Route path="seo-audit" element={<SEOAuditPage />} />
           {/* Course Exports */}
           <Route path="exports" element={<CourseExportsPage />} />
+          {/* QC Dashboard */}
+          <Route path="qc-dashboard" element={<QCDashboardPage />} />
         </Route>
 
         {/* Admin Redirects */}
