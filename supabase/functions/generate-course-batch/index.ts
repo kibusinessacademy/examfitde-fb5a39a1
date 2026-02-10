@@ -409,7 +409,7 @@ serve(async (req) => {
       );
     }
 
-    // MODE 2: Finalize course (update duration & status)
+    // MODE 2: Finalize course (update duration & status + Auto-QC)
     if (!learningFieldId && !competencyId) {
       const { data: lessons } = await supabase
         .from('lessons')
@@ -424,8 +424,59 @@ serve(async (req) => {
         status: 'draft',
       }).eq('id', courseId);
 
+      // --- Auto-QC Pipeline ---
+      let qcResult: any = null;
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+        // 1) QC Snapshot
+        const snapRes = await fetch(`${supabaseUrl}/functions/v1/qc-snapshot`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ scope: 'course', courseId }),
+        });
+        const snapBody = await snapRes.text();
+        console.log(`[Finalize] qc-snapshot status=${snapRes.status}`);
+
+        // 2) Validate content (Opus) – course level
+        const valRes = await fetch(`${supabaseUrl}/functions/v1/validate-content`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ mode: 'course', entityType: 'course', entityId: courseId, content: { courseId, totalLessons, totalDuration } }),
+        });
+        const valBody = await valRes.json().catch(() => ({}));
+        console.log(`[Finalize] validate-content status=${valRes.status}, decision=${valBody?.decision}`);
+
+        // 3) IHK Quality Audit (best-effort)
+        const auditRes = await fetch(`${supabaseUrl}/functions/v1/ihk-quality-audit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ courseId }),
+        });
+        const auditBody = await auditRes.json().catch(() => ({}));
+        console.log(`[Finalize] ihk-quality-audit status=${auditRes.status}, score=${auditBody?.overallScore}`);
+
+        qcResult = {
+          snapshotOk: snapRes.ok,
+          validation: { decision: valBody?.decision, score: valBody?.overall_score },
+          audit: { score: auditBody?.overallScore, grade: auditBody?.grade },
+        };
+
+        // Mark course ready/needs_patch based on validation
+        const needsPatch = valBody?.decision === 'revise' || valBody?.decision === 'reject'
+          || (auditBody?.overallScore && auditBody.overallScore < 85);
+
+        if (needsPatch) {
+          await supabase.from('courses').update({ status: 'draft' }).eq('id', courseId);
+        }
+      } catch (qcErr) {
+        console.error('[Finalize] Auto-QC error (non-blocking):', qcErr);
+        qcResult = { error: String((qcErr as Error)?.message || qcErr) };
+      }
+
       return new Response(
-        JSON.stringify({ success: true, complete: true, totalLessons, totalDuration }),
+        JSON.stringify({ success: true, complete: true, totalLessons, totalDuration, qc: qcResult }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

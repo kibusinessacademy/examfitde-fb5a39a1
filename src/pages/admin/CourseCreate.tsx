@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,14 +10,16 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, Sparkles, Loader2, CheckCircle, BookOpen, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2, CheckCircle, BookOpen, AlertTriangle, RotateCcw } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Curriculum = Tables<'curricula'>;
 type GenerationStep = 'select' | 'generating' | 'complete' | 'error';
 
 interface CompLog {
+  lfId: string;
   lfCode: string;
+  compId: string;
   compCode: string;
   lessons: number;
   status: 'pending' | 'running' | 'done' | 'error';
@@ -37,9 +39,11 @@ export default function CourseCreate() {
   const [progress, setProgress] = useState(0);
   const [createdCourseId, setCreatedCourseId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [loadingCurricula, setLoadingCurricula] = useState(true);
   const [compLogs, setCompLogs] = useState<CompLog[]>([]);
   const [currentLabel, setCurrentLabel] = useState('');
+  const [qcResult, setQcResult] = useState<any>(null);
 
   useEffect(() => { fetchCurricula(); }, []);
 
@@ -55,34 +59,44 @@ export default function CourseCreate() {
     setLoadingCurricula(false);
   };
 
-  const runGeneration = useCallback(async (courseId: string, curriculumId: string) => {
-    // Get all learning fields with competencies
-    const { data: lfs } = await supabase
-      .from('learning_fields')
-      .select('id, code, title, competencies(id, code, title)')
-      .eq('curriculum_id', curriculumId)
-      .order('sort_order');
+  /**
+   * Fetch curriculum structure from edge function (SSOT-konform).
+   * No direct DB reads for learning_fields/competencies.
+   */
+  const fetchStructure = async (curriculumId: string): Promise<CompLog[]> => {
+    const { data, error } = await supabase.functions.invoke('get-curriculum-structure', {
+      body: { curriculumId },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
 
-    if (!lfs?.length) throw new Error('Keine Lernfelder gefunden');
+    const comps = (data?.competencies ?? []) as Array<{
+      lfId: string; lfCode: string; compId: string; compCode: string;
+    }>;
 
-    // Flatten to competency list
-    const allComps: { lfId: string; lfCode: string; compId: string; compCode: string }[] = [];
-    for (const lf of lfs) {
-      const comps = (lf as any).competencies || [];
-      for (const c of comps) {
-        allComps.push({ lfId: lf.id, lfCode: lf.code || 'LF?', compId: c.id, compCode: c.code || '?' });
-      }
-    }
+    if (!comps.length) throw new Error('Keine Kompetenzen gefunden');
 
-    if (!allComps.length) throw new Error('Keine Kompetenzen gefunden');
+    return comps.map(c => ({
+      lfId: c.lfId,
+      lfCode: c.lfCode,
+      compId: c.compId,
+      compCode: c.compCode,
+      lessons: 0,
+      status: 'pending' as const,
+    }));
+  };
 
-    setCompLogs(allComps.map(c => ({ lfCode: c.lfCode, compCode: c.compCode, lessons: 0, status: 'pending' })));
+  const processCompetencies = useCallback(async (
+    courseId: string,
+    curriculumId: string,
+    comps: CompLog[],
+  ) => {
+    for (let i = 0; i < comps.length; i++) {
+      const c = comps[i];
+      if (c.status === 'done') continue; // skip already done (for retry)
 
-    // Process each competency sequentially
-    for (let i = 0; i < allComps.length; i++) {
-      const c = allComps[i];
       setCurrentLabel(`${c.lfCode} → ${c.compCode}`);
-      setProgress(Math.round((i / allComps.length) * 95));
+      setProgress(Math.round((i / comps.length) * 95));
       setCompLogs(prev => prev.map((log, idx) => idx === i ? { ...log, status: 'running' } : log));
 
       try {
@@ -97,9 +111,12 @@ export default function CourseCreate() {
       }
     }
 
-    // Finalize
-    await supabase.functions.invoke('generate-course-batch', { body: { courseId, curriculumId } });
+    // Finalize (includes Auto-QC: qc-snapshot + validate-content + ihk-quality-audit)
+    const { data: finalData } = await supabase.functions.invoke('generate-course-batch', {
+      body: { courseId, curriculumId },
+    });
     setProgress(100);
+    setQcResult(finalData?.qc ?? null);
   }, []);
 
   const handleGenerate = async () => {
@@ -111,8 +128,10 @@ export default function CourseCreate() {
     setIsGenerating(true);
     setStep('generating');
     setProgress(5);
+    setQcResult(null);
 
     try {
+      // 1) Create course row
       const { data: course, error: createError } = await supabase
         .from('courses')
         .insert({ curriculum_id: selectedCurriculumId, title: title.trim(), description: description.trim() || null, status: 'generating', created_by: user?.id })
@@ -120,15 +139,41 @@ export default function CourseCreate() {
       if (createError) throw createError;
       setCreatedCourseId(course.id);
 
-      await runGeneration(course.id, selectedCurriculumId);
+      // 2) Fetch structure from edge function (SSOT)
+      const comps = await fetchStructure(selectedCurriculumId);
+      setCompLogs(comps);
+
+      // 3) Process all competencies
+      await processCompetencies(course.id, selectedCurriculumId, comps);
       setStep('complete');
-      toast({ title: 'Kurs generiert!', description: 'Alle Kompetenzen wurden mit GPT-5.2 generiert.' });
+      toast({ title: 'Kurs generiert!', description: 'Auto-QC (Opus + IHK Audit) wurde ausgeführt.' });
     } catch (error) {
       console.error('Generation error:', error);
       setStep('error');
       toast({ title: 'Fehler', description: error instanceof Error ? error.message : 'Unbekannter Fehler', variant: 'destructive' });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    if (!createdCourseId || !selectedCurriculumId) return;
+
+    setIsRetrying(true);
+    setStep('generating');
+    setQcResult(null);
+
+    try {
+      // Re-process only errored competencies
+      await processCompetencies(createdCourseId, selectedCurriculumId, compLogs);
+      setStep('complete');
+      toast({ title: 'Retry abgeschlossen', description: 'Fehlende Kompetenzen wurden nachgeneriert.' });
+    } catch (error) {
+      console.error('Retry error:', error);
+      toast({ title: 'Fehler beim Retry', description: error instanceof Error ? error.message : 'Unbekannter Fehler', variant: 'destructive' });
+      setStep('complete'); // stay on complete so they can retry again
+    } finally {
+      setIsRetrying(false);
     }
   };
 
@@ -142,7 +187,7 @@ export default function CourseCreate() {
         <Link to="/admin-v2/courses"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">Kurs erstellen</h1>
-          <p className="text-muted-foreground mt-1">LLM Council: GPT-5.2 Generator + Opus Validator</p>
+          <p className="text-muted-foreground mt-1">LLM Council: GPT-5.2 Generator + Opus Validator + Auto-QC</p>
         </div>
       </div>
 
@@ -195,7 +240,9 @@ export default function CourseCreate() {
           <CardContent className="py-8 space-y-6">
             <div className="text-center">
               <Sparkles className="h-12 w-12 text-accent mx-auto mb-4 animate-pulse" />
-              <h3 className="text-xl font-display font-bold text-foreground mb-1">Generierung läuft...</h3>
+              <h3 className="text-xl font-display font-bold text-foreground mb-1">
+                {isRetrying ? 'Retry läuft...' : 'Generierung läuft...'}
+              </h3>
               <p className="text-sm text-muted-foreground font-mono">{currentLabel}</p>
             </div>
             <div className="max-w-md mx-auto">
@@ -230,14 +277,39 @@ export default function CourseCreate() {
               <CheckCircle className="h-10 w-10 text-accent-foreground" />
             </div>
             <h3 className="text-xl font-display font-bold text-foreground mb-2">Kurs generiert!</h3>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground mb-2">
               {doneLogs.length} Kompetenzen → {doneLogs.reduce((s, l) => s + l.lessons, 0)} Lektionen
             </p>
-            {errorLogs.length > 0 && (
-              <p className="text-sm text-destructive mb-4 flex items-center justify-center gap-1">
-                <AlertTriangle className="h-4 w-4" /> {errorLogs.length} Fehler – können nachgeneriert werden.
-              </p>
+
+            {/* Auto-QC Results */}
+            {qcResult && !qcResult.error && (
+              <div className="inline-flex items-center gap-3 text-xs bg-muted/30 border border-border/50 rounded-lg px-4 py-2 mb-4">
+                <span>QC Snapshot: {qcResult.snapshotOk ? '✅' : '⚠️'}</span>
+                <span>Opus: {qcResult.validation?.decision ?? '—'} ({qcResult.validation?.score ?? '—'})</span>
+                <span>IHK: {qcResult.audit?.grade ?? '—'} ({qcResult.audit?.score ?? '—'})</span>
+              </div>
             )}
+            {qcResult?.error && (
+              <p className="text-xs text-warning mb-4">Auto-QC Fehler (nicht blockierend): {qcResult.error}</p>
+            )}
+
+            {errorLogs.length > 0 && (
+              <div className="mb-4">
+                <p className="text-sm text-destructive mb-3 flex items-center justify-center gap-1">
+                  <AlertTriangle className="h-4 w-4" /> {errorLogs.length} Fehler bei der Generierung
+                </p>
+                <Button
+                  onClick={handleRetryFailed}
+                  disabled={isRetrying}
+                  variant="outline"
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                >
+                  {isRetrying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+                  Fehlgeschlagene nachgenerieren ({errorLogs.length})
+                </Button>
+              </div>
+            )}
+
             <div className="flex gap-3 justify-center">
               <Link to="/admin-v2/courses"><Button variant="outline">Übersicht</Button></Link>
               {createdCourseId && (

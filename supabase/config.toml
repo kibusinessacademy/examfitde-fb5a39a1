@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.marketing-council]
 verify_jwt = false
+
+[functions.get-curriculum-structure]
+verify_jwt = false
