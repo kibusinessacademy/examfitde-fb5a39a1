@@ -27,16 +27,18 @@ export interface ChatMessage {
 }
 
 export interface AITutorContext {
+  // SSOT: only IDs are sent to server; server loads text from DB
   curriculumId?: string;
-  curriculumTitle?: string;
   learningFieldId?: string;
-  learningFieldTitle?: string;
   competencyId?: string;
-  competencyTitle?: string;
   lessonId?: string;
-  lessonTitle?: string;
   lessonStep?: string;
   miniCheckScore?: number;
+  // Deprecated: text fields ignored by server, kept for backward compat
+  curriculumTitle?: string;
+  learningFieldTitle?: string;
+  competencyTitle?: string;
+  lessonTitle?: string;
 }
 
 interface UseAITutorOptions {

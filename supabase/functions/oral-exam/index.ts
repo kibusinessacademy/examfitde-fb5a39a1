@@ -2,28 +2,19 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
-// IHK-konforme Bewertungskriterien
+/**
+ * Oral-Exam – Blueprint-basiert (SSOT-konform)
+ * 
+ * Fragen werden NICHT frei per LLM generiert, sondern aus
+ * question_blueprints mit question_type='oral' abgeleitet.
+ * Nur wenn keine Blueprints existieren → LLM-Fallback mit Logging.
+ */
+
 const EVALUATION_CRITERIA = {
-  fachlichkeit: {
-    name: "Fachlichkeit",
-    weight: 0.35,
-    description: "Korrektheit und Vollständigkeit der fachlichen Inhalte"
-  },
-  struktur: {
-    name: "Struktur",
-    weight: 0.20,
-    description: "Logischer Aufbau und Gliederung der Antwort"
-  },
-  begriffssicherheit: {
-    name: "Begriffssicherheit",
-    weight: 0.25,
-    description: "Korrekter Einsatz von Fachbegriffen"
-  },
-  praxisbezug: {
-    name: "Praxisbezug",
-    weight: 0.20,
-    description: "Bezug zur beruflichen Praxis und Anwendungsbeispiele"
-  }
+  fachlichkeit: { name: "Fachlichkeit", weight: 0.35 },
+  struktur: { name: "Struktur", weight: 0.20 },
+  begriffssicherheit: { name: "Begriffssicherheit", weight: 0.25 },
+  praxisbezug: { name: "Praxisbezug", weight: 0.20 }
 };
 
 serve(async (req) => {
@@ -36,7 +27,6 @@ serve(async (req) => {
   try {
     const { action, ...params } = await req.json();
 
-    // Auth check
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -115,36 +105,182 @@ async function startSession(supabase: any, userId: string, params: any) {
   return { session, firstQuestion };
 }
 
+/**
+ * Blueprint-based question generation (SSOT)
+ * 
+ * 1. Try to find oral-type blueprints for the curriculum
+ * 2. If found → derive question from blueprint template
+ * 3. If not found → LLM fallback with warning log
+ */
 async function generateQuestionForSession(
   supabase: any, 
   sessionId: string, 
   curriculumId: string, 
   orderIndex: number
 ) {
+  // Load competencies for this curriculum
   const { data: competencies } = await supabase
     .from('competencies')
     .select(`
-      id,
-      title,
-      code,
+      id, title, code,
       learning_field:learning_fields!inner(
-        id,
-        title,
-        code,
-        curriculum_id
+        id, title, code, curriculum_id
       )
     `)
     .eq('learning_fields.curriculum_id', curriculumId)
-    .limit(20);
+    .limit(50);
 
   if (!competencies?.length) {
     throw new Error('No competencies found for curriculum');
   }
 
-  const competency = competencies[Math.floor(Math.random() * competencies.length)];
+  // Get already used competencies in this session to avoid repeats
+  const { data: usedQuestions } = await supabase
+    .from('oral_exam_questions')
+    .select('competency_id')
+    .eq('session_id', sessionId);
 
+  const usedCompIds = new Set((usedQuestions || []).map((q: any) => q.competency_id));
+  const availableComps = competencies.filter((c: any) => !usedCompIds.has(c.id));
+  const targetComps = availableComps.length > 0 ? availableComps : competencies;
+
+  // Pick a competency (weighted random, preferring unused)
+  const competency = targetComps[Math.floor(Math.random() * targetComps.length)];
+
+  // ── STEP 1: Try blueprint-based question ──
+  const { data: blueprints } = await supabase
+    .from('question_blueprints')
+    .select(`
+      id, question_template, question_type, difficulty,
+      correct_answers:blueprint_correct_answers(answer_template),
+      variables:blueprint_variables(variable_name, variable_type, allowed_values, range_min, range_max)
+    `)
+    .eq('competency_id', competency.id)
+    .in('question_type', ['oral', 'open_ended', 'essay'])
+    .eq('status', 'approved')
+    .limit(10);
+
+  let questionText: string;
+  let expectedPoints: string[];
+  let followUpQuestions: string[];
+  let blueprintId: string | null = null;
+  let source: 'blueprint' | 'llm_fallback' = 'blueprint';
+
+  if (blueprints?.length) {
+    // ── Blueprint found → derive question ──
+    const bp = blueprints[Math.floor(Math.random() * blueprints.length)];
+    blueprintId = bp.id;
+
+    // Render template with variables
+    questionText = renderTemplate(bp.question_template, bp.variables || []);
+    expectedPoints = (bp.correct_answers || []).map((a: any) => a.answer_template);
+    
+    // Generate follow-ups from blueprint context via LLM (lightweight)
+    followUpQuestions = await generateFollowUps(competency, questionText);
+    
+    console.log(`[OralExam] Blueprint-derived question for ${competency.code} (blueprint: ${bp.id})`);
+  } else {
+    // ── No blueprint → LLM fallback with warning ──
+    source = 'llm_fallback';
+    console.warn(`[OralExam] ⚠️ No oral blueprints for competency ${competency.code} – using LLM fallback`);
+
+    const llmResult = await generateQuestionViaLLM(competency);
+    questionText = llmResult.question;
+    expectedPoints = llmResult.expected_points;
+    followUpQuestions = llmResult.follow_up_questions;
+  }
+
+  const { data: question, error } = await supabase
+    .from('oral_exam_questions')
+    .insert({
+      session_id: sessionId,
+      competency_id: competency.id,
+      learning_field_id: competency.learning_field.id,
+      question_text: questionText,
+      expected_answer_points: expectedPoints,
+      follow_up_questions: followUpQuestions,
+      order_index: orderIndex,
+      // Store blueprint reference for audit trail
+      ...(blueprintId ? { metadata: { blueprint_id: blueprintId, source } } : { metadata: { source } }),
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return question;
+}
+
+/**
+ * Render a blueprint template by substituting variables
+ */
+function renderTemplate(template: string, variables: any[]): string {
+  let rendered = template;
+  for (const v of variables) {
+    const placeholder = `{{${v.variable_name}}}`;
+    let value: string;
+
+    if (v.allowed_values?.length) {
+      value = v.allowed_values[Math.floor(Math.random() * v.allowed_values.length)];
+    } else if (v.variable_type === 'number' && v.range_min !== null && v.range_max !== null) {
+      const step = v.range_step || 1;
+      const range = Math.floor((v.range_max - v.range_min) / step);
+      value = String(v.range_min + Math.floor(Math.random() * (range + 1)) * step);
+    } else {
+      value = v.variable_name; // fallback: use variable name
+    }
+
+    rendered = rendered.replaceAll(placeholder, value);
+  }
+  return rendered;
+}
+
+/**
+ * Generate follow-up questions (lightweight LLM call)
+ */
+async function generateFollowUps(competency: any, mainQuestion: string): Promise<string[]> {
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) return ["Können Sie ein konkretes Beispiel nennen?"];
+
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: "Generiere 2 kurze Nachfragen eines IHK-Prüfers. NUR JSON-Array: [\"Frage1\", \"Frage2\"]" },
+          { role: "user", content: `Kompetenz: ${competency.title}\nHauptfrage: ${mainQuestion}` }
+        ],
+        max_tokens: 200,
+      }),
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      const text = data.choices?.[0]?.message?.content || '';
+      const match = text.match(/\[[\s\S]*\]/);
+      if (match) return JSON.parse(match[0]);
+    }
+  } catch { /* ignore */ }
+  return ["Können Sie ein konkretes Beispiel nennen?", "Wie würden Sie das in der Praxis umsetzen?"];
+}
+
+/**
+ * LLM Fallback for question generation (when no blueprints exist)
+ */
+async function generateQuestionViaLLM(competency: any): Promise<{
+  question: string;
+  expected_points: string[];
+  follow_up_questions: string[];
+}> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+  if (!LOVABLE_API_KEY) {
+    return {
+      question: `Erläutern Sie die wesentlichen Aspekte von: ${competency.title}`,
+      expected_points: ["Fachliche Definition", "Praktische Anwendung", "Relevanz im Berufsalltag"],
+      follow_up_questions: ["Können Sie ein konkretes Beispiel nennen?"]
+    };
+  }
 
   const prompt = `Du bist ein IHK-Prüfer für die mündliche Abschlussprüfung.
 
@@ -165,61 +301,35 @@ Antworte NUR im folgenden JSON-Format:
   "follow_up_questions": ["Nachfrage 1", "Nachfrage 2"]
 }`;
 
-  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: "Du bist ein erfahrener IHK-Prüfer. Antworte ausschließlich im angeforderten JSON-Format." },
-        { role: "user", content: prompt }
-      ],
-      max_tokens: 800,
-    }),
-  });
-
-  if (!aiResponse.ok) {
-    throw new Error(`AI error: ${aiResponse.status}`);
-  }
-
-  const aiData = await aiResponse.json();
-  const responseText = aiData.choices?.[0]?.message?.content || '';
-  
-  let questionData;
   try {
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      questionData = JSON.parse(jsonMatch[0]);
-    } else {
-      throw new Error('No JSON found');
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: "Du bist ein erfahrener IHK-Prüfer. Antworte ausschließlich im angeforderten JSON-Format." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 800,
+      }),
+    });
+
+    if (aiResponse.ok) {
+      const aiData = await aiResponse.json();
+      const text = aiData.choices?.[0]?.message?.content || '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) return JSON.parse(jsonMatch[0]);
     }
-  } catch {
-    questionData = {
-      question: `Erläutern Sie die wesentlichen Aspekte von: ${competency.title}`,
-      expected_points: ["Fachliche Definition", "Praktische Anwendung", "Relevanz im Berufsalltag"],
-      follow_up_questions: ["Können Sie ein konkretes Beispiel nennen?"]
-    };
+  } catch (e) {
+    console.error("[OralExam] LLM fallback error:", e);
   }
 
-  const { data: question, error } = await supabase
-    .from('oral_exam_questions')
-    .insert({
-      session_id: sessionId,
-      competency_id: competency.id,
-      learning_field_id: competency.learning_field.id,
-      question_text: questionData.question,
-      expected_answer_points: questionData.expected_points,
-      follow_up_questions: questionData.follow_up_questions,
-      order_index: orderIndex
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return question;
+  return {
+    question: `Erläutern Sie die wesentlichen Aspekte von: ${competency.title}`,
+    expected_points: ["Fachliche Definition", "Praktische Anwendung", "Relevanz im Berufsalltag"],
+    follow_up_questions: ["Können Sie ein konkretes Beispiel nennen?"]
+  };
 }
 
 async function generateQuestion(supabase: any, params: any) {
@@ -234,10 +344,7 @@ async function generateQuestion(supabase: any, params: any) {
   if (!session) throw new Error('Session not found');
 
   const question = await generateQuestionForSession(
-    supabase, 
-    session_id, 
-    session.curriculum_id, 
-    session.current_question_index
+    supabase, session_id, session.curriculum_id, session.current_question_index
   );
 
   return { question };
@@ -294,10 +401,7 @@ Antworte NUR im folgenden JSON-Format:
 
   const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-3-flash-preview",
       messages: [
@@ -308,9 +412,7 @@ Antworte NUR im folgenden JSON-Format:
     }),
   });
 
-  if (!aiResponse.ok) {
-    throw new Error(`AI error: ${aiResponse.status}`);
-  }
+  if (!aiResponse.ok) throw new Error(`AI error: ${aiResponse.status}`);
 
   const aiData = await aiResponse.json();
   const responseText = aiData.choices?.[0]?.message?.content || '';
@@ -325,21 +427,16 @@ Antworte NUR im folgenden JSON-Format:
     }
   } catch {
     evaluation = {
-      fachlichkeit_score: 0.5,
-      struktur_score: 0.5,
-      begriffssicherheit_score: 0.5,
-      praxisbezug_score: 0.5,
-      covered_points: [],
-      missed_points: question.expected_answer_points || [],
+      fachlichkeit_score: 0.5, struktur_score: 0.5,
+      begriffssicherheit_score: 0.5, praxisbezug_score: 0.5,
+      covered_points: [], missed_points: question.expected_answer_points || [],
       feedback: "Die Bewertung konnte nicht automatisch durchgeführt werden.",
-      strengths: [],
-      improvements: ["Bitte versuche es erneut."],
-      sample_answer: "",
-      follow_up_question: ""
+      strengths: [], improvements: ["Bitte versuche es erneut."],
+      sample_answer: "", follow_up_question: ""
     };
   }
 
-  const { data: updatedQuestion, error } = await supabase
+  const { error } = await supabase
     .from('oral_exam_questions')
     .update({
       user_answer,
@@ -352,9 +449,7 @@ Antworte NUR im folgenden JSON-Format:
       missed_points: evaluation.missed_points,
       ai_feedback: evaluation.feedback
     })
-    .eq('id', question_id)
-    .select()
-    .single();
+    .eq('id', question_id);
 
   if (error) throw error;
 
@@ -393,9 +488,7 @@ async function finishSession(supabase: any, params: any) {
     .select('*')
     .eq('session_id', session_id);
 
-  if (!questions?.length) {
-    throw new Error('No questions found');
-  }
+  if (!questions?.length) throw new Error('No questions found');
 
   const avgFachlichkeit = questions.reduce((sum: number, q: any) => sum + (q.fachlichkeit_score || 0), 0) / questions.length;
   const avgStruktur = questions.reduce((sum: number, q: any) => sum + (q.struktur_score || 0), 0) / questions.length;
