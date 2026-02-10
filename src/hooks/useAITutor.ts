@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 // AI Tutor Governance Modes (SSOT - mirrors backend)
@@ -9,7 +8,6 @@ export const AI_MODES = {
   EXAM: 'exam'
 } as const;
 
-// AI Tutor Didactic Roles (SSOT - mirrors backend)
 export const AI_ROLES = {
   EXPLAINER: 'explainer',
   COACH: 'coach',
@@ -48,10 +46,12 @@ interface UseAITutorOptions {
   context?: AITutorContext;
 }
 
-export function useAITutor({ 
-  mode, 
+const TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-tutor`;
+
+export function useAITutor({
+  mode,
   role: initialRole = AI_ROLES.EXPLAINER,
-  sessionId, 
+  sessionId,
   sessionType = 'learning',
   context: initialContext = {}
 }: UseAITutorOptions) {
@@ -71,22 +71,108 @@ export function useAITutor({
     try {
       const conversationHistory = messages.map(m => ({ role: m.role, content: m.content }));
 
-      const { data, error } = await supabase.functions.invoke('ai-tutor', {
-        body: { message, mode, role: currentRole, sessionId, sessionType, conversationHistory, context },
+      const resp = await fetch(TUTOR_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ message, mode, role: currentRole, sessionId, sessionType, conversationHistory, context }),
       });
 
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      // Handle non-streaming error responses
+      if (!resp.ok) {
+        const contentType = resp.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const errData = await resp.json();
+          throw new Error(errData.error || `Error ${resp.status}`);
+        }
+        throw new Error(`Error ${resp.status}`);
+      }
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.response,
-        timestamp: new Date(),
-        wasBlocked: data.wasBlocked,
-      }]);
+      const contentType = resp.headers.get("content-type") || "";
 
-      if (data.wasBlocked) {
-        toast({ title: 'Hinweis', description: 'Im Prüfungsmodus ist keine inhaltliche Hilfe verfügbar.' });
+      // Handle SSE streaming response
+      if (contentType.includes("text/event-stream") && resp.body) {
+        let assistantContent = "";
+        let wasBlocked = false;
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        const upsertAssistant = (text: string) => {
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant") {
+              return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: text } : m));
+            }
+            return [...prev, { role: "assistant", content: text, timestamp: new Date() }];
+          });
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let idx: number;
+          while ((idx = buffer.indexOf("\n")) !== -1) {
+            let line = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 1);
+            if (line.endsWith("\r")) line = line.slice(0, -1);
+            if (line.startsWith(":") || line.trim() === "") continue;
+            if (!line.startsWith("data: ")) continue;
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") break;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                assistantContent += content;
+                upsertAssistant(assistantContent);
+              }
+            } catch { /* partial JSON, wait for more */ }
+          }
+        }
+
+        // Flush remaining buffer
+        if (buffer.trim()) {
+          for (let raw of buffer.split("\n")) {
+            if (!raw || !raw.startsWith("data: ")) continue;
+            const jsonStr = raw.slice(6).trim();
+            if (jsonStr === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                assistantContent += content;
+                upsertAssistant(assistantContent);
+              }
+            } catch { /* ignore */ }
+          }
+        }
+
+        if (!assistantContent) {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: 'Keine Antwort erhalten.',
+            timestamp: new Date(),
+          }]);
+        }
+      } else {
+        // Fallback: JSON response (e.g. blocked in exam mode)
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.response,
+          timestamp: new Date(),
+          wasBlocked: data.wasBlocked,
+        }]);
+        if (data.wasBlocked) {
+          toast({ title: 'Hinweis', description: 'Im Prüfungsmodus ist keine inhaltliche Hilfe verfügbar.' });
+        }
       }
     } catch (error) {
       console.error('AI Tutor error:', error);

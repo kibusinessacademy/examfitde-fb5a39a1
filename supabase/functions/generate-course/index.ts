@@ -45,7 +45,8 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Resolve AI provider
+    // Primary generator: GPT-5.2 via Lovable AI Gateway (default)
+    // Alternative: deepseek for text, openai direct
     let apiUrl: string;
     let apiHeaders: Record<string, string>;
     let aiModel: string;
@@ -56,19 +57,16 @@ serve(async (req) => {
       apiUrl = 'https://api.deepseek.com/v1/chat/completions';
       apiHeaders = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
       aiModel = 'deepseek-chat';
-    } else if (provider === 'openai') {
-      const key = Deno.env.get('OPENAI_API_KEY');
-      if (!key) throw new Error('OPENAI_API_KEY not configured');
-      apiUrl = 'https://api.openai.com/v1/chat/completions';
-      apiHeaders = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
-      aiModel = 'gpt-4o';
     } else {
+      // Default: GPT-5.2 via Lovable AI Gateway
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
       if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
       apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
       apiHeaders = { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' };
-      aiModel = 'google/gemini-3-flash-preview';
+      aiModel = provider === 'gemini' ? 'google/gemini-3-flash-preview' : 'openai/gpt-5.2';
     }
+
+    const validateWithOpus = provider !== 'deepseek'; // Opus validation for GPT-5.2 output
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -200,7 +198,46 @@ Antworte mit einem JSON-Objekt im Format:
             };
           }
 
-          // Insert lesson
+          // --- OPUS VALIDATION ---
+          let validationScore: number | null = null;
+          if (validateWithOpus && lessonContent) {
+            try {
+              const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+              if (ANTHROPIC_API_KEY) {
+                const valResp = await fetch('https://api.anthropic.com/v1/messages', {
+                  method: 'POST',
+                  headers: {
+                    'x-api-key': ANTHROPIC_API_KEY,
+                    'anthropic-version': '2023-06-01',
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    model: 'claude-opus-4-20250514',
+                    max_tokens: 1024,
+                    system: `Du bist ein Qualitätsprüfer für Lerninhalte. Prüfe fachliche Korrektheit, didaktische Qualität und Vollständigkeit. Antworte NUR mit JSON: {"valid": bool, "score": 0-100, "issues": [{"severity": "critical|warning|info", "message": "..."}]}`,
+                    messages: [{ role: 'user', content: `Kompetenz: ${comp.title}\nTaxonomie: ${comp.taxonomy_level || 'Anwenden'}\nSchritt: ${step}\n\nINHALT:\n${JSON.stringify(lessonContent)}` }],
+                  }),
+                });
+                if (valResp.ok) {
+                  const valData = await valResp.json();
+                  const valText = valData.content?.[0]?.text || '';
+                  try {
+                    const valResult = JSON.parse(valText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+                    validationScore = valResult.score;
+                    console.log(`[Opus Validation] ${comp.code} ${step}: Score ${valResult.score}, Valid: ${valResult.valid}`);
+                    // If critical issues, log but still save (admin can review)
+                    if (valResult.issues?.some((i: any) => i.severity === 'critical')) {
+                      console.warn(`[Opus] Critical issues found in ${comp.code} ${step}`);
+                    }
+                  } catch { console.error('[Opus] Failed to parse validation response'); }
+                }
+              }
+            } catch (valErr) {
+              console.error('[Opus Validation] Error:', valErr);
+            }
+          }
+
+          // Insert lesson with validation metadata
           await supabase.from('lessons').insert({
             module_id: module.id,
             competency_id: comp.id,

@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.qc-ai-analyze]
 verify_jwt = false
+
+[functions.validate-content]
+verify_jwt = false
