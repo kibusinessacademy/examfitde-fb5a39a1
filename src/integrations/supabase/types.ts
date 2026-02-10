@@ -3083,6 +3083,130 @@ export type Database = {
           },
         ]
       }
+      experiment_assignments: {
+        Row: {
+          assigned_at: string
+          experiment_id: string
+          id: string
+          user_id: string
+          variant: string
+        }
+        Insert: {
+          assigned_at?: string
+          experiment_id: string
+          id?: string
+          user_id: string
+          variant: string
+        }
+        Update: {
+          assigned_at?: string
+          experiment_id?: string
+          id?: string
+          user_id?: string
+          variant?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experiment_assignments_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "experiments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experiment_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          experiment_id: string
+          id: string
+          metadata: Json | null
+          user_id: string | null
+          value: number | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          experiment_id: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+          value?: number | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          experiment_id?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experiment_events_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "experiments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experiments: {
+        Row: {
+          allocation: Json
+          council_id: string
+          created_at: string
+          end_at: string | null
+          hypothesis: string | null
+          id: string
+          kpi_name: string | null
+          name: string
+          result: Json | null
+          start_at: string | null
+          status: string
+          stop_rules: Json | null
+          type: string
+          updated_at: string
+          variants: Json
+        }
+        Insert: {
+          allocation?: Json
+          council_id: string
+          created_at?: string
+          end_at?: string | null
+          hypothesis?: string | null
+          id?: string
+          kpi_name?: string | null
+          name: string
+          result?: Json | null
+          start_at?: string | null
+          status?: string
+          stop_rules?: Json | null
+          type: string
+          updated_at?: string
+          variants?: Json
+        }
+        Update: {
+          allocation?: Json
+          council_id?: string
+          created_at?: string
+          end_at?: string | null
+          hypothesis?: string | null
+          id?: string
+          kpi_name?: string | null
+          name?: string
+          result?: Json | null
+          start_at?: string | null
+          status?: string
+          stop_rules?: Json | null
+          type?: string
+          updated_at?: string
+          variants?: Json
+        }
+        Relationships: []
+      }
       export_jobs: {
         Row: {
           course_id: string
@@ -4658,6 +4782,116 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patch_proposals: {
+        Row: {
+          after: Json
+          applied_at: string | null
+          apply_error: string | null
+          approved_at: string | null
+          approved_by: string | null
+          before: Json
+          council_id: string
+          created_at: string
+          dedupe_key: string | null
+          diff_summary: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          patch_type: string
+          risk: string
+          status: string
+          updated_at: string
+          validated_at: string | null
+          validator_result: Json | null
+        }
+        Insert: {
+          after: Json
+          applied_at?: string | null
+          apply_error?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          before: Json
+          council_id: string
+          created_at?: string
+          dedupe_key?: string | null
+          diff_summary?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          patch_type?: string
+          risk?: string
+          status?: string
+          updated_at?: string
+          validated_at?: string | null
+          validator_result?: Json | null
+        }
+        Update: {
+          after?: Json
+          applied_at?: string | null
+          apply_error?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          before?: Json
+          council_id?: string
+          created_at?: string
+          dedupe_key?: string | null
+          diff_summary?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          patch_type?: string
+          risk?: string
+          status?: string
+          updated_at?: string
+          validated_at?: string | null
+          validator_result?: Json | null
+        }
+        Relationships: []
+      }
+      patch_revisions: {
+        Row: {
+          after: Json
+          applied_at: string
+          applied_by: string | null
+          before: Json
+          entity_id: string
+          entity_type: string
+          id: string
+          patch_id: string
+          rollback_of: string | null
+        }
+        Insert: {
+          after: Json
+          applied_at?: string
+          applied_by?: string | null
+          before: Json
+          entity_id: string
+          entity_type: string
+          id?: string
+          patch_id: string
+          rollback_of?: string | null
+        }
+        Update: {
+          after?: Json
+          applied_at?: string
+          applied_by?: string | null
+          before?: Json
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          patch_id?: string
+          rollback_of?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patch_revisions_patch_id_fkey"
+            columns: ["patch_id"]
+            isOneToOne: false
+            referencedRelation: "patch_proposals"
             referencedColumns: ["id"]
           },
         ]
