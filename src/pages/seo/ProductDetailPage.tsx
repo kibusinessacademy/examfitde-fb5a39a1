@@ -291,13 +291,13 @@ function ProductDetailPageComponent({ productType }: ProductDetailPageProps) {
   );
 }
 
-// Named exports
+// Named exports – all redirect to shop (single-product strategy)
 export function LernkursDetailPage() {
-  return <ProductDetailPageComponent productType="lernkurs" />;
+  return <ProductDetailPageComponent productType="bundle" />;
 }
 
 export function PruefungstrainerDetailPage() {
-  return <ProductDetailPageComponent productType="pruefungstrainer" />;
+  return <ProductDetailPageComponent productType="bundle" />;
 }
 
 export function BundleDetailPage() {
