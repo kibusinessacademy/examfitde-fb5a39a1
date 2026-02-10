@@ -336,7 +336,7 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    const { courseId, curriculumId, learningFieldId, competencyId, provider, skipValidation = false } = await req.json();
+    const { courseId, curriculumId, learningFieldId, competencyId, provider, skipValidation = false, step: requestedStep } = await req.json();
 
     if (!courseId || !curriculumId) {
       return new Response(
@@ -348,9 +348,10 @@ serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const ai = resolveProvider(provider);
 
-    // MODE 1: Single competency generation (granular, fits in timeout)
+    // MODE 1: Single step generation (1 AI call per invocation = fits in 60s)
     if (learningFieldId && competencyId) {
-      console.log(`[Batch] Single competency: ${competencyId} in LF ${learningFieldId}`);
+      // Determine which step to generate
+      const targetStep = requestedStep as typeof LESSON_STEPS[number] | undefined;
 
       // Ensure module exists
       const { data: existingModule } = await supabase
@@ -372,39 +373,73 @@ serve(async (req) => {
       const { data: comp } = await supabase.from('competencies').select('*').eq('id', competencyId).single();
       if (!comp) throw new Error('Competency not found');
 
-      let lessonsCreated = 0;
-      let lessonSortOrder = 0;
+      // Find the next step to generate (or use requested step)
+      let stepToGen: typeof LESSON_STEPS[number] | null = null;
 
-      // Get existing sort order
-      const { data: existingLessons } = await supabase
-        .from('lessons').select('sort_order').eq('module_id', moduleId).order('sort_order', { ascending: false }).limit(1);
-      if (existingLessons?.length) lessonSortOrder = (existingLessons[0].sort_order || 0) + 1;
-
-      for (const step of LESSON_STEPS) {
-        // Skip if already exists
+      if (targetStep && LESSON_STEPS.includes(targetStep)) {
+        // Check if already exists
         const { data: existing } = await supabase
-          .from('lessons').select('id').eq('module_id', moduleId).eq('competency_id', comp.id).eq('step', step).maybeSingle();
-        if (existing) { lessonSortOrder++; continue; }
-
-        const stepDuration = step === 'mini_check' ? 10 : step === 'verstehen' ? 25 : step === 'anwenden' ? 30 : step === 'wiederholen' ? 15 : 10;
-
-        const { content: lessonContent, generationId } = await generateAndTrack(supabase, ai, comp, step, courseId);
-
-        const finalContent = lessonContent || (step === 'mini_check'
-          ? { type: 'mini_check', html: `<h3>${comp.title}</h3><p>⚠️ Inhalt wird nachgeneriert.</p>`, objectives: [], questions: [], _needs_repair: true }
-          : { type: 'text', html: `<h3>${comp.title} - ${step}</h3><p>⚠️ Inhalt wird nachgeneriert.</p>`, objectives: [], _needs_repair: true });
-
-        await supabase.from('lessons').insert({
-          module_id: moduleId, competency_id: comp.id,
-          title: `${comp.code}: ${comp.title}`, step,
-          content: finalContent,
-          duration_minutes: stepDuration, sort_order: lessonSortOrder++,
-        });
-        lessonsCreated++;
+          .from('lessons').select('id').eq('module_id', moduleId).eq('competency_id', comp.id).eq('step', targetStep).maybeSingle();
+        if (existing) {
+          return new Response(
+            JSON.stringify({ success: true, skipped: true, step: targetStep, competencyCode: comp.code, message: 'Step already exists' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        stepToGen = targetStep;
+      } else {
+        // Auto-detect next missing step
+        for (const s of LESSON_STEPS) {
+          const { data: existing } = await supabase
+            .from('lessons').select('id').eq('module_id', moduleId).eq('competency_id', comp.id).eq('step', s).maybeSingle();
+          if (!existing) { stepToGen = s; break; }
+        }
+        if (!stepToGen) {
+          return new Response(
+            JSON.stringify({ success: true, complete: true, competencyCode: comp.code, message: 'All steps already exist' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
 
+      console.log(`[Batch] Generating ${comp.code} / ${stepToGen}`);
+
+      // Get sort order
+      const { data: existingLessons } = await supabase
+        .from('lessons').select('sort_order').eq('module_id', moduleId).order('sort_order', { ascending: false }).limit(1);
+      const lessonSortOrder = existingLessons?.length ? (existingLessons[0].sort_order || 0) + 1 : 0;
+
+      const stepDuration = stepToGen === 'mini_check' ? 10 : stepToGen === 'verstehen' ? 25 : stepToGen === 'anwenden' ? 30 : stepToGen === 'wiederholen' ? 15 : 10;
+
+      const { content: lessonContent, generationId } = await generateAndTrack(supabase, ai, comp, stepToGen, courseId);
+
+      const finalContent = lessonContent || (stepToGen === 'mini_check'
+        ? { type: 'mini_check', html: `<h3>${comp.title}</h3><p>⚠️ Inhalt wird nachgeneriert.</p>`, objectives: [], questions: [], _needs_repair: true }
+        : { type: 'text', html: `<h3>${comp.title} - ${stepToGen}</h3><p>⚠️ Inhalt wird nachgeneriert.</p>`, objectives: [], _needs_repair: true });
+
+      await supabase.from('lessons').insert({
+        module_id: moduleId, competency_id: comp.id,
+        title: `${comp.code}: ${comp.title}`, step: stepToGen,
+        content: finalContent,
+        duration_minutes: stepDuration, sort_order: lessonSortOrder,
+      });
+
+      // Count remaining steps for this competency
+      const { data: doneLessons } = await supabase
+        .from('lessons').select('step').eq('module_id', moduleId).eq('competency_id', comp.id);
+      const doneSteps = (doneLessons || []).map((l: any) => l.step);
+      const remaining = LESSON_STEPS.filter(s => !doneSteps.includes(s));
+
       return new Response(
-        JSON.stringify({ success: true, lessonsCreated, competencyCode: comp.code }),
+        JSON.stringify({
+          success: true,
+          step: stepToGen,
+          competencyCode: comp.code,
+          generationId,
+          hasContent: !!lessonContent,
+          remaining: remaining.length,
+          nextStep: remaining.length > 0 ? remaining[0] : null,
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
