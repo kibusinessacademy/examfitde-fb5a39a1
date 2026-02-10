@@ -3488,6 +3488,353 @@ export type Database = {
           },
         ]
       }
+      marketing_assets: {
+        Row: {
+          asset_type: string
+          campaign_id: string | null
+          content: string
+          created_at: string
+          id: string
+          legal_check_passed: boolean | null
+          llm_used: string
+          seo_score: number | null
+          status: string
+          target_group: string
+          template_used: string | null
+          title: string
+          updated_at: string
+          validation_report: Json | null
+          validation_score: number | null
+        }
+        Insert: {
+          asset_type: string
+          campaign_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          legal_check_passed?: boolean | null
+          llm_used?: string
+          seo_score?: number | null
+          status?: string
+          target_group: string
+          template_used?: string | null
+          title: string
+          updated_at?: string
+          validation_report?: Json | null
+          validation_score?: number | null
+        }
+        Update: {
+          asset_type?: string
+          campaign_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          legal_check_passed?: boolean | null
+          llm_used?: string
+          seo_score?: number | null
+          status?: string
+          target_group?: string
+          template_used?: string | null
+          title?: string
+          updated_at?: string
+          validation_report?: Json | null
+          validation_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_assets_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_budget_requests: {
+        Row: {
+          campaign_name: string
+          created_at: string
+          current_budget: number
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          expected_roi: number | null
+          id: string
+          justification: Json
+          plan_id: string | null
+          proof: Json
+          requested_amount: number
+          risk_level: string
+          status: string
+        }
+        Insert: {
+          campaign_name: string
+          created_at?: string
+          current_budget: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          expected_roi?: number | null
+          id?: string
+          justification?: Json
+          plan_id?: string | null
+          proof?: Json
+          requested_amount: number
+          risk_level?: string
+          status?: string
+        }
+        Update: {
+          campaign_name?: string
+          created_at?: string
+          current_budget?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          expected_roi?: number | null
+          id?: string
+          justification?: Json
+          plan_id?: string | null
+          proof?: Json
+          requested_amount?: number
+          risk_level?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_budget_requests_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_campaigns: {
+        Row: {
+          budget_allocated: number
+          budget_spent: number
+          channel: string
+          created_at: string
+          hypothesis: string | null
+          id: string
+          kill_switch_rules: Json
+          kpis: Json
+          metrics: Json
+          name: string
+          plan_id: string | null
+          started_at: string | null
+          status: string
+          stop_reason: string | null
+          stopped_at: string | null
+          target_groups: string[]
+          updated_at: string
+          validation_report: Json | null
+          validation_status: string | null
+        }
+        Insert: {
+          budget_allocated?: number
+          budget_spent?: number
+          channel: string
+          created_at?: string
+          hypothesis?: string | null
+          id?: string
+          kill_switch_rules?: Json
+          kpis?: Json
+          metrics?: Json
+          name: string
+          plan_id?: string | null
+          started_at?: string | null
+          status?: string
+          stop_reason?: string | null
+          stopped_at?: string | null
+          target_groups?: string[]
+          updated_at?: string
+          validation_report?: Json | null
+          validation_status?: string | null
+        }
+        Update: {
+          budget_allocated?: number
+          budget_spent?: number
+          channel?: string
+          created_at?: string
+          hypothesis?: string | null
+          id?: string
+          kill_switch_rules?: Json
+          kpis?: Json
+          metrics?: Json
+          name?: string
+          plan_id?: string | null
+          started_at?: string | null
+          status?: string
+          stop_reason?: string | null
+          stopped_at?: string | null
+          target_groups?: string[]
+          updated_at?: string
+          validation_report?: Json | null
+          validation_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_campaigns_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_experiments: {
+        Row: {
+          campaign_id: string | null
+          completed_at: string | null
+          confidence_level: number | null
+          created_at: string
+          current_sample_size: number
+          hypothesis: string
+          id: string
+          learnings: string | null
+          metrics: Json
+          name: string
+          sample_size_target: number
+          started_at: string | null
+          status: string
+          variant_a: Json
+          variant_b: Json
+          winner: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          completed_at?: string | null
+          confidence_level?: number | null
+          created_at?: string
+          current_sample_size?: number
+          hypothesis: string
+          id?: string
+          learnings?: string | null
+          metrics?: Json
+          name: string
+          sample_size_target?: number
+          started_at?: string | null
+          status?: string
+          variant_a: Json
+          variant_b: Json
+          winner?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          completed_at?: string | null
+          confidence_level?: number | null
+          created_at?: string
+          current_sample_size?: number
+          hypothesis?: string
+          id?: string
+          learnings?: string | null
+          metrics?: Json
+          name?: string
+          sample_size_target?: number
+          started_at?: string | null
+          status?: string
+          variant_a?: Json
+          variant_b?: Json
+          winner?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_experiments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_learnings: {
+        Row: {
+          action_taken: string | null
+          created_at: string
+          id: string
+          impact_area: string
+          learning: string
+          source_id: string | null
+          source_type: string
+        }
+        Insert: {
+          action_taken?: string | null
+          created_at?: string
+          id?: string
+          impact_area: string
+          learning: string
+          source_id?: string | null
+          source_type: string
+        }
+        Update: {
+          action_taken?: string | null
+          created_at?: string
+          id?: string
+          impact_area?: string
+          learning?: string
+          source_id?: string | null
+          source_type?: string
+        }
+        Relationships: []
+      }
+      marketing_plans: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          budget_split: Json
+          budget_total: number
+          created_at: string
+          hypotheses: Json
+          id: string
+          llm_used: string
+          month: string
+          priorities: string[]
+          status: string
+          strategy_json: Json
+          updated_at: string
+          validated_at: string | null
+          validation_report: Json | null
+          validation_score: number | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          budget_split?: Json
+          budget_total?: number
+          created_at?: string
+          hypotheses?: Json
+          id?: string
+          llm_used?: string
+          month: string
+          priorities?: string[]
+          status?: string
+          strategy_json?: Json
+          updated_at?: string
+          validated_at?: string | null
+          validation_report?: Json | null
+          validation_score?: number | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          budget_split?: Json
+          budget_total?: number
+          created_at?: string
+          hypotheses?: Json
+          id?: string
+          llm_used?: string
+          month?: string
+          priorities?: string[]
+          status?: string
+          strategy_json?: Json
+          updated_at?: string
+          validated_at?: string | null
+          validation_report?: Json | null
+          validation_score?: number | null
+        }
+        Relationships: []
+      }
       modules: {
         Row: {
           course_id: string

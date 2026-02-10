@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.validate-content]
 verify_jwt = false
+
+[functions.marketing-council]
+verify_jwt = false
