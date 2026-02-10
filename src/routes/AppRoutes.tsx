@@ -21,6 +21,9 @@ const InstallPage = lazy(() => import('@/pages/InstallPage'));
 
 // SEO Pages
 const IHKPruefungenPage = lazy(() => import('@/pages/seo/IHKPruefungenPage'));
+const PruefungstrainingAzubisPage = lazy(() => import('@/pages/seo/PruefungstrainingAzubisPage'));
+const PruefungstrainingBetriebePage = lazy(() => import('@/pages/seo/PruefungstrainingBetriebePage'));
+const PruefungstrainingInstitutionenPage = lazy(() => import('@/pages/seo/PruefungstrainingInstitutionenPage'));
 const BerufePage = lazy(() => import('@/pages/seo/BerufePage'));
 const BerufDetailPage = lazy(() => import('@/pages/seo/BerufDetailPage'));
 const UnternehmenPage = lazy(() => import('@/pages/seo/UnternehmenPage'));
@@ -154,6 +157,9 @@ const AppRoutes = () => {
         {/* SEO Routes (Public Marketing Pages) */}
         <Route element={<SEOLayout />}>
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
+          <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
+          <Route path="/pruefungstraining-betriebe" element={<PruefungstrainingBetriebePage />} />
+          <Route path="/pruefungstraining-institutionen" element={<PruefungstrainingInstitutionenPage />} />
           <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
           <Route path="/berufe" element={<BerufePage />} />
           <Route path="/berufe/:slug" element={<BerufDetailPage />} />
