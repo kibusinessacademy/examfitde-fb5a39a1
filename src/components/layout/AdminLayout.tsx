@@ -71,6 +71,7 @@ const navGroups: NavGroup[] = [
     icon: Users,
     items: [
       { path: '/admin-v2/crm', label: 'CRM & Support', icon: Users },
+      { path: '/admin-v2/support-dashboard', label: 'Support Intelligence', icon: Bot },
     ],
   },
   {
