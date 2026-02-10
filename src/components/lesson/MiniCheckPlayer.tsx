@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import ProactiveHelpHints from '@/components/support/ProactiveHelpHints';
 
 export interface MiniCheckQuestion {
   id: string;
@@ -48,6 +49,7 @@ export default function MiniCheckPlayer({
   const [results, setResults] = useState<QuestionResult[]>([]);
   const [isFinished, setIsFinished] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [consecutiveFails, setConsecutiveFails] = useState(0);
 
   const questions = content.questions || [];
   const passingScore = content.passing_score ?? 70;
@@ -76,6 +78,12 @@ export default function MiniCheckPlayer({
       selectedOptionId: selectedOption,
       isCorrect: correct
     }]);
+
+    if (!correct) {
+      setConsecutiveFails(prev => prev + 1);
+    } else {
+      setConsecutiveFails(0);
+    }
   };
 
   const handleNextQuestion = async () => {
@@ -201,6 +209,17 @@ export default function MiniCheckPlayer({
   // Question screen
   return (
     <div className="space-y-6">
+      {/* Proactive Help Hints */}
+      <ProactiveHelpHints
+        failCount={consecutiveFails}
+        contextLessonId={lessonId}
+        onAcceptHelp={(type) => {
+          if (type === 'fail_streak' && hasAnswered && currentQuestion) {
+            // Show explanation
+          }
+        }}
+      />
+
       {/* Progress header */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>Frage {currentIndex + 1} von {totalQuestions}</span>
