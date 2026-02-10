@@ -116,6 +116,7 @@ const EarlyWarningsPage = lazy(() => import('@/pages/admin/EarlyWarningsPage'));
 const WorkflowStudioPage = lazy(() => import('@/pages/admin/WorkflowStudioPage'));
 const CourseHealthPage = lazy(() => import('@/pages/admin/CourseHealthPage'));
 const SupportDashboardPage = lazy(() => import('@/pages/admin/SupportDashboardPage'));
+const B2BSupportDashboard = lazy(() => import('@/pages/admin/B2BSupportDashboard'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
@@ -272,6 +273,7 @@ const AppRoutes = () => {
           <Route path="workflows" element={<WorkflowStudioPage />} />
           <Route path="course-health" element={<CourseHealthPage />} />
           <Route path="support-dashboard" element={<SupportDashboardPage />} />
+          <Route path="b2b-support" element={<B2BSupportDashboard />} />
         </Route>
 
         {/* Admin Redirects */}

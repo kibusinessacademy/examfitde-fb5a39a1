@@ -72,6 +72,7 @@ const navGroups: NavGroup[] = [
     items: [
       { path: '/admin-v2/crm', label: 'CRM & Support', icon: Users },
       { path: '/admin-v2/support-dashboard', label: 'Support Intelligence', icon: Bot },
+      { path: '/admin-v2/b2b-support', label: 'B2B Support', icon: DollarSign },
     ],
   },
   {
