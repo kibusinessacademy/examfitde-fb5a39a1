@@ -22,6 +22,7 @@ const statusColors: Record<string, string> = {
 export default function ExperimentsPage() {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  const [statsId, setStatsId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", type: "learning" as string, councilId: "education", hypothesis: "", kpiName: "" });
 
   const { data, isLoading } = useQuery({
@@ -31,6 +32,18 @@ export default function ExperimentsPage() {
       if (error) throw error;
       return data?.experiments || [];
     },
+  });
+
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ["experiment-stats", statsId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("experiment-api", {
+        body: { action: "stats", experimentId: statsId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!statsId,
   });
 
   const createMut = useMutation({
@@ -65,6 +78,8 @@ export default function ExperimentsPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const statsExperiment = statsId ? (data || []).find((e: Record<string, unknown>) => e.id === statsId) : null;
 
   return (
     <div className="space-y-6">
@@ -109,6 +124,81 @@ export default function ExperimentsPage() {
         </Dialog>
       </div>
 
+      {/* Stats Modal */}
+      <Dialog open={!!statsId} onOpenChange={(open) => { if (!open) setStatsId(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Stats: {(statsExperiment as Record<string, unknown>)?.name as string || "Experiment"}
+            </DialogTitle>
+          </DialogHeader>
+          {statsLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+          ) : statsData ? (
+            <div className="space-y-4">
+              {/* Participants */}
+              <div>
+                <h4 className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+                  <Users className="h-4 w-4 text-muted-foreground" /> Teilnehmer
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-center">
+                    <p className="text-2xl font-bold text-foreground">{statsData.participants?.A ?? 0}</p>
+                    <p className="text-xs text-muted-foreground">Variante A</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-accent/30 border border-accent/40 text-center">
+                    <p className="text-2xl font-bold text-foreground">{statsData.participants?.B ?? 0}</p>
+                    <p className="text-xs text-muted-foreground">Variante B</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Events by Variant */}
+              <div>
+                <h4 className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" /> Events nach Variante
+                </h4>
+                {(() => {
+                  const evA = (statsData.events?.A || {}) as Record<string, number>;
+                  const evB = (statsData.events?.B || {}) as Record<string, number>;
+                  const allTypes = [...new Set([...Object.keys(evA), ...Object.keys(evB)])];
+
+                  if (allTypes.length === 0) {
+                    return <p className="text-xs text-muted-foreground">Noch keine Events erfasst.</p>;
+                  }
+
+                  return (
+                    <div className="border border-border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/30">
+                            <th className="text-left p-2 text-xs text-muted-foreground font-medium">Event</th>
+                            <th className="text-center p-2 text-xs text-muted-foreground font-medium">A</th>
+                            <th className="text-center p-2 text-xs text-muted-foreground font-medium">B</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allTypes.map(type => (
+                            <tr key={type} className="border-t border-border">
+                              <td className="p-2 text-foreground">{type}</td>
+                              <td className="p-2 text-center font-medium text-foreground">{evA[type] || 0}</td>
+                              <td className="p-2 text-center font-medium text-foreground">{evB[type] || 0}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Keine Daten verfügbar.</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : (data || []).length === 0 ? (
@@ -131,6 +221,9 @@ export default function ExperimentsPage() {
                 {exp.hypothesis && <p className="text-xs text-muted-foreground">{exp.hypothesis as string}</p>}
                 {exp.kpi_name && <p className="text-xs text-muted-foreground">KPI: <strong>{exp.kpi_name as string}</strong></p>}
                 <div className="flex gap-1.5 pt-2">
+                  <Button size="sm" variant="outline" onClick={() => setStatsId(exp.id as string)}>
+                    <BarChart3 className="h-3.5 w-3.5 mr-1" /> Stats
+                  </Button>
                   {exp.status === "draft" && (
                     <Button size="sm" onClick={() => statusMut.mutate({ experimentId: exp.id as string, status: "running" })} disabled={statusMut.isPending}>
                       <Play className="h-3.5 w-3.5 mr-1" /> Starten
