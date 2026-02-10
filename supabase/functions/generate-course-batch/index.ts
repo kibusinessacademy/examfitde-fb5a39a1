@@ -417,11 +417,25 @@ serve(async (req) => {
         ? { type: 'mini_check', html: `<h3>${comp.title}</h3><p>⚠️ Inhalt wird nachgeneriert.</p>`, objectives: [], questions: [], _needs_repair: true }
         : { type: 'text', html: `<h3>${comp.title} - ${stepToGen}</h3><p>⚠️ Inhalt wird nachgeneriert.</p>`, objectives: [], _needs_repair: true });
 
+      // --- OPUS VALIDATION GATE (active!) ---
+      let validationDecision = 'skip';
+      let validationScore = 0;
+      if (!skipValidation && generationId && lessonContent) {
+        const valResult = await validateWithOpus(supabase, lessonContent, comp, stepToGen, generationId);
+        validationDecision = valResult.decision;
+        validationScore = valResult.score;
+        console.log(`[Opus Gate] ${comp.code}/${stepToGen}: ${validationDecision} (${validationScore})`);
+      }
+
+      // Status: validated if Opus approves, otherwise draft (needs repair)
+      const lessonStatus = validationDecision === 'approve' ? 'validated' : 'draft';
+
       await supabase.from('lessons').insert({
         module_id: moduleId, competency_id: comp.id,
         title: `${comp.code}: ${comp.title}`, step: stepToGen,
         content: finalContent,
         duration_minutes: stepDuration, sort_order: lessonSortOrder,
+        status: lessonStatus,
       });
 
       // Count remaining steps for this competency

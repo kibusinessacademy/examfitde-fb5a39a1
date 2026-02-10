@@ -5,12 +5,8 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 /**
  * AI-Tutor – GPT-5.2 Deep Thinking + Opus Post-Validation
  * 
- * Flow:
- * 1. User → Prompt mit SSOT-Context
- * 2. GPT-5.2 → Streaming-Antwort (Token-by-Token)
- * 3. Antwort wird live gestreamt UND gesammelt
- * 4. Nach Stream-Ende: Async Opus-Validierung (post-hoc)
- * 5. Bei Halluzination/Fehler: Korrektur-Event an Client
+ * SSOT-Konform: Context wird serverseitig per IDs geladen,
+ * Client-Textfelder werden ignoriert.
  */
 
 const AI_MODES = {
@@ -77,15 +73,105 @@ async function sha256(message: string): Promise<string> {
 }
 
 /**
- * Post-hoc Opus Validation – runs AFTER streaming completes.
- * If issues found, logs correction for client polling.
+ * SSOT Context Loader – loads context server-side by IDs
+ * Client sends IDs only; all text fields are loaded from DB.
+ */
+async function loadSSOTContext(
+  supabase: ReturnType<typeof createClient>,
+  context: Record<string, unknown>
+): Promise<{ contextPrompt: string; resolvedContext: Record<string, unknown> }> {
+  const { curriculumId, learningFieldId, competencyId, lessonId, lessonStep, miniCheckScore } = context;
+  
+  const resolved: Record<string, unknown> = {};
+  const parts: string[] = [];
+
+  // Load curriculum
+  if (curriculumId) {
+    const { data } = await supabase
+      .from('curricula')
+      .select('id, title, curriculum_code, profession_title')
+      .eq('id', curriculumId)
+      .single();
+    if (data) {
+      resolved.curriculum = data;
+      parts.push(`Curriculum: ${data.title} (${data.curriculum_code})`);
+      if (data.profession_title) parts.push(`Beruf: ${data.profession_title}`);
+    }
+  }
+
+  // Load learning field
+  if (learningFieldId) {
+    const { data } = await supabase
+      .from('learning_fields')
+      .select('id, title, code, description')
+      .eq('id', learningFieldId)
+      .single();
+    if (data) {
+      resolved.learningField = data;
+      parts.push(`Lernfeld ${data.code}: ${data.title}`);
+      if (data.description) parts.push(`Beschreibung: ${data.description}`);
+    }
+  }
+
+  // Load competency
+  if (competencyId) {
+    const { data } = await supabase
+      .from('competencies')
+      .select('id, title, code, description, taxonomy_level')
+      .eq('id', competencyId)
+      .single();
+    if (data) {
+      resolved.competency = data;
+      parts.push(`Kompetenz ${data.code}: ${data.title}`);
+      if (data.taxonomy_level) parts.push(`Taxonomie: ${data.taxonomy_level}`);
+      if (data.description) parts.push(`Beschreibung: ${data.description}`);
+    }
+  }
+
+  // Load lesson content (actual SSOT content for the tutor to reference)
+  if (lessonId) {
+    const { data } = await supabase
+      .from('lessons')
+      .select('id, title, step, content, competency_id')
+      .eq('id', lessonId)
+      .single();
+    if (data) {
+      resolved.lesson = { id: data.id, title: data.title, step: data.step };
+      parts.push(`Lektion: ${data.title} (Schritt: ${data.step})`);
+      // Include lesson objectives for context (not full HTML)
+      const content = data.content as Record<string, unknown> | null;
+      if (content?.objectives) {
+        parts.push(`Lernziele: ${(content.objectives as string[]).join(', ')}`);
+      }
+    }
+  }
+
+  if (lessonStep) {
+    parts.push(`Aktueller Schritt: ${lessonStep}`);
+    resolved.lessonStep = lessonStep;
+  }
+
+  if (miniCheckScore !== undefined && miniCheckScore !== null) {
+    parts.push(`MiniCheck-Ergebnis: ${miniCheckScore}%`);
+    resolved.miniCheckScore = miniCheckScore;
+  }
+
+  const contextPrompt = parts.length > 0
+    ? `\n\n--- SSOT-KONTEXT (serverseitig geladen) ---\n${parts.join('\n')}`
+    : '';
+
+  return { contextPrompt, resolvedContext: resolved };
+}
+
+/**
+ * Post-hoc Opus Validation
  */
 async function postValidateTutorResponse(
   supabase: ReturnType<typeof createClient>,
   userId: string,
   prompt: string,
   response: string,
-  context: Record<string, unknown>,
+  resolvedContext: Record<string, unknown>,
   generationId: string,
 ) {
   const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
@@ -101,10 +187,10 @@ async function postValidateTutorResponse(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514", // Fast model for real-time validation
+        model: "claude-sonnet-4-20250514",
         max_tokens: 1024,
         system: `Du prüfst eine KI-Tutor-Antwort auf fachliche Korrektheit. SCHNELL und PRÄZISE.
-Kontext: ${JSON.stringify(context)}
+Kontext: ${JSON.stringify(resolvedContext)}
 
 PRÜFE:
 1. Alle Fakten korrekt?
@@ -118,7 +204,6 @@ Antworte NUR mit JSON:
     });
 
     const latencyMs = Date.now() - startTime;
-
     if (!valResp.ok) return;
 
     const valData = await valResp.json();
@@ -129,7 +214,6 @@ Antworte NUR mit JSON:
       result = JSON.parse(rawText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
     } catch { return; }
 
-    // Save validation result
     await supabase.from("ai_validations").insert({
       generation_id: generationId,
       validator_model: "claude-sonnet-4-20250514",
@@ -146,14 +230,12 @@ Antworte NUR mit JSON:
       latency_ms: latencyMs,
     });
 
-    // Update generation with validation result
     await supabase.from("ai_generations").update({
       validation_decision: result.decision,
       validation_score: result.score,
       status: result.decision === "approve" ? "validated" : "draft",
     }).eq("id", generationId);
 
-    // If correction needed, log for potential client notification
     if (result.correction_needed && result.correction) {
       console.log(`[Tutor PostVal] Correction needed for generation ${generationId}: ${result.correction}`);
     }
@@ -171,7 +253,6 @@ serve(async (req) => {
 
   try {
     const { message, mode, role = 'explainer', sessionId, sessionType = 'learning', conversationHistory = [], context = {} } = await req.json();
-    const { curriculumTitle, learningFieldTitle, competencyTitle, lessonTitle, lessonStep, miniCheckScore } = context;
 
     const validMode = Object.values(AI_MODES).includes(mode) ? mode : AI_MODES.LEARNING;
     const validRole = Object.values(AI_ROLES).includes(role) ? role : AI_ROLES.EXPLAINER;
@@ -200,20 +281,13 @@ serve(async (req) => {
       });
     }
 
-    // Build system prompt with SSOT context
+    // ── SSOT Context Loader (server-side) ──
+    // Client sends IDs: curriculumId, learningFieldId, competencyId, lessonId
+    // Server loads actual data from DB → prevents client manipulation
+    const { contextPrompt, resolvedContext } = await loadSSOTContext(supabase, context);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    let contextPrompt = '';
-    if (curriculumTitle || competencyTitle || lessonTitle) {
-      contextPrompt = `\n\n--- SSOT-KONTEXT ---`;
-      if (curriculumTitle) contextPrompt += `\nCurriculum: ${curriculumTitle}`;
-      if (learningFieldTitle) contextPrompt += `\nLernfeld: ${learningFieldTitle}`;
-      if (competencyTitle) contextPrompt += `\nKompetenz: ${competencyTitle}`;
-      if (lessonTitle) contextPrompt += `\nLektion: ${lessonTitle}`;
-      if (lessonStep) contextPrompt += `\nSchritt: ${lessonStep}`;
-      if (miniCheckScore !== undefined) contextPrompt += `\nMiniCheck: ${miniCheckScore}%`;
-    }
 
     const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt;
     const messages = [
@@ -226,7 +300,7 @@ serve(async (req) => {
     const { data: genRecord } = await supabase.from("ai_generations").insert({
       entity_type: "tutor_response",
       generator_model: "openai/gpt-5.2",
-      input_context: { mode: validMode, role: validRole, context, prompt: message },
+      input_context: { mode: validMode, role: validRole, context: resolvedContext, prompt: message },
       output_content: {},
       status: "generated",
       created_by: user.id,
@@ -294,19 +368,16 @@ serve(async (req) => {
       } finally {
         writer.close();
 
-        // Update generation with full response
         if (generationId) {
           await supabase.from("ai_generations").update({
             output_content: { response: fullResponse },
           }).eq("id", generationId);
         }
 
-        // Background: audit logging
         logInteraction(supabase, user.id, sessionId, sessionType, validMode, message, fullResponse, 0, false, null, conversationHistory.length).catch(console.error);
 
-        // Background: async Opus post-validation (non-blocking)
         if (generationId && validMode !== AI_MODES.EXAM) {
-          postValidateTutorResponse(supabase, user.id, message, fullResponse, context, generationId).catch(console.error);
+          postValidateTutorResponse(supabase, user.id, message, fullResponse, resolvedContext, generationId).catch(console.error);
         }
       }
     })();
