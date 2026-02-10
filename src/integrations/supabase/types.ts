@@ -4318,42 +4318,60 @@ export type Database = {
           content: Json | null
           created_at: string
           duration_minutes: number | null
+          exam_block: Json | null
           h5p_content_id: string | null
           id: string
+          minicheck_parsed: boolean | null
           module_id: string
           qc_status: string | null
+          quarantine_reason: string | null
+          quarantine_status: string | null
+          quarantined_at: string | null
           sort_order: number | null
           status: string
           step: Database["public"]["Enums"]["lesson_step"]
           title: string
+          weight_tag: string | null
         }
         Insert: {
           competency_id?: string | null
           content?: Json | null
           created_at?: string
           duration_minutes?: number | null
+          exam_block?: Json | null
           h5p_content_id?: string | null
           id?: string
+          minicheck_parsed?: boolean | null
           module_id: string
           qc_status?: string | null
+          quarantine_reason?: string | null
+          quarantine_status?: string | null
+          quarantined_at?: string | null
           sort_order?: number | null
           status?: string
           step: Database["public"]["Enums"]["lesson_step"]
           title: string
+          weight_tag?: string | null
         }
         Update: {
           competency_id?: string | null
           content?: Json | null
           created_at?: string
           duration_minutes?: number | null
+          exam_block?: Json | null
           h5p_content_id?: string | null
           id?: string
+          minicheck_parsed?: boolean | null
           module_id?: string
           qc_status?: string | null
+          quarantine_reason?: string | null
+          quarantine_status?: string | null
+          quarantined_at?: string | null
           sort_order?: number | null
           status?: string
           step?: Database["public"]["Enums"]["lesson_step"]
           title?: string
+          weight_tag?: string | null
         }
         Relationships: [
           {
@@ -4861,31 +4879,40 @@ export type Database = {
       }
       minicheck_questions: {
         Row: {
+          competency_id: string | null
           correct_answer: number
           created_at: string
+          difficulty: string | null
           explanation: string | null
           id: string
           lesson_id: string
           options: Json
           question_text: string
+          sort_order: number | null
         }
         Insert: {
+          competency_id?: string | null
           correct_answer: number
           created_at?: string
+          difficulty?: string | null
           explanation?: string | null
           id?: string
           lesson_id: string
           options: Json
           question_text: string
+          sort_order?: number | null
         }
         Update: {
+          competency_id?: string | null
           correct_answer?: number
           created_at?: string
+          difficulty?: string | null
           explanation?: string | null
           id?: string
           lesson_id?: string
           options?: Json
           question_text?: string
+          sort_order?: number | null
         }
         Relationships: [
           {
@@ -5673,6 +5700,53 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: []
+      }
+      qc_run_results: {
+        Row: {
+          completed_at: string | null
+          course_id: string
+          created_at: string
+          fixes_applied: Json | null
+          id: string
+          issues: Json | null
+          run_type: string
+          started_at: string
+          stats: Json | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          course_id: string
+          created_at?: string
+          fixes_applied?: Json | null
+          id?: string
+          issues?: Json | null
+          run_type: string
+          started_at?: string
+          stats?: Json | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          course_id?: string
+          created_at?: string
+          fixes_applied?: Json | null
+          id?: string
+          issues?: Json | null
+          run_type?: string
+          started_at?: string
+          stats?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qc_run_results_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       qm_documents: {
         Row: {
