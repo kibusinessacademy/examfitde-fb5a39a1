@@ -1552,6 +1552,39 @@ export type Database = {
         }
         Relationships: []
       }
+      council_autopilot_settings: {
+        Row: {
+          allowed_actions: Json
+          council_id: string
+          created_at: string
+          enabled: boolean
+          max_daily_actions: number
+          requires_approval_above_risk: string
+          risk_threshold: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_actions?: Json
+          council_id: string
+          created_at?: string
+          enabled?: boolean
+          max_daily_actions?: number
+          requires_approval_above_risk?: string
+          risk_threshold?: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_actions?: Json
+          council_id?: string
+          created_at?: string
+          enabled?: boolean
+          max_daily_actions?: number
+          requires_approval_above_risk?: string
+          risk_threshold?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       council_decisions: {
         Row: {
           approvals: Json | null
@@ -2414,6 +2447,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      decision_items: {
+        Row: {
+          council_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          description: string | null
+          effort_score: number
+          id: string
+          impact_score: number
+          payload: Json
+          priority_score: number
+          requires_approval: boolean
+          risk_score: number
+          source_id: string | null
+          source_type: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          council_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          description?: string | null
+          effort_score?: number
+          id?: string
+          impact_score?: number
+          payload?: Json
+          priority_score?: number
+          requires_approval?: boolean
+          risk_score?: number
+          source_id?: string | null
+          source_type?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          council_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          description?: string | null
+          effort_score?: number
+          id?: string
+          impact_score?: number
+          payload?: Json
+          priority_score?: number
+          requires_approval?: boolean
+          risk_score?: number
+          source_id?: string | null
+          source_type?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       email_campaigns: {
         Row: {
@@ -5321,6 +5417,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      risk_scores: {
+        Row: {
+          computed_at: string
+          evidence: Json
+          id: string
+          risk_type: string
+          scope: string
+          scope_id: string
+          score: number
+        }
+        Insert: {
+          computed_at?: string
+          evidence?: Json
+          id?: string
+          risk_type: string
+          scope: string
+          scope_id: string
+          score?: number
+        }
+        Update: {
+          computed_at?: string
+          evidence?: Json
+          id?: string
+          risk_type?: string
+          scope?: string
+          scope_id?: string
+          score?: number
+        }
+        Relationships: []
       }
       seo_settings: {
         Row: {

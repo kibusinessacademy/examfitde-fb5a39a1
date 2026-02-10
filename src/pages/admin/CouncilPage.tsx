@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Activity, AlertTriangle, CheckCircle2, Pause, Play,
-  ArrowUpRight, Shield, Brain, TrendingUp, Loader2, XCircle, Sparkles,
+  ArrowUpRight, Shield, Brain, TrendingUp, Loader2, XCircle, Sparkles, Cpu,
 } from "lucide-react";
 
 type CouncilId =
@@ -53,6 +54,30 @@ export default function CouncilPage() {
     },
     enabled: councilId === "education",
   });
+
+  const { data: autopilot, refetch: refetchAutopilot } = useQuery({
+    queryKey: ["council-autopilot", councilId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("council_autopilot_settings")
+        .select("*")
+        .eq("council_id", councilId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!councilId,
+  });
+
+  const toggleAutopilot = useCallback(async (enabled: boolean) => {
+    const { error } = await supabase
+      .from("council_autopilot_settings")
+      .update({ enabled })
+      .eq("council_id", councilId!);
+    if (error) { toast.error("Fehler: " + error.message); return; }
+    toast.success(enabled ? "Autopilot aktiviert" : "Autopilot deaktiviert");
+    refetchAutopilot();
+  }, [councilId, refetchAutopilot]);
 
   const { data: snapshot, isLoading } = useQuery({
     queryKey: ["council-snapshot", councilId],
@@ -160,6 +185,39 @@ export default function CouncilPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Autopilot */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Cpu className="h-4 w-4 text-primary" /> Autopilot
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Autopilot {autopilot?.enabled ? "aktiv" : "deaktiviert"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Max. {autopilot?.max_daily_actions ?? 10} Aktionen/Tag · Risiko-Schwelle: {autopilot?.risk_threshold ?? "medium"}
+              </p>
+              {autopilot?.allowed_actions && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {(autopilot.allowed_actions as string[]).map((a: string) => (
+                    <Badge key={a} variant="secondary" className="text-xs">{a}</Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Switch
+              checked={!!autopilot?.enabled}
+              onCheckedChange={toggleAutopilot}
+              disabled={killSwitch}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* KPIs */}
       {isLoading ? (
