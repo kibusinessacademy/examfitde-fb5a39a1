@@ -42,7 +42,7 @@ interface CourseProgress {
 }
 
 export default function LearnerDashboard() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { data: dashboardStats } = useDashboardStats();
   const [enrollments, setEnrollments] = useState<EnrolledCourse[]>([]);
   const [progress, setProgress] = useState<Map<string, CourseProgress>>(new Map());
@@ -167,6 +167,14 @@ export default function LearnerDashboard() {
           <p className="text-muted-foreground">
             Hier ist eine Übersicht deiner Lernfortschritte.
           </p>
+          {isAdmin && (
+            <Link to="/admin-v2/dashboard">
+              <Button variant="outline" size="sm" className="mt-3">
+                <Sparkles className="h-4 w-4 mr-2" />
+                Admin Control Center öffnen
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Readiness Widget - shows adaptive recommendations */}
