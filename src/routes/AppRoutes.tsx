@@ -101,6 +101,9 @@ const CourseExportsPage = lazy(() => import('@/pages/admin/CourseExportsPage'));
 // QC Dashboard
 const QCDashboardPage = lazy(() => import('@/pages/admin/QCDashboardPage'));
 
+// Validation Dashboard (LLM Council)
+const ValidationDashboardPage = lazy(() => import('@/pages/admin/ValidationDashboardPage'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
@@ -242,6 +245,8 @@ const AppRoutes = () => {
           <Route path="exports" element={<CourseExportsPage />} />
           {/* QC Dashboard */}
           <Route path="qc-dashboard" element={<QCDashboardPage />} />
+          {/* LLM Council Validation Dashboard */}
+          <Route path="validation" element={<ValidationDashboardPage />} />
         </Route>
 
         {/* Admin Redirects */}
