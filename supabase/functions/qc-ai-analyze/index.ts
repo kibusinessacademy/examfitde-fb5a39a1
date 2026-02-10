@@ -23,12 +23,31 @@ serve(async (req) => {
   }
 
   try {
-    const { systemPrompt, userPrompt, provider, model } = await req.json();
+    const body = await req.json();
+    let { systemPrompt, userPrompt, provider, model } = body;
 
     if (!systemPrompt || !userPrompt) {
       return new Response(JSON.stringify({ error: "systemPrompt and userPrompt required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Input validation & sanitization
+    const MAX_SYSTEM_PROMPT = 10000;
+    const MAX_USER_PROMPT = 500000; // snapshot JSON can be large
+    if (typeof systemPrompt !== "string" || typeof userPrompt !== "string") {
+      return new Response(JSON.stringify({ error: "Prompts must be strings" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    systemPrompt = systemPrompt.slice(0, MAX_SYSTEM_PROMPT);
+    userPrompt = userPrompt.slice(0, MAX_USER_PROMPT);
+
+    const ALLOWED_PROVIDERS = ["lovable", "openai", "deepseek", "anthropic"];
+    if (provider && !ALLOWED_PROVIDERS.includes(provider)) {
+      return new Response(JSON.stringify({ error: `Invalid provider. Allowed: ${ALLOWED_PROVIDERS.join(", ")}` }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 

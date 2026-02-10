@@ -42,6 +42,7 @@ export default function QCDashboardPage() {
   const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
+  const MAX_PROMPT_LENGTH = 5000;
 
   // Fetch courses for selector
   const { data: courses } = useQuery({
@@ -90,8 +91,14 @@ Analysiere den folgenden Snapshot und erstelle einen strukturierten Qualitätsbe
 
 Antworte auf Deutsch. Sei kritisch aber konstruktiv.`;
 
-    const userPrompt = customPrompt 
-      ? `${customPrompt}\n\nSnapshot:\n${JSON.stringify(snapshot, null, 2)}`
+    // Sanitize custom prompt: trim, enforce length limit, strip HTML-like tags
+    const sanitizedPrompt = customPrompt
+      .trim()
+      .slice(0, MAX_PROMPT_LENGTH)
+      .replace(/[<>]/g, '');
+
+    const userPrompt = sanitizedPrompt
+      ? `${sanitizedPrompt}\n\nSnapshot:\n${JSON.stringify(snapshot, null, 2)}`
       : `Analysiere diesen QC-Snapshot:\n\n${JSON.stringify(snapshot, null, 2)}`;
 
     try {
@@ -327,12 +334,16 @@ Antworte auf Deutsch. Sei kritisch aber konstruktiv.`;
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Textarea
-                  placeholder="Optionaler Custom Prompt (z.B. 'Fokussiere auf MiniCheck-Qualität')…"
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  rows={2}
-                />
+                <div>
+                  <Textarea
+                    placeholder="Optionaler Custom Prompt (z.B. 'Fokussiere auf MiniCheck-Qualität')…"
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value.slice(0, MAX_PROMPT_LENGTH))}
+                    rows={2}
+                    maxLength={MAX_PROMPT_LENGTH}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{customPrompt.length}/{MAX_PROMPT_LENGTH}</p>
+                </div>
                 <Button onClick={runAIAnalysis} disabled={isAnalyzing}>
                   {isAnalyzing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                   {isAnalyzing ? "Analysiere…" : "AI-Analyse starten"}
