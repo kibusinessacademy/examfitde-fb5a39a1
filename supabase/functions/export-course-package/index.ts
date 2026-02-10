@@ -116,19 +116,27 @@ serve(async (req) => {
         .maybeSingle();
 
       // Build structured data
-      const structuredLessons: LessonData[] = (lessons || []).map((l: any) => ({
-        id: l.id,
-        title: l.title,
-        step: l.step,
-        sort_order: l.sort_order,
-        objectives: l.content?.objectives || l.objectives || [],
-        html: l.content?.html || l.html || "",
-        weight_tag: l.content?.weight_tag || l.weight_tag || null,
-        exam_block: l.content?.exam_block || l.exam_block || null,
-        minicheck_questions: miniChecks.filter((q: any) => q.lesson_id === l.id),
-        module_title: l.modules?.title || "Unknown",
-        module_sort_order: l.modules?.sort_order || 0,
-      }));
+      const structuredLessons: LessonData[] = (lessons || []).map((l: any) => {
+        const c = l.content || {};
+        const html = typeof c.html === "string" ? c.html : "";
+        const objectives = Array.isArray(c.objectives) ? c.objectives : [];
+        const exam_block = typeof c.exam_block === "string" ? c.exam_block : null;
+        const weight_tag = typeof c.weight_tag === "string" ? c.weight_tag : null;
+
+        return {
+          id: l.id,
+          title: l.title,
+          step: l.step,
+          sort_order: l.sort_order,
+          objectives,
+          html,
+          weight_tag,
+          exam_block,
+          minicheck_questions: miniChecks.filter((q: any) => q.lesson_id === l.id),
+          module_title: l.modules?.title || "Unknown",
+          module_sort_order: l.modules?.sort_order || 0,
+        };
+      });
 
       const exportPayload = {
         exportedAt: new Date().toISOString(),
