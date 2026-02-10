@@ -221,6 +221,12 @@ export default function AdminDashboard() {
         </div>
       </section>
 
+      {/* Decision Queue */}
+      <DecisionQueue />
+
+      {/* Risk Overview */}
+      <RiskOverview />
+
       {/* Quick Actions */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Quick Actions</h2>
@@ -233,6 +239,111 @@ export default function AdminDashboard() {
         </div>
       </section>
     </div>
+  );
+}
+
+function DecisionQueue() {
+  const [decisions, setDecisions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data, error } = await supabase.functions.invoke('decision-engine', {
+          body: { action: 'aggregate' },
+        });
+        if (!error && data?.decisions) setDecisions(data.decisions);
+      } catch (e) {
+        console.error('Decision engine error:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const handleDecide = async (itemId: string, decision: string) => {
+    await supabase.functions.invoke('decision-engine', {
+      body: { action: 'decide', itemId, decision },
+    });
+    setDecisions(prev => prev.filter(d => d.id !== itemId));
+  };
+
+  if (loading) return <Skeleton className="h-32 w-full" />;
+  if (decisions.length === 0) return null;
+
+  return (
+    <section>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+        <Brain className="h-3.5 w-3.5" /> Decision Queue
+      </h2>
+      <div className="space-y-3">
+        {decisions.map((d: any) => (
+          <Card key={d.id} className="glass-card">
+            <CardContent className="pt-4 flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-xs">{d.council_id}</Badge>
+                  <span className="text-xs text-muted-foreground">Impact: {d.impact_score} · Risk: {d.risk_score}</span>
+                </div>
+                <p className="text-sm font-medium text-foreground truncate">{d.title}</p>
+                {d.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{d.description}</p>}
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" variant="outline" onClick={() => handleDecide(d.id, 'approved')}>
+                  <CheckCircle2 className="h-3 w-3 mr-1" /> Genehmigen
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => handleDecide(d.id, 'dismissed')}>
+                  <XCircle className="h-3 w-3 mr-1" /> Ablehnen
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RiskOverview() {
+  const [risks, setRisks] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data, error } = await supabase.functions.invoke('decision-engine', {
+          body: { action: 'aggregate' },
+        });
+        if (!error && data?.risks) setRisks(data.risks);
+      } catch (e) { /* silent */ }
+    }
+    load();
+  }, []);
+
+  if (risks.length === 0) return null;
+
+  return (
+    <section>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+        <AlertTriangle className="h-3.5 w-3.5" /> Risiko-Übersicht
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {risks.map((r: any) => (
+          <Card key={`${r.scope}-${r.scope_id}-${r.risk_type}`} className="glass-card">
+            <CardContent className="pt-5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground font-medium uppercase">{r.risk_type.replace('_', ' ')}</p>
+                <Badge variant={r.score > 60 ? 'destructive' : r.score > 30 ? 'outline' : 'secondary'} className="text-xs">
+                  {r.score}
+                </Badge>
+              </div>
+              <Progress value={r.score} className={`h-2 ${r.score > 60 ? '[&>div]:bg-destructive' : r.score > 30 ? '[&>div]:bg-warning' : ''}`} />
+              <p className="text-xs text-muted-foreground mt-2">{r.scope_id}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
   );
 }
 
