@@ -36,7 +36,7 @@ export function LegalDisclaimerCompact({ className = '' }: { className?: string 
  * 
  * ✅ ERLAUBT (beschreibende Nutzung):
  * - "Prüfungsvorbereitung für die IHK-Prüfung"
- * - "Lernkurs basierend auf IHK-Rahmenlehrplänen"
+ * - "Prüfungstraining basierend auf IHK-Rahmenlehrplänen"
  * - "Prüfungstrainer für IHK-Abschlussprüfungen"
  * - "Vorbereitung auf die schriftliche IHK-Prüfung"
  * - "Mündliche Prüfung – typischer Ablauf bei der IHK"
@@ -62,7 +62,7 @@ export function LegalDisclaimerCompact({ className = '' }: { className?: string 
 export const IHK_TEXT_GUIDELINES = {
   allowed: [
     'Prüfungsvorbereitung für die IHK-Prüfung',
-    'Lernkurs basierend auf IHK-Rahmenlehrplänen',
+    'Prüfungstraining basierend auf IHK-Rahmenlehrplänen',
     'Prüfungstrainer für IHK-Abschlussprüfungen',
     'Vorbereitung auf die IHK-Abschlussprüfung',
     'Fragen orientiert an IHK-Prüfungsstandards',

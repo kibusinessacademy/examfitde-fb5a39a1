@@ -89,11 +89,11 @@ export default function DatenschutzPage() {
               </ul>
             </section>
 
-            {/* Lernfortschritt */}
+            {/* Prüfungsfortschritt */}
             <section>
-              <h2 className="text-xl font-semibold mb-4">3. Verarbeitung von Lernfortschrittsdaten</h2>
+              <h2 className="text-xl font-semibold mb-4">3. Verarbeitung von Prüfungsfortschrittsdaten</h2>
               <p className="text-muted-foreground mb-3">
-                Zur Bereitstellung unserer Lernplattform verarbeiten wir:
+                Zur Bereitstellung unseres Prüfungstrainings verarbeiten wir:
               </p>
               <ul className="list-disc list-inside text-muted-foreground mb-3 ml-4 space-y-1">
                 <li>Antworten auf Übungsfragen und deren Korrektheit</li>
