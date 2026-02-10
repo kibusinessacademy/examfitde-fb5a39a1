@@ -86,32 +86,49 @@ export default function CourseCreate() {
     }));
   };
 
+  const STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'] as const;
+
   const processCompetencies = useCallback(async (
     courseId: string,
     curriculumId: string,
     comps: CompLog[],
   ) => {
+    const totalSteps = comps.length * STEPS.length;
+    let completedSteps = 0;
+
     for (let i = 0; i < comps.length; i++) {
       const c = comps[i];
-      if (c.status === 'done') continue; // skip already done (for retry)
+      if (c.status === 'done') { completedSteps += STEPS.length; continue; }
 
-      setCurrentLabel(`${c.lfCode} → ${c.compCode}`);
-      setProgress(Math.round((i / comps.length) * 95));
       setCompLogs(prev => prev.map((log, idx) => idx === i ? { ...log, status: 'running' } : log));
+      let stepsDone = 0;
+      let hasError = false;
 
-      try {
-        const { data, error } = await supabase.functions.invoke('generate-course-batch', {
-          body: { courseId, curriculumId, learningFieldId: c.lfId, competencyId: c.compId },
-        });
-        if (error) throw error;
-        setCompLogs(prev => prev.map((log, idx) => idx === i ? { ...log, status: 'done', lessons: data?.lessonsCreated || 0 } : log));
-      } catch (err) {
-        console.error(`Error for ${c.compCode}:`, err);
-        setCompLogs(prev => prev.map((log, idx) => idx === i ? { ...log, status: 'error' } : log));
+      for (const s of STEPS) {
+        setCurrentLabel(`${c.lfCode} → ${c.compCode} / ${s}`);
+        setProgress(Math.round((completedSteps / totalSteps) * 95));
+
+        try {
+          const { data, error } = await supabase.functions.invoke('generate-course-batch', {
+            body: { courseId, curriculumId, learningFieldId: c.lfId, competencyId: c.compId, step: s },
+          });
+          if (error) throw error;
+          if (data?.skipped) { /* already exists */ }
+          stepsDone++;
+        } catch (err) {
+          console.error(`Error for ${c.compCode}/${s}:`, err);
+          hasError = true;
+        }
+        completedSteps++;
       }
+
+      setCompLogs(prev => prev.map((log, idx) =>
+        idx === i ? { ...log, status: hasError ? 'error' : 'done', lessons: stepsDone } : log
+      ));
     }
 
     // Finalize (includes Auto-QC: qc-snapshot + validate-content + ihk-quality-audit)
+    setCurrentLabel('Finalize + Auto-QC...');
     const { data: finalData } = await supabase.functions.invoke('generate-course-batch', {
       body: { courseId, curriculumId },
     });
