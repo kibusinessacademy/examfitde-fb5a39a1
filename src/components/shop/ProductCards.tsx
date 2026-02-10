@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Check, BookOpen, GraduationCap, Brain, Mic, Sparkles } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Check, Target, Brain, Mic, Sparkles, GraduationCap, BookOpen, Shield, Clock } from 'lucide-react';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
@@ -13,12 +13,14 @@ interface ProductCardProps {
   curriculumId: string;
 }
 
-const FEATURES = {
-  learning_course: { icon: BookOpen, label: 'Prüfungswissen', description: 'Prüfungsrelevantes Wissen basierend auf Rahmenlehrplänen' },
-  exam_trainer: { icon: GraduationCap, label: 'Prüfungssimulation', description: 'Prüfungssimulation nach Kammerstandards' },
-  ai_tutor: { icon: Brain, label: 'KI-Prüfungscoach', description: 'Intelligente Prüfungsvorbereitung' },
-  oral_trainer: { icon: Mic, label: 'Mündliche Prüfung', description: 'Simulation mit KI-Feedback' },
-};
+const ALL_FEATURES = [
+  { icon: Target, label: 'Prüfungssimulation (schriftlich & mündlich)' },
+  { icon: Brain, label: 'KI-Prüfungscoach mit Feedback' },
+  { icon: GraduationCap, label: 'Adaptive Schwächenanalyse' },
+  { icon: BookOpen, label: 'Prüfungswissen kompakt' },
+  { icon: Shield, label: 'Prüfungsreife-Indikator' },
+  { icon: Mic, label: 'Mündliche Prüfung üben' },
+];
 
 function formatPrice(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
@@ -28,27 +30,23 @@ export function ProductCards({ curriculumId }: ProductCardProps) {
   const { data: products, isLoading } = useShopProducts();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
+  const [quantity, setQuantity] = useState(1);
   const { initiateCheckout, isLoading: checkoutLoading } = useCheckout();
 
-  const handleQuantityChange = (productId: string, value: number[]) => {
-    setSelectedQuantities(prev => ({ ...prev, [productId]: value[0] }));
-  };
+  // Single-product strategy: use bundle or first available product
+  const mainProduct = products?.find(p => p.product_key === 'bundle') || products?.[0];
 
-  const handleCheckout = async (productKey: string) => {
+  const handleCheckout = async () => {
     if (!user) {
       toast.error('Bitte melde dich an');
       navigate('/auth');
       return;
     }
 
-    const product = products?.find(p => p.product_key === productKey);
-    if (!product) return;
-
-    const quantity = selectedQuantities[product.id] || 1;
+    if (!mainProduct) return;
 
     try {
-      await initiateCheckout(productKey, curriculumId, quantity);
+      await initiateCheckout(mainProduct.product_key, curriculumId, quantity);
       toast.success('Checkout gestartet');
     } catch {
       toast.error('Checkout fehlgeschlagen');
@@ -57,32 +55,30 @@ export function ProductCards({ curriculumId }: ProductCardProps) {
 
   if (isLoading) {
     return (
-      <div className="grid gap-6 md:grid-cols-3">
-        {[1, 2, 3].map(i => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader className="h-32 bg-muted/50" />
-            <CardContent className="h-48 bg-muted/30" />
-          </Card>
-        ))}
+      <div className="max-w-lg mx-auto">
+        <Card className="animate-pulse">
+          <CardHeader className="h-32 bg-muted/50" />
+          <CardContent className="h-48 bg-muted/30" />
+        </Card>
       </div>
     );
   }
 
-  return (
-    <div className="grid gap-6 md:grid-cols-3">
-      {products?.map(product => (
-        <ProductCard
-          key={product.id}
-          product={product}
-          quantity={selectedQuantities[product.id] || 1}
-          onQuantityChange={(val) => handleQuantityChange(product.id, val)}
-          onCheckout={() => handleCheckout(product.product_key)}
-          isCheckoutLoading={checkoutLoading}
-          isRecommended={product.product_key === 'bundle'}
-        />
-      ))}
-    </div>
-  );
+  if (!mainProduct) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Keine Produkte verfügbar.
+      </div>
+    );
+  }
+
+  return <SingleProductCard
+    product={mainProduct}
+    quantity={quantity}
+    onQuantityChange={(val) => setQuantity(val[0])}
+    onCheckout={handleCheckout}
+    isCheckoutLoading={checkoutLoading}
+  />;
 }
 
 interface SingleProductCardProps {
@@ -91,113 +87,107 @@ interface SingleProductCardProps {
     product_key: string;
     name: string;
     description: string | null;
-    includes_learning_course: boolean;
-    includes_exam_trainer: boolean;
-    includes_ai_tutor: boolean;
-    includes_oral_trainer: boolean;
   };
   quantity: number;
   onQuantityChange: (value: number[]) => void;
   onCheckout: () => void;
   isCheckoutLoading: boolean;
-  isRecommended?: boolean;
 }
 
-function ProductCard({
+function SingleProductCard({
   product,
   quantity,
   onQuantityChange,
   onCheckout,
   isCheckoutLoading,
-  isRecommended,
 }: SingleProductCardProps) {
   const { data: priceData } = useCalculatePrice(product.id, quantity);
 
-  const includedFeatures = [
-    product.includes_learning_course && 'learning_course',
-    product.includes_exam_trainer && 'exam_trainer',
-    product.includes_ai_tutor && 'ai_tutor',
-    product.includes_oral_trainer && 'oral_trainer',
-  ].filter(Boolean) as string[];
-
   return (
-    <Card className={`relative flex flex-col ${isRecommended ? 'border-primary ring-2 ring-primary/20' : ''}`}>
-      {isRecommended && (
+    <div className="max-w-lg mx-auto">
+      <Card className="glass-card ring-2 ring-primary relative">
         <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
           <Sparkles className="w-3 h-3 mr-1" />
-          Empfohlen
+          Alles inklusive
         </Badge>
-      )}
-      
-      <CardHeader>
-        <CardTitle className="text-xl">{product.name}</CardTitle>
-        <CardDescription>{product.description}</CardDescription>
-      </CardHeader>
 
-      <CardContent className="flex-1 space-y-6">
-        {/* Features */}
-        <div className="space-y-2">
-          {includedFeatures.map(featureKey => {
-            const feature = FEATURES[featureKey as keyof typeof FEATURES];
-            return (
-              <div key={featureKey} className="flex items-center gap-2 text-sm">
-                <Check className="w-4 h-4 text-primary" />
-                <feature.icon className="w-4 h-4 text-muted-foreground" />
-                <span>{feature.label}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Quantity Selector */}
-        <div className="space-y-3 pt-4 border-t">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Anzahl Lizenzen</span>
-            <Badge variant="secondary" className="text-lg font-bold">
-              {quantity}
-            </Badge>
+        <CardHeader className="text-center pt-8">
+          <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-4 shadow-glow">
+            <Target className="h-8 w-8 text-primary-foreground" />
           </div>
-          <Slider
-            value={[quantity]}
-            onValueChange={onQuantityChange}
-            min={1}
-            max={100}
-            step={1}
-            className="py-2"
-          />
-          {priceData?.tier_name && quantity > 1 && (
-            <p className="text-xs text-primary text-center">
-              {priceData.tier_name} – Du sparst!
-            </p>
-          )}
-        </div>
-
-        {/* Price Display */}
-        <div className="space-y-1 text-center pt-4 border-t">
-          <div className="text-3xl font-bold text-primary">
-            {priceData ? formatPrice(priceData.total_price_cents) : '...'}
-          </div>
-          {quantity > 1 && priceData && (
-            <p className="text-sm text-muted-foreground">
-              {formatPrice(priceData.unit_price_cents)} pro Lizenz
-            </p>
-          )}
-          <p className="text-xs text-muted-foreground">
-            12 Monate Zugang
+          <CardTitle className="text-2xl font-display">Intelligentes Prüfungstraining</CardTitle>
+          <p className="text-muted-foreground mt-2">
+            Alles, was du für die IHK-Abschlussprüfung brauchst – in einem System.
           </p>
-        </div>
-      </CardContent>
+        </CardHeader>
 
-      <CardFooter>
-        <Button
-          className="w-full"
-          size="lg"
-          onClick={onCheckout}
-          disabled={isCheckoutLoading}
-        >
-          {isCheckoutLoading ? 'Wird geladen...' : 'Jetzt kaufen'}
-        </Button>
-      </CardFooter>
-    </Card>
+        <CardContent className="space-y-6">
+          {/* Features */}
+          <ul className="grid sm:grid-cols-2 gap-3">
+            {ALL_FEATURES.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex items-center gap-2 text-sm">
+                <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                <span>{label}</span>
+              </li>
+            ))}
+          </ul>
+
+          {/* Quantity Selector */}
+          <div className="space-y-3 pt-4 border-t border-border">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Anzahl Lizenzen</span>
+              <Badge variant="secondary" className="text-lg font-bold">
+                {quantity}
+              </Badge>
+            </div>
+            <Slider
+              value={[quantity]}
+              onValueChange={onQuantityChange}
+              min={1}
+              max={100}
+              step={1}
+              className="py-2"
+            />
+            {priceData?.tier_name && quantity > 1 && (
+              <p className="text-xs text-primary text-center">
+                {priceData.tier_name} – Du sparst!
+              </p>
+            )}
+            {quantity >= 5 && (
+              <p className="text-xs text-muted-foreground text-center">
+                Ab 5 Lizenzen automatischer Mengenrabatt
+              </p>
+            )}
+          </div>
+
+          {/* Price Display */}
+          <div className="space-y-1 text-center pt-4 border-t border-border">
+            <div className="text-4xl font-display font-bold text-gradient">
+              {priceData ? formatPrice(priceData.total_price_cents) : '39 €'}
+            </div>
+            {quantity > 1 && priceData && (
+              <p className="text-sm text-muted-foreground">
+                {formatPrice(priceData.unit_price_cents)} pro Lizenz
+              </p>
+            )}
+            <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground mt-2">
+              <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> 12 Monate</span>
+              <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Kein Abo</span>
+            </div>
+          </div>
+        </CardContent>
+
+        <CardFooter>
+          <Button
+            className="w-full gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 text-lg"
+            size="lg"
+            onClick={onCheckout}
+            disabled={isCheckoutLoading}
+          >
+            {isCheckoutLoading ? 'Wird geladen...' : 'Jetzt Prüfungstraining starten'}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
 }

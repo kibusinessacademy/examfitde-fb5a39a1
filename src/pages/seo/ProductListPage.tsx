@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { ArrowRight, BookOpen, Target, Award, CheckCircle, Star, Shield, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,65 +8,20 @@ import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useBerufPages } from '@/hooks/useSEOPages';
 import { SITE_URL, PRODUCT_PRICES } from '@/lib/seo';
 
-type ProductType = 'lernkurs' | 'pruefungstrainer' | 'bundle';
+/**
+ * Single-product strategy: All product list pages redirect to one unified product page.
+ * The old 3-tier model (lernkurs, pruefungstrainer, bundle) is consolidated.
+ */
 
-const productConfig: Record<ProductType, {
-  title: string;
-  subtitle: string;
-  description: string;
-  icon: typeof BookOpen;
-  color: string;
-  price: number;
-  features: string[];
-  urlPrefix: string;
-}> = {
-  lernkurs: {
-    title: 'Prüfungswissen',
-    subtitle: 'Prüfungsrelevantes Wissen für deinen Beruf',
-    description: 'Prüfungsrelevantes Wissen für alle IHK-Ausbildungsberufe. Gezielt aufbereitet für die Abschlussprüfung.',
-    icon: BookOpen,
-    color: 'primary',
-    price: PRODUCT_PRICES.lernkurs,
-    features: ['Alle Lernfelder', 'Prüfungsfokus', 'KI-Prüfungscoach', '12 Monate'],
-    urlPrefix: '/lernkurse',
-  },
-  pruefungstrainer: {
-    title: 'Prüfungssimulation',
-    subtitle: 'Trainiere unter realen Prüfungsbedingungen',
-    description: 'Prüfungssimulation für alle IHK-Ausbildungsberufe. Lerne aus deinen Fehlern mit ausführlichen Erklärungen.',
-    icon: Target,
-    color: 'accent',
-    price: PRODUCT_PRICES.pruefungstrainer,
-    features: ['IHK-konforme Aufgaben', 'Schwächenanalyse', 'Simulation', '12 Monate'],
-    urlPrefix: '/pruefungstrainer',
-  },
-  bundle: {
-    title: 'Prüfungstraining komplett',
-    subtitle: 'Prüfungswissen + Simulation + mündliche Prüfung',
-    description: 'Das komplette Prüfungstraining für alle IHK-Ausbildungsberufe. Maximale Prüfungssicherheit.',
-    icon: Award,
-    color: 'success',
-    price: PRODUCT_PRICES.bundle,
-    features: ['Alles inklusive', 'Mündliche Prüfung', 'KI-Prüfungscoach', '12 Monate'],
-    urlPrefix: '/bundle',
-  },
-};
-
-interface ProductListPageProps {
-  productType: ProductType;
-}
-
-function ProductListPageComponent({ productType }: ProductListPageProps) {
+function ProductListPageComponent() {
   const { data: berufe, isLoading } = useBerufPages();
-  const config = productConfig[productType];
-  const Icon = config.icon;
 
   return (
     <>
       <SEOHead
-        title={`${config.title} – IHK-Prüfungsvorbereitung | ExamFit`}
-        description={config.description}
-        canonical={`${SITE_URL}${config.urlPrefix}`}
+        title="Intelligentes Prüfungstraining – IHK-Prüfungsvorbereitung | ExamFit"
+        description="ExamFit Prüfungstraining für alle IHK-Ausbildungsberufe. Prüfungssimulation, KI-Coach, mündliche Prüfung – alles in einem Produkt für 39 €."
+        canonical={`${SITE_URL}/pruefungstraining`}
         type="product"
       />
 
@@ -74,7 +29,7 @@ function ProductListPageComponent({ productType }: ProductListPageProps) {
         <section className="relative py-16 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-accent/10" />
           <div className="container relative z-10">
-            <Breadcrumbs items={[{ label: config.title }]} className="mb-8" />
+            <Breadcrumbs items={[{ label: 'Prüfungstraining' }]} className="mb-8" />
 
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-4">
@@ -82,16 +37,15 @@ function ProductListPageComponent({ productType }: ProductListPageProps) {
                 <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
               </div>
               <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
-                <span className="text-gradient">{config.title}</span>
+                <span className="text-gradient">Intelligentes Prüfungstraining</span>
                 <br />für alle IHK-Berufe
               </h1>
-              <p className="text-xl text-muted-foreground mb-8">{config.subtitle}</p>
+              <p className="text-xl text-muted-foreground mb-8">
+                Alles in einem Produkt: Prüfungssimulation, KI-Coach, mündliche Prüfung & Prüfungswissen.
+              </p>
               <div className="flex items-end gap-3 mb-6">
-                <span className="text-4xl font-bold">{config.price}€</span>
-                <span className="text-muted-foreground mb-1">pro Beruf</span>
-                {productType === 'bundle' && (
-                  <Badge className="mb-1 bg-success text-success-foreground">Spare 9€</Badge>
-                )}
+                <span className="text-4xl font-bold text-gradient">{PRODUCT_PRICES.pruefungstraining} €</span>
+                <span className="text-muted-foreground mb-1">einmalig · 12 Monate</span>
               </div>
               <div className="flex flex-wrap gap-3">
                 <Badge variant="outline" className="py-1.5 px-3">
@@ -101,7 +55,7 @@ function ProductListPageComponent({ productType }: ProductListPageProps) {
                   <Shield className="h-3 w-3 mr-1" />Einmalzahlung
                 </Badge>
                 <Badge variant="outline" className="py-1.5 px-3">
-                  <CheckCircle className="h-3 w-3 mr-1" />IHK-konform
+                  <CheckCircle className="h-3 w-3 mr-1" />Alles inklusive
                 </Badge>
               </div>
             </div>
@@ -123,28 +77,22 @@ function ProductListPageComponent({ productType }: ProductListPageProps) {
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {berufe?.map((beruf) => (
-                  <Link key={beruf.id} to={`${config.urlPrefix}/${beruf.slug}`}>
+                  <Link key={beruf.id} to={`/shop?beruf=${beruf.slug}`}>
                     <Card className="glass-card hover:shadow-glow-sm transition-all h-full group">
                       <CardHeader>
                         <div className="flex items-start justify-between">
-                          <Icon className="h-6 w-6 text-primary" />
-                          <span className="font-bold">{config.price}€</span>
+                          <Target className="h-6 w-6 text-primary" />
+                          <span className="font-bold text-gradient">{PRODUCT_PRICES.pruefungstraining} €</span>
                         </div>
                         <CardTitle className="group-hover:text-primary transition-colors">
                           {beruf.title}
                         </CardTitle>
-                        <CardDescription>{config.title} für die IHK-Prüfung</CardDescription>
+                        <CardDescription>Prüfungstraining für die IHK-Prüfung</CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="flex items-center justify-between">
-                          <div className="flex gap-2">
-                            {config.features.slice(0, 2).map((f, i) => (
-                              <Badge key={i} variant="outline" className="text-xs">{f}</Badge>
-                            ))}
-                          </div>
-                          <span className="text-sm text-primary flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <ArrowRight className="h-4 w-4" />
-                          </span>
+                        <div className="flex gap-2">
+                          <Badge variant="outline" className="text-xs">Alles inklusive</Badge>
+                          <Badge variant="outline" className="text-xs">12 Monate</Badge>
                         </div>
                       </CardContent>
                     </Card>
@@ -155,33 +103,17 @@ function ProductListPageComponent({ productType }: ProductListPageProps) {
           </div>
         </section>
 
-        {productType !== 'bundle' && (
-          <section className="py-16 bg-muted/30">
-            <div className="container max-w-3xl text-center">
-              <Badge variant="outline" className="mb-4">Empfehlung</Badge>
-              <h2 className="text-2xl font-display font-bold mb-4">Spare mit dem Komplett-Bundle</h2>
-              <p className="text-muted-foreground mb-6">
-                Lernkurs + Prüfungstrainer + mündliche Prüfungssimulation für nur {PRODUCT_PRICES.bundle}€.
-                Du sparst {PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer - PRODUCT_PRICES.bundle}€!
-              </p>
-              <Button asChild>
-                <Link to="/bundle">Bundles entdecken <ArrowRight className="ml-2 h-5 w-5" /></Link>
-              </Button>
-            </div>
-          </section>
-        )}
-
         {/* CTA */}
         <section className="py-20 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
           <div className="container text-center">
             <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
-              Starte deine Prüfungsvorbereitung
+              Bereit für die Abschlussprüfung?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
               Einmalzahlung, 12 Monate Zugang. Kein Abo, keine versteckten Kosten.
             </p>
-            <Button size="lg" className="shadow-glow" asChild>
-              <Link to="/shop">Zum Shop <ArrowRight className="ml-2 h-5 w-5" /></Link>
+            <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow" asChild>
+              <Link to="/shop">Zum Prüfungstraining <ArrowRight className="ml-2 h-5 w-5" /></Link>
             </Button>
           </div>
         </section>
@@ -190,17 +122,17 @@ function ProductListPageComponent({ productType }: ProductListPageProps) {
   );
 }
 
-// Named exports for each product type
+// All old product type routes now use the unified page
 export function LernkurseListPage() {
-  return <ProductListPageComponent productType="lernkurs" />;
+  return <Navigate to="/pruefungstraining" replace />;
 }
 
 export function PruefungstrainerListPage() {
-  return <ProductListPageComponent productType="pruefungstrainer" />;
+  return <Navigate to="/pruefungstraining" replace />;
 }
 
 export function BundleListPage() {
-  return <ProductListPageComponent productType="bundle" />;
+  return <Navigate to="/pruefungstraining" replace />;
 }
 
 export default ProductListPageComponent;

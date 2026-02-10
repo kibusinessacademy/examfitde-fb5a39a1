@@ -28,6 +28,7 @@ const BerufePage = lazy(() => import('@/pages/seo/BerufePage'));
 const BerufDetailPage = lazy(() => import('@/pages/seo/BerufDetailPage'));
 const UnternehmenPage = lazy(() => import('@/pages/seo/UnternehmenPage'));
 const PreisePage = lazy(() => import('@/pages/seo/PreisePage'));
+const ProductListPage = lazy(() => import('@/pages/seo/ProductListPage'));
 const LernkurseListPage = lazy(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.LernkurseListPage })));
 const PruefungstrainerListPage = lazy(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.PruefungstrainerListPage })));
 const BundleListPage = lazy(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.BundleListPage })));
@@ -168,6 +169,8 @@ const AppRoutes = () => {
           <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
           <Route path="/berufe" element={<BerufePage />} />
           <Route path="/berufe/:slug" element={<BerufDetailPage />} />
+          {/* Single-product strategy: unified route + legacy redirects */}
+          <Route path="/pruefungstraining" element={<ProductListPage />} />
           <Route path="/lernkurse" element={<LernkurseListPage />} />
           <Route path="/lernkurse/:slug" element={<LernkursDetailPage />} />
           <Route path="/pruefungstrainer" element={<PruefungstrainerListPage />} />
