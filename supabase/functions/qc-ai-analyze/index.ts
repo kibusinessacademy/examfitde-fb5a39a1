@@ -73,6 +73,25 @@ serve(async (req) => {
           stream: true,
         }),
       });
+    } else if (provider === "deepseek") {
+      const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+      if (!DEEPSEEK_API_KEY) throw new Error("DEEPSEEK_API_KEY not configured. Add it in backend secrets.");
+
+      aiResponse = await fetch("https://api.deepseek.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: model || "deepseek-chat",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          stream: true,
+        }),
+      });
     } else if (provider === "anthropic") {
       const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
       if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured. Add it in backend secrets.");
@@ -171,7 +190,7 @@ serve(async (req) => {
       });
     }
 
-    // OpenAI & Lovable: pass through SSE directly
+    // OpenAI, DeepSeek & Lovable: pass through SSE directly (all OpenAI-compatible)
     return new Response(aiResponse.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });

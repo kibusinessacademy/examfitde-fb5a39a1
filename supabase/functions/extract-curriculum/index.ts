@@ -63,7 +63,7 @@ serve(async (req) => {
   // ====================================================
 
   try {
-    const { curriculumId, fileContent, fileName } = await req.json();
+    const { curriculumId, fileContent, fileName, provider } = await req.json();
 
     if (!curriculumId || !fileContent) {
       return new Response(
@@ -72,21 +72,37 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    console.log(`[User: ${auth.user?.id}] Extracting curriculum from file: ${fileName}, provider: ${provider || 'lovable'}`);
+
+    let apiUrl: string;
+    let apiHeaders: Record<string, string>;
+    let model: string;
+
+    if (provider === 'deepseek') {
+      const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+      if (!DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY not configured');
+      apiUrl = 'https://api.deepseek.com/v1/chat/completions';
+      apiHeaders = { Authorization: `Bearer ${DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' };
+      model = 'deepseek-chat';
+    } else if (provider === 'openai') {
+      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+      if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured');
+      apiUrl = 'https://api.openai.com/v1/chat/completions';
+      apiHeaders = { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' };
+      model = 'gpt-4o';
+    } else {
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
+      apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+      apiHeaders = { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' };
+      model = 'google/gemini-3-flash-preview';
     }
 
-    console.log(`[User: ${auth.user?.id}] Extracting curriculum from file: ${fileName}`);
-
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: apiHeaders,
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model,
         messages: [
           { role: 'system', content: systemPrompt },
           { 
@@ -94,7 +110,7 @@ serve(async (req) => {
             content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\nDateiname: ${fileName}\n\nInhalt:\n${fileContent}`
           },
         ],
-        temperature: 0.1, // Low temperature for consistent structured output
+        temperature: 0.1,
       }),
     });
 

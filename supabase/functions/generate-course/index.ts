@@ -33,7 +33,7 @@ serve(async (req) => {
   // ====================================================
 
   try {
-    const { courseId, curriculumId, title, description } = await req.json();
+    const { courseId, curriculumId, title, description, provider } = await req.json();
 
     if (!courseId || !curriculumId) {
       return new Response(
@@ -44,10 +44,30 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    // Resolve AI provider
+    let apiUrl: string;
+    let apiHeaders: Record<string, string>;
+    let aiModel: string;
+
+    if (provider === 'deepseek') {
+      const key = Deno.env.get('DEEPSEEK_API_KEY');
+      if (!key) throw new Error('DEEPSEEK_API_KEY not configured');
+      apiUrl = 'https://api.deepseek.com/v1/chat/completions';
+      apiHeaders = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
+      aiModel = 'deepseek-chat';
+    } else if (provider === 'openai') {
+      const key = Deno.env.get('OPENAI_API_KEY');
+      if (!key) throw new Error('OPENAI_API_KEY not configured');
+      apiUrl = 'https://api.openai.com/v1/chat/completions';
+      apiHeaders = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
+      aiModel = 'gpt-4o';
+    } else {
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
+      apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+      apiHeaders = { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' };
+      aiModel = 'google/gemini-3-flash-preview';
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -115,14 +135,11 @@ serve(async (req) => {
           let lessonContent = null;
           
           try {
-            const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            const aiResponse = await fetch(apiUrl, {
               method: 'POST',
-              headers: {
-                Authorization: `Bearer ${LOVABLE_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
+              headers: apiHeaders,
               body: JSON.stringify({
-                model: 'google/gemini-3-flash-preview',
+                model: aiModel,
                 messages: [
                   {
                     role: 'system',
