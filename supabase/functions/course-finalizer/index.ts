@@ -5,254 +5,248 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 /**
- * Course Finalizer – Production Gate
- * 
- * 4-step quality check before sealing:
- * 1. Structure Check (steps per competency)
- * 2. Duplicate Check (title + objective similarity)
- * 3. Exam Coverage Check (competency weights)
- * 4. Final Seal (read-only lock)
+ * Course Finalizer – Production Gate (v2)
+ *
+ * 6-step quality check before sealing:
+ * 1. Structure Check (5 steps per competency)
+ * 2. Duplicate Check (quarantined lessons excluded)
+ * 3. MiniCheck Validation (parsed questions exist)
+ * 4. Exam Block Check (exam_block present per competency)
+ * 5. Weight Tag Check (all lessons tagged)
+ * 6. Coverage + Final Seal
  */
 
 Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
-
   const origin = req.headers.get("origin");
   const headers = { ...getCorsHeaders(origin), "Content-Type": "application/json" };
 
   try {
     const { courseId, curriculum_id, dryRun } = await req.json();
-    if (!courseId) {
-      return new Response(JSON.stringify({ error: "Missing courseId" }), { status: 400, headers });
-    }
+    if (!courseId) return new Response(JSON.stringify({ error: "Missing courseId" }), { status: 400, headers });
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // PRODUCTION GATE: Check seal status
+    // PRODUCTION GUARD: Check seal status
     const { data: existingCourse } = await admin.from("courses")
-      .select("autopilot_status, autopilot_sealed_at")
+      .select("autopilot_status, autopilot_sealed_at, curriculum_id")
       .eq("id", courseId).single();
 
-    if (existingCourse?.autopilot_status === 'sealed') {
+    if (existingCourse?.autopilot_status === "sealed") {
       return new Response(JSON.stringify({
         error: "SEALED_COURSE: Kurs ist bereits versiegelt.",
-        sealed_at: existingCourse.autopilot_sealed_at
+        sealed_at: existingCourse.autopilot_sealed_at,
       }), { status: 409, headers });
     }
-
-    if (existingCourse?.autopilot_status === 'finalizing') {
+    if (existingCourse?.autopilot_status === "finalizing") {
       return new Response(JSON.stringify({
-        error: "PARALLEL_FINALIZE: Finalisierung läuft bereits."
+        error: "PARALLEL_FINALIZE: Finalisierung läuft bereits.",
       }), { status: 409, headers });
     }
 
-    // Set status to finalizing
+    // Lock to finalizing
     await admin.from("courses").update({
-      autopilot_status: "finalizing",
-      updated_at: new Date().toISOString(),
+      autopilot_status: "finalizing", updated_at: new Date().toISOString(),
     }).eq("id", courseId);
 
-    // Load course
-    const { data: course } = await admin.from("courses")
-      .select("id, curriculum_id, title")
-      .eq("id", courseId).single();
-    if (!course) {
-      return new Response(JSON.stringify({ error: "Course not found" }), { status: 404, headers });
-    }
+    const curriculumId = existingCourse?.curriculum_id || curriculum_id;
 
-    const curriculumId = course.curriculum_id || curriculum_id;
-
-    // Load modules + lessons
+    // Load modules + active lessons (exclude quarantined)
     const { data: modules } = await admin.from("modules")
-      .select("id, title, learning_field_id, sort_order, learning_field_code")
-      .eq("course_id", courseId)
-      .order("sort_order");
-
+      .select("id, title, sort_order, learning_field_id, learning_field_code")
+      .eq("course_id", courseId).order("sort_order");
     const moduleIds = (modules || []).map((m: any) => m.id);
 
     const { data: lessons } = await admin.from("lessons")
-      .select("id, title, module_id, competency_id, step_type, step, content, html, objectives, exam_block, weight_tag")
+      .select("id, title, module_id, competency_id, step, content, sort_order, exam_block, weight_tag, minicheck_parsed, quarantine_status")
       .in("module_id", moduleIds.length > 0 ? moduleIds : ["__none__"])
+      .is("quarantine_status", null) // only active lessons
       .order("sort_order");
-
     const allLessons = lessons || [];
 
+    // Load quarantined count for stats
+    const { count: quarantinedCount } = await admin.from("lessons")
+      .select("id", { count: "exact", head: true })
+      .in("module_id", moduleIds.length > 0 ? moduleIds : ["__none__"])
+      .eq("quarantine_status", "quarantined");
+
     // Load competencies
-    const { data: learningFields } = await admin.from("learning_fields")
-      .select("id, title, weight_percent")
-      .eq("curriculum_id", curriculumId);
-    const lfIds = (learningFields || []).map((lf: any) => lf.id);
+    let competencies: any[] = [];
+    let learningFields: any[] = [];
+    if (curriculumId) {
+      const { data: lfs } = await admin.from("learning_fields")
+        .select("id, title, weight_percent").eq("curriculum_id", curriculumId);
+      learningFields = lfs || [];
+      const lfIds = learningFields.map((lf: any) => lf.id);
+      if (lfIds.length > 0) {
+        const { data: comps } = await admin.from("competencies")
+          .select("id, title, code, learning_field_id")
+          .in("learning_field_id", lfIds);
+        competencies = comps || [];
+      }
+    }
+    const allCompetencyIds = new Set(competencies.map((c: any) => c.id));
 
-    const { data: competencies } = await admin.from("competencies")
-      .select("id, title, code, learning_field_id")
-      .in("learning_field_id", lfIds.length > 0 ? lfIds : ["__none__"]);
-
-    const allCompetencyIds = new Set((competencies || []).map((c: any) => c.id));
-
-    // ============ CHECK 1: Structure Check ============
+    // ============ CHECK 1: Structure (5 steps per competency) ============
     const structureIssues: any[] = [];
     const expectedSteps = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"];
-    const moduleMap = new Map((modules || []).map((m: any) => [m.id, m]));
+    const compStepMap = new Map<string, Set<string>>();
 
-    for (const mod of (modules || [])) {
-      const modLessons = allLessons.filter((l: any) => l.module_id === mod.id);
-      const steps = modLessons.map((l: any) => l.step || l.step_type).filter(Boolean);
-      for (const expected of expectedSteps) {
-        if (!steps.includes(expected)) {
-          structureIssues.push({
-            severity: "critical",
-            code: "MISSING_STEP",
-            module: mod.title,
-            message: `Modul "${mod.title}": Step "${expected}" fehlt`,
-          });
-        }
-      }
-      // Check for empty content
-      for (const l of modLessons) {
-        const content = l.content || l.html || "";
-        const plainText = content.replace(/<[^>]*>/g, "");
-        const wordCount = plainText.split(/\s+/).filter(Boolean).length;
-        if (wordCount < 50) {
-          structureIssues.push({
-            severity: "critical",
-            code: "EMPTY_CONTENT",
-            lesson: l.title,
-            message: `Lektion "${l.title}": nur ${wordCount} Wörter (Min: 50)`,
-          });
-        }
-      }
-    }
-
-    // ============ CHECK 2: Duplicate Check ============
-    const duplicateIssues: any[] = [];
-    const duplicateIds: string[] = [];
-
-    // Title-based dedup (normalized)
-    const titleGroups = new Map<string, any[]>();
     for (const l of allLessons) {
-      const norm = (l.title || "").toLowerCase().trim()
-        .replace(/\s+/g, " ")
-        .replace(/[–—-]/g, "-");
-      if (!titleGroups.has(norm)) titleGroups.set(norm, []);
-      titleGroups.get(norm)!.push(l);
+      if (!l.competency_id || !l.step) continue;
+      if (!compStepMap.has(l.competency_id)) compStepMap.set(l.competency_id, new Set());
+      compStepMap.get(l.competency_id)!.add(l.step);
     }
 
-    for (const [title, group] of titleGroups) {
-      if (group.length > 1) {
-        duplicateIssues.push({
-          severity: "warning",
-          code: "DUPLICATE_TITLE",
-          title,
-          count: group.length,
-          lessonIds: group.map((l: any) => l.id),
-          message: `"${group[0].title}" existiert ${group.length}x`,
-        });
-        // Mark all but the first as duplicates
-        for (let i = 1; i < group.length; i++) {
-          duplicateIds.push(group[i].id);
-        }
-      }
-    }
-
-    // Objective-based similarity (Jaccard on objectives arrays)
-    const objectiveLessons = allLessons.filter((l: any) => l.objectives && l.objectives.length > 0);
-    for (let i = 0; i < objectiveLessons.length; i++) {
-      for (let j = i + 1; j < objectiveLessons.length; j++) {
-        const a = new Set((objectiveLessons[i].objectives || []).map((o: string) => o.toLowerCase().trim()));
-        const b = new Set((objectiveLessons[j].objectives || []).map((o: string) => o.toLowerCase().trim()));
-        if (a.size === 0 || b.size === 0) continue;
-        const intersection = new Set([...a].filter(x => b.has(x)));
-        const union = new Set([...a, ...b]);
-        const jaccard = intersection.size / union.size;
-        if (jaccard > 0.85) {
-          duplicateIssues.push({
-            severity: "warning",
-            code: "SIMILAR_OBJECTIVES",
-            similarity: Math.round(jaccard * 100),
-            lessonA: objectiveLessons[i].title,
-            lessonB: objectiveLessons[j].title,
-            message: `"${objectiveLessons[i].title}" & "${objectiveLessons[j].title}" – ${Math.round(jaccard * 100)}% Lernziel-Überlappung`,
+    for (const comp of competencies) {
+      const steps = compStepMap.get(comp.id) || new Set();
+      for (const expected of expectedSteps) {
+        if (!steps.has(expected)) {
+          structureIssues.push({
+            severity: "critical", code: "MISSING_STEP",
+            competency: `${comp.code}: ${comp.title}`, step: expected,
+            message: `Kompetenz "${comp.code}": Step "${expected}" fehlt`,
           });
-          if (!duplicateIds.includes(objectiveLessons[j].id)) {
-            duplicateIds.push(objectiveLessons[j].id);
-          }
         }
       }
     }
 
-    // ============ CHECK 3: Exam Coverage ============
+    // Check for empty content (< 50 words)
+    let emptyCount = 0;
+    let totalWords = 0;
+    for (const l of allLessons) {
+      const html = l.content?.html || "";
+      const plain = html.replace(/<[^>]*>/g, "");
+      const wc = plain.split(/\s+/).filter(Boolean).length;
+      totalWords += wc;
+      if (wc < 50) {
+        emptyCount++;
+        structureIssues.push({
+          severity: "critical", code: "EMPTY_CONTENT",
+          lesson: l.title, message: `Lektion "${l.title}": nur ${wc} Wörter (Min: 50)`,
+        });
+      }
+    }
+
+    // ============ CHECK 2: Active Duplicates ============
+    const duplicateIssues: any[] = [];
+    const compStepCount = new Map<string, number>();
+    for (const l of allLessons) {
+      if (!l.competency_id || !l.step) continue;
+      const key = `${l.competency_id}::${l.step}`;
+      compStepCount.set(key, (compStepCount.get(key) || 0) + 1);
+    }
+    let activeDupes = 0;
+    for (const [key, count] of compStepCount) {
+      if (count > 1) {
+        activeDupes += count - 1;
+        duplicateIssues.push({
+          severity: "critical", code: "ACTIVE_DUPLICATE",
+          key, count, message: `${key}: ${count} aktive Lektionen (soll: 1). QC-Worker Dedup nicht gelaufen?`,
+        });
+      }
+    }
+
+    // ============ CHECK 3: MiniCheck Validation ============
+    const miniCheckIssues: any[] = [];
+    const miniCheckLessons = allLessons.filter((l: any) => l.step === "mini_check");
+    let miniChecksParsed = 0;
+    let miniChecksUnparsed = 0;
+
+    for (const l of miniCheckLessons) {
+      if (l.minicheck_parsed) {
+        miniChecksParsed++;
+      } else {
+        miniChecksUnparsed++;
+        miniCheckIssues.push({
+          severity: "critical", code: "MINICHECK_UNPARSED",
+          lessonId: l.id, lesson: l.title,
+          message: `MiniCheck "${l.title}": nicht geparsed → keine strukturierten Fragen`,
+        });
+      }
+    }
+
+    // Verify actual questions exist
+    if (miniChecksParsed > 0) {
+      const parsedIds = miniCheckLessons.filter((l: any) => l.minicheck_parsed).map((l: any) => l.id);
+      const { count: qCount } = await admin.from("minicheck_questions")
+        .select("id", { count: "exact", head: true })
+        .in("lesson_id", parsedIds);
+      if ((qCount || 0) === 0) {
+        miniCheckIssues.push({
+          severity: "critical", code: "MINICHECK_NO_QUESTIONS",
+          message: `${miniChecksParsed} MiniChecks als geparsed markiert, aber 0 Fragen in minicheck_questions`,
+        });
+      }
+    }
+
+    // ============ CHECK 4: Exam Block ============
+    const examBlockIssues: any[] = [];
+    const compsWithExamBlock = new Set<string>();
+    let examBlockCount = 0;
+    for (const l of allLessons) {
+      if (l.exam_block && l.competency_id) {
+        compsWithExamBlock.add(l.competency_id);
+        examBlockCount++;
+      }
+    }
+    for (const comp of competencies) {
+      if (!compsWithExamBlock.has(comp.id)) {
+        examBlockIssues.push({
+          severity: "warning", code: "NO_EXAM_BLOCK",
+          competency: `${comp.code}: ${comp.title}`,
+          message: `Kompetenz "${comp.code}" hat keinen Prüfungsbezug-Block`,
+        });
+      }
+    }
+
+    // ============ CHECK 5: Weight Tags ============
+    const weightIssues: any[] = [];
+    let weightedCount = 0;
+    let unweightedCount = 0;
+    for (const l of allLessons) {
+      if (l.weight_tag) weightedCount++;
+      else unweightedCount++;
+    }
+    if (unweightedCount > 0) {
+      weightIssues.push({
+        severity: "warning", code: "MISSING_WEIGHT_TAG",
+        count: unweightedCount,
+        message: `${unweightedCount} Lektionen ohne Gewichtung (weight_tag)`,
+      });
+    }
+
+    // ============ CHECK 6: Coverage ============
     const coverageIssues: any[] = [];
     const coveredCompetencies = new Set<string>();
-    const competencyLessonCount = new Map<string, number>();
-    const stepCounts: Record<string, number> = {};
-    let totalWords = 0;
-    let emptyCount = 0;
-    let examBlockCount = 0;
-    let weightTagCount = 0;
-
     for (const l of allLessons) {
-      if (l.competency_id) {
-        coveredCompetencies.add(l.competency_id);
-        competencyLessonCount.set(l.competency_id, (competencyLessonCount.get(l.competency_id) || 0) + 1);
-      }
-      const step = l.step || l.step_type || "unknown";
-      stepCounts[step] = (stepCounts[step] || 0) + 1;
-
-      const content = l.content || l.html || "";
-      const plainText = content.replace(/<[^>]*>/g, "");
-      const wc = plainText.split(/\s+/).filter(Boolean).length;
-      totalWords += wc;
-      if (wc < 50) emptyCount++;
-      if (l.exam_block) examBlockCount++;
-      if (l.weight_tag) weightTagCount++;
+      if (l.competency_id) coveredCompetencies.add(l.competency_id);
     }
-
-    // Missing competencies
     const missingCompetencies: any[] = [];
-    for (const comp of (competencies || [])) {
+    for (const comp of competencies) {
       if (!coveredCompetencies.has(comp.id)) {
-        const lf = (learningFields || []).find((f: any) => f.id === comp.learning_field_id);
-        missingCompetencies.push({
-          id: comp.id,
-          code: comp.code,
-          title: comp.title,
-          learningField: lf?.title || "unbekannt",
-        });
+        const lf = learningFields.find((f: any) => f.id === comp.learning_field_id);
+        missingCompetencies.push({ id: comp.id, code: comp.code, title: comp.title, learningField: lf?.title });
         coverageIssues.push({
-          severity: "critical",
-          code: "MISSING_COMPETENCY",
-          competency: comp.title,
+          severity: "critical", code: "MISSING_COMPETENCY",
           message: `Kompetenz "${comp.code}: ${comp.title}" hat keine Lektionen`,
         });
       }
     }
 
-    // Under-represented competencies (< 3 lessons)
-    for (const [compId, count] of competencyLessonCount) {
-      if (count < 3) {
-        const comp = (competencies || []).find((c: any) => c.id === compId);
-        coverageIssues.push({
-          severity: "warning",
-          code: "UNDERREPRESENTED",
-          competency: comp?.title || compId,
-          lessonCount: count,
-          message: `Kompetenz "${comp?.code || '?'}: ${comp?.title || compId}" nur ${count} Lektionen (empfohlen: ≥5)`,
-        });
-      }
-    }
-
     // ============ BUILD RESULTS ============
-    const allIssues = [...structureIssues, ...duplicateIssues, ...coverageIssues];
+    const allIssues = [...structureIssues, ...duplicateIssues, ...miniCheckIssues, ...examBlockIssues, ...weightIssues, ...coverageIssues];
     const criticalCount = allIssues.filter(i => i.severity === "critical").length;
     const warningCount = allIssues.filter(i => i.severity === "warning").length;
 
-    // Health Score (weighted)
+    // Health Score
     let healthScore = 100;
-    healthScore -= Math.min(criticalCount * 8, 40);     // Critical issues: -8 each, max -40
-    healthScore -= Math.min(warningCount * 2, 20);       // Warnings: -2 each, max -20
-    healthScore -= Math.min(duplicateIds.length * 1, 15); // Duplicates: -1 each, max -15
-    healthScore -= Math.min(emptyCount * 5, 25);          // Empty: -5 each, max -25
+    healthScore -= Math.min(criticalCount * 8, 40);
+    healthScore -= Math.min(warningCount * 2, 20);
+    healthScore -= Math.min(activeDupes * 3, 15);
+    healthScore -= Math.min(emptyCount * 5, 25);
+    healthScore -= Math.min(miniChecksUnparsed * 4, 20);
     const uncoveredCount = allCompetencyIds.size - coveredCompetencies.size;
     if (uncoveredCount > 0) healthScore -= Math.min(uncoveredCount * 10, 30);
     const avgWordCount = allLessons.length > 0 ? Math.round(totalWords / allLessons.length) : 0;
@@ -261,48 +255,49 @@ Deno.serve(async (req) => {
 
     const healthStatus = healthScore >= 85 ? "healthy" : healthScore >= 60 ? "warning" : "critical";
 
-    // Go/No-Go Checklist
+    // Go/No-Go (HARD gates)
     const goNoGo = {
       structureComplete: structureIssues.filter(i => i.code === "MISSING_STEP").length === 0,
-      noDuplicates: duplicateIds.length === 0,
+      noDuplicates: activeDupes === 0,
       fullCoverage: uncoveredCount === 0,
       noEmptyContent: emptyCount === 0,
+      miniChecksParsed: miniChecksUnparsed === 0,
+      examBlocksPresent: examBlockIssues.length === 0,
+      weightTagsPresent: unweightedCount === 0,
       minAvgWords: avgWordCount >= 100,
-      examBlocksPresent: examBlockCount > 0,
     };
     const isGoReady = Object.values(goNoGo).every(Boolean);
 
     // Save snapshot
+    const stepCounts: Record<string, number> = {};
+    for (const l of allLessons) { const s = l.step || "unknown"; stepCounts[s] = (stepCounts[s] || 0) + 1; }
+
     await admin.from("course_health_snapshots").insert({
-      course_id: courseId,
-      snapshot_type: "seal",
+      course_id: courseId, snapshot_type: "seal",
       lesson_count: allLessons.length,
       competency_count: allCompetencyIds.size,
       covered_competency_count: coveredCompetencies.size,
       step_distribution: stepCounts,
-      duplicate_titles: duplicateIds.length,
+      duplicate_titles: activeDupes,
       empty_content_count: emptyCount,
       avg_word_count: avgWordCount,
-      health_score: healthScore,
-      health_status: healthStatus,
+      health_score: healthScore, health_status: healthStatus,
       issues: allIssues,
       benchmarks: {
         expected_lessons: allCompetencyIds.size * 5,
-        lessons_per_competency: allCompetencyIds.size > 0
-          ? Number((allLessons.length / allCompetencyIds.size).toFixed(1))
-          : 0,
-        go_no_go: goNoGo,
-        is_go_ready: isGoReady,
-        duplicate_lesson_ids: duplicateIds,
+        go_no_go: goNoGo, is_go_ready: isGoReady,
         missing_competencies: missingCompetencies,
         exam_block_count: examBlockCount,
-        weight_tag_count: weightTagCount,
+        weight_tagged: weightedCount,
+        minicheck_parsed: miniChecksParsed,
+        minicheck_unparsed: miniChecksUnparsed,
+        quarantined_lessons: quarantinedCount || 0,
       },
     });
 
-    // Only seal if not dry run
+    // Seal decision
     if (!dryRun) {
-      if (isGoReady || healthScore >= 60) {
+      if (isGoReady) {
         await admin.from("courses").update({
           autopilot_status: "sealed",
           autopilot_sealed_at: new Date().toISOString(),
@@ -310,46 +305,45 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }).eq("id", courseId);
       } else {
-        // Reset to idle if not ready
         await admin.from("courses").update({
-          autopilot_status: "idle",
-          updated_at: new Date().toISOString(),
+          autopilot_status: "idle", updated_at: new Date().toISOString(),
         }).eq("id", courseId);
       }
     } else {
-      // Reset from finalizing for dry run
       await admin.from("courses").update({
         autopilot_status: existingCourse?.autopilot_status || "idle",
         updated_at: new Date().toISOString(),
       }).eq("id", courseId);
     }
 
-    console.log(`[Finalizer] Course ${courseId.slice(0, 8)}: score=${healthScore}, go=${isGoReady}, issues=${allIssues.length}, dupes=${duplicateIds.length}`);
+    console.log(`[Finalizer] Course ${courseId.slice(0, 8)}: score=${healthScore}, go=${isGoReady}, critical=${criticalCount}, warnings=${warningCount}`);
 
     return new Response(JSON.stringify({
-      success: true,
-      courseId,
-      dryRun: !!dryRun,
-      healthScore,
-      healthStatus,
-      isGoReady,
-      goNoGo,
+      success: true, courseId, dryRun: !!dryRun,
+      healthScore, healthStatus, isGoReady, goNoGo,
       lessonCount: allLessons.length,
+      quarantinedLessons: quarantinedCount || 0,
       competencyCoverage: `${coveredCompetencies.size}/${allCompetencyIds.size}`,
-      duplicateCount: duplicateIds.length,
-      duplicateLessonIds: duplicateIds,
-      emptyContent: emptyCount,
-      avgWordCount,
+      activeDuplicates: activeDupes,
+      miniCheckStatus: { parsed: miniChecksParsed, unparsed: miniChecksUnparsed },
       examBlocks: examBlockCount,
-      criticalIssues: criticalCount,
-      warnings: warningCount,
-      issues: allIssues,
-      missingCompetencies,
+      weightTags: { tagged: weightedCount, untagged: unweightedCount },
+      emptyContent: emptyCount, avgWordCount,
+      criticalIssues: criticalCount, warnings: warningCount,
+      issues: allIssues, missingCompetencies,
     }), { status: 200, headers });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[Finalizer] Error:", msg);
+    // Try to reset status on error
+    try {
+      const { courseId } = await req.clone().json().catch(() => ({}));
+      if (courseId) {
+        const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+        await admin.from("courses").update({ autopilot_status: "idle", updated_at: new Date().toISOString() }).eq("id", courseId);
+      }
+    } catch (_) { /* ignore */ }
     return new Response(JSON.stringify({ error: msg }), { status: 500, headers });
   }
 });
