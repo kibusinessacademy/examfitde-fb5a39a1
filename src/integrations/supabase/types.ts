@@ -1516,6 +1516,42 @@ export type Database = {
           },
         ]
       }
+      council_automations: {
+        Row: {
+          automation_key: string
+          config: Json
+          council_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          last_result: Json | null
+          last_run_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          automation_key: string
+          config?: Json
+          council_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_result?: Json | null
+          last_run_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          automation_key?: string
+          config?: Json
+          council_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_result?: Json | null
+          last_run_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       council_decisions: {
         Row: {
           approvals: Json | null
@@ -1629,6 +1665,33 @@ export type Database = {
           },
         ]
       }
+      council_events: {
+        Row: {
+          actor_user_id: string | null
+          council_id: string
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+        }
+        Insert: {
+          actor_user_id?: string | null
+          council_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+        }
+        Update: {
+          actor_user_id?: string | null
+          council_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
       council_kill_switches: {
         Row: {
           action: string
@@ -1725,6 +1788,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      council_recommendations: {
+        Row: {
+          council_id: string
+          created_at: string
+          details: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          impact: string
+          risk: string
+          source: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          council_id: string
+          created_at?: string
+          details?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          impact?: string
+          risk?: string
+          source?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          council_id?: string
+          created_at?: string
+          details?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          impact?: string
+          risk?: string
+          source?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      council_states: {
+        Row: {
+          council_id: string
+          created_at: string
+          is_paused: boolean
+          kill_switch: boolean
+          last_snapshot: Json | null
+          last_snapshot_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          council_id: string
+          created_at?: string
+          is_paused?: boolean
+          kill_switch?: boolean
+          last_snapshot?: Json | null
+          last_snapshot_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          council_id?: string
+          created_at?: string
+          is_paused?: boolean
+          kill_switch?: boolean
+          last_snapshot?: Json | null
+          last_snapshot_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       councils: {
         Row: {
