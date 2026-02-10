@@ -191,7 +191,7 @@ export default function WissenPage() {
                 </h2>
                 <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
                   Wissen allein reicht nicht – du musst es auch anwenden können. 
-                  Unsere Lernkurse und Prüfungstrainer bereiten dich optimal vor.
+                  Unser Prüfungstraining bereitet dich optimal auf deine Abschlussprüfung vor.
                 </p>
                 <div className="flex flex-wrap justify-center gap-4">
                   <Button size="lg" asChild>

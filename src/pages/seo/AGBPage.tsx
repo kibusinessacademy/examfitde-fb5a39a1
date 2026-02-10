@@ -58,7 +58,7 @@ export default function AGBPage() {
                 IHK-Abschlussprüfungen zur Verfügung. Dies umfasst:
               </p>
               <ul className="list-disc list-inside text-muted-foreground mb-3 ml-4 space-y-1">
-                <li>Lernkurse mit strukturierten Lehrmaterialien</li>
+                <li>Prüfungstraining mit prüfungsrelevantem Wissen</li>
                 <li>Prüfungstrainer mit Übungsfragen und Prüfungssimulationen</li>
                 <li>KI-gestützte mündliche Prüfungssimulation</li>
                 <li>Zusätzliche Lernwerkzeuge und -funktionen</li>

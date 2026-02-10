@@ -177,8 +177,8 @@ export default function HandbookPage() {
                 Bereit für deine IHK-Prüfung?
               </h3>
               <p className="text-muted-foreground mb-6">
-                Das Prüfungstraining-Handbuch ist im <strong>Bundle</strong> enthalten – 
-                zusammen mit dem kompletten Lernkurs und dem Prüfungstrainer.
+                Das Prüfungshandbuch ist Teil des Prüfungstrainings – 
+                inklusive Prüfungssimulation, KI-Coach und mündlicher Prüfung.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button asChild size="lg" className="gap-2">

@@ -23,46 +23,41 @@ const faqs: FAQItem[] = [
   {
     category: 'Allgemein',
     question: 'Was ist ExamFit?',
-    answer: 'ExamFit ist eine unabhängige digitale Lernplattform zur Vorbereitung auf Abschlussprüfungen. Wir bieten strukturierte Lernkurse, einen Prüfungstrainer mit prüfungsrelevanten Fragen und eine KI-gestützte mündliche Prüfungssimulation. Wir sind kein offizieller Partner der IHK oder HWK.',
+    answer: 'ExamFit ist ein intelligentes Prüfungstrainings-System für Auszubildende. Es vereint Prüfungssimulation, prüfungsrelevantes Wissen, KI-Tutor und mündliche Prüfungsvorbereitung in einem Produkt. Wir sind kein offizieller Partner der IHK oder HWK.',
   },
   {
     category: 'Allgemein',
-    question: 'Für welche Berufe bietet ExamFit Prüfungsvorbereitung an?',
+    question: 'Für welche Berufe bietet ExamFit Prüfungstraining an?',
     answer: 'Wir decken eine wachsende Anzahl von IHK-Ausbildungsberufen ab, darunter Kaufleute für Büromanagement, Industriekaufleute, IT-Berufe und viele weitere. Auf unserer Berufe-Seite findest du die vollständige Übersicht.',
   },
   {
     category: 'Allgemein',
     question: 'Basieren die Inhalte auf offiziellen Prüfungsanforderungen?',
-    answer: 'Ja, alle unsere Lerninhalte basieren auf den öffentlich zugänglichen Rahmenlehrplänen und Prüfungsordnungen. Wir aktualisieren die Inhalte regelmäßig. Bitte beachte: ExamFit ist ein unabhängiger Anbieter ohne offizielle Verbindung zur IHK oder HWK.',
+    answer: 'Ja, alle Inhalte basieren auf den öffentlich zugänglichen Rahmenlehrplänen und Prüfungsordnungen. Wir aktualisieren die Inhalte regelmäßig. Bitte beachte: ExamFit ist ein unabhängiger Anbieter ohne offizielle Verbindung zur IHK oder HWK.',
   },
 
-  // Produkte
+  // Produkt
   {
-    category: 'Produkte',
-    question: 'Was ist der Unterschied zwischen Lernkurs und Prüfungstrainer?',
-    answer: 'Der Lernkurs vermittelt dir das theoretische Wissen strukturiert nach Lernfeldern mit verständlichen Erklärungen. Der Prüfungstrainer enthält prüfungsrelevante Fragen zum Üben mit adaptiver Schwächenanalyse und Prüfungssimulation.',
+    category: 'Produkt',
+    question: 'Was beinhaltet das ExamFit Prüfungstraining?',
+    answer: 'Das Prüfungstraining ist ein Gesamtpaket: Prüfungssimulation mit IHK-konformen Aufgaben, prüfungsrelevantes Wissen zu allen Lernfeldern, ein KI-Tutor für Prüfungsfragen und eine mündliche Prüfungssimulation mit KI-Feedback.',
   },
   {
-    category: 'Produkte',
-    question: 'Was beinhaltet das Komplett-Bundle?',
-    answer: 'Das Bundle enthält den Lernkurs, den Prüfungstrainer UND die KI-gestützte mündliche Prüfungssimulation. Du erhältst damit eine vollständige Vorbereitung auf schriftliche und mündliche Prüfungsteile.',
-  },
-  {
-    category: 'Produkte',
+    category: 'Produkt',
     question: 'Wie funktioniert die mündliche Prüfungssimulation?',
     answer: 'Unser KI-Prüfer stellt dir berufsspezifische Fragen und gibt dir individuelles Feedback zu deinen Antworten. Du kannst üben, wie du in einer echten Prüfungssituation reagierst und wirst auf typische Fragen vorbereitet.',
   },
   {
-    category: 'Produkte',
+    category: 'Produkt',
     question: 'Was ist der KI-Tutor?',
-    answer: 'Der KI-Tutor ist dein persönlicher Lernassistent. Er beantwortet Fragen zu den Lerninhalten, erklärt komplexe Themen verständlich und hilft dir bei Verständnisproblemen – rund um die Uhr verfügbar.',
+    answer: 'Der KI-Tutor ist dein persönlicher Prüfungscoach. Er beantwortet Fragen zu prüfungsrelevanten Themen, erklärt typische Prüfungsfehler und hilft dir bei Verständnisproblemen – rund um die Uhr verfügbar.',
   },
 
   // Preise & Zahlung
   {
     category: 'Preise & Zahlung',
-    question: 'Was kosten die Produkte?',
-    answer: 'Der Lernkurs kostet 19€, der Prüfungstrainer 29€ und das Komplett-Bundle 39€ (statt 48€ einzeln). Alle Preise sind Einmalzahlungen für 12 Monate Zugang.',
+    question: 'Was kostet das Prüfungstraining?',
+    answer: 'Das komplette Prüfungstraining kostet 39€ als Einmalzahlung für 12 Monate Zugang. Alle Funktionen sind enthalten – keine versteckten Kosten.',
   },
   {
     category: 'Preise & Zahlung',
@@ -162,7 +157,7 @@ const faqs: FAQItem[] = [
 const categories = [
   { name: 'Alle', icon: HelpCircle },
   { name: 'Allgemein', icon: HelpCircle },
-  { name: 'Produkte', icon: BookOpen },
+  { name: 'Produkt', icon: BookOpen },
   { name: 'Preise & Zahlung', icon: CreditCard },
   { name: 'Nutzung', icon: Settings },
   { name: 'Prüfungsvorbereitung', icon: GraduationCap },

@@ -197,7 +197,7 @@ export default function UnternehmenPage() {
               </Card>
 
               <p className="text-center text-sm text-muted-foreground mt-4">
-                Preise für das Komplett-Bundle (Lernkurs + Prüfungstrainer + Mündliche Prüfung). 
+                Preise für das Prüfungstraining (inkl. Prüfungssimulation + Prüfungswissen + Mündliche Prüfung). 
                 Alle Preise netto zzgl. MwSt.
               </p>
             </div>

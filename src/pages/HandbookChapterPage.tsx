@@ -109,12 +109,12 @@ export default function HandbookChapterPage() {
                   Dieses Kapitel ist im Bundle enthalten
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  Schalte das komplette Prüfungstraining-Handbuch frei – zusammen mit 
-                  dem Lernkurs und Prüfungstrainer.
+                  Schalte das komplette Prüfungshandbuch frei – inklusive 
+                  Prüfungssimulation, KI-Coach und mündlicher Prüfung.
                 </p>
                 <Button asChild size="lg" className="gap-2">
                   <Link to="/shop">
-                    Bundle für 39 € freischalten
+                    Prüfungstraining für 39 € freischalten
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>

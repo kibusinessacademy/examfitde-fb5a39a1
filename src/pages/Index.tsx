@@ -89,7 +89,7 @@ export default function Index() {
             </span>
           </h1>
           <p className="text-xl text-muted-foreground mb-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-            Wähle einen Bereich, um dein Lernen fortzusetzen
+            Dein Prüfungstraining wartet auf dich
           </p>
         </div>
       </section>
@@ -98,67 +98,67 @@ export default function Index() {
       <section className="pb-20 px-4 relative z-10">
         <div className="container mx-auto max-w-5xl">
           <div className="grid md:grid-cols-2 gap-8">
-            {/* Learning Courses */}
-            <div className="glass-card rounded-2xl p-8 group hover:border-primary/30 transition-all duration-500 hover:shadow-glow animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              <div className="mb-6">
-                <div className="p-4 rounded-2xl gradient-primary w-fit shadow-glow group-hover:shadow-glow transition-shadow">
-                  <BookOpen className="h-10 w-10 text-primary-foreground" />
-                </div>
-              </div>
-              <h2 className="text-2xl font-display font-bold mb-3 text-foreground">Lernkurse</h2>
-              <p className="text-muted-foreground mb-6">
-                Strukturiertes Lernen mit verständlichen Erklärungen für alle Lernfelder deines Berufs.
-              </p>
-              <div className="space-y-3 mb-8">
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-primary shadow-glow-sm" />
-                  Alle Lernfelder abgedeckt
-                </div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-primary shadow-glow-sm" />
-                  Verständliche Erklärungen
-                </div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-primary shadow-glow-sm" />
-                  KI-Tutor für deine Fragen
-                </div>
-              </div>
-              <Link to="/courses">
-                <Button className="w-full gradient-primary text-primary-foreground shadow-glow hover:shadow-glow transition-all rounded-xl h-12">
-                  Kurse entdecken
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </Link>
-            </div>
-
-            {/* Exam Trainer */}
-            <div className="glass-card rounded-2xl p-8 group hover:border-accent/30 transition-all duration-500 hover:shadow-glow-accent animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            {/* Prüfung simulieren */}
+            <div className="glass-card rounded-2xl p-8 group hover:border-accent/30 transition-all duration-500 hover:shadow-glow-accent animate-fade-in" style={{ animationDelay: '0.2s' }}>
               <div className="mb-6">
                 <div className="p-4 rounded-2xl gradient-accent w-fit shadow-glow-accent group-hover:shadow-glow-accent transition-shadow">
                   <Target className="h-10 w-10 text-accent-foreground" />
                 </div>
               </div>
-              <h2 className="text-2xl font-display font-bold mb-3 text-foreground">Prüfungstrainer</h2>
+              <h2 className="text-2xl font-display font-bold mb-3 text-foreground">Prüfung simulieren</h2>
               <p className="text-muted-foreground mb-6">
-                Trainiere mit prüfungsrelevanten Fragen nach IHK-Maßstäben.
+                Trainiere unter realen Bedingungen mit IHK-konformen Prüfungsaufgaben.
               </p>
               <div className="space-y-3 mb-8">
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-accent shadow-glow-accent" />
-                  Prüfungsrelevante Fragen
+                  Prüfungsrelevante Aufgaben
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-accent shadow-glow-accent" />
-                  Ausführliche Erklärungen
+                  Schwächenanalyse & Empfehlungen
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-accent shadow-glow-accent" />
-                  Schwächenanalyse
+                  Bestehenswahrscheinlichkeit
                 </div>
               </div>
               <Link to="/exams">
                 <Button className="w-full gradient-accent text-accent-foreground shadow-glow-accent hover:shadow-glow-accent transition-all rounded-xl h-12">
-                  Training starten
+                  Prüfung starten
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
+
+            {/* Prüfungswissen festigen */}
+            <div className="glass-card rounded-2xl p-8 group hover:border-primary/30 transition-all duration-500 hover:shadow-glow animate-fade-in" style={{ animationDelay: '0.3s' }}>
+              <div className="mb-6">
+                <div className="p-4 rounded-2xl gradient-primary w-fit shadow-glow group-hover:shadow-glow transition-shadow">
+                  <BookOpen className="h-10 w-10 text-primary-foreground" />
+                </div>
+              </div>
+              <h2 className="text-2xl font-display font-bold mb-3 text-foreground">Prüfungswissen festigen</h2>
+              <p className="text-muted-foreground mb-6">
+                Lerne gezielt die Themen, die in der Prüfung drankommen.
+              </p>
+              <div className="space-y-3 mb-8">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <div className="w-2 h-2 rounded-full bg-primary shadow-glow-sm" />
+                  Alle prüfungsrelevanten Lernfelder
+                </div>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <div className="w-2 h-2 rounded-full bg-primary shadow-glow-sm" />
+                  KI-Tutor für Prüfungsfragen
+                </div>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <div className="w-2 h-2 rounded-full bg-primary shadow-glow-sm" />
+                  Adaptive Schwächenerkennung
+                </div>
+              </div>
+              <Link to="/courses">
+                <Button className="w-full gradient-primary text-primary-foreground shadow-glow hover:shadow-glow transition-all rounded-xl h-12">
+                  Prüfungswissen aufbauen
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               </Link>
@@ -172,14 +172,14 @@ export default function Index() {
                 <Mic className="h-10 w-10 text-success-foreground" />
               </div>
               <div className="flex-1">
-                <h2 className="text-2xl font-display font-bold mb-2 text-foreground">Mündliche Prüfung üben</h2>
+                <h2 className="text-2xl font-display font-bold mb-2 text-foreground">Mündliche Prüfung trainieren</h2>
                 <p className="text-muted-foreground">
-                  Simuliere das Fachgespräch mit unserem KI-Prüfer und bekomme Echtzeit-Feedback zu deinen Antworten.
+                  Simuliere das Prüfungsgespräch mit unserem KI-Prüfer und bekomme Echtzeit-Feedback zu deinen Antworten.
                 </p>
               </div>
               <Link to="/oral-exam">
                 <Button variant="outline" className="rounded-xl h-12 px-8">
-                  Fachgespräch starten
+                  Prüfungsgespräch starten
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               </Link>
@@ -192,13 +192,13 @@ export default function Index() {
               <div className="text-4xl font-display font-bold text-gradient mb-2">
                 {statsLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : stats?.courses_completed ?? 0}
               </div>
-              <div className="text-sm text-muted-foreground">Kurse abgeschlossen</div>
+              <div className="text-sm text-muted-foreground">Prüfungseinheiten</div>
             </div>
             <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.55s' }}>
               <div className="text-4xl font-display font-bold text-gradient-accent mb-2">
                 {statsLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : stats?.questions_answered ?? 0}
               </div>
-              <div className="text-sm text-muted-foreground">Fragen beantwortet</div>
+              <div className="text-sm text-muted-foreground">Aufgaben gelöst</div>
             </div>
             <div className="glass-card rounded-xl text-center p-6 animate-fade-in" style={{ animationDelay: '0.6s' }}>
               <div className="text-4xl font-display font-bold text-success text-glow-accent mb-2">
