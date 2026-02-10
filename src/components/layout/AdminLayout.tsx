@@ -6,7 +6,7 @@ import {
   ClipboardList, Shield, FileArchive, Database, Factory, ShieldCheck, 
   Smartphone, Crown, Users, ShoppingCart, BarChart3, Globe, Megaphone,
   Wrench, FileBarChart, Brain, Scale, DollarSign, Eye, Cpu, Heart,
-  FlaskConical, AlertTriangle
+  FlaskConical, AlertTriangle, Workflow
 } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
@@ -49,6 +49,7 @@ const navGroups: NavGroup[] = [
       { path: '/admin-v2/courses', label: 'Kurse', icon: BookOpen },
       { path: '/admin-v2/questions', label: 'Prüfungsfragen', icon: HelpCircle },
       { path: '/admin-v2/exam-blueprints', label: 'Blueprints', icon: ClipboardList },
+      { path: '/admin-v2/workflows', label: 'Workflow Studio', icon: Workflow },
       { path: '/admin-v2/product-factory', label: 'Produkt-Factory', icon: Factory },
       { path: '/admin-v2/quality-gates', label: 'Quality Gates', icon: ShieldCheck },
       { path: '/admin-v2/exports', label: 'Import / Export', icon: FileArchive },
