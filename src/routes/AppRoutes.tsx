@@ -107,6 +107,9 @@ const ValidationDashboardPage = lazy(() => import('@/pages/admin/ValidationDashb
 // Council Control Center
 const CouncilControlCenter = lazy(() => import('@/pages/admin/CouncilControlCenter'));
 
+// Council Pages (unified template)
+const CouncilPage = lazy(() => import('@/pages/admin/CouncilPage'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
@@ -252,6 +255,8 @@ const AppRoutes = () => {
           <Route path="validation" element={<ValidationDashboardPage />} />
           {/* Council Control Center */}
           <Route path="council-control" element={<CouncilControlCenter />} />
+          {/* Council Pages */}
+          <Route path="council/:councilId" element={<CouncilPage />} />
         </Route>
 
         {/* Admin Redirects */}
