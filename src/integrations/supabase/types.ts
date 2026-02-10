@@ -3827,6 +3827,13 @@ export type Database = {
             foreignKeyName: "learning_progress_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
+            referencedRelation: "lesson_qc_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
             referencedRelation: "lessons"
             referencedColumns: ["id"]
           },
@@ -3914,6 +3921,13 @@ export type Database = {
             columns: ["competency_id"]
             isOneToOne: false
             referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_outcomes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_qc_view"
             referencedColumns: ["id"]
           },
           {
@@ -4011,7 +4025,9 @@ export type Database = {
           h5p_content_id: string | null
           id: string
           module_id: string
+          qc_status: string | null
           sort_order: number | null
+          status: string
           step: Database["public"]["Enums"]["lesson_step"]
           title: string
         }
@@ -4023,7 +4039,9 @@ export type Database = {
           h5p_content_id?: string | null
           id?: string
           module_id: string
+          qc_status?: string | null
           sort_order?: number | null
+          status?: string
           step: Database["public"]["Enums"]["lesson_step"]
           title: string
         }
@@ -4035,7 +4053,9 @@ export type Database = {
           h5p_content_id?: string | null
           id?: string
           module_id?: string
+          qc_status?: string | null
           sort_order?: number | null
+          status?: string
           step?: Database["public"]["Enums"]["lesson_step"]
           title?: string
         }
@@ -4501,12 +4521,58 @@ export type Database = {
         }
         Relationships: []
       }
+      minicheck_questions: {
+        Row: {
+          correct_answer: number
+          created_at: string
+          explanation: string | null
+          id: string
+          lesson_id: string
+          options: Json
+          question_text: string
+        }
+        Insert: {
+          correct_answer: number
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          lesson_id: string
+          options: Json
+          question_text: string
+        }
+        Update: {
+          correct_answer?: number
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          lesson_id?: string
+          options?: Json
+          question_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "minicheck_questions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_qc_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "minicheck_questions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modules: {
         Row: {
           course_id: string
           created_at: string
           description: string | null
           id: string
+          learning_field_code: string | null
           learning_field_id: string | null
           sort_order: number | null
           title: string
@@ -4516,6 +4582,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          learning_field_code?: string | null
           learning_field_id?: string | null
           sort_order?: number | null
           title: string
@@ -4525,6 +4592,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          learning_field_code?: string | null
           learning_field_id?: string | null
           sort_order?: number | null
           title?: string
@@ -6786,6 +6854,75 @@ export type Database = {
           total: number | null
         }
         Relationships: []
+      }
+      lesson_qc_view: {
+        Row: {
+          competency_id: string | null
+          created_at: string | null
+          duration_minutes: number | null
+          id: string | null
+          minicheck_count: number | null
+          module_id: string | null
+          qc_exam_block: string | null
+          qc_html: string | null
+          qc_objectives: string[] | null
+          qc_status: string | null
+          qc_weight_tag: string | null
+          sort_order: number | null
+          status: string | null
+          step: Database["public"]["Enums"]["lesson_step"] | null
+          title: string | null
+        }
+        Insert: {
+          competency_id?: string | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          id?: string | null
+          minicheck_count?: never
+          module_id?: string | null
+          qc_exam_block?: never
+          qc_html?: never
+          qc_objectives?: never
+          qc_status?: string | null
+          qc_weight_tag?: never
+          sort_order?: number | null
+          status?: string | null
+          step?: Database["public"]["Enums"]["lesson_step"] | null
+          title?: string | null
+        }
+        Update: {
+          competency_id?: string | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          id?: string | null
+          minicheck_count?: never
+          module_id?: string | null
+          qc_exam_block?: never
+          qc_html?: never
+          qc_objectives?: never
+          qc_status?: string | null
+          qc_weight_tag?: never
+          sort_order?: number | null
+          status?: string | null
+          step?: Database["public"]["Enums"]["lesson_step"] | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {

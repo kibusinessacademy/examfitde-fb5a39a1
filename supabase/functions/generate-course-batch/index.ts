@@ -364,6 +364,7 @@ serve(async (req) => {
         const { data: mod, error: modErr } = await supabase.from('modules').insert({
           course_id: courseId, learning_field_id: learningFieldId,
           title: `${lf.code}: ${lf.title}`, description: lf.description, sort_order: lf.sort_order || 0,
+          learning_field_code: lf.code || null,
         }).select().single();
         if (modErr) throw modErr;
         moduleId = mod.id;
@@ -435,13 +436,28 @@ serve(async (req) => {
       // Status: validated if Opus approves, otherwise draft (needs repair)
       const lessonStatus = validationDecision === 'approve' ? 'validated' : 'draft';
 
-      await supabase.from('lessons').insert({
+      const { data: insertedLesson } = await supabase.from('lessons').insert({
         module_id: moduleId, competency_id: comp.id,
         title: `${comp.code}: ${comp.title}`, step: stepToGen,
         content: finalContent,
         duration_minutes: stepDuration, sort_order: lessonSortOrder,
         status: lessonStatus,
-      });
+        qc_status: validationDecision === 'approve' ? 'passed' : validationDecision === 'revise' ? 'needs_patch' : null,
+      }).select('id').single();
+
+      // Persist MiniCheck questions if step is mini_check
+      if (stepToGen === 'mini_check' && insertedLesson?.id && finalContent?.questions?.length > 0) {
+        const mcRows = finalContent.questions.map((q: any, idx: number) => ({
+          lesson_id: insertedLesson.id,
+          question_text: q.question_text || q.question || `Frage ${idx + 1}`,
+          options: q.options || [],
+          correct_answer: q.correct_answer ?? 0,
+          explanation: q.explanation || null,
+        }));
+        const { error: mcErr } = await supabase.from('minicheck_questions').insert(mcRows);
+        if (mcErr) console.error(`[Batch] MiniCheck persist error for ${comp.code}:`, mcErr);
+        else console.log(`[Batch] Persisted ${mcRows.length} MiniCheck questions for ${comp.code}`);
+      }
 
       // Count remaining steps for this competency
       const { data: doneLessons } = await supabase
