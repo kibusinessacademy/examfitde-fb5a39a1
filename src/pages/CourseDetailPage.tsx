@@ -303,7 +303,7 @@ export default function CourseDetailPage() {
                 </div>
                 <Button onClick={handleContinue} className="gradient-primary text-primary-foreground shadow-glow-sm">
                   <PlayCircle className="h-4 w-4 mr-2" />
-                  {progressPercent > 0 ? "Fortsetzen" : "Kurs starten"}
+                  {progressPercent > 0 ? "Fortsetzen" : "Training starten"}
                 </Button>
               </div>
             ) : user && hasLearningAccess === false && !entitlementLoading ? (
@@ -311,7 +311,7 @@ export default function CourseDetailPage() {
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex-1">
                   <p className="text-muted-foreground mb-2">
-                    Du benötigst eine Lizenz, um diesen Kurs zu starten.
+                    Du benötigst eine Lizenz, um dieses Training zu starten.
                   </p>
                   <Link to="/shop" className="text-primary hover:underline text-sm">
                     Lizenz im Shop kaufen →

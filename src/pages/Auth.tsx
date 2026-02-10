@@ -187,7 +187,7 @@ export default function Auth() {
           <div className="space-y-4 text-left">
             <div className="flex items-center gap-4 glass-card rounded-xl p-4">
               <BookOpen className="h-6 w-6 text-primary flex-shrink-0" />
-              <span className="text-foreground">Lernkurse mit 5-Schritte-Didaktik</span>
+              <span className="text-foreground">Prüfungstraining mit KI-Prüfungscoach</span>
             </div>
             <div className="flex items-center gap-4 glass-card rounded-xl p-4">
               <GraduationCap className="h-6 w-6 text-accent flex-shrink-0" />

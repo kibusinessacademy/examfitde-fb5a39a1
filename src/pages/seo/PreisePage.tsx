@@ -1,94 +1,48 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check, BookOpen, Target, Award, Clock } from 'lucide-react';
+import { ArrowRight, Check, Target, Clock, Shield, Brain, Mic, BookOpen, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { SITE_URL, PRODUCT_PRICES, generateFAQSchema } from '@/lib/seo';
 
 export default function PreisePage() {
-  const products = [
-    {
-      id: 'lernkurs',
-      name: 'Lernkurs',
-      price: PRODUCT_PRICES.lernkurs,
-      icon: BookOpen,
-      color: 'primary',
-      description: 'Strukturiertes Lernen aller Prüfungsthemen',
-      features: [
-        'Alle Lernfelder abgedeckt',
-        'Interaktive Lernmodule',
-        'KI-Tutor für Fragen',
-        'Fortschrittstracking',
-        'Mobile-optimiert',
-      ],
-      notIncluded: ['Prüfungsfragen', 'Mündliche Prüfung'],
-      href: '/lernkurse',
-    },
-    {
-      id: 'pruefungstrainer',
-      name: 'Prüfungstrainer',
-      price: PRODUCT_PRICES.pruefungstrainer,
-      icon: Target,
-      color: 'accent',
-      description: 'Gezieltes Üben mit echten Prüfungsfragen',
-      features: [
-        'Echte IHK-Prüfungsfragen',
-        'Adaptiver Algorithmus',
-        'Schwachstellen-Analyse',
-        'Prüfungssimulation',
-        'Detaillierte Auswertung',
-      ],
-      notIncluded: ['Lernmaterialien', 'Mündliche Prüfung'],
-      href: '/pruefungstrainer',
-    },
-    {
-      id: 'bundle',
-      name: 'Komplett-Bundle',
-      price: PRODUCT_PRICES.bundle,
-      originalPrice: PRODUCT_PRICES.lernkurs + PRODUCT_PRICES.pruefungstrainer,
-      icon: Award,
-      color: 'success',
-      description: 'Alles in einem Paket – die beste Wahl',
-      recommended: true,
-      features: [
-        'Lernkurs inklusive',
-        'Prüfungstrainer inklusive',
-        'Mündliche Prüfungssimulation',
-        'KI-Prüfer mit Feedback',
-        'Prüfungsangst-Management',
-        'VARK-Lerntyptest',
-      ],
-      notIncluded: [],
-      href: '/bundle',
-    },
+  const features = [
+    'Prüfungssimulation (schriftlich & mündlich)',
+    'KI-Prüfungscoach mit Feedback',
+    'Adaptive Schwächenanalyse',
+    'Prüfungswissen kompakt',
+    'Prüfungsreife-Indikator',
+    'Prüfungsangst-Management',
+    'VARK-Lerntyptest',
+    'Spaced Repetition',
   ];
 
   const faqs = [
     {
       question: 'Wie lange habe ich Zugang?',
-      answer: 'Alle Produkte haben eine Laufzeit von 12 Monaten ab Kaufdatum.',
+      answer: 'Du hast 12 Monate ab Kaufdatum vollen Zugang zu allen Funktionen.',
     },
     {
       question: 'Gibt es ein Abo oder Kündigungsfristen?',
-      answer: 'Nein, ExamFit funktioniert ohne Abo. Du zahlst einmal und hast 12 Monate Zugang. Keine automatische Verlängerung, keine Kündigung nötig.',
+      answer: 'Nein. Du zahlst einmal und hast 12 Monate Zugang. Keine automatische Verlängerung, keine Kündigung nötig.',
     },
     {
-      question: 'Kann ich später upgraden?',
-      answer: 'Ja, du kannst jederzeit auf ein höherwertiges Produkt upgraden. Der bereits gezahlte Betrag wird angerechnet.',
-    },
-    {
-      question: 'Gibt es Mengenrabatte für Unternehmen?',
-      answer: 'Ja, ab 5 Lizenzen erhältst du automatisch Mengenrabatte bis zu 25%. Die Rabatte werden direkt im Shop berechnet.',
+      question: 'Gibt es Mengenrabatte für Ausbildungsbetriebe?',
+      answer: 'Ja, ab 5 Lizenzen erhältst du automatisch Mengenrabatte bis zu 25 %. Die Rabatte werden direkt im Shop berechnet.',
     },
     {
       question: 'Welche Zahlungsmethoden gibt es?',
-      answer: 'Wir akzeptieren alle gängigen Zahlungsmethoden: Kreditkarte, PayPal, SEPA-Lastschrift und Überweisung (für B2B).',
+      answer: 'Wir akzeptieren Kreditkarte, PayPal, SEPA-Lastschrift und Überweisung (für B2B).',
     },
     {
       question: 'Bekomme ich eine Rechnung?',
       answer: 'Ja, nach dem Kauf erhältst du automatisch eine ordentliche Rechnung mit ausgewiesener MwSt.',
+    },
+    {
+      question: 'Was ist im Prüfungstraining enthalten?',
+      answer: 'Alles, was du für die Abschlussprüfung brauchst: Prüfungssimulationen, mündliche Prüfung, KI-Prüfungscoach, Prüfungswissen, Schwächenanalyse und Prüfungsreife-Indikator.',
     },
   ];
 
@@ -97,8 +51,8 @@ export default function PreisePage() {
   return (
     <>
       <SEOHead
-        title="Preise – IHK-Prüfungsvorbereitung | ExamFit"
-        description="Transparente Preise für ExamFit: Lernkurs ab 19€, Prüfungstrainer ab 29€, Komplett-Bundle für 39€. 12 Monate Zugang, kein Abo."
+        title="Preise – Intelligentes Prüfungstraining | ExamFit"
+        description="Ein Produkt, ein Ziel: Prüfung bestehen. ExamFit Prüfungstraining für 39 € – 12 Monate Zugang, kein Abo. Für Auszubildende und Ausbildungsbetriebe."
         canonical={`${SITE_URL}/preise`}
         structuredData={structuredData}
       />
@@ -115,78 +69,94 @@ export default function PreisePage() {
 
             <div className="max-w-3xl text-center mx-auto">
               <h1 className="text-4xl md:text-5xl font-display font-bold mb-6">
-                <span className="text-gradient">Transparente Preise</span>
+                Ein Produkt. Ein Ziel. <span className="text-gradient">Bestehen.</span>
               </h1>
-              <p className="text-xl text-muted-foreground mb-8">
-                Einmal zahlen, 12 Monate lernen. Kein Abo, keine versteckten Kosten.
+              <p className="text-xl text-muted-foreground mb-4">
+                Einmal zahlen, 12 Monate trainieren. Kein Abo, keine versteckten Kosten.
               </p>
             </div>
           </div>
         </section>
 
-        {/* Pricing Cards */}
+        {/* Single Product Card */}
         <section className="py-12">
           <div className="container">
-            <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              {products.map((product) => {
-                const Icon = product.icon;
-                return (
-                  <Card 
-                    key={product.id} 
-                    className={`glass-card relative ${product.recommended ? 'ring-2 ring-primary' : ''}`}
+            <div className="max-w-2xl mx-auto">
+              <Card className="glass-card ring-2 ring-primary relative">
+                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
+                  Alles inklusive
+                </Badge>
+                <CardHeader className="text-center pt-8">
+                  <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-4 shadow-glow">
+                    <Target className="h-8 w-8 text-primary-foreground" />
+                  </div>
+                  <CardTitle className="text-2xl font-display">Intelligentes Prüfungstraining</CardTitle>
+                  <p className="text-muted-foreground mt-2">
+                    Alles, was du für die IHK-Abschlussprüfung brauchst – in einem System.
+                  </p>
+                  <div className="pt-6">
+                    <span className="text-5xl font-display font-bold text-gradient">{PRODUCT_PRICES.pruefungstraining} €</span>
+                    <div className="text-sm text-muted-foreground mt-2 flex items-center justify-center gap-4">
+                      <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> 12 Monate</span>
+                      <span className="flex items-center gap-1"><Shield className="h-3.5 w-3.5" /> Kein Abo</span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pb-8">
+                  <ul className="grid sm:grid-cols-2 gap-3 mb-8">
+                    {features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <Check className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    size="lg"
+                    className="w-full gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 text-lg"
+                    asChild
                   >
-                    {product.recommended && (
-                      <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
-                        Empfohlen
-                      </Badge>
-                    )}
-                    <CardHeader className="text-center">
-                      <div className={`w-14 h-14 rounded-2xl bg-${product.color}/20 flex items-center justify-center mx-auto mb-4`}>
-                        <Icon className={`h-7 w-7 text-${product.color}`} />
-                      </div>
-                      <CardTitle>{product.name}</CardTitle>
-                      <CardDescription>{product.description}</CardDescription>
-                      <div className="pt-4">
-                        <span className="text-4xl font-bold">{product.price}€</span>
-                        {product.originalPrice && (
-                          <span className="text-lg text-muted-foreground line-through ml-2">
-                            {product.originalPrice}€
-                          </span>
-                        )}
-                        <div className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
-                          <Clock className="h-3.5 w-3.5" />
-                          12 Monate Zugang
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-3 mb-6">
-                        {product.features.map((feature, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm">
-                            <Check className={`h-4 w-4 text-${product.color} flex-shrink-0 mt-0.5`} />
-                            {feature}
-                          </li>
-                        ))}
-                        {product.notIncluded.map((feature, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                            <span className="w-4 h-4 flex items-center justify-center text-xs">✕</span>
-                            {feature}
-                          </li>
-                        ))}
-                      </ul>
-                      <Button 
-                        className="w-full" 
-                        variant={product.recommended ? 'default' : 'outline'}
-                        asChild
-                      >
-                        <Link to={product.href}>
-                          Berufe ansehen <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                    <Link to="/shop">
+                      Jetzt Prüfungstraining starten <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Zielgruppen */}
+        <section className="py-12 bg-muted/30">
+          <div className="container max-w-5xl">
+            <h2 className="text-3xl font-display font-bold text-center mb-10">
+              Ein Produkt – <span className="text-gradient">passend für jede Rolle</span>
+            </h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              <Link to="/pruefungstraining-azubis" className="glass-card rounded-2xl p-6 group hover:border-primary/30 transition-all">
+                <Target className="h-8 w-8 text-primary mb-3" />
+                <h3 className="font-display font-bold mb-2">Für Auszubildende</h3>
+                <p className="text-sm text-muted-foreground mb-3">Prüfung simulieren, Schwächen erkennen, sicher bestehen.</p>
+                <span className="text-sm text-primary font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+                  Mehr erfahren <ArrowRight className="h-4 w-4" />
+                </span>
+              </Link>
+              <Link to="/pruefungstraining-betriebe" className="glass-card rounded-2xl p-6 group hover:border-primary/30 transition-all">
+                <Users className="h-8 w-8 text-accent mb-3" />
+                <h3 className="font-display font-bold mb-2">Für Ausbildungsbetriebe</h3>
+                <p className="text-sm text-muted-foreground mb-3">Bestehensquoten erhöhen, Prüfungsreife messen.</p>
+                <span className="text-sm text-primary font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+                  Mehr erfahren <ArrowRight className="h-4 w-4" />
+                </span>
+              </Link>
+              <Link to="/pruefungstraining-institutionen" className="glass-card rounded-2xl p-6 group hover:border-primary/30 transition-all">
+                <BookOpen className="h-8 w-8 text-success mb-3" />
+                <h3 className="font-display font-bold mb-2">Für Berufsschulen & IHK</h3>
+                <p className="text-sm text-muted-foreground mb-3">Prüfungskonforme Ergänzung, nicht Ersatz des Unterrichts.</p>
+                <span className="text-sm text-primary font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+                  Mehr erfahren <ArrowRight className="h-4 w-4" />
+                </span>
+              </Link>
             </div>
           </div>
         </section>
@@ -196,15 +166,15 @@ export default function PreisePage() {
           <div className="container max-w-3xl">
             <Card className="glass-card">
               <CardContent className="p-8 text-center">
-                <Badge variant="outline" className="mb-4">Für Unternehmen</Badge>
+                <Badge variant="outline" className="mb-4">Für Ausbildungsbetriebe</Badge>
                 <h3 className="text-xl font-semibold mb-2">
                   Automatische Mengenrabatte ab 5 Lizenzen
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  Bis zu 25% Rabatt bei größeren Bestellungen. Keine Verhandlung nötig.
+                  Bis zu 25 % Rabatt bei größeren Bestellungen. Keine Verhandlung nötig.
                 </p>
                 <Button variant="outline" asChild>
-                  <Link to="/unternehmen">
+                  <Link to="/pruefungstraining-betriebe">
                     Mehr erfahren <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -238,14 +208,14 @@ export default function PreisePage() {
         <section className="py-20">
           <div className="container text-center">
             <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
-              Bereit für den Prüfungserfolg?
+              Bereit für die Abschlussprüfung?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Wähle deinen Beruf und starte noch heute mit der Vorbereitung.
+              Starte jetzt dein Prüfungstraining und geh sicher in die Prüfung.
             </p>
-            <Button size="lg" className="shadow-glow" asChild>
+            <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow" asChild>
               <Link to="/shop">
-                Jetzt kaufen <ArrowRight className="ml-2 h-5 w-5" />
+                Prüfungstraining starten <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
           </div>

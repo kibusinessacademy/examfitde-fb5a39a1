@@ -66,13 +66,13 @@ export function ContinueLearningCard({
             <Button asChild className="flex-1">
               <Link to={`/lesson/${nextLesson.lesson_id}`}>
                 <PlayCircle className="h-4 w-4 mr-2" />
-                {hasStarted ? "Fortsetzen" : "Kurs starten"}
+                {hasStarted ? "Fortsetzen" : "Training starten"}
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Link>
             </Button>
           ) : (
             <Button variant="secondary" className="flex-1" disabled>
-              Kurs abgeschlossen
+              Training abgeschlossen
             </Button>
           )}
 
