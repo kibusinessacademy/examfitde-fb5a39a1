@@ -232,6 +232,7 @@ export default function AdminDashboard() {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
           <Button asChild size="sm"><Link to="/admin-v2/council-control"><Brain className="h-4 w-4 mr-1" /> Council OS</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link to="/admin-v2/workflows"><Zap className="h-4 w-4 mr-1" /> Workflow Studio</Link></Button>
           <Button asChild size="sm" variant="outline"><Link to="/admin-v2/product-factory"><Zap className="h-4 w-4 mr-1" /> Produkt-Factory</Link></Button>
           <Button asChild size="sm" variant="outline"><Link to="/admin-v2/quality-gates"><Shield className="h-4 w-4 mr-1" /> Quality Gates</Link></Button>
           <Button asChild size="sm" variant="outline"><Link to="/admin-v2/jobs/dashboard"><Activity className="h-4 w-4 mr-1" /> Job Queue</Link></Button>
