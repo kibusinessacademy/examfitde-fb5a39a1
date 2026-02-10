@@ -53,7 +53,7 @@ function LearnersTab() {
         .limit(50);
       
       if (searchQuery) {
-        query = query.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
+        query = query.ilike('full_name', `%${searchQuery}%`);
       }
       
       const { data, error } = await query;
@@ -119,7 +119,6 @@ function LearnersTab() {
                     </div>
                     <div>
                       <div className="font-medium">{learner.full_name || 'Unbekannt'}</div>
-                      <div className="text-sm text-muted-foreground">{learner.email}</div>
                     </div>
                   </div>
                 </TableCell>

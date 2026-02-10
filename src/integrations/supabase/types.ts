@@ -4598,7 +4598,6 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
-          email: string | null
           full_name: string | null
           id: string
           updated_at: string
@@ -4607,7 +4606,6 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
-          email?: string | null
           full_name?: string | null
           id?: string
           updated_at?: string
@@ -4616,7 +4614,6 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
-          email?: string | null
           full_name?: string | null
           id?: string
           updated_at?: string
@@ -6289,6 +6286,7 @@ export type Database = {
     }
     Functions: {
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
+      assert_profiles_rls_secure: { Args: never; Returns: undefined }
       attempt_auto_recovery: { Args: { p_alert_id: string }; Returns: Json }
       calculate_daily_kpis: { Args: never; Returns: Json }
       calculate_product_price: {
@@ -6499,6 +6497,7 @@ export type Database = {
           title: string
         }[]
       }
+      get_profiles_security_status: { Args: never; Returns: Json }
       get_user_dashboard_stats: { Args: never; Returns: Json }
       get_user_entitlements: {
         Args: { p_curriculum_id?: string; p_user_id: string }

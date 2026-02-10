@@ -478,7 +478,7 @@ export default function AuditExportsPage() {
                     <SelectContent>
                       {enrollments?.map((e: any) => (
                         <SelectItem key={e.user_id} value={e.user_id}>
-                          {e.profiles?.full_name || e.profiles?.email || e.user_id}
+                          {e.profiles?.full_name || e.user_id}
                         </SelectItem>
                       ))}
                     </SelectContent>
