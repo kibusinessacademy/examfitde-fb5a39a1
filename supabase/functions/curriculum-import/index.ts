@@ -384,38 +384,33 @@ Deno.serve(async (req) => {
       return json({ success: true, counts });
     }
 
-    // ─────────────────────── BATCH ───────────────────────
+    // ─────────────────────── BATCH (cron-safe, single-beruf) ───────────────────────
     if (action === 'batch') {
-      const MAX_ITERATIONS = 50;
-      const _iteration = body._iteration || 0;
-
-      if (_iteration >= MAX_ITERATIONS) {
-        return json({ success: true, message: `Stopped after ${MAX_ITERATIONS} iterations`, processed: _iteration });
-      }
-
-      // Find ONE beruf with rahmenlehrplan_url that doesn't have a curriculum yet
-      const { data: berufe } = await supabase
+      // Find ONE beruf that doesn't have a curriculum yet and has at least one URL
+      const { data: allBerufe } = await supabase
         .from('berufe')
-        .select('id, bezeichnung_kurz, rahmenlehrplan_url')
-        .not('rahmenlehrplan_url', 'is', null)
-        .limit(100);
+        .select('id, bezeichnung_kurz, rahmenlehrplan_url, verordnung_pdf_url')
+        .order('bezeichnung_kurz');
 
-      if (!berufe?.length) return json({ success: true, message: 'No berufe with rahmenlehrplan_url found', processed: _iteration });
+      if (!allBerufe?.length) return json({ success: true, message: 'No berufe found', remaining: 0 });
 
-      // Check which already have curricula (any status)
+      // Check which already have curricula
       const { data: existing } = await supabase
         .from('curricula')
-        .select('beruf_id')
-        .in('beruf_id', berufe.map(b => b.id));
+        .select('beruf_id');
 
       const existingIds = new Set((existing || []).map(e => e.beruf_id));
-      const toImport = berufe.filter(b => !existingIds.has(b.id));
+      const toImport = allBerufe.filter(b => !existingIds.has(b.id) && (b.rahmenlehrplan_url || b.verordnung_pdf_url));
 
-      if (!toImport.length) return json({ success: true, message: 'All berufe already have curricula', processed: _iteration });
+      if (!toImport.length) {
+        const noUrl = allBerufe.filter(b => !existingIds.has(b.id) && !b.rahmenlehrplan_url && !b.verordnung_pdf_url);
+        return json({ success: true, message: 'All berufe with URLs processed', remaining: 0, without_url: noUrl.length });
+      }
 
-      // Process exactly ONE beruf inline (no self-invocation for the import itself)
+      // Process exactly ONE beruf per cron invocation (no self-invocation, no recursion)
       const beruf = toImport[0];
-      console.log(`[Batch ${_iteration + 1}] Processing: ${beruf.bezeichnung_kurz} (${beruf.id})`);
+      const sourceUrl = beruf.rahmenlehrplan_url || beruf.verordnung_pdf_url;
+      console.log(`[Cron-Batch] Processing: ${beruf.bezeichnung_kurz} (source: ${sourceUrl}) — ${toImport.length} remaining`);
 
       try {
         // Create curriculum record
@@ -425,132 +420,117 @@ Deno.serve(async (req) => {
             title: `Rahmenlehrplan ${beruf.bezeichnung_kurz}`,
             beruf_id: beruf.id,
             status: 'draft',
-            import_source: 'batch',
-            // created_by omitted for batch (system user has no UUID)
+            import_source: 'cron-batch',
           })
           .select('id')
           .single();
 
         if (cErr || !curr) {
           console.error(`Failed to create curriculum for ${beruf.bezeichnung_kurz}:`, cErr);
-          // Still continue to next — schedule continuation
-        } else {
-          // --- Inline import logic (same as 'import' action but condensed) ---
-          const importLog: Array<{ step: string; ts: string; detail?: string }> = [];
-          await supabase.from('curricula').update({ status: 'extracting', updated_at: new Date().toISOString() }).eq('id', curr.id);
+          return json({ success: false, error: cErr?.message, beruf: beruf.bezeichnung_kurz });
+        }
 
-          const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-          const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-          let textContent = '';
+        const importLog: Array<{ step: string; ts: string; detail?: string }> = [];
+        await supabase.from('curricula').update({ status: 'extracting', updated_at: new Date().toISOString() }).eq('id', curr.id);
 
-          if (FIRECRAWL_API_KEY && beruf.rahmenlehrplan_url) {
-            try {
-              const fcRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: beruf.rahmenlehrplan_url, formats: ['markdown'], onlyMainContent: true }),
-              });
-              const fcData = await fcRes.json();
-              textContent = (fcData.data?.markdown || fcData.markdown || '').substring(0, 80000);
-              importLog.push({ step: 'firecrawl', ts: new Date().toISOString(), detail: `chars=${textContent.length}` });
-            } catch (e) {
-              importLog.push({ step: 'firecrawl_error', ts: new Date().toISOString(), detail: String(e) });
-            }
-          }
+        // Fetch content via Firecrawl
+        const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+        let textContent = '';
 
-          if (textContent.length >= 100 && LOVABLE_API_KEY) {
-            try {
-              const llmRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  model: 'google/gemini-2.5-flash',
-                  messages: [
-                    { role: 'system', content: EXTRACTION_PROMPT },
-                    { role: 'user', content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\n${textContent}` },
-                  ],
-                  temperature: 0.1,
-                }),
-              });
-
-              if (llmRes.ok) {
-                const llmData = await llmRes.json();
-                const rawContent = llmData.choices?.[0]?.message?.content || '';
-                const clean = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-                const extractedData = JSON.parse(clean) as ExtractedData;
-                const normalized = normalizeData(extractedData);
-
-                importLog.push({ step: 'llm_ok', ts: new Date().toISOString(), detail: `${normalized.learningFields.length} LFs` });
-
-                // Upsert
-                let lfCount = 0, cCount = 0;
-                for (let i = 0; i < normalized.learningFields.length; i++) {
-                  const lf = normalized.learningFields[i];
-                  const { data: lfRow, error: lfErr } = await supabase
-                    .from('learning_fields')
-                    .upsert({ curriculum_id: curr.id, code: lf.code, title: lf.title, description: lf.description || '', hours: lf.hours, sort_order: i }, { onConflict: 'curriculum_id,code' })
-                    .select('id').single();
-                  if (lfErr) { importLog.push({ step: 'lf_err', ts: new Date().toISOString(), detail: lfErr.message }); continue; }
-                  lfCount++;
-                  for (let j = 0; j < lf.competencies.length; j++) {
-                    const c = lf.competencies[j];
-                    const { error: cErr2 } = await supabase
-                      .from('competencies')
-                      .upsert({ learning_field_id: lfRow.id, code: c.code, title: c.title, description: c.description || '', taxonomy_level: c.taxonomyLevel, sort_order: j }, { onConflict: 'learning_field_id,code' });
-                    if (!cErr2) cCount++;
-                  }
-                }
-
-                await supabase.from('curricula').update({
-                  extracted_data: extractedData as any,
-                  normalized_data: normalized as any,
-                  status: 'frozen',
-                  frozen_at: new Date().toISOString(),
-                  import_log: importLog as any,
-                  updated_at: new Date().toISOString(),
-                }).eq('id', curr.id);
-
-                console.log(`[Batch ${_iteration + 1}] ✅ ${beruf.bezeichnung_kurz}: ${lfCount} LFs, ${cCount} competencies`);
-              } else {
-                const errText = await llmRes.text();
-                importLog.push({ step: 'llm_error', ts: new Date().toISOString(), detail: `${llmRes.status}: ${errText.substring(0, 200)}` });
-                await supabase.from('curricula').update({ status: 'draft', import_log: importLog as any }).eq('id', curr.id);
-              }
-            } catch (e) {
-              importLog.push({ step: 'llm_parse_error', ts: new Date().toISOString(), detail: String(e).substring(0, 200) });
-              await supabase.from('curricula').update({ status: 'draft', import_log: importLog as any }).eq('id', curr.id);
-            }
-          } else {
-            importLog.push({ step: 'skip', ts: new Date().toISOString(), detail: `Insufficient content (${textContent.length} chars)` });
-            await supabase.from('curricula').update({ status: 'draft', import_log: importLog as any }).eq('id', curr.id);
+        if (FIRECRAWL_API_KEY && sourceUrl) {
+          try {
+            const fcRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: sourceUrl, formats: ['markdown'], onlyMainContent: true }),
+            });
+            const fcData = await fcRes.json();
+            textContent = (fcData.data?.markdown || fcData.markdown || '').substring(0, 80000);
+            importLog.push({ step: 'firecrawl', ts: new Date().toISOString(), detail: `url=${sourceUrl} chars=${textContent.length}` });
+          } catch (e) {
+            importLog.push({ step: 'firecrawl_error', ts: new Date().toISOString(), detail: String(e) });
           }
         }
+
+        if (textContent.length >= 100 && LOVABLE_API_KEY) {
+          try {
+            const llmRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'google/gemini-2.5-flash',
+                messages: [
+                  { role: 'system', content: EXTRACTION_PROMPT },
+                  { role: 'user', content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\n${textContent}` },
+                ],
+                temperature: 0.1,
+              }),
+            });
+
+            if (llmRes.ok) {
+              const llmData = await llmRes.json();
+              const rawContent = llmData.choices?.[0]?.message?.content || '';
+              const clean = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+              const extractedData = JSON.parse(clean) as ExtractedData;
+              const normalized = normalizeData(extractedData);
+
+              importLog.push({ step: 'llm_ok', ts: new Date().toISOString(), detail: `${normalized.learningFields.length} LFs` });
+
+              // Upsert
+              let lfCount = 0, cCount = 0;
+              for (let i = 0; i < normalized.learningFields.length; i++) {
+                const lf = normalized.learningFields[i];
+                const { data: lfRow, error: lfErr } = await supabase
+                  .from('learning_fields')
+                  .upsert({ curriculum_id: curr.id, code: lf.code, title: lf.title, description: lf.description || '', hours: lf.hours, sort_order: i }, { onConflict: 'curriculum_id,code' })
+                  .select('id').single();
+                if (lfErr) { importLog.push({ step: 'lf_err', ts: new Date().toISOString(), detail: lfErr.message }); continue; }
+                lfCount++;
+                for (let j = 0; j < lf.competencies.length; j++) {
+                  const c = lf.competencies[j];
+                  const { error: cErr2 } = await supabase
+                    .from('competencies')
+                    .upsert({ learning_field_id: lfRow.id, code: c.code, title: c.title, description: c.description || '', taxonomy_level: c.taxonomyLevel, sort_order: j }, { onConflict: 'learning_field_id,code' });
+                  if (!cErr2) cCount++;
+                }
+              }
+
+              await supabase.from('curricula').update({
+                extracted_data: extractedData as any,
+                normalized_data: normalized as any,
+                status: 'frozen',
+                frozen_at: new Date().toISOString(),
+                import_log: importLog as any,
+                import_source: beruf.rahmenlehrplan_url ? 'rahmenlehrplan' : 'verordnung',
+                updated_at: new Date().toISOString(),
+              }).eq('id', curr.id);
+
+              console.log(`[Cron-Batch] ✅ ${beruf.bezeichnung_kurz}: ${lfCount} LFs, ${cCount} competencies`);
+            } else {
+              const errText = await llmRes.text();
+              importLog.push({ step: 'llm_error', ts: new Date().toISOString(), detail: `${llmRes.status}: ${errText.substring(0, 200)}` });
+              await supabase.from('curricula').update({ status: 'draft', import_log: importLog as any }).eq('id', curr.id);
+            }
+          } catch (e) {
+            importLog.push({ step: 'llm_parse_error', ts: new Date().toISOString(), detail: String(e).substring(0, 200) });
+            await supabase.from('curricula').update({ status: 'draft', import_log: importLog as any }).eq('id', curr.id);
+          }
+        } else {
+          importLog.push({ step: 'skip', ts: new Date().toISOString(), detail: `Insufficient content (${textContent.length} chars)` });
+          await supabase.from('curricula').update({ status: 'draft', import_log: importLog as any }).eq('id', curr.id);
+        }
+
+        return json({
+          success: true,
+          beruf: beruf.bezeichnung_kurz,
+          source: beruf.rahmenlehrplan_url ? 'rahmenlehrplan' : 'verordnung',
+          remaining: toImport.length - 1,
+        });
       } catch (err) {
-        console.error(`[Batch ${_iteration + 1}] Error:`, err);
+        console.error(`[Cron-Batch] Error for ${beruf.bezeichnung_kurz}:`, err);
+        return json({ success: false, error: String(err), beruf: beruf.bezeichnung_kurz });
       }
-
-      // Schedule next iteration with delay to avoid overload
-      const remaining = toImport.length - 1;
-      if (remaining > 0) {
-        console.log(`[Batch] ${remaining} berufe remaining, waiting 5s then continuing...`);
-        await new Promise(r => setTimeout(r, 5000));
-        // Fire next iteration (don't await response — let it run independently)  
-        fetch(`${supabaseUrl}/functions/v1/curriculum-import`, {
-          method: 'POST',
-          headers: {
-            'x-internal-key': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ action: 'batch', _iteration: _iteration + 1 }),
-        }).catch(e => console.error('Self-invoke error:', e));
-      }
-
-      return json({
-        success: true,
-        processed: _iteration + 1,
-        current: beruf.bezeichnung_kurz,
-        remaining,
-      });
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);
