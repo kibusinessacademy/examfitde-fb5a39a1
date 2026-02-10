@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  FileText, CheckCircle2, XCircle, Play, RotateCcw, Shield, Loader2, Eye, AlertTriangle
+  FileText, CheckCircle2, XCircle, Play, RotateCcw, Shield, Loader2, Eye, AlertTriangle, History
 } from "lucide-react";
 
 const STATUS_OPTIONS = ["draft", "validated", "needs_revision", "approved", "rejected", "applied", "failed"] as const;
@@ -25,6 +25,7 @@ const statusConfig: Record<string, { color: string; icon: React.ElementType }> =
 export default function PatchCenterPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<string>("all");
+  const [selectedPatchId, setSelectedPatchId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["patch-proposals", filter],
@@ -37,6 +38,18 @@ export default function PatchCenterPage() {
     },
   });
 
+  const { data: revisions, isLoading: revisionsLoading } = useQuery({
+    queryKey: ["patch-revisions", selectedPatchId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("patch-api", {
+        body: { action: "list_revisions", patchId: selectedPatchId },
+      });
+      if (error) throw error;
+      return data?.revisions || [];
+    },
+    enabled: !!selectedPatchId,
+  });
+
   const actionMut = useMutation({
     mutationFn: async (payload: Record<string, string>) => {
       const { data, error } = await supabase.functions.invoke("patch-api", { body: payload });
@@ -47,6 +60,7 @@ export default function PatchCenterPage() {
     onSuccess: (_, vars) => {
       toast.success(`Patch ${vars.action.replace("_proposal", "").replace("_revision", "")} erfolgreich`);
       qc.invalidateQueries({ queryKey: ["patch-proposals"] });
+      qc.invalidateQueries({ queryKey: ["patch-revisions"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -80,6 +94,7 @@ export default function PatchCenterPage() {
           {(data || []).map((p: Record<string, unknown>) => {
             const st = statusConfig[p.status as string] || statusConfig.draft;
             const StIcon = st.icon;
+            const isSelected = selectedPatchId === (p.id as string);
             return (
               <Card key={p.id as string} className="glass-card">
                 <CardContent className="py-4">
@@ -102,8 +117,17 @@ export default function PatchCenterPage() {
                           <pre className="text-xs bg-muted/30 p-2 rounded mt-1 max-h-40 overflow-auto">{JSON.stringify(p.validator_result, null, 2)}</pre>
                         </details>
                       )}
+                      {p.apply_error && (
+                        <p className="text-xs text-destructive mt-1">Fehler: {p.apply_error as string}</p>
+                      )}
                     </div>
                     <div className="flex gap-1.5 flex-shrink-0">
+                      {(p.status === "applied" || p.status === "failed") && (
+                        <Button size="sm" variant="outline"
+                          onClick={() => setSelectedPatchId(isSelected ? null : p.id as string)}>
+                          <History className="h-3.5 w-3.5 mr-1" /> {isSelected ? "Schließen" : "Revisions"}
+                        </Button>
+                      )}
                       {p.status === "draft" && (
                         <Button size="sm" variant="outline" disabled={actionMut.isPending}
                           onClick={() => actionMut.mutate({ action: "validate_proposal", patchId: p.id as string, mode: "quick" })}>
@@ -130,6 +154,40 @@ export default function PatchCenterPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* Revisions Section */}
+                  {isSelected && (
+                    <div className="mt-4 pt-3 border-t border-border space-y-2">
+                      <h4 className="text-sm font-medium text-foreground flex items-center gap-1">
+                        <History className="h-4 w-4 text-muted-foreground" /> Revisions
+                      </h4>
+                      {revisionsLoading ? (
+                        <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-primary" /></div>
+                      ) : (revisions || []).length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Keine Revisions vorhanden.</p>
+                      ) : (
+                        (revisions as Array<Record<string, unknown>>).map((rev) => (
+                          <div key={rev.id as string} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/20 border border-border text-xs">
+                            <div className="space-y-0.5">
+                              <p className="text-foreground font-medium">
+                                {rev.entity_type as string} · {(rev.entity_id as string)?.slice(0, 8)}…
+                                {rev.rollback_of ? <Badge variant="secondary" className="ml-2 text-[10px]">Rollback</Badge> : null}
+                              </p>
+                              <p className="text-muted-foreground">
+                                {new Date(rev.applied_at as string).toLocaleString("de-DE")}
+                              </p>
+                            </div>
+                            {!rev.rollback_of && (
+                              <Button size="sm" variant="outline" disabled={actionMut.isPending}
+                                onClick={() => actionMut.mutate({ action: "rollback_revision", revisionId: rev.id as string })}>
+                                <RotateCcw className="h-3 w-3 mr-1" /> Rollback
+                              </Button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );

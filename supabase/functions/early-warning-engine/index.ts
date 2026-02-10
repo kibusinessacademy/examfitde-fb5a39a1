@@ -3,6 +3,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateAuth, unauthorizedResponse } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
+type Severity = "low" | "medium" | "high" | "critical";
+
+function severityFromScore(score: number): Severity {
+  if (score >= 85) return "critical";
+  if (score >= 65) return "high";
+  if (score >= 40) return "medium";
+  return "low";
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
@@ -20,7 +33,6 @@ serve(async (req) => {
 
   try {
     const now = new Date().toISOString();
-    const scores: Array<{ scope: string; scope_id: string; risk_type: string; score: number; severity: string; evidence: Record<string, unknown> }> = [];
 
     // 1) Tech Risk: job failures
     const { data: jobs } = await admin.from("job_queue").select("status");
@@ -28,13 +40,7 @@ serve(async (req) => {
     const failed = (jobs || []).filter((j: { status: string }) => j.status === "failed").length;
     const pending = (jobs || []).filter((j: { status: string }) => j.status === "pending").length;
     const failRate = total > 0 ? failed / total : 0;
-    const techScore = Math.round(Math.min(100, failRate * 500 + (pending > 100 ? 30 : 0)));
-    scores.push({
-      scope: "council", scope_id: "tech", risk_type: "system_risk",
-      score: techScore,
-      severity: techScore > 60 ? "critical" : techScore > 30 ? "warning" : "low",
-      evidence: { totalJobs: total, failed, pending, failRate: Math.round(failRate * 100) },
-    });
+    const techScore = clamp(Math.round(failRate * 500 + (pending > 100 ? 30 : 0)), 0, 100);
 
     // 2) Quality Risk: validation scores
     const { data: vals } = await admin.from("ai_validations")
@@ -44,13 +50,7 @@ serve(async (req) => {
     const allScores = (vals || []).map((v: { overall_score: number }) => Number(v.overall_score || 0)).filter((n: number) => n > 0);
     const lowCount = allScores.filter((s: number) => s < 92).length;
     const avg = allScores.length ? allScores.reduce((a: number, b: number) => a + b, 0) / allScores.length : 100;
-    const qualityScore = Math.round(Math.min(100, (lowCount / Math.max(1, allScores.length)) * 200 + Math.max(0, 92 - avg) * 3));
-    scores.push({
-      scope: "council", scope_id: "education", risk_type: "quality_risk",
-      score: qualityScore,
-      severity: qualityScore > 60 ? "critical" : qualityScore > 30 ? "warning" : "low",
-      evidence: { totalValidations: allScores.length, below92: lowCount, avgScore: Math.round(avg * 10) / 10 },
-    });
+    const qualityScore = clamp(Math.round((lowCount / Math.max(1, allScores.length)) * 200 + Math.max(0, 92 - avg) * 3), 0, 100);
 
     // 3) Budget Risk: AI cost vs budget
     const { data: usage } = await admin.from("ai_usage_log").select("cost_eur").limit(5000);
@@ -61,13 +61,28 @@ serve(async (req) => {
       .limit(1);
     const budget = budgets?.[0];
     const budgetPct = budget ? ((budget.spent_eur || totalCost) / Math.max(1, budget.budget_eur)) * 100 : 0;
-    const budgetScore = Math.round(Math.min(100, Math.max(0, budgetPct - 50) * 2));
-    scores.push({
-      scope: "council", scope_id: "operations", risk_type: "budget_risk",
-      score: budgetScore,
-      severity: budgetScore > 60 ? "critical" : budgetScore > 30 ? "warning" : "low",
-      evidence: { totalCostEur: Math.round(totalCost * 100) / 100, budgetEur: budget?.budget_eur ?? 0, usagePct: Math.round(budgetPct) },
-    });
+    const budgetScore = clamp(Math.round(Math.max(0, budgetPct - 50) * 2), 0, 100);
+
+    const scores = [
+      {
+        scope: "council", scope_id: "tech", risk_type: "system_risk",
+        score: techScore,
+        severity: severityFromScore(techScore),
+        evidence: { totalJobs: total, failed, pending, failRate: Math.round(failRate * 100) },
+      },
+      {
+        scope: "council", scope_id: "education", risk_type: "quality_risk",
+        score: qualityScore,
+        severity: severityFromScore(qualityScore),
+        evidence: { totalValidations: allScores.length, below92: lowCount, avgScore: Math.round(avg * 10) / 10 },
+      },
+      {
+        scope: "council", scope_id: "operations", risk_type: "budget_risk",
+        score: budgetScore,
+        severity: severityFromScore(budgetScore),
+        evidence: { totalCostEur: Math.round(totalCost * 100) / 100, budgetEur: budget?.budget_eur ?? 0, usagePct: Math.round(budgetPct) },
+      },
+    ];
 
     // Upsert all risk scores
     for (const s of scores) {

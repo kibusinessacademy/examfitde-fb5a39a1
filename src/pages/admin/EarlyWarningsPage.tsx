@@ -13,11 +13,14 @@ const riskIcons: Record<string, React.ElementType> = {
   system_risk: Cpu,
   quality_risk: GraduationCap,
   budget_risk: DollarSign,
+  churn_risk: Activity,
+  revenue_risk: Shield,
 };
 
 const severityColors: Record<string, string> = {
   low: "bg-success/10 text-success border-success/30",
-  warning: "bg-warning/10 text-warning border-warning/30",
+  medium: "bg-warning/10 text-warning border-warning/30",
+  high: "bg-warning/20 text-warning border-warning/40",
   critical: "bg-destructive/10 text-destructive border-destructive/30",
 };
 

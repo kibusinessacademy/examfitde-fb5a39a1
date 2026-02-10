@@ -5661,6 +5661,7 @@ export type Database = {
           scope: string
           scope_id: string
           score: number
+          severity: string
         }
         Insert: {
           computed_at?: string
@@ -5670,6 +5671,7 @@ export type Database = {
           scope: string
           scope_id: string
           score?: number
+          severity?: string
         }
         Update: {
           computed_at?: string
@@ -5679,6 +5681,7 @@ export type Database = {
           scope?: string
           scope_id?: string
           score?: number
+          severity?: string
         }
         Relationships: []
       }

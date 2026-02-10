@@ -119,6 +119,7 @@ serve(async (req) => {
       const nextStatus =
         decision === "approve" ? "validated" :
         decision === "revise" ? "needs_revision" :
+        decision === "reject" ? "rejected" :
         "draft";
 
       await admin
