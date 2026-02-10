@@ -95,6 +95,9 @@ const AppStoreBuilderPage = lazy(() => import('@/pages/admin/AppStoreBuilderPage
 // SEO Audit
 const SEOAuditPage = lazy(() => import('@/pages/admin/SEOAuditPage'));
 
+// Course Exports
+const CourseExportsPage = lazy(() => import('@/pages/admin/CourseExportsPage'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
@@ -232,6 +235,8 @@ const AppRoutes = () => {
           <Route path="app-store-builder" element={<AppStoreBuilderPage />} />
           {/* SEO Audit */}
           <Route path="seo-audit" element={<SEOAuditPage />} />
+          {/* Course Exports */}
+          <Route path="exports" element={<CourseExportsPage />} />
         </Route>
 
         {/* Admin Redirects */}

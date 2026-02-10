@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.improve-lesson]
 verify_jwt = false
+
+[functions.export-course-package]
+verify_jwt = false

@@ -2315,6 +2315,53 @@ export type Database = {
           },
         ]
       }
+      export_jobs: {
+        Row: {
+          course_id: string
+          created_at: string
+          created_by: string
+          error: string | null
+          file_size_bytes: number | null
+          formats: string[]
+          id: string
+          output_path: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          created_by: string
+          error?: string | null
+          file_size_bytes?: number | null
+          formats?: string[]
+          id?: string
+          output_path?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          created_by?: string
+          error?: string | null
+          file_size_bytes?: number | null
+          formats?: string[]
+          id?: string
+          output_path?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_jobs_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       handbook_chapters: {
         Row: {
           chapter_key: string
