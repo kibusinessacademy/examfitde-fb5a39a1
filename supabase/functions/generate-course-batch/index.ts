@@ -336,7 +336,7 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    const { courseId, curriculumId, learningFieldIndex = 0, provider } = await req.json();
+    const { courseId, curriculumId, learningFieldId, competencyId, provider, skipValidation = false } = await req.json();
 
     if (!courseId || !curriculumId) {
       return new Response(
@@ -348,28 +348,76 @@ serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const ai = resolveProvider(provider);
 
-    console.log(`[Batch] LLM Council Pipeline: Generator=${ai.model}, Validator=claude-opus-4`);
-    console.log(`[Batch] Course: ${courseId}, LF index: ${learningFieldIndex}`);
+    // MODE 1: Single competency generation (granular, fits in timeout)
+    if (learningFieldId && competencyId) {
+      console.log(`[Batch] Single competency: ${competencyId} in LF ${learningFieldId}`);
 
-    await supabase.from('courses').update({ status: 'generating' }).eq('id', courseId);
+      // Ensure module exists
+      const { data: existingModule } = await supabase
+        .from('modules').select('id').eq('course_id', courseId).eq('learning_field_id', learningFieldId).maybeSingle();
 
-    const { data: learningFields, error: lfError } = await supabase
-      .from('learning_fields')
-      .select(`*, competencies (*)`)
-      .eq('curriculum_id', curriculumId)
-      .order('sort_order');
+      let moduleId = existingModule?.id;
+      if (!moduleId) {
+        const { data: lf } = await supabase.from('learning_fields').select('*').eq('id', learningFieldId).single();
+        if (!lf) throw new Error('Learning field not found');
+        const { data: mod, error: modErr } = await supabase.from('modules').insert({
+          course_id: courseId, learning_field_id: learningFieldId,
+          title: `${lf.code}: ${lf.title}`, description: lf.description, sort_order: lf.sort_order || 0,
+        }).select().single();
+        if (modErr) throw modErr;
+        moduleId = mod.id;
+      }
 
-    if (lfError) throw lfError;
-    if (!learningFields?.length) throw new Error('No learning fields found');
+      // Get competency
+      const { data: comp } = await supabase.from('competencies').select('*').eq('id', competencyId).single();
+      if (!comp) throw new Error('Competency not found');
 
-    // Check completion
-    if (learningFieldIndex >= learningFields.length) {
-      const { data: stats } = await supabase
+      let lessonsCreated = 0;
+      let lessonSortOrder = 0;
+
+      // Get existing sort order
+      const { data: existingLessons } = await supabase
+        .from('lessons').select('sort_order').eq('module_id', moduleId).order('sort_order', { ascending: false }).limit(1);
+      if (existingLessons?.length) lessonSortOrder = (existingLessons[0].sort_order || 0) + 1;
+
+      for (const step of LESSON_STEPS) {
+        // Skip if already exists
+        const { data: existing } = await supabase
+          .from('lessons').select('id').eq('module_id', moduleId).eq('competency_id', comp.id).eq('step', step).maybeSingle();
+        if (existing) { lessonSortOrder++; continue; }
+
+        const stepDuration = step === 'mini_check' ? 10 : step === 'verstehen' ? 25 : step === 'anwenden' ? 30 : step === 'wiederholen' ? 15 : 10;
+
+        const { content: lessonContent, generationId } = await generateAndTrack(supabase, ai, comp, step, courseId);
+
+        const finalContent = lessonContent || (step === 'mini_check'
+          ? { type: 'mini_check', html: `<h3>${comp.title}</h3><p>⚠️ Inhalt wird nachgeneriert.</p>`, objectives: [], questions: [], _needs_repair: true }
+          : { type: 'text', html: `<h3>${comp.title} - ${step}</h3><p>⚠️ Inhalt wird nachgeneriert.</p>`, objectives: [], _needs_repair: true });
+
+        await supabase.from('lessons').insert({
+          module_id: moduleId, competency_id: comp.id,
+          title: `${comp.code}: ${comp.title}`, step,
+          content: finalContent,
+          duration_minutes: stepDuration, sort_order: lessonSortOrder++,
+        });
+        lessonsCreated++;
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, lessonsCreated, competencyCode: comp.code }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // MODE 2: Finalize course (update duration & status)
+    if (!learningFieldId && !competencyId) {
+      const { data: lessons } = await supabase
         .from('lessons')
         .select('duration_minutes, module_id!inner(course_id)')
         .eq('module_id.course_id', courseId);
 
-      const totalDuration = stats?.reduce((sum, l) => sum + (l.duration_minutes || 0), 0) || 0;
+      const totalDuration = lessons?.reduce((sum, l) => sum + (l.duration_minutes || 0), 0) || 0;
+      const totalLessons = lessons?.length || 0;
 
       await supabase.from('courses').update({
         estimated_duration: Math.ceil(totalDuration / 60),
@@ -377,108 +425,14 @@ serve(async (req) => {
       }).eq('id', courseId);
 
       return new Response(
-        JSON.stringify({ success: true, complete: true, message: 'Course generation complete', totalLearningFields: learningFields.length, totalDuration }),
+        JSON.stringify({ success: true, complete: true, totalLessons, totalDuration }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const lf = learningFields[learningFieldIndex];
-    console.log(`[Batch] Processing LF ${learningFieldIndex + 1}/${learningFields.length}: ${lf.code}`);
-
-    // Module creation
-    const { data: existingModule } = await supabase
-      .from('modules').select('id').eq('course_id', courseId).eq('learning_field_id', lf.id).maybeSingle();
-
-    let moduleId = existingModule?.id;
-    if (!moduleId) {
-      const { data: module, error: moduleError } = await supabase.from('modules').insert({
-        course_id: courseId, learning_field_id: lf.id,
-        title: `${lf.code}: ${lf.title}`, description: lf.description, sort_order: learningFieldIndex,
-      }).select().single();
-      if (moduleError) throw moduleError;
-      moduleId = module.id;
-    }
-
-    const competencies = lf.competencies || [];
-    let lessonsCreated = 0;
-    let validated = 0;
-    let approved = 0;
-    let lessonSortOrder = 0;
-
-    for (const comp of competencies) {
-      for (const step of LESSON_STEPS) {
-        const { data: existingLesson } = await supabase
-          .from('lessons').select('id').eq('module_id', moduleId).eq('competency_id', comp.id).eq('step', step).maybeSingle();
-
-        if (existingLesson) { lessonSortOrder++; continue; }
-
-        const stepDuration = step === 'mini_check' ? 10 : step === 'verstehen' ? 25 : step === 'anwenden' ? 30 : step === 'wiederholen' ? 15 : 10;
-
-        let lessonContent: Record<string, unknown> | null = null;
-        let generationId: string | null = null;
-        let contentValid = false;
-        const maxAttempts = 3;
-
-        for (let attempt = 0; attempt < maxAttempts && !contentValid; attempt++) {
-          const result = await generateAndTrack(supabase, ai, comp, step, courseId);
-          lessonContent = result.content;
-          generationId = result.generationId;
-
-          if (step === 'mini_check') {
-            const qs = lessonContent?.questions as Record<string, unknown>[] | undefined;
-            contentValid = !!(qs && Array.isArray(qs) && qs.length >= 4);
-          } else if (lessonContent) {
-            const html = lessonContent.html as string;
-            contentValid = typeof html === 'string' && html.length >= 300
-              && !html.includes('wird generiert') && Array.isArray(lessonContent.objectives);
-          }
-
-          if (!contentValid && attempt < maxAttempts - 1) {
-            console.warn(`[Batch] Quality gate failed for ${comp.code}/${step}, retry ${attempt + 2}`);
-            await new Promise(r => setTimeout(r, 1000));
-          }
-        }
-
-        // Fallback
-        if (!lessonContent || !contentValid) {
-          console.error(`[Batch] FAILED after ${maxAttempts} attempts: ${comp.code}/${step}`);
-          lessonContent = step === 'mini_check'
-            ? { type: 'mini_check', html: `<h3>${comp.title}</h3><p>⚠️ Inhalt wird nachgeneriert.</p>`, objectives: [], questions: [], _needs_repair: true }
-            : { type: 'text', html: `<h3>${comp.title} - ${step}</h3><p>⚠️ Inhalt wird nachgeneriert.</p>`, objectives: [], _needs_repair: true };
-        }
-
-        // Opus Validation (automatic, per lesson)
-        let validationResult = { score: 0, decision: "skip" };
-        if (generationId && contentValid && !lessonContent._needs_repair) {
-          validationResult = await validateWithOpus(supabase, lessonContent, comp, step, generationId);
-          validated++;
-          if (validationResult.decision === "approve") approved++;
-        }
-
-        await supabase.from('lessons').insert({
-          module_id: moduleId, competency_id: comp.id,
-          title: `${comp.code}: ${comp.title}`, step,
-          content: { ...lessonContent, _validation_score: validationResult.score, _validation_decision: validationResult.decision },
-          duration_minutes: stepDuration, sort_order: lessonSortOrder++,
-        });
-
-        lessonsCreated++;
-      }
-    }
-
-    console.log(`[Batch] LF ${lf.code}: ${lessonsCreated} lessons, ${validated} validated, ${approved} approved`);
-
     return new Response(
-      JSON.stringify({
-        success: true, complete: false,
-        currentIndex: learningFieldIndex,
-        totalLearningFields: learningFields.length,
-        nextIndex: learningFieldIndex + 1,
-        learningFieldCode: lf.code,
-        lessonsCreated, validated, approved,
-        message: `LF ${learningFieldIndex + 1}/${learningFields.length}: ${lf.code} – ${approved}/${validated} approved`
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'Invalid request: provide learningFieldId+competencyId or neither (to finalize)' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
