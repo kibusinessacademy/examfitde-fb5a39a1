@@ -11,6 +11,7 @@ import { ExamTrapsWidget } from '@/components/dashboard/ExamTrapsWidget';
 import { CoachHint } from '@/components/dashboard/CoachHint';
 import { ExamPreview } from '@/components/dashboard/ExamPreview';
 import { SilentMotivation } from '@/components/dashboard/SilentMotivation';
+import ProgressNarrative from '@/components/dashboard/ProgressNarrative';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -208,6 +209,11 @@ export default function LearnerDashboard() {
             <ExamTrapsWidget curriculumId={activeCurriculumId} />
           </div>
         )}
+
+        {/* ━━━ SECTION 4b: Progress Narrative ━━━ */}
+        <div className="mb-6">
+          <ProgressNarrative />
+        </div>
 
         {/* ━━━ SECTION 5: Enrolled Courses ━━━ */}
         <div className="mb-8">
