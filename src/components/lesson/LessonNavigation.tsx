@@ -112,7 +112,7 @@ export default function LessonNavigation({
           <Link to={`/course/${courseId}`}>
             <Button className="gradient-accent text-accent-foreground gap-2">
               <CheckCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Modul abschließen</span>
+              <span className="hidden sm:inline">Abschließen</span>
               <span className="sm:hidden">Fertig</span>
             </Button>
           </Link>

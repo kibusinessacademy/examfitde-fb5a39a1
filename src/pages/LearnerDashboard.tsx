@@ -165,7 +165,7 @@ export default function LearnerDashboard() {
             </span>
           </h1>
           <p className="text-muted-foreground">
-            Hier ist eine Übersicht deiner Lernfortschritte.
+            Hier ist eine Übersicht deiner Prüfungsvorbereitung.
           </p>
           {isAdmin && (
             <Link to="/admin-v2/dashboard">
@@ -192,7 +192,7 @@ export default function LearnerDashboard() {
               <div className="text-3xl font-display font-bold text-gradient">
                 {enrollments.length}
               </div>
-              <div className="text-sm text-muted-foreground">Kurse eingeschrieben</div>
+              <div className="text-sm text-muted-foreground">Prüfungstrainings</div>
             </CardContent>
           </Card>
           
@@ -202,7 +202,7 @@ export default function LearnerDashboard() {
               <div className="text-3xl font-display font-bold text-green-500">
                 {getCompletedCoursesCount()}
               </div>
-              <div className="text-sm text-muted-foreground">Kurse abgeschlossen</div>
+              <div className="text-sm text-muted-foreground">Trainings abgeschlossen</div>
             </CardContent>
           </Card>
           
@@ -212,7 +212,7 @@ export default function LearnerDashboard() {
               <div className="text-3xl font-display font-bold text-gradient-accent">
                 {getTotalCompletedLessons()}
               </div>
-              <div className="text-sm text-muted-foreground">Lektionen abgeschlossen</div>
+              <div className="text-sm text-muted-foreground">Prüfungseinheiten</div>
             </CardContent>
           </Card>
           
@@ -230,10 +230,10 @@ export default function LearnerDashboard() {
         {/* Enrolled Courses */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-display font-semibold">Meine Kurse</h2>
+            <h2 className="text-2xl font-display font-semibold">Meine Prüfungstrainings</h2>
             <Link to="/courses">
               <Button variant="ghost" size="sm">
-                Alle Kurse
+                Alle Trainings
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </Link>
@@ -243,14 +243,14 @@ export default function LearnerDashboard() {
             <Card className="glass-card">
               <CardContent className="p-12 text-center">
                 <GraduationCap className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Noch keine Kurse</h3>
+                <h3 className="text-xl font-semibold mb-2">Noch kein Prüfungstraining</h3>
                 <p className="text-muted-foreground mb-6">
-                  Du hast dich noch für keinen Kurs eingeschrieben. 
-                  Entdecke unsere Kurse und starte dein Lernen!
+                  Du hast noch kein Prüfungstraining gestartet. 
+                  Starte jetzt deine Prüfungsvorbereitung!
                 </p>
                 <Link to="/courses">
                   <Button className="gradient-primary text-primary-foreground shadow-glow">
-                    Kurse entdecken
+                    Prüfungstraining entdecken
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </Link>
@@ -361,11 +361,11 @@ export default function LearnerDashboard() {
                 <div className="flex-1">
                   <h3 className="font-display font-bold text-lg mb-1">Spaced Repetition</h3>
                   <p className="text-muted-foreground text-sm mb-4">
-                    Optimales Lernen mit SM-2
+                    Prüfungswissen festigen
                   </p>
                   <Link to="/spaced-repetition">
                     <Button variant="outline" size="sm" className="group-hover:border-primary/50">
-                      Lernen starten
+                      Training starten
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
                   </Link>

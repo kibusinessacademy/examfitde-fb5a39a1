@@ -14,9 +14,9 @@ interface ProductCardProps {
 }
 
 const FEATURES = {
-  learning_course: { icon: BookOpen, label: 'Lerninhaltekurs', description: 'Strukturiertes Lernen basierend auf Rahmenlehrplänen' },
-  exam_trainer: { icon: GraduationCap, label: 'Prüfungstrainer', description: 'Prüfungssimulation nach Kammerstandards' },
-  ai_tutor: { icon: Brain, label: 'KI-Tutor', description: 'Intelligente Lernunterstützung' },
+  learning_course: { icon: BookOpen, label: 'Prüfungswissen', description: 'Prüfungsrelevantes Wissen basierend auf Rahmenlehrplänen' },
+  exam_trainer: { icon: GraduationCap, label: 'Prüfungssimulation', description: 'Prüfungssimulation nach Kammerstandards' },
+  ai_tutor: { icon: Brain, label: 'KI-Prüfungscoach', description: 'Intelligente Prüfungsvorbereitung' },
   oral_trainer: { icon: Mic, label: 'Mündliche Prüfung', description: 'Simulation mit KI-Feedback' },
 };
 

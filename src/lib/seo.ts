@@ -429,19 +429,19 @@ export function generateHowToSchema(howTo: {
 export const SEO_TEMPLATES = {
   ihkPruefung: (beruf: string) => ({
     title: `${beruf} Prüfung bestehen | ExamFit`,
-    description: `Bereite dich optimal auf die Abschlussprüfung ${beruf} vor. Interaktive Lernkurse, Prüfungstrainer & mündliche Prüfungssimulation. Jetzt starten!`,
+    description: `Bereite dich optimal auf die Abschlussprüfung ${beruf} vor. Intelligentes Prüfungstraining mit Simulation, KI-Tutor & mündlicher Prüfung. Jetzt starten!`,
   }),
   lernkurs: (beruf: string) => ({
-    title: `${beruf} Lernkurs | Prüfungsvorbereitung | ExamFit`,
-    description: `Strukturierter Lernkurs für ${beruf}. Alle Lernfelder, interaktive Module & KI-Tutor. 12 Monate Zugang für nur 19€.`,
+    title: `${beruf} Prüfungstraining | Prüfungswissen | ExamFit`,
+    description: `Prüfungsrelevantes Wissen für ${beruf}. Alle Lernfelder, gezielt aufbereitet für die Abschlussprüfung. 12 Monate Zugang.`,
   }),
   pruefungstrainer: (beruf: string) => ({
-    title: `${beruf} Prüfungstrainer | Fragen üben | ExamFit`,
-    description: `Trainiere mit prüfungsrelevanten Fragen für ${beruf}. Adaptive Lernalgorithmen, Schwachstellen-Analyse & Prüfungssimulation. 29€.`,
+    title: `${beruf} Prüfungstrainer | Aufgaben üben | ExamFit`,
+    description: `Trainiere mit prüfungsrelevanten Aufgaben für ${beruf}. Adaptive Schwächenanalyse & Prüfungssimulation.`,
   }),
   bundle: (beruf: string) => ({
-    title: `${beruf} Komplett-Paket | Lernen + Üben | ExamFit`,
-    description: `Das Komplett-Paket für ${beruf}: Lernkurs + Prüfungstrainer + mündliche Prüfungssimulation. Alles in einem für nur 39€.`,
+    title: `${beruf} Prüfungstraining komplett | ExamFit`,
+    description: `Das komplette Prüfungstraining für ${beruf}: Prüfungswissen + Simulation + mündliche Prüfung. Alles in einem Paket.`,
   }),
   beruf: (beruf: string, kammer: string = 'IHK') => ({
     title: `${beruf} – ${kammer}-Prüfung & Vorbereitung | ExamFit`,
@@ -453,10 +453,12 @@ export const SEO_TEMPLATES = {
   }),
 };
 
-// Product pricing
+// Product pricing — single product
 export const PRODUCT_PRICES = {
-  lernkurs: 19,
-  pruefungstrainer: 29,
+  pruefungstraining: 39,
+  // Legacy keys kept for backward compatibility
+  lernkurs: 39,
+  pruefungstrainer: 39,
   bundle: 39,
 } as const;
 

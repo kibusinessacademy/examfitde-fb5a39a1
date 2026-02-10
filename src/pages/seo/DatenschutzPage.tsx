@@ -97,7 +97,7 @@ export default function DatenschutzPage() {
               </p>
               <ul className="list-disc list-inside text-muted-foreground mb-3 ml-4 space-y-1">
                 <li>Antworten auf Übungsfragen und deren Korrektheit</li>
-                <li>Fortschritt in Lernkursen</li>
+                <li>Fortschritt im Prüfungstraining</li>
                 <li>Zeitpunkte der Nutzung</li>
                 <li>Ergebnisse von Prüfungssimulationen</li>
               </ul>

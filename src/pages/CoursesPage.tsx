@@ -84,11 +84,11 @@ export default function CoursesPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
-            Unsere <span className="text-gradient">Kurse</span>
+            Dein <span className="text-gradient">Prüfungstraining</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Interaktive Lernkurse basierend auf offiziellen IHK-Rahmenlehrplänen 
-            mit der bewährten 5-Schritte-Didaktik.
+            Prüfungsrelevantes Wissen basierend auf offiziellen Rahmenlehrplänen – 
+            gezielt aufbereitet für deine Abschlussprüfung.
           </p>
         </div>
 
@@ -96,9 +96,9 @@ export default function CoursesPage() {
         {courses.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
             <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Noch keine Kurse verfügbar</h3>
+            <h3 className="text-xl font-semibold mb-2">Noch kein Prüfungstraining verfügbar</h3>
             <p className="text-muted-foreground">
-              Neue Kurse werden bald hinzugefügt. Schauen Sie später wieder vorbei!
+              Neue Prüfungstrainings werden bald hinzugefügt. Schau später wieder vorbei!
             </p>
           </div>
         ) : (
@@ -158,7 +158,7 @@ export default function CoursesPage() {
                   {/* Action Button */}
                   <Link to={`/course/${course.id}`}>
                     <Button className="w-full gradient-primary text-primary-foreground shadow-glow-sm group-hover:shadow-glow transition-all">
-                      {isEnrolled(course.id) ? 'Fortsetzen' : 'Kurs ansehen'}
+                      {isEnrolled(course.id) ? 'Fortsetzen' : 'Training starten'}
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
                   </Link>

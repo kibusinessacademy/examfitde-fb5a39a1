@@ -150,11 +150,11 @@ export default function ShopPage() {
               <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
-              Investiere in deinen <span className="text-gradient">Prüfungserfolg</span>
+              Dein intelligentes <span className="text-gradient">Prüfungstraining</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Wähle das passende Paket für deine IHK-Prüfungsvorbereitung. 
-              Einmalzahlung, 12 Monate Zugang, keine versteckten Kosten.
+              Ein Produkt. Ein Ziel: Deine Prüfung bestehen. 
+              Einmalzahlung, 12 Monate Zugang, alles inklusive.
             </p>
           </div>
 
@@ -233,7 +233,7 @@ export default function ShopPage() {
               <div>
                 <h3 className="font-semibold mb-2">Mündliche Prüfung</h3>
                 <p className="text-sm text-muted-foreground">
-                  Übe das Fachgespräch mit KI-Feedback im Bundle.
+                  Simuliere das Prüfungsgespräch mit KI-Feedback.
                 </p>
               </div>
             </div>
