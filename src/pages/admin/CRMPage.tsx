@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,31 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import SupportTicketList from '@/components/support/SupportTicketList';
+import SmartTicketCreate from '@/components/support/SmartTicketCreate';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Users, 
-  UserCircle,
-  MessageSquare,
-  Tag,
-  Filter,
-  Search,
-  Plus,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  ArrowRight,
-  Mail,
-  Phone,
-  Calendar,
-  Activity,
-  Eye
+  Users, UserCircle, MessageSquare, Tag, Filter, Search, Plus, Eye
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -219,179 +200,6 @@ function SegmentsTab() {
   );
 }
 
-// Support Tickets Tab
-function SupportTab() {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const queryClient = useQueryClient();
-
-  const { data: tickets, isLoading } = useQuery({
-    queryKey: ['support-tickets'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('support_tickets')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
-    }
-  });
-
-  const updateTicketStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase
-        .from('support_tickets')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['support-tickets'] });
-      toast.success('Status aktualisiert');
-    }
-  });
-
-  if (isLoading) return <Skeleton className="h-64 w-full" />;
-
-  const openTickets = tickets?.filter(t => t.status === 'open').length || 0;
-  const inProgressTickets = tickets?.filter(t => t.status === 'in_progress').length || 0;
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'destructive';
-      case 'high': return 'destructive';
-      case 'medium': return 'secondary';
-      default: return 'outline';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'open': return <AlertCircle className="h-4 w-4 text-orange-500" />;
-      case 'in_progress': return <Clock className="h-4 w-4 text-blue-500" />;
-      case 'resolved': return <CheckCircle className="h-4 w-4 text-green-500" />;
-      default: return <ArrowRight className="h-4 w-4" />;
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="glass-card border-orange-500/30 bg-orange-500/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Offen</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-500">{openTickets}</div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card border-blue-500/30 bg-blue-500/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">In Bearbeitung</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-500">{inProgressTickets}</div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Gelöst (heute)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {tickets?.filter(t => 
-                t.status === 'resolved' && 
-                new Date(t.resolved_at || '').toDateString() === new Date().toDateString()
-              ).length || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Gesamt</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{tickets?.length || 0}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tickets Table */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle>Support-Tickets</CardTitle>
-          <CardDescription>Verwalte Kundenanfragen und Support</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Status</TableHead>
-                <TableHead>Betreff</TableHead>
-                <TableHead>Kategorie</TableHead>
-                <TableHead>Priorität</TableHead>
-                <TableHead>Erstellt</TableHead>
-                <TableHead className="text-right">Aktionen</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tickets?.map((ticket) => (
-                <TableRow key={ticket.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(ticket.status)}
-                      <span className="capitalize">{ticket.status.replace('_', ' ')}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium max-w-xs truncate">
-                    {ticket.subject}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="capitalize">{ticket.category}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getPriorityColor(ticket.priority) as "default" | "secondary" | "destructive" | "outline"} className="capitalize">
-                      {ticket.priority}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(ticket.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Select
-                      value={ticket.status}
-                      onValueChange={(value) => updateTicketStatus.mutate({ id: ticket.id, status: value })}
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="open">Offen</SelectItem>
-                        <SelectItem value="in_progress">In Bearbeitung</SelectItem>
-                        <SelectItem value="waiting">Wartend</SelectItem>
-                        <SelectItem value="resolved">Gelöst</SelectItem>
-                        <SelectItem value="closed">Geschlossen</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {tickets?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    Keine Tickets vorhanden
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export default function CRMPage() {
   return (
     <div className="space-y-6">
@@ -401,7 +209,7 @@ export default function CRMPage() {
       </div>
 
       <Tabs defaultValue="learners" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="learners" className="gap-2">
             <Users className="h-4 w-4" /> Lerner
           </TabsTrigger>
@@ -410,6 +218,9 @@ export default function CRMPage() {
           </TabsTrigger>
           <TabsTrigger value="support" className="gap-2">
             <MessageSquare className="h-4 w-4" /> Support
+          </TabsTrigger>
+          <TabsTrigger value="create-ticket" className="gap-2">
+            <Plus className="h-4 w-4" /> Neues Ticket
           </TabsTrigger>
         </TabsList>
 
@@ -420,7 +231,18 @@ export default function CRMPage() {
           <SegmentsTab />
         </TabsContent>
         <TabsContent value="support">
-          <SupportTab />
+          <SupportTicketList />
+        </TabsContent>
+        <TabsContent value="create-ticket">
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>Neues Support-Ticket erstellen</CardTitle>
+              <CardDescription>Kontextuelles Ticket mit automatischer Erkennung</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SmartTicketCreate />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

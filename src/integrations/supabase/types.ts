@@ -6191,47 +6191,240 @@ export type Database = {
         }
         Relationships: []
       }
+      support_faq: {
+        Row: {
+          answer: string
+          auto_generated: boolean | null
+          competency_id: string | null
+          course_id: string | null
+          created_at: string | null
+          helpful_count: number | null
+          id: string
+          is_published: boolean | null
+          learning_phase: string | null
+          question: string
+          source_ticket_id: string | null
+          target_audience: string | null
+          ticket_type: string | null
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          answer: string
+          auto_generated?: boolean | null
+          competency_id?: string | null
+          course_id?: string | null
+          created_at?: string | null
+          helpful_count?: number | null
+          id?: string
+          is_published?: boolean | null
+          learning_phase?: string | null
+          question: string
+          source_ticket_id?: string | null
+          target_audience?: string | null
+          ticket_type?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          answer?: string
+          auto_generated?: boolean | null
+          competency_id?: string | null
+          course_id?: string | null
+          created_at?: string | null
+          helpful_count?: number | null
+          id?: string
+          is_published?: boolean | null
+          learning_phase?: string | null
+          question?: string
+          source_ticket_id?: string | null
+          target_audience?: string | null
+          ticket_type?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_faq_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_faq_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_faq_source_ticket_id_fkey"
+            columns: ["source_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_suggestions: {
+        Row: {
+          context_pattern: Json
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          success_rate: number | null
+          suggestion_text: string
+          ticket_type: string
+          times_accepted: number | null
+          times_shown: number | null
+        }
+        Insert: {
+          context_pattern?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          success_rate?: number | null
+          suggestion_text: string
+          ticket_type: string
+          times_accepted?: number | null
+          times_shown?: number | null
+        }
+        Update: {
+          context_pattern?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          success_rate?: number | null
+          suggestion_text?: string
+          ticket_type?: string
+          times_accepted?: number | null
+          times_shown?: number | null
+        }
+        Relationships: []
+      }
       support_tickets: {
         Row: {
           assigned_to: string | null
+          auto_resolved: boolean | null
+          auto_suggested_answer: string | null
           category: string | null
+          context_competency_id: string | null
+          context_course_id: string | null
+          context_exam_session_id: string | null
+          context_last_error: string | null
+          context_learning_phase: string | null
+          context_lesson_id: string | null
+          context_readiness_score: number | null
+          context_url: string | null
           created_at: string | null
           description: string
+          feedback_rating: number | null
           id: string
+          metadata: Json | null
           priority: string | null
+          resolution_notes: string | null
           resolved_at: string | null
+          sentiment: string | null
           status: string | null
           subject: string
+          ticket_type: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           assigned_to?: string | null
+          auto_resolved?: boolean | null
+          auto_suggested_answer?: string | null
           category?: string | null
+          context_competency_id?: string | null
+          context_course_id?: string | null
+          context_exam_session_id?: string | null
+          context_last_error?: string | null
+          context_learning_phase?: string | null
+          context_lesson_id?: string | null
+          context_readiness_score?: number | null
+          context_url?: string | null
           created_at?: string | null
           description: string
+          feedback_rating?: number | null
           id?: string
+          metadata?: Json | null
           priority?: string | null
+          resolution_notes?: string | null
           resolved_at?: string | null
+          sentiment?: string | null
           status?: string | null
           subject: string
+          ticket_type?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           assigned_to?: string | null
+          auto_resolved?: boolean | null
+          auto_suggested_answer?: string | null
           category?: string | null
+          context_competency_id?: string | null
+          context_course_id?: string | null
+          context_exam_session_id?: string | null
+          context_last_error?: string | null
+          context_learning_phase?: string | null
+          context_lesson_id?: string | null
+          context_readiness_score?: number | null
+          context_url?: string | null
           created_at?: string | null
           description?: string
+          feedback_rating?: number | null
           id?: string
+          metadata?: Json | null
           priority?: string | null
+          resolution_notes?: string | null
           resolved_at?: string | null
+          sentiment?: string | null
           status?: string | null
           subject?: string
+          ticket_type?: string | null
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_context_competency_id_fkey"
+            columns: ["context_competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_context_course_id_fkey"
+            columns: ["context_course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_context_exam_session_id_fkey"
+            columns: ["context_exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_context_lesson_id_fkey"
+            columns: ["context_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_qc_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_context_lesson_id_fkey"
+            columns: ["context_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_alerts: {
         Row: {
