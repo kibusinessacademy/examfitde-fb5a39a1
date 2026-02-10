@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { enqueuePipeline, PIPELINE_TEMPLATES, type PipelineTemplateKey } from '@/lib/jobs/enqueue';
 import {
   Rocket, Globe, ShieldCheck, Package, Play, CheckCircle2,
-  Loader2, AlertTriangle, ArrowRight, Clock, Workflow
+  Loader2, AlertTriangle, ArrowRight, Clock, Workflow, Zap, RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -28,6 +28,8 @@ export default function WorkflowStudioPage() {
   const [loading, setLoading] = useState(true);
   const [launching, setLaunching] = useState<string | null>(null);
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
+  const [runningRunner, setRunningRunner] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -44,6 +46,12 @@ export default function WorkflowStudioPage() {
         .limit(20);
       setRecentJobs(jobs || []);
 
+      const { count } = await supabase
+        .from('job_queue')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      setPendingCount(count || 0);
+
       setLoading(false);
     }
     load();
@@ -56,6 +64,28 @@ export default function WorkflowStudioPage() {
       .order('created_at', { ascending: false })
       .limit(20);
     setRecentJobs(jobs || []);
+    const { count } = await supabase
+      .from('job_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    setPendingCount(count || 0);
+  };
+
+  const handleRunPending = async () => {
+    setRunningRunner(true);
+    try {
+      const res = await supabase.functions.invoke('job-runner', { method: 'POST', body: {} });
+      if (res.error) throw res.error;
+      const data = res.data as { processed?: number; results?: Array<{ outcome: string }> };
+      const completed = data?.results?.filter((r: { outcome: string }) => r.outcome === 'completed').length ?? 0;
+      const failed = (data?.processed ?? 0) - completed;
+      toast.success(`Runner: ${completed} erledigt, ${failed} fehlgeschlagen`);
+      await refreshJobs();
+    } catch (err: any) {
+      toast.error('Runner-Fehler', { description: err.message });
+    } finally {
+      setRunningRunner(false);
+    }
   };
 
   const handleLaunch = async (templateKey: PipelineTemplateKey) => {
@@ -100,11 +130,30 @@ export default function WorkflowStudioPage() {
             Ende-zu-Ende Automatisierungen · SSOT-konform · Job-Queue-basiert
           </p>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/admin-v2/jobs/dashboard">
-            <Clock className="h-4 w-4 mr-1" /> Job Queue
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {pendingCount > 0 && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleRunPending}
+              disabled={runningRunner}
+            >
+              {runningRunner ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Runner läuft…</>
+              ) : (
+                <><Zap className="h-4 w-4 mr-1" /> {pendingCount} Jobs ausführen</>
+              )}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={refreshJobs}>
+            <RefreshCw className="h-4 w-4 mr-1" /> Aktualisieren
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin-v2/jobs/dashboard">
+              <Clock className="h-4 w-4 mr-1" /> Job Queue
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Curriculum Selector */}

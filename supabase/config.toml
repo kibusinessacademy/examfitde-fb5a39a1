@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.curriculum-import]
 verify_jwt = false
+
+[functions.job-runner]
+verify_jwt = false
