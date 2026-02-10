@@ -49,22 +49,7 @@ export default defineConfig(({ mode }) => ({
             purpose: "maskable"
           }
         ],
-        screenshots: [
-          {
-            src: "/screenshot-wide.png",
-            sizes: "1280x720",
-            type: "image/png",
-            form_factor: "wide",
-            label: "ExamFit Dashboard"
-          },
-          {
-            src: "/screenshot-mobile.png",
-            sizes: "390x844",
-            type: "image/png",
-            form_factor: "narrow",
-            label: "ExamFit Mobile"
-          }
-        ]
+        screenshots: []
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
