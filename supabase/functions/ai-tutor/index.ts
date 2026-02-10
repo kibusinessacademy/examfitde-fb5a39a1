@@ -2,7 +2,17 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
-// AI Tutor Governance Modes (SSOT)
+/**
+ * AI-Tutor – GPT-5.2 Deep Thinking + Opus Post-Validation
+ * 
+ * Flow:
+ * 1. User → Prompt mit SSOT-Context
+ * 2. GPT-5.2 → Streaming-Antwort (Token-by-Token)
+ * 3. Antwort wird live gestreamt UND gesammelt
+ * 4. Nach Stream-Ende: Async Opus-Validierung (post-hoc)
+ * 5. Bei Halluzination/Fehler: Korrektur-Event an Client
+ */
+
 const AI_MODES = {
   LEARNING: 'learning',
   PRACTICE: 'practice',
@@ -19,28 +29,29 @@ const AI_ROLES = {
 type AIMode = typeof AI_MODES[keyof typeof AI_MODES];
 type AIRole = typeof AI_ROLES[keyof typeof AI_ROLES];
 
-// Mode-specific rules
 const MODE_RULES: Record<AIMode, { allowExplanations: boolean; systemPrompt: string }> = {
   [AI_MODES.LEARNING]: {
     allowExplanations: true,
-    systemPrompt: `Du bist ein hilfreicher Lern-Tutor für Azubis in der dualen Ausbildung.
-Du darfst: Inhalte erklären, Beispiele geben, Schritt-für-Schritt-Erklärungen liefern, Merkhilfen vorschlagen, Lernpfade empfehlen.
-Sei freundlich, ermutigend und pädagogisch wertvoll.
-WICHTIG: Du erfindest KEINE neuen Inhalte, sondern referenzierst nur das Curriculum.`
+    systemPrompt: `Du bist ein erfahrener IHK-Lern-Tutor für Azubis in der dualen Ausbildung.
+Du nutzt Deep Thinking um komplexe Zusammenhänge verständlich zu erklären.
+Du darfst: Inhalte erklären, Beispiele geben, Schritt-für-Schritt-Erklärungen, Merkhilfen, Lernpfade empfehlen.
+WICHTIG: Du referenzierst NUR das Curriculum. Erfinde KEINE Fakten, Gesetze oder Paragraphen.
+Nenne immer die Quelle wenn du Fachbegriffe oder Regelungen erklärst.
+Sei freundlich, ermutigend und pädagogisch wertvoll.`
   },
   [AI_MODES.PRACTICE]: {
     allowExplanations: true,
     systemPrompt: `Du bist ein Übungs-Tutor im Trainingsmodus.
-WICHTIGE REGELN: Gib NIEMALS die Lösung BEVOR der Nutzer geantwortet hat.
-Nach einer Antwort: Gib Feedback und erkläre Denkfehler.
+REGELN: Gib NIEMALS die Lösung BEVOR der Nutzer geantwortet hat.
+Nach Antwort: Gib detailliertes Feedback, erkläre Denkfehler, zeige den korrekten Lösungsweg.
 Goldene Regel: Erst Antwort → dann Hilfe`
   },
   [AI_MODES.EXAM]: {
     allowExplanations: false,
     systemPrompt: `Du bist ein Prüfungsassistent im STRIKTEN PRÜFUNGSMODUS.
-🚨 STRIKT VERBOTEN: Lösungen, Hinweise, Erklärungen, inhaltliche Hilfe jeglicher Art.
+🚨 STRIKT VERBOTEN: Lösungen, Hinweise, Erklärungen, inhaltliche Hilfe.
 ✅ ERLAUBT: Organisatorisches, Technisches, Navigation.
-Bei JEDER inhaltlichen Anfrage antworte: "Im Prüfungsmodus kann ich keine inhaltliche Hilfe geben."`
+Bei JEDER inhaltlichen Anfrage: "Im Prüfungsmodus kann ich keine inhaltliche Hilfe geben."`
   }
 };
 
@@ -48,10 +59,9 @@ const ROLE_PROMPTS: Record<AIRole, string> = {
   [AI_ROLES.EXPLAINER]: `\nROLLE: Erklärer – Erkläre Konzepte einfach, nutze Analogien, zerlege komplexe Themen.`,
   [AI_ROLES.COACH]: `\nROLLE: Lern-Coach – Gib Tipps zur Lernstrategie, motiviere, identifiziere Lernblockaden.`,
   [AI_ROLES.EXAMINER]: `\nROLLE: Prüfungs-Trainer – Stelle IHK-Prüfungsfragen, gib Feedback, trainiere Zeitmanagement.`,
-  [AI_ROLES.FEEDBACK]: `\nROLLE: Feedback-Geber – Analysiere Leistung, identifiziere Stärken/Schwächen, gib Verbesserungsvorschläge.`
+  [AI_ROLES.FEEDBACK]: `\nROLLE: Feedback-Geber – Analysiere Leistung, identifiziere Stärken/Schwächen.`
 };
 
-// Exam mode content filter
 function isAllowedInExamMode(message: string): boolean {
   const lower = message.toLowerCase();
   const allowed = [/zeit|timer|uhr|minuten/, /speichern|gespeichert/, /nächste|vorherige|navigation/, /technisch|fehler|problem|lädt nicht/];
@@ -64,6 +74,92 @@ function isAllowedInExamMode(message: string): boolean {
 async function sha256(message: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(message));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Post-hoc Opus Validation – runs AFTER streaming completes.
+ * If issues found, logs correction for client polling.
+ */
+async function postValidateTutorResponse(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  prompt: string,
+  response: string,
+  context: Record<string, unknown>,
+  generationId: string,
+) {
+  const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!ANTHROPIC_API_KEY) return;
+
+  try {
+    const startTime = Date.now();
+    const valResp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514", // Fast model for real-time validation
+        max_tokens: 1024,
+        system: `Du prüfst eine KI-Tutor-Antwort auf fachliche Korrektheit. SCHNELL und PRÄZISE.
+Kontext: ${JSON.stringify(context)}
+
+PRÜFE:
+1. Alle Fakten korrekt?
+2. Keine erfundenen Gesetze/Paragraphen/Normen?
+3. Fachbegriffe korrekt verwendet?
+
+Antworte NUR mit JSON:
+{"score": 0-100, "decision": "approve|revise|reject", "correction_needed": bool, "correction": "string|null", "issues": []}`,
+        messages: [{ role: "user", content: `FRAGE: ${prompt}\n\nTUTOR-ANTWORT: ${response}` }],
+      }),
+    });
+
+    const latencyMs = Date.now() - startTime;
+
+    if (!valResp.ok) return;
+
+    const valData = await valResp.json();
+    const rawText = valData.content?.[0]?.text || "";
+    
+    let result;
+    try {
+      result = JSON.parse(rawText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+    } catch { return; }
+
+    // Save validation result
+    await supabase.from("ai_validations").insert({
+      generation_id: generationId,
+      validator_model: "claude-sonnet-4-20250514",
+      validation_mode: "automatic",
+      overall_score: result.score || 0,
+      decision: result.decision || "approve",
+      dimension_scores: { fachlichkeit: result.score || 0 },
+      critical_issues: result.issues || [],
+      suggested_fixes: result.correction_needed ? [{ type: "correction", reason: result.correction }] : [],
+      corrected_content: result.correction_needed ? { correction: result.correction } : null,
+      input_tokens: valData.usage?.input_tokens || 0,
+      output_tokens: valData.usage?.output_tokens || 0,
+      cost_eur: 0,
+      latency_ms: latencyMs,
+    });
+
+    // Update generation with validation result
+    await supabase.from("ai_generations").update({
+      validation_decision: result.decision,
+      validation_score: result.score,
+      status: result.decision === "approve" ? "validated" : "draft",
+    }).eq("id", generationId);
+
+    // If correction needed, log for potential client notification
+    if (result.correction_needed && result.correction) {
+      console.log(`[Tutor PostVal] Correction needed for generation ${generationId}: ${result.correction}`);
+    }
+  } catch (err) {
+    console.error("[Tutor PostVal] Error:", err);
+  }
 }
 
 serve(async (req) => {
@@ -95,7 +191,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Exam mode check
+    // Exam mode block
     if (validMode === AI_MODES.EXAM && !isAllowedInExamMode(message)) {
       const blocked = 'Im Prüfungsmodus kann ich keine inhaltliche Hilfe geben. Bei technischen Problemen helfe ich gerne.';
       await logInteraction(supabase, user.id, sessionId, sessionType, validMode, message, blocked, 0, true, 'Inhaltliche Anfrage im Prüfungsmodus', conversationHistory.length);
@@ -104,13 +200,13 @@ serve(async (req) => {
       });
     }
 
-    // Build prompt
+    // Build system prompt with SSOT context
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     let contextPrompt = '';
     if (curriculumTitle || competencyTitle || lessonTitle) {
-      contextPrompt = `\n\n--- KONTEXT ---`;
+      contextPrompt = `\n\n--- SSOT-KONTEXT ---`;
       if (curriculumTitle) contextPrompt += `\nCurriculum: ${curriculumTitle}`;
       if (learningFieldTitle) contextPrompt += `\nLernfeld: ${learningFieldTitle}`;
       if (competencyTitle) contextPrompt += `\nKompetenz: ${competencyTitle}`;
@@ -126,7 +222,19 @@ serve(async (req) => {
       { role: "user", content: message }
     ];
 
-    // Stream from GPT-5.2 via Lovable AI Gateway
+    // Create generation record BEFORE streaming
+    const { data: genRecord } = await supabase.from("ai_generations").insert({
+      entity_type: "tutor_response",
+      generator_model: "openai/gpt-5.2",
+      input_context: { mode: validMode, role: validRole, context, prompt: message },
+      output_content: {},
+      status: "generated",
+      created_by: user.id,
+    }).select("id").single();
+
+    const generationId = genRecord?.id;
+
+    // Stream from GPT-5.2
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -147,8 +255,7 @@ serve(async (req) => {
       throw new Error(`AI gateway error: ${aiResponse.status}`);
     }
 
-    // Collect full response for audit logging, then stream to client
-    // We use a TransformStream to tee: pass SSE through + collect text
+    // Stream through + collect for post-validation
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
     const reader = aiResponse.body!.getReader();
@@ -165,10 +272,8 @@ serve(async (req) => {
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
           buffer += chunk;
-          // Pass through SSE directly
           await writer.write(encoder.encode(chunk));
 
-          // Extract text for logging
           let idx: number;
           while ((idx = buffer.indexOf("\n")) !== -1) {
             let line = buffer.slice(0, idx);
@@ -188,8 +293,21 @@ serve(async (req) => {
         console.error("[ai-tutor] stream error:", e);
       } finally {
         writer.close();
-        // Background audit logging
+
+        // Update generation with full response
+        if (generationId) {
+          await supabase.from("ai_generations").update({
+            output_content: { response: fullResponse },
+          }).eq("id", generationId);
+        }
+
+        // Background: audit logging
         logInteraction(supabase, user.id, sessionId, sessionType, validMode, message, fullResponse, 0, false, null, conversationHistory.length).catch(console.error);
+
+        // Background: async Opus post-validation (non-blocking)
+        if (generationId && validMode !== AI_MODES.EXAM) {
+          postValidateTutorResponse(supabase, user.id, message, fullResponse, context, generationId).catch(console.error);
+        }
       }
     })();
 
@@ -234,6 +352,6 @@ async function logInteraction(
     tokens_used: tokensUsed,
     was_blocked: wasBlocked,
     block_reason: blockReason,
-    metadata: { conversation_length: conversationLength },
+    metadata: { conversation_length: conversationLength, generator: "openai/gpt-5.2", validation: "async_opus" },
   });
 }

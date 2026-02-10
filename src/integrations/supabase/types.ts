@@ -190,6 +190,116 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_generations: {
+        Row: {
+          cost_eur: number | null
+          created_at: string
+          created_by: string | null
+          entity_id: string | null
+          entity_type: string
+          generator_model: string
+          id: string
+          input_context: Json | null
+          input_tokens: number | null
+          latency_ms: number | null
+          metadata: Json | null
+          output_content: Json
+          output_tokens: number | null
+          prompt_hash: string | null
+          status: string
+          validation_decision: string | null
+          validation_score: number | null
+        }
+        Insert: {
+          cost_eur?: number | null
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string | null
+          entity_type: string
+          generator_model: string
+          id?: string
+          input_context?: Json | null
+          input_tokens?: number | null
+          latency_ms?: number | null
+          metadata?: Json | null
+          output_content: Json
+          output_tokens?: number | null
+          prompt_hash?: string | null
+          status?: string
+          validation_decision?: string | null
+          validation_score?: number | null
+        }
+        Update: {
+          cost_eur?: number | null
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          generator_model?: string
+          id?: string
+          input_context?: Json | null
+          input_tokens?: number | null
+          latency_ms?: number | null
+          metadata?: Json | null
+          output_content?: Json
+          output_tokens?: number | null
+          prompt_hash?: string | null
+          status?: string
+          validation_decision?: string | null
+          validation_score?: number | null
+        }
+        Relationships: []
+      }
+      ai_quality_gates: {
+        Row: {
+          actual_score: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          gate_status: string
+          gate_type: string
+          generation_id: string
+          id: string
+          metadata: Json | null
+          reason: string | null
+          required_score: number | null
+        }
+        Insert: {
+          actual_score?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          gate_status?: string
+          gate_type: string
+          generation_id: string
+          id?: string
+          metadata?: Json | null
+          reason?: string | null
+          required_score?: number | null
+        }
+        Update: {
+          actual_score?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          gate_status?: string
+          gate_type?: string
+          generation_id?: string
+          id?: string
+          metadata?: Json | null
+          reason?: string | null
+          required_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_quality_gates_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_generations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_tutor_logs: {
         Row: {
           block_reason: string | null
@@ -293,6 +403,122 @@ export type Database = {
           total_tokens?: number | null
         }
         Relationships: []
+      }
+      ai_validation_rules: {
+        Row: {
+          created_at: string
+          dimension: string
+          entity_type: string
+          id: string
+          is_active: boolean | null
+          is_critical: boolean | null
+          min_score: number | null
+          prompt_template: string | null
+          rule_description: string | null
+          rule_name: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          dimension: string
+          entity_type: string
+          id?: string
+          is_active?: boolean | null
+          is_critical?: boolean | null
+          min_score?: number | null
+          prompt_template?: string | null
+          rule_description?: string | null
+          rule_name: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          dimension?: string
+          entity_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_critical?: boolean | null
+          min_score?: number | null
+          prompt_template?: string | null
+          rule_description?: string | null
+          rule_name?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      ai_validations: {
+        Row: {
+          corrected_content: Json | null
+          cost_eur: number | null
+          critical_issues: Json | null
+          decision: string
+          dimension_scores: Json
+          generation_id: string
+          id: string
+          improvements: string[] | null
+          input_tokens: number | null
+          latency_ms: number | null
+          metadata: Json | null
+          output_tokens: number | null
+          overall_score: number
+          suggested_fixes: Json | null
+          validated_at: string
+          validated_by: string | null
+          validation_mode: string
+          validator_model: string
+        }
+        Insert: {
+          corrected_content?: Json | null
+          cost_eur?: number | null
+          critical_issues?: Json | null
+          decision: string
+          dimension_scores?: Json
+          generation_id: string
+          id?: string
+          improvements?: string[] | null
+          input_tokens?: number | null
+          latency_ms?: number | null
+          metadata?: Json | null
+          output_tokens?: number | null
+          overall_score: number
+          suggested_fixes?: Json | null
+          validated_at?: string
+          validated_by?: string | null
+          validation_mode?: string
+          validator_model?: string
+        }
+        Update: {
+          corrected_content?: Json | null
+          cost_eur?: number | null
+          critical_issues?: Json | null
+          decision?: string
+          dimension_scores?: Json
+          generation_id?: string
+          id?: string
+          improvements?: string[] | null
+          input_tokens?: number | null
+          latency_ms?: number | null
+          metadata?: Json | null
+          output_tokens?: number | null
+          overall_score?: number
+          suggested_fixes?: Json | null
+          validated_at?: string
+          validated_by?: string | null
+          validation_mode?: string
+          validator_model?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_validations_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_generations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_worker_policies: {
         Row: {
