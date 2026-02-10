@@ -367,6 +367,12 @@ serve(async (req) => {
         }).select().single();
         if (modErr) throw modErr;
         moduleId = mod.id;
+      } else {
+        // Ensure existing module has correct sort_order from learning_field
+        const { data: lf } = await supabase.from('learning_fields').select('sort_order').eq('id', learningFieldId).single();
+        if (lf) {
+          await supabase.from('modules').update({ sort_order: lf.sort_order || 0 }).eq('id', moduleId);
+        }
       }
 
       // Get competency
@@ -404,10 +410,9 @@ serve(async (req) => {
 
       console.log(`[Batch] Generating ${comp.code} / ${stepToGen}`);
 
-      // Get sort order
-      const { data: existingLessons } = await supabase
-        .from('lessons').select('sort_order').eq('module_id', moduleId).order('sort_order', { ascending: false }).limit(1);
-      const lessonSortOrder = existingLessons?.length ? (existingLessons[0].sort_order || 0) + 1 : 0;
+      // Compute deterministic sort_order: (competency_sort * 10) + step_index
+      const stepIndex = { einstieg: 0, verstehen: 1, anwenden: 2, wiederholen: 3, mini_check: 4 }[stepToGen] ?? 5;
+      const lessonSortOrder = ((comp.sort_order || 0) * 10) + stepIndex;
 
       const stepDuration = stepToGen === 'mini_check' ? 10 : stepToGen === 'verstehen' ? 25 : stepToGen === 'anwenden' ? 30 : stepToGen === 'wiederholen' ? 15 : 10;
 
