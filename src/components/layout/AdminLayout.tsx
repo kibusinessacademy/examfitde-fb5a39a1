@@ -86,6 +86,7 @@ const navGroups: NavGroup[] = [
     label: 'System & Tech',
     icon: Wrench,
     items: [
+      { path: '/admin-v2/operations', label: 'Operations Center', icon: Activity },
       { path: '/admin-v2/system-health', label: 'Health & Monitoring', icon: Heart },
       { path: '/admin-v2/jobs/dashboard', label: 'Jobs / Queues', icon: Activity },
       { path: '/admin-v2/ai-workers', label: 'AI Workers', icon: Bot },

@@ -20,6 +20,24 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+    // PRODUCTION GATE: Check if course is already sealed (no re-finalization)
+    const { data: existingCourse } = await admin.from("courses")
+      .select("autopilot_status, autopilot_sealed_at")
+      .eq("id", targetCourseId).single();
+
+    if (existingCourse?.autopilot_status === 'sealed') {
+      return new Response(JSON.stringify({ 
+        error: "SEALED_COURSE: Kurs ist bereits versiegelt. Keine erneute Finalisierung möglich.",
+        sealed_at: existingCourse.autopilot_sealed_at 
+      }), { status: 409, headers });
+    }
+
+    if (existingCourse?.autopilot_status === 'finalizing') {
+      return new Response(JSON.stringify({ 
+        error: "PARALLEL_FINALIZE: Finalisierung läuft bereits." 
+      }), { status: 409, headers });
+    }
+
     // 1) Set status to finalizing
     await admin.from("courses").update({
       autopilot_status: "finalizing",
