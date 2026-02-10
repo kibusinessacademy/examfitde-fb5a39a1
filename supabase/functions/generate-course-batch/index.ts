@@ -561,6 +561,8 @@ serve(async (req) => {
       provider,
       skipValidation = false,
       step: requestedStep,
+      autoPilot = false,
+      _iteration = 0,
     } = body;
 
     if (!courseId || !curriculumId) {
@@ -780,7 +782,147 @@ serve(async (req) => {
       );
     }
 
-    // ── MODE 2: Finalize course ─────────────────────────────────────────
+    // ── MODE 3: Auto-pilot – iterate all competencies via self-invocation ──
+
+    if (autoPilot && !learningFieldId && !competencyId) {
+      const MAX_ITERATIONS = 300; // 47 comps × 5 steps + safety margin
+      if (_iteration >= MAX_ITERATIONS) {
+        console.warn(`[AutoPilot] Hit max iterations (${MAX_ITERATIONS}), stopping`);
+        return new Response(
+          JSON.stringify({ success: true, autoPilot: true, stopped: "max_iterations", iteration: _iteration }),
+          { headers: jsonHeaders },
+        );
+      }
+
+      // Load all competencies for this curriculum
+      const { data: allComps } = await supabase
+        .from("competencies")
+        .select("id, code, sort_order, learning_field_id, learning_fields!inner(id, curriculum_id)")
+        .eq("learning_fields.curriculum_id", curriculumId)
+        .order("sort_order");
+
+      if (!allComps?.length) {
+        return new Response(
+          JSON.stringify({ error: "No competencies found for curriculum" }),
+          { status: 404, headers: jsonHeaders },
+        );
+      }
+
+      // Find next competency+step that doesn't have a lesson yet
+      let nextComp: any = null;
+      let nextStep: LessonStep | null = null;
+
+      for (const comp of allComps) {
+        const moduleId = await ensureModule(supabase, courseId, comp.learning_field_id);
+        for (const s of LESSON_STEPS) {
+          const { data: ex } = await supabase
+            .from("lessons")
+            .select("id")
+            .eq("module_id", moduleId)
+            .eq("competency_id", comp.id)
+            .eq("step", s)
+            .maybeSingle();
+          if (!ex) {
+            nextComp = comp;
+            nextStep = s;
+            break;
+          }
+        }
+        if (nextComp) break;
+      }
+
+      if (!nextComp || !nextStep) {
+        // All done – auto-finalize
+        console.log(`[AutoPilot] All lessons generated after ${_iteration} iterations, finalizing...`);
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const finalizeRes = await fetch(`${supabaseUrl}/functions/v1/generate-course-batch`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({ courseId, curriculumId }),
+        });
+        const finalizeBody = await finalizeRes.json().catch(() => ({}));
+        return new Response(
+          JSON.stringify({
+            success: true,
+            autoPilot: true,
+            complete: true,
+            iteration: _iteration,
+            finalize: finalizeBody,
+          }),
+          { headers: jsonHeaders },
+        );
+      }
+
+      // Generate this step
+      console.log(`[AutoPilot] Iteration ${_iteration}: ${nextComp.code} / ${nextStep}`);
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+      // Self-invoke for single step (MODE 1)
+      const stepRes = await fetch(`${supabaseUrl}/functions/v1/generate-course-batch`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({
+          courseId,
+          curriculumId,
+          learningFieldId: nextComp.learning_field_id,
+          competencyId: nextComp.id,
+          step: nextStep,
+          provider,
+          skipValidation,
+        }),
+      });
+      const stepBody = await stepRes.json().catch(() => ({}));
+      console.log(`[AutoPilot] Step result: ${JSON.stringify({ status: stepRes.status, step: nextStep, code: nextComp.code })}`);
+
+      // Calculate progress
+      const totalSteps = allComps.length * 5;
+      const { count: doneCount } = await supabase
+        .from("lessons")
+        .select("id", { count: "exact", head: true })
+        .in("module_id", (await supabase.from("modules").select("id").eq("course_id", courseId)).data?.map((m: any) => m.id) || []);
+
+      const progress = Math.round(((doneCount || 0) / totalSteps) * 100);
+
+      // Self-invoke for next iteration (fire-and-forget style but awaited to chain)
+      fetch(`${supabaseUrl}/functions/v1/generate-course-batch`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({
+          courseId,
+          curriculumId,
+          autoPilot: true,
+          _iteration: _iteration + 1,
+          provider,
+          skipValidation,
+        }),
+      }).catch((e) => console.error("[AutoPilot] Self-invoke error:", e));
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          autoPilot: true,
+          iteration: _iteration,
+          currentStep: { comp: nextComp.code, step: nextStep },
+          stepResult: stepBody,
+          progress: `${progress}%`,
+          totalSteps,
+        }),
+        { headers: jsonHeaders },
+      );
+    }
+
+
 
     if (!learningFieldId && !competencyId) {
       const { data: lessons } = await supabase
