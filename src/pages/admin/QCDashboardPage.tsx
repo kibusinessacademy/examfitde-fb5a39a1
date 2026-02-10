@@ -27,6 +27,7 @@ const ACTION_META: Record<SnapshotAction, { label: string; icon: any; desc: stri
 
 const AI_PROVIDERS = [
   { id: "lovable", label: "Lovable AI (Gemini)", model: "google/gemini-3-flash-preview" },
+  { id: "deepseek", label: "DeepSeek", model: "deepseek-chat" },
   { id: "openai", label: "OpenAI GPT-5.2", model: "openai/gpt-5.2" },
   { id: "anthropic", label: "Claude Opus", model: "claude" },
 ] as const;
@@ -96,53 +97,50 @@ Antworte auf Deutsch. Sei kritisch aber konstruktiv.`;
     try {
       const provider = AI_PROVIDERS.find(p => p.id === selectedProvider);
       
-      if (selectedProvider === "lovable") {
-        // Use Lovable AI via edge function
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/qc-ai-analyze`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            systemPrompt,
-            userPrompt,
-            provider: selectedProvider,
-            model: provider?.model,
-          }),
-        });
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`AI analysis failed: ${errText}`);
-        }
-        // Stream response
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let result = "";
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/qc-ai-analyze`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          systemPrompt,
+          userPrompt,
+          provider: selectedProvider,
+          model: provider?.model,
+        }),
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`AI analysis failed: ${errText}`);
+      }
+      // Stream response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let result = "";
 
-        while (reader) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-          let newlineIndex: number;
-          while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-            let line = buffer.slice(0, newlineIndex);
-            buffer = buffer.slice(newlineIndex + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (!line.startsWith("data: ")) continue;
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === "[DONE]") break;
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                result += content;
-                setAiAnalysis(result);
-              }
-            } catch { /* partial */ }
-          }
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              result += content;
+              setAiAnalysis(result);
+            }
+          } catch { /* partial */ }
         }
       }
     } catch (e: any) {

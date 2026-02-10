@@ -67,21 +67,40 @@ const miniCheckTool = {
   }
 };
 
+interface AIProvider {
+  url: string;
+  headers: Record<string, string>;
+  model: string;
+}
+
+function resolveProvider(provider?: string): AIProvider {
+  if (provider === 'deepseek') {
+    const key = Deno.env.get('DEEPSEEK_API_KEY');
+    if (!key) throw new Error('DEEPSEEK_API_KEY not configured');
+    return { url: 'https://api.deepseek.com/v1/chat/completions', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, model: 'deepseek-chat' };
+  }
+  if (provider === 'openai') {
+    const key = Deno.env.get('OPENAI_API_KEY');
+    if (!key) throw new Error('OPENAI_API_KEY not configured');
+    return { url: 'https://api.openai.com/v1/chat/completions', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, model: 'gpt-4o' };
+  }
+  const key = Deno.env.get('LOVABLE_API_KEY');
+  if (!key) throw new Error('LOVABLE_API_KEY is not configured');
+  return { url: 'https://ai.gateway.lovable.dev/v1/chat/completions', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, model: 'google/gemini-3-flash-preview' };
+}
+
 // Generate content for regular steps (text/html)
 async function generateRegularContent(
-  LOVABLE_API_KEY: string,
+  ai: AIProvider,
   comp: { title: string; description?: string; taxonomy_level?: string },
   step: string
 ): Promise<{ type: string; html: string; objectives: string[] } | null> {
   try {
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch(ai.url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: ai.headers,
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: ai.model,
         messages: [
           {
             role: 'system',
@@ -128,18 +147,15 @@ Format (JSON):
 
 // Generate MiniCheck with structured questions using tool calling
 async function generateMiniCheck(
-  LOVABLE_API_KEY: string,
+  ai: AIProvider,
   comp: { title: string; description?: string; taxonomy_level?: string }
 ): Promise<{ type: string; html: string; objectives: string[]; questions: MiniCheckQuestion[] } | null> {
   try {
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch(ai.url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: ai.headers,
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: ai.model,
         messages: [
           {
             role: 'system',
@@ -224,7 +240,7 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    const { courseId, curriculumId, learningFieldIndex = 0 } = await req.json();
+    const { courseId, curriculumId, learningFieldIndex = 0, provider } = await req.json();
 
     if (!courseId || !curriculumId) {
       return new Response(
@@ -235,12 +251,8 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
-
+    const ai = resolveProvider(provider);
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     console.log(`[Batch] Starting batch generation for course: ${courseId}, LF index: ${learningFieldIndex}`);
@@ -356,7 +368,7 @@ serve(async (req) => {
         for (let attempt = 0; attempt < maxAttempts && !contentValid; attempt++) {
           // Use different generation methods for mini_check vs regular steps
           if (step === 'mini_check') {
-            lessonContent = await generateMiniCheck(LOVABLE_API_KEY, comp);
+            lessonContent = await generateMiniCheck(ai, comp);
             if (lessonContent?.questions) {
               const qs = lessonContent.questions as Record<string, unknown>[];
               contentValid = Array.isArray(qs) && qs.length >= 4 && qs.every(q =>
@@ -365,7 +377,7 @@ serve(async (req) => {
               if (contentValid) miniChecksWithQuestions++;
             }
           } else {
-            lessonContent = await generateRegularContent(LOVABLE_API_KEY, comp, step);
+            lessonContent = await generateRegularContent(ai, comp, step);
             if (lessonContent) {
               const html = lessonContent.html as string;
               contentValid = typeof html === 'string' && html.length >= 300 
