@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   HelpCircle, AlertTriangle, HeartCrack, Lightbulb, CreditCard,
-  BookOpen, ArrowRight, CheckCircle, Loader2
+  BookOpen, ArrowRight, CheckCircle, Loader2, Bot, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,6 +33,8 @@ export default function SmartTicketCreate({ onCreated, contextCourseId, contextL
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+  const [aiAnswerId, setAiAnswerId] = useState<string | null>(null);
 
   // Auto-detect context: current enrollments
   const { data: context } = useQuery({
@@ -229,8 +231,59 @@ export default function SmartTicketCreate({ onCreated, contextCourseId, contextL
             })()
           )}
 
+          {/* AI First Responder */}
+          {description.trim().length > 15 && !aiAnswer && (
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={async () => {
+                try {
+                  const { data, error } = await supabase.functions.invoke('support-ai', {
+                    body: {
+                      question: description,
+                      ticketType: selectedType,
+                      contextCourseId: contextCourseId || null,
+                      contextLessonId: contextLessonId || null,
+                      userId: user?.id,
+                    },
+                  });
+                  if (error) throw error;
+                  setAiAnswer(data.answer);
+                } catch {
+                  toast.error('KI-Assistent nicht verfügbar');
+                }
+              }}
+            >
+              <Bot className="h-4 w-4" />
+              KI-Assistent fragen (bevor du ein Ticket erstellst)
+            </Button>
+          )}
+
+          {aiAnswer && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="py-4 px-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Bot className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium mb-1">KI-Prüfungsassistent</div>
+                    <div className="text-sm text-muted-foreground whitespace-pre-line">{aiAnswer}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pl-8">
+                  <span className="text-xs text-muted-foreground">Hat das geholfen?</span>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { toast.success('Danke für dein Feedback!'); setAiAnswer(null); setDescription(''); setSelectedType(null); }}>
+                    <ThumbsUp className="h-3 w-3 mr-1" /> Ja
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => toast.info('Erstelle ein Ticket für persönliche Hilfe.')}>
+                    <ThumbsDown className="h-3 w-3 mr-1" /> Nein
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => { setSelectedType(null); setDescription(''); }}>
+            <Button variant="outline" onClick={() => { setSelectedType(null); setDescription(''); setAiAnswer(null); }}>
               Abbrechen
             </Button>
             <Button 

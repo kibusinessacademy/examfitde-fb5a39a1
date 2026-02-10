@@ -101,3 +101,9 @@ verify_jwt = false
 
 [functions.post-validation]
 verify_jwt = false
+
+[functions.support-ai]
+verify_jwt = true
+
+[functions.support-faq-generate]
+verify_jwt = false

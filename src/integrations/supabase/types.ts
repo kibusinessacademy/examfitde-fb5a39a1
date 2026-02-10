@@ -6191,6 +6191,96 @@ export type Database = {
         }
         Relationships: []
       }
+      support_ai_responses: {
+        Row: {
+          answer: string
+          answer_type: string
+          context_competency_id: string | null
+          context_course_id: string | null
+          context_lesson_id: string | null
+          created_at: string
+          feedback_text: string | null
+          guardrail_flags: Json | null
+          id: string
+          model_used: string
+          question: string
+          ticket_id: string | null
+          tokens_used: number | null
+          user_id: string
+          was_helpful: boolean | null
+        }
+        Insert: {
+          answer: string
+          answer_type?: string
+          context_competency_id?: string | null
+          context_course_id?: string | null
+          context_lesson_id?: string | null
+          created_at?: string
+          feedback_text?: string | null
+          guardrail_flags?: Json | null
+          id?: string
+          model_used?: string
+          question: string
+          ticket_id?: string | null
+          tokens_used?: number | null
+          user_id: string
+          was_helpful?: boolean | null
+        }
+        Update: {
+          answer?: string
+          answer_type?: string
+          context_competency_id?: string | null
+          context_course_id?: string | null
+          context_lesson_id?: string | null
+          created_at?: string
+          feedback_text?: string | null
+          guardrail_flags?: Json | null
+          id?: string
+          model_used?: string
+          question?: string
+          ticket_id?: string | null
+          tokens_used?: number | null
+          user_id?: string
+          was_helpful?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ai_responses_context_competency_id_fkey"
+            columns: ["context_competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_ai_responses_context_course_id_fkey"
+            columns: ["context_course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_ai_responses_context_lesson_id_fkey"
+            columns: ["context_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_qc_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_ai_responses_context_lesson_id_fkey"
+            columns: ["context_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_ai_responses_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_faq: {
         Row: {
           answer: string
@@ -6267,6 +6357,87 @@ export type Database = {
           },
         ]
       }
+      support_feedback_loop: {
+        Row: {
+          affected_competency_id: string | null
+          affected_course_id: string | null
+          affected_lesson_id: string | null
+          auto_detected: boolean
+          classification: string
+          created_at: string
+          id: string
+          improvement_status: string
+          improvement_type: string | null
+          notes: string | null
+          processed_at: string | null
+          ticket_id: string
+        }
+        Insert: {
+          affected_competency_id?: string | null
+          affected_course_id?: string | null
+          affected_lesson_id?: string | null
+          auto_detected?: boolean
+          classification: string
+          created_at?: string
+          id?: string
+          improvement_status?: string
+          improvement_type?: string | null
+          notes?: string | null
+          processed_at?: string | null
+          ticket_id: string
+        }
+        Update: {
+          affected_competency_id?: string | null
+          affected_course_id?: string | null
+          affected_lesson_id?: string | null
+          auto_detected?: boolean
+          classification?: string
+          created_at?: string
+          id?: string
+          improvement_status?: string
+          improvement_type?: string | null
+          notes?: string | null
+          processed_at?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_feedback_loop_affected_competency_id_fkey"
+            columns: ["affected_competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_feedback_loop_affected_course_id_fkey"
+            columns: ["affected_course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_feedback_loop_affected_lesson_id_fkey"
+            columns: ["affected_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_qc_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_feedback_loop_affected_lesson_id_fkey"
+            columns: ["affected_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_feedback_loop_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_suggestions: {
         Row: {
           context_pattern: Json
@@ -6305,6 +6476,7 @@ export type Database = {
       }
       support_tickets: {
         Row: {
+          ai_response_count: number | null
           assigned_to: string | null
           auto_resolved: boolean | null
           auto_suggested_answer: string | null
@@ -6325,14 +6497,17 @@ export type Database = {
           priority: string | null
           resolution_notes: string | null
           resolved_at: string | null
+          resolved_by: string | null
           sentiment: string | null
           status: string | null
           subject: string
           ticket_type: string | null
           updated_at: string | null
           user_id: string
+          was_self_resolved: boolean | null
         }
         Insert: {
+          ai_response_count?: number | null
           assigned_to?: string | null
           auto_resolved?: boolean | null
           auto_suggested_answer?: string | null
@@ -6353,14 +6528,17 @@ export type Database = {
           priority?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
+          resolved_by?: string | null
           sentiment?: string | null
           status?: string | null
           subject: string
           ticket_type?: string | null
           updated_at?: string | null
           user_id: string
+          was_self_resolved?: boolean | null
         }
         Update: {
+          ai_response_count?: number | null
           assigned_to?: string | null
           auto_resolved?: boolean | null
           auto_suggested_answer?: string | null
@@ -6381,12 +6559,14 @@ export type Database = {
           priority?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
+          resolved_by?: string | null
           sentiment?: string | null
           status?: string | null
           subject?: string
           ticket_type?: string | null
           updated_at?: string | null
           user_id?: string
+          was_self_resolved?: boolean | null
         }
         Relationships: [
           {
