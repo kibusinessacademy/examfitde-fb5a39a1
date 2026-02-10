@@ -1466,6 +1466,311 @@ export type Database = {
         }
         Relationships: []
       }
+      council_activity_log: {
+        Row: {
+          action: string
+          agent_role: string | null
+          cost_eur: number | null
+          council_id: string
+          created_at: string
+          duration_ms: number | null
+          id: string
+          input_summary: string | null
+          llm_model: string | null
+          metadata: Json | null
+          output_summary: string | null
+        }
+        Insert: {
+          action: string
+          agent_role?: string | null
+          cost_eur?: number | null
+          council_id: string
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          input_summary?: string | null
+          llm_model?: string | null
+          metadata?: Json | null
+          output_summary?: string | null
+        }
+        Update: {
+          action?: string
+          agent_role?: string | null
+          cost_eur?: number | null
+          council_id?: string
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          input_summary?: string | null
+          llm_model?: string | null
+          metadata?: Json | null
+          output_summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "council_activity_log_council_id_fkey"
+            columns: ["council_id"]
+            isOneToOne: false
+            referencedRelation: "councils"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      council_decisions: {
+        Row: {
+          approvals: Json | null
+          council_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_type: string
+          description: string | null
+          id: string
+          payload: Json | null
+          requires_councils: string[] | null
+          status: string
+          title: string
+        }
+        Insert: {
+          approvals?: Json | null
+          council_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_type: string
+          description?: string | null
+          id?: string
+          payload?: Json | null
+          requires_councils?: string[] | null
+          status?: string
+          title: string
+        }
+        Update: {
+          approvals?: Json | null
+          council_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_type?: string
+          description?: string | null
+          id?: string
+          payload?: Json | null
+          requires_councils?: string[] | null
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "council_decisions_council_id_fkey"
+            columns: ["council_id"]
+            isOneToOne: false
+            referencedRelation: "councils"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      council_escalations: {
+        Row: {
+          created_at: string
+          description: string | null
+          escalation_type: string
+          id: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          source_council_id: string
+          status: string
+          target_council_id: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          escalation_type: string
+          id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source_council_id: string
+          status?: string
+          target_council_id?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          escalation_type?: string
+          id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source_council_id?: string
+          status?: string
+          target_council_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "council_escalations_source_council_id_fkey"
+            columns: ["source_council_id"]
+            isOneToOne: false
+            referencedRelation: "councils"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "council_escalations_target_council_id_fkey"
+            columns: ["target_council_id"]
+            isOneToOne: false
+            referencedRelation: "councils"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      council_kill_switches: {
+        Row: {
+          action: string
+          council_id: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          kpi_name: string
+          last_triggered_at: string | null
+          operator: string
+          rule_name: string
+          threshold: number
+          trigger_count: number | null
+        }
+        Insert: {
+          action?: string
+          council_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          kpi_name: string
+          last_triggered_at?: string | null
+          operator: string
+          rule_name: string
+          threshold: number
+          trigger_count?: number | null
+        }
+        Update: {
+          action?: string
+          council_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          kpi_name?: string
+          last_triggered_at?: string | null
+          operator?: string
+          rule_name?: string
+          threshold?: number
+          trigger_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "council_kill_switches_council_id_fkey"
+            columns: ["council_id"]
+            isOneToOne: false
+            referencedRelation: "councils"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      council_kpis: {
+        Row: {
+          council_id: string
+          id: string
+          kpi_name: string
+          kpi_value: number | null
+          measured_at: string
+          metadata: Json | null
+          period: string
+          status: string | null
+          target_value: number | null
+          unit: string | null
+        }
+        Insert: {
+          council_id: string
+          id?: string
+          kpi_name: string
+          kpi_value?: number | null
+          measured_at?: string
+          metadata?: Json | null
+          period?: string
+          status?: string | null
+          target_value?: number | null
+          unit?: string | null
+        }
+        Update: {
+          council_id?: string
+          id?: string
+          kpi_name?: string
+          kpi_value?: number | null
+          measured_at?: string
+          metadata?: Json | null
+          period?: string
+          status?: string | null
+          target_value?: number | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "council_kpis_council_id_fkey"
+            columns: ["council_id"]
+            isOneToOne: false
+            referencedRelation: "councils"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      councils: {
+        Row: {
+          budget_eur_monthly: number | null
+          budget_spent_eur: number | null
+          config: Json | null
+          created_at: string
+          generator_model: string | null
+          id: string
+          mission: string
+          name: string
+          producer_model: string | null
+          status: string
+          updated_at: string
+          validator_model: string | null
+        }
+        Insert: {
+          budget_eur_monthly?: number | null
+          budget_spent_eur?: number | null
+          config?: Json | null
+          created_at?: string
+          generator_model?: string | null
+          id: string
+          mission: string
+          name: string
+          producer_model?: string | null
+          status?: string
+          updated_at?: string
+          validator_model?: string | null
+        }
+        Update: {
+          budget_eur_monthly?: number | null
+          budget_spent_eur?: number | null
+          config?: Json | null
+          created_at?: string
+          generator_model?: string | null
+          id?: string
+          mission?: string
+          name?: string
+          producer_model?: string | null
+          status?: string
+          updated_at?: string
+          validator_model?: string | null
+        }
+        Relationships: []
+      }
       course_bundles: {
         Row: {
           bundle_price: number

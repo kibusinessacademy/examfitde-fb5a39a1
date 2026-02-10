@@ -18,7 +18,8 @@ import {
   Database,
   Factory,
   ShieldCheck,
-  Smartphone
+  Smartphone,
+  Crown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -27,6 +28,7 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { path: '/admin-v2/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/admin-v2/council-control', label: 'Council OS', icon: Crown },
   { path: '/admin-v2/kpi-dashboard', label: 'KPI Analytics', icon: Activity },
   { path: '/admin-v2/curricula', label: 'Curricula', icon: FileText },
   { path: '/admin-v2/product-factory', label: 'Produkt-Factory', icon: Factory },

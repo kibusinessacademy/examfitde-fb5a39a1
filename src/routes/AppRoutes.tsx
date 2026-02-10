@@ -104,6 +104,9 @@ const QCDashboardPage = lazy(() => import('@/pages/admin/QCDashboardPage'));
 // Validation Dashboard (LLM Council)
 const ValidationDashboardPage = lazy(() => import('@/pages/admin/ValidationDashboardPage'));
 
+// Council Control Center
+const CouncilControlCenter = lazy(() => import('@/pages/admin/CouncilControlCenter'));
+
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazy(() => import('@/pages/ExamSimulation'));
@@ -247,6 +250,8 @@ const AppRoutes = () => {
           <Route path="qc-dashboard" element={<QCDashboardPage />} />
           {/* LLM Council Validation Dashboard */}
           <Route path="validation" element={<ValidationDashboardPage />} />
+          {/* Council Control Center */}
+          <Route path="council-control" element={<CouncilControlCenter />} />
         </Route>
 
         {/* Admin Redirects */}
