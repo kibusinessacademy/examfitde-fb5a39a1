@@ -3,22 +3,28 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
-import { ReadinessWidget } from '@/components/dashboard/ReadinessWidget';
+import { ReadinessRadar } from '@/components/dashboard/ReadinessRadar';
+import { RiskCostWidget } from '@/components/dashboard/RiskCostWidget';
+import { NextBestAction } from '@/components/dashboard/NextBestAction';
+import { SmartStreakWidget } from '@/components/dashboard/SmartStreakWidget';
+import { ExamTrapsWidget } from '@/components/dashboard/ExamTrapsWidget';
+import { CoachHint } from '@/components/dashboard/CoachHint';
+import { ExamPreview } from '@/components/dashboard/ExamPreview';
+import { SilentMotivation } from '@/components/dashboard/SilentMotivation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Loader2, 
-  BookOpen, 
-  GraduationCap, 
+import {
+  Loader2,
+  BookOpen,
+  GraduationCap,
   Clock,
   ArrowRight,
   Target,
-  Award,
-  Calendar,
   Brain,
   Heart,
   Sparkles,
+  Mic,
 } from 'lucide-react';
 
 interface EnrolledCourse {
@@ -58,7 +64,6 @@ export default function LearnerDashboard() {
   const fetchDashboardData = async () => {
     if (!user) return;
 
-    // Fetch enrolled courses with curriculum info
     const { data: enrollmentData } = await supabase
       .from('course_enrollments')
       .select(`
@@ -72,22 +77,19 @@ export default function LearnerDashboard() {
       .order('last_accessed_at', { ascending: false, nullsFirst: false });
 
     if (enrollmentData) {
-      // Type assertion for the nested query result
       const typedEnrollments = enrollmentData.map(e => ({
         ...e,
         course: e.course as unknown as EnrolledCourse['course'] & { curriculum_id?: string }
       })) as (EnrolledCourse & { course: EnrolledCourse['course'] & { curriculum_id?: string } })[];
-      
+
       setEnrollments(typedEnrollments);
-      
-      // Set active curriculum from most recent course
+
       if (typedEnrollments.length > 0 && typedEnrollments[0].course?.curriculum_id) {
         setActiveCurriculumId(typedEnrollments[0].course.curriculum_id);
       }
 
-      // Fetch progress for each course
       const progressMap = new Map<string, CourseProgress>();
-      
+
       for (const enrollment of typedEnrollments) {
         const { data: modules } = await supabase
           .from('modules')
@@ -96,7 +98,7 @@ export default function LearnerDashboard() {
 
         if (modules && modules.length > 0) {
           const moduleIds = modules.map(m => m.id);
-          
+
           const { data: lessons } = await supabase
             .from('lessons')
             .select('id')
@@ -104,7 +106,7 @@ export default function LearnerDashboard() {
 
           if (lessons) {
             const lessonIds = lessons.map(l => l.id);
-            
+
             const { data: progressData } = await supabase
               .from('learning_progress')
               .select('lesson_id')
@@ -120,7 +122,7 @@ export default function LearnerDashboard() {
           }
         }
       }
-      
+
       setProgress(progressMap);
     }
 
@@ -131,18 +133,6 @@ export default function LearnerDashboard() {
     const p = progress.get(courseId);
     if (!p || p.totalLessons === 0) return 0;
     return Math.round((p.completedLessons / p.totalLessons) * 100);
-  };
-
-  const getCompletedCoursesCount = () => {
-    return enrollments.filter(e => e.completed_at).length;
-  };
-
-  const getTotalCompletedLessons = () => {
-    let total = 0;
-    progress.forEach(p => {
-      total += p.completedLessons;
-    });
-    return total;
   };
 
   if (loading) {
@@ -157,80 +147,72 @@ export default function LearnerDashboard() {
     <div className="py-8 px-4">
       <div className="container mx-auto max-w-6xl">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">
+        <div className="mb-6">
+          <h1 className="text-3xl md:text-4xl font-display font-bold mb-1">
             Willkommen zurück,{' '}
             <span className="text-gradient">
               {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
             </span>
           </h1>
           <p className="text-muted-foreground">
-            Hier ist eine Übersicht deiner Prüfungsvorbereitung.
+            Dein Prüfungscockpit – du weißt genau, wo du stehst und was du jetzt tun solltest.
           </p>
           {isAdmin && (
             <Link to="/admin-v2/dashboard">
               <Button variant="outline" size="sm" className="mt-3">
                 <Sparkles className="h-4 w-4 mr-2" />
-                Admin Control Center öffnen
+                Admin Control Center
               </Button>
             </Link>
           )}
         </div>
 
-        {/* Readiness Widget - shows adaptive recommendations */}
+        {/* Silent Motivation Banner */}
         {activeCurriculumId && (
-          <div className="mb-8">
-            <ReadinessWidget curriculumId={activeCurriculumId} />
+          <div className="mb-4">
+            <SilentMotivation curriculumId={activeCurriculumId} />
           </div>
         )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="glass-card">
-            <CardContent className="p-6 text-center">
-              <BookOpen className="h-8 w-8 text-primary mx-auto mb-2" />
-              <div className="text-3xl font-display font-bold text-gradient">
-                {enrollments.length}
-              </div>
-              <div className="text-sm text-muted-foreground">Prüfungstrainings</div>
-            </CardContent>
-          </Card>
-          
-          <Card className="glass-card">
-            <CardContent className="p-6 text-center">
-              <Award className="h-8 w-8 text-green-500 mx-auto mb-2" />
-              <div className="text-3xl font-display font-bold text-green-500">
-                {getCompletedCoursesCount()}
-              </div>
-              <div className="text-sm text-muted-foreground">Trainings abgeschlossen</div>
-            </CardContent>
-          </Card>
-          
-          <Card className="glass-card">
-            <CardContent className="p-6 text-center">
-              <Target className="h-8 w-8 text-accent mx-auto mb-2" />
-              <div className="text-3xl font-display font-bold text-gradient-accent">
-                {getTotalCompletedLessons()}
-              </div>
-              <div className="text-sm text-muted-foreground">Prüfungseinheiten</div>
-            </CardContent>
-          </Card>
-          
-          <Card className="glass-card">
-            <CardContent className="p-6 text-center">
-              <Calendar className="h-8 w-8 text-orange-500 mx-auto mb-2" />
-              <div className="text-3xl font-display font-bold text-orange-500">
-                {dashboardStats?.streak ?? 0}
-              </div>
-              <div className="text-sm text-muted-foreground">Tage Streak</div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* ━━━ SECTION 1: Next Best Action + Coach Hint ━━━ */}
+        {activeCurriculumId && (
+          <div className="space-y-4 mb-6">
+            <NextBestAction curriculumId={activeCurriculumId} />
+            <CoachHint curriculumId={activeCurriculumId} />
+          </div>
+        )}
 
-        {/* Enrolled Courses */}
+        {/* ━━━ SECTION 2: Risk Cost Warning ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <RiskCostWidget curriculumId={activeCurriculumId} />
+          </div>
+        )}
+
+        {/* ━━━ SECTION 3: Radar + Streak + Exam Preview ━━━ */}
+        {activeCurriculumId && (
+          <div className="grid lg:grid-cols-3 gap-6 mb-6">
+            <div className="lg:col-span-2">
+              <ReadinessRadar curriculumId={activeCurriculumId} />
+            </div>
+            <div className="space-y-6">
+              <SmartStreakWidget />
+              <ExamPreview curriculumId={activeCurriculumId} />
+            </div>
+          </div>
+        )}
+
+        {/* ━━━ SECTION 4: Exam Traps ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <ExamTrapsWidget curriculumId={activeCurriculumId} />
+          </div>
+        )}
+
+        {/* ━━━ SECTION 5: Enrolled Courses ━━━ */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-display font-semibold">Meine Prüfungstrainings</h2>
+            <h2 className="text-xl font-display font-semibold">Meine Prüfungstrainings</h2>
             <Link to="/courses">
               <Button variant="ghost" size="sm">
                 Alle Trainings
@@ -245,7 +227,6 @@ export default function LearnerDashboard() {
                 <GraduationCap className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Noch kein Prüfungstraining</h3>
                 <p className="text-muted-foreground mb-6">
-                  Du hast noch kein Prüfungstraining gestartet. 
                   Starte jetzt deine Prüfungsvorbereitung!
                 </p>
                 <Link to="/courses">
@@ -257,63 +238,52 @@ export default function LearnerDashboard() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 gap-4">
               {enrollments.map((enrollment) => {
                 const courseProgress = getCourseProgress(enrollment.course_id);
                 const isCompleted = enrollment.completed_at != null;
 
                 return (
-                  <Card key={enrollment.course_id} className="glass-card border-border hover:border-primary/30 transition-all group">
+                  <Card key={enrollment.course_id} className="glass-card hover:border-primary/30 transition-all group">
                     <div className="flex">
-                      {/* Thumbnail */}
-                      <div className="w-32 h-32 flex-shrink-0 bg-muted rounded-l-lg overflow-hidden">
+                      <div className="w-28 h-28 flex-shrink-0 bg-muted rounded-l-lg overflow-hidden">
                         {enrollment.course.thumbnail_url ? (
-                          <img 
-                            src={enrollment.course.thumbnail_url} 
+                          <img
+                            src={enrollment.course.thumbnail_url}
                             alt={enrollment.course.title}
                             className="w-full h-full object-cover"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center gradient-primary opacity-50">
-                            <BookOpen className="h-8 w-8 text-primary-foreground" />
+                            <BookOpen className="h-6 w-6 text-primary-foreground" />
                           </div>
                         )}
                       </div>
-
-                      {/* Content */}
                       <div className="flex-1 p-4">
-                        <CardHeader className="p-0 pb-2">
-                          <CardTitle className="text-lg font-display group-hover:text-primary transition-colors line-clamp-1">
+                        <CardHeader className="p-0 pb-1.5">
+                          <CardTitle className="text-base font-display group-hover:text-primary transition-colors line-clamp-1">
                             {enrollment.course.title}
                           </CardTitle>
-                          <CardDescription className="line-clamp-1">
-                            {enrollment.course.description || 'Keine Beschreibung'}
-                          </CardDescription>
                         </CardHeader>
-                        
                         <CardContent className="p-0">
-                          {/* Progress */}
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between text-sm mb-1">
-                              <span className="text-muted-foreground">Fortschritt</span>
+                          <div className="mb-2">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="text-muted-foreground">Prüfungsreife</span>
                               <span className="font-medium">{courseProgress}%</span>
                             </div>
-                            <Progress value={courseProgress} className="h-2" />
+                            <Progress value={courseProgress} className="h-1.5" />
                           </div>
-
-                          {/* Meta Info */}
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               {enrollment.course.estimated_duration && (
-                                <div className="flex items-center gap-1">
+                                <span className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
                                   {enrollment.course.estimated_duration} Min.
-                                </div>
+                                </span>
                               )}
                             </div>
-                            
                             <Link to={`/course/${enrollment.course_id}`}>
-                              <Button size="sm" className="gradient-primary text-primary-foreground text-xs">
+                              <Button size="sm" className="gradient-primary text-primary-foreground text-xs h-7">
                                 {isCompleted ? 'Wiederholen' : 'Fortsetzen'}
                               </Button>
                             </Link>
@@ -328,95 +298,27 @@ export default function LearnerDashboard() {
           )}
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="glass-card group hover:border-accent/30 transition-all">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-xl gradient-accent shadow-glow-accent">
-                  <Target className="h-6 w-6 text-accent-foreground" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-display font-bold text-lg mb-1">Prüfungstrainer</h3>
-                  <p className="text-muted-foreground text-sm mb-4">
-                    KI-generierte Prüfungsfragen
-                  </p>
-                  <Link to="/exam-trainer">
-                    <Button variant="outline" size="sm" className="group-hover:border-accent/50">
-                      Zum Trainer
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card group hover:border-primary/30 transition-all">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-xl gradient-primary shadow-glow-sm">
-                  <Brain className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-display font-bold text-lg mb-1">Spaced Repetition</h3>
-                  <p className="text-muted-foreground text-sm mb-4">
-                    Prüfungswissen festigen
-                  </p>
-                  <Link to="/spaced-repetition">
-                    <Button variant="outline" size="sm" className="group-hover:border-primary/50">
-                      Training starten
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card group hover:border-rose-500/30 transition-all">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-lg">
-                  <Heart className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-display font-bold text-lg mb-1">Prüfungsangst</h3>
-                  <p className="text-muted-foreground text-sm mb-4">
-                    Entspannungstechniken
-                  </p>
-                  <Link to="/exam-anxiety">
-                    <Button variant="outline" size="sm" className="group-hover:border-rose-500/50">
-                      Übungen starten
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card group hover:border-yellow-500/30 transition-all">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 shadow-lg">
-                  <Sparkles className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-display font-bold text-lg mb-1">VARK Lerntyp</h3>
-                  <p className="text-muted-foreground text-sm mb-4">
-                    Finde deinen Lernstil
-                  </p>
-                  <Link to="/vark-test">
-                    <Button variant="outline" size="sm" className="group-hover:border-yellow-500/50">
-                      Test starten
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* ━━━ SECTION 6: Quick Actions ━━━ */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          {[
+            { to: '/exam-trainer', icon: Target, label: 'Prüfungstrainer', desc: 'Schriftlich üben', gradient: 'gradient-accent', glow: 'shadow-glow-accent' },
+            { to: '/exam-simulation', icon: GraduationCap, label: 'Simulation', desc: 'Prüfung simulieren', gradient: 'gradient-primary', glow: 'shadow-glow-sm' },
+            { to: '/oral-exam', icon: Mic, label: 'Mündlich', desc: 'Mündliche Prüfung', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', glow: '' },
+            { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', desc: 'Spaced Repetition', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', glow: '' },
+            { to: '/exam-anxiety', icon: Heart, label: 'Prüfungsangst', desc: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', glow: '' },
+          ].map((action) => (
+            <Link key={action.to} to={action.to} className="block">
+              <Card className="glass-card hover:border-primary/30 transition-all h-full">
+                <CardContent className="p-4 text-center">
+                  <div className={`p-3 rounded-xl ${action.gradient} ${action.glow} inline-flex mb-2`}>
+                    <action.icon className="h-5 w-5 text-white" />
+                  </div>
+                  <h3 className="font-display font-bold text-sm">{action.label}</h3>
+                  <p className="text-xs text-muted-foreground">{action.desc}</p>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
         </div>
       </div>
     </div>
