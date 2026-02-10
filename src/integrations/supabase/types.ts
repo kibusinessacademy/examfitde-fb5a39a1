@@ -2305,6 +2305,8 @@ export type Database = {
           extracted_data: Json | null
           frozen_at: string | null
           id: string
+          import_log: Json | null
+          import_source: string | null
           kmk_version: string | null
           normalized_data: Json | null
           source_file_name: string | null
@@ -2324,6 +2326,8 @@ export type Database = {
           extracted_data?: Json | null
           frozen_at?: string | null
           id?: string
+          import_log?: Json | null
+          import_source?: string | null
           kmk_version?: string | null
           normalized_data?: Json | null
           source_file_name?: string | null
@@ -2343,6 +2347,8 @@ export type Database = {
           extracted_data?: Json | null
           frozen_at?: string | null
           id?: string
+          import_log?: Json | null
+          import_source?: string | null
           kmk_version?: string | null
           normalized_data?: Json | null
           source_file_name?: string | null

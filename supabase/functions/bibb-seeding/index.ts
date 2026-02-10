@@ -19,8 +19,9 @@ interface BerufProfile {
 }
 
 interface SeedingJob {
-  action: 'list_berufe' | 'scrape_beruf' | 'scrape_all' | 'status' | 'enrich_missing' | 'scrape_kmk';
+  action: 'list_berufe' | 'scrape_beruf' | 'scrape_all' | 'status' | 'enrich_missing' | 'scrape_kmk' | 'import_curriculum_for_beruf' | 'import_curricula_batch';
   bibbId?: string;
+  berufId?: string;
   offset?: number;
   limit?: number;
 }
@@ -277,6 +278,55 @@ Deno.serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // ─────────── Import curriculum for a single beruf ───────────
+    if (action === 'import_curriculum_for_beruf') {
+      const berufId = body.berufId;
+      if (!berufId) {
+        return new Response(JSON.stringify({ success: false, error: 'berufId required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const { data: beruf } = await supabase.from('berufe').select('id, bezeichnung_kurz, rahmenlehrplan_url').eq('id', berufId).single();
+      if (!beruf) return new Response(JSON.stringify({ success: false, error: 'Beruf not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!beruf.rahmenlehrplan_url) return new Response(JSON.stringify({ success: false, error: 'No rahmenlehrplan_url for this Beruf' }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+      // Check if already has frozen curriculum
+      const { data: existing } = await supabase.from('curricula').select('id').eq('beruf_id', berufId).eq('status', 'frozen').maybeSingle();
+      if (existing) return new Response(JSON.stringify({ success: true, message: 'Already has frozen curriculum', curriculumId: existing.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+      // Create curriculum
+      const { data: curr, error: cErr } = await supabase.from('curricula').insert({
+        title: `Rahmenlehrplan ${beruf.bezeichnung_kurz}`,
+        beruf_id: beruf.id,
+        status: 'draft',
+        import_source: 'bibb_auto',
+        created_by: auth.user?.id,
+      }).select('id').single();
+
+      if (cErr || !curr) return new Response(JSON.stringify({ success: false, error: cErr?.message || 'Failed to create curriculum' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+      // Call curriculum-import edge function
+      const importRes = await fetch(`${supabaseUrl}/functions/v1/curriculum-import`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${supabaseServiceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'import', curriculumId: curr.id, sourceUrl: beruf.rahmenlehrplan_url }),
+      });
+
+      const importData = await importRes.json();
+      return new Response(JSON.stringify({ success: importData.success, berufId: beruf.id, curriculumId: curr.id, counts: importData.counts, error: importData.error }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ─────────── Batch import curricula for all berufe ───────────
+    if (action === 'import_curricula_batch') {
+      const importRes = await fetch(`${supabaseUrl}/functions/v1/curriculum-import`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${supabaseServiceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'batch', limit: body.limit || 10 }),
+      });
+
+      const importData = await importRes.json();
+      return new Response(JSON.stringify(importData), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     if (action === 'list_berufe') {

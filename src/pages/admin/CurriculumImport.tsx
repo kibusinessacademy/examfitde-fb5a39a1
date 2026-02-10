@@ -1,5 +1,4 @@
-import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,263 +9,200 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { 
-  Upload, 
-  FileText, 
-  Sparkles, 
-  CheckCircle, 
-  Loader2,
-  ArrowLeft,
-  X
+  Upload, FileText, Sparkles, CheckCircle, 
+  ArrowLeft, X, Globe, Loader2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 type ImportStep = 'upload' | 'extracting' | 'review' | 'complete';
+type SourceMode = 'file' | 'url';
+
+interface ExtractedLF {
+  code: string;
+  title: string;
+  description: string;
+  hours: number;
+  competencies: Array<{
+    code: string;
+    title: string;
+    description: string;
+    taxonomyLevel: string;
+  }>;
+}
 
 interface ExtractedData {
   title: string;
   description: string;
   version: string;
-  learningFields: Array<{
-    code: string;
-    title: string;
-    description: string;
-    hours: number;
-    competencies: Array<{
-      code: string;
-      title: string;
-      description: string;
-      taxonomyLevel: string;
-    }>;
-  }>;
+  learningFields: ExtractedLF[];
+}
+
+interface ImportResult {
+  success: boolean;
+  curriculumId: string;
+  counts: { learningFields: number; competencies: number };
+  importLog: Array<{ step: string; ts: string; detail?: string }>;
+  error?: string;
 }
 
 export default function CurriculumImport() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [step, setStep] = useState<ImportStep>('upload');
+  const [sourceMode, setSourceMode] = useState<SourceMode>('file');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [curriculumId, setCurriculumId] = useState<string | null>(null);
-  const [isExtracting, setIsExtracting] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       if (selectedFile.size > 10 * 1024 * 1024) {
-        toast({
-          title: 'Datei zu groß',
-          description: 'Die maximale Dateigröße beträgt 10 MB.',
-          variant: 'destructive',
-        });
+        toast({ title: 'Datei zu groß', description: 'Max. 10 MB.', variant: 'destructive' });
         return;
       }
       setFile(selectedFile);
-      if (!title) {
-        setTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
-      }
+      if (!title) setTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
     }
   };
 
-  const removeFile = () => {
-    setFile(null);
-  };
-
-  const handleUploadAndExtract = async () => {
-    if (!file || !title.trim()) {
-      toast({
-        title: 'Fehlende Angaben',
-        description: 'Bitte geben Sie einen Titel ein und wählen Sie eine Datei aus.',
-        variant: 'destructive',
-      });
+  const handleImport = async () => {
+    if (!title.trim()) {
+      toast({ title: 'Titel fehlt', variant: 'destructive' });
+      return;
+    }
+    if (sourceMode === 'file' && !file) {
+      toast({ title: 'Datei fehlt', variant: 'destructive' });
+      return;
+    }
+    if (sourceMode === 'url' && !sourceUrl.trim()) {
+      toast({ title: 'URL fehlt', variant: 'destructive' });
       return;
     }
 
-    setIsExtracting(true);
     setStep('extracting');
     setProgress(10);
 
     try {
-      // 1. Upload file to storage
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user?.id}/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('curriculum-files')
-        .upload(filePath, file);
+      // 1. Upload file to storage if file mode
+      let storagePath: string | undefined;
+      let fileContent: string | undefined;
 
-      if (uploadError) throw uploadError;
+      if (sourceMode === 'file' && file) {
+        const ext = file.name.split('.').pop();
+        storagePath = `${user?.id}/${Date.now()}.${ext}`;
+
+        const { error: upErr } = await supabase.storage.from('curriculum-files').upload(storagePath, file);
+        if (upErr) throw upErr;
+        setProgress(20);
+
+        // Also read text for direct extraction (works for .txt files)
+        try {
+          fileContent = await file.text();
+          if (fileContent.length < 200) fileContent = undefined; // too short = probably binary
+        } catch { /* ignore */ }
+      }
       setProgress(30);
 
       // 2. Create curriculum record
-      const { data: curriculum, error: createError } = await supabase
+      const { data: curriculum, error: createErr } = await supabase
         .from('curricula')
         .insert({
           title: title.trim(),
           description: description.trim() || null,
-          source_file_name: file.name,
-          source_file_url: filePath,
-          status: 'extracting',
+          source_file_name: file?.name || sourceUrl,
+          source_file_url: storagePath || sourceUrl,
+          status: 'draft' as any,
           created_by: user?.id,
+          import_source: sourceMode === 'url' ? 'url' : 'upload',
         })
         .select()
         .single();
 
-      if (createError) throw createError;
+      if (createErr) throw createErr;
       setCurriculumId(curriculum.id);
-      setProgress(50);
+      setProgress(40);
 
-      // 3. Read file content for AI extraction
-      const fileContent = await file.text();
-      setProgress(60);
-
-      // 4. Call AI extraction via Edge Function
-      const { data: extractionResult, error: extractError } = await supabase.functions.invoke('extract-curriculum', {
-        body: { 
+      // 3. Call curriculum-import edge function (server-side SSOT pipeline)
+      const { data: result, error: importErr } = await supabase.functions.invoke('curriculum-import', {
+        body: {
+          action: 'import',
           curriculumId: curriculum.id,
-          fileContent: fileContent.substring(0, 50000), // Limit content size
-          fileName: file.name,
+          sourceUrl: sourceMode === 'url' ? sourceUrl : undefined,
+          storagePath: sourceMode === 'file' ? storagePath : undefined,
+          fileContent: fileContent?.substring(0, 80000),
         },
       });
 
-      if (extractError) throw extractError;
+      if (importErr) throw importErr;
       setProgress(90);
 
-      // 5. Update curriculum with extracted data
-      if (extractionResult?.extractedData) {
-        setExtractedData(extractionResult.extractedData);
-        
-        await supabase
-          .from('curricula')
-          .update({
-            extracted_data: extractionResult.extractedData,
-            status: 'normalizing',
-          })
-          .eq('id', curriculum.id);
+      if (result?.error) {
+        throw new Error(result.error);
       }
 
+      setImportResult(result);
+
+      // Fetch the normalized data to show in review
+      const { data: updated } = await supabase
+        .from('curricula')
+        .select('normalized_data, extracted_data')
+        .eq('id', curriculum.id)
+        .single();
+
+      const data = (updated?.normalized_data || updated?.extracted_data) as unknown as ExtractedData | null;
+      setExtractedData(data);
       setProgress(100);
-      setStep('review');
+      setStep(result?.success ? 'complete' : 'review');
 
       toast({
-        title: 'Extraktion erfolgreich',
-        description: 'Die KI hat die Curriculum-Daten extrahiert. Bitte überprüfen Sie die Ergebnisse.',
+        title: result?.success ? 'Import erfolgreich!' : 'Extraktion abgeschlossen',
+        description: result?.success
+          ? `${result.counts.learningFields} Lernfelder, ${result.counts.competencies} Kompetenzen importiert und eingefroren.`
+          : 'Bitte überprüfe die Ergebnisse.',
       });
-
     } catch (error) {
       console.error('Import error:', error);
       toast({
         title: 'Fehler beim Import',
-        description: error instanceof Error ? error.message : 'Ein unbekannter Fehler ist aufgetreten.',
+        description: error instanceof Error ? error.message : 'Unbekannter Fehler',
         variant: 'destructive',
       });
       setStep('upload');
-    } finally {
-      setIsExtracting(false);
     }
   };
 
-  const handleFreeze = async () => {
-    if (!curriculumId || !extractedData) return;
-
-    try {
-      // Insert learning fields and competencies
-      for (let i = 0; i < extractedData.learningFields.length; i++) {
-        const lf = extractedData.learningFields[i];
-        
-        const { data: learningField, error: lfError } = await supabase
-          .from('learning_fields')
-          .insert({
-            curriculum_id: curriculumId,
-            code: lf.code,
-            title: lf.title,
-            description: lf.description,
-            hours: lf.hours,
-            sort_order: i,
-          })
-          .select()
-          .single();
-
-        if (lfError) throw lfError;
-
-        // Insert competencies for this learning field
-        for (let j = 0; j < lf.competencies.length; j++) {
-          const comp = lf.competencies[j];
-          
-          await supabase.from('competencies').insert({
-            learning_field_id: learningField.id,
-            code: comp.code,
-            title: comp.title,
-            description: comp.description,
-            taxonomy_level: comp.taxonomyLevel,
-            sort_order: j,
-          });
-        }
-      }
-
-      // Update curriculum status to frozen
-      await supabase
-        .from('curricula')
-        .update({
-          normalized_data: JSON.parse(JSON.stringify(extractedData)),
-          status: 'frozen',
-          frozen_at: new Date().toISOString(),
-        })
-        .eq('id', curriculumId);
-
-      setStep('complete');
-      toast({
-        title: 'Curriculum eingefroren',
-        description: 'Das Curriculum wurde erfolgreich als Single Source of Truth gespeichert.',
-      });
-
-    } catch (error) {
-      console.error('Freeze error:', error);
-      toast({
-        title: 'Fehler beim Einfrieren',
-        description: error instanceof Error ? error.message : 'Ein unbekannter Fehler ist aufgetreten.',
-        variant: 'destructive',
-      });
-    }
-  };
+  const totalComps = extractedData?.learningFields.reduce((s, lf) => s + lf.competencies.length, 0) || 0;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link to="/admin-v2/curricula">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button>
         </Link>
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">Curriculum importieren</h1>
-          <p className="text-muted-foreground mt-1">Lade einen Rahmenlehrplan hoch und lasse ihn von der KI extrahieren</p>
+          <p className="text-muted-foreground mt-1">Server-seitiger SSOT-Import via KI-Extraktion</p>
         </div>
       </div>
 
       {/* Progress Steps */}
       <div className="flex items-center gap-2">
-        {['upload', 'extracting', 'review', 'complete'].map((s, i) => (
+        {(['upload', 'extracting', 'review', 'complete'] as const).map((s, i) => (
           <div key={s} className="flex items-center">
-            <div className={`
-              w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-              ${step === s ? 'gradient-primary text-primary-foreground' : 
-                ['extracting', 'review', 'complete'].indexOf(step) > ['upload', 'extracting', 'review', 'complete'].indexOf(s) 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-muted text-muted-foreground'}
-            `}>
-              {i + 1}
-            </div>
-            {i < 3 && (
-              <div className={`w-12 h-0.5 ${
-                ['extracting', 'review', 'complete'].indexOf(step) > i ? 'bg-primary' : 'bg-muted'
-              }`} />
-            )}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+              step === s ? 'gradient-primary text-primary-foreground' :
+              ['upload', 'extracting', 'review', 'complete'].indexOf(step) > i
+                ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+            }`}>{i + 1}</div>
+            {i < 3 && <div className={`w-12 h-0.5 ${['upload', 'extracting', 'review', 'complete'].indexOf(step) > i ? 'bg-primary' : 'bg-muted'}`} />}
           </div>
         ))}
       </div>
@@ -277,72 +213,68 @@ export default function CurriculumImport() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5 text-primary" />
-              Datei hochladen
+              Quelle auswählen
             </CardTitle>
-            <CardDescription>
-              Unterstützte Formate: PDF, DOCX, TXT
-            </CardDescription>
+            <CardDescription>PDF-Upload oder URL zum Rahmenlehrplan</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Source toggle */}
+            <div className="flex gap-2">
+              <Button variant={sourceMode === 'file' ? 'default' : 'outline'} onClick={() => setSourceMode('file')} className="flex-1">
+                <FileText className="h-4 w-4 mr-2" /> Datei hochladen
+              </Button>
+              <Button variant={sourceMode === 'url' ? 'default' : 'outline'} onClick={() => setSourceMode('url')} className="flex-1">
+                <Globe className="h-4 w-4 mr-2" /> URL eingeben
+              </Button>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="title">Titel *</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="z.B. Fachinformatiker Anwendungsentwicklung 2024"
-                className="bg-muted/50"
-              />
+              <Input id="title" value={title} onChange={e => setTitle(e.target.value)}
+                placeholder="z.B. Fachinformatiker Anwendungsentwicklung 2024" className="bg-muted/50" />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">Beschreibung</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Optionale Beschreibung des Curriculums..."
-                className="bg-muted/50 min-h-[100px]"
-              />
+              <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)}
+                placeholder="Optionale Beschreibung..." className="bg-muted/50 min-h-[80px]" />
             </div>
 
-            <div className="space-y-2">
-              <Label>Datei *</Label>
-              {file ? (
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border">
-                  <FileText className="h-8 w-8 text-primary" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{file.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
+            {sourceMode === 'file' ? (
+              <div className="space-y-2">
+                <Label>Datei *</Label>
+                {file ? (
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border">
+                    <FileText className="h-8 w-8 text-primary" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground truncate">{file.name}</p>
+                      <p className="text-sm text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setFile(null)}><X className="h-4 w-4" /></Button>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={removeFile}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-all">
-                  <Upload className="h-10 w-10 text-muted-foreground mb-3" />
-                  <p className="text-foreground font-medium">Datei auswählen</p>
-                  <p className="text-sm text-muted-foreground">oder hierher ziehen</p>
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.txt"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </label>
-              )}
-            </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-all">
+                    <Upload className="h-10 w-10 text-muted-foreground mb-3" />
+                    <p className="text-foreground font-medium">Datei auswählen</p>
+                    <p className="text-sm text-muted-foreground">PDF, DOCX, TXT — max 10 MB</p>
+                    <input type="file" accept=".pdf,.docx,.txt" onChange={handleFileChange} className="hidden" />
+                  </label>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="sourceUrl">Rahmenlehrplan-URL *</Label>
+                <Input id="sourceUrl" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)}
+                  placeholder="https://www.kmk.org/fileadmin/..." className="bg-muted/50" />
+                <p className="text-xs text-muted-foreground">PDF-Link oder Webseite mit dem Rahmenlehrplan-Inhalt</p>
+              </div>
+            )}
 
-            <Button
-              onClick={handleUploadAndExtract}
-              disabled={!file || !title.trim()}
-              className="w-full gradient-primary text-primary-foreground shadow-glow-sm"
-            >
+            <Button onClick={handleImport}
+              disabled={!title.trim() || (sourceMode === 'file' ? !file : !sourceUrl.trim())}
+              className="w-full gradient-primary text-primary-foreground shadow-glow-sm">
               <Sparkles className="h-4 w-4 mr-2" />
-              Mit KI extrahieren
+              Server-seitig importieren & einfrieren
             </Button>
           </CardContent>
         </Card>
@@ -352,13 +284,9 @@ export default function CurriculumImport() {
       {step === 'extracting' && (
         <Card className="glass-card border-border/50">
           <CardContent className="py-12 text-center">
-            <Sparkles className="h-16 w-16 text-primary mx-auto mb-6 animate-pulse" />
-            <h3 className="text-xl font-display font-bold text-foreground mb-2">
-              KI-Extraktion läuft...
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              Die KI analysiert das Curriculum und extrahiert Lernfelder und Kompetenzen.
-            </p>
+            <Loader2 className="h-16 w-16 text-primary mx-auto mb-6 animate-spin" />
+            <h3 className="text-xl font-display font-bold text-foreground mb-2">Server-seitige Extraktion...</h3>
+            <p className="text-muted-foreground mb-6">Firecrawl → LLM-Extraktion → Normalisierung → Upsert → Freeze</p>
             <div className="max-w-md mx-auto">
               <Progress value={progress} className="h-2" />
               <p className="text-sm text-muted-foreground mt-2">{progress}%</p>
@@ -367,65 +295,34 @@ export default function CurriculumImport() {
         </Card>
       )}
 
-      {/* Review Step */}
+      {/* Review Step (only if not auto-frozen) */}
       {step === 'review' && extractedData && (
         <Card className="glass-card border-border/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              Extrahierte Daten überprüfen
+              Extrahierte Daten
             </CardTitle>
-            <CardDescription>
-              Überprüfe die extrahierten Daten und friere das Curriculum ein.
-            </CardDescription>
+            <CardDescription>Review — manuelle Korrektur vor Freeze möglich</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4">
-              <div className="p-4 rounded-xl bg-muted/30">
-                <p className="text-sm text-muted-foreground">Titel</p>
-                <p className="font-medium text-foreground">{extractedData.title}</p>
-              </div>
-              
-              {extractedData.description && (
-                <div className="p-4 rounded-xl bg-muted/30">
-                  <p className="text-sm text-muted-foreground">Beschreibung</p>
-                  <p className="text-foreground">{extractedData.description}</p>
-                </div>
-              )}
-
-              <div className="p-4 rounded-xl bg-muted/30">
-                <p className="text-sm text-muted-foreground mb-3">
-                  {extractedData.learningFields.length} Lernfelder
-                </p>
-                <div className="space-y-3">
-                  {extractedData.learningFields.map((lf, idx) => (
-                    <div key={idx} className="p-3 rounded-lg bg-background/50 border border-border/50">
-                      <p className="font-medium text-foreground">
-                        {lf.code}: {lf.title}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {lf.hours}h • {lf.competencies.length} Kompetenzen
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
+            <ReviewContent data={extractedData} />
             <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setStep('upload')}
-                className="flex-1"
-              >
-                Zurück
-              </Button>
-              <Button
-                onClick={handleFreeze}
-                className="flex-1 gradient-primary text-primary-foreground shadow-glow-sm"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Einfrieren
+              <Button variant="outline" onClick={() => setStep('upload')} className="flex-1">Zurück</Button>
+              <Button onClick={async () => {
+                if (!curriculumId) return;
+                const { data, error } = await supabase.functions.invoke('curriculum-import', {
+                  body: { action: 'freeze', curriculumId },
+                });
+                if (error || data?.error) {
+                  toast({ title: 'Fehler', description: data?.error || error?.message, variant: 'destructive' });
+                } else {
+                  setImportResult(data);
+                  setStep('complete');
+                  toast({ title: 'Eingefroren!', description: `${data.counts.learningFields} LFs, ${data.counts.competencies} Kompetenzen` });
+                }
+              }} className="flex-1 gradient-primary text-primary-foreground shadow-glow-sm">
+                <CheckCircle className="h-4 w-4 mr-2" /> Einfrieren
               </Button>
             </div>
           </CardContent>
@@ -439,25 +336,53 @@ export default function CurriculumImport() {
             <div className="w-20 h-20 rounded-full gradient-primary flex items-center justify-center mx-auto mb-6 shadow-glow">
               <CheckCircle className="h-10 w-10 text-primary-foreground" />
             </div>
-            <h3 className="text-xl font-display font-bold text-foreground mb-2">
-              Curriculum erfolgreich importiert!
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              Das Curriculum wurde eingefroren und kann jetzt für Kurse verwendet werden.
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Link to="/admin-v2/curricula">
-                <Button variant="outline">Zur Übersicht</Button>
-              </Link>
+            <h3 className="text-xl font-display font-bold text-foreground mb-2">Curriculum importiert & eingefroren!</h3>
+            {importResult?.counts && (
+              <p className="text-muted-foreground mb-2">
+                {importResult.counts.learningFields} Lernfelder · {importResult.counts.competencies} Kompetenzen
+              </p>
+            )}
+            {extractedData && <ReviewContent data={extractedData} />}
+            <div className="flex gap-3 justify-center mt-6">
+              <Link to="/admin-v2/curricula"><Button variant="outline">Zur Übersicht</Button></Link>
               <Link to={`/admin-v2/courses/new?curriculumId=${curriculumId}`}>
-                <Button className="gradient-primary text-primary-foreground">
-                  Kurs erstellen
-                </Button>
+                <Button className="gradient-primary text-primary-foreground">Kurs erstellen</Button>
               </Link>
             </div>
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function ReviewContent({ data }: { data: ExtractedData }) {
+  const totalComps = data.learningFields.reduce((s, lf) => s + lf.competencies.length, 0);
+  return (
+    <div className="grid gap-4 text-left">
+      <div className="p-4 rounded-xl bg-muted/30">
+        <p className="text-sm text-muted-foreground">Titel</p>
+        <p className="font-medium text-foreground">{data.title}</p>
+      </div>
+      {data.description && (
+        <div className="p-4 rounded-xl bg-muted/30">
+          <p className="text-sm text-muted-foreground">Beschreibung</p>
+          <p className="text-foreground text-sm">{data.description}</p>
+        </div>
+      )}
+      <div className="p-4 rounded-xl bg-muted/30">
+        <p className="text-sm text-muted-foreground mb-3">
+          {data.learningFields.length} Lernfelder · {totalComps} Kompetenzen
+        </p>
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {data.learningFields.map((lf, idx) => (
+            <div key={idx} className="p-3 rounded-lg bg-background/50 border border-border/50">
+              <p className="font-medium text-foreground text-sm">{lf.code}: {lf.title}</p>
+              <p className="text-xs text-muted-foreground">{lf.hours > 0 ? `${lf.hours}h · ` : ''}{lf.competencies.length} Kompetenzen</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
