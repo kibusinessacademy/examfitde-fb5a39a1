@@ -5,7 +5,8 @@ import {
   GraduationCap, Activity, ChevronLeft, ChevronDown, Menu, Bot, 
   ClipboardList, Shield, FileArchive, Database, Factory, ShieldCheck, 
   Smartphone, Crown, Users, ShoppingCart, BarChart3, Globe, Megaphone,
-  Wrench, FileBarChart, Brain, Scale, DollarSign, Eye, Cpu, Heart
+  Wrench, FileBarChart, Brain, Scale, DollarSign, Eye, Cpu, Heart,
+  FlaskConical, AlertTriangle
 } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
@@ -60,6 +61,7 @@ const navGroups: NavGroup[] = [
       { path: '/admin-v2/seo', label: 'SEO & Content', icon: Globe },
       { path: '/admin-v2/seo-audit', label: 'SEO Audit', icon: Eye },
       { path: '/admin-v2/marketing', label: 'Marketing Hub', icon: Megaphone },
+      { path: '/admin-v2/experiments', label: 'Experiments', icon: FlaskConical },
     ],
   },
   {
@@ -83,6 +85,8 @@ const navGroups: NavGroup[] = [
       { path: '/admin-v2/system-health', label: 'Health & Monitoring', icon: Heart },
       { path: '/admin-v2/jobs/dashboard', label: 'Jobs / Queues', icon: Activity },
       { path: '/admin-v2/ai-workers', label: 'AI Workers', icon: Bot },
+      { path: '/admin-v2/patches', label: 'Patch Center', icon: FileText },
+      { path: '/admin-v2/early-warnings', label: 'Early Warnings', icon: AlertTriangle },
       { path: '/admin-v2/bibb-seeding', label: 'BIBB Seeding', icon: Database },
       { path: '/admin-v2/app-store-builder', label: 'App Store Builder', icon: Smartphone },
     ],
