@@ -2088,6 +2088,68 @@ export type Database = {
           },
         ]
       }
+      course_health_snapshots: {
+        Row: {
+          avg_word_count: number
+          benchmarks: Json | null
+          competency_count: number
+          course_id: string
+          covered_competency_count: number
+          created_at: string
+          duplicate_titles: number
+          empty_content_count: number
+          health_score: number
+          health_status: string
+          id: string
+          issues: Json | null
+          lesson_count: number
+          snapshot_type: string
+          step_distribution: Json | null
+        }
+        Insert: {
+          avg_word_count?: number
+          benchmarks?: Json | null
+          competency_count?: number
+          course_id: string
+          covered_competency_count?: number
+          created_at?: string
+          duplicate_titles?: number
+          empty_content_count?: number
+          health_score?: number
+          health_status?: string
+          id?: string
+          issues?: Json | null
+          lesson_count?: number
+          snapshot_type?: string
+          step_distribution?: Json | null
+        }
+        Update: {
+          avg_word_count?: number
+          benchmarks?: Json | null
+          competency_count?: number
+          course_id?: string
+          covered_competency_count?: number
+          created_at?: string
+          duplicate_titles?: number
+          empty_content_count?: number
+          health_score?: number
+          health_status?: string
+          id?: string
+          issues?: Json | null
+          lesson_count?: number
+          snapshot_type?: string
+          step_distribution?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_health_snapshots_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_notes: {
         Row: {
           content: string
@@ -2246,6 +2308,10 @@ export type Database = {
       }
       courses: {
         Row: {
+          autopilot_runner_id: string | null
+          autopilot_sealed_at: string | null
+          autopilot_started_at: string | null
+          autopilot_status: string
           created_at: string
           created_by: string | null
           curriculum_id: string
@@ -2259,6 +2325,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          autopilot_runner_id?: string | null
+          autopilot_sealed_at?: string | null
+          autopilot_started_at?: string | null
+          autopilot_status?: string
           created_at?: string
           created_by?: string | null
           curriculum_id: string
@@ -2272,6 +2342,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          autopilot_runner_id?: string | null
+          autopilot_sealed_at?: string | null
+          autopilot_started_at?: string | null
+          autopilot_status?: string
           created_at?: string
           created_by?: string | null
           curriculum_id?: string
@@ -5008,6 +5082,50 @@ export type Database = {
           unit?: string | null
         }
         Relationships: []
+      }
+      post_validation_results: {
+        Row: {
+          auto_fixed: number
+          completed_at: string | null
+          course_id: string
+          created_at: string
+          findings: Json | null
+          id: string
+          manual_review: number
+          status: string
+          validation_type: string
+        }
+        Insert: {
+          auto_fixed?: number
+          completed_at?: string | null
+          course_id: string
+          created_at?: string
+          findings?: Json | null
+          id?: string
+          manual_review?: number
+          status?: string
+          validation_type: string
+        }
+        Update: {
+          auto_fixed?: number
+          completed_at?: string | null
+          course_id?: string
+          created_at?: string
+          findings?: Json | null
+          id?: string
+          manual_review?: number
+          status?: string
+          validation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_validation_results_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       process_documentation: {
         Row: {

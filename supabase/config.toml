@@ -95,3 +95,9 @@ verify_jwt = false
 
 [functions.job-runner]
 verify_jwt = false
+
+[functions.course-finalizer]
+verify_jwt = false
+
+[functions.post-validation]
+verify_jwt = false

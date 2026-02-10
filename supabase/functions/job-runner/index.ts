@@ -44,6 +44,10 @@ const JOB_TYPE_MAP: Record<string, string> = {
   repair_lessons: "repair-lessons",
   improve_lesson: "improve-lesson",
   validate_content: "validate-content",
+  
+  // AutoPilot Final Gate
+  course_finalize: "course-finalizer",
+  post_validation: "post-validation",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)
