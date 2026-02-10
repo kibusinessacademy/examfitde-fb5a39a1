@@ -7754,6 +7754,28 @@ export type Database = {
           },
         ]
       }
+      ops_cost_summary: {
+        Row: {
+          day: string | null
+          errors: number | null
+          job_type: string | null
+          runs: number | null
+          total_cost: number | null
+          total_tokens: number | null
+        }
+        Relationships: []
+      }
+      ops_job_summary: {
+        Row: {
+          avg_duration_seconds: number | null
+          job_count: number | null
+          last_24h: number | null
+          last_hour: number | null
+          latest_created: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
@@ -7990,6 +8012,7 @@ export type Database = {
       }
       is_admin_user: { Args: { check_uid: string }; Returns: boolean }
       job_maintenance: { Args: never; Returns: Json }
+      job_recovery_worker: { Args: never; Returns: Json }
       list_course_evidence_packs: {
         Args: {
           p_course_id?: string
