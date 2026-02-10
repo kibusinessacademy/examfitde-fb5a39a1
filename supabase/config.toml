@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.get-curriculum-structure]
 verify_jwt = false
+
+[functions.curriculum-import]
+verify_jwt = false
