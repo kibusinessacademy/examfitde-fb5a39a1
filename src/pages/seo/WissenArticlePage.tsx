@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { Calendar, Clock, User, ArrowLeft, ArrowRight, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -187,7 +188,7 @@ export default function WissenArticlePage() {
 
 // Simple markdown to HTML converter
 function formatMarkdown(content: string): string {
-  return content
+  const rawHtml = content
     // Headers
     .replace(/^### (.*$)/gim, '<h3>$1</h3>')
     .replace(/^## (.*$)/gim, '<h2>$1</h2>')
@@ -230,4 +231,15 @@ function formatMarkdown(content: string): string {
     .replace(/(<\/ul>)<\/p>/g, '$1')
     .replace(/<p>(<blockquote>)/g, '$1')
     .replace(/(<\/blockquote>)<\/p>/g, '$1');
+
+  return DOMPurify.sanitize(rawHtml, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'ul', 'ol', 'li',
+      'h1', 'h2', 'h3', 'h4', 'blockquote',
+      'code', 'pre', 'a', 'table', 'thead', 'tbody',
+      'tr', 'th', 'td',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'style'],
+  });
 }
