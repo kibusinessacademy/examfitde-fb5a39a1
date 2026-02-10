@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import DOMPurify from 'dompurify';
 import { Loader2, BookOpen, PlayCircle, AlertCircle, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -163,11 +164,16 @@ export default function LessonContent({
 
   // Text/HTML content
   if (contentData.type === 'text' && contentData.html) {
+    const sanitizedHTML = DOMPurify.sanitize(String(contentData.html), {
+      ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'strong', 'em', 'u', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'span', 'div', 'sub', 'sup', 'hr'],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel'],
+      ALLOW_DATA_ATTR: false,
+    });
     return (
       <div className="space-y-4">
         <div 
           className="prose prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: String(contentData.html) }} 
+          dangerouslySetInnerHTML={{ __html: sanitizedHTML }} 
         />
       </div>
     );
