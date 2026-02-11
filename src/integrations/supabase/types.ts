@@ -4030,6 +4030,75 @@ export type Database = {
           },
         ]
       }
+      growth_actions: {
+        Row: {
+          action_type: Database["public"]["Enums"]["growth_action_type"]
+          created_at: string
+          enterprise_account_id: string | null
+          id: string
+          payload_json: Json
+          rationale_json: Json
+          status: Database["public"]["Enums"]["growth_action_status"]
+          target_user_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: Database["public"]["Enums"]["growth_action_type"]
+          created_at?: string
+          enterprise_account_id?: string | null
+          id?: string
+          payload_json?: Json
+          rationale_json?: Json
+          status?: Database["public"]["Enums"]["growth_action_status"]
+          target_user_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: Database["public"]["Enums"]["growth_action_type"]
+          created_at?: string
+          enterprise_account_id?: string | null
+          id?: string
+          payload_json?: Json
+          rationale_json?: Json
+          status?: Database["public"]["Enums"]["growth_action_status"]
+          target_user_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      growth_risk_scores: {
+        Row: {
+          computed_at: string
+          enterprise_account_id: string | null
+          id: string
+          label: string
+          score: number
+          signals_json: Json
+          user_id: string | null
+        }
+        Insert: {
+          computed_at?: string
+          enterprise_account_id?: string | null
+          id?: string
+          label?: string
+          score?: number
+          signals_json?: Json
+          user_id?: string | null
+        }
+        Update: {
+          computed_at?: string
+          enterprise_account_id?: string | null
+          id?: string
+          label?: string
+          score?: number
+          signals_json?: Json
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       handbook_chapters: {
         Row: {
           chapter_key: string
@@ -9566,6 +9635,20 @@ export type Database = {
           },
         ]
       }
+      v_user_entitlement_count: {
+        Row: {
+          entitlement_count: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      v_user_last_activity: {
+        Row: {
+          last_activity_at: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       approve_blueprint_version: {
@@ -9929,6 +10012,24 @@ export type Database = {
           has_learning_course: boolean
           has_oral_trainer: boolean
           valid_until: string
+        }[]
+      }
+      growth_enterprise_candidates: {
+        Args: { p_limit?: number }
+        Returns: {
+          adoption_rate: number
+          enterprise_account_id: string
+          seats_claimed: number
+          seats_total: number
+        }[]
+      }
+      growth_user_candidates: {
+        Args: { p_cutoff: string; p_limit?: number }
+        Returns: {
+          days_inactive: number
+          entitlement_count: number
+          last_activity_at: string
+          user_id: string
         }[]
       }
       has_role: {
@@ -10316,6 +10417,20 @@ export type Database = {
         | "confusing_similar"
       exam_mode: "simulation" | "practice" | "timed_exam"
       exam_relevance: "low" | "medium" | "high"
+      growth_action_status:
+        | "proposed"
+        | "approved"
+        | "sent"
+        | "dismissed"
+        | "failed"
+      growth_action_type:
+        | "nudge_email"
+        | "in_app_nudge"
+        | "b2b_admin_nudge"
+        | "survey"
+        | "winback"
+        | "upsell"
+        | "adoption_tip"
       knowledge_type: "concept" | "procedure" | "calculation" | "regulation"
       lesson_step:
         | "einstieg"
@@ -10507,6 +10622,22 @@ export const Constants = {
       ],
       exam_mode: ["simulation", "practice", "timed_exam"],
       exam_relevance: ["low", "medium", "high"],
+      growth_action_status: [
+        "proposed",
+        "approved",
+        "sent",
+        "dismissed",
+        "failed",
+      ],
+      growth_action_type: [
+        "nudge_email",
+        "in_app_nudge",
+        "b2b_admin_nudge",
+        "survey",
+        "winback",
+        "upsell",
+        "adoption_tip",
+      ],
       knowledge_type: ["concept", "procedure", "calculation", "regulation"],
       lesson_step: [
         "einstieg",
