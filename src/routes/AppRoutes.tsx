@@ -38,6 +38,7 @@ const BundleDetailPage = lazy(() => import('@/pages/seo/ProductDetailPage').then
 const WissenPage = lazy(() => import('@/pages/seo/WissenPage'));
 const WissenArticlePage = lazy(() => import('@/pages/seo/WissenArticlePage'));
 const WissenAllePage = lazy(() => import('@/pages/seo/WissenAllePage'));
+const SearchPage = lazy(() => import('@/pages/seo/SearchPage'));
 
 // Legal Pages
 const AGBPage = lazy(() => import('@/pages/seo/AGBPage'));
@@ -120,6 +121,7 @@ const CourseHealthPage = lazy(() => import('@/pages/admin/CourseHealthPage'));
 const SupportDashboardPage = lazy(() => import('@/pages/admin/SupportDashboardPage'));
 const B2BSupportDashboard = lazy(() => import('@/pages/admin/B2BSupportDashboard'));
 const OperationsDashboard = lazy(() => import('@/pages/admin/OperationsDashboard'));
+const AliasAdminPage = lazy(() => import('@/pages/admin/AliasAdminPage'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
@@ -185,6 +187,9 @@ const AppRoutes = () => {
           {/* Wissen / Blog */}
           <Route path="/wissen" element={<WissenPage />} />
           <Route path="/wissen/alle" element={<WissenAllePage />} />
+          
+          {/* Search */}
+          <Route path="/suche" element={<SearchPage />} />
           
           {/* Legal Pages */}
           <Route path="/agb" element={<AGBPage />} />
@@ -281,6 +286,7 @@ const AppRoutes = () => {
           <Route path="support-dashboard" element={<SupportDashboardPage />} />
           <Route path="b2b-support" element={<B2BSupportDashboard />} />
           <Route path="operations" element={<OperationsDashboard />} />
+          <Route path="aliases" element={<AliasAdminPage />} />
         </Route>
 
         {/* Admin Redirects */}

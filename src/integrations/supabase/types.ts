@@ -956,6 +956,41 @@ export type Database = {
         }
         Relationships: []
       }
+      beruf_aliases: {
+        Row: {
+          alias: string
+          alias_norm: string
+          beruf_id: string
+          created_at: string
+          id: string
+          priority: number
+        }
+        Insert: {
+          alias: string
+          alias_norm: string
+          beruf_id: string
+          created_at?: string
+          id?: string
+          priority?: number
+        }
+        Update: {
+          alias?: string
+          alias_norm?: string
+          beruf_id?: string
+          created_at?: string
+          id?: string
+          priority?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beruf_aliases_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "berufe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       beruf_dokumente: {
         Row: {
           beruf_id: string
@@ -8442,6 +8477,7 @@ export type Database = {
           storage_path: string
         }[]
       }
+      normalize_search_text: { Args: { input: string }; Returns: string }
       record_worker_usage: {
         Args: {
           p_cost_eur?: number
@@ -8496,6 +8532,32 @@ export type Database = {
         }[]
       }
       run_health_checks: { Args: never; Returns: Json }
+      search_berufe: {
+        Args: { lim?: number; q: string }
+        Returns: {
+          id: string
+          match_reason: string
+          score: number
+          subtitle: string
+          title: string
+          type: string
+          url: string
+        }[]
+      }
+      search_public: {
+        Args: { lim?: number; q: string; types?: string[] }
+        Returns: {
+          id: string
+          match_reason: string
+          score: number
+          subtitle: string
+          title: string
+          type: string
+          url: string
+        }[]
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       start_exam_session: {
         Args: { p_blueprint_id: string; p_mode?: string }
         Returns: string
@@ -8537,6 +8599,7 @@ export type Database = {
         }
         Returns: Json
       }
+      unaccent: { Args: { "": string }; Returns: string }
       update_learning_streak: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: {
