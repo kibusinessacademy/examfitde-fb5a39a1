@@ -134,3 +134,9 @@ verify_jwt = false
 
 [functions.send-license-emails]
 verify_jwt = false
+
+[functions.enterprise-accounts]
+verify_jwt = false
+
+[functions.finance-reports]
+verify_jwt = false

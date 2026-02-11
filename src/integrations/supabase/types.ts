@@ -1466,6 +1466,45 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          address: Json | null
+          admin_user_id: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          max_seats: number | null
+          name: string
+          updated_at: string
+          vat_id: string | null
+        }
+        Insert: {
+          address?: Json | null
+          admin_user_id: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          max_seats?: number | null
+          name: string
+          updated_at?: string
+          vat_id?: string | null
+        }
+        Update: {
+          address?: Json | null
+          admin_user_id?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          max_seats?: number | null
+          name?: string
+          updated_at?: string
+          vat_id?: string | null
+        }
+        Relationships: []
+      }
       competencies: {
         Row: {
           code: string
@@ -3802,6 +3841,65 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          created_at: string
+          due_date: string | null
+          id: string
+          invoice_number: string
+          issue_date: string
+          notes: string | null
+          order_id: string
+          pdf_url: string | null
+          status: string
+          stripe_invoice_id: string | null
+          tax_rate: number
+          total_gross_cents: number
+          total_net_cents: number
+          total_tax_cents: number
+        }
+        Insert: {
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          invoice_number: string
+          issue_date?: string
+          notes?: string | null
+          order_id: string
+          pdf_url?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          tax_rate?: number
+          total_gross_cents?: number
+          total_net_cents?: number
+          total_tax_cents?: number
+        }
+        Update: {
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          issue_date?: string
+          notes?: string | null
+          order_id?: string
+          pdf_url?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          tax_rate?: number
+          total_gross_cents?: number
+          total_net_cents?: number
+          total_tax_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_queue: {
         Row: {
           attempts: number
@@ -4252,6 +4350,79 @@ export type Database = {
           },
         ]
       }
+      ledger_entries: {
+        Row: {
+          account: string
+          amount_cents: number
+          country: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          event_time: string
+          event_type: string
+          id: string
+          invoice_id: string | null
+          order_id: string | null
+          payment_id: string | null
+          stripe_event_id: string | null
+          tax_rate: number | null
+        }
+        Insert: {
+          account: string
+          amount_cents: number
+          country?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          event_time?: string
+          event_type: string
+          id?: string
+          invoice_id?: string | null
+          order_id?: string | null
+          payment_id?: string | null
+          stripe_event_id?: string | null
+          tax_rate?: number | null
+        }
+        Update: {
+          account?: string
+          amount_cents?: number
+          country?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          event_time?: string
+          event_type?: string
+          id?: string
+          invoice_id?: string | null
+          order_id?: string | null
+          payment_id?: string | null
+          stripe_event_id?: string | null
+          tax_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_entries_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_entries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_entries_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_improvement_suggestions: {
         Row: {
           applied: boolean
@@ -4531,6 +4702,7 @@ export type Database = {
           billing_vat_id: string | null
           buyer_is_licensee: boolean
           buyer_user_id: string
+          company_id: string | null
           created_at: string | null
           curriculum_id: string
           delivery_log: Json
@@ -4556,6 +4728,7 @@ export type Database = {
           billing_vat_id?: string | null
           buyer_is_licensee?: boolean
           buyer_user_id: string
+          company_id?: string | null
           created_at?: string | null
           curriculum_id: string
           delivery_log?: Json
@@ -4581,6 +4754,7 @@ export type Database = {
           billing_vat_id?: string | null
           buyer_is_licensee?: boolean
           buyer_user_id?: string
+          company_id?: string | null
           created_at?: string | null
           curriculum_id?: string
           delivery_log?: Json
@@ -4599,6 +4773,13 @@ export type Database = {
           stripe_payment_intent_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "license_packages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "license_packages_curriculum_id_fkey"
             columns: ["curriculum_id"]
@@ -4627,6 +4808,9 @@ export type Database = {
           invite_email: string | null
           invite_email_hash: string | null
           invite_expires_at: string | null
+          licensee_first_name: string | null
+          licensee_last_name: string | null
+          licensee_personnel_number: string | null
           package_id: string
         }
         Insert: {
@@ -4640,6 +4824,9 @@ export type Database = {
           invite_email?: string | null
           invite_email_hash?: string | null
           invite_expires_at?: string | null
+          licensee_first_name?: string | null
+          licensee_last_name?: string | null
+          licensee_personnel_number?: string | null
           package_id: string
         }
         Update: {
@@ -4653,6 +4840,9 @@ export type Database = {
           invite_email?: string | null
           invite_email_hash?: string | null
           invite_expires_at?: string | null
+          licensee_first_name?: string | null
+          licensee_last_name?: string | null
+          licensee_personnel_number?: string | null
           package_id?: string
         }
         Relationships: [
@@ -5396,6 +5586,137 @@ export type Database = {
           },
         ]
       }
+      order_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          order_id: string
+          product_id: string | null
+          quantity: number
+          tax_amount_cents: number
+          tax_rate: number
+          unit_amount_gross_cents: number
+          unit_amount_net_cents: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          order_id: string
+          product_id?: string | null
+          quantity?: number
+          tax_amount_cents?: number
+          tax_rate?: number
+          unit_amount_gross_cents?: number
+          unit_amount_net_cents?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          order_id?: string
+          product_id?: string | null
+          quantity?: number
+          tax_amount_cents?: number
+          tax_rate?: number
+          unit_amount_gross_cents?: number
+          unit_amount_net_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "store_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          billing_address: Json | null
+          billing_company: string | null
+          billing_email: string | null
+          billing_name: string | null
+          billing_vat_id: string | null
+          buyer_user_id: string
+          country: string | null
+          created_at: string
+          currency: string
+          id: string
+          license_package_id: string | null
+          notes: string | null
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          subtotal_cents: number
+          tax_cents: number
+          tax_mode: string
+          total_cents: number
+          updated_at: string
+        }
+        Insert: {
+          billing_address?: Json | null
+          billing_company?: string | null
+          billing_email?: string | null
+          billing_name?: string | null
+          billing_vat_id?: string | null
+          buyer_user_id: string
+          country?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          license_package_id?: string | null
+          notes?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          subtotal_cents?: number
+          tax_cents?: number
+          tax_mode?: string
+          total_cents?: number
+          updated_at?: string
+        }
+        Update: {
+          billing_address?: Json | null
+          billing_company?: string | null
+          billing_email?: string | null
+          billing_name?: string | null
+          billing_vat_id?: string | null
+          buyer_user_id?: string
+          country?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          license_package_id?: string | null
+          notes?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          subtotal_cents?: number
+          tax_cents?: number
+          tax_mode?: string
+          total_cents?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_license_package_id_fkey"
+            columns: ["license_package_id"]
+            isOneToOne: false
+            referencedRelation: "license_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patch_proposals: {
         Row: {
           after: Json
@@ -5502,6 +5823,59 @@ export type Database = {
             columns: ["patch_id"]
             isOneToOne: false
             referencedRelation: "patch_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          fee_cents: number
+          id: string
+          net_cents: number
+          order_id: string
+          paid_at: string | null
+          payment_status: string
+          stripe_charge_id: string | null
+          stripe_event_id: string | null
+          stripe_payment_intent_id: string | null
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          fee_cents?: number
+          id?: string
+          net_cents?: number
+          order_id: string
+          paid_at?: string | null
+          payment_status?: string
+          stripe_charge_id?: string | null
+          stripe_event_id?: string | null
+          stripe_payment_intent_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          fee_cents?: number
+          id?: string
+          net_cents?: number
+          order_id?: string
+          paid_at?: string | null
+          payment_status?: string
+          stripe_charge_id?: string | null
+          stripe_event_id?: string | null
+          stripe_payment_intent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -5722,29 +6096,52 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          company_id: string | null
           created_at: string
           full_name: string | null
           id: string
+          initial_password_hash: string | null
+          login_username: string | null
+          managed_account: boolean | null
+          personnel_number: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           avatar_url?: string | null
+          company_id?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          initial_password_hash?: string | null
+          login_username?: string | null
+          managed_account?: boolean | null
+          personnel_number?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           avatar_url?: string | null
+          company_id?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          initial_password_hash?: string | null
+          login_username?: string | null
+          managed_account?: boolean | null
+          personnel_number?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       progress_narratives: {
         Row: {
@@ -8503,6 +8900,19 @@ export type Database = {
         }
         Returns: Json
       }
+      create_enterprise_account: {
+        Args: {
+          p_email?: string
+          p_first_name: string
+          p_last_name: string
+          p_package_id: string
+          p_password: string
+          p_personnel_number?: string
+          p_seat_id: string
+          p_username: string
+        }
+        Returns: string
+      }
       create_job: {
         Args: {
           p_job_type: string
@@ -8523,6 +8933,19 @@ export type Database = {
           p_include_questions?: boolean
         }
         Returns: Json
+      }
+      export_ledger_csv: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          belegnummer: string
+          betrag_eur: number
+          buchungsdatum: string
+          buchungstext: string
+          gegenkonto: string
+          konto: string
+          steuer_prozent: number
+          waehrung: string
+        }[]
       }
       export_participant_pack: {
         Args: {
@@ -8549,6 +8972,7 @@ export type Database = {
         }[]
       }
       generate_invite_code: { Args: never; Returns: string }
+      generate_invoice_number: { Args: never; Returns: string }
       get_adaptive_recommendation: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
@@ -8744,6 +9168,76 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      report_audit_log: {
+        Args: { p_limit?: number }
+        Returns: {
+          account: string
+          amount_cents: number
+          currency: string
+          description: string
+          event_time: string
+          event_type: string
+          id: string
+          order_id: string
+          stripe_event_id: string
+        }[]
+      }
+      report_fees_refunds_by_month: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          chargebacks_cents: number
+          month: string
+          refunds_cents: number
+          stripe_fees_cents: number
+        }[]
+      }
+      report_open_items: {
+        Args: never
+        Returns: {
+          buyer_email: string
+          created_at: string
+          order_id: string
+          paid_cents: number
+          status: string
+          total_cents: number
+        }[]
+      }
+      report_payouts: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          month: string
+          payout_cents: number
+          payout_count: number
+        }[]
+      }
+      report_revenue_by_month: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          gross_cents: number
+          month: string
+          net_cents: number
+          order_count: number
+          tax_cents: number
+        }[]
+      }
+      report_revenue_by_product: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          gross_cents: number
+          product_id: string
+          product_name: string
+          quantity: number
+        }[]
+      }
+      report_vat_by_rate: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          month: string
+          revenue_net_cents: number
+          tax_cents: number
+          tax_rate: number
+        }[]
       }
       requeue_failed_jobs: { Args: never; Returns: number }
       run_azav_compliance_check: {
