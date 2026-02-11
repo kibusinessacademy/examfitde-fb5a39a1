@@ -107,6 +107,15 @@ const JOB_TYPE_MAP: Record<string, string> = {
   tutor_feedback_propose: "tutor-council-run",
   tutor_feedback_critique: "tutor-council-run",
   tutor_feedback_verdict: "tutor-council-run",
+
+  // Compliance & Data Protection Council (Council 6)
+  compliance_scan: "compliance-council-scan",
+  compliance_scan_pii: "compliance-council-scan",
+  compliance_scan_rls: "compliance-council-scan",
+  compliance_scan_retention: "compliance-council-scan",
+  compliance_scan_ai_act: "compliance-council-scan",
+  compliance_scan_azav: "compliance-council-scan",
+  compliance_recompute_block: "compliance-council-scan",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)

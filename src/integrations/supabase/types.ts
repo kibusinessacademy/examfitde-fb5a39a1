@@ -1672,6 +1672,75 @@ export type Database = {
           },
         ]
       }
+      compliance_findings: {
+        Row: {
+          area: string
+          created_at: string
+          created_by: string
+          description: string
+          evidence_json: Json
+          id: string
+          remediation_json: Json | null
+          severity: Database["public"]["Enums"]["compliance_severity"]
+          status: Database["public"]["Enums"]["compliance_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          created_by?: string
+          description: string
+          evidence_json?: Json
+          id?: string
+          remediation_json?: Json | null
+          severity: Database["public"]["Enums"]["compliance_severity"]
+          status?: Database["public"]["Enums"]["compliance_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          evidence_json?: Json
+          id?: string
+          remediation_json?: Json | null
+          severity?: Database["public"]["Enums"]["compliance_severity"]
+          status?: Database["public"]["Enums"]["compliance_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      compliance_reports: {
+        Row: {
+          created_at: string
+          findings_snapshot: Json
+          id: string
+          report_type: string
+          scope_json: Json
+          summary_json: Json
+        }
+        Insert: {
+          created_at?: string
+          findings_snapshot?: Json
+          id?: string
+          report_type: string
+          scope_json?: Json
+          summary_json?: Json
+        }
+        Update: {
+          created_at?: string
+          findings_snapshot?: Json
+          id?: string
+          report_type?: string
+          scope_json?: Json
+          summary_json?: Json
+        }
+        Relationships: []
+      }
       content_effectiveness: {
         Row: {
           abort_rate: number | null
@@ -2823,6 +2892,7 @@ export type Database = {
           autopilot_sealed_at: string | null
           autopilot_started_at: string | null
           autopilot_status: string
+          compliance_blocked: boolean
           created_at: string
           created_by: string | null
           curriculum_id: string
@@ -2844,6 +2914,7 @@ export type Database = {
           autopilot_sealed_at?: string | null
           autopilot_started_at?: string | null
           autopilot_status?: string
+          compliance_blocked?: boolean
           created_at?: string
           created_by?: string | null
           curriculum_id: string
@@ -2865,6 +2936,7 @@ export type Database = {
           autopilot_sealed_at?: string | null
           autopilot_started_at?: string | null
           autopilot_status?: string
+          compliance_blocked?: boolean
           created_at?: string
           created_by?: string | null
           curriculum_id?: string
@@ -9837,6 +9909,10 @@ export type Database = {
         Args: { p_asset_id: string; p_version_id: string }
         Returns: undefined
       }
+      recompute_compliance_block: {
+        Args: { p_course_id: string }
+        Returns: undefined
+      }
       recompute_course_publish_readiness: {
         Args: { p_course_id: string }
         Returns: undefined
@@ -10096,6 +10172,8 @@ export type Database = {
         | "create"
       blueprint_status: "draft" | "review" | "approved" | "deprecated"
       cognitive_level: "remember" | "understand" | "apply" | "analyze"
+      compliance_severity: "low" | "medium" | "high" | "critical"
+      compliance_status: "open" | "in_progress" | "resolved" | "accepted_risk"
       content_version_status:
         | "proposed"
         | "under_review"
@@ -10281,6 +10359,8 @@ export const Constants = {
       ],
       blueprint_status: ["draft", "review", "approved", "deprecated"],
       cognitive_level: ["remember", "understand", "apply", "analyze"],
+      compliance_severity: ["low", "medium", "high", "critical"],
+      compliance_status: ["open", "in_progress", "resolved", "accepted_risk"],
       content_version_status: [
         "proposed",
         "under_review",
