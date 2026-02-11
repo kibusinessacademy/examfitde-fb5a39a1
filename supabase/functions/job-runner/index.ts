@@ -128,6 +128,12 @@ const JOB_TYPE_MAP: Record<string, string> = {
   finance_reconcile: "finance-council-reconcile",
   finance_export_csv: "finance-export-csv",
   finance_export_datev: "finance-export-datev",
+
+  // QA / Production Hardening Council (Council 9)
+  qa_smoke: "qa-council-smoke",
+  qa_runtime_smoke: "qa-council-runtime-smoke",
+  qa_h5p_smoke: "qa-council-h5p-smoke",
+  qa_error_budget: "qa-council-error-budget",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)

@@ -7065,6 +7065,231 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_budgets: {
+        Row: {
+          enabled: boolean
+          id: string
+          key: string
+          updated_at: string
+          value_num: number | null
+          value_text: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          id?: string
+          key: string
+          updated_at?: string
+          value_num?: number | null
+          value_text?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          id?: string
+          key?: string
+          updated_at?: string
+          value_num?: number | null
+          value_text?: string | null
+        }
+        Relationships: []
+      }
+      qa_findings: {
+        Row: {
+          area: string
+          created_at: string
+          description: string
+          evidence_json: Json
+          id: string
+          qa_run_id: string | null
+          severity: Database["public"]["Enums"]["qa_severity"]
+          status: Database["public"]["Enums"]["qa_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          description: string
+          evidence_json?: Json
+          id?: string
+          qa_run_id?: string | null
+          severity: Database["public"]["Enums"]["qa_severity"]
+          status?: Database["public"]["Enums"]["qa_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          description?: string
+          evidence_json?: Json
+          id?: string
+          qa_run_id?: string | null
+          severity?: Database["public"]["Enums"]["qa_severity"]
+          status?: Database["public"]["Enums"]["qa_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_findings_qa_run_id_fkey"
+            columns: ["qa_run_id"]
+            isOneToOne: false
+            referencedRelation: "qa_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_findings_qa_run_id_fkey"
+            columns: ["qa_run_id"]
+            isOneToOne: false
+            referencedRelation: "v_qa_last_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_gate_rules: {
+        Row: {
+          area: string
+          created_at: string
+          enabled: boolean
+          id: string
+          min_severity: Database["public"]["Enums"]["qa_severity"]
+          updated_at: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          min_severity: Database["public"]["Enums"]["qa_severity"]
+          updated_at?: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          min_severity?: Database["public"]["Enums"]["qa_severity"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qa_h5p_smoke_writes: {
+        Row: {
+          created_at: string
+          id: string
+          note: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string
+        }
+        Relationships: []
+      }
+      qa_risk_acceptances: {
+        Row: {
+          accepted_by: string | null
+          created_at: string
+          expires_at: string | null
+          finding_id: string
+          id: string
+          reason: string
+          revoked_at: string | null
+        }
+        Insert: {
+          accepted_by?: string | null
+          created_at?: string
+          expires_at?: string | null
+          finding_id: string
+          id?: string
+          reason: string
+          revoked_at?: string | null
+        }
+        Update: {
+          accepted_by?: string | null
+          created_at?: string
+          expires_at?: string | null
+          finding_id?: string
+          id?: string
+          reason?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_risk_acceptances_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: true
+            referencedRelation: "qa_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_risk_acceptances_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: true
+            referencedRelation: "v_qa_open_findings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_route_registry: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          expected_status: number
+          id: string
+          name: string
+          updated_at: string
+          url_path: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          expected_status?: number
+          id?: string
+          name: string
+          updated_at?: string
+          url_path: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          expected_status?: number
+          id?: string
+          name?: string
+          updated_at?: string
+          url_path?: string
+        }
+        Relationships: []
+      }
+      qa_runs: {
+        Row: {
+          created_at: string
+          id: string
+          run_type: string
+          scope_json: Json
+          summary_json: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          run_type: string
+          scope_json?: Json
+          summary_json?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          run_type?: string
+          scope_json?: Json
+          summary_json?: Json
+        }
+        Relationships: []
+      }
       qc_run_results: {
         Row: {
           completed_at: string | null
@@ -9851,6 +10076,94 @@ export type Database = {
         }
         Relationships: []
       }
+      v_qa_last_runs: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          run_type: string | null
+          summary_json: Json | null
+        }
+        Relationships: []
+      }
+      v_qa_open_findings: {
+        Row: {
+          area: string | null
+          created_at: string | null
+          id: string | null
+          qa_run_id: string | null
+          severity: Database["public"]["Enums"]["qa_severity"] | null
+          status: Database["public"]["Enums"]["qa_status"] | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          area?: string | null
+          created_at?: string | null
+          id?: string | null
+          qa_run_id?: string | null
+          severity?: Database["public"]["Enums"]["qa_severity"] | null
+          status?: Database["public"]["Enums"]["qa_status"] | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          area?: string | null
+          created_at?: string | null
+          id?: string | null
+          qa_run_id?: string | null
+          severity?: Database["public"]["Enums"]["qa_severity"] | null
+          status?: Database["public"]["Enums"]["qa_status"] | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_findings_qa_run_id_fkey"
+            columns: ["qa_run_id"]
+            isOneToOne: false
+            referencedRelation: "qa_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_findings_qa_run_id_fkey"
+            columns: ["qa_run_id"]
+            isOneToOne: false
+            referencedRelation: "v_qa_last_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_qa_risk_acceptances: {
+        Row: {
+          acceptance_status: string | null
+          accepted_at: string | null
+          area: string | null
+          expires_at: string | null
+          finding_id: string | null
+          finding_status: Database["public"]["Enums"]["qa_status"] | null
+          finding_title: string | null
+          id: string | null
+          reason: string | null
+          revoked_at: string | null
+          severity: Database["public"]["Enums"]["qa_severity"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_risk_acceptances_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: true
+            referencedRelation: "qa_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_risk_acceptances_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: true
+            referencedRelation: "v_qa_open_findings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_revenue_daily: {
         Row: {
           currency: string | null
@@ -9876,6 +10189,14 @@ export type Database = {
       }
     }
     Functions: {
+      accept_qa_risk: {
+        Args: {
+          p_expires_days?: number
+          p_finding_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
       admin_approve_growth_action: {
         Args: { p_action_id: string }
         Returns: undefined
@@ -9903,6 +10224,8 @@ export type Database = {
       assert_compliance_release_ok: { Args: never; Returns: undefined }
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
       assert_profiles_rls_secure: { Args: never; Returns: undefined }
+      assert_publish_unlock: { Args: never; Returns: undefined }
+      assert_qa_release_ok: { Args: never; Returns: undefined }
       attach_finding_remediation: {
         Args: {
           p_council_version_id: string
@@ -10017,6 +10340,7 @@ export type Database = {
         Returns: number
       }
       compute_compliance_release_gate: { Args: never; Returns: Json }
+      compute_qa_release_gate: { Args: never; Returns: Json }
       compute_question_hash: { Args: { p_text: string }; Returns: string }
       course_pack_fingerprint: {
         Args: { p_course_id: string }
@@ -10202,6 +10526,7 @@ export type Database = {
           repetition_count: number
         }[]
       }
+      get_edge_error_rate_24h: { Args: never; Returns: Json }
       get_evidence_pack: { Args: { p_pack_id: string }; Returns: Json }
       get_evidence_pack_storage_info: {
         Args: { p_pack_id: string }
@@ -10224,6 +10549,15 @@ export type Database = {
       get_exam_readiness: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
+      }
+      get_job_fail_rate: {
+        Args: { p_last_n?: number }
+        Returns: {
+          fail_rate: number
+          failed: number
+          last_n: number
+          total: number
+        }[]
       }
       get_lessons_needing_review: {
         Args: { p_course_id?: string }
@@ -10421,6 +10755,10 @@ export type Database = {
         Args: { p_asset_id: string; p_version_id: string }
         Returns: undefined
       }
+      qa_severity_rank: {
+        Args: { p: Database["public"]["Enums"]["qa_severity"] }
+        Returns: number
+      }
       recompute_compliance_block: {
         Args: { p_course_id: string }
         Returns: undefined
@@ -10545,6 +10883,11 @@ export type Database = {
         }[]
       }
       requeue_failed_jobs: { Args: never; Returns: number }
+      resolve_qa_finding_if_exists: {
+        Args: { p_area: string; p_title: string }
+        Returns: undefined
+      }
+      revoke_qa_risk: { Args: { p_finding_id: string }; Returns: undefined }
       run_azav_compliance_check: {
         Args: never
         Returns: {
@@ -10686,6 +11029,17 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_qa_finding: {
+        Args: {
+          p_area: string
+          p_description: string
+          p_evidence: Json
+          p_qa_run_id?: string
+          p_severity: Database["public"]["Enums"]["qa_severity"]
+          p_title: string
+        }
+        Returns: string
+      }
       validate_blueprint_constraints: {
         Args: { p_blueprint_id: string; p_variable_values: Json }
         Returns: {
@@ -10773,6 +11127,8 @@ export type Database = {
         | "anwenden"
         | "wiederholen"
         | "mini_check"
+      qa_severity: "low" | "medium" | "high" | "critical"
+      qa_status: "open" | "resolved" | "accepted_risk"
       question_difficulty: "easy" | "medium" | "hard"
       question_status: "draft" | "review" | "approved" | "rejected"
       variation_mode:
@@ -10991,6 +11347,8 @@ export const Constants = {
         "wiederholen",
         "mini_check",
       ],
+      qa_severity: ["low", "medium", "high", "critical"],
+      qa_status: ["open", "resolved", "accepted_risk"],
       question_difficulty: ["easy", "medium", "hard"],
       question_status: ["draft", "review", "approved", "rejected"],
       variation_mode: [
