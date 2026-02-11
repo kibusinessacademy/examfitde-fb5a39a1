@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { callAI } from "../_shared/ai-client.ts";
 
 /**
  * AI-Tutor – GPT-5.2 Deep Thinking + Opus Post-Validation
@@ -286,20 +287,17 @@ serve(async (req) => {
     // Server loads actual data from DB → prevents client manipulation
     const { contextPrompt, resolvedContext } = await loadSSOTContext(supabase, context);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
     const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt;
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...conversationHistory.slice(-10),
-      { role: "user", content: message }
+    const aiMessages = [
+      { role: "system" as const, content: systemPrompt },
+      ...conversationHistory.slice(-10).map((m: any) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      { role: "user" as const, content: message }
     ];
 
     // Create generation record BEFORE streaming
     const { data: genRecord } = await supabase.from("ai_generations").insert({
       entity_type: "tutor_response",
-      generator_model: "openai/gpt-5.2",
+      generator_model: "openai/gpt-4.1",
       input_context: { mode: validMode, role: validRole, context: resolvedContext, prompt: message },
       output_content: {},
       status: "generated",
@@ -308,25 +306,25 @@ serve(async (req) => {
 
     const generationId = genRecord?.id;
 
-    // Stream from GPT-5.2
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "openai/gpt-5.2", messages, stream: true }),
+    // Stream from OpenAI directly
+    const { raw: aiResponse, ok, status } = await callAI({
+      provider: "openai",
+      messages: aiMessages,
+      stream: true,
     });
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
+    if (!ok) {
+      if (status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Bitte später erneut versuchen." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-      if (aiResponse.status === 402) {
+      if (status === 402) {
         return new Response(JSON.stringify({ error: "AI-Kontingent erschöpft." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
+      throw new Error(`OpenAI API error: ${status}`);
     }
 
     // Stream through + collect for post-validation

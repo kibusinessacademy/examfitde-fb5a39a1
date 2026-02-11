@@ -65,16 +65,17 @@ serve(async (req) => {
     let seoDescription = curriculum.description || `${product.name} für ${curriculum.title}. Bereite dich optimal auf deine IHK-Prüfung vor.`;
 
     // Use AI to generate better SEO content if available
-    if (lovableApiKey) {
+    const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
+    if (deepseekApiKey) {
       try {
-        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        const aiResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${lovableApiKey}`,
+            Authorization: `Bearer ${deepseekApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-3-flash-preview',
+            model: 'deepseek-chat',
             messages: [
               {
                 role: 'system',

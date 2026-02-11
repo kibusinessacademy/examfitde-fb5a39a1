@@ -91,11 +91,11 @@ serve(async (req) => {
       apiHeaders = { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' };
       model = 'gpt-4o';
     } else {
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
-      apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-      apiHeaders = { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' };
-      model = 'google/gemini-3-flash-preview';
+      const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+      if (!DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY is not configured');
+      apiUrl = 'https://api.deepseek.com/v1/chat/completions';
+      apiHeaders = { Authorization: `Bearer ${DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' };
+      model = 'deepseek-chat';
     }
 
     const response = await fetch(apiUrl, {

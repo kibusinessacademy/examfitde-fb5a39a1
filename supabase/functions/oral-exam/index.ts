@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { callAIJSON } from "../_shared/ai-client.ts";
 
 /**
  * Oral-Exam – Blueprint-basiert (SSOT-konform)
@@ -239,28 +240,17 @@ function renderTemplate(template: string, variables: any[]): string {
  */
 async function generateFollowUps(competency: any, mainQuestion: string): Promise<string[]> {
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return ["Können Sie ein konkretes Beispiel nennen?"];
-
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "Generiere 2 kurze Nachfragen eines IHK-Prüfers. NUR JSON-Array: [\"Frage1\", \"Frage2\"]" },
-          { role: "user", content: `Kompetenz: ${competency.title}\nHauptfrage: ${mainQuestion}` }
-        ],
-        max_tokens: 200,
-      }),
+    const result = await callAIJSON({
+      provider: "deepseek",
+      messages: [
+        { role: "system", content: "Generiere 2 kurze Nachfragen eines IHK-Prüfers. NUR JSON-Array: [\"Frage1\", \"Frage2\"]" },
+        { role: "user", content: `Kompetenz: ${competency.title}\nHauptfrage: ${mainQuestion}` }
+      ],
+      max_tokens: 200,
     });
 
-    if (resp.ok) {
-      const data = await resp.json();
-      const text = data.choices?.[0]?.message?.content || '';
-      const match = text.match(/\[[\s\S]*\]/);
-      if (match) return JSON.parse(match[0]);
-    }
+    const match = result.content.match(/\[[\s\S]*\]/);
+    if (match) return JSON.parse(match[0]);
   } catch { /* ignore */ }
   return ["Können Sie ein konkretes Beispiel nennen?", "Wie würden Sie das in der Praxis umsetzen?"];
 }
@@ -273,15 +263,6 @@ async function generateQuestionViaLLM(competency: any): Promise<{
   expected_points: string[];
   follow_up_questions: string[];
 }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) {
-    return {
-      question: `Erläutern Sie die wesentlichen Aspekte von: ${competency.title}`,
-      expected_points: ["Fachliche Definition", "Praktische Anwendung", "Relevanz im Berufsalltag"],
-      follow_up_questions: ["Können Sie ein konkretes Beispiel nennen?"]
-    };
-  }
-
   const prompt = `Du bist ein IHK-Prüfer für die mündliche Abschlussprüfung.
 
 Generiere eine mündliche Prüfungsfrage zum Thema:
@@ -302,25 +283,17 @@ Antworte NUR im folgenden JSON-Format:
 }`;
 
   try {
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "Du bist ein erfahrener IHK-Prüfer. Antworte ausschließlich im angeforderten JSON-Format." },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 800,
-      }),
+    const result = await callAIJSON({
+      provider: "openai",
+      messages: [
+        { role: "system", content: "Du bist ein erfahrener IHK-Prüfer. Antworte ausschließlich im angeforderten JSON-Format." },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 800,
     });
 
-    if (aiResponse.ok) {
-      const aiData = await aiResponse.json();
-      const text = aiData.choices?.[0]?.message?.content || '';
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) return JSON.parse(jsonMatch[0]);
-    }
+    const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
   } catch (e) {
     console.error("[OralExam] LLM fallback error:", e);
   }
@@ -365,9 +338,6 @@ async function evaluateAnswer(supabase: any, params: any) {
 
   if (!question) throw new Error('Question not found');
 
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
   const evaluationPrompt = `Du bist ein IHK-Prüfer und bewertest eine mündliche Prüfungsantwort.
 
 FRAGE: ${question.question_text}
@@ -399,23 +369,16 @@ Antworte NUR im folgenden JSON-Format:
   "follow_up_question": "Eine mögliche Nachfrage des Prüfers wäre..."
 }`;
 
-  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: "Du bist ein erfahrener IHK-Prüfer. Bewerte fair aber anspruchsvoll. Antworte nur im JSON-Format." },
-        { role: "user", content: evaluationPrompt }
-      ],
-      max_tokens: 1000,
-    }),
+  const result = await callAIJSON({
+    provider: "openai",
+    messages: [
+      { role: "system", content: "Du bist ein erfahrener IHK-Prüfer. Bewerte fair aber anspruchsvoll. Antworte nur im JSON-Format." },
+      { role: "user", content: evaluationPrompt }
+    ],
+    max_tokens: 1000,
   });
 
-  if (!aiResponse.ok) throw new Error(`AI error: ${aiResponse.status}`);
-
-  const aiData = await aiResponse.json();
-  const responseText = aiData.choices?.[0]?.message?.content || '';
+  const responseText = result.content;
   
   let evaluation;
   try {
