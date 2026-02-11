@@ -726,7 +726,7 @@ serve(async (req) => {
         .select("id")
         .single();
 
-      // Persist MiniCheck questions
+      // Persist MiniCheck questions + set minicheck_parsed flag
       if (
         stepToGen === "mini_check" &&
         inserted?.id &&
@@ -739,6 +739,8 @@ serve(async (req) => {
           (finalContent as any).questions,
           comp.code || comp.id,
         );
+        // Fix 3: Set minicheck_parsed so course-finalizer recognizes parsed MiniChecks
+        await supabase.from("lessons").update({ minicheck_parsed: true }).eq("id", inserted.id);
       }
 
       // Auto-create patch proposal on revise/reject

@@ -57,7 +57,7 @@ export async function enqueuePipeline(curriculumId: string, jobs: Omit<JobPayloa
 export const PIPELINE_TEMPLATES = {
   'end-to-end': {
     label: 'End-to-End: Curriculum → Produkt → Quality',
-    description: 'Vollständige Pipeline: Extraktion, Kursgenerierung, Prüfungsfragen, MiniChecks und Quality Gates.',
+    description: 'Vollständige Pipeline: Extraktion, Kursgenerierung, QC-Worker, Finalisierung und Quality Gates.',
     icon: 'Rocket',
     jobs: [
       { job_type: 'extract_curriculum' },
@@ -65,19 +65,24 @@ export const PIPELINE_TEMPLATES = {
       { job_type: 'seed_exam_questions' },
       { job_type: 'enrich_exam_solutions' },
       { job_type: 'upgrade_minichecks_v1' },
+      { job_type: 'qc_worker_full' },
+      { job_type: 'course_finalize' },
+      { job_type: 'post_validation' },
       { job_type: 'curriculum_smoke' },
     ],
   },
   'release': {
     label: 'Release Pipeline',
-    description: 'Quality Gate → Kurs → Fragen → MiniChecks → Publish → SEO',
+    description: 'Quality Gate → Kurs → QC → Seal → Publish → SEO',
     icon: 'Package',
     jobs: [
       { job_type: 'quality_gate_precheck' },
       { job_type: 'generate_course' },
       { job_type: 'seed_exam_questions' },
       { job_type: 'upgrade_minichecks_v1' },
-      { job_type: 'curriculum_smoke' },
+      { job_type: 'qc_worker_full' },
+      { job_type: 'course_finalize' },
+      { job_type: 'post_validation' },
       { job_type: 'publish_product' },
       { job_type: 'seo_foundation' },
       { job_type: 'seo_audit' },

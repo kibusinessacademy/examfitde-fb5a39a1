@@ -521,9 +521,25 @@ async function logCompletion(supabase: ReturnType<typeof createClient>, courseId
   console.log(`  MiniChecks: ${status.miniChecks.total} (${status.miniChecks.percent}%)`);
   console.log(`  Exam Questions: ${status.examQuestions.total} covering ${status.examQuestions.competenciesCovered}/${status.examQuestions.totalCompetencies} competencies`);
 
+  // Fix 4: Hard Publish Block – only publish if sealed + score >= 85
+  const { data: courseCheck } = await supabase.from('courses')
+    .select('autopilot_status, quality_score')
+    .eq('id', courseId).single();
+
+  if (courseCheck?.autopilot_status !== 'sealed' || (courseCheck?.quality_score ?? 0) < 85) {
+    console.warn(`[Orchestrator] ⛔ PUBLISH BLOCKED: status=${courseCheck?.autopilot_status}, score=${courseCheck?.quality_score}. Kurs muss sealed + score>=85 sein.`);
+    // Set publishing_status to reflect the block
+    await supabase.from('courses').update({
+      publishing_status: 'quality_failed',
+      updated_at: new Date().toISOString(),
+    }).eq('id', courseId);
+    return; // Do NOT publish
+  }
+
   // Update course status
   await supabase.from('courses').update({
     status: 'published',
+    publishing_status: 'published',
     published_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }).eq('id', courseId);

@@ -30,6 +30,8 @@ const JOB_TYPE_MAP: Record<string, string> = {
   // Quality Gates
   quality_gate_precheck: "run-quality-checks",
   curriculum_smoke: "run-quality-checks",
+  qc_worker_full: "qc-worker",
+  quality_gate_7: "quality-gate-check",
   
   // SEO Pipeline
   seo_foundation: "generate-seo-slug",
