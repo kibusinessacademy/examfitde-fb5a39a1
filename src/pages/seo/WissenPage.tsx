@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
+import { useSEODocuments } from '@/hooks/useSEODocuments';
 import { 
   blogArticles, 
   getFeaturedArticles, 
@@ -15,9 +16,29 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 export default function WissenPage() {
+  // Load from DB first, fallback to hardcoded
+  const { data: dbArticles = [] } = useSEODocuments('blog');
+  
   const featuredArticles = getFeaturedArticles();
   const categories = getBlogCategories();
-  const recentArticles = [...blogArticles]
+  
+  // Merge: DB articles first, then hardcoded as fallback
+  const dbMapped = dbArticles.map(a => ({
+    id: a.id,
+    slug: a.slug,
+    title: a.title,
+    excerpt: a.excerpt || '',
+    category: 'Ratgeber',
+    author: 'ExamFit',
+    publishedAt: a.published_at || a.updated_at,
+    readingTime: Math.ceil((a.content_md?.split(/\s+/).length || 200) / 200),
+    tags: [] as string[],
+    featured: false,
+    content: a.content_md || '',
+  }));
+  
+  const allArticles = [...dbMapped, ...blogArticles];
+  const recentArticles = [...allArticles]
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     .slice(0, 6);
 

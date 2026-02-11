@@ -249,6 +249,45 @@ serve(async (req) => {
       });
     }
 
+    // Published SEO documents (blog, landing, faq, glossary, cluster)
+    const { data: seoDocs } = await supabase
+      .from("seo_documents")
+      .select("slug, doc_type, updated_at, meta_title, og_image_path")
+      .eq("status", "published");
+
+    if (seoDocs) {
+      const docTypeUrlMap: Record<string, string> = {
+        blog: "/wissen",
+        landing: "/pruefungstraining",
+        faq: "/faq",
+        glossary: "/glossar",
+        product: "/produkt",
+        cluster: "/wissen",
+      };
+
+      seoDocs.forEach((doc) => {
+        const basePath = docTypeUrlMap[doc.doc_type] || "/wissen";
+        const images: SitemapURL["images"] = [];
+
+        if (doc.og_image_path) {
+          images.push({
+            loc: doc.og_image_path.startsWith("http")
+              ? doc.og_image_path
+              : `${SITE_URL}${doc.og_image_path}`,
+            title: doc.meta_title || doc.slug,
+          });
+        }
+
+        urls.push({
+          loc: `${SITE_URL}${basePath}/${doc.slug}`,
+          lastmod: doc.updated_at?.split("T")[0] || today,
+          changefreq: "weekly",
+          priority: doc.doc_type === "landing" ? 0.8 : 0.6,
+          images: images.length > 0 ? images : undefined,
+        });
+      });
+    }
+
     // Generate the XML sitemap
     const sitemapXML = generateSitemapXML(urls);
 

@@ -36,8 +36,12 @@ const JOB_TYPE_MAP: Record<string, string> = {
   // SEO Pipeline
   seo_foundation: "generate-seo-slug",
   seo_audit: "ihk-quality-audit",
-  seo_internal_links: "generate-seo-slug",
+  seo_internal_links: "seo-internal-linker",
   seo_sitemap_refresh: "generate-sitemap",
+  seo_generate: "seo-generate",
+  seo_qc_check: "seo-qc-check",
+  seo_publish: "seo-publish",
+  seo_content_batch: "seo-generate",
   
   // Product Lifecycle
   publish_product: "product-orchestrator",
