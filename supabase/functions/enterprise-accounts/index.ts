@@ -259,7 +259,7 @@ serve(async (req) => {
 
           results.push({
             username, status: 'created', user_id: uid, seat_id: seatId,
-            login_email: internalEmail, initial_password: acc.password,
+            login_email: internalEmail,
             first_name: acc.first_name, last_name: acc.last_name,
           });
         } catch (e) {
