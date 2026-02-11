@@ -2816,6 +2816,89 @@ export type Database = {
           },
         ]
       }
+      course_production_forecasts: {
+        Row: {
+          actual_completed_at: string | null
+          actual_cost_eur: number
+          actual_duration_hours: number | null
+          actual_jobs_completed: number
+          actual_jobs_failed: number
+          actual_jobs_pending: number
+          actual_started_at: string | null
+          course_id: string
+          created_at: string
+          forecast_content_jobs: number
+          forecast_cost_content_eur: number
+          forecast_cost_eur: number
+          forecast_cost_pipeline_eur: number
+          forecast_duration_hours: number
+          forecast_end_at: string | null
+          forecast_pipeline_jobs: number
+          forecast_start_at: string | null
+          forecast_total_jobs: number
+          id: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_completed_at?: string | null
+          actual_cost_eur?: number
+          actual_duration_hours?: number | null
+          actual_jobs_completed?: number
+          actual_jobs_failed?: number
+          actual_jobs_pending?: number
+          actual_started_at?: string | null
+          course_id: string
+          created_at?: string
+          forecast_content_jobs?: number
+          forecast_cost_content_eur?: number
+          forecast_cost_eur?: number
+          forecast_cost_pipeline_eur?: number
+          forecast_duration_hours?: number
+          forecast_end_at?: string | null
+          forecast_pipeline_jobs?: number
+          forecast_start_at?: string | null
+          forecast_total_jobs?: number
+          id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_completed_at?: string | null
+          actual_cost_eur?: number
+          actual_duration_hours?: number | null
+          actual_jobs_completed?: number
+          actual_jobs_failed?: number
+          actual_jobs_pending?: number
+          actual_started_at?: string | null
+          course_id?: string
+          created_at?: string
+          forecast_content_jobs?: number
+          forecast_cost_content_eur?: number
+          forecast_cost_eur?: number
+          forecast_cost_pipeline_eur?: number
+          forecast_duration_hours?: number
+          forecast_end_at?: string | null
+          forecast_pipeline_jobs?: number
+          forecast_start_at?: string | null
+          forecast_total_jobs?: number
+          id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_production_forecasts_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_quality_audits: {
         Row: {
           audit_type: string
@@ -11182,6 +11265,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      refresh_course_forecast_actuals: { Args: never; Returns: undefined }
       register_course_evidence_pack: {
         Args: {
           p_course_id: string

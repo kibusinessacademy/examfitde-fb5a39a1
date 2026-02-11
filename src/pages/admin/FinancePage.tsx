@@ -8,6 +8,7 @@ const EnterpriseSeatManagement = lazy(() => import('@/pages/admin/EnterpriseSeat
 const AuditExportsPage = lazy(() => import('@/pages/admin/AuditExportsPage'));
 const AZAVCompliancePage = lazy(() => import('@/pages/admin/AZAVCompliancePage'));
 const ControllingPage = lazy(() => import('@/pages/admin/ControllingPage'));
+const CourseProductionForecastPage = lazy(() => import('@/pages/admin/CourseProductionForecastPage'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -18,6 +19,7 @@ const Loading = () => (
 const tabs = [
   { path: '/admin/finance/overview', label: 'Umsatz & Billing' },
   { path: '/admin/finance/controlling', label: 'Controlling' },
+  { path: '/admin/finance/budgetplanung', label: 'Budgetplanung' },
   { path: '/admin/finance/licenses', label: 'Lizenzen & Seats' },
   { path: '/admin/finance/compliance', label: 'AZAV Compliance' },
   { path: '/admin/finance/exports', label: 'Exports' },
@@ -58,6 +60,7 @@ export default function FinancePage() {
           <Route index element={<Navigate to="overview" replace />} />
           <Route path="overview" element={<FinanceDashboard />} />
           <Route path="controlling" element={<ControllingPage />} />
+          <Route path="budgetplanung" element={<CourseProductionForecastPage />} />
           <Route path="licenses" element={<EnterpriseSeatManagement />} />
           <Route path="compliance" element={<AZAVCompliancePage />} />
           <Route path="exports" element={<AuditExportsPage />} />
