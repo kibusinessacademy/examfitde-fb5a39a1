@@ -116,7 +116,7 @@ const MINI_CHECK_TOOL = {
   },
 };
 
-// ─── AI provider resolution ─────────────────────────────────────────────────
+// ─── AI provider resolution (Direct API – no Lovable credits) ───────────────
 
 function resolveProvider(provider?: string): AIProvider {
   if (provider === "deepseek") {
@@ -128,13 +128,13 @@ function resolveProvider(provider?: string): AIProvider {
       model: "deepseek-chat",
     };
   }
-  // Default: GPT-5.2 via Lovable AI Gateway
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) throw new Error("LOVABLE_API_KEY is not configured");
+  // Default: Direct OpenAI API (bypasses Lovable credits)
+  const key = Deno.env.get("OPENAI_API_KEY");
+  if (!key) throw new Error("OPENAI_API_KEY not configured");
   return {
-    url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    url: "https://api.openai.com/v1/chat/completions",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    model: "openai/gpt-5.2",
+    model: "gpt-4o",
   };
 }
 

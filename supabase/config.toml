@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.quality-gate-check]
 verify_jwt = false
+
+[functions.course-reset]
+verify_jwt = false
