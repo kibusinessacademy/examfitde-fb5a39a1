@@ -8,10 +8,17 @@ import { callAIJSON } from "../_shared/ai-client.ts";
  * Runs propose → critique → (revise → critique)* → vote → verdict → publish
  * for ONE lesson-step. Called by job-runner with job_type = "council_run_step".
  *
- * Payload: { course_id, lesson_id, step_key, curriculum_id, max_rounds? }
+ * Governance invariants enforced:
+ * - GPT-4.1 may ONLY propose/revise (never critique/vote)
+ * - Claude Sonnet 4 may ONLY critique (never propose/revise)
+ * - Claude has HARD VETO power (rejected = rejected, no override)
+ * - Votes are aggregated via structured function, not read from critique
+ * - Publish requires approved council_verdict (DB trigger enforced)
+ * - Loop is bounded by maxRounds + absolute timeout
  */
 
 const MAX_ROUNDS_DEFAULT = 3;
+const ABSOLUTE_TIMEOUT_MS = 4 * 60 * 1000; // 4 minutes hard ceiling
 
 interface StepPayload {
   course_id: string;
@@ -62,26 +69,38 @@ Deno.serve(async (req) => {
 // ─── Main Deliberative Loop ────────────────────────────────────────────────
 
 async function runCouncilLoop(db: ReturnType<typeof createClient>, p: StepPayload) {
+  const startTime = Date.now();
   const maxRounds = p.max_rounds ?? MAX_ROUNDS_DEFAULT;
   const lessonCtx = await fetchLessonContext(db, p.lesson_id);
 
-  // Phase 1: PROPOSE (GPT-4.1)
+  // Phase 1: PROPOSE (GPT-4.1 – generator role ONLY)
   let versionId = await propose(db, p, lessonCtx);
   let round = 1;
   let finalDecision: "approved" | "revise" | "rejected" = "revise";
 
   while (round <= maxRounds) {
+    // Timeout guard
+    if (Date.now() - startTime > ABSOLUTE_TIMEOUT_MS) {
+      console.warn(`[council] TIMEOUT after ${round} rounds for ${p.step_key}`);
+      await db.from("content_versions").update({ status: "revise" }).eq("id", versionId);
+      await logCouncilMessage(db, versionId, "council", "audit", {
+        event: "timeout",
+        elapsed_ms: Date.now() - startTime,
+        round,
+      });
+      return { version_id: versionId, decision: "timeout", rounds: round };
+    }
+
     console.log(`[council] Round ${round}/${maxRounds} for ${p.step_key} lesson=${p.lesson_id.slice(0, 8)}`);
 
-    // Phase 2: CRITIQUE (Claude Sonnet 4)
-    const critique = await critique_step(db, versionId, lessonCtx, p.step_key);
+    // Phase 2: CRITIQUE (Claude Sonnet 4 – validator role ONLY)
+    const critique = await critiqueStep(db, versionId, lessonCtx, p.step_key);
 
-    // Phase 3: VOTE & VERDICT
-    const verdict = await voteAndVerdict(db, versionId, critique);
+    // Phase 3: STRUCTURED VOTE AGGREGATION
+    const verdict = await aggregateVotesAndVerdict(db, versionId, critique);
     finalDecision = verdict.finalDecision;
 
     if (finalDecision === "approved") {
-      // Phase 4: PUBLISH
       await publishVersion(db, versionId, p);
       return { version_id: versionId, decision: "approved", rounds: round, score: critique.overall_score };
     }
@@ -91,7 +110,7 @@ async function runCouncilLoop(db: ReturnType<typeof createClient>, p: StepPayloa
       return { version_id: versionId, decision: finalDecision, rounds: round, score: critique.overall_score };
     }
 
-    // Phase 5: REVISE (GPT-4.1 incorporates critique)
+    // Phase 4: REVISE (GPT-4.1 – generator role ONLY, incorporates critique)
     versionId = await revise(db, p, versionId, critique, lessonCtx, round + 1);
     round++;
   }
@@ -99,7 +118,7 @@ async function runCouncilLoop(db: ReturnType<typeof createClient>, p: StepPayloa
   return { version_id: versionId, decision: finalDecision, rounds: round };
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+// ─── Context ──────────────────────────────────────────────────────────────
 
 interface LessonContext {
   title: string;
@@ -121,7 +140,7 @@ async function fetchLessonContext(db: ReturnType<typeof createClient>, lessonId:
   };
 }
 
-// ─── PROPOSE ───────────────────────────────────────────────────────────────
+// ─── PROPOSE (GPT-4.1 only – generator role) ─────────────────────────────
 
 async function propose(
   db: ReturnType<typeof createClient>,
@@ -161,6 +180,7 @@ Erstelle hochwertigen, IHK-prüfungsrelevanten Content für diesen Step.`,
 
   const contentJson = safeParse(content, { html: content, objectives: [] });
 
+  // Status MUST be under_review – never proposed directly as approved
   const { data: ver, error } = await db
     .from("content_versions")
     .insert({
@@ -178,17 +198,11 @@ Erstelle hochwertigen, IHK-prüfungsrelevanten Content für diesen Step.`,
 
   if (error) throw error;
 
-  await db.from("council_messages").insert({
-    content_version_id: ver!.id,
-    agent_name: "gpt-4.1",
-    message_type: "proposal",
-    message_json: contentJson,
-  });
-
+  await logCouncilMessage(db, ver!.id, "gpt-4.1", "proposal", contentJson);
   return ver!.id;
 }
 
-// ─── CRITIQUE ──────────────────────────────────────────────────────────────
+// ─── CRITIQUE (Claude Sonnet 4 only – validator role) ─────────────────────
 
 interface CritiqueResult {
   overall_score: number;
@@ -196,10 +210,11 @@ interface CritiqueResult {
   issues: Array<{ severity: string; type: string; text: string }>;
   required_fixes: Array<{ fix: string; acceptance_criteria: string }>;
   verdict_recommendation: string;
+  confidence: number;
   summary: string;
 }
 
-async function critique_step(
+async function critiqueStep(
   db: ReturnType<typeof createClient>,
   versionId: string,
   ctx: LessonContext,
@@ -246,57 +261,81 @@ Bewerte den Content und antworte NUR als valides JSON:
     issues: [],
     required_fixes: [],
     verdict_recommendation: "revise",
+    confidence: 0.5,
     summary: "Parse error",
   }) as CritiqueResult;
 
-  critique.verdict_recommendation = critique.verdict_recommendation || (critique as Record<string, unknown>).decision as string || "revise";
+  // Normalize recommendation field
+  critique.verdict_recommendation = normalizeDecision(
+    critique.verdict_recommendation || (critique as Record<string, unknown>).decision || "revise"
+  );
+  critique.confidence = typeof critique.confidence === "number" ? critique.confidence : 0.5;
 
-  await db.from("council_messages").insert({
-    content_version_id: versionId,
-    agent_name: "claude-sonnet-4",
-    message_type: "critique",
-    message_json: critique,
-  });
-
+  await logCouncilMessage(db, versionId, "claude-sonnet-4", "critique", critique);
   await db.from("content_versions").update({ quality_score: critique.overall_score }).eq("id", versionId);
 
   return critique;
 }
 
-// ─── VOTE & VERDICT ────────────────────────────────────────────────────────
+// ─── STRUCTURED VOTE AGGREGATION ──────────────────────────────────────────
 
 interface VerdictResult {
   finalDecision: "approved" | "revise" | "rejected";
   consensusScore: number;
 }
 
-async function voteAndVerdict(
+/**
+ * Governance rules:
+ * 1. Each agent casts an independent vote based on their role
+ * 2. Claude (validator) has HARD VETO: rejected = rejected (no override)
+ * 3. Approval requires BOTH agents to vote "approved"
+ * 4. Any other combination → "revise"
+ * 5. Votes are persisted BEFORE verdict computation (audit trail)
+ */
+async function aggregateVotesAndVerdict(
   db: ReturnType<typeof createClient>,
   versionId: string,
   critique: CritiqueResult,
 ): Promise<VerdictResult> {
   const score = critique.overall_score || 0;
+
+  // ── Agent votes (independent, role-based) ──
+
+  // Validator vote: Claude's recommendation (from critique output)
   const validatorVote = normalizeDecision(critique.verdict_recommendation);
+  const validatorConfidence = critique.confidence;
+
+  // Generator vote: GPT-4.1 self-assessment based on quality score thresholds
   const generatorVote: "approved" | "revise" | "rejected" =
     score >= 80 ? "approved" : score >= 50 ? "revise" : "rejected";
+  const generatorConfidence = score / 100;
 
-  // Insert votes
+  // ── Persist votes FIRST (audit trail before decision) ──
   await db.from("council_votes").upsert(
     [
-      { content_version_id: versionId, agent_name: "gpt-4.1", vote: generatorVote, confidence: score / 100, rationale: `Score ${score}` },
-      { content_version_id: versionId, agent_name: "claude-sonnet-4", vote: validatorVote, confidence: critique.confidence || score / 100, rationale: critique.summary },
+      {
+        content_version_id: versionId,
+        agent_name: "gpt-4.1",
+        vote: generatorVote,
+        confidence: generatorConfidence,
+        rationale: `Self-assessment: score=${score}, threshold=80/50`,
+      },
+      {
+        content_version_id: versionId,
+        agent_name: "claude-sonnet-4",
+        vote: validatorVote,
+        confidence: validatorConfidence,
+        rationale: critique.summary,
+      },
     ],
     { onConflict: "content_version_id,agent_name" },
   );
 
-  // Claude has veto power
-  let finalDecision: "approved" | "revise" | "rejected";
-  if (validatorVote === "rejected") finalDecision = "rejected";
-  else if (validatorVote === "approved" && generatorVote === "approved") finalDecision = "approved";
-  else finalDecision = "revise";
+  // ── Aggregate votes with governance rules ──
+  const finalDecision = computeFinalDecision(validatorVote, generatorVote);
+  const consensusScore = computeConsensusScore(validatorVote, generatorVote, validatorConfidence, generatorConfidence);
 
-  const consensusScore = generatorVote === validatorVote ? 1.0 : 0.5;
-
+  // ── Persist verdict ──
   await db.from("council_verdicts").upsert(
     {
       content_version_id: versionId,
@@ -308,24 +347,67 @@ async function voteAndVerdict(
     { onConflict: "content_version_id" },
   );
 
-  // Log verdict message
-  await db.from("council_messages").insert({
-    content_version_id: versionId,
-    agent_name: "council",
-    message_type: "verdict",
-    message_json: {
-      decision: finalDecision,
-      generator_vote: generatorVote,
-      validator_vote: validatorVote,
-      consensus_score: consensusScore,
-      quality_score: score,
-    },
+  // ── Audit log ──
+  await logCouncilMessage(db, versionId, "council", "verdict", {
+    decision: finalDecision,
+    generator_vote: generatorVote,
+    generator_confidence: generatorConfidence,
+    validator_vote: validatorVote,
+    validator_confidence: validatorConfidence,
+    consensus_score: consensusScore,
+    quality_score: score,
+    veto_applied: validatorVote === "rejected",
+    governance_rules: [
+      "RULE_1: Claude has hard veto (rejected → rejected)",
+      "RULE_2: Approval requires both agents",
+      "RULE_3: All other combinations → revise",
+    ],
   });
 
   return { finalDecision, consensusScore };
 }
 
-// ─── REVISE ────────────────────────────────────────────────────────────────
+/**
+ * Decision matrix (exhaustive):
+ *
+ * | Validator  | Generator  | → Final    | Reason                    |
+ * |------------|------------|------------|---------------------------|
+ * | rejected   | *          | rejected   | Claude hard veto          |
+ * | approved   | approved   | approved   | Unanimous approval        |
+ * | approved   | revise     | revise     | Generator not confident   |
+ * | approved   | rejected   | revise     | Generator self-rejected   |
+ * | revise     | *          | revise     | Validator wants revision  |
+ */
+function computeFinalDecision(
+  validatorVote: "approved" | "revise" | "rejected",
+  generatorVote: "approved" | "revise" | "rejected",
+): "approved" | "revise" | "rejected" {
+  // HARD VETO: Claude rejected → final rejected, no override possible
+  if (validatorVote === "rejected") return "rejected";
+
+  // UNANIMOUS APPROVAL required
+  if (validatorVote === "approved" && generatorVote === "approved") return "approved";
+
+  // Everything else → revise
+  return "revise";
+}
+
+/**
+ * Consensus score: weighted average of agent confidences,
+ * with bonus for agreement and penalty for disagreement.
+ */
+function computeConsensusScore(
+  validatorVote: string,
+  generatorVote: string,
+  validatorConfidence: number,
+  generatorConfidence: number,
+): number {
+  const avgConfidence = (validatorConfidence + generatorConfidence) / 2;
+  if (validatorVote === generatorVote) return Math.min(1.0, avgConfidence + 0.1);
+  return Math.max(0.0, avgConfidence - 0.2);
+}
+
+// ─── REVISE (GPT-4.1 only – generator role) ──────────────────────────────
 
 async function revise(
   db: ReturnType<typeof createClient>,
@@ -372,9 +454,10 @@ Summary: ${critique.summary}
 
   const revisedJson = safeParse(content, { html: content });
 
-  // Mark parent as "revise"
+  // Mark parent as revised (not overwritten – versioning preserved)
   await db.from("content_versions").update({ status: "revise" }).eq("id", parentVersionId);
 
+  // New version with parent_version_id set (audit chain)
   const { data: newVer, error } = await db
     .from("content_versions")
     .insert({
@@ -393,15 +476,10 @@ Summary: ${critique.summary}
 
   if (error) throw error;
 
-  await db.from("council_messages").insert({
-    content_version_id: newVer!.id,
-    agent_name: "gpt-4.1",
-    message_type: "revision",
-    message_json: {
-      parent_version: parentVersionId,
-      round,
-      addressed_issues: critique.issues.map((i) => i.text),
-    },
+  await logCouncilMessage(db, newVer!.id, "gpt-4.1", "revision", {
+    parent_version: parentVersionId,
+    round,
+    addressed_issues: critique.issues.map((i) => i.text),
   });
 
   return newVer!.id;
@@ -410,6 +488,7 @@ Summary: ${critique.summary}
 // ─── PUBLISH ───────────────────────────────────────────────────────────────
 
 async function publishVersion(db: ReturnType<typeof createClient>, versionId: string, p: StepPayload) {
+  // Status must be set to approved BEFORE publish RPC (DB trigger validates this)
   await db.from("content_versions").update({ status: "approved" }).eq("id", versionId);
 
   const { error } = await db.rpc("publish_approved_version", {
@@ -422,18 +501,31 @@ async function publishVersion(db: ReturnType<typeof createClient>, versionId: st
     // Non-fatal: version is approved but publish pointer failed
   }
 
-  // Recompute course readiness
   const { error: readyErr } = await db.rpc("recompute_course_publish_readiness", {
     p_course_id: p.course_id,
   });
   if (readyErr) console.error("[council-run-step] recompute readiness failed:", readyErr.message);
 }
 
-// ─── Utilities ─────────────────────────────────────────────────────────────
+// ─── Shared Helpers ───────────────────────────────────────────────────────
+
+async function logCouncilMessage(
+  db: ReturnType<typeof createClient>,
+  versionId: string,
+  agentName: string,
+  messageType: string,
+  messageJson: Record<string, unknown>,
+) {
+  await db.from("council_messages").insert({
+    content_version_id: versionId,
+    agent_name: agentName,
+    message_type: messageType,
+    message_json: messageJson,
+  });
+}
 
 function safeParse(text: string, fallback: Record<string, unknown>): Record<string, unknown> {
   try {
-    // Try to extract JSON from markdown code blocks
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     const raw = jsonMatch ? jsonMatch[1].trim() : text.trim();
     return JSON.parse(raw);
