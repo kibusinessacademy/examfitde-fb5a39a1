@@ -1638,6 +1638,8 @@ export type Database = {
           created_at: string
           created_by_agent: string
           created_by_job_id: string | null
+          entity_id: string | null
+          entity_type: string
           id: string
           lesson_id: string
           parent_version_id: string | null
@@ -1653,6 +1655,8 @@ export type Database = {
           created_at?: string
           created_by_agent: string
           created_by_job_id?: string | null
+          entity_id?: string | null
+          entity_type?: string
           id?: string
           lesson_id: string
           parent_version_id?: string | null
@@ -1668,6 +1672,8 @@ export type Database = {
           created_at?: string
           created_by_agent?: string
           created_by_job_id?: string | null
+          entity_id?: string | null
+          entity_type?: string
           id?: string
           lesson_id?: string
           parent_version_id?: string | null

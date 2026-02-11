@@ -221,6 +221,9 @@ export default function AdminDashboard() {
         </div>
       </section>
 
+      {/* Council Observability */}
+      <CouncilObservability />
+
       {/* Decision Queue */}
       <DecisionQueue />
 
@@ -389,6 +392,67 @@ function BlockedCourses() {
           </Card>
         ))}
       </div>
+    </section>
+  );
+}
+
+function CouncilObservability() {
+  const [stats, setStats] = useState<{ pending: number; approved: number; rejected: number; revise: number; avgScore: number; topBlockers: string[] }>({ pending: 0, approved: 0, rejected: 0, revise: 0, avgScore: 0, topBlockers: [] });
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [versions, verdicts] = await Promise.all([
+          supabase.from('content_versions').select('id, status, quality_score, created_at').gte('created_at', new Date(Date.now() - 86400000 * 7).toISOString()),
+          supabase.from('council_verdicts').select('final_decision, required_fixes').gte('decided_at', new Date(Date.now() - 86400000 * 7).toISOString()),
+        ]);
+        const vd = versions.data || [];
+        const vr = verdicts.data || [];
+        const scores = vd.map(v => v.quality_score).filter(Boolean) as number[];
+        const blockerMap: Record<string, number> = {};
+        vr.filter(v => v.final_decision !== 'approved' && v.required_fixes).forEach(v => {
+          const fixes = v.required_fixes as any[];
+          if (Array.isArray(fixes)) fixes.forEach(f => {
+            const key = f?.fix?.slice(0, 40) || 'unknown';
+            blockerMap[key] = (blockerMap[key] || 0) + 1;
+          });
+        });
+        const topBlockers = Object.entries(blockerMap).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} (${v}x)`);
+        setStats({
+          pending: vd.filter(v => v.status === 'under_review').length,
+          approved: vr.filter(v => v.final_decision === 'approved').length,
+          rejected: vr.filter(v => v.final_decision === 'rejected').length,
+          revise: vr.filter(v => v.final_decision === 'revise').length,
+          avgScore: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+          topBlockers,
+        });
+      } catch { /* silent */ }
+    }
+    load();
+  }, []);
+
+  return (
+    <section>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+        <Brain className="h-3.5 w-3.5" /> Council Queue (7d)
+      </h2>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <KPICard icon={Clock} label="Pending Review" value={stats.pending} trend={stats.pending > 10 ? 'down' : 'up'} />
+        <KPICard icon={CheckCircle2} label="Approved" value={stats.approved} trend="up" />
+        <KPICard icon={XCircle} label="Rejected" value={stats.rejected} trend={stats.rejected > 5 ? 'down' : 'up'} />
+        <KPICard icon={AlertTriangle} label="Revise" value={stats.revise} />
+        <KPICard icon={BarChart3} label="Ø Score" value={stats.avgScore} />
+      </div>
+      {stats.topBlockers.length > 0 && (
+        <Card className="mt-3 glass-card">
+          <CardContent className="pt-4">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Top Blocker Reasons</p>
+            <ul className="text-xs text-foreground space-y-1">
+              {stats.topBlockers.map((b, i) => <li key={i} className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-warning" /> {b}</li>)}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </section>
   );
 }
