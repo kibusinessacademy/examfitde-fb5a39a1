@@ -1,0 +1,64 @@
+import { lazy, Suspense } from 'react';
+import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const CouncilControlCenter = lazy(() => import('@/pages/admin/CouncilControlCenter'));
+const CouncilPage = lazy(() => import('@/pages/admin/CouncilPage'));
+const QCDashboardPage = lazy(() => import('@/pages/admin/QCDashboardPage'));
+const ValidationDashboardPage = lazy(() => import('@/pages/admin/ValidationDashboardPage'));
+
+const Loading = () => (
+  <div className="flex items-center justify-center py-16">
+    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+  </div>
+);
+
+const tabs = [
+  { path: '/admin/council/control', label: 'Council OS' },
+  { path: '/admin/council/quality', label: 'Quality Reports' },
+  { path: '/admin/council/validation', label: 'Validation' },
+];
+
+export default function CouncilPageV3() {
+  const location = useLocation();
+  const activeTab = tabs.find(t => location.pathname.startsWith(t.path))?.path || tabs[0].path;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-bold text-foreground">Council</h1>
+        <p className="text-sm text-muted-foreground">Deliberative QA – Propose, Critique, Verdict, Publish Gate</p>
+      </div>
+
+      <div className="overflow-x-auto">
+        <div className="flex gap-1 border-b border-border pb-px min-w-max">
+          {tabs.map(tab => (
+            <Link
+              key={tab.path}
+              to={tab.path}
+              className={cn(
+                "px-3 py-2 text-sm rounded-t-md transition-colors",
+                activeTab === tab.path
+                  ? "bg-primary/10 text-primary font-medium border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <Suspense fallback={<Loading />}>
+        <Routes>
+          <Route index element={<Navigate to="control" replace />} />
+          <Route path="control" element={<CouncilControlCenter />} />
+          <Route path="quality" element={<QCDashboardPage />} />
+          <Route path="validation" element={<ValidationDashboardPage />} />
+          <Route path=":councilId" element={<CouncilPage />} />
+        </Routes>
+      </Suspense>
+    </div>
+  );
+}

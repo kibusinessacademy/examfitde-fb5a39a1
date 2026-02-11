@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 
 // Guards & Layouts
 import MainLayout from '@/components/layout/MainLayout';
-import AdminLayout from '@/components/layout/AdminLayout';
+import AdminV3Layout from '@/components/layout/AdminV3Layout';
 import SEOLayout from '@/components/layout/SEOLayout';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
@@ -46,85 +46,13 @@ const FAQPage = lazy(() => import('@/pages/seo/FAQPage'));
 const DatenschutzPage = lazy(() => import('@/pages/seo/DatenschutzPage'));
 const ImpressumPage = lazy(() => import('@/pages/seo/ImpressumPage'));
 
-// Admin Pages
+// Admin V3 Module Pages
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
-const CurriculaList = lazy(() => import('@/pages/admin/CurriculaList'));
-const CurriculumImport = lazy(() => import('@/pages/admin/CurriculumImport'));
-const CurriculumDetail = lazy(() => import('@/pages/admin/CurriculumDetail'));
-const CoursesList = lazy(() => import('@/pages/admin/CoursesList'));
-const CourseCreate = lazy(() => import('@/pages/admin/CourseCreate'));
-const CourseEdit = lazy(() => import('@/pages/admin/CourseEdit'));
-const QuestionsList = lazy(() => import('@/pages/admin/QuestionsList'));
-const ExamBlueprintsPage = lazy(() => import('@/pages/admin/ExamBlueprintsPage'));
-const BlueprintTemplatesPage = lazy(() => import('@/pages/admin/BlueprintTemplatesPage'));
-
-// Job Admin Pages
-const JobsDashboard = lazy(() => import('@/pages/admin/JobsDashboard'));
-const JobsList = lazy(() => import('@/pages/admin/JobsList'));
-const JobDetail = lazy(() => import('@/pages/admin/JobDetail'));
-const JobDeadLetter = lazy(() => import('@/pages/admin/JobDeadLetter'));
-
-// AI Worker Governance
-const AIWorkersPage = lazy(() => import('@/pages/admin/AIWorkersPage'));
-
-// AZAV Audit Exports
-const AuditExportsPage = lazy(() => import('@/pages/admin/AuditExportsPage'));
-
-// Evidence Packs
-const EvidencePacksPage = lazy(() => import('@/pages/admin/EvidencePacksPage'));
-
-// Business Intelligence & Operations
-const KPIDashboard = lazy(() => import('@/pages/admin/KPIDashboard'));
-const MarketingHub = lazy(() => import('@/pages/admin/MarketingHub'));
-const CRMPage = lazy(() => import('@/pages/admin/CRMPage'));
-const SystemHealthPage = lazy(() => import('@/pages/admin/SystemHealthPage'));
-const SystemAuditPage = lazy(() => import('@/pages/admin/SystemAuditPage'));
-const SEOPage = lazy(() => import('@/pages/admin/SEOPage'));
-const SEOContentHub = lazy(() => import('@/pages/admin/SEOContentHub'));
-
-// AZAV Compliance
-const AZAVCompliancePage = lazy(() => import('@/pages/admin/AZAVCompliancePage'));
-
-// Documentation
-const DocumentationPage = lazy(() => import('@/pages/admin/DocumentationPage'));
-
-// BIBB Seeding
-const BIBBSeedingPage = lazy(() => import('@/pages/admin/BIBBSeedingPage'));
-
-// Product Factory & Quality Gates
-const ProductFactoryPage = lazy(() => import('@/pages/admin/ProductFactoryPage'));
-const QualityGatesPage = lazy(() => import('@/pages/admin/QualityGatesPage'));
-
-// App Store Builder
-const AppStoreBuilderPage = lazy(() => import('@/pages/admin/AppStoreBuilderPage'));
-
-// SEO Audit
-const SEOAuditPage = lazy(() => import('@/pages/admin/SEOAuditPage'));
-
-// Course Exports
-const CourseExportsPage = lazy(() => import('@/pages/admin/CourseExportsPage'));
-
-// QC Dashboard
-const QCDashboardPage = lazy(() => import('@/pages/admin/QCDashboardPage'));
-
-// Validation Dashboard (LLM Council)
-const ValidationDashboardPage = lazy(() => import('@/pages/admin/ValidationDashboardPage'));
-
-// Council Control Center
-const CouncilControlCenter = lazy(() => import('@/pages/admin/CouncilControlCenter'));
-const CouncilPage = lazy(() => import('@/pages/admin/CouncilPage'));
-const PatchCenterPage = lazy(() => import('@/pages/admin/PatchCenterPage'));
-const ExperimentsPage = lazy(() => import('@/pages/admin/ExperimentsPage'));
-const EarlyWarningsPage = lazy(() => import('@/pages/admin/EarlyWarningsPage'));
-const WorkflowStudioPage = lazy(() => import('@/pages/admin/WorkflowStudioPage'));
-const CourseHealthPage = lazy(() => import('@/pages/admin/CourseHealthPage'));
-const CoursePipelinePage = lazy(() => import('@/pages/admin/CoursePipelinePage'));
-const SupportDashboardPage = lazy(() => import('@/pages/admin/SupportDashboardPage'));
-const B2BSupportDashboard = lazy(() => import('@/pages/admin/B2BSupportDashboard'));
-const OperationsDashboard = lazy(() => import('@/pages/admin/OperationsDashboard'));
-const AliasAdminPage = lazy(() => import('@/pages/admin/AliasAdminPage'));
-const FinanceDashboard = lazy(() => import('@/pages/admin/FinanceDashboard'));
-const EnterpriseSeatManagement = lazy(() => import('@/pages/admin/EnterpriseSeatManagement'));
+const ContentPage = lazy(() => import('@/pages/admin/ContentPage'));
+const CurriculumPage = lazy(() => import('@/pages/admin/CurriculumPage'));
+const CouncilPageV3 = lazy(() => import('@/pages/admin/CouncilPage_V3'));
+const SystemPage = lazy(() => import('@/pages/admin/SystemPage'));
+const FinancePage = lazy(() => import('@/pages/admin/FinancePage'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
@@ -162,11 +90,11 @@ const AppRoutes = () => {
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/installieren" element={<InstallPage />} />
         
-        {/* Shop Routes (standalone, not in MainLayout) */}
+        {/* Shop Routes */}
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
 
-        {/* SEO Routes (Public Marketing Pages) */}
+        {/* SEO Routes */}
         <Route element={<SEOLayout />}>
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
@@ -175,7 +103,6 @@ const AppRoutes = () => {
           <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
           <Route path="/berufe" element={<BerufePage />} />
           <Route path="/berufe/:slug" element={<BerufDetailPage />} />
-          {/* Single-product strategy: unified route + legacy redirects */}
           <Route path="/pruefungstraining" element={<ProductListPage />} />
           <Route path="/lernkurse" element={<LernkurseListPage />} />
           <Route path="/lernkurse/:slug" element={<LernkursDetailPage />} />
@@ -186,15 +113,9 @@ const AppRoutes = () => {
           <Route path="/unternehmen" element={<UnternehmenPage />} />
           <Route path="/preise" element={<PreisePage />} />
           <Route path="/pruefungshandbuch" element={<HandbookLandingPage />} />
-          
-          {/* Wissen / Blog */}
           <Route path="/wissen" element={<WissenPage />} />
           <Route path="/wissen/alle" element={<WissenAllePage />} />
-          
-          {/* Search */}
           <Route path="/suche" element={<SearchPage />} />
-          
-          {/* Legal Pages */}
           <Route path="/agb" element={<AGBPage />} />
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/datenschutz" element={<DatenschutzPage />} />
@@ -217,87 +138,52 @@ const AppRoutes = () => {
             <Route path="/exam-simulation/:sessionId" element={<ExamSimulation />} />
             <Route path="/exam-results/:sessionId" element={<ExamResultsPage />} />
             <Route path="/lesson/:lessonId" element={<LessonPlayer />} />
-            {/* Enhanced Learning Routes */}
             <Route path="/spaced-repetition" element={<SpacedRepetitionSession />} />
             <Route path="/exam-anxiety" element={<ExamAnxietyManager />} />
             <Route path="/vark-test" element={<VARKLerntypTest />} />
             <Route path="/diagnostic/:curriculumId" element={<DiagnosticTest />} />
-            {/* Handbook Routes */}
             <Route path="/handbuch" element={<HandbookPage />} />
             <Route path="/handbuch/:chapterKey" element={<HandbookChapterPage />} />
           </Route>
         </Route>
 
-        {/* Admin V2 Routes */}
-        <Route path="/admin-v2" element={<AdminLayout />}>
+        {/* ====== ADMIN V3 ====== */}
+        <Route path="/admin" element={<AdminV3Layout />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="curricula" element={<CurriculaList />} />
-          <Route path="curricula/new" element={<CurriculumImport />} />
-          <Route path="curricula/:curriculumId" element={<CurriculumDetail />} />
-          <Route path="courses" element={<CoursesList />} />
-          <Route path="courses/new" element={<CourseCreate />} />
-          <Route path="courses/:courseId/edit" element={<CourseEdit />} />
-          <Route path="questions" element={<QuestionsList />} />
-          <Route path="exam-blueprints" element={<ExamBlueprintsPage />} />
-          <Route path="blueprint-templates" element={<BlueprintTemplatesPage />} />
-          {/* Job Control Center */}
-          <Route path="jobs/dashboard" element={<JobsDashboard />} />
-          <Route path="jobs" element={<JobsList />} />
-          <Route path="jobs/deadletter" element={<JobDeadLetter />} />
-          <Route path="jobs/:jobId" element={<JobDetail />} />
-          {/* AI Worker Governance */}
-          <Route path="ai-workers" element={<AIWorkersPage />} />
-          {/* AZAV Audit Exports */}
-          <Route path="audit-exports" element={<AuditExportsPage />} />
-          {/* Evidence Packs */}
-          <Route path="evidence-packs" element={<EvidencePacksPage />} />
-          {/* Business Intelligence & Operations */}
-          <Route path="kpi-dashboard" element={<KPIDashboard />} />
-          <Route path="marketing" element={<MarketingHub />} />
-          <Route path="crm" element={<CRMPage />} />
-          <Route path="system-health" element={<SystemHealthPage />} />
-          <Route path="system-audit" element={<SystemAuditPage />} />
-          <Route path="seo" element={<SEOPage />} />
-          <Route path="seo-content" element={<SEOContentHub />} />
-          {/* AZAV Compliance */}
-          <Route path="azav-compliance" element={<AZAVCompliancePage />} />
-          {/* Documentation */}
-          <Route path="documentation" element={<DocumentationPage />} />
-          {/* BIBB Seeding */}
-          <Route path="bibb-seeding" element={<BIBBSeedingPage />} />
-          {/* Product Factory & Quality Gates */}
-          <Route path="product-factory" element={<ProductFactoryPage />} />
-          <Route path="quality-gates" element={<QualityGatesPage />} />
-          {/* App Store Builder */}
-          <Route path="app-store-builder" element={<AppStoreBuilderPage />} />
-          {/* SEO Audit */}
-          <Route path="seo-audit" element={<SEOAuditPage />} />
-          {/* Course Exports */}
-          <Route path="exports" element={<CourseExportsPage />} />
-          {/* QC Dashboard */}
-          <Route path="qc-dashboard" element={<QCDashboardPage />} />
-          {/* LLM Council Validation Dashboard */}
-          <Route path="validation" element={<ValidationDashboardPage />} />
-          {/* Council Control Center */}
-          <Route path="council-control" element={<CouncilControlCenter />} />
-          <Route path="council/:councilId" element={<CouncilPage />} />
-          <Route path="patches" element={<PatchCenterPage />} />
-          <Route path="experiments" element={<ExperimentsPage />} />
-          <Route path="early-warnings" element={<EarlyWarningsPage />} />
-          <Route path="workflows" element={<WorkflowStudioPage />} />
-          <Route path="course-health" element={<CourseHealthPage />} />
-          <Route path="course-pipeline" element={<CoursePipelinePage />} />
-          <Route path="support-dashboard" element={<SupportDashboardPage />} />
-          <Route path="b2b-support" element={<B2BSupportDashboard />} />
-          <Route path="operations" element={<OperationsDashboard />} />
-          <Route path="aliases" element={<AliasAdminPage />} />
-          <Route path="finance" element={<FinanceDashboard />} />
-          <Route path="enterprise-seats" element={<EnterpriseSeatManagement />} />
+          <Route path="content/*" element={<ContentPage />} />
+          <Route path="curriculum/*" element={<CurriculumPage />} />
+          <Route path="council/*" element={<CouncilPageV3 />} />
+          <Route path="system/*" element={<SystemPage />} />
+          <Route path="finance/*" element={<FinancePage />} />
         </Route>
 
-        {/* Admin Redirects */}
-        <Route path="/admin" element={<Navigate to="/admin-v2/dashboard" replace />} />
-        <Route path="/admin/*" element={<Navigate to="/admin-v2/dashboard" replace />} />
+        {/* Legacy admin-v2 redirects */}
+        <Route path="/admin-v2" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/admin-v2/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/admin-v2/courses" element={<Navigate to="/admin/content/courses" replace />} />
+        <Route path="/admin-v2/courses/*" element={<Navigate to="/admin/content/courses" replace />} />
+        <Route path="/admin-v2/curricula" element={<Navigate to="/admin/curriculum" replace />} />
+        <Route path="/admin-v2/curricula/*" element={<Navigate to="/admin/curriculum" replace />} />
+        <Route path="/admin-v2/questions" element={<Navigate to="/admin/content/questions" replace />} />
+        <Route path="/admin-v2/exam-blueprints" element={<Navigate to="/admin/content/blueprints" replace />} />
+        <Route path="/admin-v2/council-control" element={<Navigate to="/admin/council/control" replace />} />
+        <Route path="/admin-v2/council/*" element={<Navigate to="/admin/council" replace />} />
+        <Route path="/admin-v2/jobs/*" element={<Navigate to="/admin/system/jobs" replace />} />
+        <Route path="/admin-v2/system-health" element={<Navigate to="/admin/system/health" replace />} />
+        <Route path="/admin-v2/operations" element={<Navigate to="/admin/system/operations" replace />} />
+        <Route path="/admin-v2/ai-workers" element={<Navigate to="/admin/system/ai-workers" replace />} />
+        <Route path="/admin-v2/finance" element={<Navigate to="/admin/finance/overview" replace />} />
+        <Route path="/admin-v2/enterprise-seats" element={<Navigate to="/admin/finance/licenses" replace />} />
+        <Route path="/admin-v2/azav-compliance" element={<Navigate to="/admin/finance/compliance" replace />} />
+        <Route path="/admin-v2/audit-exports" element={<Navigate to="/admin/finance/exports" replace />} />
+        <Route path="/admin-v2/workflows" element={<Navigate to="/admin/content/workflows" replace />} />
+        <Route path="/admin-v2/course-health" element={<Navigate to="/admin/content/health" replace />} />
+        <Route path="/admin-v2/quality-gates" element={<Navigate to="/admin/content/quality-gates" replace />} />
+        <Route path="/admin-v2/qc-dashboard" element={<Navigate to="/admin/council/quality" replace />} />
+        <Route path="/admin-v2/early-warnings" element={<Navigate to="/admin/system/warnings" replace />} />
+        <Route path="/admin-v2/patches" element={<Navigate to="/admin/system/patches" replace />} />
+        <Route path="/admin-v2/*" element={<Navigate to="/admin/dashboard" replace />} />
 
         {/* 404 */}
         <Route path="*" element={<NotFound />} />

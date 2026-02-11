@@ -228,15 +228,18 @@ export default function AdminDashboard() {
       <RiskOverview />
 
       {/* Quick Actions */}
+      {/* Blocked Courses */}
+      <BlockedCourses />
+
+      {/* Quick Actions */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          <Button asChild size="sm"><Link to="/admin-v2/council-control"><Brain className="h-4 w-4 mr-1" /> Council OS</Link></Button>
-          <Button asChild size="sm" variant="outline"><Link to="/admin-v2/workflows"><Zap className="h-4 w-4 mr-1" /> Workflow Studio</Link></Button>
-          <Button asChild size="sm" variant="outline"><Link to="/admin-v2/product-factory"><Zap className="h-4 w-4 mr-1" /> Produkt-Factory</Link></Button>
-          <Button asChild size="sm" variant="outline"><Link to="/admin-v2/quality-gates"><Shield className="h-4 w-4 mr-1" /> Quality Gates</Link></Button>
-          <Button asChild size="sm" variant="outline"><Link to="/admin-v2/jobs/dashboard"><Activity className="h-4 w-4 mr-1" /> Job Queue</Link></Button>
-          <Button asChild size="sm" variant="outline"><Link to="/admin-v2/qc-dashboard"><BarChart3 className="h-4 w-4 mr-1" /> QC Reports</Link></Button>
+          <Button asChild size="sm"><Link to="/admin/council"><Brain className="h-4 w-4 mr-1" /> Council</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link to="/admin/content/workflows"><Zap className="h-4 w-4 mr-1" /> Workflows</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link to="/admin/content/quality-gates"><Shield className="h-4 w-4 mr-1" /> Quality Gates</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link to="/admin/system/jobs"><Activity className="h-4 w-4 mr-1" /> Job Queue</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link to="/admin/council/quality"><BarChart3 className="h-4 w-4 mr-1" /> QC Reports</Link></Button>
         </div>
       </section>
     </div>
@@ -340,6 +343,48 @@ function RiskOverview() {
               </div>
               <Progress value={r.score} className={`h-2 ${r.score > 60 ? '[&>div]:bg-destructive' : r.score > 30 ? '[&>div]:bg-warning' : ''}`} />
               <p className="text-xs text-muted-foreground mt-2">{r.scope_id}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BlockedCourses() {
+  const [blocked, setBlocked] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data } = await supabase
+          .from('courses')
+          .select('id, title, status, is_ready_for_publish')
+          .eq('is_ready_for_publish', false)
+          .neq('status', 'draft')
+          .limit(10);
+        setBlocked(data || []);
+      } catch (e) { /* silent */ }
+    }
+    load();
+  }, []);
+
+  if (blocked.length === 0) return null;
+
+  return (
+    <section>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-destructive mb-3 flex items-center gap-2">
+        <AlertTriangle className="h-3.5 w-3.5" /> Blockierte Kurse
+      </h2>
+      <div className="space-y-2">
+        {blocked.map((c) => (
+          <Card key={c.id} className="border-destructive/20 bg-destructive/5">
+            <CardContent className="py-3 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">{c.title || c.id}</p>
+                <p className="text-xs text-muted-foreground">Status: {c.status} · Publish-Ready: Nein</p>
+              </div>
+              <Badge variant="destructive" className="text-xs">Blockiert</Badge>
             </CardContent>
           </Card>
         ))}
