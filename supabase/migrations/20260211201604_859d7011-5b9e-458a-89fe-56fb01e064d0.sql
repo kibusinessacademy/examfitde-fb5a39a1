@@ -1,0 +1,79 @@
+
+-- Fix Security Definer Views: add security_invoker=on to all public views
+-- This ensures views respect the querying user's RLS policies, not the view creator's
+
+ALTER VIEW public.affiliate_referrals_safe SET (security_invoker = on);
+ALTER VIEW public.ai_cost_overview SET (security_invoker = on);
+ALTER VIEW public.ai_worker_health SET (security_invoker = on);
+ALTER VIEW public.azav_dashboard_stats SET (security_invoker = on);
+ALTER VIEW public.blueprint_questions_view SET (security_invoker = on);
+ALTER VIEW public.curriculum_products_overview SET (security_invoker = on);
+ALTER VIEW public.exam_questions_safe SET (security_invoker = on);
+ALTER VIEW public.job_deadletter SET (security_invoker = on);
+ALTER VIEW public.job_failure_analysis SET (security_invoker = on);
+ALTER VIEW public.job_health_kpis SET (security_invoker = on);
+ALTER VIEW public.lesson_qc_view SET (security_invoker = on);
+ALTER VIEW public.ops_cost_summary SET (security_invoker = on);
+ALTER VIEW public.ops_job_summary SET (security_invoker = on);
+ALTER VIEW public.v_exam_questions_approved SET (security_invoker = on);
+ALTER VIEW public.v_growth_actions_approved SET (security_invoker = on);
+ALTER VIEW public.v_qa_last_runs SET (security_invoker = on);
+ALTER VIEW public.v_qa_open_findings SET (security_invoker = on);
+ALTER VIEW public.v_qa_risk_acceptances SET (security_invoker = on);
+ALTER VIEW public.v_revenue_daily SET (security_invoker = on);
+ALTER VIEW public.v_vat_monthly SET (security_invoker = on);
+
+-- Fix SECURITY DEFINER functions missing search_path
+-- This prevents search_path manipulation attacks
+
+ALTER FUNCTION public.accept_qa_risk SET search_path = public;
+ALTER FUNCTION public.admin_block_user SET search_path = public;
+ALTER FUNCTION public.admin_decide_security_review SET search_path = public;
+ALTER FUNCTION public.admin_reset_code_lockout SET search_path = public;
+ALTER FUNCTION public.admin_unblock_user SET search_path = public;
+ALTER FUNCTION public.assemble_minicheck_weighted SET search_path = public;
+ALTER FUNCTION public.assert_publish_unlock SET search_path = public;
+ALTER FUNCTION public.assert_qa_release_ok SET search_path = public;
+ALTER FUNCTION public.auto_block_user_if_needed SET search_path = public;
+ALTER FUNCTION public.calculate_exam_readiness SET search_path = public;
+ALTER FUNCTION public.check_lesson_progression SET search_path = public;
+ALTER FUNCTION public.check_simulation_gate SET search_path = public;
+ALTER FUNCTION public.column_exists SET search_path = public;
+ALTER FUNCTION public.compute_qa_release_gate SET search_path = public;
+ALTER FUNCTION public.create_weakness_assignments_from_exam SET search_path = public;
+ALTER FUNCTION public.detect_device_burst SET search_path = public;
+ALTER FUNCTION public.detect_ip_burst SET search_path = public;
+ALTER FUNCTION public.detect_seat_misuse SET search_path = public;
+ALTER FUNCTION public.enqueue_finance_export SET search_path = public;
+ALTER FUNCTION public.enqueue_security_review SET search_path = public;
+ALTER FUNCTION public.finish_exam_session SET search_path = public;
+ALTER FUNCTION public.get_b2b_buyer_learner_summary SET search_path = public;
+ALTER FUNCTION public.get_course_pipeline_stats SET search_path = public;
+ALTER FUNCTION public.get_datev_prep_lines SET search_path = public;
+ALTER FUNCTION public.get_edge_error_rate_24h SET search_path = public;
+ALTER FUNCTION public.get_exam_readiness SET search_path = public;
+ALTER FUNCTION public.get_job_fail_rate SET search_path = public;
+ALTER FUNCTION public.get_monthly_refund_kpi SET search_path = public;
+ALTER FUNCTION public.get_monthly_revenue_lines SET search_path = public;
+ALTER FUNCTION public.get_monthly_vat_lines SET search_path = public;
+ALTER FUNCTION public.get_reconcile_gaps SET search_path = public;
+ALTER FUNCTION public.get_reconcile_gaps_details SET search_path = public;
+ALTER FUNCTION public.get_revenue_summary SET search_path = public;
+ALTER FUNCTION public.get_security_report SET search_path = public;
+ALTER FUNCTION public.get_security_spike_score SET search_path = public;
+ALTER FUNCTION public.growth_user_candidates SET search_path = public;
+ALTER FUNCTION public.is_code_locked SET search_path = public;
+ALTER FUNCTION public.is_user_blocked SET search_path = public;
+ALTER FUNCTION public.list_course_evidence_packs SET search_path = public;
+ALTER FUNCTION public.list_latest_evidence_packs SET search_path = public;
+ALTER FUNCTION public.note_code_failure SET search_path = public;
+ALTER FUNCTION public.publish_tutor_asset SET search_path = public;
+ALTER FUNCTION public.resolve_qa_finding_if_exists SET search_path = public;
+ALTER FUNCTION public.resolve_remediation_on_mastery SET search_path = public;
+ALTER FUNCTION public.resolve_weakness_if_mastered SET search_path = public;
+ALTER FUNCTION public.revoke_qa_risk SET search_path = public;
+ALTER FUNCTION public.security_gate_check_and_raise SET search_path = public;
+ALTER FUNCTION public.security_rate_limit_hit SET search_path = public;
+ALTER FUNCTION public.start_exam_session SET search_path = public;
+ALTER FUNCTION public.table_exists SET search_path = public;
+ALTER FUNCTION public.upsert_qa_finding SET search_path = public;
