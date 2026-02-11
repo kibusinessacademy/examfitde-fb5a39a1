@@ -1675,11 +1675,13 @@ export type Database = {
       compliance_findings: {
         Row: {
           area: string
+          council_version_id: string | null
           created_at: string
           created_by: string
           description: string
           evidence_json: Json
           id: string
+          patch_plan_id: string | null
           remediation_json: Json | null
           severity: Database["public"]["Enums"]["compliance_severity"]
           status: Database["public"]["Enums"]["compliance_status"]
@@ -1688,11 +1690,13 @@ export type Database = {
         }
         Insert: {
           area: string
+          council_version_id?: string | null
           created_at?: string
           created_by?: string
           description: string
           evidence_json?: Json
           id?: string
+          patch_plan_id?: string | null
           remediation_json?: Json | null
           severity: Database["public"]["Enums"]["compliance_severity"]
           status?: Database["public"]["Enums"]["compliance_status"]
@@ -1701,11 +1705,13 @@ export type Database = {
         }
         Update: {
           area?: string
+          council_version_id?: string | null
           created_at?: string
           created_by?: string
           description?: string
           evidence_json?: Json
           id?: string
+          patch_plan_id?: string | null
           remediation_json?: Json | null
           severity?: Database["public"]["Enums"]["compliance_severity"]
           status?: Database["public"]["Enums"]["compliance_status"]
@@ -9547,6 +9553,14 @@ export type Database = {
       }
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
       assert_profiles_rls_secure: { Args: never; Returns: undefined }
+      attach_finding_remediation: {
+        Args: {
+          p_council_version_id: string
+          p_finding_id: string
+          p_remediation: Json
+        }
+        Returns: undefined
+      }
       attempt_auto_recovery: { Args: { p_alert_id: string }; Returns: Json }
       calculate_daily_kpis: { Args: never; Returns: Json }
       calculate_exam_readiness: {
@@ -9683,6 +9697,16 @@ export type Database = {
         }
         Returns: string
       }
+      create_patch_plan_from_finding: {
+        Args: {
+          p_council_version_id: string
+          p_finding_id: string
+          p_patches: Json
+          p_severity: string
+          p_title: string
+        }
+        Returns: string
+      }
       create_weakness_assignments_from_exam: {
         Args: { p_session_id: string }
         Returns: number
@@ -9722,6 +9746,10 @@ export type Database = {
         Returns: undefined
       }
       finish_exam_session: { Args: { p_session_id: string }; Returns: Json }
+      generate_compliance_report: {
+        Args: { p_report_type: string }
+        Returns: string
+      }
       generate_exam_questions: {
         Args: { p_blueprint_id: string; p_seed: number }
         Returns: {
@@ -10086,6 +10114,13 @@ export type Database = {
           type: string
           url: string
         }[]
+      }
+      set_compliance_finding_status: {
+        Args: {
+          p_finding_id: string
+          p_status: Database["public"]["Enums"]["compliance_status"]
+        }
+        Returns: undefined
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

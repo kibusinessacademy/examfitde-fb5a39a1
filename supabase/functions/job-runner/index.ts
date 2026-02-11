@@ -116,6 +116,8 @@ const JOB_TYPE_MAP: Record<string, string> = {
   compliance_scan_ai_act: "compliance-council-scan",
   compliance_scan_azav: "compliance-council-scan",
   compliance_recompute_block: "compliance-council-scan",
+  compliance_remediate: "compliance-council-remediate",
+  compliance_report: "compliance-council-report",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)
