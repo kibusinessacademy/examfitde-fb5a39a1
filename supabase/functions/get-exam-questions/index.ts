@@ -130,11 +130,11 @@ serve(async (req) => {
         );
       }
 
+      // Hard Gate: only approved questions (via approved-only view)
       let query = adminClient
-        .from('exam_questions')
+        .from('v_exam_questions_approved')
         .select('id, question_text, options, difficulty, learning_field_id, competency_id')
-        .eq('competency_id', competency_id)
-        .eq('status', 'approved');
+        .eq('competency_id', competency_id);
 
       if (difficulty) query = query.eq('difficulty', difficulty);
       if (exclude_question_ids.length > 0) {
@@ -235,12 +235,11 @@ serve(async (req) => {
         continue;
       }
 
-      // Fetch approved questions for all competencies in this LF
+      // Hard Gate: only approved questions (via approved-only view)
       let lfQuery = adminClient
-        .from('exam_questions')
+        .from('v_exam_questions_approved')
         .select('id, question_text, options, difficulty, learning_field_id, competency_id')
-        .in('competency_id', compIds)
-        .eq('status', 'approved');
+        .in('competency_id', compIds);
 
       if (exclude_question_ids.length > 0) {
         lfQuery = lfQuery.not('id', 'in', `(${exclude_question_ids.join(',')})`);

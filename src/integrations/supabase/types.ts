@@ -1496,6 +1496,13 @@ export type Database = {
             referencedRelation: "exam_questions_safe"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "blueprint_variants_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
         ]
       }
       blueprint_versions: {
@@ -3506,6 +3513,7 @@ export type Database = {
           explanation: string | null
           id: string
           learning_field_id: string | null
+          normalized_hash: string | null
           options: Json
           question_text: string
           reviewed_at: string | null
@@ -3524,6 +3532,7 @@ export type Database = {
           explanation?: string | null
           id?: string
           learning_field_id?: string | null
+          normalized_hash?: string | null
           options: Json
           question_text: string
           reviewed_at?: string | null
@@ -3542,6 +3551,7 @@ export type Database = {
           explanation?: string | null
           id?: string
           learning_field_id?: string | null
+          normalized_hash?: string | null
           options?: Json
           question_text?: string
           reviewed_at?: string | null
@@ -3649,6 +3659,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_approved"
             referencedColumns: ["id"]
           },
         ]
@@ -5690,6 +5707,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "minicheck_set_items_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "minicheck_set_items_minicheck_set_id_fkey"
             columns: ["minicheck_set_id"]
             isOneToOne: false
@@ -6962,6 +6986,13 @@ export type Database = {
             referencedRelation: "exam_questions_safe"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "question_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
         ]
       }
       question_blueprints: {
@@ -7702,6 +7733,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_cards_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_approved"
             referencedColumns: ["id"]
           },
         ]
@@ -9282,6 +9320,102 @@ export type Database = {
         }
         Relationships: []
       }
+      v_exam_questions_approved: {
+        Row: {
+          ai_generated: boolean | null
+          approved_version_id: string | null
+          blueprint_id: string | null
+          competency_id: string | null
+          correct_answer: number | null
+          created_at: string | null
+          curriculum_id: string | null
+          difficulty: Database["public"]["Enums"]["question_difficulty"] | null
+          explanation: string | null
+          id: string | null
+          learning_field_id: string | null
+          normalized_hash: string | null
+          options: Json | null
+          question_text: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["question_status"] | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          approved_version_id?: string | null
+          blueprint_id?: string | null
+          competency_id?: string | null
+          correct_answer?: number | null
+          created_at?: string | null
+          curriculum_id?: string | null
+          difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
+          explanation?: string | null
+          id?: string | null
+          learning_field_id?: string | null
+          normalized_hash?: string | null
+          options?: Json | null
+          question_text?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["question_status"] | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          approved_version_id?: string | null
+          blueprint_id?: string | null
+          competency_id?: string | null
+          correct_answer?: number | null
+          created_at?: string | null
+          curriculum_id?: string | null
+          difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
+          explanation?: string | null
+          id?: string | null
+          learning_field_id?: string | null
+          normalized_hash?: string | null
+          options?: Json | null
+          question_text?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["question_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       approve_blueprint_version: {
@@ -9295,6 +9429,10 @@ export type Database = {
           p_version_id: string
         }
         Returns: undefined
+      }
+      assemble_minicheck_weighted: {
+        Args: { p_course_id: string; p_lesson_id: string; p_questions?: number }
+        Returns: string
       }
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
       assert_profiles_rls_secure: { Args: never; Returns: undefined }
@@ -9376,6 +9514,7 @@ export type Database = {
             Returns: undefined
           }
         | { Args: { p_job_id: string; p_result?: Json }; Returns: undefined }
+      compute_question_hash: { Args: { p_text: string }; Returns: string }
       course_pack_fingerprint: {
         Args: { p_course_id: string }
         Returns: string
@@ -9641,6 +9780,7 @@ export type Database = {
           storage_path: string
         }[]
       }
+      normalize_question_text: { Args: { p_text: string }; Returns: string }
       normalize_search_text: { Args: { input: string }; Returns: string }
       publish_approved_blueprint_version: {
         Args: { p_blueprint_id: string; p_version_id: string }
