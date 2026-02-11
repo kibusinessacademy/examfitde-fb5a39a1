@@ -7747,6 +7747,64 @@ export type Database = {
           },
         ]
       }
+      user_remediation_queue: {
+        Row: {
+          competency_id: string
+          created_at: string
+          curriculum_id: string
+          id: string
+          resolved_at: string | null
+          score_at_detection: number
+          source_session_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          competency_id: string
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          resolved_at?: string | null
+          score_at_detection?: number
+          source_session_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          competency_id?: string
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          resolved_at?: string | null
+          score_at_detection?: number
+          source_session_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_remediation_queue_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_remediation_queue_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_remediation_queue_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -8507,6 +8565,10 @@ export type Database = {
           score_percent: number
           total_count: number
         }[]
+      }
+      get_exam_readiness: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: Json
       }
       get_lessons_needing_review: {
         Args: { p_course_id?: string }
