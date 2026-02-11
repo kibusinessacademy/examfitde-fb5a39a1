@@ -11,7 +11,7 @@ import {
   Server, Scale, DollarSign, Users, BarChart3, Settings,
   AlertTriangle, CheckCircle, XCircle, Pause, Play, Shield,
   Activity, MessageSquare, Gavel, Eye, RefreshCw,
-  ThumbsUp, ThumbsDown, Minus
+  ThumbsUp, ThumbsDown, Minus, Rocket, Lock, Unlock
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -56,6 +56,15 @@ interface CouncilMessage {
   created_at: string;
 }
 
+interface CourseReadiness {
+  id: string;
+  title: string;
+  is_ready_for_publish: boolean;
+  total_lessons: number;
+  approved_steps: number;
+  total_steps: number;
+}
+
 export default function CouncilControlCenter() {
   const [councils, setCouncils] = useState<Council[]>([]);
   const [kpis, setKpis] = useState<CouncilKPI[]>([]);
@@ -64,6 +73,7 @@ export default function CouncilControlCenter() {
   const [versions, setVersions] = useState<ContentVersion[]>([]);
   const [verdicts, setVerdicts] = useState<CouncilVerdict[]>([]);
   const [messages, setMessages] = useState<CouncilMessage[]>([]);
+  const [courseReadiness, setCourseReadiness] = useState<CourseReadiness[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
 
@@ -83,6 +93,28 @@ export default function CouncilControlCenter() {
     setKillSwitches((ksRes.data as KillSwitch[]) || []);
     setVersions((versionsRes.data as ContentVersion[]) || []);
     setVerdicts((verdictsRes.data as CouncilVerdict[]) || []);
+
+    // Compute course readiness from versions
+    const vData = (versionsRes.data as ContentVersion[]) || [];
+    const courseIds = [...new Set(vData.map(v => v.course_id))];
+    if (courseIds.length > 0) {
+      const { data: courses } = await supabase.from('courses').select('id, title, is_ready_for_publish').in('id', courseIds);
+      const readiness: CourseReadiness[] = (courses || []).map((c: { id: string; title: string; is_ready_for_publish: boolean }) => {
+        const courseVersions = vData.filter(v => v.course_id === c.id);
+        const approvedSteps = courseVersions.filter(v => v.status === 'approved').length;
+        const lessonIds = [...new Set(courseVersions.map(v => v.lesson_id))];
+        return {
+          id: c.id,
+          title: c.title || c.id.slice(0, 8),
+          is_ready_for_publish: c.is_ready_for_publish,
+          total_lessons: lessonIds.length,
+          approved_steps: approvedSteps,
+          total_steps: courseVersions.length,
+        };
+      });
+      setCourseReadiness(readiness);
+    }
+
     setLoading(false);
   }, []);
 
@@ -204,8 +236,9 @@ export default function CouncilControlCenter() {
       </div>
 
       <Tabs defaultValue="deliberation">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="deliberation"><Gavel className="h-4 w-4 mr-1" />Deliberation ({versions.length})</TabsTrigger>
+          <TabsTrigger value="readiness"><Rocket className="h-4 w-4 mr-1" />Course Readiness</TabsTrigger>
           <TabsTrigger value="councils">Councils ({councils.length})</TabsTrigger>
           <TabsTrigger value="kpis">KPIs</TabsTrigger>
           <TabsTrigger value="escalations">Eskalationen ({openEscalations})</TabsTrigger>
@@ -300,6 +333,62 @@ export default function CouncilControlCenter() {
                               ))
                             )}
                           </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ─── Course Readiness Tab ─── */}
+        <TabsContent value="readiness">
+          <Card className="glass-card border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Rocket className="h-5 w-5 text-primary" />
+                Publish Gate – Course Readiness (95% Threshold)
+              </CardTitle>
+              <CardDescription>Kurse werden erst freigegeben, wenn 95% aller Lesson-Steps approved & published sind.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {courseReadiness.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Lock className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p>Noch keine Council-Versionen vorhanden.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {courseReadiness.map(c => {
+                    const pct = c.total_steps > 0 ? Math.round((c.approved_steps / Math.max(c.total_steps, 1)) * 100) : 0;
+                    return (
+                      <div key={c.id} className="border border-border/50 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            {c.is_ready_for_publish ? (
+                              <Unlock className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <Lock className="h-5 w-5 text-muted-foreground" />
+                            )}
+                            <div>
+                              <h3 className="font-semibold text-sm">{c.title}</h3>
+                              <p className="text-xs text-muted-foreground">{c.total_lessons} Lessons · {c.approved_steps}/{c.total_steps} Steps approved</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={c.is_ready_for_publish ? 'default' : 'secondary'}>
+                              {c.is_ready_for_publish ? '✓ Publish Ready' : 'Blocked'}
+                            </Badge>
+                            <span className="text-sm font-mono font-bold">{pct}%</span>
+                          </div>
+                        </div>
+                        <Progress value={pct} className="h-2" />
+                        {!c.is_ready_for_publish && pct < 95 && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Noch {Math.ceil((c.total_steps * 0.95) - c.approved_steps)} Steps müssen approved werden für Publish Gate.
+                          </p>
                         )}
                       </div>
                     );

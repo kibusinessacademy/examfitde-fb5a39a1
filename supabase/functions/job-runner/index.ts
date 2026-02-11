@@ -55,6 +55,15 @@ const JOB_TYPE_MAP: Record<string, string> = {
   // AutoPilot Final Gate
   course_finalize: "course-finalizer",
   post_validation: "post-validation",
+
+  // Council v2 Deliberative Architecture
+  council_run_step: "council-run-step",
+  council_propose_step: "council-worker",
+  council_critique_step: "council-worker",
+  council_revise_step: "council-worker",
+  council_vote_and_verdict: "council-worker",
+  council_publish_step: "council-worker",
+  council_recompute_course_ready: "council-worker",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)
