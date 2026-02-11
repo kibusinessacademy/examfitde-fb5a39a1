@@ -270,27 +270,41 @@ serve(async (req) => {
         // ═══════════════════════════════════════
         console.log(`[GEN] ${code}: ${title}`);
 
-        const genPrompt = `Du bist ein erfahrener IHK-Prüfungsexperte für den Beruf Bestattungsfachkraft. 
+        const genPrompt = `Du bist ein erfahrener IHK-Prüfungsexperte. 
 Erstelle einen Mini-Check Quiz für folgende Kompetenz:
 
 **Kompetenz:** ${code} – ${title}
 **Beschreibung:** ${desc}
 
-QUALITÄTSANFORDERUNGEN (IHK-sehr-gut Standard):
-1. EXAKT 4 Multiple-Choice-Fragen auf IHK-Prüfungsniveau
-2. Jede Frage hat EXAKT 4 Antwortmöglichkeiten
-3. Nur EINE Antwort ist korrekt
-4. Alle Distraktoren müssen fachlich plausibel klingen (typische Denkfehler/Verwechslungen)
-5. Fragen müssen EXAKT zur Kompetenz passen – keine fachfremden Inhalte
-6. Praxisbezug: mindestens 2 Fragen mit Fallbeispiel/Situationsbeschreibung
-7. Taxonomie: Mischung aus Wissen (1 Frage), Verstehen (1), Anwenden (2)
-8. explanation_correct: Fachlich fundiert, warum die Antwort stimmt (mit Rechtsgrundlage wenn relevant)
-9. explanation_wrong: Häufigster Denkfehler und warum die Distraktoren falsch sind
+QUALITÄTSANFORDERUNGEN (IHK-Prüfungsniveau – sehr gut):
+1. EXAKT 4 Multiple-Choice-Fragen
+2. Jede Frage hat EXAKT 4 Antwortmöglichkeiten, nur EINE ist korrekt
+
+FRAGETYPEN (alle 4 müssen unterschiedlich sein):
+A) SITUATIONSAUFGABE (Pflicht, mind. 2x): "Ein Kunde/Ihr Betrieb/Sie werden beauftragt..." → konkretes Szenario mit Entscheidungsbedarf
+B) ABGRENZUNGSFRAGE (Pflicht, mind. 1x): "Welche Aussage trifft am EHESTEN zu?" oder "Was unterscheidet X von Y?"
+C) FACHBEGRIFF-FRAGE (optional): Korrekte Definition vs. typische Verwechslungen
+
+DISTRAKTOREN-REGELN (KRITISCH):
+- JEDER Distraktor muss einen KONKRETEN Denkfehler abbilden: Verwechslung, Übergeneralisierung, veraltete Info, Teilwahrheit
+- KEINE offensichtlich absurden Optionen ("Laut schreien", "Gar nichts tun")
+- Mindestens 1 Distraktor muss eine TEILWAHRHEIT sein (stimmt in anderem Kontext)
+- Distraktoren sollen ähnlich lang wie die korrekte Antwort sein
+
+SCHWIERIGKEITS-MIX:
+- Frage 1: easy (Grundwissen, K1-remember)
+- Frage 2: medium (Verständnis, K2-understand)  
+- Frage 3: medium (Anwendung, K3-apply)
+- Frage 4: hard (Analyse/Abwägung, K4-analyze)
+
+ERKLÄRUNGEN:
+- explanation_correct: Fachlich fundiert + Rechtsgrundlage/Quelle wenn relevant
+- explanation_wrong: Erkläre den KONKRETEN Denkfehler hinter jedem Distraktor (nicht nur "ist falsch")
 
 VERBOTEN:
-- Generische Fragen ohne Bezug zur Bestattungsbranche
+- Generische Fragen ohne Branchenbezug
 - Offensichtlich falsche Distraktoren
-- Fragen zu CNC, Metallbearbeitung oder branchenfremden Themen
+- Branchenfremde Inhalte
 
 Nutze die Funktion create_mini_check.`;
 

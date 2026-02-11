@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     const { courseId, gates } = await req.json();
     if (!courseId) return new Response(JSON.stringify({ error: "Missing courseId" }), { status: 400, headers });
 
-    const activeGates: string[] = gates || ["minicheck", "dedup", "sort", "exam_block", "weight"];
+    const activeGates: string[] = gates || ["minicheck", "dedup", "sort", "exam_block", "weight", "difficulty"];
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
     // Create QC run record
@@ -117,6 +117,14 @@ Deno.serve(async (req) => {
     if (activeGates.includes("weight")) {
       const result = await gateWeightTags(admin, allLessons, competencies, learningFields);
       stats.weight = result.stats;
+      allFixes.push(...result.fixes);
+    }
+
+    // ============ GATE F: Difficulty Distribution ============
+    if (activeGates.includes("difficulty")) {
+      const result = await gateDifficulty(admin, allLessons);
+      stats.difficulty = result.stats;
+      allIssues.push(...result.issues);
       allFixes.push(...result.fixes);
     }
 
@@ -371,33 +379,28 @@ async function gateSortOrder(admin: any, lessons: any[], competencies: any[]) {
   return { stats: { fixed, total: lessons.length }, issues: [], fixes };
 }
 
-// ===================== GATE D: Exam Block =====================
+// ===================== GATE D: Exam Block (IHK-Prüfungsniveau) =====================
 async function gateExamBlock(admin: any, lessons: any[], competencies: any[]) {
   const issues: any[] = [];
   const fixes: any[] = [];
   let injected = 0;
 
-  // For each competency, find anwenden/wiederholen steps and ensure exam_block exists
   const compMap = new Map(competencies.map((c: any) => [c.id, c]));
 
-  const examSteps = ["anwenden", "wiederholen"];
+  // Inject exam_block on ALL non-quarantined lessons (not just anwenden/wiederholen)
   const eligibleLessons = lessons.filter((l: any) =>
-    examSteps.includes(l.step) && !l.exam_block && l.quarantine_status !== "quarantined"
+    !l.exam_block && l.quarantine_status !== "quarantined" && l.competency_id
   );
 
   for (const lesson of eligibleLessons) {
     const comp = compMap.get(lesson.competency_id);
     if (!comp) continue;
 
-    const examBlock = {
-      ihk_fragestellung: `So fragt die IHK zu "${comp.title}" (${comp.code})`,
-      typische_fallen: [`Verwechslung von Fachbegriffen im Bereich ${comp.title}`, "Oberflächliche Antwort ohne Praxisbezug", "Fehlende Struktur in der Argumentation"],
-      bewertungskriterien: ["Fachlich korrekte Begriffe verwenden", "Praxisbeispiel nennen", "Strukturierte Antwort (Einleitung → Kern → Fazit)"],
-      pruefer_hinweis: `Prüfer achten besonders auf den korrekten Gebrauch der Fachsprache und die Fähigkeit, theoretisches Wissen auf praktische Situationen zu übertragen.`,
-    };
+    const step = lesson.step || "verstehen";
+    const examBlock = buildExamBlock(comp, step);
 
     await admin.from("lessons").update({ exam_block: examBlock }).eq("id", lesson.id);
-    fixes.push({ gate: "exam_block", lessonId: lesson.id, competency: comp.code });
+    fixes.push({ gate: "exam_block", lessonId: lesson.id, competency: comp.code, step });
     injected++;
   }
 
@@ -417,6 +420,49 @@ async function gateExamBlock(admin: any, lessons: any[], competencies: any[]) {
   }
 
   return { stats: { injected, competenciesWithoutBlock: competencies.length - compWithExam.size }, issues, fixes };
+}
+
+function buildExamBlock(comp: any, step: string): Record<string, unknown> {
+  const base = {
+    ihk_fragestellung: `So fragt die IHK zu "${comp.title}" (${comp.code})`,
+    typische_fallen: [
+      `Verwechslung von Fachbegriffen im Bereich ${comp.title}`,
+      "Oberflächliche Antwort ohne konkreten Praxisbezug",
+      "Fehlende Struktur in der Argumentation (Einleitung→Kern→Fazit fehlt)",
+      "Verwendung von Alltagssprache statt IHK-Fachterminologie",
+    ],
+    bewertungskriterien: [
+      "Fachlich korrekte Begriffe verwenden (IHK-Terminologie)",
+      "Mindestens ein konkretes Praxisbeispiel aus dem Berufsalltag nennen",
+      "Strukturierte Antwort: Einleitung → Kernaussage → Begründung → Fazit",
+      "Rechtliche Grundlagen korrekt benennen (wenn zutreffend)",
+    ],
+    pruefer_hinweis: `Prüfer achten besonders auf den korrekten Gebrauch der Fachsprache und die Fähigkeit, theoretisches Wissen auf praktische Situationen zu übertragen.`,
+    difficulty_level: step === "einstieg" ? "easy" : step === "anwenden" ? "hard" : "medium",
+    taxonomy_level: comp.taxonomy_level || (step === "einstieg" ? "remember" : step === "verstehen" ? "understand" : step === "anwenden" ? "apply" : "analyze"),
+  };
+
+  // Step-specific enrichment
+  if (step === "anwenden" || step === "wiederholen") {
+    return {
+      ...base,
+      ihk_frageformat: "Situationsaufgabe mit Entscheidungsbedarf",
+      beispiel_pruefungsfrage: `Beschreiben Sie anhand eines konkreten Beispiels aus Ihrem Berufsalltag, wie Sie "${comp.title}" in der Praxis umsetzen. Begründen Sie Ihr Vorgehen fachlich.`,
+      bewertungsschema: {
+        fachliche_korrektheit: "40%",
+        praxisbezug: "30%",
+        argumentation: "20%",
+        fachsprache: "10%",
+      },
+      haeufige_fehler: [
+        "Allgemeine Aussagen ohne konkreten Bezug zur Kompetenz",
+        "Fehlende Begründung für gewähltes Vorgehen",
+        "Verwechslung mit ähnlichen Fachgebieten",
+      ],
+    };
+  }
+
+  return base;
 }
 
 // ===================== GATE E: Weight Tags =====================
@@ -448,4 +494,70 @@ async function gateWeightTags(admin: any, lessons: any[], competencies: any[], l
   }
 
   return { stats: { tagged, total: lessons.length }, issues: [], fixes };
+}
+
+// ===================== GATE F: Difficulty Distribution =====================
+async function gateDifficulty(admin: any, lessons: any[]) {
+  const issues: any[] = [];
+  const fixes: any[] = [];
+  let tagged = 0;
+
+  // Assign difficulty based on step if not already set
+  const STEP_DIFFICULTY: Record<string, string> = {
+    einstieg: "easy",
+    verstehen: "medium",
+    anwenden: "hard",
+    wiederholen: "medium",
+    mini_check: "medium",
+  };
+
+  for (const lesson of lessons) {
+    if (lesson.quarantine_status === "quarantined") continue;
+    
+    const content = lesson.content as any;
+    const currentDifficulty = content?.difficulty_level || lesson.exam_block?.difficulty_level;
+    
+    if (!currentDifficulty && lesson.step) {
+      const difficulty = STEP_DIFFICULTY[lesson.step] || "medium";
+      const examBlock = lesson.exam_block || {};
+      examBlock.difficulty_level = difficulty;
+      
+      await admin.from("lessons").update({ exam_block: examBlock }).eq("id", lesson.id);
+      fixes.push({ gate: "difficulty", lessonId: lesson.id, difficulty });
+      tagged++;
+    }
+  }
+
+  // Check overall distribution
+  const activeLessons = lessons.filter((l: any) => l.quarantine_status !== "quarantined");
+  const distribution = { easy: 0, medium: 0, hard: 0 };
+  for (const l of activeLessons) {
+    const d = (l.exam_block?.difficulty_level || l.content?.difficulty_level || "medium") as string;
+    if (d in distribution) distribution[d as keyof typeof distribution]++;
+  }
+
+  const total = activeLessons.length;
+  const easyPct = total > 0 ? Math.round((distribution.easy / total) * 100) : 0;
+  const mediumPct = total > 0 ? Math.round((distribution.medium / total) * 100) : 0;
+  const hardPct = total > 0 ? Math.round((distribution.hard / total) * 100) : 0;
+
+  // IHK target: ~30% easy, ~50% medium, ~20% hard
+  if (hardPct < 10) {
+    issues.push({
+      gate: "difficulty", severity: "warning", code: "LOW_HARD_RATIO",
+      message: `Nur ${hardPct}% schwere Inhalte (Ziel: ~20%). Mehr Analyse-/Entscheidungsaufgaben nötig.`,
+    });
+  }
+  if (easyPct > 50) {
+    issues.push({
+      gate: "difficulty", severity: "warning", code: "HIGH_EASY_RATIO",
+      message: `${easyPct}% leichte Inhalte (Ziel: ~30%). Schwierigkeit erhöhen.`,
+    });
+  }
+
+  return {
+    stats: { tagged, distribution, percentages: { easy: easyPct, medium: mediumPct, hard: hardPct } },
+    issues,
+    fixes,
+  };
 }

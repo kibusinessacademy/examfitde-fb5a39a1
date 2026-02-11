@@ -49,12 +49,23 @@ const STEP_PROMPTS: Record<string, string> = {
   einstieg:
     "Erstelle eine aktivierende Einstiegsaktivität, die das Vorwissen der Lernenden anspricht und Neugier für das Thema weckt. Nutze ein konkretes Praxisszenario aus dem Berufsalltag.",
   verstehen:
-    "Erstelle Lernmaterial zum Verstehen der Konzepte mit klaren Erklärungen, Gegenbeispielen und IHK-Prüfungsbezügen. Markiere prüfungsrelevante Inhalte mit ⭐.",
+    "Erstelle Lernmaterial zum Verstehen der Konzepte mit klaren Erklärungen, Gegenbeispielen und IHK-Prüfungsbezügen. Markiere prüfungsrelevante Inhalte mit ⭐. Füge nach jeder Erklärung ein Gegenbeispiel hinzu, das typische Fehlannahmen verdeutlicht.",
   anwenden:
-    "Erstelle ein Entscheidungsszenario (KEINE reine Beschreibung). Der Lernende muss eine berufliche Entscheidung treffen und begründen. Zeige typische Prüfungsfallen mit ⚠️.",
-  wiederholen:
-    "Erstelle Wiederholungsaktivitäten mit Zusammenfassung, Karteikarten und typischen IHK-Prüfungsfragen zum Thema.",
-  mini_check: "Erstelle strukturierte Prüfungsfragen zur Selbstüberprüfung.",
+    "Erstelle ein Entscheidungsszenario (KEINE reine Beschreibung). Der Lernende muss eine berufliche Entscheidung treffen und begründen. Zeige typische Prüfungsfallen mit ⚠️. Mindestens 2 Entscheidungsoptionen mit Abwägung.",
+  wiederholen: `Erstelle KEINE erneute Erklärung. Erstelle stattdessen PRÜFUNGSVERDICHTUNG:
+1. Merksätze: 3-5 kompakte Merksätze mit Fachbegriffen (als Zitat-Block)
+2. Typische IHK-Prüfungsfallen: 3 häufige Fehler mit ⚠️ und Erklärung warum sie falsch sind
+3. Abgrenzungen: Vergleichstabelle mit ähnlichen Begriffen/Konzepten die oft verwechselt werden
+4. Formulierungsübungen: 2 Sätze die der Lernende in Prüfungssprache umformulieren soll
+5. Prüfer-Hinweis: Was IHK-Prüfer bei diesem Thema besonders bewerten`,
+  mini_check: `Erstelle 4 situative Multiple-Choice-Fragen auf IHK-Prüfungsniveau.
+QUALITÄTSSTANDARD:
+- Mindestens 2 Fragen MÜSSEN ein konkretes Fallbeispiel/Szenario enthalten ("Ein Kunde kommt...", "In Ihrem Betrieb...")
+- Distraktoren müssen PLAUSIBEL sein (typische Denkfehler, Verwechslungen, Teilwahrheiten)
+- Mindestens 1 Frage mit Abwägung ("Welche Aussage trifft am EHESTEN zu?")
+- Keine offensichtlich falschen Antworten ("Laut sprechen", "Unpünktlich sein")
+- Fachbegriff-Abgrenzungsfragen einbauen
+- Jede Frage hat difficulty_level: easy|medium|hard (Mix: 1 easy, 2 medium, 1 hard)`,
 };
 
 // ─── Types ──────────────────────────────────────────────────────────────────
