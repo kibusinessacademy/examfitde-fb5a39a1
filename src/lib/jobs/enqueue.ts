@@ -133,7 +133,7 @@ export const PIPELINE_TEMPLATES = {
   },
   'council-review': {
     label: 'Council v2 Review',
-    description: 'Deliberative Architektur: GPT-5.2 generiert, Claude validiert, Verdict + Publish Gate.',
+    description: 'Deliberative Architektur: GPT-4.1 generiert, Claude Sonnet 4 validiert, Verdict + Publish Gate.',
     icon: 'Scale',
     jobs: [
       { job_type: 'council_propose_step' },
@@ -141,6 +141,14 @@ export const PIPELINE_TEMPLATES = {
       { job_type: 'council_vote_and_verdict' },
       { job_type: 'council_publish_step' },
       { job_type: 'council_recompute_course_ready' },
+    ],
+  },
+  'council-full-loop': {
+    label: 'Council v2 Full Loop (pro Step)',
+    description: 'Einzelaufruf: Propose → Critique → (Revise)* → Verdict → Publish – für einen Lesson-Step.',
+    icon: 'Gavel',
+    jobs: [
+      { job_type: 'council_run_step' },
     ],
   },
 } as const;

@@ -143,3 +143,6 @@ verify_jwt = false
 
 [functions.course-upgrade-ihk]
 verify_jwt = false
+
+[functions.council-run-step]
+verify_jwt = false
