@@ -140,3 +140,6 @@ verify_jwt = false
 
 [functions.finance-reports]
 verify_jwt = false
+
+[functions.course-upgrade-ihk]
+verify_jwt = false
