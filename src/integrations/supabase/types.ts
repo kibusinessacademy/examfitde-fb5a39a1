@@ -3936,6 +3936,47 @@ export type Database = {
           },
         ]
       }
+      learner_gates: {
+        Row: {
+          blocked_reason: string | null
+          checked_at: string
+          curriculum_id: string
+          gate_status: string
+          gate_type: string
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          blocked_reason?: string | null
+          checked_at?: string
+          curriculum_id: string
+          gate_status?: string
+          gate_type: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          blocked_reason?: string | null
+          checked_at?: string
+          curriculum_id?: string
+          gate_status?: string
+          gate_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_gates_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learner_notes: {
         Row: {
           created_at: string | null
@@ -7781,6 +7822,67 @@ export type Database = {
         }
         Relationships: []
       }
+      weakness_assignments: {
+        Row: {
+          assigned_at: string
+          competency_id: string
+          curriculum_id: string
+          id: string
+          resolved_at: string | null
+          retrained_lesson_ids: string[] | null
+          score_at_detection: number
+          source_session_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          competency_id: string
+          curriculum_id: string
+          id?: string
+          resolved_at?: string | null
+          retrained_lesson_ids?: string[] | null
+          score_at_detection?: number
+          source_session_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          competency_id?: string
+          curriculum_id?: string
+          id?: string
+          resolved_at?: string | null
+          retrained_lesson_ids?: string[] | null
+          score_at_detection?: number
+          source_session_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weakness_assignments_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weakness_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weakness_assignments_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       affiliate_referrals_safe: {
@@ -8208,6 +8310,10 @@ export type Database = {
       assert_profiles_rls_secure: { Args: never; Returns: undefined }
       attempt_auto_recovery: { Args: { p_alert_id: string }; Returns: Json }
       calculate_daily_kpis: { Args: never; Returns: Json }
+      calculate_exam_readiness: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: Json
+      }
       calculate_product_price: {
         Args: { p_product_id: string; p_quantity: number }
         Returns: {
@@ -8243,6 +8349,14 @@ export type Database = {
         }[]
       }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
+      check_lesson_progression: {
+        Args: { p_lesson_id: string; p_user_id: string }
+        Returns: Json
+      }
+      check_simulation_gate: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: Json
+      }
       check_user_entitlement: {
         Args: { p_curriculum_id: string; p_feature: string; p_user_id: string }
         Returns: boolean
@@ -8294,6 +8408,10 @@ export type Database = {
           p_run_after?: string
         }
         Returns: string
+      }
+      create_weakness_assignments_from_exam: {
+        Args: { p_session_id: string }
+        Returns: number
       }
       export_course_pack: {
         Args: {

@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Lock, ArrowLeft } from 'lucide-react';
 
 import type { Json } from '@/integrations/supabase/types';
 import type { LessonStatus } from '@/hooks/useCourseProgress';
@@ -70,6 +71,7 @@ export default function LessonPlayer() {
   const [lessonOutcome, setLessonOutcome] = useState<LessonOutcome | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [miniCheckKey, setMiniCheckKey] = useState(0);
+  const [progressionBlocked, setProgressionBlocked] = useState<{ blocked: boolean; reason?: string; prevLessonId?: string } | null>(null);
 
   const handleRetryMiniCheck = () => {
     setShowFeedback(false);
@@ -197,6 +199,26 @@ export default function LessonPlayer() {
     fetchLessonData();
   }, [fetchLessonData]);
 
+  // Check lesson progression gate
+  useEffect(() => {
+    async function checkProgression() {
+      if (!lessonId || !user) return;
+      const { data, error } = await supabase.rpc('check_lesson_progression', {
+        p_user_id: user.id,
+        p_lesson_id: lessonId,
+      });
+      if (!error && data) {
+        const gate = data as unknown as { allowed: boolean; reason?: string; previous_lesson_id?: string };
+        if (!gate.allowed) {
+          setProgressionBlocked({ blocked: true, reason: gate.reason, prevLessonId: gate.previous_lesson_id });
+        } else {
+          setProgressionBlocked(null);
+        }
+      }
+    }
+    checkProgression();
+  }, [lessonId, user]);
+
   const completeLesson = async (score?: number, maxScore?: number) => {
     if (!user || !lesson || !progress) return;
 
@@ -298,8 +320,37 @@ export default function LessonPlayer() {
     );
   }
 
-  if (!lesson || !module || !course) {
-    return null;
+  if (!lesson || !module || !course) return null;
+
+  // Mastery gate: block if previous lesson not passed
+  if (progressionBlocked?.blocked) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <Card className="glass-card max-w-md w-full border-destructive/30">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+              <Lock className="h-8 w-8 text-destructive" />
+            </div>
+            <h2 className="text-xl font-display font-bold mb-2">Lektion gesperrt</h2>
+            <p className="text-muted-foreground mb-6">{progressionBlocked.reason}</p>
+            <div className="flex gap-3">
+              {progressionBlocked.prevLessonId && (
+                <Button
+                  className="flex-1 gradient-primary text-primary-foreground"
+                  onClick={() => navigate(`/lesson/${progressionBlocked.prevLessonId}`)}
+                >
+                  Zur vorherigen Lektion
+                </Button>
+              )}
+              <Button variant="outline" className="flex-1 gap-2" onClick={() => navigate(-1)}>
+                <ArrowLeft className="h-4 w-4" />
+                Zurück
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const prevLesson = getPreviousLesson();
