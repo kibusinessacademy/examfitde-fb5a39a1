@@ -13,11 +13,37 @@ const VALIDATOR_LABEL = "claude-sonnet-4";
 
 type SB = ReturnType<typeof createClient>;
 
+/**
+ * Council 6: Compliance & Data Protection Council
+ * 
+ * Phase 1: Automated checks via catalog RPCs (RLS, policies, PII, retention, AI Act, AZAV)
+ * Phase 2: AI deliberation for remediation plans (high/critical only)
+ * Phase 3: Persist findings via idempotent upsert RPC
+ * Phase 4: Generate report snapshot
+ * Phase 5: Recompute compliance_blocked for courseId
+ */
+
+const SENSITIVE_TABLES = [
+  "profiles", "orders", "enterprise_accounts", "enterprise_seats",
+  "user_entitlements", "license_claim_codes", "tutor_assets",
+  "ai_tutor_logs", "support_tickets", "affiliate_payouts",
+  "job_queue", "admin_patch_plans", "marketing_assets", "exam_questions",
+] as const;
+
 interface ScanPayload {
   scanType?: "full" | "pii" | "rls" | "retention" | "ai_act" | "azav_iso";
   courseId?: string;
   _job_id?: string;
   _job_type?: string;
+}
+
+interface FindingInput {
+  area: string;
+  severity: string;
+  title: string;
+  description: string;
+  evidence_json: Record<string, unknown>;
+  remediation_json?: Record<string, unknown> | null;
 }
 
 Deno.serve(async (req) => {
@@ -28,7 +54,7 @@ Deno.serve(async (req) => {
 
   try {
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const p: ScanPayload = body.payload ?? body;
     const scanType = p.scanType ?? "full";
 
@@ -36,12 +62,13 @@ Deno.serve(async (req) => {
 
     const findings: FindingInput[] = [];
 
-    // Phase 1: Automated checks
+    // ── Phase 1: Automated checks ──
     if (scanType === "full" || scanType === "rls") {
-      findings.push(...(await checkRLSPolicies(sb)));
+      findings.push(...(await checkRLS(sb)));
+      findings.push(...(await checkPolicies(sb)));
     }
     if (scanType === "full" || scanType === "pii") {
-      findings.push(...(await checkPIIExposure(sb)));
+      findings.push(...checkPIIExposure());
     }
     if (scanType === "full" || scanType === "retention") {
       findings.push(...(await checkRetention(sb)));
@@ -53,53 +80,39 @@ Deno.serve(async (req) => {
       findings.push(...(await checkAZAVReadiness(sb)));
     }
 
-    // Phase 2: AI deliberation on findings (remediation plans)
-    const enrichedFindings = await deliberateFindings(sb, findings);
+    // ── Phase 2: AI deliberation (high/critical only) ──
+    const enriched = await deliberateFindings(findings);
 
-    // Phase 3: Persist findings (upsert by title to avoid duplicates)
-    let inserted = 0;
-    let updated = 0;
-    for (const f of enrichedFindings) {
-      // Check if finding with same title+area already exists
-      const { data: existing } = await sb
-        .from("compliance_findings")
-        .select("id, status")
-        .eq("title", f.title)
-        .eq("area", f.area)
-        .maybeSingle();
-
-      if (existing) {
-        // Don't reopen resolved/accepted findings
-        if (existing.status === "resolved" || existing.status === "accepted_risk") continue;
-        await sb.from("compliance_findings").update({
-          severity: f.severity,
-          description: f.description,
-          evidence_json: f.evidence_json,
-          remediation_json: f.remediation_json,
-        }).eq("id", existing.id);
-        updated++;
-      } else {
-        await sb.from("compliance_findings").insert(f);
-        inserted++;
-      }
+    // ── Phase 3: Persist via idempotent upsert RPC ──
+    let upserted = 0;
+    for (const f of enriched) {
+      const { error } = await sb.rpc("upsert_compliance_finding", {
+        p_area: f.area,
+        p_severity: f.severity,
+        p_title: f.title,
+        p_description: f.description,
+        p_evidence: { ...f.evidence_json, remediation: f.remediation_json ?? null },
+      });
+      if (error) console.warn(`[ComplianceCouncil] upsert error: ${error.message}`);
+      else upserted++;
     }
 
-    // Phase 4: Generate report snapshot
+    // ── Phase 4: Report snapshot ──
     const { data: openFindings } = await sb
       .from("compliance_findings")
       .select("id, area, severity, title, status")
       .in("status", ["open", "in_progress"])
       .order("severity");
 
+    const open = openFindings ?? [];
     const summary = {
       scan_type: scanType,
-      total_findings: enrichedFindings.length,
-      inserted,
-      updated,
-      open_critical: (openFindings ?? []).filter((f: Record<string, string>) => f.severity === "critical").length,
-      open_high: (openFindings ?? []).filter((f: Record<string, string>) => f.severity === "high").length,
-      open_medium: (openFindings ?? []).filter((f: Record<string, string>) => f.severity === "medium").length,
-      open_low: (openFindings ?? []).filter((f: Record<string, string>) => f.severity === "low").length,
+      total_findings: enriched.length,
+      upserted,
+      open_critical: open.filter((f: Record<string, string>) => f.severity === "critical").length,
+      open_high: open.filter((f: Record<string, string>) => f.severity === "high").length,
+      open_medium: open.filter((f: Record<string, string>) => f.severity === "medium").length,
+      open_low: open.filter((f: Record<string, string>) => f.severity === "low").length,
       scanned_at: new Date().toISOString(),
     };
 
@@ -107,10 +120,10 @@ Deno.serve(async (req) => {
       report_type: scanType === "full" ? "weekly" : scanType === "azav_iso" ? "azav" : "release",
       scope_json: { scanType, courseId: p.courseId ?? null },
       summary_json: summary,
-      findings_snapshot: openFindings ?? [],
+      findings_snapshot: open,
     });
 
-    // Phase 5: Recompute compliance block if courseId given
+    // ── Phase 5: Recompute compliance block ──
     if (p.courseId) {
       await sb.rpc("recompute_compliance_block", { p_course_id: p.courseId });
     }
@@ -123,111 +136,96 @@ Deno.serve(async (req) => {
   }
 });
 
-/* ── Finding type ── */
-interface FindingInput {
-  area: string;
-  severity: string;
-  title: string;
-  description: string;
-  evidence_json: Record<string, unknown>;
-  remediation_json?: Record<string, unknown> | null;
-}
-
-/* ── Check: RLS Policies ── */
-async function checkRLSPolicies(sb: SB): Promise<FindingInput[]> {
+/* ────────────────────────────────────────────
+ * Check: RLS enabled on sensitive tables
+ * Uses compliance_rls_status() RPC
+ * ──────────────────────────────────────────── */
+async function checkRLS(sb: SB): Promise<FindingInput[]> {
   const findings: FindingInput[] = [];
+  const { data, error } = await sb.rpc("compliance_rls_status", { p_tables: [...SENSITIVE_TABLES] });
+  if (error) { console.warn("[ComplianceCouncil] rls_status RPC error:", error.message); return findings; }
 
-  // Check tables without RLS
-  const { data: tables } = await sb.rpc("get_tables_without_rls").catch(() => ({ data: null }));
-  
-  // Fallback: check known sensitive tables
-  const sensitiveTables = [
-    "profiles", "user_roles", "orders", "license_claim_codes",
-    "enterprise_accounts", "enterprise_seats", "affiliate_payouts",
-    "ai_tutor_logs", "support_tickets",
-  ];
-
-  for (const tableName of sensitiveTables) {
-    // Check if table has overly permissive policies by querying pg_policies
-    const { data: policies } = await sb
-      .from("compliance_findings")  // dummy query to test connectivity
-      .select("id")
-      .limit(0);
-
-    // We can't query pg_policies directly via supabase-js, so we flag known risks
-    findings.push({
-      area: "rls",
-      severity: "medium",
-      title: `RLS Audit: ${tableName}`,
-      description: `Tabelle "${tableName}" enthält sensible Daten. RLS-Policies müssen geprüft werden: keine USING(true) für anon/public.`,
-      evidence_json: { table: tableName, check: "manual_review_needed" },
-    });
-  }
-
-  // If we got tables without RLS from RPC
-  if (tables && Array.isArray(tables)) {
-    for (const t of tables) {
+  for (const row of (data ?? []) as Array<{ tablename: string; rls_enabled: boolean; force_rls: boolean }>) {
+    if (!row.rls_enabled) {
       findings.push({
         area: "rls",
         severity: "critical",
-        title: `RLS deaktiviert: ${t.table_name ?? t}`,
-        description: `Tabelle "${t.table_name ?? t}" hat keine Row Level Security. Alle Daten sind ohne Authentifizierung zugänglich.`,
-        evidence_json: { table: t.table_name ?? t, rls_enabled: false },
+        title: `RLS deaktiviert: ${row.tablename}`,
+        description: `Tabelle public.${row.tablename} hat keine Row Level Security. Alle Daten sind ohne Authentifizierung zugänglich.`,
+        evidence_json: { table: row.tablename, rls_enabled: false, force_rls: row.force_rls },
       });
     }
   }
-
   return findings;
 }
 
-/* ── Check: PII Exposure ── */
-async function checkPIIExposure(sb: SB): Promise<FindingInput[]> {
+/* ────────────────────────────────────────────
+ * Check: Policy safety on sensitive tables
+ * Uses compliance_policies() RPC
+ * ──────────────────────────────────────────── */
+async function checkPolicies(sb: SB): Promise<FindingInput[]> {
   const findings: FindingInput[] = [];
+  const { data, error } = await sb.rpc("compliance_policies", { p_tables: [...SENSITIVE_TABLES] });
+  if (error) { console.warn("[ComplianceCouncil] policies RPC error:", error.message); return findings; }
 
-  // Check profiles table for PII columns
-  const piiColumns = [
-    { table: "profiles", columns: ["email", "full_name", "avatar_url"], risk: "medium" },
-    { table: "enterprise_seats", columns: ["user_email"], risk: "high" },
-    { table: "affiliate_payouts", columns: ["payment_method", "transaction_reference"], risk: "high" },
-    { table: "support_tickets", columns: ["user_id", "description"], risk: "medium" },
-    { table: "ai_tutor_logs", columns: ["user_id", "prompt_hash"], risk: "medium" },
+  interface PolicyRow { tablename: string; policyname: string; roles: string[]; qual: string; with_check: string }
+  for (const p of (data ?? []) as PolicyRow[]) {
+    const roles = p.roles ?? [];
+    const qual = (p.qual ?? "").trim();
+    const withCheck = (p.with_check ?? "").trim();
+
+    const rolesHasPublic = roles.includes("public");
+    const qualIsTrivial = qual === "true" || qual === "" || qual === "(true)";
+    const looksUnguarded = !qual.includes("is_admin") && !qual.includes("auth.uid")
+      && !withCheck.includes("is_admin") && !withCheck.includes("auth.uid");
+
+    if (rolesHasPublic && qualIsTrivial) {
+      findings.push({
+        area: "security",
+        severity: "critical",
+        title: `Unsafe policy: public auf ${p.tablename} (${p.policyname})`,
+        description: `Policy erlaubt Zugriff für "public" mit trivialer Bedingung (qual="${qual}").`,
+        evidence_json: { table: p.tablename, policy: p.policyname, roles, qual },
+      });
+    } else if (qualIsTrivial && looksUnguarded) {
+      findings.push({
+        area: "security",
+        severity: "high",
+        title: `Weak policy: ${p.tablename} (${p.policyname})`,
+        description: `Policy wirkt ungeschützt (qual="${qual}"). Prüfe ob nur Admin/Owner Zugriff hat.`,
+        evidence_json: { table: p.tablename, policy: p.policyname, roles, qual },
+      });
+    }
+  }
+  return findings;
+}
+
+/* ────────────────────────────────────────────
+ * Check: PII Exposure (static catalog)
+ * ──────────────────────────────────────────── */
+function checkPIIExposure(): FindingInput[] {
+  const piiChecks = [
+    { table: "profiles", columns: ["email", "full_name", "avatar_url"], risk: "medium" as const },
+    { table: "enterprise_seats", columns: ["user_email"], risk: "high" as const },
+    { table: "affiliate_payouts", columns: ["payment_method", "transaction_reference"], risk: "high" as const },
+    { table: "support_tickets", columns: ["user_id", "description"], risk: "medium" as const },
+    { table: "ai_tutor_logs", columns: ["user_id", "prompt_hash"], risk: "medium" as const },
   ];
 
-  for (const check of piiColumns) {
-    findings.push({
-      area: "pii",
-      severity: check.risk as string,
-      title: `PII-Spalten: ${check.table}`,
-      description: `Tabelle "${check.table}" enthält PII-Daten (${check.columns.join(", ")}). Zugriffsbeschränkung und Verschlüsselung prüfen.`,
-      evidence_json: { table: check.table, pii_columns: check.columns },
-    });
-  }
-
-  // Check if exports contain PII
-  const { data: recentExports } = await sb
-    .from("audit_exports")
-    .select("id, export_type, created_at")
-    .order("created_at", { ascending: false })
-    .limit(5);
-
-  if (recentExports?.length) {
-    findings.push({
-      area: "exports",
-      severity: "medium",
-      title: "Audit-Exports: PII-Prüfung ausstehend",
-      description: `${recentExports.length} kürzliche Exports gefunden. Prüfen ob personenbezogene Daten enthalten sind (DSGVO Art. 25).`,
-      evidence_json: { export_count: recentExports.length, recent_ids: recentExports.map((e: Record<string, string>) => e.id) },
-    });
-  }
-
-  return findings;
+  return piiChecks.map(c => ({
+    area: "pii",
+    severity: c.risk,
+    title: `PII-Spalten: ${c.table}`,
+    description: `Tabelle "${c.table}" enthält PII (${c.columns.join(", ")}). Zugriff und Verschlüsselung prüfen.`,
+    evidence_json: { table: c.table, pii_columns: c.columns },
+  }));
 }
 
-/* ── Check: Data Retention ── */
+/* ────────────────────────────────────────────
+ * Check: Data Retention
+ * ──────────────────────────────────────────── */
 async function checkRetention(sb: SB): Promise<FindingInput[]> {
   const findings: FindingInput[] = [];
-
-  // Check old tutor logs (>90 days)
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
   const { count: oldLogs } = await sb
@@ -240,12 +238,11 @@ async function checkRetention(sb: SB): Promise<FindingInput[]> {
       area: "retention",
       severity: "high",
       title: "Tutor-Logs ohne TTL (>90 Tage)",
-      description: `${oldLogs} AI-Tutor-Logeinträge sind älter als 90 Tage. Datensparsamkeit gem. DSGVO Art. 5(1)(e) erfordert Löschkonzept.`,
+      description: `${oldLogs} AI-Tutor-Logs älter als 90 Tage. DSGVO Art. 5(1)(e) erfordert Löschkonzept.`,
       evidence_json: { old_log_count: oldLogs, threshold_days: 90 },
     });
   }
 
-  // Check old AI usage logs
   const { count: oldUsage } = await sb
     .from("ai_usage_log")
     .select("id", { count: "exact", head: true })
@@ -260,15 +257,15 @@ async function checkRetention(sb: SB): Promise<FindingInput[]> {
       evidence_json: { old_count: oldUsage, threshold_days: 90 },
     });
   }
-
   return findings;
 }
 
-/* ── Check: AI Act Governance ── */
+/* ────────────────────────────────────────────
+ * Check: AI Act Governance
+ * ──────────────────────────────────────────── */
 async function checkAIGovernance(sb: SB): Promise<FindingInput[]> {
   const findings: FindingInput[] = [];
 
-  // Check if AI usage is logged
   const { count: usageCount } = await sb
     .from("ai_usage_log")
     .select("id", { count: "exact", head: true });
@@ -278,12 +275,11 @@ async function checkAIGovernance(sb: SB): Promise<FindingInput[]> {
       area: "ai_act",
       severity: "critical",
       title: "AI-Nutzungsprotokollierung fehlt",
-      description: "Keine Einträge in ai_usage_log. EU AI Act Art. 12 erfordert vollständige Protokollierung aller AI-Systemnutzungen.",
+      description: "Keine Einträge in ai_usage_log. EU AI Act Art. 12 erfordert vollständige Protokollierung.",
       evidence_json: { ai_usage_log_count: 0 },
     });
   }
 
-  // Check AI worker policies exist
   const { count: policyCount } = await sb
     .from("ai_worker_policies")
     .select("job_type", { count: "exact", head: true });
@@ -293,12 +289,11 @@ async function checkAIGovernance(sb: SB): Promise<FindingInput[]> {
       area: "ai_act",
       severity: "high",
       title: "AI Worker Policies unvollständig",
-      description: `Nur ${policyCount ?? 0} AI Worker Policies definiert. Human-Oversight und Risikomanagement gem. EU AI Act Art. 14 sicherstellen.`,
+      description: `Nur ${policyCount ?? 0} Policies. EU AI Act Art. 14 erfordert Human-Oversight.`,
       evidence_json: { policy_count: policyCount ?? 0 },
     });
   }
 
-  // Check cost budgets
   const currentMonth = new Date().toISOString().slice(0, 7);
   const { data: budget } = await sb
     .from("ai_cost_budgets")
@@ -311,19 +306,19 @@ async function checkAIGovernance(sb: SB): Promise<FindingInput[]> {
       area: "ai_act",
       severity: "medium",
       title: `AI-Kostenbudget fehlt (${currentMonth})`,
-      description: "Kein AI-Kostenbudget für den aktuellen Monat definiert. Governance erfordert Kostenkontrolle.",
+      description: "Kein AI-Kostenbudget für den aktuellen Monat definiert.",
       evidence_json: { month: currentMonth },
     });
   }
-
   return findings;
 }
 
-/* ── Check: AZAV/ISO Readiness ── */
+/* ────────────────────────────────────────────
+ * Check: AZAV/ISO Readiness
+ * ──────────────────────────────────────────── */
 async function checkAZAVReadiness(sb: SB): Promise<FindingInput[]> {
   const findings: FindingInput[] = [];
 
-  // Check QM documents
   const { count: qmCount } = await sb
     .from("qm_documents")
     .select("id", { count: "exact", head: true })
@@ -334,12 +329,11 @@ async function checkAZAVReadiness(sb: SB): Promise<FindingInput[]> {
       area: "azav_iso",
       severity: "high",
       title: "QM-Dokumentation unvollständig",
-      description: `Nur ${qmCount ?? 0} aktive QM-Dokumente. AZAV-Zertifizierung erfordert vollständiges QM-System (§ 178 SGB III).`,
+      description: `Nur ${qmCount ?? 0} aktive QM-Dokumente. AZAV erfordert vollständiges QM-System (§ 178 SGB III).`,
       evidence_json: { active_qm_docs: qmCount ?? 0 },
     });
   }
 
-  // Check Fachbereiche
   const { count: fbCount } = await sb
     .from("azav_fachbereiche")
     .select("id", { count: "exact", head: true })
@@ -350,12 +344,11 @@ async function checkAZAVReadiness(sb: SB): Promise<FindingInput[]> {
       area: "azav_iso",
       severity: "critical",
       title: "Keine AZAV-Fachbereiche definiert",
-      description: "Ohne zugelassene Fachbereiche ist keine Maßnahmenzulassung möglich (§ 179 SGB III).",
+      description: "Ohne zugelassene Fachbereiche keine Maßnahmenzulassung möglich (§ 179 SGB III).",
       evidence_json: { fachbereiche_count: 0 },
     });
   }
 
-  // Check Maßnahmenzulassungen
   const { count: mzCount } = await sb
     .from("azav_massnahmen_zulassungen")
     .select("id", { count: "exact", head: true })
@@ -366,31 +359,28 @@ async function checkAZAVReadiness(sb: SB): Promise<FindingInput[]> {
       area: "azav_iso",
       severity: "high",
       title: "Keine zugelassenen Maßnahmen",
-      description: "Keine Bildungsmaßnahme hat den Status 'zugelassen'. Ohne Zulassung keine Bildungsgutschein-Abrechnung.",
+      description: "Keine Maßnahme hat Status 'zugelassen'. Ohne Zulassung keine Bildungsgutschein-Abrechnung.",
       evidence_json: { zugelassen_count: 0 },
     });
   }
-
   return findings;
 }
 
-/* ── Phase 2: AI Deliberation for Remediation Plans ── */
-async function deliberateFindings(sb: SB, findings: FindingInput[]): Promise<FindingInput[]> {
-  if (!findings.length) return findings;
-
-  // Only deliberate high/critical findings (cost control)
+/* ────────────────────────────────────────────
+ * Phase 2: AI Deliberation (remediation plans)
+ * ──────────────────────────────────────────── */
+async function deliberateFindings(findings: FindingInput[]): Promise<FindingInput[]> {
   const needsRemediation = findings.filter(f => f.severity === "high" || f.severity === "critical");
   if (!needsRemediation.length) return findings;
 
   try {
-    // Proposer: Generate remediation plans
     const proposalResult = await callAIJSON({
       provider: "openai",
       model: PROPOSER_MODEL,
       messages: [
         {
           role: "system",
-          content: `Du bist Compliance Council (Proposer). Für jedes Finding generiere einen konkreten Remediation Plan.
+          content: `Du bist Compliance Council (Proposer: ${PROPOSER_LABEL}). Für jedes Finding generiere einen Remediation Plan.
 Output STRICT JSON: { "remediations": [{ "title": "...", "steps": ["..."], "priority": "immediate|short_term|long_term", "effort": "low|medium|high" }] }
 Beachte: DSGVO, EU AI Act, AZAV/SGB III, ISO 29993.`,
         },
@@ -404,19 +394,15 @@ Beachte: DSGVO, EU AI Act, AZAV/SGB III, ISO 29993.`,
 
     const proposalContent = proposalResult.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     let remediations: Array<Record<string, unknown>> = [];
-    try {
-      const parsed = JSON.parse(proposalContent);
-      remediations = parsed.remediations ?? [];
-    } catch { /* ignore parse errors */ }
+    try { remediations = (JSON.parse(proposalContent)).remediations ?? []; } catch { /* ignore */ }
 
-    // Validator: Check remediation quality
     const validationResult = await callAIJSON({
       provider: "anthropic",
       model: VALIDATOR_MODEL,
       messages: [
         {
           role: "system",
-          content: `Du bist Compliance Council (Validator). Prüfe die Remediation Plans auf Korrektheit und Vollständigkeit.
+          content: `Du bist Compliance Council (Validator: ${VALIDATOR_LABEL}). Prüfe Remediation Plans.
 Output STRICT JSON: { "validated": [{ "index": N, "ok": boolean, "issues": ["..."] }] }`,
         },
         {
@@ -429,12 +415,8 @@ Output STRICT JSON: { "validated": [{ "index": N, "ok": boolean, "issues": ["...
 
     const valContent = validationResult.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     let validated: Array<Record<string, unknown>> = [];
-    try {
-      const parsed = JSON.parse(valContent);
-      validated = parsed.validated ?? [];
-    } catch { /* ignore */ }
+    try { validated = (JSON.parse(valContent)).validated ?? []; } catch { /* ignore */ }
 
-    // Merge remediation plans into findings
     for (let i = 0; i < needsRemediation.length; i++) {
       const rem = remediations[i];
       const val = validated.find((v: Record<string, unknown>) => v.index === i);
@@ -450,7 +432,6 @@ Output STRICT JSON: { "validated": [{ "index": N, "ok": boolean, "issues": ["...
     }
   } catch (err) {
     console.warn("[ComplianceCouncil] AI deliberation failed (non-blocking):", err);
-    // Non-blocking: findings still get persisted without remediation
   }
 
   return findings;

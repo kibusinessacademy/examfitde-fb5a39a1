@@ -9625,6 +9625,28 @@ export type Database = {
             Returns: undefined
           }
         | { Args: { p_job_id: string; p_result?: Json }; Returns: undefined }
+      compliance_policies: {
+        Args: { p_tables: string[] }
+        Returns: {
+          cmd: string
+          permissive: string
+          policyname: string
+          qual: string
+          roles: string[]
+          schemaname: string
+          tablename: string
+          with_check: string
+        }[]
+      }
+      compliance_rls_status: {
+        Args: { p_tables: string[] }
+        Returns: {
+          force_rls: boolean
+          rls_enabled: boolean
+          schemaname: string
+          tablename: string
+        }[]
+      }
       compute_question_hash: { Args: { p_text: string }; Returns: string }
       course_pack_fingerprint: {
         Args: { p_course_id: string }
@@ -10148,6 +10170,16 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      upsert_compliance_finding: {
+        Args: {
+          p_area: string
+          p_description: string
+          p_evidence: Json
+          p_severity: Database["public"]["Enums"]["compliance_severity"]
+          p_title: string
+        }
+        Returns: string
       }
       validate_blueprint_constraints: {
         Args: { p_blueprint_id: string; p_variable_values: Json }
