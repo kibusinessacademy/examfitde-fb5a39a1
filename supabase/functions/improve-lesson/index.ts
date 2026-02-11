@@ -90,11 +90,20 @@ const IMPROVEMENT_INSTRUCTIONS: Record<string, string> = {
 - Nach jeder Definition/Erklärung: "Beispiel: ... Gegenbeispiel: ..."
 - Das Gegenbeispiel soll eine häufige Fehlannahme verdeutlichen`,
 
-  minicheck_verbessern: `VERBESSERE die MiniCheck-Fragen:
-1. Mache Distraktoren PLAUSIBEL (nicht offensichtlich falsch)
-2. Füge mind. 1 Abwägungsfrage hinzu: "Welche Aussage trifft am ehesten zu?"
-3. Erklärungen MÜSSEN begründen warum die falschen Optionen falsch sind
-4. Keine reinen Wissensfragen – mehr Denkfragen`,
+  minicheck_verbessern: `VERBESSERE die MiniCheck-Fragen auf IHK-Prüfungsniveau:
+1. DISTRAKTOREN: Jeder Distraktor muss einen konkreten Denkfehler abbilden (Verwechslung, Teilwahrheit, Übergeneralisierung). KEINE offensichtlich absurden Optionen.
+2. SITUATIONSAUFGABEN: Mindestens 2 Fragen müssen ein konkretes Fallbeispiel enthalten ("Ein Kunde kommt...", "In Ihrem Betrieb...")
+3. ABWÄGUNGSFRAGE: Mind. 1 Frage mit "Welche Aussage trifft am EHESTEN zu?" (nicht: "Was ist richtig?")
+4. ERKLÄRUNGEN: Erkläre den KONKRETEN Denkfehler hinter jedem falschen Distraktor, nicht nur "ist falsch"
+5. SCHWIERIGKEIT: Mix aus easy (1), medium (2), hard (1) – markiere jede Frage mit difficulty_level
+6. Keine reinen Wissensfragen – mehr Entscheidungs- und Analysefragen`,
+
+  wiederholen_verdichten: `ERSETZE reine Wiederholung durch PRÜFUNGSVERDICHTUNG:
+1. Merksätze: 3-5 kompakte Merksätze mit Fachbegriffen (als Zitat-Block)
+2. Typische IHK-Prüfungsfallen: 3 häufige Fehler mit ⚠️ und Erklärung
+3. Abgrenzungstabelle: Vergleich ähnlicher Begriffe/Konzepte die verwechselt werden
+4. Formulierungsübungen: 2 Sätze in IHK-Prüfungssprache umformulieren
+5. KEINE erneute Erklärung des Stoffes – nur Verdichtung und Transferhilfen`,
 };
 
 serve(async (req) => {
