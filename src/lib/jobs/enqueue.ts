@@ -118,6 +118,19 @@ export const PIPELINE_TEMPLATES = {
       { job_type: 'curriculum_smoke' },
     ],
   },
+  'ihk-upgrade': {
+    label: 'IHK-Prüfungsniveau Upgrade',
+    description: 'Blueprint-Mapping, Exam-Blocks, MiniCheck-Upgrade, Gewichtung & Difficulty – vollautomatisch in 4 Phasen.',
+    icon: 'GraduationCap',
+    jobs: [
+      { job_type: 'upgrade_ihk', extra: { phase: 'blueprints' } },
+      { job_type: 'upgrade_ihk', extra: { phase: 'exam_blocks' } },
+      { job_type: 'upgrade_ihk', extra: { phase: 'weighting' } },
+      { job_type: 'upgrade_ihk', extra: { phase: 'minichecks' } },
+      { job_type: 'qc_worker_full' },
+      { job_type: 'post_validation' },
+    ],
+  },
 } as const;
 
 export type PipelineTemplateKey = keyof typeof PIPELINE_TEMPLATES;

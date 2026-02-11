@@ -46,10 +46,11 @@ const JOB_TYPE_MAP: Record<string, string> = {
   // Product Lifecycle
   publish_product: "product-orchestrator",
   
-  // Repair / Improve
+  // Repair / Improve / Upgrade
   repair_lessons: "repair-lessons",
   improve_lesson: "improve-lesson",
   validate_content: "validate-content",
+  upgrade_ihk: "course-upgrade-ihk",
   
   // AutoPilot Final Gate
   course_finalize: "course-finalizer",
