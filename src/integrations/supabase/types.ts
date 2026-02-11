@@ -1720,11 +1720,40 @@ export type Database = {
         }
         Relationships: []
       }
+      compliance_gate_rules: {
+        Row: {
+          area: string
+          created_at: string
+          enabled: boolean
+          id: string
+          min_severity: Database["public"]["Enums"]["compliance_severity"]
+          updated_at: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          min_severity: Database["public"]["Enums"]["compliance_severity"]
+          updated_at?: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          min_severity?: Database["public"]["Enums"]["compliance_severity"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       compliance_reports: {
         Row: {
           created_at: string
           findings_snapshot: Json
           id: string
+          pdf_generated_at: string | null
+          pdf_path: string | null
           report_type: string
           scope_json: Json
           summary_json: Json
@@ -1733,6 +1762,8 @@ export type Database = {
           created_at?: string
           findings_snapshot?: Json
           id?: string
+          pdf_generated_at?: string | null
+          pdf_path?: string | null
           report_type: string
           scope_json?: Json
           summary_json?: Json
@@ -1741,6 +1772,8 @@ export type Database = {
           created_at?: string
           findings_snapshot?: Json
           id?: string
+          pdf_generated_at?: string | null
+          pdf_path?: string | null
           report_type?: string
           scope_json?: Json
           summary_json?: Json
@@ -9551,6 +9584,7 @@ export type Database = {
         Args: { p_course_id: string; p_lesson_id: string; p_questions?: number }
         Returns: string
       }
+      assert_compliance_release_ok: { Args: never; Returns: undefined }
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
       assert_profiles_rls_secure: { Args: never; Returns: undefined }
       attach_finding_remediation: {
@@ -9661,6 +9695,11 @@ export type Database = {
           tablename: string
         }[]
       }
+      compliance_severity_rank: {
+        Args: { p: Database["public"]["Enums"]["compliance_severity"] }
+        Returns: number
+      }
+      compute_compliance_release_gate: { Args: never; Returns: Json }
       compute_question_hash: { Args: { p_text: string }; Returns: string }
       course_pack_fingerprint: {
         Args: { p_course_id: string }
@@ -9961,6 +10000,10 @@ export type Database = {
       }
       recompute_compliance_block: {
         Args: { p_course_id: string }
+        Returns: undefined
+      }
+      recompute_compliance_block_all_courses: {
+        Args: never
         Returns: undefined
       }
       recompute_course_publish_readiness: {

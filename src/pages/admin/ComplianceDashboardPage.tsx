@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, ShieldAlert, ShieldCheck, ScanLine, FileText, Loader2, AlertTriangle } from "lucide-react";
+import {
+  Shield, ShieldAlert, ShieldCheck, ScanLine, FileText, Loader2,
+  AlertTriangle, Wrench, Download, FileDown, Lock,
+} from "lucide-react";
 import { toast } from "sonner";
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -31,6 +34,7 @@ const AREA_LABELS: Record<string, string> = {
   ai_act: "EU AI Act",
   azav_iso: "AZAV / ISO",
   exports: "Daten-Exports",
+  security: "Security",
 };
 
 export default function ComplianceDashboardPage() {
@@ -38,6 +42,7 @@ export default function ComplianceDashboardPage() {
   const [areaFilter, setAreaFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
 
+  // ── Queries ──
   const { data: findings, isLoading: loadingFindings } = useQuery({
     queryKey: ["compliance-findings", areaFilter, severityFilter],
     queryFn: async () => {
@@ -46,10 +51,8 @@ export default function ComplianceDashboardPage() {
         .select("*")
         .order("severity" as never)
         .order("created_at", { ascending: false });
-
       if (areaFilter !== "all") q = q.eq("area", areaFilter as never);
       if (severityFilter !== "all") q = q.eq("severity", severityFilter as never);
-
       const { data, error } = await q.limit(100);
       if (error) throw error;
       return data;
@@ -69,6 +72,28 @@ export default function ComplianceDashboardPage() {
     },
   });
 
+  const { data: gateRules } = useQuery({
+    queryKey: ["compliance-gate-rules"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("compliance_gate_rules")
+        .select("*")
+        .order("area");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: releaseGate } = useQuery({
+    queryKey: ["compliance-release-gate"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("compute_compliance_release_gate");
+      if (error) throw error;
+      return data as { blocked: boolean; reasons: Array<{ area: string; min_severity: string; open_findings: number }> };
+    },
+  });
+
+  // ── Mutations ──
   const scanMutation = useMutation({
     mutationFn: async (scanType: string) => {
       const { data, error } = await supabase.functions.invoke("compliance-council-scan", {
@@ -81,8 +106,59 @@ export default function ComplianceDashboardPage() {
       toast.success(`Scan abgeschlossen: ${data?.summary?.total_findings ?? 0} Findings`);
       qc.invalidateQueries({ queryKey: ["compliance-findings"] });
       qc.invalidateQueries({ queryKey: ["compliance-reports"] });
+      qc.invalidateQueries({ queryKey: ["compliance-release-gate"] });
     },
     onError: (err) => toast.error(`Scan fehlgeschlagen: ${err.message}`),
+  });
+
+  const remediateMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("compliance-council-remediate", {
+        body: { action: "remediate_open_findings", payload: { limit: 10 } },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Remediation: ${data?.processed ?? 0} Findings verarbeitet`);
+      qc.invalidateQueries({ queryKey: ["compliance-findings"] });
+    },
+    onError: (err) => toast.error(`Remediation fehlgeschlagen: ${err.message}`),
+  });
+
+  const reportMutation = useMutation({
+    mutationFn: async (reportType: string) => {
+      const { data, error } = await supabase.functions.invoke("compliance-council-report", {
+        body: { reportType },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Report erstellt");
+      qc.invalidateQueries({ queryKey: ["compliance-reports"] });
+    },
+    onError: (err) => toast.error(`Report fehlgeschlagen: ${err.message}`),
+  });
+
+  const pdfMutation = useMutation({
+    mutationFn: async (reportId: string) => {
+      const { data, error } = await supabase.functions.invoke("compliance-council-export-pdf", {
+        body: { reportId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data?.signed_url) {
+        window.open(data.signed_url, "_blank");
+        toast.success("PDF generiert – Download gestartet");
+      } else {
+        toast.success("PDF generiert");
+      }
+      qc.invalidateQueries({ queryKey: ["compliance-reports"] });
+    },
+    onError: (err) => toast.error(`PDF Export fehlgeschlagen: ${err.message}`),
   });
 
   const updateStatus = useMutation({
@@ -96,35 +172,65 @@ export default function ComplianceDashboardPage() {
     onSuccess: () => {
       toast.success("Status aktualisiert");
       qc.invalidateQueries({ queryKey: ["compliance-findings"] });
+      qc.invalidateQueries({ queryKey: ["compliance-release-gate"] });
     },
   });
 
+  // ── Derived stats ──
   const openCritical = findings?.filter(f => f.severity === "critical" && f.status === "open").length ?? 0;
   const openHigh = findings?.filter(f => f.severity === "high" && f.status === "open").length ?? 0;
   const resolved = findings?.filter(f => f.status === "resolved").length ?? 0;
+  const isBlocked = releaseGate?.blocked ?? false;
+  const anyLoading = scanMutation.isPending || remediateMutation.isPending || reportMutation.isPending || pdfMutation.isPending;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
             <Shield className="h-5 w-5" /> Council 6: Compliance & Data Protection
           </h2>
           <p className="text-sm text-muted-foreground">DSGVO · EU AI Act · AZAV/ISO · Governance</p>
         </div>
-        <Button
-          onClick={() => scanMutation.mutate("full")}
-          disabled={scanMutation.isPending}
-          size="sm"
-        >
-          {scanMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ScanLine className="h-4 w-4 mr-1" />}
-          Compliance Scan
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={() => scanMutation.mutate("full")} disabled={anyLoading} size="sm">
+            {scanMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ScanLine className="h-4 w-4 mr-1" />}
+            Scan
+          </Button>
+          <Button onClick={() => remediateMutation.mutate()} disabled={anyLoading} size="sm" variant="outline">
+            {remediateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Wrench className="h-4 w-4 mr-1" />}
+            Remediate
+          </Button>
+          <Button onClick={() => reportMutation.mutate("release")} disabled={anyLoading} size="sm" variant="outline">
+            {reportMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <FileText className="h-4 w-4 mr-1" />}
+            Report
+          </Button>
+        </div>
       </div>
 
+      {/* Release Gate Status */}
+      {isBlocked && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardContent className="p-4 flex items-start gap-3">
+            <Lock className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+            <div>
+              <div className="font-semibold text-destructive text-sm">Release Gate BLOCKED</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Publish/Finalize ist blockiert. Offene Findings verletzen Gate-Regeln:
+              </p>
+              <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
+                {releaseGate?.reasons?.map((r, i) => (
+                  <li key={i}>{AREA_LABELS[r.area] ?? r.area}: {r.open_findings} offen (min. {r.min_severity})</li>
+                ))}
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card>
           <CardContent className="p-4 text-center">
             <ShieldAlert className="h-5 w-5 mx-auto text-destructive mb-1" />
@@ -153,6 +259,15 @@ export default function ComplianceDashboardPage() {
             <div className="text-xs text-muted-foreground">Reports</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <Lock className={`h-5 w-5 mx-auto mb-1 ${isBlocked ? "text-destructive" : "text-green-500"}`} />
+            <div className={`text-2xl font-bold ${isBlocked ? "text-destructive" : "text-green-500"}`}>
+              {isBlocked ? "BLOCK" : "OK"}
+            </div>
+            <div className="text-xs text-muted-foreground">Release Gate</div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Tabs */}
@@ -160,15 +275,14 @@ export default function ComplianceDashboardPage() {
         <TabsList>
           <TabsTrigger value="findings">Findings</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="gates">Gate Rules</TabsTrigger>
         </TabsList>
 
+        {/* ── Findings Tab ── */}
         <TabsContent value="findings" className="space-y-4">
-          {/* Filters */}
           <div className="flex gap-2 flex-wrap">
             <Select value={areaFilter} onValueChange={setAreaFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Bereich" />
-              </SelectTrigger>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Bereich" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alle Bereiche</SelectItem>
                 {Object.entries(AREA_LABELS).map(([k, v]) => (
@@ -177,9 +291,7 @@ export default function ComplianceDashboardPage() {
               </SelectContent>
             </Select>
             <Select value={severityFilter} onValueChange={setSeverityFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Severity" />
-              </SelectTrigger>
+              <SelectTrigger className="w-[150px]"><SelectValue placeholder="Severity" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alle</SelectItem>
                 <SelectItem value="critical">Critical</SelectItem>
@@ -191,9 +303,7 @@ export default function ComplianceDashboardPage() {
           </div>
 
           {loadingFindings ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : !findings?.length ? (
             <Card><CardContent className="p-8 text-center text-muted-foreground">
               Keine Findings. Starte einen Compliance Scan.
@@ -207,6 +317,7 @@ export default function ComplianceDashboardPage() {
                     <TableHead>Bereich</TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Patch</TableHead>
                     <TableHead className="text-right">Aktion</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -224,33 +335,18 @@ export default function ComplianceDashboardPage() {
                       <TableCell>
                         <Badge variant="outline" className={STATUS_COLORS[f.status] ?? ""}>{f.status}</Badge>
                       </TableCell>
+                      <TableCell className="text-xs">
+                        {f.patch_plan_id ? <Badge variant="outline" className="bg-green-500/10 text-green-600">✓</Badge> : "–"}
+                      </TableCell>
                       <TableCell className="text-right">
                         {f.status === "open" && (
                           <div className="flex gap-1 justify-end">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateStatus.mutate({ id: f.id, status: "in_progress" })}
-                            >
-                              Start
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => updateStatus.mutate({ id: f.id, status: "accepted_risk" })}
-                            >
-                              Accept
-                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: f.id, status: "in_progress" })}>Start</Button>
+                            <Button size="sm" variant="ghost" onClick={() => updateStatus.mutate({ id: f.id, status: "accepted_risk" })}>Accept</Button>
                           </div>
                         )}
                         {f.status === "in_progress" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => updateStatus.mutate({ id: f.id, status: "resolved" })}
-                          >
-                            Resolve
-                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: f.id, status: "resolved" })}>Resolve</Button>
                         )}
                       </TableCell>
                     </TableRow>
@@ -261,15 +357,20 @@ export default function ComplianceDashboardPage() {
           )}
         </TabsContent>
 
+        {/* ── Reports Tab ── */}
         <TabsContent value="reports" className="space-y-4">
+          <div className="flex gap-2 flex-wrap">
+            {(["weekly", "release", "azav", "iso29993", "ai_act"] as const).map((type) => (
+              <Button key={type} size="sm" variant="outline" onClick={() => reportMutation.mutate(type)} disabled={anyLoading}>
+                {type.toUpperCase()}
+              </Button>
+            ))}
+          </div>
+
           {loadingReports ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : !reports?.length ? (
-            <Card><CardContent className="p-8 text-center text-muted-foreground">
-              Keine Reports vorhanden.
-            </CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-muted-foreground">Keine Reports vorhanden.</CardContent></Card>
           ) : (
             <div className="space-y-3">
               {reports.map((r) => {
@@ -278,25 +379,77 @@ export default function ComplianceDashboardPage() {
                   <Card key={r.id}>
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-medium">
-                          {r.report_type.toUpperCase()} Report
-                        </CardTitle>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(r.created_at).toLocaleString("de-DE")}
-                        </span>
+                        <CardTitle className="text-sm font-medium">{r.report_type.toUpperCase()} Report</CardTitle>
+                        <div className="flex items-center gap-2">
+                          {r.pdf_path && (
+                            <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600">
+                              <FileDown className="h-3 w-3 mr-1" /> PDF
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(r.created_at).toLocaleString("de-DE")}
+                          </span>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="pb-3">
-                      <div className="flex gap-4 text-xs">
-                        <span>Findings: <strong>{String(summary.total_findings ?? 0)}</strong></span>
-                        <span className="text-destructive">Critical: {String(summary.open_critical ?? 0)}</span>
-                        <span className="text-orange-500">High: {String(summary.open_high ?? 0)}</span>
-                        <span>Medium: {String(summary.open_medium ?? 0)}</span>
+                      <div className="flex gap-4 text-xs flex-wrap">
+                        <span>Findings: <strong>{String(summary.total_findings ?? summary.open_counts ? Object.values(summary.open_counts as Record<string,number> ?? {}).reduce((a: number, b: number) => a + b, 0) : 0)}</strong></span>
+                        <span className="text-destructive">Critical: {String((summary.open_counts as Record<string,number> ?? {}).critical ?? 0)}</span>
+                        <span className="text-orange-500">High: {String((summary.open_counts as Record<string,number> ?? {}).high ?? 0)}</span>
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => pdfMutation.mutate(r.id)}
+                          disabled={pdfMutation.isPending}
+                        >
+                          {pdfMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />}
+                          PDF Export
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 );
               })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Gate Rules Tab ── */}
+        <TabsContent value="gates" className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Gate Rules definieren, ab welcher Severity ein offenes Finding den Release blockiert.
+          </p>
+          {!gateRules?.length ? (
+            <Card><CardContent className="p-8 text-center text-muted-foreground">Keine Gate Rules konfiguriert.</CardContent></Card>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bereich</TableHead>
+                    <TableHead>Min. Severity</TableHead>
+                    <TableHead>Enabled</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {gateRules.map((rule) => (
+                    <TableRow key={rule.id}>
+                      <TableCell className="font-medium text-sm">{AREA_LABELS[rule.area] ?? rule.area}</TableCell>
+                      <TableCell>
+                        <Badge className={SEVERITY_COLORS[rule.min_severity] ?? ""}>{rule.min_severity}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={rule.enabled ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}>
+                          {rule.enabled ? "Aktiv" : "Inaktiv"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </TabsContent>

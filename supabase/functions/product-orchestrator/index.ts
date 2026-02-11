@@ -385,10 +385,13 @@ serve(async (req) => {
       .single();
 
     if (courseCheck?.compliance_blocked) {
+      // Double-check via hard assert (configurable gate rules)
+      const gateResult = await supabase.rpc("compute_compliance_release_gate");
       return new Response(JSON.stringify({
         complete: false, shouldContinue: false,
-        error: "Compliance block: critical findings are open. Resolve in Admin → System → Compliance.",
+        error: "Compliance block: open findings violate gate rules. Resolve in Admin → System → Compliance.",
         courseId: targetCourseId,
+        gate: gateResult.data ?? null,
       }), { status: 409, headers: jsonHeaders });
     }
 
