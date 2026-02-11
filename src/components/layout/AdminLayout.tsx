@@ -80,6 +80,14 @@ const navGroups: NavGroup[] = [
     icon: ShoppingCart,
     items: [
       { path: '/admin-v2/kpi-dashboard', label: 'KPI Analytics', icon: BarChart3 },
+      { path: '/admin-v2/finance', label: 'Finance & Billing', icon: DollarSign },
+    ],
+  },
+  {
+    label: 'Enterprise / B2B',
+    icon: Users,
+    items: [
+      { path: '/admin-v2/enterprise-seats', label: 'Seat-Verwaltung', icon: Users },
     ],
   },
   {

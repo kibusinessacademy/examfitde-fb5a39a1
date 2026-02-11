@@ -122,6 +122,8 @@ const SupportDashboardPage = lazy(() => import('@/pages/admin/SupportDashboardPa
 const B2BSupportDashboard = lazy(() => import('@/pages/admin/B2BSupportDashboard'));
 const OperationsDashboard = lazy(() => import('@/pages/admin/OperationsDashboard'));
 const AliasAdminPage = lazy(() => import('@/pages/admin/AliasAdminPage'));
+const FinanceDashboard = lazy(() => import('@/pages/admin/FinanceDashboard'));
+const EnterpriseSeatManagement = lazy(() => import('@/pages/admin/EnterpriseSeatManagement'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
@@ -287,6 +289,8 @@ const AppRoutes = () => {
           <Route path="b2b-support" element={<B2BSupportDashboard />} />
           <Route path="operations" element={<OperationsDashboard />} />
           <Route path="aliases" element={<AliasAdminPage />} />
+          <Route path="finance" element={<FinanceDashboard />} />
+          <Route path="enterprise-seats" element={<EnterpriseSeatManagement />} />
         </Route>
 
         {/* Admin Redirects */}
