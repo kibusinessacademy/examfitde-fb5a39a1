@@ -3496,6 +3496,8 @@ export type Database = {
       exam_questions: {
         Row: {
           ai_generated: boolean | null
+          approved_version_id: string | null
+          blueprint_id: string | null
           competency_id: string | null
           correct_answer: number
           created_at: string
@@ -3512,6 +3514,8 @@ export type Database = {
         }
         Insert: {
           ai_generated?: boolean | null
+          approved_version_id?: string | null
+          blueprint_id?: string | null
           competency_id?: string | null
           correct_answer: number
           created_at?: string
@@ -3528,6 +3532,8 @@ export type Database = {
         }
         Update: {
           ai_generated?: boolean | null
+          approved_version_id?: string | null
+          blueprint_id?: string | null
           competency_id?: string | null
           correct_answer?: number
           created_at?: string
@@ -3543,6 +3549,20 @@ export type Database = {
           status?: Database["public"]["Enums"]["question_status"] | null
         }
         Relationships: [
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "exam_questions_competency_id_fkey"
             columns: ["competency_id"]
@@ -5638,6 +5658,79 @@ export type Database = {
           },
         ]
       }
+      minicheck_set_items: {
+        Row: {
+          exam_question_id: string
+          minicheck_set_id: string
+          position: number
+        }
+        Insert: {
+          exam_question_id: string
+          minicheck_set_id: string
+          position: number
+        }
+        Update: {
+          exam_question_id?: string
+          minicheck_set_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "minicheck_set_items_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "minicheck_set_items_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "minicheck_set_items_minicheck_set_id_fkey"
+            columns: ["minicheck_set_id"]
+            isOneToOne: false
+            referencedRelation: "minicheck_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      minicheck_sets: {
+        Row: {
+          approved_version_id: string | null
+          course_id: string
+          created_at: string
+          id: string
+          lesson_id: string
+          question_count: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_version_id?: string | null
+          course_id: string
+          created_at?: string
+          id?: string
+          lesson_id: string
+          question_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_version_id?: string | null
+          course_id?: string
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          question_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       modules: {
         Row: {
           course_id: string
@@ -6876,6 +6969,7 @@ export type Database = {
           allowed_question_types: string[]
           approved_at: string | null
           approved_by: string | null
+          approved_version_id: string | null
           canonical_statement: string
           change_reason: string | null
           cognitive_level: Database["public"]["Enums"]["cognitive_level"]
@@ -6909,6 +7003,7 @@ export type Database = {
           allowed_question_types?: string[]
           approved_at?: string | null
           approved_by?: string | null
+          approved_version_id?: string | null
           canonical_statement: string
           change_reason?: string | null
           cognitive_level?: Database["public"]["Enums"]["cognitive_level"]
@@ -6942,6 +7037,7 @@ export type Database = {
           allowed_question_types?: string[]
           approved_at?: string | null
           approved_by?: string | null
+          approved_version_id?: string | null
           canonical_statement?: string
           change_reason?: string | null
           cognitive_level?: Database["public"]["Enums"]["cognitive_level"]
@@ -9188,6 +9284,18 @@ export type Database = {
       }
     }
     Functions: {
+      approve_blueprint_version: {
+        Args: { p_blueprint_id: string; p_version_id: string }
+        Returns: undefined
+      }
+      approve_minicheck_set_version: {
+        Args: {
+          p_min_questions?: number
+          p_minicheck_set_id: string
+          p_version_id: string
+        }
+        Returns: undefined
+      }
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
       assert_profiles_rls_secure: { Args: never; Returns: undefined }
       attempt_auto_recovery: { Args: { p_alert_id: string }; Returns: Json }

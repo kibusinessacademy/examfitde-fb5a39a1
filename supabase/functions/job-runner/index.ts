@@ -52,6 +52,20 @@ const JOB_TYPE_MAP: Record<string, string> = {
   validate_content: "validate-content",
   upgrade_ihk: "course-upgrade-ihk",
   
+  // Assessment Council (Council 4)
+  assessment_blueprint_propose: "assessment-council-run",
+  assessment_blueprint_critique: "assessment-council-run",
+  assessment_blueprint_verdict: "assessment-council-run",
+  assessment_blueprint_approve: "assessment-council-run",
+  assessment_questions_generate: "assessment-council-run",
+  assessment_questions_critique: "assessment-council-run",
+  assessment_questions_verdict: "assessment-council-run",
+  assessment_questions_approve: "assessment-council-run",
+  assessment_minicheck_assemble: "assessment-council-run",
+  assessment_minicheck_critique: "assessment-council-run",
+  assessment_minicheck_verdict: "assessment-council-run",
+  assessment_minicheck_approve: "assessment-council-run",
+
   // AutoPilot Final Gate
   course_finalize: "course-finalizer",
   post_validation: "post-validation",
