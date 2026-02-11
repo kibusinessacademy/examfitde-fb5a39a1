@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.search-public]
 verify_jwt = false
+
+[functions.send-license-emails]
+verify_jwt = false
