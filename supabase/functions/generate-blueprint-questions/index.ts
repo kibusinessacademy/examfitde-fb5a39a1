@@ -37,13 +37,16 @@ interface Blueprint {
   question_template: string;
   explanation_template?: string;
   max_variations: number;
+  max_similarity_score?: number;
+  status?: string;
   variables: BlueprintVariable[];
   constraints: BlueprintConstraint[];
   distractors: BlueprintDistractor[];
-  correct_answers: { answer_template: string; calculation_formula?: string }[];
+  correct_answers: { answer_template: string; calculation_formula?: string; expected_unit?: string }[];
 }
 
-// Validiere Variablen-Werte gegen Constraints
+// ─── Constraint Engine (enhanced) ──────────────────────────────────────────────
+
 function validateConstraints(
   values: Record<string, unknown>,
   constraints: BlueprintConstraint[]
@@ -51,40 +54,95 @@ function validateConstraints(
   const errors: string[] = [];
 
   for (const constraint of constraints) {
-    if (constraint.constraint_type === "forbidden") {
-      // Prüfe ob verbotene Kombination vorliegt
-      const conditionKeys = Object.keys(constraint.condition_expression);
-      const allMatch = conditionKeys.every(
-        (key) => values[key] === constraint.condition_expression[key]
-      );
-      if (allMatch) {
-        errors.push(`Verbotene Kombination: ${constraint.description || "Nicht erlaubt"}`);
-      }
-    }
-
-    if (constraint.constraint_type === "conditional") {
-      // Wenn Bedingung erfüllt, muss Aktion auch erfüllt sein
-      const conditionKeys = Object.keys(constraint.condition_expression);
-      const conditionMet = conditionKeys.every((key) => {
-        const condition = constraint.condition_expression[key] as string;
-        const value = values[key] as number;
-        if (condition.startsWith(">")) {
-          return value > parseFloat(condition.slice(1).trim());
-        }
-        if (condition.startsWith("<")) {
-          return value < parseFloat(condition.slice(1).trim());
-        }
-        return values[key] === condition;
-      });
-
-      if (conditionMet) {
-        const actionKeys = Object.keys(constraint.action_expression);
-        const actionMet = actionKeys.every(
-          (key) => values[key] === constraint.action_expression[key]
+    switch (constraint.constraint_type) {
+      case "forbidden": {
+        const conditionKeys = Object.keys(constraint.condition_expression);
+        const allMatch = conditionKeys.every(
+          (key) => values[key] === constraint.condition_expression[key]
         );
-        if (!actionMet) {
-          errors.push(`Constraint verletzt: ${constraint.description || "Bedingung nicht erfüllt"}`);
+        if (allMatch) {
+          errors.push(`Verbotene Kombination: ${constraint.description || "Nicht erlaubt"}`);
         }
+        break;
+      }
+
+      case "conditional": {
+        const conditionKeys = Object.keys(constraint.condition_expression);
+        const conditionMet = conditionKeys.every((key) => {
+          return evaluateCondition(values[key], constraint.condition_expression[key] as string);
+        });
+
+        if (conditionMet) {
+          const actionKeys = Object.keys(constraint.action_expression);
+          const actionMet = actionKeys.every(
+            (key) => values[key] === constraint.action_expression[key]
+          );
+          if (!actionMet) {
+            errors.push(`Constraint verletzt: ${constraint.description || "Bedingung nicht erfüllt"}`);
+          }
+        }
+        break;
+      }
+
+      // NEW: range constraint – value must be within [min, max]
+      case "range": {
+        for (const [key, rangeExpr] of Object.entries(constraint.condition_expression)) {
+          const val = values[key] as number;
+          const range = rangeExpr as { min?: number; max?: number };
+          if (typeof val === "number") {
+            if (range.min !== undefined && val < range.min) {
+              errors.push(`${key} unter Minimum ${range.min}: ${constraint.description || ""}`);
+            }
+            if (range.max !== undefined && val > range.max) {
+              errors.push(`${key} über Maximum ${range.max}: ${constraint.description || ""}`);
+            }
+          }
+        }
+        break;
+      }
+
+      // NEW: in_list – value must be one of the allowed list
+      case "in_list": {
+        for (const [key, allowedExpr] of Object.entries(constraint.condition_expression)) {
+          const allowed = allowedExpr as string[];
+          if (Array.isArray(allowed) && !allowed.includes(String(values[key]))) {
+            errors.push(`${key} nicht in erlaubter Liste: ${constraint.description || ""}`);
+          }
+        }
+        break;
+      }
+
+      // NEW: regex – value must match pattern
+      case "regex": {
+        for (const [key, patternExpr] of Object.entries(constraint.condition_expression)) {
+          const pattern = patternExpr as string;
+          const val = String(values[key] || "");
+          try {
+            if (!new RegExp(pattern).test(val)) {
+              errors.push(`${key} passt nicht auf Muster: ${constraint.description || ""}`);
+            }
+          } catch {
+            errors.push(`Ungültiges Regex-Muster für ${key}`);
+          }
+        }
+        break;
+      }
+
+      // NEW: implies_one_of – if condition met, action value must be one of list
+      case "implies_one_of": {
+        const condKeys = Object.keys(constraint.condition_expression);
+        const condMet = condKeys.every((key) =>
+          evaluateCondition(values[key], constraint.condition_expression[key] as string)
+        );
+        if (condMet) {
+          for (const [key, allowedExpr] of Object.entries(constraint.action_expression)) {
+            const allowed = allowedExpr as string[];
+            if (Array.isArray(allowed) && !allowed.includes(String(values[key]))) {
+              errors.push(`${key} muss einer von ${allowed.join(", ")} sein: ${constraint.description || ""}`);
+            }
+          }
+        }
+        break;
       }
     }
   }
@@ -92,7 +150,20 @@ function validateConstraints(
   return { isValid: errors.length === 0, errors };
 }
 
-// Generiere zufällige Werte für Variablen
+function evaluateCondition(value: unknown, condition: string): boolean {
+  if (typeof condition === "string") {
+    if (condition.startsWith(">=")) return (value as number) >= parseFloat(condition.slice(2).trim());
+    if (condition.startsWith("<=")) return (value as number) <= parseFloat(condition.slice(2).trim());
+    if (condition.startsWith(">")) return (value as number) > parseFloat(condition.slice(1).trim());
+    if (condition.startsWith("<")) return (value as number) < parseFloat(condition.slice(1).trim());
+    if (condition.startsWith("!=")) return String(value) !== condition.slice(2).trim();
+    return value === condition;
+  }
+  return value === condition;
+}
+
+// ─── Variable Generation ───────────────────────────────────────────────────────
+
 function generateVariableValues(
   variables: BlueprintVariable[],
   seed: number
@@ -128,7 +199,8 @@ function generateVariableValues(
   return values;
 }
 
-// Deterministischer Zufallsgenerator (Mulberry32)
+// ─── Deterministic RNG (Mulberry32) ────────────────────────────────────────────
+
 function mulberry32(seed: number): () => number {
   return function () {
     let t = (seed += 0x6d2b79f5);
@@ -138,7 +210,8 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-// Template-Rendering mit Variablen
+// ─── Template Rendering ────────────────────────────────────────────────────────
+
 function renderTemplate(template: string, values: Record<string, unknown>): string {
   let result = template;
   for (const [key, value] of Object.entries(values)) {
@@ -148,7 +221,8 @@ function renderTemplate(template: string, values: Record<string, unknown>): stri
   return result;
 }
 
-// Berechne Ähnlichkeit zwischen zwei Varianten
+// ─── Similarity (value-level) ──────────────────────────────────────────────────
+
 function calculateSimilarity(
   values1: Record<string, unknown>,
   values2: Record<string, unknown>
@@ -165,8 +239,44 @@ function calculateSimilarity(
   return matches / keys.length;
 }
 
-// Safe math expression evaluator (replaces eval)
-// Supports: +, -, *, /, parentheses, decimals
+// ─── Text Fingerprint (NEW: prevents textually near-identical variants) ───────
+
+function normalizeTextHash(text: string): string {
+  const normalized = text
+    .toLowerCase()
+    .replace(/[^a-zäöüß0-9]/g, "")
+    .trim();
+  // Simple djb2 hash
+  let hash = 5381;
+  for (let i = 0; i < normalized.length; i++) {
+    hash = ((hash << 5) + hash + normalized.charCodeAt(i)) & 0xffffffff;
+  }
+  return hash.toString(36);
+}
+
+// ─── Unit Validation (NEW: checks €, %, Monate etc.) ──────────────────────────
+
+function validateAnswerUnit(answerText: string, expectedUnit?: string): { valid: boolean; error?: string } {
+  if (!expectedUnit) return { valid: true };
+
+  const unitPatterns: Record<string, RegExp> = {
+    "€": /\d+([.,]\d+)?\s*€/,
+    "%": /\d+([.,]\d+)?\s*%/,
+    "Monate": /\d+\s*Monat(e)?/i,
+    "Jahre": /\d+\s*Jahr(e)?/i,
+    "Tage": /\d+\s*Tag(e)?/i,
+    "Stunden": /\d+\s*Stunde(n)?/i,
+  };
+
+  const pattern = unitPatterns[expectedUnit];
+  if (pattern && !pattern.test(answerText)) {
+    return { valid: false, error: `Antwort enthält nicht die erwartete Einheit: ${expectedUnit}` };
+  }
+  return { valid: true };
+}
+
+// ─── Safe Math Evaluator ───────────────────────────────────────────────────────
+
 function safeEvaluateMath(expr: string): number | null {
   const sanitized = expr.replace(/[^0-9+\-*/.() ]/g, "").trim();
   if (!sanitized) return null;
@@ -231,6 +341,20 @@ function safeEvaluateMath(expr: string): number | null {
   }
 }
 
+// ─── Shuffle ───────────────────────────────────────────────────────────────────
+
+function shuffleWithSeed<T>(array: T[], seed: number): T[] {
+  const result = [...array];
+  const random = mulberry32(seed);
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+// ─── Main Handler ──────────────────────────────────────────────────────────────
+
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
@@ -252,7 +376,7 @@ serve(async (req) => {
       });
     }
 
-    // 1. Blueprint laden mit allen Komponenten
+    // 1. Blueprint laden
     const { data: blueprint, error: blueprintError } = await supabase
       .from("question_blueprints")
       .select("*")
@@ -266,47 +390,44 @@ serve(async (req) => {
       );
     }
 
-    // 2. Variablen laden
-    const { data: variables } = await supabase
-      .from("blueprint_variables")
-      .select("*")
-      .eq("blueprint_id", blueprintId);
+    // ──── NEW: Quality Gate – Blueprint must be approved ────
+    if (blueprint.status !== "approved") {
+      return new Response(
+        JSON.stringify({
+          error: "Blueprint nicht freigegeben",
+          details: `Status ist '${blueprint.status}', erwartet 'approved'. Blueprints müssen vor der Varianten-Generierung freigegeben werden.`,
+        }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // 3. Constraints laden
-    const { data: constraints } = await supabase
-      .from("blueprint_constraints")
-      .select("*")
-      .eq("blueprint_id", blueprintId)
-      .eq("is_active", true);
-
-    // 4. Distraktoren laden
-    const { data: distractors } = await supabase
-      .from("blueprint_distractors")
-      .select("*")
-      .eq("blueprint_id", blueprintId)
-      .eq("is_active", true)
-      .order("sort_order");
-
-    // 5. Korrekte Antworten laden
-    const { data: correctAnswers } = await supabase
-      .from("blueprint_correct_answers")
-      .select("*")
-      .eq("blueprint_id", blueprintId);
-
-    // 6. Existierende Varianten laden (für Ähnlichkeitsprüfung)
-    const { data: existingVariants } = await supabase
-      .from("blueprint_variants")
-      .select("variable_values")
-      .eq("blueprint_id", blueprintId);
+    // 2-5. Parallel: load variables, constraints, distractors, correct answers, existing variants
+    const [
+      { data: variables },
+      { data: constraints },
+      { data: distractors },
+      { data: correctAnswers },
+      { data: existingVariants },
+    ] = await Promise.all([
+      supabase.from("blueprint_variables").select("*").eq("blueprint_id", blueprintId),
+      supabase.from("blueprint_constraints").select("*").eq("blueprint_id", blueprintId).eq("is_active", true),
+      supabase.from("blueprint_distractors").select("*").eq("blueprint_id", blueprintId).eq("is_active", true).order("sort_order"),
+      supabase.from("blueprint_correct_answers").select("*").eq("blueprint_id", blueprintId),
+      supabase.from("blueprint_variants").select("variable_values, question_text_hash").eq("blueprint_id", blueprintId),
+    ]);
 
     const existingValues = (existingVariants || []).map(
       (v) => v.variable_values as Record<string, unknown>
     );
+    const existingHashes = new Set(
+      (existingVariants || []).map((v) => v.question_text_hash).filter(Boolean)
+    );
 
-    // 7. Varianten generieren
+    // 6. Generate variants
     const generatedVariants: {
       variableValues: Record<string, unknown>;
       questionText: string;
+      questionTextHash: string;
       options: string[];
       correctAnswer: number;
       explanation: string;
@@ -322,57 +443,67 @@ serve(async (req) => {
       const seed = seedBase + attempts;
       attempts++;
 
-      // Generiere Variablen-Werte
       const values = generateVariableValues(variables || [], seed);
 
-      // Validiere gegen Constraints
+      // Validate constraints (now with range, in_list, regex, implies_one_of)
       const validation = validateConstraints(values, constraints || []);
-      if (!validation.isValid) {
-        continue;
-      }
+      if (!validation.isValid) continue;
 
-      // Prüfe Ähnlichkeit zu existierenden Varianten
+      // Value-level similarity check
       const allExisting = [...existingValues, ...generatedVariants.map((v) => v.variableValues)];
       const maxSimilarity = Math.max(
         0,
         ...allExisting.map((existing) => calculateSimilarity(values, existing))
       );
+      if (maxSimilarity > (blueprint.max_similarity_score || 0.82)) continue;
 
-      if (maxSimilarity > (blueprint.max_similarity_score || 0.82)) {
-        continue;
-      }
-
-      // Render Frage
+      // Render question text
       const questionText = renderTemplate(blueprint.question_template, values);
 
-      // Render korrekte Antwort
-      const correctAnswerTemplate = correctAnswers?.[0]?.answer_template || "";
+      // ──── NEW: Text-level duplicate check via normalized hash ────
+      const textHash = normalizeTextHash(questionText);
+      const allHashes = new Set([...existingHashes, ...generatedVariants.map((v) => v.questionTextHash)]);
+      if (allHashes.has(textHash)) continue;
+
+      // Render correct answer
+      const correctAnswerDef = correctAnswers?.[0];
+      const correctAnswerTemplate = correctAnswerDef?.answer_template || "";
       let correctAnswerText = renderTemplate(correctAnswerTemplate, values);
 
-      // Falls Formel vorhanden, sicher berechnen (kein eval!)
-      if (correctAnswers?.[0]?.calculation_formula) {
+      // Calculate formula if present
+      if (correctAnswerDef?.calculation_formula) {
         try {
-          const formula = renderTemplate(correctAnswers[0].calculation_formula, values);
+          const formula = renderTemplate(correctAnswerDef.calculation_formula, values);
           const result = safeEvaluateMath(formula);
           if (result !== null) {
             correctAnswerText = String(result);
+            // ──── NEW: Append unit if expected ────
+            if (correctAnswerDef.expected_unit) {
+              correctAnswerText = `${result} ${correctAnswerDef.expected_unit}`;
+            }
           }
         } catch {
-          // Formel konnte nicht ausgewertet werden
+          // Formula could not be evaluated
         }
       }
 
-      // Render Distraktoren
+      // ──── NEW: Unit validation ────
+      if (correctAnswerDef?.expected_unit) {
+        const unitCheck = validateAnswerUnit(correctAnswerText, correctAnswerDef.expected_unit);
+        if (!unitCheck.valid) continue;
+      }
+
+      // Render distractors
       const distractorTexts = (distractors || []).map((d) =>
         renderTemplate(d.distractor_template, values)
       );
 
-      // Erstelle Optionen (shuffle)
+      // Build options (shuffle)
       const allOptions = [correctAnswerText, ...distractorTexts.slice(0, 3)];
       const shuffledOptions = shuffleWithSeed(allOptions, seed);
       const correctIndex = shuffledOptions.indexOf(correctAnswerText);
 
-      // Render Erklärung
+      // Render explanation
       const explanation = blueprint.explanation_template
         ? renderTemplate(blueprint.explanation_template, values)
         : "";
@@ -380,6 +511,7 @@ serve(async (req) => {
       generatedVariants.push({
         variableValues: values,
         questionText,
+        questionTextHash: textHash,
         options: shuffledOptions,
         correctAnswer: correctIndex,
         explanation,
@@ -388,11 +520,10 @@ serve(async (req) => {
       });
     }
 
-    // 8. Varianten in DB speichern
+    // 7. Save to DB
     const savedQuestions: string[] = [];
 
     for (const variant of generatedVariants) {
-      // Prüfungsfrage erstellen
       const { data: question, error: questionError } = await supabase
         .from("exam_questions")
         .insert({
@@ -403,7 +534,7 @@ serve(async (req) => {
           options: variant.options,
           correct_answer: variant.correctAnswer,
           explanation: variant.explanation,
-          difficulty: blueprint.cognitive_level === "remember" ? "easy" : 
+          difficulty: blueprint.cognitive_level === "remember" ? "easy" :
                       blueprint.cognitive_level === "analyze" ? "hard" : "medium",
           ai_generated: true,
           status: "draft",
@@ -414,25 +545,25 @@ serve(async (req) => {
       if (question) {
         savedQuestions.push(question.id);
 
-        // Variante speichern
         await supabase.from("blueprint_variants").insert({
           blueprint_id: blueprintId,
           exam_question_id: question.id,
           variable_values: variant.variableValues,
           generation_seed: variant.seed,
           similarity_score: variant.similarityScore,
+          question_text_hash: variant.questionTextHash,
           validation_passed: true,
           generated_by: "system",
         });
       }
     }
 
-    // 9. Audit-Log
+    // 8. Audit-Log
     await supabase.from("blueprint_audit_log").insert({
       blueprint_id: blueprintId,
       action: "variant_generated",
       affected_variants_count: generatedVariants.length,
-      changes: { count, baseSeed: seedBase },
+      changes: { count, baseSeed: seedBase, statusGateEnforced: true },
     });
 
     return new Response(
@@ -452,16 +583,3 @@ serve(async (req) => {
     );
   }
 });
-
-// Shuffle mit deterministischem Seed
-function shuffleWithSeed<T>(array: T[], seed: number): T[] {
-  const result = [...array];
-  const random = mulberry32(seed);
-
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-
-  return result;
-}
