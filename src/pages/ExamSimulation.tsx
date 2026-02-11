@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   useExamSimulation, 
   useExamBlueprints, 
@@ -33,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { BlueprintSelector } from '@/components/exam/BlueprintSelector';
 import { QuestionCard } from '@/components/exam/QuestionCard';
 import { ResultsScreen } from '@/components/exam/ResultsScreen';
+import { SimulationGateGuard } from '@/components/exam/SimulationGateGuard';
 import { TutorPanel } from '@/components/tutor/TutorPanel';
 import { AI_MODES, type AIMode } from '@/hooks/useAITutor';
 
@@ -95,24 +97,43 @@ export default function ExamSimulation() {
     navigate(`/exam-simulation/${newSessionId}`);
   };
   
-  // Handle finish
+  // Handle finish – also trigger weakness loop
   const handleFinishExam = async () => {
     const result = await handleFinish();
     if (result) {
       setExamResult(result);
+      // Create weakness assignments from exam results
+      if (currentSessionId) {
+        await supabase.rpc('create_weakness_assignments_from_exam', {
+          p_session_id: currentSessionId,
+        });
+      }
     }
     setShowFinishDialog(false);
   };
   
-  // No session - show blueprint selector
+  // No session - show blueprint selector with gate guard
   if (!currentSessionId) {
+    // Get curriculum from first blueprint if available
+    const firstCurriculumId = blueprints?.[0]?.curriculum_id;
+    
     return (
       <div className="container max-w-4xl py-8">
-        <BlueprintSelector 
-          blueprints={blueprints as any} 
-          isLoading={blueprintsLoading}
-          onSelect={handleStartExam} 
-        />
+        {firstCurriculumId ? (
+          <SimulationGateGuard curriculumId={firstCurriculumId}>
+            <BlueprintSelector 
+              blueprints={blueprints as any} 
+              isLoading={blueprintsLoading}
+              onSelect={handleStartExam} 
+            />
+          </SimulationGateGuard>
+        ) : (
+          <BlueprintSelector 
+            blueprints={blueprints as any} 
+            isLoading={blueprintsLoading}
+            onSelect={handleStartExam} 
+          />
+        )}
       </div>
     );
   }

@@ -12,6 +12,8 @@ import { CoachHint } from '@/components/dashboard/CoachHint';
 import { ExamPreview } from '@/components/dashboard/ExamPreview';
 import { SilentMotivation } from '@/components/dashboard/SilentMotivation';
 import ProgressNarrative from '@/components/dashboard/ProgressNarrative';
+import { ExamReadinessGauge } from '@/components/dashboard/ExamReadinessGauge';
+import { WeaknessLoopWidget } from '@/components/dashboard/WeaknessLoopWidget';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -190,16 +192,28 @@ export default function LearnerDashboard() {
           </div>
         )}
 
-        {/* ━━━ SECTION 3: Radar + Streak + Exam Preview ━━━ */}
+        {/* ━━━ SECTION 2b: Weakness Loop ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-6">
+            <WeaknessLoopWidget curriculumId={activeCurriculumId} />
+          </div>
+        )}
+
+        {/* ━━━ SECTION 3: Readiness Gauge + Radar + Streak ━━━ */}
         {activeCurriculumId && (
           <div className="grid lg:grid-cols-3 gap-6 mb-6">
+            <ExamReadinessGauge curriculumId={activeCurriculumId} />
             <div className="lg:col-span-2">
               <ReadinessRadar curriculumId={activeCurriculumId} />
             </div>
-            <div className="space-y-6">
-              <SmartStreakWidget />
-              <ExamPreview curriculumId={activeCurriculumId} />
-            </div>
+          </div>
+        )}
+
+        {/* Streak + Exam Preview */}
+        {activeCurriculumId && (
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <SmartStreakWidget />
+            <ExamPreview curriculumId={activeCurriculumId} />
           </div>
         )}
 
