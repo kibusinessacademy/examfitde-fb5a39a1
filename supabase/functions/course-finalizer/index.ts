@@ -295,23 +295,29 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Seal decision
+    // Seal decision + publishing_status + quality_score
     if (!dryRun) {
       if (isGoReady) {
         await admin.from("courses").update({
           autopilot_status: "sealed",
           autopilot_sealed_at: new Date().toISOString(),
+          quality_score: healthScore,
+          publishing_status: "publishable",
           status: "draft",
           updated_at: new Date().toISOString(),
         }).eq("id", courseId);
       } else {
         await admin.from("courses").update({
-          autopilot_status: "idle", updated_at: new Date().toISOString(),
+          autopilot_status: "idle",
+          quality_score: healthScore,
+          publishing_status: "quality_failed",
+          updated_at: new Date().toISOString(),
         }).eq("id", courseId);
       }
     } else {
       await admin.from("courses").update({
         autopilot_status: existingCourse?.autopilot_status || "idle",
+        quality_score: healthScore,
         updated_at: new Date().toISOString(),
       }).eq("id", courseId);
     }
