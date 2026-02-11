@@ -5220,14 +5220,21 @@ export type Database = {
         Row: {
           asset_type: string
           campaign_id: string | null
-          content: string
+          certification_id: string | null
+          content: string | null
+          course_id: string | null
           created_at: string
           id: string
+          is_published: boolean
           legal_check_passed: boolean | null
           llm_used: string
+          locale: string
+          published_version_id: string | null
           seo_score: number | null
+          slug: string | null
           status: string
-          target_group: string
+          target_audience: string | null
+          target_group: string | null
           template_used: string | null
           title: string
           updated_at: string
@@ -5237,14 +5244,21 @@ export type Database = {
         Insert: {
           asset_type: string
           campaign_id?: string | null
-          content: string
+          certification_id?: string | null
+          content?: string | null
+          course_id?: string | null
           created_at?: string
           id?: string
+          is_published?: boolean
           legal_check_passed?: boolean | null
           llm_used?: string
+          locale?: string
+          published_version_id?: string | null
           seo_score?: number | null
+          slug?: string | null
           status?: string
-          target_group: string
+          target_audience?: string | null
+          target_group?: string | null
           template_used?: string | null
           title: string
           updated_at?: string
@@ -5254,14 +5268,21 @@ export type Database = {
         Update: {
           asset_type?: string
           campaign_id?: string | null
-          content?: string
+          certification_id?: string | null
+          content?: string | null
+          course_id?: string | null
           created_at?: string
           id?: string
+          is_published?: boolean
           legal_check_passed?: boolean | null
           llm_used?: string
+          locale?: string
+          published_version_id?: string | null
           seo_score?: number | null
+          slug?: string | null
           status?: string
-          target_group?: string
+          target_audience?: string | null
+          target_group?: string | null
           template_used?: string | null
           title?: string
           updated_at?: string
@@ -9519,6 +9540,10 @@ export type Database = {
       }
       publish_approved_version: {
         Args: { p_lesson_id: string; p_step_key: string; p_version_id: string }
+        Returns: undefined
+      }
+      publish_marketing_asset: {
+        Args: { p_asset_id: string; p_version_id: string }
         Returns: undefined
       }
       recompute_course_publish_readiness: {
