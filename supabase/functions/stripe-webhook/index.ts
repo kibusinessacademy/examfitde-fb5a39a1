@@ -53,6 +53,19 @@ serve(async (req) => {
 
     logStep("Event verified", { type: event.type, id: event.id });
 
+    // ========== DEDUP CHECK ==========
+    const { data: existingLedger } = await adminClient
+      .from('ledger_entries')
+      .select('id')
+      .eq('stripe_event_id', event.id)
+      .limit(1);
+
+    if (existingLedger && existingLedger.length > 0) {
+      logStep("Event already processed (dedup)", { eventId: event.id });
+      return new Response(JSON.stringify({ received: true, dedup: true }), { status: 200 });
+    }
+
+    // ========== checkout.session.completed ==========
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
@@ -79,7 +92,7 @@ serve(async (req) => {
         return new Response("Missing metadata", { status: 400 });
       }
 
-      // IDEMPOTENCY CHECK
+      // IDEMPOTENCY CHECK for license_packages
       const { data: existingPackage } = await adminClient
         .from('license_packages')
         .select('id')
@@ -108,7 +121,7 @@ serve(async (req) => {
       expiresAt.setDate(expiresAt.getDate() + (product.access_duration_days || 365));
       const totalPriceCents = quantity * unitPriceCents;
 
-      // Extract billing info from metadata + Stripe customer_details
+      // Extract billing info
       const customerDetails = session.customer_details;
       const billingEmail = meta.billing_email || customerDetails?.email || '';
       const billingName = meta.billing_name || customerDetails?.name || '';
@@ -122,7 +135,7 @@ serve(async (req) => {
         billingAddress = customerDetails.address as unknown as Record<string, string>;
       }
 
-      // Retrieve Stripe invoice info if available
+      // Retrieve Stripe invoice info
       let stripeInvoiceId: string | null = null;
       let stripeInvoiceUrl: string | null = null;
       if (session.invoice) {
@@ -140,7 +153,11 @@ serve(async (req) => {
         ? session.customer
         : session.customer?.id || null;
 
-      // Create license package with billing info
+      const stripePaymentIntentId = typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : session.payment_intent?.id || null;
+
+      // ===== Create license package =====
       const { data: licensePackage, error: packageError } = await adminClient
         .from('license_packages')
         .insert({
@@ -150,9 +167,7 @@ serve(async (req) => {
           quantity,
           price_paid_cents: totalPriceCents,
           stripe_checkout_session_id: session.id,
-          stripe_payment_intent_id: typeof session.payment_intent === 'string'
-            ? session.payment_intent
-            : session.payment_intent?.id || null,
+          stripe_payment_intent_id: stripePaymentIntentId,
           expires_at: expiresAt.toISOString(),
           status: 'active',
           buyer_is_licensee: buyerIsLicensee,
@@ -173,9 +188,9 @@ serve(async (req) => {
         logStep("ERROR: Failed to create package", { error: packageError });
         return new Response("Failed to create license package", { status: 500 });
       }
-      logStep("License package created", { packageId: licensePackage.id, buyerIsLicensee });
+      logStep("License package created", { packageId: licensePackage.id });
 
-      // Create seats: assign first to buyer ONLY if buyer_is_licensee
+      // ===== Create seats =====
       const seatsToCreate = [];
       for (let i = 0; i < quantity; i++) {
         const assignToBuyer = buyerIsLicensee && i === 0;
@@ -198,40 +213,305 @@ serve(async (req) => {
         logStep("Seats created", { count: seats?.length });
       }
 
-      // Create entitlement for buyer if they are a licensee
+      // Entitlement for buyer
       if (buyerIsLicensee && seats) {
         const buyerSeat = seats.find(s => s.assigned_user_id === userId);
         if (buyerSeat) {
-          const { error: entitlementError } = await adminClient
-            .from('entitlements')
-            .insert({
-              user_id: userId,
-              seat_id: buyerSeat.id,
-              curriculum_id: curriculumId,
-              has_learning_course: product.includes_learning_course,
-              has_exam_trainer: product.includes_exam_trainer,
-              has_ai_tutor: product.includes_ai_tutor,
-              has_oral_trainer: product.includes_oral_trainer,
-              valid_until: expiresAt.toISOString(),
-            });
+          await adminClient.from('entitlements').insert({
+            user_id: userId,
+            seat_id: buyerSeat.id,
+            curriculum_id: curriculumId,
+            has_learning_course: product.includes_learning_course,
+            has_exam_trainer: product.includes_exam_trainer,
+            has_ai_tutor: product.includes_ai_tutor,
+            has_oral_trainer: product.includes_oral_trainer,
+            valid_until: expiresAt.toISOString(),
+          });
+          logStep("Entitlement created for buyer");
+        }
+      }
 
-          if (entitlementError) {
-            logStep("ERROR: Failed to create entitlement", { error: entitlementError });
-          } else {
-            logStep("Entitlement created for buyer");
+      // ===== LEDGER: Create order + order_items + payment + invoice + ledger_entries =====
+      const taxRate = 19.00;
+      const taxCents = Math.round(totalPriceCents - totalPriceCents / (1 + taxRate / 100));
+      const netCents = totalPriceCents - taxCents;
+
+      // 1) Order
+      const { data: order, error: orderError } = await adminClient
+        .from('orders')
+        .insert({
+          buyer_user_id: userId,
+          license_package_id: licensePackage.id,
+          billing_name: billingName,
+          billing_company: billingCompany,
+          billing_email: billingEmail,
+          billing_address: billingAddress,
+          billing_vat_id: billingVatId,
+          currency: 'eur',
+          country: billingAddress?.country || 'DE',
+          tax_mode: 'gross',
+          subtotal_cents: netCents,
+          tax_cents: taxCents,
+          total_cents: totalPriceCents,
+          stripe_checkout_session_id: session.id,
+          stripe_payment_intent_id: stripePaymentIntentId,
+          status: 'paid',
+        })
+        .select()
+        .single();
+
+      if (orderError || !order) {
+        logStep("ERROR: Failed to create order", { error: orderError });
+      } else {
+        logStep("Order created", { orderId: order.id });
+
+        // 2) Order items
+        await adminClient.from('order_items').insert({
+          order_id: order.id,
+          product_id: productId,
+          description: `${product.name} (${quantity}x)`,
+          quantity,
+          unit_amount_net_cents: Math.round(unitPriceCents / (1 + taxRate / 100)),
+          unit_amount_gross_cents: unitPriceCents,
+          tax_rate: taxRate,
+          tax_amount_cents: Math.round(unitPriceCents - unitPriceCents / (1 + taxRate / 100)) * quantity,
+        });
+
+        // 3) Payment
+        let feeCents = 0;
+        // Try to get Stripe fee from balance transaction
+        if (stripePaymentIntentId) {
+          try {
+            const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId, {
+              expand: ['latest_charge.balance_transaction'],
+            });
+            const charge = pi.latest_charge as Stripe.Charge;
+            const bt = charge?.balance_transaction as Stripe.BalanceTransaction;
+            feeCents = bt?.fee || 0;
+          } catch (e) {
+            logStep("WARN: Could not get fee", { error: String(e) });
           }
         }
+
+        const { data: payment } = await adminClient
+          .from('payments')
+          .insert({
+            order_id: order.id,
+            stripe_payment_intent_id: stripePaymentIntentId,
+            stripe_charge_id: null,
+            amount_cents: totalPriceCents,
+            fee_cents: feeCents,
+            net_cents: totalPriceCents - feeCents,
+            currency: 'eur',
+            payment_status: 'succeeded',
+            paid_at: new Date().toISOString(),
+            stripe_event_id: event.id,
+          })
+          .select()
+          .single();
+
+        logStep("Payment recorded", { paymentId: payment?.id, feeCents });
+
+        // 4) Invoice
+        const { data: invoiceNumResult } = await adminClient.rpc('generate_invoice_number');
+        const invoiceNumber = invoiceNumResult || `EF-${Date.now()}`;
+
+        const { data: dbInvoice } = await adminClient
+          .from('invoices')
+          .insert({
+            order_id: order.id,
+            invoice_number: invoiceNumber,
+            issue_date: new Date().toISOString().slice(0, 10),
+            pdf_url: stripeInvoiceUrl,
+            stripe_invoice_id: stripeInvoiceId,
+            status: 'paid',
+            total_net_cents: netCents,
+            total_tax_cents: taxCents,
+            total_gross_cents: totalPriceCents,
+            tax_rate: taxRate,
+          })
+          .select()
+          .single();
+
+        logStep("Invoice created", { invoiceNumber });
+
+        // 5) Ledger entries (SSOT)
+        const ledgerEntries = [
+          {
+            event_type: 'sale',
+            order_id: order.id,
+            payment_id: payment?.id,
+            invoice_id: dbInvoice?.id,
+            account: 'revenue',
+            amount_cents: totalPriceCents,
+            currency: 'eur',
+            tax_rate: taxRate,
+            country: billingAddress?.country || 'DE',
+            description: `Sale: ${product.name} x${quantity}`,
+            stripe_event_id: event.id,
+          },
+          {
+            event_type: 'sale',
+            order_id: order.id,
+            payment_id: payment?.id,
+            invoice_id: dbInvoice?.id,
+            account: 'tax_payable',
+            amount_cents: taxCents,
+            currency: 'eur',
+            tax_rate: taxRate,
+            country: billingAddress?.country || 'DE',
+            description: `USt ${taxRate}%: ${product.name}`,
+            stripe_event_id: event.id + '_tax',
+          },
+        ];
+
+        if (feeCents > 0) {
+          ledgerEntries.push({
+            event_type: 'fee',
+            order_id: order.id,
+            payment_id: payment?.id,
+            invoice_id: null as unknown as string,
+            account: 'stripe_fees',
+            amount_cents: -feeCents,
+            currency: 'eur',
+            tax_rate: 0,
+            country: 'DE',
+            description: `Stripe fee for PI ${stripePaymentIntentId}`,
+            stripe_event_id: event.id + '_fee',
+          });
+        }
+
+        await adminClient.from('ledger_entries').insert(ledgerEntries);
+        logStep("Ledger entries written", { count: ledgerEntries.length });
       }
 
       logStep("checkout.session.completed fully processed", {
         packageId: licensePackage.id,
-        userId,
-        curriculumId,
-        buyerIsLicensee,
-        unassignedSeats: seats?.filter(s => !s.assigned_user_id).length || 0,
+        orderId: order?.id,
       });
     }
 
+    // ========== charge.refunded ==========
+    if (event.type === "charge.refunded") {
+      const charge = event.data.object as Stripe.Charge;
+      const refundAmount = charge.amount_refunded;
+      const paymentIntentId = typeof charge.payment_intent === 'string'
+        ? charge.payment_intent : charge.payment_intent?.id;
+
+      logStep("Processing charge.refunded", { chargeId: charge.id, refundAmount, paymentIntentId });
+
+      // Find order via payment_intent
+      const { data: existingPayment } = await adminClient
+        .from('payments')
+        .select('id, order_id, amount_cents')
+        .eq('stripe_payment_intent_id', paymentIntentId)
+        .maybeSingle();
+
+      if (existingPayment) {
+        const isFullRefund = refundAmount >= existingPayment.amount_cents;
+
+        // Update payment status
+        await adminClient.from('payments').update({
+          payment_status: isFullRefund ? 'refunded' : 'partial_refund',
+        }).eq('id', existingPayment.id);
+
+        // Update order status
+        await adminClient.from('orders').update({
+          status: isFullRefund ? 'refunded' : 'partially_refunded',
+        }).eq('id', existingPayment.order_id);
+
+        // Calculate tax portion of refund
+        const taxRate = 19.00;
+        const refundTax = Math.round(refundAmount - refundAmount / (1 + taxRate / 100));
+
+        // Write refund ledger entries (negative)
+        await adminClient.from('ledger_entries').insert([
+          {
+            event_type: 'refund',
+            order_id: existingPayment.order_id,
+            payment_id: existingPayment.id,
+            account: 'refunds',
+            amount_cents: -refundAmount,
+            currency: 'eur',
+            tax_rate: taxRate,
+            description: `Refund: ${charge.id}`,
+            stripe_event_id: event.id,
+          },
+          {
+            event_type: 'refund',
+            order_id: existingPayment.order_id,
+            payment_id: existingPayment.id,
+            account: 'revenue',
+            amount_cents: -refundAmount,
+            currency: 'eur',
+            tax_rate: taxRate,
+            description: `Revenue reversal: ${charge.id}`,
+            stripe_event_id: event.id + '_rev',
+          },
+          {
+            event_type: 'refund',
+            order_id: existingPayment.order_id,
+            payment_id: existingPayment.id,
+            account: 'tax_payable',
+            amount_cents: -refundTax,
+            currency: 'eur',
+            tax_rate: taxRate,
+            description: `Tax reversal: ${charge.id}`,
+            stripe_event_id: event.id + '_tax',
+          },
+        ]);
+
+        logStep("Refund ledger entries written", { refundAmount, isFullRefund });
+      } else {
+        logStep("WARN: No payment found for refund PI", { paymentIntentId });
+      }
+    }
+
+    // ========== charge.dispute.created ==========
+    if (event.type === "charge.dispute.created") {
+      const dispute = event.data.object as Stripe.Dispute;
+      const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+      const disputeAmount = dispute.amount;
+
+      logStep("Processing charge.dispute.created", { disputeId: dispute.id, chargeId, disputeAmount });
+
+      // Find order via charge → payment_intent
+      if (chargeId) {
+        try {
+          const chargeObj = await stripe.charges.retrieve(chargeId);
+          const piId = typeof chargeObj.payment_intent === 'string'
+            ? chargeObj.payment_intent : chargeObj.payment_intent?.id;
+
+          const { data: existingPayment } = await adminClient
+            .from('payments')
+            .select('id, order_id')
+            .eq('stripe_payment_intent_id', piId)
+            .maybeSingle();
+
+          if (existingPayment) {
+            await adminClient.from('orders').update({ status: 'disputed' }).eq('id', existingPayment.order_id);
+            await adminClient.from('payments').update({ payment_status: 'chargeback' }).eq('id', existingPayment.id);
+
+            await adminClient.from('ledger_entries').insert({
+              event_type: 'chargeback',
+              order_id: existingPayment.order_id,
+              payment_id: existingPayment.id,
+              account: 'revenue',
+              amount_cents: -disputeAmount,
+              currency: 'eur',
+              description: `Dispute: ${dispute.id}`,
+              stripe_event_id: event.id,
+            });
+
+            logStep("Dispute ledger entry written", { disputeAmount });
+          }
+        } catch (e) {
+          logStep("WARN: Could not process dispute", { error: String(e) });
+        }
+      }
+    }
+
+    // ========== payment_intent.payment_failed ==========
     if (event.type === "payment_intent.payment_failed") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       logStep("Payment failed", {
