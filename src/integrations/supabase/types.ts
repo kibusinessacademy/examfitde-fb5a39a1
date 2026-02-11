@@ -1215,6 +1215,7 @@ export type Database = {
           blueprint_id: string
           calculation_formula: string | null
           created_at: string
+          expected_unit: string | null
           id: string
           is_primary: boolean
         }
@@ -1223,6 +1224,7 @@ export type Database = {
           blueprint_id: string
           calculation_formula?: string | null
           created_at?: string
+          expected_unit?: string | null
           id?: string
           is_primary?: boolean
         }
@@ -1231,6 +1233,7 @@ export type Database = {
           blueprint_id?: string
           calculation_formula?: string | null
           created_at?: string
+          expected_unit?: string | null
           id?: string
           is_primary?: boolean
         }
@@ -1367,6 +1370,7 @@ export type Database = {
           generated_by: string | null
           generation_seed: number | null
           id: string
+          question_text_hash: string | null
           similarity_score: number | null
           validation_errors: string[] | null
           validation_passed: boolean
@@ -1379,6 +1383,7 @@ export type Database = {
           generated_by?: string | null
           generation_seed?: number | null
           id?: string
+          question_text_hash?: string | null
           similarity_score?: number | null
           validation_errors?: string[] | null
           validation_passed?: boolean
@@ -1391,6 +1396,7 @@ export type Database = {
           generated_by?: string | null
           generation_seed?: number | null
           id?: string
+          question_text_hash?: string | null
           similarity_score?: number | null
           validation_errors?: string[] | null
           validation_passed?: boolean
