@@ -131,6 +131,18 @@ export const PIPELINE_TEMPLATES = {
       { job_type: 'post_validation' },
     ],
   },
+  'council-review': {
+    label: 'Council v2 Review',
+    description: 'Deliberative Architektur: GPT-5.2 generiert, Claude validiert, Verdict + Publish Gate.',
+    icon: 'Scale',
+    jobs: [
+      { job_type: 'council_propose_step' },
+      { job_type: 'council_critique_step' },
+      { job_type: 'council_vote_and_verdict' },
+      { job_type: 'council_publish_step' },
+      { job_type: 'council_recompute_course_ready' },
+    ],
+  },
 } as const;
 
 export type PipelineTemplateKey = keyof typeof PIPELINE_TEMPLATES;
