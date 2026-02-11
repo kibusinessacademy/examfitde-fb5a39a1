@@ -5,106 +5,57 @@ import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_share
 
 const LESSON_STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'] as const;
 
-const stepPrompts: Record<string, string> = {
-  einstieg: 'Erstelle eine aktivierende Einstiegsaktivität, die das Vorwissen der Lernenden anspricht und Neugier für das Thema weckt.',
-  verstehen: 'Erstelle Lernmaterial zum Verstehen der Konzepte mit klaren Erklärungen, Beispielen und visuellen Darstellungen.',
-  anwenden: 'Erstelle praktische Übungen und Aufgaben, bei denen das Gelernte angewendet wird.',
-  wiederholen: 'Erstelle Wiederholungsaktivitäten zur Festigung des Gelernten (Zusammenfassung, Karteikarten, etc.).',
-  mini_check: 'Erstelle ein kurzes Quiz mit 3-5 Fragen zur Selbstüberprüfung des Wissens.',
-};
-
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
-
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
-  // ==================== AUTH CHECK ====================
-  // Require admin role for course generation
-  const auth = await validateAuth(req, true); // requireAdmin = true
-  
+  const auth = await validateAuth(req, true);
   if (auth.error) {
-    if (auth.error === 'Admin access required') {
-      return forbiddenResponse(auth.error);
-    }
-    return unauthorizedResponse(auth.error);
+    return auth.error === 'Admin access required'
+      ? forbiddenResponse(auth.error)
+      : unauthorizedResponse(auth.error);
   }
-  // ====================================================
 
   try {
-    const { courseId, curriculumId, title, description, provider } = await req.json();
-
+    const { courseId, curriculumId } = await req.json();
     if (!courseId || !curriculumId) {
-      return new Response(
-        JSON.stringify({ error: 'courseId and curriculumId are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'courseId and curriculumId are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-    // Primary generator: GPT-5.2 via Lovable AI Gateway (default)
-    // Alternative: deepseek for text, openai direct
-    let apiUrl: string;
-    let apiHeaders: Record<string, string>;
-    let aiModel: string;
+    console.log(`[User: ${auth.user?.id}] Scaffolding course: ${courseId}`);
 
-    if (provider === 'deepseek') {
-      const key = Deno.env.get('DEEPSEEK_API_KEY');
-      if (!key) throw new Error('DEEPSEEK_API_KEY not configured');
-      apiUrl = 'https://api.deepseek.com/v1/chat/completions';
-      apiHeaders = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
-      aiModel = 'deepseek-chat';
-    } else {
-      // Default: GPT-5.2 via Lovable AI Gateway
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
-      apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-      apiHeaders = { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' };
-      aiModel = provider === 'gemini' ? 'google/gemini-3-flash-preview' : 'openai/gpt-5.2';
+    // Load curriculum metadata
+    const { data: course } = await supabase.from('courses').select('title').eq('id', courseId).single();
+    const { data: curriculum } = await supabase.from('curricula').select('title, beruf_id').eq('id', curriculumId).single();
+    let berufTitle = curriculum?.title || course?.title || 'Beruf';
+    if (curriculum?.beruf_id) {
+      const { data: beruf } = await supabase.from('berufe').select('bezeichnung_kurz').eq('id', curriculum.beruf_id).single();
+      if (beruf) berufTitle = beruf.bezeichnung_kurz;
     }
 
-    const validateWithOpus = provider !== 'deepseek'; // Opus validation for GPT-5.2 output
+    await supabase.from('courses').update({ status: 'generating', publishing_status: 'draft' }).eq('id', courseId);
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    console.log(`[User: ${auth.user?.id}] Starting course generation for course: ${courseId}`);
-
-    // Update course status to generating
-    await supabase
-      .from('courses')
-      .update({ status: 'generating' })
-      .eq('id', courseId);
-
-    // Fetch learning fields and competencies for this curriculum
     const { data: learningFields, error: lfError } = await supabase
       .from('learning_fields')
-      .select(`
-        *,
-        competencies (*)
-      `)
+      .select('*, competencies (*)')
       .eq('curriculum_id', curriculumId)
       .order('sort_order');
-
     if (lfError) throw lfError;
-
-    if (!learningFields || learningFields.length === 0) {
-      throw new Error('No learning fields found for this curriculum');
-    }
-
-    console.log(`Found ${learningFields.length} learning fields`);
+    if (!learningFields?.length) throw new Error('No learning fields found');
 
     let totalDuration = 0;
+    let lessonsCreated = 0;
 
-    // Create modules and lessons for each learning field
+    // Create modules + placeholder lessons (NO AI calls – fast)
     for (let lfIdx = 0; lfIdx < learningFields.length; lfIdx++) {
       const lf = learningFields[lfIdx];
-      
-      console.log(`Processing learning field: ${lf.code} - ${lf.title}`);
+      console.log(`[${lfIdx + 1}/${learningFields.length}] Scaffolding ${lf.code}`);
 
-      // Create module for this learning field
       const { data: module, error: moduleError } = await supabase
         .from('modules')
         .insert({
@@ -114,163 +65,64 @@ serve(async (req) => {
           description: lf.description,
           sort_order: lfIdx,
         })
-        .select()
-        .single();
-
+        .select().single();
       if (moduleError) throw moduleError;
 
-      // Create lessons for each competency
       const competencies = lf.competencies || [];
       let lessonSortOrder = 0;
 
+      // Batch insert all lessons for this module
+      const lessonRows = [];
       for (const comp of competencies) {
-        // Create 5 lessons (one for each step) for each competency
         for (const step of LESSON_STEPS) {
           const stepDuration = step === 'mini_check' ? 5 : 10;
           totalDuration += stepDuration;
 
-          // Generate lesson content with AI
-          let lessonContent = null;
-          
-          try {
-            const aiResponse = await fetch(apiUrl, {
-              method: 'POST',
-              headers: apiHeaders,
-              body: JSON.stringify({
-                model: aiModel,
-                messages: [
-                  {
-                    role: 'system',
-                    content: `Du bist ein Experte für die Erstellung von Lerninhalten. 
-                    Erstelle strukturierte Lerninhalte im JSON-Format.
-                    Die Inhalte sollen für die berufliche Ausbildung geeignet sein.
-                    Antworte AUSSCHLIESSLICH mit einem JSON-Objekt.`
-                  },
-                  {
-                    role: 'user',
-                    content: `Erstelle Lerninhalt für:
-                    
-Kompetenz: ${comp.title}
-Beschreibung: ${comp.description || 'Keine Beschreibung'}
-Taxonomiestufe: ${comp.taxonomy_level || 'Anwenden'}
-
-Lernschritt: ${step}
-Aufgabe: ${stepPrompts[step]}
-
-Antworte mit einem JSON-Objekt im Format:
-{
-  "type": "text",
-  "html": "<h3>Überschrift</h3><p>Inhalt...</p>",
-  "objectives": ["Lernziel 1", "Lernziel 2"]
-}`
-                  }
-                ],
-                temperature: 0.7,
-              }),
-            });
-
-            if (aiResponse.ok) {
-              const result = await aiResponse.json();
-              const content = result.choices?.[0]?.message?.content;
-              
-              if (content) {
-                try {
-                  const cleanContent = content
-                    .replace(/```json\n?/g, '')
-                    .replace(/```\n?/g, '')
-                    .trim();
-                  lessonContent = JSON.parse(cleanContent);
-                } catch {
-                  console.error('Failed to parse AI content for lesson');
-                }
-              }
-            }
-          } catch (aiError) {
-            console.error('AI generation error:', aiError);
-          }
-
-          // Fallback content if AI fails
-          if (!lessonContent) {
-            lessonContent = {
-              type: 'text',
-              html: `<h3>${comp.title} - ${step}</h3><p>Inhalt wird generiert...</p>`,
-              objectives: [`Verständnis von ${comp.title}`]
-            };
-          }
-
-          // --- OPUS VALIDATION ---
-          let validationScore: number | null = null;
-          if (validateWithOpus && lessonContent) {
-            try {
-              const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-              if (ANTHROPIC_API_KEY) {
-                const valResp = await fetch('https://api.anthropic.com/v1/messages', {
-                  method: 'POST',
-                  headers: {
-                    'x-api-key': ANTHROPIC_API_KEY,
-                    'anthropic-version': '2023-06-01',
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    model: 'claude-opus-4-20250514',
-                    max_tokens: 1024,
-                    system: `Du bist ein Qualitätsprüfer für Lerninhalte. Prüfe fachliche Korrektheit, didaktische Qualität und Vollständigkeit. Antworte NUR mit JSON: {"valid": bool, "score": 0-100, "issues": [{"severity": "critical|warning|info", "message": "..."}]}`,
-                    messages: [{ role: 'user', content: `Kompetenz: ${comp.title}\nTaxonomie: ${comp.taxonomy_level || 'Anwenden'}\nSchritt: ${step}\n\nINHALT:\n${JSON.stringify(lessonContent)}` }],
-                  }),
-                });
-                if (valResp.ok) {
-                  const valData = await valResp.json();
-                  const valText = valData.content?.[0]?.text || '';
-                  try {
-                    const valResult = JSON.parse(valText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
-                    validationScore = valResult.score;
-                    console.log(`[Opus Validation] ${comp.code} ${step}: Score ${valResult.score}, Valid: ${valResult.valid}`);
-                    // If critical issues, log but still save (admin can review)
-                    if (valResult.issues?.some((i: any) => i.severity === 'critical')) {
-                      console.warn(`[Opus] Critical issues found in ${comp.code} ${step}`);
-                    }
-                  } catch { console.error('[Opus] Failed to parse validation response'); }
-                }
-              }
-            } catch (valErr) {
-              console.error('[Opus Validation] Error:', valErr);
-            }
-          }
-
-          // Insert lesson with validation metadata
-          await supabase.from('lessons').insert({
+          lessonRows.push({
             module_id: module.id,
             competency_id: comp.id,
             title: `${comp.code}: ${comp.title}`,
-            step: step,
-            content: lessonContent,
+            step,
+            content: {
+              type: step === 'mini_check' ? 'mini_check' : 'text',
+              html: `<h3>${comp.title} – ${step}</h3><p>⏳ Inhalt wird generiert...</p>`,
+              objectives: [`Verständnis von ${comp.title}`],
+              _placeholder: true,
+              _beruf: berufTitle,
+            },
             duration_minutes: stepDuration,
             sort_order: lessonSortOrder++,
+            weight_tag: step === 'mini_check' ? 'high' : step === 'anwenden' ? 'high' : step === 'verstehen' ? 'medium' : 'low',
+            exam_relevance_score: 30,
+            mastery_weight: step === 'mini_check' ? 1.0 : 0,
+            minicheck_parsed: false,
           });
         }
       }
+
+      if (lessonRows.length > 0) {
+        const { error: insertError } = await supabase.from('lessons').insert(lessonRows);
+        if (insertError) throw insertError;
+        lessonsCreated += lessonRows.length;
+      }
     }
 
-    // Update course with total duration and status
-    await supabase
-      .from('courses')
-      .update({
-        estimated_duration: Math.ceil(totalDuration / 60), // Convert to hours
-        status: 'draft', // Back to draft for review before publishing
-      })
-      .eq('id', courseId);
+    await supabase.from('courses').update({
+      estimated_duration: Math.ceil(totalDuration / 60),
+      status: 'draft',
+    }).eq('id', courseId);
 
-    console.log(`Course generation complete. Total duration: ${totalDuration} minutes`);
+    console.log(`Scaffolding done: ${lessonsCreated} placeholder lessons created.`);
+    console.log(`Next: Call generate-course-batch to fill content.`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        courseId,
-        modulesCreated: learningFields.length,
-        totalDuration,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      success: true,
+      courseId,
+      modulesCreated: learningFields.length,
+      lessonsCreated,
+      totalDuration,
+      nextStep: 'Call POST /generate-course-batch with {"courseId": "...", "limit": 10} to fill content with AI.',
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error('Generate course error:', error);
