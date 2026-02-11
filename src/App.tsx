@@ -11,7 +11,9 @@ import { NativeTabBar } from "@/components/native/NativeTabBar";
 import { useNativeApp } from "@/hooks/useNativeApp";
 import AppRoutes from "@/routes/AppRoutes";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1 } },
+});
 
 function AppContent() {
   const { isNative } = useNativeApp();
