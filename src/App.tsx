@@ -12,7 +12,12 @@ import { useNativeApp } from "@/hooks/useNativeApp";
 import AppRoutes from "@/routes/AppRoutes";
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1 } },
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 5 * 60 * 1000,
+    },
+  },
 });
 
 function AppContent() {
