@@ -6,10 +6,11 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 /* ── Model config (SSOT) ── */
+// NOTE: Update to openai/gpt-5.2 + anthropic/opus-4.6 when available in router
 const PROPOSER_MODEL = "openai/gpt-4.1";
 const VALIDATOR_MODEL = "anthropic/claude-sonnet-4-20250514";
-const PROPOSER_LABEL = "gpt-4.1";
-const VALIDATOR_LABEL = "claude-sonnet-4";
+const PROPOSER_LABEL = "gpt-4.1"; // governance label: reflects actual model used
+const VALIDATOR_LABEL = "claude-sonnet-4"; // governance label: reflects actual model used
 
 /* ── Types ── */
 type SB = ReturnType<typeof createClient>;
