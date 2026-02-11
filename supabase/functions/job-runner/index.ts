@@ -72,6 +72,15 @@ const JOB_TYPE_MAP: Record<string, string> = {
   tech_propose_patch: "tech-council-run",
   tech_validate_patch: "tech-council-run",
   tech_full_pipeline: "tech-council-run",
+
+  // Marketing & SEO Council (Council 3)
+  marketing_seed_assets: "marketing-council-run",
+  marketing_propose: "marketing-council-run",
+  marketing_critique: "marketing-council-run",
+  marketing_revise: "marketing-council-run",
+  marketing_verdict: "marketing-council-run",
+  marketing_publish: "marketing-council-run",
+  marketing_full_pipeline: "marketing-council-run",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)
