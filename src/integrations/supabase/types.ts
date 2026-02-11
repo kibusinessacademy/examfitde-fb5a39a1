@@ -8906,7 +8906,6 @@ export type Database = {
           p_first_name: string
           p_last_name: string
           p_package_id: string
-          p_password: string
           p_personnel_number?: string
           p_seat_id: string
           p_username: string
