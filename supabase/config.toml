@@ -152,3 +152,6 @@ verify_jwt = false
 
 [functions.tutor-council-run]
 verify_jwt = false
+
+[functions.tutor-answer]
+verify_jwt = false
