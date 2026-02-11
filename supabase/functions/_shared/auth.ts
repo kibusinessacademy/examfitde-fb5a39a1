@@ -24,6 +24,12 @@ export async function validateAuth(
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+  // Internal job-runner bypass: validated via shared secret header
+  const jobRunnerKey = req.headers.get('x-job-runner-key');
+  if (jobRunnerKey && jobRunnerKey === supabaseServiceKey) {
+    return { user: { id: 'job-runner' }, error: null, isAdmin: true, isServiceRole: true };
+  }
+
   const authHeader = req.headers.get('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
