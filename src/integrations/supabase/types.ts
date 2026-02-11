@@ -4034,7 +4034,6 @@ export type Database = {
         Row: {
           action_type: Database["public"]["Enums"]["growth_action_type"]
           created_at: string
-          enterprise_account_id: string | null
           id: string
           payload_json: Json
           rationale_json: Json
@@ -4046,7 +4045,6 @@ export type Database = {
         Insert: {
           action_type: Database["public"]["Enums"]["growth_action_type"]
           created_at?: string
-          enterprise_account_id?: string | null
           id?: string
           payload_json?: Json
           rationale_json?: Json
@@ -4058,7 +4056,6 @@ export type Database = {
         Update: {
           action_type?: Database["public"]["Enums"]["growth_action_type"]
           created_at?: string
-          enterprise_account_id?: string | null
           id?: string
           payload_json?: Json
           rationale_json?: Json
@@ -4072,30 +4069,27 @@ export type Database = {
       growth_risk_scores: {
         Row: {
           computed_at: string
-          enterprise_account_id: string | null
           id: string
           label: string
           score: number
           signals_json: Json
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           computed_at?: string
-          enterprise_account_id?: string | null
           id?: string
           label?: string
           score?: number
           signals_json?: Json
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           computed_at?: string
-          enterprise_account_id?: string | null
           id?: string
           label?: string
           score?: number
           signals_json?: Json
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -9635,20 +9629,6 @@ export type Database = {
           },
         ]
       }
-      v_user_entitlement_count: {
-        Row: {
-          entitlement_count: number | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
-      v_user_last_activity: {
-        Row: {
-          last_activity_at: string | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
     }
     Functions: {
       approve_blueprint_version: {
@@ -10014,21 +9994,13 @@ export type Database = {
           valid_until: string
         }[]
       }
-      growth_enterprise_candidates: {
-        Args: { p_limit?: number }
-        Returns: {
-          adoption_rate: number
-          enterprise_account_id: string
-          seats_claimed: number
-          seats_total: number
-        }[]
-      }
       growth_user_candidates: {
         Args: { p_cutoff: string; p_limit?: number }
         Returns: {
           days_inactive: number
-          entitlement_count: number
-          last_activity_at: string
+          last_accessed_at: string
+          last_progress_at: string
+          lessons_completed: number
           user_id: string
         }[]
       }

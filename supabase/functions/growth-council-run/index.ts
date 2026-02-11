@@ -3,13 +3,9 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-type Payload = {
-  mode?: "users" | "enterprise";
-  limit?: number;
-  daysInactive?: number;
-};
+type Payload = { limit?: number; daysInactive?: number };
 
 Deno.serve(async (req) => {
   const cors = handleCorsPreflightRequest(req);
@@ -19,7 +15,7 @@ Deno.serve(async (req) => {
   const headers = { ...getCorsHeaders(origin), "Content-Type": "application/json" };
 
   try {
-    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
     const body = await req.json().catch(() => ({}));
     const action = body.action ?? "run_growth_council";
@@ -29,17 +25,50 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: false, error: "Unknown action" }), { status: 400, headers });
     }
 
-    const mode = payload.mode ?? "users";
     const limit = Math.min(Number(payload.limit ?? 50), 200);
     const daysInactive = Math.max(Number(payload.daysInactive ?? 14), 3);
+    const cutoff = new Date(Date.now() - daysInactive * 24 * 60 * 60 * 1000).toISOString();
 
-    if (mode === "users") {
-      const res = await runUserMode(sb, { limit, daysInactive });
-      return new Response(JSON.stringify({ ok: true, ...res }), { status: 200, headers });
+    const cand = await sb.rpc("growth_user_candidates", { p_cutoff: cutoff, p_limit: limit });
+    if (cand.error) throw cand.error;
+
+    let actionsCreated = 0;
+
+    for (const u of cand.data ?? []) {
+      const signals = {
+        last_accessed_at: u.last_accessed_at,
+        last_progress_at: u.last_progress_at,
+        days_inactive: u.days_inactive,
+        lessons_completed: u.lessons_completed,
+      };
+
+      const score = scoreHeuristic(signals);
+      const label = score >= 0.7 ? "high" : score >= 0.4 ? "med" : "low";
+
+      await upsertRisk(sb, u.user_id, score, label, signals);
+
+      if (label !== "low") {
+        const actionPlan = await proposeActionLLM(signals);
+
+        const ins = await sb.from("growth_actions").insert({
+          action_type: "in_app_nudge",
+          target_user_id: u.user_id,
+          title: actionPlan.title ?? "Kurz zurück ins Training",
+          payload_json: actionPlan.payload ?? {},
+          rationale_json: { signals, score, label, model: "deepseek" },
+          status: "proposed",
+        });
+
+        if (!ins.error) actionsCreated++;
+      }
     }
 
-    const res = await runEnterpriseMode(sb, { limit });
-    return new Response(JSON.stringify({ ok: true, ...res }), { status: 200, headers });
+    return new Response(JSON.stringify({
+      ok: true,
+      processed: (cand.data ?? []).length,
+      actionsCreated,
+      cutoff,
+    }), { status: 200, headers });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -48,180 +77,57 @@ Deno.serve(async (req) => {
   }
 });
 
-// ---- User Mode: churn risk scoring + nudge proposals ----
+function scoreHeuristic(s: { days_inactive?: number; lessons_completed?: number }) {
+  const d = Number(s.days_inactive ?? 0);
+  const completed = Number(s.lessons_completed ?? 0);
 
-async function runUserMode(sb: ReturnType<typeof createClient>, opts: { limit: number; daysInactive: number }) {
-  const cutoff = new Date(Date.now() - opts.daysInactive * 24 * 60 * 60 * 1000).toISOString();
+  let base =
+    d >= 30 ? 0.9 :
+    d >= 14 ? 0.7 :
+    d >= 7 ? 0.5 : 0.2;
 
-  const { data: candidates, error } = await sb.rpc("growth_user_candidates", {
-    p_cutoff: cutoff,
-    p_limit: opts.limit,
-  });
-  if (error) throw error;
+  if (completed >= 10) base -= 0.1;
+  if (completed >= 30) base -= 0.1;
 
-  const rows = (candidates ?? []) as Array<{
-    user_id: string;
-    last_activity_at: string | null;
-    days_inactive: number;
-    entitlement_count: number;
-  }>;
-  const created: string[] = [];
-
-  for (const u of rows) {
-    const signals = {
-      last_activity_at: u.last_activity_at,
-      days_inactive: u.days_inactive,
-      entitlement_count: u.entitlement_count,
-    };
-
-    const score = scoreHeuristic(signals);
-    const label = score >= 0.7 ? "high" : score >= 0.4 ? "med" : "low";
-
-    await upsertRisk(sb, {
-      user_id: u.user_id,
-      enterprise_account_id: null,
-      score,
-      label,
-      signals,
-    });
-
-    // Only propose actions for med/high risk
-    if (label !== "low") {
-      const action = await proposeActionLLM({ scope: "user", signals, user_id: u.user_id });
-
-      const ins = await sb.from("growth_actions").insert({
-        action_type: "in_app_nudge",
-        target_user_id: u.user_id,
-        title: action.title ?? "Weiterlernen – kurzer Plan",
-        payload_json: action.payload ?? {},
-        rationale_json: { signals, model: "deepseek" },
-        status: "proposed",
-      }).select("id").single();
-
-      if (!ins.error) created.push(ins.data.id);
-    }
-  }
-
-  return { processed: rows.length, actions_created: created.length };
+  return Math.max(0, Math.min(1, base));
 }
-
-// ---- Enterprise Mode: seat adoption scoring ----
-
-async function runEnterpriseMode(sb: ReturnType<typeof createClient>, opts: { limit: number }) {
-  const { data: accounts, error } = await sb.rpc("growth_enterprise_candidates", {
-    p_limit: opts.limit,
-  });
-  if (error) throw error;
-
-  const rows = (accounts ?? []) as Array<{
-    enterprise_account_id: string;
-    seats_total: number;
-    seats_claimed: number;
-    adoption_rate: number;
-  }>;
-  const created: string[] = [];
-
-  for (const a of rows) {
-    const signals = {
-      seats_total: a.seats_total,
-      seats_claimed: a.seats_claimed,
-      adoption_rate: a.adoption_rate,
-    };
-
-    const score = signals.adoption_rate < 0.4 ? 0.8 : signals.adoption_rate < 0.6 ? 0.5 : 0.2;
-    const label = score >= 0.7 ? "high" : score >= 0.4 ? "med" : "low";
-
-    await upsertRisk(sb, {
-      user_id: null,
-      enterprise_account_id: a.enterprise_account_id,
-      score,
-      label,
-      signals,
-    });
-
-    if (label !== "low") {
-      const action = await proposeActionLLM({
-        scope: "enterprise",
-        signals,
-        enterprise_account_id: a.enterprise_account_id,
-      });
-
-      const ins = await sb.from("growth_actions").insert({
-        action_type: "b2b_admin_nudge",
-        enterprise_account_id: a.enterprise_account_id,
-        title: action.title ?? "Lizenznutzung steigern – 3 konkrete Schritte",
-        payload_json: action.payload ?? {},
-        rationale_json: { signals, model: "deepseek" },
-        status: "proposed",
-      }).select("id").single();
-
-      if (!ins.error) created.push(ins.data.id);
-    }
-  }
-
-  return { processed: rows.length, actions_created: created.length };
-}
-
-// ---- Deterministic scoring (no hallucination) ----
-
-function scoreHeuristic(signals: { days_inactive?: number; entitlement_count?: number }) {
-  const d = Number(signals.days_inactive ?? 0);
-  const e = Number(signals.entitlement_count ?? 0);
-  if (e <= 0) return 0.1;
-  if (d >= 30) return 0.9;
-  if (d >= 14) return 0.7;
-  if (d >= 7) return 0.5;
-  return 0.2;
-}
-
-// ---- Risk score upsert (handles null-key unique constraint) ----
 
 async function upsertRisk(
   sb: ReturnType<typeof createClient>,
-  r: { user_id: string | null; enterprise_account_id: string | null; score: number; label: string; signals: Record<string, unknown> }
+  userId: string,
+  score: number,
+  label: string,
+  signals: Record<string, unknown>,
 ) {
-  let query = sb.from("growth_risk_scores").select("id");
-  if (r.user_id) query = query.eq("user_id", r.user_id);
-  else query = query.is("user_id", null);
-  if (r.enterprise_account_id) query = query.eq("enterprise_account_id", r.enterprise_account_id);
-  else query = query.is("enterprise_account_id", null);
+  const ex = await sb.from("growth_risk_scores").select("id").eq("user_id", userId).maybeSingle();
+  if (ex.error) return;
 
-  const existing = await query.maybeSingle();
-  if (existing.error) return;
-
-  if (existing.data?.id) {
+  if (ex.data?.id) {
     await sb.from("growth_risk_scores").update({
-      score: r.score,
-      label: r.label,
-      signals_json: r.signals,
-      computed_at: new Date().toISOString(),
-    }).eq("id", existing.data.id);
-  } else {
-    await sb.from("growth_risk_scores").insert({
-      user_id: r.user_id,
-      enterprise_account_id: r.enterprise_account_id,
-      score: r.score,
-      label: r.label,
-      signals_json: r.signals,
-    });
+      score, label, signals_json: signals, computed_at: new Date().toISOString(),
+    }).eq("id", ex.data.id);
+    return;
   }
+
+  await sb.from("growth_risk_scores").insert({
+    user_id: userId, score, label, signals_json: signals,
+  });
 }
 
-// ---- LLM action proposal (cost-efficient, grounded in signals only) ----
-
-async function proposeActionLLM(input: Record<string, unknown>) {
+async function proposeActionLLM(signals: Record<string, unknown>) {
   try {
     const result = await callAIJSON({
       provider: "deepseek",
       messages: [
         {
           role: "system",
-          content: `Du bist Growth Council (ExamFit). Erzeuge eine kurze, hilfreiche Maßnahme.
+          content: `Du bist ExamFit Growth Council.
 Regeln:
-- KEINE erfundenen Gründe. Nutze nur die gelieferten Signals.
-- Output STRICT JSON: {"title": "...", "payload": {"message": "...", "cta": "...", "tips": ["..."]}}`,
+- Keine erfundenen Ursachen. Nutze nur die Signals.
+- Output STRICT JSON:
+{"title":"...","payload":{"message":"...","cta":"Prüfung starten","tips":["..."]}}`,
         },
-        { role: "user", content: JSON.stringify(input).slice(0, 8000) },
+        { role: "user", content: JSON.stringify({ signals }).slice(0, 6000) },
       ],
       temperature: 0.3,
     });
@@ -230,11 +136,11 @@ Regeln:
     return JSON.parse(raw);
   } catch {
     return {
-      title: "Weiterlernen – kurzer Plan",
+      title: "Kurz zurück ins Training",
       payload: {
-        message: "Mach heute 10 Minuten MiniCheck.",
+        message: "Starte heute eine Lesson + MiniCheck (10 Minuten).",
         cta: "Prüfung starten",
-        tips: ["Starte mit einer Lesson", "MiniCheck machen", "Schwächen markieren"],
+        tips: ["Eine Lesson öffnen", "MiniCheck machen", "Schwäche markieren"],
       },
     };
   }
