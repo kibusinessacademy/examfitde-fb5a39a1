@@ -64,6 +64,14 @@ const JOB_TYPE_MAP: Record<string, string> = {
   council_vote_and_verdict: "council-worker",
   council_publish_step: "council-worker",
   council_recompute_course_ready: "council-worker",
+
+  // Tech Council (Security & Infrastructure Governance)
+  tech_scan_rls: "tech-council-run",
+  tech_scan_edge: "tech-council-run",
+  tech_scan_queue: "tech-council-run",
+  tech_propose_patch: "tech-council-run",
+  tech_validate_patch: "tech-council-run",
+  tech_full_pipeline: "tech-council-run",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)
