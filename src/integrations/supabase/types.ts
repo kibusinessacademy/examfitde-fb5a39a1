@@ -2436,6 +2436,9 @@ export type Database = {
           estimated_duration: number | null
           id: string
           published_at: string | null
+          publishing_status: string | null
+          quality_report: Json | null
+          quality_score: number | null
           status: Database["public"]["Enums"]["course_status"]
           thumbnail_url: string | null
           title: string
@@ -2453,6 +2456,9 @@ export type Database = {
           estimated_duration?: number | null
           id?: string
           published_at?: string | null
+          publishing_status?: string | null
+          quality_report?: Json | null
+          quality_score?: number | null
           status?: Database["public"]["Enums"]["course_status"]
           thumbnail_url?: string | null
           title: string
@@ -2470,6 +2476,9 @@ export type Database = {
           estimated_duration?: number | null
           id?: string
           published_at?: string | null
+          publishing_status?: string | null
+          quality_report?: Json | null
+          quality_score?: number | null
           status?: Database["public"]["Enums"]["course_status"]
           thumbnail_url?: string | null
           title?: string
@@ -2707,6 +2716,38 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      disallowed_keywords: {
+        Row: {
+          category: string | null
+          created_at: string
+          curriculum_id: string
+          id: string
+          keyword: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          keyword: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          keyword?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disallowed_keywords_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_campaigns: {
         Row: {
@@ -4316,14 +4357,19 @@ export type Database = {
         Row: {
           competency_id: string | null
           content: Json | null
+          content_hash: string | null
           created_at: string
           duration_minutes: number | null
           exam_block: Json | null
+          exam_relevance_score: number | null
           h5p_content_id: string | null
           id: string
+          mastery_weight: number | null
           minicheck_parsed: boolean | null
           module_id: string
           qc_status: string | null
+          quality_flags: Json | null
+          quality_gate_status: string | null
           quarantine_reason: string | null
           quarantine_status: string | null
           quarantined_at: string | null
@@ -4336,14 +4382,19 @@ export type Database = {
         Insert: {
           competency_id?: string | null
           content?: Json | null
+          content_hash?: string | null
           created_at?: string
           duration_minutes?: number | null
           exam_block?: Json | null
+          exam_relevance_score?: number | null
           h5p_content_id?: string | null
           id?: string
+          mastery_weight?: number | null
           minicheck_parsed?: boolean | null
           module_id: string
           qc_status?: string | null
+          quality_flags?: Json | null
+          quality_gate_status?: string | null
           quarantine_reason?: string | null
           quarantine_status?: string | null
           quarantined_at?: string | null
@@ -4356,14 +4407,19 @@ export type Database = {
         Update: {
           competency_id?: string | null
           content?: Json | null
+          content_hash?: string | null
           created_at?: string
           duration_minutes?: number | null
           exam_block?: Json | null
+          exam_relevance_score?: number | null
           h5p_content_id?: string | null
           id?: string
+          mastery_weight?: number | null
           minicheck_parsed?: boolean | null
           module_id?: string
           qc_status?: string | null
+          quality_flags?: Json | null
+          quality_gate_status?: string | null
           quarantine_reason?: string | null
           quarantine_status?: string | null
           quarantined_at?: string | null
@@ -5864,6 +5920,50 @@ export type Database = {
             columns: ["curriculum_product_id"]
             isOneToOne: false
             referencedRelation: "curriculum_products_overview"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quality_gate_results: {
+        Row: {
+          checked_at: string
+          course_id: string
+          gate_name: string
+          gate_number: number
+          id: string
+          issues: Json | null
+          metadata: Json | null
+          score: number | null
+          status: string
+        }
+        Insert: {
+          checked_at?: string
+          course_id: string
+          gate_name: string
+          gate_number: number
+          id?: string
+          issues?: Json | null
+          metadata?: Json | null
+          score?: number | null
+          status?: string
+        }
+        Update: {
+          checked_at?: string
+          course_id?: string
+          gate_name?: string
+          gate_number?: number
+          id?: string
+          issues?: Json | null
+          metadata?: Json | null
+          score?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quality_gate_results_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
         ]
