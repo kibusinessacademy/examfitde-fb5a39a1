@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_patch_plans: {
+        Row: {
+          affected_area: string
+          applied_at: string | null
+          applied_by: string | null
+          approved_at: string | null
+          council_version_id: string | null
+          created_at: string
+          finding_id: string | null
+          id: string
+          patches_json: Json
+          proposer_model: string | null
+          proposer_reasoning: string | null
+          severity: string
+          status: string
+          title: string
+          validator_model: string | null
+          validator_reasoning: string | null
+        }
+        Insert: {
+          affected_area: string
+          applied_at?: string | null
+          applied_by?: string | null
+          approved_at?: string | null
+          council_version_id?: string | null
+          created_at?: string
+          finding_id?: string | null
+          id?: string
+          patches_json?: Json
+          proposer_model?: string | null
+          proposer_reasoning?: string | null
+          severity?: string
+          status?: string
+          title: string
+          validator_model?: string | null
+          validator_reasoning?: string | null
+        }
+        Update: {
+          affected_area?: string
+          applied_at?: string | null
+          applied_by?: string | null
+          approved_at?: string | null
+          council_version_id?: string | null
+          created_at?: string
+          finding_id?: string | null
+          id?: string
+          patches_json?: Json
+          proposer_model?: string | null
+          proposer_reasoning?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          validator_model?: string | null
+          validator_reasoning?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_patch_plans_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: false
+            referencedRelation: "tech_council_findings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_payouts: {
         Row: {
           affiliate_id: string
@@ -8252,6 +8317,51 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+        }
+        Relationships: []
+      }
+      tech_council_findings: {
+        Row: {
+          affected_entity: string | null
+          council_version_id: string | null
+          description: string | null
+          evidence: Json
+          id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          scan_type: string
+          scanned_at: string
+          severity: string
+          status: string
+          title: string
+        }
+        Insert: {
+          affected_entity?: string | null
+          council_version_id?: string | null
+          description?: string | null
+          evidence?: Json
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          scan_type: string
+          scanned_at?: string
+          severity?: string
+          status?: string
+          title: string
+        }
+        Update: {
+          affected_entity?: string | null
+          council_version_id?: string | null
+          description?: string | null
+          evidence?: Json
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          scan_type?: string
+          scanned_at?: string
+          severity?: string
+          status?: string
+          title?: string
         }
         Relationships: []
       }
