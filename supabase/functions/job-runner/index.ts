@@ -201,6 +201,13 @@ Deno.serve(async (req) => {
           `[Runner:${RUNNER_ID}] Executing job ${job.id.slice(0, 8)} → ${functionName}`
         );
 
+        // Normalize payload: ensure both camelCase and snake_case keys exist
+        const normalized = { ...job.payload };
+        if (normalized.courseId && !normalized.course_id) normalized.course_id = normalized.courseId;
+        if (normalized.course_id && !normalized.courseId) normalized.courseId = normalized.course_id;
+        if (normalized.curriculumId && !normalized.curriculum_id) normalized.curriculum_id = normalized.curriculumId;
+        if (normalized.curriculum_id && !normalized.curriculumId) normalized.curriculumId = normalized.curriculum_id;
+
         const response = await fetch(functionUrl, {
           method: "POST",
           headers: {
@@ -209,7 +216,7 @@ Deno.serve(async (req) => {
             "x-job-runner-key": SUPABASE_SERVICE_KEY,
           },
           body: JSON.stringify({
-            ...job.payload,
+            ...normalized,
             _job_id: job.id,
             _job_type: job.job_type,
             _runner_id: RUNNER_ID,
