@@ -3,16 +3,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 /**
- * Regenerate MiniChecks — Dual-LLM Pipeline:
- * 1. Generator: openai/gpt-5.2 (highest reasoning quality)
- * 2. Validator: openai/gpt-5.2 as Claude Opus 4.6 proxy (independent quality gate)
+ * Regenerate MiniChecks — Dual-LLM Pipeline (Direct API):
+ * 1. Generator: OpenAI GPT-5.2 (direct API)
+ * 2. Validator: Anthropic Claude Opus 4.6 (direct API)
  * 
  * Output: MiniCheckPlayer-compatible JSON
  */
 
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const GENERATOR_MODEL = "openai/gpt-5.2";
-const VALIDATOR_MODEL = "openai/gpt-5.2"; // Best available for validation
+const OPENAI_API = "https://api.openai.com/v1/chat/completions";
+const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
+const GENERATOR_MODEL = "gpt-5.2";
+const VALIDATOR_MODEL = "claude-opus-4-6";
 
 const MINICHECK_TOOL = {
   type: "function",
@@ -119,13 +120,13 @@ function toPlayerFormat(aiQuestions: any[]): any {
   };
 }
 
-/** Call AI Gateway */
-async function callAI(apiKey: string, model: string, messages: any[], tools?: any[], toolChoice?: any, maxTokens = 3000): Promise<any> {
-  const body: any = { model, messages, max_tokens: maxTokens };
+/** Call OpenAI API directly */
+async function callOpenAI(apiKey: string, model: string, messages: any[], tools?: any[], toolChoice?: any, maxTokens = 3000): Promise<any> {
+  const body: any = { model, messages, max_completion_tokens: maxTokens };
   if (tools) body.tools = tools;
   if (toolChoice) body.tool_choice = toolChoice;
 
-  const resp = await fetch(AI_GATEWAY, {
+  const resp = await fetch(OPENAI_API, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify(body)
@@ -133,17 +134,60 @@ async function callAI(apiKey: string, model: string, messages: any[], tools?: an
 
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(`AI ${resp.status}: ${text.slice(0, 200)}`);
+    throw new Error(`OpenAI ${resp.status}: ${text.slice(0, 200)}`);
   }
-
   return resp.json();
 }
 
-/** Extract tool call arguments */
-function extractToolArgs(aiResponse: any): any | null {
+/** Call Anthropic API directly */
+async function callAnthropic(apiKey: string, model: string, systemPrompt: string, userPrompt: string, tools?: any[], toolChoice?: any, maxTokens = 3000): Promise<any> {
+  const body: any = {
+    model,
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }]
+  };
+  if (tools) {
+    // Convert OpenAI tool format to Anthropic format
+    body.tools = tools.map((t: any) => ({
+      name: t.function.name,
+      description: t.function.description,
+      input_schema: t.function.parameters
+    }));
+  }
+  if (toolChoice) {
+    body.tool_choice = { type: "tool", name: toolChoice.function?.name || toolChoice };
+  }
+
+  const resp = await fetch(ANTHROPIC_API, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Anthropic ${resp.status}: ${text.slice(0, 200)}`);
+  }
+  return resp.json();
+}
+
+/** Extract tool call arguments from OpenAI response */
+function extractOpenAIToolArgs(aiResponse: any): any | null {
   const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
   if (!toolCall?.function?.arguments) return null;
   try { return JSON.parse(toolCall.function.arguments); } catch { return null; }
+}
+
+/** Extract tool call arguments from Anthropic response */
+function extractAnthropicToolArgs(aiResponse: any): any | null {
+  const toolBlock = aiResponse.content?.find((b: any) => b.type === "tool_use");
+  if (!toolBlock?.input) return null;
+  return toolBlock.input;
 }
 
 /** Apply validator corrections to questions */
@@ -172,8 +216,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY not configured");
+    const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -248,8 +294,8 @@ VERBOTEN:
 
 Nutze die Funktion create_mini_check.`;
 
-        const genResult = await callAI(
-          LOVABLE_API_KEY,
+        const genResult = await callOpenAI(
+          OPENAI_KEY,
           GENERATOR_MODEL,
           [
             { role: "system", content: "Du bist ein deutscher IHK-Prüfungsexperte für Bestattungsfachkräfte. Erstelle ausschließlich fachlich korrekte, prüfungsrelevante Inhalte. Nutze IMMER die bereitgestellte Funktion." },
@@ -259,7 +305,7 @@ Nutze die Funktion create_mini_check.`;
           { type: "function", function: { name: "create_mini_check" } }
         );
 
-        const genArgs = extractToolArgs(genResult);
+        const genArgs = extractOpenAIToolArgs(genResult);
         if (!genArgs?.questions || genArgs.questions.length < 3) {
           errors.push(`${code}: Generator returned ${genArgs?.questions?.length ?? 0} questions`);
           failed++;
@@ -301,18 +347,16 @@ WICHTIG:
 
 Nutze validate_mini_check.`;
 
-        const valResult = await callAI(
-          LOVABLE_API_KEY,
+        const valResult = await callAnthropic(
+          ANTHROPIC_KEY,
           VALIDATOR_MODEL,
-          [
-            { role: "system", content: "Du bist ein unabhängiger Qualitätsprüfer für IHK-Prüfungsinhalte. Deine Aufgabe ist die objektive, kritische Bewertung. Sei streng aber fair. Nutze IMMER die Funktion." },
-            { role: "user", content: valPrompt }
-          ],
+          "Du bist ein unabhängiger Qualitätsprüfer für IHK-Prüfungsinhalte. Deine Aufgabe ist die objektive, kritische Bewertung. Sei streng aber fair. Nutze IMMER die bereitgestellte Funktion.",
+          valPrompt,
           [VALIDATION_TOOL],
-          { type: "function", function: { name: "validate_mini_check" } }
+          { function: { name: "validate_mini_check" } }
         );
 
-        const valArgs = extractToolArgs(valResult);
+        const valArgs = extractAnthropicToolArgs(valResult);
         validated++;
 
         if (!valArgs) {
@@ -352,16 +396,16 @@ Nutze validate_mini_check.`;
         }
 
         // ═══════════════════════════════════════
-        // STEP 3: SAVE (validated content)
+        // STEP 3: SAVE (validated content) — fast path, single write first
         // ═══════════════════════════════════════
         const playerContent = toPlayerFormat(genArgs.questions.slice(0, 4));
-        // Add validation metadata
         playerContent.validation_score = valArgs?.score ?? null;
         playerContent.validation_status = valArgs?.overall_valid ? "approved" : "approved_with_corrections";
 
+        // Critical write first — save to lessons table immediately
         const { error: updErr } = await supabase
           .from("lessons")
-          .update({ content: playerContent, updated_at: new Date().toISOString() })
+          .update({ content: playerContent })
           .eq("id", lesson.id);
 
         if (updErr) {
@@ -370,41 +414,34 @@ Nutze validate_mini_check.`;
           continue;
         }
 
-        // Persist to minicheck_questions table
-        for (const pq of playerContent.questions) {
-          await supabase.from("minicheck_questions").upsert({
-            lesson_id: lesson.id,
-            question_text: pq.text,
-            options: pq.options.map((o: any) => o.text),
-            correct_option_index: pq.options.findIndex((o: any) => o.is_correct),
-            explanation: pq.explanation_correct,
-            difficulty: "medium",
-            competency_id: lesson.competency_id
-          }, { onConflict: "lesson_id,question_text" }).select();
-        }
-
-        // Audit log
-        await supabase.from("ai_generations").insert({
-          entity_type: "minicheck",
-          entity_id: lesson.id,
-          generator_model: GENERATOR_MODEL,
-          status: "approved",
-          output_content: playerContent,
-          validation_score: valArgs?.score ?? null,
-          validation_decision: valArgs?.overall_valid ? "approved" : "approved_with_corrections",
-          metadata: {
-            validator_model: VALIDATOR_MODEL,
-            issues_count: valArgs?.issues?.length ?? 0,
-            corrections_applied: valArgs?.corrections?.length ?? 0,
-            competency_code: code
-          }
-        });
-
         console.log(`✅ ${code}: Generated + Validated (score=${valArgs?.score ?? "N/A"})`);
         fixed++;
 
-        // Rate limit protection (2 API calls per item)
-        await new Promise(r => setTimeout(r, 1200));
+        // Non-critical writes — fire and forget (don't block on these)
+        const mcRows = playerContent.questions.map((pq: any) => ({
+          lesson_id: lesson.id,
+          question_text: pq.text,
+          options: pq.options.map((o: any) => o.text),
+          correct_option_index: pq.options.findIndex((o: any) => o.is_correct),
+          explanation: pq.explanation_correct,
+          difficulty: "medium",
+          competency_id: lesson.competency_id
+        }));
+
+        // Batch upsert + audit log in parallel, non-blocking
+        Promise.all([
+          supabase.from("minicheck_questions").upsert(mcRows, { onConflict: "lesson_id,question_text" }),
+          supabase.from("ai_generations").insert({
+            entity_type: "minicheck",
+            entity_id: lesson.id,
+            generator_model: GENERATOR_MODEL,
+            status: "approved",
+            output_content: playerContent,
+            validation_score: valArgs?.score ?? null,
+            validation_decision: valArgs?.overall_valid ? "approved" : "approved_with_corrections",
+            metadata: { validator_model: VALIDATOR_MODEL, issues_count: valArgs?.issues?.length ?? 0, corrections_applied: valArgs?.corrections?.length ?? 0, competency_code: code }
+          })
+        ]).catch(e => console.warn(`[AUDIT] ${code}: non-critical write failed:`, e));
 
       } catch (e) {
         const msg = e instanceof Error ? e.message : "unknown";
