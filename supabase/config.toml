@@ -194,3 +194,6 @@ verify_jwt = false
 
 [functions.qa-council-error-budget]
 verify_jwt = false
+
+[functions.claim-license-secure]
+verify_jwt = false

@@ -5370,6 +5370,33 @@ export type Database = {
           },
         ]
       }
+      license_code_lockouts: {
+        Row: {
+          failed_attempts: number
+          id: string
+          last_attempt_at: string
+          license_code: string
+          locked_until: string | null
+          updated_at: string
+        }
+        Insert: {
+          failed_attempts?: number
+          id?: string
+          last_attempt_at?: string
+          license_code: string
+          locked_until?: string | null
+          updated_at?: string
+        }
+        Update: {
+          failed_attempts?: number
+          id?: string
+          last_attempt_at?: string
+          license_code?: string
+          locked_until?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       license_packages: {
         Row: {
           billing_address: Json | null
@@ -7927,6 +7954,111 @@ export type Database = {
         }
         Relationships: []
       }
+      security_blocks: {
+        Row: {
+          blocked_until: string | null
+          created_at: string
+          id: string
+          reason: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blocked_until?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blocked_until?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      security_events: {
+        Row: {
+          buyer_account_id: string | null
+          created_at: string
+          decision: Database["public"]["Enums"]["security_decision"]
+          device_hash: string | null
+          event_type: Database["public"]["Enums"]["security_event_type"]
+          id: string
+          ip_hash: string | null
+          license_code: string | null
+          meta: Json
+          reason: string | null
+          seat_id: string | null
+          ua_hash: string | null
+          user_id: string | null
+        }
+        Insert: {
+          buyer_account_id?: string | null
+          created_at?: string
+          decision?: Database["public"]["Enums"]["security_decision"]
+          device_hash?: string | null
+          event_type: Database["public"]["Enums"]["security_event_type"]
+          id?: string
+          ip_hash?: string | null
+          license_code?: string | null
+          meta?: Json
+          reason?: string | null
+          seat_id?: string | null
+          ua_hash?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          buyer_account_id?: string | null
+          created_at?: string
+          decision?: Database["public"]["Enums"]["security_decision"]
+          device_hash?: string | null
+          event_type?: Database["public"]["Enums"]["security_event_type"]
+          id?: string
+          ip_hash?: string | null
+          license_code?: string | null
+          meta?: Json
+          reason?: string | null
+          seat_id?: string | null
+          ua_hash?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      security_rate_limits: {
+        Row: {
+          blocked_until: string | null
+          bucket_key: string
+          count: number
+          id: string
+          updated_at: string
+          window_seconds: number
+          window_start: string
+        }
+        Insert: {
+          blocked_until?: string | null
+          bucket_key: string
+          count?: number
+          id?: string
+          updated_at?: string
+          window_seconds: number
+          window_start: string
+        }
+        Update: {
+          blocked_until?: string | null
+          bucket_key?: string
+          count?: number
+          id?: string
+          updated_at?: string
+          window_seconds?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
       seo_documents: {
         Row: {
           beruf_id: string | null
@@ -9287,6 +9419,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_device_bindings: {
+        Row: {
+          device_hash: string
+          first_seen_at: string
+          id: string
+          is_blocked: boolean
+          last_seen_at: string
+          seen_count: number
+          user_id: string
+        }
+        Insert: {
+          device_hash: string
+          first_seen_at?: string
+          id?: string
+          is_blocked?: boolean
+          last_seen_at?: string
+          seen_count?: number
+          user_id: string
+        }
+        Update: {
+          device_hash?: string
+          first_seen_at?: string
+          id?: string
+          is_blocked?: boolean
+          last_seen_at?: string
+          seen_count?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       user_learning_streaks: {
         Row: {
@@ -10695,7 +10857,10 @@ export type Database = {
         Returns: boolean
       }
       hash_email: { Args: { p_email: string }; Returns: string }
+      is_admin: { Args: { p_uid: string }; Returns: boolean }
       is_admin_user: { Args: { check_uid: string }; Returns: boolean }
+      is_code_locked: { Args: { p_code: string }; Returns: Json }
+      is_user_blocked: { Args: { p_user: string }; Returns: boolean }
       job_maintenance: { Args: never; Returns: Json }
       job_recovery_worker: { Args: never; Returns: Json }
       list_course_evidence_packs: {
@@ -10739,6 +10904,10 @@ export type Database = {
       month_start: { Args: { p_any: string }; Returns: string }
       normalize_question_text: { Args: { p_text: string }; Returns: string }
       normalize_search_text: { Args: { input: string }; Returns: string }
+      note_code_failure: {
+        Args: { p_code: string; p_lock_seconds?: number; p_max_fail?: number }
+        Returns: Json
+      }
       publish_approved_blueprint_version: {
         Args: { p_blueprint_id: string; p_version_id: string }
         Returns: undefined
@@ -10924,6 +11093,15 @@ export type Database = {
           url: string
         }[]
       }
+      security_rate_limit_hit: {
+        Args: {
+          p_block_seconds?: number
+          p_bucket_key: string
+          p_max_count: number
+          p_window_seconds: number
+        }
+        Returns: Json
+      }
       set_compliance_finding_status: {
         Args: {
           p_finding_id: string
@@ -10978,6 +11156,7 @@ export type Database = {
         }
         Returns: Json
       }
+      table_exists: { Args: { p_table: string }; Returns: boolean }
       unaccent: { Args: { "": string }; Returns: string }
       update_learning_streak: {
         Args: { p_curriculum_id: string; p_user_id: string }
@@ -11131,6 +11310,18 @@ export type Database = {
       qa_status: "open" | "resolved" | "accepted_risk"
       question_difficulty: "easy" | "medium" | "hard"
       question_status: "draft" | "review" | "approved" | "rejected"
+      security_decision: "allow" | "review" | "block"
+      security_event_type:
+        | "claim_attempt"
+        | "claim_success"
+        | "claim_failed"
+        | "claim_locked"
+        | "rate_limited"
+        | "device_mismatch"
+        | "ip_anomaly"
+        | "seat_bound"
+        | "admin_block"
+        | "admin_unblock"
       variation_mode:
         | "lexical"
         | "numerical"
@@ -11351,6 +11542,19 @@ export const Constants = {
       qa_status: ["open", "resolved", "accepted_risk"],
       question_difficulty: ["easy", "medium", "hard"],
       question_status: ["draft", "review", "approved", "rejected"],
+      security_decision: ["allow", "review", "block"],
+      security_event_type: [
+        "claim_attempt",
+        "claim_success",
+        "claim_failed",
+        "claim_locked",
+        "rate_limited",
+        "device_mismatch",
+        "ip_anomaly",
+        "seat_bound",
+        "admin_block",
+        "admin_unblock",
+      ],
       variation_mode: [
         "lexical",
         "numerical",

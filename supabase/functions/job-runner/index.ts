@@ -134,6 +134,9 @@ const JOB_TYPE_MAP: Record<string, string> = {
   qa_runtime_smoke: "qa-council-runtime-smoke",
   qa_h5p_smoke: "qa-council-h5p-smoke",
   qa_error_budget: "qa-council-error-budget",
+
+  // Security / Abuse / License-Fraud Council (Council 10)
+  claim_license_secure: "claim-license-secure",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)
