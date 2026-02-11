@@ -6100,7 +6100,6 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
-          initial_password_hash: string | null
           login_username: string | null
           managed_account: boolean | null
           personnel_number: string | null
@@ -6113,7 +6112,6 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
-          initial_password_hash?: string | null
           login_username?: string | null
           managed_account?: boolean | null
           personnel_number?: string | null
@@ -6126,7 +6124,6 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
-          initial_password_hash?: string | null
           login_username?: string | null
           managed_account?: boolean | null
           personnel_number?: string | null
@@ -9048,6 +9045,20 @@ export type Database = {
           lesson_title: string
           module_title: string
           score_percent: number
+        }[]
+      }
+      get_my_profile: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          company_id: string
+          created_at: string
+          full_name: string
+          id: string
+          login_username: string
+          managed_account: boolean
+          updated_at: string
+          user_id: string
         }[]
       }
       get_placeholder_lessons: {
