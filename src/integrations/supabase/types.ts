@@ -4524,9 +4524,17 @@ export type Database = {
       }
       license_packages: {
         Row: {
+          billing_address: Json | null
+          billing_company: string | null
+          billing_email: string | null
+          billing_name: string | null
+          billing_vat_id: string | null
+          buyer_is_licensee: boolean
           buyer_user_id: string
           created_at: string | null
           curriculum_id: string
+          delivery_log: Json
+          delivery_status: string
           expires_at: string
           id: string
           price_paid_cents: number
@@ -4535,12 +4543,23 @@ export type Database = {
           quantity: number
           status: string | null
           stripe_checkout_session_id: string | null
+          stripe_customer_id: string | null
+          stripe_invoice_id: string | null
+          stripe_invoice_url: string | null
           stripe_payment_intent_id: string | null
         }
         Insert: {
+          billing_address?: Json | null
+          billing_company?: string | null
+          billing_email?: string | null
+          billing_name?: string | null
+          billing_vat_id?: string | null
+          buyer_is_licensee?: boolean
           buyer_user_id: string
           created_at?: string | null
           curriculum_id: string
+          delivery_log?: Json
+          delivery_status?: string
           expires_at: string
           id?: string
           price_paid_cents: number
@@ -4549,12 +4568,23 @@ export type Database = {
           quantity: number
           status?: string | null
           stripe_checkout_session_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_invoice_url?: string | null
           stripe_payment_intent_id?: string | null
         }
         Update: {
+          billing_address?: Json | null
+          billing_company?: string | null
+          billing_email?: string | null
+          billing_name?: string | null
+          billing_vat_id?: string | null
+          buyer_is_licensee?: boolean
           buyer_user_id?: string
           created_at?: string | null
           curriculum_id?: string
+          delivery_log?: Json
+          delivery_status?: string
           expires_at?: string
           id?: string
           price_paid_cents?: number
@@ -4563,6 +4593,9 @@ export type Database = {
           quantity?: number
           status?: string | null
           stripe_checkout_session_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_invoice_url?: string | null
           stripe_payment_intent_id?: string | null
         }
         Relationships: [
@@ -4586,28 +4619,40 @@ export type Database = {
         Row: {
           assigned_at: string | null
           assigned_user_id: string | null
+          claimed_by_ip: string | null
+          claimed_user_agent: string | null
           created_at: string | null
           id: string
           invite_code: string | null
           invite_email: string | null
+          invite_email_hash: string | null
+          invite_expires_at: string | null
           package_id: string
         }
         Insert: {
           assigned_at?: string | null
           assigned_user_id?: string | null
+          claimed_by_ip?: string | null
+          claimed_user_agent?: string | null
           created_at?: string | null
           id?: string
           invite_code?: string | null
           invite_email?: string | null
+          invite_email_hash?: string | null
+          invite_expires_at?: string | null
           package_id: string
         }
         Update: {
           assigned_at?: string | null
           assigned_user_id?: string | null
+          claimed_by_ip?: string | null
+          claimed_user_agent?: string | null
           created_at?: string | null
           id?: string
           invite_code?: string | null
           invite_email?: string | null
+          invite_email_hash?: string | null
+          invite_expires_at?: string | null
           package_id?: string
         }
         Relationships: [
@@ -8616,6 +8661,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      hash_email: { Args: { p_email: string }; Returns: string }
       is_admin_user: { Args: { check_uid: string }; Returns: boolean }
       job_maintenance: { Args: never; Returns: Json }
       job_recovery_worker: { Args: never; Returns: Json }
