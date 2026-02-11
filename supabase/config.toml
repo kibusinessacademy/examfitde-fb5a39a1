@@ -182,3 +182,15 @@ verify_jwt = false
 
 [functions.finance-export-datev]
 verify_jwt = false
+
+[functions.qa-council-smoke]
+verify_jwt = false
+
+[functions.qa-council-runtime-smoke]
+verify_jwt = false
+
+[functions.qa-council-h5p-smoke]
+verify_jwt = false
+
+[functions.qa-council-error-budget]
+verify_jwt = false

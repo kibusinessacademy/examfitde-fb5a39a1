@@ -14,6 +14,7 @@ const EarlyWarningsPage = lazy(() => import('@/pages/admin/EarlyWarningsPage'));
 const PatchCenterPage = lazy(() => import('@/pages/admin/PatchCenterPage'));
 const TechCouncilPage = lazy(() => import('@/pages/admin/TechCouncilPage'));
 const ComplianceDashboardPage = lazy(() => import('@/pages/admin/ComplianceDashboardPage'));
+const QCDashboardPage = lazy(() => import('@/pages/admin/QCDashboardPage'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -30,6 +31,7 @@ const tabs = [
   { path: '/admin/system/patches', label: 'Patches' },
   { path: '/admin/system/tech-council', label: 'Tech Council' },
   { path: '/admin/system/compliance', label: 'Compliance' },
+  { path: '/admin/system/qa', label: 'QA Center' },
 ];
 
 export default function SystemPage() {
@@ -76,6 +78,7 @@ export default function SystemPage() {
           <Route path="patches" element={<PatchCenterPage />} />
           <Route path="tech-council" element={<TechCouncilPage />} />
           <Route path="compliance" element={<ComplianceDashboardPage />} />
+          <Route path="qa" element={<QCDashboardPage />} />
         </Routes>
       </Suspense>
     </div>
