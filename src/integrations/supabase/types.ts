@@ -1433,6 +1433,54 @@ export type Database = {
           },
         ]
       }
+      blueprint_versions: {
+        Row: {
+          blueprint_id: string
+          content_json: Json
+          council_round: number
+          created_at: string
+          created_by: string | null
+          id: string
+          status: string
+          version_number: number
+        }
+        Insert: {
+          blueprint_id: string
+          content_json: Json
+          council_round?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          status?: string
+          version_number?: number
+        }
+        Update: {
+          blueprint_id?: string
+          content_json?: Json
+          council_round?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          status?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_versions_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "blueprint_versions_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       churn_predictions: {
         Row: {
           action_taken: string | null
@@ -9355,6 +9403,10 @@ export type Database = {
         }[]
       }
       normalize_search_text: { Args: { input: string }; Returns: string }
+      publish_approved_blueprint_version: {
+        Args: { p_blueprint_id: string; p_version_id: string }
+        Returns: undefined
+      }
       publish_approved_version: {
         Args: { p_lesson_id: string; p_step_key: string; p_version_id: string }
         Returns: undefined

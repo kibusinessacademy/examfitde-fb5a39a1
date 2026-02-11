@@ -453,13 +453,27 @@ serve(async (req) => {
         ? { type: 'mini_check', questions: content.questions, objectives: content.objectives, generated_at: new Date().toISOString(), version: 4, source: 'orchestrator' }
         : { type: 'text', html: content.html, objectives: content.objectives, generated_at: new Date().toISOString(), version: 4, source: 'orchestrator' };
 
-      const { error } = await supabase.from('lessons').update({ content: finalContent }).eq('id', lesson.id);
+      // Route through content_versions instead of direct lesson write (Council Single-Write-Path)
+      const stepKey = lesson.step === 'mini_check' ? 'step_5_minicheck'
+        : lesson.step === 'einstieg' ? 'step_1_introduction'
+        : lesson.step === 'verstehen' ? 'step_2_understanding'
+        : lesson.step === 'anwenden' ? 'step_3_application'
+        : 'step_4_repetition';
+
+      const { error } = await supabase.from('content_versions').insert({
+        lesson_id: lesson.id,
+        step_key: stepKey,
+        content_json: finalContent,
+        status: 'under_review',
+        entity_type: lesson.step === 'mini_check' ? 'minicheck' : 'lesson_step',
+        created_by: 'product-orchestrator',
+      });
       if (error) {
         failed++;
         details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: 'db_error' });
       } else {
         fixed++;
-        details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: 'fixed' });
+        details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: 'queued_for_council' });
       }
       await new Promise(r => setTimeout(r, DELAY_MS));
     }
