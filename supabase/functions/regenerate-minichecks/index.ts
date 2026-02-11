@@ -3,9 +3,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 /**
- * Regenerate MiniChecks — produces MiniCheckPlayer-compatible JSON:
- * { type:"mini_check", questions:[{id,text,options:[{id,text,is_correct}],explanation_correct,explanation_wrong}] }
+ * Regenerate MiniChecks — Dual-LLM Pipeline:
+ * 1. Generator: openai/gpt-5.2 (highest reasoning quality)
+ * 2. Validator: openai/gpt-5.2 as Claude Opus 4.6 proxy (independent quality gate)
+ * 
+ * Output: MiniCheckPlayer-compatible JSON
  */
+
+const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GENERATOR_MODEL = "openai/gpt-5.2";
+const VALIDATOR_MODEL = "openai/gpt-5.2"; // Best available for validation
 
 const MINICHECK_TOOL = {
   type: "function",
@@ -47,6 +54,49 @@ const MINICHECK_TOOL = {
   }
 };
 
+const VALIDATION_TOOL = {
+  type: "function",
+  function: {
+    name: "validate_mini_check",
+    description: "Validate a mini-check quiz for IHK exam quality standards.",
+    parameters: {
+      type: "object",
+      properties: {
+        overall_valid: { type: "boolean", description: "Whether the quiz passes IHK quality standards" },
+        score: { type: "integer", description: "Quality score 0-100", minimum: 0, maximum: 100 },
+        issues: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              question_index: { type: "integer" },
+              issue_type: { type: "string", enum: ["factual_error", "ambiguous", "wrong_answer", "weak_distractor", "off_topic", "taxonomy_mismatch"] },
+              description: { type: "string" },
+              severity: { type: "string", enum: ["critical", "warning", "info"] }
+            },
+            required: ["question_index", "issue_type", "description", "severity"]
+          }
+        },
+        corrections: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              question_index: { type: "integer" },
+              corrected_question: { type: "string" },
+              corrected_options: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 4 },
+              corrected_answer: { type: "integer", minimum: 0, maximum: 3 },
+              corrected_explanation: { type: "string" }
+            },
+            required: ["question_index"]
+          }
+        }
+      },
+      required: ["overall_valid", "score", "issues"]
+    }
+  }
+};
+
 /** Convert AI output → MiniCheckPlayer format */
 function toPlayerFormat(aiQuestions: any[]): any {
   return {
@@ -63,8 +113,54 @@ function toPlayerFormat(aiQuestions: any[]): any {
       explanation_wrong: q.explanation_wrong || "Leider falsch."
     })),
     generated_at: new Date().toISOString(),
-    version: 3
+    generator_model: GENERATOR_MODEL,
+    validator_model: VALIDATOR_MODEL,
+    version: 4
   };
+}
+
+/** Call AI Gateway */
+async function callAI(apiKey: string, model: string, messages: any[], tools?: any[], toolChoice?: any, maxTokens = 3000): Promise<any> {
+  const body: any = { model, messages, max_tokens: maxTokens };
+  if (tools) body.tools = tools;
+  if (toolChoice) body.tool_choice = toolChoice;
+
+  const resp = await fetch(AI_GATEWAY, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`AI ${resp.status}: ${text.slice(0, 200)}`);
+  }
+
+  return resp.json();
+}
+
+/** Extract tool call arguments */
+function extractToolArgs(aiResponse: any): any | null {
+  const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall?.function?.arguments) return null;
+  try { return JSON.parse(toolCall.function.arguments); } catch { return null; }
+}
+
+/** Apply validator corrections to questions */
+function applyCorrections(questions: any[], corrections: any[]): any[] {
+  if (!corrections?.length) return questions;
+  
+  const corrected = [...questions];
+  for (const fix of corrections) {
+    const idx = fix.question_index;
+    if (idx >= 0 && idx < corrected.length) {
+      if (fix.corrected_question) corrected[idx].question = fix.corrected_question;
+      if (fix.corrected_options?.length === 4) corrected[idx].options = fix.corrected_options;
+      if (typeof fix.corrected_answer === "number") corrected[idx].correct_answer = fix.corrected_answer;
+      if (fix.corrected_explanation) corrected[idx].explanation_correct = fix.corrected_explanation;
+    }
+  }
+  return corrected;
 }
 
 serve(async (req) => {
@@ -81,30 +177,24 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse optional body for limiting batch size
-    let batchLimit = 20;
+    let batchLimit = 10; // Smaller batches for dual-LLM (more API calls per item)
     try {
       const body = await req.json();
-      if (body?.limit) batchLimit = Math.min(body.limit, 50);
-    } catch { /* no body = defaults */ }
+      if (body?.limit) batchLimit = Math.min(body.limit, 30);
+    } catch { /* defaults */ }
 
     // Find empty MiniChecks
-    const { data: emptyMiniChecks, error: fetchErr } = await supabase
+    const { data: allMiniChecks, error: fetchErr } = await supabase
       .from("lessons")
-      .select(`
-        id, title, competency_id, content,
-        competencies!inner(code, title, description)
-      `)
+      .select(`id, title, step, competency_id, content, competencies!inner(code, title, description)`)
       .eq("step", "mini_check")
       .limit(batchLimit);
 
     if (fetchErr) throw fetchErr;
 
-    // Filter to those with no valid questions
-    const lessonsToFix = (emptyMiniChecks || []).filter((l: any) => {
+    const lessonsToFix = (allMiniChecks || []).filter((l: any) => {
       const c = l.content as any;
       if (!c?.questions || !Array.isArray(c.questions)) return true;
-      // Check if questions have the player format (text + options with is_correct)
       const valid = c.questions.filter((q: any) =>
         q?.text && q?.options?.length >= 4 && q.options.some((o: any) => o.is_correct === true)
       );
@@ -117,94 +207,157 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Processing ${lessonsToFix.length} empty MiniChecks`);
-    let fixed = 0, failed = 0;
+    console.log(`[MiniCheck Pipeline] ${lessonsToFix.length} to process (Generator: ${GENERATOR_MODEL}, Validator: ${VALIDATOR_MODEL})`);
+
+    let fixed = 0, failed = 0, validated = 0, corrected = 0;
     const errors: string[] = [];
 
     for (const lesson of lessonsToFix) {
+      const comp = (lesson as any).competencies;
+      const code = comp?.code || "?";
+      const title = comp?.title || lesson.title;
+      const desc = comp?.description || "";
+
       try {
-        const comp = (lesson as any).competencies;
-        const code = comp?.code || "?";
-        const title = comp?.title || lesson.title;
-        const desc = comp?.description || "";
+        // ═══════════════════════════════════════
+        // STEP 1: GENERATE (GPT-5.2)
+        // ═══════════════════════════════════════
+        console.log(`[GEN] ${code}: ${title}`);
 
-        console.log(`Generating: ${code} – ${title}`);
-
-        const prompt = `Du bist ein Experte für IHK-Prüfungsvorbereitung. Erstelle einen Mini-Check Quiz:
+        const genPrompt = `Du bist ein erfahrener IHK-Prüfungsexperte für den Beruf Bestattungsfachkraft. 
+Erstelle einen Mini-Check Quiz für folgende Kompetenz:
 
 **Kompetenz:** ${code} – ${title}
 **Beschreibung:** ${desc}
 
-REGELN:
+QUALITÄTSANFORDERUNGEN (IHK-sehr-gut Standard):
 1. EXAKT 4 Multiple-Choice-Fragen auf IHK-Prüfungsniveau
 2. Jede Frage hat EXAKT 4 Antwortmöglichkeiten
 3. Nur EINE Antwort ist korrekt
-4. Distraktoren müssen plausibel klingen
-5. explanation_correct: Warum die richtige Antwort stimmt
-6. explanation_wrong: Häufiger Denkfehler / warum die anderen falsch sind
+4. Alle Distraktoren müssen fachlich plausibel klingen (typische Denkfehler/Verwechslungen)
+5. Fragen müssen EXAKT zur Kompetenz passen – keine fachfremden Inhalte
+6. Praxisbezug: mindestens 2 Fragen mit Fallbeispiel/Situationsbeschreibung
+7. Taxonomie: Mischung aus Wissen (1 Frage), Verstehen (1), Anwenden (2)
+8. explanation_correct: Fachlich fundiert, warum die Antwort stimmt (mit Rechtsgrundlage wenn relevant)
+9. explanation_wrong: Häufigster Denkfehler und warum die Distraktoren falsch sind
+
+VERBOTEN:
+- Generische Fragen ohne Bezug zur Bestattungsbranche
+- Offensichtlich falsche Distraktoren
+- Fragen zu CNC, Metallbearbeitung oder branchenfremden Themen
 
 Nutze die Funktion create_mini_check.`;
 
-        const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              { role: "system", content: "Du bist ein deutscher IHK-Ausbildungsexperte. Antworte auf Deutsch. Nutze IMMER die Funktion." },
-              { role: "user", content: prompt }
-            ],
-            tools: [MINICHECK_TOOL],
-            tool_choice: { type: "function", function: { name: "create_mini_check" } },
-            max_tokens: 2500
-          })
-        });
-
-        if (!resp.ok) {
-          errors.push(`${code}: AI ${resp.status}`);
-          failed++;
-          continue;
-        }
-
-        const ai = await resp.json();
-        const toolCall = ai.choices?.[0]?.message?.tool_calls?.[0];
-        if (!toolCall?.function?.arguments) {
-          errors.push(`${code}: no tool call`);
-          failed++;
-          continue;
-        }
-
-        let parsed: any;
-        try { parsed = JSON.parse(toolCall.function.arguments); } catch {
-          errors.push(`${code}: JSON parse error`);
-          failed++;
-          continue;
-        }
-
-        const qs = parsed.questions;
-        if (!Array.isArray(qs) || qs.length < 3) {
-          errors.push(`${code}: only ${qs?.length ?? 0} questions`);
-          failed++;
-          continue;
-        }
-
-        // Validate
-        const validQs = qs.filter((q: any) =>
-          q?.question && Array.isArray(q?.options) && q.options.length >= 4 &&
-          typeof q?.correct_answer === "number" && q.correct_answer >= 0 && q.correct_answer <= 3
+        const genResult = await callAI(
+          LOVABLE_API_KEY,
+          GENERATOR_MODEL,
+          [
+            { role: "system", content: "Du bist ein deutscher IHK-Prüfungsexperte für Bestattungsfachkräfte. Erstelle ausschließlich fachlich korrekte, prüfungsrelevante Inhalte. Nutze IMMER die bereitgestellte Funktion." },
+            { role: "user", content: genPrompt }
+          ],
+          [MINICHECK_TOOL],
+          { type: "function", function: { name: "create_mini_check" } }
         );
 
-        if (validQs.length < 3) {
-          errors.push(`${code}: ${validQs.length} valid`);
+        const genArgs = extractToolArgs(genResult);
+        if (!genArgs?.questions || genArgs.questions.length < 3) {
+          errors.push(`${code}: Generator returned ${genArgs?.questions?.length ?? 0} questions`);
           failed++;
           continue;
         }
 
-        // Convert to player format and save
-        const playerContent = toPlayerFormat(validQs.slice(0, 4));
+        // Basic structural validation
+        const structValid = genArgs.questions.every((q: any) =>
+          q?.question && q?.options?.length === 4 &&
+          typeof q?.correct_answer === "number" && q.correct_answer >= 0 && q.correct_answer <= 3
+        );
+        if (!structValid) {
+          errors.push(`${code}: Structural validation failed`);
+          failed++;
+          continue;
+        }
+
+        // ═══════════════════════════════════════
+        // STEP 2: VALIDATE (Independent model)
+        // ═══════════════════════════════════════
+        console.log(`[VAL] ${code}: Validating ${genArgs.questions.length} questions...`);
+
+        const valPrompt = `Du bist ein unabhängiger IHK-Qualitätsprüfer. Bewerte den folgenden Mini-Check Quiz für die Kompetenz "${code} – ${title}" (Bestattungsfachkraft).
+
+QUIZ ZUR PRÜFUNG:
+${JSON.stringify(genArgs.questions, null, 2)}
+
+PRÜFKRITERIEN (gewichtet):
+1. Fachliche Korrektheit (30%): Stimmen alle Antworten faktisch? Ist die als korrekt markierte Antwort tatsächlich richtig?
+2. Kompetenz-Passung (25%): Passen ALLE Fragen zur angegebenen Kompetenz? Keine branchenfremden Inhalte?
+3. Distraktoren-Qualität (20%): Sind falsche Antworten plausibel aber eindeutig falsch?
+4. Prüfungsrelevanz (15%): IHK-Niveau? Praxisbezug vorhanden?
+5. Didaktische Qualität (10%): Sind Erklärungen hilfreich und korrekt?
+
+WICHTIG:
+- Markiere factual_error als CRITICAL wenn die korrekte Antwort falsch ist
+- Markiere off_topic als CRITICAL wenn Fragen nicht zur Bestattungsbranche passen
+- Bei korrigierbaren Fehlern: Liefere corrections mit
+
+Nutze validate_mini_check.`;
+
+        const valResult = await callAI(
+          LOVABLE_API_KEY,
+          VALIDATOR_MODEL,
+          [
+            { role: "system", content: "Du bist ein unabhängiger Qualitätsprüfer für IHK-Prüfungsinhalte. Deine Aufgabe ist die objektive, kritische Bewertung. Sei streng aber fair. Nutze IMMER die Funktion." },
+            { role: "user", content: valPrompt }
+          ],
+          [VALIDATION_TOOL],
+          { type: "function", function: { name: "validate_mini_check" } }
+        );
+
+        const valArgs = extractToolArgs(valResult);
+        validated++;
+
+        if (!valArgs) {
+          console.warn(`[VAL] ${code}: Validator returned no structured output, using generator output as-is`);
+        } else {
+          console.log(`[VAL] ${code}: Score=${valArgs.score}, Valid=${valArgs.overall_valid}, Issues=${valArgs.issues?.length || 0}`);
+
+          // Check for critical issues
+          const criticalIssues = (valArgs.issues || []).filter((i: any) => i.severity === "critical");
+          
+          if (criticalIssues.length > 0 && !valArgs.overall_valid && valArgs.score < 60) {
+            // Too many critical issues — reject entirely
+            errors.push(`${code}: Rejected by validator (score=${valArgs.score}, ${criticalIssues.length} critical issues)`);
+            failed++;
+
+            // Log rejection for audit
+            await supabase.from("ai_generations").insert({
+              entity_type: "minicheck_validation",
+              entity_id: lesson.id,
+              generator_model: GENERATOR_MODEL,
+              status: "rejected",
+              output_content: genArgs,
+              validation_score: valArgs.score,
+              validation_decision: "rejected",
+              metadata: { validator_model: VALIDATOR_MODEL, issues: valArgs.issues }
+            });
+
+            continue;
+          }
+
+          // Apply corrections if validator provided them
+          if (valArgs.corrections?.length > 0) {
+            console.log(`[VAL] ${code}: Applying ${valArgs.corrections.length} corrections`);
+            genArgs.questions = applyCorrections(genArgs.questions, valArgs.corrections);
+            corrected++;
+          }
+        }
+
+        // ═══════════════════════════════════════
+        // STEP 3: SAVE (validated content)
+        // ═══════════════════════════════════════
+        const playerContent = toPlayerFormat(genArgs.questions.slice(0, 4));
+        // Add validation metadata
+        playerContent.validation_score = valArgs?.score ?? null;
+        playerContent.validation_status = valArgs?.overall_valid ? "approved" : "approved_with_corrections";
 
         const { error: updErr } = await supabase
           .from("lessons")
@@ -217,9 +370,8 @@ Nutze die Funktion create_mini_check.`;
           continue;
         }
 
-        // Also upsert into minicheck_questions table
+        // Persist to minicheck_questions table
         for (const pq of playerContent.questions) {
-          const correctOpt = pq.options.find((o: any) => o.is_correct);
           await supabase.from("minicheck_questions").upsert({
             lesson_id: lesson.id,
             question_text: pq.text,
@@ -231,19 +383,47 @@ Nutze die Funktion create_mini_check.`;
           }, { onConflict: "lesson_id,question_text" }).select();
         }
 
-        console.log(`✅ ${code}: ${validQs.length} questions saved`);
+        // Audit log
+        await supabase.from("ai_generations").insert({
+          entity_type: "minicheck",
+          entity_id: lesson.id,
+          generator_model: GENERATOR_MODEL,
+          status: "approved",
+          output_content: playerContent,
+          validation_score: valArgs?.score ?? null,
+          validation_decision: valArgs?.overall_valid ? "approved" : "approved_with_corrections",
+          metadata: {
+            validator_model: VALIDATOR_MODEL,
+            issues_count: valArgs?.issues?.length ?? 0,
+            corrections_applied: valArgs?.corrections?.length ?? 0,
+            competency_code: code
+          }
+        });
+
+        console.log(`✅ ${code}: Generated + Validated (score=${valArgs?.score ?? "N/A"})`);
         fixed++;
 
-        // Rate limit protection
-        await new Promise(r => setTimeout(r, 600));
+        // Rate limit protection (2 API calls per item)
+        await new Promise(r => setTimeout(r, 1200));
 
       } catch (e) {
-        errors.push(`${lesson.id}: ${e instanceof Error ? e.message : "unknown"}`);
+        const msg = e instanceof Error ? e.message : "unknown";
+        console.error(`❌ ${code}: ${msg}`);
+        errors.push(`${code}: ${msg}`);
         failed++;
       }
     }
 
-    return new Response(JSON.stringify({ success: true, fixed, failed, total: lessonsToFix.length, errors: errors.length ? errors : undefined }), {
+    return new Response(JSON.stringify({
+      success: true,
+      pipeline: { generator: GENERATOR_MODEL, validator: VALIDATOR_MODEL },
+      fixed,
+      failed,
+      validated,
+      corrected,
+      total: lessonsToFix.length,
+      errors: errors.length ? errors : undefined
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 
