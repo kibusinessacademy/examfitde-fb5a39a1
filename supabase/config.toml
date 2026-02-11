@@ -158,3 +158,9 @@ verify_jwt = false
 
 [functions.compliance-council-scan]
 verify_jwt = false
+
+[functions.compliance-council-remediate]
+verify_jwt = false
+
+[functions.compliance-council-report]
+verify_jwt = false
