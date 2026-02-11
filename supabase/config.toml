@@ -116,3 +116,15 @@ verify_jwt = false
 
 [functions.course-reset]
 verify_jwt = false
+
+[functions.seo-generate]
+verify_jwt = false
+
+[functions.seo-qc-check]
+verify_jwt = false
+
+[functions.seo-publish]
+verify_jwt = false
+
+[functions.seo-internal-linker]
+verify_jwt = false

@@ -8,13 +8,30 @@ import { Separator } from '@/components/ui/separator';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { getArticleBySlug, getRelatedArticles } from '@/data/blogArticles';
+import { useSEODocument } from '@/hooks/useSEODocuments';
 import { SITE_URL, generateOrganizationSchema } from '@/lib/seo';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 export default function WissenArticlePage() {
   const { slug } = useParams<{ slug: string }>();
-  const article = getArticleBySlug(slug || '');
+  const hardcodedArticle = getArticleBySlug(slug || '');
+  const { data: dbDoc } = useSEODocument(slug || '', 'blog');
+  
+  // DB article takes priority over hardcoded
+  const article = dbDoc ? {
+    id: dbDoc.id,
+    slug: dbDoc.slug,
+    title: dbDoc.title,
+    excerpt: dbDoc.excerpt || '',
+    content: dbDoc.content_md || '',
+    category: 'Ratgeber',
+    author: 'ExamFit',
+    publishedAt: dbDoc.published_at || dbDoc.updated_at,
+    readingTime: Math.ceil((dbDoc.content_md?.split(/\s+/).length || 200) / 200),
+    tags: [] as string[],
+  } : hardcodedArticle;
+  
   const relatedArticles = getRelatedArticles(slug || '');
 
   if (!article) {

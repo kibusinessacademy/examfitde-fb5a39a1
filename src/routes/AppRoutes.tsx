@@ -79,6 +79,7 @@ const CRMPage = lazy(() => import('@/pages/admin/CRMPage'));
 const SystemHealthPage = lazy(() => import('@/pages/admin/SystemHealthPage'));
 const SystemAuditPage = lazy(() => import('@/pages/admin/SystemAuditPage'));
 const SEOPage = lazy(() => import('@/pages/admin/SEOPage'));
+const SEOContentHub = lazy(() => import('@/pages/admin/SEOContentHub'));
 
 // AZAV Compliance
 const AZAVCompliancePage = lazy(() => import('@/pages/admin/AZAVCompliancePage'));
@@ -249,6 +250,7 @@ const AppRoutes = () => {
           <Route path="system-health" element={<SystemHealthPage />} />
           <Route path="system-audit" element={<SystemAuditPage />} />
           <Route path="seo" element={<SEOPage />} />
+          <Route path="seo-content" element={<SEOContentHub />} />
           {/* AZAV Compliance */}
           <Route path="azav-compliance" element={<AZAVCompliancePage />} />
           {/* Documentation */}

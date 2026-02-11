@@ -6384,6 +6384,175 @@ export type Database = {
         }
         Relationships: []
       }
+      seo_documents: {
+        Row: {
+          beruf_id: string | null
+          canonical_url: string | null
+          competency_id: string | null
+          content_hash: string | null
+          content_md: string | null
+          created_at: string
+          curriculum_id: string | null
+          doc_type: string
+          excerpt: string | null
+          id: string
+          internal_links: Json | null
+          language: string
+          meta_description: string | null
+          meta_title: string | null
+          og_image_path: string | null
+          product_key: string | null
+          published_at: string | null
+          qc_report: Json | null
+          qc_score: number | null
+          similarity_group: string | null
+          slug: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          beruf_id?: string | null
+          canonical_url?: string | null
+          competency_id?: string | null
+          content_hash?: string | null
+          content_md?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          doc_type: string
+          excerpt?: string | null
+          id?: string
+          internal_links?: Json | null
+          language?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          og_image_path?: string | null
+          product_key?: string | null
+          published_at?: string | null
+          qc_report?: Json | null
+          qc_score?: number | null
+          similarity_group?: string | null
+          slug: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          beruf_id?: string | null
+          canonical_url?: string | null
+          competency_id?: string | null
+          content_hash?: string | null
+          content_md?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          doc_type?: string
+          excerpt?: string | null
+          id?: string
+          internal_links?: Json | null
+          language?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          og_image_path?: string | null
+          product_key?: string | null
+          published_at?: string | null
+          qc_report?: Json | null
+          qc_score?: number | null
+          similarity_group?: string | null
+          slug?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_documents_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "berufe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_documents_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_documents_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seo_generation_jobs: {
+        Row: {
+          completed_at: string | null
+          cost_eur: number | null
+          created_at: string
+          error: string | null
+          id: string
+          job_type: string
+          logs: Json | null
+          model: string | null
+          result_doc_id: string | null
+          started_at: string | null
+          status: string
+          target_ref: Json
+          template_key: string | null
+          tokens_used: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          cost_eur?: number | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_type: string
+          logs?: Json | null
+          model?: string | null
+          result_doc_id?: string | null
+          started_at?: string | null
+          status?: string
+          target_ref?: Json
+          template_key?: string | null
+          tokens_used?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          cost_eur?: number | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_type?: string
+          logs?: Json | null
+          model?: string | null
+          result_doc_id?: string | null
+          started_at?: string | null
+          status?: string
+          target_ref?: Json
+          template_key?: string | null
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_generation_jobs_result_doc_id_fkey"
+            columns: ["result_doc_id"]
+            isOneToOne: false
+            referencedRelation: "seo_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_generation_jobs_template_key_fkey"
+            columns: ["template_key"]
+            isOneToOne: false
+            referencedRelation: "seo_templates"
+            referencedColumns: ["template_key"]
+          },
+        ]
+      }
       seo_settings: {
         Row: {
           canonical_url: string | null
@@ -6426,6 +6595,54 @@ export type Database = {
           robots_directives?: string | null
           structured_data?: Json | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      seo_templates: {
+        Row: {
+          created_at: string
+          display_name: string
+          doc_type: string
+          id: string
+          is_active: boolean
+          outline_json: Json
+          prompt_system: string | null
+          prompt_user: string | null
+          qc_rules_json: Json | null
+          style_rules_json: Json | null
+          template_key: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          doc_type: string
+          id?: string
+          is_active?: boolean
+          outline_json?: Json
+          prompt_system?: string | null
+          prompt_user?: string | null
+          qc_rules_json?: Json | null
+          style_rules_json?: Json | null
+          template_key: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          doc_type?: string
+          id?: string
+          is_active?: boolean
+          outline_json?: Json
+          prompt_system?: string | null
+          prompt_user?: string | null
+          qc_rules_json?: Json | null
+          style_rules_json?: Json | null
+          template_key?: string
+          updated_at?: string
+          version?: number
         }
         Relationships: []
       }

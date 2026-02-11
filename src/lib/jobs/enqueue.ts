@@ -98,6 +98,17 @@ export const PIPELINE_TEMPLATES = {
       { job_type: 'seo_internal_links' },
     ],
   },
+  'seo-content': {
+    label: 'SEO Content Pipeline',
+    description: 'Landing + Blog + FAQ generieren, QC prüfen, Internal Linking, Sitemap aktualisieren.',
+    icon: 'FileText',
+    jobs: [
+      { job_type: 'seo_generate' },
+      { job_type: 'seo_qc_check' },
+      { job_type: 'seo_internal_links' },
+      { job_type: 'seo_sitemap_refresh' },
+    ],
+  },
   'quality-only': {
     label: 'Dry Run (Quality Check)',
     description: 'Nur Quality Gates und Smoke Tests – keine Generierung, kein Publish.',
