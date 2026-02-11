@@ -149,3 +149,6 @@ verify_jwt = false
 
 [functions.assessment-council-run]
 verify_jwt = false
+
+[functions.tutor-council-run]
+verify_jwt = false

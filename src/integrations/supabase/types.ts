@@ -8558,6 +8558,45 @@ export type Database = {
           },
         ]
       }
+      tutor_assets: {
+        Row: {
+          asset_type: string
+          created_at: string
+          id: string
+          is_published: boolean
+          locale: string
+          published_version_id: string | null
+          scope_id: string | null
+          scope_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          asset_type: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          locale?: string
+          published_version_id?: string | null
+          scope_id?: string | null
+          scope_type: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          locale?: string
+          published_version_id?: string | null
+          scope_id?: string | null
+          scope_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_activity_log: {
         Row: {
           activity_type: string
@@ -9791,6 +9830,10 @@ export type Database = {
         Returns: undefined
       }
       publish_marketing_asset: {
+        Args: { p_asset_id: string; p_version_id: string }
+        Returns: undefined
+      }
+      publish_tutor_asset: {
         Args: { p_asset_id: string; p_version_id: string }
         Returns: undefined
       }

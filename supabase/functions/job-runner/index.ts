@@ -95,6 +95,18 @@ const JOB_TYPE_MAP: Record<string, string> = {
   marketing_verdict: "marketing-council-run",
   marketing_publish: "marketing-council-run",
   marketing_full_pipeline: "marketing-council-run",
+
+  // Tutor Council (Council 5)
+  tutor_seed_assets: "tutor-council-run",
+  tutor_council_run_asset: "tutor-council-run",
+  tutor_backfill_assets_for_course: "tutor-council-run",
+  tutor_validate_runtime_templates: "tutor-council-run",
+  tutor_oral_exam_propose: "tutor-council-run",
+  tutor_oral_exam_critique: "tutor-council-run",
+  tutor_oral_exam_verdict: "tutor-council-run",
+  tutor_feedback_propose: "tutor-council-run",
+  tutor_feedback_critique: "tutor-council-run",
+  tutor_feedback_verdict: "tutor-council-run",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)
