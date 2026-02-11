@@ -3162,6 +3162,42 @@ export type Database = {
           },
         ]
       }
+      datev_export_config: {
+        Row: {
+          created_at: string
+          currency: string
+          enabled: boolean
+          id: string
+          name: string
+          receivable_account: string
+          revenue_account: string
+          tax_account: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          receivable_account?: string
+          revenue_account?: string
+          tax_account?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          receivable_account?: string
+          revenue_account?: string
+          tax_account?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       decision_items: {
         Row: {
           council_id: string
@@ -4029,6 +4065,111 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      finance_exports: {
+        Row: {
+          created_at: string
+          currency: string
+          export_type: string
+          file_path: string | null
+          generated_at: string | null
+          id: string
+          meta: Json
+          period_month: string | null
+          status: Database["public"]["Enums"]["finance_export_status"]
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          export_type: string
+          file_path?: string | null
+          generated_at?: string | null
+          id?: string
+          meta?: Json
+          period_month?: string | null
+          status?: Database["public"]["Enums"]["finance_export_status"]
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          export_type?: string
+          file_path?: string | null
+          generated_at?: string | null
+          id?: string
+          meta?: Json
+          period_month?: string | null
+          status?: Database["public"]["Enums"]["finance_export_status"]
+        }
+        Relationships: []
+      }
+      finance_ledger: {
+        Row: {
+          amount_gross_cents: number
+          amount_net_cents: number
+          buyer_account_id: string | null
+          created_at: string
+          currency: string
+          customer_type: string | null
+          description: string | null
+          event_type: Database["public"]["Enums"]["finance_event_type"]
+          id: string
+          learner_user_id: string | null
+          meta: Json
+          occurred_at: string
+          order_id: string | null
+          source: Database["public"]["Enums"]["finance_source"]
+          stripe_charge_id: string | null
+          stripe_invoice_id: string | null
+          stripe_payment_intent_id: string | null
+          tax_cents: number
+          tax_country: string | null
+          tax_rate: number | null
+        }
+        Insert: {
+          amount_gross_cents?: number
+          amount_net_cents?: number
+          buyer_account_id?: string | null
+          created_at?: string
+          currency?: string
+          customer_type?: string | null
+          description?: string | null
+          event_type: Database["public"]["Enums"]["finance_event_type"]
+          id?: string
+          learner_user_id?: string | null
+          meta?: Json
+          occurred_at?: string
+          order_id?: string | null
+          source?: Database["public"]["Enums"]["finance_source"]
+          stripe_charge_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          tax_cents?: number
+          tax_country?: string | null
+          tax_rate?: number | null
+        }
+        Update: {
+          amount_gross_cents?: number
+          amount_net_cents?: number
+          buyer_account_id?: string | null
+          created_at?: string
+          currency?: string
+          customer_type?: string | null
+          description?: string | null
+          event_type?: Database["public"]["Enums"]["finance_event_type"]
+          id?: string
+          learner_user_id?: string | null
+          meta?: Json
+          occurred_at?: string
+          order_id?: string | null
+          source?: Database["public"]["Enums"]["finance_source"]
+          stripe_charge_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          tax_cents?: number
+          tax_country?: string | null
+          tax_rate?: number | null
+        }
+        Relationships: []
       }
       growth_actions: {
         Row: {
@@ -6284,11 +6425,14 @@ export type Database = {
           billing_email: string | null
           billing_name: string | null
           billing_vat_id: string | null
+          buyer_account_id: string | null
           buyer_user_id: string
           country: string | null
           created_at: string
           currency: string
+          customer_type: string | null
           id: string
+          learner_user_id: string | null
           license_package_id: string | null
           notes: string | null
           status: string
@@ -6296,7 +6440,9 @@ export type Database = {
           stripe_payment_intent_id: string | null
           subtotal_cents: number
           tax_cents: number
+          tax_country: string | null
           tax_mode: string
+          tax_rate: number | null
           total_cents: number
           updated_at: string
         }
@@ -6306,11 +6452,14 @@ export type Database = {
           billing_email?: string | null
           billing_name?: string | null
           billing_vat_id?: string | null
+          buyer_account_id?: string | null
           buyer_user_id: string
           country?: string | null
           created_at?: string
           currency?: string
+          customer_type?: string | null
           id?: string
+          learner_user_id?: string | null
           license_package_id?: string | null
           notes?: string | null
           status?: string
@@ -6318,7 +6467,9 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           subtotal_cents?: number
           tax_cents?: number
+          tax_country?: string | null
           tax_mode?: string
+          tax_rate?: number | null
           total_cents?: number
           updated_at?: string
         }
@@ -6328,11 +6479,14 @@ export type Database = {
           billing_email?: string | null
           billing_name?: string | null
           billing_vat_id?: string | null
+          buyer_account_id?: string | null
           buyer_user_id?: string
           country?: string | null
           created_at?: string
           currency?: string
+          customer_type?: string | null
           id?: string
+          learner_user_id?: string | null
           license_package_id?: string | null
           notes?: string | null
           status?: string
@@ -6340,7 +6494,9 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           subtotal_cents?: number
           tax_cents?: number
+          tax_country?: string | null
           tax_mode?: string
+          tax_rate?: number | null
           total_cents?: number
           updated_at?: string
         }
@@ -8084,6 +8240,36 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_event_log: {
+        Row: {
+          event_type: string
+          id: string
+          livemode: boolean
+          payload: Json
+          processed_at: string | null
+          received_at: string
+          stripe_event_id: string
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          livemode?: boolean
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+          stripe_event_id: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          livemode?: boolean
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+          stripe_event_id?: string
+        }
+        Relationships: []
+      }
       support_ai_responses: {
         Row: {
           answer: string
@@ -9665,6 +9851,29 @@ export type Database = {
         }
         Relationships: []
       }
+      v_revenue_daily: {
+        Row: {
+          currency: string | null
+          day: string | null
+          gross_cents: number | null
+          net_cents: number | null
+          payments: number | null
+          tax_cents: number | null
+        }
+        Relationships: []
+      }
+      v_vat_monthly: {
+        Row: {
+          currency: string | null
+          gross_cents: number | null
+          month: string | null
+          net_cents: number | null
+          tax_cents: number | null
+          tax_country: string | null
+          tax_rate: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_approve_growth_action: {
@@ -9743,6 +9952,7 @@ export type Database = {
         }[]
       }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
+      cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
       check_lesson_progression: {
         Args: { p_lesson_id: string; p_user_id: string }
         Returns: Json
@@ -9857,6 +10067,10 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      enqueue_finance_export: {
+        Args: { p_currency?: string; p_export_type: string; p_month: string }
+        Returns: string
+      }
       export_course_pack: {
         Args: {
           p_course_id: string
@@ -9912,6 +10126,17 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
+      get_b2b_buyer_learner_summary: {
+        Args: { p_currency?: string; p_month: string }
+        Returns: {
+          buyer_account_id: string
+          gross_cents: number
+          learner_user_id: string
+          net_cents: number
+          payments: number
+          tax_cents: number
+        }[]
+      }
       get_bloom_level_stats: {
         Args: { p_curriculum_id: string }
         Returns: {
@@ -9942,6 +10167,21 @@ export type Database = {
         }[]
       }
       get_course_progress: { Args: { p_course_id: string }; Returns: Json }
+      get_datev_prep_lines: {
+        Args: { p_config_name?: string; p_currency?: string; p_month: string }
+        Returns: {
+          belegdatum: string
+          belegfeld1: string
+          betrag: string
+          buchungstext: string
+          gegenkonto: string
+          konto: string
+          order_id: string
+          payment_intent: string
+          steuer_schluessel: string
+          waehrung: string
+        }[]
+      }
       get_due_cards: {
         Args: {
           p_curriculum_id?: string
@@ -9997,6 +10237,39 @@ export type Database = {
           score_percent: number
         }[]
       }
+      get_monthly_refund_kpi: {
+        Args: { p_currency?: string; p_month: string }
+        Returns: {
+          gross_sales_cents: number
+          month: string
+          payments: number
+          refund_cents: number
+          refund_rate: number
+          refunds: number
+        }[]
+      }
+      get_monthly_revenue_lines: {
+        Args: { p_currency?: string; p_month: string }
+        Returns: {
+          gross_cents: number
+          net_cents: number
+          occurred_day: string
+          payments: number
+          refunds: number
+          tax_cents: number
+        }[]
+      }
+      get_monthly_vat_lines: {
+        Args: { p_currency?: string; p_month: string }
+        Returns: {
+          gross_cents: number
+          net_cents: number
+          payments: number
+          tax_cents: number
+          tax_country: string
+          tax_rate: number
+        }[]
+      }
       get_my_profile: {
         Args: never
         Returns: {
@@ -10026,6 +10299,38 @@ export type Database = {
         }[]
       }
       get_profiles_security_status: { Args: never; Returns: Json }
+      get_reconcile_gaps: {
+        Args: { p_limit?: number }
+        Returns: {
+          has_payment_succeeded: boolean
+          order_created_at: string
+          order_id: string
+          stripe_payment_intent_id: string
+        }[]
+      }
+      get_reconcile_gaps_details: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          currency: string
+          has_order_created: boolean
+          has_payment_succeeded: boolean
+          order_id: string
+          stripe_payment_intent_id: string
+          total_cents: number
+        }[]
+      }
+      get_revenue_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          currency: string
+          day: string
+          gross_cents: number
+          net_cents: number
+          payments: number
+          tax_cents: number
+        }[]
+      }
       get_user_dashboard_stats: { Args: never; Returns: Json }
       get_user_entitlements: {
         Args: { p_curriculum_id?: string; p_user_id: string }
@@ -10097,6 +10402,7 @@ export type Database = {
           storage_path: string
         }[]
       }
+      month_start: { Args: { p_any: string }; Returns: string }
       normalize_question_text: { Args: { p_text: string }; Returns: string }
       normalize_search_text: { Args: { input: string }; Returns: string }
       publish_approved_blueprint_version: {
@@ -10437,6 +10743,15 @@ export type Database = {
         | "confusing_similar"
       exam_mode: "simulation" | "practice" | "timed_exam"
       exam_relevance: "low" | "medium" | "high"
+      finance_event_type:
+        | "order_created"
+        | "payment_succeeded"
+        | "payment_failed"
+        | "refund_created"
+        | "chargeback"
+        | "invoice_issued"
+      finance_export_status: "queued" | "generated" | "failed"
+      finance_source: "app" | "stripe"
       growth_action_status:
         | "proposed"
         | "approved"
@@ -10642,6 +10957,16 @@ export const Constants = {
       ],
       exam_mode: ["simulation", "practice", "timed_exam"],
       exam_relevance: ["low", "medium", "high"],
+      finance_event_type: [
+        "order_created",
+        "payment_succeeded",
+        "payment_failed",
+        "refund_created",
+        "chargeback",
+        "invoice_issued",
+      ],
+      finance_export_status: ["queued", "generated", "failed"],
+      finance_source: ["app", "stripe"],
       growth_action_status: [
         "proposed",
         "approved",

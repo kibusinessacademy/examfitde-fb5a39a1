@@ -173,3 +173,12 @@ verify_jwt = false
 
 [functions.growth-actions-api]
 verify_jwt = false
+
+[functions.finance-council-reconcile]
+verify_jwt = false
+
+[functions.finance-export-csv]
+verify_jwt = false
+
+[functions.finance-export-datev]
+verify_jwt = false
