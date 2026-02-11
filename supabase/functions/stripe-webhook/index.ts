@@ -53,6 +53,18 @@ serve(async (req) => {
 
     logStep("Event verified", { type: event.type, id: event.id });
 
+    // Council 8: Log raw Stripe event for finance reconciliation (idempotent)
+    await adminClient.from("stripe_event_log").upsert({
+      stripe_event_id: event.id,
+      event_type: event.type,
+      livemode: event.livemode ?? false,
+      payload: event,
+    }, { onConflict: "stripe_event_id" }).then(() => {
+      logStep("Stripe event logged to stripe_event_log");
+    }).catch((e: any) => {
+      logStep("WARN: Could not log to stripe_event_log", { error: String(e) });
+    });
+
     // ========== DEDUP CHECK ==========
     const { data: existingLedger } = await adminClient
       .from('ledger_entries')
