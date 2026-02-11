@@ -137,6 +137,8 @@ const JOB_TYPE_MAP: Record<string, string> = {
 
   // Security / Abuse / License-Fraud Council (Council 10)
   claim_license_secure: "claim-license-secure",
+  security_gate_check: "security-gate-check",
+  security_botnet_gate: "security-botnet-gate",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)
