@@ -167,3 +167,6 @@ verify_jwt = false
 
 [functions.compliance-council-export-pdf]
 verify_jwt = false
+
+[functions.growth-council-run]
+verify_jwt = false

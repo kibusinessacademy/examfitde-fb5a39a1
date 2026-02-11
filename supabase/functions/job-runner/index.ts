@@ -119,6 +119,9 @@ const JOB_TYPE_MAP: Record<string, string> = {
   compliance_remediate: "compliance-council-remediate",
   compliance_report: "compliance-council-report",
   compliance_export_pdf: "compliance-council-export-pdf",
+
+  // Growth / CRM / Customer Success Council (Council 7)
+  growth_run: "growth-council-run",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)
