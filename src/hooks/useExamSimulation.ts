@@ -195,7 +195,16 @@ export function useStartExamSession() {
       toast.success('Prüfungssimulation gestartet');
     },
     onError: (error) => {
-      toast.error('Fehler beim Starten', { description: String(error) });
+      const msg = String(error);
+      if (msg.includes('READINESS_BLOCKED')) {
+        const reason = msg.replace(/.*READINESS_BLOCKED:\s*/, '');
+        toast.error('Simulation gesperrt', { 
+          description: reason || 'Du musst zuerst offene Schwächen nachtrainieren.',
+          duration: 8000,
+        });
+      } else {
+        toast.error('Fehler beim Starten', { description: msg });
+      }
     },
   });
 }

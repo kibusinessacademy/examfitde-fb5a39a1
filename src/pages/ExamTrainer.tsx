@@ -167,10 +167,8 @@ export default function ExamTrainer() {
     setStep('loading');
 
     try {
-      const competency = competencies.find(c => c.id === selectedCompetencyId);
-      const learningField = learningFields.find(lf => lf.id === selectedLearningFieldId);
-
       // SSOT: Use edge function to get sanitized questions (no correct_answer/explanation)
+      // ONLY approved blueprint questions – NO free generation fallback
       const { data: questionsData, error: questionsError } = await supabase.functions.invoke('get-exam-questions', {
         body: {
           competency_id: selectedCompetencyId,
@@ -179,39 +177,14 @@ export default function ExamTrainer() {
         },
       });
 
-      if (questionsError) {
-        // If no questions exist, generate new ones
-        const { data: generatedData, error: genError } = await supabase.functions.invoke('generate-questions', {
-          body: {
-            competencyId: selectedCompetencyId,
-            competencyTitle: competency?.title,
-            competencyDescription: competency?.description,
-            learningFieldTitle: learningField?.title,
-            count: 5,
-            difficulty: difficulty,
-          },
-        });
-
-        if (genError) throw genError;
-
-        if (generatedData?.questions && generatedData.questions.length > 0) {
-          // Generated questions come sanitized from edge function
-          const sanitizedQuestions: Question[] = generatedData.questions.map((q: any) => ({
-            id: q.id || crypto.randomUUID(),
-            question_text: q.question_text,
-            options: q.options,
-            difficulty: q.difficulty,
-          }));
-          setQuestions(sanitizedQuestions);
-        } else {
-          throw new Error('Keine Fragen verfügbar');
-        }
-      } else if (questionsData?.questions && questionsData.questions.length > 0) {
-        // Use questions from edge function (already sanitized - no correct_answer)
-        setQuestions(questionsData.questions);
-      } else {
-        throw new Error('Keine Fragen verfügbar');
+      if (questionsError || !questionsData?.questions || questionsData.questions.length === 0) {
+        throw new Error(
+          'Keine freigegebenen Prüfungsfragen für diese Kompetenz vorhanden. ' +
+          'Bitte wähle eine andere Kompetenz oder warte, bis Fragen freigegeben wurden.'
+        );
       }
+
+      setQuestions(questionsData.questions);
 
       setCurrentIndex(0);
       setSelectedAnswer(null);
