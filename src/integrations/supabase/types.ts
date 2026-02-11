@@ -7954,6 +7954,75 @@ export type Database = {
         }
         Relationships: []
       }
+      seat_device_log: {
+        Row: {
+          created_at: string
+          device_hash: string
+          id: string
+          ip_hash: string | null
+          seat_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_hash: string
+          id?: string
+          ip_hash?: string | null
+          seat_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_hash?: string
+          id?: string
+          ip_hash?: string | null
+          seat_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      security_anomaly_config: {
+        Row: {
+          block_threshold: number
+          enabled: boolean
+          id: string
+          name: string
+          review_threshold: number
+          updated_at: string
+          w_device_new: number
+          w_fail_spike: number
+          w_ip_change: number
+          w_rate_limit: number
+          window_minutes: number
+        }
+        Insert: {
+          block_threshold?: number
+          enabled?: boolean
+          id?: string
+          name?: string
+          review_threshold?: number
+          updated_at?: string
+          w_device_new?: number
+          w_fail_spike?: number
+          w_ip_change?: number
+          w_rate_limit?: number
+          window_minutes?: number
+        }
+        Update: {
+          block_threshold?: number
+          enabled?: boolean
+          id?: string
+          name?: string
+          review_threshold?: number
+          updated_at?: string
+          w_device_new?: number
+          w_fail_spike?: number
+          w_ip_change?: number
+          w_rate_limit?: number
+          window_minutes?: number
+        }
+        Relationships: []
+      }
       security_blocks: {
         Row: {
           blocked_until: string | null
@@ -8029,6 +8098,42 @@ export type Database = {
         }
         Relationships: []
       }
+      security_otp_challenges: {
+        Row: {
+          attempts: number
+          created_at: string
+          expires_at: string
+          id: string
+          max_attempts: number
+          otp_hash: string
+          purpose: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          expires_at: string
+          id?: string
+          max_attempts?: number
+          otp_hash: string
+          purpose?: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          max_attempts?: number
+          otp_hash?: string
+          purpose?: string
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       security_rate_limits: {
         Row: {
           blocked_until: string | null
@@ -8058,6 +8163,62 @@ export type Database = {
           window_start?: string
         }
         Relationships: []
+      }
+      security_reviews: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          event_id: string
+          id: string
+          license_code: string | null
+          reasons: string[]
+          score: number | null
+          seat_id: string | null
+          status: Database["public"]["Enums"]["security_review_status"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          event_id: string
+          id?: string
+          license_code?: string | null
+          reasons?: string[]
+          score?: number | null
+          seat_id?: string | null
+          status?: Database["public"]["Enums"]["security_review_status"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          event_id?: string
+          id?: string
+          license_code?: string | null
+          reasons?: string[]
+          score?: number | null
+          seat_id?: string | null
+          status?: Database["public"]["Enums"]["security_review_status"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_reviews_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "security_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       seo_documents: {
         Row: {
@@ -10363,8 +10524,29 @@ export type Database = {
         Args: { p_action_id: string }
         Returns: undefined
       }
+      admin_block_user: {
+        Args: { p_reason?: string; p_until?: string; p_user_id: string }
+        Returns: undefined
+      }
+      admin_decide_security_review: {
+        Args: {
+          p_block_until?: string
+          p_note?: string
+          p_review_id: string
+          p_status: Database["public"]["Enums"]["security_review_status"]
+        }
+        Returns: undefined
+      }
       admin_dismiss_growth_action: {
         Args: { p_action_id: string }
+        Returns: undefined
+      }
+      admin_reset_code_lockout: {
+        Args: { p_code: string; p_note?: string }
+        Returns: undefined
+      }
+      admin_unblock_user: {
+        Args: { p_reason?: string; p_user_id: string }
         Returns: undefined
       }
       approve_blueprint_version: {
@@ -10397,6 +10579,15 @@ export type Database = {
         Returns: undefined
       }
       attempt_auto_recovery: { Args: { p_alert_id: string }; Returns: Json }
+      auto_block_user_if_needed: {
+        Args: {
+          p_block_seconds?: number
+          p_fail_threshold?: number
+          p_minutes?: number
+          p_user_id: string
+        }
+        Returns: Json
+      }
       calculate_daily_kpis: { Args: never; Returns: Json }
       calculate_exam_readiness: {
         Args: { p_curriculum_id: string; p_user_id: string }
@@ -10463,6 +10654,10 @@ export type Database = {
       cleanup_stale_locks: {
         Args: { p_timeout_minutes?: number }
         Returns: number
+      }
+      column_exists: {
+        Args: { p_column: string; p_schema?: string; p_table: string }
+        Returns: boolean
       }
       complete_job:
         | {
@@ -10553,8 +10748,31 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      detect_device_burst: {
+        Args: { p_minutes?: number; p_user_threshold?: number }
+        Returns: Json
+      }
+      detect_ip_burst: {
+        Args: { p_minutes?: number; p_user_threshold?: number }
+        Returns: Json
+      }
+      detect_seat_misuse: {
+        Args: { p_device_threshold?: number; p_hours?: number }
+        Returns: Json
+      }
       enqueue_finance_export: {
         Args: { p_currency?: string; p_export_type: string; p_month: string }
+        Returns: string
+      }
+      enqueue_security_review: {
+        Args: {
+          p_event_id: string
+          p_license_code?: string
+          p_reasons?: string[]
+          p_score?: number
+          p_seat_id?: string
+          p_user_id?: string
+        }
         Returns: string
       }
       export_course_pack: {
@@ -10827,6 +11045,21 @@ export type Database = {
           tax_cents: number
         }[]
       }
+      get_security_report: {
+        Args: { p_from: string; p_limit?: number; p_to: string }
+        Returns: {
+          created_at: string
+          decision: string
+          device_hash: string
+          event_id: string
+          event_type: string
+          ip_hash: string
+          license_code: string
+          reason: string
+          user_id: string
+        }[]
+      }
+      get_security_spike_score: { Args: { p_minutes?: number }; Returns: Json }
       get_user_dashboard_stats: { Args: never; Returns: Json }
       get_user_entitlements: {
         Args: { p_curriculum_id?: string; p_user_id: string }
@@ -11093,6 +11326,10 @@ export type Database = {
           url: string
         }[]
       }
+      security_gate_check_and_raise: {
+        Args: { p_minutes?: number; p_threshold?: number }
+        Returns: Json
+      }
       security_rate_limit_hit: {
         Args: {
           p_block_seconds?: number
@@ -11322,6 +11559,7 @@ export type Database = {
         | "seat_bound"
         | "admin_block"
         | "admin_unblock"
+      security_review_status: "open" | "approved" | "blocked" | "dismissed"
       variation_mode:
         | "lexical"
         | "numerical"
@@ -11555,6 +11793,7 @@ export const Constants = {
         "admin_block",
         "admin_unblock",
       ],
+      security_review_status: ["open", "approved", "blocked", "dismissed"],
       variation_mode: [
         "lexical",
         "numerical",

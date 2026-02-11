@@ -197,3 +197,9 @@ verify_jwt = false
 
 [functions.claim-license-secure]
 verify_jwt = false
+
+[functions.security-gate-check]
+verify_jwt = false
+
+[functions.security-botnet-gate]
+verify_jwt = false
