@@ -8997,6 +8997,17 @@ export type Database = {
           valid_lessons: number
         }[]
       }
+      get_course_pipeline_stats: {
+        Args: { p_course_ids: string[] }
+        Returns: {
+          course_id: string
+          filled_count: number
+          lesson_count: number
+          minicheck_count: number
+          stub_count: number
+          weight_tag_count: number
+        }[]
+      }
       get_course_progress: { Args: { p_course_id: string }; Returns: Json }
       get_due_cards: {
         Args: {

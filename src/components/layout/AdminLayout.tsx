@@ -48,6 +48,7 @@ const navGroups: NavGroup[] = [
       { path: '/admin-v2/curricula', label: 'Curricula & SSOT', icon: FileText },
       { path: '/admin-v2/courses', label: 'Kurse', icon: BookOpen },
       { path: '/admin-v2/course-health', label: 'Kurs-Health', icon: Heart },
+      { path: '/admin-v2/course-pipeline', label: 'Kurs-Pipeline', icon: Workflow },
       { path: '/admin-v2/questions', label: 'Prüfungsfragen', icon: HelpCircle },
       { path: '/admin-v2/exam-blueprints', label: 'Blueprints', icon: ClipboardList },
       { path: '/admin-v2/workflows', label: 'Workflow Studio', icon: Workflow },
