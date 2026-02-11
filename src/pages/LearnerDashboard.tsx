@@ -6,6 +6,7 @@ import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { ReadinessRadar } from '@/components/dashboard/ReadinessRadar';
 import { RiskCostWidget } from '@/components/dashboard/RiskCostWidget';
 import { NextBestAction } from '@/components/dashboard/NextBestAction';
+import { NextBestActionCard } from '@/components/dashboard/NextBestActionCard';
 import { SmartStreakWidget } from '@/components/dashboard/SmartStreakWidget';
 import { ExamTrapsWidget } from '@/components/dashboard/ExamTrapsWidget';
 import { CoachHint } from '@/components/dashboard/CoachHint';
@@ -178,6 +179,11 @@ export default function LearnerDashboard() {
             <SilentMotivation curriculumId={activeCurriculumId} />
           </div>
         )}
+
+        {/* ━━━ SECTION 0: Growth Council Nudge ━━━ */}
+        <div className="mb-4">
+          <NextBestActionCard />
+        </div>
 
         {/* ━━━ SECTION 1: Next Best Action + Coach Hint ━━━ */}
         {activeCurriculumId && (

@@ -122,6 +122,7 @@ const JOB_TYPE_MAP: Record<string, string> = {
 
   // Growth / CRM / Customer Success Council (Council 7)
   growth_run: "growth-council-run",
+  growth_actions_api: "growth-actions-api",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)

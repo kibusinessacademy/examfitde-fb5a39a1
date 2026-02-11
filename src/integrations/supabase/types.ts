@@ -4033,7 +4033,9 @@ export type Database = {
       growth_actions: {
         Row: {
           action_type: Database["public"]["Enums"]["growth_action_type"]
+          cooldown_until: string | null
           created_at: string
+          dedupe_key: string | null
           id: string
           payload_json: Json
           rationale_json: Json
@@ -4044,7 +4046,9 @@ export type Database = {
         }
         Insert: {
           action_type: Database["public"]["Enums"]["growth_action_type"]
+          cooldown_until?: string | null
           created_at?: string
+          dedupe_key?: string | null
           id?: string
           payload_json?: Json
           rationale_json?: Json
@@ -4055,7 +4059,9 @@ export type Database = {
         }
         Update: {
           action_type?: Database["public"]["Enums"]["growth_action_type"]
+          cooldown_until?: string | null
           created_at?: string
+          dedupe_key?: string | null
           id?: string
           payload_json?: Json
           rationale_json?: Json
@@ -9629,8 +9635,46 @@ export type Database = {
           },
         ]
       }
+      v_growth_actions_approved: {
+        Row: {
+          action_type: Database["public"]["Enums"]["growth_action_type"] | null
+          created_at: string | null
+          id: string | null
+          payload_json: Json | null
+          rationale_json: Json | null
+          target_user_id: string | null
+          title: string | null
+        }
+        Insert: {
+          action_type?: Database["public"]["Enums"]["growth_action_type"] | null
+          created_at?: string | null
+          id?: string | null
+          payload_json?: Json | null
+          rationale_json?: Json | null
+          target_user_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          action_type?: Database["public"]["Enums"]["growth_action_type"] | null
+          created_at?: string | null
+          id?: string | null
+          payload_json?: Json | null
+          rationale_json?: Json | null
+          target_user_id?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      admin_approve_growth_action: {
+        Args: { p_action_id: string }
+        Returns: undefined
+      }
+      admin_dismiss_growth_action: {
+        Args: { p_action_id: string }
+        Returns: undefined
+      }
       approve_blueprint_version: {
         Args: { p_blueprint_id: string; p_version_id: string }
         Returns: undefined
@@ -10236,6 +10280,10 @@ export type Database = {
           p_finding_id: string
           p_status: Database["public"]["Enums"]["compliance_status"]
         }
+        Returns: undefined
+      }
+      set_growth_action_cooldown: {
+        Args: { p_action_id: string; p_days?: number }
         Returns: undefined
       }
       show_limit: { Args: never; Returns: number }
