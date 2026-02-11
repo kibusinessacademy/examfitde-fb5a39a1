@@ -4,9 +4,10 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 
 /**
- * Universal Lesson Repair Function
- * Finds ALL placeholder/invalid lessons and regenerates with real AI content.
- * Uses RPC for reliable placeholder detection, tool-calling for structured output.
+ * Universal Lesson Repair Function (Council-Compliant)
+ * 
+ * Finds placeholder/invalid lessons and creates content_versions
+ * for Council review instead of writing directly to lessons.
  */
 
 const STEP_PROMPTS: Record<string, string> = {
@@ -175,9 +176,9 @@ serve(async (req) => {
       }), { headers: jsonHeaders });
     }
 
-    console.log(`[Repair] Processing ${toFix.length} lessons`);
-    let fixed = 0, failed = 0;
-    const details: { id: string; title: string; step: string; status: string }[] = [];
+    console.log(`[Repair] Creating ${toFix.length} content versions (Council pipeline)`);
+    let versionsCreated = 0, failed = 0;
+    const details: { id: string; title: string; step: string; status: string; versionId?: string }[] = [];
 
     for (const lesson of toFix) {
       const content = await generateContent(API_KEY, {
@@ -197,28 +198,48 @@ serve(async (req) => {
         ? { type: 'mini_check', questions: content.questions, objectives: content.objectives, generated_at: new Date().toISOString(), version: 3 }
         : { type: 'text', html: content.html, objectives: content.objectives, generated_at: new Date().toISOString(), version: 3 };
 
-      const { error: upErr } = await supabase.from('lessons').update({ content: finalContent }).eq('id', lesson.id);
-      if (upErr) {
+      const entityType = lesson.step === 'mini_check' ? 'minicheck' : 'lesson_step';
+      const stepKey = `step_${lesson.step}`;
+
+      // ═══ COUNCIL-COMPLIANT: Create content_version instead of direct write ═══
+      const { data: newVersion, error: vErr } = await supabase
+        .from('content_versions')
+        .insert({
+          course_id: courseId || lesson.course_id,
+          lesson_id: lesson.id,
+          step_key: stepKey,
+          content_json: finalContent,
+          created_by_agent: 'repair-lessons',
+          status: 'under_review',
+          council_round: 1,
+          entity_type: entityType,
+        })
+        .select('id')
+        .single();
+
+      if (vErr) {
         failed++;
-        details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: 'db_error' });
+        details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: 'version_error' });
       } else {
-        fixed++;
-        details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: 'fixed' });
+        // Audit trail
+        await supabase.from('council_messages').insert({
+          content_version_id: newVersion!.id,
+          agent_name: 'repair-lessons',
+          message_type: 'proposal',
+          message_json: { source: 'repair-lessons', reason: 'placeholder_replacement' },
+        });
+
+        versionsCreated++;
+        details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: 'version_created', versionId: newVersion!.id });
       }
       await new Promise(r => setTimeout(r, 800));
     }
 
-    // Re-check stats
-    const { data: newStats } = await supabase.rpc('get_content_quality_stats');
-    const finalStats = newStats?.[0] || currentStats;
-
     return new Response(JSON.stringify({
-      success: true, fixed, failed,
-      ...finalStats,
+      success: true, versionsCreated, failed,
+      ...currentStats,
       details,
-      message: finalStats.placeholder_count === 0
-        ? `✅ Quality Gate: 100% — Alle ${finalStats.total_lessons} Lessons haben Echtdaten`
-        : `⚠️ Quality Gate: ${finalStats.quality_percent}% — ${finalStats.placeholder_count} Lessons noch offen. Erneut aufrufen.`
+      message: `✅ ${versionsCreated} Content-Versionen erstellt → Council-Review ausstehend.`
     }), { headers: jsonHeaders });
 
   } catch (error) {

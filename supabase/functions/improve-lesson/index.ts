@@ -4,17 +4,10 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 
 /**
- * AI Lesson Improvement Agent
+ * AI Lesson Improvement Agent (Council-Compliant)
  * 
- * Targeted improvement of existing lessons based on IHK-Audit feedback.
- * Does NOT regenerate — it IMPROVES existing content (SSOT-safe).
- * 
- * Improvements:
- * 1. pruefungsbezug_ergaenzen – Add IHK exam relevance block
- * 2. anwenden_umformulieren – Make "Anwenden" phase decision-based
- * 3. minicheck_verbessern – Improve MiniCheck quality
- * 4. betriebsbezug_ergaenzen – Add concrete workplace references
- * 5. gegenbeispiel_ergaenzen – Add counter-examples in "Verstehen"
+ * Creates content_versions instead of direct lesson writes.
+ * Content goes through Council pipeline before publishing.
  */
 
 const IMPROVE_CONTENT_TOOL = {
@@ -92,19 +85,19 @@ const IMPROVEMENT_INSTRUCTIONS: Record<string, string> = {
 - Das Gegenbeispiel soll eine häufige Fehlannahme verdeutlichen`,
 
   minicheck_verbessern: `VERBESSERE die MiniCheck-Fragen auf IHK-Prüfungsniveau:
-1. DISTRAKTOREN: Jeder Distraktor muss einen konkreten Denkfehler abbilden (Verwechslung, Teilwahrheit, Übergeneralisierung). KEINE offensichtlich absurden Optionen.
-2. SITUATIONSAUFGABEN: Mindestens 2 Fragen müssen ein konkretes Fallbeispiel enthalten ("Ein Kunde kommt...", "In Ihrem Betrieb...")
-3. ABWÄGUNGSFRAGE: Mind. 1 Frage mit "Welche Aussage trifft am EHESTEN zu?" (nicht: "Was ist richtig?")
-4. ERKLÄRUNGEN: Erkläre den KONKRETEN Denkfehler hinter jedem falschen Distraktor, nicht nur "ist falsch"
-5. SCHWIERIGKEIT: Mix aus easy (1), medium (2), hard (1) – markiere jede Frage mit difficulty_level
+1. DISTRAKTOREN: Jeder Distraktor muss einen konkreten Denkfehler abbilden
+2. SITUATIONSAUFGABEN: Mindestens 2 Fragen müssen ein konkretes Fallbeispiel enthalten
+3. ABWÄGUNGSFRAGE: Mind. 1 Frage mit "Welche Aussage trifft am EHESTEN zu?"
+4. ERKLÄRUNGEN: Erkläre den KONKRETEN Denkfehler hinter jedem falschen Distraktor
+5. SCHWIERIGKEIT: Mix aus easy (1), medium (2), hard (1)
 6. Keine reinen Wissensfragen – mehr Entscheidungs- und Analysefragen`,
 
   wiederholen_verdichten: `ERSETZE reine Wiederholung durch PRÜFUNGSVERDICHTUNG:
-1. Merksätze: 3-5 kompakte Merksätze mit Fachbegriffen (als Zitat-Block)
-2. Typische IHK-Prüfungsfallen: 3 häufige Fehler mit ⚠️ und Erklärung
-3. Abgrenzungstabelle: Vergleich ähnlicher Begriffe/Konzepte die verwechselt werden
+1. Merksätze: 3-5 kompakte Merksätze mit Fachbegriffen
+2. Typische IHK-Prüfungsfallen: 3 häufige Fehler mit Erklärung
+3. Abgrenzungstabelle: Vergleich ähnlicher Begriffe
 4. Formulierungsübungen: 2 Sätze in IHK-Prüfungssprache umformulieren
-5. KEINE erneute Erklärung des Stoffes – nur Verdichtung und Transferhilfen`,
+5. KEINE erneute Erklärung des Stoffes – nur Verdichtung`,
 };
 
 serve(async (req) => {
@@ -157,17 +150,15 @@ serve(async (req) => {
       }), { headers: jsonHeaders });
     }
 
-    console.log(`[Improve] Improving ${needsWork.length} lessons for course ${courseId}`);
+    console.log(`[Improve] Creating ${needsWork.length} improvement versions for course ${courseId} (Council pipeline)`);
 
-    const results: { lessonId: string; title: string; status: string; improvements: string[] }[] = [];
+    const results: { lessonId: string; title: string; status: string; improvements: string[]; versionId?: string }[] = [];
 
     for (const la of needsWork) {
-      // Get current lesson content
       const { data: lesson } = await supabase.from('lessons')
         .select('id, title, step, content, competency_id').eq('id', la.lessonId).single();
       if (!lesson) { results.push({ lessonId: la.lessonId, title: la.title, status: 'not_found', improvements: [] }); continue; }
 
-      // Get competency
       const { data: comp } = await supabase.from('competencies')
         .select('code, title, description, taxonomy_level').eq('id', lesson.competency_id).single();
 
@@ -185,7 +176,6 @@ serve(async (req) => {
         ? JSON.stringify((content?.questions || []), null, 2)
         : (content?.html as string || '');
 
-      // Build improvement instructions
       const instructions = neededImprovements
         .map(key => IMPROVEMENT_INSTRUCTIONS[key])
         .filter(Boolean)
@@ -207,50 +197,83 @@ serve(async (req) => {
         continue;
       }
 
-      // Update lesson with revision tracking
-      const updatedContent = isMC
-        ? { ...content, questions: improved.questions, objectives: improved.objectives, improved_at: new Date().toISOString(), improvements_applied: improved.improvements_applied, version: ((content?.version as number) || 4) + 1 }
-        : { ...content, html: improved.html, objectives: improved.objectives, improved_at: new Date().toISOString(), improvements_applied: improved.improvements_applied, version: ((content?.version as number) || 4) + 1 };
+      // ═══ COUNCIL-COMPLIANT: Create content_version instead of direct write ═══
+      const contentJson = isMC
+        ? { ...content, questions: improved.questions, objectives: improved.objectives, improved_at: new Date().toISOString(), improvements_applied: improved.improvements_applied }
+        : { ...content, html: improved.html, objectives: improved.objectives, improved_at: new Date().toISOString(), improvements_applied: improved.improvements_applied };
 
-      const { error } = await supabase.from('lessons').update({ content: updatedContent }).eq('id', lesson.id);
-      if (error) {
-        results.push({ lessonId: la.lessonId, title: la.title, status: 'db_error', improvements: neededImprovements });
-      } else {
-        // Write revision history (audit trail)
-        await supabase.from('lesson_revisions').insert({
+      const entityType = isMC ? 'minicheck' : 'lesson_step';
+      const stepKey = `step_${lesson.step}`;
+
+      // Find current max round for idempotency
+      const { data: existingVersions } = await supabase
+        .from('content_versions')
+        .select('council_round')
+        .eq('lesson_id', lesson.id)
+        .eq('step_key', stepKey)
+        .eq('entity_type', entityType)
+        .order('council_round', { ascending: false })
+        .limit(1);
+
+      const nextRound = (existingVersions?.[0]?.council_round || 0) + 1;
+
+      const { data: newVersion, error: vErr } = await supabase
+        .from('content_versions')
+        .insert({
+          course_id: courseId,
           lesson_id: lesson.id,
-          old_content: content,
-          new_content: updatedContent,
-          reason: 'auto_improvement',
-          improvements_applied: improved.improvements_applied || neededImprovements,
-          score_before: la.overall,
-        });
+          step_key: stepKey,
+          content_json: contentJson,
+          created_by_agent: 'improve-lesson',
+          status: 'under_review',
+          council_round: nextRound,
+          entity_type: entityType,
+        })
+        .select('id')
+        .single();
 
-        // Mark suggestions as applied
-        await supabase.from('lesson_improvement_suggestions')
-          .update({ applied: true, applied_at: new Date().toISOString() })
-          .eq('lesson_id', lesson.id)
-          .eq('applied', false)
-          .in('rule', neededImprovements);
-
-        results.push({ lessonId: la.lessonId, title: la.title, status: 'improved', improvements: improved.improvements_applied || neededImprovements });
+      if (vErr) {
+        console.error(`[Improve] Version creation failed:`, vErr);
+        results.push({ lessonId: la.lessonId, title: la.title, status: 'version_error', improvements: neededImprovements });
+        continue;
       }
+
+      // Log as council message for audit trail
+      await supabase.from('council_messages').insert({
+        content_version_id: newVersion!.id,
+        agent_name: 'improve-lesson',
+        message_type: 'proposal',
+        message_json: {
+          source: 'improve-lesson',
+          audit_id: audit.id,
+          score_before: la.overall,
+          improvements_requested: neededImprovements,
+        },
+      });
+
+      results.push({
+        lessonId: la.lessonId,
+        title: la.title,
+        status: 'version_created',
+        improvements: improved.improvements_applied || neededImprovements,
+        versionId: newVersion!.id,
+      });
 
       await new Promise(r => setTimeout(r, 1200));
     }
 
-    const improved = results.filter(r => r.status === 'improved').length;
-    console.log(`[Improve] ✅ ${improved}/${needsWork.length} lessons improved`);
+    const versionsCreated = results.filter(r => r.status === 'version_created').length;
+    console.log(`[Improve] ✅ ${versionsCreated}/${needsWork.length} improvement versions created → Council review pending`);
 
     return new Response(JSON.stringify({
       courseId,
       auditId: audit.id,
       auditScore: audit.overall_score,
-      improved,
+      versionsCreated,
       total: needsWork.length,
       results,
-      message: improved > 0
-        ? `✅ ${improved} Lessons verbessert. Empfehlung: Erneutes IHK-Audit zur Validierung.`
+      message: versionsCreated > 0
+        ? `✅ ${versionsCreated} Improvement-Versionen erstellt → warten auf Council-Review.`
         : `⚠️ Keine Verbesserungen möglich. Prüfe AI-Credits.`
     }), { headers: jsonHeaders });
 
