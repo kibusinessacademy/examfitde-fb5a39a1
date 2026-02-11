@@ -56,8 +56,28 @@ serve(async (req) => {
 
     let aiResponse: Response;
 
-    if (provider === "lovable" || !provider) {
-      // Lovable AI Gateway
+    if (provider === "openai" || !provider) {
+      // Default: OpenAI direct
+      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+      if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
+
+      aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: model || "gpt-4.1",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          stream: true,
+        }),
+      });
+    } else if (provider === "lovable") {
+      // Legacy Lovable Gateway fallback
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
@@ -76,7 +96,7 @@ serve(async (req) => {
           stream: true,
         }),
       });
-    } else if (provider === "openai") {
+    } else if (provider === "deepseek") {
       const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
       if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured. Add it in backend secrets.");
 

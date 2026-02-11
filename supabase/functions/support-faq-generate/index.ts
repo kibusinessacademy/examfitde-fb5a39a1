@@ -67,14 +67,17 @@ Antworte im Format:
 FRAGE: [Frage]
 ANTWORT: [Antwort]`;
 
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+      if (!DEEPSEEK_API_KEY) continue;
+
+      const aiResponse = await fetch("https://api.deepseek.com/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
+          Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "deepseek-chat",
           messages: [
             { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Erstelle FAQ-Einträge die Azubis sofort helfen." },
             { role: "user", content: prompt },

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { callAIJSON } from "../_shared/ai-client.ts";
 
 /**
  * AI Lesson Improvement Agent
@@ -115,8 +116,6 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
     const body = await req.json().catch(() => ({}));
     const { courseId, auditId, maxLessons = 3 } = body;
@@ -192,7 +191,7 @@ serve(async (req) => {
         .filter(Boolean)
         .join('\n\n');
 
-      const improved = await improveContent(API_KEY, {
+      const improved = await improveContent({
         title: lesson.title,
         step: lesson.step,
         competencyCode: comp?.code || '',
@@ -264,7 +263,7 @@ serve(async (req) => {
   }
 });
 
-async function improveContent(apiKey: string, ctx: {
+async function improveContent(ctx: {
   title: string; step: string; competencyCode: string; competencyTitle: string;
   taxonomyLevel: string; currentContent: string; instructions: string; isMiniCheck: boolean;
 }): Promise<Record<string, unknown> | null> {
@@ -297,29 +296,18 @@ Liefere den VOLLSTÄNDIGEN verbesserten Inhalt (nicht nur die Änderungen).`;
     const tool = ctx.isMiniCheck ? IMPROVE_MINICHECK_TOOL : IMPROVE_CONTENT_TOOL;
     const toolName = ctx.isMiniCheck ? "submit_improved_minicheck" : "submit_improved_content";
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [tool],
-        tool_choice: { type: "function", function: { name: toolName } },
-        temperature: 0.4,
-      }),
+    const result = await callAIJSON({
+      provider: "openai",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      tools: [tool] as any,
+      tool_choice: { type: "function", function: { name: toolName } },
+      temperature: 0.4,
     });
 
-    if (resp.status === 429 || resp.status === 402) {
-      console.warn(`[Improve] Rate limited (${resp.status})`);
-      return null;
-    }
-    if (!resp.ok) { console.error(`[Improve] AI error ${resp.status}`); return null; }
-
-    const data = await resp.json();
-    const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    const args = result.toolCalls?.[0]?.function?.arguments;
     if (!args) return null;
     return JSON.parse(args);
   } catch (e) {

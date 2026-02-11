@@ -222,17 +222,17 @@ Deno.serve(async (req) => {
         return json({ error: 'Could not extract sufficient text content from source' }, 422);
       }
 
-      // 3. LLM extraction
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) return json({ error: 'LOVABLE_API_KEY not configured' }, 500);
+      // 3. LLM extraction via DeepSeek (cost-efficient)
+      const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+      if (!DEEPSEEK_API_KEY) return json({ error: 'DEEPSEEK_API_KEY not configured' }, 500);
 
       await supabase.from('curricula').update({ status: 'extracting' }).eq('id', curriculumId);
 
-      const llmRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const llmRes = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'deepseek-chat',
           messages: [
             { role: 'system', content: EXTRACTION_PROMPT },
             { role: 'user', content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\n${textContent}` },

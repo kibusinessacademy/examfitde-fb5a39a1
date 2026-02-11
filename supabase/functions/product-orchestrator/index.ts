@@ -104,11 +104,11 @@ async function generateContent(
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const resp = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "gpt-4.1",
           messages: [
             { role: "system", content: "Du bist IHK-Ausbildungsexperte. Erstelle prüfungsrelevante Lerninhalte auf Deutsch. Nutze IMMER die bereitgestellte Funktion." },
             { role: "user", content: prompt }

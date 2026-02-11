@@ -116,12 +116,13 @@ serve(async (req) => {
 
     const fullPrompt = `${userPrompt}\n\nAntworte mit einem JSON-Objekt:\n{\n  "title": "Seitentitel",\n  "meta_title": "SEO Title (max 60 Zeichen)",\n  "meta_description": "SEO Description (max 160 Zeichen)",\n  "excerpt": "Kurze Zusammenfassung (max 200 Zeichen)",\n  "content_md": "Der gesamte Inhalt in Markdown"\n}`;
 
-    if (lovableApiKey) {
-      model = "google/gemini-3-flash-preview";
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+    if (DEEPSEEK_API_KEY) {
+      model = "deepseek-chat";
+      const aiResponse = await fetch("https://api.deepseek.com/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
+          Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -159,7 +160,7 @@ serve(async (req) => {
         metaTitle = title.substring(0, 60);
       }
     } else {
-      throw new Error("No AI provider available (LOVABLE_API_KEY missing)");
+      throw new Error("No AI provider available (DEEPSEEK_API_KEY missing)");
     }
 
     // 5) Generate slug
