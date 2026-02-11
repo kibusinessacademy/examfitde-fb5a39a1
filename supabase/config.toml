@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.seo-internal-linker]
 verify_jwt = false
+
+[functions.search-public]
+verify_jwt = false

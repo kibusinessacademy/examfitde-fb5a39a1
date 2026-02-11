@@ -1,6 +1,7 @@
-import { Outlet, Link } from 'react-router-dom';
-import { Home, BookOpen, Target, Award, GraduationCap, Building2, CreditCard, Menu, X } from 'lucide-react';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Home, BookOpen, Target, Award, GraduationCap, Building2, CreditCard, Menu, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useState } from 'react';
 
@@ -16,6 +17,8 @@ const navigation = [
 
 export default function SEOLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState('');
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -45,7 +48,25 @@ export default function SEOLayout() {
             </nav>
 
             {/* Actions */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {/* Desktop Search */}
+              <div className="hidden lg:flex items-center gap-1">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={searchQ}
+                    onChange={(e) => setSearchQ(e.target.value)}
+                    placeholder="Beruf suchen…"
+                    className="h-8 w-48 pl-8 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && searchQ.trim().length >= 2) {
+                        navigate(`/suche?q=${encodeURIComponent(searchQ.trim())}`);
+                        setSearchQ('');
+                      }
+                    }}
+                  />
+                </div>
+              </div>
               <Link to="/auth" className="hidden sm:block">
                 <Button variant="ghost" size="sm">
                   Login
