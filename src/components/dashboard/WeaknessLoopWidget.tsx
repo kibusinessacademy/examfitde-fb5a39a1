@@ -56,13 +56,20 @@ export function WeaknessLoopWidget({ curriculumId }: WeaknessLoopWidgetProps) {
             </div>
           );
         })}
-        <Link to="/courses">
-          <Button variant="outline" className="w-full gap-2">
-            <BookOpen className="h-4 w-4" />
-            Schwächen trainieren
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </Link>
+        {weaknesses.length > 5 && (
+          <p className="text-xs text-muted-foreground text-center">
+            + {weaknesses.length - 5} weitere Schwächen
+          </p>
+        )}
+        <div className="flex gap-2">
+          <Link to="/courses" className="flex-1">
+            <Button variant="outline" className="w-full gap-2">
+              <BookOpen className="h-4 w-4" />
+              Schwächen trainieren
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
