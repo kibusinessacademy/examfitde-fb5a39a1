@@ -1,13 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[STRIPE-WEBHOOK] ${step}`, details ? JSON.stringify(details) : '');
 };
 
-// Generate invite code
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let result = '';
@@ -20,13 +19,6 @@ function generateInviteCode(): string {
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
-
-  const origin = req.headers.get('origin');
-  const corsHeaders = getCorsHeaders(origin);
-
-  // Webhooks don't need CORS - they come from Stripe servers directly
-  // But we handle OPTIONS above for consistency
-
 
   try {
     logStep("Webhook received");
@@ -42,7 +34,6 @@ serve(async (req) => {
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the raw body and signature
     const body = await req.text();
     const signature = req.headers.get("stripe-signature");
 
@@ -51,7 +42,6 @@ serve(async (req) => {
       return new Response("Missing signature", { status: 400 });
     }
 
-    // Verify webhook signature
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
@@ -63,34 +53,33 @@ serve(async (req) => {
 
     logStep("Event verified", { type: event.type, id: event.id });
 
-    // Handle checkout.session.completed
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      
-      logStep("Processing checkout.session.completed", { 
+
+      logStep("Processing checkout.session.completed", {
         sessionId: session.id,
         paymentStatus: session.payment_status,
-        metadata: session.metadata
       });
 
-      // Only process paid sessions
       if (session.payment_status !== "paid") {
         logStep("Skipping unpaid session");
         return new Response(JSON.stringify({ received: true, skipped: "unpaid" }), { status: 200 });
       }
 
-      const userId = session.metadata?.user_id;
-      const productId = session.metadata?.product_id;
-      const curriculumId = session.metadata?.curriculum_id;
-      const quantity = parseInt(session.metadata?.quantity || "1");
-      const unitPriceCents = parseInt(session.metadata?.unit_price_cents || "0");
+      const meta = session.metadata || {};
+      const userId = meta.user_id;
+      const productId = meta.product_id;
+      const curriculumId = meta.curriculum_id;
+      const quantity = parseInt(meta.quantity || "1");
+      const unitPriceCents = parseInt(meta.unit_price_cents || "0");
+      const buyerIsLicensee = meta.buyer_is_licensee !== 'false';
 
       if (!userId || !productId || !curriculumId) {
         logStep("ERROR: Missing required metadata", { userId, productId, curriculumId });
         return new Response("Missing metadata", { status: 400 });
       }
 
-      // IDEMPOTENCY CHECK: Skip if already processed
+      // IDEMPOTENCY CHECK
       const { data: existingPackage } = await adminClient
         .from('license_packages')
         .select('id')
@@ -114,27 +103,68 @@ serve(async (req) => {
         return new Response("Product not found", { status: 400 });
       }
 
-      // Calculate expiration date
+      // Calculate expiration
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + (product.access_duration_days || 365));
-
       const totalPriceCents = quantity * unitPriceCents;
 
-      // Create license package
+      // Extract billing info from metadata + Stripe customer_details
+      const customerDetails = session.customer_details;
+      const billingEmail = meta.billing_email || customerDetails?.email || '';
+      const billingName = meta.billing_name || customerDetails?.name || '';
+      const billingCompany = meta.billing_company || '';
+      const billingVatId = meta.billing_vat_id || '';
+      let billingAddress: Record<string, string> | null = null;
+      if (meta.billing_address) {
+        try { billingAddress = JSON.parse(meta.billing_address); } catch { /* ignore */ }
+      }
+      if (!billingAddress && customerDetails?.address) {
+        billingAddress = customerDetails.address as unknown as Record<string, string>;
+      }
+
+      // Retrieve Stripe invoice info if available
+      let stripeInvoiceId: string | null = null;
+      let stripeInvoiceUrl: string | null = null;
+      if (session.invoice) {
+        try {
+          const invoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice.id;
+          const invoice = await stripe.invoices.retrieve(invoiceId);
+          stripeInvoiceId = invoice.id;
+          stripeInvoiceUrl = invoice.hosted_invoice_url || null;
+        } catch (e) {
+          logStep("WARN: Could not retrieve invoice", { error: String(e) });
+        }
+      }
+
+      const stripeCustomerId = typeof session.customer === 'string'
+        ? session.customer
+        : session.customer?.id || null;
+
+      // Create license package with billing info
       const { data: licensePackage, error: packageError } = await adminClient
         .from('license_packages')
         .insert({
           buyer_user_id: userId,
           product_id: productId,
           curriculum_id: curriculumId,
-          quantity: quantity,
+          quantity,
           price_paid_cents: totalPriceCents,
           stripe_checkout_session_id: session.id,
-          stripe_payment_intent_id: typeof session.payment_intent === 'string' 
-            ? session.payment_intent 
+          stripe_payment_intent_id: typeof session.payment_intent === 'string'
+            ? session.payment_intent
             : session.payment_intent?.id || null,
           expires_at: expiresAt.toISOString(),
           status: 'active',
+          buyer_is_licensee: buyerIsLicensee,
+          billing_email: billingEmail,
+          billing_name: billingName,
+          billing_company: billingCompany,
+          billing_vat_id: billingVatId,
+          billing_address: billingAddress,
+          stripe_customer_id: stripeCustomerId,
+          stripe_invoice_id: stripeInvoiceId,
+          stripe_invoice_url: stripeInvoiceUrl,
+          delivery_status: 'pending',
         })
         .select()
         .single();
@@ -143,17 +173,17 @@ serve(async (req) => {
         logStep("ERROR: Failed to create package", { error: packageError });
         return new Response("Failed to create license package", { status: 500 });
       }
-      logStep("License package created", { packageId: licensePackage.id });
+      logStep("License package created", { packageId: licensePackage.id, buyerIsLicensee });
 
-      // Create seats
+      // Create seats: assign first to buyer ONLY if buyer_is_licensee
       const seatsToCreate = [];
       for (let i = 0; i < quantity; i++) {
-        const isFirstSeat = i === 0;
+        const assignToBuyer = buyerIsLicensee && i === 0;
         seatsToCreate.push({
           package_id: licensePackage.id,
-          assigned_user_id: isFirstSeat ? userId : null,
-          invite_code: isFirstSeat ? null : generateInviteCode(),
-          assigned_at: isFirstSeat ? new Date().toISOString() : null,
+          assigned_user_id: assignToBuyer ? userId : null,
+          invite_code: assignToBuyer ? null : generateInviteCode(),
+          assigned_at: assignToBuyer ? new Date().toISOString() : null,
         });
       }
 
@@ -164,51 +194,53 @@ serve(async (req) => {
 
       if (seatsError) {
         logStep("ERROR: Failed to create seats", { error: seatsError });
-        // Don't fail the webhook - package was created
       } else {
         logStep("Seats created", { count: seats?.length });
       }
 
-      // Create entitlement for buyer (first seat)
-      const buyerSeat = seats?.find(s => s.assigned_user_id === userId);
-      if (buyerSeat) {
-        const { error: entitlementError } = await adminClient
-          .from('entitlements')
-          .insert({
-            user_id: userId,
-            seat_id: buyerSeat.id,
-            curriculum_id: curriculumId,
-            has_learning_course: product.includes_learning_course,
-            has_exam_trainer: product.includes_exam_trainer,
-            has_ai_tutor: product.includes_ai_tutor,
-            has_oral_trainer: product.includes_oral_trainer,
-            valid_until: expiresAt.toISOString(),
-          });
+      // Create entitlement for buyer if they are a licensee
+      if (buyerIsLicensee && seats) {
+        const buyerSeat = seats.find(s => s.assigned_user_id === userId);
+        if (buyerSeat) {
+          const { error: entitlementError } = await adminClient
+            .from('entitlements')
+            .insert({
+              user_id: userId,
+              seat_id: buyerSeat.id,
+              curriculum_id: curriculumId,
+              has_learning_course: product.includes_learning_course,
+              has_exam_trainer: product.includes_exam_trainer,
+              has_ai_tutor: product.includes_ai_tutor,
+              has_oral_trainer: product.includes_oral_trainer,
+              valid_until: expiresAt.toISOString(),
+            });
 
-        if (entitlementError) {
-          logStep("ERROR: Failed to create entitlement", { error: entitlementError });
-        } else {
-          logStep("Entitlement created for buyer");
+          if (entitlementError) {
+            logStep("ERROR: Failed to create entitlement", { error: entitlementError });
+          } else {
+            logStep("Entitlement created for buyer");
+          }
         }
       }
 
-      logStep("checkout.session.completed fully processed", { 
+      logStep("checkout.session.completed fully processed", {
         packageId: licensePackage.id,
         userId,
-        curriculumId
+        curriculumId,
+        buyerIsLicensee,
+        unassignedSeats: seats?.filter(s => !s.assigned_user_id).length || 0,
       });
     }
 
-    // Handle payment_intent.payment_failed (optional - for monitoring)
     if (event.type === "payment_intent.payment_failed") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      logStep("Payment failed", { 
+      logStep("Payment failed", {
         paymentIntentId: paymentIntent.id,
         error: paymentIntent.last_payment_error?.message
       });
     }
 
-    return new Response(JSON.stringify({ received: true }), { 
+    return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
