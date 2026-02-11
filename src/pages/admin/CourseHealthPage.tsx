@@ -107,6 +107,67 @@ const PUBLISHING_LABELS: Record<string, { label: string; color: string }> = {
   quality_failed: { label: '🔴 Blocked', color: 'text-red-500' },
 };
 
+interface IntegrityResult {
+  passed: boolean;
+  expected_competencies: number;
+  expected_lessons: number;
+  actual_lessons: number;
+  expected_modules: number;
+  actual_modules: number;
+  duplicate_lessons: number;
+  missing_minichecks: number;
+  issues: Array<{ type: string; severity: string; expected?: number; actual?: number; count?: number }>;
+  validated_at: string;
+}
+
+function IntegrityWidget({ result }: { result: IntegrityResult }) {
+  const passed = result.passed;
+  return (
+    <div className={`rounded-lg border p-4 space-y-2 ${passed ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+      <div className="flex items-center gap-2 text-sm font-medium">
+        {passed ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
+        <span className={passed ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+          {passed ? 'Integrity Check bestanden' : 'Integrity Fehler erkannt'}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div>
+          <span className="text-muted-foreground">Kompetenzen</span>
+          <div className="font-bold text-foreground">{result.expected_competencies}</div>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Lessons (Soll/Ist)</span>
+          <div className={`font-bold ${result.expected_lessons === result.actual_lessons ? 'text-emerald-500' : 'text-red-500'}`}>
+            {result.expected_lessons} / {result.actual_lessons}
+          </div>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Module (Soll/Ist)</span>
+          <div className={`font-bold ${result.expected_modules === result.actual_modules ? 'text-emerald-500' : 'text-red-500'}`}>
+            {result.expected_modules} / {result.actual_modules}
+          </div>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Duplikate</span>
+          <div className={`font-bold ${result.duplicate_lessons === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+            {result.duplicate_lessons}
+          </div>
+        </div>
+      </div>
+      {result.issues.length > 0 && (
+        <div className="space-y-1 pt-1">
+          {result.issues.map((issue, i) => (
+            <div key={i} className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              {issue.type}: erwartet {issue.expected}, tatsächlich {issue.actual ?? issue.count}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CourseHealthPage() {
   const [courses, setCourses] = useState<CourseWithHealth[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,6 +175,7 @@ export default function CourseHealthPage() {
   const [actionType, setActionType] = useState<string | null>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
   const [gateDetails, setGateDetails] = useState<Record<string, GateDetail[]>>({});
+  const [integrityResults, setIntegrityResults] = useState<Record<string, IntegrityResult>>({});
 
   const loadData = async () => {
     setLoading(true);
@@ -148,6 +210,27 @@ export default function CourseHealthPage() {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  const runIntegrityCheck = async (courseId: string) => {
+    setActionId(courseId);
+    setActionType('integrity');
+    try {
+      const { data, error } = await supabase.rpc('validate_course_integrity', { p_course_id: courseId });
+      if (error) throw error;
+      setIntegrityResults(prev => ({ ...prev, [courseId]: data as unknown as IntegrityResult }));
+      const result = data as any;
+      if (result?.passed) {
+        toast.success(`✅ Integrity Check bestanden – ${result.actual_lessons} Lessons korrekt`);
+      } else {
+        toast.error(`❌ Integrity Fehler: ${(result?.issues || []).length} Probleme gefunden`);
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionId(null);
+      setActionType(null);
+    }
+  };
 
   const runQualityGate = async (courseId: string, fix = false) => {
     setActionId(courseId);
@@ -409,10 +492,18 @@ export default function CourseHealthPage() {
                         <Shield className="h-4 w-4 mr-1" /> Final Seal
                       </Button>
                     )}
-                    <Button size="sm" variant="ghost" onClick={() => runLegacyAction(course.id, 'validate')} disabled={!!actionId}>
+                   <Button size="sm" variant="ghost" onClick={() => runLegacyAction(course.id, 'validate')} disabled={!!actionId}>
                       <Activity className="h-4 w-4 mr-1" /> Post-Validierung
                     </Button>
+                    <Button size="sm" variant="ghost" onClick={() => runIntegrityCheck(course.id)} disabled={!!actionId}>
+                      {actionId === course.id && actionType === 'integrity' ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Prüfe…</> : <><Shield className="h-4 w-4 mr-1" /> Integrity Check</>}
+                    </Button>
                   </div>
+
+                  {/* Integrity Widget */}
+                  {integrityResults[course.id] && (
+                    <IntegrityWidget result={integrityResults[course.id]} />
+                  )}
                 </div>
               )}
             </Card>

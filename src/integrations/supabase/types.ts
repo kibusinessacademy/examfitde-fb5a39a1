@@ -2707,6 +2707,32 @@ export type Database = {
           },
         ]
       }
+      course_generation_locks: {
+        Row: {
+          course_id: string
+          locked_at: string
+          locked_by: string | null
+        }
+        Insert: {
+          course_id: string
+          locked_at?: string
+          locked_by?: string | null
+        }
+        Update: {
+          course_id?: string
+          locked_at?: string
+          locked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_generation_locks_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_health_snapshots: {
         Row: {
           avg_word_count: number
@@ -11546,6 +11572,10 @@ export type Database = {
           errors: string[]
           is_valid: boolean
         }[]
+      }
+      validate_course_integrity: {
+        Args: { p_course_id: string }
+        Returns: Json
       }
       verify_evidence_pack_integrity: {
         Args: { p_pack_id: string }
