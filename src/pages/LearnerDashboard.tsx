@@ -14,6 +14,7 @@ import { SilentMotivation } from '@/components/dashboard/SilentMotivation';
 import ProgressNarrative from '@/components/dashboard/ProgressNarrative';
 import { ExamReadinessGauge } from '@/components/dashboard/ExamReadinessGauge';
 import { WeaknessLoopWidget } from '@/components/dashboard/WeaknessLoopWidget';
+import { useSimulationGate } from '@/hooks/useExamReadiness';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -29,6 +30,7 @@ import {
   Sparkles,
   Mic,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface EnrolledCourse {
   course_id: string;
@@ -319,28 +321,48 @@ export default function LearnerDashboard() {
         </div>
 
         {/* ━━━ SECTION 6: Quick Actions ━━━ */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {[
-            { to: '/exam-trainer', icon: Target, label: 'Prüfungstrainer', desc: 'Schriftlich üben', gradient: 'gradient-accent', glow: 'shadow-glow-accent' },
-            { to: '/exam-simulation', icon: GraduationCap, label: 'Simulation', desc: 'Prüfung simulieren', gradient: 'gradient-primary', glow: 'shadow-glow-sm' },
-            { to: '/oral-exam', icon: Mic, label: 'Mündlich', desc: 'Mündliche Prüfung', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', glow: '' },
-            { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', desc: 'Spaced Repetition', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', glow: '' },
-            { to: '/exam-anxiety', icon: Heart, label: 'Prüfungsangst', desc: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', glow: '' },
-          ].map((action) => (
-            <Link key={action.to} to={action.to} className="block">
-              <Card className="glass-card hover:border-primary/30 transition-all h-full">
-                <CardContent className="p-4 text-center">
-                  <div className={`p-3 rounded-xl ${action.gradient} ${action.glow} inline-flex mb-2`}>
-                    <action.icon className="h-5 w-5 text-white" />
-                  </div>
-                  <h3 className="font-display font-bold text-sm">{action.label}</h3>
-                  <p className="text-xs text-muted-foreground">{action.desc}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <QuickActionsGrid activeCurriculumId={activeCurriculumId} />
       </div>
+    </div>
+  );
+}
+
+function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string | null }) {
+  const { data: gate } = useSimulationGate(activeCurriculumId ?? undefined);
+  const simulationBlocked = gate && !gate.allowed;
+
+  const actions = [
+    { to: '/exam-trainer', icon: Target, label: 'Prüfungstrainer', desc: 'Schriftlich üben', gradient: 'gradient-accent', glow: 'shadow-glow-accent', blocked: false },
+    { to: '/exam-simulation', icon: GraduationCap, label: 'Simulation', desc: simulationBlocked ? '🔒 Noch gesperrt' : 'Prüfung simulieren', gradient: 'gradient-primary', glow: 'shadow-glow-sm', blocked: !!simulationBlocked },
+    { to: '/oral-exam', icon: Mic, label: 'Mündlich', desc: 'Mündliche Prüfung', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', glow: '', blocked: false },
+    { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', desc: 'Spaced Repetition', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', glow: '', blocked: false },
+    { to: '/exam-anxiety', icon: Heart, label: 'Prüfungsangst', desc: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', glow: '', blocked: false },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      {actions.map((action) => {
+        const content = (
+          <Card className={cn(
+            'glass-card transition-all h-full',
+            action.blocked ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/30'
+          )}>
+            <CardContent className="p-4 text-center">
+              <div className={`p-3 rounded-xl ${action.gradient} ${action.glow} inline-flex mb-2 ${action.blocked ? 'grayscale' : ''}`}>
+                <action.icon className="h-5 w-5 text-white" />
+              </div>
+              <h3 className="font-display font-bold text-sm">{action.label}</h3>
+              <p className="text-xs text-muted-foreground">{action.desc}</p>
+            </CardContent>
+          </Card>
+        );
+
+        if (action.blocked) {
+          return <div key={action.to} className="block" title="Trainiere zuerst offene Schwächen">{content}</div>;
+        }
+
+        return <Link key={action.to} to={action.to} className="block">{content}</Link>;
+      })}
     </div>
   );
 }

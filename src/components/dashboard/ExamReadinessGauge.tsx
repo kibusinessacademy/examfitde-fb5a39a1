@@ -1,8 +1,10 @@
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useExamReadiness } from '@/hooks/useExamReadiness';
-import { Loader2, ShieldCheck, ShieldAlert, Shield, AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
+import { Loader2, ShieldCheck, ShieldAlert, Shield, AlertTriangle, CheckCircle2, Lock, Target, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ExamReadinessGaugeProps {
@@ -107,28 +109,34 @@ export function ExamReadinessGauge({ curriculumId }: ExamReadinessGaugeProps) {
           )}
         </div>
 
-        {/* Simulation gate status */}
-        <div className={cn(
-          'p-3 rounded-lg border text-sm',
-          simulation_allowed ? 'border-green-500/30 bg-green-500/5' : 'border-destructive/30 bg-destructive/5'
-        )}>
-          <div className="flex items-center gap-2">
-            {simulation_allowed ? (
-              <>
-                <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                <span>Prüfungssimulation <strong>freigeschaltet</strong></span>
-              </>
-            ) : (
-              <>
-                <Lock className="h-4 w-4 text-destructive flex-shrink-0" />
-                <span>
-                  Simulation gesperrt
-                  {not_mastered_count > 0 && ` – ${not_mastered_count} Kompetenzen nachtrainieren`}
-                  {active_weakness_count > 0 && ` – ${active_weakness_count} Schwächen offen`}
-                </span>
-              </>
-            )}
-          </div>
+        {/* Simulation CTA */}
+        <div className="mt-5">
+          {simulation_allowed ? (
+            <Link to="/exam-simulation">
+              <Button className="w-full gradient-primary text-primary-foreground shadow-glow-sm gap-2">
+                <Target className="h-4 w-4" />
+                Simulation starten
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          ) : (
+            <div className="space-y-2">
+              <Button className="w-full gap-2" disabled variant="outline">
+                <Lock className="h-4 w-4" />
+                Simulation gesperrt
+              </Button>
+              <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/5 text-sm text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                  <div>
+                    {not_mastered_count > 0 && <p>{not_mastered_count} Kompetenzen nachtrainieren</p>}
+                    {active_weakness_count > 0 && <p>{active_weakness_count} offene Schwächen beheben</p>}
+                    {not_mastered_count === 0 && active_weakness_count === 0 && <p>Trainiere weiter, um die Simulation freizuschalten</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
