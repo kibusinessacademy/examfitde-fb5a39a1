@@ -205,6 +205,7 @@ Deno.serve(async (req) => {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "x-job-runner-key": SUPABASE_SERVICE_KEY,
           },
           body: JSON.stringify({
             ...job.payload,
