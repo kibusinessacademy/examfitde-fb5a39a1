@@ -377,6 +377,21 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "courseId is required or use autoAll:true" }), { status: 400, headers: jsonHeaders });
     }
 
+    // ─── COMPLIANCE GATE: Block if critical findings open ───
+    const { data: courseCheck } = await supabase
+      .from("courses")
+      .select("compliance_blocked")
+      .eq("id", targetCourseId)
+      .single();
+
+    if (courseCheck?.compliance_blocked) {
+      return new Response(JSON.stringify({
+        complete: false, shouldContinue: false,
+        error: "Compliance block: critical findings are open. Resolve in Admin → System → Compliance.",
+        courseId: targetCourseId,
+      }), { status: 409, headers: jsonHeaders });
+    }
+
     // Initial assessment
     const initialStatus = await assessProduct(supabase, targetCourseId);
     console.log(`[Orchestrator] Iteration ${_iteration} | Course: ${initialStatus.courseTitle}`);
