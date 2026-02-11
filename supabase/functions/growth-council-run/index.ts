@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
           payload_json: actionPlan.payload ?? {},
           rationale_json: { signals, score, label, model: "deepseek" },
           status: "proposed",
+          dedupe_key: `inactive_${Math.min(30, Math.max(7, Number(signals.days_inactive ?? 0)))}d`,
+          cooldown_until: null,
         });
 
         if (!ins.error) actionsCreated++;

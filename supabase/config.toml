@@ -170,3 +170,6 @@ verify_jwt = false
 
 [functions.growth-council-run]
 verify_jwt = false
+
+[functions.growth-actions-api]
+verify_jwt = false
