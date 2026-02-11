@@ -1630,6 +1630,83 @@ export type Database = {
         }
         Relationships: []
       }
+      content_versions: {
+        Row: {
+          content_json: Json
+          council_round: number
+          course_id: string
+          created_at: string
+          created_by_agent: string
+          created_by_job_id: string | null
+          id: string
+          lesson_id: string
+          parent_version_id: string | null
+          quality_score: number | null
+          status: Database["public"]["Enums"]["content_version_status"]
+          step_key: string
+          updated_at: string
+        }
+        Insert: {
+          content_json: Json
+          council_round?: number
+          course_id: string
+          created_at?: string
+          created_by_agent: string
+          created_by_job_id?: string | null
+          id?: string
+          lesson_id: string
+          parent_version_id?: string | null
+          quality_score?: number | null
+          status?: Database["public"]["Enums"]["content_version_status"]
+          step_key: string
+          updated_at?: string
+        }
+        Update: {
+          content_json?: Json
+          council_round?: number
+          course_id?: string
+          created_at?: string
+          created_by_agent?: string
+          created_by_job_id?: string | null
+          id?: string
+          lesson_id?: string
+          parent_version_id?: string | null
+          quality_score?: number | null
+          status?: Database["public"]["Enums"]["content_version_status"]
+          step_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_versions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_versions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_qc_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_versions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_versions_parent_version_id_fkey"
+            columns: ["parent_version_id"]
+            isOneToOne: false
+            referencedRelation: "content_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       controlling_snapshots: {
         Row: {
           created_at: string
@@ -2019,6 +2096,41 @@ export type Database = {
           },
         ]
       }
+      council_messages: {
+        Row: {
+          agent_name: string
+          content_version_id: string
+          created_at: string
+          id: string
+          message_json: Json
+          message_type: Database["public"]["Enums"]["council_message_type"]
+        }
+        Insert: {
+          agent_name: string
+          content_version_id: string
+          created_at?: string
+          id?: string
+          message_json: Json
+          message_type: Database["public"]["Enums"]["council_message_type"]
+        }
+        Update: {
+          agent_name?: string
+          content_version_id?: string
+          created_at?: string
+          id?: string
+          message_json?: Json
+          message_type?: Database["public"]["Enums"]["council_message_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "council_messages_content_version_id_fkey"
+            columns: ["content_version_id"]
+            isOneToOne: false
+            referencedRelation: "content_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       council_recommendations: {
         Row: {
           council_id: string
@@ -2096,6 +2208,82 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      council_verdicts: {
+        Row: {
+          consensus_score: number
+          content_version_id: string
+          decided_at: string
+          decided_by: string
+          final_decision: Database["public"]["Enums"]["council_decision"]
+          id: string
+          required_fixes: Json | null
+        }
+        Insert: {
+          consensus_score?: number
+          content_version_id: string
+          decided_at?: string
+          decided_by?: string
+          final_decision: Database["public"]["Enums"]["council_decision"]
+          id?: string
+          required_fixes?: Json | null
+        }
+        Update: {
+          consensus_score?: number
+          content_version_id?: string
+          decided_at?: string
+          decided_by?: string
+          final_decision?: Database["public"]["Enums"]["council_decision"]
+          id?: string
+          required_fixes?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "council_verdicts_content_version_id_fkey"
+            columns: ["content_version_id"]
+            isOneToOne: true
+            referencedRelation: "content_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      council_votes: {
+        Row: {
+          agent_name: string
+          confidence: number
+          content_version_id: string
+          created_at: string
+          id: string
+          rationale: string | null
+          vote: Database["public"]["Enums"]["council_decision"]
+        }
+        Insert: {
+          agent_name: string
+          confidence?: number
+          content_version_id: string
+          created_at?: string
+          id?: string
+          rationale?: string | null
+          vote: Database["public"]["Enums"]["council_decision"]
+        }
+        Update: {
+          agent_name?: string
+          confidence?: number
+          content_version_id?: string
+          created_at?: string
+          id?: string
+          rationale?: string | null
+          vote?: Database["public"]["Enums"]["council_decision"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "council_votes_content_version_id_fkey"
+            columns: ["content_version_id"]
+            isOneToOne: false
+            referencedRelation: "content_versions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       councils: {
         Row: {
@@ -2515,6 +2703,7 @@ export type Database = {
           description: string | null
           estimated_duration: number | null
           id: string
+          is_ready_for_publish: boolean
           published_at: string | null
           publishing_status: string | null
           quality_report: Json | null
@@ -2535,6 +2724,7 @@ export type Database = {
           description?: string | null
           estimated_duration?: number | null
           id?: string
+          is_ready_for_publish?: boolean
           published_at?: string | null
           publishing_status?: string | null
           quality_report?: Json | null
@@ -2555,6 +2745,7 @@ export type Database = {
           description?: string | null
           estimated_duration?: number | null
           id?: string
+          is_ready_for_publish?: boolean
           published_at?: string | null
           publishing_status?: string | null
           quality_report?: Json | null
@@ -4620,6 +4811,7 @@ export type Database = {
           mastery_weight: number | null
           minicheck_parsed: boolean | null
           module_id: string
+          published_versions: Json
           qc_status: string | null
           quality_flags: Json | null
           quality_gate_status: string | null
@@ -4645,6 +4837,7 @@ export type Database = {
           mastery_weight?: number | null
           minicheck_parsed?: boolean | null
           module_id: string
+          published_versions?: Json
           qc_status?: string | null
           quality_flags?: Json | null
           quality_gate_status?: string | null
@@ -4670,6 +4863,7 @@ export type Database = {
           mastery_weight?: number | null
           minicheck_parsed?: boolean | null
           module_id?: string
+          published_versions?: Json
           qc_status?: string | null
           quality_flags?: Json | null
           quality_gate_status?: string | null
@@ -9155,6 +9349,14 @@ export type Database = {
         }[]
       }
       normalize_search_text: { Args: { input: string }; Returns: string }
+      publish_approved_version: {
+        Args: { p_lesson_id: string; p_step_key: string; p_version_id: string }
+        Returns: undefined
+      }
+      recompute_course_publish_readiness: {
+        Args: { p_course_id: string }
+        Returns: undefined
+      }
       record_worker_usage: {
         Args: {
           p_cost_eur?: number
@@ -9410,6 +9612,21 @@ export type Database = {
         | "create"
       blueprint_status: "draft" | "review" | "approved" | "deprecated"
       cognitive_level: "remember" | "understand" | "apply" | "analyze"
+      content_version_status:
+        | "proposed"
+        | "under_review"
+        | "revise"
+        | "rejected"
+        | "approved"
+      council_decision: "approved" | "revise" | "rejected"
+      council_message_type:
+        | "proposal"
+        | "critique"
+        | "revision"
+        | "defense"
+        | "vote"
+        | "verdict"
+        | "audit"
       course_status: "draft" | "generating" | "published" | "archived"
       curriculum_status: "draft" | "extracting" | "normalizing" | "frozen"
       didactic_intent:
@@ -9580,6 +9797,23 @@ export const Constants = {
       ],
       blueprint_status: ["draft", "review", "approved", "deprecated"],
       cognitive_level: ["remember", "understand", "apply", "analyze"],
+      content_version_status: [
+        "proposed",
+        "under_review",
+        "revise",
+        "rejected",
+        "approved",
+      ],
+      council_decision: ["approved", "revise", "rejected"],
+      council_message_type: [
+        "proposal",
+        "critique",
+        "revision",
+        "defense",
+        "vote",
+        "verdict",
+        "audit",
+      ],
       course_status: ["draft", "generating", "published", "archived"],
       curriculum_status: ["draft", "extracting", "normalizing", "frozen"],
       didactic_intent: [
