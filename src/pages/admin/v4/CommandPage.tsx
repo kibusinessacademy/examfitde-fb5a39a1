@@ -15,6 +15,9 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import QueueOverview from '@/components/admin/QueueOverview';
 import PageExplainer from '@/components/admin/PageExplainer';
+import SystemHealthScore from '@/components/admin/SystemHealthScore';
+import RootCauseBox from '@/components/admin/RootCauseBox';
+import AutoHealLogPanel from '@/components/admin/AutoHealLogPanel';
 
 interface CoursePackageRow {
   id: string;
@@ -201,6 +204,9 @@ export default function CommandPage() {
         ]}
       />
 
+      {/* LEVEL 1: System Health Score (10-Sekunden-Blick) */}
+      <SystemHealthScore />
+
       {/* KPI Cards */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -272,31 +278,11 @@ export default function CommandPage() {
       {/* Queue Overview */}
       <QueueOverview />
 
-      {/* Root Cause Card for blocked packages */}
-      {packages.filter(p => p.status === 'failed').length > 0 && (
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-            <Lightbulb className="h-3.5 w-3.5" /> Blockierte Pakete – Ursachenanalyse
-          </h2>
-          <div className="space-y-2">
-            {packages.filter(p => p.status === 'failed').map(pkg => (
-              <Card key={pkg.id} className="border-l-4 border-l-destructive">
-                <CardContent className="py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-foreground truncate">{pkg.title || pkg.id.substring(0, 12)}</p>
-                    <p className="text-xs text-destructive mt-0.5">Pipeline fehlgeschlagen – Details im Studio</p>
-                  </div>
-                  <Button asChild size="sm" variant="outline">
-                    <Link to={`/admin/studio/${pkg.id}`}>
-                      <Wrench className="h-3.5 w-3.5 mr-1" /> Analysieren
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* LEVEL 2: Root Cause Analysis + Auto-Heal Buttons */}
+      <RootCauseBox />
+
+      {/* Auto-Heal Log (letzte Aktionen) */}
+      <AutoHealLogPanel />
 
       {/* Actionable Packages */}
       {actionable.length > 0 && (
