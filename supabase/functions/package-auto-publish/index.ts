@@ -66,6 +66,16 @@ Deno.serve(async (req) => {
     // ✅ unlock package
     await sb.from("course_package_locks").delete().eq("package_id", packageId);
 
+    // ✅ Trigger next queued package (sequential pipeline)
+    await sb.from("job_queue").insert({
+      job_type: "package_queue_next",
+      status: "pending",
+      attempts: 0,
+      max_attempts: 1,
+      run_after: new Date(Date.now() + 5_000).toISOString(), // 5s delay
+      payload: { completed_package_id: packageId },
+    });
+
     return json({ ok: true });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);

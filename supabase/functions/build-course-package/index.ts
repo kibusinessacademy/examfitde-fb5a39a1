@@ -41,6 +41,21 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
+  // 0) Sequential guard: block if another package is already building
+  const { data: alreadyBuilding } = await sb
+    .from("course_packages")
+    .select("id, title")
+    .eq("status", "building")
+    .neq("id", packageId)
+    .limit(1);
+
+  if (alreadyBuilding && alreadyBuilding.length > 0) {
+    return json(
+      { code: "SEQUENTIAL_QUEUE", error: `Paket "${alreadyBuilding[0].title || alreadyBuilding[0].id}" wird gerade gebaut. Dieses Paket wird automatisch gestartet, sobald das aktuelle fertig ist.` },
+      409
+    );
+  }
+
   // 1) Acquire package lock (prevents double enqueue)
   const lockRes = await sb
     .from("course_package_locks")

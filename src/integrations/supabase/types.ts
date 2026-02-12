@@ -3109,6 +3109,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           published_at: string | null
+          queue_position: number | null
           status: string
           title: string
           updated_at: string
@@ -3127,6 +3128,7 @@ export type Database = {
           integrity_passed?: boolean
           integrity_report?: Json | null
           published_at?: string | null
+          queue_position?: number | null
           status?: string
           title?: string
           updated_at?: string
@@ -3145,6 +3147,7 @@ export type Database = {
           integrity_passed?: boolean
           integrity_report?: Json | null
           published_at?: string | null
+          queue_position?: number | null
           status?: string
           title?: string
           updated_at?: string
@@ -11654,6 +11657,7 @@ export type Database = {
         }[]
       }
       month_start: { Args: { p_any: string }; Returns: string }
+      next_package_queue_position: { Args: never; Returns: number }
       normalize_question_text: { Args: { p_text: string }; Returns: string }
       normalize_search_text: { Args: { input: string }; Returns: string }
       note_code_failure: {
@@ -11882,6 +11886,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           published_at: string | null
+          queue_position: number | null
           status: string
           title: string
           updated_at: string
@@ -12014,6 +12019,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           published_at: string | null
+          queue_position: number | null
           status: string
           title: string
           updated_at: string

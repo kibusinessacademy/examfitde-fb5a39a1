@@ -19,6 +19,7 @@ interface CoursePackageRow {
   build_progress: number;
   integrity_passed: boolean;
   council_approved: boolean;
+  queue_position: number | null;
   created_at: string;
 }
 
@@ -64,7 +65,7 @@ export default function CommandCenter() {
       try {
         const sb = supabase as any;
         const pkgRes = await sb.from('course_packages')
-          .select('id, title, status, build_progress, integrity_passed, council_approved, created_at')
+          .select('id, title, status, build_progress, integrity_passed, council_approved, queue_position, created_at')
           .order('created_at', { ascending: false }).limit(20);
         const jobsRes = await sb.from('job_queue').select('id, status');
         const budgetRes = await sb.from('ai_cost_budgets')
@@ -210,6 +211,11 @@ export default function CommandCenter() {
                           </div>
                         )}
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          {pkg.queue_position != null && pkg.status !== 'published' && (
+                            <span className="flex items-center gap-1">
+                              <Zap className="h-3 w-3" /> Queue #{pkg.queue_position}
+                            </span>
+                          )}
                           {pkg.council_approved && (
                             <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-success" /> Council OK</span>
                           )}
