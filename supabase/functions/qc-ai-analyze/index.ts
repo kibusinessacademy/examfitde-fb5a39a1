@@ -97,25 +97,6 @@ serve(async (req) => {
         }),
       });
     } else if (provider === "deepseek") {
-      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-      if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured. Add it in backend secrets.");
-
-      aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: model || "gpt-4o",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          stream: true,
-        }),
-      });
-    } else if (provider === "deepseek") {
       const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
       if (!DEEPSEEK_API_KEY) throw new Error("DEEPSEEK_API_KEY not configured. Add it in backend secrets.");
 

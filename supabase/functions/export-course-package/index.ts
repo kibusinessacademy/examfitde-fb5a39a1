@@ -33,8 +33,21 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  const { packageId, courseId } = await req.json().catch(() => ({}));
-  if (!packageId) return json({ error: "Missing packageId" }, 400);
+  let { packageId, courseId } = await req.json().catch(() => ({} as Record<string, unknown>));
+
+  // If UI sends courseId: resolve latest package for that course
+  if (!packageId && courseId) {
+    const { data: latestPkg } = await sb
+      .from("course_packages")
+      .select("id")
+      .eq("course_id", courseId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestPkg?.id) packageId = latestPkg.id;
+  }
+
+  if (!packageId) return json({ error: "packageId or courseId required" }, 400);
 
   try {
     // ── Load package ──
