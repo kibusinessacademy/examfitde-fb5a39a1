@@ -139,6 +139,15 @@ const JOB_TYPE_MAP: Record<string, string> = {
   claim_license_secure: "claim-license-secure",
   security_gate_check: "security-gate-check",
   security_botnet_gate: "security-botnet-gate",
+
+  // Course Studio v2 – Package Build Pipeline
+  package_scaffold_learning_course: "package-scaffold-learning-course",
+  package_generate_exam_pool: "package-generate-exam-pool",
+  package_generate_oral_exam: "package-generate-oral-exam",
+  package_build_ai_tutor_index: "package-build-ai-tutor-index",
+  package_generate_handbook: "package-generate-handbook",
+  package_run_integrity_check: "package-run-integrity-check",
+  package_auto_publish: "package-auto-publish",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)

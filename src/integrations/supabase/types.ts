@@ -11605,6 +11605,10 @@ export type Database = {
         Returns: boolean
       }
       hash_email: { Args: { p_email: string }; Returns: string }
+      init_course_package_steps: {
+        Args: { p_package_id: string; p_steps: string[] }
+        Returns: undefined
+      }
       is_admin: { Args: { p_uid: string }; Returns: boolean }
       is_admin_user: { Args: { check_uid: string }; Returns: boolean }
       is_code_locked: { Args: { p_code: string }; Returns: Json }
