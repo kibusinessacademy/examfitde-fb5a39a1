@@ -10,6 +10,7 @@ import {
   AlertTriangle, ArrowRight, CheckCircle2, Clock, Package,
   XCircle, Wrench, Shield, Brain, Activity, DollarSign, Rocket, Play, Download, Zap
 } from 'lucide-react';
+import QueueOverview from '@/components/admin/QueueOverview';
 
 /* ───── types ───── */
 interface CoursePackageRow {
@@ -172,6 +173,9 @@ export default function CommandCenter() {
           })}
         </section>
       )}
+
+      {/* Build Queue Overview */}
+      <QueueOverview />
 
       {/* Actionable Packages */}
       {actionable.length > 0 && (

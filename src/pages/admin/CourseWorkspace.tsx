@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import BuildLiveLog from '@/components/admin/BuildLiveLog';
 
 /* ───── stepper config ───── */
 const PIPELINE_STEPS = [
@@ -474,6 +475,9 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         </Card>
       )}
 
+      {/* ── Live Build Log ── */}
+      <BuildLiveLog packageId={packageId} isBuilding={isBuilding} />
+
       {/* ── Integrity Report ── */}
       {pkg.integrity_report && typeof pkg.integrity_report === 'object' && (
         <IntegrityReportCard report={pkg.integrity_report} />
@@ -585,14 +589,37 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                       </div>
                     </button>
                     {isExpanded && hasDetails && (
-                      <div className="px-3 pb-3 pt-0">
+                      <div className="px-3 pb-3 pt-0 space-y-2">
                         {step?.error_message && (
-                          <p className="text-xs text-destructive bg-destructive/5 p-2 rounded mb-2 font-mono break-all">{step.error_message}</p>
+                          <p className="text-xs text-destructive bg-destructive/5 p-2 rounded font-mono break-all">{step.error_message}</p>
                         )}
                         {step?.log && Object.keys(step.log).length > 0 && (
-                          <pre className="text-[10px] text-muted-foreground bg-muted/30 p-2 rounded overflow-x-auto max-h-48">
-                            {JSON.stringify(step.log, null, 2)}
-                          </pre>
+                          <div className="bg-muted/30 p-2 rounded space-y-1">
+                            {Object.entries(step.log as Record<string, unknown>)
+                              .filter(([k]) => k !== 'ok' && k !== 'note')
+                              .map(([key, val]) => (
+                                <div key={key} className="flex items-center justify-between text-[11px]">
+                                  <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</span>
+                                  <span className="font-mono text-foreground">
+                                    {typeof val === 'boolean' ? (val ? '✅' : '❌') :
+                                     typeof val === 'number' ? val.toLocaleString('de-DE') :
+                                     typeof val === 'string' ? val :
+                                     JSON.stringify(val)}
+                                  </span>
+                                </div>
+                              ))}
+                            {(step.log as any)?.note && (
+                              <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-border/20">
+                                {(step.log as any).note}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {step?.started_at && (
+                          <p className="text-[10px] text-muted-foreground">
+                            Gestartet: {new Date(step.started_at).toLocaleString('de-DE')}
+                            {step?.finished_at && ` · Fertig: ${new Date(step.finished_at).toLocaleString('de-DE')}`}
+                          </p>
                         )}
                       </div>
                     )}
