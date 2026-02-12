@@ -48,6 +48,7 @@ const ImpressumPage = lazy(() => import('@/pages/seo/ImpressumPage'));
 
 // Admin V3 Module Pages
 const CommandCenter = lazy(() => import('@/pages/admin/CommandCenter'));
+const CoursePackagesList = lazy(() => import('@/pages/admin/CoursePackagesList'));
 const ContentPage = lazy(() => import('@/pages/admin/ContentPage'));
 const CurriculumPage = lazy(() => import('@/pages/admin/CurriculumPage'));
 const CouncilPageV3 = lazy(() => import('@/pages/admin/CouncilPage_V3'));
@@ -153,13 +154,19 @@ const AppRoutes = () => {
         <Route path="/admin" element={<AdminV3Layout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<CommandCenter />} />
+          {/* Kurse */}
+          <Route path="courses" element={<CoursePackagesList />} />
           <Route path="course-studio" element={<CourseStudioPage />} />
           <Route path="course/:packageId" element={<CourseWorkspace />} />
+          {/* Legacy redirects */}
           <Route path="studio" element={<Navigate to="/admin/course-studio" replace />} />
+          {/* Content (secondary, accessible via deep links) */}
           <Route path="content/*" element={<ContentPage />} />
           <Route path="curriculum/*" element={<CurriculumPage />} />
           <Route path="council/*" element={<CouncilPageV3 />} />
+          {/* System & Betrieb */}
           <Route path="system/*" element={<SystemPage />} />
+          {/* Finanzen */}
           <Route path="finance/*" element={<FinancePage />} />
         </Route>
 

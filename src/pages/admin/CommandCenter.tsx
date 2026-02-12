@@ -8,9 +8,10 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AlertTriangle, ArrowRight, CheckCircle2, Clock, Package,
-  XCircle, Wrench, Shield, Brain, Activity, DollarSign, Loader2
+  XCircle, Wrench, Shield, Brain, Activity, DollarSign, Rocket, Play, Download
 } from 'lucide-react';
 
+/* ───── types ───── */
 interface CoursePackageRow {
   id: string;
   title: string | null;
@@ -30,24 +31,28 @@ interface SystemAlert {
   level: 'critical' | 'warning' | 'info';
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  planning: { label: 'Planung', color: 'bg-muted text-muted-foreground', icon: Clock },
-  council_review: { label: 'Council Review', color: 'bg-warning/20 text-warning', icon: Brain },
-  building: { label: 'Build läuft', color: 'bg-primary/20 text-primary', icon: Wrench },
-  qa: { label: 'QA', color: 'bg-accent/20 text-accent-foreground', icon: Shield },
-  published: { label: 'Veröffentlicht', color: 'bg-success/20 text-success', icon: CheckCircle2 },
-  failed: { label: 'Fehlgeschlagen', color: 'bg-destructive/20 text-destructive', icon: XCircle },
+/* ───── status map ───── */
+const STATUS_CFG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  planning:        { label: 'Draft',            color: 'bg-muted text-muted-foreground', icon: Clock },
+  council_review:  { label: 'Council Review',   color: 'bg-warning/20 text-warning',     icon: Brain },
+  building:        { label: 'Build läuft',      color: 'bg-primary/20 text-primary',      icon: Wrench },
+  qa:              { label: 'QA',               color: 'bg-accent/20 text-accent-foreground', icon: Shield },
+  published:       { label: 'Live',             color: 'bg-success/20 text-success',      icon: CheckCircle2 },
+  failed:          { label: 'Fehler',           color: 'bg-destructive/20 text-destructive', icon: XCircle },
 };
 
-function getNextAction(pkg: CoursePackageRow): { label: string; variant: 'default' | 'destructive' | 'outline' } {
-  if (pkg.status === 'failed') return { label: 'Reparieren', variant: 'destructive' };
-  if (pkg.status === 'building') return { label: 'Fortschritt', variant: 'outline' };
-  if (pkg.status === 'qa') return { label: 'Finalisieren', variant: 'default' };
-  if (pkg.status === 'published') return { label: 'Ansehen', variant: 'outline' };
-  if (pkg.council_approved) return { label: 'Build starten', variant: 'default' };
-  return { label: 'Fortsetzen', variant: 'default' };
+/* ───── NBA (Next Best Action) ───── */
+function getNextBestAction(pkg: CoursePackageRow): { label: string; icon: React.ElementType; variant: 'default' | 'destructive' | 'outline' } {
+  if (pkg.status === 'failed')    return { label: 'Reparieren',    icon: Wrench,       variant: 'destructive' };
+  if (pkg.status === 'published') return { label: 'Exportieren',   icon: Download,     variant: 'outline' };
+  if (pkg.status === 'qa')        return { label: 'Finalisieren',  icon: Shield,       variant: 'default' };
+  if (pkg.status === 'building')  return { label: 'Fortschritt',   icon: Activity,     variant: 'outline' };
+  if (pkg.council_approved)       return { label: 'Build starten', icon: Play,         variant: 'default' };
+  if (!pkg.council_approved)      return { label: 'Plan genehmigen', icon: Brain,      variant: 'default' };
+  return { label: 'Fortsetzen', icon: ArrowRight, variant: 'default' };
 }
 
+/* ───── component ───── */
 export default function CommandCenter() {
   const [packages, setPackages] = useState<CoursePackageRow[]>([]);
   const [alerts, setAlerts] = useState<SystemAlert[]>([]);
@@ -74,6 +79,7 @@ export default function CommandCenter() {
 
         setPackages((pkgRes.data || []) as CoursePackageRow[]);
 
+        /* build system alerts */
         const systemAlerts: SystemAlert[] = [];
         const jobs = jobsRes.data || [];
         const failedJobs = jobs.filter(j => j.status === 'failed').length;
@@ -89,7 +95,6 @@ export default function CommandCenter() {
             level: failedJobs > 10 ? 'critical' : 'warning',
           });
         }
-
         if (pendingJobs > 30) {
           systemAlerts.push({
             id: 'pending-jobs',
@@ -137,8 +142,8 @@ export default function CommandCenter() {
     );
   }
 
-  const unfinished = packages.filter(p => p.status !== 'published');
-  const published = packages.filter(p => p.status === 'published');
+  const actionable = packages.filter(p => p.status !== 'published');
+  const live = packages.filter(p => p.status === 'published');
 
   return (
     <div className="space-y-8">
@@ -148,17 +153,46 @@ export default function CommandCenter() {
         <p className="text-sm text-muted-foreground mt-1">Was muss jetzt passieren?</p>
       </div>
 
-      {/* 🔥 Unfinished Packages */}
-      {unfinished.length > 0 && (
+      {/* 🔥 System Alerts (top priority) */}
+      {alerts.length > 0 && (
+        <section className="space-y-2">
+          {alerts.map(a => {
+            const Icon = a.icon;
+            return (
+              <Link key={a.id} to={a.link} className="block">
+                <Card className={`hover:shadow-md transition-shadow ${
+                  a.level === 'critical' ? 'border-destructive/30 bg-destructive/5' :
+                  'border-warning/30 bg-warning/5'
+                }`}>
+                  <CardContent className="py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Icon className={`h-4 w-4 ${a.level === 'critical' ? 'text-destructive' : 'text-warning'}`} />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{a.label}</p>
+                        <p className="text-xs text-muted-foreground">{a.detail}</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </section>
+      )}
+
+      {/* 🧱 Actionable Packages – NBA per course */}
+      {actionable.length > 0 && (
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-            <Package className="h-3.5 w-3.5" /> Unfertige Kurspakete ({unfinished.length})
+            <Package className="h-3.5 w-3.5" /> Unfertige Kurspakete ({actionable.length})
           </h2>
-          <div className="space-y-3">
-            {unfinished.map(pkg => {
-              const cfg = STATUS_CONFIG[pkg.status] || STATUS_CONFIG.planning;
+          <div className="space-y-2">
+            {actionable.map(pkg => {
+              const cfg = STATUS_CFG[pkg.status] || STATUS_CFG.planning;
               const StatusIcon = cfg.icon;
-              const action = getNextAction(pkg);
+              const nba = getNextBestAction(pkg);
+              const NbaIcon = nba.icon;
               return (
                 <Card key={pkg.id} className={`border-l-4 ${
                   pkg.status === 'failed' ? 'border-l-destructive' :
@@ -176,9 +210,7 @@ export default function CommandCenter() {
                           <p className="font-semibold text-sm text-foreground truncate">
                             {pkg.title || pkg.id.substring(0, 12)}
                           </p>
-                          <Badge variant="outline" className={`text-xs ${cfg.color}`}>
-                            {cfg.label}
-                          </Badge>
+                          <Badge variant="outline" className={`text-xs ${cfg.color}`}>{cfg.label}</Badge>
                         </div>
                         {pkg.build_progress > 0 && pkg.build_progress < 100 && (
                           <div className="flex items-center gap-2 mt-1.5">
@@ -196,9 +228,9 @@ export default function CommandCenter() {
                         </div>
                       </div>
                     </div>
-                    <Button asChild size="sm" variant={action.variant} className="shrink-0">
+                    <Button asChild size="sm" variant={nba.variant} className="shrink-0">
                       <Link to={`/admin/course/${pkg.id}`}>
-                        {action.label} <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                        <NbaIcon className="h-3.5 w-3.5 mr-1.5" /> {nba.label}
                       </Link>
                     </Button>
                   </CardContent>
@@ -209,7 +241,7 @@ export default function CommandCenter() {
         </section>
       )}
 
-      {/* No packages? */}
+      {/* Empty state */}
       {packages.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="py-12 text-center">
@@ -217,54 +249,21 @@ export default function CommandCenter() {
             <p className="text-sm text-muted-foreground mb-4">Noch keine Kurspakete erstellt.</p>
             <Button asChild>
               <Link to="/admin/course-studio">
-                <Package className="h-4 w-4 mr-2" /> Erstes Kurspaket erstellen
+                <Rocket className="h-4 w-4 mr-2" /> Erstes Kurspaket erstellen
               </Link>
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* 🚨 System Alerts */}
-      {alerts.length > 0 && (
+      {/* ✅ Live Packages */}
+      {live.length > 0 && (
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-            <AlertTriangle className="h-3.5 w-3.5" /> Kritische Systempunkte
+            <CheckCircle2 className="h-3.5 w-3.5" /> Live ({live.length})
           </h2>
           <div className="space-y-2">
-            {alerts.map(a => {
-              const Icon = a.icon;
-              return (
-                <Link key={a.id} to={a.link} className="block">
-                  <Card className={`hover:shadow-md transition-shadow ${
-                    a.level === 'critical' ? 'border-destructive/30 bg-destructive/5' :
-                    'border-warning/30 bg-warning/5'
-                  }`}>
-                    <CardContent className="py-3 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <Icon className={`h-4 w-4 ${a.level === 'critical' ? 'text-destructive' : 'text-warning'}`} />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{a.label}</p>
-                          <p className="text-xs text-muted-foreground">{a.detail}</p>
-                        </div>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* ✅ Published Packages */}
-      {published.length > 0 && (
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Veröffentlichte Pakete ({published.length})
-          </h2>
-          <div className="space-y-2">
-            {published.map(pkg => (
+            {live.map(pkg => (
               <Link key={pkg.id} to={`/admin/course/${pkg.id}`} className="block">
                 <Card className="hover:border-primary/30 transition-colors">
                   <CardContent className="py-3 flex items-center justify-between gap-3">
@@ -285,7 +284,10 @@ export default function CommandCenter() {
       <section className="pt-2">
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link to="/admin/course-studio"><Package className="h-4 w-4 mr-1" /> Neues Paket</Link>
+            <Link to="/admin/course-studio"><Rocket className="h-4 w-4 mr-1" /> Neues Paket</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/admin/courses"><Package className="h-4 w-4 mr-1" /> Alle Kurse</Link>
           </Button>
           <Button asChild variant="ghost" size="sm">
             <Link to="/admin/system"><Activity className="h-4 w-4 mr-1" /> System</Link>
