@@ -9,13 +9,13 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const navModules = [
-  { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/admin/course-studio', label: 'Course Studio', icon: Rocket },
-  { path: '/admin/content', label: 'Content', icon: BookOpen },
+  { path: '/admin/dashboard', label: 'Übersicht', icon: LayoutDashboard },
+  { path: '/admin/studio', label: 'Kurs-Studio', icon: Rocket },
+  { path: '/admin/content', label: 'Inhalte', icon: BookOpen },
   { path: '/admin/curriculum', label: 'Curriculum', icon: GraduationCap },
-  { path: '/admin/council', label: 'Council', icon: Brain },
+  { path: '/admin/council', label: 'Councils', icon: Brain },
   { path: '/admin/system', label: 'System', icon: Activity },
-  { path: '/admin/finance', label: 'Finance', icon: DollarSign },
+  { path: '/admin/finance', label: 'Finanzen', icon: DollarSign },
 ];
 
 export default function AdminV3Layout() {

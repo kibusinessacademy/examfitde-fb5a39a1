@@ -54,6 +54,7 @@ const CouncilPageV3 = lazy(() => import('@/pages/admin/CouncilPage_V3'));
 const SystemPage = lazy(() => import('@/pages/admin/SystemPage'));
 const FinancePage = lazy(() => import('@/pages/admin/FinancePage'));
 const CourseStudioPage = lazy(() => import('@/pages/admin/CourseStudioPage'));
+const CourseStudioV2 = lazy(() => import('@/pages/admin/CourseStudioV2'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
@@ -153,6 +154,7 @@ const AppRoutes = () => {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="course-studio" element={<CourseStudioPage />} />
+          <Route path="studio" element={<CourseStudioV2 />} />
           <Route path="content/*" element={<ContentPage />} />
           <Route path="curriculum/*" element={<CurriculumPage />} />
           <Route path="council/*" element={<CouncilPageV3 />} />
