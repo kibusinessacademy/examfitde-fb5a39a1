@@ -199,6 +199,8 @@ function PackageList({ onSelect }: { onSelect: (id: string) => void }) {
 // ========== Package Detail (Wizard Tabs) ==========
 function PackageDetail({ packageId, onBack }: { packageId: string; onBack: () => void }) {
   const [activeTab, setActiveTab] = useState<string>('planning');
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const { toast } = useToast();
   const {
     package: pkg,
     packageLoading,
@@ -209,6 +211,26 @@ function PackageDetail({ packageId, onBack }: { packageId: string; onBack: () =>
     approveCouncils,
     invalidate,
   } = useCoursePackageDetail(packageId);
+
+  const handleFullPipeline = async () => {
+    if (!pkg) return;
+    setPipelineRunning(true);
+    try {
+      if (councils.length === 0) {
+        await initCouncils.mutateAsync();
+      }
+      if (!pkg.council_approved) {
+        await approveCouncils.mutateAsync();
+      }
+      await startBuild.mutateAsync();
+      toast({ title: 'Pipeline gestartet', description: 'Councils freigegeben & Build läuft automatisch.' });
+      invalidate();
+    } catch (e: any) {
+      toast({ title: 'Pipeline-Fehler', description: e?.message || 'Unbekannt', variant: 'destructive' });
+    } finally {
+      setPipelineRunning(false);
+    }
+  };
 
   if (packageLoading || !pkg) {
     return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -247,8 +269,8 @@ function PackageDetail({ packageId, onBack }: { packageId: string; onBack: () =>
 
       {/* Tab Content */}
       {activeTab === 'planning' && <PlanningTab pkg={pkg} />}
-      {activeTab === 'councils' && <CouncilsTab pkg={pkg} councils={councils} initCouncils={initCouncils} approveCouncils={approveCouncils} />}
-      {activeTab === 'build' && <BuildTab pkg={pkg} packageId={packageId} buildSteps={buildSteps} startBuild={startBuild} invalidate={invalidate} />}
+      {activeTab === 'councils' && <CouncilsTab pkg={pkg} councils={councils} pipelineRunning={pipelineRunning} onStartPipeline={handleFullPipeline} />}
+      {activeTab === 'build' && <BuildTab pkg={pkg} packageId={packageId} buildSteps={buildSteps} invalidate={invalidate} pipelineRunning={pipelineRunning} onStartPipeline={handleFullPipeline} />}
       {activeTab === 'quality' && <QualityTab pkg={pkg} />}
       {activeTab === 'export' && <ExportTab pkg={pkg} packageId={packageId} />}
     </div>
@@ -313,20 +335,23 @@ function PlanningTab({ pkg }: { pkg: any }) {
 }
 
 // ========== Councils Tab ==========
-function CouncilsTab({ pkg, councils, initCouncils, approveCouncils }: {
-  pkg: any; councils: any[]; initCouncils: any; approveCouncils: any;
+function CouncilsTab({ pkg, councils, pipelineRunning, onStartPipeline }: {
+  pkg: any; councils: any[]; pipelineRunning: boolean; onStartPipeline: () => void;
 }) {
+  const isBuilding = pkg.status === 'building';
   return (
     <div className="space-y-4">
       {councils.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
             <Brain className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground mb-4">Councils noch nicht initialisiert.</p>
-            <Button onClick={() => initCouncils.mutate()} disabled={initCouncils.isPending} size="sm">
-              {initCouncils.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Brain className="h-4 w-4 mr-1" />}
-              Councils einberufen
-            </Button>
+            <p className="text-sm text-muted-foreground mb-4">Councils werden automatisch einberufen & freigegeben.</p>
+            {!isBuilding && pkg.status !== 'published' && (
+              <Button onClick={onStartPipeline} disabled={pipelineRunning} size="sm">
+                {pipelineRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Rocket className="h-4 w-4 mr-1" />}
+                Pipeline starten (Councils + Build)
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -351,15 +376,13 @@ function CouncilsTab({ pkg, councils, initCouncils, approveCouncils }: {
             })}
           </div>
 
-          {!pkg.council_approved && (
-            <Button onClick={() => approveCouncils.mutate()} disabled={approveCouncils.isPending} className="w-full sm:w-auto">
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Council-Freigabe erteilen
-            </Button>
-          )}
-
-          {pkg.council_approved && (
+          {pkg.council_approved ? (
             <Badge className="bg-success/20 text-success"><CheckCircle2 className="h-3 w-3 mr-1" /> Council freigegeben</Badge>
+          ) : !isBuilding && pkg.status !== 'published' && (
+            <Button onClick={onStartPipeline} disabled={pipelineRunning} className="w-full sm:w-auto">
+              {pipelineRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Rocket className="h-4 w-4 mr-1" />}
+              Pipeline starten (Councils freigeben + Build)
+            </Button>
           )}
         </>
       )}
@@ -368,8 +391,8 @@ function CouncilsTab({ pkg, councils, initCouncils, approveCouncils }: {
 }
 
 // ========== Build Tab (Server-Side + Live Logs) ==========
-function BuildTab({ pkg, packageId, buildSteps, startBuild, invalidate }: {
-  pkg: any; packageId: string; buildSteps: any[]; startBuild: any; invalidate: () => void;
+function BuildTab({ pkg, packageId, buildSteps, invalidate, pipelineRunning, onStartPipeline }: {
+  pkg: any; packageId: string; buildSteps: any[]; invalidate: () => void; pipelineRunning: boolean; onStartPipeline: () => void;
 }) {
   const { toast } = useToast();
   const [buildState, setBuildState] = useState<BuildState | null>(null);
@@ -467,9 +490,9 @@ function BuildTab({ pkg, packageId, buildSteps, startBuild, invalidate }: {
             <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
               Startet die vollständige Server-Pipeline: Lernkurs, Prüfungstrainer, Oral-Exam, AI Tutor, Handbuch + Integritätsprüfung.
             </p>
-            <Button onClick={handleServerBuild} disabled={busy} size="lg">
-              {busy ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Rocket className="h-5 w-5 mr-2" />}
-              🚀 Produktpaket erstellen (Server-Pipeline)
+            <Button onClick={onStartPipeline} disabled={pipelineRunning || busy} size="lg">
+              {(pipelineRunning || busy) ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Rocket className="h-5 w-5 mr-2" />}
+              🚀 Produktpaket erstellen (Ein-Klick-Pipeline)
             </Button>
           </CardContent>
         </Card>
