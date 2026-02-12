@@ -103,7 +103,8 @@ Zuständigkeit: ${beruf.zustaendigkeit}
 Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
 
     const aiResult = await callAIJSON({
-      provider: "deepseek",
+      provider: "openai",
+      model: "gpt-5.2",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },

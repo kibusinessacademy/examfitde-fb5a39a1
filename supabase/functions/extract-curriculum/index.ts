@@ -78,25 +78,11 @@ serve(async (req) => {
     let apiHeaders: Record<string, string>;
     let model: string;
 
-    if (provider === 'deepseek') {
-      const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
-      if (!DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY not configured');
-      apiUrl = 'https://api.deepseek.com/v1/chat/completions';
-      apiHeaders = { Authorization: `Bearer ${DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' };
-      model = 'deepseek-chat';
-    } else if (provider === 'openai') {
-      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-      if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured');
-      apiUrl = 'https://api.openai.com/v1/chat/completions';
-      apiHeaders = { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' };
-      model = 'gpt-4o';
-    } else {
-      const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
-      if (!DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY is not configured');
-      apiUrl = 'https://api.deepseek.com/v1/chat/completions';
-      apiHeaders = { Authorization: `Bearer ${DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' };
-      model = 'deepseek-chat';
-    }
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured');
+    apiUrl = 'https://api.openai.com/v1/chat/completions';
+    apiHeaders = { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' };
+    model = 'gpt-5.2';
 
     const response = await fetch(apiUrl, {
       method: 'POST',
