@@ -46,6 +46,12 @@ interface PolicyConfig {
 // ERROR HINTS
 // ═══════════════════════════════════════════════════════════
 const ERROR_HINTS: Record<string, { title: string; description: string; action: string; action_type: string }> = {
+  seed_incomplete: {
+    title: "Curriculum-Seeding unvollständig",
+    description: "Lernfelder oder Kompetenzen fehlen – Build/Gap-Closer blockiert.",
+    action: "Seeding starten (safe mode)",
+    action_type: "enqueue_seeding",
+  },
   exam_pool_coverage_gap: {
     title: "Prüfungsfragen-Pool unvollständig",
     description: "Nicht genügend Prüfungsfragen für alle Lernfelder generiert.",
@@ -221,6 +227,38 @@ async function diagnoseAndPlan(
     });
   }
 
+  // Seeding gate check
+  const { data: seedData } = await sb.from("ops_seeding_summary" as any)
+    .select("*")
+    .in("seed_status", ["missing", "partial"]);
+
+  for (const seed of seedData || []) {
+    const isCooled = Boolean(cooldown_status["enqueue_seeding"]);
+    const reasons = (seed.seed_reasons || []).join(", ");
+    root_causes.push({
+      code: "seed_incomplete",
+      severity: seed.seed_status === "missing" ? "critical" : "warning",
+      title: `${seed.package_title}: Seeding ${seed.seed_status === "missing" ? "fehlt" : "unvollständig"}`,
+      description: isCooled
+        ? `${reasons} (Cooldown aktiv)`
+        : `${reasons} – Build blockiert bis Seeding abgeschlossen.`,
+      recommended_action: "Seeding starten (safe mode)",
+      action_type: "enqueue_seeding",
+      risk: "low",
+      auto_healable: !isCooled && seed.seed_status !== "missing",
+      params: { package_id: seed.package_id, certification_id: seed.certification_id },
+    });
+    if (!isCooled && seed.seed_status === "partial") {
+      heal_actions.push({
+        action_type: "enqueue_seeding",
+        target_id: seed.package_id,
+        target_type: "package",
+        params: { certification_id: seed.certification_id, mode: "safe" },
+        description: `Seeding für ${seed.package_title || seed.package_id.substring(0, 8)}`,
+      });
+    }
+  }
+
   // Blocked packages
   const { data: blocked } = await sb.from("ops_blocked_packages" as any).select("*").limit(10);
 
@@ -393,6 +431,19 @@ async function executeHealAction(
           (intCheck as any)?.integrity_score,
         );
         return { success: true, detail: "Auto-Gap-Closer enqueued" };
+      }
+
+      case "enqueue_seeding": {
+        const certId = action.params.certification_id as string;
+        const mode = (action.params.mode as string) || "safe";
+        await sb.from("job_queue").insert({
+          job_type: "batch_curriculum_pipeline",
+          status: "pending",
+          payload: { curriculum_id: certId, mode },
+          max_attempts: 3,
+        });
+        await logHealAction(sb, action, triggerSource, "success", `Seeding enqueued (${mode})`, Date.now() - startMs);
+        return { success: true, detail: `Seeding enqueued for ${certId}` };
       }
 
       default:
