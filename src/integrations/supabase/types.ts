@@ -11360,6 +11360,27 @@ export type Database = {
           question_count: number
         }[]
       }
+      get_churn_predictions_admin: {
+        Args: never
+        Returns: {
+          action_taken: string | null
+          action_taken_at: string | null
+          expires_at: string | null
+          id: string
+          predicted_at: string
+          recommended_action: string | null
+          risk_level: string
+          risk_score: number
+          signals: Json | null
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "churn_predictions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_content_quality_stats: {
         Args: never
         Returns: {
@@ -11854,6 +11875,7 @@ export type Database = {
         Args: { p_minutes?: number; p_threshold?: number }
         Returns: Json
       }
+      security_health_summary: { Args: never; Returns: Json }
       security_rate_limit_hit: {
         Args: {
           p_block_seconds?: number

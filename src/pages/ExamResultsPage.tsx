@@ -313,6 +313,40 @@ export default function ExamResultsPage() {
         </Card>
       )}
 
+      {/* Weakness Plan */}
+      {!passed && incorrectQuestions.length > 0 && (
+        <Card className="glass-card border-warning/30 bg-warning/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BookOpen className="h-5 w-5 text-warning" />
+              Dein Schwächen-Plan
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Basierend auf deiner Analyse empfehlen wir diese Reihenfolge:
+            </p>
+            {Object.entries(session.breakdown?.by_learning_field || {})
+              .filter(([code, stats]) => code !== 'unknown' && stats.total > 0 && (stats.correct / stats.total) < 0.7)
+              .sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total))
+              .slice(0, 5)
+              .map(([code, stats], idx) => {
+                const pct = Math.round((stats.correct / stats.total) * 100);
+                return (
+                  <div key={code} className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border/50">
+                    <span className="w-6 h-6 rounded-full bg-warning/20 text-warning text-xs font-bold flex items-center justify-center">{idx + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Lernfeld {code}</p>
+                      <Progress value={pct} className="h-1.5 mt-1 [&>div]:bg-warning" />
+                    </div>
+                    <span className="text-xs font-mono text-muted-foreground">{pct}%</span>
+                  </div>
+                );
+              })}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Actions */}
       <div className="flex gap-4">
         <Button variant="outline" className="flex-1 gap-2" asChild>

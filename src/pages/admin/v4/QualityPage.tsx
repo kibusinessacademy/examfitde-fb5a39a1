@@ -103,21 +103,69 @@ function IntegrityOverview() {
   );
 }
 
+/* ── Security Health Card ── */
+function SecurityHealthCard() {
+  const [health, setHealth] = useState<any>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any).rpc('security_health_summary');
+      setHealth(data);
+    })();
+  }, []);
+
+  if (!health) return null;
+
+  const noRls = health.tables_without_rls ?? 0;
+  const permissive = health.permissive_policies ?? 0;
+  const isGood = noRls === 0 && permissive === 0;
+
+  return (
+    <Card className={cn("border-l-4", isGood ? 'border-l-success' : 'border-l-destructive')}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Shield className="h-4 w-4" /> Security Health
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="text-center p-3 rounded-lg bg-muted/30">
+            <p className={cn("text-xl font-bold", noRls > 0 ? 'text-destructive' : 'text-success')}>{noRls}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tabellen ohne RLS</p>
+          </div>
+          <div className="text-center p-3 rounded-lg bg-muted/30">
+            <p className={cn("text-xl font-bold", permissive > 0 ? 'text-warning' : 'text-success')}>{permissive}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Permissive Policies</p>
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          Geprüft: {new Date(health.checked_at).toLocaleString('de-DE')}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ── Quality Overview ── */
 function QualityOverview() {
   return (
     <div className="space-y-6">
+      {/* Security Health */}
+      <SecurityHealthCard />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => {}}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Shield className="h-4 w-4 text-primary" /> Integrität
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Soll-Ist-Abgleich aller Kurspakete, Score-Verlauf und blockierte Publishes.</p>
-          </CardContent>
-        </Card>
+        <Link to="/admin/quality/integrity">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Shield className="h-4 w-4 text-primary" /> Integrität
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Soll-Ist-Abgleich aller Kurspakete, Score-Verlauf und blockierte Publishes.</p>
+            </CardContent>
+          </Card>
+        </Link>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -138,16 +186,18 @@ function QualityOverview() {
             <p className="text-xs text-muted-foreground">User Data Export/Delete, Datenklassifizierung. Nur über Admin-RPCs zugänglich.</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <FileText className="h-4 w-4 text-success" /> AZAV/ISO
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Checklisten, timestamped Validierung, Evidence Packs, PDF-Export.</p>
-          </CardContent>
-        </Card>
+        <Link to="/admin/quality/azav">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FileText className="h-4 w-4 text-success" /> AZAV/ISO
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Checklisten, timestamped Validierung, Evidence Packs, PDF-Export.</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
     </div>
   );

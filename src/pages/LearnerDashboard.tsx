@@ -163,14 +163,22 @@ export default function LearnerDashboard() {
           <p className="text-sm sm:text-base text-muted-foreground">
             Dein Prüfungscockpit – du weißt genau, wo du stehst.
           </p>
-          {isAdmin && (
-            <Link to="/admin/dashboard">
-              <Button variant="outline" size="sm" className="mt-3">
-                <Sparkles className="h-4 w-4 mr-2" />
-                Admin
+          <div className="flex items-center gap-2 mt-3">
+            <Link to="/exam-simulation">
+              <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow font-bold">
+                <Target className="h-5 w-5 mr-2" />
+                Prüfung starten
               </Button>
             </Link>
-          )}
+            {isAdmin && (
+              <Link to="/admin/command">
+                <Button variant="outline" size="sm">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Admin
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Silent Motivation Banner */}
