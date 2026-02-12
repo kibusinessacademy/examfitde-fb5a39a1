@@ -123,6 +123,7 @@ Deno.serve(async (req) => {
   });
 
   // 5) Enqueue jobs into job_queue (Runner/pg_cron picks them up)
+  // Alternate provider between openai (GPT-5.2) and anthropic (Claude Opus) for parallel throughput
   const nowIso = new Date().toISOString();
   const jobs = steps.map((s, idx) => ({
     job_type: s.job_type,
@@ -137,6 +138,7 @@ Deno.serve(async (req) => {
       course_id: courseId,
       curriculum_id: curriculumId,
       certification_id: certificationId,
+      provider: idx % 2 === 0 ? "openai" : "anthropic",
       options: opts,
       sequence: idx + 1,
     },

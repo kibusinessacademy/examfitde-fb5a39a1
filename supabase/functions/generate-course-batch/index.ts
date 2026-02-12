@@ -127,9 +127,22 @@ const MINI_CHECK_TOOL = {
   },
 };
 
-// ─── AI provider resolution (Direct API – no Lovable credits) ───────────────
+// ─── AI provider resolution (Direct API – Dual Provider) ───────────────────
 
 function resolveProvider(provider?: string): AIProvider {
+  if (provider === "anthropic") {
+    const key = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!key) throw new Error("ANTHROPIC_API_KEY not configured");
+    return {
+      url: "https://api.anthropic.com/v1/messages",
+      headers: {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      model: "claude-opus-4-0-20250514",
+    };
+  }
   if (provider === "deepseek") {
     const key = Deno.env.get("DEEPSEEK_API_KEY");
     if (!key) throw new Error("DEEPSEEK_API_KEY not configured");
@@ -139,13 +152,13 @@ function resolveProvider(provider?: string): AIProvider {
       model: "deepseek-chat",
     };
   }
-  // Default: Direct OpenAI API (bypasses Lovable credits)
+  // Default: OpenAI GPT-5.2
   const key = Deno.env.get("OPENAI_API_KEY");
   if (!key) throw new Error("OPENAI_API_KEY not configured");
   return {
     url: "https://api.openai.com/v1/chat/completions",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    model: "gpt-4o",
+    model: "gpt-5.2",
   };
 }
 
@@ -172,7 +185,70 @@ function patchDedupeKey(lessonId: string, step: string): string {
   return `lesson_qc_${lessonId}_${step}`;
 }
 
-// ─── Content generation ─────────────────────────────────────────────────────
+// ─── Content generation (supports OpenAI + Anthropic format) ────────────────
+
+function isAnthropicProvider(ai: AIProvider): boolean {
+  return ai.url.includes("anthropic.com");
+}
+
+async function callProvider(
+  ai: AIProvider,
+  systemPrompt: string,
+  userPrompt: string,
+  opts?: { tools?: any[]; tool_choice?: any; temperature?: number },
+): Promise<{ text?: string; toolArgs?: string } | null> {
+  const temperature = opts?.temperature ?? 0.7;
+
+  if (isAnthropicProvider(ai)) {
+    // Anthropic format
+    const body: Record<string, unknown> = {
+      model: ai.model,
+      max_tokens: 8192,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+      temperature,
+    };
+    // Anthropic tool calling format
+    if (opts?.tools) {
+      body.tools = opts.tools.map((t: any) => ({
+        name: t.function.name,
+        description: t.function.description,
+        input_schema: t.function.parameters,
+      }));
+      if (opts.tool_choice) {
+        body.tool_choice = { type: "tool", name: opts.tool_choice.function.name };
+      }
+    }
+
+    const resp = await fetch(ai.url, { method: "POST", headers: ai.headers, body: JSON.stringify(body) });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    // Check for tool use
+    const toolBlock = data.content?.find((b: any) => b.type === "tool_use");
+    if (toolBlock) return { toolArgs: JSON.stringify(toolBlock.input) };
+    const textBlock = data.content?.find((b: any) => b.type === "text");
+    return { text: textBlock?.text || "" };
+  }
+
+  // OpenAI-compatible format
+  const body: Record<string, unknown> = {
+    model: ai.model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    temperature,
+  };
+  if (opts?.tools) body.tools = opts.tools;
+  if (opts?.tool_choice) body.tool_choice = opts.tool_choice;
+
+  const resp = await fetch(ai.url, { method: "POST", headers: ai.headers, body: JSON.stringify(body) });
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+  if (toolCall?.function?.arguments) return { toolArgs: toolCall.function.arguments };
+  return { text: data.choices?.[0]?.message?.content || "" };
+}
 
 async function generateRegularContent(
   ai: AIProvider,
@@ -180,23 +256,14 @@ async function generateRegularContent(
   step: string,
 ): Promise<Record<string, unknown> | null> {
   try {
-    const resp = await fetch(ai.url, {
-      method: "POST",
-      headers: ai.headers,
-      body: JSON.stringify({
-        model: ai.model,
-        messages: [
-          {
-            role: "system",
-            content: `Du bist ein IHK-Experte für berufliche Ausbildungsinhalte.
+    const result = await callProvider(
+      ai,
+      `Du bist ein IHK-Experte für berufliche Ausbildungsinhalte.
 Erstelle strukturierte, praxisnahe Lerninhalte im JSON-Format.
 WICHTIG: Jede Lektion MUSS einen expliziten IHK-Prüfungsbezug enthalten.
 Markiere prüfungsrelevante Stellen mit ⭐ und häufige Fehlerquellen mit ⚠️.
 Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt.`,
-          },
-          {
-            role: "user",
-            content: `Erstelle Lerninhalt für:
+      `Erstelle Lerninhalt für:
 
 Kompetenz: ${comp.title}
 Beschreibung: ${comp.description || "Keine Beschreibung"}
@@ -212,15 +279,8 @@ Format (JSON):
   "objectives": ["Lernziel 1", "Lernziel 2", "Lernziel 3"],
   "ihk_relevanz": "Beschreibung der Prüfungsrelevanz"
 }`,
-          },
-        ],
-        temperature: 0.7,
-      }),
-    });
-    if (!resp.ok) return null;
-    const result = await resp.json();
-    const text = result.choices?.[0]?.message?.content;
-    return text ? safeParseJson(text) : null;
+    );
+    return result?.text ? safeParseJson(result.text) : null;
   } catch (err) {
     console.error(`[AI] Regular content error for ${step}:`, err);
     return null;
@@ -232,37 +292,22 @@ async function generateMiniCheck(
   comp: Competency,
 ): Promise<Record<string, unknown> | null> {
   try {
-    const resp = await fetch(ai.url, {
-      method: "POST",
-      headers: ai.headers,
-      body: JSON.stringify({
-        model: ai.model,
-        messages: [
-          {
-            role: "system",
-            content: `Du bist ein IHK-Prüfungsexperte. Erstelle realistische Multiple-Choice-Fragen auf IHK-Prüfungsniveau.
+    const result = await callProvider(
+      ai,
+      `Du bist ein IHK-Prüfungsexperte. Erstelle realistische Multiple-Choice-Fragen auf IHK-Prüfungsniveau.
 Jede Frage muss praxisbezogen sein mit plausiblen Distraktoren.`,
-          },
-          {
-            role: "user",
-            content: `Erstelle 4 Multiple-Choice-Fragen für:
+      `Erstelle 4 Multiple-Choice-Fragen für:
 Kompetenz: ${comp.title}
 Beschreibung: ${comp.description || "Keine Beschreibung"}
 Taxonomiestufe: ${comp.taxonomy_level || "Anwenden"}`,
-          },
-        ],
+      {
         tools: [MINI_CHECK_TOOL],
         tool_choice: { type: "function", function: { name: "create_mini_check" } },
-        temperature: 0.7,
-      }),
-    });
-    if (!resp.ok) return null;
+      },
+    );
 
-    const result = await resp.json();
-    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) return null;
-
-    const parsed = JSON.parse(toolCall.function.arguments);
+    if (!result?.toolArgs) return null;
+    const parsed = JSON.parse(result.toolArgs);
     if (!Array.isArray(parsed.questions) || parsed.questions.length < 3) return null;
 
     const valid = parsed.questions.filter(
