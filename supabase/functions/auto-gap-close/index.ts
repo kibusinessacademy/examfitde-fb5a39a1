@@ -416,17 +416,22 @@ function buildPlan(
     });
   }
 
-  // Handbook gap
-  const handbookActual = report?.handbook?.chapters || 0;
-  const handbookTarget = report?.handbook?.target || 5;
-  if (handbookActual < handbookTarget) {
-    actions.push({
-      job_type: "package_generate_handbook",
-      count: 1,
-      scope: "missing_only",
-      payload_extra: { step_key: "generate_handbook", fill_gaps: true },
-    });
-  }
+    // Handbook gap – check both chapters AND sections
+    const handbookChapters = report?.handbook?.chapters || 0;
+    const handbookSections = report?.handbook?.sections || 0;
+    const handbookChapterTarget = report?.handbook?.target || 5;
+    const handbookSectionTarget = 10; // minimum sections
+    if (handbookChapters < handbookChapterTarget || handbookSections < handbookSectionTarget) {
+      const mode = handbookChapters < handbookChapterTarget
+        ? "chapters_and_sections"
+        : "sections_only";
+      actions.push({
+        job_type: "package_generate_handbook",
+        count: 1,
+        scope: mode,
+        payload_extra: { step_key: "generate_handbook", fill_gaps: true, mode },
+      });
+    }
 
   // AI Tutor Index
   if (!report?.tutor_index) {

@@ -78,21 +78,43 @@ Deno.serve(async (req) => {
       if (delChErr) console.error(`[Handbook] Chapter delete warning: ${delChErr.message}`);
     }
 
-    // Step 3: Create chapters (one per ~4 learning fields for better structure)
+    // Step 3: Create chapters – dynamic grouping to reach TARGET_CHAPTERS
+    const TARGET_CHAPTERS = 5;
     const chaptersToCreate = [];
-    const chapterSize = 4;
+    // Calculate chapterSize dynamically: e.g. 12 LFs / 5 target = ceil(2.4) = 3 per chapter → 4 chapters
+    // We use floor to get more chapters: 12 / 5 = 2 per chapter → 6 groups, capped at TARGET
+    const chapterSize = Math.max(1, Math.floor(fields.length / TARGET_CHAPTERS)) || 1;
+    const rawChunks: typeof fields[] = [];
     for (let i = 0; i < fields.length; i += chapterSize) {
-      const chunk = fields.slice(i, i + chapterSize);
-      const chapterNum = Math.floor(i / chapterSize) + 1;
-      const firstCode = (chunk[0] as any).code;
-      const lastCode = (chunk[chunk.length - 1] as any).code;
+      rawChunks.push(fields.slice(i, i + chapterSize));
+    }
+    // If we created more chunks than target, merge last two
+    while (rawChunks.length > TARGET_CHAPTERS && rawChunks.length > 1) {
+      const last = rawChunks.pop()!;
+      rawChunks[rawChunks.length - 1] = [...rawChunks[rawChunks.length - 1], ...last];
+    }
+    // If we created fewer chunks than target (few LFs), pad with empty chapters
+    for (let pad = rawChunks.length + 1; rawChunks.length < TARGET_CHAPTERS; pad++) {
+      rawChunks.push([]); // empty chapter placeholder
+    }
+
+    for (let ci = 0; ci < rawChunks.length; ci++) {
+      const chunk = rawChunks[ci];
+      const chapterNum = ci + 1;
+      const firstCode = chunk.length > 0 ? (chunk[0] as any).code : `X${chapterNum}`;
+      const lastCode = chunk.length > 0 ? (chunk[chunk.length - 1] as any).code : `X${chapterNum}`;
+      const titleSuffix = chunk.length > 0
+        ? `${firstCode}–${lastCode} Prüfungsrelevante Themen`
+        : "Ergänzende Prüfungsthemen";
       chaptersToCreate.push({
         curriculum_id: curriculumId,
         chapter_key: `handbuch-${curriculumId.slice(0, 8)}-kap${chapterNum}`,
-        title: `Kapitel ${chapterNum}: ${firstCode}–${lastCode} Prüfungsrelevante Themen`,
+        title: `Kapitel ${chapterNum}: ${titleSuffix}`,
         sort_order: chapterNum,
       });
     }
+
+    console.log(`[Handbook] Will create ${chaptersToCreate.length} chapters (target: ${TARGET_CHAPTERS}, chapterSize: ${chapterSize}, LFs: ${fields.length})`);
 
     const { data: chapters, error: chErr } = await sb
       .from("handbook_chapters")
@@ -109,10 +131,18 @@ Deno.serve(async (req) => {
     const sectionRows: Array<Record<string, unknown>> = [];
     let sectionOrder = 1;
 
+    // Build a mapping from field index to chapter using the same chunking logic
+    const fieldToChapter: number[] = [];
+    for (let ci = 0; ci < rawChunks.length; ci++) {
+      for (let fi = 0; fi < rawChunks[ci].length; fi++) {
+        fieldToChapter.push(ci + 1); // sort_order is 1-based
+      }
+    }
+
     for (let i = 0; i < fields.length; i++) {
       const lf = fields[i] as { id: string; code: string; title: string; description: string | null; sort_order: number };
-      const chapterIdx = Math.floor(i / chapterSize);
-      const chapter = chapters.find((c: { sort_order: number }) => c.sort_order === chapterIdx + 1);
+      const chapterSortOrder = fieldToChapter[i] || 1;
+      const chapter = chapters.find((c: { sort_order: number }) => c.sort_order === chapterSortOrder);
       if (!chapter) continue;
 
       sectionRows.push({
