@@ -12,6 +12,7 @@ import type { LessonStatus } from '@/hooks/useCourseProgress';
 
 import LessonHeader from '@/components/lesson/LessonHeader';
 import StepIndicator from '@/components/lesson/StepIndicator';
+import PageExplainer from '@/components/admin/PageExplainer';
 import LessonContent from '@/components/lesson/LessonContent';
 import LessonNavigation from '@/components/lesson/LessonNavigation';
 import { LearningGoalFeedback } from '@/components/course/LearningGoalFeedback';
@@ -371,6 +372,21 @@ export default function LessonPlayer() {
         <StepIndicator 
           currentStep={lesson.step} 
           lessonTitle={lesson.title} 
+        />
+
+        <PageExplainer
+          title="Wie funktioniert diese Lektion?"
+          description="Jede Lektion folgt einem didaktischen Schritt: Einstieg, Verstehen, Anwenden, Wiederholen oder Mini-Check. Bei Mini-Checks bekommst du sofort Feedback zu deinem Lernstand. Ab 80% gilt das Lernziel als gemeistert."
+          actions={[
+            '"Abschließen" – Markiert die Lektion als erledigt und schaltet die nächste frei',
+            'Mini-Check am Ende prüft dein Wissen – bei < 80% kannst du wiederholen',
+            'Navigation unten → Wechsle zur vorherigen oder nächsten Lektion',
+          ]}
+          tips={[
+            'Du musst die vorherige Lektion abschließen, bevor die nächste freigeschaltet wird',
+            'Der Fortschrittsbalken oben zeigt deinen Modulfortschritt',
+            'Bei H5P-Inhalten wird dein Score automatisch erfasst',
+          ]}
         />
 
         {/* Content Area */}

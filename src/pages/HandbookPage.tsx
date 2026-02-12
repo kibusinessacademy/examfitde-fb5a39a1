@@ -16,6 +16,7 @@ import { useHandbookChapters, useHandbookProgress } from '@/hooks/useHandbook';
 import { useUserEntitlements } from '@/hooks/useShop';
 import { HandbookChapterCard } from '@/components/handbook/HandbookChapterCard';
 import { SEOHead } from '@/components/seo/SEOHead';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 export default function HandbookPage() {
   const { data: chapters, isLoading: chaptersLoading } = useHandbookChapters();
@@ -119,6 +120,28 @@ export default function HandbookPage() {
             </div>
           </section>
         )}
+
+        <div className="container mx-auto px-4 mb-8">
+          <PageExplainer
+            title="Was ist das Prüfungshandbuch?"
+            description="Das Handbuch ist dein strategischer Begleiter: Es erklärt nicht nur Inhalte, sondern wie die IHK denkt und prüft. Lerne typische Fehler zu vermeiden und gehe mit einem klaren Plan in deine Prüfung."
+            workflow={[
+              { label: 'Kapitel lesen', active: true },
+              { label: 'Übungen machen' },
+              { label: 'Strategie anwenden' },
+              { label: 'Prüfung bestehen' },
+            ]}
+            actions={[
+              'Kapitel aufklappen → Lies die Abschnitte und mache die interaktiven Übungen',
+              'Fortschrittsbalken → Zeigt, wie viele Kapitel du bereits abgeschlossen hast',
+            ]}
+            tips={[
+              'Das Handbuch ist Teil deines Trainings-Bundles – kein Zusatzkauf nötig',
+              'Beginne mit den Grundlagen-Kapiteln zur Prüfungslogik',
+              'Die Übungen helfen dir, das Gelesene direkt anzuwenden',
+            ]}
+          />
+        </div>
 
         {/* Value Proposition */}
         <section className="container mx-auto px-4 mb-16">

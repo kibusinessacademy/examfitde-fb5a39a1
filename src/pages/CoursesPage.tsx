@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Clock, BookOpen, ArrowRight, CheckCircle } from 'lucide-react';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 interface Course {
   id: string;
@@ -91,6 +92,26 @@ export default function CoursesPage() {
             gezielt aufbereitet für deine Abschlussprüfung.
           </p>
         </div>
+
+        <PageExplainer
+          title="Wie funktionieren die Prüfungstrainings?"
+          description="Jedes Training basiert auf dem offiziellen Rahmenlehrplan deines Ausbildungsberufs. Es enthält Module mit Lektionen, die einem didaktischen 5-Schritte-Pfad folgen: Einstieg → Verstehen → Anwenden → Wiederholen → Mini-Check."
+          workflow={[
+            { label: 'Training wählen', active: true },
+            { label: 'Einschreiben' },
+            { label: 'Lektionen' },
+            { label: 'Mini-Checks' },
+            { label: 'Prüfung' },
+          ]}
+          actions={[
+            '"Training starten" – Schreibe dich ein und beginne mit der ersten Lektion',
+            '"Fortsetzen" – Mache dort weiter, wo du aufgehört hast',
+          ]}
+          tips={[
+            'Jede Lektion hat einen Mini-Check – ab 80% gilt ein Lernziel als gemeistert',
+            'Der Fortschrittsbalken zeigt deine Prüfungsreife, nicht nur den Kursfortschritt',
+          ]}
+        />
 
         {/* Courses Grid */}
         {courses.length === 0 ? (

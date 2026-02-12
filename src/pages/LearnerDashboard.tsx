@@ -32,6 +32,7 @@ import {
   Mic,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 interface EnrolledCourse {
   course_id: string;
@@ -180,6 +181,28 @@ export default function LearnerDashboard() {
             )}
           </div>
         </div>
+
+        <PageExplainer
+          title="Wie funktioniert dein Dashboard?"
+          description="Dein persönliches Prüfungscockpit zeigt dir deinen aktuellen Lernstand, Prüfungsreife und empfiehlt dir die nächsten Schritte. Alles ist darauf ausgerichtet, dich optimal auf deine IHK-Prüfung vorzubereiten."
+          workflow={[
+            { label: 'Diagnose' },
+            { label: 'Lernen' },
+            { label: 'Üben' },
+            { label: 'Dashboard', active: true },
+            { label: 'Prüfung' },
+          ]}
+          actions={[
+            '"Prüfung starten" – Starte eine Prüfungssimulation unter Echtbedingungen',
+            'Klick auf ein Training → Öffnet die Kursübersicht mit Modulen und Lektionen',
+            'Quick Actions unten → Direktzugriff auf Trainer, Simulation, Mündlich, Wiederholung',
+          ]}
+          tips={[
+            'Der Readiness-Gauge zeigt deine geschätzte Bestehenswahrscheinlichkeit',
+            'Coach-Hinweise geben dir personalisierte Lernempfehlungen',
+            'Die Schwächenanalyse identifiziert deine größten Lücken automatisch',
+          ]}
+        />
 
         {/* Silent Motivation Banner */}
         {activeCurriculumId && (

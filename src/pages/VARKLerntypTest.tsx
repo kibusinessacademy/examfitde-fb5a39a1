@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 type VARKType = 'visual' | 'auditory' | 'reading' | 'kinesthetic';
 
@@ -424,6 +425,21 @@ export default function VARKLerntypTest() {
           Finde heraus, wie du am besten lernst
         </p>
       </div>
+
+      <PageExplainer
+        title="Was ist der VARK-Lerntyp-Test?"
+        description="Der VARK-Test identifiziert deinen bevorzugten Lernstil: Visuell, Auditiv, Lesen/Schreiben oder Kinästhetisch. Das System nutzt dein Ergebnis, um Lernempfehlungen besser auf dich abzustimmen."
+        actions={[
+          '12 Fragen beantworten → Dein Lerntyp wird automatisch bestimmt',
+          'Ergebnis zeigt Prozentwerte für alle 4 Typen',
+          'Personalisierte Lerntipps basierend auf deinem Lerntyp',
+        ]}
+        tips={[
+          'Es gibt keinen "besseren" Lerntyp – jeder Typ hat eigene Stärken',
+          'Multimodale Lerner nutzen mehrere Kanäle – das ist besonders effektiv',
+          'Dein Ergebnis wird gespeichert und beeinflusst zukünftige Empfehlungen',
+        ]}
+      />
 
       {/* Progress */}
       <div className="mb-6">

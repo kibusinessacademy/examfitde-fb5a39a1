@@ -36,6 +36,7 @@ import { QuestionCard } from '@/components/exam/QuestionCard';
 import { ResultsScreen } from '@/components/exam/ResultsScreen';
 import { SimulationGateGuard } from '@/components/exam/SimulationGateGuard';
 import { TutorPanel } from '@/components/tutor/TutorPanel';
+import PageExplainer from '@/components/admin/PageExplainer';
 import { AI_MODES, type AIMode } from '@/hooks/useAITutor';
 
 // Map exam mode to AI tutor mode
@@ -180,6 +181,27 @@ export default function ExamSimulation() {
   // Active exam
   return (
     <div className="container max-w-4xl py-8">
+      <PageExplainer
+        title="Wie funktioniert die Prüfungssimulation?"
+        description="Die Simulation bildet eine echte IHK-Prüfung nach. Du beantwortest Fragen unter Zeitdruck und erhältst am Ende eine detaillierte Auswertung mit Fehleranalyse und Schwächenplan."
+        workflow={[
+          { label: 'Blueprint wählen' },
+          { label: 'Fragen beantworten', active: true },
+          { label: 'Auswertung' },
+          { label: 'Schwächenplan' },
+        ]}
+        actions={[
+          'Fragennavigator oben → Springe zu einer bestimmten Frage',
+          '"Prüfung beenden" → Beendet die Simulation und zeigt die Ergebnisse',
+          'KI-Tutor rechts unten → Im Übungsmodus hilft der Tutor, im Prüfungsmodus ist er gesperrt',
+        ]}
+        tips={[
+          'Grüne Felder = richtig, rote = falsch – beantworte möglichst alle Fragen',
+          'Nach der Prüfung werden automatisch Schwächen-Lektionen zugewiesen',
+          'Im Timed-Exam-Modus läuft die Zeit – wie in der echten Prüfung',
+        ]}
+      />
+
       {/* Progress Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">

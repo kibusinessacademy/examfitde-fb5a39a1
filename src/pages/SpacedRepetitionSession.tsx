@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 interface Card {
   card_id: string;
@@ -267,6 +268,27 @@ export default function SpacedRepetitionSession() {
             Optimales Lernen mit dem SM-2 Algorithmus und Bloom's Taxonomy
           </p>
         </div>
+
+        <PageExplainer
+          title="Wie funktioniert Spaced Repetition?"
+          description="Das System verwendet den SM-2 Algorithmus, um deine Wiederholungsintervalle optimal zu steuern. Karten, die du gut beherrschst, erscheinen seltener – schwierige Karten öfter. So lernst du effizienter."
+          workflow={[
+            { label: 'Curriculum wählen', active: true },
+            { label: 'Karten beantworten' },
+            { label: 'Selbst bewerten' },
+            { label: 'Ergebnis' },
+          ]}
+          actions={[
+            'Curriculum wählen, dann "Lernen starten"',
+            'Frage beantworten → Karte aufdecken → Ehrlich bewerten (0-5)',
+            'Tägliches Lernen baut deine Streak auf',
+          ]}
+          tips={[
+            'Bewerte ehrlich: Die Qualität deiner Bewertung bestimmt die Intervalle',
+            'Tägliches Üben (auch nur 10 Min.) ist effektiver als lange Sessions',
+            'Bloom-Level zeigt die kognitive Tiefe der Frage (K1 Erinnern → K6 Erschaffen)',
+          ]}
+        />
 
         <Card className="glass-card">
           <CardHeader>
