@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Loader2, ArrowLeft, CheckCircle2, XCircle, Clock, Play, Brain,
   Wrench, Shield, Download, RefreshCw, Trash2, FileText,
@@ -17,6 +18,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import BuildLiveLog from '@/components/admin/BuildLiveLog';
+import ProductModuleStatus from '@/components/admin/ProductModuleStatus';
+import CouncilTimeline from '@/components/admin/CouncilTimeline';
 
 /* ───── stepper config ───── */
 const PIPELINE_STEPS = [
@@ -347,9 +350,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   return (
     <div className="space-y-6">
       {/* Back */}
-      <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0">
-        <ArrowLeft className="h-4 w-4 mr-1" /> Kursliste
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Kursliste
+        </Button>
+      </div>
 
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -397,6 +402,16 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
           </Button>
         </div>
       </div>
+
+      {/* ── Tabs: Build | Module | Council ── */}
+      <Tabs defaultValue="build" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="build">Build Pipeline</TabsTrigger>
+          <TabsTrigger value="modules">Produktmodule</TabsTrigger>
+          <TabsTrigger value="council">Council</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="build" className="space-y-6">
 
       {/* ── Progress Bar with Step Counter ── */}
       {buildSteps.length > 0 && (
@@ -648,28 +663,16 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         )}
       </div>
 
-      {/* ── Council Decisions ── */}
-      {councils.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3"><CardTitle className="text-sm">Council-Entscheidungen</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {councils.map((c: any) => (
-                <div key={c.id} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
-                  <span className="text-sm">{c.council_type}</span>
-                  <Badge variant="outline" className={cn("text-xs",
-                    c.decision === 'approve' ? 'bg-success/10 text-success' :
-                    c.decision === 'rejected' ? 'bg-destructive/10 text-destructive' :
-                    'bg-warning/10 text-warning'
-                  )}>
-                    {c.decision || c.status}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        </TabsContent>
+
+        <TabsContent value="modules">
+          <ProductModuleStatus packageId={packageId} courseId={pkg.course_id || null} certificationId={pkg.certification_id || null} />
+        </TabsContent>
+
+        <TabsContent value="council">
+          <CouncilTimeline packageId={packageId} councils={councils} onRefresh={refreshAll} />
+        </TabsContent>
+      </Tabs>
 
       {/* ── Danger Zone (2-step confirm) ── */}
       <div className="pt-4">
