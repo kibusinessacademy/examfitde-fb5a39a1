@@ -43,18 +43,18 @@ export default function ContentPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-foreground">Content & Learning</h1>
-        <p className="text-sm text-muted-foreground">Kurse, Lektionen, Prüfungsfragen & Qualität</p>
+        <h1 className="text-lg sm:text-xl font-bold text-foreground">Content & Learning</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">Kurse, Lektionen, Prüfungsfragen & Qualität</p>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
         <div className="flex gap-1 border-b border-border pb-px min-w-max">
           {tabs.map(tab => (
             <Link
               key={tab.path}
               to={tab.path}
               className={cn(
-                "px-3 py-2 text-sm rounded-t-md transition-colors",
+                "px-2.5 py-2 text-xs sm:text-sm rounded-t-md transition-colors whitespace-nowrap",
                 activeTab === tab.path
                   ? "bg-primary/10 text-primary font-medium border-b-2 border-primary"
                   : "text-muted-foreground hover:text-foreground"

@@ -150,24 +150,24 @@ export default function LearnerDashboard() {
   }
 
   return (
-    <div className="py-8 px-4">
+    <div className="py-4 sm:py-8 px-3 sm:px-4">
       <div className="container mx-auto max-w-6xl">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl md:text-4xl font-display font-bold mb-1">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-1">
             Willkommen zurück,{' '}
             <span className="text-gradient">
               {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
             </span>
           </h1>
-          <p className="text-muted-foreground">
-            Dein Prüfungscockpit – du weißt genau, wo du stehst und was du jetzt tun solltest.
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Dein Prüfungscockpit – du weißt genau, wo du stehst.
           </p>
           {isAdmin && (
-            <Link to="/admin-v2/dashboard">
+            <Link to="/admin/dashboard">
               <Button variant="outline" size="sm" className="mt-3">
                 <Sparkles className="h-4 w-4 mr-2" />
-                Admin Control Center
+                Admin
               </Button>
             </Link>
           )}
@@ -209,7 +209,7 @@ export default function LearnerDashboard() {
 
         {/* ━━━ SECTION 3: Readiness Gauge + Radar + Streak ━━━ */}
         {activeCurriculumId && (
-          <div className="grid lg:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
             <ExamReadinessGauge curriculumId={activeCurriculumId} />
             <div className="lg:col-span-2">
               <ReadinessRadar curriculumId={activeCurriculumId} />
@@ -219,7 +219,7 @@ export default function LearnerDashboard() {
 
         {/* Streak + Exam Preview */}
         {activeCurriculumId && (
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
             <SmartStreakWidget />
             <ExamPreview curriculumId={activeCurriculumId} />
           </div>
@@ -266,15 +266,15 @@ export default function LearnerDashboard() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {enrollments.map((enrollment) => {
                 const courseProgress = getCourseProgress(enrollment.course_id);
                 const isCompleted = enrollment.completed_at != null;
 
                 return (
-                  <Card key={enrollment.course_id} className="glass-card hover:border-primary/30 transition-all group">
-                    <div className="flex">
-                      <div className="w-28 h-28 flex-shrink-0 bg-muted rounded-l-lg overflow-hidden">
+                  <Card key={enrollment.course_id} className="glass-card hover:border-primary/30 transition-all group overflow-hidden">
+                    <div className="flex flex-col sm:flex-row">
+                      <div className="w-full h-32 sm:w-28 sm:h-28 flex-shrink-0 bg-muted rounded-t-lg sm:rounded-l-lg sm:rounded-tr-none overflow-hidden">
                         {enrollment.course.thumbnail_url ? (
                           <img
                             src={enrollment.course.thumbnail_url}
@@ -346,19 +346,19 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
       {actions.map((action) => {
         const content = (
           <Card className={cn(
             'glass-card transition-all h-full',
             action.blocked ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/30'
           )}>
-            <CardContent className="p-4 text-center">
-              <div className={`p-3 rounded-xl ${action.gradient} ${action.glow} inline-flex mb-2 ${action.blocked ? 'grayscale' : ''}`}>
-                <action.icon className="h-5 w-5 text-white" />
+            <CardContent className="p-3 sm:p-4 text-center">
+              <div className={`p-2.5 sm:p-3 rounded-xl ${action.gradient} ${action.glow} inline-flex mb-2 ${action.blocked ? 'grayscale' : ''}`}>
+                <action.icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
-              <h3 className="font-display font-bold text-sm">{action.label}</h3>
-              <p className="text-xs text-muted-foreground">{action.desc}</p>
+              <h3 className="font-display font-bold text-xs sm:text-sm">{action.label}</h3>
+              <p className="text-xs text-muted-foreground hidden sm:block">{action.desc}</p>
             </CardContent>
           </Card>
         );
