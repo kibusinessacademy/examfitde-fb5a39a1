@@ -124,9 +124,7 @@ Deno.serve(async (req) => {
 
     // 3) Run integrity check
     const { data: report, error: rpcErr } = await sb.rpc("validate_course_integrity_v2", {
-      p_course_id: courseId,
-      p_package_id: packageId,
-      p_options: { exam_target: 1000, oral_target: 20, handbook_chapter_target: 5 },
+      p_curriculum_id: curriculumId,
     });
     if (rpcErr) throw rpcErr;
 
