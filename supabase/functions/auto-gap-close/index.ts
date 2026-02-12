@@ -89,6 +89,17 @@ Deno.serve(async (req) => {
     }).eq("id", run.id);
 
     // 3) Check termination conditions
+    // Stagnation guard: stop if score didn't improve from last round
+    if (run.last_score !== null && score <= run.last_score && run.current_round > 1) {
+      await sb.from("autofix_runs").update({
+        status: "stopped",
+        stop_reason: `No progress: score stayed at ${score} (was ${run.last_score})`,
+        last_score: score,
+        last_report: report as any,
+      }).eq("id", run.id);
+      return json({ ok: false, status: "stopped", score, reason: "no_progress", autofix_run_id: run.id }, 200, origin);
+    }
+
     if (score >= targetScore || passed) {
       await sb.from("autofix_runs").update({
         status: "succeeded",
