@@ -169,6 +169,23 @@ const PERMANENT_FAILURE_PATTERNS = [
   "SSOT Guard",
 ];
 
+// Transient errors that should get extra retries
+const TRANSIENT_ERROR_PATTERNS = [
+  "rate limit",
+  "too many requests",
+  "429",
+  "timeout",
+  "ECONNRESET",
+  "socket hang up",
+  "fetch failed",
+];
+
+function isTransientError(error: string): boolean {
+  return TRANSIENT_ERROR_PATTERNS.some((p) =>
+    error.toUpperCase().includes(p.toUpperCase())
+  );
+}
+
 function isPermanentFailure(error: string): boolean {
   return PERMANENT_FAILURE_PATTERNS.some((p) =>
     error.toUpperCase().includes(p.toUpperCase())
@@ -444,7 +461,7 @@ async function handleJobFailure(
   errorMsg: string
 ) {
   const newAttempts = job.attempts + 1;
-  const permanent = isPermanentFailure(errorMsg) || newAttempts >= job.max_attempts;
+  const permanent = isPermanentFailure(errorMsg) || newAttempts >= (isTransientError(errorMsg) ? Math.max(job.max_attempts, 8) : job.max_attempts);
 
   if (permanent) {
     console.warn(
