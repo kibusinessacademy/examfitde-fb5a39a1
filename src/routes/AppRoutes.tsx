@@ -54,6 +54,7 @@ const OpsPage = lazy(() => import('@/pages/admin/v4/OpsPage'));
 const BusinessPage = lazy(() => import('@/pages/admin/v4/BusinessPage'));
 const GrowthPage = lazy(() => import('@/pages/admin/v4/GrowthPage'));
 const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
+const PipelineMonitorPage = lazy(() => import('@/pages/admin/v4/PipelineMonitorPage'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
@@ -158,6 +159,7 @@ const AppRoutes = () => {
           <Route path="business/*" element={<BusinessPage />} />
           <Route path="growth/*" element={<GrowthPage />} />
           <Route path="scale/*" element={<ScalePage />} />
+          <Route path="pipeline" element={<PipelineMonitorPage />} />
         </Route>
 
         {/* Legacy redirects → V4 */}
