@@ -1,18 +1,30 @@
 import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  LayoutDashboard, BookOpen, GraduationCap, Brain, Settings,
-  LogOut, ChevronLeft, Menu, DollarSign, Activity, Rocket
+  LayoutDashboard, BookOpen, LogOut, ChevronLeft, Menu,
+  DollarSign, Activity, Brain, ChevronDown
 } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
-const navModules = [
+interface NavItem {
+  path: string;
+  label: string;
+  icon: React.ElementType;
+  children?: { path: string; label: string }[];
+}
+
+const navModules: NavItem[] = [
   { path: '/admin/dashboard', label: 'Command Center', icon: LayoutDashboard },
-  { path: '/admin/course-studio', label: 'Neues Paket', icon: Rocket },
-  { path: '/admin/content', label: 'Inhalte', icon: BookOpen },
-  { path: '/admin/system', label: 'System', icon: Activity },
+  {
+    path: '/admin/courses', label: 'Kurse', icon: BookOpen,
+    children: [
+      { path: '/admin/courses', label: 'Kursliste' },
+      { path: '/admin/course-studio', label: 'Neues Paket' },
+    ],
+  },
+  { path: '/admin/system', label: 'System & Betrieb', icon: Activity },
   { path: '/admin/finance', label: 'Finanzen', icon: DollarSign },
 ];
 
@@ -73,27 +85,59 @@ export default function AdminV3Layout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
           {navModules.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path
-              || location.pathname.startsWith(item.path + '/');
+              || location.pathname.startsWith(item.path + '/')
+              || (item.children?.some(c => location.pathname === c.path || location.pathname.startsWith(c.path + '/')));
+            const hasChildren = item.children && item.children.length > 0;
+
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-                  isActive
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                  sidebarCollapsed && "justify-center px-2"
+              <div key={item.path}>
+                <Link
+                  to={hasChildren ? item.children![0].path : item.path}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                    isActive
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                    sidebarCollapsed && "justify-center px-2"
+                  )}
+                >
+                  <Icon className="h-4.5 w-4.5 shrink-0" />
+                  {!sidebarCollapsed && (
+                    <>
+                      <span className="flex-1">{item.label}</span>
+                      {hasChildren && <ChevronDown className={cn("h-3 w-3 transition-transform", isActive && "rotate-180")} />}
+                    </>
+                  )}
+                </Link>
+                {/* Sub-items */}
+                {hasChildren && isActive && !sidebarCollapsed && (
+                  <div className="ml-7 mt-0.5 space-y-0.5">
+                    {item.children!.map(child => {
+                      const childActive = location.pathname === child.path;
+                      return (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          onClick={() => setMobileOpen(false)}
+                          className={cn(
+                            "block px-3 py-1.5 rounded-md text-xs transition-colors",
+                            childActive
+                              ? "text-primary font-medium bg-primary/5"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {child.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
                 )}
-              >
-                <Icon className="h-4.5 w-4.5 shrink-0" />
-                {!sidebarCollapsed && <span>{item.label}</span>}
-              </Link>
+              </div>
             );
           })}
         </nav>
