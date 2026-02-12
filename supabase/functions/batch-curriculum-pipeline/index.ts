@@ -85,18 +85,18 @@ Deno.serve(async (req) => {
     return json({ message: "All draft curricula already queued", enqueued: 0 });
   }
 
-  // Enqueue generate_curriculum_content jobs
-  const now = new Date().toISOString();
+  // Enqueue generate_curriculum_content jobs – split 50/50 between OpenAI & Anthropic
   const jobs = toProcess.map((c, idx) => ({
     job_type: "generate_curriculum_content",
     status: "pending",
     attempts: 0,
     max_attempts: 3,
-    priority: 5, // medium priority
-    run_after: new Date(Date.now() + idx * 3000).toISOString(), // 3s stagger
+    priority: 5,
+    run_after: new Date(Date.now() + idx * 2000).toISOString(), // 2s stagger
     payload: {
       curriculum_id: c.id,
       beruf_id: c.beruf_id,
+      provider: idx % 2 === 0 ? "openai" : "anthropic", // alternate GPT-5.2 / Claude Opus
     },
   }));
 

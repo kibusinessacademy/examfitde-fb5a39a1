@@ -56,6 +56,7 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const curriculumId = body.curriculum_id || body.curriculumId;
+  const providerOverride = body.provider as "openai" | "anthropic" | undefined;
 
   if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
 
@@ -102,9 +103,13 @@ Deno.serve(async (req) => {
 Zuständigkeit: ${beruf.zustaendigkeit}
 Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
 
+    const provider = providerOverride || "openai";
+    const model = provider === "anthropic" ? "claude-opus-4-0-20250514" : "gpt-5.2";
+    console.log(`[GenContent] Using ${provider}/${model}`);
+
     const aiResult = await callAIJSON({
-      provider: "openai",
-      model: "gpt-5.2",
+      provider,
+      model,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
