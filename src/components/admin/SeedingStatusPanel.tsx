@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import {
   Sprout, AlertTriangle, CheckCircle2, Loader2, RefreshCw,
   ChevronDown, ChevronRight, Layers, BookOpen, Brain, Eye,
+  Shield, Zap,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -42,6 +43,19 @@ const REASON_LABELS: Record<string, string> = {
   few_learning_fields: 'Zu wenige Lernfelder (< 5)',
   no_competencies: 'Keine Kompetenzen vorhanden',
   few_competencies: 'Zu wenige Kompetenzen (< 10)',
+  no_topics: 'Keine Topics vorhanden',
+  few_topics: 'Zu wenige Topics (< 25)',
+};
+
+const REASON_CRITICALITY: Record<string, string> = {
+  curriculum_not_found: 'Build, Exam, Handbook – alles blockiert',
+  curriculum_not_frozen: 'Inkonsistente Datengrundlage möglich',
+  no_learning_fields: 'Exam-Generator & Kursstruktur unmöglich',
+  few_learning_fields: 'Unvollständige Prüfungsabdeckung',
+  no_competencies: 'Kein Kompetenz-Mapping für Lessons/Exams',
+  few_competencies: 'Lückenhafte Kompetenzabdeckung',
+  no_topics: 'Keine Themenstruktur für Inhalte',
+  few_topics: 'Unvollständige Themenabdeckung',
 };
 
 function useSeedingSummary() {
@@ -63,7 +77,6 @@ function useSeedAction() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (params: { certification_id: string; mode: string }) => {
-      // Enqueue seeding job
       const { error } = await (supabase as any).from('job_queue').insert({
         job_type: 'batch_curriculum_pipeline',
         status: 'pending',
@@ -99,6 +112,12 @@ export default function SeedingStatusPanel() {
 
   const readyPct = items.length > 0 ? Math.round((ready.length / items.length) * 100) : 0;
 
+  const handleSeedAll = () => {
+    notReady.forEach(item => {
+      seedAction.mutate({ certification_id: item.certification_id, mode: 'safe' });
+    });
+  };
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -113,6 +132,18 @@ export default function SeedingStatusPanel() {
             )}
           </CardTitle>
           <div className="flex items-center gap-2">
+            {notReady.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={handleSeedAll}
+                disabled={seedAction.isPending}
+              >
+                {seedAction.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
+                Alle seeden
+              </Button>
+            )}
             <Badge variant="outline" className="text-[10px]">
               {ready.length}/{items.length} ready
             </Badge>
@@ -141,6 +172,14 @@ export default function SeedingStatusPanel() {
 
         <Progress value={readyPct} className="h-2" />
 
+        {/* Pipeline Gate Info */}
+        {notReady.length > 0 && (
+          <div className="flex items-center gap-2 p-2 rounded bg-destructive/5 text-xs text-destructive">
+            <Shield className="h-3.5 w-3.5 shrink-0" />
+            Build, Gap-Closer und Publish sind blockiert bis alle Pakete „ready" sind.
+          </div>
+        )}
+
         {/* Not-ready items (expanded) */}
         {notReady.length > 0 && (
           <div className="space-y-2">
@@ -163,7 +202,7 @@ export default function SeedingStatusPanel() {
                   <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
                   <span className="font-medium text-foreground truncate">{item.package_title}</span>
                   <span className="text-muted-foreground ml-auto shrink-0">
-                    {item.learning_field_count} LF · {item.competency_count} Komp
+                    {item.learning_field_count} LF · {item.competency_count} Komp · {item.lesson_count} Lekt
                   </span>
                 </div>
               ))}
@@ -201,11 +240,11 @@ function SeedingItem({ item, onSeed }: { item: SeedingSummary; onSeed: ReturnTyp
             </span>
           </div>
 
-          {/* Reasons */}
+          {/* Reasons with criticality */}
           {item.seed_reasons && item.seed_reasons.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
               {item.seed_reasons.map(r => (
-                <Badge key={r} variant="outline" className="text-[9px] bg-background/50">
+                <Badge key={r} variant="outline" className="text-[9px] bg-background/50" title={REASON_CRITICALITY[r] || ''}>
                   {REASON_LABELS[r] || r}
                 </Badge>
               ))}
@@ -234,12 +273,30 @@ function SeedingItem({ item, onSeed }: { item: SeedingSummary; onSeed: ReturnTyp
         </div>
       </div>
 
-      {/* Detail view (Level 3) */}
+      {/* Level 3: Detail view */}
       {expanded && (
-        <div className="mt-3 pt-3 border-t border-border/50 text-xs space-y-2">
-          <p className="font-medium">Curriculum: {item.curriculum_title || '–'}</p>
-          <p>Status: {item.curriculum_status || '–'}</p>
-          <div className="flex gap-2">
+        <div className="mt-3 pt-3 border-t border-border/50 text-xs space-y-3">
+          <div>
+            <p className="font-medium text-foreground">Curriculum: {item.curriculum_title || '–'}</p>
+            <p className="text-muted-foreground">Status: {item.curriculum_status || '–'}</p>
+          </div>
+
+          {/* Why is this critical? */}
+          {item.seed_reasons && item.seed_reasons.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="font-medium text-foreground flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Warum ist das kritisch?
+              </p>
+              {item.seed_reasons.map(r => (
+                <div key={r} className="pl-4 text-muted-foreground">
+                  • {REASON_LABELS[r] || r}: <span className="text-foreground">{REASON_CRITICALITY[r] || 'Pipeline blockiert'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Granular seed buttons */}
+          <div className="flex gap-2 flex-wrap">
             <Button
               size="sm"
               variant="outline"
@@ -247,7 +304,7 @@ function SeedingItem({ item, onSeed }: { item: SeedingSummary; onSeed: ReturnTyp
               onClick={() => onSeed.mutate({ certification_id: item.certification_id, mode: 'learning_fields' })}
               disabled={onSeed.isPending}
             >
-              Seed Lernfelder
+              <BookOpen className="h-2.5 w-2.5 mr-1" /> Seed Lernfelder
             </Button>
             <Button
               size="sm"
@@ -256,7 +313,16 @@ function SeedingItem({ item, onSeed }: { item: SeedingSummary; onSeed: ReturnTyp
               onClick={() => onSeed.mutate({ certification_id: item.certification_id, mode: 'competencies' })}
               disabled={onSeed.isPending}
             >
-              Seed Kompetenzen
+              <Brain className="h-2.5 w-2.5 mr-1" /> Seed Kompetenzen
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 text-[10px]"
+              onClick={() => onSeed.mutate({ certification_id: item.certification_id, mode: 'full' })}
+              disabled={onSeed.isPending}
+            >
+              <Zap className="h-2.5 w-2.5 mr-1" /> Full Reseed
             </Button>
           </div>
         </div>

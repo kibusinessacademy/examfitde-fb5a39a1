@@ -40,6 +40,7 @@ interface PolicyConfig {
   requires_approval: string[];
   incident_mode: boolean;
   incident_activated_at: string | null;
+  seeding_thresholds: { learning_fields: number; competencies: number };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -101,7 +102,7 @@ const ERROR_HINTS: Record<string, { title: string; description: string; action: 
 // ═══════════════════════════════════════════════════════════
 async function loadPolicy(sb: ReturnType<typeof createClient>): Promise<PolicyConfig> {
   const { data } = await sb.from("auto_heal_policies")
-    .select("cooldowns, severity_map, requires_approval, incident_mode, incident_activated_at")
+    .select("cooldowns, severity_map, requires_approval, incident_mode, incident_activated_at, seeding_thresholds")
     .eq("is_active", true)
     .maybeSingle();
 
@@ -111,6 +112,7 @@ async function loadPolicy(sb: ReturnType<typeof createClient>): Promise<PolicyCo
     requires_approval: (data?.requires_approval as string[]) || [],
     incident_mode: Boolean(data?.incident_mode),
     incident_activated_at: data?.incident_activated_at || null,
+    seeding_thresholds: (data?.seeding_thresholds as any) || { learning_fields: 5, competencies: 10 },
   };
 }
 
