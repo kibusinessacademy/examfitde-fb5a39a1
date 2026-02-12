@@ -20,10 +20,10 @@ interface NavItem {
 const navModules: NavItem[] = [
   { path: '/admin/dashboard', label: 'Command Center', icon: LayoutDashboard },
   {
-    path: '/admin/courses', label: 'Kurse', icon: BookOpen,
+    path: '/admin/studio', label: 'Kurse', icon: BookOpen,
     children: [
-      { path: '/admin/courses', label: 'Kursliste' },
-      { path: '/admin/course-studio', label: 'Neues Paket' },
+      { path: '/admin/studio', label: 'Kursliste' },
+      { path: '/admin/studio/new', label: 'Neues Paket' },
     ],
   },
   { path: '/admin/system', label: 'System & Betrieb', icon: Activity },
