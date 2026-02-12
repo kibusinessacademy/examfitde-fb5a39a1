@@ -70,7 +70,24 @@ Deno.serve(async (req) => {
       run = newRun;
     }
 
-    // 2) Run integrity check
+    // 2) Structural Gate: verify generators actually wrote data before spending budget
+    const structuralCheck = await verifyStructuralHealth(sb, curriculumId, packageId);
+    if (!structuralCheck.ok) {
+      await sb.from("autofix_runs").update({
+        status: "stopped",
+        stop_reason: `Structural gate failed: ${structuralCheck.reason}`,
+        last_report: structuralCheck as any,
+      }).eq("id", run.id);
+      return json({
+        ok: false,
+        status: "structural_fix_required",
+        reason: structuralCheck.reason,
+        structural: structuralCheck,
+        autofix_run_id: run.id,
+      }, 200, origin);
+    }
+
+    // 3) Run integrity check
     const { data: report, error: rpcErr } = await sb.rpc("validate_course_integrity_v2", {
       p_course_id: courseId,
       p_package_id: packageId,
@@ -291,4 +308,58 @@ function buildPlan(
     actions,
     estimated_jobs: actions.reduce((sum, a) => sum + a.count, 0),
   };
+}
+
+/**
+ * Structural Gate: verifies generators actually wrote data before allowing gap-close budget spend.
+ * Returns { ok: true } if structure is sound, or { ok: false, reason: "..." } if not.
+ */
+async function verifyStructuralHealth(
+  sb: ReturnType<typeof createClient>,
+  curriculumId: string,
+  packageId: string,
+): Promise<{ ok: boolean; reason?: string; exam: number; oral: number; handbook_sections: number }> {
+  const { data: examCount } = await sb
+    .from("exam_questions")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", curriculumId);
+
+  const { data: oralCount } = await sb
+    .from("oral_exam_blueprints")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", curriculumId);
+
+  const { data: sectionCount } = await sb
+    .from("handbook_sections")
+    .select("id", { count: "exact", head: true })
+    .in("chapter_id",
+      (await sb.from("handbook_chapters").select("id").eq("curriculum_id", curriculumId)).data?.map((c: { id: string }) => c.id) || []
+    );
+
+  // Use count from headers since head:true returns no rows
+  const exam = Number((examCount as any)?.length ?? 0);
+  const oral = Number((oralCount as any)?.length ?? 0);
+  const sections = Number((sectionCount as any)?.length ?? 0);
+
+  // For a proper count with head:true, we need a different approach
+  const { count: examN } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+  const { count: oralN } = await sb.from("oral_exam_blueprints").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+
+  const { data: chapterIds } = await sb.from("handbook_chapters").select("id").eq("curriculum_id", curriculumId);
+  let sectionN = 0;
+  if (chapterIds && chapterIds.length > 0) {
+    const { count } = await sb.from("handbook_sections").select("id", { count: "exact", head: true }).in("chapter_id", chapterIds.map((c: { id: string }) => c.id));
+    sectionN = count ?? 0;
+  }
+
+  const reasons: string[] = [];
+  if ((examN ?? 0) === 0) reasons.push("exam_questions=0");
+  if ((oralN ?? 0) === 0) reasons.push("oral_exam_blueprints=0");
+  if (sectionN === 0) reasons.push("handbook_sections=0");
+
+  if (reasons.length > 0) {
+    return { ok: false, reason: `Structural fix required: ${reasons.join(", ")}. Re-run generators first.`, exam: examN ?? 0, oral: oralN ?? 0, handbook_sections: sectionN };
+  }
+
+  return { ok: true, exam: examN ?? 0, oral: oralN ?? 0, handbook_sections: sectionN };
 }

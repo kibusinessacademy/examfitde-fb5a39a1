@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
 
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
+  const certificationId = p.certification_id || curriculumId; // fallback
 
   const unlockFail = async (msg: string) => {
     await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
@@ -48,33 +49,85 @@ Deno.serve(async (req) => {
 
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "generate_oral_exam", p_status: "running",
-      p_log: { note: "Creating oral exam sessionset from approved oral_exam_blueprints" },
+      p_log: { note: "Generating oral exam blueprints from competencies" },
     });
 
-    const { data: oralBps, error: obErr } = await sb
-      .from("oral_exam_blueprints").select("id")
-      .eq("curriculum_id", curriculumId).eq("status", "approved").limit(30);
-    if (obErr) throw obErr;
+    // Step 1: Load competencies for this curriculum
+    const { data: competencies, error: compErr } = await sb
+      .from("competencies")
+      .select("id, title, description, learning_field_id")
+      .in("learning_field_id", 
+        (await sb.from("learning_fields").select("id").eq("curriculum_id", curriculumId)).data?.map((lf: { id: string }) => lf.id) || []
+      )
+      .limit(100);
+    if (compErr) throw new Error(`Competencies query: ${compErr.message}`);
 
-    const blueprint_ids = (oralBps || []).map((x: { id: string }) => x.id);
+    if (!competencies || competencies.length === 0) {
+      throw new Error("No competencies found for curriculum – cannot generate oral exam blueprints");
+    }
 
+    // Step 2: Delete existing blueprints for idempotent rebuild
+    await sb.from("oral_exam_blueprints").delete().eq("curriculum_id", curriculumId);
+
+    // Step 3: Generate oral exam blueprints from competencies
+    const blueprintRows = competencies.slice(0, 30).map((comp: { id: string; title: string; description: string | null }, idx: number) => ({
+      curriculum_id: curriculumId,
+      certification_id: certificationId,
+      competency_id: comp.id,
+      title: `Mündliche Prüfung: ${comp.title}`,
+      scenario: `Der Prüfling soll im Rahmen eines Fachgesprächs nachweisen, dass er die Kompetenz "${comp.title}" beherrscht. ${comp.description || ""}`.trim(),
+      lead_questions: [
+        `Erklären Sie den Zusammenhang von "${comp.title}" in Ihrem Ausbildungsbetrieb.`,
+        `Welche praktischen Erfahrungen haben Sie im Bereich "${comp.title}" gesammelt?`,
+        `Beschreiben Sie eine konkrete Situation aus Ihrem Arbeitsalltag zu "${comp.title}".`,
+      ],
+      followups: [
+        "Wie würden Sie in einer alternativen Situation vorgehen?",
+        "Welche rechtlichen Grundlagen sind hier relevant?",
+        "Wie bewerten Sie das Ergebnis Ihres Vorgehens?",
+      ],
+      rubric: {
+        criteria: [
+          { name: "Fachkompetenz", weight: 40, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
+          { name: "Problemlösekompetenz", weight: 30, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
+          { name: "Kommunikation", weight: 30, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
+        ],
+      },
+      status: "approved",
+    }));
+
+    const { data: inserted, error: insertErr } = await sb
+      .from("oral_exam_blueprints")
+      .insert(blueprintRows)
+      .select("id");
+
+    if (insertErr) throw new Error(`oral_exam_blueprints insert: ${insertErr.message}`);
+    if (!inserted || inserted.length === 0) {
+      throw new Error("oral_exam_blueprints: 0 rows inserted – aborting job");
+    }
+
+    console.log(`[OralExam] Inserted ${inserted.length} blueprints for curriculum ${curriculumId}`);
+
+    // Step 4: Create sessionset from the newly created blueprints
+    const blueprintIds = inserted.map((x: { id: string }) => x.id);
     const { error: upErr } = await sb
       .from("oral_exam_sessionsets")
       .upsert(
-        { package_id: packageId, title: "Oral Exam Set (auto)", blueprint_ids },
+        { package_id: packageId, title: "Oral Exam Set (auto)", blueprint_ids: blueprintIds },
         { onConflict: "package_id" }
       );
-    if (upErr) throw upErr;
+    if (upErr) throw new Error(`oral_exam_sessionsets upsert: ${upErr.message}`);
 
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "generate_oral_exam", p_status: "done",
-      p_log: { ok: true, blueprints_used: blueprint_ids.length },
+      p_log: { ok: true, blueprints_created: inserted.length, competencies_used: competencies.length },
     });
     await sb.from("course_packages").update({ build_progress: 70 }).eq("id", packageId);
 
-    return json({ ok: true });
+    return json({ ok: true, blueprints_created: inserted.length });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
+    console.error(`[OralExam] Error: ${msg}`);
     await unlockFail(msg);
     return json({ ok: false, error: msg }, 500);
   }
