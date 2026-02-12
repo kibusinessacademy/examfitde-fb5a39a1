@@ -9,11 +9,9 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const navModules = [
-  { path: '/admin/dashboard', label: 'Übersicht', icon: LayoutDashboard },
-  { path: '/admin/studio', label: 'Kurs-Studio', icon: Rocket },
+  { path: '/admin/dashboard', label: 'Command Center', icon: LayoutDashboard },
+  { path: '/admin/course-studio', label: 'Neues Paket', icon: Rocket },
   { path: '/admin/content', label: 'Inhalte', icon: BookOpen },
-  { path: '/admin/curriculum', label: 'Curriculum', icon: GraduationCap },
-  { path: '/admin/council', label: 'Councils', icon: Brain },
   { path: '/admin/system', label: 'System', icon: Activity },
   { path: '/admin/finance', label: 'Finanzen', icon: DollarSign },
 ];

@@ -47,14 +47,14 @@ const DatenschutzPage = lazy(() => import('@/pages/seo/DatenschutzPage'));
 const ImpressumPage = lazy(() => import('@/pages/seo/ImpressumPage'));
 
 // Admin V3 Module Pages
-const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
+const CommandCenter = lazy(() => import('@/pages/admin/CommandCenter'));
 const ContentPage = lazy(() => import('@/pages/admin/ContentPage'));
 const CurriculumPage = lazy(() => import('@/pages/admin/CurriculumPage'));
 const CouncilPageV3 = lazy(() => import('@/pages/admin/CouncilPage_V3'));
 const SystemPage = lazy(() => import('@/pages/admin/SystemPage'));
 const FinancePage = lazy(() => import('@/pages/admin/FinancePage'));
 const CourseStudioPage = lazy(() => import('@/pages/admin/CourseStudioPage'));
-const CourseStudioV2 = lazy(() => import('@/pages/admin/CourseStudioV2'));
+const CourseWorkspace = lazy(() => import('@/pages/admin/CourseWorkspace'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
@@ -152,9 +152,10 @@ const AppRoutes = () => {
         {/* ====== ADMIN V3 ====== */}
         <Route path="/admin" element={<AdminV3Layout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="dashboard" element={<CommandCenter />} />
           <Route path="course-studio" element={<CourseStudioPage />} />
-          <Route path="studio" element={<CourseStudioV2 />} />
+          <Route path="course/:packageId" element={<CourseWorkspace />} />
+          <Route path="studio" element={<Navigate to="/admin/course-studio" replace />} />
           <Route path="content/*" element={<ContentPage />} />
           <Route path="curriculum/*" element={<CurriculumPage />} />
           <Route path="council/*" element={<CouncilPageV3 />} />
