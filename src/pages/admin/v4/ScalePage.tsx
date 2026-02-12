@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,8 +12,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+const CurriculumHealthDashboard = lazy(() => import('@/components/admin/CurriculumHealthDashboard'));
+
 const tabs = [
   { path: '/admin/scale', label: 'Berufe-Status' },
+  { path: '/admin/scale/curriculum', label: 'Curriculum Health' },
   { path: '/admin/scale/reporting', label: 'Reporting' },
 ];
 
@@ -306,10 +309,13 @@ export default function ScalePage() {
         </div>
       </div>
 
-      <Routes>
-        <Route index element={<BerufeStatus />} />
-        <Route path="reporting" element={<ScaleReporting />} />
-      </Routes>
+      <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+        <Routes>
+          <Route index element={<BerufeStatus />} />
+          <Route path="curriculum" element={<CurriculumHealthDashboard />} />
+          <Route path="reporting" element={<ScaleReporting />} />
+        </Routes>
+      </Suspense>
     </div>
   );
 }

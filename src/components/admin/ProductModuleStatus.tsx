@@ -1,0 +1,185 @@
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import {
+  BookOpen, ClipboardCheck, MessageSquare, Bot, FileText, Layers,
+  CheckCircle2, XCircle, AlertTriangle, Loader2
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+
+interface ModuleStats {
+  key: string;
+  label: string;
+  icon: React.ElementType;
+  status: 'ok' | 'warning' | 'error' | 'missing' | 'loading';
+  count: number;
+  target: number;
+  health: number;
+  detail?: string;
+  lastUpdated?: string;
+}
+
+interface Props {
+  packageId: string;
+  courseId: string | null;
+  certificationId: string | null;
+}
+
+export default function ProductModuleStatus({ packageId, courseId, certificationId }: Props) {
+  const [modules, setModules] = useState<ModuleStats[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!packageId) return;
+    loadModuleStats();
+  }, [packageId, courseId]);
+
+  const loadModuleStats = async () => {
+    setLoading(true);
+    const results: ModuleStats[] = [];
+
+    // 1. Learning Course - count lessons
+    const { count: lessonCount } = await (supabase as any)
+      .from('lessons').select('id', { count: 'exact', head: true })
+      .eq('course_id', courseId || '');
+    const lc = lessonCount || 0;
+    results.push({
+      key: 'learning_course', label: 'Lernkurs', icon: BookOpen,
+      status: lc >= 20 ? 'ok' : lc > 0 ? 'warning' : 'missing',
+      count: lc, target: 0, health: lc > 0 ? Math.min(100, Math.round((lc / 30) * 100)) : 0,
+      detail: `${lc} Lektionen`,
+    });
+
+    // 2. Exam Pool - count questions
+    const { count: examCount } = await (supabase as any)
+      .from('exam_questions').select('id', { count: 'exact', head: true })
+      .eq('course_id', courseId || '');
+    const eq = examCount || 0;
+    results.push({
+      key: 'exam_pool', label: 'Prüfungstrainer', icon: ClipboardCheck,
+      status: eq >= 1000 ? 'ok' : eq >= 500 ? 'warning' : eq > 0 ? 'error' : 'missing',
+      count: eq, target: 1000, health: Math.min(100, Math.round((eq / 1000) * 100)),
+      detail: `${eq} Fragen (Ziel: 1000)`,
+    });
+
+    // 3. Oral Exam - count blueprints
+    const { count: oralCount } = await (supabase as any)
+      .from('oral_exam_blueprints').select('id', { count: 'exact', head: true })
+      .eq('package_id', packageId);
+    const oc = oralCount || 0;
+    results.push({
+      key: 'oral_exam', label: 'Mündliche Prüfung', icon: MessageSquare,
+      status: oc >= 20 ? 'ok' : oc >= 10 ? 'warning' : oc > 0 ? 'error' : 'missing',
+      count: oc, target: 20, health: Math.min(100, Math.round((oc / 20) * 100)),
+      detail: `${oc} Szenarien (Ziel: 20)`,
+    });
+
+    // 4. AI Tutor Index
+    const { data: tutorIdx } = await (supabase as any)
+      .from('ai_tutor_context_index').select('id, index_version, stats')
+      .eq('package_id', packageId).limit(1).maybeSingle();
+    results.push({
+      key: 'ai_tutor', label: 'AI Tutor', icon: Bot,
+      status: tutorIdx ? 'ok' : 'missing',
+      count: tutorIdx ? 1 : 0, target: 1,
+      health: tutorIdx ? 100 : 0,
+      detail: tutorIdx ? `Index v${tutorIdx.index_version}` : 'Kein Index',
+    });
+
+    // 5. Handbook - count chapters
+    const { count: hbCount } = await (supabase as any)
+      .from('handbook_chapters').select('id', { count: 'exact', head: true })
+      .eq('package_id', packageId);
+    const hc = hbCount || 0;
+    results.push({
+      key: 'handbook', label: 'Handbuch', icon: FileText,
+      status: hc >= 5 ? 'ok' : hc > 0 ? 'warning' : 'missing',
+      count: hc, target: 5, health: Math.min(100, Math.round((hc / 5) * 100)),
+      detail: `${hc} Kapitel (Ziel: 5)`,
+    });
+
+    setModules(results);
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-8 flex items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const overallHealth = modules.length > 0
+    ? Math.round(modules.reduce((s, m) => s + m.health, 0) / modules.length)
+    : 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Layers className="h-4 w-4" /> Produktmodule
+          </span>
+          <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full",
+            overallHealth >= 90 ? 'bg-success/10 text-success' :
+            overallHealth >= 60 ? 'bg-warning/10 text-warning' :
+            'bg-destructive/10 text-destructive'
+          )}>
+            {overallHealth}% Gesamt
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Modul</th>
+                <th className="text-center px-3 py-2 font-medium text-muted-foreground w-20">Status</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Inhalt</th>
+                <th className="text-center px-3 py-2 font-medium text-muted-foreground w-24">Health</th>
+              </tr>
+            </thead>
+            <tbody>
+              {modules.map(m => {
+                const Icon = m.icon;
+                const StatusIcon = m.status === 'ok' ? CheckCircle2 :
+                  m.status === 'warning' ? AlertTriangle :
+                  m.status === 'error' ? XCircle : XCircle;
+                const statusColor = m.status === 'ok' ? 'text-success' :
+                  m.status === 'warning' ? 'text-warning' : 'text-destructive';
+                return (
+                  <tr key={m.key} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-3 py-2.5">
+                      <span className="flex items-center gap-2">
+                        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="font-medium text-foreground">{m.label}</span>
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      <StatusIcon className={cn("h-4 w-4 mx-auto", statusColor)} />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className="text-xs text-muted-foreground">{m.detail}</span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <Progress value={m.health} className="h-1.5 flex-1" />
+                        <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">{m.health}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
