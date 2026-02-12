@@ -356,26 +356,50 @@ Deno.serve(async (req) => {
           (responseData as Record<string, unknown>).retry === true
         ) {
           // Prereq not done – soft retry with short backoff (15s)
-          const retryAfter = new Date(Date.now() + 15_000).toISOString();
-          console.log(
-            `[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} prereq not ready, retry in 15s`
-          );
-          await admin
-            .from("job_queue")
-            .update({
-              status: "pending",
-              last_error: typeof responseData === "object" && responseData !== null && "error" in responseData
-                ? String((responseData as { error: unknown }).error).slice(0, 500)
-                : "PREREQ_NOT_DONE",
-              attempts: job.attempts + 1,
-              run_after: retryAfter,
-              locked_at: null,
-              locked_by: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", job.id);
+          // BUT enforce max retry cap to prevent infinite loops
+          const MAX_PREREQ_RETRIES = 20; // ~5 min of 15s retries
+          const newRetryAttempts = job.attempts + 1;
+          const retryCapReached = newRetryAttempts >= MAX_PREREQ_RETRIES;
 
-          results.push({ id: job.id, job_type: job.job_type, outcome: "retry_prereq" });
+          if (retryCapReached) {
+            console.warn(
+              `[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} prereq retry cap (${MAX_PREREQ_RETRIES}) reached – failing permanently`
+            );
+            await admin
+              .from("job_queue")
+              .update({
+                status: "failed",
+                error: `Prereq retry cap reached after ${newRetryAttempts} attempts. Prereq step likely stuck or failed.`,
+                last_error: "PREREQ_RETRY_CAP_REACHED",
+                attempts: newRetryAttempts,
+                completed_at: new Date().toISOString(),
+                locked_at: null,
+                locked_by: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", job.id);
+            results.push({ id: job.id, job_type: job.job_type, outcome: "failed_prereq_cap" });
+          } else {
+            const retryAfter = new Date(Date.now() + 15_000).toISOString();
+            console.log(
+              `[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} prereq not ready, retry ${newRetryAttempts}/${MAX_PREREQ_RETRIES} in 15s`
+            );
+            await admin
+              .from("job_queue")
+              .update({
+                status: "pending",
+                last_error: typeof responseData === "object" && responseData !== null && "error" in responseData
+                  ? String((responseData as { error: unknown }).error).slice(0, 500)
+                  : "PREREQ_NOT_DONE",
+                attempts: newRetryAttempts,
+                run_after: retryAfter,
+                locked_at: null,
+                locked_by: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", job.id);
+            results.push({ id: job.id, job_type: job.job_type, outcome: "retry_prereq" });
+          }
         } else {
           // Function returned error
           const errorMsg = typeof responseData === "object" && responseData !== null && "error" in responseData
