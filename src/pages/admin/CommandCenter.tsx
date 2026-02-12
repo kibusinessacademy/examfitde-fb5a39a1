@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AlertTriangle, ArrowRight, CheckCircle2, Clock, Package,
-  XCircle, Wrench, Shield, Brain, Activity, DollarSign, Rocket, Play, Download
+  XCircle, Wrench, Shield, Brain, Activity, DollarSign, Rocket, Play, Download, Zap
 } from 'lucide-react';
 
 /* ───── types ───── */
@@ -31,25 +31,26 @@ interface SystemAlert {
   level: 'critical' | 'warning' | 'info';
 }
 
-/* ───── status map ───── */
-const STATUS_CFG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  planning:        { label: 'Draft',            color: 'bg-muted text-muted-foreground', icon: Clock },
-  council_review:  { label: 'Council Review',   color: 'bg-warning/20 text-warning',     icon: Brain },
-  building:        { label: 'Build läuft',      color: 'bg-primary/20 text-primary',      icon: Wrench },
-  qa:              { label: 'QA',               color: 'bg-accent/20 text-accent-foreground', icon: Shield },
-  published:       { label: 'Live',             color: 'bg-success/20 text-success',      icon: CheckCircle2 },
-  failed:          { label: 'Fehler',           color: 'bg-destructive/20 text-destructive', icon: XCircle },
-};
-
 /* ───── NBA (Next Best Action) ───── */
 function getNextBestAction(pkg: CoursePackageRow): { label: string; icon: React.ElementType; variant: 'default' | 'destructive' | 'outline' } {
-  if (pkg.status === 'failed')    return { label: 'Reparieren',    icon: Wrench,       variant: 'destructive' };
-  if (pkg.status === 'published') return { label: 'Exportieren',   icon: Download,     variant: 'outline' };
-  if (pkg.status === 'qa')        return { label: 'Finalisieren',  icon: Shield,       variant: 'default' };
-  if (pkg.status === 'building')  return { label: 'Fortschritt',   icon: Activity,     variant: 'outline' };
-  if (pkg.council_approved)       return { label: 'Build starten', icon: Play,         variant: 'default' };
-  if (!pkg.council_approved)      return { label: 'Plan genehmigen', icon: Brain,      variant: 'default' };
-  return { label: 'Fortsetzen', icon: ArrowRight, variant: 'default' };
+  if (pkg.status === 'failed')    return { label: 'Reparieren',      icon: Wrench,   variant: 'destructive' };
+  if (pkg.status === 'published') return { label: 'Exportieren',     icon: Download, variant: 'outline' };
+  if (pkg.status === 'qa')        return { label: 'Finalisieren',    icon: Shield,   variant: 'default' };
+  if (pkg.status === 'building')  return { label: 'Fortschritt',     icon: Activity, variant: 'outline' };
+  if (pkg.council_approved)       return { label: 'Build starten',   icon: Play,     variant: 'default' };
+  return { label: 'Plan genehmigen', icon: Brain, variant: 'default' };
+}
+
+function getStatusConfig(status: string) {
+  const map: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+    planning:       { label: 'Draft',          color: 'bg-muted text-muted-foreground', icon: Clock },
+    council_review: { label: 'Council Review', color: 'bg-warning/20 text-warning',     icon: Brain },
+    building:       { label: 'Build läuft',    color: 'bg-primary/20 text-primary',     icon: Wrench },
+    qa:             { label: 'QA',             color: 'bg-accent/20 text-accent-foreground', icon: Shield },
+    published:      { label: 'Live',           color: 'bg-success/20 text-success',     icon: CheckCircle2 },
+    failed:         { label: 'Fehler',         color: 'bg-destructive/20 text-destructive', icon: XCircle },
+  };
+  return map[status] || map.planning;
 }
 
 /* ───── component ───── */
@@ -61,29 +62,20 @@ export default function CommandCenter() {
   useEffect(() => {
     async function load() {
       try {
-        const [pkgRes, jobsRes, budgetRes] = await Promise.all([
-          supabase
-            .from('course_packages')
-            .select('id, title, status, build_progress, integrity_passed, council_approved, created_at')
-            .order('created_at', { ascending: false })
-            .limit(20),
-          supabase
-            .from('job_queue')
-            .select('id, status'),
-          supabase
-            .from('ai_cost_budgets')
-            .select('budget_eur, spent_eur')
-            .order('month', { ascending: false })
-            .limit(1),
-        ]);
+        const sb = supabase as any;
+        const pkgRes = await sb.from('course_packages')
+          .select('id, title, status, build_progress, integrity_passed, council_approved, created_at')
+          .order('created_at', { ascending: false }).limit(20);
+        const jobsRes = await sb.from('job_queue').select('id, status');
+        const budgetRes = await sb.from('ai_cost_budgets')
+          .select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1);
 
         setPackages((pkgRes.data || []) as CoursePackageRow[]);
 
-        /* build system alerts */
         const systemAlerts: SystemAlert[] = [];
         const jobs = jobsRes.data || [];
-        const failedJobs = jobs.filter(j => j.status === 'failed').length;
-        const pendingJobs = jobs.filter(j => j.status === 'pending').length;
+        const failedJobs = jobs.filter((j: any) => j.status === 'failed').length;
+        const pendingJobs = jobs.filter((j: any) => j.status === 'pending').length;
 
         if (failedJobs > 0) {
           systemAlerts.push({
@@ -153,7 +145,7 @@ export default function CommandCenter() {
         <p className="text-sm text-muted-foreground mt-1">Was muss jetzt passieren?</p>
       </div>
 
-      {/* 🔥 System Alerts (top priority) */}
+      {/* System Alerts */}
       {alerts.length > 0 && (
         <section className="space-y-2">
           {alerts.map(a => {
@@ -161,8 +153,7 @@ export default function CommandCenter() {
             return (
               <Link key={a.id} to={a.link} className="block">
                 <Card className={`hover:shadow-md transition-shadow ${
-                  a.level === 'critical' ? 'border-destructive/30 bg-destructive/5' :
-                  'border-warning/30 bg-warning/5'
+                  a.level === 'critical' ? 'border-destructive/30 bg-destructive/5' : 'border-warning/30 bg-warning/5'
                 }`}>
                   <CardContent className="py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -181,7 +172,7 @@ export default function CommandCenter() {
         </section>
       )}
 
-      {/* 🧱 Actionable Packages – NBA per course */}
+      {/* Actionable Packages */}
       {actionable.length > 0 && (
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
@@ -189,7 +180,7 @@ export default function CommandCenter() {
           </h2>
           <div className="space-y-2">
             {actionable.map(pkg => {
-              const cfg = STATUS_CFG[pkg.status] || STATUS_CFG.planning;
+              const cfg = getStatusConfig(pkg.status);
               const StatusIcon = cfg.icon;
               const nba = getNextBestAction(pkg);
               const NbaIcon = nba.icon;
@@ -248,15 +239,13 @@ export default function CommandCenter() {
             <Package className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-sm text-muted-foreground mb-4">Noch keine Kurspakete erstellt.</p>
             <Button asChild>
-              <Link to="/admin/course-studio">
-                <Rocket className="h-4 w-4 mr-2" /> Erstes Kurspaket erstellen
-              </Link>
+              <Link to="/admin/course-studio"><Rocket className="h-4 w-4 mr-2" /> Erstes Kurspaket erstellen</Link>
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* ✅ Live Packages */}
+      {/* Live Packages */}
       {live.length > 0 && (
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">

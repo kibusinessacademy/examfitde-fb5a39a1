@@ -1,5 +1,7 @@
 import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { ActiveCourseProvider } from '@/contexts/ActiveCourseContext';
+import ActiveCourseBar from '@/components/admin/ActiveCourseBar';
 import {
   LayoutDashboard, BookOpen, LogOut, ChevronLeft, Menu,
   DollarSign, Activity, Brain, ChevronDown
@@ -179,9 +181,12 @@ export default function AdminV3Layout() {
         sidebarCollapsed ? "lg:ml-16" : "lg:ml-56",
         "pt-14 lg:pt-0"
       )}>
-        <div className="p-4 lg:p-6 max-w-[1400px]">
-          <Outlet />
-        </div>
+        <ActiveCourseProvider>
+          <ActiveCourseBar />
+          <div className="p-4 lg:p-6 max-w-[1400px]">
+            <Outlet />
+          </div>
+        </ActiveCourseProvider>
       </main>
     </div>
   );
