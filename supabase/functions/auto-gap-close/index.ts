@@ -129,7 +129,6 @@ Deno.serve(async (req) => {
     if (rpcErr) throw rpcErr;
 
     const score = Number((report as any)?.score ?? 0);
-    const passed = Boolean((report as any)?.passed);
 
     // Update run with latest score
     await sb.from("autofix_runs").update({
@@ -194,7 +193,7 @@ Deno.serve(async (req) => {
     }
 
     // 4) Check other termination conditions
-    if (score >= targetScore || passed) {
+    if (score >= targetScore) {
       await sb.from("autofix_runs").update({
         status: "succeeded",
         stop_reason: `Score ${score} >= target ${targetScore}`,
