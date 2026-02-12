@@ -46,6 +46,27 @@ Deno.serve(async (req) => {
       return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: run_integrity_check" }, 409);
     }
 
+    // Check integrity score before publishing – don't publish below threshold
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("integrity_report")
+      .eq("id", packageId)
+      .single();
+
+    const integrityScore = (pkg?.integrity_report as Record<string, unknown>)?.score as number | undefined;
+    const PUBLISH_THRESHOLD = 85;
+
+    if (integrityScore !== undefined && integrityScore < PUBLISH_THRESHOLD) {
+      // Don't retry – this is a definitive state. Needs gap-closure first.
+      await unlockFail(`Integrity score ${integrityScore} < ${PUBLISH_THRESHOLD}. Gap-closure needed before publish.`);
+      return json({ 
+        ok: false, 
+        error: `INTEGRITY_BELOW_THRESHOLD: score=${integrityScore}, required=${PUBLISH_THRESHOLD}`,
+        score: integrityScore,
+        threshold: PUBLISH_THRESHOLD,
+      }, 422);
+    }
+
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "auto_publish", p_status: "running",
       p_log: { note: "Mark course publish_ready + package published" },
