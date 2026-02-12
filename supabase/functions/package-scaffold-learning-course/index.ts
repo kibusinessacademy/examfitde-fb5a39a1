@@ -39,6 +39,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await sb.functions.invoke("generate-course", {
       body: { courseId, curriculumId },
+      headers: { "x-job-runner-key": SERVICE_ROLE_KEY },
     });
     if (error) throw error;
     if ((data as Record<string, unknown>)?.code === "GENERATION_LOCKED") throw new Error("GENERATION_LOCKED");
