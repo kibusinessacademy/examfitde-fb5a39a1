@@ -365,6 +365,38 @@ export type Database = {
           },
         ]
       }
+      ai_tutor_context_index: {
+        Row: {
+          created_at: string
+          id: string
+          index_version: number
+          package_id: string
+          stats: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          index_version?: number
+          package_id: string
+          stats?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          index_version?: number
+          package_id?: string
+          stats?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_tutor_logs: {
         Row: {
           block_reason: string | null
@@ -423,6 +455,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_tutor_policies: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          id: string
+          policy: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          policy: Json
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          policy?: Json
+          version?: number
+        }
+        Relationships: []
       }
       ai_usage_log: {
         Row: {
@@ -6570,6 +6626,48 @@ export type Database = {
         }
         Relationships: []
       }
+      oral_exam_blueprints: {
+        Row: {
+          certification_id: string | null
+          competency_id: string | null
+          created_at: string
+          curriculum_id: string
+          followups: string[]
+          id: string
+          lead_questions: string[]
+          rubric: Json
+          scenario: string
+          status: string
+          title: string
+        }
+        Insert: {
+          certification_id?: string | null
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id: string
+          followups?: string[]
+          id?: string
+          lead_questions?: string[]
+          rubric?: Json
+          scenario: string
+          status?: string
+          title: string
+        }
+        Update: {
+          certification_id?: string | null
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id?: string
+          followups?: string[]
+          id?: string
+          lead_questions?: string[]
+          rubric?: Json
+          scenario?: string
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
       oral_exam_questions: {
         Row: {
           ai_feedback: string | null
@@ -6764,6 +6862,38 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      oral_exam_sessionsets: {
+        Row: {
+          blueprint_ids: string[]
+          created_at: string
+          id: string
+          package_id: string
+          title: string
+        }
+        Insert: {
+          blueprint_ids?: string[]
+          created_at?: string
+          id?: string
+          package_id: string
+          title: string
+        }
+        Update: {
+          blueprint_ids?: string[]
+          created_at?: string
+          id?: string
+          package_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
             referencedColumns: ["id"]
           },
         ]
