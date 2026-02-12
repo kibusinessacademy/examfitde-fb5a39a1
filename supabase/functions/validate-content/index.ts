@@ -37,6 +37,8 @@ interface ValidationRequest {
   lessonId?: string;
   entityType?: string;
   entityId?: string;
+  /** Which provider generated the content – validator will be the OTHER provider */
+  generatorProvider?: "openai" | "anthropic";
 }
 
 interface ValidationResult {
@@ -165,18 +167,13 @@ serve(async (req) => {
 
   try {
     const body: ValidationRequest = await req.json();
-    const { mode, content, context, generationId, courseId, lessonId, entityType, entityId } = body;
+    const { mode, content, context, generationId, courseId, lessonId, entityType, entityId, generatorProvider } = body;
 
     if (!mode || !content) {
       return new Response(
         JSON.stringify({ error: "mode and content are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    }
-
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY not configured");
     }
 
     const systemPrompt = VALIDATION_PROMPTS[mode] || VALIDATION_PROMPTS.lesson;
@@ -191,46 +188,101 @@ serve(async (req) => {
       if (context.blueprintId) contextStr += `\nBlueprint: ${context.blueprintId}`;
     }
 
-    const userPrompt = `${contextStr ? `SSOT-KONTEXT:${contextStr}\n\n` : ""}ZU VALIDIERENDER INHALT (generiert von GPT-5.2):\n${JSON.stringify(content, null, 2)}`;
+    // Cross-provider validation: if anthropic generated → openai validates, and vice versa
+    // Default (no generatorProvider): anthropic validates (legacy behavior)
+    const validatorProvider = generatorProvider === "anthropic" ? "openai" : "anthropic";
 
-    // Model selection: lighter model for tutor (speed), full Opus for everything else
-    const model = mode === "tutor_response" ? "claude-sonnet-4-20250514" : "claude-opus-4-20250514";
-    const maxTokens = mode === "tutor_response" ? 1024 : 4096;
+    const generatorLabel = generatorProvider === "anthropic" ? "Claude Opus" : "GPT-5.2";
+    const userPrompt = `${contextStr ? `SSOT-KONTEXT:${contextStr}\n\n` : ""}ZU VALIDIERENDER INHALT (generiert von ${generatorLabel}):\n${JSON.stringify(content, null, 2)}`;
 
     const startTime = Date.now();
+    let rawText = "";
+    let model = "";
+    let inputTokens = 0;
+    let outputTokens = 0;
 
-    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
+    if (validatorProvider === "openai") {
+      // GPT-5.2 validates Anthropic-generated content
+      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+      if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
 
-    const latencyMs = Date.now() - startTime;
+      model = mode === "tutor_response" ? "gpt-5-mini" : "gpt-5.2";
+      const maxTokens = mode === "tutor_response" ? 1024 : 4096;
 
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      const errText = await aiResponse.text();
-      console.error(`[validate-content] Anthropic error ${status}:`, errText);
+      const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      });
 
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit. Bitte später erneut versuchen." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (!aiResponse.ok) {
+        const status = aiResponse.status;
+        const errText = await aiResponse.text();
+        console.error(`[validate-content] OpenAI error ${status}:`, errText);
+        if (status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limit. Bitte später erneut versuchen." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        throw new Error(`OpenAI API error: ${status}`);
       }
-      throw new Error(`Anthropic API error: ${status}`);
+
+      const aiData = await aiResponse.json();
+      rawText = aiData.choices?.[0]?.message?.content || "";
+      inputTokens = aiData.usage?.prompt_tokens || 0;
+      outputTokens = aiData.usage?.completion_tokens || 0;
+    } else {
+      // Anthropic validates OpenAI-generated content (default/legacy path)
+      const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+      if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
+
+      model = mode === "tutor_response" ? "claude-sonnet-4-20250514" : "claude-opus-4-20250514";
+      const maxTokens = mode === "tutor_response" ? 1024 : 4096;
+
+      const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const status = aiResponse.status;
+        const errText = await aiResponse.text();
+        console.error(`[validate-content] Anthropic error ${status}:`, errText);
+        if (status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limit. Bitte später erneut versuchen." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        throw new Error(`Anthropic API error: ${status}`);
+      }
+
+      const aiData = await aiResponse.json();
+      rawText = aiData.content?.[0]?.text || "";
+      inputTokens = aiData.usage?.input_tokens || 0;
+      outputTokens = aiData.usage?.output_tokens || 0;
     }
 
-    const aiData = await aiResponse.json();
-    const rawText = aiData.content?.[0]?.text || "";
+    const latencyMs = Date.now() - startTime;
 
     // Parse structured validation response
     let result: ValidationResult;
@@ -259,8 +311,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const inputTokens = aiData.usage?.input_tokens || 0;
-    const outputTokens = aiData.usage?.output_tokens || 0;
+    // inputTokens and outputTokens already set above from provider response
 
     // Log to ai_validations if we have a generation reference
     if (generationId) {
