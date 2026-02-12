@@ -76,12 +76,19 @@ function BerufeStatus() {
 
   const handleBatchGenerate = async (count: number) => {
     setGenerating(true);
-    toast.info(`Batch-Generierung für ${count} Pakete wird vorbereitet…`);
-    // This would enqueue jobs for the next N uncreated berufe
-    setTimeout(() => {
-      toast.success(`${count} Pakete zur Warteschlange hinzugefügt`);
+    toast.info(`Batch-Generierung für ${count} Curricula wird gestartet…`);
+    try {
+      const { data, error } = await supabase.functions.invoke('batch-curriculum-pipeline', {
+        body: { action: 'run', limit: count },
+      });
+      if (error) throw error;
+      toast.success(`${data.queued} Pakete in Warteschlange, ${data.errors} Fehler`);
+      load();
+    } catch (err: any) {
+      toast.error(`Fehler: ${err.message}`);
+    } finally {
       setGenerating(false);
-    }, 1500);
+    }
   };
 
   const handlePublishAllPassed = async () => {

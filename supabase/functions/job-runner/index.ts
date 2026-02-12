@@ -21,6 +21,8 @@ const BATCH_SIZE = 5;
 const JOB_TYPE_MAP: Record<string, string> = {
   // Curriculum & Course Pipeline
   extract_curriculum: "extract-curriculum",
+  generate_curriculum_content: "generate-curriculum-content",
+  setup_course_package: "setup-course-package",
   generate_course: "generate-course",
   generate_course_batch: "generate-course-batch",
   seed_exam_questions: "generate-blueprint-questions",
