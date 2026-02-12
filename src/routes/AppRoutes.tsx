@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 
 // Guards & Layouts
 import MainLayout from '@/components/layout/MainLayout';
-import AdminV3Layout from '@/components/layout/AdminV3Layout';
+import AdminV4Layout from '@/components/layout/AdminV4Layout';
 import SEOLayout from '@/components/layout/SEOLayout';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
@@ -46,16 +46,14 @@ const FAQPage = lazy(() => import('@/pages/seo/FAQPage'));
 const DatenschutzPage = lazy(() => import('@/pages/seo/DatenschutzPage'));
 const ImpressumPage = lazy(() => import('@/pages/seo/ImpressumPage'));
 
-// Admin V3 Module Pages
-const CommandCenter = lazy(() => import('@/pages/admin/CommandCenter'));
-const CoursePackagesList = lazy(() => import('@/pages/admin/CoursePackagesList'));
-const ContentPage = lazy(() => import('@/pages/admin/ContentPage'));
-const CurriculumPage = lazy(() => import('@/pages/admin/CurriculumPage'));
-const CouncilPageV3 = lazy(() => import('@/pages/admin/CouncilPage_V3'));
-const SystemPage = lazy(() => import('@/pages/admin/SystemPage'));
-const FinancePage = lazy(() => import('@/pages/admin/FinancePage'));
-const CourseStudioPage = lazy(() => import('@/pages/admin/CourseStudioPage'));
-const CourseWorkspace = lazy(() => import('@/pages/admin/CourseWorkspace'));
+// Admin V4 Module Pages
+const CommandPage = lazy(() => import('@/pages/admin/v4/CommandPage'));
+const StudioPage = lazy(() => import('@/pages/admin/v4/StudioPage'));
+const QualityPage = lazy(() => import('@/pages/admin/v4/QualityPage'));
+const OpsPage = lazy(() => import('@/pages/admin/v4/OpsPage'));
+const BusinessPage = lazy(() => import('@/pages/admin/v4/BusinessPage'));
+const GrowthPage = lazy(() => import('@/pages/admin/v4/GrowthPage'));
+const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
@@ -150,52 +148,32 @@ const AppRoutes = () => {
           </Route>
         </Route>
 
-        {/* ====== ADMIN V3 ====== */}
-        <Route path="/admin" element={<AdminV3Layout />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<CommandCenter />} />
-          {/* Kurse */}
-          <Route path="courses" element={<CoursePackagesList />} />
-          <Route path="course-studio" element={<CourseStudioPage />} />
-          <Route path="course/:packageId" element={<CourseWorkspace />} />
-          {/* Legacy redirects */}
-          <Route path="studio" element={<Navigate to="/admin/course-studio" replace />} />
-          {/* Content (secondary, accessible via deep links) */}
-          <Route path="content/*" element={<ContentPage />} />
-          <Route path="curriculum/*" element={<CurriculumPage />} />
-          <Route path="council/*" element={<CouncilPageV3 />} />
-          {/* System & Betrieb */}
-          <Route path="system/*" element={<SystemPage />} />
-          {/* Finanzen */}
-          <Route path="finance/*" element={<FinancePage />} />
+        {/* ====== ADMIN V4 ====== */}
+        <Route path="/admin" element={<AdminV4Layout />}>
+          <Route index element={<Navigate to="command" replace />} />
+          <Route path="command" element={<CommandPage />} />
+          <Route path="studio/*" element={<StudioPage />} />
+          <Route path="quality/*" element={<QualityPage />} />
+          <Route path="ops/*" element={<OpsPage />} />
+          <Route path="business/*" element={<BusinessPage />} />
+          <Route path="growth/*" element={<GrowthPage />} />
+          <Route path="scale/*" element={<ScalePage />} />
         </Route>
 
+        {/* Legacy V3 admin redirects → V4 */}
+        <Route path="/admin/dashboard" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/course-studio" element={<Navigate to="/admin/studio/new" replace />} />
+        <Route path="/admin/course/:packageId" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/system/*" element={<Navigate to="/admin/ops" replace />} />
+        <Route path="/admin/finance/*" element={<Navigate to="/admin/business" replace />} />
+        <Route path="/admin/content/*" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/curriculum/*" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/council/*" element={<Navigate to="/admin/quality" replace />} />
+
         {/* Legacy admin-v2 redirects */}
-        <Route path="/admin-v2" element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="/admin-v2/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="/admin-v2/courses" element={<Navigate to="/admin/content/courses" replace />} />
-        <Route path="/admin-v2/courses/*" element={<Navigate to="/admin/content/courses" replace />} />
-        <Route path="/admin-v2/curricula" element={<Navigate to="/admin/curriculum" replace />} />
-        <Route path="/admin-v2/curricula/*" element={<Navigate to="/admin/curriculum" replace />} />
-        <Route path="/admin-v2/questions" element={<Navigate to="/admin/content/questions" replace />} />
-        <Route path="/admin-v2/exam-blueprints" element={<Navigate to="/admin/content/blueprints" replace />} />
-        <Route path="/admin-v2/council-control" element={<Navigate to="/admin/council/control" replace />} />
-        <Route path="/admin-v2/council/*" element={<Navigate to="/admin/council" replace />} />
-        <Route path="/admin-v2/jobs/*" element={<Navigate to="/admin/system/jobs" replace />} />
-        <Route path="/admin-v2/system-health" element={<Navigate to="/admin/system/health" replace />} />
-        <Route path="/admin-v2/operations" element={<Navigate to="/admin/system/operations" replace />} />
-        <Route path="/admin-v2/ai-workers" element={<Navigate to="/admin/system/ai-workers" replace />} />
-        <Route path="/admin-v2/finance" element={<Navigate to="/admin/finance/overview" replace />} />
-        <Route path="/admin-v2/enterprise-seats" element={<Navigate to="/admin/finance/licenses" replace />} />
-        <Route path="/admin-v2/azav-compliance" element={<Navigate to="/admin/finance/compliance" replace />} />
-        <Route path="/admin-v2/audit-exports" element={<Navigate to="/admin/finance/exports" replace />} />
-        <Route path="/admin-v2/workflows" element={<Navigate to="/admin/content/workflows" replace />} />
-        <Route path="/admin-v2/course-health" element={<Navigate to="/admin/content/health" replace />} />
-        <Route path="/admin-v2/quality-gates" element={<Navigate to="/admin/content/quality-gates" replace />} />
-        <Route path="/admin-v2/qc-dashboard" element={<Navigate to="/admin/council/quality" replace />} />
-        <Route path="/admin-v2/early-warnings" element={<Navigate to="/admin/system/warnings" replace />} />
-        <Route path="/admin-v2/patches" element={<Navigate to="/admin/system/patches" replace />} />
-        <Route path="/admin-v2/*" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/admin-v2" element={<Navigate to="/admin/command" replace />} />
+        <Route path="/admin-v2/*" element={<Navigate to="/admin/command" replace />} />
 
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
