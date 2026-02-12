@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import {
   LayoutDashboard, BookOpen, GraduationCap, Brain, Settings,
-  LogOut, ChevronLeft, Menu, DollarSign, Activity
+  LogOut, ChevronLeft, Menu, DollarSign, Activity, Rocket
 } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 
 const navModules = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/admin/course-studio', label: 'Course Studio', icon: Rocket },
   { path: '/admin/content', label: 'Content', icon: BookOpen },
   { path: '/admin/curriculum', label: 'Curriculum', icon: GraduationCap },
   { path: '/admin/council', label: 'Council', icon: Brain },

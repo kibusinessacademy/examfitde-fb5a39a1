@@ -2410,6 +2410,53 @@ export type Database = {
         }
         Relationships: []
       }
+      council_sessions: {
+        Row: {
+          council_type: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision: string | null
+          discussion: Json | null
+          id: string
+          package_id: string
+          recommendations: Json | null
+          status: string
+        }
+        Insert: {
+          council_type: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          discussion?: Json | null
+          id?: string
+          package_id: string
+          recommendations?: Json | null
+          status?: string
+        }
+        Update: {
+          council_type?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          discussion?: Json | null
+          id?: string
+          package_id?: string
+          recommendations?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       council_states: {
         Row: {
           council_id: string
@@ -2835,6 +2882,134 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "course_notes_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_package_build_steps: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          log: Json | null
+          package_id: string
+          retry_count: number
+          sort_order: number
+          started_at: string | null
+          status: string
+          step_key: string
+          step_label: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          log?: Json | null
+          package_id: string
+          retry_count?: number
+          sort_order?: number
+          started_at?: string | null
+          status?: string
+          step_key: string
+          step_label?: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          log?: Json | null
+          package_id?: string
+          retry_count?: number
+          sort_order?: number
+          started_at?: string | null
+          status?: string
+          step_key?: string
+          step_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_packages: {
+        Row: {
+          build_progress: number
+          certification_id: string | null
+          components: Json
+          council_approved: boolean
+          council_approved_at: string | null
+          council_approved_by: string | null
+          course_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          integrity_passed: boolean
+          integrity_report: Json | null
+          published_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          build_progress?: number
+          certification_id?: string | null
+          components?: Json
+          council_approved?: boolean
+          council_approved_at?: string | null
+          council_approved_by?: string | null
+          course_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          integrity_passed?: boolean
+          integrity_report?: Json | null
+          published_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          build_progress?: number
+          certification_id?: string | null
+          components?: Json
+          council_approved?: boolean
+          council_approved_at?: string | null
+          council_approved_by?: string | null
+          course_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          integrity_passed?: boolean
+          integrity_report?: Json | null
+          published_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
