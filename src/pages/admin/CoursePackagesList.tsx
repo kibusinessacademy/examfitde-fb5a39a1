@@ -53,7 +53,7 @@ export default function CoursePackagesList() {
           </p>
         </div>
         <Button asChild size="sm">
-          <Link to="/admin/course-studio">
+          <Link to="/admin/studio/new">
             <Plus className="h-4 w-4 mr-1" /> Neues Paket
           </Link>
         </Button>
@@ -65,7 +65,7 @@ export default function CoursePackagesList() {
             <Package className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-sm text-muted-foreground mb-4">Noch keine Kurspakete erstellt.</p>
             <Button asChild>
-              <Link to="/admin/course-studio">
+              <Link to="/admin/studio/new">
                 <Rocket className="h-4 w-4 mr-2" /> Erstes Kurspaket erstellen
               </Link>
             </Button>
@@ -77,7 +77,7 @@ export default function CoursePackagesList() {
             const cfg = STATUS_CONFIG[pkg.status] || STATUS_CONFIG.planning;
             const StatusIcon = cfg.icon;
             return (
-              <Link key={pkg.id} to={`/admin/course/${pkg.id}`} className="block group">
+              <Link key={pkg.id} to={`/admin/studio/${pkg.id}`} className="block group">
                 <Card className={cn(
                   "transition-all hover:shadow-md border-l-4",
                   pkg.status === 'failed' ? 'border-l-destructive' :

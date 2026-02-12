@@ -230,7 +230,7 @@ export default function CommandCenter() {
                       </div>
                     </div>
                     <Button asChild size="sm" variant={nba.variant} className="shrink-0">
-                      <Link to={`/admin/course/${pkg.id}`}>
+                      <Link to={`/admin/studio/${pkg.id}`}>
                         <NbaIcon className="h-3.5 w-3.5 mr-1.5" /> {nba.label}
                       </Link>
                     </Button>
@@ -249,7 +249,7 @@ export default function CommandCenter() {
             <Package className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-sm text-muted-foreground mb-4">Noch keine Kurspakete erstellt.</p>
             <Button asChild>
-              <Link to="/admin/course-studio"><Rocket className="h-4 w-4 mr-2" /> Erstes Kurspaket erstellen</Link>
+              <Link to="/admin/studio/new"><Rocket className="h-4 w-4 mr-2" /> Erstes Kurspaket erstellen</Link>
             </Button>
           </CardContent>
         </Card>
@@ -263,7 +263,7 @@ export default function CommandCenter() {
           </h2>
           <div className="space-y-2">
             {live.map(pkg => (
-              <Link key={pkg.id} to={`/admin/course/${pkg.id}`} className="block">
+              <Link key={pkg.id} to={`/admin/studio/${pkg.id}`} className="block">
                 <Card className="hover:border-primary/30 transition-colors">
                   <CardContent className="py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -283,16 +283,16 @@ export default function CommandCenter() {
       <section className="pt-2">
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link to="/admin/course-studio"><Rocket className="h-4 w-4 mr-1" /> Neues Paket</Link>
+            <Link to="/admin/studio/new"><Rocket className="h-4 w-4 mr-1" /> Neues Paket</Link>
           </Button>
           <Button asChild variant="ghost" size="sm">
-            <Link to="/admin/courses"><Package className="h-4 w-4 mr-1" /> Alle Kurse</Link>
+            <Link to="/admin/studio"><Package className="h-4 w-4 mr-1" /> Alle Kurse</Link>
           </Button>
           <Button asChild variant="ghost" size="sm">
-            <Link to="/admin/system"><Activity className="h-4 w-4 mr-1" /> System</Link>
+            <Link to="/admin/ops"><Activity className="h-4 w-4 mr-1" /> System</Link>
           </Button>
           <Button asChild variant="ghost" size="sm">
-            <Link to="/admin/finance"><DollarSign className="h-4 w-4 mr-1" /> Finanzen</Link>
+            <Link to="/admin/business"><DollarSign className="h-4 w-4 mr-1" /> Finanzen</Link>
           </Button>
         </div>
       </section>

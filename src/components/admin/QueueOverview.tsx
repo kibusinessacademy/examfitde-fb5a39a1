@@ -131,7 +131,7 @@ export default function QueueOverview() {
                 </div>
                 <span className="text-sm font-medium truncate">{activeBuild.title || 'Kurspaket'}</span>
               </div>
-              <Link to={`/admin/course/${activeBuild.id}`}>
+              <Link to={`/admin/studio/${activeBuild.id}`}>
                 <Button variant="ghost" size="sm" className="h-6 text-xs">
                   Details <ArrowRight className="h-3 w-3 ml-1" />
                 </Button>
@@ -149,7 +149,7 @@ export default function QueueOverview() {
           <div className="space-y-1.5">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Warteschlange</p>
             {queued.map((item, i) => (
-              <Link key={item.id} to={`/admin/course/${item.id}`} className="block">
+              <Link key={item.id} to={`/admin/studio/${item.id}`} className="block">
                 <div className="flex items-center justify-between gap-2 py-2 px-3 rounded-md hover:bg-muted/30 transition-colors">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs font-mono text-muted-foreground w-5 text-center">
@@ -178,7 +178,7 @@ export default function QueueOverview() {
           <div className="space-y-1.5">
             <p className="text-[10px] uppercase tracking-wider text-destructive">Fehlgeschlagen</p>
             {failed.map(item => (
-              <Link key={item.id} to={`/admin/course/${item.id}`} className="block">
+              <Link key={item.id} to={`/admin/studio/${item.id}`} className="block">
                 <div className="flex items-center justify-between gap-2 py-2 px-3 rounded-md hover:bg-destructive/5 transition-colors border border-destructive/10">
                   <div className="flex items-center gap-2 min-w-0">
                     <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
