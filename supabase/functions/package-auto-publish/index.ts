@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     });
 
     const { error: cErr } = await sb
-      .from("courses").update({ publishing_status: "publish_ready", status: "ready" }).eq("id", courseId);
+      .from("courses").update({ publishing_status: "publish_ready", status: "published" }).eq("id", courseId);
     if (cErr) throw cErr;
 
     const { error: pErr } = await sb

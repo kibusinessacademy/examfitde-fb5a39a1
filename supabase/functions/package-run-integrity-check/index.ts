@@ -25,14 +25,28 @@ Deno.serve(async (req) => {
 
   try {
     assertUuid("package_id", p?.package_id);
-    assertUuid("course_id", p?.course_id);
   } catch (e: unknown) {
     return json({ error: (e as Error).message }, 400);
   }
 
   const packageId = p.package_id;
-  const courseId = p.course_id;
   const options = p.options || {};
+
+  // Resolve course_id and curriculum_id from package
+  let courseId = p.course_id;
+  let curriculumId = p.curriculum_id;
+
+  if (!courseId || !curriculumId) {
+    const { data: pkg, error: pkgErr } = await sb
+      .from("course_packages").select("course_id").eq("id", packageId).single();
+    if (pkgErr || !pkg) return json({ error: "Package not found" }, 404);
+    courseId = pkg.course_id;
+
+    const { data: crs, error: crsErr } = await sb
+      .from("courses").select("curriculum_id").eq("id", courseId).single();
+    if (crsErr || !crs) return json({ error: "Course not found" }, 404);
+    curriculumId = crs.curriculum_id;
+  }
 
   const unlockFail = async (msg: string, report?: unknown) => {
     await sb.from("course_packages").update({
@@ -60,13 +74,7 @@ Deno.serve(async (req) => {
 
     // Call the enhanced integrity check
     const { data, error } = await sb.rpc("validate_course_integrity_v2", {
-      p_course_id: courseId,
-      p_package_id: packageId,
-      p_options: {
-        exam_target: options.exam_target || 1000,
-        oral_target: options.oral_target || 20,
-        handbook_chapter_target: options.handbook_chapter_target || 5,
-      },
+      p_curriculum_id: curriculumId,
     });
 
     if (error) throw error;
@@ -124,15 +132,8 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (!existingRun && !recentRun && !queuedJob) {
-            // Fetch curriculum_id from course_packages if not in payload
-            let currId = p.curriculum_id;
-            if (!currId) {
-              const { data: pkg } = await sb.from("course_packages")
-                .select("curriculum_id")
-                .eq("id", packageId)
-                .single();
-              currId = pkg?.curriculum_id;
-            }
+            // Use already-resolved curriculumId
+            const currId = curriculumId;
 
             if (currId) {
               await sb.from("job_queue").insert({
