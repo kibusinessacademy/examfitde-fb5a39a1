@@ -160,19 +160,18 @@ const AppRoutes = () => {
           <Route path="scale/*" element={<ScalePage />} />
         </Route>
 
-        {/* Legacy V3 admin redirects → V4 */}
+        {/* Legacy redirects → V4 */}
         <Route path="/admin/dashboard" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/course-studio" element={<Navigate to="/admin/studio/new" replace />} />
         <Route path="/admin/course/:packageId" element={<Navigate to="/admin/studio" replace />} />
+        <Route path="/admin/jobs" element={<Navigate to="/admin/ops" replace />} />
+        <Route path="/admin/jobs/*" element={<Navigate to="/admin/ops" replace />} />
         <Route path="/admin/system/*" element={<Navigate to="/admin/ops" replace />} />
         <Route path="/admin/finance/*" element={<Navigate to="/admin/business" replace />} />
         <Route path="/admin/content/*" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/curriculum/*" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/council/*" element={<Navigate to="/admin/quality" replace />} />
-
-        {/* Legacy admin-v2 redirects */}
-        <Route path="/admin-v2" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin-v2/*" element={<Navigate to="/admin/command" replace />} />
 
         {/* 404 */}
