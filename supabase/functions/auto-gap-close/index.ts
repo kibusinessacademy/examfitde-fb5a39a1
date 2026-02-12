@@ -4,6 +4,10 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// ── Guardrail Constants ──────────────────────────────────────
+const DAILY_BUDGET_LIMIT_EUR = 15.0;
+const REGRESSION_FREEZE_THRESHOLD = 0; // score must improve by > this
+
 function json(body: unknown, status = 200, origin?: string | null) {
   return new Response(JSON.stringify(body), {
     status,
@@ -42,6 +46,37 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // ═══════════════════════════════════════════════════════════
+    // GUARDRAIL A: Budget Circuit-Breaker (€15/day across all runs)
+    // ═══════════════════════════════════════════════════════════
+    const dailyCost = await getDailyAutofixCost(sb);
+    if (dailyCost >= DAILY_BUDGET_LIMIT_EUR) {
+      console.warn(`[AutoGap] CIRCUIT BREAKER: Daily cost €${dailyCost.toFixed(2)} >= limit €${DAILY_BUDGET_LIMIT_EUR}`);
+      
+      await alertAdmin(sb, {
+        title: `🚨 Budget Circuit-Breaker ausgelöst: €${dailyCost.toFixed(2)}/Tag`,
+        body: `Auto-Gap-Closer wurde gestoppt. Tagesbudget von €${DAILY_BUDGET_LIMIT_EUR} überschritten.\n\nBetroffenes Paket: ${packageId}`,
+        severity: "critical",
+        category: "circuit_breaker",
+      });
+
+      // Stop any running autofix for this package
+      if (autofixRunId) {
+        await sb.from("autofix_runs").update({
+          status: "stopped",
+          stop_reason: `Budget Circuit-Breaker: €${dailyCost.toFixed(2)} today >= €${DAILY_BUDGET_LIMIT_EUR} limit`,
+        }).eq("id", autofixRunId);
+      }
+
+      return json({
+        ok: false,
+        status: "circuit_breaker",
+        reason: `Daily autofix cost €${dailyCost.toFixed(2)} exceeds €${DAILY_BUDGET_LIMIT_EUR} limit`,
+        daily_cost_eur: dailyCost,
+        limit_eur: DAILY_BUDGET_LIMIT_EUR,
+      }, 200, origin);
+    }
+
     // 1) Load or create autofix_run
     let run: any;
     if (autofixRunId) {
@@ -105,18 +140,62 @@ Deno.serve(async (req) => {
       current_round: run.current_round + 1,
     }).eq("id", run.id);
 
-    // 3) Check termination conditions
-    // Stagnation guard: stop if score didn't improve from last round
-    if (run.last_score !== null && score <= run.last_score && run.current_round > 1) {
-      await sb.from("autofix_runs").update({
-        status: "stopped",
-        stop_reason: `No progress: score stayed at ${score} (was ${run.last_score})`,
-        last_score: score,
-        last_report: report as any,
-      }).eq("id", run.id);
-      return json({ ok: false, status: "stopped", score, reason: "no_progress", autofix_run_id: run.id }, 200, origin);
+    // ═══════════════════════════════════════════════════════════
+    // GUARDRAIL B: Regression-Freeze (score must improve each round)
+    // ═══════════════════════════════════════════════════════════
+    if (run.last_score !== null && run.current_round > 1) {
+      const scoreDelta = score - run.last_score;
+      
+      if (scoreDelta <= REGRESSION_FREEZE_THRESHOLD) {
+        const freezeReason = scoreDelta < 0
+          ? `REGRESSION: Score dropped from ${run.last_score} to ${score} (Δ${scoreDelta})`
+          : `STAGNATION: Score unchanged at ${score} (Δ${scoreDelta})`;
+
+        console.warn(`[AutoGap] REGRESSION FREEZE: ${freezeReason}`);
+
+        // Freeze: stop run + alert admin
+        await sb.from("autofix_runs").update({
+          status: "frozen",
+          stop_reason: freezeReason,
+          last_score: score,
+          last_report: report as any,
+        }).eq("id", run.id);
+
+        await alertAdmin(sb, {
+          title: `🧊 Regression-Freeze: ${freezeReason}`,
+          body: [
+            `Auto-Gap-Closer wurde eingefroren weil der Score sich nicht verbessert hat.`,
+            ``,
+            `**Paket:** ${packageId}`,
+            `**Runde:** ${run.current_round + 1}`,
+            `**Vorheriger Score:** ${run.last_score}`,
+            `**Aktueller Score:** ${score}`,
+            `**Delta:** ${scoreDelta}`,
+            ``,
+            `Mögliche Ursachen:`,
+            `- Generator produziert Duplikate`,
+            `- Validierung zählt neue Items nicht`,
+            `- Content-Qualität reicht nicht für Score-Anstieg`,
+            ``,
+            `Nächster Schritt: Manuell prüfen und ggf. Generator-Logik anpassen.`,
+          ].join("\n"),
+          severity: "warning",
+          category: "regression_freeze",
+        });
+
+        return json({
+          ok: false,
+          status: "frozen",
+          reason: freezeReason,
+          previous_score: run.last_score,
+          current_score: score,
+          delta: scoreDelta,
+          autofix_run_id: run.id,
+        }, 200, origin);
+      }
     }
 
+    // 4) Check other termination conditions
     if (score >= targetScore || passed) {
       await sb.from("autofix_runs").update({
         status: "succeeded",
@@ -148,7 +227,16 @@ Deno.serve(async (req) => {
       return json({ ok: false, status: "stopped", score, reason: "max_rounds", autofix_run_id: run.id }, 200, origin);
     }
 
-    // 4) Build gap-close plan
+    // Per-run budget check
+    if (run.budget_used_eur >= budgetEur) {
+      await sb.from("autofix_runs").update({
+        status: "stopped",
+        stop_reason: `Per-run budget exhausted: €${run.budget_used_eur} >= €${budgetEur}`,
+      }).eq("id", run.id);
+      return json({ ok: false, status: "stopped", score, reason: "budget_exhausted", autofix_run_id: run.id }, 200, origin);
+    }
+
+    // 5) Build gap-close plan
     const plan = buildPlan(report as any, run.current_round + 1, curriculumId, courseId, packageId);
 
     await sb.from("autofix_runs").update({ last_plan: plan as any }).eq("id", run.id);
@@ -157,10 +245,9 @@ Deno.serve(async (req) => {
       return json({ ok: true, status: "dry_run", score, plan, autofix_run_id: run.id }, 200, origin);
     }
 
-    // 5) Enqueue gap-closing jobs (with dedup)
+    // 6) Enqueue gap-closing jobs (with dedup)
     let enqueued = 0;
     for (const action of plan.actions) {
-      // Dedup: check if same job_type is already queued/running for this package
       const { data: existing } = await sb.from("job_queue")
         .select("id")
         .eq("job_type", action.job_type)
@@ -191,7 +278,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 6) Schedule self-check after workers finish (~3 min)
+    // 7) Schedule self-check after workers finish (~3 min)
     const recheckAfter = new Date(Date.now() + 180_000).toISOString();
     await sb.from("job_queue").insert({
       job_type: "auto_gap_close",
@@ -223,13 +310,17 @@ Deno.serve(async (req) => {
       enqueued,
       autofix_run_id: run.id,
       next_check: recheckAfter,
+      guardrails: {
+        daily_cost_eur: dailyCost,
+        daily_limit_eur: DAILY_BUDGET_LIMIT_EUR,
+        budget_remaining_pct: Math.round((1 - dailyCost / DAILY_BUDGET_LIMIT_EUR) * 100),
+      },
     }, 200, origin);
 
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error("[AutoGapClose] Error:", msg);
 
-    // Mark run as failed if we have an ID
     if (autofixRunId) {
       await sb.from("autofix_runs").update({
         status: "failed",
@@ -240,6 +331,52 @@ Deno.serve(async (req) => {
     return json({ error: msg }, 500, origin);
   }
 });
+
+// ═══════════════════════════════════════════════════════════════
+// GUARDRAIL HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Calculates total autofix cost for today by summing budget_used_eur
+ * from all autofix_runs created or updated today.
+ */
+async function getDailyAutofixCost(
+  sb: ReturnType<typeof createClient>,
+): Promise<number> {
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  
+  const { data } = await sb
+    .from("autofix_runs")
+    .select("budget_used_eur")
+    .gte("updated_at", todayStart.toISOString())
+    .in("status", ["running", "succeeded", "stopped", "frozen", "failed"]);
+
+  if (!data || data.length === 0) return 0;
+  return data.reduce((sum: number, r: any) => sum + (r.budget_used_eur || 0), 0);
+}
+
+/**
+ * Sends an admin notification (stored in DB, logged for email pickup).
+ */
+async function alertAdmin(
+  sb: ReturnType<typeof createClient>,
+  notification: { title: string; body: string; severity: string; category: string },
+) {
+  await sb.from("admin_notifications").insert({
+    title: notification.title,
+    body: notification.body,
+    severity: notification.severity,
+    category: notification.category,
+    metadata: { triggered_at: new Date().toISOString(), source: "auto_gap_close" },
+  });
+
+  console.warn(`[AutoGap] ALERT → ${notification.title}`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PLANNING
+// ═══════════════════════════════════════════════════════════════
 
 /**
  * Deterministic planner: translates integrity report deficits into concrete jobs.
@@ -257,10 +394,8 @@ function buildPlan(
   const examActual = report?.exam?.total || 0;
   const examTarget = report?.exam?.target || 1000;
   if (examActual < examTarget) {
-    // Generate more exam questions via blueprint system
-    // Each run of generate-blueprint-questions creates ~30-50 questions
     const missing = examTarget - examActual;
-    const batchCount = Math.min(5, Math.ceil(missing / 50)); // max 5 batches per round
+    const batchCount = Math.min(5, Math.ceil(missing / 50));
     actions.push({
       job_type: "package_generate_exam_pool",
       count: batchCount,
@@ -310,38 +445,18 @@ function buildPlan(
   };
 }
 
+// ═══════════════════════════════════════════════════════════════
+// STRUCTURAL GATE
+// ═══════════════════════════════════════════════════════════════
+
 /**
- * Structural Gate: verifies generators actually wrote data before allowing gap-close budget spend.
- * Returns { ok: true } if structure is sound, or { ok: false, reason: "..." } if not.
+ * Verifies generators actually wrote data before allowing gap-close budget spend.
  */
 async function verifyStructuralHealth(
   sb: ReturnType<typeof createClient>,
   curriculumId: string,
   packageId: string,
 ): Promise<{ ok: boolean; reason?: string; exam: number; oral: number; handbook_sections: number }> {
-  const { data: examCount } = await sb
-    .from("exam_questions")
-    .select("id", { count: "exact", head: true })
-    .eq("curriculum_id", curriculumId);
-
-  const { data: oralCount } = await sb
-    .from("oral_exam_blueprints")
-    .select("id", { count: "exact", head: true })
-    .eq("curriculum_id", curriculumId);
-
-  const { data: sectionCount } = await sb
-    .from("handbook_sections")
-    .select("id", { count: "exact", head: true })
-    .in("chapter_id",
-      (await sb.from("handbook_chapters").select("id").eq("curriculum_id", curriculumId)).data?.map((c: { id: string }) => c.id) || []
-    );
-
-  // Use count from headers since head:true returns no rows
-  const exam = Number((examCount as any)?.length ?? 0);
-  const oral = Number((oralCount as any)?.length ?? 0);
-  const sections = Number((sectionCount as any)?.length ?? 0);
-
-  // For a proper count with head:true, we need a different approach
   const { count: examN } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
   const { count: oralN } = await sb.from("oral_exam_blueprints").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
 
