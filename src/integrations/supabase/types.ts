@@ -832,7 +832,9 @@ export type Database = {
           is_active: boolean
           notes: string | null
           policy_json: Json
+          required_seeding_version: string | null
           requires_approval: string[] | null
+          seeding_circuit_breaker: Json | null
           seeding_thresholds: Json | null
           severity_map: Json | null
           version: string
@@ -848,7 +850,9 @@ export type Database = {
           is_active?: boolean
           notes?: string | null
           policy_json: Json
+          required_seeding_version?: string | null
           requires_approval?: string[] | null
+          seeding_circuit_breaker?: Json | null
           seeding_thresholds?: Json | null
           severity_map?: Json | null
           version: string
@@ -864,7 +868,9 @@ export type Database = {
           is_active?: boolean
           notes?: string | null
           policy_json?: Json
+          required_seeding_version?: string | null
           requires_approval?: string[] | null
+          seeding_circuit_breaker?: Json | null
           seeding_thresholds?: Json | null
           severity_map?: Json | null
           version?: string
@@ -3735,6 +3741,8 @@ export type Database = {
           import_source: string | null
           kmk_version: string | null
           normalized_data: Json | null
+          seeding_completed_at: string | null
+          seeding_version: string | null
           source_file_name: string | null
           source_file_url: string | null
           status: Database["public"]["Enums"]["curriculum_status"]
@@ -3756,6 +3764,8 @@ export type Database = {
           import_source?: string | null
           kmk_version?: string | null
           normalized_data?: Json | null
+          seeding_completed_at?: string | null
+          seeding_version?: string | null
           source_file_name?: string | null
           source_file_url?: string | null
           status?: Database["public"]["Enums"]["curriculum_status"]
@@ -3777,6 +3787,8 @@ export type Database = {
           import_source?: string | null
           kmk_version?: string | null
           normalized_data?: Json | null
+          seeding_completed_at?: string | null
+          seeding_version?: string | null
           source_file_name?: string | null
           source_file_url?: string | null
           status?: Database["public"]["Enums"]["curriculum_status"]
@@ -11105,37 +11117,27 @@ export type Database = {
       ops_blocked_packages: {
         Row: {
           autofix_last_score: number | null
+          autofix_round: number | null
           autofix_status: string | null
+          avg_competencies_per_lf: number | null
+          block_priority: number | null
           block_reason: string | null
           build_progress: number | null
-          certification_id: string | null
-          competency_count: number | null
-          course_id: string | null
+          council_approved: boolean | null
+          created_at: string | null
+          empty_lf_count: number | null
           integrity_passed: boolean | null
           integrity_report: Json | null
-          learning_field_count: number | null
+          orphan_competency_count: number | null
           package_id: string | null
           seed_reasons: string[] | null
           seed_status: string | null
+          seeding_version: string | null
           status: string | null
           title: string | null
+          version_status: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "course_packages_certification_id_fkey"
-            columns: ["certification_id"]
-            isOneToOne: false
-            referencedRelation: "curricula"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_packages_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       ops_cost_summary: {
         Row: {
@@ -11202,19 +11204,25 @@ export type Database = {
       }
       ops_seeding_summary: {
         Row: {
+          avg_competencies_per_lf: number | null
           certification_id: string | null
           competency_count: number | null
           curriculum_status:
             | Database["public"]["Enums"]["curriculum_status"]
             | null
           curriculum_title: string | null
+          empty_lf_count: number | null
           learning_field_count: number | null
           lesson_count: number | null
+          orphan_competency_count: number | null
           package_id: string | null
           package_status: string | null
           package_title: string | null
           seed_reasons: string[] | null
           seed_status: string | null
+          seeding_completed_at: string | null
+          seeding_version: string | null
+          version_status: string | null
         }
         Relationships: [
           {

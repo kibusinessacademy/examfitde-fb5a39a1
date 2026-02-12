@@ -28,6 +28,12 @@ interface SeedingSummary {
   lesson_count: number;
   seed_status: 'missing' | 'partial' | 'ready';
   seed_reasons: string[];
+  seeding_version: string | null;
+  seeding_completed_at: string | null;
+  version_status: string;
+  avg_competencies_per_lf: number;
+  empty_lf_count: number;
+  orphan_competency_count: number;
 }
 
 const STATUS_CONFIG = {
@@ -43,8 +49,9 @@ const REASON_LABELS: Record<string, string> = {
   few_learning_fields: 'Zu wenige Lernfelder (< 5)',
   no_competencies: 'Keine Kompetenzen vorhanden',
   few_competencies: 'Zu wenige Kompetenzen (< 10)',
-  no_topics: 'Keine Topics vorhanden',
-  few_topics: 'Zu wenige Topics (< 25)',
+  low_competency_density: 'Wenige Kompetenzen pro Lernfeld (< 2)',
+  empty_learning_fields: 'Lernfelder ohne Kompetenzen',
+  orphan_competencies: 'Kompetenzen ohne Lektionen',
 };
 
 const REASON_CRITICALITY: Record<string, string> = {
@@ -54,8 +61,9 @@ const REASON_CRITICALITY: Record<string, string> = {
   few_learning_fields: 'Unvollständige Prüfungsabdeckung',
   no_competencies: 'Kein Kompetenz-Mapping für Lessons/Exams',
   few_competencies: 'Lückenhafte Kompetenzabdeckung',
-  no_topics: 'Keine Themenstruktur für Inhalte',
-  few_topics: 'Unvollständige Themenabdeckung',
+  low_competency_density: 'Qualitätswarnung: Inhaltliche Tiefe unzureichend',
+  empty_learning_fields: 'Lernfelder können keine Prüfungsfragen generieren',
+  orphan_competencies: 'Kompetenzen ohne Lessons = Lücke im Lernpfad',
 };
 
 function useSeedingSummary() {
@@ -198,13 +206,19 @@ export default function SeedingStatusPanel() {
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-1.5 mt-2">
               {ready.map(item => (
-                <div key={item.package_id} className="flex items-center gap-2 py-1.5 px-3 rounded bg-emerald-500/5 text-xs">
-                  <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
-                  <span className="font-medium text-foreground truncate">{item.package_title}</span>
-                  <span className="text-muted-foreground ml-auto shrink-0">
-                    {item.learning_field_count} LF · {item.competency_count} Komp · {item.lesson_count} Lekt
-                  </span>
-                </div>
+                 <div key={item.package_id} className="flex items-center gap-2 py-1.5 px-3 rounded bg-emerald-500/5 text-xs">
+                   <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                   <span className="font-medium text-foreground truncate">{item.package_title}</span>
+                   <span className="text-muted-foreground ml-auto shrink-0 flex items-center gap-2">
+                     {item.learning_field_count} LF · {item.competency_count} Komp · {item.lesson_count} Lekt
+                     {item.version_status !== 'unversioned' && (
+                       <Badge variant="outline" className="text-[8px] h-4">{item.version_status}</Badge>
+                     )}
+                     {item.empty_lf_count > 0 && (
+                       <Badge variant="outline" className="text-[8px] h-4 text-yellow-600">⚠ {item.empty_lf_count} leere LF</Badge>
+                     )}
+                   </span>
+                 </div>
               ))}
             </CollapsibleContent>
           </Collapsible>
