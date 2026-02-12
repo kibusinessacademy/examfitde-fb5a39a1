@@ -79,18 +79,19 @@ serve(async (req) => {
     switch (action) {
       // ─── SCAN: RLS AUDIT ────────────────────────────────────────────────
       case "scan_rls": {
-        const aiResult = await callAIJSON({
-          provider: "openai",
-          model: PROPOSER_MODEL,
-          messages: [
-            {
-              role: "system",
-              content: `Du bist ein Supabase-Security-Auditor. Analysiere typische Sicherheitsrisiken und generiere Findings.
+        try {
+          const aiResult = await callAIJSON({
+            provider: "openai",
+            model: PROPOSER_MODEL,
+            messages: [
+              {
+                role: "system",
+                content: `Du bist ein Supabase-Security-Auditor. Analysiere typische Sicherheitsrisiken und generiere Findings.
 Antworte NUR als JSON-Array: [{"title":"...","severity":"low|medium|high|critical","description":"...","affected_entity":"table_name","evidence":{"issue":"...","recommendation":"..."}}]`
-            },
-            {
-              role: "user",
-              content: `Prüfe typische Supabase-Sicherheitsprobleme:
+              },
+              {
+                role: "user",
+                content: `Prüfe typische Supabase-Sicherheitsprobleme:
 1. Tabellen ohne RLS
 2. Policies mit 'true' als Bedingung für anon/public
 3. Sensible Spalten (password, token, secret) ohne Zugriffsbeschränkung
@@ -99,29 +100,38 @@ Antworte NUR als JSON-Array: [{"title":"...","severity":"low|medium|high|critica
 
 Bekannte sensible Tabellen: profiles, companies, purchases, exam_answers, ai_tutor_logs
 Generiere 3-5 realistische Findings.`
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 2000,
-        });
-
-        const findings = parseJsonArray(aiResult.content);
-        let created = 0;
-        for (const f of findings) {
-          const { error } = await supabase.from("tech_council_findings").insert({
-            scan_type: "rls_audit",
-            severity: f.severity || "medium",
-            title: f.title,
-            description: f.description,
-            affected_entity: f.affected_entity,
-            evidence: f.evidence || {},
+              }
+            ],
+            temperature: 0.3,
+            max_tokens: 2000,
           });
-          if (!error) created++;
+
+          const findings = parseJsonArray(aiResult.content);
+          let created = 0;
+          for (const f of findings) {
+            const { error } = await supabase.from("tech_council_findings").insert({
+              scan_type: "rls_audit",
+              severity: f.severity || "medium",
+              title: f.title,
+              description: f.description,
+              affected_entity: f.affected_entity,
+              evidence: f.evidence || {},
+            });
+            if (!error) created++;
+          }
+
+          await logRecommendation(supabase, `RLS Scan: ${created} Findings`, PROPOSER_MODEL, JSON.stringify({ findings_count: created }).slice(0, 500), "scan", "rls_audit");
+
+          return new Response(JSON.stringify({ action: "scan_rls", findings_created: created }), { headers: jsonHeaders });
+        } catch (e) {
+          console.error("[TechCouncil] scan_rls LLM error:", e);
+          return new Response(JSON.stringify({
+            action: "scan_rls",
+            findings_created: 0,
+            warning: "LLM nicht verfügbar (fehlender API Key oder Gateway). Bitte OPENAI_API_KEY/ANTHROPIC_API_KEY prüfen.",
+            error: String((e as Error)?.message ?? e),
+          }), { headers: jsonHeaders });
         }
-
-        await logRecommendation(supabase, `RLS Scan: ${created} Findings`, PROPOSER_MODEL, JSON.stringify({ findings_count: created }).slice(0, 500), "scan", "rls_audit");
-
-        return new Response(JSON.stringify({ action: "scan_rls", findings_created: created }), { headers: jsonHeaders });
       }
 
       // ─── SCAN: QUEUE HEALTH ─────────────────────────────────────────────
@@ -179,41 +189,51 @@ Generiere 3-5 realistische Findings.`
 
       // ─── SCAN: EDGE FUNCTIONS ───────────────────────────────────────────
       case "scan_edge": {
-        const aiResult = await callAIJSON({
-          provider: "openai",
-          model: PROPOSER_MODEL,
-          messages: [
-            {
-              role: "system",
-              content: `Du bist ein Edge-Function Security Auditor. Antworte als JSON-Array: [{"title":"...","severity":"...","description":"...","affected_entity":"function_name","evidence":{...}}]`
-            },
-            {
-              role: "user",
-              content: `Prüfe Edge Functions:
+        try {
+          const aiResult = await callAIJSON({
+            provider: "openai",
+            model: PROPOSER_MODEL,
+            messages: [
+              {
+                role: "system",
+                content: `Du bist ein Edge-Function Security Auditor. Antworte als JSON-Array: [{"title":"...","severity":"...","description":"...","affected_entity":"function_name","evidence":{...}}]`
+              },
+              {
+                role: "user",
+                content: `Prüfe Edge Functions:
 - verify_jwt=false für: bibb-seeding, generate-questions, create-checkout, oral-exam, etc.
 - Fehlende Rate Limits auf öffentlichen Endpoints
 - CORS: Wildcard Origins
 Generiere 2-4 Findings.`
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 2000,
-        });
-
-        const findings = parseJsonArray(aiResult.content);
-        let created = 0;
-        for (const f of findings) {
-          const { error } = await supabase.from("tech_council_findings").insert({
-            scan_type: "edge_function_audit", severity: f.severity || "medium",
-            title: f.title, description: f.description,
-            affected_entity: f.affected_entity, evidence: f.evidence || {},
+              }
+            ],
+            temperature: 0.3,
+            max_tokens: 2000,
           });
-          if (!error) created++;
+
+          const findings = parseJsonArray(aiResult.content);
+          let created = 0;
+          for (const f of findings) {
+            const { error } = await supabase.from("tech_council_findings").insert({
+              scan_type: "edge_function_audit", severity: f.severity || "medium",
+              title: f.title, description: f.description,
+              affected_entity: f.affected_entity, evidence: f.evidence || {},
+            });
+            if (!error) created++;
+          }
+
+          await logRecommendation(supabase, `Edge Scan: ${created} Findings`, PROPOSER_MODEL, `${created} edge function issues found`, "scan", "edge_function_audit");
+
+          return new Response(JSON.stringify({ action: "scan_edge", findings_created: created }), { headers: jsonHeaders });
+        } catch (e) {
+          console.error("[TechCouncil] scan_edge LLM error:", e);
+          return new Response(JSON.stringify({
+            action: "scan_edge",
+            findings_created: 0,
+            warning: "LLM nicht verfügbar (fehlender API Key oder Gateway). Bitte OPENAI_API_KEY/ANTHROPIC_API_KEY prüfen.",
+            error: String((e as Error)?.message ?? e),
+          }), { headers: jsonHeaders });
         }
-
-        await logRecommendation(supabase, `Edge Scan: ${created} Findings`, PROPOSER_MODEL, `${created} edge function issues found`, "scan", "edge_function_audit");
-
-        return new Response(JSON.stringify({ action: "scan_edge", findings_created: created }), { headers: jsonHeaders });
       }
 
       // ─── PROPOSE PATCH ──────────────────────────────────────────────────

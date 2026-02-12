@@ -106,12 +106,18 @@ Antworte auf Deutsch. Sei kritisch aber konstruktiv.`;
 
     try {
       const provider = AI_PROVIDERS.find(p => p.id === selectedProvider);
+
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      if (sessionErr || !sessionData?.session?.access_token) {
+        throw new Error("Nicht eingeloggt oder Session abgelaufen. Bitte neu einloggen.");
+      }
+      const accessToken = sessionData.session.access_token;
       
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/qc-ai-analyze`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           systemPrompt,
