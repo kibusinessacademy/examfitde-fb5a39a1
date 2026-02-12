@@ -6892,7 +6892,7 @@ export type Database = {
           {
             foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
             columns: ["package_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "course_packages"
             referencedColumns: ["id"]
           },

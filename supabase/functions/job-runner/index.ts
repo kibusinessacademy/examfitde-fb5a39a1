@@ -341,6 +341,32 @@ Deno.serve(async (req) => {
             .eq("id", job.id);
 
           results.push({ id: job.id, job_type: job.job_type, outcome: "completed" });
+        } else if (
+          response.status === 409 &&
+          typeof responseData === "object" && responseData !== null &&
+          (responseData as Record<string, unknown>).retry === true
+        ) {
+          // Prereq not done – soft retry with short backoff (15s)
+          const retryAfter = new Date(Date.now() + 15_000).toISOString();
+          console.log(
+            `[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} prereq not ready, retry in 15s`
+          );
+          await admin
+            .from("job_queue")
+            .update({
+              status: "pending",
+              last_error: typeof responseData === "object" && responseData !== null && "error" in responseData
+                ? String((responseData as { error: unknown }).error).slice(0, 500)
+                : "PREREQ_NOT_DONE",
+              attempts: job.attempts + 1,
+              run_after: retryAfter,
+              locked_at: null,
+              locked_by: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", job.id);
+
+          results.push({ id: job.id, job_type: job.job_type, outcome: "retry_prereq" });
         } else {
           // Function returned error
           const errorMsg = typeof responseData === "object" && responseData !== null && "error" in responseData
