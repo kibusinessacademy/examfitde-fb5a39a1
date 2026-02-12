@@ -25,12 +25,12 @@ const Loading = () => (
 
 const tabs = [
   { path: '/admin/content/courses', label: 'Kurse' },
+  { path: '/admin/content/exports', label: '📦 Exporte' },
+  { path: '/admin/content/health', label: 'Kurs-Health' },
+  { path: '/admin/content/quality-gates', label: 'Quality Gates' },
   { path: '/admin/content/questions', label: 'Prüfungsfragen' },
   { path: '/admin/content/blueprints', label: 'Blueprints' },
-  { path: '/admin/content/health', label: 'Kurs-Health' },
   { path: '/admin/content/workflows', label: 'Workflows' },
-  { path: '/admin/content/quality-gates', label: 'Quality Gates' },
-  { path: '/admin/content/exports', label: 'Exporte' },
   { path: '/admin/content/marketing', label: 'Marketing Council' },
   { path: '/admin/content/assessment', label: 'Assessment Council' },
   { path: '/admin/content/tutor', label: 'Tutor Council' },
