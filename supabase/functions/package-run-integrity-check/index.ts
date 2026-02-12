@@ -90,7 +90,76 @@ Deno.serve(async (req) => {
 
     if (!passed) {
       await unlockFail(`Integrity Score ${score}/100 – ${summary.issues} critical issues`, report);
-      return json({ ok: false, error: `Integrity check failed (score: ${score})`, report }, 422);
+
+      // === Auto-Gap-Closer Trigger ===
+      const autoFixTarget = options.autofix_target_score || 60;
+      const shouldAutoFix = options.auto_gap_close !== false; // opt-out via options
+
+      if (shouldAutoFix) {
+        try {
+          // Guardrail 1: No autofix already running for this package
+          const { data: existingRun } = await sb.from("autofix_runs")
+            .select("id, created_at")
+            .eq("package_id", packageId)
+            .eq("status", "running")
+            .maybeSingle();
+
+          // Guardrail 2: Cooldown – no autofix started in last 6 hours
+          const { data: recentRun } = await sb.from("autofix_runs")
+            .select("id, created_at")
+            .eq("package_id", packageId)
+            .in("status", ["running", "succeeded", "stopped"])
+            .gte("created_at", new Date(Date.now() - 6 * 3600_000).toISOString())
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          // Guardrail 3: Dedup – no auto_gap_close job already queued
+          const { data: queuedJob } = await sb.from("job_queue")
+            .select("id")
+            .eq("job_type", "auto_gap_close")
+            .in("status", ["pending", "processing"])
+            .contains("payload", { package_id: packageId } as any)
+            .limit(1)
+            .maybeSingle();
+
+          if (!existingRun && !recentRun && !queuedJob) {
+            // Fetch curriculum_id from course_packages if not in payload
+            let currId = p.curriculum_id;
+            if (!currId) {
+              const { data: pkg } = await sb.from("course_packages")
+                .select("curriculum_id")
+                .eq("id", packageId)
+                .single();
+              currId = pkg?.curriculum_id;
+            }
+
+            if (currId) {
+              await sb.from("job_queue").insert({
+                job_type: "auto_gap_close",
+                status: "pending",
+                payload: {
+                  package_id: packageId,
+                  course_id: courseId,
+                  curriculum_id: currId,
+                  target_score: autoFixTarget,
+                  max_rounds: 3,
+                  budget_eur: 2.0,
+                  triggered_by: "integrity_check_auto",
+                },
+                max_attempts: 1,
+              });
+              console.log(`[IntegrityCheck] Auto-Gap-Closer enqueued for package ${packageId} (score ${score} < ${autoFixTarget})`);
+            }
+          } else {
+            console.log(`[IntegrityCheck] Auto-Gap-Closer skipped: existing=${!!existingRun} recent=${!!recentRun} queued=${!!queuedJob}`);
+          }
+        } catch (autoErr) {
+          console.error("[IntegrityCheck] Auto-Gap-Closer trigger failed (non-fatal):", (autoErr as Error).message);
+        }
+      }
+
+      return json({ ok: false, error: `Integrity check failed (score: ${score})`, report, auto_gap_close_triggered: shouldAutoFix }, 422);
     }
 
     // Passed!
