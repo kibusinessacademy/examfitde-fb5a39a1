@@ -762,6 +762,10 @@ export type Database = {
           created_at: string
           duration_ms: number | null
           error_message: string | null
+          followup_checked_at: string | null
+          followup_score_after: number | null
+          followup_score_before: number | null
+          followup_verdict: string | null
           id: string
           input_params: Json | null
           metadata: Json | null
@@ -776,6 +780,10 @@ export type Database = {
           created_at?: string
           duration_ms?: number | null
           error_message?: string | null
+          followup_checked_at?: string | null
+          followup_score_after?: number | null
+          followup_score_before?: number | null
+          followup_verdict?: string | null
           id?: string
           input_params?: Json | null
           metadata?: Json | null
@@ -790,6 +798,10 @@ export type Database = {
           created_at?: string
           duration_ms?: number | null
           error_message?: string | null
+          followup_checked_at?: string | null
+          followup_score_after?: number | null
+          followup_score_before?: number | null
+          followup_verdict?: string | null
           id?: string
           input_params?: Json | null
           metadata?: Json | null
@@ -803,30 +815,48 @@ export type Database = {
       }
       auto_heal_policies: {
         Row: {
+          cooldowns: Json | null
           created_at: string
           created_by: string | null
           id: string
+          incident_activated_at: string | null
+          incident_activated_by: string | null
+          incident_mode: boolean | null
           is_active: boolean
           notes: string | null
           policy_json: Json
+          requires_approval: string[] | null
+          severity_map: Json | null
           version: string
         }
         Insert: {
+          cooldowns?: Json | null
           created_at?: string
           created_by?: string | null
           id?: string
+          incident_activated_at?: string | null
+          incident_activated_by?: string | null
+          incident_mode?: boolean | null
           is_active?: boolean
           notes?: string | null
           policy_json: Json
+          requires_approval?: string[] | null
+          severity_map?: Json | null
           version: string
         }
         Update: {
+          cooldowns?: Json | null
           created_at?: string
           created_by?: string | null
           id?: string
+          incident_activated_at?: string | null
+          incident_activated_by?: string | null
+          incident_mode?: boolean | null
           is_active?: boolean
           notes?: string | null
           policy_json?: Json
+          requires_approval?: string[] | null
+          severity_map?: Json | null
           version?: string
         }
         Relationships: []
@@ -11046,6 +11076,22 @@ export type Database = {
           runs: number | null
           total_cost: number | null
           total_tokens: number | null
+        }
+        Relationships: []
+      }
+      ops_heal_effectiveness: {
+        Row: {
+          action_type: string | null
+          avg_duration_ms: number | null
+          avg_score_delta: number | null
+          failures: number | null
+          followup_improved: number | null
+          followup_no_change: number | null
+          followup_regressed: number | null
+          skipped: number | null
+          success_rate: number | null
+          successes: number | null
+          total_runs: number | null
         }
         Relationships: []
       }

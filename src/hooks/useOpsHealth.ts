@@ -50,8 +50,11 @@ export interface DiagnosisResult {
   health_score: number;
   traffic_light: 'green' | 'yellow' | 'red';
   auto_heal_allowed: boolean;
+  incident_mode: boolean;
+  incident_activated_at: string | null;
   root_causes: RootCause[];
   recommended_actions: HealAction[];
+  cooldown_status: Record<string, { cooling: boolean; resumesAt: string | null }>;
   stats: {
     failed_1h: number;
     stuck_jobs: number;
@@ -60,6 +63,20 @@ export interface DiagnosisResult {
     active_autofix: number;
     frozen_autofix: number;
   };
+}
+
+export interface HealEffectiveness {
+  action_type: string;
+  total_runs: number;
+  successes: number;
+  failures: number;
+  skipped: number;
+  success_rate: number;
+  avg_duration_ms: number;
+  followup_improved: number;
+  followup_no_change: number;
+  followup_regressed: number;
+  avg_score_delta: number;
 }
 
 export function useOpsHealthSummary() {
@@ -76,7 +93,7 @@ export function useOpsHealthSummary() {
       }
       return data;
     },
-    refetchInterval: 10000, // 10s polling
+    refetchInterval: 10000,
   });
 }
 
@@ -116,12 +133,26 @@ export function useAutoHealLog() {
   });
 }
 
+export function useHealEffectiveness() {
+  return useQuery({
+    queryKey: ['heal-effectiveness'],
+    queryFn: async (): Promise<HealEffectiveness[]> => {
+      const { data, error } = await (supabase as any)
+        .from('ops_heal_effectiveness')
+        .select('*');
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 60000,
+  });
+}
+
 export function useHealAction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (params: {
-      mode: 'heal' | 'heal_single';
+      mode: 'heal' | 'heal_single' | 'incident_on' | 'incident_off';
       action_type?: string;
       package_id?: string;
       params?: Record<string, unknown>;
@@ -150,6 +181,7 @@ export function useHealAction() {
       queryClient.invalidateQueries({ queryKey: ['ops-diagnosis'] });
       queryClient.invalidateQueries({ queryKey: ['ops-health-summary'] });
       queryClient.invalidateQueries({ queryKey: ['auto-heal-log'] });
+      queryClient.invalidateQueries({ queryKey: ['heal-effectiveness'] });
     },
     onError: (e: Error) => {
       toast.error(`Fehler: ${e.message}`);

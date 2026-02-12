@@ -12,7 +12,7 @@ function json(body: unknown, status = 200, origin?: string | null) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// ROOT CAUSE DIAGNOSIS
+// TYPES
 // ═══════════════════════════════════════════════════════════
 interface RootCause {
   code: string;
@@ -26,6 +26,25 @@ interface RootCause {
   params?: Record<string, unknown>;
 }
 
+interface HealAction {
+  action_type: string;
+  target_id: string;
+  target_type: string;
+  params: Record<string, unknown>;
+  description: string;
+}
+
+interface PolicyConfig {
+  cooldowns: Record<string, number>;
+  severity_map: Record<string, string>;
+  requires_approval: string[];
+  incident_mode: boolean;
+  incident_activated_at: string | null;
+}
+
+// ═══════════════════════════════════════════════════════════
+// ERROR HINTS
+// ═══════════════════════════════════════════════════════════
 const ERROR_HINTS: Record<string, { title: string; description: string; action: string; action_type: string }> = {
   exam_pool_coverage_gap: {
     title: "Prüfungsfragen-Pool unvollständig",
@@ -72,29 +91,71 @@ const ERROR_HINTS: Record<string, { title: string; description: string; action: 
 };
 
 // ═══════════════════════════════════════════════════════════
-// AUTO-HEAL POLICIES
+// POLICY LOADER
 // ═══════════════════════════════════════════════════════════
+async function loadPolicy(sb: ReturnType<typeof createClient>): Promise<PolicyConfig> {
+  const { data } = await sb.from("auto_heal_policies")
+    .select("cooldowns, severity_map, requires_approval, incident_mode, incident_activated_at")
+    .eq("is_active", true)
+    .maybeSingle();
 
-interface HealAction {
-  action_type: string;
-  target_id: string;
-  target_type: string;
-  params: Record<string, unknown>;
-  description: string;
+  return {
+    cooldowns: (data?.cooldowns as Record<string, number>) || {},
+    severity_map: (data?.severity_map as Record<string, string>) || {},
+    requires_approval: (data?.requires_approval as string[]) || [],
+    incident_mode: Boolean(data?.incident_mode),
+    incident_activated_at: data?.incident_activated_at || null,
+  };
 }
 
+// ═══════════════════════════════════════════════════════════
+// COOLDOWN CHECK
+// ═══════════════════════════════════════════════════════════
+async function isCoolingDown(
+  sb: ReturnType<typeof createClient>,
+  actionType: string,
+  cooldownSeconds: number,
+): Promise<{ cooling: boolean; resumesAt: string | null }> {
+  if (!cooldownSeconds || cooldownSeconds <= 0) return { cooling: false, resumesAt: null };
+
+  const cutoff = new Date(Date.now() - cooldownSeconds * 1000).toISOString();
+  const { data } = await sb.from("auto_heal_log")
+    .select("created_at")
+    .eq("action_type", actionType)
+    .gte("created_at", cutoff)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (data && data.length > 0) {
+    const lastRun = new Date(data[0].created_at);
+    const resumesAt = new Date(lastRun.getTime() + cooldownSeconds * 1000);
+    return { cooling: true, resumesAt: resumesAt.toISOString() };
+  }
+  return { cooling: false, resumesAt: null };
+}
+
+// ═══════════════════════════════════════════════════════════
+// DIAGNOSIS
+// ═══════════════════════════════════════════════════════════
 async function diagnoseAndPlan(
   sb: ReturnType<typeof createClient>,
-  mode: "full" | "package",
-  packageId?: string,
-): Promise<{ root_causes: RootCause[]; heal_actions: HealAction[]; health: any }> {
+  policy: PolicyConfig,
+  _mode: "full" | "package",
+  _packageId?: string,
+): Promise<{ root_causes: RootCause[]; heal_actions: HealAction[]; health: any; cooldown_status: Record<string, any> }> {
   const root_causes: RootCause[] = [];
   const heal_actions: HealAction[] = [];
+  const cooldown_status: Record<string, any> = {};
 
-  // 1) Get system health summary
   const { data: health } = await sb.from("ops_health_summary" as any).select("*").single();
 
-  // 2) Diagnose failed jobs
+  // Check cooldowns for all action types
+  for (const [actionType, seconds] of Object.entries(policy.cooldowns)) {
+    const cd = await isCoolingDown(sb, actionType, seconds);
+    if (cd.cooling) cooldown_status[actionType] = cd;
+  }
+
+  // Failed jobs
   if (health?.failed_1h > 0) {
     const { data: failedJobs } = await sb.from("job_queue")
       .select("id, job_type, last_error, attempts, max_attempts, payload, created_at")
@@ -112,29 +173,34 @@ async function diagnoseAndPlan(
         (j: any) => j.job_type === jobType && j.attempts < j.max_attempts,
       );
       if (retryable.length > 0) {
+        const isCooled = Boolean(cooldown_status["retry_failed_jobs"]);
         root_causes.push({
           code: `failed_jobs_${jobType}`,
           severity: count > 5 ? "critical" : "warning",
           title: `${count}x ${jobType} fehlgeschlagen`,
-          description: `${retryable.length} Jobs können erneut versucht werden.`,
+          description: isCooled
+            ? `${retryable.length} Jobs wartend. Cooldown aktiv bis ${cooldown_status["retry_failed_jobs"]?.resumesAt?.substring(11, 16) || "?"}.`
+            : `${retryable.length} Jobs können erneut versucht werden.`,
           recommended_action: "Fehlgeschlagene Jobs retrien",
           action_type: "retry_failed_jobs",
           risk: "low",
-          auto_healable: true,
+          auto_healable: !isCooled,
           params: { job_type: jobType, limit: Math.min(retryable.length, 5) },
         });
-        heal_actions.push({
-          action_type: "retry_failed_jobs",
-          target_id: jobType,
-          target_type: "job",
-          params: { job_type: jobType, limit: 5 },
-          description: `${retryable.length} ${jobType} Jobs retrien`,
-        });
+        if (!isCooled) {
+          heal_actions.push({
+            action_type: "retry_failed_jobs",
+            target_id: jobType,
+            target_type: "job",
+            params: { job_type: jobType, limit: 5 },
+            description: `${retryable.length} ${jobType} Jobs retrien`,
+          });
+        }
       }
     }
   }
 
-  // 3) Diagnose stuck jobs
+  // Stuck jobs
   if (health?.stuck_jobs > 0) {
     root_causes.push({
       code: "stuck_jobs",
@@ -155,37 +221,38 @@ async function diagnoseAndPlan(
     });
   }
 
-  // 4) Diagnose blocked packages
-  const { data: blocked } = await sb.from("ops_blocked_packages" as any)
-    .select("*")
-    .limit(10);
+  // Blocked packages
+  const { data: blocked } = await sb.from("ops_blocked_packages" as any).select("*").limit(10);
 
   for (const pkg of blocked || []) {
-    // Parse integrity report for root causes
     const report = pkg.integrity_report;
     if (report?.issues) {
       for (const issue of report.issues) {
         const hint = ERROR_HINTS[issue.type] || null;
         if (hint) {
+          const severityOverride = policy.severity_map[issue.type] as "critical" | "warning" | "info" | undefined;
+          const isCooled = Boolean(cooldown_status[hint.action_type]);
           root_causes.push({
             code: issue.type,
-            severity: issue.severity === "critical" ? "critical" : "warning",
+            severity: severityOverride || (issue.severity === "critical" ? "critical" : "warning"),
             title: `${pkg.title}: ${hint.title}`,
-            description: hint.description,
+            description: isCooled
+              ? `${hint.description} (Cooldown aktiv)`
+              : hint.description,
             recommended_action: hint.action,
             action_type: hint.action_type,
             risk: "low",
-            auto_healable: hint.action_type === "run_auto_gap_closer",
+            auto_healable: hint.action_type === "run_auto_gap_closer" && !isCooled,
             params: { package_id: pkg.package_id },
           });
         }
       }
     }
 
-    // If package is failed with no autofix running
     if (pkg.status === "failed" && pkg.autofix_status !== "running") {
       const score = pkg.integrity_score || 0;
-      if (score < 85) {
+      const isCooled = Boolean(cooldown_status["run_auto_gap_closer"]);
+      if (score < 85 && !isCooled) {
         heal_actions.push({
           action_type: "run_auto_gap_closer",
           target_id: pkg.package_id,
@@ -202,23 +269,21 @@ async function diagnoseAndPlan(
     }
   }
 
-  // 5) Budget guard
+  // Budget guard
   if (health?.daily_autofix_cost >= 12) {
     root_causes.push({
       code: "budget_high",
       severity: health.daily_autofix_cost >= 15 ? "critical" : "warning",
       title: `Budget bei €${health.daily_autofix_cost.toFixed(2)}/€15`,
       description: "Tägliches Auto-Heal-Budget nähert sich dem Limit.",
-      recommended_action: health.daily_autofix_cost >= 15
-        ? "Auto-Heal pausieren"
-        : "Batch-Größen reduzieren",
+      recommended_action: health.daily_autofix_cost >= 15 ? "Auto-Heal pausieren" : "Batch-Größen reduzieren",
       action_type: health.daily_autofix_cost >= 15 ? "freeze_auto_heal" : "reduce_batch_size",
       risk: "medium",
       auto_healable: false,
     });
   }
 
-  // 6) Frozen autofix runs
+  // Frozen autofix
   if (health?.frozen_autofix > 0) {
     root_causes.push({
       code: "frozen_autofix",
@@ -232,18 +297,24 @@ async function diagnoseAndPlan(
     });
   }
 
-  return { root_causes, heal_actions, health };
+  return { root_causes, heal_actions, health, cooldown_status };
 }
 
 // ═══════════════════════════════════════════════════════════
-// AUTO-HEAL EXECUTOR
+// EXECUTOR
 // ═══════════════════════════════════════════════════════════
-
 async function executeHealAction(
   sb: ReturnType<typeof createClient>,
   action: HealAction,
   triggerSource: string,
-): Promise<{ success: boolean; detail: string }> {
+  policy: PolicyConfig,
+): Promise<{ success: boolean; detail: string; requires_approval?: boolean }> {
+  // Approval gate
+  if (policy.requires_approval.includes(action.action_type)) {
+    await logHealAction(sb, action, triggerSource, "awaiting_approval", "Requires manual admin approval", 0);
+    return { success: false, detail: "Requires manual admin approval", requires_approval: true };
+  }
+
   const startMs = Date.now();
 
   try {
@@ -278,7 +349,6 @@ async function executeHealAction(
 
       case "run_auto_gap_closer": {
         const pkgId = action.params.package_id as string;
-        // Get package details to find curriculum_id and course_id
         const { data: pkg } = await sb.from("course_packages")
           .select("id, curriculum_id, course_id")
           .eq("id", pkgId)
@@ -288,7 +358,6 @@ async function executeHealAction(
           return { success: false, detail: "Package not found" };
         }
 
-        // Check if already running
         const { data: existing } = await sb.from("autofix_runs")
           .select("id")
           .eq("package_id", pkgId)
@@ -299,7 +368,12 @@ async function executeHealAction(
           return { success: true, detail: "Autofix already running" };
         }
 
-        // Enqueue auto-gap-close job
+        // Capture score before for success tracking
+        const { data: intCheck } = await sb.from("course_packages")
+          .select("integrity_score")
+          .eq("id", pkgId)
+          .single();
+
         await sb.from("job_queue").insert({
           job_type: "auto_gap_close",
           status: "pending",
@@ -313,7 +387,11 @@ async function executeHealAction(
           },
           max_attempts: 1,
         });
-        await logHealAction(sb, action, triggerSource, "success", "Auto-Gap-Closer enqueued", Date.now() - startMs);
+        await logHealAction(
+          sb, action, triggerSource, "success",
+          "Auto-Gap-Closer enqueued", Date.now() - startMs,
+          (intCheck as any)?.integrity_score,
+        );
         return { success: true, detail: "Auto-Gap-Closer enqueued" };
       }
 
@@ -335,6 +413,7 @@ async function logHealAction(
   status: string,
   detail: string,
   durationMs: number,
+  scoreBefore?: number,
 ) {
   await sb.from("auto_heal_log").insert({
     trigger_source: triggerSource,
@@ -345,13 +424,44 @@ async function logHealAction(
     result_status: status,
     result_detail: detail,
     duration_ms: durationMs,
+    followup_score_before: scoreBefore ?? null,
   });
+}
+
+// ═══════════════════════════════════════════════════════════
+// INCIDENT MODE
+// ═══════════════════════════════════════════════════════════
+async function toggleIncidentMode(
+  sb: ReturnType<typeof createClient>,
+  activate: boolean,
+  triggeredBy: string,
+): Promise<{ ok: boolean; incident_mode: boolean }> {
+  await sb.from("auto_heal_policies")
+    .update({
+      incident_mode: activate,
+      incident_activated_at: activate ? new Date().toISOString() : null,
+      incident_activated_by: activate ? triggeredBy : null,
+    } as any)
+    .eq("is_active", true);
+
+  // Log incident toggle
+  await sb.from("auto_heal_log").insert({
+    trigger_source: triggeredBy,
+    action_type: activate ? "incident_mode_on" : "incident_mode_off",
+    target_id: "system",
+    target_type: "policy",
+    input_params: {},
+    result_status: "success",
+    result_detail: activate ? "Incident mode activated – all auto-heal frozen" : "Incident mode deactivated",
+    duration_ms: 0,
+  });
+
+  return { ok: true, incident_mode: activate };
 }
 
 // ═══════════════════════════════════════════════════════════
 // MAIN HANDLER
 // ═══════════════════════════════════════════════════════════
-
 Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
@@ -361,22 +471,41 @@ Deno.serve(async (req) => {
 
   if (req.method === "GET" || (req.method === "POST" && req.headers.get("content-type")?.includes("json"))) {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const mode = body.mode || "diagnose"; // 'diagnose' | 'heal' | 'heal_single'
+    const mode = body.mode || "diagnose";
     const triggerSource = body.trigger_source || "manual";
     const packageId = body.package_id;
 
     try {
+      const policy = await loadPolicy(sb);
+
+      // Incident mode toggle
+      if (mode === "incident_on" || mode === "incident_off") {
+        const result = await toggleIncidentMode(sb, mode === "incident_on", triggerSource);
+        return json(result, 200, origin);
+      }
+
+      // Get policy info
+      if (mode === "policy") {
+        return json({ ok: true, policy }, 200, origin);
+      }
+
       // Diagnose
-      const diagnosis = await diagnoseAndPlan(sb, packageId ? "package" : "full", packageId);
+      const diagnosis = await diagnoseAndPlan(sb, policy, packageId ? "package" : "full", packageId);
+
+      // Block all heal actions in incident mode
+      const effectiveAutoHealAllowed = diagnosis.health?.auto_heal_allowed && !policy.incident_mode;
 
       if (mode === "diagnose") {
         return json({
           ok: true,
           health_score: diagnosis.health?.health_score,
           traffic_light: diagnosis.health?.traffic_light,
-          auto_heal_allowed: diagnosis.health?.auto_heal_allowed,
+          auto_heal_allowed: effectiveAutoHealAllowed,
+          incident_mode: policy.incident_mode,
+          incident_activated_at: policy.incident_activated_at,
           root_causes: diagnosis.root_causes,
           recommended_actions: diagnosis.heal_actions,
+          cooldown_status: diagnosis.cooldown_status,
           stats: {
             failed_1h: diagnosis.health?.failed_1h,
             stuck_jobs: diagnosis.health?.stuck_jobs,
@@ -389,34 +518,33 @@ Deno.serve(async (req) => {
       }
 
       if (mode === "heal_single") {
-        // Execute a specific action
+        if (policy.incident_mode) {
+          return json({ ok: false, reason: "Incident mode active – auto-heal frozen" }, 200, origin);
+        }
         const actionType = body.action_type;
         const action = diagnosis.heal_actions.find((a) => a.action_type === actionType);
         if (!action) {
           return json({ error: "No matching action found", available: diagnosis.heal_actions.map((a) => a.action_type) }, 404, origin);
         }
-        // Merge any user-provided params
         if (body.params) Object.assign(action.params, body.params);
-        const result = await executeHealAction(sb, action, triggerSource);
-        return json({ ok: result.success, action: action.action_type, detail: result.detail }, 200, origin);
+        const result = await executeHealAction(sb, action, triggerSource, policy);
+        return json({ ok: result.success, action: action.action_type, detail: result.detail, requires_approval: result.requires_approval }, 200, origin);
       }
 
       if (mode === "heal") {
-        // Execute all auto-healable actions
-        if (!diagnosis.health?.auto_heal_allowed) {
-          return json({
-            ok: false,
-            reason: "Auto-heal not allowed (stuck jobs, too many failures, or budget exceeded)",
-            health: diagnosis.health,
-          }, 200, origin);
+        if (policy.incident_mode) {
+          return json({ ok: false, reason: "Incident mode active – auto-heal frozen" }, 200, origin);
+        }
+        if (!effectiveAutoHealAllowed) {
+          return json({ ok: false, reason: "Auto-heal not allowed", health: diagnosis.health }, 200, origin);
         }
 
-        const results: Array<{ action: string; success: boolean; detail: string }> = [];
+        const results: Array<{ action: string; success: boolean; detail: string; requires_approval?: boolean }> = [];
         for (const action of diagnosis.heal_actions) {
           const rc = diagnosis.root_causes.find((r) => r.action_type === action.action_type);
           if (rc && !rc.auto_healable) continue;
 
-          const result = await executeHealAction(sb, action, triggerSource);
+          const result = await executeHealAction(sb, action, triggerSource, policy);
           results.push({ action: action.action_type, ...result });
         }
 
@@ -429,7 +557,7 @@ Deno.serve(async (req) => {
         }, 200, origin);
       }
 
-      return json({ error: "Invalid mode. Use: diagnose, heal, heal_single" }, 400, origin);
+      return json({ error: "Invalid mode. Use: diagnose, heal, heal_single, incident_on, incident_off, policy" }, 400, origin);
     } catch (e: unknown) {
       const msg = (e as Error)?.message || String(e);
       console.error("[OpsAutoHealer] Error:", msg);
