@@ -122,31 +122,31 @@ export default function AdminDashboard() {
   const gatePassRate = data.gatesTotal > 0 ? Math.round((data.gatesPassed / data.gatesTotal) * 100) : 100;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* Health Banner */}
-      <div className={`flex items-center justify-between p-4 rounded-xl border ${
+      <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-xl border ${
         health.status === 'healthy' ? 'bg-success/5 border-success/20' :
         health.status === 'warning' ? 'bg-warning/5 border-warning/20' :
         'bg-destructive/5 border-destructive/20'
       }`}>
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-lg ${statusColors[health.status]}`}>
-            <HealthIcon className="h-5 w-5" />
+            <HealthIcon className="h-4 w-4 sm:h-5 sm:w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-display font-bold text-foreground">AI Control Center</h1>
-            <p className="text-sm text-muted-foreground">
-              System Status: <strong className={health.status === 'healthy' ? 'text-success' : health.status === 'warning' ? 'text-warning' : 'text-destructive'}>{health.label}</strong>
-              {' · '}{data.aiRuns} AI-Runs MTD · Budget {budgetPct}%
+            <h1 className="text-base sm:text-lg font-display font-bold text-foreground">AI Control Center</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Status: <strong className={health.status === 'healthy' ? 'text-success' : health.status === 'warning' ? 'text-warning' : 'text-destructive'}>{health.label}</strong>
+              {' · '}{data.aiRuns} Runs · {budgetPct}%
             </p>
           </div>
         </div>
-        <Badge variant="outline" className={statusColors[health.status]}>
+        <Badge variant="outline" className={`${statusColors[health.status]} self-end sm:self-auto`}>
           <HealthIcon className="h-3 w-3 mr-1" /> {health.label}
         </Badge>
       </div>
 
-      {/* ⬇ Next Admin Actions — what needs your attention */}
+      {/* ⬇ Next Admin Actions */}
       <NextAdminActions />
 
       {/* Business KPIs */}
@@ -154,11 +154,11 @@ export default function AdminDashboard() {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
           <DollarSign className="h-3.5 w-3.5" /> Business
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <KPICard icon={Users} label="Einschreibungen" value={data.totalEnrollments} />
-          <KPICard icon={BookOpen} label="Kurse (Published)" value={`${data.coursesPublished} / ${data.totalCourses}`} />
+          <KPICard icon={BookOpen} label="Kurse (Pub.)" value={`${data.coursesPublished}/${data.totalCourses}`} />
           <KPICard icon={GraduationCap} label="Curricula" value={data.totalCurricula} />
-          <KPICard icon={BarChart3} label="Prüfungssessions" value={data.examSessions} />
+          <KPICard icon={BarChart3} label="Prüfungen" value={data.examSessions} />
         </div>
       </section>
 
@@ -167,11 +167,11 @@ export default function AdminDashboard() {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
           <Shield className="h-3.5 w-3.5" /> Qualität
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard icon={CheckCircle2} label="Quality Gate Pass" value={`${gatePassRate}%`} trend={gatePassRate >= 90 ? 'up' : 'down'} />
-          <KPICard icon={Brain} label="Prüfungsfragen" value={data.totalQuestions} />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <KPICard icon={CheckCircle2} label="Gate Pass" value={`${gatePassRate}%`} trend={gatePassRate >= 90 ? 'up' : 'down'} />
+          <KPICard icon={Brain} label="Fragen" value={data.totalQuestions} />
           <KPICard icon={Zap} label="Blueprints" value={data.totalBlueprints} />
-          <KPICard icon={Shield} label="Gates gesamt" value={data.gatesTotal} />
+          <KPICard icon={Shield} label="Gates" value={data.gatesTotal} />
         </div>
       </section>
 
@@ -180,29 +180,29 @@ export default function AdminDashboard() {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
           <Brain className="h-3.5 w-3.5" /> AI & Automation
         </h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           <Card className="glass-card">
-            <CardContent className="pt-5">
+            <CardContent className="pt-4 sm:pt-5 p-4 sm:p-6">
               <p className="text-xs text-muted-foreground font-medium">AI-Budget MTD</p>
               <div className="flex items-end gap-2 mt-1">
-                <span className="text-2xl font-bold text-foreground">€{data.aiCostMtd.toFixed(2)}</span>
-                <span className="text-sm text-muted-foreground">/ €{data.aiBudget}</span>
+                <span className="text-xl sm:text-2xl font-bold text-foreground">€{data.aiCostMtd.toFixed(2)}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">/ €{data.aiBudget}</span>
               </div>
               <Progress value={budgetPct} className="mt-3 h-2" />
               <p className="text-xs text-muted-foreground mt-1">{budgetPct}% verbraucht</p>
             </CardContent>
           </Card>
           <Card className="glass-card">
-            <CardContent className="pt-5">
+            <CardContent className="pt-4 sm:pt-5 p-4 sm:p-6">
               <p className="text-xs text-muted-foreground font-medium">AI Runs</p>
-              <span className="text-2xl font-bold text-foreground">{data.aiRuns}</span>
+              <span className="text-xl sm:text-2xl font-bold text-foreground">{data.aiRuns}</span>
               <p className="text-xs text-muted-foreground mt-1">Generierungen & Validierungen</p>
             </CardContent>
           </Card>
-          <Card className="glass-card">
-            <CardContent className="pt-5">
+          <Card className="glass-card sm:col-span-2 lg:col-span-1">
+            <CardContent className="pt-4 sm:pt-5 p-4 sm:p-6">
               <p className="text-xs text-muted-foreground font-medium">Ø Kosten / Run</p>
-              <span className="text-2xl font-bold text-foreground">
+              <span className="text-xl sm:text-2xl font-bold text-foreground">
                 €{data.aiRuns > 0 ? (data.aiCostMtd / data.aiRuns).toFixed(3) : '0.000'}
               </span>
               <p className="text-xs text-muted-foreground mt-1">pro AI-Aufruf</p>
@@ -216,11 +216,11 @@ export default function AdminDashboard() {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
           <Activity className="h-3.5 w-3.5" /> Technik & Jobs
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard icon={Clock} label="Jobs Pending" value={data.jobsPending} trend={data.jobsPending > 20 ? 'down' : 'up'} />
-          <KPICard icon={CheckCircle2} label="Jobs Completed" value={data.jobsCompleted} trend="up" />
-          <KPICard icon={XCircle} label="Jobs Failed" value={data.jobsFailed} trend={data.jobsFailed > 0 ? 'down' : 'up'} />
-          <KPICard icon={Heart} label="System Health" value={health.label} />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <KPICard icon={Clock} label="Pending" value={data.jobsPending} trend={data.jobsPending > 20 ? 'down' : 'up'} />
+          <KPICard icon={CheckCircle2} label="Completed" value={data.jobsCompleted} trend="up" />
+          <KPICard icon={XCircle} label="Failed" value={data.jobsFailed} trend={data.jobsFailed > 0 ? 'down' : 'up'} />
+          <KPICard icon={Heart} label="Health" value={health.label} />
         </div>
       </section>
 
@@ -233,20 +233,19 @@ export default function AdminDashboard() {
       {/* Risk Overview */}
       <RiskOverview />
 
-      {/* Quick Actions */}
       {/* Blocked Courses */}
       <BlockedCourses />
 
       {/* Quick Actions */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Quick Actions</h2>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <Button asChild size="sm"><Link to="/admin/council"><Brain className="h-4 w-4 mr-1" /> Council</Link></Button>
-          <Button asChild size="sm" variant="outline"><Link to="/admin/content/exports"><Download className="h-4 w-4 mr-1" /> Kurs-Exporte</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link to="/admin/content/exports"><Download className="h-4 w-4 mr-1" /> Exporte</Link></Button>
           <Button asChild size="sm" variant="outline"><Link to="/admin/content/workflows"><Zap className="h-4 w-4 mr-1" /> Workflows</Link></Button>
-          <Button asChild size="sm" variant="outline"><Link to="/admin/content/quality-gates"><Shield className="h-4 w-4 mr-1" /> Quality Gates</Link></Button>
-          <Button asChild size="sm" variant="outline"><Link to="/admin/system/jobs"><Activity className="h-4 w-4 mr-1" /> Job Queue</Link></Button>
-          <Button asChild size="sm" variant="outline"><Link to="/admin/council/quality"><BarChart3 className="h-4 w-4 mr-1" /> QC Reports</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link to="/admin/content/quality-gates"><Shield className="h-4 w-4 mr-1" /> Gates</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link to="/admin/system/jobs"><Activity className="h-4 w-4 mr-1" /> Jobs</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link to="/admin/council/quality"><BarChart3 className="h-4 w-4 mr-1" /> QC</Link></Button>
         </div>
       </section>
     </div>
@@ -447,25 +446,25 @@ function DecisionQueue() {
       <div className="space-y-3">
         {decisions.map((d: any) => (
           <Card key={d.id} className="glass-card">
-            <CardContent className="pt-4 flex items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="outline" className="text-xs">{d.council_id}</Badge>
-                  <span className="text-xs text-muted-foreground">Impact: {d.impact_score} · Risk: {d.risk_score}</span>
-                </div>
-                <p className="text-sm font-medium text-foreground truncate">{d.title}</p>
-                {d.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{d.description}</p>}
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <Button size="sm" variant="outline" onClick={() => handleDecide(d.id, 'approved')}>
-                  <CheckCircle2 className="h-3 w-3 mr-1" /> Genehmigen
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => handleDecide(d.id, 'dismissed')}>
-                  <XCircle className="h-3 w-3 mr-1" /> Ablehnen
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+450:             <CardContent className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+451:               <div className="flex-1 min-w-0">
+452:                 <div className="flex items-center gap-2 mb-1 flex-wrap">
+453:                   <Badge variant="outline" className="text-xs">{d.council_id}</Badge>
+454:                   <span className="text-xs text-muted-foreground">Impact: {d.impact_score} · Risk: {d.risk_score}</span>
+455:                 </div>
+456:                 <p className="text-sm font-medium text-foreground truncate">{d.title}</p>
+457:                 {d.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{d.description}</p>}
+458:               </div>
+459:               <div className="flex gap-2 shrink-0">
+460:                 <Button size="sm" variant="outline" onClick={() => handleDecide(d.id, 'approved')} className="text-xs">
+461:                   <CheckCircle2 className="h-3 w-3 mr-1" /> OK
+462:                 </Button>
+463:                 <Button size="sm" variant="ghost" onClick={() => handleDecide(d.id, 'dismissed')} className="text-xs">
+464:                   <XCircle className="h-3 w-3 mr-1" /> Nein
+465:                 </Button>
+466:               </div>
+467:             </CardContent>
+468:           </Card>
         ))}
       </div>
     </section>
@@ -596,8 +595,8 @@ function CouncilObservability() {
       <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
         <Brain className="h-3.5 w-3.5" /> Council Queue (7d)
       </h2>
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <KPICard icon={Clock} label="Pending Review" value={stats.pending} trend={stats.pending > 10 ? 'down' : 'up'} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <KPICard icon={Clock} label="Pending" value={stats.pending} trend={stats.pending > 10 ? 'down' : 'up'} />
         <KPICard icon={CheckCircle2} label="Approved" value={stats.approved} trend="up" />
         <KPICard icon={XCircle} label="Rejected" value={stats.rejected} trend={stats.rejected > 5 ? 'down' : 'up'} />
         <KPICard icon={AlertTriangle} label="Revise" value={stats.revise} />
@@ -625,15 +624,15 @@ function KPICard({ icon: Icon, label, value, trend }: {
 }) {
   return (
     <Card className="glass-card">
-      <CardContent className="pt-5">
+      <CardContent className="pt-4 sm:pt-5 p-3 sm:p-6">
         <div className="flex items-center justify-between mb-1">
           <Icon className="h-4 w-4 text-muted-foreground" />
           {trend && (
             <TrendingUp className={`h-3 w-3 ${trend === 'up' ? 'text-success' : 'text-destructive rotate-180'}`} />
           )}
         </div>
-        <span className="text-2xl font-bold text-foreground">{value}</span>
-        <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+        <span className="text-xl sm:text-2xl font-bold text-foreground">{value}</span>
+        <p className="text-xs text-muted-foreground mt-0.5 truncate">{label}</p>
       </CardContent>
     </Card>
   );

@@ -88,13 +88,13 @@ export default function CourseExportsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'done':
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30"><CheckCircle className="h-3 w-3 mr-1" /> Fertig</Badge>;
+        return <Badge className="bg-success/20 text-success border-success/30"><CheckCircle className="h-3 w-3 mr-1" /> Fertig</Badge>;
       case 'running':
-        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30"><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Läuft</Badge>;
+        return <Badge className="bg-info/20 text-info border-info/30"><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Läuft</Badge>;
       case 'failed':
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30"><XCircle className="h-3 w-3 mr-1" /> Fehler</Badge>;
+        return <Badge className="bg-destructive/20 text-destructive border-destructive/30"><XCircle className="h-3 w-3 mr-1" /> Fehler</Badge>;
       default:
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30"><Clock className="h-3 w-3 mr-1" /> Wartend</Badge>;
+        return <Badge className="bg-warning/20 text-warning border-warning/30"><Clock className="h-3 w-3 mr-1" /> Wartend</Badge>;
     }
   };
 
@@ -108,25 +108,25 @@ export default function CourseExportsPage() {
   const courseTitleMap = Object.fromEntries(courses.map(c => [c.id, c.title]));
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-3xl font-display font-bold text-foreground">Kurs-Exporte</h1>
-        <p className="text-muted-foreground mt-1">1-Klick Export für Qualitätskontrolle (JSON + TSV + TSX + Markdown)</p>
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">Kurs-Exporte</h1>
+        <p className="text-sm text-muted-foreground mt-1">1-Klick Export für QC (JSON + TSV + TSX + MD)</p>
       </div>
 
       {/* Export Action Card */}
       <Card className="glass-card border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Package className="h-5 w-5 text-primary" />
             Neuen Export erstellen
           </CardTitle>
-          <CardDescription>
-            Wähle einen Kurs und exportiere alle Inhalte als ZIP-Paket (JSON Snapshot, TSV Matrix, TSX Component, Markdown Review)
+          <CardDescription className="text-xs sm:text-sm">
+            Kurs als ZIP-Paket exportieren (JSON, TSV, TSX, Markdown)
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+          <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
             <Select value={selectedCourse} onValueChange={setSelectedCourse}>
               <SelectTrigger className="w-full sm:w-[400px]">
                 <SelectValue placeholder="Kurs auswählen..." />
@@ -143,7 +143,7 @@ export default function CourseExportsPage() {
             <Button
               onClick={startExport}
               disabled={!selectedCourse || exporting}
-              className="gradient-primary text-primary-foreground"
+              className="gradient-primary text-primary-foreground w-full sm:w-auto"
             >
               {exporting ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Exportiere...</>
@@ -152,56 +152,56 @@ export default function CourseExportsPage() {
               )}
             </Button>
           </div>
-          <div className="mt-4 text-sm text-muted-foreground space-y-1">
-            <p>📦 <strong>course.json</strong> – Vollständiger SSOT-Snapshot (Modules, Lessons, Steps, MiniChecks, Audit)</p>
-            <p>📊 <strong>course-matrix.tsv</strong> – QC-Matrix als Tab-separierte Datei (Excel-kompatibel)</p>
-            <p>⚛️ <strong>course-export.tsx</strong> – TypeScript-Komponente für Dev/Review</p>
-            <p>📝 <strong>course-review.md</strong> – Lesbares Markdown-Review-Dokument</p>
-            <p>🔍 <strong>quality-report.json</strong> – Letzter IHK-Qualitäts-Audit (wenn vorhanden)</p>
+          <div className="mt-4 text-xs sm:text-sm text-muted-foreground space-y-1 hidden sm:block">
+            <p>📦 <strong>course.json</strong> – SSOT-Snapshot</p>
+            <p>📊 <strong>course-matrix.tsv</strong> – QC-Matrix (Excel)</p>
+            <p>⚛️ <strong>course-export.tsx</strong> – TSX Component</p>
+            <p>📝 <strong>course-review.md</strong> – Review-Dokument</p>
+            <p>🔍 <strong>quality-report.json</strong> – Qualitäts-Audit</p>
           </div>
         </CardContent>
       </Card>
 
       {/* Export History */}
       <Card className="glass-card border-border/50">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between p-4 sm:p-6">
           <div>
-            <CardTitle>Export-Verlauf</CardTitle>
-            <CardDescription>Letzte 20 Exporte</CardDescription>
+            <CardTitle className="text-base sm:text-lg">Export-Verlauf</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Letzte 20 Exporte</CardDescription>
           </div>
           <Button variant="ghost" size="sm" onClick={fetchData}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : jobs.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Noch keine Exporte vorhanden</p>
+            <p className="text-center text-muted-foreground py-8 text-sm">Noch keine Exporte vorhanden</p>
           ) : (
             <div className="space-y-3">
               {jobs.map(job => (
-                <div key={job.id} className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-border/30">
-                  <div className="flex items-center gap-4 min-w-0">
-                    <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <div key={job.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-xl bg-muted/20 border border-border/30">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">
+                      <p className="font-medium text-xs sm:text-sm truncate">
                         {courseTitleMap[job.course_id] || job.course_id.substring(0, 8)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(job.created_at), 'dd. MMM yyyy, HH:mm', { locale: de })}
                         {job.file_size_bytes ? ` · ${formatBytes(job.file_size_bytes)}` : ''}
                       </p>
-                      {job.error && <p className="text-xs text-destructive mt-1">{job.error}</p>}
+                      {job.error && <p className="text-xs text-destructive mt-1 line-clamp-1">{job.error}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 ml-7 sm:ml-0">
                     {getStatusBadge(job.status)}
                     {job.status === 'done' && job.output_path && (
-                      <Button variant="outline" size="sm" onClick={() => downloadExport(job)}>
-                        <Download className="h-3.5 w-3.5 mr-1" /> Download
+                      <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => downloadExport(job)}>
+                        <Download className="h-3 w-3 mr-1" /> Download
                       </Button>
                     )}
                   </div>

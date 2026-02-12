@@ -353,6 +353,15 @@
     scroll-snap-type: y mandatory;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Hide scrollbar but keep scroll */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Capacitor/Native specific styles */
