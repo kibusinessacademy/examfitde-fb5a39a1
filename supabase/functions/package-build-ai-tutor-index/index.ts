@@ -55,51 +55,71 @@ Deno.serve(async (req) => {
       p_log: { note: "Creating SSOT-bound tutor policy + index stats" },
     });
 
-    // Policy version bump
-    const { data: existing, error: exErr } = await sb
+    // Idempotent: check if already done for this package
+    const { data: existingIdx } = await sb
+      .from("ai_tutor_context_index").select("id")
+      .eq("package_id", packageId).maybeSingle();
+
+    if (existingIdx) {
+      console.log("ai_tutor_context_index already exists for package, skipping insert");
+    }
+
+    // Policy: find or create for this curriculum
+    const { data: existing } = await sb
       .from("ai_tutor_policies").select("id, version")
       .eq("curriculum_id", curriculumId)
       .order("version", { ascending: false }).limit(1).maybeSingle();
-    if (exErr) throw exErr;
 
-    const nextVersion = existing?.version ? existing.version + 1 : 1;
+    let policyVersion = existing?.version || 0;
 
-    const policy = {
-      forbid_invention: true,
-      require_reference: true,
-      allowed_sources: ["curriculum_topics", "lessons", "question_blueprints", "exam_sessions", "oral_exam_sessionsets"],
-      modes: ["explainer", "coach", "examiner", "feedback"],
-      binding_rule: "each answer must map to competency OR lesson OR exam_session",
-    };
+    // Only create policy if none exists yet
+    if (!existing) {
+      policyVersion = 1;
+      const policy = {
+        forbid_invention: true,
+        require_reference: true,
+        allowed_sources: ["curriculum_topics", "lessons", "question_blueprints", "exam_sessions", "oral_exam_sessionsets"],
+        modes: ["explainer", "coach", "examiner", "feedback"],
+        binding_rule: "each answer must map to competency OR lesson OR exam_session",
+      };
+      const { error: polErr } = await sb.from("ai_tutor_policies").insert({
+        curriculum_id: curriculumId, policy, version: policyVersion,
+      });
+      if (polErr) {
+        console.error("Policy insert error:", JSON.stringify(polErr));
+        throw new Error(`Policy insert failed: ${polErr.message || JSON.stringify(polErr)}`);
+      }
+    }
 
-    const { error: polErr } = await sb.from("ai_tutor_policies").insert({
-      curriculum_id: curriculumId, policy, version: nextVersion,
-    });
-    if (polErr) throw polErr;
-
-    const { count: lessonCount, error: lErr } = await sb
+    // Counts
+    const { count: lessonCount } = await sb
       .from("lessons").select("id", { count: "exact", head: true }).eq("course_id", courseId);
-    if (lErr) throw lErr;
 
-    const { count: topicCount, error: tErr } = await sb
+    const { count: topicCount } = await sb
       .from("curriculum_topics").select("id", { count: "exact", head: true }).eq("certification_id", certificationId);
-    if (tErr) throw tErr;
 
-    const { error: idxErr } = await sb.from("ai_tutor_context_index").insert({
-      package_id: packageId, index_version: 1,
-      stats: { lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0, policyVersion: nextVersion },
-    });
-    if (idxErr) throw idxErr;
+    // Context index (idempotent)
+    if (!existingIdx) {
+      const { error: idxErr } = await sb.from("ai_tutor_context_index").insert({
+        package_id: packageId, index_version: 1,
+        stats: { lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0, policyVersion },
+      });
+      if (idxErr) {
+        console.error("Context index insert error:", JSON.stringify(idxErr));
+        throw new Error(`Context index insert failed: ${idxErr.message || JSON.stringify(idxErr)}`);
+      }
+    }
 
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "build_ai_tutor_index", p_status: "done",
-      p_log: { ok: true, policyVersion: nextVersion, lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0 },
+      p_log: { ok: true, policyVersion, lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0 },
     });
     await sb.from("course_packages").update({ build_progress: 80 }).eq("id", packageId);
 
     return json({ ok: true });
   } catch (e: unknown) {
-    const msg = (e as Error)?.message || String(e);
+    const msg = typeof e === "object" && e !== null && "message" in e ? (e as Error).message : JSON.stringify(e);
+    console.error("build_ai_tutor_index error:", msg);
     await unlockFail(msg);
     return json({ ok: false, error: msg }, 500);
   }

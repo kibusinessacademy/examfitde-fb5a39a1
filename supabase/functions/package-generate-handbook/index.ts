@@ -65,26 +65,25 @@ Deno.serve(async (req) => {
 
     const { data: chapter, error: chErr } = await sb
       .from("handbook_chapters")
-      .insert({ curriculum_id: curriculumId, title: "Handbuch: Prüfungsrelevante Themen", sort_order: 1 })
+      .insert({ curriculum_id: curriculumId, chapter_key: `pruefungsthemen-${curriculumId.slice(0,8)}`, title: "Handbuch: Prüfungsrelevante Themen", sort_order: 1 })
       .select("id").single();
     if (chErr) throw chErr;
 
-    const { data: topics, error: tpErr } = await sb
-      .from("curriculum_topics")
-      .select("topic_name, description, weight_percentage")
-      .eq("certification_id", certificationId)
-      .order("weight_percentage", { ascending: false }).limit(50);
-    if (tpErr) throw tpErr;
+    const { data: fields, error: lfErr } = await sb
+      .from("learning_fields")
+      .select("id, code, title, description, sort_order")
+      .eq("curriculum_id", curriculumId)
+      .order("sort_order", { ascending: true }).limit(50);
+    if (lfErr) throw new Error(`LF query: ${lfErr.message}`);
 
     let i = 1;
-    for (const t of (topics || []) as Array<{ topic_name: string; description: string | null; weight_percentage: number | null }>) {
+    for (const lf of (fields || []) as Array<{ id: string; code: string; title: string; description: string | null; sort_order: number }>) {
       await sb.from("handbook_sections").insert({
         chapter_id: chapter.id,
-        title: String(t.topic_name || "Thema"),
+        title: `${lf.code}: ${lf.title}`,
         content_md: [
-          `## ${t.topic_name || "Thema"}`, "",
-          t.description ? String(t.description) : "_Beschreibung folgt (Council/LLM)._", "",
-          `**Prüfungsgewichtung:** ${t.weight_percentage ?? 0}%`, "",
+          `## ${lf.code}: ${lf.title}`, "",
+          lf.description ? String(lf.description) : "_Beschreibung folgt (Council/LLM)._", "",
           "### Typische Prüfungsfallen",
           "_Wird durch Council + Blueprint-Analyse ergänzt._",
         ].join("\n"),
@@ -95,14 +94,14 @@ Deno.serve(async (req) => {
     await sb.from("course_package_outputs").upsert(
       {
         package_id: packageId, output_key: "handbook_status",
-        payload: { curriculumId, chapterId: chapter.id, sections: (topics || []).length, mode: "skeleton_ssot" },
+        payload: { curriculumId, chapterId: chapter.id, sections: (fields || []).length, mode: "skeleton_ssot" },
       },
       { onConflict: "package_id,output_key" }
     );
 
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "generate_handbook", p_status: "done",
-      p_log: { ok: true, sections: (topics || []).length },
+      p_log: { ok: true, sections: (fields || []).length },
     });
     await sb.from("course_packages").update({ build_progress: 88 }).eq("id", packageId);
 

@@ -5,7 +5,7 @@ import ActiveCourseBar from '@/components/admin/ActiveCourseBar';
 import {
   LayoutDashboard, BookOpen, LogOut, ChevronLeft, Menu,
   DollarSign, Activity, Brain, ChevronDown, Shield,
-  TrendingUp, Layers, Search
+  TrendingUp, Layers, Search, Radio
 } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -70,6 +70,7 @@ const navModules: NavItem[] = [
       { path: '/admin/scale/reporting', label: 'Reporting' },
     ],
   },
+  { path: '/admin/pipeline', label: 'Pipeline Monitor', icon: Radio },
 ];
 
 export default function AdminV4Layout() {
@@ -112,6 +113,7 @@ export default function AdminV4Layout() {
     health: 'Health', 'ai-workers': 'AI Workers', licenses: 'Lizenzen',
     exports: 'Exporte', nudges: 'Nudge Engine', feedback: 'Feedback',
     reporting: 'Reporting',
+    pipeline: 'Pipeline Monitor',
   };
 
   return (
