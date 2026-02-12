@@ -11631,6 +11631,33 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_course_package_council_approved: {
+        Args: { p_approved: boolean; p_package_id: string }
+        Returns: {
+          build_progress: number
+          certification_id: string | null
+          components: Json
+          council_approved: boolean
+          council_approved_at: string | null
+          council_approved_by: string | null
+          course_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          integrity_passed: boolean
+          integrity_report: Json | null
+          published_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "course_packages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_growth_action_cooldown: {
         Args: { p_action_id: string; p_days?: number }
         Returns: undefined
@@ -11680,6 +11707,35 @@ export type Database = {
       }
       table_exists: { Args: { p_table: string }; Returns: boolean }
       unaccent: { Args: { "": string }; Returns: string }
+      update_course_package_step: {
+        Args: {
+          p_log?: Json
+          p_package_id: string
+          p_status: string
+          p_step_key: string
+        }
+        Returns: {
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          log: Json | null
+          package_id: string
+          retry_count: number
+          sort_order: number
+          started_at: string | null
+          status: string
+          step_key: string
+          step_label: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "course_package_build_steps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       update_learning_streak: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: {
@@ -11729,6 +11785,33 @@ export type Database = {
           p_title: string
         }
         Returns: string
+      }
+      upsert_course_package: {
+        Args: { p_certification_id: string; p_course_id?: string }
+        Returns: {
+          build_progress: number
+          certification_id: string | null
+          components: Json
+          council_approved: boolean
+          council_approved_at: string | null
+          council_approved_by: string | null
+          course_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          integrity_passed: boolean
+          integrity_report: Json | null
+          published_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "course_packages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       upsert_qa_finding: {
         Args: {
