@@ -10,6 +10,7 @@ import {
   TrendingUp, AlertTriangle, Clock, UserX, Mail,
   Bell, MessageSquare, Tag, ArrowRight
 } from 'lucide-react';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -263,6 +264,30 @@ export default function GrowthPage() {
         <h1 className="text-xl font-bold text-foreground">Wachstum & CRM</h1>
         <p className="text-sm text-muted-foreground">Churn-Prävention, Nudge Engine, Feedback</p>
       </div>
+
+      <PageExplainer
+        title="Wie funktioniert Wachstum & CRM?"
+        description="Proaktive Kundenbindung und Wachstumssteuerung. Das Churn-Dashboard zeigt gefährdete Nutzer mit Risiko-Score und Signalen (Inaktivität, niedrige Abschlussrate). Die Nudge Engine sendet automatisierte Interventionen."
+        workflow={[
+          { label: 'Leitstelle' },
+          { label: 'Studio' },
+          { label: 'Quality' },
+          { label: 'Ops' },
+          { label: 'Business' },
+          { label: 'Growth', active: true },
+          { label: 'Scale' },
+        ]}
+        actions={[
+          '"Churn" – Risiko-Dashboard: Nutzer sortiert nach Abwanderungsrisiko (0–100%). Signale: Inaktivitätstage, Abschlussrate',
+          '"Nudge Engine" – Automatische Aktionen: E-Mail, In-App-Benachrichtigungen. Regeln: 3T inaktiv, Integrität <70%, Prüfung in 14T',
+          '"Feedback" – Support-Tickets und Nutzerfeedback zentral einsehen und bearbeiten',
+        ]}
+        tips={[
+          'Nutzer mit Score > 70% sind Hochrisiko und brauchen sofortige Intervention',
+          'Nudges durchlaufen den Status: proposed → approved → sent',
+          'Feedback-Tags helfen beim Erkennen wiederkehrender Probleme',
+        ]}
+      />
 
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border pb-px min-w-max">

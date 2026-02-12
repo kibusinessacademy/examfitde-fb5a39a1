@@ -8,6 +8,7 @@ import { Download, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 const FinanceDashboard = lazy(() => import('@/pages/admin/FinanceDashboard'));
 const EnterpriseSeatManagement = lazy(() => import('@/pages/admin/EnterpriseSeatManagement'));
@@ -101,6 +102,29 @@ export default function BusinessPage() {
         <h1 className="text-xl font-bold text-foreground">Finanzen & Geschäft</h1>
         <p className="text-sm text-muted-foreground">Umsatz, Lizenzen, Steuer-Exporte</p>
       </div>
+
+      <PageExplainer
+        title="Wie funktioniert Finanzen & Geschäft?"
+        description="Das kaufmännische Cockpit der Plattform. Hier siehst du Umsatzentwicklung, verwaltest Enterprise-Lizenzen und erstellst steuerlich konforme Exporte für den Steuerberater."
+        workflow={[
+          { label: 'Leitstelle' },
+          { label: 'Studio' },
+          { label: 'Quality' },
+          { label: 'Ops' },
+          { label: 'Business', active: true },
+          { label: 'Growth' },
+          { label: 'Scale' },
+        ]}
+        actions={[
+          '"Umsatz" – Revenue-Dashboard mit MRR, Bestellungen und Produktumsätzen',
+          '"Lizenzen" – Enterprise Seat Management: Seats zuweisen, Nutzung überwachen, Renewals tracken',
+          '"Steuer-Export" – CSV-Export (UTF-8, Semikolon, EUR-Format) aller Bestellungen für DATEV/Steuerberater',
+        ]}
+        tips={[
+          'Der CSV-Export enthält Netto/Brutto/Steuer aufgeschlüsselt pro Bestellung',
+          'Enterprise-Lizenzen haben Seat-Limits und Renewal-Daten',
+        ]}
+      />
 
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border pb-px min-w-max">

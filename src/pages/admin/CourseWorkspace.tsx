@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import BuildLiveLog from '@/components/admin/BuildLiveLog';
 import ProductModuleStatus from '@/components/admin/ProductModuleStatus';
 import CouncilTimeline from '@/components/admin/CouncilTimeline';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 /* ───── stepper config ───── */
 const PIPELINE_STEPS = [
@@ -355,6 +356,34 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
           <ArrowLeft className="h-4 w-4 mr-1" /> Kursliste
         </Button>
       </div>
+
+      <PageExplainer
+        title="Wie funktioniert der Course Workspace?"
+        description="Der zentrale Arbeitsplatz für ein einzelnes Kurspaket. Hier steuerst du den gesamten Produktions-Workflow: Von der Council-Freigabe über den 7-Step-Build bis zur Veröffentlichung. Drei Tabs geben dir verschiedene Perspektiven."
+        workflow={[
+          { label: 'Curriculum' },
+          { label: 'Council' },
+          { label: '7-Step Build', active: true },
+          { label: 'Integrity' },
+          { label: 'Publish' },
+        ]}
+        actions={[
+          '"Pipeline starten" – Ein Klick startet: Council → Build (7 Steps) → Quality Gate → Auto-Publish',
+          '"Build Pipeline" Tab – Visueller 7-Schritte-Stepper: Lernkurs, Exam, Oral, Tutor, Handbuch, QA, Publish',
+          '"Produktmodule" Tab – Status aller 6 Module (Learning, Exam, Oral, Tutor, Handbook) mit Counts und Health',
+          '"Council" Tab – Council-Diskussionen, Votes, Empfehlungen. Admin kann Approve/Reject überschreiben',
+          'Einzelne Steps können per "Retry" erneut ausgeführt werden bei Fehlern',
+          '"Abbrechen" – Stoppt die laufende Pipeline und setzt den Status zurück',
+          '"Force Unlock" – Hebt Sperren auf, falls ein Build hängen geblieben ist',
+          '"Reset" – Vollständiger Reset des Pakets (Doppelklick-Bestätigung)',
+        ]}
+        tips={[
+          'Der Health Score (0-100%) berechnet sich aus: Integrity (30%), Council (10%), Build-Fortschritt (40%), Fehlerfreiheit (20%)',
+          'Fehlerdiagnose: Jeder fehlgeschlagene Step zeigt Ursache + Lösungsvorschlag',
+          'Das Live Log zeigt Build-Ereignisse in Echtzeit im Terminal-Stil',
+          'Integrity Report zeigt Soll/Ist für Lektionen, Fragen, Szenarien, Kapitel',
+        ]}
+      />
 
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
