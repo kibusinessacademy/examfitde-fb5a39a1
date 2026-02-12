@@ -26,14 +26,12 @@ Deno.serve(async (req) => {
   try {
     assertUuid("package_id", p?.package_id);
     assertUuid("curriculum_id", p?.curriculum_id);
-    assertUuid("certification_id", p?.certification_id);
   } catch (e: unknown) {
     return json({ error: (e as Error).message }, 400);
   }
 
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
-  const certificationId = p.certification_id;
 
   const unlockFail = async (msg: string) => {
     await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
@@ -50,25 +48,10 @@ Deno.serve(async (req) => {
 
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "generate_handbook", p_status: "running",
-      p_log: { note: "Creating SSOT handbook skeleton from curriculum_topics (no invention)" },
+      p_log: { note: "Creating SSOT handbook skeleton from learning_fields" },
     });
 
-    // Delete existing handbook for this curriculum (idempotent rebuild)
-    const { data: existingChapters } = await sb
-      .from("handbook_chapters").select("id").eq("curriculum_id", curriculumId);
-
-    if (existingChapters?.length) {
-      const chapterIds = existingChapters.map((x: { id: string }) => x.id);
-      await sb.from("handbook_sections").delete().in("chapter_id", chapterIds);
-      await sb.from("handbook_chapters").delete().eq("curriculum_id", curriculumId);
-    }
-
-    const { data: chapter, error: chErr } = await sb
-      .from("handbook_chapters")
-      .insert({ curriculum_id: curriculumId, chapter_key: `pruefungsthemen-${curriculumId.slice(0,8)}`, title: "Handbuch: Prüfungsrelevante Themen", sort_order: 1 })
-      .select("id").single();
-    if (chErr) throw chErr;
-
+    // Step 1: Load learning fields
     const { data: fields, error: lfErr } = await sb
       .from("learning_fields")
       .select("id, code, title, description, sort_order")
@@ -76,38 +59,122 @@ Deno.serve(async (req) => {
       .order("sort_order", { ascending: true }).limit(50);
     if (lfErr) throw new Error(`LF query: ${lfErr.message}`);
 
-    let i = 1;
-    for (const lf of (fields || []) as Array<{ id: string; code: string; title: string; description: string | null; sort_order: number }>) {
-      await sb.from("handbook_sections").insert({
-        chapter_id: chapter.id,
-        title: `${lf.code}: ${lf.title}`,
-        content_md: [
-          `## ${lf.code}: ${lf.title}`, "",
-          lf.description ? String(lf.description) : "_Beschreibung folgt (Council/LLM)._", "",
-          "### Typische Prüfungsfallen",
-          "_Wird durch Council + Blueprint-Analyse ergänzt._",
-        ].join("\n"),
-        sort_order: i++,
+    if (!fields || fields.length === 0) {
+      throw new Error(`No learning_fields found for curriculum ${curriculumId} – cannot generate handbook`);
+    }
+
+    console.log(`[Handbook] Found ${fields.length} learning fields for curriculum ${curriculumId}`);
+
+    // Step 2: Delete existing handbook for this curriculum (idempotent rebuild)
+    const { data: existingChapters } = await sb
+      .from("handbook_chapters").select("id").eq("curriculum_id", curriculumId);
+
+    if (existingChapters?.length) {
+      const chapterIds = existingChapters.map((x: { id: string }) => x.id);
+      // Delete sections first (FK constraint)
+      const { error: delSecErr } = await sb.from("handbook_sections").delete().in("chapter_id", chapterIds);
+      if (delSecErr) console.error(`[Handbook] Section delete warning: ${delSecErr.message}`);
+      const { error: delChErr } = await sb.from("handbook_chapters").delete().eq("curriculum_id", curriculumId);
+      if (delChErr) console.error(`[Handbook] Chapter delete warning: ${delChErr.message}`);
+    }
+
+    // Step 3: Create chapters (one per ~4 learning fields for better structure)
+    const chaptersToCreate = [];
+    const chapterSize = 4;
+    for (let i = 0; i < fields.length; i += chapterSize) {
+      const chunk = fields.slice(i, i + chapterSize);
+      const chapterNum = Math.floor(i / chapterSize) + 1;
+      const firstCode = (chunk[0] as any).code;
+      const lastCode = (chunk[chunk.length - 1] as any).code;
+      chaptersToCreate.push({
+        curriculum_id: curriculumId,
+        chapter_key: `handbuch-${curriculumId.slice(0, 8)}-kap${chapterNum}`,
+        title: `Kapitel ${chapterNum}: ${firstCode}–${lastCode} Prüfungsrelevante Themen`,
+        sort_order: chapterNum,
       });
     }
 
+    const { data: chapters, error: chErr } = await sb
+      .from("handbook_chapters")
+      .insert(chaptersToCreate)
+      .select("id, sort_order");
+    if (chErr) throw new Error(`Chapter insert: ${chErr.message}`);
+    if (!chapters || chapters.length === 0) {
+      throw new Error("handbook_chapters: 0 rows inserted – aborting");
+    }
+
+    console.log(`[Handbook] Created ${chapters.length} chapters`);
+
+    // Step 4: Create sections for each learning field
+    const sectionRows: Array<Record<string, unknown>> = [];
+    let sectionOrder = 1;
+
+    for (let i = 0; i < fields.length; i++) {
+      const lf = fields[i] as { id: string; code: string; title: string; description: string | null; sort_order: number };
+      const chapterIdx = Math.floor(i / chapterSize);
+      const chapter = chapters.find((c: { sort_order: number }) => c.sort_order === chapterIdx + 1);
+      if (!chapter) continue;
+
+      sectionRows.push({
+        chapter_id: chapter.id,
+        section_key: `lf-${lf.code.toLowerCase().replace(/\s+/g, '-')}-${curriculumId.slice(0, 8)}`,
+        title: `${lf.code}: ${lf.title}`,
+        content_markdown: [
+          `## ${lf.code}: ${lf.title}`, "",
+          lf.description ? String(lf.description) : "_Beschreibung folgt (Council/LLM)._", "",
+          "### Kernthemen",
+          "- _Wird durch Council + Curriculum-Analyse ergänzt._", "",
+          "### Typische Prüfungsfallen",
+          "- _Wird durch Council + Blueprint-Analyse ergänzt._", "",
+          "### Praxisbeispiele",
+          "- _Wird durch Council ergänzt._",
+        ].join("\n"),
+        content_type: "text",
+        sort_order: sectionOrder++,
+      });
+    }
+
+    if (sectionRows.length === 0) {
+      throw new Error("handbook_sections: 0 sections prepared – aborting (learning_fields/chapter mapping failed)");
+    }
+
+    // Batch insert sections
+    const { data: insertedSections, error: secErr } = await sb
+      .from("handbook_sections")
+      .insert(sectionRows)
+      .select("id");
+
+    if (secErr) throw new Error(`handbook_sections insert: ${secErr.message}`);
+    if (!insertedSections || insertedSections.length === 0) {
+      throw new Error("handbook_sections: 0 rows inserted despite prepared data – DB write failed");
+    }
+
+    console.log(`[Handbook] Created ${insertedSections.length} sections across ${chapters.length} chapters`);
+
+    // Step 5: Record output
     await sb.from("course_package_outputs").upsert(
       {
         package_id: packageId, output_key: "handbook_status",
-        payload: { curriculumId, chapterId: chapter.id, sections: (fields || []).length, mode: "skeleton_ssot" },
+        payload: {
+          curriculumId,
+          chapters: chapters.length,
+          sections: insertedSections.length,
+          mode: "skeleton_ssot",
+        },
       },
       { onConflict: "package_id,output_key" }
     );
 
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "generate_handbook", p_status: "done",
-      p_log: { ok: true, sections: (fields || []).length },
+      p_log: { ok: true, chapters: chapters.length, sections: insertedSections.length },
     });
     await sb.from("course_packages").update({ build_progress: 88 }).eq("id", packageId);
 
-    return json({ ok: true });
+    return json({ ok: true, chapters: chapters.length, sections: insertedSections.length });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
+    console.error(`[Handbook] Error: ${msg}`);
     await unlockFail(msg);
     return json({ ok: false, error: msg }, 500);
   }
