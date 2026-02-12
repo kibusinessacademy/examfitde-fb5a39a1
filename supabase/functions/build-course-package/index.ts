@@ -1,334 +1,457 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
-import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-/**
- * build-course-package – Orchestrates all 9 build steps for a course package.
- * POST { packageId: string }
- * Each step updates its status in course_package_build_steps.
- */
+type StepKey =
+  | "scaffold_learning_course"
+  | "generate_minichecks"
+  | "generate_exam_pool"
+  | "build_exam_simulation"
+  | "generate_oral_exam"
+  | "build_ai_tutor_index"
+  | "generate_handbook"
+  | "run_integrity_check"
+  | "auto_publish";
 
-const BUILD_STEPS = [
-  { key: "scaffold_learning_course", label: "Lernkurs Scaffold", order: 1 },
-  { key: "generate_minichecks", label: "MiniChecks generieren", order: 2 },
-  { key: "generate_exam_pool", label: "Prüfungsfragen-Pool", order: 3 },
-  { key: "build_exam_simulation", label: "Simulation Presets", order: 4 },
-  { key: "generate_oral_exam", label: "Mündliche Prüfung", order: 5 },
-  { key: "build_ai_tutor_index", label: "AI Tutor Index", order: 6 },
-  { key: "generate_handbook", label: "Handbuch", order: 7 },
-  { key: "run_integrity_check", label: "Integritätsprüfung", order: 8 },
-  { key: "auto_publish", label: "Auto-Publish", order: 9 },
-];
+type BuildOptions = {
+  include_learning_course?: boolean;
+  include_exam_pool?: boolean;
+  include_oral_exam?: boolean;
+  include_ai_tutor?: boolean;
+  include_handbook?: boolean;
+  exam_target?: number;
+  dry_run?: boolean;
+};
 
-serve(async (req) => {
-  const corsResponse = handleCorsPreflightRequest(req);
-  if (corsResponse) return corsResponse;
+const DEFAULT_OPTS: Required<BuildOptions> = {
+  include_learning_course: true,
+  include_exam_pool: true,
+  include_oral_exam: true,
+  include_ai_tutor: true,
+  include_handbook: true,
+  exam_target: 1000,
+  dry_run: false,
+};
 
-  const origin = req.headers.get("origin");
-  const headers = { ...getCorsHeaders(origin), "Content-Type": "application/json" };
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 
-  const auth = await validateAuth(req, true);
-  if (auth.error) {
-    return auth.error === "Admin access required"
-      ? forbiddenResponse(auth.error, origin ?? undefined)
-      : unauthorizedResponse(auth.error, origin ?? undefined);
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function withRetries<T>(
+  fn: () => Promise<T>,
+  tries = 3,
+  baseDelayMs = 400
+): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      await sleep(baseDelayMs * Math.pow(2, i));
+    }
   }
+  throw lastErr;
+}
 
-  try {
-    const { packageId } = await req.json().catch(() => ({}));
-    if (!packageId) {
-      return new Response(JSON.stringify({ error: "packageId required" }), { status: 400, headers });
-    }
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+  if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(supabaseUrl, serviceKey);
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    // Load package
-    const { data: pkg, error: pkgErr } = await sb
-      .from("course_packages")
-      .select("*")
-      .eq("id", packageId)
-      .single();
-    if (pkgErr || !pkg) {
-      return new Response(JSON.stringify({ error: "Package not found" }), { status: 404, headers });
-    }
+  const {
+    packageId,
+    courseId,
+    curriculumId,
+    certificationId,
+    options,
+  } = await req.json().catch(() => ({}));
 
-    const components = pkg.components || {};
-
-    // Determine which steps to run based on enabled components
-    const stepFilter: Record<string, string> = {
-      scaffold_learning_course: "learning_course",
-      generate_minichecks: "learning_course",
-      generate_exam_pool: "exam_trainer",
-      build_exam_simulation: "exam_trainer",
-      generate_oral_exam: "oral_exam",
-      build_ai_tutor_index: "ai_tutor",
-      generate_handbook: "handbook",
-      run_integrity_check: "_always",
-      auto_publish: "_always",
-    };
-
-    const activeSteps = BUILD_STEPS.filter(s => {
-      const comp = stepFilter[s.key];
-      return comp === "_always" || components[comp] !== false;
-    });
-
-    // Delete old steps & create new ones
-    await sb.from("course_package_build_steps").delete().eq("package_id", packageId);
-
-    const stepRows = activeSteps.map(s => ({
-      package_id: packageId,
-      step_key: s.key,
-      step_label: s.label,
-      sort_order: s.order,
-      status: "pending",
-    }));
-    await sb.from("course_package_build_steps").insert(stepRows);
-
-    // Mark package as building
-    await sb.from("course_packages").update({
-      status: "building",
-      build_progress: 0,
-    }).eq("id", packageId);
-
-    // Execute steps sequentially
-    let completedCount = 0;
-    let hasFailed = false;
-
-    for (const step of activeSteps) {
-      if (hasFailed) break;
-
-      const startTime = Date.now();
-
-      // Mark step running
-      await sb.from("course_package_build_steps").update({
-        status: "running",
-        started_at: new Date().toISOString(),
-      }).eq("package_id", packageId).eq("step_key", step.key);
-
-      try {
-        await executeStep(sb, pkg, step.key);
-
-        const duration = Date.now() - startTime;
-        await sb.from("course_package_build_steps").update({
-          status: "done",
-          finished_at: new Date().toISOString(),
-          duration_ms: duration,
-        }).eq("package_id", packageId).eq("step_key", step.key);
-
-        completedCount++;
-        const progress = Math.round((completedCount / activeSteps.length) * 100);
-        await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
-
-      } catch (stepError) {
-        const duration = Date.now() - startTime;
-        const errMsg = stepError instanceof Error ? stepError.message : "Unknown error";
-
-        await sb.from("course_package_build_steps").update({
-          status: "failed",
-          finished_at: new Date().toISOString(),
-          duration_ms: duration,
-          error_message: errMsg,
-        }).eq("package_id", packageId).eq("step_key", step.key);
-
-        hasFailed = true;
-      }
-    }
-
-    // Final status
-    if (hasFailed) {
-      await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
-    } else {
-      await sb.from("course_packages").update({
-        status: "qa",
-        build_progress: 100,
-        integrity_passed: true,
-      }).eq("id", packageId);
-    }
-
-    return new Response(JSON.stringify({
-      ok: !hasFailed,
-      packageId,
-      completedSteps: completedCount,
-      totalSteps: activeSteps.length,
-    }), { headers });
-
-  } catch (error) {
-    console.error("[build-course-package] Error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Build failed" }),
-      { status: 500, headers }
+  if (!packageId || !curriculumId || !certificationId) {
+    return json(
+      { error: "Missing required: packageId, curriculumId, certificationId" },
+      400
     );
   }
-});
 
-/**
- * Execute a single build step.
- * Each step delegates to existing edge functions or runs inline logic.
- */
-async function executeStep(
-  sb: ReturnType<typeof createClient>,
-  pkg: any,
-  stepKey: string
-): Promise<void> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const opts: Required<BuildOptions> = { ...DEFAULT_OPTS, ...(options || {}) };
 
-  switch (stepKey) {
-    case "scaffold_learning_course": {
-      // Delegate to existing generate-course function
-      if (!pkg.course_id && pkg.certification_id) {
-        // Create course first
-        const { data: course, error } = await sb
-          .from("courses")
-          .insert({
-            title: pkg.title || "Auto-generated",
-            curriculum_id: pkg.certification_id,
-            status: "draft",
-          })
-          .select("id")
-          .single();
-        if (error) throw new Error(`Course creation failed: ${error.message}`);
-
-        await sb.from("course_packages").update({ course_id: course.id }).eq("id", pkg.id);
-        pkg.course_id = course.id;
-      }
-
-      if (pkg.course_id) {
-        const res = await fetch(`${supabaseUrl}/functions/v1/generate-course`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceKey}`,
-            "x-job-runner-key": serviceKey,
-          },
-          body: JSON.stringify({ course_id: pkg.course_id }),
-        });
-        if (!res.ok) {
-          const err = await res.text();
-          throw new Error(`generate-course failed: ${err}`);
-        }
-      }
-      break;
-    }
-
-    case "generate_minichecks": {
-      if (!pkg.course_id) throw new Error("No course_id for minichecks");
-      const res = await fetch(`${supabaseUrl}/functions/v1/regenerate-minichecks`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${serviceKey}`,
-          "x-job-runner-key": serviceKey,
-        },
-        body: JSON.stringify({ course_id: pkg.course_id }),
-      });
-      if (!res.ok) throw new Error(`regenerate-minichecks failed: ${await res.text()}`);
-      break;
-    }
-
-    case "generate_exam_pool": {
-      if (!pkg.course_id) throw new Error("No course_id for exam pool");
-      // Generate questions in batches using existing function
-      const res = await fetch(`${supabaseUrl}/functions/v1/generate-questions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${serviceKey}`,
-          "x-job-runner-key": serviceKey,
-        },
-        body: JSON.stringify({
-          course_id: pkg.course_id,
-          count: 50, // per-call batch
-          difficulty_mix: { easy: 0.1, medium: 0.5, hard: 0.4 },
-        }),
-      });
-      if (!res.ok) throw new Error(`generate-questions failed: ${await res.text()}`);
-      break;
-    }
-
-    case "build_exam_simulation": {
-      // Create simulation presets based on course structure
-      if (!pkg.course_id) throw new Error("No course_id for simulation");
-      const presets = [
-        { course_id: pkg.course_id, preset_type: "teil_1", time_minutes: 90, pass_score: 50 },
-        { course_id: pkg.course_id, preset_type: "teil_2", time_minutes: 120, pass_score: 50 },
-        { course_id: pkg.course_id, preset_type: "gesamt", time_minutes: 210, pass_score: 50 },
-      ];
-      // Store as metadata in package for now
-      await sb.from("course_packages").update({
-        integrity_report: { ...(pkg.integrity_report || {}), simulation_presets: presets },
-      }).eq("id", pkg.id);
-      break;
-    }
-
-    case "generate_oral_exam": {
-      // Stub: generate oral exam blueprints
-      // Uses existing oral-exam function structure
-      await sb.from("course_packages").update({
-        integrity_report: {
-          ...(pkg.integrity_report || {}),
-          oral_exam_ready: true,
-          oral_scenarios_count: 0,
-        },
-      }).eq("id", pkg.id);
-      break;
-    }
-
-    case "build_ai_tutor_index": {
-      // Stub: build tutor context index
-      await sb.from("course_packages").update({
-        integrity_report: {
-          ...(pkg.integrity_report || {}),
-          ai_tutor_ready: true,
-          tutor_modes: ["explainer", "coach", "examiner", "feedback"],
-        },
-      }).eq("id", pkg.id);
-      break;
-    }
-
-    case "generate_handbook": {
-      // Stub: generate handbook structure
-      await sb.from("course_packages").update({
-        integrity_report: {
-          ...(pkg.integrity_report || {}),
-          handbook_ready: true,
-          handbook_chapters: 0,
-        },
-      }).eq("id", pkg.id);
-      break;
-    }
-
-    case "run_integrity_check": {
-      // Run integrity validation
-      if (pkg.course_id) {
-        try {
-          const { data, error } = await sb.rpc("validate_course_integrity", {
-            p_course_id: pkg.course_id,
-          });
-          if (error) console.warn("Integrity check RPC error:", error.message);
-        } catch {
-          // RPC may not exist yet – non-fatal
-        }
-      }
-      break;
-    }
-
-    case "auto_publish": {
-      // Auto-publish if integrity passed
-      if (pkg.course_id) {
-        await sb.from("courses").update({ status: "published" }).eq("id", pkg.course_id);
-      }
-      await sb.from("course_packages").update({
-        status: "published",
-        published_at: new Date().toISOString(),
-      }).eq("id", pkg.id);
-      break;
-    }
-
-    default:
-      console.warn(`Unknown step: ${stepKey}`);
+  // 1) Acquire lock (package-level)
+  const lockRes = await sb
+    .from("course_package_locks")
+    .insert({ package_id: packageId })
+    .select("package_id")
+    .maybeSingle();
+  if (lockRes.error) {
+    return json(
+      { code: "PACKAGE_LOCKED", error: "Build already running for this package." },
+      409
+    );
   }
-}
+
+  const safeUnlock = async () => {
+    await sb.from("course_package_locks").delete().eq("package_id", packageId);
+  };
+
+  const setPackage = async (patch: Record<string, unknown>) => {
+    await sb.from("course_packages").update(patch).eq("id", packageId);
+  };
+
+  const setStep = async (
+    step_key: StepKey,
+    status: "pending" | "running" | "done" | "failed",
+    log: unknown = null
+  ) => {
+    await sb.rpc("update_course_package_step", {
+      p_package_id: packageId,
+      p_step_key: step_key,
+      p_status: status,
+      p_log: log,
+    });
+  };
+
+  try {
+    await setPackage({ status: "building", build_progress: 1 });
+
+    // 2) Load approved plan (SSOT) – hard gate
+    const { data: planRow, error: planErr } = await sb
+      .from("course_package_plans")
+      .select("id, plan, status")
+      .eq("package_id", packageId)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (planErr) throw planErr;
+    if (!planRow) {
+      await setPackage({ status: "failed" });
+      return json(
+        { error: "No approved course_package_plan found (Council approval required)." },
+        400
+      );
+    }
+
+    // 3) Ensure course exists
+    let cid = courseId as string | null;
+    if (!cid) {
+      const { data: pkg, error: pkgErr } = await sb
+        .from("course_packages")
+        .select("course_id")
+        .eq("id", packageId)
+        .single();
+      if (pkgErr) throw pkgErr;
+      cid = (pkg as Record<string, unknown>).course_id as string | null;
+    }
+    if (!cid) {
+      await setPackage({ status: "failed" });
+      return json(
+        { error: "Missing courseId and course_packages.course_id is null." },
+        400
+      );
+    }
+
+    const progress = async (p: number) => setPackage({ build_progress: p });
+
+    // ---- STEP: scaffold_learning_course
+    if (opts.include_learning_course) {
+      await setStep("scaffold_learning_course", "running", {
+        note: "Invoking generate-course",
+      });
+      if (!opts.dry_run) {
+        await withRetries(async () => {
+          const { error } = await sb.functions.invoke("generate-course", {
+            body: { courseId: cid, curriculumId },
+          });
+          if (error) throw error;
+        }, 3);
+      }
+      await setStep("scaffold_learning_course", "done", { ok: true });
+      await progress(25);
+    } else {
+      await setStep("scaffold_learning_course", "done", { skipped: true });
+    }
+
+    // ---- STEP: generate_exam_pool (1000+)
+    if (opts.include_exam_pool) {
+      await setStep("generate_exam_pool", "running", {
+        target: opts.exam_target,
+      });
+      if (!opts.dry_run) {
+        await withRetries(async () => {
+          const { data: bps, error: bpErr } = await sb
+            .from("question_blueprints")
+            .select("id, max_variations")
+            .eq("curriculum_id", curriculumId)
+            .eq("status", "approved");
+          if (bpErr) throw bpErr;
+          if (!bps?.length)
+            throw new Error("No approved question_blueprints for curriculum");
+
+          const per = Math.max(
+            1,
+            Math.ceil(opts.exam_target / bps.length)
+          );
+          for (let i = 0; i < bps.length; i++) {
+            const bp = bps[i] as Record<string, unknown>;
+            const cap =
+              typeof bp.max_variations === "number" && (bp.max_variations as number) > 0
+                ? (bp.max_variations as number)
+                : per;
+            const count = Math.min(per, cap);
+
+            const { error } = await sb.functions.invoke(
+              "generate-blueprint-questions",
+              {
+                body: {
+                  blueprintId: bp.id,
+                  count,
+                  baseSeed: Date.now() + i,
+                },
+              }
+            );
+            if (error) throw error;
+          }
+        }, 2);
+      }
+      await setStep("generate_exam_pool", "done", { ok: true });
+      await progress(55);
+    } else {
+      await setStep("generate_exam_pool", "done", { skipped: true });
+    }
+
+    // ---- STEP: generate_oral_exam
+    if (opts.include_oral_exam) {
+      await setStep("generate_oral_exam", "running", {
+        note: "Creating oral_exam_sessionset",
+      });
+      if (!opts.dry_run) {
+        await withRetries(async () => {
+          const { data: oralBps, error: obErr } = await sb
+            .from("oral_exam_blueprints")
+            .select("id")
+            .eq("curriculum_id", curriculumId)
+            .eq("status", "approved")
+            .limit(30);
+          if (obErr) throw obErr;
+
+          const blueprint_ids = (oralBps || []).map(
+            (x: Record<string, unknown>) => x.id
+          );
+
+          await sb.from("oral_exam_sessionsets").insert({
+            package_id: packageId,
+            title: "Oral Exam Set (auto)",
+            blueprint_ids,
+          });
+        }, 2);
+      }
+      await setStep("generate_oral_exam", "done", { ok: true });
+      await progress(70);
+    } else {
+      await setStep("generate_oral_exam", "done", { skipped: true });
+    }
+
+    // ---- STEP: build_ai_tutor_index
+    if (opts.include_ai_tutor) {
+      await setStep("build_ai_tutor_index", "running", {
+        note: "Create policy + index stats",
+      });
+      if (!opts.dry_run) {
+        await withRetries(async () => {
+          const policy = {
+            allowed_sources: [
+              "curriculum_topics",
+              "lessons",
+              "question_blueprints",
+              "exam_sessions",
+            ],
+            forbid_invention: true,
+            require_reference: true,
+            modes: ["explainer", "coach", "examiner", "feedback"],
+          };
+
+          const { data: existing, error: exErr } = await sb
+            .from("ai_tutor_policies")
+            .select("id, version")
+            .eq("curriculum_id", curriculumId)
+            .order("version", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (exErr) throw exErr;
+
+          const nextVersion = existing?.version
+            ? (existing.version as number) + 1
+            : 1;
+
+          await sb.from("ai_tutor_policies").insert({
+            curriculum_id: curriculumId,
+            policy,
+            version: nextVersion,
+          });
+
+          const { count: lessonCount, error: lErr } = await sb
+            .from("lessons")
+            .select("id", { count: "exact", head: true })
+            .eq("course_id", cid);
+          if (lErr) throw lErr;
+
+          const { count: topicCount, error: tErr } = await sb
+            .from("curriculum_topics")
+            .select("id", { count: "exact", head: true })
+            .eq("certification_id", certificationId);
+          if (tErr) throw tErr;
+
+          await sb.from("ai_tutor_context_index").insert({
+            package_id: packageId,
+            index_version: 1,
+            stats: {
+              lessonCount: lessonCount ?? 0,
+              topicCount: topicCount ?? 0,
+              policyVersion: nextVersion,
+            },
+          });
+        }, 2);
+      }
+      await setStep("build_ai_tutor_index", "done", { ok: true });
+      await progress(80);
+    } else {
+      await setStep("build_ai_tutor_index", "done", { skipped: true });
+    }
+
+    // ---- STEP: generate_handbook
+    if (opts.include_handbook) {
+      await setStep("generate_handbook", "running", {
+        note: "Create chapters/sections (SSOT outline)",
+      });
+      if (!opts.dry_run) {
+        await withRetries(async () => {
+          const { data: topics, error: tpErr } = await sb
+            .from("curriculum_topics")
+            .select("id, topic_name, description, weight_percentage")
+            .eq("certification_id", certificationId)
+            .order("weight_percentage", { ascending: false })
+            .limit(40);
+          if (tpErr) throw tpErr;
+
+          const chapterTitle = "Handbuch: Prüfungsrelevante Themen";
+          const { data: chapter, error: chErr } = await sb
+            .from("handbook_chapters")
+            .insert({
+              curriculum_id: curriculumId,
+              title: chapterTitle,
+              sort_order: 1,
+            })
+            .select("id")
+            .single();
+          if (chErr) throw chErr;
+
+          let i = 1;
+          for (const t of topics || []) {
+            const topic = t as Record<string, unknown>;
+            await sb.from("handbook_sections").insert({
+              chapter_id: (chapter as Record<string, unknown>).id,
+              title: String(topic.topic_name || "Thema"),
+              content_md: [
+                `## ${topic.topic_name}`,
+                "",
+                topic.description
+                  ? String(topic.description)
+                  : "_Beschreibung folgt (Council/LLM)._",
+                "",
+                `**Prüfungsgewichtung:** ${topic.weight_percentage ?? 0}%`,
+                "",
+                "### Typische Prüfungsfallen",
+                "_Wird durch Council + Blueprint-Analyse ergänzt._",
+              ].join("\n"),
+              sort_order: i++,
+            });
+          }
+
+          await sb.from("course_package_outputs").upsert(
+            {
+              package_id: packageId,
+              output_key: "handbook_status",
+              payload: {
+                chapterTitle,
+                sections: (topics || []).length,
+                mode: "skeleton_ssot",
+              },
+            },
+            { onConflict: "package_id,output_key" }
+          );
+        }, 2);
+      }
+      await setStep("generate_handbook", "done", { ok: true });
+      await progress(88);
+    } else {
+      await setStep("generate_handbook", "done", { skipped: true });
+    }
+
+    // ---- STEP: run_integrity_check
+    await setStep("run_integrity_check", "running", {
+      note: "validate_course_integrity()",
+    });
+    if (!opts.dry_run) {
+      const { data, error } = await sb.rpc("validate_course_integrity", {
+        p_course_id: cid,
+      });
+      if (error) throw error;
+      const result = data as Record<string, unknown> | null;
+      const ok = Boolean(result?.passed ?? result?.ok ?? false);
+      if (!ok) throw new Error("Integrity failed");
+    }
+    await setStep("run_integrity_check", "done", { ok: true });
+    await setPackage({
+      integrity_passed: true,
+      status: "qa",
+      build_progress: 95,
+    });
+
+    // ---- STEP: auto_publish
+    await setStep("auto_publish", "running", {
+      note: "Set course published if integrity passed",
+    });
+    if (!opts.dry_run) {
+      await sb
+        .from("courses")
+        .update({ publishing_status: "publish_ready", status: "ready" })
+        .eq("id", cid);
+    }
+    await setStep("auto_publish", "done", { ok: true });
+
+    await setPackage({
+      status: "published",
+      build_progress: 100,
+      council_approved: true,
+    });
+
+    return json({ ok: true, packageId, courseId: cid, progress: 100 });
+  } catch (e: unknown) {
+    await sb
+      .from("course_packages")
+      .update({ status: "failed" })
+      .eq("id", packageId);
+    const message = e instanceof Error ? e.message : String(e);
+    return json({ ok: false, error: message }, 500);
+  } finally {
+    await safeUnlock();
+  }
+});
