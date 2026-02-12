@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import QueueOverview from '@/components/admin/QueueOverview';
 import PageExplainer from '@/components/admin/PageExplainer';
 import SystemHealthScore from '@/components/admin/SystemHealthScore';
+import SeedingStatusPanel from '@/components/admin/SeedingStatusPanel';
 import RootCauseBox from '@/components/admin/RootCauseBox';
 import AutoHealLogPanel from '@/components/admin/AutoHealLogPanel';
 
@@ -274,6 +275,9 @@ export default function CommandPage() {
           })}
         </section>
       )}
+
+      {/* Phase 0: Seeding Gate */}
+      <SeedingStatusPanel />
 
       {/* Queue Overview */}
       <QueueOverview />

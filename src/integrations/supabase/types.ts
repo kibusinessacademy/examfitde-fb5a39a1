@@ -435,6 +435,13 @@ export type Database = {
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       ai_tutor_logs: {
@@ -2720,6 +2727,13 @@ export type Database = {
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       council_states: {
@@ -3215,6 +3229,13 @@ export type Database = {
             referencedRelation: "ops_blocked_packages"
             referencedColumns: ["package_id"]
           },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       course_package_locks: {
@@ -3243,6 +3264,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
         ]
@@ -3282,6 +3310,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
         ]
@@ -3327,6 +3362,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
         ]
@@ -7186,6 +7228,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
         ]
@@ -11056,17 +11105,32 @@ export type Database = {
           autofix_status: string | null
           autofix_stop_reason: string | null
           build_progress: number | null
-          created_at: string | null
-          failed_jobs: Json | null
-          failed_steps: Json | null
+          certification_id: string | null
+          competency_count: number | null
+          curriculum_status:
+            | Database["public"]["Enums"]["curriculum_status"]
+            | null
           integrity_passed: boolean | null
           integrity_report: Json | null
           integrity_score: number | null
+          learning_field_count: number | null
           package_id: string | null
+          queue_position: number | null
+          root_cause: string | null
+          seed_reasons: string[] | null
+          seed_status: string | null
           status: string | null
           title: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ops_cost_summary: {
         Row: {
@@ -11130,6 +11194,32 @@ export type Database = {
           status: string | null
         }
         Relationships: []
+      }
+      ops_seeding_summary: {
+        Row: {
+          certification_id: string | null
+          competency_count: number | null
+          curriculum_status:
+            | Database["public"]["Enums"]["curriculum_status"]
+            | null
+          curriculum_title: string | null
+          learning_field_count: number | null
+          lesson_count: number | null
+          package_id: string | null
+          package_status: string | null
+          package_title: string | null
+          seed_reasons: string[] | null
+          seed_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_certification_id_fkey"
+            columns: ["certification_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_exam_questions_approved: {
         Row: {
