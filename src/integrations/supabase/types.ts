@@ -833,6 +833,7 @@ export type Database = {
           notes: string | null
           policy_json: Json
           requires_approval: string[] | null
+          seeding_thresholds: Json | null
           severity_map: Json | null
           version: string
         }
@@ -848,6 +849,7 @@ export type Database = {
           notes?: string | null
           policy_json: Json
           requires_approval?: string[] | null
+          seeding_thresholds?: Json | null
           severity_map?: Json | null
           version: string
         }
@@ -863,6 +865,7 @@ export type Database = {
           notes?: string | null
           policy_json?: Json
           requires_approval?: string[] | null
+          seeding_thresholds?: Json | null
           severity_map?: Json | null
           version?: string
         }
@@ -11101,22 +11104,17 @@ export type Database = {
       }
       ops_blocked_packages: {
         Row: {
-          autofix_run_id: string | null
+          autofix_last_score: number | null
           autofix_status: string | null
-          autofix_stop_reason: string | null
+          block_reason: string | null
           build_progress: number | null
           certification_id: string | null
           competency_count: number | null
-          curriculum_status:
-            | Database["public"]["Enums"]["curriculum_status"]
-            | null
+          course_id: string | null
           integrity_passed: boolean | null
           integrity_report: Json | null
-          integrity_score: number | null
           learning_field_count: number | null
           package_id: string | null
-          queue_position: number | null
-          root_cause: string | null
           seed_reasons: string[] | null
           seed_status: string | null
           status: string | null
@@ -11128,6 +11126,13 @@ export type Database = {
             columns: ["certification_id"]
             isOneToOne: false
             referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
         ]

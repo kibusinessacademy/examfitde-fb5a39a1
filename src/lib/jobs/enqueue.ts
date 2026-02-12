@@ -151,6 +151,51 @@ export const PIPELINE_TEMPLATES = {
       { job_type: 'council_run_step' },
     ],
   },
+  'seed-first': {
+    label: 'Phase 0 → Build (Seed-First)',
+    description: 'Seeding prüfen & auffüllen, dann Build-Pipeline starten. Blockiert bei unvollständigem Curriculum.',
+    icon: 'Sprout',
+    jobs: [
+      { job_type: 'seed_learning_fields' },
+      { job_type: 'seed_competencies' },
+      { job_type: 'seed_recheck' },
+      { job_type: 'generate_course' },
+      { job_type: 'seed_exam_questions' },
+      { job_type: 'qc_worker_full' },
+      { job_type: 'course_finalize' },
+      { job_type: 'post_validation' },
+    ],
+  },
+  'seed-only': {
+    label: 'Seed Only (Curriculum auffüllen)',
+    description: 'Nur fehlende Lernfelder, Kompetenzen und Objectives seeden – kein Build.',
+    icon: 'Sprout',
+    jobs: [
+      { job_type: 'seed_learning_fields' },
+      { job_type: 'seed_competencies' },
+      { job_type: 'seed_recheck' },
+    ],
+  },
+  'full-pipeline': {
+    label: 'Full Pipeline (Seed → Build → QA → Publish)',
+    description: 'Kompletter End-to-End-Workflow: Phase 0 Seeding → Build → Integrity → Gap-Closure → Publish.',
+    icon: 'Rocket',
+    jobs: [
+      { job_type: 'seed_learning_fields' },
+      { job_type: 'seed_competencies' },
+      { job_type: 'seed_recheck' },
+      { job_type: 'extract_curriculum' },
+      { job_type: 'generate_course' },
+      { job_type: 'seed_exam_questions' },
+      { job_type: 'enrich_exam_solutions' },
+      { job_type: 'upgrade_minichecks_v1' },
+      { job_type: 'qc_worker_full' },
+      { job_type: 'course_finalize' },
+      { job_type: 'post_validation' },
+      { job_type: 'curriculum_smoke' },
+      { job_type: 'publish_product' },
+    ],
+  },
 } as const;
 
 export type PipelineTemplateKey = keyof typeof PIPELINE_TEMPLATES;
