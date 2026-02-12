@@ -2945,6 +2945,99 @@ export type Database = {
           },
         ]
       }
+      course_package_locks: {
+        Row: {
+          locked_at: string
+          package_id: string
+        }
+        Insert: {
+          locked_at?: string
+          package_id: string
+        }
+        Update: {
+          locked_at?: string
+          package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_package_outputs: {
+        Row: {
+          created_at: string
+          id: string
+          output_key: string
+          package_id: string
+          payload: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          output_key: string
+          package_id: string
+          payload?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          output_key?: string
+          package_id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_package_plans: {
+        Row: {
+          created_at: string
+          decided_by: Json
+          id: string
+          package_id: string
+          plan: Json
+          status: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          decided_by?: Json
+          id?: string
+          package_id: string
+          plan?: Json
+          status?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          decided_by?: Json
+          id?: string
+          package_id?: string
+          plan?: Json
+          status?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_packages: {
         Row: {
           build_progress: number
