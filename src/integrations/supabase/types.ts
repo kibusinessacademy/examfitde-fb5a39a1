@@ -11897,8 +11897,6 @@ export type Database = {
         Args: { p_action_id: string; p_days?: number }
         Returns: undefined
       }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       start_exam_session: {
         Args: { p_blueprint_id: string; p_mode?: string }
         Returns: string
@@ -11941,7 +11939,6 @@ export type Database = {
         Returns: Json
       }
       table_exists: { Args: { p_table: string }; Returns: boolean }
-      unaccent: { Args: { "": string }; Returns: string }
       update_course_package_step: {
         Args: {
           p_log?: Json
