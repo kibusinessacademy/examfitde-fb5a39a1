@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 type Curriculum = Tables<'curricula'>;
 type LearningField = Tables<'learning_fields'>;
@@ -322,6 +323,26 @@ export default function ExamTrainer() {
           Adaptive Prüfungsvorbereitung mit KI-generierten Fragen
         </p>
       </div>
+
+      <PageExplainer
+        title="Wie funktioniert der Prüfungstrainer?"
+        description="Der KI-Prüfungstrainer stellt dir Fragen aus dem offiziellen Fragenpool deines Berufs. Die Schwierigkeit passt sich automatisch an deine Leistung an – bist du auf einer Serie, wird es schwerer."
+        workflow={[
+          { label: 'Thema wählen', active: step === 'select' },
+          { label: 'Fragen beantworten', active: step === 'question' || step === 'feedback' },
+          { label: 'Ergebnis', active: step === 'results' },
+        ]}
+        actions={[
+          'Curriculum → Lernfeld → Kompetenz wählen, dann "Training starten"',
+          'Die Schwierigkeit passt sich automatisch an (Leicht → Mittel → Schwer)',
+          'Nach 5 Fragen siehst du dein Ergebnis mit Score und Streak',
+        ]}
+        tips={[
+          'Nur freigegebene Blueprint-Fragen werden verwendet – keine zufällig generierten',
+          'Die Streak-Anzeige (🔥) motiviert dich bei aufeinanderfolgend richtigen Antworten',
+          'Wenn du 3x hintereinander richtig bist, wird die Schwierigkeit automatisch erhöht',
+        ]}
+      />
 
       {/* Selection Step */}
       {step === 'select' && (

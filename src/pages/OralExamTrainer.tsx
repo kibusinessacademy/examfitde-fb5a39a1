@@ -36,6 +36,7 @@ import { useCheckEntitlement } from '@/hooks/useEntitlements';
 import { Paywall } from '@/components/shop/Paywall';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
 
@@ -366,6 +367,29 @@ export default function OralExamTrainer() {
           Trainiere für deine mündliche IHK-Abschlussprüfung mit KI-gestütztem Feedback
         </p>
       </div>
+
+      <PageExplainer
+        title="Wie funktioniert die mündliche Prüfung?"
+        description="Die KI simuliert einen IHK-Prüfer: Sie stellt dir Fragen per Sprachausgabe, du antwortest per Mikrofon oder Text. Danach bewertet die KI deine Antwort nach echten IHK-Kriterien."
+        workflow={[
+          { label: 'Curriculum wählen', active: phase === 'setup' },
+          { label: 'Frage hören', active: phase === 'question' },
+          { label: 'Antworten', active: phase === 'listening' },
+          { label: 'Bewertung', active: phase === 'evaluation' },
+          { label: 'Ergebnis', active: phase === 'results' },
+        ]}
+        actions={[
+          'Curriculum wählen, dann "Prüfung starten"',
+          'Frage wird automatisch vorgelesen – danach kannst du per Mikrofon oder Text antworten',
+          '3 Minuten Antwortzeit pro Frage',
+          'Nach jeder Antwort: KI-Bewertung mit Musterantwort und Nachfragen',
+        ]}
+        tips={[
+          'Nutze die Sprachaufnahme für eine realistische Simulation',
+          'Die KI bewertet nach Fachkompetenz, Ausdrucksfähigkeit und Strukturiertheit',
+          'Du kannst dir die Musterantwort nach der Bewertung anzeigen lassen',
+        ]}
+      />
 
       {phase !== 'setup' && phase !== 'results' && progress && (
         <div className="mb-6">

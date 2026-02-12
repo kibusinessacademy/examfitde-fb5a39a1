@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Shield, Clock, CreditCard, GraduationCap, LogOut, User, Menu, X, CheckCircle, Star } from 'lucide-react';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 export default function ShopPage() {
   const { user, signOut, loading } = useAuth();
@@ -157,6 +158,21 @@ export default function ShopPage() {
               Einmalzahlung, 12 Monate Zugang, alles inklusive.
             </p>
           </div>
+
+          <PageExplainer
+            title="Wie funktioniert der Shop?"
+            description="Wähle deinen Ausbildungsberuf und kaufe das Prüfungstraining als Einmalzahlung. Du erhältst sofort 12 Monate Zugang zu allen Modulen: Lernkurs, Prüfungstrainer, mündliche Prüfung, KI-Tutor und Handbuch."
+            actions={[
+              'Beruf auswählen → Passende Produktpakete werden angezeigt',
+              '"Jetzt kaufen" → Sichere Zahlung über Stripe, sofortiger Zugang',
+              'Ab 5 Lizenzen gibt es automatisch Mengenrabatt',
+            ]}
+            tips={[
+              'Einmalzahlung – kein Abo, keine versteckten Kosten',
+              'Alle Module sind im Bundle enthalten',
+              'Nach dem Kauf wirst du automatisch eingeloggt und kannst sofort lernen',
+            ]}
+          />
 
           {/* Trust Badges */}
           <div className="flex flex-wrap justify-center gap-6 mb-12">

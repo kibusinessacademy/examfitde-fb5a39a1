@@ -12,6 +12,7 @@ import { ModuleLessonList } from "@/components/course/ModuleLessonList";
 import { ContinueLearningCard } from "@/components/course/ContinueLearningCard";
 import { Paywall } from "@/components/shop/Paywall";
 import { Loader2, Clock, BookOpen, ArrowLeft, PlayCircle } from "lucide-react";
+import PageExplainer from "@/components/admin/PageExplainer";
 
 interface Course {
   id: string;
@@ -342,6 +343,28 @@ export default function CourseDetailPage() {
             )}
           </div>
         </div>
+
+        <PageExplainer
+          title="Wie ist dieser Kurs aufgebaut?"
+          description="Der Kurs ist in Module gegliedert, die jeweils mehrere Lektionen enthalten. Jede Lektion folgt dem 5-Schritte-Pfad: Einstieg (10 Min.) → Verstehen (25 Min.) → Anwenden (30 Min.) → Wiederholen (15 Min.) → Mini-Check (10 Min.). Dein Fortschritt wird pro Kompetenz gemessen."
+          workflow={[
+            { label: 'Einschreiben' },
+            { label: 'Module', active: true },
+            { label: 'Lektionen' },
+            { label: 'Mini-Checks' },
+            { label: 'Mastery' },
+          ]}
+          actions={[
+            '"Fortsetzen" / "Training starten" – Springt zur nächsten offenen Lektion',
+            'Modul aufklappen → Zeigt alle Lektionen mit Status (✓ gemeistert, ◐ teilweise, ○ offen)',
+            'Kompetenzraster → Zeigt deinen Mastery-Status pro Kompetenz',
+          ]}
+          tips={[
+            'Ab 80% im Mini-Check gilt ein Lernziel als gemeistert',
+            'Nicht gemeisterte Lernziele werden automatisch zur Wiederholung vorgeschlagen',
+            'Du kannst jederzeit zu früheren Lektionen zurückkehren',
+          ]}
+        />
 
         {/* Continue Learning Card for enrolled users with progress */}
         {isEnrolled && courseProgress && progressPercent > 0 && (

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LessonRecommendations } from '@/components/exam/LessonRecommendations';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 interface ExamSessionData {
   id: string;
@@ -137,6 +138,27 @@ export default function ExamResultsPage() {
           <p className="text-muted-foreground">{session.blueprint?.title}</p>
         </div>
       </div>
+
+      <PageExplainer
+        title="Was zeigt die Ergebnisseite?"
+        description="Hier siehst du deine komplette Prüfungsauswertung: Gesamtscore, Auswertung nach Schwierigkeit und Lernfeld, sowie eine detaillierte Fehleranalyse mit Erklärungen."
+        workflow={[
+          { label: 'Prüfung' },
+          { label: 'Auswertung', active: true },
+          { label: 'Schwächenplan' },
+          { label: 'Gezielt üben' },
+        ]}
+        actions={[
+          'Fehleranalyse → Zeigt jede falsch beantwortete Frage mit Erklärung',
+          'Schwächenplan → Empfiehlt Lernfelder, die du gezielt wiederholen solltest',
+          '"Neue Prüfung" → Starte eine weitere Simulation',
+        ]}
+        tips={[
+          'Lernfelder unter 50% werden als "Schwachstelle" markiert',
+          'Die Lektionsempfehlungen verlinken direkt zu passenden Lerneinheiten',
+          'Wiederhole die Prüfung nach dem Üben, um deinen Fortschritt zu sehen',
+        ]}
+      />
 
       {/* Main Result Card */}
       <Card className={cn(

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import PageExplainer from '@/components/admin/PageExplainer';
 import { de } from 'date-fns/locale';
 
 interface DiagnosticQuestion {
@@ -252,6 +253,24 @@ export default function DiagnosticTest() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <PageExplainer
+              title="Was passiert beim Diagnosetest?"
+              description="Der Test prüft stichprobenartig dein Wissen in verschiedenen Kompetenzen. Danach erstellt das System einen personalisierten Lernplan, der deine Schwächen priorisiert."
+              workflow={[
+                { label: 'Diagnose', active: true },
+                { label: 'Lernziele' },
+                { label: 'Lernplan' },
+                { label: 'Training' },
+              ]}
+              actions={[
+                '"Test starten" – Beantworte ~15 Fragen aus verschiedenen Kompetenzen',
+                'Nach dem Test: Prüfungsdatum und Lernzeit eingeben für optimalen Plan',
+              ]}
+              tips={[
+                'Es gibt kein Richtig oder Falsch – der Test dient nur zur Einschätzung',
+                'Je ehrlicher du antwortest, desto besser wird dein Lernplan',
+              ]}
+            />
             <div className="text-center text-muted-foreground">
               <p className="mb-4">
                 Dieser kurze Test hilft uns, deinen aktuellen Wissensstand einzuschätzen 
