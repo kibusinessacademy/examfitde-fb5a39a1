@@ -15,6 +15,7 @@ const QualityGatesPage = lazy(() => import('@/pages/admin/QualityGatesPage'));
 const MarketingCouncilPage = lazy(() => import('@/pages/admin/MarketingCouncilPage'));
 const AssessmentCouncilPage = lazy(() => import('@/pages/admin/AssessmentCouncilPage'));
 const TutorCouncilPage = lazy(() => import('@/pages/admin/TutorCouncilPage'));
+const CourseExportsPage = lazy(() => import('@/pages/admin/CourseExportsPage'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -29,6 +30,7 @@ const tabs = [
   { path: '/admin/content/health', label: 'Kurs-Health' },
   { path: '/admin/content/workflows', label: 'Workflows' },
   { path: '/admin/content/quality-gates', label: 'Quality Gates' },
+  { path: '/admin/content/exports', label: 'Exporte' },
   { path: '/admin/content/marketing', label: 'Marketing Council' },
   { path: '/admin/content/assessment', label: 'Assessment Council' },
   { path: '/admin/content/tutor', label: 'Tutor Council' },
@@ -75,6 +77,7 @@ export default function ContentPage() {
           <Route path="health" element={<CourseHealthPage />} />
           <Route path="workflows" element={<WorkflowStudioPage />} />
           <Route path="quality-gates" element={<QualityGatesPage />} />
+          <Route path="exports" element={<CourseExportsPage />} />
           <Route path="marketing" element={<MarketingCouncilPage />} />
           <Route path="assessment" element={<AssessmentCouncilPage />} />
           <Route path="tutor/*" element={<TutorCouncilPage />} />

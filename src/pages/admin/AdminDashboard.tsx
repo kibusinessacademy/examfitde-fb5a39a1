@@ -7,9 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Activity, AlertTriangle, ArrowUpRight, BarChart3, BookOpen,
-  Brain, CheckCircle2, DollarSign, GraduationCap, Heart,
-  Shield, TrendingUp, Users, Zap, XCircle, Clock
+  Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, BookOpen,
+  Brain, CheckCircle2, DollarSign, Download, GraduationCap, Heart,
+  ListChecks, Package, Shield, TrendingUp, Users, Zap, XCircle, Clock
 } from 'lucide-react';
 
 interface DashboardData {
@@ -146,6 +146,9 @@ export default function AdminDashboard() {
         </Badge>
       </div>
 
+      {/* ⬇ Next Admin Actions — what needs your attention */}
+      <NextAdminActions />
+
       {/* Business KPIs */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
@@ -239,6 +242,7 @@ export default function AdminDashboard() {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
           <Button asChild size="sm"><Link to="/admin/council"><Brain className="h-4 w-4 mr-1" /> Council</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link to="/admin/content/exports"><Download className="h-4 w-4 mr-1" /> Kurs-Exporte</Link></Button>
           <Button asChild size="sm" variant="outline"><Link to="/admin/content/workflows"><Zap className="h-4 w-4 mr-1" /> Workflows</Link></Button>
           <Button asChild size="sm" variant="outline"><Link to="/admin/content/quality-gates"><Shield className="h-4 w-4 mr-1" /> Quality Gates</Link></Button>
           <Button asChild size="sm" variant="outline"><Link to="/admin/system/jobs"><Activity className="h-4 w-4 mr-1" /> Job Queue</Link></Button>
@@ -246,6 +250,162 @@ export default function AdminDashboard() {
         </div>
       </section>
     </div>
+  );
+}
+
+function NextAdminActions() {
+  const [actions, setActions] = useState<Array<{
+    id: string; label: string; detail: string; link: string;
+    icon: React.ElementType; priority: 'high' | 'medium' | 'low';
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const items: typeof actions = [];
+
+        // 1. Courses needing attention (generating or draft with content)
+        const { data: ungatedCourses } = await supabase
+          .from('courses')
+          .select('id, title, status, is_ready_for_publish')
+          .in('status', ['generating', 'draft'])
+          .eq('is_ready_for_publish', false)
+          .limit(5);
+        (ungatedCourses || []).forEach(c => {
+          items.push({
+            id: `gate-${c.id}`,
+            label: c.status === 'generating' ? 'Generierung läuft' : 'Quality Gate prüfen',
+            detail: c.title || c.id.substring(0, 8),
+            link: '/admin/content/health',
+            icon: c.status === 'generating' ? Clock : Shield,
+            priority: 'medium',
+          });
+        });
+
+        // 2. Pending council reviews
+        const { count: pendingReviews } = await supabase
+          .from('content_versions')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'under_review');
+        if (pendingReviews && pendingReviews > 0) {
+          items.push({
+            id: 'council-reviews',
+            label: `${pendingReviews} Council Reviews offen`,
+            detail: 'Content-Versionen warten auf Freigabe',
+            link: '/admin/council',
+            icon: Brain,
+            priority: pendingReviews > 10 ? 'high' : 'medium',
+          });
+        }
+
+        // 3. Failed jobs
+        const { count: failedJobs } = await supabase
+          .from('job_queue')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'failed');
+        if (failedJobs && failedJobs > 0) {
+          items.push({
+            id: 'failed-jobs',
+            label: `${failedJobs} fehlgeschlagene Jobs`,
+            detail: 'Jobs benötigen Aufmerksamkeit',
+            link: '/admin/system/jobs',
+            icon: XCircle,
+            priority: failedJobs > 5 ? 'high' : 'medium',
+          });
+        }
+
+        // 4. Courses ready for export (published but no recent export)
+        const { data: publishedCourses } = await supabase
+          .from('courses')
+          .select('id, title')
+          .eq('status', 'published')
+          .limit(3);
+        if (publishedCourses && publishedCourses.length > 0) {
+          items.push({
+            id: 'export-ready',
+            label: `${publishedCourses.length} Kurse exportbereit`,
+            detail: 'QC-Export zur Überprüfung erstellen',
+            link: '/admin/content/exports',
+            icon: Package,
+            priority: 'low',
+          });
+        }
+
+        // Sort: high → medium → low
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        items.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+        setActions(items.slice(0, 8));
+      } catch (e) {
+        console.error('NextAdminActions load error:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  if (loading) return <Skeleton className="h-40 w-full" />;
+  if (actions.length === 0) {
+    return (
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+          <ListChecks className="h-3.5 w-3.5" /> Nächste Schritte
+        </h2>
+        <Card className="glass-card border-success/20 bg-success/5">
+          <CardContent className="py-4 flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-success" />
+            <p className="text-sm text-foreground font-medium">Alles erledigt – keine offenen Aufgaben.</p>
+          </CardContent>
+        </Card>
+      </section>
+    );
+  }
+
+  const priorityStyles = {
+    high: 'border-destructive/30 bg-destructive/5',
+    medium: 'border-warning/30 bg-warning/5',
+    low: 'border-border',
+  };
+  const badgeStyles = {
+    high: 'bg-destructive/20 text-destructive border-destructive/30',
+    medium: 'bg-warning/20 text-warning border-warning/30',
+    low: 'bg-muted text-muted-foreground',
+  };
+  const badgeLabels = { high: 'Dringend', medium: 'Offen', low: 'Optional' };
+
+  return (
+    <section>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+        <ListChecks className="h-3.5 w-3.5" /> Nächste Schritte ({actions.length})
+      </h2>
+      <div className="space-y-2">
+        {actions.map(a => {
+          const Icon = a.icon;
+          return (
+            <Link key={a.id} to={a.link} className="block">
+              <Card className={`${priorityStyles[a.priority]} hover:shadow-md transition-shadow`}>
+                <CardContent className="py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">{a.label}</p>
+                      <p className="text-xs text-muted-foreground truncate">{a.detail}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className={`text-xs ${badgeStyles[a.priority]}`}>
+                      {badgeLabels[a.priority]}
+                    </Badge>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
