@@ -11,6 +11,7 @@ import {
   AlertTriangle, Loader2, BarChart3, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 const CurriculumHealthDashboard = lazy(() => import('@/components/admin/CurriculumHealthDashboard'));
 
@@ -289,6 +290,31 @@ export default function ScalePage() {
         <h1 className="text-xl font-bold text-foreground">Skalierung – 300 Berufe</h1>
         <p className="text-sm text-muted-foreground">Status, Batch-Aktionen, Reporting</p>
       </div>
+
+      <PageExplainer
+        title="Wie funktioniert die Skalierung?"
+        description="Die Massenproduktions-Zentrale. Hier steuerst du die automatische Erstellung von Kurspaketen für alle 300+ Ausbildungsberufe. Jeder Beruf durchläuft die Pipeline: Scaffolding → Exam → Oral → Tutor → Handbook → Integrity → Publish."
+        workflow={[
+          { label: 'Leitstelle' },
+          { label: 'Studio' },
+          { label: 'Quality' },
+          { label: 'Ops' },
+          { label: 'Business' },
+          { label: 'Growth' },
+          { label: 'Scale', active: true },
+        ]}
+        actions={[
+          '"Berufe-Status" – Alle Berufe mit Pipeline-Fortschritt. Batch-Generierung: 5 oder 10 auf einmal starten',
+          '"Alle bestandenen veröffentlichen" – Publiziert alle Pakete mit bestandenem Integrity-Check',
+          '"Curriculum Health" – Übersicht aller Curricula: Lernfelder, Kompetenzen, Seed-Status, Fehler',
+          '"Reporting" – KPIs: Publishes, Fehlerrate, Ø Build-Dauer, aktive Pipeline-Jobs',
+        ]}
+        tips={[
+          'Batch-Generierung nutzt Rate-Limits und Budget-Caps pro Tag',
+          'Curricula müssen Status "frozen" haben bevor ein Build gestartet werden kann',
+          'Der Fortschrittsbalken zeigt den Anteil live geschalteter Berufe',
+        ]}
+      />
 
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border pb-px min-w-max">

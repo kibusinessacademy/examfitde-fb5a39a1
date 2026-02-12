@@ -10,6 +10,7 @@ import {
   Brain, Package, Rocket, Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   planning: { label: 'Draft', color: 'bg-muted text-muted-foreground', icon: Clock },
@@ -58,6 +59,30 @@ export default function CoursePackagesList() {
           </Link>
         </Button>
       </div>
+
+      <PageExplainer
+        title="Wie funktioniert die Paketübersicht?"
+        description="Die Paketübersicht zeigt alle erstellten Kurspakete, sortiert nach Dringlichkeit. Jedes Paket repräsentiert einen kompletten Ausbildungsberuf mit Lernkurs, Prüfungsfragen, Simulation, Mündliche, AI Tutor und Handbuch."
+        workflow={[
+          { label: 'Leitstelle' },
+          { label: 'Studio', active: true },
+          { label: 'Quality' },
+          { label: 'Ops' },
+          { label: 'Business' },
+          { label: 'Growth' },
+          { label: 'Scale' },
+        ]}
+        actions={[
+          '"Neues Paket" – Erstellt ein neues Kurspaket für einen Ausbildungsberuf',
+          'Klick auf ein Paket → Öffnet den Course Workspace mit Build-Pipeline, Modulstatus und Council',
+          'Status-Badges zeigen: Draft, Council Review, Build läuft, QA, Live, Fehlgeschlagen',
+          'Council OK / Integrity OK zeigen die Freigabe-Status',
+        ]}
+        tips={[
+          'Pakete mit Status "Fehlgeschlagen" stehen immer ganz oben',
+          'Der Build-Fortschritt zeigt den aktuellen Stand der 7-Step-Pipeline',
+        ]}
+      />
 
       {sorted.length === 0 ? (
         <Card className="border-dashed">

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Shield, CheckCircle2, XCircle, AlertTriangle, FileText, Lock } from 'lucide-react';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 const ComplianceDashboardPage = lazy(() => import('@/pages/admin/ComplianceDashboardPage'));
 const AZAVCompliancePage = lazy(() => import('@/pages/admin/AZAVCompliancePage'));
@@ -215,6 +216,31 @@ export default function QualityPage() {
         <h1 className="text-xl font-bold text-foreground">Qualität & Compliance</h1>
         <p className="text-sm text-muted-foreground">Integrität, RLS Audit, DSGVO, AZAV/ISO</p>
       </div>
+
+      <PageExplainer
+        title="Wie funktioniert Qualität & Compliance?"
+        description="Hier prüfst du die Qualität aller Kurspakete und stellst Compliance sicher. Der Integritäts-Check vergleicht Soll vs. Ist jedes Pakets (Lektionen, Fragen, Szenarien). AZAV/ISO liefert Audit-Checklisten für die Zertifizierung."
+        workflow={[
+          { label: 'Leitstelle' },
+          { label: 'Studio' },
+          { label: 'Quality', active: true },
+          { label: 'Ops' },
+          { label: 'Business' },
+          { label: 'Growth' },
+          { label: 'Scale' },
+        ]}
+        actions={[
+          '"Übersicht" – Security Health + Links zu allen Qualitäts-Bereichen',
+          '"Integrität" – Score pro Paket, blockierte Publishes erkennen',
+          '"Compliance" – DSGVO-Übersicht und Datenklassifizierung',
+          '"AZAV/ISO" – Audit-Checklisten, Evidence Packs, PDF-Export',
+        ]}
+        tips={[
+          'Ein Paket kann nur veröffentlicht werden, wenn der Integrity-Score ≥ 80 ist',
+          'Die Security Health Card zeigt RLS-Probleme in Echtzeit',
+          'AZAV Evidence Packs werden automatisch bei Qualitätsänderungen aktualisiert',
+        ]}
+      />
 
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border pb-px min-w-max">

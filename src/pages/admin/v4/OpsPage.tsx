@@ -12,6 +12,7 @@ import {
   Terminal, Copy, Filter, Trash2, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 const SystemHealthPage = lazy(() => import('@/pages/admin/SystemHealthPage'));
 const AIWorkersPage = lazy(() => import('@/pages/admin/AIWorkersPage'));
@@ -293,6 +294,32 @@ export default function OpsPage() {
         <h1 className="text-xl font-bold text-foreground">System & Betrieb</h1>
         <p className="text-sm text-muted-foreground">Queue, Logs, Dead Letter, Health, AI Workers</p>
       </div>
+
+      <PageExplainer
+        title="Wie funktioniert System & Betrieb?"
+        description="Die technische Leitzentrale für alle Hintergrundprozesse. Jeder Build-Step, jede KI-Generierung und jede Qualitätsprüfung läuft als Job in der Queue. Hier überwachst du deren Status, analysierst Fehler und greifst bei Problemen ein."
+        workflow={[
+          { label: 'Leitstelle' },
+          { label: 'Studio' },
+          { label: 'Quality' },
+          { label: 'Ops', active: true },
+          { label: 'Business' },
+          { label: 'Growth' },
+          { label: 'Scale' },
+        ]}
+        actions={[
+          '"Queue" – Alle Jobs mit Status, Attempts und Fehlermeldungen. Aktualisiert sich alle 5 Sekunden',
+          '"Live Logs" – Terminal-ähnliche Echtzeit-Ansicht aller Job-Events (2s Polling). Filtern nach Error/Warn/Info',
+          '"Dead Letter" – Endgültig fehlgeschlagene Jobs. Einzeln oder alle retrien, JSON exportieren',
+          '"Health" – System-Monitoring: Edge Functions, DB-Latenz, Speicher',
+          '"AI Workers" – KI-Budget, Token-Verbrauch, Kosten pro Job-Typ, Rate Limits',
+        ]}
+        tips={[
+          'Jobs mit max_attempts erreicht landen automatisch in Dead Letter',
+          'Live Logs können als JSON exportiert werden für externe Analyse',
+          'Bei Budget > 80% erscheint ein Alert auf der Leitstelle',
+        ]}
+      />
 
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border pb-px min-w-max">

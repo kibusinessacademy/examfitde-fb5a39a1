@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import QueueOverview from '@/components/admin/QueueOverview';
+import PageExplainer from '@/components/admin/PageExplainer';
 
 interface CoursePackageRow {
   id: string;
@@ -174,6 +175,31 @@ export default function CommandPage() {
         <h1 className="text-2xl font-display font-bold text-foreground">Leitstelle</h1>
         <p className="text-sm text-muted-foreground mt-1">Tagesübersicht & Sofortaktionen</p>
       </div>
+
+      <PageExplainer
+        title="Wie funktioniert die Leitstelle?"
+        description="Die Leitstelle ist dein tägliches Cockpit. Hier siehst du auf einen Blick den Zustand aller Kurspakete, aktive Builds, fehlgeschlagene Jobs und Budget-Auslastung. Jedes Paket zeigt eine 'Next Best Action' – die wichtigste nächste Aktion."
+        workflow={[
+          { label: 'Leitstelle', active: true },
+          { label: 'Studio' },
+          { label: 'Quality' },
+          { label: 'Ops' },
+          { label: 'Business' },
+          { label: 'Growth' },
+          { label: 'Scale' },
+        ]}
+        actions={[
+          '"Alle Failed retrien" – Setzt alle fehlgeschlagenen Jobs zurück auf pending',
+          '"Neues Paket" – Erstellt ein neues Kurspaket im Studio',
+          'Klick auf ein Paket → Öffnet den Course Workspace mit Build-Details',
+          '"Aktualisieren" – Lädt alle KPIs und Pakete neu',
+        ]}
+        tips={[
+          'Rote Alerts oben zeigen kritische Probleme, die sofort Aufmerksamkeit brauchen',
+          'Der Health Score pro Paket zeigt die Release-Reife (0–100%)',
+          'Pakete werden nach Dringlichkeit sortiert: Failed > Building > Draft > Live',
+        ]}
+      />
 
       {/* KPI Cards */}
       {stats && (
