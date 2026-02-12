@@ -104,7 +104,7 @@ Zuständigkeit: ${beruf.zustaendigkeit}
 Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
 
     const provider = providerOverride || "openai";
-    const model = provider === "anthropic" ? "claude-opus-4-0-20250514" : "gpt-5.2";
+    const model = provider === "anthropic" ? "claude-sonnet-4-20250514" : "gpt-5.2";
     console.log(`[GenContent] Using ${provider}/${model}`);
 
     const aiResult = await callAIJSON({
