@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_notifications: {
+        Row: {
+          body: string | null
+          category: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          read_at: string | null
+          severity: string
+          title: string
+        }
+        Insert: {
+          body?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          read_at?: string | null
+          severity?: string
+          title: string
+        }
+        Update: {
+          body?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          read_at?: string | null
+          severity?: string
+          title?: string
+        }
+        Relationships: []
+      }
       admin_patch_plans: {
         Row: {
           affected_area: string

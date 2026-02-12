@@ -154,6 +154,9 @@ const JOB_TYPE_MAP: Record<string, string> = {
 
   // Auto-Gap-Closer (self-healing loop)
   auto_gap_close: "auto-gap-close",
+
+  // Daily Test Runner
+  daily_test_run: "daily-test-runner",
 };
 
 // Non-retryable error patterns (SSOT violations, missing data)

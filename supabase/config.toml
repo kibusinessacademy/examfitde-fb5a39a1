@@ -227,3 +227,6 @@ verify_jwt = false
 
 [functions.package-auto-publish]
 verify_jwt = false
+
+[functions.daily-test-runner]
+verify_jwt = false
