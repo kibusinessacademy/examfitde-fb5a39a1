@@ -11366,6 +11366,14 @@ export type Database = {
           valid_lessons: number
         }[]
       }
+      get_course_package_build_state: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
+      get_course_package_export_link: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       get_course_pipeline_stats: {
         Args: { p_course_ids: string[] }
         Returns: {
@@ -11937,27 +11945,7 @@ export type Database = {
           p_status: string
           p_step_key: string
         }
-        Returns: {
-          created_at: string
-          duration_ms: number | null
-          error_message: string | null
-          finished_at: string | null
-          id: string
-          log: Json | null
-          package_id: string
-          retry_count: number
-          sort_order: number
-          started_at: string | null
-          status: string
-          step_key: string
-          step_label: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "course_package_build_steps"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: undefined
       }
       update_learning_streak: {
         Args: { p_curriculum_id: string; p_user_id: string }

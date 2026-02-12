@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCoursePackages, useCoursePackageDetail } from '@/hooks/useCoursePackages';
@@ -9,8 +9,9 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Plus, Rocket, CheckCircle2, XCircle, Clock, Play, Package, Brain, Wrench, Shield, Download, ChevronRight, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Loader2, Plus, Rocket, CheckCircle2, XCircle, Clock, Play, Package, Brain, Wrench, Shield, Download, ChevronRight, RefreshCw, AlertTriangle, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = {
   planning: { label: 'Planung', color: 'bg-muted text-muted-foreground', icon: Clock },
@@ -54,6 +55,13 @@ const TABS = [
   { key: 'quality', label: '📊 Quality', icon: Shield },
   { key: 'export', label: '📦 Export', icon: Download },
 ] as const;
+
+// ========== Types ==========
+interface BuildState {
+  package?: Record<string, unknown>;
+  steps?: Array<Record<string, unknown>>;
+  approved_plan?: Record<string, unknown>;
+}
 
 // ========== Status Timeline ==========
 function StatusTimeline({ pkg }: { pkg: any }) {
@@ -240,9 +248,9 @@ function PackageDetail({ packageId, onBack }: { packageId: string; onBack: () =>
       {/* Tab Content */}
       {activeTab === 'planning' && <PlanningTab pkg={pkg} />}
       {activeTab === 'councils' && <CouncilsTab pkg={pkg} councils={councils} initCouncils={initCouncils} approveCouncils={approveCouncils} />}
-      {activeTab === 'build' && <BuildTab pkg={pkg} buildSteps={buildSteps} startBuild={startBuild} invalidate={invalidate} />}
-      {activeTab === 'quality' && <QualityTab pkg={pkg} buildSteps={buildSteps} />}
-      {activeTab === 'export' && <ExportTab pkg={pkg} />}
+      {activeTab === 'build' && <BuildTab pkg={pkg} packageId={packageId} buildSteps={buildSteps} startBuild={startBuild} invalidate={invalidate} />}
+      {activeTab === 'quality' && <QualityTab pkg={pkg} />}
+      {activeTab === 'export' && <ExportTab pkg={pkg} packageId={packageId} />}
     </div>
   );
 }
@@ -263,7 +271,6 @@ function PlanningTab({ pkg }: { pkg: any }) {
 
   return (
     <div className="space-y-4">
-      {/* Curriculum Status */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">SSOT / Curriculum</CardTitle>
@@ -285,7 +292,6 @@ function PlanningTab({ pkg }: { pkg: any }) {
         </CardContent>
       </Card>
 
-      {/* Package Components */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Paket-Komponenten</CardTitle>
@@ -361,36 +367,116 @@ function CouncilsTab({ pkg, councils, initCouncils, approveCouncils }: {
   );
 }
 
-// ========== Build Tab ==========
-function BuildTab({ pkg, buildSteps, startBuild, invalidate }: {
-  pkg: any; buildSteps: any[]; startBuild: any; invalidate: () => void;
+// ========== Build Tab (Server-Side + Live Logs) ==========
+function BuildTab({ pkg, packageId, buildSteps, startBuild, invalidate }: {
+  pkg: any; packageId: string; buildSteps: any[]; startBuild: any; invalidate: () => void;
 }) {
+  const { toast } = useToast();
+  const [buildState, setBuildState] = useState<BuildState | null>(null);
+  const [polling, setPolling] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const pollingRef = useRef(false);
+
   const isBuilding = pkg.status === 'building';
-  const completedSteps = buildSteps.filter(s => s.status === 'done').length;
-  const totalSteps = buildSteps.length || 9;
+  const displaySteps = buildState?.steps?.length ? buildState.steps : buildSteps;
+  const completedSteps = displaySteps.filter((s: any) => s.status === 'done').length;
+  const totalSteps = displaySteps.length || 9;
   const progress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : pkg.build_progress;
+
+  const fetchBuildState = useCallback(async () => {
+    const { data, error } = await supabase.rpc('get_course_package_build_state', { p_package_id: packageId });
+    if (error) throw error;
+    const state = data as unknown as BuildState;
+    setBuildState(state);
+    return state;
+  }, [packageId]);
+
+  const startPolling = useCallback(async () => {
+    pollingRef.current = true;
+    setPolling(true);
+    try {
+      for (let i = 0; i < 600 && pollingRef.current; i++) {
+        const s = await fetchBuildState();
+        const status = (s?.package as Record<string, unknown>)?.status;
+        if (status === 'published' || status === 'failed' || status === 'qa') break;
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    } finally {
+      pollingRef.current = false;
+      setPolling(false);
+      invalidate();
+    }
+  }, [fetchBuildState, invalidate]);
+
+  // Auto-poll if currently building
+  useEffect(() => {
+    if (isBuilding && !polling) {
+      startPolling();
+    }
+    return () => { pollingRef.current = false; };
+  }, [isBuilding]);
+
+  const handleServerBuild = async () => {
+    setBusy(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke('build-course-package', {
+        body: {
+          packageId,
+          courseId: pkg.course_id,
+          curriculumId: pkg.certification_id,
+          certificationId: pkg.certification_id,
+          options: {
+            include_learning_course: pkg.components?.learning_course !== false,
+            include_exam_pool: pkg.components?.exam_trainer !== false,
+            include_oral_exam: pkg.components?.oral_exam !== false,
+            include_ai_tutor: pkg.components?.ai_tutor !== false,
+            include_handbook: pkg.components?.handbook !== false,
+            exam_target: 1000,
+          },
+        },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      });
+
+      if (res.error) throw res.error;
+      const resData = res.data as Record<string, unknown>;
+      if (resData?.code === 'PACKAGE_LOCKED') {
+        toast({ title: 'Build läuft bereits', description: 'Es läuft bereits ein Build für dieses Paket.', variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'Build gestartet', description: 'Server-Pipeline läuft...' });
+      await startPolling();
+      toast({ title: 'Build abgeschlossen' });
+    } catch (e: any) {
+      toast({ title: 'Build-Fehler', description: e?.message || 'Unbekannt', variant: 'destructive' });
+    } finally {
+      setBusy(false);
+      invalidate();
+    }
+  };
 
   return (
     <div className="space-y-4">
       {/* Big Build Button */}
-      {!isBuilding && buildSteps.length === 0 && (
+      {!isBuilding && buildSteps.length === 0 && !polling && (
         <Card className="border-primary/30">
           <CardContent className="py-8 text-center">
             <Rocket className="h-12 w-12 text-primary mx-auto mb-3" />
             <h3 className="font-bold text-lg mb-2">ExamFit-Produktpaket erstellen</h3>
             <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-              Startet die vollständige Generierung: Lernkurs, Prüfungstrainer, Oral-Exam, AI Tutor, Handbuch + Integritätsprüfung.
+              Startet die vollständige Server-Pipeline: Lernkurs, Prüfungstrainer, Oral-Exam, AI Tutor, Handbuch + Integritätsprüfung.
             </p>
-            <Button onClick={() => startBuild.mutate()} disabled={startBuild.isPending} size="lg">
-              {startBuild.isPending ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Rocket className="h-5 w-5 mr-2" />}
-              🚀 Produktpaket erstellen
+            <Button onClick={handleServerBuild} disabled={busy} size="lg">
+              {busy ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Rocket className="h-5 w-5 mr-2" />}
+              🚀 Produktpaket erstellen (Server-Pipeline)
             </Button>
           </CardContent>
         </Card>
       )}
 
       {/* Progress */}
-      {(isBuilding || buildSteps.length > 0) && (
+      {(isBuilding || displaySteps.length > 0 || polling) && (
         <>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
@@ -401,11 +487,11 @@ function BuildTab({ pkg, buildSteps, startBuild, invalidate }: {
           </div>
 
           <div className="space-y-2">
-            {buildSteps.map(step => {
+            {displaySteps.map((step: any) => {
               const Icon = STEP_STATUS_ICON[step.status] || Clock;
               const isRunning = step.status === 'running';
               return (
-                <div key={step.id} className={cn(
+                <div key={step.id || step.step_key} className={cn(
                   "flex items-center gap-3 p-3 rounded-lg border text-sm",
                   step.status === 'done' && "border-success/30 bg-success/5",
                   step.status === 'failed' && "border-destructive/30 bg-destructive/5",
@@ -413,7 +499,7 @@ function BuildTab({ pkg, buildSteps, startBuild, invalidate }: {
                   step.status === 'pending' && "border-border",
                 )}>
                   <Icon className={cn("h-4 w-4 shrink-0", isRunning && "animate-spin text-primary", step.status === 'done' && "text-success", step.status === 'failed' && "text-destructive")} />
-                  <span className="flex-1 font-medium">{step.step_label}</span>
+                  <span className="flex-1 font-medium">{step.step_label || step.step_key}</span>
                   {step.duration_ms && <span className="text-xs text-muted-foreground">{(step.duration_ms / 1000).toFixed(1)}s</span>}
                   {step.error_message && <span className="text-xs text-destructive truncate max-w-[200px]">{step.error_message}</span>}
                 </div>
@@ -421,17 +507,42 @@ function BuildTab({ pkg, buildSteps, startBuild, invalidate }: {
             })}
           </div>
 
-          {isBuilding && (
-            <Button variant="outline" size="sm" onClick={invalidate}>
-              <RefreshCw className="h-4 w-4 mr-1" /> Aktualisieren
-            </Button>
-          )}
+          {/* Live Logs Panel */}
+          {buildState?.steps?.length ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Live Logs</CardTitle>
+                <CardDescription className="text-xs">Echtzeit-Status aus der Server-Pipeline</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 max-h-64 overflow-y-auto">
+                {(buildState.steps as any[]).filter((s: any) => s.log).map((s: any) => (
+                  <div key={s.step_key} className="p-2 border rounded text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium">{s.step_label || s.step_key}</span>
+                      <Badge variant={s.status === 'failed' ? 'destructive' : s.status === 'running' ? 'secondary' : 'outline'} className="text-[10px]">
+                        {s.status}
+                      </Badge>
+                    </div>
+                    <pre className="whitespace-pre-wrap break-words text-muted-foreground">{JSON.stringify(s.log, null, 2)}</pre>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
 
-          {pkg.status === 'failed' && (
-            <Button onClick={() => startBuild.mutate()} disabled={startBuild.isPending}>
-              <RefreshCw className="h-4 w-4 mr-2" /> Erneut versuchen
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {(isBuilding || polling) && (
+              <Button variant="outline" size="sm" onClick={() => fetchBuildState()}>
+                <RefreshCw className="h-4 w-4 mr-1" /> Aktualisieren
+              </Button>
+            )}
+
+            {pkg.status === 'failed' && !busy && (
+              <Button onClick={handleServerBuild} disabled={busy}>
+                <RefreshCw className="h-4 w-4 mr-2" /> Erneut versuchen
+              </Button>
+            )}
+          </div>
         </>
       )}
     </div>
@@ -439,7 +550,7 @@ function BuildTab({ pkg, buildSteps, startBuild, invalidate }: {
 }
 
 // ========== Quality Tab ==========
-function QualityTab({ pkg, buildSteps }: { pkg: any; buildSteps: any[] }) {
+function QualityTab({ pkg }: { pkg: any }) {
   const qualityAreas = [
     { key: 'learning_course', label: '📚 Lernkurs', metrics: ['Soll/Ist Lessons', 'MiniCheck Coverage', 'H5P Status'] },
     { key: 'exam_trainer', label: '📝 Prüfungstrainer', metrics: ['#Fragen', 'Blueprint Coverage', 'Difficulty Mix', 'Dupe-Rate'] },
@@ -483,10 +594,49 @@ function QualityTab({ pkg, buildSteps }: { pkg: any; buildSteps: any[] }) {
   );
 }
 
-// ========== Export Tab ==========
-function ExportTab({ pkg }: { pkg: any }) {
+// ========== Export Tab (Server-Side ZIP + Persistent Link) ==========
+function ExportTab({ pkg, packageId }: { pkg: any; packageId: string }) {
+  const { toast } = useToast();
+  const [exportUrl, setExportUrl] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  // Restore persisted export link on mount
+  useEffect(() => {
+    const restore = async () => {
+      try {
+        const { data } = await supabase.rpc('get_course_package_export_link', { p_package_id: packageId });
+        const result = data as Record<string, unknown> | null;
+        if (result?.downloadUrl) {
+          setExportUrl(result.downloadUrl as string);
+        }
+      } catch (_e) { /* ignore */ }
+    };
+    restore();
+  }, [packageId]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke('export-course-package', {
+        body: { packageId, courseId: pkg.course_id },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      });
+      if (res.error) throw res.error;
+      const resData = res.data as Record<string, unknown>;
+      if (resData?.downloadUrl) {
+        setExportUrl(resData.downloadUrl as string);
+        toast({ title: 'Export erstellt', description: 'ZIP-Download bereit.' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Export-Fehler', description: e?.message || 'Unbekannt', variant: 'destructive' });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const exports = [
-    { key: 'zip', label: 'ZIP Package Export', desc: 'Alles: Lernkurs + Fragen + Oral + Tutor + Handbuch + Plan + Reports', icon: '📦' },
+    { key: 'zip', label: 'ZIP Package Export', desc: 'Komplett: Lernkurs + Fragen + Oral + Tutor + Handbuch + Plan + Steps', icon: '📦', action: handleExport, actionLabel: 'Exportieren', loading: exporting },
     { key: 'jsx', label: 'JSX Export', desc: 'React/Content Pack', icon: '⚛️' },
     { key: 'json', label: 'JSON SSOT Snapshot', desc: 'Curriculum + Plan + Blueprints + Coverage', icon: '🗂' },
     { key: 'h5p', label: 'H5P Batch Export', desc: 'Alle H5P-Inhalte als ZIP', icon: '🎮' },
@@ -495,23 +645,49 @@ function ExportTab({ pkg }: { pkg: any }) {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {exports.map(exp => (
-        <Card key={exp.key} className="hover:border-primary/30 transition-colors">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">{exp.icon}</span>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold">{exp.label}</h4>
-                <p className="text-xs text-muted-foreground mt-0.5">{exp.desc}</p>
-                <Button variant="outline" size="sm" className="mt-2" disabled={pkg.status !== 'published'}>
-                  <Download className="h-3 w-3 mr-1" /> Exportieren
-                </Button>
-              </div>
+    <div className="space-y-4">
+      {exportUrl && (
+        <Card className="border-success/30 bg-success/5">
+          <CardContent className="p-4 flex flex-col sm:flex-row items-center gap-3">
+            <Download className="h-5 w-5 text-success shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">Letzter Export bereit</p>
+              <p className="text-xs text-muted-foreground">Link gültig für 1 Stunde</p>
             </div>
+            <Button size="sm" asChild>
+              <a href={exportUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3 w-3 mr-1" /> Herunterladen
+              </a>
+            </Button>
           </CardContent>
         </Card>
-      ))}
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {exports.map(exp => (
+          <Card key={exp.key} className="hover:border-primary/30 transition-colors">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">{exp.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-semibold">{exp.label}</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">{exp.desc}</p>
+                  {exp.action ? (
+                    <Button variant="outline" size="sm" className="mt-2" onClick={exp.action} disabled={exp.loading || pkg.status === 'planning'}>
+                      {exp.loading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
+                      {exp.actionLabel}
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" className="mt-2" disabled={pkg.status !== 'published'}>
+                      <Download className="h-3 w-3 mr-1" /> Exportieren
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
