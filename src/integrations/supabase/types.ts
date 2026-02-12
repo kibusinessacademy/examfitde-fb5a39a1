@@ -716,6 +716,63 @@ export type Database = {
         }
         Relationships: []
       }
+      autofix_runs: {
+        Row: {
+          budget_eur: number
+          budget_used_eur: number
+          course_id: string | null
+          created_at: string
+          current_round: number
+          curriculum_id: string
+          id: string
+          last_plan: Json | null
+          last_report: Json | null
+          last_score: number | null
+          max_rounds: number
+          package_id: string
+          status: string
+          stop_reason: string | null
+          target_score: number
+          updated_at: string
+        }
+        Insert: {
+          budget_eur?: number
+          budget_used_eur?: number
+          course_id?: string | null
+          created_at?: string
+          current_round?: number
+          curriculum_id: string
+          id?: string
+          last_plan?: Json | null
+          last_report?: Json | null
+          last_score?: number | null
+          max_rounds?: number
+          package_id: string
+          status?: string
+          stop_reason?: string | null
+          target_score?: number
+          updated_at?: string
+        }
+        Update: {
+          budget_eur?: number
+          budget_used_eur?: number
+          course_id?: string | null
+          created_at?: string
+          current_round?: number
+          curriculum_id?: string
+          id?: string
+          last_plan?: Json | null
+          last_report?: Json | null
+          last_score?: number | null
+          max_rounds?: number
+          package_id?: string
+          status?: string
+          stop_reason?: string | null
+          target_score?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       azav_audit_log: {
         Row: {
           audit_date: string
