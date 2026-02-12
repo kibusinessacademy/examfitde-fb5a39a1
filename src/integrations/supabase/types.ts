@@ -428,6 +428,13 @@ export type Database = {
             referencedRelation: "course_packages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       ai_tutor_logs: {
@@ -746,6 +753,51 @@ export type Database = {
           runs?: number
           tokens_used?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      auto_heal_log: {
+        Row: {
+          action_type: string
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          input_params: Json | null
+          metadata: Json | null
+          result_detail: string | null
+          result_status: string
+          target_id: string | null
+          target_type: string | null
+          trigger_source: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_params?: Json | null
+          metadata?: Json | null
+          result_detail?: string | null
+          result_status?: string
+          target_id?: string | null
+          target_type?: string | null
+          trigger_source?: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_params?: Json | null
+          metadata?: Json | null
+          result_detail?: string | null
+          result_status?: string
+          target_id?: string | null
+          target_type?: string | null
+          trigger_source?: string
         }
         Relationships: []
       }
@@ -2631,6 +2683,13 @@ export type Database = {
             referencedRelation: "course_packages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       council_states: {
@@ -3119,6 +3178,13 @@ export type Database = {
             referencedRelation: "course_packages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       course_package_locks: {
@@ -3141,6 +3207,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "course_packages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
           },
         ]
       }
@@ -3173,6 +3246,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "course_packages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
           },
         ]
       }
@@ -3211,6 +3291,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "course_packages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
           },
         ]
       }
@@ -7063,6 +7150,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "course_packages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
           },
         ]
       }
@@ -10926,6 +11020,24 @@ export type Database = {
           },
         ]
       }
+      ops_blocked_packages: {
+        Row: {
+          autofix_run_id: string | null
+          autofix_status: string | null
+          autofix_stop_reason: string | null
+          build_progress: number | null
+          created_at: string | null
+          failed_jobs: Json | null
+          failed_steps: Json | null
+          integrity_passed: boolean | null
+          integrity_report: Json | null
+          integrity_score: number | null
+          package_id: string | null
+          status: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
       ops_cost_summary: {
         Row: {
           day: string | null
@@ -10934,6 +11046,31 @@ export type Database = {
           runs: number | null
           total_cost: number | null
           total_tokens: number | null
+        }
+        Relationships: []
+      }
+      ops_health_summary: {
+        Row: {
+          active_autofix: number | null
+          active_builds: number | null
+          auto_heal_allowed: boolean | null
+          daily_autofix_cost: number | null
+          failed_1h: number | null
+          failed_24h: number | null
+          failed_packages: number | null
+          failed_total: number | null
+          frozen_autofix: number | null
+          heals_24h: number | null
+          heals_failed_24h: number | null
+          heals_success_24h: number | null
+          health_score: number | null
+          integrity_issues: number | null
+          live_packages: number | null
+          pending_total: number | null
+          processing_total: number | null
+          stuck_jobs: number | null
+          total_packages: number | null
+          traffic_light: string | null
         }
         Relationships: []
       }
