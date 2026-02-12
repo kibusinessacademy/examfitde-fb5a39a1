@@ -12053,6 +12053,10 @@ export type Database = {
         Args: { p_course_id: string }
         Returns: Json
       }
+      validate_course_integrity_v2: {
+        Args: { p_course_id: string; p_options?: Json; p_package_id?: string }
+        Returns: Json
+      }
       verify_evidence_pack_integrity: {
         Args: { p_pack_id: string }
         Returns: Json

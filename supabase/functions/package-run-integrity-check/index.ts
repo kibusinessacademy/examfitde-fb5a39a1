@@ -32,38 +32,80 @@ Deno.serve(async (req) => {
 
   const packageId = p.package_id;
   const courseId = p.course_id;
+  const options = p.options || {};
 
-  const unlockFail = async (msg: string) => {
-    await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
+  const unlockFail = async (msg: string, report?: unknown) => {
+    await sb.from("course_packages").update({
+      status: "failed",
+      integrity_passed: false,
+      integrity_report: report || { error: msg },
+    }).eq("id", packageId);
     await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "run_integrity_check", p_status: "failed", p_log: { error: msg },
+      p_package_id: packageId, p_step_key: "run_integrity_check", p_status: "failed",
+      p_log: { error: msg, report },
     });
     await sb.from("course_package_locks").delete().eq("package_id", packageId);
   };
 
   try {
+    // Prereq: handbook must be done
     if (!(await prereqDone(sb, packageId, "generate_handbook"))) {
       return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_handbook" }, 409);
     }
 
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "run_integrity_check", p_status: "running",
-      p_log: { note: "validate_course_integrity()" },
+      p_log: { note: "Running validate_course_integrity_v2" },
     });
 
-    const { data, error } = await sb.rpc("validate_course_integrity", { p_course_id: courseId });
+    // Call the enhanced integrity check
+    const { data, error } = await sb.rpc("validate_course_integrity_v2", {
+      p_course_id: courseId,
+      p_package_id: packageId,
+      p_options: {
+        exam_target: options.exam_target || 1000,
+        oral_target: options.oral_target || 20,
+        handbook_chapter_target: options.handbook_chapter_target || 5,
+      },
+    });
+
     if (error) throw error;
 
-    const ok = Boolean((data as Record<string, unknown>)?.passed ?? (data as Record<string, unknown>)?.ok ?? false);
-    if (!ok) throw new Error("Integrity check failed");
+    const report = data as Record<string, unknown>;
+    const passed = Boolean(report?.passed);
+    const score = Number(report?.score ?? 0);
 
-    await sb.from("course_packages").update({ integrity_passed: true, status: "qa", build_progress: 95 }).eq("id", packageId);
+    // Build human-readable summary for the step log
+    const summary = {
+      score,
+      passed,
+      lessons: `${(report?.lessons as any)?.actual || 0}/${(report?.lessons as any)?.expected || 0}`,
+      exam_questions: `${(report?.exam as any)?.total || 0}/${(report?.exam as any)?.target || 1000}`,
+      oral_scenarios: `${(report?.oral as any)?.total || 0}/${(report?.oral as any)?.target || 20}`,
+      handbook_chapters: `${(report?.handbook as any)?.chapters || 0}/${(report?.handbook as any)?.target || 5}`,
+      tutor_index: Boolean(report?.tutor_index),
+      issues: ((report?.issues as any[]) || []).length,
+      warnings: ((report?.warnings as any[]) || []).length,
+    };
+
+    if (!passed) {
+      await unlockFail(`Integrity Score ${score}/100 – ${summary.issues} critical issues`, report);
+      return json({ ok: false, error: `Integrity check failed (score: ${score})`, report }, 422);
+    }
+
+    // Passed!
+    await sb.from("course_packages").update({
+      integrity_passed: true,
+      status: "qa",
+      build_progress: 95,
+    }).eq("id", packageId);
 
     await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "run_integrity_check", p_status: "done", p_log: { ok: true },
+      p_package_id: packageId, p_step_key: "run_integrity_check", p_status: "done",
+      p_log: { ok: true, ...summary },
     });
 
-    return json({ ok: true });
+    return json({ ok: true, score, summary });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     await unlockFail(msg);
