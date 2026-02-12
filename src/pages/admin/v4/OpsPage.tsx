@@ -1,16 +1,12 @@
-import { lazy, Suspense, useEffect, useState, useRef } from 'react';
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState, useRef, useCallback } from 'react';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Copy, Download, RotateCcw, RefreshCw, Shield, Zap, Activity, Clock, Server, HeartPulse, Gauge } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Activity, CheckCircle2, XCircle, Clock, RotateCcw, Download,
-  Terminal, Copy, Filter, Trash2, RefreshCw
-} from 'lucide-react';
 import { toast } from 'sonner';
 import PageExplainer from '@/components/admin/PageExplainer';
 
@@ -24,14 +20,365 @@ const Loading = () => (
 );
 
 const tabs = [
-  { path: '/admin/ops', label: 'Queue' },
+  { path: '/admin/ops', label: 'Ampel' },
+  { path: '/admin/ops/queue', label: 'Queue' },
+  { path: '/admin/ops/autoheal', label: 'Auto-Heal' },
   { path: '/admin/ops/logs', label: 'Live Logs' },
   { path: '/admin/ops/deadletter', label: 'Dead Letter' },
   { path: '/admin/ops/health', label: 'Health' },
   { path: '/admin/ops/ai-workers', label: 'AI Workers' },
 ];
 
-/* ── Queue Dashboard ── */
+// ═══════════════════════════════════════════════════════════
+// OPS OVERVIEW (Ampel + Root Causes + Quick Actions)
+// ═══════════════════════════════════════════════════════════
+function OpsOverview() {
+  const [snapshot, setSnapshot] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+
+  const load = useCallback(async () => {
+    const { data } = await (supabase as any).from('ops_health_snapshots')
+      .select('*')
+      .order('snapshot_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setSnapshot(data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const runPrecheck = async () => {
+    setRunning(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/daily-test-runner`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ manual: true }),
+      });
+      if (res.ok) {
+        toast.success('Precheck abgeschlossen');
+        await load();
+      } else {
+        toast.error('Precheck fehlgeschlagen');
+      }
+    } catch {
+      toast.error('Precheck Fehler');
+    }
+    setRunning(false);
+  };
+
+  const retryStuck = async () => {
+    await (supabase as any).from('job_queue')
+      .update({ status: 'pending', attempts: 0, locked_at: null, locked_by: null })
+      .eq('status', 'processing')
+      .lt('locked_at', new Date(Date.now() - 1800_000).toISOString());
+    toast.success('Stuck Jobs zurückgesetzt');
+    load();
+  };
+
+  if (loading) return <Loading />;
+  if (!snapshot) return (
+    <Card className="border-dashed">
+      <CardContent className="py-12 text-center">
+        <HeartPulse className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+        <p className="text-muted-foreground mb-4">Noch kein Health-Snapshot vorhanden</p>
+        <Button onClick={runPrecheck} disabled={running}>
+          {running ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
+          Precheck jetzt starten
+        </Button>
+      </CardContent>
+    </Card>
+  );
+
+  const status = snapshot.overall_status || 'green';
+  const checks = snapshot.checks || {};
+  const guardrails = snapshot.guardrails || {};
+  const rootCauses = snapshot.root_causes || [];
+  const autofixSummary = snapshot.autofix_summary || {};
+  const jobQueue = snapshot.job_queue_summary || {};
+
+  const statusColor = status === 'red' ? 'bg-destructive' : status === 'yellow' ? 'bg-yellow-500' : 'bg-emerald-500';
+  const statusEmoji = status === 'red' ? '🔴' : status === 'yellow' ? '🟡' : '🟢';
+  const statusLabel = status === 'red' ? 'KRITISCH' : status === 'yellow' ? 'WARNUNG' : 'GESUND';
+
+  return (
+    <div className="space-y-6">
+      {/* Ampel Card */}
+      <Card className={cn("border-l-4", status === 'red' ? 'border-l-destructive' : status === 'yellow' ? 'border-l-yellow-500' : 'border-l-emerald-500')}>
+        <CardContent className="py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className={cn("w-16 h-16 rounded-full flex items-center justify-center text-2xl", statusColor)}>
+                {statusEmoji}
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold">{statusLabel}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {checks.passed}/{checks.total} Checks bestanden · {snapshot.duration_ms}ms
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Letzter Scan: {new Date(snapshot.snapshot_at).toLocaleString('de-DE')}
+                </p>
+              </div>
+            </div>
+            <Button onClick={runPrecheck} disabled={running} variant="outline">
+              {running ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Jetzt prüfen
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* KPI Row */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <MiniKPI label="Budget heute" value={`€${(guardrails.budget?.daily_cost_eur || 0).toFixed(2)}`} sub={`/ €${guardrails.budget?.limit_eur || 15}`} alert={guardrails.budget?.tripped} />
+        <MiniKPI label="Stuck Jobs" value={jobQueue.stuck || 0} alert={(jobQueue.stuck || 0) > 0} />
+        <MiniKPI label="Failed 24h" value={jobQueue.failed_24h || 0} alert={(jobQueue.failed_24h || 0) >= 5} />
+        <MiniKPI label="Auto-Heal" value={guardrails.auto_heal_allowed ? '✅' : '🚫'} sub={guardrails.structural_gate?.blocked ? 'Gate blockiert' : ''} />
+        <MiniKPI label="Autofix aktiv" value={autofixSummary.active || 0} sub={`${autofixSummary.frozen || 0} frozen`} />
+      </div>
+
+      {/* Root Causes */}
+      {rootCauses.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              Root Causes ({rootCauses.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {rootCauses.map((rc: any, i: number) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <Badge variant="outline" className={cn("text-[10px] w-24 justify-center",
+                    rc.severity >= 60 ? 'bg-destructive/10 text-destructive' :
+                    rc.severity >= 30 ? 'bg-yellow-500/10 text-yellow-600' : 'bg-muted text-muted-foreground'
+                  )}>
+                    {rc.area}
+                  </Badge>
+                  <span className="text-foreground">{rc.message}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" /> Quick Actions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={retryStuck}>
+              <RotateCcw className="h-3 w-3 mr-1" /> Stuck Jobs zurücksetzen
+            </Button>
+            <Button size="sm" variant="outline" onClick={runPrecheck} disabled={running}>
+              <RefreshCw className="h-3 w-3 mr-1" /> Precheck starten
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* All Checks */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Shield className="h-4 w-4" /> Alle Checks ({checks.total})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="text-left py-2 px-3">Check</th>
+                  <th className="text-left py-2 px-3">Bereich</th>
+                  <th className="text-left py-2 px-3">Status</th>
+                  <th className="text-left py-2 px-3">Detail</th>
+                  <th className="text-right py-2 px-3">ms</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(checks.results || []).map((c: any, i: number) => (
+                  <tr key={i} className={cn("border-b border-border/30", !c.passed && "bg-destructive/5")}>
+                    <td className="py-2 px-3 font-mono">{c.id}</td>
+                    <td className="py-2 px-3"><Badge variant="outline" className="text-[10px]">{c.area}</Badge></td>
+                    <td className="py-2 px-3">
+                      {c.passed
+                        ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        : <XCircle className="h-4 w-4 text-destructive" />}
+                    </td>
+                    <td className="py-2 px-3 text-muted-foreground truncate max-w-[300px]">{c.detail}</td>
+                    <td className="py-2 px-3 text-right text-muted-foreground">{c.duration_ms}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function MiniKPI({ label, value, sub, alert: isAlert }: { label: string; value: any; sub?: string; alert?: boolean }) {
+  return (
+    <Card className={cn(isAlert && "border-destructive/50")}>
+      <CardContent className="py-3 px-4">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className={cn("text-xl font-bold mt-1", isAlert ? "text-destructive" : "text-foreground")}>{value}</p>
+        {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUTO-HEAL CONTROL CENTER
+// ═══════════════════════════════════════════════════════════
+function AutoHealCenter() {
+  const [runs, setRuns] = useState<any[]>([]);
+  const [policy, setPolicy] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const [runsRes, policyRes] = await Promise.all([
+        (supabase as any).from('autofix_runs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20),
+        (supabase as any).from('auto_heal_policies')
+          .select('*')
+          .eq('is_active', true)
+          .maybeSingle(),
+      ]);
+      setRuns(runsRes.data || []);
+      setPolicy(policyRes.data);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  if (loading) return <Loading />;
+
+  const active = runs.filter(r => r.status === 'running');
+  const frozen = runs.filter(r => r.status === 'frozen');
+  const stopped = runs.filter(r => r.status === 'stopped');
+  const succeeded = runs.filter(r => r.status === 'succeeded');
+  const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
+  const todayCost = runs
+    .filter(r => new Date(r.updated_at) >= todayStart)
+    .reduce((s, r) => s + (r.budget_used_eur || 0), 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Policy Status */}
+      {policy && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Gauge className="h-4 w-4" /> Auto-Heal Policy v{policy.version}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              <div>
+                <p className="text-muted-foreground">Modus</p>
+                <p className="font-medium">{policy.policy_json?.autoHeal?.mode || 'NIGHTLY'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Max Rounds</p>
+                <p className="font-medium">{policy.policy_json?.autoHeal?.loop?.maxRounds || 3}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Budget Limit</p>
+                <p className="font-medium">€{policy.policy_json?.guardrails?.budgetCircuitBreaker?.dailyBudgetEur || 15}/Tag</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Target Score</p>
+                <p className="font-medium">{policy.policy_json?.checks?.integrity?.targets?.defaultTargetScore || 85}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <MiniKPI label="Aktiv" value={active.length} alert={active.length > 3} />
+        <MiniKPI label="Frozen" value={frozen.length} alert={frozen.length > 0} />
+        <MiniKPI label="Stopped" value={stopped.length} />
+        <MiniKPI label="Succeeded" value={succeeded.length} />
+        <MiniKPI label="Kosten heute" value={`€${todayCost.toFixed(2)}`} sub="/ €15" alert={todayCost >= 12} />
+      </div>
+
+      {/* Runs Table */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Autofix Runs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="text-left py-2 px-3">Paket</th>
+                  <th className="text-left py-2 px-3">Status</th>
+                  <th className="text-left py-2 px-3">Score</th>
+                  <th className="text-left py-2 px-3">Runde</th>
+                  <th className="text-left py-2 px-3">Budget</th>
+                  <th className="text-left py-2 px-3">Stop-Grund</th>
+                  <th className="text-left py-2 px-3">Erstellt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {runs.map(r => (
+                  <tr key={r.id} className={cn("border-b border-border/30",
+                    r.status === 'frozen' && 'bg-blue-500/5',
+                    r.status === 'stopped' && 'bg-destructive/5',
+                  )}>
+                    <td className="py-2 px-3 font-mono">{r.package_id?.substring(0, 8)}</td>
+                    <td className="py-2 px-3">
+                      <Badge variant="outline" className={cn("text-[10px]",
+                        r.status === 'running' ? 'bg-primary/10 text-primary' :
+                        r.status === 'succeeded' ? 'bg-emerald-500/10 text-emerald-600' :
+                        r.status === 'frozen' ? 'bg-blue-500/10 text-blue-600' :
+                        r.status === 'stopped' || r.status === 'failed' ? 'bg-destructive/10 text-destructive' : ''
+                      )}>{r.status}</Badge>
+                    </td>
+                    <td className="py-2 px-3 font-medium">{r.last_score ?? '–'}</td>
+                    <td className="py-2 px-3">{r.current_round}/{r.max_rounds}</td>
+                    <td className="py-2 px-3">€{(r.budget_used_eur || 0).toFixed(2)}/€{r.budget_eur}</td>
+                    <td className="py-2 px-3 text-muted-foreground truncate max-w-[200px]">{r.stop_reason || '–'}</td>
+                    <td className="py-2 px-3 text-muted-foreground">
+                      {new Date(r.created_at).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// QUEUE DASHBOARD
+// ═══════════════════════════════════════════════════════════
 function QueueDashboard() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,12 +393,9 @@ function QueueDashboard() {
   };
 
   useEffect(() => { load(); const i = setInterval(load, 5000); return () => clearInterval(i); }, []);
-
   if (loading) return <Loading />;
 
-  const statusCounts = jobs.reduce((acc: any, j) => {
-    acc[j.status] = (acc[j.status] || 0) + 1; return acc;
-  }, {});
+  const statusCounts = jobs.reduce((acc: any, j) => { acc[j.status] = (acc[j.status] || 0) + 1; return acc; }, {});
 
   return (
     <div className="space-y-4">
@@ -61,14 +405,13 @@ function QueueDashboard() {
             <CardContent className="py-3 px-4">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{s}</p>
               <p className={cn("text-xl font-bold mt-1",
-                s === 'failed' ? 'text-destructive' : s === 'completed' ? 'text-success' :
+                s === 'failed' ? 'text-destructive' : s === 'completed' ? 'text-emerald-500' :
                 s === 'processing' ? 'text-primary' : 'text-muted-foreground'
               )}>{statusCounts[s] || 0}</p>
             </CardContent>
           </Card>
         ))}
       </div>
-
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
@@ -88,7 +431,7 @@ function QueueDashboard() {
                 <td className="py-2 px-3">
                   <Badge variant="outline" className={cn("text-[10px]",
                     j.status === 'failed' ? 'bg-destructive/10 text-destructive' :
-                    j.status === 'completed' ? 'bg-success/10 text-success' :
+                    j.status === 'completed' ? 'bg-emerald-500/10 text-emerald-600' :
                     j.status === 'processing' ? 'bg-primary/10 text-primary' : ''
                   )}>{j.status}</Badge>
                 </td>
@@ -109,7 +452,9 @@ function QueueDashboard() {
   );
 }
 
-/* ── Live Logs ── */
+// ═══════════════════════════════════════════════════════════
+// LIVE LOGS
+// ═══════════════════════════════════════════════════════════
 function LiveLogs() {
   const [logs, setLogs] = useState<any[]>([]);
   const [filter, setFilter] = useState<string>('all');
@@ -158,20 +503,17 @@ function LiveLogs() {
           <Button variant="ghost" size="sm" onClick={handleDownload}><Download className="h-3 w-3 mr-1" /> JSON</Button>
         </div>
       </div>
-
       <ScrollArea className="h-[500px] rounded-md border border-border/30 bg-muted/20">
         <div className="font-mono text-xs p-3 space-y-1">
           {filtered.slice(0, 100).map((log, i) => (
             <div key={`${log.id}-${i}`} className={cn("flex gap-2 py-1 px-2 rounded",
-              log.status === 'failed' ? 'bg-destructive/5' :
-              log.status === 'processing' ? 'bg-primary/5' : ''
+              log.status === 'failed' ? 'bg-destructive/5' : log.status === 'processing' ? 'bg-primary/5' : ''
             )}>
               <span className="text-muted-foreground shrink-0 w-[44px]">
                 {new Date(log.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
               <span className={cn("shrink-0 w-12",
-                log.status === 'failed' ? 'text-destructive' :
-                log.status === 'completed' ? 'text-success' :
+                log.status === 'failed' ? 'text-destructive' : log.status === 'completed' ? 'text-emerald-500' :
                 log.status === 'processing' ? 'text-primary' : 'text-muted-foreground'
               )}>{log.status}</span>
               <span className="text-foreground">{log.job_type}</span>
@@ -185,7 +527,9 @@ function LiveLogs() {
   );
 }
 
-/* ── Dead Letter Center ── */
+// ═══════════════════════════════════════════════════════════
+// DEAD LETTER CENTER
+// ═══════════════════════════════════════════════════════════
 function DeadLetterCenter() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -245,7 +589,6 @@ function DeadLetterCenter() {
           </Button>
         </div>
       </div>
-
       <div className="space-y-2">
         {jobs.map(j => (
           <Card key={j.id} className={cn("border-l-4 border-l-destructive cursor-pointer transition-colors",
@@ -260,19 +603,15 @@ function DeadLetterCenter() {
                 <span className="text-sm font-mono font-medium">{j.job_type}</span>
                 <span className="text-xs text-muted-foreground">{j.attempts}/{j.max_attempts} Versuche</span>
               </div>
-              {j.last_error && (
-                <p className="text-xs text-destructive mt-1 truncate">{j.last_error}</p>
-              )}
-              <p className="text-[10px] text-muted-foreground mt-1">
-                {new Date(j.created_at).toLocaleString('de-DE')}
-              </p>
+              {j.last_error && <p className="text-xs text-destructive mt-1 truncate">{j.last_error}</p>}
+              <p className="text-[10px] text-muted-foreground mt-1">{new Date(j.created_at).toLocaleString('de-DE')}</p>
             </CardContent>
           </Card>
         ))}
         {jobs.length === 0 && (
           <Card className="border-dashed">
             <CardContent className="py-8 text-center text-muted-foreground text-sm">
-              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-success" />
+              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
               Keine fehlgeschlagenen Jobs 🎉
             </CardContent>
           </Card>
@@ -282,6 +621,9 @@ function DeadLetterCenter() {
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// MAIN EXPORT
+// ═══════════════════════════════════════════════════════════
 export default function OpsPage() {
   const location = useLocation();
   const activeTab = tabs.find(t => location.pathname === t.path)?.path ||
@@ -291,13 +633,13 @@ export default function OpsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-foreground">System & Betrieb</h1>
-        <p className="text-sm text-muted-foreground">Queue, Logs, Dead Letter, Health, AI Workers</p>
+        <h1 className="text-xl font-bold text-foreground">Ops & Auto-Heal</h1>
+        <p className="text-sm text-muted-foreground">Ampel · Queue · Auto-Heal · Logs · Health · AI Workers</p>
       </div>
 
       <PageExplainer
-        title="Wie funktioniert System & Betrieb?"
-        description="Die technische Leitzentrale für alle Hintergrundprozesse. Jeder Build-Step, jede KI-Generierung und jede Qualitätsprüfung läuft als Job in der Queue. Hier überwachst du deren Status, analysierst Fehler und greifst bei Problemen ein."
+        title="Wie funktioniert Ops & Auto-Heal?"
+        description="Die technische Leitzentrale mit Ampel-System. Der Daily Runner prüft Schema, RLS, Jobs, Edge Functions und triggert bei Content-Gaps automatisch den Auto-Gap-Closer – blockiert aber bei strukturellen Problemen."
         workflow={[
           { label: 'Leitstelle' },
           { label: 'Studio' },
@@ -308,32 +650,29 @@ export default function OpsPage() {
           { label: 'Scale' },
         ]}
         actions={[
-          '"Queue" – Alle Jobs mit Status, Attempts und Fehlermeldungen. Aktualisiert sich alle 5 Sekunden',
-          '"Live Logs" – Terminal-ähnliche Echtzeit-Ansicht aller Job-Events (2s Polling). Filtern nach Error/Warn/Info',
-          '"Dead Letter" – Endgültig fehlgeschlagene Jobs. Einzeln oder alle retrien, JSON exportieren',
-          '"Health" – System-Monitoring: Edge Functions, DB-Latenz, Speicher',
-          '"AI Workers" – KI-Budget, Token-Verbrauch, Kosten pro Job-Typ, Rate Limits',
+          '"Ampel" – System-Status auf einen Blick mit Root-Cause-Ranking und Quick Actions',
+          '"Queue" – Alle Jobs mit Status, Attempts und Fehlermeldungen',
+          '"Auto-Heal" – Autofix Runs, Budget-Verbrauch, Policy-Konfiguration, Freeze/Stop-Gründe',
+          '"Live Logs" – Terminal-ähnliche Echtzeit-Ansicht aller Job-Events',
+          '"Dead Letter" – Fehlgeschlagene Jobs retrien oder exportieren',
         ]}
         tips={[
-          'Jobs mit max_attempts erreicht landen automatisch in Dead Letter',
-          'Live Logs können als JSON exportiert werden für externe Analyse',
-          'Bei Budget > 80% erscheint ein Alert auf der Leitstelle',
+          'Grün = alles ok. Gelb = Warnung (failed jobs). Rot = Strukturproblem (Auto-Heal blockiert)',
+          'Budget Circuit-Breaker stoppt bei €15/Tag automatisch',
+          'Regression-Freeze friert ein, wenn Score sich nicht verbessert',
         ]}
       />
 
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border pb-px min-w-max">
           {tabs.map(tab => (
-            <Link
-              key={tab.path}
-              to={tab.path}
+            <Link key={tab.path} to={tab.path}
               className={cn(
                 "px-3 py-2 text-sm rounded-t-md transition-colors",
                 activeTab === tab.path
                   ? "bg-primary/10 text-primary font-medium border-b-2 border-primary"
                   : "text-muted-foreground hover:text-foreground"
-              )}
-            >
+              )}>
               {tab.label}
             </Link>
           ))}
@@ -342,7 +681,9 @@ export default function OpsPage() {
 
       <Suspense fallback={<Loading />}>
         <Routes>
-          <Route index element={<QueueDashboard />} />
+          <Route index element={<OpsOverview />} />
+          <Route path="queue" element={<QueueDashboard />} />
+          <Route path="autoheal" element={<AutoHealCenter />} />
           <Route path="logs" element={<LiveLogs />} />
           <Route path="deadletter" element={<DeadLetterCenter />} />
           <Route path="health" element={<SystemHealthPage />} />

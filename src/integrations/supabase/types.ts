@@ -749,6 +749,36 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_heal_policies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          policy_json: Json
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          policy_json: Json
+          version: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          policy_json?: Json
+          version?: string
+        }
+        Relationships: []
+      }
       autofix_runs: {
         Row: {
           budget_eur: number
@@ -6716,6 +6746,51 @@ export type Database = {
           subscribed_at?: string | null
           unsubscribed_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      ops_health_snapshots: {
+        Row: {
+          autofix_summary: Json
+          checks: Json
+          data_integrity: Json
+          duration_ms: number | null
+          edge_function_summary: Json
+          guardrails: Json
+          id: string
+          job_queue_summary: Json
+          metadata: Json | null
+          overall_status: string
+          root_causes: Json
+          snapshot_at: string
+        }
+        Insert: {
+          autofix_summary?: Json
+          checks?: Json
+          data_integrity?: Json
+          duration_ms?: number | null
+          edge_function_summary?: Json
+          guardrails?: Json
+          id?: string
+          job_queue_summary?: Json
+          metadata?: Json | null
+          overall_status?: string
+          root_causes?: Json
+          snapshot_at?: string
+        }
+        Update: {
+          autofix_summary?: Json
+          checks?: Json
+          data_integrity?: Json
+          duration_ms?: number | null
+          edge_function_summary?: Json
+          guardrails?: Json
+          id?: string
+          job_queue_summary?: Json
+          metadata?: Json | null
+          overall_status?: string
+          root_causes?: Json
+          snapshot_at?: string
         }
         Relationships: []
       }
