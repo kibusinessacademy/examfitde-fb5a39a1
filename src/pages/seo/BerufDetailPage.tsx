@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useSingleBeruf } from '@/hooks/useSEOPages';
+import { getExamTarget } from '@/lib/examTargets';
 import { 
   SEO_TEMPLATES, 
   SITE_URL, 
@@ -32,7 +33,8 @@ export default function BerufDetailPage() {
   }
 
   const kammerLabel = beruf.kammer || 'IHK';
-  const seo = SEO_TEMPLATES.beruf(beruf.title, kammerLabel);
+  const examConfig = getExamTarget(beruf.duration);
+  const seo = SEO_TEMPLATES.beruf(beruf.title, kammerLabel, examConfig.label);
   
   const faqs = [
     {

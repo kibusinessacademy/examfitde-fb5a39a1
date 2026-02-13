@@ -8,9 +8,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
  * - Fan-out: Groups blueprints by learning_field_id for parallel sub-jobs
  */
 const CHUNK_SIZE = 10;
-const AI_CHUNK_SIZE = 8;           // increased: process more BPs per run
-const AI_QUESTIONS_PER_BLUEPRINT = 30; // increased: generate more per BP
-const SHIP_TARGET = 850;           // ship-ready at 850, fill to 1000 in background
+const AI_CHUNK_SIZE = 8;
+const AI_QUESTIONS_PER_BLUEPRINT = 30;
+
+// Dynamic ship target: derived from ausbildungsdauer_monate in payload.options
+function getShipTarget(examTarget: number): number {
+  if (examTarget <= 600) return 500;
+  if (examTarget <= 800) return 700;
+  if (examTarget <= 1000) return 850;
+  return 1000; // EXAM_FIRST (target 1200)
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -222,7 +229,8 @@ Deno.serve(async (req) => {
   const p = body.payload || body;
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
-  const examTarget = Number(p.options?.exam_target ?? SHIP_TARGET);
+  const examTarget = Number(p.options?.exam_target ?? 1000);
+  const shipTarget = getShipTarget(examTarget);
   const isFanOut = p._fan_out === true;
   const blueprintIds: string[] | null = p.blueprint_ids || null;
   const lfTarget = p.lf_target || examTarget;
@@ -350,7 +358,7 @@ Deno.serve(async (req) => {
 
     const actualTotal = totalQuestions ?? 0;
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
-    const targetReached = actualTotal >= SHIP_TARGET;
+    const targetReached = actualTotal >= shipTarget;
 
     console.log(
       `[ExamPool] Package ${packageId.slice(0, 8)}: chunk done. ` +

@@ -117,7 +117,7 @@ function SingleProductCard({
           </div>
           <CardTitle className="text-2xl font-display">Intelligentes Prüfungstraining</CardTitle>
           <p className="text-muted-foreground mt-2">
-            Alles, was du für die IHK-Abschlussprüfung brauchst – in einem System.
+            Alles, was du für die Abschlussprüfung brauchst – Prüfungsfragen, Simulation & KI-Coach in einem System.
           </p>
         </CardHeader>
 
