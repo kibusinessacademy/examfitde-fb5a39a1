@@ -14,8 +14,8 @@ function json(body: unknown, status = 200) {
 }
 
 /**
- * stuck-scan
- * Runs every 5 minutes via cron. Detects stuck packages and auto-retries recoverable jobs.
+ * stuck-scan – Policy-driven stuck detection
+ * Uses triage_policy for heartbeat + package timeouts.
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -26,10 +26,36 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const STUCK_THRESHOLD_HOURS = 2;
-    const stuckSince = new Date(Date.now() - STUCK_THRESHOLD_HOURS * 3600_000).toISOString();
+    // Load policy for timeouts
+    const { data: policyRow } = await sb
+      .from("triage_policy")
+      .select("policy_json")
+      .eq("is_active", true)
+      .maybeSingle();
 
-    // 1) Find building packages with no progress for > threshold
+    const policy = policyRow?.policy_json as Record<string, unknown> | null;
+    const stuckConfig = (policy as any)?.production_specific?.stuck_detection ?? {};
+    const heartbeatTimeout = stuckConfig.job_processing_heartbeat_timeout_seconds ?? 600;
+    const packageTimeout = stuckConfig.package_no_progress_timeout_minutes ?? 90;
+
+    // 1) Clean stale processing jobs (no heartbeat)
+    const staleJobThreshold = new Date(Date.now() - heartbeatTimeout * 1000).toISOString();
+    const { count: staleCount } = await sb
+      .from("job_queue")
+      .update({
+        status: "pending",
+        locked_at: null,
+        locked_by: null,
+        scheduled_at: new Date(Date.now() + 30_000).toISOString(),
+        last_error: `Stale lock detected (>${heartbeatTimeout}s)`,
+        last_error_code: "STALE_LOCK",
+      })
+      .eq("status", "processing")
+      .lt("locked_at", staleJobThreshold)
+      .select("id", { count: "exact", head: true });
+
+    // 2) Find building packages with no progress
+    const stuckSince = new Date(Date.now() - packageTimeout * 60_000).toISOString();
     const { data: stuckPackages } = await sb
       .from("course_packages")
       .select("id, title, last_progress_at, stuck_reason")
@@ -39,7 +65,7 @@ Deno.serve(async (req) => {
     const results: Array<{ package_id: string; retried: number; reason: string }> = [];
 
     for (const pkg of stuckPackages || []) {
-      // Check if there are failed jobs that can be retried
+      // Auto-retry recoverable jobs
       const { data: retried } = await sb.rpc("auto_retry_stuck_package", {
         p_package_id: pkg.id,
       });
@@ -47,10 +73,9 @@ Deno.serve(async (req) => {
       const retriedCount = retried ?? 0;
 
       if (retriedCount === 0) {
-        // No retryable jobs → mark stuck
         await sb.rpc("mark_package_stuck", {
           p_id: pkg.id,
-          p_reason: `No progress for ${STUCK_THRESHOLD_HOURS}h, no retryable failed jobs`,
+          p_reason: `No progress for ${packageTimeout}min, no retryable failed jobs`,
         });
       }
 
@@ -63,25 +88,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2) Clean stale processing jobs (no heartbeat > 10min)
-    const staleJobThreshold = new Date(Date.now() - 600_000).toISOString();
-    const { count: staleCount } = await sb
-      .from("job_queue")
-      .update({
-        status: "pending",
-        locked_at: null,
-        locked_by: null,
-        scheduled_at: new Date(Date.now() + 30_000).toISOString(),
-        last_error: "Stale lock detected by stuck-scan",
-      })
-      .eq("status", "processing")
-      .lt("locked_at", staleJobThreshold)
-      .select("id", { count: "exact", head: true });
+    // 3) Alert if there are stuck packages
+    if (results.filter(r => r.retried === 0).length > 0) {
+      await sb.from("admin_notifications").insert({
+        title: `${results.filter(r => r.retried === 0).length} Package(s) stuck`,
+        body: `Packages ohne Fortschritt seit ${packageTimeout}min ohne retryable Jobs.`,
+        category: "ops",
+        severity: "warning",
+        metadata: { stuck_packages: results.filter(r => r.retried === 0).map(r => r.package_id) },
+      });
+    }
 
-    console.log(`[stuck-scan] ${results.length} packages checked, ${staleCount ?? 0} stale jobs reset`);
+    console.log(`[stuck-scan] ${results.length} packages checked, ${staleCount ?? 0} stale jobs reset, heartbeat=${heartbeatTimeout}s, pkg_timeout=${packageTimeout}min`);
 
     return json({
       ok: true,
+      config: { heartbeat_timeout_s: heartbeatTimeout, package_timeout_min: packageTimeout },
       stuck_packages: results,
       stale_jobs_reset: staleCount ?? 0,
     });
