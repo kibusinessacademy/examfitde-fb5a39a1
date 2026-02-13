@@ -51,14 +51,14 @@ serve(async (req) => {
 
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Load unmapped topics
+    // Load parent-level topics only
     const { data: topics } = await sb.from("curriculum_topics")
       .select("id, topic_name, topic_code, description")
       .eq("certification_id", certification_id)
       .is("parent_topic_id", null);
 
     if (!topics || topics.length === 0) {
-      return new Response(JSON.stringify({ error: "No topics found", mapped: 0 }), {
+      return new Response(JSON.stringify({ mapped: 0, message: "No topics found" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -66,10 +66,10 @@ serve(async (req) => {
     // Load blueprint domains
     const { data: blueprints } = await sb.from("dom_blueprints")
       .select("id").eq("certification_id", certification_id).limit(1);
-    
+
     const blueprintId = blueprints?.[0]?.id;
     if (!blueprintId) {
-      return new Response(JSON.stringify({ error: "No blueprint found for certification" }), {
+      return new Response(JSON.stringify({ error: "No blueprint found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -88,6 +88,18 @@ serve(async (req) => {
       });
     }
 
+    // Get legal priority for source weighting
+    const docIds = [...new Set(topics.map((t: any) => t.source_document_id).filter(Boolean))];
+    let docPriorityMap: Record<string, number> = {};
+    if (docIds.length > 0) {
+      const { data: docs } = await sb.from("certification_documents")
+        .select("id, legal_priority")
+        .in("id", docIds);
+      for (const d of (docs || [])) {
+        docPriorityMap[d.id] = d.legal_priority || 50;
+      }
+    }
+
     // Batch topics in chunks of 30
     const BATCH_SIZE = 30;
     let totalMapped = 0;
@@ -98,15 +110,20 @@ serve(async (req) => {
 
     for (let i = 0; i < topics.length; i += BATCH_SIZE) {
       const batch = topics.slice(i, i + BATCH_SIZE);
-      
+
       const userContent = JSON.stringify({
-        topics: batch.map(t => ({ id: t.id, name: t.topic_name, code: t.topic_code, desc: t.description })),
-        domains: domains.map(d => ({ key: d.domain_key, name: d.domain_name })),
+        topics: batch.map((t: any) => ({
+          id: t.id, name: t.topic_name, code: t.topic_code, desc: t.description,
+        })),
+        domains: domains.map((d: any) => ({ key: d.domain_key, name: d.domain_name })),
       });
 
       const aiResp = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
@@ -118,18 +135,27 @@ serve(async (req) => {
         }),
       });
 
-      if (!aiResp.ok) continue;
+      if (!aiResp.ok) {
+        console.warn(`AI batch ${i} failed: ${aiResp.status}`);
+        continue;
+      }
 
       const aiData = await aiResp.json();
       const raw = aiData.choices?.[0]?.message?.content || "";
       const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      
+
       let result;
       try { result = JSON.parse(cleaned); } catch { continue; }
 
       for (const m of (result.mappings || [])) {
         const isMapped = m.confidence >= 0.7;
         const domainMatch = domains.find((d: any) => d.domain_key === m.domain_key);
+
+        // Get source doc legal priority for this topic
+        const topicData = batch.find((t: any) => t.id === m.topic_id);
+        const sourcePriority = topicData?.source_document_id
+          ? (docPriorityMap[topicData.source_document_id] || 50)
+          : 50;
 
         await sb.from("curriculum_topic_coverage").upsert({
           certification_id,
@@ -138,7 +164,12 @@ serve(async (req) => {
           blueprint_domain_key: m.domain_key,
           mapped: isMapped,
           confidence: m.confidence,
-          mapped_to: { domain_key: m.domain_key, reasoning: m.reasoning, confidence: m.confidence },
+          source_legal_priority: sourcePriority,
+          mapped_to: {
+            domain_key: m.domain_key,
+            reasoning: m.reasoning,
+            confidence: m.confidence,
+          },
           coverage_weight: 1.0,
         }, { onConflict: "certification_id,topic_id" });
 
@@ -147,8 +178,11 @@ serve(async (req) => {
       }
     }
 
-    // Recompute coverage
-    const { data: coverageResult } = await sb.rpc("compute_curriculum_coverage", { p_certification_id: certification_id });
+    // Recompute coverage with legal weighting
+    const { data: coverageResult } = await sb.rpc(
+      "compute_curriculum_coverage",
+      { p_certification_id: certification_id },
+    );
     await sb.rpc("set_curriculum_hold_if_needed", { p_certification_id: certification_id });
 
     return new Response(JSON.stringify({
@@ -161,7 +195,9 @@ serve(async (req) => {
 
   } catch (err) {
     console.error("Auto-map error:", err);
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }), {
+    return new Response(JSON.stringify({
+      error: err instanceof Error ? err.message : "Unknown error",
+    }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
