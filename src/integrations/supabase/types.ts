@@ -1379,6 +1379,45 @@ export type Database = {
         }
         Relationships: []
       }
+      backpressure_snapshots: {
+        Row: {
+          completed_1h: number | null
+          eta_clear_minutes: number | null
+          failed_1h: number | null
+          forecast_trend: string | null
+          id: string
+          pending_count: number
+          processing_count: number
+          snapshot_at: string | null
+          throttle_active: boolean | null
+          throughput_per_min: number | null
+        }
+        Insert: {
+          completed_1h?: number | null
+          eta_clear_minutes?: number | null
+          failed_1h?: number | null
+          forecast_trend?: string | null
+          id?: string
+          pending_count: number
+          processing_count: number
+          snapshot_at?: string | null
+          throttle_active?: boolean | null
+          throughput_per_min?: number | null
+        }
+        Update: {
+          completed_1h?: number | null
+          eta_clear_minutes?: number | null
+          failed_1h?: number | null
+          forecast_trend?: string | null
+          id?: string
+          pending_count?: number
+          processing_count?: number
+          snapshot_at?: string | null
+          throttle_active?: boolean | null
+          throughput_per_min?: number | null
+        }
+        Relationships: []
+      }
       beruf_aliases: {
         Row: {
           alias: string
@@ -9847,6 +9886,33 @@ export type Database = {
         }
         Relationships: []
       }
+      provider_job_affinity: {
+        Row: {
+          created_at: string | null
+          id: string
+          job_type: string
+          preferred_provider: string
+          reason: string | null
+          weight: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          job_type: string
+          preferred_provider: string
+          reason?: string | null
+          weight?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          job_type?: string
+          preferred_provider?: string
+          reason?: string | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
       provider_performance: {
         Row: {
           auto_disabled: boolean | null
@@ -9925,6 +9991,10 @@ export type Database = {
       provider_status: {
         Row: {
           avg_latency_ms: number | null
+          consecutive_failures: number | null
+          cooldown_base_seconds: number | null
+          cooldown_multiplier: number | null
+          cost_per_1k_tokens: number | null
           current_load: number
           is_healthy: boolean
           last_error: string | null
@@ -9933,12 +10003,19 @@ export type Database = {
           priority: number
           provider: string
           rate_limited_until: string | null
+          reliability_score: number | null
+          routing_score: number | null
           total_errors_24h: number
           total_jobs_24h: number
+          total_success_24h: number | null
           updated_at: string
         }
         Insert: {
           avg_latency_ms?: number | null
+          consecutive_failures?: number | null
+          cooldown_base_seconds?: number | null
+          cooldown_multiplier?: number | null
+          cost_per_1k_tokens?: number | null
           current_load?: number
           is_healthy?: boolean
           last_error?: string | null
@@ -9947,12 +10024,19 @@ export type Database = {
           priority?: number
           provider: string
           rate_limited_until?: string | null
+          reliability_score?: number | null
+          routing_score?: number | null
           total_errors_24h?: number
           total_jobs_24h?: number
+          total_success_24h?: number | null
           updated_at?: string
         }
         Update: {
           avg_latency_ms?: number | null
+          consecutive_failures?: number | null
+          cooldown_base_seconds?: number | null
+          cooldown_multiplier?: number | null
+          cost_per_1k_tokens?: number | null
           current_load?: number
           is_healthy?: boolean
           last_error?: string | null
@@ -9961,9 +10045,48 @@ export type Database = {
           priority?: number
           provider?: string
           rate_limited_until?: string | null
+          reliability_score?: number | null
+          routing_score?: number | null
           total_errors_24h?: number
           total_jobs_24h?: number
+          total_success_24h?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      provider_usage_history: {
+        Row: {
+          cost_eur: number | null
+          created_at: string | null
+          error_category: string | null
+          id: string
+          job_type: string
+          latency_ms: number | null
+          provider: string
+          success: boolean
+          tokens_used: number | null
+        }
+        Insert: {
+          cost_eur?: number | null
+          created_at?: string | null
+          error_category?: string | null
+          id?: string
+          job_type: string
+          latency_ms?: number | null
+          provider: string
+          success: boolean
+          tokens_used?: number | null
+        }
+        Update: {
+          cost_eur?: number | null
+          created_at?: string | null
+          error_category?: string | null
+          id?: string
+          job_type?: string
+          latency_ms?: number | null
+          provider?: string
+          success?: boolean
+          tokens_used?: number | null
         }
         Relationships: []
       }
@@ -13951,6 +14074,7 @@ export type Database = {
       }
       claim_provider_slot: { Args: { p_provider: string }; Returns: boolean }
       classify_job_error: { Args: { p_error: string }; Returns: string }
+      cleanup_provider_history: { Args: never; Returns: number }
       cleanup_stale_locks: {
         Args: { p_timeout_minutes?: number }
         Returns: number
@@ -14499,14 +14623,26 @@ export type Database = {
         }[]
       }
       llm_running_count: { Args: { p_provider: string }; Returns: number }
+      log_provider_usage: {
+        Args: {
+          p_cost?: number
+          p_error_category?: string
+          p_job_type: string
+          p_latency_ms?: number
+          p_provider: string
+          p_success: boolean
+          p_tokens?: number
+        }
+        Returns: undefined
+      }
       mark_package_stuck: {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
       }
       mark_provider_rate_limited: {
         Args: {
-          p_cooldown_seconds?: number
-          p_error?: string
+          p_cooldown_seconds: number
+          p_error: string
           p_provider: string
         }
         Returns: undefined
@@ -14556,6 +14692,7 @@ export type Database = {
         Returns: Json
       }
       recalculate_coverage_priorities: { Args: never; Returns: Json }
+      recalculate_routing_scores: { Args: never; Returns: undefined }
       recompute_compliance_block: {
         Args: { p_course_id: string }
         Returns: undefined
@@ -14754,7 +14891,11 @@ export type Database = {
         Returns: Json
       }
       select_best_provider: {
-        Args: { p_exclude?: string[]; p_preferred?: string }
+        Args: {
+          p_exclude?: string[]
+          p_job_type?: string
+          p_preferred?: string
+        }
         Returns: string
       }
       set_compliance_finding_status: {
