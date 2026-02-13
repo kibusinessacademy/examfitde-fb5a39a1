@@ -887,22 +887,14 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         </Card>
       )}
 
-      {/* ── Primary Actions ── */}
-      <div className="flex flex-wrap gap-3">
-      {!isBuilding && pkg.status !== 'published' && (
-          <Button onClick={handleFullPipeline} disabled={pipelineRunning} size="sm">
-            {pipelineRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Zap className="h-4 w-4 mr-1" />}
-            {councils.length === 0 ? 'Councils einberufen & Build starten' :
-             !pkg.council_approved ? 'Council freigeben & Build starten' :
-             'Build starten'}
-          </Button>
-        )}
-        {canPublish && (
+      {/* ── Export Action ── */}
+      {canPublish && (
+        <div className="flex flex-wrap gap-3">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-1" /> Export
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
         </TabsContent>
 
