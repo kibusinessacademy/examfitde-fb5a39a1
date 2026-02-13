@@ -6324,6 +6324,7 @@ export type Database = {
           budget_eur: number
           hard_stop: boolean
           id: string
+          max_active_packages: number
           month: string
           period: string
           spent_eur: number
@@ -6333,6 +6334,7 @@ export type Database = {
           budget_eur?: number
           hard_stop?: boolean
           id?: string
+          max_active_packages?: number
           month?: string
           period?: string
           spent_eur?: number
@@ -6342,6 +6344,7 @@ export type Database = {
           budget_eur?: number
           hard_stop?: boolean
           id?: string
+          max_active_packages?: number
           month?: string
           period?: string
           spent_eur?: number
