@@ -1911,6 +1911,44 @@ export type Database = {
           },
         ]
       }
+      certification_dominance_snapshots: {
+        Row: {
+          certification_master_id: string
+          criteria: Json
+          dominance_score: number
+          evaluated_at: string
+          id: string
+          phase: string
+          recommendation: string | null
+        }
+        Insert: {
+          certification_master_id: string
+          criteria?: Json
+          dominance_score?: number
+          evaluated_at?: string
+          id?: string
+          phase: string
+          recommendation?: string | null
+        }
+        Update: {
+          certification_master_id?: string
+          criteria?: Json
+          dominance_score?: number
+          evaluated_at?: string
+          id?: string
+          phase?: string
+          recommendation?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certification_dominance_snapshots_certification_master_id_fkey"
+            columns: ["certification_master_id"]
+            isOneToOne: false
+            referencedRelation: "german_certification_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       churn_predictions: {
         Row: {
           action_taken: string | null
@@ -5501,11 +5539,17 @@ export type Database = {
           case_study_required: boolean
           certification_type: string
           cluster: string
+          conversion_rate: number | null
           created_at: string
+          deep_audit_passes: number | null
+          dominance_criteria: Json | null
+          dominance_phase: string
+          dominance_score: number | null
           exam_blueprint_config: Json | null
           gewichtung_teile: Json | null
           id: string
           jahres_teilnehmer: number | null
+          last_dominance_eval_at: string | null
           lehrgang_preis_range: string | null
           marktgroesse: string | null
           min_fragen_target: number
@@ -5525,11 +5569,13 @@ export type Database = {
           rezertifizierung_intervall_monate: number | null
           rezertifizierung_pflicht: boolean | null
           seeding_status: string
+          seo_ranking_keywords: number | null
           slug: string | null
           track: string
           track_subtype: string | null
           traeger: string
           updated_at: string
+          user_reviews_count: number | null
           wave: number | null
           wettbewerb_level: string | null
         }
@@ -5537,11 +5583,17 @@ export type Database = {
           case_study_required?: boolean
           certification_type?: string
           cluster: string
+          conversion_rate?: number | null
           created_at?: string
+          deep_audit_passes?: number | null
+          dominance_criteria?: Json | null
+          dominance_phase?: string
+          dominance_score?: number | null
           exam_blueprint_config?: Json | null
           gewichtung_teile?: Json | null
           id?: string
           jahres_teilnehmer?: number | null
+          last_dominance_eval_at?: string | null
           lehrgang_preis_range?: string | null
           marktgroesse?: string | null
           min_fragen_target?: number
@@ -5561,11 +5613,13 @@ export type Database = {
           rezertifizierung_intervall_monate?: number | null
           rezertifizierung_pflicht?: boolean | null
           seeding_status?: string
+          seo_ranking_keywords?: number | null
           slug?: string | null
           track?: string
           track_subtype?: string | null
           traeger?: string
           updated_at?: string
+          user_reviews_count?: number | null
           wave?: number | null
           wettbewerb_level?: string | null
         }
@@ -5573,11 +5627,17 @@ export type Database = {
           case_study_required?: boolean
           certification_type?: string
           cluster?: string
+          conversion_rate?: number | null
           created_at?: string
+          deep_audit_passes?: number | null
+          dominance_criteria?: Json | null
+          dominance_phase?: string
+          dominance_score?: number | null
           exam_blueprint_config?: Json | null
           gewichtung_teile?: Json | null
           id?: string
           jahres_teilnehmer?: number | null
+          last_dominance_eval_at?: string | null
           lehrgang_preis_range?: string | null
           marktgroesse?: string | null
           min_fragen_target?: number
@@ -5597,11 +5657,13 @@ export type Database = {
           rezertifizierung_intervall_monate?: number | null
           rezertifizierung_pflicht?: boolean | null
           seeding_status?: string
+          seo_ranking_keywords?: number | null
           slug?: string | null
           track?: string
           track_subtype?: string | null
           traeger?: string
           updated_at?: string
+          user_reviews_count?: number | null
           wave?: number | null
           wettbewerb_level?: string | null
         }
@@ -13320,6 +13382,10 @@ export type Database = {
           p_user_id?: string
         }
         Returns: string
+      }
+      evaluate_certification_dominance: {
+        Args: { p_cert_master_id: string }
+        Returns: Json
       }
       evaluate_cluster_dominance: { Args: never; Returns: Json }
       evaluate_portfolio_health: { Args: never; Returns: Json }
