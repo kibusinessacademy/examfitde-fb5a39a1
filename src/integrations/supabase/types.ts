@@ -8022,6 +8022,45 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_risk_scores: {
+        Row: {
+          compliance_score: number
+          created_at: string
+          dimensions: Json
+          id: string
+          operational_score: number
+          overall_score: number
+          quality_score: number
+          recommendations: string[] | null
+          score_date: string
+          security_score: number
+        }
+        Insert: {
+          compliance_score?: number
+          created_at?: string
+          dimensions?: Json
+          id?: string
+          operational_score?: number
+          overall_score?: number
+          quality_score?: number
+          recommendations?: string[] | null
+          score_date?: string
+          security_score?: number
+        }
+        Update: {
+          compliance_score?: number
+          created_at?: string
+          dimensions?: Json
+          id?: string
+          operational_score?: number
+          overall_score?: number
+          quality_score?: number
+          recommendations?: string[] | null
+          score_date?: string
+          security_score?: number
+        }
+        Relationships: []
+      }
       post_validation_results: {
         Row: {
           auto_fixed: number
@@ -9303,6 +9342,45 @@ export type Database = {
           w_ip_change?: number
           w_rate_limit?: number
           window_minutes?: number
+        }
+        Relationships: []
+      }
+      security_audit_snapshots: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          details: Json
+          functions_without_search_path: number
+          id: string
+          policies_with_using_true: number
+          snapshot_type: string
+          tables_without_rls: number
+          total_issues: number
+          views_without_invoker: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          details?: Json
+          functions_without_search_path?: number
+          id?: string
+          policies_with_using_true?: number
+          snapshot_type?: string
+          tables_without_rls?: number
+          total_issues?: number
+          views_without_invoker?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          details?: Json
+          functions_without_search_path?: number
+          id?: string
+          policies_with_using_true?: number
+          snapshot_type?: string
+          tables_without_rls?: number
+          total_issues?: number
+          views_without_invoker?: number
         }
         Relationships: []
       }
@@ -10684,6 +10762,48 @@ export type Database = {
           severity?: string
           status?: string
           title?: string
+        }
+        Relationships: []
+      }
+      tenant_release_gates: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          checks_failed: Json
+          checks_passed: Json
+          company_id: string
+          created_at: string
+          gate_type: string
+          id: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          checks_failed?: Json
+          checks_passed?: Json
+          company_id: string
+          created_at?: string
+          gate_type?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          checks_failed?: Json
+          checks_passed?: Json
+          company_id?: string
+          created_at?: string
+          gate_type?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }

@@ -22,6 +22,8 @@ const Loading = () => (
 
 const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
 
+const SecurityFreezePage = lazy(() => import('@/pages/admin/v4/SecurityFreezePage'));
+
 const tabs = [
   { path: '/admin/ops', label: 'Ampel' },
   { path: '/admin/ops/queue', label: 'Queue' },
@@ -31,6 +33,7 @@ const tabs = [
   { path: '/admin/ops/deadletter', label: 'Dead Letter' },
   { path: '/admin/ops/health', label: 'Health' },
   { path: '/admin/ops/ai-workers', label: 'AI Workers' },
+  { path: '/admin/ops/security', label: '🔐 Security' },
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -797,6 +800,7 @@ export default function OpsPage() {
           <Route path="deadletter" element={<DeadLetterCenter />} />
           <Route path="health" element={<SystemHealthPage />} />
           <Route path="ai-workers" element={<AIWorkersPage />} />
+          <Route path="security" element={<SecurityFreezePage />} />
         </Routes>
       </Suspense>
     </div>
