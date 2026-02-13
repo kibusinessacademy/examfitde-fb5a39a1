@@ -85,10 +85,43 @@ export default function CertificationCatalogPage() {
   }, [entries]);
 
   const handleActivate = async (entry: CatalogEntry) => {
-    toast.info(`Zertifizierung "${entry.title}" wird angelegt…`);
-    // For now we just show a toast – full activation would create a certifications row
-    // and link it back via linked_certification_id
-    toast.success(`Bitte im Curriculum-Ingest Quellen hinterlegen für: ${entry.title}`);
+    setSubmitting(true);
+    try {
+      toast.info(`Zertifizierung "${entry.title}" wird angelegt…`);
+      const { data: cert, error: certErr } = await (supabase as any)
+        .from('german_certification_master')
+        .insert({
+          name: entry.title,
+          slug: entry.slug,
+          track: entry.track,
+          cluster: entry.catalog_type,
+          traeger: entry.chamber_type,
+          pruefungsart: [
+            entry.exam_format?.written && 'schriftlich',
+            entry.exam_format?.oral && 'mündlich',
+            entry.exam_format?.presentation && 'präsentation',
+          ].filter(Boolean).join('+') || 'schriftlich',
+          min_fragen_target: entry.min_question_target,
+          oral_required: !!entry.exam_format?.oral,
+          presentation_required: !!entry.exam_format?.presentation,
+          case_study_required: !!entry.exam_format?.case_study,
+        })
+        .select('id')
+        .single();
+      if (certErr) throw certErr;
+
+      await (supabase as any)
+        .from('certification_catalog')
+        .update({ linked_certification_id: cert.id })
+        .eq('id', entry.id);
+
+      toast.success(`"${entry.title}" als Zertifizierung angelegt`);
+      load();
+    } catch (err: any) {
+      toast.error(`Aktivierung fehlgeschlagen: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleAddSource = (entry: CatalogEntry) => {
@@ -100,16 +133,20 @@ export default function CertificationCatalogPage() {
 
   const handleSubmitSource = async () => {
     if (!selectedEntry || !docUrl.trim()) return;
+    if (!selectedEntry.linked_certification_id) {
+      toast.error('Bitte zuerst „Aktivieren" klicken, um eine Zertifizierung anzulegen.');
+      return;
+    }
     setSubmitting(true);
     try {
-      // Check if certification_documents table exists and insert
       const { error } = await (supabase as any)
         .from('certification_documents')
         .insert({
-          certification_id: selectedEntry.linked_certification_id || selectedEntry.id,
+          certification_id: selectedEntry.linked_certification_id,
           doc_type: docType,
+          source_kind: 'url',
           source_url: docUrl.trim(),
-          status: 'ready',
+          status: 'active',
           legal_priority: docType === 'verordnung' ? 100 : docType === 'rahmenplan' ? 80 : 60,
         });
       if (error) throw error;
