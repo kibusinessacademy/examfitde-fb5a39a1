@@ -20,13 +20,15 @@ const DeepAuditPanel = lazy(() => import('@/components/admin/DeepAuditPanel'));
 const MassRolloutDashboard = lazy(() => import('@/components/admin/MassRolloutDashboard'));
 const CEOStrategicDashboard = lazy(() => import('@/components/admin/CEOStrategicDashboard'));
 const DominanceDashboard = lazy(() => import('@/components/admin/DominanceDashboard'));
+const CertificationDominanceBoard = lazy(() => import('@/components/admin/CertificationDominanceBoard'));
 
 const tabs = [
   { path: '/admin/scale', label: 'Berufe-Status' },
   { path: '/admin/scale/curriculum', label: 'Curriculum Health' },
   { path: '/admin/scale/deep-audit', label: 'Deep Audit' },
   { path: '/admin/scale/rollout', label: '🌐 Total Coverage' },
-  { path: '/admin/scale/dominance', label: '🌍 Dominanz' },
+  { path: '/admin/scale/dominance', label: '🌍 Cluster-Dominanz' },
+  { path: '/admin/scale/einzeldominanz', label: '🎯 Einzeldominanz' },
   { path: '/admin/scale/ceo', label: '👑 CEO Command' },
   { path: '/admin/scale/reporting', label: 'Reporting' },
 ];
@@ -387,6 +389,7 @@ export default function ScalePage() {
           <Route path="deep-audit" element={<DeepAuditPanel />} />
           <Route path="rollout" element={<MassRolloutDashboard />} />
           <Route path="dominance" element={<DominanceDashboard />} />
+          <Route path="einzeldominanz" element={<CertificationDominanceBoard />} />
           <Route path="ceo" element={<CEOStrategicDashboard />} />
           <Route path="reporting" element={<ScaleReporting />} />
         </Routes>
