@@ -1950,6 +1950,62 @@ export type Database = {
         }
         Relationships: []
       }
+      cluster_dominance_snapshots: {
+        Row: {
+          avg_authority_index: number | null
+          cds: number
+          cluster_id: string | null
+          competition_diff: number | null
+          covered_authority: number | null
+          covered_optimize: number | null
+          dominance_level: string | null
+          id: string
+          market_coverage: number | null
+          revenue_share: number | null
+          seo_visibility: number | null
+          snapshot_at: string | null
+          total_berufe: number | null
+        }
+        Insert: {
+          avg_authority_index?: number | null
+          cds?: number
+          cluster_id?: string | null
+          competition_diff?: number | null
+          covered_authority?: number | null
+          covered_optimize?: number | null
+          dominance_level?: string | null
+          id?: string
+          market_coverage?: number | null
+          revenue_share?: number | null
+          seo_visibility?: number | null
+          snapshot_at?: string | null
+          total_berufe?: number | null
+        }
+        Update: {
+          avg_authority_index?: number | null
+          cds?: number
+          cluster_id?: string | null
+          competition_diff?: number | null
+          covered_authority?: number | null
+          covered_optimize?: number | null
+          dominance_level?: string | null
+          id?: string
+          market_coverage?: number | null
+          revenue_share?: number | null
+          seo_visibility?: number | null
+          snapshot_at?: string | null
+          total_berufe?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cluster_dominance_snapshots_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "market_clusters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: Json | null
@@ -4423,6 +4479,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dominance_control: {
+        Row: {
+          created_at: string | null
+          dominance_thresholds: Json | null
+          expansion_weights: Json | null
+          id: string
+          is_active: boolean | null
+          max_active_dominance_clusters: number | null
+          max_cluster_revenue_share: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dominance_thresholds?: Json | null
+          expansion_weights?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_active_dominance_clusters?: number | null
+          max_cluster_revenue_share?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dominance_thresholds?: Json | null
+          expansion_weights?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_active_dominance_clusters?: number | null
+          max_cluster_revenue_share?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       duplicate_detection_log: {
         Row: {
@@ -6975,6 +7064,51 @@ export type Database = {
         }
         Relationships: []
       }
+      market_clusters: {
+        Row: {
+          authority_question_strategy: string | null
+          competition_benchmark: number | null
+          created_at: string | null
+          description: string | null
+          example_occupations: string[] | null
+          id: string
+          label: string
+          max_active_dominance: boolean | null
+          seo_visibility_score: number | null
+          slug: string
+          updated_at: string | null
+          wave_number: number | null
+        }
+        Insert: {
+          authority_question_strategy?: string | null
+          competition_benchmark?: number | null
+          created_at?: string | null
+          description?: string | null
+          example_occupations?: string[] | null
+          id?: string
+          label: string
+          max_active_dominance?: boolean | null
+          seo_visibility_score?: number | null
+          slug: string
+          updated_at?: string | null
+          wave_number?: number | null
+        }
+        Update: {
+          authority_question_strategy?: string | null
+          competition_benchmark?: number | null
+          created_at?: string | null
+          description?: string | null
+          example_occupations?: string[] | null
+          id?: string
+          label?: string
+          max_active_dominance?: boolean | null
+          seo_visibility_score?: number | null
+          slug?: string
+          updated_at?: string | null
+          wave_number?: number | null
+        }
+        Relationships: []
+      }
       marketing_assets: {
         Row: {
           asset_type: string
@@ -8300,6 +8434,7 @@ export type Database = {
           authority_index: number | null
           authority_status: string | null
           beruf_id: string | null
+          cluster_id: string | null
           competition_score: number
           completion_status: string
           confidence: number | null
@@ -8307,6 +8442,7 @@ export type Database = {
           created_at: string
           demand_score: number
           exam_target: number
+          expansion_priority: number | null
           governance_score: number | null
           id: string
           last_quality_hold_at: string | null
@@ -8314,9 +8450,11 @@ export type Database = {
           occupation_slug: string | null
           priority_index: number | null
           quality_status: string
+          question_count: number | null
           release_status: string
           revenue_monthly: number | null
           revenue_potential_score: number
+          seo_ranking_score: number | null
           ship_level: string
           updated_at: string
         }
@@ -8327,6 +8465,7 @@ export type Database = {
           authority_index?: number | null
           authority_status?: string | null
           beruf_id?: string | null
+          cluster_id?: string | null
           competition_score?: number
           completion_status?: string
           confidence?: number | null
@@ -8334,6 +8473,7 @@ export type Database = {
           created_at?: string
           demand_score?: number
           exam_target?: number
+          expansion_priority?: number | null
           governance_score?: number | null
           id?: string
           last_quality_hold_at?: string | null
@@ -8341,9 +8481,11 @@ export type Database = {
           occupation_slug?: string | null
           priority_index?: number | null
           quality_status?: string
+          question_count?: number | null
           release_status?: string
           revenue_monthly?: number | null
           revenue_potential_score?: number
+          seo_ranking_score?: number | null
           ship_level?: string
           updated_at?: string
         }
@@ -8354,6 +8496,7 @@ export type Database = {
           authority_index?: number | null
           authority_status?: string | null
           beruf_id?: string | null
+          cluster_id?: string | null
           competition_score?: number
           completion_status?: string
           confidence?: number | null
@@ -8361,6 +8504,7 @@ export type Database = {
           created_at?: string
           demand_score?: number
           exam_target?: number
+          expansion_priority?: number | null
           governance_score?: number | null
           id?: string
           last_quality_hold_at?: string | null
@@ -8368,9 +8512,11 @@ export type Database = {
           occupation_slug?: string | null
           priority_index?: number | null
           quality_status?: string
+          question_count?: number | null
           release_status?: string
           revenue_monthly?: number | null
           revenue_potential_score?: number
+          seo_ranking_score?: number | null
           ship_level?: string
           updated_at?: string
         }
@@ -8380,6 +8526,13 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: true
             referencedRelation: "berufe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_priority_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "market_clusters"
             referencedColumns: ["id"]
           },
         ]
@@ -12996,6 +13149,7 @@ export type Database = {
         }
         Returns: string
       }
+      evaluate_cluster_dominance: { Args: never; Returns: Json }
       evaluate_portfolio_health: { Args: never; Returns: Json }
       evaluate_rollout_readiness: { Args: never; Returns: Json }
       export_course_pack: {
