@@ -9,6 +9,10 @@ const RUNNER_ID = crypto.randomUUID().slice(0, 8);
 const LOCK_TIMEOUT_SECONDS = 300;
 const BATCH_SIZE = 5;
 
+// ─── BACKPRESSURE THRESHOLDS ────────────────────────────────────────
+const BACKPRESSURE_WARN = 300;
+const BACKPRESSURE_THROTTLE = 500;
+
 // ─── JOB TYPE → EDGE FUNCTION MAPPING ───────────────────────────────
 const JOB_TYPE_MAP: Record<string, string> = {
   extract_curriculum: "extract-curriculum",
@@ -138,6 +142,66 @@ const LLM_JOB_TYPES: Set<string> = new Set([
 
 const DEFAULT_LLM_PROVIDER = "openai";
 
+// ─── DB-DRIVEN PROVIDER AUTOPILOT ───────────────────────────────────
+async function selectBestProvider(
+  admin: ReturnType<typeof createClient>,
+  preferred: string | null,
+  exclude: string[] = []
+): Promise<string | null> {
+  const { data, error } = await admin.rpc("select_best_provider", {
+    p_preferred: preferred,
+    p_exclude: exclude,
+  });
+  if (error) {
+    console.warn(`[Runner:${RUNNER_ID}] select_best_provider error: ${error.message}`);
+    return preferred;
+  }
+  return data as string | null;
+}
+
+async function claimProviderSlot(admin: ReturnType<typeof createClient>, provider: string): Promise<boolean> {
+  const { data, error } = await admin.rpc("claim_provider_slot", { p_provider: provider });
+  if (error) {
+    console.warn(`[Runner:${RUNNER_ID}] claim_provider_slot error: ${error.message}`);
+    return false;
+  }
+  return data as boolean;
+}
+
+async function releaseProviderSlot(admin: ReturnType<typeof createClient>, provider: string): Promise<void> {
+  await admin.rpc("release_provider_slot", { p_provider: provider }).catch(() => {});
+}
+
+async function markProviderRateLimited(
+  admin: ReturnType<typeof createClient>,
+  provider: string,
+  cooldownSec: number,
+  errorMsg: string
+): Promise<void> {
+  await admin.rpc("mark_provider_rate_limited", {
+    p_provider: provider,
+    p_cooldown_seconds: cooldownSec,
+    p_error: errorMsg.slice(0, 500),
+  }).catch(() => {});
+}
+
+async function recoverProviders(admin: ReturnType<typeof createClient>): Promise<number> {
+  const { data, error } = await admin.rpc("recover_providers");
+  if (error) return 0;
+  return (data as number) ?? 0;
+}
+
+async function getProviderStatusLog(admin: ReturnType<typeof createClient>): Promise<string> {
+  const { data } = await admin
+    .from("provider_status")
+    .select("provider, is_healthy, current_load, max_concurrency, rate_limited_until")
+    .order("priority");
+  if (!data) return "no data";
+  return data.map((p: Record<string, unknown>) =>
+    `${p.provider}:${p.is_healthy ? '✓' : '✗'} ${p.current_load}/${p.max_concurrency}${p.rate_limited_until ? ' RL' : ''}`
+  ).join(' | ');
+}
+
 // ─── TRIAGE POLICY (loaded once per invocation) ─────────────────────
 interface TriagePolicy {
   classification: { error_code_map: Record<string, string> };
@@ -186,24 +250,17 @@ async function loadTriagePolicy(admin: ReturnType<typeof createClient>): Promise
 // ─── ERROR CLASSIFICATION (policy-driven) ────────────────────────────
 function classifyError(errorMsg: string, httpStatus: number, policy: TriagePolicy | null): string {
   const map = policy?.classification?.error_code_map ?? {};
-
-  // Check HTTP status first
   if (httpStatus === 429 || map[String(httpStatus)] === "RATE_LIMIT") return "RATE_LIMIT";
-
-  // Check error message against map keys
   const upper = errorMsg.toUpperCase();
   for (const [pattern, category] of Object.entries(map)) {
     if (upper.includes(pattern.toUpperCase())) return category;
   }
-
-  // Fallback heuristics
   if (["RATE LIMIT", "TOO MANY REQUESTS", "429"].some(p => upper.includes(p))) return "RATE_LIMIT";
   if (["TIMEOUT", "ETIMEDOUT", "GATEWAY_TIMEOUT"].some(p => upper.includes(p))) return "TIMEOUT";
   if (["ECONNRESET", "SOCKET HANG UP", "FETCH FAILED", "ENOTFOUND", "EAI_AGAIN"].some(p => upper.includes(p))) return "TRANSIENT_NETWORK";
   if (["SSOT_VIOLATION", "SCHEMA_MISMATCH"].some(p => upper.includes(p))) return "PERMANENT_CODE";
   if (["VALIDATION_ERROR", "FOREIGN_KEY"].some(p => upper.includes(p))) return "PERMANENT_DATA";
   if (["RLS_DENIED", "UNAUTHORIZED"].some(p => upper.includes(p))) return "PERMANENT_SECURITY";
-
   return "UNKNOWN";
 }
 
@@ -224,11 +281,9 @@ function computeBackoff(attempts: number, policy: TriagePolicy | null, category:
   const base = backoff?.base_seconds ?? 10;
   const max = backoff?.max_seconds ?? 600;
   const jitterRange = backoff?.jitter_seconds_range ?? [0, 30];
-
   const expDelay = Math.min(max, base * Math.pow(2, attempts - 1));
   const jitter = Math.floor(Math.random() * (jitterRange[1] - jitterRange[0])) + jitterRange[0];
-  const delay = Math.max(expDelay, actionDelay ?? 0) + jitter;
-  return delay;
+  return Math.max(expDelay, actionDelay ?? 0) + jitter;
 }
 
 // ─── PROVIDER FALLBACK ──────────────────────────────────────────────
@@ -240,7 +295,6 @@ function pickFallbackProvider(
   const order = policy?.routing?.default_provider_order ?? ["openai", "anthropic", "google"];
   const maxFallbacks = policy?.routing?.fallback_strategy?.max_fallbacks_per_job ?? 2;
   if (fallbackCount >= maxFallbacks) return null;
-
   const idx = order.indexOf(currentProvider);
   if (idx < 0 || idx >= order.length - 1) return order.find(p => p !== currentProvider) ?? null;
   return order[idx + 1];
@@ -261,34 +315,6 @@ interface JobRecord {
   original_provider: string | null;
 }
 
-interface RateLimit {
-  provider: string;
-  max_concurrent: number;
-  cooldown_seconds: number;
-  is_paused: boolean;
-}
-
-// ─── CONCURRENCY GUARD ──────────────────────────────────────────────
-async function canRunLLMJob(
-  admin: ReturnType<typeof createClient>,
-  provider: string,
-  rateLimits: RateLimit[]
-): Promise<{ allowed: boolean; cooldown?: number }> {
-  const limit = rateLimits.find((r) => r.provider === provider);
-  if (limit?.is_paused) return { allowed: false, cooldown: 60 };
-
-  const maxConcurrent = limit?.max_concurrent ?? 2;
-  const { count, error } = await admin
-    .from("job_queue")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "processing")
-    .eq("provider", provider);
-
-  if (error) return { allowed: true };
-  if ((count ?? 0) >= maxConcurrent) return { allowed: false, cooldown: 30 };
-  return { allowed: true };
-}
-
 // ─── BUDGET CHECK ───────────────────────────────────────────────────
 async function checkBudget(
   admin: ReturnType<typeof createClient>
@@ -299,7 +325,6 @@ async function checkBudget(
     .select("budget_eur, spent_eur, hard_stop")
     .eq("month", month)
     .maybeSingle();
-
   if (!data) return { ok: true, spent: 0, budget: 200 };
   if (data.hard_stop && data.spent_eur >= data.budget_eur) {
     return { ok: false, spent: data.spent_eur, budget: data.budget_eur };
@@ -371,6 +396,34 @@ async function sendAdminAlert(
   }
 }
 
+// ─── BACKPRESSURE CHECK ─────────────────────────────────────────────
+async function checkBackpressure(
+  admin: ReturnType<typeof createClient>
+): Promise<{ pendingCount: number; throttle: boolean; warn: boolean }> {
+  const { count } = await admin
+    .from("job_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  const pendingCount = count ?? 0;
+  const throttle = pendingCount >= BACKPRESSURE_THROTTLE;
+  const warn = pendingCount >= BACKPRESSURE_WARN;
+
+  if (throttle) {
+    console.warn(`[Runner:${RUNNER_ID}] 🚨 BACKPRESSURE: ${pendingCount} pending jobs – THROTTLING`);
+    await admin.from("admin_notifications").insert({
+      title: `🚨 Backpressure: ${pendingCount} pending jobs`,
+      body: `Queue exceeds ${BACKPRESSURE_THROTTLE} pending jobs. New job intake is being throttled. Consider scaling providers or pausing non-critical jobs.`,
+      category: "ops",
+      severity: "critical",
+      metadata: { pending_count: pendingCount, threshold: BACKPRESSURE_THROTTLE },
+    }).catch(() => {});
+  } else if (warn) {
+    console.warn(`[Runner:${RUNNER_ID}] ⚠️ Queue growing: ${pendingCount} pending jobs`);
+  }
+
+  return { pendingCount, throttle, warn };
+}
+
 // ─── MAIN HANDLER ───────────────────────────────────────────────────
 Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
@@ -385,38 +438,65 @@ Deno.serve(async (req) => {
     // Load triage policy
     const policy = await loadTriagePolicy(admin);
 
-    // 1) Clean stale locks
+    // 0) Recover providers past their cooldown
+    const recovered = await recoverProviders(admin);
+    if (recovered > 0) {
+      console.log(`[Runner:${RUNNER_ID}] Recovered ${recovered} provider(s) from rate-limit cooldown`);
+    }
+
+    // Log provider status
+    const providerLog = await getProviderStatusLog(admin);
+    console.log(`[Runner:${RUNNER_ID}] Providers: ${providerLog}`);
+
+    // 1) Clean stale locks + release their provider slots
     const staleThreshold = new Date(Date.now() - LOCK_TIMEOUT_SECONDS * 1000).toISOString();
-    await admin
+    const { data: staleJobs } = await admin
       .from("job_queue")
-      .update({
-        status: "pending",
-        locked_at: null,
-        locked_by: null,
-        last_error: "Lock timeout – returned to pending",
-      })
+      .select("id, provider")
       .eq("status", "processing")
       .lt("locked_at", staleThreshold);
 
+    if (staleJobs && staleJobs.length > 0) {
+      for (const sj of staleJobs) {
+        if (sj.provider) await releaseProviderSlot(admin, sj.provider);
+      }
+      await admin
+        .from("job_queue")
+        .update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          last_error: "Lock timeout – returned to pending",
+        })
+        .eq("status", "processing")
+        .lt("locked_at", staleThreshold);
+      console.log(`[Runner:${RUNNER_ID}] Released ${staleJobs.length} stale locks`);
+    }
+
     const now = new Date().toISOString();
 
-    // 2) Global processing cap
+    // 2) Backpressure check
+    const bp = await checkBackpressure(admin);
+
+    // 3) Global processing cap
     const maxGlobal = policy?.controls?.max_global_processing_jobs ?? 40;
     const { count: globalProcessing } = await admin
       .from("job_queue")
       .select("id", { count: "exact", head: true })
       .eq("status", "processing");
     if ((globalProcessing ?? 0) >= maxGlobal) {
-      return new Response(JSON.stringify({ message: "Global processing cap reached", cap: maxGlobal, running: globalProcessing }), { status: 200, headers });
+      return new Response(JSON.stringify({
+        message: "Global processing cap reached",
+        cap: maxGlobal,
+        running: globalProcessing,
+        pending: bp.pendingCount,
+        providers: providerLog,
+      }), { status: 200, headers });
     }
 
-    // 3) Load rate limits config
-    const { data: rateLimits } = await admin
-      .from("llm_rate_limits")
-      .select("provider, max_concurrent, cooldown_seconds, is_paused");
-    const rlConfig = (rateLimits ?? []) as RateLimit[];
+    // 4) Fetch eligible pending jobs (reduced batch if backpressure throttling)
+    const effectiveBatch = bp.throttle ? Math.max(2, Math.floor(BATCH_SIZE / 2)) : BATCH_SIZE;
 
-    // 4) Fetch eligible pending jobs
     const { data: pendingJobs, error: fetchErr } = await admin
       .from("job_queue")
       .select("id, job_type, payload, attempts, max_attempts, priority, provider, scheduled_at, batch_cursor, fallback_count, original_provider")
@@ -427,7 +507,7 @@ Deno.serve(async (req) => {
       .order("priority", { ascending: true })
       .order("scheduled_at", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: true })
-      .limit(BATCH_SIZE * 2);
+      .limit(effectiveBatch * 3);
 
     if (fetchErr) {
       console.error("[Runner] Fetch error:", fetchErr.message);
@@ -436,50 +516,29 @@ Deno.serve(async (req) => {
 
     if (!pendingJobs || pendingJobs.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No pending jobs", runner: RUNNER_ID }),
+        JSON.stringify({ message: "No pending jobs", runner: RUNNER_ID, providers: providerLog }),
         { status: 200, headers }
       );
     }
 
-    // 5) Claim jobs with concurrency guard + PROACTIVE PROVIDER FALLBACK
+    // 5) Claim jobs with DB-DRIVEN PROVIDER AUTOPILOT
     const claimed: JobRecord[] = [];
     const skippedLLM: string[] = [];
-    const providerOrder = policy?.routing?.default_provider_order ?? ["openai", "anthropic", "google"];
-
-    // Pre-check which providers have capacity (avoid repeated DB queries)
-    const providerCapacity: Record<string, boolean> = {};
-    for (const p of providerOrder) {
-      const { allowed } = await canRunLLMJob(admin, p, rlConfig);
-      providerCapacity[p] = allowed;
-    }
-    const availableProviders = providerOrder.filter(p => providerCapacity[p]);
-    console.log(`[Runner:${RUNNER_ID}] Provider capacity: ${providerOrder.map(p => `${p}=${providerCapacity[p] ? '✓' : '✗'}`).join(', ')}`);
 
     for (const job of pendingJobs as JobRecord[]) {
-      if (claimed.length >= BATCH_SIZE) break;
+      if (claimed.length >= effectiveBatch) break;
 
       const isLLM = LLM_JOB_TYPES.has(job.job_type);
       let provider = job.provider || (isLLM ? DEFAULT_LLM_PROVIDER : null);
 
-      if (isLLM && provider) {
-        // ─── PROACTIVE FALLBACK: If preferred provider is full, try next available ───
-        if (!providerCapacity[provider] && availableProviders.length > 0) {
-          const fallbackCount = job.fallback_count ?? 0;
-          const maxFallbacks = policy?.routing?.fallback_strategy?.max_fallbacks_per_job ?? 2;
+      if (isLLM) {
+        // ─── PROVIDER AUTOPILOT: Resolve 'auto' or find best available ───
+        const preferredProvider = (provider === "auto" || !provider) ? null : provider;
+        const bestProvider = await selectBestProvider(admin, preferredProvider);
 
-          if (fallbackCount < maxFallbacks) {
-            // Pick first available provider that's not the current one
-            const altProvider = availableProviders.find(p => p !== provider);
-            if (altProvider) {
-              console.log(`[Runner:${RUNNER_ID}] Proactive fallback: ${job.id.slice(0, 8)} ${provider} → ${altProvider} (${provider} at capacity)`);
-              provider = altProvider;
-            }
-          }
-        }
-
-        // Re-check the (possibly new) provider
-        if (!providerCapacity[provider]) {
-          const delayUntil = new Date(Date.now() + 30 * 1000).toISOString();
+        if (!bestProvider) {
+          // All providers at capacity – delay job
+          const delayUntil = new Date(Date.now() + 30_000).toISOString();
           await admin
             .from("job_queue")
             .update({ scheduled_at: delayUntil, updated_at: now })
@@ -489,8 +548,26 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        provider = bestProvider;
+
+        // Atomically claim a slot
+        const slotClaimed = await claimProviderSlot(admin, provider);
+        if (!slotClaimed) {
+          // Race condition: slot taken between select and claim
+          const delayUntil = new Date(Date.now() + 15_000).toISOString();
+          await admin
+            .from("job_queue")
+            .update({ scheduled_at: delayUntil, updated_at: now })
+            .eq("id", job.id)
+            .eq("status", "pending");
+          skippedLLM.push(job.id.slice(0, 8));
+          continue;
+        }
+
+        // Budget check
         const budget = await checkBudget(admin);
         if (!budget.ok) {
+          await releaseProviderSlot(admin, provider);
           await admin
             .from("job_queue")
             .update({
@@ -508,9 +585,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Track whether provider changed for fallback counting
-      const originalProvider = job.provider || (isLLM ? DEFAULT_LLM_PROVIDER : null);
-      const providerChanged = provider !== originalProvider;
+      // Track provider changes for fallback counting
+      const originalProvider = job.original_provider || job.provider || (isLLM ? DEFAULT_LLM_PROVIDER : null);
+      const providerChanged = provider !== (job.provider || DEFAULT_LLM_PROVIDER);
       const newFallbackCount = providerChanged ? (job.fallback_count ?? 0) + 1 : (job.fallback_count ?? 0);
 
       // Atomic claim
@@ -523,7 +600,7 @@ Deno.serve(async (req) => {
           started_at: now,
           updated_at: now,
           provider: provider,
-          original_provider: job.original_provider || originalProvider,
+          original_provider: originalProvider,
           fallback_count: newFallbackCount,
         })
         .eq("id", job.id)
@@ -534,39 +611,35 @@ Deno.serve(async (req) => {
 
       if (!lockErr && locked) {
         claimed.push({ ...job, provider });
-        // Update capacity tracking after claiming
-        const limit = rlConfig.find(r => r.provider === provider);
-        const maxC = limit?.max_concurrent ?? 2;
-        // Rough tracking: if we've claimed enough for this provider, mark full
-        const claimedForProvider = claimed.filter(c => c.provider === provider).length;
-        // Don't mark full immediately, but if this is getting close, refresh
-        if (claimedForProvider >= Math.floor(maxC / 2)) {
-          const { allowed } = await canRunLLMJob(admin, provider!, rlConfig);
-          providerCapacity[provider!] = allowed;
-        }
+      } else if (isLLM && provider) {
+        // Failed to claim – release the provider slot
+        await releaseProviderSlot(admin, provider);
       }
     }
 
     if (skippedLLM.length > 0) {
-      console.log(`[Runner:${RUNNER_ID}] Delayed ${skippedLLM.length} LLM jobs (concurrency limit)`);
+      console.log(`[Runner:${RUNNER_ID}] Delayed ${skippedLLM.length} LLM jobs (all providers at capacity)`);
     }
 
     if (claimed.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No jobs claimed", runner: RUNNER_ID, skipped_llm: skippedLLM.length }),
+        JSON.stringify({ message: "No jobs claimed", runner: RUNNER_ID, skipped_llm: skippedLLM.length, providers: providerLog }),
         { status: 200, headers }
       );
     }
 
-    console.log(`[Runner:${RUNNER_ID}] Claimed ${claimed.length} jobs: ${claimed.map((j) => j.job_type).join(", ")}`);
+    console.log(`[Runner:${RUNNER_ID}] Claimed ${claimed.length} jobs: ${claimed.map((j) => `${j.job_type}@${j.provider}`).join(", ")}`);
 
-    const results: Array<{ id: string; job_type: string; outcome: string }> = [];
+    const results: Array<{ id: string; job_type: string; outcome: string; provider?: string | null }> = [];
 
     // 6) Process each job
     for (const job of claimed) {
       const functionName = JOB_TYPE_MAP[job.job_type];
 
       if (!functionName) {
+        if (job.provider && LLM_JOB_TYPES.has(job.job_type)) {
+          await releaseProviderSlot(admin, job.provider);
+        }
         await admin
           .from("job_queue")
           .update({
@@ -586,7 +659,7 @@ Deno.serve(async (req) => {
 
       try {
         const functionUrl = `${SUPABASE_URL}/functions/v1/${functionName}`;
-        console.log(`[Runner:${RUNNER_ID}] Executing ${job.id.slice(0, 8)} → ${functionName}`);
+        console.log(`[Runner:${RUNNER_ID}] Executing ${job.id.slice(0, 8)} → ${functionName} @${job.provider}`);
 
         const normalized = { ...job.payload };
         if (normalized.courseId && !normalized.course_id) normalized.course_id = normalized.courseId;
@@ -621,6 +694,11 @@ Deno.serve(async (req) => {
           responseData = { raw: responseText.slice(0, 500) };
         }
 
+        // ─── Release provider slot on completion ───
+        if (job.provider && LLM_JOB_TYPES.has(job.job_type)) {
+          await releaseProviderSlot(admin, job.provider);
+        }
+
         if (response.ok) {
           const rd = responseData as Record<string, unknown>;
           if (rd?.batch_cursor && rd?.batch_complete === false) {
@@ -635,9 +713,10 @@ Deno.serve(async (req) => {
                 locked_at: null,
                 locked_by: null,
                 updated_at: new Date().toISOString(),
+                provider: "auto", // Next batch picks best available provider
               })
               .eq("id", job.id);
-            results.push({ id: job.id, job_type: job.job_type, outcome: "batch_continue" });
+            results.push({ id: job.id, job_type: job.job_type, outcome: "batch_continue", provider: job.provider });
           } else {
             await admin
               .from("job_queue")
@@ -653,7 +732,20 @@ Deno.serve(async (req) => {
                 updated_at: new Date().toISOString(),
               })
               .eq("id", job.id);
-            results.push({ id: job.id, job_type: job.job_type, outcome: "completed" });
+
+            // Update provider stats
+            if (job.provider) {
+              await admin
+                .from("provider_status")
+                .update({
+                  total_jobs_24h: admin.rpc ? undefined : 0, // Handled via direct SQL if needed
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("provider", job.provider)
+                .catch(() => {});
+            }
+
+            results.push({ id: job.id, job_type: job.job_type, outcome: "completed", provider: job.provider });
           }
         } else if (
           response.status === 409 &&
@@ -694,28 +786,56 @@ Deno.serve(async (req) => {
                 locked_at: null,
                 locked_by: null,
                 updated_at: new Date().toISOString(),
+                provider: "auto", // Re-evaluate provider on retry
               })
               .eq("id", job.id);
             results.push({ id: job.id, job_type: job.job_type, outcome: "retry_prereq" });
           }
         } else {
-          // ─── TRIAGE-DRIVEN FAILURE HANDLING ───
+          // ─── TRIAGE-DRIVEN FAILURE HANDLING with provider health update ───
           const errorMsg = typeof responseData === "object" && responseData !== null && "error" in responseData
             ? String((responseData as { error: unknown }).error)
             : `HTTP ${response.status}: ${responseText.slice(0, 200)}`;
 
-          const outcome = await handleJobFailureWithTriage(admin, job, errorMsg, response.status, rlConfig, policy);
-          results.push({ id: job.id, job_type: job.job_type, outcome });
+          // Mark provider rate-limited if 429
+          if (response.status === 429 && job.provider) {
+            await markProviderRateLimited(admin, job.provider, 120, errorMsg);
+            console.warn(`[Runner:${RUNNER_ID}] 🔴 Provider ${job.provider} rate-limited → cooldown 120s`);
+          } else if (response.status === 503 && job.provider) {
+            await markProviderRateLimited(admin, job.provider, 300, errorMsg);
+            console.warn(`[Runner:${RUNNER_ID}] 🔴 Provider ${job.provider} unavailable → cooldown 300s`);
+          }
+
+          const outcome = await handleJobFailureWithTriage(admin, job, errorMsg, response.status, policy);
+          results.push({ id: job.id, job_type: job.job_type, outcome, provider: job.provider });
         }
       } catch (execErr: unknown) {
+        // Release provider slot on error
+        if (job.provider && LLM_JOB_TYPES.has(job.job_type)) {
+          await releaseProviderSlot(admin, job.provider);
+        }
+
         const errorMsg = execErr instanceof Error ? execErr.message : String(execErr);
-        const outcome = await handleJobFailureWithTriage(admin, job, `Runtime: ${errorMsg}`, 0, rlConfig, policy);
-        results.push({ id: job.id, job_type: job.job_type, outcome });
+
+        // Detect timeout/network errors → mark provider
+        if (job.provider && (errorMsg.includes("timeout") || errorMsg.includes("ETIMEDOUT"))) {
+          await markProviderRateLimited(admin, job.provider, 60, errorMsg);
+        }
+
+        const outcome = await handleJobFailureWithTriage(admin, job, `Runtime: ${errorMsg}`, 0, policy);
+        results.push({ id: job.id, job_type: job.job_type, outcome, provider: job.provider });
       }
     }
 
     return new Response(
-      JSON.stringify({ runner: RUNNER_ID, processed: results.length, results }),
+      JSON.stringify({
+        runner: RUNNER_ID,
+        processed: results.length,
+        results,
+        pending: bp.pendingCount,
+        backpressure: bp.throttle ? "throttled" : bp.warn ? "warning" : "ok",
+        providers: providerLog,
+      }),
       { status: 200, headers }
     );
   } catch (err: unknown) {
@@ -731,7 +851,6 @@ async function handleJobFailureWithTriage(
   job: JobRecord,
   errorMsg: string,
   httpStatus: number,
-  rateLimits: RateLimit[],
   policy: TriagePolicy | null
 ): Promise<string> {
   const category = classifyError(errorMsg, httpStatus, policy);
@@ -740,7 +859,7 @@ async function handleJobFailureWithTriage(
   const provider = job.provider || DEFAULT_LLM_PROVIDER;
   const now = new Date().toISOString();
 
-  console.log(`[Runner:${RUNNER_ID}] Triage ${job.id.slice(0, 8)}: ${category} (attempt ${newAttempts})`);
+  console.log(`[Runner:${RUNNER_ID}] Triage ${job.id.slice(0, 8)}: ${category} (attempt ${newAttempts}) @${provider}`);
 
   // ─── PERMANENT FAILURES → fail + dead letter + block ──────────
   if (category.startsWith("PERMANENT_") || (actionDef && actionDef.set_status === "failed")) {
@@ -772,11 +891,10 @@ async function handleJobFailureWithTriage(
     return `failed_${category.toLowerCase()}`;
   }
 
-  // ─── TRANSIENT FAILURES → retry with backoff + optional provider switch ──
+  // ─── TRANSIENT FAILURES → retry with backoff + auto-provider switch ──
   const maxAttempts = getMaxAttempts(category, policy, job.max_attempts);
 
   if (newAttempts >= maxAttempts) {
-    // Exhausted retries → final fail
     console.warn(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} exhausted ${category} retries (${newAttempts}/${maxAttempts})`);
     await admin
       .from("job_queue")
@@ -802,16 +920,12 @@ async function handleJobFailureWithTriage(
   const delaySec = computeBackoff(newAttempts, policy, category);
   const scheduledAt = new Date(Date.now() + delaySec * 1000).toISOString();
 
-  // Provider fallback – switch eagerly on RATE_LIMIT, TIMEOUT, TRANSIENT_NETWORK
-  let newProvider = provider;
-  const fallbackCount = job.fallback_count ?? 0;
-  const shouldSwitchProvider = (actionDef?.maybe_switch_provider || category === "RATE_LIMIT") && LLM_JOB_TYPES.has(job.job_type);
-  if (shouldSwitchProvider) {
-    const fallback = pickFallbackProvider(provider, fallbackCount, policy);
-    if (fallback) {
-      newProvider = fallback;
-      console.log(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} switching provider ${provider} → ${newProvider} (${category})`);
-    }
+  // On transient errors, always set provider to 'auto' so next attempt picks best available
+  const shouldAutoRoute = ["RATE_LIMIT", "TIMEOUT", "TRANSIENT_NETWORK"].includes(category) && LLM_JOB_TYPES.has(job.job_type);
+  const newProvider = shouldAutoRoute ? "auto" : provider;
+
+  if (shouldAutoRoute) {
+    console.log(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} → auto-route on retry (was ${provider}, ${category})`);
   }
 
   const updatePayload: Record<string, unknown> = {
@@ -827,7 +941,7 @@ async function handleJobFailureWithTriage(
     locked_by: null,
     updated_at: now,
     provider: newProvider,
-    fallback_count: newProvider !== provider ? fallbackCount + 1 : fallbackCount,
+    fallback_count: (job.fallback_count ?? 0) + (shouldAutoRoute ? 1 : 0),
   };
 
   if (category === "RATE_LIMIT") {
