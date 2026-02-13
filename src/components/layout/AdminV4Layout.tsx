@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import CommandPalette from '@/components/admin/CommandPalette';
+import NotificationBell from '@/components/admin/NotificationBell';
 
 interface NavItem {
   path: string;
@@ -32,6 +33,7 @@ const navModules: NavItem[] = [
     path: '/admin/quality', label: 'Qualität', icon: Shield,
     children: [
       { path: '/admin/quality', label: 'Übersicht' },
+      { path: '/admin/quality/review', label: 'Review Inbox' },
       { path: '/admin/quality/integrity', label: 'Integrität' },
       { path: '/admin/quality/compliance', label: 'Compliance' },
       { path: '/admin/quality/azav', label: 'AZAV/ISO' },
@@ -116,6 +118,8 @@ export default function AdminV4Layout() {
     exports: 'Exporte', nudges: 'Nudge Engine', feedback: 'Feedback',
     reporting: 'Reporting',
     pipeline: 'Pipeline Monitor',
+    review: 'Review Inbox',
+    'load-control': 'Load Control',
   };
 
   return (
@@ -134,9 +138,12 @@ export default function AdminV4Layout() {
           <Menu className="h-5 w-5" />
         </button>
         <span className="font-semibold text-sm">ExamFit Admin</span>
-        <button onClick={() => setCmdOpen(true)} className="p-2 rounded-lg hover:bg-muted">
-          <Search className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <button onClick={() => setCmdOpen(true)} className="p-2 rounded-lg hover:bg-muted">
+            <Search className="h-4 w-4" />
+          </button>
+        </div>
       </header>
 
       {/* Sidebar */}
@@ -155,8 +162,9 @@ export default function AdminV4Layout() {
             <Brain className="h-4 w-4 text-primary-foreground" />
           </div>
           {!sidebarCollapsed && (
-            <span className="font-bold text-sm text-foreground truncate">ExamFit Admin</span>
+            <span className="font-bold text-sm text-foreground truncate flex-1">ExamFit Admin</span>
           )}
+          {!sidebarCollapsed && <NotificationBell />}
         </div>
 
         {/* Search trigger */}

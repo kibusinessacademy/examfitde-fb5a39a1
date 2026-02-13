@@ -43,7 +43,10 @@ export type Database = {
           body: string | null
           category: string
           created_at: string
+          entity_id: string | null
+          entity_type: string | null
           id: string
+          is_read: boolean
           metadata: Json | null
           read_at: string | null
           severity: string
@@ -53,7 +56,10 @@ export type Database = {
           body?: string | null
           category?: string
           created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
+          is_read?: boolean
           metadata?: Json | null
           read_at?: string | null
           severity?: string
@@ -63,7 +69,10 @@ export type Database = {
           body?: string | null
           category?: string
           created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
+          is_read?: boolean
           metadata?: Json | null
           read_at?: string | null
           severity?: string
@@ -3401,6 +3410,70 @@ export type Database = {
             foreignKeyName: "course_package_plans_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
+      course_package_reviews: {
+        Row: {
+          course_package_id: string
+          created_at: string
+          export_json: Json | null
+          export_path: string | null
+          id: string
+          integrity_report: Json | null
+          integrity_score: number | null
+          notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          course_package_id: string
+          created_at?: string
+          export_json?: Json | null
+          export_path?: string | null
+          id?: string
+          integrity_report?: Json | null
+          integrity_score?: number | null
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          course_package_id?: string
+          created_at?: string
+          export_json?: Json | null
+          export_path?: string | null
+          id?: string
+          integrity_report?: Json | null
+          integrity_score?: number | null
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
