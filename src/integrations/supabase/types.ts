@@ -1911,6 +1911,54 @@ export type Database = {
           },
         ]
       }
+      certification_catalog: {
+        Row: {
+          catalog_type: string
+          chamber_type: string
+          created_at: string
+          exam_format: Json
+          id: string
+          linked_certification_id: string | null
+          min_question_target: number
+          notes: string | null
+          priority_score: number
+          recognition_type: string
+          slug: string
+          title: string
+          track: string
+        }
+        Insert: {
+          catalog_type: string
+          chamber_type: string
+          created_at?: string
+          exam_format?: Json
+          id?: string
+          linked_certification_id?: string | null
+          min_question_target?: number
+          notes?: string | null
+          priority_score?: number
+          recognition_type: string
+          slug: string
+          title: string
+          track?: string
+        }
+        Update: {
+          catalog_type?: string
+          chamber_type?: string
+          created_at?: string
+          exam_format?: Json
+          id?: string
+          linked_certification_id?: string | null
+          min_question_target?: number
+          notes?: string | null
+          priority_score?: number
+          recognition_type?: string
+          slug?: string
+          title?: string
+          track?: string
+        }
+        Relationships: []
+      }
       certification_documents: {
         Row: {
           certification_id: string

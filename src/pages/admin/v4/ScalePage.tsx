@@ -22,9 +22,11 @@ const CEOStrategicDashboard = lazy(() => import('@/components/admin/CEOStrategic
 const DominanceDashboard = lazy(() => import('@/components/admin/DominanceDashboard'));
 const CertificationDominanceBoard = lazy(() => import('@/components/admin/CertificationDominanceBoard'));
 const CurriculumIngestPage = lazy(() => import('@/pages/admin/v4/CurriculumIngestPage'));
+const CertificationCatalogPage = lazy(() => import('@/pages/admin/v4/CertificationCatalogPage'));
 
 const tabs = [
   { path: '/admin/scale', label: 'Berufe-Status' },
+  { path: '/admin/scale/catalog', label: '📋 Zertifizierungs-Katalog' },
   { path: '/admin/scale/curriculum', label: 'Curriculum Health' },
   { path: '/admin/scale/curriculum-ingest', label: '📥 Rahmenplan-Ingest' },
   { path: '/admin/scale/deep-audit', label: 'Deep Audit' },
@@ -387,6 +389,7 @@ export default function ScalePage() {
       <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
         <Routes>
           <Route index element={<BerufeStatus />} />
+          <Route path="catalog" element={<CertificationCatalogPage />} />
           <Route path="curriculum" element={<CurriculumHealthDashboard />} />
           <Route path="curriculum-ingest" element={<CurriculumIngestPage />} />
           <Route path="deep-audit" element={<DeepAuditPanel />} />
