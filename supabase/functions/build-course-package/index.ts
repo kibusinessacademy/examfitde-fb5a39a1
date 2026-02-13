@@ -54,6 +54,17 @@ Deno.serve(async (req) => {
   const featureFlags = pkgRow.feature_flags || {};
   const track = pkgRow.track || "AUSBILDUNG_VOLL";
 
+  // Resolve curriculum_id from course (critical for downstream steps)
+  let effectiveCurriculumId = curriculumId;
+  if (!effectiveCurriculumId && effectiveCourseId) {
+    const { data: courseRow } = await sb
+      .from("courses")
+      .select("curriculum_id")
+      .eq("id", effectiveCourseId)
+      .single();
+    effectiveCurriculumId = courseRow?.curriculum_id || null;
+  }
+
   // 0) Active-packages guard: max N packages building simultaneously
   const { data: budgetRow } = await sb
     .from("llm_budget")
@@ -175,15 +186,15 @@ Deno.serve(async (req) => {
     job_type: s.job_type,
     status: "pending",
     attempts: 0,
-    max_attempts: 25, // Mass Production: 429/Timeout nie als Final-Fail
+    max_attempts: 25,
     run_after: nowIso,
     payload: {
       job_version: "course_studio_v2",
       package_id: packageId,
       step_key: s.step_key,
-      course_id: courseId,
-      curriculum_id: curriculumId,
-      certification_id: certificationId,
+      course_id: effectiveCourseId,
+      curriculum_id: effectiveCurriculumId,
+      certification_id: effectiveCertId,
       provider: idx % 2 === 0 ? "openai" : "anthropic",
       options: opts,
       sequence: idx + 1,
