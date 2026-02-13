@@ -382,13 +382,34 @@ Deno.serve(async (req) => {
         error_details: errors.slice(0, 5),
       });
     } else if (allBlueprintsProcessed && !targetReached) {
+      const currentLoop = (batchCursor?.loop_count ?? 0) + 1;
+      // Max 5 loops to prevent infinite re-looping
+      if (currentLoop >= 5) {
+        console.log(`[ExamPool] Loop cap reached (${currentLoop}). Accepting ${actualTotal} questions.`);
+        if (!isFanOut) {
+          await sb.rpc("update_course_package_step", {
+            p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "done",
+            p_log: {
+              ok: true, target: examTarget, actual: actualTotal,
+              note: `Loop-capped at ${currentLoop} cycles`,
+              blueprints_processed: currentBpIndex, ai_fallback: useAIFallback,
+            },
+          });
+          await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
+        }
+        return json({
+          ok: true, batch_complete: true, total_questions: actualTotal,
+          target: examTarget, loop_capped: true, loop_count: currentLoop,
+        });
+      }
+
       // All blueprints processed but target NOT met → re-enqueue with index 0 to loop again
-      console.log(`[ExamPool] All BPs processed but only ${actualTotal}/${examTarget} — re-looping`);
+      console.log(`[ExamPool] All BPs processed but only ${actualTotal}/${examTarget} — re-looping (cycle ${currentLoop})`);
       return json({
         ok: true, batch_complete: false,
-        batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: (batchCursor?.loop_count ?? 0) + 1 },
+        batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: currentLoop },
         total_questions: actualTotal, chunk_errors: errors.length,
-        note: "Re-looping: all blueprints processed but target not reached",
+        note: `Re-looping cycle ${currentLoop}: all blueprints processed but target not reached`,
       });
     } else {
       return json({

@@ -77,9 +77,33 @@ Deno.serve(async (req) => {
       .eq("id", next.course_id)
       .maybeSingle();
 
-    const curriculumId = course?.curriculum_id;
+    let curriculumId = course?.curriculum_id;
     if (!curriculumId) {
-      return json({ ok: false, error: "No curriculum_id for course " + next.course_id }, 400);
+      // Auto-fix: try prebuild-autofix before giving up
+      try {
+        const afRes = await fetch(`${SUPABASE_URL}/functions/v1/prebuild-autofix`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({ package_id: next.id }),
+        });
+        const afData = await afRes.json();
+        if (afData.fixes_applied > 0) {
+          // Re-check curriculum after autofix
+          const { data: courseRetry } = await sb.from("courses").select("curriculum_id").eq("id", next.course_id).maybeSingle();
+          curriculumId = courseRetry?.curriculum_id;
+        }
+      } catch { /* non-fatal */ }
+
+      if (!curriculumId) {
+        // Still no curriculum — revert to queued so it doesn't get stuck in "building"
+        await sb.rpc("set_package_status", { p_id: nextId, p_status: "queued" });
+        await sb.from("admin_notifications").insert({
+          title: `⚠️ Paket ohne Curriculum: ${next.id.slice(0, 8)}`,
+          body: `Kurs ${next.course_id} hat kein curriculum_id. Paket zurück in Queue.`,
+          category: "ops", severity: "warning",
+        });
+        return json({ ok: false, error: "No curriculum_id for course " + next.course_id + " (auto-fix attempted)" }, 400);
+      }
     }
 
     // Ensure an approved plan exists
@@ -132,15 +156,34 @@ Deno.serve(async (req) => {
     });
 
     // Fire without awaiting – build-course-package enqueues jobs and returns fast
+    // Use SERVICE_ROLE_KEY for reliability (anon key can be blocked by RLS)
     fetch(buildUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       },
       body: buildBody,
-    }).catch(e => {
+    }).then(async (res) => {
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "unknown");
+        console.error(`[queue-next] Build returned ${res.status}: ${errText}`);
+        // Alert on fire-and-forget failure
+        await sb.from("admin_notifications").insert({
+          title: `🔴 Build-Start fehlgeschlagen: ${next.id.slice(0, 8)}`,
+          body: `HTTP ${res.status}: ${errText.slice(0, 200)}`,
+          category: "ops", severity: "error",
+          metadata: { package_id: next.id },
+        });
+      }
+    }).catch(async (e) => {
       console.error(`[queue-next] Fire-and-forget build error: ${(e as Error).message}`);
+      await sb.from("admin_notifications").insert({
+        title: `🔴 Build-Start Netzwerkfehler: ${next.id.slice(0, 8)}`,
+        body: (e as Error).message,
+        category: "ops", severity: "error",
+        metadata: { package_id: next.id },
+      });
     });
 
     console.log(`[queue-next] Fired build for package ${next.id} (queue_position=${next.queue_position})`);
