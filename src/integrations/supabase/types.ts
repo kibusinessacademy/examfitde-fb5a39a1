@@ -1945,6 +1945,41 @@ export type Database = {
         }
         Relationships: []
       }
+      company_members: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          invited_by: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competencies: {
         Row: {
           code: string
@@ -4380,6 +4415,13 @@ export type Database = {
             columns: ["seat_id"]
             isOneToOne: false
             referencedRelation: "license_seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "license_seats_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -11518,6 +11560,44 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      license_seats_safe: {
+        Row: {
+          assigned_at: string | null
+          assigned_user_id: string | null
+          created_at: string | null
+          id: string | null
+          licensee_first_name: string | null
+          licensee_last_name: string | null
+          package_id: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_user_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          licensee_first_name?: string | null
+          licensee_last_name?: string | null
+          package_id?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_user_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          licensee_first_name?: string | null
+          licensee_last_name?: string | null
+          package_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "license_seats_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "license_packages"
             referencedColumns: ["id"]
           },
         ]
