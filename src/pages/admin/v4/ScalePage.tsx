@@ -21,10 +21,12 @@ const MassRolloutDashboard = lazy(() => import('@/components/admin/MassRolloutDa
 const CEOStrategicDashboard = lazy(() => import('@/components/admin/CEOStrategicDashboard'));
 const DominanceDashboard = lazy(() => import('@/components/admin/DominanceDashboard'));
 const CertificationDominanceBoard = lazy(() => import('@/components/admin/CertificationDominanceBoard'));
+const CurriculumIngestPage = lazy(() => import('@/pages/admin/v4/CurriculumIngestPage'));
 
 const tabs = [
   { path: '/admin/scale', label: 'Berufe-Status' },
   { path: '/admin/scale/curriculum', label: 'Curriculum Health' },
+  { path: '/admin/scale/curriculum-ingest', label: '📥 Rahmenplan-Ingest' },
   { path: '/admin/scale/deep-audit', label: 'Deep Audit' },
   { path: '/admin/scale/rollout', label: '🌐 Total Coverage' },
   { path: '/admin/scale/dominance', label: '🌍 Cluster-Dominanz' },
@@ -386,6 +388,7 @@ export default function ScalePage() {
         <Routes>
           <Route index element={<BerufeStatus />} />
           <Route path="curriculum" element={<CurriculumHealthDashboard />} />
+          <Route path="curriculum-ingest" element={<CurriculumIngestPage />} />
           <Route path="deep-audit" element={<DeepAuditPanel />} />
           <Route path="rollout" element={<MassRolloutDashboard />} />
           <Route path="dominance" element={<DominanceDashboard />} />
