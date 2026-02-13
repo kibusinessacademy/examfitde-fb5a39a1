@@ -46,7 +46,30 @@ Deno.serve(async (req) => {
       return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: run_integrity_check" }, 409);
     }
 
-    // Check integrity score before publishing – don't publish below threshold
+    // ── REVIEW GATE: only publish if admin approved ──
+    const { data: review } = await sb
+      .from("course_package_reviews")
+      .select("status")
+      .eq("course_package_id", packageId)
+      .maybeSingle();
+
+    if (!review || review.status !== "approved") {
+      const currentStatus = review?.status || "no_review";
+      console.log(`[AutoPublish] BLOCKED: review status = ${currentStatus} (need 'approved'). Package ${packageId}`);
+      // Don't fail – just skip. The admin needs to approve first.
+      await sb.rpc("update_course_package_step", {
+        p_package_id: packageId, p_step_key: "auto_publish", p_status: "pending",
+        p_log: { skipped: true, reason: `Review gate: status=${currentStatus}, waiting for admin approval` },
+      });
+      return json({
+        ok: false,
+        retry: false,
+        error: `REVIEW_GATE: status=${currentStatus}. Admin approval required before publish.`,
+        review_status: currentStatus,
+      }, 202);
+    }
+
+    // Check integrity score before publishing
     const { data: pkg } = await sb
       .from("course_packages")
       .select("integrity_report")
@@ -57,19 +80,17 @@ Deno.serve(async (req) => {
     const PUBLISH_THRESHOLD = 85;
 
     if (integrityScore !== undefined && integrityScore < PUBLISH_THRESHOLD) {
-      // Don't retry – this is a definitive state. Needs gap-closure first.
       await unlockFail(`Integrity score ${integrityScore} < ${PUBLISH_THRESHOLD}. Gap-closure needed before publish.`);
-      return json({ 
-        ok: false, 
+      return json({
+        ok: false,
         error: `INTEGRITY_BELOW_THRESHOLD: score=${integrityScore}, required=${PUBLISH_THRESHOLD}`,
-        score: integrityScore,
-        threshold: PUBLISH_THRESHOLD,
+        score: integrityScore, threshold: PUBLISH_THRESHOLD,
       }, 422);
     }
 
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "auto_publish", p_status: "running",
-      p_log: { note: "Mark course publish_ready + package published" },
+      p_log: { note: "Admin approved. Publishing course." },
     });
 
     const { error: cErr } = await sb
@@ -84,17 +105,24 @@ Deno.serve(async (req) => {
       p_package_id: packageId, p_step_key: "auto_publish", p_status: "done", p_log: { ok: true },
     });
 
-    // ✅ unlock package
+    // Unlock package
     await sb.from("course_package_locks").delete().eq("package_id", packageId);
 
-    // ✅ Trigger next queued package (sequential pipeline)
+    // Trigger next queued package
     await sb.from("job_queue").insert({
-      job_type: "package_queue_next",
-      status: "pending",
-      attempts: 0,
-      max_attempts: 1,
-      run_after: new Date(Date.now() + 5_000).toISOString(), // 5s delay
+      job_type: "package_queue_next", status: "pending", attempts: 0, max_attempts: 1,
+      run_after: new Date(Date.now() + 5_000).toISOString(),
       payload: { completed_package_id: packageId },
+    });
+
+    // Admin notification
+    await sb.from("admin_notifications").insert({
+      title: `🚀 Package published`,
+      body: `Course package has been published successfully.`,
+      category: "package_review",
+      severity: "info",
+      entity_type: "course_package",
+      entity_id: packageId,
     });
 
     return json({ ok: true });

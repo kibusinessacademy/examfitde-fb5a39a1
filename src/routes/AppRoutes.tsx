@@ -56,6 +56,7 @@ const GrowthPage = lazy(() => import('@/pages/admin/v4/GrowthPage'));
 const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
 const PipelineMonitorPage = lazy(() => import('@/pages/admin/v4/PipelineMonitorPage'));
 const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
+const ReviewInboxPage = lazy(() => import('@/pages/admin/v4/ReviewInboxPage'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
