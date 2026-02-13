@@ -14,10 +14,14 @@ import { toast } from 'sonner';
 import PageExplainer from '@/components/admin/PageExplainer';
 
 const CurriculumHealthDashboard = lazy(() => import('@/components/admin/CurriculumHealthDashboard'));
+const DeepAuditPanel = lazy(() => import('@/components/admin/DeepAuditPanel'));
+const MassRolloutDashboard = lazy(() => import('@/components/admin/MassRolloutDashboard'));
 
 const tabs = [
   { path: '/admin/scale', label: 'Berufe-Status' },
   { path: '/admin/scale/curriculum', label: 'Curriculum Health' },
+  { path: '/admin/scale/deep-audit', label: 'Deep Audit' },
+  { path: '/admin/scale/rollout', label: 'Mass Rollout' },
   { path: '/admin/scale/reporting', label: 'Reporting' },
 ];
 
@@ -339,6 +343,8 @@ export default function ScalePage() {
         <Routes>
           <Route index element={<BerufeStatus />} />
           <Route path="curriculum" element={<CurriculumHealthDashboard />} />
+          <Route path="deep-audit" element={<DeepAuditPanel />} />
+          <Route path="rollout" element={<MassRolloutDashboard />} />
           <Route path="reporting" element={<ScaleReporting />} />
         </Routes>
       </Suspense>

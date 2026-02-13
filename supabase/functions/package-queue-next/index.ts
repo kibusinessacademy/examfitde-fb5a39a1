@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
   );
 
   try {
-    // Use completion-first RPC with aging
+    // Use completion-first RPC with aging + priority
     const { data: budgetRow } = await sb
       .from("llm_budget")
       .select("max_active_packages")
@@ -37,7 +37,15 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const maxActive = budgetRow?.max_active_packages ?? 4;
 
-    const { data: nextId } = await sb.rpc("pick_next_package_to_start", { max_active: maxActive });
+    // Try priority-based pick first, fall back to standard queue
+    let nextId: string | null = null;
+    const { data: priorityId } = await sb.rpc("pick_next_package_by_priority", { max_active: maxActive });
+    if (priorityId) {
+      nextId = priorityId;
+    } else {
+      const { data: stdId } = await sb.rpc("pick_next_package_to_start", { max_active: maxActive });
+      nextId = stdId;
+    }
 
     if (!nextId) {
       const { data: activeCount } = await sb.rpc("get_active_package_count");
