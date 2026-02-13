@@ -29,15 +29,21 @@ Deno.serve(async (req) => {
   );
 
   try {
-    // Check if any package is currently building
-    const { data: building } = await sb
-      .from("course_packages")
-      .select("id")
-      .eq("status", "building")
-      .limit(1);
+    // Check active packages vs max_active_packages limit
+    const { data: budgetRow } = await sb
+      .from("llm_budget")
+      .select("max_active_packages")
+      .limit(1)
+      .maybeSingle();
+    const maxActive = budgetRow?.max_active_packages ?? 4;
 
-    if (building && building.length > 0) {
-      return json({ ok: true, skipped: true, reason: "Another package is still building" });
+    const { count: buildingCount } = await sb
+      .from("course_packages")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "building");
+
+    if ((buildingCount ?? 0) >= maxActive) {
+      return json({ ok: true, skipped: true, reason: `${buildingCount}/${maxActive} packages active, waiting for slot` });
     }
 
     // Find next queued package (lowest queue_position, not yet published/building)

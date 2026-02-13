@@ -41,17 +41,23 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
-  // 0) Sequential guard: block if another package is already building
-  const { data: alreadyBuilding } = await sb
-    .from("course_packages")
-    .select("id, title")
-    .eq("status", "building")
-    .neq("id", packageId)
-    .limit(1);
+  // 0) Active-packages guard: max N packages building simultaneously
+  const { data: budgetRow } = await sb
+    .from("llm_budget")
+    .select("max_active_packages")
+    .limit(1)
+    .maybeSingle();
+  const maxActive = budgetRow?.max_active_packages ?? 4;
 
-  if (alreadyBuilding && alreadyBuilding.length > 0) {
+  const { count: buildingCount } = await sb
+    .from("course_packages")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "building")
+    .neq("id", packageId);
+
+  if ((buildingCount ?? 0) >= maxActive) {
     return json(
-      { code: "SEQUENTIAL_QUEUE", error: `Paket "${alreadyBuilding[0].title || alreadyBuilding[0].id}" wird gerade gebaut. Dieses Paket wird automatisch gestartet, sobald das aktuelle fertig ist.` },
+      { code: "SEQUENTIAL_QUEUE", error: `Bereits ${buildingCount} Pakete aktiv (max ${maxActive}). Dieses Paket wird automatisch gestartet, sobald ein Slot frei wird.` },
       409
     );
   }
