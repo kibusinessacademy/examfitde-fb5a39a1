@@ -239,3 +239,9 @@ verify_jwt = false
 
 [functions.package-queue-next]
 verify_jwt = false
+
+[functions.platform-risk-score]
+verify_jwt = false
+
+[functions.patch-api]
+verify_jwt = false
