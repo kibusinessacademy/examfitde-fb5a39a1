@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { calculateHybridTarget, calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
+import { calculateHybridTarget } from "../_shared/hybridExamTarget.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,62 +16,93 @@ function json(body: unknown, status = 200) {
 }
 
 /**
- * package-queue-next  (Stufe 1: Fire-and-Forget)
- * 
+ * package-queue-next — WIP-limit = 1
+ *
  * Called by pg_cron every minute.
- * Picks the next eligible queued package, sets it to "building",
- * and fires build-course-package WITHOUT waiting for the response.
- * This avoids Edge Function timeouts when the build takes >150s.
+ * 1. Check pipeline_lock — if locked → return busy
+ * 2. Pick next queued package
+ * 3. Claim pipeline_lock atomically
+ * 4. Fire build-course-package (fire-and-forget)
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
-    // Budget guard
-    const { data: budgetRow } = await sb
-      .from("llm_budget")
-      .select("max_active_packages")
-      .limit(1)
-      .maybeSingle();
-    const maxActive = budgetRow?.max_active_packages ?? 4;
+    // ── Step 0: Cleanup stale locks (>10 min without heartbeat) ──
+    await sb.rpc("cleanup_stale_pipeline_lock");
 
-    // Priority-based pick, fallback to standard queue
+    // ── Step 1: Check if pipeline is already busy ──
+    const { data: lock } = await sb
+      .from("pipeline_lock")
+      .select("active_package_id, locked_at, locked_by, heartbeat_at")
+      .eq("id", 1)
+      .single();
+
+    if (lock?.active_package_id) {
+      return json({
+        ok: true,
+        skipped: true,
+        reason: "pipeline_busy",
+        active_package_id: lock.active_package_id,
+        locked_by: lock.locked_by,
+        locked_at: lock.locked_at,
+      });
+    }
+
+    // ── Step 2: Pick next queued package (priority-based, then FIFO) ──
     let nextId: string | null = null;
-    const { data: priorityId } = await sb.rpc("pick_next_package_by_priority", { max_active: maxActive });
-    if (priorityId) {
-      nextId = priorityId;
-    } else {
-      const { data: stdId } = await sb.rpc("pick_next_package_to_start", { max_active: maxActive });
-      nextId = stdId;
+
+    // Try priority pick first
+    try {
+      const { data: priorityId } = await sb.rpc("pick_next_package_by_priority", { max_active: 1 });
+      if (priorityId) nextId = priorityId;
+    } catch { /* rpc may not exist yet */ }
+
+    if (!nextId) {
+      // Fallback: simple FIFO from queued packages
+      const { data: nextPkg } = await sb
+        .from("course_packages")
+        .select("id")
+        .eq("status", "queued")
+        .order("queue_position", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      nextId = nextPkg?.id || null;
     }
 
     if (!nextId) {
-      const { data: activeCount } = await sb.rpc("get_active_package_count");
-      return json({ ok: true, skipped: true, reason: `${activeCount}/${maxActive} active, no eligible queued packages` });
+      return json({ ok: true, skipped: true, reason: "no_queued_packages" });
     }
 
-    // Atomically set to building
-    await sb.rpc("set_package_status", { p_id: nextId, p_status: "building" });
+    // ── Step 3: Claim pipeline lock atomically ──
+    const { data: claimed } = await sb.rpc("try_claim_pipeline_lock", {
+      p_package_id: nextId,
+      p_locked_by: "package-queue-next",
+    });
 
+    if (!claimed) {
+      return json({ ok: true, skipped: true, reason: "lock_claim_failed_race_condition" });
+    }
+
+    // ── Step 4: Fetch package details ──
     const { data: next, error } = await sb
       .from("course_packages")
-      .select("id, course_id, certification_id, queue_position")
+      .select("id, course_id, certification_id, track, feature_flags, queue_position")
       .eq("id", nextId)
       .maybeSingle();
 
-    if (error) throw error;
-    if (!next) {
-      return json({ ok: true, skipped: true, reason: "Package not found after pick" });
+    if (error || !next) {
+      await sb.rpc("release_pipeline_lock", { p_package_id: nextId });
+      return json({ ok: false, error: "Package not found after lock claim" }, 404);
     }
 
-    // Find curriculum_id from the course
+    // ── Step 5: Resolve curriculum_id ──
     const { data: course } = await sb
       .from("courses")
       .select("curriculum_id")
@@ -80,7 +111,7 @@ Deno.serve(async (req) => {
 
     let curriculumId = course?.curriculum_id;
     if (!curriculumId) {
-      // Auto-fix: try prebuild-autofix before giving up
+      // Try autofix
       try {
         const afRes = await fetch(`${SUPABASE_URL}/functions/v1/prebuild-autofix`, {
           method: "POST",
@@ -89,25 +120,24 @@ Deno.serve(async (req) => {
         });
         const afData = await afRes.json();
         if (afData.fixes_applied > 0) {
-          // Re-check curriculum after autofix
-          const { data: courseRetry } = await sb.from("courses").select("curriculum_id").eq("id", next.course_id).maybeSingle();
-          curriculumId = courseRetry?.curriculum_id;
+          const { data: retry } = await sb.from("courses").select("curriculum_id").eq("id", next.course_id).maybeSingle();
+          curriculumId = retry?.curriculum_id;
         }
       } catch { /* non-fatal */ }
 
       if (!curriculumId) {
-        // Still no curriculum — revert to queued so it doesn't get stuck in "building"
-        await sb.rpc("set_package_status", { p_id: nextId, p_status: "queued" });
+        await sb.rpc("release_pipeline_lock", { p_package_id: nextId });
+        await sb.from("course_packages").update({ status: "failed", updated_at: new Date().toISOString() }).eq("id", nextId);
         await sb.from("admin_notifications").insert({
           title: `⚠️ Paket ohne Curriculum: ${next.id.slice(0, 8)}`,
-          body: `Kurs ${next.course_id} hat kein curriculum_id. Paket zurück in Queue.`,
+          body: `Kurs ${next.course_id} hat kein curriculum_id. Lock freigegeben.`,
           category: "ops", severity: "warning",
         });
-        return json({ ok: false, error: "No curriculum_id for course " + next.course_id + " (auto-fix attempted)" }, 400);
+        return json({ ok: false, error: "No curriculum_id" }, 400);
       }
     }
 
-    // ── HYBRID TARGET ENGINE v3 ──
+    // ── Step 6: Hybrid Target Engine ──
     let durationMonths: number | null = null;
     let certCatalogData: {
       exam_complexity_score?: number;
@@ -125,7 +155,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch hybrid fields from certification_catalog
     if (next.certification_id) {
       const { data: catRow } = await sb
         .from("certification_catalog")
@@ -135,19 +164,18 @@ Deno.serve(async (req) => {
       if (catRow) certCatalogData = catRow;
     }
 
+    const track = next.track || "AUSBILDUNG_VOLL";
     const hybridResult = calculateHybridTarget({
       durationMonths,
-      track: 'AUSBILDUNG_VOLL',
+      track,
       examComplexityScore: certCatalogData.exam_complexity_score ?? 1.0,
       mathRatio: certCatalogData.math_ratio ?? 0.15,
       oralComponent: certCatalogData.oral_component ?? false,
       learningFieldCount: certCatalogData.learning_field_count ?? 0,
-      certificationLevel: certCatalogData.certification_level ?? 'ausbildung',
+      certificationLevel: certCatalogData.certification_level ?? "ausbildung",
     });
 
-    const dynamicExamTarget = hybridResult.target;
-
-    // Ensure an approved plan exists
+    // ── Step 7: Ensure approved plan ──
     const { data: plan } = await sb
       .from("course_package_plans")
       .select("id")
@@ -161,12 +189,9 @@ Deno.serve(async (req) => {
         package_id: next.id,
         status: "approved",
         plan: {
-          include_learning_course: true,
-          include_exam_pool: true,
-          include_oral_exam: true,
-          include_ai_tutor: true,
-          include_handbook: true,
-          exam_target: dynamicExamTarget,
+          auto_created: true,
+          track,
+          exam_target: hybridResult.target,
           ship_target: hybridResult.shipTarget,
           difficulty_distribution: hybridResult.difficultyDistribution,
           question_type_mix: hybridResult.questionTypeMix,
@@ -177,34 +202,35 @@ Deno.serve(async (req) => {
     // Ensure council_approved
     await sb
       .from("course_packages")
-      .update({ council_approved: true, council_approved_at: new Date().toISOString() })
+      .update({
+        council_approved: true,
+        council_approved_at: new Date().toISOString(),
+        status: "building",
+        build_progress: 1,
+      })
       .eq("id", next.id);
 
-    // ── STUFE 1: Fire-and-forget ──
-    // Instead of awaiting the build response (which can timeout),
-    // we fire the request and return immediately.
-    const buildUrl = `${SUPABASE_URL}/functions/v1/build-course-package`;
+    // ── Step 8: Fire build-course-package (fire-and-forget) ──
+    const featureFlags = next.feature_flags || {};
     const buildBody = JSON.stringify({
       packageId: next.id,
       courseId: next.course_id,
       curriculumId,
       certificationId: next.certification_id,
       options: {
-        include_learning_course: true,
-        include_exam_pool: true,
-        include_oral_exam: true,
-        include_ai_tutor: true,
-        include_handbook: true,
-        exam_target: dynamicExamTarget,
+        include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL"),
+        include_exam_pool: featureFlags.has_exam_trainer ?? true,
+        include_oral_exam: featureFlags.has_oral_exam_trainer ?? (track === "AUSBILDUNG_VOLL"),
+        include_ai_tutor: featureFlags.has_ai_tutor ?? (track === "AUSBILDUNG_VOLL"),
+        include_handbook: featureFlags.has_handbook ?? (track === "AUSBILDUNG_VOLL"),
+        exam_target: hybridResult.target,
         ship_target: hybridResult.shipTarget,
         difficulty_distribution: hybridResult.difficultyDistribution,
         question_type_mix: hybridResult.questionTypeMix,
       },
     });
 
-    // Fire without awaiting – build-course-package enqueues jobs and returns fast
-    // Use SERVICE_ROLE_KEY for reliability (anon key can be blocked by RLS)
-    fetch(buildUrl, {
+    fetch(`${SUPABASE_URL}/functions/v1/build-course-package`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -215,7 +241,6 @@ Deno.serve(async (req) => {
       if (!res.ok) {
         const errText = await res.text().catch(() => "unknown");
         console.error(`[queue-next] Build returned ${res.status}: ${errText}`);
-        // Alert on fire-and-forget failure
         await sb.from("admin_notifications").insert({
           title: `🔴 Build-Start fehlgeschlagen: ${next.id.slice(0, 8)}`,
           body: `HTTP ${res.status}: ${errText.slice(0, 200)}`,
@@ -224,22 +249,20 @@ Deno.serve(async (req) => {
         });
       }
     }).catch(async (e) => {
-      console.error(`[queue-next] Fire-and-forget build error: ${(e as Error).message}`);
-      await sb.from("admin_notifications").insert({
-        title: `🔴 Build-Start Netzwerkfehler: ${next.id.slice(0, 8)}`,
-        body: (e as Error).message,
-        category: "ops", severity: "error",
-        metadata: { package_id: next.id },
-      });
+      console.error(`[queue-next] Fire-and-forget error: ${(e as Error).message}`);
+      // Release lock on network failure so pipeline doesn't get stuck
+      await sb.rpc("release_pipeline_lock", { p_package_id: next.id });
+      await sb.from("course_packages").update({ status: "failed" }).eq("id", next.id);
     });
 
-    console.log(`[queue-next] Fired build for package ${next.id} (queue_position=${next.queue_position})`);
+    console.log(`[queue-next] 🔒 Locked pipeline for package ${next.id} (queue_position=${next.queue_position})`);
 
     return json({
       ok: true,
       started_package_id: next.id,
       queue_position: next.queue_position,
-      mode: "fire_and_forget",
+      mode: "single_lock",
+      hybrid_target: hybridResult.target,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);

@@ -9488,6 +9488,68 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_lock: {
+        Row: {
+          active_package_id: string | null
+          heartbeat_at: string | null
+          id: number
+          locked_at: string | null
+          locked_by: string | null
+          max_active: number
+          mode: string
+          updated_at: string
+        }
+        Insert: {
+          active_package_id?: string | null
+          heartbeat_at?: string | null
+          id?: number
+          locked_at?: string | null
+          locked_by?: string | null
+          max_active?: number
+          mode?: string
+          updated_at?: string
+        }
+        Update: {
+          active_package_id?: string | null
+          heartbeat_at?: string | null
+          id?: number
+          locked_at?: string | null
+          locked_by?: string | null
+          max_active?: number
+          mode?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
       platform_risk_scores: {
         Row: {
           compliance_score: number
@@ -14338,6 +14400,7 @@ export type Database = {
         Args: { p_timeout_minutes?: number }
         Returns: number
       }
+      cleanup_stale_pipeline_lock: { Args: never; Returns: undefined }
       column_exists: {
         Args: { p_column: string; p_schema?: string; p_table: string }
         Returns: boolean
@@ -14833,6 +14896,10 @@ export type Database = {
         Returns: boolean
       }
       hash_email: { Args: { p_email: string }; Returns: string }
+      heartbeat_pipeline_lock: {
+        Args: { p_package_id: string }
+        Returns: undefined
+      }
       init_course_package_steps: {
         Args: { p_package_id: string; p_steps: string[] }
         Returns: undefined
@@ -15034,6 +15101,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      release_pipeline_lock: {
+        Args: { p_package_id: string }
+        Returns: undefined
       }
       release_provider_slot: {
         Args: { p_provider: string }
@@ -15285,6 +15356,10 @@ export type Database = {
         Returns: Json
       }
       table_exists: { Args: { p_table: string }; Returns: boolean }
+      try_claim_pipeline_lock: {
+        Args: { p_locked_by: string; p_package_id: string }
+        Returns: boolean
+      }
       update_course_package_step: {
         Args: {
           p_log?: Json

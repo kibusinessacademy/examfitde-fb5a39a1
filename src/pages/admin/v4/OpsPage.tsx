@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import PageExplainer from '@/components/admin/PageExplainer';
+import PipelineLockPanel from '@/components/admin/PipelineLockPanel';
 
 const SystemHealthPage = lazy(() => import('@/pages/admin/SystemHealthPage'));
 const AIWorkersPage = lazy(() => import('@/pages/admin/AIWorkersPage'));
@@ -117,6 +118,8 @@ function OpsOverview() {
 
   return (
     <div className="space-y-6">
+      {/* Pipeline Lock Panel */}
+      <PipelineLockPanel />
       {/* Ampel Card */}
       <Card className={cn("border-l-4", status === 'red' ? 'border-l-destructive' : status === 'yellow' ? 'border-l-yellow-500' : 'border-l-emerald-500')}>
         <CardContent className="py-6">
