@@ -672,8 +672,14 @@ function ExportTab({ pkg, packageId }: { pkg: any; packageId: string }) {
       const resData = res.data as Record<string, unknown>;
       if (resData?.downloadUrl) {
         setJsxExportUrl(resData.downloadUrl as string);
-        // Auto-open download
-        window.open(resData.downloadUrl as string, '_blank');
+        // Use link click instead of window.open (blocked on mobile)
+        const a = document.createElement('a');
+        a.href = resData.downloadUrl as string;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         toast({ title: 'JSX Export erstellt', description: 'Download wird geöffnet.' });
       }
     } catch (e: any) {
@@ -699,11 +705,28 @@ function ExportTab({ pkg, packageId }: { pkg: any; packageId: string }) {
           <CardContent className="p-4 flex flex-col sm:flex-row items-center gap-3">
             <Download className="h-5 w-5 text-success shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">Letzter Export bereit</p>
+              <p className="text-sm font-medium">Letzter ZIP-Export bereit</p>
               <p className="text-xs text-muted-foreground">Link gültig für 1 Stunde</p>
             </div>
             <Button size="sm" asChild>
               <a href={exportUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3 w-3 mr-1" /> Herunterladen
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {jsxExportUrl && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-4 flex flex-col sm:flex-row items-center gap-3">
+            <Download className="h-5 w-5 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">JSX Export bereit</p>
+              <p className="text-xs text-muted-foreground">Link gültig für 1 Stunde</p>
+            </div>
+            <Button size="sm" asChild>
+              <a href={jsxExportUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-3 w-3 mr-1" /> Herunterladen
               </a>
             </Button>
