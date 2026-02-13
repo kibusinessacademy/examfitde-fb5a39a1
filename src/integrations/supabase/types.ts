@@ -4125,6 +4125,7 @@ export type Database = {
       }
       coverage_snapshots: {
         Row: {
+          authority_eligible: boolean | null
           by_domain: Json | null
           certification_id: string
           created_at: string
@@ -4132,9 +4133,12 @@ export type Database = {
           id: string
           missing_topics: Json | null
           overall_coverage: number
+          seo_rollout_eligible: boolean | null
           snapshot_type: string
+          tier: Database["public"]["Enums"]["coverage_tier"] | null
         }
         Insert: {
+          authority_eligible?: boolean | null
           by_domain?: Json | null
           certification_id: string
           created_at?: string
@@ -4142,9 +4146,12 @@ export type Database = {
           id?: string
           missing_topics?: Json | null
           overall_coverage?: number
+          seo_rollout_eligible?: boolean | null
           snapshot_type?: string
+          tier?: Database["public"]["Enums"]["coverage_tier"] | null
         }
         Update: {
+          authority_eligible?: boolean | null
           by_domain?: Json | null
           certification_id?: string
           created_at?: string
@@ -4152,7 +4159,9 @@ export type Database = {
           id?: string
           missing_topics?: Json | null
           overall_coverage?: number
+          seo_rollout_eligible?: boolean | null
           snapshot_type?: string
+          tier?: Database["public"]["Enums"]["coverage_tier"] | null
         }
         Relationships: []
       }
@@ -4392,6 +4401,7 @@ export type Database = {
           id: string
           mapped: boolean
           mapped_to: Json | null
+          source_legal_priority: number | null
           topic_id: string
         }
         Insert: {
@@ -4404,6 +4414,7 @@ export type Database = {
           id?: string
           mapped?: boolean
           mapped_to?: Json | null
+          source_legal_priority?: number | null
           topic_id: string
         }
         Update: {
@@ -4416,6 +4427,7 @@ export type Database = {
           id?: string
           mapped?: boolean
           mapped_to?: Json | null
+          source_legal_priority?: number | null
           topic_id?: string
         }
         Relationships: [
@@ -14912,6 +14924,7 @@ export type Database = {
         | "verdict"
         | "audit"
       course_status: "draft" | "generating" | "published" | "archived"
+      coverage_tier: "BLOCK" | "PASS" | "STRONG" | "DOMINANT"
       curriculum_status: "draft" | "extracting" | "normalizing" | "frozen"
       didactic_intent:
         | "transfer"
@@ -15161,6 +15174,7 @@ export const Constants = {
         "audit",
       ],
       course_status: ["draft", "generating", "published", "archived"],
+      coverage_tier: ["BLOCK", "PASS", "STRONG", "DOMINANT"],
       curriculum_status: ["draft", "extracting", "normalizing", "frozen"],
       didactic_intent: [
         "transfer",
