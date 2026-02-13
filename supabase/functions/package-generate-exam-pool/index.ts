@@ -1,9 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { callAIJSON } from "../_shared/ai-client.ts";
 
-const CHUNK_SIZE = 100;
-const AI_CHUNK_SIZE = 20;
+const CHUNK_SIZE = 10;
+const AI_CHUNK_SIZE = 3;
 const SHIP_TARGET = 1000;
 
 function json(body: unknown, status = 200) {
@@ -77,17 +76,34 @@ Kompetenz: ${compTitle}
 Beschreibung: ${compDesc}
 Blueprint-Vorlage: ${bp.question_template}`;
 
-  const result = await callAIJSON({
-    provider: "anthropic",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    temperature: 0.7,
-    max_tokens: 4000,
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+  const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 4000,
+    }),
   });
 
-  if (!result.content) return 0;
+  if (!aiResp.ok) {
+    console.log(`[ExamPool] AI gateway error: ${aiResp.status}`);
+    return 0;
+  }
+
+  const aiData = await aiResp.json();
+  const rawContent = aiData.choices?.[0]?.message?.content || "";
+  if (!rawContent) return 0;
 
   let questions: Array<{
     question_text: string;
@@ -97,7 +113,7 @@ Blueprint-Vorlage: ${bp.question_template}`;
     difficulty: string;
   }>;
   try {
-    const clean = result.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const clean = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     questions = JSON.parse(clean);
     if (!Array.isArray(questions)) return 0;
   } catch {
@@ -105,8 +121,12 @@ Blueprint-Vorlage: ${bp.question_template}`;
   }
 
   let saved = 0;
+  console.log(`[ExamPool] AI returned ${questions.length} questions for BP ${bp.id.slice(0,8)}`);
   for (const q of questions) {
-    if (!q.question_text || !Array.isArray(q.options) || q.options.length !== 4) continue;
+    if (!q.question_text || !Array.isArray(q.options) || q.options.length !== 4) {
+      console.log(`[ExamPool] Skipping invalid question: missing text or wrong options count`);
+      continue;
+    }
     const { error } = await sb.from("exam_questions").insert({
       curriculum_id: bp.curriculum_id,
       learning_field_id: bp.learning_field_id,
@@ -120,7 +140,11 @@ Blueprint-Vorlage: ${bp.question_template}`;
       ai_generated: true,
       status: "draft",
     });
-    if (!error) saved++;
+    if (error) {
+      console.log(`[ExamPool] Insert error: ${error.message} (code: ${error.code})`);
+    } else {
+      saved++;
+    }
   }
   return saved;
 }
@@ -193,7 +217,10 @@ Deno.serve(async (req) => {
     let currentBpIndex = bpIndex;
     const errors: string[] = [];
 
-    while (questionsThisChunk < CHUNK_SIZE && currentBpIndex < bps.length) {
+    const maxBpsThisRun = useAIFallback ? 2 : 10; // AI calls are slow, limit per run
+    let bpsProcessed = 0;
+
+    while (bpsProcessed < maxBpsThisRun && currentBpIndex < bps.length) {
       const bp = bps[currentBpIndex] as BlueprintInfo & { max_variations: number | null };
       const cap = typeof bp.max_variations === "number" && bp.max_variations > 0 ? bp.max_variations : perBlueprint;
       const count = Math.min(perBlueprint, cap);
@@ -218,6 +245,7 @@ Deno.serve(async (req) => {
         errors.push(`BP ${bp.id.slice(0, 8)}: ${errMsg}`);
       }
       currentBpIndex++;
+      bpsProcessed++;
     }
 
     // Count actual questions
