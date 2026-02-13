@@ -1,6 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
+const CHUNK_SIZE = 50; // Questions per invocation
+const DEFAULT_TARGET = 800;
+const IDEAL_TARGET = 1000;
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
@@ -27,7 +31,12 @@ Deno.serve(async (req) => {
   const p = body.payload || body;
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
-  const examTarget = Number(p.options?.exam_target ?? 1000);
+  const examTarget = Number(p.options?.exam_target ?? IDEAL_TARGET);
+
+  // Batch cursor from job runner (chunked generation)
+  const batchCursor = p._batch_cursor || p.batch_cursor || null;
+  const generatedSoFar = batchCursor?.generated ?? 0;
+  const bpIndex = batchCursor?.blueprint_index ?? 0;
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
@@ -45,39 +54,113 @@ Deno.serve(async (req) => {
       return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: scaffold_learning_course" }, 409);
     }
 
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "running",
-      p_log: { note: `Generating exam pool target=${examTarget}` },
-    });
+    // On first chunk, mark step as running
+    if (generatedSoFar === 0) {
+      await sb.rpc("update_course_package_step", {
+        p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "running",
+        p_log: { note: `Generating exam pool target=${examTarget} (chunked, ${CHUNK_SIZE}/run)` },
+      });
+    }
 
+    // Get approved blueprints
     const { data: bps, error: bpErr } = await sb
       .from("question_blueprints")
       .select("id, max_variations")
       .eq("curriculum_id", curriculumId)
-      .eq("status", "approved");
+      .eq("status", "approved")
+      .order("created_at", { ascending: true });
+
     if (bpErr) throw bpErr;
     if (!bps?.length) throw new Error("No approved question_blueprints for curriculum");
 
-    const per = Math.max(1, Math.ceil(examTarget / bps.length));
-    for (let i = 0; i < bps.length; i++) {
-      const bp = bps[i] as { id: string; max_variations: number | null };
-      const cap = typeof bp.max_variations === "number" && bp.max_variations > 0 ? bp.max_variations : per;
-      const count = Math.min(per, cap);
-      const { error } = await sb.functions.invoke("generate-blueprint-questions", {
-        body: { blueprintId: bp.id, count, baseSeed: Date.now() + i },
-      });
-      if (error) throw error;
+    // Calculate how many questions per blueprint
+    const perBlueprint = Math.max(1, Math.ceil(examTarget / bps.length));
+
+    // Process a chunk: generate for CHUNK_SIZE questions worth of blueprints
+    let questionsThisChunk = 0;
+    let currentBpIndex = bpIndex;
+    const errors: string[] = [];
+
+    while (questionsThisChunk < CHUNK_SIZE && currentBpIndex < bps.length) {
+      const bp = bps[currentBpIndex] as { id: string; max_variations: number | null };
+      const cap = typeof bp.max_variations === "number" && bp.max_variations > 0 ? bp.max_variations : perBlueprint;
+      const count = Math.min(perBlueprint, cap);
+
+      try {
+        const { error } = await sb.functions.invoke("generate-blueprint-questions", {
+          body: { blueprintId: bp.id, count, baseSeed: Date.now() + currentBpIndex },
+        });
+        if (error) {
+          errors.push(`BP ${bp.id.slice(0, 8)}: ${error.message || String(error)}`);
+        } else {
+          questionsThisChunk += count;
+        }
+      } catch (e: unknown) {
+        errors.push(`BP ${bp.id.slice(0, 8)}: ${(e as Error)?.message || String(e)}`);
+      }
+      currentBpIndex++;
     }
 
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "done",
-      p_log: { ok: true, target: examTarget, blueprints: bps.length },
-    });
-    await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
+    // Count actual questions in DB
+    const { count: totalQuestions } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId);
 
-    return json({ ok: true });
+    const actualTotal = totalQuestions ?? 0;
+    const allBlueprintsProcessed = currentBpIndex >= bps.length;
+    const targetReached = actualTotal >= DEFAULT_TARGET;
+
+    console.log(
+      `[ExamPool] Package ${packageId.slice(0, 8)}: chunk done. ` +
+      `Generated ~${questionsThisChunk} this run, total=${actualTotal}/${examTarget}, ` +
+      `blueprints ${currentBpIndex}/${bps.length}, errors=${errors.length}`
+    );
+
+    // Update progress
+    const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
+    await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
+
+    if (allBlueprintsProcessed || targetReached) {
+      // Done! Mark step complete
+      await sb.rpc("update_course_package_step", {
+        p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "done",
+        p_log: {
+          ok: true,
+          target: examTarget,
+          actual: actualTotal,
+          blueprints_processed: currentBpIndex,
+          blueprints_total: bps.length,
+          chunk_errors: errors.length,
+        },
+      });
+      await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
+
+      return json({
+        ok: true,
+        batch_complete: true,
+        total_questions: actualTotal,
+        target: examTarget,
+        blueprints_processed: currentBpIndex,
+      });
+    } else {
+      // More chunks needed → signal job runner to re-queue
+      return json({
+        ok: true,
+        batch_complete: false,
+        batch_cursor: {
+          generated: actualTotal,
+          blueprint_index: currentBpIndex,
+          target: examTarget,
+          blueprints_total: bps.length,
+        },
+        total_questions: actualTotal,
+        chunk_errors: errors.length,
+      });
+    }
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
+    console.error(`[ExamPool] Error: ${msg}`);
     await failAndUnlock(msg);
     return json({ ok: false, error: msg }, 500);
   }
