@@ -3,11 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   Shield, AlertTriangle, CheckCircle2, XCircle,
-  Activity, Zap, BarChart3, Copy
+  Activity, Zap, BarChart3, Copy, Play, RefreshCw, TrendingUp
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 /* ── Types ── */
 interface Snapshot {
@@ -20,7 +22,8 @@ interface Snapshot {
   difficulty_medium_pct: number;
   difficulty_hard_pct: number;
   low_confidence_count: number;
-  lf_detail: Record<string, { count: number; pct: number }>;
+  confidence_score: number;
+  lf_detail: Record<string, { count: number; pct: number; target_pct: number; deviation: number }>;
   flags: string[];
   auto_paused: boolean;
   pause_reason: string | null;
@@ -36,6 +39,26 @@ interface ProviderPerf {
   avg_tokens_out: number;
   total_cost_eur: number;
   near_duplicate_rate: number;
+  low_confidence_rate: number;
+  blocked_question_count: number;
+}
+
+/* ── Confidence Gauge ── */
+function ConfidenceGauge({ score }: { score: number }) {
+  const color = score >= 80 ? 'text-success' : score >= 50 ? 'text-warning' : 'text-destructive';
+  const bgColor = score >= 80 ? 'bg-success/10' : score >= 50 ? 'bg-warning/10' : 'bg-destructive/10';
+  return (
+    <Card className={cn("border-l-4", score >= 80 ? 'border-l-success' : score >= 50 ? 'border-l-warning' : 'border-l-destructive')}>
+      <CardContent className="py-4 text-center">
+        <TrendingUp className={cn("h-5 w-5 mx-auto mb-1", color)} />
+        <p className={cn("text-3xl font-bold", color)}>{score}</p>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence Score</p>
+        <div className={cn("mt-2 text-[10px] px-2 py-1 rounded-full inline-block", bgColor, color)}>
+          {score >= 80 ? 'Publish-Ready' : score >= 50 ? 'Needs Review' : 'Critical Issues'}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 /* ── Status Badge ── */
@@ -45,27 +68,38 @@ function StatusBadge({ flags, paused }: { flags: string[]; paused: boolean }) {
   return <Badge variant="outline" className="text-xs border-success text-success">✔ Clean</Badge>;
 }
 
-/* ── LF Heatmap ── */
-function LFHeatmap({ detail, total }: { detail: Record<string, { count: number; pct: number }>; total: number }) {
+/* ── LF Heatmap v2: target/actual/deviation ── */
+function LFHeatmap({ detail, total }: { detail: Record<string, { count: number; pct: number; target_pct: number; deviation: number }>; total: number }) {
   if (!detail || Object.keys(detail).length === 0) return <p className="text-xs text-muted-foreground">Keine LF-Daten</p>;
 
-  const entries = Object.entries(detail).sort((a, b) => a[1].pct - b[1].pct);
+  const entries = Object.entries(detail).sort((a, b) => b[1].deviation - a[1].deviation);
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
+      <div className="grid grid-cols-[1fr_60px_60px_60px_40px] gap-1 text-[9px] uppercase tracking-wider text-muted-foreground pb-1 border-b border-border">
+        <span>Lernfeld</span>
+        <span className="text-right">Ist %</span>
+        <span className="text-right">Soll %</span>
+        <span className="text-right">Δ</span>
+        <span className="text-right">n</span>
+      </div>
       {entries.map(([lf, data]) => {
-        const idealPct = 100 / entries.length;
-        const deviation = Math.abs(data.pct - idealPct);
-        const color = deviation > 10 ? 'text-destructive' : deviation > 5 ? 'text-warning' : 'text-success';
+        const devColor = data.deviation > 10 ? 'text-destructive' : data.deviation > 5 ? 'text-warning' : 'text-success';
+        const barWidth = Math.min((data.pct / Math.max(data.target_pct, 1)) * 100, 150);
         return (
-          <div key={lf} className="flex items-center gap-2">
-            <span className="text-[10px] font-mono w-24 truncate text-muted-foreground" title={lf}>
-              {lf.length > 12 ? lf.slice(0, 12) + '…' : lf}
+          <div key={lf} className="grid grid-cols-[1fr_60px_60px_60px_40px] gap-1 items-center">
+            <div className="min-w-0">
+              <span className="text-[10px] font-medium text-foreground truncate block" title={lf}>
+                {lf.length > 20 ? lf.slice(0, 20) + '…' : lf}
+              </span>
+              <Progress value={Math.min(barWidth, 100)} className="h-1 mt-0.5" />
+            </div>
+            <span className="text-[10px] font-mono text-right text-foreground">{data.pct}%</span>
+            <span className="text-[10px] font-mono text-right text-muted-foreground">{data.target_pct}%</span>
+            <span className={cn("text-[10px] font-mono text-right font-bold", devColor)}>
+              {data.deviation > 0 ? '±' : ''}{data.deviation}%
             </span>
-            <Progress value={Math.min(data.pct * (entries.length / 100) * 100, 100)} className="h-1.5 flex-1" />
-            <span className={cn("text-[10px] font-mono w-16 text-right", color)}>
-              {data.count} ({data.pct}%)
-            </span>
+            <span className="text-[10px] font-mono text-right text-muted-foreground">{data.count}</span>
           </div>
         );
       })}
@@ -73,7 +107,7 @@ function LFHeatmap({ detail, total }: { detail: Record<string, { count: number; 
   );
 }
 
-/* ── Provider Card ── */
+/* ── Provider Card v2 ── */
 function ProviderCard({ p }: { p: ProviderPerf }) {
   const errRate = p.total_calls > 0 ? Math.round(100 * p.error_count / p.total_calls) : 0;
   const statusColor = errRate > 15 ? 'border-l-destructive' : errRate > 5 ? 'border-l-warning' : 'border-l-success';
@@ -97,14 +131,73 @@ function ProviderCard({ p }: { p: ProviderPerf }) {
             <span className="ml-1 font-mono text-foreground">{Math.round(p.avg_latency_ms)}ms</span>
           </div>
           <div>
-            <span className="text-muted-foreground">Tokens</span>
-            <span className="ml-1 font-mono text-foreground">{Math.round(p.avg_tokens_out)}</span>
-          </div>
-          <div>
             <span className="text-muted-foreground">Kosten</span>
             <span className="ml-1 font-mono text-foreground">€{p.total_cost_eur.toFixed(2)}</span>
           </div>
+          <div>
+            <span className="text-muted-foreground">Dup-Rate</span>
+            <span className={cn("ml-1 font-mono", (p.near_duplicate_rate || 0) > 3 ? 'text-warning' : 'text-success')}>
+              {(p.near_duplicate_rate || 0).toFixed(1)}%
+            </span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Low-Conf</span>
+            <span className={cn("ml-1 font-mono", (p.low_confidence_rate || 0) > 10 ? 'text-warning' : 'text-foreground')}>
+              {(p.low_confidence_rate || 0).toFixed(1)}%
+            </span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Blocked</span>
+            <span className="ml-1 font-mono text-foreground">{p.blocked_question_count || 0}</span>
+          </div>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ── Recovery Actions ── */
+function RecoveryPanel({ packageId, onResume }: { packageId: string; onResume: () => void }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleResume = async (action: 'admin_resume' | 'auto_recheck') => {
+    setLoading(true);
+    try {
+      const { data, error } = await (supabase as any).rpc('quality_hold_resume', {
+        p_package_id: packageId,
+        p_action: action,
+      });
+      if (error) throw error;
+      if (data?.resumed) {
+        toast.success('Pipeline wird fortgesetzt');
+        onResume();
+      } else {
+        toast.warning(`Noch nicht bereit: ${data?.reason || 'Qualität ungenügend'}`);
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Fehler beim Fortsetzen');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="border-warning bg-warning/5">
+      <CardContent className="py-3">
+        <p className="text-sm font-medium text-foreground mb-2">Recovery-Optionen</p>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" disabled={loading} onClick={() => handleResume('auto_recheck')}>
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Recheck & Resume
+          </Button>
+          <Button size="sm" disabled={loading} onClick={() => handleResume('admin_resume')}>
+            <Play className="h-3 w-3 mr-1" />
+            Admin Force Resume
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          „Recheck" prüft erneut – resumed nur bei bestandener Qualität. „Force Resume" überspringt den Check.
+        </p>
       </CardContent>
     </Card>
   );
@@ -116,23 +209,23 @@ export default function QualityShieldDashboard() {
   const [providers, setProviders] = useState<ProviderPerf[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const [snapRes, provRes] = await Promise.all([
-        (supabase as any).from('production_quality_snapshots')
-          .select('*')
-          .order('snapshot_at', { ascending: false })
-          .limit(20),
-        (supabase as any).from('provider_performance')
-          .select('*')
-          .order('date', { ascending: false })
-          .limit(10),
-      ]);
-      setSnapshots(snapRes.data || []);
-      setProviders(provRes.data || []);
-      setLoading(false);
-    })();
-  }, []);
+  const loadData = async () => {
+    const [snapRes, provRes] = await Promise.all([
+      (supabase as any).from('production_quality_snapshots')
+        .select('*')
+        .order('snapshot_at', { ascending: false })
+        .limit(20),
+      (supabase as any).from('provider_performance')
+        .select('*')
+        .order('date', { ascending: false })
+        .limit(10),
+    ]);
+    setSnapshots(snapRes.data || []);
+    setProviders(provRes.data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadData(); }, []);
 
   if (loading) {
     return (
@@ -144,15 +237,16 @@ export default function QualityShieldDashboard() {
 
   const latest = snapshots[0];
   const hasPaused = snapshots.some(s => s.auto_paused);
+  const pausedPkg = snapshots.find(s => s.auto_paused);
   const allFlags = [...new Set(snapshots.flatMap(s => s.flags))];
 
   return (
     <div className="space-y-6">
-      {/* Header Status */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-bold text-foreground">Quality Shield v1</h2>
+          <h2 className="text-lg font-bold text-foreground">Quality Shield v2</h2>
         </div>
         {latest ? (
           <StatusBadge flags={latest.flags} paused={latest.auto_paused} />
@@ -161,24 +255,28 @@ export default function QualityShieldDashboard() {
         )}
       </div>
 
-      {/* Alert Banner */}
-      {hasPaused && (
-        <Card className="border-destructive bg-destructive/5">
-          <CardContent className="py-3 flex items-center gap-3">
-            <XCircle className="h-5 w-5 text-destructive shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-destructive">Pipeline automatisch pausiert</p>
-              <p className="text-xs text-muted-foreground">
-                {snapshots.find(s => s.auto_paused)?.pause_reason || 'Qualitäts-Schwelle überschritten'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Alert + Recovery */}
+      {hasPaused && pausedPkg && (
+        <div className="space-y-3">
+          <Card className="border-destructive bg-destructive/5">
+            <CardContent className="py-3 flex items-center gap-3">
+              <XCircle className="h-5 w-5 text-destructive shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-destructive">Pipeline automatisch pausiert</p>
+                <p className="text-xs text-muted-foreground">
+                  {pausedPkg.pause_reason || 'Qualitäts-Schwelle überschritten'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          <RecoveryPanel packageId={pausedPkg.package_id} onResume={loadData} />
+        </div>
       )}
 
-      {/* KPI Grid */}
+      {/* Confidence + KPIs */}
       {latest && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <ConfidenceGauge score={latest.confidence_score ?? 100} />
           <Card>
             <CardContent className="py-3 text-center">
               <BarChart3 className="h-4 w-4 mx-auto text-primary mb-1" />
@@ -186,20 +284,21 @@ export default function QualityShieldDashboard() {
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fragen</p>
             </CardContent>
           </Card>
-          <Card className={cn(latest.duplicate_rate > 4 ? 'border-destructive' : '')}>
+          <Card className={cn(latest.duplicate_rate > 3 ? 'border-warning' : '', latest.duplicate_rate > 4.5 ? 'border-destructive' : '')}>
             <CardContent className="py-3 text-center">
               <Copy className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
               <p className={cn("text-xl font-bold",
-                latest.duplicate_rate > 4 ? 'text-destructive' : 'text-success'
+                latest.duplicate_rate > 4.5 ? 'text-destructive' : latest.duplicate_rate > 3 ? 'text-warning' : 'text-success'
               )}>{latest.duplicate_rate}%</p>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Duplikate</p>
+              <p className="text-[9px] text-muted-foreground">Warn 3% | Stop 4.5%</p>
             </CardContent>
           </Card>
-          <Card className={cn(latest.lf_coverage_pct < 85 ? 'border-warning' : '')}>
+          <Card className={cn(latest.lf_coverage_pct < 80 ? 'border-warning' : '')}>
             <CardContent className="py-3 text-center">
               <Zap className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
               <p className={cn("text-xl font-bold",
-                latest.lf_coverage_pct < 85 ? 'text-warning' : 'text-success'
+                latest.lf_coverage_pct < 70 ? 'text-destructive' : latest.lf_coverage_pct < 80 ? 'text-warning' : 'text-success'
               )}>{latest.lf_coverage_pct}%</p>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">LF-Coverage</p>
             </CardContent>
@@ -224,22 +323,13 @@ export default function QualityShieldDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 h-6 rounded-lg overflow-hidden">
-              <div
-                className="bg-success/70 flex items-center justify-center"
-                style={{ width: `${latest.difficulty_easy_pct}%` }}
-              >
+              <div className="bg-success/70 flex items-center justify-center" style={{ width: `${latest.difficulty_easy_pct}%` }}>
                 <span className="text-[9px] font-mono text-white">{latest.difficulty_easy_pct}%</span>
               </div>
-              <div
-                className="bg-warning/70 flex items-center justify-center"
-                style={{ width: `${latest.difficulty_medium_pct}%` }}
-              >
+              <div className="bg-warning/70 flex items-center justify-center" style={{ width: `${latest.difficulty_medium_pct}%` }}>
                 <span className="text-[9px] font-mono text-white">{latest.difficulty_medium_pct}%</span>
               </div>
-              <div
-                className="bg-destructive/70 flex items-center justify-center"
-                style={{ width: `${latest.difficulty_hard_pct}%` }}
-              >
+              <div className="bg-destructive/70 flex items-center justify-center" style={{ width: `${latest.difficulty_hard_pct}%` }}>
                 <span className="text-[9px] font-mono text-white">{latest.difficulty_hard_pct}%</span>
               </div>
             </div>
@@ -252,12 +342,12 @@ export default function QualityShieldDashboard() {
         </Card>
       )}
 
-      {/* LF Heatmap */}
+      {/* LF Heatmap v2 */}
       {latest?.lf_detail && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" /> Lernfeld-Abdeckung
+              <BarChart3 className="h-4 w-4" /> Lernfeld-Abdeckung (Soll vs. Ist)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -266,11 +356,11 @@ export default function QualityShieldDashboard() {
         </Card>
       )}
 
-      {/* Provider Performance */}
+      {/* Provider Performance v2 */}
       {providers.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Activity className="h-4 w-4" /> Provider Performance (heute)
+            <Activity className="h-4 w-4" /> Provider Performance (inkl. Qualitäts-Metriken)
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {providers.slice(0, 6).map(p => (
@@ -314,11 +404,16 @@ export default function QualityShieldDashboard() {
                     {new Date(s.snapshot_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                   </span>
                   <span className="font-mono text-foreground">{s.total_questions} Q</span>
-                  <span className={cn("font-mono", s.duplicate_rate > 4 ? 'text-destructive' : 'text-success')}>
+                  <span className={cn("font-mono", s.duplicate_rate > 4.5 ? 'text-destructive' : s.duplicate_rate > 3 ? 'text-warning' : 'text-success')}>
                     {s.duplicate_rate}% dup
                   </span>
-                  <span className={cn("font-mono", s.lf_coverage_pct < 85 ? 'text-warning' : 'text-success')}>
+                  <span className={cn("font-mono", s.lf_coverage_pct < 80 ? 'text-warning' : 'text-success')}>
                     {s.lf_coverage_pct}% LF
+                  </span>
+                  <span className={cn("font-mono font-bold",
+                    (s.confidence_score ?? 100) >= 80 ? 'text-success' : (s.confidence_score ?? 100) >= 50 ? 'text-warning' : 'text-destructive'
+                  )}>
+                    C:{s.confidence_score ?? '–'}
                   </span>
                   {s.auto_paused ? (
                     <XCircle className="h-3 w-3 text-destructive" />
