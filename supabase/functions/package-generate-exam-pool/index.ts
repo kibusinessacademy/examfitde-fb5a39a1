@@ -2,8 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const CHUNK_SIZE = 100; // Questions per invocation (Mass Production Mode)
-const SHIP_TARGET = 850;  // Ship-Level: marktfähig ab 850
-const IDEAL_TARGET = 1000; // Hard-Goal: iterativ auf 1000 polieren
+const SHIP_TARGET = 1000; // Ship-Level: einheitlich 1000+ für Marktdominanz
+const IDEAL_TARGET = 1200; // Hard-Goal: Authority-Level für Top-Zertifikate
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
