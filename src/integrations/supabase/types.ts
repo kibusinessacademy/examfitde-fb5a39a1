@@ -3967,6 +3967,51 @@ export type Database = {
         }
         Relationships: []
       }
+      dead_letter_jobs: {
+        Row: {
+          created_at: string
+          error_category: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          job_id: string | null
+          job_type: string
+          package_id: string | null
+          payload: Json | null
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_category: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          job_id?: string | null
+          job_type: string
+          package_id?: string | null
+          payload?: Json | null
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_category?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          job_id?: string | null
+          job_type?: string
+          package_id?: string | null
+          payload?: Json | null
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: []
+      }
       decision_items: {
         Row: {
           council_id: string
@@ -5352,15 +5397,18 @@ export type Database = {
           created_at: string
           error: string | null
           estimated_tokens: number | null
+          fallback_count: number | null
           id: string
           job_type: string
           last_error: string | null
           last_error_code: string | null
           last_error_hint: string | null
+          last_error_severity: string | null
           last_http_status: number | null
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
+          original_provider: string | null
           parent_job_id: string | null
           payload: Json
           priority: number
@@ -5381,15 +5429,18 @@ export type Database = {
           created_at?: string
           error?: string | null
           estimated_tokens?: number | null
+          fallback_count?: number | null
           id?: string
           job_type: string
           last_error?: string | null
           last_error_code?: string | null
           last_error_hint?: string | null
+          last_error_severity?: string | null
           last_http_status?: number | null
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
+          original_provider?: string | null
           parent_job_id?: string | null
           payload: Json
           priority?: number
@@ -5410,15 +5461,18 @@ export type Database = {
           created_at?: string
           error?: string | null
           estimated_tokens?: number | null
+          fallback_count?: number | null
           id?: string
           job_type?: string
           last_error?: string | null
           last_error_code?: string | null
           last_error_hint?: string | null
+          last_error_severity?: string | null
           last_http_status?: number | null
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
+          original_provider?: string | null
           parent_job_id?: string | null
           payload?: Json
           priority?: number
@@ -10499,6 +10553,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      triage_policy: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          mode: string
+          notes: string | null
+          policy_json: Json
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mode?: string
+          notes?: string | null
+          policy_json: Json
+          version: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mode?: string
+          notes?: string | null
+          policy_json?: Json
+          version?: string
+        }
+        Relationships: []
       }
       tutor_assets: {
         Row: {

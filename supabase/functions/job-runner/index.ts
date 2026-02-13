@@ -136,37 +136,114 @@ const LLM_JOB_TYPES: Set<string> = new Set([
   "council_revise_step",
 ]);
 
-// Default provider for LLM jobs (if not set in job)
 const DEFAULT_LLM_PROVIDER = "openai";
 
-// ─── ERROR CLASSIFICATION ────────────────────────────────────────────
-const PERMANENT_FAILURE_PATTERNS = [
-  "SSOT_VIOLATION", "INVALID_PAYLOAD", "Missing curriculum_id",
-  "Invalid curriculum_id", "not found", "SSOT Guard",
-  "BUDGET_STOP", "INTEGRITY_BELOW_THRESHOLD",
-];
-
-const TRANSIENT_ERROR_PATTERNS = [
-  "rate limit", "too many requests", "429", "timeout",
-  "ECONNRESET", "socket hang up", "fetch failed",
-];
-
-function isTransientError(error: string): boolean {
-  return TRANSIENT_ERROR_PATTERNS.some((p) =>
-    error.toUpperCase().includes(p.toUpperCase())
-  );
+// ─── TRIAGE POLICY (loaded once per invocation) ─────────────────────
+interface TriagePolicy {
+  classification: { error_code_map: Record<string, string> };
+  actions: Record<string, {
+    set_status: string;
+    delay_seconds?: number;
+    ensure_not_failed?: boolean;
+    maybe_switch_provider?: boolean;
+    decrement_concurrency?: boolean;
+    severity?: string;
+    block_package?: boolean;
+    dead_letter?: boolean;
+  }>;
+  retry: {
+    max_attempts_default: number;
+    max_attempts_rate_limit: number;
+    max_attempts_timeout: number;
+    max_attempts_transient: number;
+    backoff: { base_seconds: number; max_seconds: number; jitter_seconds_range: number[] };
+  };
+  routing: {
+    default_provider_order: string[];
+    fallback_strategy: { max_fallbacks_per_job: number; switch_provider_if_rate_limited_until_gt_seconds: number };
+  };
+  controls: {
+    max_global_processing_jobs: number;
+    max_parallel_jobs_per_package: number;
+  };
 }
 
-function isPermanentFailure(error: string): boolean {
-  return PERMANENT_FAILURE_PATTERNS.some((p) =>
-    error.toUpperCase().includes(p.toUpperCase())
-  );
+let _cachedPolicy: TriagePolicy | null = null;
+
+async function loadTriagePolicy(admin: ReturnType<typeof createClient>): Promise<TriagePolicy | null> {
+  if (_cachedPolicy) return _cachedPolicy;
+  const { data } = await admin
+    .from("triage_policy")
+    .select("policy_json")
+    .eq("is_active", true)
+    .maybeSingle();
+  if (data?.policy_json) {
+    _cachedPolicy = data.policy_json as unknown as TriagePolicy;
+  }
+  return _cachedPolicy;
 }
 
-function isRateLimitError(error: string): boolean {
-  return ["rate limit", "too many requests", "429"].some((p) =>
-    error.toUpperCase().includes(p.toUpperCase())
-  );
+// ─── ERROR CLASSIFICATION (policy-driven) ────────────────────────────
+function classifyError(errorMsg: string, httpStatus: number, policy: TriagePolicy | null): string {
+  const map = policy?.classification?.error_code_map ?? {};
+
+  // Check HTTP status first
+  if (httpStatus === 429 || map[String(httpStatus)] === "RATE_LIMIT") return "RATE_LIMIT";
+
+  // Check error message against map keys
+  const upper = errorMsg.toUpperCase();
+  for (const [pattern, category] of Object.entries(map)) {
+    if (upper.includes(pattern.toUpperCase())) return category;
+  }
+
+  // Fallback heuristics
+  if (["RATE LIMIT", "TOO MANY REQUESTS", "429"].some(p => upper.includes(p))) return "RATE_LIMIT";
+  if (["TIMEOUT", "ETIMEDOUT", "GATEWAY_TIMEOUT"].some(p => upper.includes(p))) return "TIMEOUT";
+  if (["ECONNRESET", "SOCKET HANG UP", "FETCH FAILED", "ENOTFOUND", "EAI_AGAIN"].some(p => upper.includes(p))) return "TRANSIENT_NETWORK";
+  if (["SSOT_VIOLATION", "SCHEMA_MISMATCH"].some(p => upper.includes(p))) return "PERMANENT_CODE";
+  if (["VALIDATION_ERROR", "FOREIGN_KEY"].some(p => upper.includes(p))) return "PERMANENT_DATA";
+  if (["RLS_DENIED", "UNAUTHORIZED"].some(p => upper.includes(p))) return "PERMANENT_SECURITY";
+
+  return "UNKNOWN";
+}
+
+function getMaxAttempts(category: string, policy: TriagePolicy | null, jobMax: number): number {
+  const r = policy?.retry;
+  if (!r) return Math.max(jobMax, 8);
+  switch (category) {
+    case "RATE_LIMIT": return Math.max(jobMax, r.max_attempts_rate_limit);
+    case "TIMEOUT": return Math.max(jobMax, r.max_attempts_timeout);
+    case "TRANSIENT_NETWORK": return Math.max(jobMax, r.max_attempts_transient);
+    default: return jobMax;
+  }
+}
+
+function computeBackoff(attempts: number, policy: TriagePolicy | null, category: string): number {
+  const actionDelay = policy?.actions?.[category]?.delay_seconds;
+  const backoff = policy?.retry?.backoff;
+  const base = backoff?.base_seconds ?? 10;
+  const max = backoff?.max_seconds ?? 600;
+  const jitterRange = backoff?.jitter_seconds_range ?? [0, 30];
+
+  const expDelay = Math.min(max, base * Math.pow(2, attempts - 1));
+  const jitter = Math.floor(Math.random() * (jitterRange[1] - jitterRange[0])) + jitterRange[0];
+  const delay = Math.max(expDelay, actionDelay ?? 0) + jitter;
+  return delay;
+}
+
+// ─── PROVIDER FALLBACK ──────────────────────────────────────────────
+function pickFallbackProvider(
+  currentProvider: string,
+  fallbackCount: number,
+  policy: TriagePolicy | null
+): string | null {
+  const order = policy?.routing?.default_provider_order ?? ["openai", "anthropic", "google"];
+  const maxFallbacks = policy?.routing?.fallback_strategy?.max_fallbacks_per_job ?? 2;
+  if (fallbackCount >= maxFallbacks) return null;
+
+  const idx = order.indexOf(currentProvider);
+  if (idx < 0 || idx >= order.length - 1) return order.find(p => p !== currentProvider) ?? null;
+  return order[idx + 1];
 }
 
 // ─── TYPES ───────────────────────────────────────────────────────────
@@ -180,6 +257,8 @@ interface JobRecord {
   provider: string | null;
   scheduled_at: string | null;
   batch_cursor: Record<string, unknown> | null;
+  fallback_count: number;
+  original_provider: string | null;
 }
 
 interface RateLimit {
@@ -196,31 +275,17 @@ async function canRunLLMJob(
   rateLimits: RateLimit[]
 ): Promise<{ allowed: boolean; cooldown?: number }> {
   const limit = rateLimits.find((r) => r.provider === provider);
-
-  // If provider is paused, delay
-  if (limit?.is_paused) {
-    return { allowed: false, cooldown: 60 };
-  }
+  if (limit?.is_paused) return { allowed: false, cooldown: 60 };
 
   const maxConcurrent = limit?.max_concurrent ?? 2;
-  const cooldownSeconds = limit?.cooldown_seconds ?? 120;
-
-  // Count currently processing LLM jobs for this provider
   const { count, error } = await admin
     .from("job_queue")
     .select("id", { count: "exact", head: true })
     .eq("status", "processing")
     .eq("provider", provider);
 
-  if (error) {
-    console.warn(`[Runner] Error counting running jobs for ${provider}:`, error.message);
-    return { allowed: true }; // fail open
-  }
-
-  if ((count ?? 0) >= maxConcurrent) {
-    return { allowed: false, cooldown: 30 };
-  }
-
+  if (error) return { allowed: true };
+  if ((count ?? 0) >= maxConcurrent) return { allowed: false, cooldown: 30 };
   return { allowed: true };
 }
 
@@ -242,6 +307,70 @@ async function checkBudget(
   return { ok: true, spent: data.spent_eur, budget: data.budget_eur };
 }
 
+// ─── DEAD LETTER ────────────────────────────────────────────────────
+async function createDeadLetter(
+  admin: ReturnType<typeof createClient>,
+  job: JobRecord,
+  category: string,
+  errorCode: string,
+  errorMsg: string
+) {
+  try {
+    const packageId = (job.payload?.package_id ?? job.payload?.packageId ?? null) as string | null;
+    await admin.from("dead_letter_jobs").insert({
+      job_id: job.id,
+      package_id: packageId,
+      job_type: job.job_type,
+      error_category: category,
+      error_code: errorCode,
+      error_message: errorMsg.slice(0, 2000),
+      payload: job.payload,
+    });
+  } catch (e) {
+    console.warn(`[Runner] Failed to create dead letter:`, (e as Error).message);
+  }
+}
+
+// ─── BLOCK PACKAGE ──────────────────────────────────────────────────
+async function blockPackage(
+  admin: ReturnType<typeof createClient>,
+  job: JobRecord,
+  reason: string
+) {
+  try {
+    const packageId = (job.payload?.package_id ?? job.payload?.packageId) as string | undefined;
+    if (!packageId) return;
+    await admin
+      .from("course_packages")
+      .update({ status: "blocked", stuck_reason: reason, updated_at: new Date().toISOString() })
+      .eq("id", packageId)
+      .in("status", ["building", "queued"]);
+  } catch (e) {
+    console.warn(`[Runner] Failed to block package:`, (e as Error).message);
+  }
+}
+
+// ─── ADMIN ALERT ────────────────────────────────────────────────────
+async function sendAdminAlert(
+  admin: ReturnType<typeof createClient>,
+  category: string,
+  severity: string,
+  job: JobRecord,
+  errorMsg: string
+) {
+  try {
+    await admin.from("admin_notifications").insert({
+      title: `[${category}] ${job.job_type} failed`,
+      body: errorMsg.slice(0, 500),
+      category: category.startsWith("PERMANENT_SECURITY") ? "security" : category.startsWith("PERMANENT_CODE") ? "ops" : "quality",
+      severity: severity,
+      metadata: { job_id: job.id, job_type: job.job_type, provider: job.provider },
+    });
+  } catch (e) {
+    console.warn(`[Runner] Failed to send admin alert:`, (e as Error).message);
+  }
+}
+
 // ─── MAIN HANDLER ───────────────────────────────────────────────────
 Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
@@ -253,11 +382,11 @@ Deno.serve(async (req) => {
   try {
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // 1) Clean stale locks
-    const staleThreshold = new Date(
-      Date.now() - LOCK_TIMEOUT_SECONDS * 1000
-    ).toISOString();
+    // Load triage policy
+    const policy = await loadTriagePolicy(admin);
 
+    // 1) Clean stale locks
+    const staleThreshold = new Date(Date.now() - LOCK_TIMEOUT_SECONDS * 1000).toISOString();
     await admin
       .from("job_queue")
       .update({
@@ -271,18 +400,26 @@ Deno.serve(async (req) => {
 
     const now = new Date().toISOString();
 
-    // 2) Load rate limits config (cached per invocation)
+    // 2) Global processing cap
+    const maxGlobal = policy?.controls?.max_global_processing_jobs ?? 40;
+    const { count: globalProcessing } = await admin
+      .from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "processing");
+    if ((globalProcessing ?? 0) >= maxGlobal) {
+      return new Response(JSON.stringify({ message: "Global processing cap reached", cap: maxGlobal, running: globalProcessing }), { status: 200, headers });
+    }
+
+    // 3) Load rate limits config
     const { data: rateLimits } = await admin
       .from("llm_rate_limits")
       .select("provider, max_concurrent, cooldown_seconds, is_paused");
-
     const rlConfig = (rateLimits ?? []) as RateLimit[];
 
-    // 3) Fetch eligible pending jobs
-    //    Respect scheduled_at: only pick jobs where scheduled_at is null or <= now
+    // 4) Fetch eligible pending jobs
     const { data: pendingJobs, error: fetchErr } = await admin
       .from("job_queue")
-      .select("id, job_type, payload, attempts, max_attempts, priority, provider, scheduled_at, batch_cursor")
+      .select("id, job_type, payload, attempts, max_attempts, priority, provider, scheduled_at, batch_cursor, fallback_count, original_provider")
       .eq("status", "pending")
       .lte("run_after", now)
       .or(`scheduled_at.is.null,scheduled_at.lte.${now}`)
@@ -290,7 +427,7 @@ Deno.serve(async (req) => {
       .order("priority", { ascending: true })
       .order("scheduled_at", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: true })
-      .limit(BATCH_SIZE * 2); // fetch extra to account for skipped LLM jobs
+      .limit(BATCH_SIZE * 2);
 
     if (fetchErr) {
       console.error("[Runner] Fetch error:", fetchErr.message);
@@ -304,7 +441,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4) Claim jobs with concurrency guard
+    // 5) Claim jobs with concurrency guard
     const claimed: JobRecord[] = [];
     const skippedLLM: string[] = [];
 
@@ -314,11 +451,9 @@ Deno.serve(async (req) => {
       const isLLM = LLM_JOB_TYPES.has(job.job_type);
       const provider = job.provider || (isLLM ? DEFAULT_LLM_PROVIDER : null);
 
-      // LLM concurrency check
       if (isLLM && provider) {
         const { allowed, cooldown } = await canRunLLMJob(admin, provider, rlConfig);
         if (!allowed) {
-          // Delay this job
           const delayUntil = new Date(Date.now() + (cooldown ?? 30) * 1000).toISOString();
           await admin
             .from("job_queue")
@@ -329,7 +464,6 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Budget check for LLM jobs
         const budget = await checkBudget(admin);
         if (!budget.ok) {
           await admin
@@ -359,6 +493,7 @@ Deno.serve(async (req) => {
           started_at: now,
           updated_at: now,
           provider: provider,
+          original_provider: job.original_provider || provider,
         })
         .eq("id", job.id)
         .eq("status", "pending")
@@ -377,22 +512,16 @@ Deno.serve(async (req) => {
 
     if (claimed.length === 0) {
       return new Response(
-        JSON.stringify({
-          message: "No jobs claimed",
-          runner: RUNNER_ID,
-          skipped_llm: skippedLLM.length,
-        }),
+        JSON.stringify({ message: "No jobs claimed", runner: RUNNER_ID, skipped_llm: skippedLLM.length }),
         { status: 200, headers }
       );
     }
 
-    console.log(
-      `[Runner:${RUNNER_ID}] Claimed ${claimed.length} jobs: ${claimed.map((j) => j.job_type).join(", ")}`
-    );
+    console.log(`[Runner:${RUNNER_ID}] Claimed ${claimed.length} jobs: ${claimed.map((j) => j.job_type).join(", ")}`);
 
     const results: Array<{ id: string; job_type: string; outcome: string }> = [];
 
-    // 5) Process each job
+    // 6) Process each job
     for (const job of claimed) {
       const functionName = JOB_TYPE_MAP[job.job_type];
 
@@ -418,14 +547,12 @@ Deno.serve(async (req) => {
         const functionUrl = `${SUPABASE_URL}/functions/v1/${functionName}`;
         console.log(`[Runner:${RUNNER_ID}] Executing ${job.id.slice(0, 8)} → ${functionName}`);
 
-        // Normalize payload
         const normalized = { ...job.payload };
         if (normalized.courseId && !normalized.course_id) normalized.course_id = normalized.courseId;
         if (normalized.course_id && !normalized.courseId) normalized.courseId = normalized.course_id;
         if (normalized.curriculumId && !normalized.curriculum_id) normalized.curriculum_id = normalized.curriculumId;
         if (normalized.curriculum_id && !normalized.curriculumId) normalized.curriculumId = normalized.curriculum_id;
 
-        // Include batch_cursor if present
         if (job.batch_cursor) {
           normalized._batch_cursor = job.batch_cursor;
         }
@@ -454,10 +581,8 @@ Deno.serve(async (req) => {
         }
 
         if (response.ok) {
-          // Check if response contains batch_cursor (chunked job, not finished yet)
           const rd = responseData as Record<string, unknown>;
           if (rd?.batch_cursor && rd?.batch_complete === false) {
-            // Re-queue for next chunk
             const nextScheduled = new Date(Date.now() + 15_000).toISOString();
             await admin
               .from("job_queue")
@@ -473,7 +598,6 @@ Deno.serve(async (req) => {
               .eq("id", job.id);
             results.push({ id: job.id, job_type: job.job_type, outcome: "batch_continue" });
           } else {
-            // Full success
             await admin
               .from("job_queue")
               .update({
@@ -495,12 +619,10 @@ Deno.serve(async (req) => {
           typeof responseData === "object" && responseData !== null &&
           (responseData as Record<string, unknown>).retry === true
         ) {
-          // Prereq not done – soft retry
           const MAX_PREREQ_RETRIES = 20;
           const newRetryAttempts = job.attempts + 1;
 
           if (newRetryAttempts >= MAX_PREREQ_RETRIES) {
-            console.warn(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} prereq cap reached`);
             await admin
               .from("job_queue")
               .update({
@@ -536,22 +658,18 @@ Deno.serve(async (req) => {
             results.push({ id: job.id, job_type: job.job_type, outcome: "retry_prereq" });
           }
         } else {
-          // Error response
+          // ─── TRIAGE-DRIVEN FAILURE HANDLING ───
           const errorMsg = typeof responseData === "object" && responseData !== null && "error" in responseData
             ? String((responseData as { error: unknown }).error)
             : `HTTP ${response.status}: ${responseText.slice(0, 200)}`;
 
-          await handleJobFailure(admin, job, errorMsg, response.status, rlConfig);
-          results.push({
-            id: job.id,
-            job_type: job.job_type,
-            outcome: isPermanentFailure(errorMsg) ? "failed_permanent" : "failed_retry",
-          });
+          const outcome = await handleJobFailureWithTriage(admin, job, errorMsg, response.status, rlConfig, policy);
+          results.push({ id: job.id, job_type: job.job_type, outcome });
         }
       } catch (execErr: unknown) {
         const errorMsg = execErr instanceof Error ? execErr.message : String(execErr);
-        await handleJobFailure(admin, job, `Runtime: ${errorMsg}`, 0, rlConfig);
-        results.push({ id: job.id, job_type: job.job_type, outcome: "failed_runtime" });
+        const outcome = await handleJobFailureWithTriage(admin, job, `Runtime: ${errorMsg}`, 0, rlConfig, policy);
+        results.push({ id: job.id, job_type: job.job_type, outcome });
       }
     }
 
@@ -566,111 +684,116 @@ Deno.serve(async (req) => {
   }
 });
 
-// ─── FAILURE HANDLER ─────────────────────────────────────────────────
-async function handleJobFailure(
+// ─── TRIAGE-DRIVEN FAILURE HANDLER ──────────────────────────────────
+async function handleJobFailureWithTriage(
   admin: ReturnType<typeof createClient>,
   job: JobRecord,
   errorMsg: string,
   httpStatus: number,
-  rateLimits: RateLimit[]
-) {
+  rateLimits: RateLimit[],
+  policy: TriagePolicy | null
+): Promise<string> {
+  const category = classifyError(errorMsg, httpStatus, policy);
+  const actionDef = policy?.actions?.[category];
   const newAttempts = job.attempts + 1;
   const provider = job.provider || DEFAULT_LLM_PROVIDER;
-  const rlConfig = rateLimits.find((r) => r.provider === provider);
-  const cooldownSeconds = rlConfig?.cooldown_seconds ?? 120;
+  const now = new Date().toISOString();
 
-  // Rate limit: use scheduled backoff with jitter
-  if (isRateLimitError(errorMsg)) {
-    const jitter = Math.floor(Math.random() * 30);
-    const backoffMs = (cooldownSeconds + jitter) * 1000;
-    const rateLimitedUntil = new Date(Date.now() + backoffMs).toISOString();
+  console.log(`[Runner:${RUNNER_ID}] Triage ${job.id.slice(0, 8)}: ${category} (attempt ${newAttempts})`);
 
-    // Rate-limited jobs get aggressive retries (up to 20) – never final-fail early on 429
-    const maxForRateLimit = Math.max(job.max_attempts, 20);
-    if (newAttempts >= maxForRateLimit) {
-      console.warn(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} rate-limit cap reached (${newAttempts}/${maxForRateLimit})`);
-      await admin
-        .from("job_queue")
-        .update({
-          status: "failed",
-          error: errorMsg.slice(0, 2000),
-          last_error: errorMsg.slice(0, 500),
-          last_error_code: "RATE_LIMIT_EXHAUSTED",
-          last_error_hint: `Exceeded ${maxForRateLimit} attempts with rate limiting`,
-          last_http_status: httpStatus || 429,
-          attempts: newAttempts,
-          completed_at: new Date().toISOString(),
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", job.id);
-      return;
-    }
-
-    console.log(
-      `[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} rate-limited, retry #${newAttempts} in ${cooldownSeconds + jitter}s`
-    );
-    await admin
-      .from("job_queue")
-      .update({
-        status: "pending",
-        last_error: errorMsg.slice(0, 500),
-        last_error_code: "RATE_LIMIT",
-        last_error_hint: "Backoff applied with jitter",
-        last_http_status: httpStatus || 429,
-        rate_limited_until: rateLimitedUntil,
-        scheduled_at: rateLimitedUntil,
-        attempts: newAttempts,
-        locked_at: null,
-        locked_by: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", job.id);
-    return;
-  }
-
-  // Permanent failure
-  const permanent = isPermanentFailure(errorMsg) ||
-    newAttempts >= (isTransientError(errorMsg) ? Math.max(job.max_attempts, 8) : job.max_attempts);
-
-  if (permanent) {
-    console.warn(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} PERMANENTLY FAILED: ${errorMsg.slice(0, 100)}`);
+  // ─── PERMANENT FAILURES → fail + dead letter + block ──────────
+  if (category.startsWith("PERMANENT_") || (actionDef && actionDef.set_status === "failed")) {
+    const severity = actionDef?.severity ?? "high";
     await admin
       .from("job_queue")
       .update({
         status: "failed",
         error: errorMsg.slice(0, 2000),
         last_error: errorMsg.slice(0, 500),
-        last_error_code: isPermanentFailure(errorMsg) ? "PERMANENT" : "MAX_ATTEMPTS",
+        last_error_code: category,
+        last_error_severity: severity,
         last_http_status: httpStatus || null,
         attempts: newAttempts,
-        completed_at: new Date().toISOString(),
+        completed_at: now,
         locked_at: null,
         locked_by: null,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .eq("id", job.id);
-  } else {
-    // Exponential backoff: 30s, 60s, 120s...
-    const backoffSeconds = 30 * Math.pow(2, newAttempts - 1);
-    const runAfter = new Date(Date.now() + backoffSeconds * 1000).toISOString();
 
-    console.log(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} retry #${newAttempts} in ${backoffSeconds}s`);
+    if (actionDef?.dead_letter !== false) {
+      await createDeadLetter(admin, job, category, category, errorMsg);
+    }
+    if (actionDef?.block_package !== false) {
+      await blockPackage(admin, job, `${category}: ${errorMsg.slice(0, 200)}`);
+    }
+    await sendAdminAlert(admin, category, severity, job, errorMsg);
+    return `failed_${category.toLowerCase()}`;
+  }
+
+  // ─── TRANSIENT FAILURES → retry with backoff + optional provider switch ──
+  const maxAttempts = getMaxAttempts(category, policy, job.max_attempts);
+
+  if (newAttempts >= maxAttempts) {
+    // Exhausted retries → final fail
+    console.warn(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} exhausted ${category} retries (${newAttempts}/${maxAttempts})`);
     await admin
       .from("job_queue")
       .update({
-        status: "pending",
+        status: "failed",
+        error: errorMsg.slice(0, 2000),
         last_error: errorMsg.slice(0, 500),
-        last_error_code: "TRANSIENT",
+        last_error_code: `${category}_EXHAUSTED`,
+        last_error_severity: "high",
         last_http_status: httpStatus || null,
         attempts: newAttempts,
-        run_after: runAfter,
-        scheduled_at: runAfter,
+        completed_at: now,
         locked_at: null,
         locked_by: null,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .eq("id", job.id);
+    await createDeadLetter(admin, job, category, `${category}_EXHAUSTED`, errorMsg);
+    return `failed_${category.toLowerCase()}_exhausted`;
   }
+
+  // Compute backoff
+  const delaySec = computeBackoff(newAttempts, policy, category);
+  const scheduledAt = new Date(Date.now() + delaySec * 1000).toISOString();
+
+  // Provider fallback
+  let newProvider = provider;
+  const fallbackCount = job.fallback_count ?? 0;
+  if (actionDef?.maybe_switch_provider && LLM_JOB_TYPES.has(job.job_type)) {
+    const fallback = pickFallbackProvider(provider, fallbackCount, policy);
+    if (fallback) {
+      newProvider = fallback;
+      console.log(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} switching provider ${provider} → ${newProvider}`);
+    }
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    status: "pending",
+    last_error: errorMsg.slice(0, 500),
+    last_error_code: category,
+    last_error_severity: category === "RATE_LIMIT" ? "low" : "medium",
+    last_http_status: httpStatus || null,
+    attempts: newAttempts,
+    scheduled_at: scheduledAt,
+    run_after: scheduledAt,
+    locked_at: null,
+    locked_by: null,
+    updated_at: now,
+    provider: newProvider,
+    fallback_count: newProvider !== provider ? fallbackCount + 1 : fallbackCount,
+  };
+
+  if (category === "RATE_LIMIT") {
+    updatePayload.rate_limited_until = scheduledAt;
+  }
+
+  await admin.from("job_queue").update(updatePayload).eq("id", job.id);
+
+  console.log(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} → ${category} retry #${newAttempts} in ${delaySec}s (provider: ${newProvider})`);
+  return `retry_${category.toLowerCase()}`;
 }
