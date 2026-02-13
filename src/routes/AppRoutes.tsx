@@ -39,6 +39,8 @@ const WissenPage = lazy(() => import('@/pages/seo/WissenPage'));
 const WissenArticlePage = lazy(() => import('@/pages/seo/WissenArticlePage'));
 const WissenAllePage = lazy(() => import('@/pages/seo/WissenAllePage'));
 const SearchPage = lazy(() => import('@/pages/seo/SearchPage'));
+const CertificationCategoryPage = lazy(() => import('@/pages/seo/CertificationCategoryPage'));
+const CertificationSEOPage = lazy(() => import('@/pages/seo/CertificationSEOPage'));
 
 // Legal Pages
 const AGBPage = lazy(() => import('@/pages/seo/AGBPage'));
@@ -100,6 +102,26 @@ const AppRoutes = () => {
 
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
+          {/* Certification category routes */}
+          <Route path="/ausbildung" element={<CertificationCategoryPage />} />
+          <Route path="/ausbildung/:slug" element={<CertificationSEOPage />} />
+          <Route path="/fachwirt" element={<CertificationCategoryPage />} />
+          <Route path="/fachwirt/:slug" element={<CertificationSEOPage />} />
+          <Route path="/meister" element={<CertificationCategoryPage />} />
+          <Route path="/meister/:slug" element={<CertificationSEOPage />} />
+          <Route path="/sachkunde" element={<CertificationCategoryPage />} />
+          <Route path="/sachkunde/:slug" element={<CertificationSEOPage />} />
+          <Route path="/projektmanagement" element={<CertificationCategoryPage />} />
+          <Route path="/projektmanagement/:slug" element={<CertificationSEOPage />} />
+
+          {/* Programmatic SEO sub-pages */}
+          <Route path="/:slug-pruefung" element={<CertificationSEOPage />} />
+          <Route path="/:slug-durchfallquote" element={<CertificationSEOPage />} />
+          <Route path="/:slug-muendliche-pruefung" element={<CertificationSEOPage />} />
+          <Route path="/:slug-schweregrad" element={<CertificationSEOPage />} />
+          <Route path="/:slug-pruefungssimulation" element={<CertificationSEOPage />} />
+
+          {/* Existing SEO routes */}
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
           <Route path="/pruefungstraining-betriebe" element={<PruefungstrainingBetriebePage />} />

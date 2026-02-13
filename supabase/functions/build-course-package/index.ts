@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { calculateHybridTarget, calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -163,8 +164,16 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Dynamic exam target based on Ausbildungsdauer ──
+  // ── HYBRID TARGET ENGINE v3 ──
   let ausbildungsDauer: number | null = null;
+  let certCatalogData: {
+    exam_complexity_score?: number;
+    math_ratio?: number;
+    oral_component?: boolean;
+    learning_field_count?: number;
+    certification_level?: string;
+  } = {};
+
   if (effectiveCurriculumId) {
     const { data: currRow } = await sb
       .from("curricula")
@@ -181,23 +190,40 @@ Deno.serve(async (req) => {
     }
   }
 
-  function calcExamTarget(months: number | null, t: string): number {
-    if (t === "EXAM_FIRST") return 1200;
-    const m = months ?? 36;
-    if (m <= 24) return 600;
-    if (m <= 30) return 800;
-    return 1000;
+  // Fetch hybrid target fields from certification_catalog
+  if (effectiveCertId) {
+    const { data: catRow } = await sb
+      .from("certification_catalog")
+      .select("exam_complexity_score, math_ratio, oral_component, learning_field_count, certification_level")
+      .eq("linked_certification_id", effectiveCertId)
+      .maybeSingle();
+    if (catRow) certCatalogData = catRow;
   }
 
-  // Derive options from feature_flags (Track-aware)
+  const hybridResult = calculateHybridTarget({
+    durationMonths: ausbildungsDauer,
+    track,
+    examComplexityScore: certCatalogData.exam_complexity_score ?? 1.0,
+    mathRatio: certCatalogData.math_ratio ?? 0.15,
+    oralComponent: certCatalogData.oral_component ?? false,
+    learningFieldCount: certCatalogData.learning_field_count ?? 0,
+    certificationLevel: certCatalogData.certification_level ?? 'ausbildung',
+  });
+
+  console.log(`[BuildPkg] Hybrid Target: ${hybridResult.target} (ship: ${hybridResult.shipTarget})`, hybridResult.breakdown);
+
+  // Derive options from feature_flags (Track-aware) + Hybrid Engine
   const opts = {
     include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL"),
     include_exam_pool: featureFlags.has_exam_trainer ?? true,
     include_oral_exam: featureFlags.has_oral_exam_trainer ?? (track === "AUSBILDUNG_VOLL"),
     include_ai_tutor: featureFlags.has_ai_tutor ?? (track === "AUSBILDUNG_VOLL"),
     include_handbook: featureFlags.has_handbook ?? (track === "AUSBILDUNG_VOLL"),
-    exam_target: calcExamTarget(ausbildungsDauer, track),
+    exam_target: hybridResult.target,
+    ship_target: hybridResult.shipTarget,
     ausbildungsdauer_monate: ausbildungsDauer,
+    difficulty_distribution: hybridResult.difficultyDistribution,
+    question_type_mix: hybridResult.questionTypeMix,
     ...(options || {}),
   };
 

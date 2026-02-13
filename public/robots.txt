@@ -46,6 +46,10 @@ Disallow: /auth/reset-password
 # Sitemaps
 Sitemap: https://examfit.de/sitemap.xml
 
+# SEO category pages
+# /ausbildung/, /fachwirt/, /meister/, /sachkunde/, /projektmanagement/
+# All allowed by default via Allow: /
+
 # Crawl-delay for less aggressive bots
 User-agent: AhrefsBot
 Crawl-delay: 10
