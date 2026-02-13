@@ -146,17 +146,92 @@ const DEFAULT_LLM_PROVIDER = "openai";
 async function selectBestProvider(
   admin: ReturnType<typeof createClient>,
   preferred: string | null,
-  exclude: string[] = []
+  exclude: string[] = [],
+  jobType: string | null = null
 ): Promise<string | null> {
   const { data, error } = await admin.rpc("select_best_provider", {
     p_preferred: preferred,
     p_exclude: exclude,
+    p_job_type: jobType,
   });
   if (error) {
     console.warn(`[Runner:${RUNNER_ID}] select_best_provider error: ${error.message}`);
     return preferred;
   }
   return data as string | null;
+}
+
+// ─── USAGE LOGGING (for adaptive scoring) ───────────────────────────
+async function logProviderUsage(
+  admin: ReturnType<typeof createClient>,
+  provider: string,
+  jobType: string,
+  success: boolean,
+  latencyMs: number | null = null,
+  tokens: number = 0,
+  cost: number = 0,
+  errorCategory: string | null = null
+): Promise<void> {
+  await admin.rpc("log_provider_usage", {
+    p_provider: provider,
+    p_job_type: jobType,
+    p_success: success,
+    p_latency_ms: latencyMs,
+    p_tokens: tokens,
+    p_cost: cost,
+    p_error_category: errorCategory,
+  }).catch(() => {});
+}
+
+// ─── PREDICTIVE BACKPRESSURE SNAPSHOT ────────────────────────────────
+async function recordBackpressureSnapshot(
+  admin: ReturnType<typeof createClient>,
+  pendingCount: number,
+  processingCount: number,
+  throttle: boolean
+): Promise<void> {
+  const oneHourAgo = new Date(Date.now() - 3600_000).toISOString();
+  const [completedRes, failedRes] = await Promise.all([
+    admin.from("job_queue").select("id", { count: "exact", head: true })
+      .eq("status", "completed").gte("completed_at", oneHourAgo),
+    admin.from("job_queue").select("id", { count: "exact", head: true })
+      .eq("status", "failed").gte("completed_at", oneHourAgo),
+  ]);
+  const completed1h = completedRes.count ?? 0;
+  const failed1h = failedRes.count ?? 0;
+  const throughputPerMin = completed1h / 60.0;
+  const etaClearMin = throughputPerMin > 0 ? pendingCount / throughputPerMin : 0;
+
+  // Get previous snapshot for trend
+  const { data: prev } = await admin.from("backpressure_snapshots")
+    .select("pending_count").order("snapshot_at", { ascending: false }).limit(1).maybeSingle();
+  const prevPending = prev?.pending_count ?? pendingCount;
+  const trend = pendingCount > prevPending * 1.1 ? "rising" : pendingCount < prevPending * 0.9 ? "falling" : "stable";
+
+  await admin.from("backpressure_snapshots").insert({
+    pending_count: pendingCount,
+    processing_count: processingCount,
+    completed_1h: completed1h,
+    failed_1h: failed1h,
+    throughput_per_min: Math.round(throughputPerMin * 100) / 100,
+    eta_clear_minutes: Math.round(etaClearMin * 10) / 10,
+    forecast_trend: trend,
+    throttle_active: throttle,
+  }).catch(() => {});
+
+  if (trend === "rising" && pendingCount > BACKPRESSURE_WARN) {
+    console.warn(`[Runner:${RUNNER_ID}] 📈 Backpressure RISING: ${pendingCount} pending, ETA ${etaClearMin.toFixed(0)}min`);
+  }
+}
+
+// ─── RECALCULATE SCORES (every ~5 min) ──────────────────────────────
+let _lastScoreRecalc = 0;
+async function maybeRecalcScores(admin: ReturnType<typeof createClient>): Promise<void> {
+  const now = Date.now();
+  if (now - _lastScoreRecalc < 300_000) return; // 5 min
+  _lastScoreRecalc = now;
+  await admin.rpc("recalculate_routing_scores").catch(() => {});
+  console.log(`[Runner:${RUNNER_ID}] 📊 Routing scores recalculated`);
 }
 
 async function claimProviderSlot(admin: ReturnType<typeof createClient>, provider: string): Promise<boolean> {
@@ -444,9 +519,10 @@ Deno.serve(async (req) => {
       console.log(`[Runner:${RUNNER_ID}] Recovered ${recovered} provider(s) from rate-limit cooldown`);
     }
 
-    // Log provider status
+    // Log provider status + recalculate scores periodically
     const providerLog = await getProviderStatusLog(admin);
     console.log(`[Runner:${RUNNER_ID}] Providers: ${providerLog}`);
+    await maybeRecalcScores(admin);
 
     // 1) Clean stale locks + release their provider slots
     const staleThreshold = new Date(Date.now() - LOCK_TIMEOUT_SECONDS * 1000).toISOString();
@@ -475,8 +551,11 @@ Deno.serve(async (req) => {
 
     const now = new Date().toISOString();
 
-    // 2) Backpressure check
+    // 2) Backpressure check + predictive snapshot
     const bp = await checkBackpressure(admin);
+    const { count: processingNow } = await admin
+      .from("job_queue").select("id", { count: "exact", head: true }).eq("status", "processing");
+    await recordBackpressureSnapshot(admin, bp.pendingCount, processingNow ?? 0, bp.throttle);
 
     // 3) Global processing cap
     const maxGlobal = policy?.controls?.max_global_processing_jobs ?? 40;
@@ -532,9 +611,9 @@ Deno.serve(async (req) => {
       let provider = job.provider || (isLLM ? DEFAULT_LLM_PROVIDER : null);
 
       if (isLLM) {
-        // ─── PROVIDER AUTOPILOT: Resolve 'auto' or find best available ───
+        // ─── PROVIDER AUTOPILOT: Resolve 'auto' or find best available with intent ───
         const preferredProvider = (provider === "auto" || !provider) ? null : provider;
-        const bestProvider = await selectBestProvider(admin, preferredProvider);
+        const bestProvider = await selectBestProvider(admin, preferredProvider, [], job.job_type);
 
         if (!bestProvider) {
           // All providers at capacity – delay job
@@ -657,6 +736,9 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      const jobStartMs = Date.now();
+      let slotReleased = false;
+
       try {
         const functionUrl = `${SUPABASE_URL}/functions/v1/${functionName}`;
         console.log(`[Runner:${RUNNER_ID}] Executing ${job.id.slice(0, 8)} → ${functionName} @${job.provider}`);
@@ -694,13 +776,22 @@ Deno.serve(async (req) => {
           responseData = { raw: responseText.slice(0, 500) };
         }
 
-        // ─── Release provider slot on completion ───
+        const latencyMs = Date.now() - jobStartMs;
+
+        // ─── Release provider slot on completion (guaranteed by finally) ───
         if (job.provider && LLM_JOB_TYPES.has(job.job_type)) {
           await releaseProviderSlot(admin, job.provider);
+          slotReleased = true;
         }
 
         if (response.ok) {
           const rd = responseData as Record<string, unknown>;
+
+          // Log success usage
+          if (job.provider) {
+            await logProviderUsage(admin, job.provider, job.job_type, true, latencyMs);
+          }
+
           if (rd?.batch_cursor && rd?.batch_complete === false) {
             const nextScheduled = new Date(Date.now() + 15_000).toISOString();
             await admin
@@ -713,7 +804,7 @@ Deno.serve(async (req) => {
                 locked_at: null,
                 locked_by: null,
                 updated_at: new Date().toISOString(),
-                provider: "auto", // Next batch picks best available provider
+                provider: "auto",
               })
               .eq("id", job.id);
             results.push({ id: job.id, job_type: job.job_type, outcome: "batch_continue", provider: job.provider });
@@ -732,18 +823,6 @@ Deno.serve(async (req) => {
                 updated_at: new Date().toISOString(),
               })
               .eq("id", job.id);
-
-            // Update provider stats
-            if (job.provider) {
-              await admin
-                .from("provider_status")
-                .update({
-                  total_jobs_24h: admin.rpc ? undefined : 0, // Handled via direct SQL if needed
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("provider", job.provider)
-                .catch(() => {});
-            }
 
             results.push({ id: job.id, job_type: job.job_type, outcome: "completed", provider: job.provider });
           }
@@ -797,25 +876,31 @@ Deno.serve(async (req) => {
             ? String((responseData as { error: unknown }).error)
             : `HTTP ${response.status}: ${responseText.slice(0, 200)}`;
 
-          // Mark provider rate-limited if 429
+          // Log failure usage
+          const category = classifyError(errorMsg, response.status, policy);
+          if (job.provider) {
+            await logProviderUsage(admin, job.provider, job.job_type, false, latencyMs, 0, 0, category);
+          }
+
+          // Mark provider rate-limited if 429 (exponential cooldown now handles escalation)
           if (response.status === 429 && job.provider) {
             await markProviderRateLimited(admin, job.provider, 120, errorMsg);
-            console.warn(`[Runner:${RUNNER_ID}] 🔴 Provider ${job.provider} rate-limited → cooldown 120s`);
+            console.warn(`[Runner:${RUNNER_ID}] 🔴 Provider ${job.provider} rate-limited → exponential cooldown`);
           } else if (response.status === 503 && job.provider) {
             await markProviderRateLimited(admin, job.provider, 300, errorMsg);
-            console.warn(`[Runner:${RUNNER_ID}] 🔴 Provider ${job.provider} unavailable → cooldown 300s`);
+            console.warn(`[Runner:${RUNNER_ID}] 🔴 Provider ${job.provider} unavailable → exponential cooldown`);
           }
 
           const outcome = await handleJobFailureWithTriage(admin, job, errorMsg, response.status, policy);
           results.push({ id: job.id, job_type: job.job_type, outcome, provider: job.provider });
         }
       } catch (execErr: unknown) {
-        // Release provider slot on error
-        if (job.provider && LLM_JOB_TYPES.has(job.job_type)) {
-          await releaseProviderSlot(admin, job.provider);
-        }
-
         const errorMsg = execErr instanceof Error ? execErr.message : String(execErr);
+
+        // Log failure usage
+        if (job.provider) {
+          await logProviderUsage(admin, job.provider, job.job_type, false, Date.now() - jobStartMs, 0, 0, "RUNTIME_ERROR");
+        }
 
         // Detect timeout/network errors → mark provider
         if (job.provider && (errorMsg.includes("timeout") || errorMsg.includes("ETIMEDOUT"))) {
@@ -824,6 +909,12 @@ Deno.serve(async (req) => {
 
         const outcome = await handleJobFailureWithTriage(admin, job, `Runtime: ${errorMsg}`, 0, policy);
         results.push({ id: job.id, job_type: job.job_type, outcome, provider: job.provider });
+      } finally {
+        // ─── SLOT-LEAK PROTECTION: Always release slot ───
+        if (!slotReleased && job.provider && LLM_JOB_TYPES.has(job.job_type)) {
+          await releaseProviderSlot(admin, job.provider);
+          console.log(`[Runner:${RUNNER_ID}] 🔒 Finally-released slot for ${job.provider}`);
+        }
       }
     }
 
