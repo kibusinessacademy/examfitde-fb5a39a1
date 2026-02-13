@@ -239,6 +239,41 @@ Deno.serve(async (req) => {
       fixes.push({ fix: "STALE_LOCK", status: "skipped", detail: "No lock exists" });
     }
 
+    // ── FIX 6: Missing question_blueprints ─────────────────────
+    if (effectiveCourseId) {
+      const { data: course } = await sb.from("courses").select("curriculum_id").eq("id", effectiveCourseId).single();
+      const currId = course?.curriculum_id;
+      if (currId) {
+        const { count: bpCount } = await sb
+          .from("question_blueprints")
+          .select("id", { count: "exact", head: true })
+          .eq("curriculum_id", currId);
+
+        if ((bpCount ?? 0) === 0) {
+          if (!dryRun) {
+            // Trigger blueprint seeding via dom-blueprint-seeder
+            try {
+              const seedUrl = `${SUPABASE_URL}/functions/v1/dom-blueprint-seeder`;
+              const seedRes = await fetch(seedUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+                body: JSON.stringify({ curriculum_id: currId, package_id: packageId }),
+              });
+              const seedData = await seedRes.json();
+              const seeded = (seedData as Record<string, unknown>)?.inserted ?? (seedData as Record<string, unknown>)?.count ?? 0;
+              fixes.push({ fix: "MISSING_BLUEPRINTS", status: "applied", detail: `Triggered blueprint seeding for curriculum ${currId}, seeded: ${seeded}` });
+            } catch (seedErr) {
+              fixes.push({ fix: "MISSING_BLUEPRINTS", status: "error", detail: `Seeding failed: ${(seedErr as Error).message}` });
+            }
+          } else {
+            fixes.push({ fix: "MISSING_BLUEPRINTS", status: "skipped", detail: `Would seed blueprints for curriculum ${currId} (dry run)` });
+          }
+        } else {
+          fixes.push({ fix: "MISSING_BLUEPRINTS", status: "skipped", detail: `${bpCount} blueprints exist` });
+        }
+      }
+    }
+
     // ── FIX 5: Stuck in "building" with no active jobs ──────────
     if (pkg.status === "building") {
       const { count: activeJobs } = await sb
