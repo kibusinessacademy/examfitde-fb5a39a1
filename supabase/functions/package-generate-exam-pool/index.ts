@@ -1,9 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-const CHUNK_SIZE = 50; // Questions per invocation
+const CHUNK_SIZE = 75; // Questions per invocation (optimised for throughput)
 const DEFAULT_TARGET = 800;
-const IDEAL_TARGET = 1000;
+const IDEAL_TARGET = 800; // Ship at 800, polish to 1000 later
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });

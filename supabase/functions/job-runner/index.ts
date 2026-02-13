@@ -585,8 +585,8 @@ async function handleJobFailure(
     const backoffMs = (cooldownSeconds + jitter) * 1000;
     const rateLimitedUntil = new Date(Date.now() + backoffMs).toISOString();
 
-    // Rate-limited jobs get more retries (up to 12)
-    const maxForRateLimit = Math.max(job.max_attempts, 12);
+    // Rate-limited jobs get aggressive retries (up to 20) – never final-fail early on 429
+    const maxForRateLimit = Math.max(job.max_attempts, 20);
     if (newAttempts >= maxForRateLimit) {
       console.warn(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} rate-limit cap reached (${newAttempts}/${maxForRateLimit})`);
       await admin
