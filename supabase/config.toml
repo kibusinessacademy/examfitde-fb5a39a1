@@ -245,3 +245,9 @@ verify_jwt = false
 
 [functions.patch-api]
 verify_jwt = false
+
+[functions.production-quality-check]
+verify_jwt = false
+
+[functions.deep-audit-runner]
+verify_jwt = false

@@ -4232,6 +4232,122 @@ export type Database = {
         }
         Relationships: []
       }
+      deep_audit_config: {
+        Row: {
+          auto_hold_on_drift: boolean
+          created_at: string
+          cycle_days: number
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          max_drift_delta: number
+          next_run_at: string | null
+          sample_pct: number
+          updated_at: string
+        }
+        Insert: {
+          auto_hold_on_drift?: boolean
+          created_at?: string
+          cycle_days?: number
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          max_drift_delta?: number
+          next_run_at?: string | null
+          sample_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          auto_hold_on_drift?: boolean
+          created_at?: string
+          cycle_days?: number
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          max_drift_delta?: number
+          next_run_at?: string | null
+          sample_pct?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      deep_audit_results: {
+        Row: {
+          auto_held: boolean
+          confidence_after: number | null
+          confidence_before: number | null
+          confidence_drift: number | null
+          config_id: string | null
+          created_at: string
+          difficulty_drift: Json | null
+          drift_detected: boolean
+          duplicate_rate_after: number | null
+          duplicate_rate_before: number | null
+          findings: Json | null
+          flags: string[] | null
+          governance_after: number | null
+          governance_before: number | null
+          id: string
+          lf_coverage_after: number | null
+          lf_coverage_before: number | null
+          package_id: string | null
+          sampled_count: number
+          total_questions: number
+        }
+        Insert: {
+          auto_held?: boolean
+          confidence_after?: number | null
+          confidence_before?: number | null
+          confidence_drift?: number | null
+          config_id?: string | null
+          created_at?: string
+          difficulty_drift?: Json | null
+          drift_detected?: boolean
+          duplicate_rate_after?: number | null
+          duplicate_rate_before?: number | null
+          findings?: Json | null
+          flags?: string[] | null
+          governance_after?: number | null
+          governance_before?: number | null
+          id?: string
+          lf_coverage_after?: number | null
+          lf_coverage_before?: number | null
+          package_id?: string | null
+          sampled_count?: number
+          total_questions?: number
+        }
+        Update: {
+          auto_held?: boolean
+          confidence_after?: number | null
+          confidence_before?: number | null
+          confidence_drift?: number | null
+          config_id?: string | null
+          created_at?: string
+          difficulty_drift?: Json | null
+          drift_detected?: boolean
+          duplicate_rate_after?: number | null
+          duplicate_rate_before?: number | null
+          findings?: Json | null
+          flags?: string[] | null
+          governance_after?: number | null
+          governance_before?: number | null
+          id?: string
+          lf_coverage_after?: number | null
+          lf_coverage_before?: number | null
+          package_id?: string | null
+          sampled_count?: number
+          total_questions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deep_audit_results_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "deep_audit_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       disallowed_keywords: {
         Row: {
           category: string | null
@@ -8132,6 +8248,71 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_priority: {
+        Row: {
+          beruf_id: string | null
+          competition_score: number
+          completion_status: string
+          confidence: number | null
+          created_at: string
+          demand_score: number
+          exam_target: number
+          governance_score: number | null
+          id: string
+          occupation_slug: string | null
+          priority_index: number | null
+          quality_status: string
+          release_status: string
+          revenue_potential_score: number
+          ship_level: string
+          updated_at: string
+        }
+        Insert: {
+          beruf_id?: string | null
+          competition_score?: number
+          completion_status?: string
+          confidence?: number | null
+          created_at?: string
+          demand_score?: number
+          exam_target?: number
+          governance_score?: number | null
+          id?: string
+          occupation_slug?: string | null
+          priority_index?: number | null
+          quality_status?: string
+          release_status?: string
+          revenue_potential_score?: number
+          ship_level?: string
+          updated_at?: string
+        }
+        Update: {
+          beruf_id?: string | null
+          competition_score?: number
+          completion_status?: string
+          confidence?: number | null
+          created_at?: string
+          demand_score?: number
+          exam_target?: number
+          governance_score?: number | null
+          id?: string
+          occupation_slug?: string | null
+          priority_index?: number | null
+          quality_status?: string
+          release_status?: string
+          revenue_potential_score?: number
+          ship_level?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_priority_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: true
+            referencedRelation: "berufe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_validation_results: {
         Row: {
           auto_fixed: number
@@ -9571,6 +9752,57 @@ export type Database = {
           scope_id?: string
           score?: number
           severity?: string
+        }
+        Relationships: []
+      }
+      rollout_control: {
+        Row: {
+          auto_upgrade_threshold: Json | null
+          created_at: string
+          id: string
+          is_active: boolean
+          last_evaluated_at: string | null
+          max_concurrent_builds: number
+          max_global_dup_rate: number
+          max_provider_risk: number
+          min_confidence_avg: number
+          min_governance_avg: number
+          mode: string
+          ship_level_config: Json | null
+          updated_at: string
+          weekly_target: number
+        }
+        Insert: {
+          auto_upgrade_threshold?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_evaluated_at?: string | null
+          max_concurrent_builds?: number
+          max_global_dup_rate?: number
+          max_provider_risk?: number
+          min_confidence_avg?: number
+          min_governance_avg?: number
+          mode?: string
+          ship_level_config?: Json | null
+          updated_at?: string
+          weekly_target?: number
+        }
+        Update: {
+          auto_upgrade_threshold?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_evaluated_at?: string | null
+          max_concurrent_builds?: number
+          max_global_dup_rate?: number
+          max_provider_risk?: number
+          min_confidence_avg?: number
+          min_governance_avg?: number
+          mode?: string
+          ship_level_config?: Json | null
+          updated_at?: string
+          weekly_target?: number
         }
         Relationships: []
       }
@@ -12672,6 +12904,7 @@ export type Database = {
         }
         Returns: string
       }
+      evaluate_rollout_readiness: { Args: never; Returns: Json }
       export_course_pack: {
         Args: {
           p_course_id: string
@@ -13078,6 +13311,10 @@ export type Database = {
       note_code_failure: {
         Args: { p_code: string; p_lock_seconds?: number; p_max_fail?: number }
         Returns: Json
+      }
+      pick_next_package_by_priority: {
+        Args: { max_active?: number }
+        Returns: string
       }
       pick_next_package_to_start: {
         Args: { max_active?: number }
