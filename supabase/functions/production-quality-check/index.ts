@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Call the RPC that does all quality checks + snapshot
+    // Call the RPC that does all quality checks + snapshot + audit
     const { data, error } = await sb.rpc("check_production_quality", {
       p_package_id: packageId,
       p_curriculum_id: curriculumId,
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
 
-    // Track provider performance from recent ai_usage_log
+    // Track provider performance + risk from recent ai_usage_log
     const { data: usageRows } = await sb
       .from("ai_usage_log")
       .select("model, success, latency_ms, output_tokens, cost_eur")
@@ -53,12 +53,13 @@ Deno.serve(async (req) => {
       const byProvider: Record<string, {
         calls: number; ok: number; err: number;
         latSum: number; tokSum: number; costSum: number;
+        latencies: number[];
       }> = {};
 
       for (const r of usageRows) {
         const provider = (r.model || "unknown").split("/")[0] || r.model || "unknown";
         if (!byProvider[provider]) {
-          byProvider[provider] = { calls: 0, ok: 0, err: 0, latSum: 0, tokSum: 0, costSum: 0 };
+          byProvider[provider] = { calls: 0, ok: 0, err: 0, latSum: 0, tokSum: 0, costSum: 0, latencies: [] };
         }
         const b = byProvider[provider];
         b.calls++;
@@ -66,10 +67,10 @@ Deno.serve(async (req) => {
         b.latSum += r.latency_ms || 0;
         b.tokSum += r.output_tokens || 0;
         b.costSum += r.cost_eur || 0;
+        if (r.latency_ms) b.latencies.push(r.latency_ms);
       }
 
       const today = new Date().toISOString().slice(0, 10);
-      // Compute per-provider duplicate/low-conf rates from exam_questions
       const { data: dupByProv } = await sb
         .from("duplicate_detection_log")
         .select("id")
@@ -77,8 +78,27 @@ Deno.serve(async (req) => {
       const totalDups = dupByProv?.length || 0;
 
       for (const [provider, stats] of Object.entries(byProvider)) {
+        const errRate = stats.calls > 0 ? Math.round(100 * stats.err / stats.calls * 10) / 10 : 0;
         const dupShare = stats.calls > 0 ? Math.round(100 * (totalDups / Object.keys(byProvider).length) / stats.calls * 10) / 10 : 0;
         const lowConfRate = stats.calls > 0 ? Math.round(100 * stats.err / stats.calls * 10) / 10 : 0;
+
+        // Stability index: 100 - (error_rate * 2) - (latency_variance_factor)
+        const avgLat = stats.latencies.length > 0 ? stats.latSum / stats.latencies.length : 0;
+        const variance = stats.latencies.length > 1
+          ? stats.latencies.reduce((s, l) => s + Math.pow(l - avgLat, 2), 0) / stats.latencies.length
+          : 0;
+        const cv = avgLat > 0 ? Math.sqrt(variance) / avgLat * 100 : 0; // coefficient of variation
+        const stabilityIndex = Math.max(0, Math.min(100, Math.round(100 - errRate * 2 - cv * 0.3)));
+
+        // Risk score: 0-100, higher = worse
+        const riskScore = Math.min(100, Math.round(
+          errRate * 2 +
+          dupShare * 3 +
+          lowConfRate * 1.5 +
+          (100 - stabilityIndex) * 0.5
+        ));
+
+        const autoDisabled = riskScore > 70;
 
         await sb.from("provider_performance").upsert({
           date: today,
@@ -93,16 +113,21 @@ Deno.serve(async (req) => {
           near_duplicate_rate: dupShare,
           low_confidence_rate: lowConfRate,
           blocked_question_count: 0,
+          stability_index: stabilityIndex,
+          hallucination_flag_rate: 0, // needs separate detection
+          regeneration_rate: 0,
+          risk_score: riskScore,
+          auto_disabled: autoDisabled,
         }, { onConflict: "date,provider,model" });
       }
     }
 
-    console.log(`[QualityShield] Package ${packageId.slice(0, 8)}: `, JSON.stringify(data));
+    console.log(`[QualityShield v3] Package ${packageId.slice(0, 8)}: `, JSON.stringify(data));
 
     return json({ ok: true, quality: data });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
-    console.error(`[QualityShield] Error: ${msg}`);
+    console.error(`[QualityShield v3] Error: ${msg}`);
     return json({ ok: false, error: msg }, 500);
   }
 });

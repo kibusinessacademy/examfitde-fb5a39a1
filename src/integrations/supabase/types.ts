@@ -8317,6 +8317,7 @@ export type Database = {
           difficulty_medium_pct: number
           duplicate_rate: number
           flags: string[] | null
+          governance_score: number | null
           id: string
           lf_coverage_pct: number
           lf_detail: Json | null
@@ -8336,6 +8337,7 @@ export type Database = {
           difficulty_medium_pct?: number
           duplicate_rate?: number
           flags?: string[] | null
+          governance_score?: number | null
           id?: string
           lf_coverage_pct?: number
           lf_detail?: Json | null
@@ -8355,6 +8357,7 @@ export type Database = {
           difficulty_medium_pct?: number
           duplicate_rate?: number
           flags?: string[] | null
+          governance_score?: number | null
           id?: string
           lf_coverage_pct?: number
           lf_detail?: Json | null
@@ -8576,12 +8579,14 @@ export type Database = {
       }
       provider_performance: {
         Row: {
+          auto_disabled: boolean | null
           avg_latency_ms: number | null
           avg_tokens_out: number | null
           blocked_question_count: number | null
           created_at: string
           date: string
           error_count: number
+          hallucination_flag_rate: number | null
           hallucination_flags: number
           id: string
           low_confidence_rate: number | null
@@ -8589,18 +8594,23 @@ export type Database = {
           model: string | null
           near_duplicate_rate: number | null
           provider: string
+          regeneration_rate: number | null
+          risk_score: number | null
+          stability_index: number | null
           success_count: number
           total_calls: number
           total_cost_eur: number | null
           updated_at: string
         }
         Insert: {
+          auto_disabled?: boolean | null
           avg_latency_ms?: number | null
           avg_tokens_out?: number | null
           blocked_question_count?: number | null
           created_at?: string
           date?: string
           error_count?: number
+          hallucination_flag_rate?: number | null
           hallucination_flags?: number
           id?: string
           low_confidence_rate?: number | null
@@ -8608,18 +8618,23 @@ export type Database = {
           model?: string | null
           near_duplicate_rate?: number | null
           provider: string
+          regeneration_rate?: number | null
+          risk_score?: number | null
+          stability_index?: number | null
           success_count?: number
           total_calls?: number
           total_cost_eur?: number | null
           updated_at?: string
         }
         Update: {
+          auto_disabled?: boolean | null
           avg_latency_ms?: number | null
           avg_tokens_out?: number | null
           blocked_question_count?: number | null
           created_at?: string
           date?: string
           error_count?: number
+          hallucination_flag_rate?: number | null
           hallucination_flags?: number
           id?: string
           low_confidence_rate?: number | null
@@ -8627,6 +8642,9 @@ export type Database = {
           model?: string | null
           near_duplicate_rate?: number | null
           provider?: string
+          regeneration_rate?: number | null
+          risk_score?: number | null
+          stability_index?: number | null
           success_count?: number
           total_calls?: number
           total_cost_eur?: number | null
@@ -8960,6 +8978,66 @@ export type Database = {
           title?: string
           updated_at?: string
           version?: string
+        }
+        Relationships: []
+      }
+      quality_audit_snapshots: {
+        Row: {
+          blueprint_coverage_pct: number | null
+          confidence_score: number | null
+          course_id: string | null
+          created_at: string
+          duplicate_rate: number | null
+          event_type: string
+          governance_score: number | null
+          hard_ratio: number | null
+          id: string
+          lf_coverage_pct: number | null
+          low_confidence_ratio: number | null
+          package_id: string
+          provider_mix: Json | null
+          question_count: number
+          snapshot_data: Json | null
+          trigger_reason: string | null
+          triggered_by: string
+        }
+        Insert: {
+          blueprint_coverage_pct?: number | null
+          confidence_score?: number | null
+          course_id?: string | null
+          created_at?: string
+          duplicate_rate?: number | null
+          event_type: string
+          governance_score?: number | null
+          hard_ratio?: number | null
+          id?: string
+          lf_coverage_pct?: number | null
+          low_confidence_ratio?: number | null
+          package_id: string
+          provider_mix?: Json | null
+          question_count?: number
+          snapshot_data?: Json | null
+          trigger_reason?: string | null
+          triggered_by?: string
+        }
+        Update: {
+          blueprint_coverage_pct?: number | null
+          confidence_score?: number | null
+          course_id?: string | null
+          created_at?: string
+          duplicate_rate?: number | null
+          event_type?: string
+          governance_score?: number | null
+          hard_ratio?: number | null
+          id?: string
+          lf_coverage_pct?: number | null
+          low_confidence_ratio?: number | null
+          package_id?: string
+          provider_mix?: Json | null
+          question_count?: number
+          snapshot_data?: Json | null
+          trigger_reason?: string | null
+          triggered_by?: string
         }
         Relationships: []
       }
