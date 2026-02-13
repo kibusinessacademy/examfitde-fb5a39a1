@@ -257,3 +257,6 @@ verify_jwt = false
 
 [functions.auto-map-topics-to-blueprint]
 verify_jwt = false
+
+[functions.production-guardian]
+verify_jwt = false
