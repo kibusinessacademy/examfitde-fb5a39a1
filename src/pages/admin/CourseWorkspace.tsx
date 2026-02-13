@@ -888,7 +888,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
       )}
 
       {/* ── Export Action ── */}
-      {canPublish && (
+      {(pkg.status === 'published' || canPublish) && (
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-1" /> Export
