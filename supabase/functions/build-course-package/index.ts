@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
     );
   }
 
-  // 2) Ensure approved plan exists (Council gate)
-  const { data: planRow, error: planErr } = await sb
+  // 2) Ensure approved plan exists (Council gate) – auto-create if council_approved
+  let { data: planRow } = await sb
     .from("course_package_plans")
     .select("id")
     .eq("package_id", packageId)
@@ -99,12 +99,38 @@ Deno.serve(async (req) => {
     .limit(1)
     .maybeSingle();
 
-  if (planErr || !planRow) {
-    await sb.from("course_package_locks").delete().eq("package_id", packageId);
-    return json(
-      { error: "No approved course_package_plan found (Council approval required)." },
-      400
-    );
+  if (!planRow) {
+    // Check if council is approved on the package itself
+    const { data: pkgCheck } = await sb
+      .from("course_packages")
+      .select("council_approved")
+      .eq("id", packageId)
+      .single();
+
+    if (pkgCheck?.council_approved) {
+      // Auto-create an approved plan so the build can proceed
+      const { data: newPlan, error: planInsErr } = await sb
+        .from("course_package_plans")
+        .insert({
+          package_id: packageId,
+          status: "approved",
+          plan_json: { auto_created: true, track, feature_flags: featureFlags },
+          approved_at: new Date().toISOString(),
+        })
+        .select("id")
+        .maybeSingle();
+      if (planInsErr || !newPlan) {
+        await sb.from("course_package_locks").delete().eq("package_id", packageId);
+        return json({ error: "Could not create build plan: " + (planInsErr?.message || "unknown") }, 400);
+      }
+      planRow = newPlan;
+    } else {
+      await sb.from("course_package_locks").delete().eq("package_id", packageId);
+      return json(
+        { error: "No approved course_package_plan found (Council approval required)." },
+        400
+      );
+    }
   }
 
   // Derive options from feature_flags (Track-aware)
