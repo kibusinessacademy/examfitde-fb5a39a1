@@ -201,7 +201,18 @@ Deno.serve(async (req) => {
 
     // ═══════════════════════════════════════════════════════════
     // 3. FAN-OUT SYNC (all sub-jobs done but step still "running")
+    //    Maps step_key → job_type so we catch jobs that don't carry step_key in payload
     // ═══════════════════════════════════════════════════════════
+    const STEP_TO_JOB_TYPE: Record<string, string> = {
+      generate_exam_pool: "package_generate_exam_pool",
+      generate_oral_exam: "package_generate_oral_exam",
+      generate_handbook: "package_generate_handbook",
+      build_ai_tutor_index: "package_build_ai_tutor_index",
+      scaffold_learning_course: "package_scaffold_learning_course",
+      run_integrity_check: "package_run_integrity_check",
+      auto_publish: "package_auto_publish",
+    };
+
     const { data: runningSteps } = await sb
       .from("course_package_build_steps")
       .select("package_id, step_key, status")
@@ -209,24 +220,51 @@ Deno.serve(async (req) => {
 
     let fanOutSynced = 0;
     for (const step of runningSteps || []) {
-      // Check if there are pending/processing fan-out jobs for this step
-      const { count: activeStepJobs } = await sb
-        .from("job_queue")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "processing"])
-        .eq("payload->>package_id", step.package_id)
-        .eq("payload->>step_key", step.step_key);
+      // Build filter: match by step_key in payload OR by mapped job_type
+      const jobType = STEP_TO_JOB_TYPE[step.step_key];
 
-      if ((activeStepJobs ?? 0) === 0) {
-        // All sub-jobs finished — check if step should be marked done
-        const { count: failedStepJobs } = await sb
+      // Check active jobs: try both payload->>step_key and job_type matching
+      let activeCount = 0;
+      let failedCount = 0;
+
+      if (jobType) {
+        // Primary: match by job_type + package_id (covers exam-pool fan-out jobs)
+        const { count: activeByType } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["pending", "processing"])
+          .eq("job_type", jobType)
+          .filter("payload->>package_id", "eq", step.package_id);
+        activeCount = activeByType ?? 0;
+
+        const { count: failedByType } = await sb
           .from("job_queue")
           .select("id", { count: "exact", head: true })
           .eq("status", "failed")
-          .eq("payload->>package_id", step.package_id)
-          .eq("payload->>step_key", step.step_key);
+          .eq("job_type", jobType)
+          .filter("payload->>package_id", "eq", step.package_id);
+        failedCount = failedByType ?? 0;
+      } else {
+        // Fallback: match by step_key in payload
+        const { count: activeBySK } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["pending", "processing"])
+          .filter("payload->>package_id", "eq", step.package_id)
+          .filter("payload->>step_key", "eq", step.step_key);
+        activeCount = activeBySK ?? 0;
 
-        if ((failedStepJobs ?? 0) === 0) {
+        const { count: failedBySK } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "failed")
+          .filter("payload->>package_id", "eq", step.package_id)
+          .filter("payload->>step_key", "eq", step.step_key);
+        failedCount = failedBySK ?? 0;
+      }
+
+      if (activeCount === 0) {
+        if (failedCount === 0) {
           // All done successfully
           await sb.rpc("update_course_package_step", {
             p_package_id: step.package_id,
@@ -235,15 +273,17 @@ Deno.serve(async (req) => {
             p_log: { synced_by: "production-watchdog", note: "All fan-out jobs completed" },
           });
           fanOutSynced++;
+          console.log(`[Watchdog] FAN_OUT_SYNC: ${step.step_key} for ${step.package_id.slice(0, 8)} → done`);
         } else {
           // Some failed — mark step as failed
           await sb.rpc("update_course_package_step", {
             p_package_id: step.package_id,
             p_step_key: step.step_key,
             p_status: "failed",
-            p_log: { synced_by: "production-watchdog", failed_jobs: failedStepJobs },
+            p_log: { synced_by: "production-watchdog", failed_jobs: failedCount },
           });
           fanOutSynced++;
+          console.log(`[Watchdog] FAN_OUT_SYNC: ${step.step_key} for ${step.package_id.slice(0, 8)} → failed (${failedCount} jobs)`);
         }
       }
     }
@@ -326,6 +366,91 @@ Deno.serve(async (req) => {
       }
     }
     results.push({ check: "FIRE_FORGET_RECOVERY", action: fireForgetFixed > 0 ? "re_triggered" : "none", count: fireForgetFixed });
+
+    // ═══════════════════════════════════════════════════════════
+    // 5b. FAILED PACKAGE AUTO-RECOVERY
+    //     Packages in "failed" state where the failed step can be retried
+    //     (e.g., integrity_check failed due to fan-out race, but data exists)
+    // ═══════════════════════════════════════════════════════════
+    const { data: failedPkgs } = await sb
+      .from("course_packages")
+      .select("id, title, status, stuck_reason")
+      .eq("status", "failed")
+      .limit(10);
+
+    let failedRecovered = 0;
+    for (const pkg of failedPkgs || []) {
+      // Get all steps for this package
+      const { data: steps } = await sb
+        .from("course_package_build_steps")
+        .select("step_key, status")
+        .eq("package_id", pkg.id);
+
+      if (!steps || steps.length === 0) continue;
+
+      const failedSteps = steps.filter((s: { status: string }) => s.status === "failed");
+      const pendingSteps = steps.filter((s: { status: string }) => s.status === "pending");
+      const doneSteps = steps.filter((s: { status: string }) => s.status === "done");
+
+      // Case 1: All steps done but package still "failed" → reset to queued
+      if (failedSteps.length === 0 && doneSteps.length === steps.length) {
+        await sb.from("course_packages").update({
+          status: "queued", stuck_reason: null,
+        }).eq("id", pkg.id);
+        await sb.from("course_package_locks").delete().eq("package_id", pkg.id);
+        failedRecovered++;
+        console.log(`[Watchdog] FAILED_RECOVERY: ${pkg.id.slice(0, 8)} all steps done → queued`);
+        continue;
+      }
+
+      // Case 2: Failed step(s) that can be retried — reset to pending
+      for (const fs of failedSteps) {
+        // Check if there are stuck fan-out jobs blocking this step
+        const jobType = STEP_TO_JOB_TYPE[fs.step_key];
+        if (jobType) {
+          // Clean up stuck pending fan-out jobs (>30min old)
+          const staleAge = new Date(now.getTime() - 30 * 60_000).toISOString();
+          const { data: stuckFanOut } = await sb
+            .from("job_queue")
+            .select("id")
+            .eq("job_type", jobType)
+            .eq("status", "pending")
+            .filter("payload->>package_id", "eq", pkg.id)
+            .lt("created_at", staleAge);
+
+          if (stuckFanOut && stuckFanOut.length > 0) {
+            await sb.from("job_queue").delete().in("id", stuckFanOut.map((j: { id: string }) => j.id));
+            console.log(`[Watchdog] Cleaned ${stuckFanOut.length} stale fan-out jobs for ${pkg.id.slice(0, 8)}/${fs.step_key}`);
+          }
+        }
+
+        // Reset the failed step to pending
+        await sb.rpc("update_course_package_step", {
+          p_package_id: pkg.id,
+          p_step_key: fs.step_key,
+          p_status: "pending",
+          p_log: { reset_by: "production-watchdog", note: "Auto-recovery from failed state" },
+        });
+      }
+
+      // Reset package to queued so pipeline picks it up
+      if (failedSteps.length > 0) {
+        await sb.from("course_packages").update({
+          status: "queued", stuck_reason: null,
+        }).eq("id", pkg.id);
+        await sb.from("course_package_locks").delete().eq("package_id", pkg.id);
+        failedRecovered++;
+
+        alerts.push({
+          title: `🔧 Auto-Recovery: "${pkg.title || pkg.id.slice(0, 8)}"`,
+          body: `${failedSteps.length} fehlgeschlagene Steps zurückgesetzt: ${failedSteps.map((s: { step_key: string }) => s.step_key).join(", ")}`,
+          severity: "info",
+          category: "ops",
+        });
+        console.log(`[Watchdog] FAILED_RECOVERY: ${pkg.id.slice(0, 8)} reset ${failedSteps.length} steps → queued`);
+      }
+    }
+    results.push({ check: "FAILED_RECOVERY", action: failedRecovered > 0 ? "recovered" : "none", count: failedRecovered });
 
     // ═══════════════════════════════════════════════════════════
     // 6. QUEUED PACKAGES MISSING PREREQS → prebuild-autofix
