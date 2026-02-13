@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
   Layers, Play, Pause, Rocket, CheckCircle2, Clock,
-  AlertTriangle, Loader2, BarChart3, RefreshCw
+  AlertTriangle, Loader2, BarChart3, RefreshCw, Target, BookOpen
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PageExplainer from '@/components/admin/PageExplainer';
+import TrackBadge from '@/components/admin/TrackBadge';
+import { CERT_TYPE_LABELS, type CertificationType } from '@/hooks/useTrackConfig';
 
 const CurriculumHealthDashboard = lazy(() => import('@/components/admin/CurriculumHealthDashboard'));
 const DeepAuditPanel = lazy(() => import('@/components/admin/DeepAuditPanel'));
@@ -68,11 +70,13 @@ function BerufeStatus() {
   const [berufe, setBerufe] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [trackFilter, setTrackFilter] = useState<string>('all');
+  const [certTypeFilter, setCertTypeFilter] = useState<string>('all');
 
   const load = async () => {
     const [pkgRes, berufRes] = await Promise.all([
       (supabase as any).from('course_packages')
-        .select('id, title, status, integrity_passed, certification_id, build_progress, created_at')
+        .select('id, title, status, integrity_passed, certification_id, build_progress, created_at, track, certification_type, feature_flags')
         .order('title'),
       (supabase as any).from('berufe')
         .select('id, bezeichnung_kurz, ist_aktiv')
@@ -175,6 +179,25 @@ function BerufeStatus() {
         })}
       </div>
 
+      {/* Track Filter */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-xs text-muted-foreground">Track:</span>
+        {['all', 'AUSBILDUNG_VOLL', 'EXAM_FIRST'].map(t => (
+          <Button key={t} size="sm" variant={trackFilter === t ? 'default' : 'outline'} className="text-xs h-7"
+            onClick={() => setTrackFilter(t)}>
+            {t === 'all' ? 'Alle' : t === 'AUSBILDUNG_VOLL' ? '📚 Vollprodukt' : '🎯 Exam-First'}
+          </Button>
+        ))}
+        <span className="text-xs text-muted-foreground ml-2">Typ:</span>
+        <select value={certTypeFilter} onChange={e => setCertTypeFilter(e.target.value)}
+          className="text-xs h-7 rounded border border-border bg-background px-2">
+          <option value="all">Alle Typen</option>
+          {Object.entries(CERT_TYPE_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Batch Actions */}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={() => handleBatchGenerate(5)} disabled={generating}>
@@ -190,7 +213,20 @@ function BerufeStatus() {
 
       {/* Beruf List */}
       <div className="space-y-1">
-        {berufList.map(b => {
+        {berufList
+          .filter(b => {
+            if (trackFilter !== 'all' && b.pkg?.track !== trackFilter && trackFilter !== 'all') {
+              // If no pkg, only show in 'all'
+              if (!b.pkg && trackFilter !== 'all') return false;
+              if (b.pkg && b.pkg.track !== trackFilter) return false;
+            }
+            if (certTypeFilter !== 'all' && b.pkg?.certification_type !== certTypeFilter) {
+              if (!b.pkg && certTypeFilter !== 'all') return false;
+              if (b.pkg && b.pkg.certification_type !== certTypeFilter) return false;
+            }
+            return true;
+          })
+          .map(b => {
           const cfg = STATUS_LABELS[b.pipelineStatus] || STATUS_LABELS.not_started;
           const stepIdx = STATUS_PIPELINE.indexOf(b.pipelineStatus as any);
           const stepPct = ((stepIdx + 1) / STATUS_PIPELINE.length) * 100;
@@ -201,6 +237,7 @@ function BerufeStatus() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-foreground truncate">{b.bezeichnung_kurz}</p>
                     <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>
+                    {b.pkg && <TrackBadge track={b.pkg.track} certType={b.pkg.certification_type} />}
                   </div>
                   {b.pipelineStatus !== 'not_started' && (
                     <Progress value={stepPct} className="h-1 mt-1.5 max-w-48" />

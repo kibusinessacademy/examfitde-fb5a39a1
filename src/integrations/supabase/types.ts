@@ -3667,6 +3667,9 @@ export type Database = {
         Row: {
           build_progress: number
           certification_id: string | null
+          certification_type:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
           components: Json
           council_approved: boolean
           council_approved_at: string | null
@@ -3675,6 +3678,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_step: number | null
+          feature_flags: Json | null
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
@@ -3686,11 +3690,15 @@ export type Database = {
           step_status_json: Json | null
           stuck_reason: string | null
           title: string
+          track: Database["public"]["Enums"]["product_track"] | null
           updated_at: string
         }
         Insert: {
           build_progress?: number
           certification_id?: string | null
+          certification_type?:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
           components?: Json
           council_approved?: boolean
           council_approved_at?: string | null
@@ -3699,6 +3707,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_step?: number | null
+          feature_flags?: Json | null
           id?: string
           integrity_passed?: boolean
           integrity_report?: Json | null
@@ -3710,11 +3719,15 @@ export type Database = {
           step_status_json?: Json | null
           stuck_reason?: string | null
           title?: string
+          track?: Database["public"]["Enums"]["product_track"] | null
           updated_at?: string
         }
         Update: {
           build_progress?: number
           certification_id?: string | null
+          certification_type?:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
           components?: Json
           council_approved?: boolean
           council_approved_at?: string | null
@@ -3723,6 +3736,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_step?: number | null
+          feature_flags?: Json | null
           id?: string
           integrity_passed?: boolean
           integrity_report?: Json | null
@@ -3734,6 +3748,7 @@ export type Database = {
           step_status_json?: Json | null
           stuck_reason?: string | null
           title?: string
+          track?: Database["public"]["Enums"]["product_track"] | null
           updated_at?: string
         }
         Relationships: [
@@ -4026,6 +4041,9 @@ export type Database = {
         Row: {
           beruf_id: string | null
           bibb_quelle: string | null
+          certification_type:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
           created_at: string
           created_by: string | null
           curriculum_typ: string | null
@@ -4043,12 +4061,16 @@ export type Database = {
           source_file_url: string | null
           status: Database["public"]["Enums"]["curriculum_status"]
           title: string
+          track: Database["public"]["Enums"]["product_track"] | null
           updated_at: string
           version: string | null
         }
         Insert: {
           beruf_id?: string | null
           bibb_quelle?: string | null
+          certification_type?:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
           created_at?: string
           created_by?: string | null
           curriculum_typ?: string | null
@@ -4066,12 +4088,16 @@ export type Database = {
           source_file_url?: string | null
           status?: Database["public"]["Enums"]["curriculum_status"]
           title: string
+          track?: Database["public"]["Enums"]["product_track"] | null
           updated_at?: string
           version?: string | null
         }
         Update: {
           beruf_id?: string | null
           bibb_quelle?: string | null
+          certification_type?:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
           created_at?: string
           created_by?: string | null
           curriculum_typ?: string | null
@@ -4089,6 +4115,7 @@ export type Database = {
           source_file_url?: string | null
           status?: Database["public"]["Enums"]["curriculum_status"]
           title?: string
+          track?: Database["public"]["Enums"]["product_track"] | null
           updated_at?: string
           version?: string | null
         }
@@ -13146,6 +13173,13 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      derive_feature_flags: {
+        Args: {
+          p_cert_type: Database["public"]["Enums"]["certification_type"]
+          p_track: Database["public"]["Enums"]["product_track"]
+        }
+        Returns: Json
+      }
       detect_device_burst: {
         Args: { p_minutes?: number; p_user_threshold?: number }
         Returns: Json
@@ -13494,6 +13528,11 @@ export type Database = {
       }
       get_security_spike_score: { Args: { p_minutes?: number }; Returns: Json }
       get_ship_level: { Args: { p_authority_index: number }; Returns: string }
+      get_track_pipeline_steps: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
+      get_track_summary: { Args: never; Returns: Json }
       get_user_dashboard_stats: { Args: never; Returns: Json }
       get_user_entitlements: {
         Args: { p_curriculum_id?: string; p_user_id: string }
@@ -13814,6 +13853,9 @@ export type Database = {
         Returns: {
           build_progress: number
           certification_id: string | null
+          certification_type:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
           components: Json
           council_approved: boolean
           council_approved_at: string | null
@@ -13822,6 +13864,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_step: number | null
+          feature_flags: Json | null
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
@@ -13833,6 +13876,7 @@ export type Database = {
           step_status_json: Json | null
           stuck_reason: string | null
           title: string
+          track: Database["public"]["Enums"]["product_track"] | null
           updated_at: string
         }
         SetofOptions: {
@@ -13965,6 +14009,9 @@ export type Database = {
         Returns: {
           build_progress: number
           certification_id: string | null
+          certification_type:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
           components: Json
           council_approved: boolean
           council_approved_at: string | null
@@ -13973,6 +14020,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_step: number | null
+          feature_flags: Json | null
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
@@ -13984,6 +14032,7 @@ export type Database = {
           step_status_json: Json | null
           stuck_reason: string | null
           title: string
+          track: Database["public"]["Enums"]["product_track"] | null
           updated_at: string
         }
         SetofOptions: {
@@ -14034,6 +14083,13 @@ export type Database = {
         | "evaluate"
         | "create"
       blueprint_status: "draft" | "review" | "approved" | "deprecated"
+      certification_type:
+        | "ausbildung"
+        | "fortbildung_ihk"
+        | "fortbildung_hwk"
+        | "sachkunde"
+        | "branchenzertifikat"
+        | "projektmanagement"
       cognitive_level: "remember" | "understand" | "apply" | "analyze"
       compliance_severity: "low" | "medium" | "high" | "critical"
       compliance_status: "open" | "in_progress" | "resolved" | "accepted_risk"
@@ -14099,6 +14155,7 @@ export type Database = {
         | "anwenden"
         | "wiederholen"
         | "mini_check"
+      product_track: "AUSBILDUNG_VOLL" | "EXAM_FIRST"
       qa_severity: "low" | "medium" | "high" | "critical"
       qa_status: "open" | "resolved" | "accepted_risk"
       question_difficulty: "easy" | "medium" | "hard"
@@ -14259,6 +14316,14 @@ export const Constants = {
         "create",
       ],
       blueprint_status: ["draft", "review", "approved", "deprecated"],
+      certification_type: [
+        "ausbildung",
+        "fortbildung_ihk",
+        "fortbildung_hwk",
+        "sachkunde",
+        "branchenzertifikat",
+        "projektmanagement",
+      ],
       cognitive_level: ["remember", "understand", "apply", "analyze"],
       compliance_severity: ["low", "medium", "high", "critical"],
       compliance_status: ["open", "in_progress", "resolved", "accepted_risk"],
@@ -14332,6 +14397,7 @@ export const Constants = {
         "wiederholen",
         "mini_check",
       ],
+      product_track: ["AUSBILDUNG_VOLL", "EXAM_FIRST"],
       qa_severity: ["low", "medium", "high", "critical"],
       qa_status: ["open", "resolved", "accepted_risk"],
       question_difficulty: ["easy", "medium", "hard"],

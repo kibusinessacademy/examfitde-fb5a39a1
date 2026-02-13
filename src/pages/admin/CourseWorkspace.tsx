@@ -21,16 +21,19 @@ import BuildLiveLog from '@/components/admin/BuildLiveLog';
 import ProductModuleStatus from '@/components/admin/ProductModuleStatus';
 import CouncilTimeline from '@/components/admin/CouncilTimeline';
 import PageExplainer from '@/components/admin/PageExplainer';
+import TrackBadge from '@/components/admin/TrackBadge';
+import FeatureFlagEditor from '@/components/admin/FeatureFlagEditor';
+import { useTrackConfig, type FeatureFlags } from '@/hooks/useTrackConfig';
 
 /* ───── stepper config ───── */
-const PIPELINE_STEPS = [
-  { key: 'scaffold_learning_course', label: 'Lernkurs',      icon: BookOpen,       shortLabel: 'Kurs' },
-  { key: 'generate_exam_pool',      label: 'Prüfungsfragen', icon: ClipboardCheck, shortLabel: 'Exam' },
-  { key: 'generate_oral_exam',      label: 'Mündliche',      icon: MessageSquare,  shortLabel: 'Oral' },
-  { key: 'build_ai_tutor_index',    label: 'AI Tutor',       icon: Bot,            shortLabel: 'Tutor' },
-  { key: 'generate_handbook',       label: 'Handbuch',       icon: FileText,       shortLabel: 'Buch' },
-  { key: 'run_integrity_check',     label: 'Qualitätsprüfung', icon: Shield,       shortLabel: 'QA' },
-  { key: 'auto_publish',            label: 'Veröffentlichen', icon: Rocket,        shortLabel: 'Pub' },
+const ALL_PIPELINE_STEPS = [
+  { key: 'scaffold_learning_course', label: 'Lernkurs',      icon: BookOpen,       shortLabel: 'Kurs',  flag: 'has_learning_course' },
+  { key: 'generate_exam_pool',      label: 'Prüfungsfragen', icon: ClipboardCheck, shortLabel: 'Exam',  flag: 'has_exam_trainer' },
+  { key: 'generate_oral_exam',      label: 'Mündliche',      icon: MessageSquare,  shortLabel: 'Oral',  flag: 'has_oral_exam_trainer' },
+  { key: 'build_ai_tutor_index',    label: 'AI Tutor',       icon: Bot,            shortLabel: 'Tutor', flag: 'has_ai_tutor' },
+  { key: 'generate_handbook',       label: 'Handbuch',       icon: FileText,       shortLabel: 'Buch',  flag: 'has_handbook' },
+  { key: 'run_integrity_check',     label: 'Qualitätsprüfung', icon: Shield,       shortLabel: 'QA',    flag: null },
+  { key: 'auto_publish',            label: 'Veröffentlichen', icon: Rocket,        shortLabel: 'Pub',   flag: null },
 ];
 
 /* ───── error diagnosis ───── */
@@ -355,6 +358,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
     startBuild, initCouncils, approveCouncils, invalidate,
   } = useCoursePackageDetail(packageId);
 
+  const { track, certType, flags, isExamFirst } = useTrackConfig(pkg as any);
+  const PIPELINE_STEPS = ALL_PIPELINE_STEPS.filter(s =>
+    s.flag === null || (flags as any)[s.flag] === true
+  );
+
   const [resetting, setResetting] = useState(false);
   const [showDanger, setShowDanger] = useState(false);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
@@ -576,6 +584,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         <div>
           <h1 className="text-xl font-display font-bold text-foreground">{pkg.title || 'Kurspaket'}</h1>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <TrackBadge track={track} certType={certType} showCertType />
             <Badge variant="outline" className={cn("text-xs",
               pkg.status === 'published' ? 'bg-success/20 text-success' :
               pkg.status === 'failed' ? 'bg-destructive/20 text-destructive' :
@@ -892,7 +901,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         </TabsContent>
 
         <TabsContent value="modules">
-          <ProductModuleStatus packageId={packageId} courseId={pkg.course_id || null} certificationId={pkg.certification_id || null} />
+          <ProductModuleStatus packageId={packageId} courseId={pkg.course_id || null} certificationId={pkg.certification_id || null} featureFlags={(pkg as any)?.feature_flags} />
         </TabsContent>
 
         <TabsContent value="council">
