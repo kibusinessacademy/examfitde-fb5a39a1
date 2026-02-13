@@ -1953,48 +1953,66 @@ export type Database = {
       certification_catalog: {
         Row: {
           catalog_type: string
+          certification_level: string | null
           chamber_type: string
           created_at: string
+          exam_complexity_score: number | null
           exam_format: Json
           id: string
+          learning_field_count: number | null
           linked_certification_id: string | null
+          math_ratio: number | null
           min_question_target: number
           notes: string | null
+          oral_component: boolean | null
           priority_score: number
           recognition_type: string
           slug: string
           title: string
           track: string
+          written_exam_weight: number | null
         }
         Insert: {
           catalog_type: string
+          certification_level?: string | null
           chamber_type: string
           created_at?: string
+          exam_complexity_score?: number | null
           exam_format?: Json
           id?: string
+          learning_field_count?: number | null
           linked_certification_id?: string | null
+          math_ratio?: number | null
           min_question_target?: number
           notes?: string | null
+          oral_component?: boolean | null
           priority_score?: number
           recognition_type: string
           slug: string
           title: string
           track?: string
+          written_exam_weight?: number | null
         }
         Update: {
           catalog_type?: string
+          certification_level?: string | null
           chamber_type?: string
           created_at?: string
+          exam_complexity_score?: number | null
           exam_format?: Json
           id?: string
+          learning_field_count?: number | null
           linked_certification_id?: string | null
+          math_ratio?: number | null
           min_question_target?: number
           notes?: string | null
+          oral_component?: boolean | null
           priority_score?: number
           recognition_type?: string
           slug?: string
           title?: string
           track?: string
+          written_exam_weight?: number | null
         }
         Relationships: []
       }
@@ -2152,6 +2170,71 @@ export type Database = {
             columns: ["certification_master_id"]
             isOneToOne: false
             referencedRelation: "german_certification_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      certification_seo_pages: {
+        Row: {
+          certification_catalog_id: string | null
+          content_html: string | null
+          content_json: Json | null
+          created_at: string | null
+          id: string
+          internal_links: Json | null
+          is_published: boolean | null
+          meta_description: string | null
+          meta_title: string | null
+          page_type: string
+          published_at: string | null
+          quality_score: number | null
+          slug: string
+          title: string
+          updated_at: string | null
+          word_count: number | null
+        }
+        Insert: {
+          certification_catalog_id?: string | null
+          content_html?: string | null
+          content_json?: Json | null
+          created_at?: string | null
+          id?: string
+          internal_links?: Json | null
+          is_published?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
+          page_type: string
+          published_at?: string | null
+          quality_score?: number | null
+          slug: string
+          title: string
+          updated_at?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          certification_catalog_id?: string | null
+          content_html?: string | null
+          content_json?: Json | null
+          created_at?: string | null
+          id?: string
+          internal_links?: Json | null
+          is_published?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
+          page_type?: string
+          published_at?: string | null
+          quality_score?: number | null
+          slug?: string
+          title?: string
+          updated_at?: string | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certification_seo_pages_certification_catalog_id_fkey"
+            columns: ["certification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "certification_catalog"
             referencedColumns: ["id"]
           },
         ]

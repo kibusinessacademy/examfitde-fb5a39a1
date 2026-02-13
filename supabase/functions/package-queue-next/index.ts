@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { calculateHybridTarget, calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,18 +107,45 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Dynamic exam target based on Ausbildungsdauer ──
-    let dynamicExamTarget = 1000;
+    // ── HYBRID TARGET ENGINE v3 ──
+    let durationMonths: number | null = null;
+    let certCatalogData: {
+      exam_complexity_score?: number;
+      math_ratio?: number;
+      oral_component?: boolean;
+      learning_field_count?: number;
+      certification_level?: string;
+    } = {};
+
     if (curriculumId) {
       const { data: currRow } = await sb.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
       if (currRow?.beruf_id) {
         const { data: berufRow } = await sb.from("berufe").select("ausbildungsdauer_monate").eq("id", currRow.beruf_id).maybeSingle();
-        const m = berufRow?.ausbildungsdauer_monate ?? 36;
-        if (m <= 24) dynamicExamTarget = 600;
-        else if (m <= 30) dynamicExamTarget = 800;
-        else dynamicExamTarget = 1000;
+        durationMonths = berufRow?.ausbildungsdauer_monate ?? null;
       }
     }
+
+    // Fetch hybrid fields from certification_catalog
+    if (next.certification_id) {
+      const { data: catRow } = await sb
+        .from("certification_catalog")
+        .select("exam_complexity_score, math_ratio, oral_component, learning_field_count, certification_level")
+        .eq("linked_certification_id", next.certification_id)
+        .maybeSingle();
+      if (catRow) certCatalogData = catRow;
+    }
+
+    const hybridResult = calculateHybridTarget({
+      durationMonths,
+      track: 'AUSBILDUNG_VOLL',
+      examComplexityScore: certCatalogData.exam_complexity_score ?? 1.0,
+      mathRatio: certCatalogData.math_ratio ?? 0.15,
+      oralComponent: certCatalogData.oral_component ?? false,
+      learningFieldCount: certCatalogData.learning_field_count ?? 0,
+      certificationLevel: certCatalogData.certification_level ?? 'ausbildung',
+    });
+
+    const dynamicExamTarget = hybridResult.target;
 
     // Ensure an approved plan exists
     const { data: plan } = await sb
@@ -139,6 +167,9 @@ Deno.serve(async (req) => {
           include_ai_tutor: true,
           include_handbook: true,
           exam_target: dynamicExamTarget,
+          ship_target: hybridResult.shipTarget,
+          difficulty_distribution: hybridResult.difficultyDistribution,
+          question_type_mix: hybridResult.questionTypeMix,
         },
       });
     }
@@ -165,6 +196,9 @@ Deno.serve(async (req) => {
         include_ai_tutor: true,
         include_handbook: true,
         exam_target: dynamicExamTarget,
+        ship_target: hybridResult.shipTarget,
+        difficulty_distribution: hybridResult.difficultyDistribution,
+        question_type_mix: hybridResult.questionTypeMix,
       },
     });
 

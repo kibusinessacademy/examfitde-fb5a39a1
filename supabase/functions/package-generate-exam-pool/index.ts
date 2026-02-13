@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
+import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
 
 /**
  * DOMINANZ-ENGINE v2: IHK-Prüfungsstandard
@@ -16,25 +18,26 @@ const CHUNK_SIZE = 10;
 const AI_CHUNK_SIZE = 6;
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
 
-// ─── Dominanz-Vorgaben ────────────────────────────────────────────────────────
+// ─── Dominanz-Engine v3: Dynamic distributions from Hybrid Target ────────────
 
-const DIFFICULTY_DISTRIBUTION = {
+// Defaults (overridden by Hybrid Engine at runtime)
+let DIFFICULTY_DISTRIBUTION: Record<string, number> = {
   easy: 0.05,
   medium: 0.35,
   hard: 0.45,
   very_hard: 0.15,
-} as const;
+};
 
-const QUESTION_TYPE_MIX = {
+let QUESTION_TYPE_MIX: Record<string, number> = {
   mc_single: 0.25,
   mc_multiple: 0.20,
   calculation: 0.20,
   case_study: 0.25,
   transfer: 0.10,
-} as const;
+};
 
-type DifficultyKey = keyof typeof DIFFICULTY_DISTRIBUTION;
-type QuestionTypeKey = keyof typeof QUESTION_TYPE_MIX;
+type DifficultyKey = string;
+type QuestionTypeKey = string;
 
 function getDifficultyForIndex(index: number, total: number): DifficultyKey {
   const ratio = index / total;
@@ -387,10 +390,20 @@ Deno.serve(async (req) => {
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
   const examTarget = Number(p.options?.exam_target ?? 1000);
-  const shipTarget = getShipTarget(examTarget);
+  const shipTarget = Number(p.options?.ship_target ?? getShipTarget(examTarget));
   const isFanOut = p._fan_out === true;
   const blueprintIds: string[] | null = p.blueprint_ids || null;
   const lfTarget = p.lf_target || examTarget;
+
+  // Apply dynamic distributions from Hybrid Target Engine (if provided)
+  if (p.options?.difficulty_distribution) {
+    DIFFICULTY_DISTRIBUTION = p.options.difficulty_distribution;
+    console.log(`[ExamPool-Dominanz] Using dynamic difficulty: ${JSON.stringify(DIFFICULTY_DISTRIBUTION)}`);
+  }
+  if (p.options?.question_type_mix) {
+    QUESTION_TYPE_MIX = p.options.question_type_mix;
+    console.log(`[ExamPool-Dominanz] Using dynamic type mix: ${JSON.stringify(QUESTION_TYPE_MIX)}`);
+  }
 
   const batchCursor = p._batch_cursor || p.batch_cursor || null;
   const generatedSoFar = batchCursor?.generated ?? 0;
