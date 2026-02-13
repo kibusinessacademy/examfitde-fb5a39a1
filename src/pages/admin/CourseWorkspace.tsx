@@ -500,13 +500,19 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
 
   const handleExport = async () => {
     try {
+      toast.info('Export wird erstellt…');
       const { data: { session } } = await supabase.auth.getSession();
-      const { error } = await supabase.functions.invoke('export-course-package', {
+      const { data, error } = await supabase.functions.invoke('export-course-package', {
         body: { packageId },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       });
       if (error) throw error;
-      toast.success('Export gestartet');
+      if (data?.downloadUrl) {
+        window.open(data.downloadUrl, '_blank');
+        toast.success('Export bereit – Download gestartet');
+      } else {
+        toast.error('Keine Download-URL erhalten');
+      }
     } catch (e: any) {
       toast.error(`Export fehlgeschlagen: ${e.message}`);
     }
