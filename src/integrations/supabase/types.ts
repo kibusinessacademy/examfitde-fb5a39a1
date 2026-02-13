@@ -1911,6 +1911,51 @@ export type Database = {
           },
         ]
       }
+      certification_documents: {
+        Row: {
+          certification_id: string
+          checksum: string | null
+          created_at: string
+          doc_type: string
+          id: string
+          issued_at: string | null
+          legal_priority: number
+          source_kind: string
+          source_url: string | null
+          status: string
+          storage_path: string | null
+          version_label: string | null
+        }
+        Insert: {
+          certification_id: string
+          checksum?: string | null
+          created_at?: string
+          doc_type: string
+          id?: string
+          issued_at?: string | null
+          legal_priority?: number
+          source_kind: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          version_label?: string | null
+        }
+        Update: {
+          certification_id?: string
+          checksum?: string | null
+          created_at?: string
+          doc_type?: string
+          id?: string
+          issued_at?: string | null
+          legal_priority?: number
+          source_kind?: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          version_label?: string | null
+        }
+        Relationships: []
+      }
       certification_dominance_snapshots: {
         Row: {
           certification_master_id: string
@@ -4078,6 +4123,39 @@ export type Database = {
           },
         ]
       }
+      coverage_snapshots: {
+        Row: {
+          by_domain: Json | null
+          certification_id: string
+          created_at: string
+          gate_status: string
+          id: string
+          missing_topics: Json | null
+          overall_coverage: number
+          snapshot_type: string
+        }
+        Insert: {
+          by_domain?: Json | null
+          certification_id: string
+          created_at?: string
+          gate_status?: string
+          id?: string
+          missing_topics?: Json | null
+          overall_coverage?: number
+          snapshot_type?: string
+        }
+        Update: {
+          by_domain?: Json | null
+          certification_id?: string
+          created_at?: string
+          gate_status?: string
+          id?: string
+          missing_topics?: Json | null
+          overall_coverage?: number
+          snapshot_type?: string
+        }
+        Relationships: []
+      }
       curricula: {
         Row: {
           beruf_id: string | null
@@ -4170,6 +4248,53 @@ export type Database = {
           },
         ]
       }
+      curriculum_ingest_runs: {
+        Row: {
+          certification_id: string
+          created_at: string
+          document_id: string | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          metrics: Json | null
+          run_type: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          certification_id: string
+          created_at?: string
+          document_id?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          metrics?: Json | null
+          run_type?: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          certification_id?: string
+          created_at?: string
+          document_id?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          metrics?: Json | null
+          run_type?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_ingest_runs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "certification_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curriculum_products: {
         Row: {
           blueprint_id: string | null
@@ -4252,6 +4377,113 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "store_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_topic_coverage: {
+        Row: {
+          blueprint_domain_id: string | null
+          blueprint_domain_key: string | null
+          certification_id: string
+          confidence: number | null
+          coverage_weight: number
+          created_at: string
+          id: string
+          mapped: boolean
+          mapped_to: Json | null
+          topic_id: string
+        }
+        Insert: {
+          blueprint_domain_id?: string | null
+          blueprint_domain_key?: string | null
+          certification_id: string
+          confidence?: number | null
+          coverage_weight?: number
+          created_at?: string
+          id?: string
+          mapped?: boolean
+          mapped_to?: Json | null
+          topic_id: string
+        }
+        Update: {
+          blueprint_domain_id?: string | null
+          blueprint_domain_key?: string | null
+          certification_id?: string
+          confidence?: number | null
+          coverage_weight?: number
+          created_at?: string
+          id?: string
+          mapped?: boolean
+          mapped_to?: Json | null
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_topic_coverage_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_topics: {
+        Row: {
+          certification_id: string
+          created_at: string
+          description: string | null
+          difficulty_level: string | null
+          id: string
+          learning_objectives: string[] | null
+          parent_topic_id: string | null
+          sort_order: number | null
+          source_document_id: string | null
+          topic_code: string | null
+          topic_name: string
+          weight_percentage: number | null
+        }
+        Insert: {
+          certification_id: string
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string | null
+          id?: string
+          learning_objectives?: string[] | null
+          parent_topic_id?: string | null
+          sort_order?: number | null
+          source_document_id?: string | null
+          topic_code?: string | null
+          topic_name: string
+          weight_percentage?: number | null
+        }
+        Update: {
+          certification_id?: string
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string | null
+          id?: string
+          learning_objectives?: string[] | null
+          parent_topic_id?: string | null
+          sort_order?: number | null
+          source_document_id?: string | null
+          topic_code?: string | null
+          topic_name?: string
+          weight_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_topics_parent_topic_id_fkey"
+            columns: ["parent_topic_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_topics_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "certification_documents"
             referencedColumns: ["id"]
           },
         ]
@@ -13659,6 +13891,10 @@ export type Database = {
         Returns: number
       }
       compute_compliance_release_gate: { Args: never; Returns: Json }
+      compute_curriculum_coverage: {
+        Args: { p_certification_id: string }
+        Returns: Json
+      }
       compute_qa_release_gate: { Args: never; Returns: Json }
       compute_question_hash: { Args: { p_text: string }; Returns: string }
       course_pack_fingerprint: {
@@ -14228,6 +14464,18 @@ export type Database = {
         Returns: undefined
       }
       refresh_course_forecast_actuals: { Args: never; Returns: undefined }
+      register_cert_document: {
+        Args: {
+          p_certification_id: string
+          p_doc_type: string
+          p_legal_priority?: number
+          p_source_kind: string
+          p_source_url?: string
+          p_storage_path?: string
+          p_version_label?: string
+        }
+        Returns: string
+      }
       register_course_evidence_pack: {
         Args: {
           p_course_id: string
@@ -14432,6 +14680,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_curriculum_hold_if_needed: {
+        Args: { p_certification_id: string }
+        Returns: Json
+      }
       set_growth_action_cooldown: {
         Args: { p_action_id: string; p_days?: number }
         Returns: undefined
@@ -14439,6 +14691,10 @@ export type Database = {
       set_package_status: {
         Args: { p_id: string; p_meta?: Json; p_status: string }
         Returns: undefined
+      }
+      start_curriculum_ingest: {
+        Args: { p_document_id: string; p_run_type?: string }
+        Returns: string
       }
       start_exam_session: {
         Args: { p_blueprint_id: string; p_mode?: string }
