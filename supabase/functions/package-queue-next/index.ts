@@ -15,21 +15,25 @@ function json(body: unknown, status = 200) {
 }
 
 /**
- * package-queue-next
- * Called after a package finishes (auto_publish done).
- * Finds the next queued package and invokes build-course-package for it.
+ * package-queue-next  (Stufe 1: Fire-and-Forget)
+ * 
+ * Called by pg_cron every minute.
+ * Picks the next eligible queued package, sets it to "building",
+ * and fires build-course-package WITHOUT waiting for the response.
+ * This avoids Edge Function timeouts when the build takes >150s.
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
-  const sb = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
-    // Use completion-first RPC with aging + priority
+    // Budget guard
     const { data: budgetRow } = await sb
       .from("llm_budget")
       .select("max_active_packages")
@@ -37,7 +41,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const maxActive = budgetRow?.max_active_packages ?? 4;
 
-    // Try priority-based pick first, fall back to standard queue
+    // Priority-based pick, fallback to standard queue
     let nextId: string | null = null;
     const { data: priorityId } = await sb.rpc("pick_next_package_by_priority", { max_active: maxActive });
     if (priorityId) {
@@ -88,7 +92,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!plan) {
-      // Auto-create an approved plan
       await sb.from("course_package_plans").insert({
         package_id: next.id,
         status: "approved",
@@ -109,36 +112,44 @@ Deno.serve(async (req) => {
       .update({ council_approved: true, council_approved_at: new Date().toISOString() })
       .eq("id", next.id);
 
-    // Invoke build-course-package
-    const { data: buildResult, error: buildErr } = await sb.functions.invoke(
-      "build-course-package",
-      {
-        body: {
-          packageId: next.id,
-          courseId: next.course_id,
-          curriculumId,
-          certificationId: next.certification_id,
-          options: {
-            include_learning_course: true,
-            include_exam_pool: true,
-            include_oral_exam: true,
-            include_ai_tutor: true,
-            include_handbook: true,
-            exam_target: 1000,
-          },
-        },
-      }
-    );
+    // ── STUFE 1: Fire-and-forget ──
+    // Instead of awaiting the build response (which can timeout),
+    // we fire the request and return immediately.
+    const buildUrl = `${SUPABASE_URL}/functions/v1/build-course-package`;
+    const buildBody = JSON.stringify({
+      packageId: next.id,
+      courseId: next.course_id,
+      curriculumId,
+      certificationId: next.certification_id,
+      options: {
+        include_learning_course: true,
+        include_exam_pool: true,
+        include_oral_exam: true,
+        include_ai_tutor: true,
+        include_handbook: true,
+        exam_target: 1000,
+      },
+    });
 
-    if (buildErr) throw buildErr;
+    // Fire without awaiting – build-course-package enqueues jobs and returns fast
+    fetch(buildUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: buildBody,
+    }).catch(e => {
+      console.error(`[queue-next] Fire-and-forget build error: ${(e as Error).message}`);
+    });
 
-    console.log(`[queue-next] Started build for package ${next.id} (queue_position=${next.queue_position})`);
+    console.log(`[queue-next] Fired build for package ${next.id} (queue_position=${next.queue_position})`);
 
     return json({
       ok: true,
       started_package_id: next.id,
       queue_position: next.queue_position,
-      build: buildResult,
+      mode: "fire_and_forget",
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
