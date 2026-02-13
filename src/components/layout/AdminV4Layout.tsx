@@ -40,7 +40,9 @@ const navModules: NavItem[] = [
   {
     path: '/admin/ops', label: 'System & Betrieb', icon: Activity,
     children: [
-      { path: '/admin/ops', label: 'Queue' },
+      { path: '/admin/ops', label: 'Ampel' },
+      { path: '/admin/ops/queue', label: 'Queue' },
+      { path: '/admin/ops/load-control', label: 'Load Control' },
       { path: '/admin/ops/logs', label: 'Live Logs' },
       { path: '/admin/ops/deadletter', label: 'Dead Letter' },
       { path: '/admin/ops/health', label: 'Health' },
