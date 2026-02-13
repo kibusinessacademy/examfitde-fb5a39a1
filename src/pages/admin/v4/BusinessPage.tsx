@@ -16,6 +16,7 @@ import { Routes, Route, Link, useLocation } from 'react-router-dom';
 const FinanceDashboard = lazy(() => import('@/pages/admin/FinanceDashboard'));
 const EnterpriseSeatManagement = lazy(() => import('@/pages/admin/EnterpriseSeatManagement'));
 const AuditExportsPage = lazy(() => import('@/pages/admin/AuditExportsPage'));
+const UnitEconomicsDashboard = lazy(() => import('@/components/admin/UnitEconomicsDashboard'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -25,6 +26,7 @@ const Loading = () => (
 
 const tabs = [
   { path: '/admin/business', label: 'LLM-Kosten' },
+  { path: '/admin/business/unit-economics', label: 'Unit Economics' },
   { path: '/admin/business/revenue', label: 'Umsatz' },
   { path: '/admin/business/licenses', label: 'Lizenzen' },
   { path: '/admin/business/exports', label: 'Steuer-Export' },
@@ -256,6 +258,7 @@ export default function BusinessPage() {
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route index element={<LLMCostDashboard />} />
+          <Route path="unit-economics" element={<UnitEconomicsDashboard />} />
           <Route path="revenue" element={<FinanceDashboard />} />
           <Route path="licenses" element={<EnterpriseSeatManagement />} />
           <Route path="exports" element={<SteuerExport />} />

@@ -1998,6 +1998,81 @@ export type Database = {
         }
         Relationships: []
       }
+      certification_cost_snapshots: {
+        Row: {
+          break_even_sales: number | null
+          certification_id: string | null
+          certification_name: string | null
+          cost_exam_generation: number | null
+          cost_handbook: number | null
+          cost_oral_generation: number | null
+          cost_other: number | null
+          cost_qa: number | null
+          coverage_pct: number | null
+          created_at: string
+          curriculum_id: string | null
+          governance_score: number | null
+          id: string
+          package_id: string | null
+          publish_version: number | null
+          selling_price_eur: number | null
+          total_cost_eur: number
+          total_domains: number | null
+          total_orals: number | null
+          total_questions: number | null
+          total_tokens_input: number | null
+          total_tokens_output: number | null
+        }
+        Insert: {
+          break_even_sales?: number | null
+          certification_id?: string | null
+          certification_name?: string | null
+          cost_exam_generation?: number | null
+          cost_handbook?: number | null
+          cost_oral_generation?: number | null
+          cost_other?: number | null
+          cost_qa?: number | null
+          coverage_pct?: number | null
+          created_at?: string
+          curriculum_id?: string | null
+          governance_score?: number | null
+          id?: string
+          package_id?: string | null
+          publish_version?: number | null
+          selling_price_eur?: number | null
+          total_cost_eur?: number
+          total_domains?: number | null
+          total_orals?: number | null
+          total_questions?: number | null
+          total_tokens_input?: number | null
+          total_tokens_output?: number | null
+        }
+        Update: {
+          break_even_sales?: number | null
+          certification_id?: string | null
+          certification_name?: string | null
+          cost_exam_generation?: number | null
+          cost_handbook?: number | null
+          cost_oral_generation?: number | null
+          cost_other?: number | null
+          cost_qa?: number | null
+          coverage_pct?: number | null
+          created_at?: string
+          curriculum_id?: string | null
+          governance_score?: number | null
+          id?: string
+          package_id?: string | null
+          publish_version?: number | null
+          selling_price_eur?: number | null
+          total_cost_eur?: number
+          total_domains?: number | null
+          total_orals?: number | null
+          total_questions?: number | null
+          total_tokens_input?: number | null
+          total_tokens_output?: number | null
+        }
+        Relationships: []
+      }
       certification_documents: {
         Row: {
           certification_id: string
@@ -6764,6 +6839,54 @@ export type Database = {
           },
         ]
       }
+      job_costs: {
+        Row: {
+          certification_id: string | null
+          cost_eur: number
+          created_at: string
+          curriculum_id: string | null
+          id: string
+          job_id: string | null
+          job_type: string
+          latency_ms: number | null
+          model: string | null
+          package_id: string | null
+          provider: string
+          tokens_input: number
+          tokens_output: number
+        }
+        Insert: {
+          certification_id?: string | null
+          cost_eur?: number
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          job_id?: string | null
+          job_type: string
+          latency_ms?: number | null
+          model?: string | null
+          package_id?: string | null
+          provider: string
+          tokens_input?: number
+          tokens_output?: number
+        }
+        Update: {
+          certification_id?: string | null
+          cost_eur?: number
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          job_id?: string | null
+          job_type?: string
+          latency_ms?: number | null
+          model?: string | null
+          package_id?: string | null
+          provider?: string
+          tokens_input?: number
+          tokens_output?: number
+        }
+        Relationships: []
+      }
       job_queue: {
         Row: {
           attempts: number
@@ -9985,6 +10108,39 @@ export type Database = {
           total_calls?: number
           total_cost_eur?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      provider_pricing: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          effective_from: string | null
+          id: string
+          model: string
+          price_input_per_1k: number
+          price_output_per_1k: number
+          provider: string
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          effective_from?: string | null
+          id?: string
+          model: string
+          price_input_per_1k?: number
+          price_output_per_1k?: number
+          provider: string
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          effective_from?: string | null
+          id?: string
+          model?: string
+          price_input_per_1k?: number
+          price_output_per_1k?: number
+          provider?: string
         }
         Relationships: []
       }
@@ -13245,6 +13401,26 @@ export type Database = {
         }
         Relationships: []
       }
+      certification_cost_summary: {
+        Row: {
+          certification_id: string | null
+          certification_name: string | null
+          cost_exam_generation: number | null
+          cost_handbook: number | null
+          cost_oral_generation: number | null
+          cost_other: number | null
+          cost_qa: number | null
+          curriculum_id: string | null
+          first_cost_at: string | null
+          last_cost_at: string | null
+          package_id: string | null
+          total_cost_eur: number | null
+          total_jobs: number | null
+          total_tokens_input: number | null
+          total_tokens_output: number | null
+        }
+        Relationships: []
+      }
       curriculum_products_overview: {
         Row: {
           blueprint_id: string | null
@@ -14623,6 +14799,22 @@ export type Database = {
         }[]
       }
       llm_running_count: { Args: { p_provider: string }; Returns: number }
+      log_job_cost: {
+        Args: {
+          p_certification_id?: string
+          p_cost_eur?: number
+          p_curriculum_id?: string
+          p_job_id: string
+          p_job_type: string
+          p_latency_ms?: number
+          p_model?: string
+          p_package_id?: string
+          p_provider: string
+          p_tokens_input?: number
+          p_tokens_output?: number
+        }
+        Returns: string
+      }
       log_provider_usage: {
         Args: {
           p_cost?: number
@@ -14955,6 +15147,14 @@ export type Database = {
       set_package_status: {
         Args: { p_id: string; p_meta?: Json; p_status: string }
         Returns: undefined
+      }
+      snapshot_certification_cost: {
+        Args: {
+          p_certification_id?: string
+          p_package_id: string
+          p_selling_price?: number
+        }
+        Returns: string
       }
       start_curriculum_ingest: {
         Args: { p_document_id: string; p_run_type?: string }
