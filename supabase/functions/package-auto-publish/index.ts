@@ -69,18 +69,30 @@ Deno.serve(async (req) => {
       }, 202);
     }
 
-    // Check integrity score before publishing
+    // Check integrity v3 hard_fail_reasons
     const { data: pkg } = await sb
       .from("course_packages")
       .select("integrity_report")
       .eq("id", packageId)
       .single();
 
-    const integrityScore = (pkg?.integrity_report as Record<string, unknown>)?.score as number | undefined;
-    const PUBLISH_THRESHOLD = 85;
+    const integrityReport = pkg?.integrity_report as Record<string, unknown> | undefined;
+    const integrityScore = integrityReport?.score as number | undefined;
+    const v3Data = integrityReport?.v3 as Record<string, unknown> | undefined;
+    const hardFails = (v3Data?.hard_fail_reasons as string[]) || [];
+    const PUBLISH_THRESHOLD = 80;
+
+    if (hardFails.length > 0) {
+      await unlockFail(`V3 hard fails present: ${hardFails.join("; ")}`);
+      return json({
+        ok: false,
+        error: `V3_HARD_FAILS: ${hardFails.length} blocking issues`,
+        hard_fail_reasons: hardFails,
+      }, 422);
+    }
 
     if (integrityScore !== undefined && integrityScore < PUBLISH_THRESHOLD) {
-      await unlockFail(`Integrity score ${integrityScore} < ${PUBLISH_THRESHOLD}. Gap-closure needed before publish.`);
+      await unlockFail(`Integrity score ${integrityScore} < ${PUBLISH_THRESHOLD}.`);
       return json({
         ok: false,
         error: `INTEGRITY_BELOW_THRESHOLD: score=${integrityScore}, required=${PUBLISH_THRESHOLD}`,
