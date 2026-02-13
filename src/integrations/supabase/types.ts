@@ -5569,6 +5569,7 @@ export type Database = {
           rezertifizierung_intervall_monate: number | null
           rezertifizierung_pflicht: boolean | null
           seeding_status: string
+          seeding_template: Json | null
           seo_ranking_keywords: number | null
           slug: string | null
           track: string
@@ -5613,6 +5614,7 @@ export type Database = {
           rezertifizierung_intervall_monate?: number | null
           rezertifizierung_pflicht?: boolean | null
           seeding_status?: string
+          seeding_template?: Json | null
           seo_ranking_keywords?: number | null
           slug?: string | null
           track?: string
@@ -5657,6 +5659,7 @@ export type Database = {
           rezertifizierung_intervall_monate?: number | null
           rezertifizierung_pflicht?: boolean | null
           seeding_status?: string
+          seeding_template?: Json | null
           seo_ranking_keywords?: number | null
           slug?: string | null
           track?: string
