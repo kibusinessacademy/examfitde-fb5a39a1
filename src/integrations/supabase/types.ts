@@ -15439,7 +15439,7 @@ export type Database = {
       product_track: "AUSBILDUNG_VOLL" | "EXAM_FIRST"
       qa_severity: "low" | "medium" | "high" | "critical"
       qa_status: "open" | "resolved" | "accepted_risk"
-      question_difficulty: "easy" | "medium" | "hard"
+      question_difficulty: "easy" | "medium" | "hard" | "very_hard"
       question_status: "draft" | "review" | "approved" | "rejected"
       security_decision: "allow" | "review" | "block"
       security_event_type:
@@ -15696,7 +15696,7 @@ export const Constants = {
       product_track: ["AUSBILDUNG_VOLL", "EXAM_FIRST"],
       qa_severity: ["low", "medium", "high", "critical"],
       qa_status: ["open", "resolved", "accepted_risk"],
-      question_difficulty: ["easy", "medium", "hard"],
+      question_difficulty: ["easy", "medium", "hard", "very_hard"],
       question_status: ["draft", "review", "approved", "rejected"],
       security_decision: ["allow", "review", "block"],
       security_event_type: [
