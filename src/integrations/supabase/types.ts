@@ -6675,6 +6675,7 @@ export type Database = {
           id: string
           is_paused: boolean
           max_concurrent: number
+          max_retries: number
           max_rpm: number | null
           max_tpm: number | null
           provider: string
@@ -6685,6 +6686,7 @@ export type Database = {
           id?: string
           is_paused?: boolean
           max_concurrent?: number
+          max_retries?: number
           max_rpm?: number | null
           max_tpm?: number | null
           provider: string
@@ -6695,6 +6697,7 @@ export type Database = {
           id?: string
           is_paused?: boolean
           max_concurrent?: number
+          max_retries?: number
           max_rpm?: number | null
           max_tpm?: number | null
           provider?: string

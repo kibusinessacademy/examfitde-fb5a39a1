@@ -1,9 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-const CHUNK_SIZE = 75; // Questions per invocation (optimised for throughput)
-const DEFAULT_TARGET = 800;
-const IDEAL_TARGET = 800; // Ship at 800, polish to 1000 later
+const CHUNK_SIZE = 100; // Questions per invocation (Mass Production Mode)
+const SHIP_TARGET = 850;  // Ship-Level: marktfähig ab 850
+const IDEAL_TARGET = 1000; // Hard-Goal: iterativ auf 1000 polieren
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
   const p = body.payload || body;
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
-  const examTarget = Number(p.options?.exam_target ?? IDEAL_TARGET);
+  const examTarget = Number(p.options?.exam_target ?? SHIP_TARGET);
 
   // Batch cursor from job runner (chunked generation)
   const batchCursor = p._batch_cursor || p.batch_cursor || null;
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
 
     const actualTotal = totalQuestions ?? 0;
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
-    const targetReached = actualTotal >= DEFAULT_TARGET;
+    const targetReached = actualTotal >= SHIP_TARGET;
 
     console.log(
       `[ExamPool] Package ${packageId.slice(0, 8)}: chunk done. ` +
