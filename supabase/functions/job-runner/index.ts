@@ -441,20 +441,45 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5) Claim jobs with concurrency guard
+    // 5) Claim jobs with concurrency guard + PROACTIVE PROVIDER FALLBACK
     const claimed: JobRecord[] = [];
     const skippedLLM: string[] = [];
+    const providerOrder = policy?.routing?.default_provider_order ?? ["openai", "anthropic", "google"];
+
+    // Pre-check which providers have capacity (avoid repeated DB queries)
+    const providerCapacity: Record<string, boolean> = {};
+    for (const p of providerOrder) {
+      const { allowed } = await canRunLLMJob(admin, p, rlConfig);
+      providerCapacity[p] = allowed;
+    }
+    const availableProviders = providerOrder.filter(p => providerCapacity[p]);
+    console.log(`[Runner:${RUNNER_ID}] Provider capacity: ${providerOrder.map(p => `${p}=${providerCapacity[p] ? '✓' : '✗'}`).join(', ')}`);
 
     for (const job of pendingJobs as JobRecord[]) {
       if (claimed.length >= BATCH_SIZE) break;
 
       const isLLM = LLM_JOB_TYPES.has(job.job_type);
-      const provider = job.provider || (isLLM ? DEFAULT_LLM_PROVIDER : null);
+      let provider = job.provider || (isLLM ? DEFAULT_LLM_PROVIDER : null);
 
       if (isLLM && provider) {
-        const { allowed, cooldown } = await canRunLLMJob(admin, provider, rlConfig);
-        if (!allowed) {
-          const delayUntil = new Date(Date.now() + (cooldown ?? 30) * 1000).toISOString();
+        // ─── PROACTIVE FALLBACK: If preferred provider is full, try next available ───
+        if (!providerCapacity[provider] && availableProviders.length > 0) {
+          const fallbackCount = job.fallback_count ?? 0;
+          const maxFallbacks = policy?.routing?.fallback_strategy?.max_fallbacks_per_job ?? 2;
+
+          if (fallbackCount < maxFallbacks) {
+            // Pick first available provider that's not the current one
+            const altProvider = availableProviders.find(p => p !== provider);
+            if (altProvider) {
+              console.log(`[Runner:${RUNNER_ID}] Proactive fallback: ${job.id.slice(0, 8)} ${provider} → ${altProvider} (${provider} at capacity)`);
+              provider = altProvider;
+            }
+          }
+        }
+
+        // Re-check the (possibly new) provider
+        if (!providerCapacity[provider]) {
+          const delayUntil = new Date(Date.now() + 30 * 1000).toISOString();
           await admin
             .from("job_queue")
             .update({ scheduled_at: delayUntil, updated_at: now })
@@ -483,6 +508,11 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Track whether provider changed for fallback counting
+      const originalProvider = job.provider || (isLLM ? DEFAULT_LLM_PROVIDER : null);
+      const providerChanged = provider !== originalProvider;
+      const newFallbackCount = providerChanged ? (job.fallback_count ?? 0) + 1 : (job.fallback_count ?? 0);
+
       // Atomic claim
       const { data: locked, error: lockErr } = await admin
         .from("job_queue")
@@ -493,7 +523,8 @@ Deno.serve(async (req) => {
           started_at: now,
           updated_at: now,
           provider: provider,
-          original_provider: job.original_provider || provider,
+          original_provider: job.original_provider || originalProvider,
+          fallback_count: newFallbackCount,
         })
         .eq("id", job.id)
         .eq("status", "pending")
@@ -503,6 +534,16 @@ Deno.serve(async (req) => {
 
       if (!lockErr && locked) {
         claimed.push({ ...job, provider });
+        // Update capacity tracking after claiming
+        const limit = rlConfig.find(r => r.provider === provider);
+        const maxC = limit?.max_concurrent ?? 2;
+        // Rough tracking: if we've claimed enough for this provider, mark full
+        const claimedForProvider = claimed.filter(c => c.provider === provider).length;
+        // Don't mark full immediately, but if this is getting close, refresh
+        if (claimedForProvider >= Math.floor(maxC / 2)) {
+          const { allowed } = await canRunLLMJob(admin, provider!, rlConfig);
+          providerCapacity[provider!] = allowed;
+        }
       }
     }
 
@@ -761,14 +802,15 @@ async function handleJobFailureWithTriage(
   const delaySec = computeBackoff(newAttempts, policy, category);
   const scheduledAt = new Date(Date.now() + delaySec * 1000).toISOString();
 
-  // Provider fallback
+  // Provider fallback – switch eagerly on RATE_LIMIT, TIMEOUT, TRANSIENT_NETWORK
   let newProvider = provider;
   const fallbackCount = job.fallback_count ?? 0;
-  if (actionDef?.maybe_switch_provider && LLM_JOB_TYPES.has(job.job_type)) {
+  const shouldSwitchProvider = (actionDef?.maybe_switch_provider || category === "RATE_LIMIT") && LLM_JOB_TYPES.has(job.job_type);
+  if (shouldSwitchProvider) {
     const fallback = pickFallbackProvider(provider, fallbackCount, policy);
     if (fallback) {
       newProvider = fallback;
-      console.log(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} switching provider ${provider} → ${newProvider}`);
+      console.log(`[Runner:${RUNNER_ID}] Job ${job.id.slice(0, 8)} switching provider ${provider} → ${newProvider} (${category})`);
     }
   }
 
