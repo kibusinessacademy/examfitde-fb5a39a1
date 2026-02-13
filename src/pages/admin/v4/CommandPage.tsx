@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import PageExplainer from '@/components/admin/PageExplainer';
+import CommandStatusBoard from '@/components/admin/CommandStatusBoard';
 
 export default function CommandPage() {
   const [kpis, setKpis] = useState<any>(null);
@@ -108,6 +109,9 @@ export default function CommandPage() {
           'Klick auf Package → Course Workspace',
         ]}
       />
+
+      {/* Command Status Board – 5 Ampeln */}
+      <CommandStatusBoard />
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
