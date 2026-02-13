@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  CheckCircle, XCircle, Download, Copy, Clock, ShieldCheck, AlertTriangle, Eye,
+  CheckCircle, XCircle, Download, Copy, Clock, ShieldCheck, AlertTriangle, Eye, FileJson, BarChart3,
 } from 'lucide-react';
 
 interface ReviewRow {
@@ -36,6 +37,113 @@ const STATUS_BADGE: Record<string, { label: string; variant: 'default' | 'second
   approved: { label: 'Freigegeben', variant: 'default' },
   rejected: { label: 'Abgelehnt', variant: 'destructive' },
 };
+
+function CoverageKPIs({ report, exportJson }: { report: any; exportJson: any }) {
+  const v3 = report?.v3;
+  if (!v3 && !exportJson?.exam) return null;
+
+  const bpPct = v3?.coverage?.blueprint_pct ?? exportJson?.exam?.blueprint_coverage_pct ?? 0;
+  const dupRate = v3?.coverage?.near_duplicate_rate_pct ?? exportJson?.exam?.near_duplicate_rate_pct ?? 0;
+  const hardFails: string[] = v3?.hard_fail_reasons || [];
+  const lfCoverage = v3?.coverage?.learning_field_coverage || exportJson?.exam?.learning_field_coverage || {};
+
+  const minLfPct = Object.values(lfCoverage).length > 0
+    ? Math.min(...(Object.values(lfCoverage) as number[]))
+    : 100;
+
+  return (
+    <div className="space-y-3">
+      {/* KPI row */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-muted/50 rounded-lg p-3 text-center">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Blueprint</p>
+          <p className={`text-lg font-bold ${bpPct >= 95 ? 'text-primary' : 'text-destructive'}`}>{bpPct}%</p>
+          <Progress value={bpPct} className="h-1 mt-1" />
+        </div>
+        <div className="bg-muted/50 rounded-lg p-3 text-center">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Min. Lernfeld</p>
+          <p className={`text-lg font-bold ${minLfPct >= 90 ? 'text-primary' : 'text-destructive'}`}>{minLfPct}%</p>
+          <Progress value={minLfPct} className="h-1 mt-1" />
+        </div>
+        <div className="bg-muted/50 rounded-lg p-3 text-center">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Duplikat-Rate</p>
+          <p className={`text-lg font-bold ${dupRate <= 3 ? 'text-primary' : 'text-destructive'}`}>{dupRate}%</p>
+          <Progress value={Math.min(dupRate * 10, 100)} className="h-1 mt-1" />
+        </div>
+      </div>
+
+      {/* Hard fails */}
+      {hardFails.length > 0 && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3">
+          <p className="text-xs font-semibold text-destructive flex items-center gap-1.5 mb-1.5">
+            <XCircle className="h-3.5 w-3.5" /> {hardFails.length} Hard Fail(s) – Publish blockiert
+          </p>
+          <ul className="text-xs text-destructive/80 space-y-0.5 list-disc ml-4">
+            {hardFails.map((f: string, i: number) => <li key={i}>{f}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {/* LF breakdown */}
+      {Object.keys(lfCoverage).length > 0 && (
+        <details className="text-xs">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            Lernfeld-Abdeckung Details
+          </summary>
+          <div className="grid grid-cols-2 gap-1 mt-2">
+            {Object.entries(lfCoverage).map(([name, pct]) => (
+              <div key={name} className="flex justify-between px-2 py-1 bg-muted/30 rounded">
+                <span className="truncate mr-2">{name}</span>
+                <span className={`font-medium ${(pct as number) >= 90 ? 'text-primary' : 'text-destructive'}`}>
+                  {pct as number}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function SamplingPreview({ exportJson }: { exportJson: any }) {
+  const sp = exportJson?.sampling_plan;
+  if (!sp) return null;
+
+  return (
+    <details className="text-xs mt-2">
+      <summary className="cursor-pointer text-muted-foreground hover:text-foreground flex items-center gap-1">
+        <BarChart3 className="h-3 w-3" /> Sampling-Übersicht
+      </summary>
+      <div className="mt-2 space-y-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="bg-muted/30 rounded p-2">
+            <p className="text-muted-foreground">Exam</p>
+            <p className="font-medium">{sp.exam_sample?.total_sampled || 0} Fragen</p>
+          </div>
+          <div className="bg-muted/30 rounded p-2">
+            <p className="text-muted-foreground">MiniCheck</p>
+            <p className="font-medium">{sp.minicheck_sample?.total_lessons_sampled || 0} Lessons</p>
+          </div>
+          <div className="bg-muted/30 rounded p-2">
+            <p className="text-muted-foreground">Oral</p>
+            <p className="font-medium">{sp.oral_sample?.total_sampled || 0} Szenarien</p>
+          </div>
+          <div className="bg-muted/30 rounded p-2">
+            <p className="text-muted-foreground">Handbook</p>
+            <p className="font-medium">{(sp.handbook_sample?.top_weight?.length || 0) + (sp.handbook_sample?.risk_topics?.length || 0) + (sp.handbook_sample?.random?.length || 0)} Sections</p>
+          </div>
+        </div>
+        {sp.risk_sets && (
+          <div className="flex gap-4 text-muted-foreground">
+            <span>Near-Duplicates: <strong className="text-foreground">{sp.risk_sets.near_duplicates_sample?.total_clusters || 0}</strong> Cluster</span>
+            <span>Low-Confidence: <strong className="text-foreground">{sp.risk_sets.low_confidence_sample?.total_flagged || 0}</strong> Items</span>
+          </div>
+        )}
+      </div>
+    </details>
+  );
+}
 
 export default function ReviewInboxPage() {
   const { user } = useAuth();
@@ -63,14 +171,18 @@ export default function ReviewInboxPage() {
       const review = reviews.find(r => r.id === reviewId);
       if (!review) throw new Error('Review not found');
 
-      // Update review
+      // Check v3 hard fails before allowing approve
+      const hardFails = review.integrity_report?.v3?.hard_fail_reasons || [];
+      if (hardFails.length > 0) {
+        throw new Error(`Kann nicht freigegeben werden: ${hardFails.length} Hard Fail(s) vorhanden.`);
+      }
+
       const { error: rErr } = await (supabase as any)
         .from('course_package_reviews')
         .update({ status: 'approved', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
         .eq('id', reviewId);
       if (rErr) throw rErr;
 
-      // Trigger publish via job_queue
       const { data: pkg } = await supabase
         .from('course_packages')
         .select('id, course_id')
@@ -100,8 +212,6 @@ export default function ReviewInboxPage() {
         .update({ status: 'rejected', reviewed_by: user?.id, reviewed_at: new Date().toISOString(), notes })
         .eq('id', reviewId);
       if (error) throw error;
-
-      // Also block the package
       const review = reviews.find(r => r.id === reviewId);
       if (review) {
         await supabase.from('course_packages')
@@ -123,14 +233,14 @@ export default function ReviewInboxPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `review-export-${title?.replace(/\s+/g, '-') || 'package'}.json`;
+    a.download = `review-pack-${title?.replace(/\s+/g, '-') || 'package'}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const copyJson = async (exportData: any) => {
     await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
-    toast({ title: 'Kopiert', description: 'Export-JSON in Zwischenablage.' });
+    toast({ title: 'Kopiert', description: 'Review-Pack JSON in Zwischenablage.' });
   };
 
   const readyReviews = reviews.filter(r => r.status === 'ready' || r.status === 'reviewing');
@@ -140,7 +250,8 @@ export default function ReviewInboxPage() {
   const renderReviewCard = (r: ReviewRow, showActions: boolean) => {
     const badge = STATUS_BADGE[r.status] || { label: r.status, variant: 'outline' as const };
     const warningCount = Array.isArray(r.integrity_report?.warnings) ? r.integrity_report.warnings.length : 0;
-    const issueCount = Array.isArray(r.integrity_report?.issues) ? r.integrity_report.issues.length : 0;
+    const hardFails: string[] = r.integrity_report?.v3?.hard_fail_reasons || [];
+    const hasHardFails = hardFails.length > 0;
 
     return (
       <Card key={r.id} className="border border-border">
@@ -149,7 +260,10 @@ export default function ReviewInboxPage() {
             <CardTitle className="text-base font-semibold">
               {r.course_packages?.title || r.course_package_id.slice(0, 8)}
             </CardTitle>
-            <Badge variant={badge.variant}>{badge.label}</Badge>
+            <div className="flex items-center gap-2">
+              {hasHardFails && <Badge variant="destructive">Hard Fail</Badge>}
+              <Badge variant={badge.variant}>{badge.label}</Badge>
+            </div>
           </div>
           <CardDescription className="text-xs">
             Erstellt: {new Date(r.created_at).toLocaleString('de-DE')}
@@ -157,25 +271,25 @@ export default function ReviewInboxPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {/* Score + Metrics */}
+          {/* Score */}
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="h-4 w-4 text-primary" />
               <span className="font-medium">Score: {r.integrity_score ?? '–'}/100</span>
             </div>
             {warningCount > 0 && (
-              <div className="flex items-center gap-1 text-yellow-600">
+              <div className="flex items-center gap-1 text-orange-500 dark:text-orange-400">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 <span>{warningCount} Warnings</span>
               </div>
             )}
-            {issueCount > 0 && (
-              <div className="flex items-center gap-1 text-destructive">
-                <XCircle className="h-3.5 w-3.5" />
-                <span>{issueCount} Issues</span>
-              </div>
-            )}
           </div>
+
+          {/* Coverage KPIs */}
+          <CoverageKPIs report={r.integrity_report} exportJson={r.export_json} />
+
+          {/* Sampling preview */}
+          <SamplingPreview exportJson={r.export_json} />
 
           {r.notes && (
             <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">{r.notes}</p>
@@ -187,7 +301,7 @@ export default function ReviewInboxPage() {
               {r.export_json && (
                 <>
                   <Button size="sm" variant="outline" onClick={() => downloadJson(r.export_json, r.course_packages?.title || '')}>
-                    <Download className="h-3.5 w-3.5 mr-1.5" /> Download JSON
+                    <FileJson className="h-3.5 w-3.5 mr-1.5" /> Review Pack
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => copyJson(r.export_json)}>
                     <Copy className="h-3.5 w-3.5 mr-1.5" /> Kopieren
@@ -200,8 +314,9 @@ export default function ReviewInboxPage() {
               <Button
                 size="sm"
                 onClick={() => approve.mutate(r.id)}
-                disabled={approve.isPending}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={approve.isPending || hasHardFails}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                title={hasHardFails ? 'Nicht freigeben: Hard Fails vorhanden' : ''}
               >
                 <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Freigeben
               </Button>
@@ -220,7 +335,7 @@ export default function ReviewInboxPage() {
       <div>
         <h1 className="text-2xl font-bold">Review Inbox</h1>
         <p className="text-sm text-muted-foreground">
-          Fertiggemeldete Course-Packages prüfen, Export für ChatGPT erstellen, freigeben oder ablehnen.
+          High-Assurance Review: Stratifizierte Samples, Coverage-KPIs, Duplikat-Analyse.
         </p>
       </div>
 
@@ -295,7 +410,7 @@ export default function ReviewInboxPage() {
       <Dialog open={!!previewJson} onOpenChange={(o) => { if (!o) setPreviewJson(null); }}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle>Export JSON Vorschau</DialogTitle>
+            <DialogTitle>Review Pack Vorschau</DialogTitle>
           </DialogHeader>
           <pre className="text-xs bg-muted p-4 rounded-lg overflow-auto max-h-[60vh] whitespace-pre-wrap">
             {JSON.stringify(previewJson, null, 2)}
