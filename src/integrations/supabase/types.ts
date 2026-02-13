@@ -4548,6 +4548,364 @@ export type Database = {
           },
         ]
       }
+      dom_blueprint_coverage: {
+        Row: {
+          blueprint_id: string
+          coverage_pct: number | null
+          domain_id: string | null
+          id: string
+          questions_actual: number
+          questions_target: number
+          subtopic_id: string | null
+          topic_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          blueprint_id: string
+          coverage_pct?: number | null
+          domain_id?: string | null
+          id?: string
+          questions_actual?: number
+          questions_target?: number
+          subtopic_id?: string | null
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          blueprint_id?: string
+          coverage_pct?: number | null
+          domain_id?: string | null
+          id?: string
+          questions_actual?: number
+          questions_target?: number
+          subtopic_id?: string | null
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dom_blueprint_coverage_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "dom_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dom_blueprint_coverage_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "dom_blueprint_domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dom_blueprint_coverage_subtopic_id_fkey"
+            columns: ["subtopic_id"]
+            isOneToOne: false
+            referencedRelation: "dom_blueprint_subtopics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dom_blueprint_coverage_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "dom_blueprint_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dom_blueprint_domains: {
+        Row: {
+          calc_share_pct: number
+          created_at: string
+          domain_key: string
+          domain_name: string
+          id: string
+          oral_relevant: boolean
+          part_id: string
+          question_target: number
+          transfer_share_pct: number
+          weight_pct: number
+        }
+        Insert: {
+          calc_share_pct?: number
+          created_at?: string
+          domain_key: string
+          domain_name: string
+          id?: string
+          oral_relevant?: boolean
+          part_id: string
+          question_target?: number
+          transfer_share_pct?: number
+          weight_pct: number
+        }
+        Update: {
+          calc_share_pct?: number
+          created_at?: string
+          domain_key?: string
+          domain_name?: string
+          id?: string
+          oral_relevant?: boolean
+          part_id?: string
+          question_target?: number
+          transfer_share_pct?: number
+          weight_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dom_blueprint_domains_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "dom_blueprint_parts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dom_blueprint_parts: {
+        Row: {
+          blueprint_id: string
+          created_at: string
+          id: string
+          part_key: Database["public"]["Enums"]["dom_exam_part"]
+          part_name: string
+          question_target: number
+          weight_pct: number
+        }
+        Insert: {
+          blueprint_id: string
+          created_at?: string
+          id?: string
+          part_key: Database["public"]["Enums"]["dom_exam_part"]
+          part_name: string
+          question_target?: number
+          weight_pct: number
+        }
+        Update: {
+          blueprint_id?: string
+          created_at?: string
+          id?: string
+          part_key?: Database["public"]["Enums"]["dom_exam_part"]
+          part_name?: string
+          question_target?: number
+          weight_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dom_blueprint_parts_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "dom_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dom_blueprint_snapshots: {
+        Row: {
+          blueprint_id: string
+          coverage_ratio: number
+          domain_detail: Json
+          id: string
+          snapshot_at: string
+          total_actual: number
+          total_target: number
+        }
+        Insert: {
+          blueprint_id: string
+          coverage_ratio?: number
+          domain_detail?: Json
+          id?: string
+          snapshot_at?: string
+          total_actual?: number
+          total_target?: number
+        }
+        Update: {
+          blueprint_id?: string
+          coverage_ratio?: number
+          domain_detail?: Json
+          id?: string
+          snapshot_at?: string
+          total_actual?: number
+          total_target?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dom_blueprint_snapshots_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "dom_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dom_blueprint_subtopics: {
+        Row: {
+          created_at: string
+          id: string
+          question_target: number | null
+          subtopic_key: string
+          subtopic_name: string
+          topic_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_target?: number | null
+          subtopic_key: string
+          subtopic_name: string
+          topic_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_target?: number | null
+          subtopic_key?: string
+          subtopic_name?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dom_blueprint_subtopics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "dom_blueprint_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dom_blueprint_topics: {
+        Row: {
+          created_at: string
+          domain_id: string
+          id: string
+          question_target: number | null
+          topic_key: string
+          topic_name: string
+        }
+        Insert: {
+          created_at?: string
+          domain_id: string
+          id?: string
+          question_target?: number | null
+          topic_key: string
+          topic_name: string
+        }
+        Update: {
+          created_at?: string
+          domain_id?: string
+          id?: string
+          question_target?: number | null
+          topic_key?: string
+          topic_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dom_blueprint_topics_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "dom_blueprint_domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dom_blueprint_type_mix: {
+        Row: {
+          created_at: string
+          domain_id: string
+          id: string
+          is_oral: boolean
+          qtype: Database["public"]["Enums"]["dom_question_type"]
+          share_pct: number
+        }
+        Insert: {
+          created_at?: string
+          domain_id: string
+          id?: string
+          is_oral?: boolean
+          qtype: Database["public"]["Enums"]["dom_question_type"]
+          share_pct: number
+        }
+        Update: {
+          created_at?: string
+          domain_id?: string
+          id?: string
+          is_oral?: boolean
+          qtype?: Database["public"]["Enums"]["dom_question_type"]
+          share_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dom_blueprint_type_mix_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "dom_blueprint_domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dom_blueprints: {
+        Row: {
+          cert_master_id: string | null
+          confidence_min: number
+          coverage_target_min: number
+          created_at: string
+          description: string | null
+          difficulty_mix: Json
+          duplicate_max: number
+          exam_target_total: number
+          governance_min: number
+          id: string
+          oral_target_total: number
+          publish_hard_stop: number
+          status: Database["public"]["Enums"]["dom_blueprint_status"]
+          title: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          cert_master_id?: string | null
+          confidence_min?: number
+          coverage_target_min?: number
+          created_at?: string
+          description?: string | null
+          difficulty_mix?: Json
+          duplicate_max?: number
+          exam_target_total?: number
+          governance_min?: number
+          id?: string
+          oral_target_total?: number
+          publish_hard_stop?: number
+          status?: Database["public"]["Enums"]["dom_blueprint_status"]
+          title: string
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          cert_master_id?: string | null
+          confidence_min?: number
+          coverage_target_min?: number
+          created_at?: string
+          description?: string | null
+          difficulty_mix?: Json
+          duplicate_max?: number
+          exam_target_total?: number
+          governance_min?: number
+          id?: string
+          oral_target_total?: number
+          publish_hard_stop?: number
+          status?: Database["public"]["Enums"]["dom_blueprint_status"]
+          title?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dom_blueprints_cert_master_id_fkey"
+            columns: ["cert_master_id"]
+            isOneToOne: false
+            referencedRelation: "german_certification_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dominance_control: {
         Row: {
           created_at: string | null
@@ -13535,6 +13893,10 @@ export type Database = {
           waehrung: string
         }[]
       }
+      get_dom_blueprint_coverage: {
+        Args: { p_blueprint_id: string }
+        Returns: Json
+      }
       get_due_cards: {
         Args: {
           p_curriculum_id?: string
@@ -14308,6 +14670,19 @@ export type Database = {
         | "partial_truth"
         | "outdated_info"
         | "confusing_similar"
+      dom_blueprint_status: "draft" | "review" | "locked" | "deprecated"
+      dom_exam_part: "TEIL_1" | "TEIL_2"
+      dom_question_type:
+        | "mc_single"
+        | "mc_multi"
+        | "true_false"
+        | "short_answer"
+        | "case_study"
+        | "calculation"
+        | "scenario"
+        | "transfer"
+        | "oral_prompt"
+        | "oral_question"
       exam_mode: "simulation" | "practice" | "timed_exam"
       exam_relevance: "low" | "medium" | "high"
       finance_event_type:
@@ -14545,6 +14920,20 @@ export const Constants = {
         "partial_truth",
         "outdated_info",
         "confusing_similar",
+      ],
+      dom_blueprint_status: ["draft", "review", "locked", "deprecated"],
+      dom_exam_part: ["TEIL_1", "TEIL_2"],
+      dom_question_type: [
+        "mc_single",
+        "mc_multi",
+        "true_false",
+        "short_answer",
+        "case_study",
+        "calculation",
+        "scenario",
+        "transfer",
+        "oral_prompt",
+        "oral_question",
       ],
       exam_mode: ["simulation", "practice", "timed_exam"],
       exam_relevance: ["low", "medium", "high"],
