@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     include_oral_exam: featureFlags.has_oral_exam_trainer ?? (track === "AUSBILDUNG_VOLL"),
     include_ai_tutor: featureFlags.has_ai_tutor ?? (track === "AUSBILDUNG_VOLL"),
     include_handbook: featureFlags.has_handbook ?? (track === "AUSBILDUNG_VOLL"),
-    exam_target: track === "EXAM_FIRST" ? 1000 : 850,
+    exam_target: track === "EXAM_FIRST" ? 1200 : 1000,
     ...(options || {}),
   };
 

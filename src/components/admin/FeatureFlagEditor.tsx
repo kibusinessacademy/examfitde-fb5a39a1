@@ -7,7 +7,7 @@ import { Save, RotateCcw } from 'lucide-react';
 import type { FeatureFlags, ProductTrack } from '@/hooks/useTrackConfig';
 import { DEFAULT_FLAGS } from '@/hooks/useTrackConfig';
 
-const FLAG_LABELS: Record<keyof FeatureFlags, string> = {
+const FLAG_LABELS: Record<string, string> = {
   has_learning_course: 'Lernkurs (H5P)',
   has_practice_course_h5p: 'Praxis-Kurs H5P',
   has_minichecks: 'MiniChecks',
@@ -17,6 +17,8 @@ const FLAG_LABELS: Record<keyof FeatureFlags, string> = {
   has_ai_tutor: 'AI Tutor',
   has_handbook: 'Handbuch',
 };
+
+const BOOLEAN_FLAGS = Object.keys(FLAG_LABELS) as string[];
 
 interface Props {
   flags: FeatureFlags;
@@ -31,10 +33,9 @@ export default function FeatureFlagEditor({ flags, track, onChange, onSave, savi
 
   useEffect(() => { setLocal(flags); }, [flags]);
 
-  const toggle = (key: keyof FeatureFlags) => {
-    // exam_trainer and exam_simulation are always required
+  const toggle = (key: string) => {
     if (key === 'has_exam_trainer' || key === 'has_exam_simulation') return;
-    const next = { ...local, [key]: !local[key] };
+    const next = { ...local, [key]: !(local as any)[key] };
     setLocal(next);
     onChange(next);
   };
@@ -64,12 +65,12 @@ export default function FeatureFlagEditor({ flags, track, onChange, onSave, savi
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-3">
-          {(Object.keys(FLAG_LABELS) as (keyof FeatureFlags)[]).map(key => {
+          {BOOLEAN_FLAGS.map(key => {
             const locked = key === 'has_exam_trainer' || key === 'has_exam_simulation';
             return (
               <div key={key} className="flex items-center gap-2">
                 <Switch
-                  checked={local[key]}
+                  checked={!!(local as any)[key]}
                   onCheckedChange={() => toggle(key)}
                   disabled={locked}
                   id={key}

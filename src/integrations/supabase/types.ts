@@ -3691,6 +3691,7 @@ export type Database = {
           stuck_reason: string | null
           title: string
           track: Database["public"]["Enums"]["product_track"] | null
+          track_subtype: string | null
           updated_at: string
         }
         Insert: {
@@ -3720,6 +3721,7 @@ export type Database = {
           stuck_reason?: string | null
           title?: string
           track?: Database["public"]["Enums"]["product_track"] | null
+          track_subtype?: string | null
           updated_at?: string
         }
         Update: {
@@ -3749,6 +3751,7 @@ export type Database = {
           stuck_reason?: string | null
           title?: string
           track?: Database["public"]["Enums"]["product_track"] | null
+          track_subtype?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5490,6 +5493,117 @@ export type Database = {
           tax_cents?: number
           tax_country?: string | null
           tax_rate?: number | null
+        }
+        Relationships: []
+      }
+      german_certification_master: {
+        Row: {
+          case_study_required: boolean
+          certification_type: string
+          cluster: string
+          created_at: string
+          exam_blueprint_config: Json | null
+          gewichtung_teile: Json | null
+          id: string
+          jahres_teilnehmer: number | null
+          lehrgang_preis_range: string | null
+          marktgroesse: string | null
+          min_fragen_target: number
+          name: string
+          notes: string | null
+          oral_required: boolean
+          oral_structure: Json | null
+          oral_target_scenarios: number | null
+          package_id: string | null
+          presentation_required: boolean
+          priority_rank: number | null
+          pruefungsart: string
+          pruefungsordnung_url: string | null
+          pruefungsteile: Json | null
+          quality_gates: Json | null
+          rahmenplan_url: string | null
+          rezertifizierung_intervall_monate: number | null
+          rezertifizierung_pflicht: boolean | null
+          seeding_status: string
+          slug: string | null
+          track: string
+          track_subtype: string | null
+          traeger: string
+          updated_at: string
+          wave: number | null
+          wettbewerb_level: string | null
+        }
+        Insert: {
+          case_study_required?: boolean
+          certification_type?: string
+          cluster: string
+          created_at?: string
+          exam_blueprint_config?: Json | null
+          gewichtung_teile?: Json | null
+          id?: string
+          jahres_teilnehmer?: number | null
+          lehrgang_preis_range?: string | null
+          marktgroesse?: string | null
+          min_fragen_target?: number
+          name: string
+          notes?: string | null
+          oral_required?: boolean
+          oral_structure?: Json | null
+          oral_target_scenarios?: number | null
+          package_id?: string | null
+          presentation_required?: boolean
+          priority_rank?: number | null
+          pruefungsart?: string
+          pruefungsordnung_url?: string | null
+          pruefungsteile?: Json | null
+          quality_gates?: Json | null
+          rahmenplan_url?: string | null
+          rezertifizierung_intervall_monate?: number | null
+          rezertifizierung_pflicht?: boolean | null
+          seeding_status?: string
+          slug?: string | null
+          track?: string
+          track_subtype?: string | null
+          traeger?: string
+          updated_at?: string
+          wave?: number | null
+          wettbewerb_level?: string | null
+        }
+        Update: {
+          case_study_required?: boolean
+          certification_type?: string
+          cluster?: string
+          created_at?: string
+          exam_blueprint_config?: Json | null
+          gewichtung_teile?: Json | null
+          id?: string
+          jahres_teilnehmer?: number | null
+          lehrgang_preis_range?: string | null
+          marktgroesse?: string | null
+          min_fragen_target?: number
+          name?: string
+          notes?: string | null
+          oral_required?: boolean
+          oral_structure?: Json | null
+          oral_target_scenarios?: number | null
+          package_id?: string | null
+          presentation_required?: boolean
+          priority_rank?: number | null
+          pruefungsart?: string
+          pruefungsordnung_url?: string | null
+          pruefungsteile?: Json | null
+          quality_gates?: Json | null
+          rahmenplan_url?: string | null
+          rezertifizierung_intervall_monate?: number | null
+          rezertifizierung_pflicht?: boolean | null
+          seeding_status?: string
+          slug?: string | null
+          track?: string
+          track_subtype?: string | null
+          traeger?: string
+          updated_at?: string
+          wave?: number | null
+          wettbewerb_level?: string | null
         }
         Relationships: []
       }
@@ -13877,6 +13991,7 @@ export type Database = {
           stuck_reason: string | null
           title: string
           track: Database["public"]["Enums"]["product_track"] | null
+          track_subtype: string | null
           updated_at: string
         }
         SetofOptions: {
@@ -14033,6 +14148,7 @@ export type Database = {
           stuck_reason: string | null
           title: string
           track: Database["public"]["Enums"]["product_track"] | null
+          track_subtype: string | null
           updated_at: string
         }
         SetofOptions: {
