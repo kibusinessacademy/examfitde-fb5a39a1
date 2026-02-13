@@ -472,6 +472,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
@@ -2773,6 +2780,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
@@ -3275,6 +3289,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
@@ -3306,6 +3327,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_content_factory"
             referencedColumns: ["package_id"]
           },
           {
@@ -3358,6 +3386,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
@@ -3404,6 +3439,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
             referencedColumns: ["package_id"]
           },
           {
@@ -3468,6 +3510,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_content_factory"
             referencedColumns: ["package_id"]
           },
           {
@@ -7571,6 +7620,13 @@ export type Database = {
             foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
@@ -11488,6 +11544,27 @@ export type Database = {
           status: string | null
           title: string | null
           version_status: string | null
+        }
+        Relationships: []
+      }
+      ops_content_factory: {
+        Row: {
+          exam_count: number | null
+          exam_gate_passed: boolean | null
+          handbook_chapters: number | null
+          handbook_gate_passed: boolean | null
+          handbook_sections: number | null
+          integrity_passed: boolean | null
+          integrity_score: number | null
+          oral_count: number | null
+          oral_gate_passed: boolean | null
+          package_id: string | null
+          sections_gate_passed: boolean | null
+          status: string | null
+          title: string | null
+          tutor_gate_passed: boolean | null
+          tutor_index_exists: boolean | null
+          tutor_index_version: number | null
         }
         Relationships: []
       }
