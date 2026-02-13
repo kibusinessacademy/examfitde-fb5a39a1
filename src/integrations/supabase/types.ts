@@ -5307,57 +5307,87 @@ export type Database = {
       job_queue: {
         Row: {
           attempts: number
+          batch_cursor: Json | null
           completed_at: string | null
+          cost_estimate_eur: number | null
           created_at: string
           error: string | null
+          estimated_tokens: number | null
           id: string
           job_type: string
           last_error: string | null
+          last_error_code: string | null
+          last_error_hint: string | null
+          last_http_status: number | null
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
+          parent_job_id: string | null
           payload: Json
           priority: number
+          provider: string | null
+          rate_limited_until: string | null
           result: Json | null
           run_after: string | null
+          scheduled_at: string | null
           started_at: string | null
           status: string
           updated_at: string
         }
         Insert: {
           attempts?: number
+          batch_cursor?: Json | null
           completed_at?: string | null
+          cost_estimate_eur?: number | null
           created_at?: string
           error?: string | null
+          estimated_tokens?: number | null
           id?: string
           job_type: string
           last_error?: string | null
+          last_error_code?: string | null
+          last_error_hint?: string | null
+          last_http_status?: number | null
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
+          parent_job_id?: string | null
           payload: Json
           priority?: number
+          provider?: string | null
+          rate_limited_until?: string | null
           result?: Json | null
           run_after?: string | null
+          scheduled_at?: string | null
           started_at?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
           attempts?: number
+          batch_cursor?: Json | null
           completed_at?: string | null
+          cost_estimate_eur?: number | null
           created_at?: string
           error?: string | null
+          estimated_tokens?: number | null
           id?: string
           job_type?: string
           last_error?: string | null
+          last_error_code?: string | null
+          last_error_hint?: string | null
+          last_http_status?: number | null
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
+          parent_job_id?: string | null
           payload?: Json
           priority?: number
+          provider?: string | null
+          rate_limited_until?: string | null
           result?: Json | null
           run_after?: string | null
+          scheduled_at?: string | null
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -6288,6 +6318,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      llm_budget: {
+        Row: {
+          budget_eur: number
+          hard_stop: boolean
+          id: string
+          month: string
+          period: string
+          spent_eur: number
+          updated_at: string
+        }
+        Insert: {
+          budget_eur?: number
+          hard_stop?: boolean
+          id?: string
+          month?: string
+          period?: string
+          spent_eur?: number
+          updated_at?: string
+        }
+        Update: {
+          budget_eur?: number
+          hard_stop?: boolean
+          id?: string
+          month?: string
+          period?: string
+          spent_eur?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      llm_rate_limits: {
+        Row: {
+          cooldown_seconds: number
+          id: string
+          is_paused: boolean
+          max_concurrent: number
+          max_rpm: number | null
+          max_tpm: number | null
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          cooldown_seconds?: number
+          id?: string
+          is_paused?: boolean
+          max_concurrent?: number
+          max_rpm?: number | null
+          max_tpm?: number | null
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          cooldown_seconds?: number
+          id?: string
+          is_paused?: boolean
+          max_concurrent?: number
+          max_rpm?: number | null
+          max_tpm?: number | null
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       management_alerts: {
         Row: {
@@ -11588,6 +11681,7 @@ export type Database = {
           new_repetition_count: number
         }[]
       }
+      can_run_llm_job: { Args: { p_provider: string }; Returns: boolean }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
       cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
       check_lesson_progression: {
@@ -12128,6 +12222,7 @@ export type Database = {
           storage_path: string
         }[]
       }
+      llm_running_count: { Args: { p_provider: string }; Returns: number }
       month_start: { Args: { p_any: string }; Returns: string }
       next_package_queue_position: { Args: never; Returns: number }
       normalize_question_text: { Args: { p_text: string }; Returns: string }
