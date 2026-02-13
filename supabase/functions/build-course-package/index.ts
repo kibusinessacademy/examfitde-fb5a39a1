@@ -29,17 +29,30 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  const { packageId, courseId, curriculumId, certificationId, options } =
-    await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({}));
+  const { packageId, courseId, curriculumId, certificationId, options } = body;
 
   try {
     assertUuid("package_id", packageId);
-    assertUuid("course_id", courseId);
-    assertUuid("curriculum_id", curriculumId);
-    assertUuid("certification_id", certificationId);
   } catch (e: unknown) {
     return json({ error: (e as Error).message }, 400);
   }
+
+  // Fetch package to get track + feature_flags + IDs
+  const { data: pkgRow, error: pkgErr } = await sb
+    .from("course_packages")
+    .select("id, course_id, certification_id, track, feature_flags")
+    .eq("id", packageId)
+    .single();
+
+  if (pkgErr || !pkgRow) {
+    return json({ error: "Package not found" }, 404);
+  }
+
+  const effectiveCourseId = courseId || pkgRow.course_id;
+  const effectiveCertId = certificationId || pkgRow.certification_id;
+  const featureFlags = pkgRow.feature_flags || {};
+  const track = pkgRow.track || "AUSBILDUNG_VOLL";
 
   // 0) Active-packages guard: max N packages building simultaneously
   const { data: budgetRow } = await sb
@@ -94,17 +107,18 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Derive options from feature_flags (Track-aware)
   const opts = {
-    include_learning_course: true,
-    include_exam_pool: true,
-    include_oral_exam: true,
-    include_ai_tutor: true,
-    include_handbook: true,
-    exam_target: 850, // Ship-Level: marktfähig, iterativ auf 1000
+    include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL"),
+    include_exam_pool: featureFlags.has_exam_trainer ?? true,
+    include_oral_exam: featureFlags.has_oral_exam_trainer ?? (track === "AUSBILDUNG_VOLL"),
+    include_ai_tutor: featureFlags.has_ai_tutor ?? (track === "AUSBILDUNG_VOLL"),
+    include_handbook: featureFlags.has_handbook ?? (track === "AUSBILDUNG_VOLL"),
+    exam_target: track === "EXAM_FIRST" ? 1000 : 850,
     ...(options || {}),
   };
 
-  // 3) Define pipeline steps → job_types
+  // 3) Define pipeline steps → job_types (Track-filtered)
   const steps: Array<{ step_key: string; job_type: string }> = [];
 
   if (opts.include_learning_course)

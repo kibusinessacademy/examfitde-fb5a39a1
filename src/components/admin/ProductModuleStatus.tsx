@@ -25,9 +25,18 @@ interface Props {
   packageId: string;
   courseId: string | null;
   certificationId: string | null;
+  featureFlags?: Record<string, boolean> | null;
 }
 
-export default function ProductModuleStatus({ packageId, courseId, certificationId }: Props) {
+const MODULE_FLAG_MAP: Record<string, string> = {
+  learning_course: 'has_learning_course',
+  exam_pool: 'has_exam_trainer',
+  oral_exam: 'has_oral_exam_trainer',
+  ai_tutor: 'has_ai_tutor',
+  handbook: 'has_handbook',
+};
+
+export default function ProductModuleStatus({ packageId, courseId, certificationId, featureFlags }: Props) {
   const [modules, setModules] = useState<ModuleStats[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -100,7 +109,15 @@ export default function ProductModuleStatus({ packageId, courseId, certification
       detail: `${hc} Kapitel (Ziel: 5)`,
     });
 
-    setModules(results);
+    // Filter by feature flags
+    const filtered = featureFlags
+      ? results.filter(m => {
+          const flag = MODULE_FLAG_MAP[m.key];
+          return !flag || featureFlags[flag] !== false;
+        })
+      : results;
+
+    setModules(filtered);
     setLoading(false);
   };
 
