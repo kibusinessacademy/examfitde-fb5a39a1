@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
     include_oral_exam: true,
     include_ai_tutor: true,
     include_handbook: true,
-    exam_target: 1000,
+    exam_target: 850, // Ship-Level: marktfähig, iterativ auf 1000
     ...(options || {}),
   };
 
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
     job_type: s.job_type,
     status: "pending",
     attempts: 0,
-    max_attempts: 3,
+    max_attempts: 25, // Mass Production: 429/Timeout nie als Final-Fail
     run_after: nowIso,
     payload: {
       job_version: "course_studio_v2",
