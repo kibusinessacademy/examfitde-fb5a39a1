@@ -125,8 +125,7 @@ Deno.serve(async (req) => {
         .insert({
           package_id: packageId,
           status: "approved",
-          plan_json: { auto_created: true, track, feature_flags: featureFlags },
-          approved_at: new Date().toISOString(),
+          plan: { auto_created: true, track, feature_flags: featureFlags },
         })
         .select("id")
         .maybeSingle();
