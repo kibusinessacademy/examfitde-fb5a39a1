@@ -38,6 +38,26 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
+  // ── Pre-Build Autofix: repair common blockers before building ──
+  try {
+    const autofixUrl = `${SUPABASE_URL}/functions/v1/prebuild-autofix`;
+    const afRes = await fetch(autofixUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ package_id: packageId }),
+    });
+    const afData = await afRes.json();
+    if (afData.fixes_applied > 0) {
+      console.log(`[BuildPkg] Autofix applied ${afData.fixes_applied} fixes for ${packageId}`);
+    }
+  } catch (afErr) {
+    // Non-fatal: log but continue with build
+    console.warn(`[BuildPkg] Autofix call failed (non-fatal):`, afErr);
+  }
+
   // Fetch package to get track + feature_flags + IDs
   const { data: pkgRow, error: pkgErr } = await sb
     .from("course_packages")
