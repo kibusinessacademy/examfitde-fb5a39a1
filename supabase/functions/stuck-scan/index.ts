@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
     // 3) Orphan detection: packages "building" with ZERO active jobs
     const { data: buildingPkgs } = await sb
       .from("course_packages")
-      .select("id, title, build_progress, updated_at")
+      .select("id, title, build_progress, updated_at, course_id")
       .eq("status", "building");
 
     const orphanResults: Array<{ package_id: string; action: string }> = [];
@@ -124,12 +124,44 @@ Deno.serve(async (req) => {
           }
           orphanResults.push({ package_id: pkg.id, action: `re-enqueued ${failedJobs.length} failed jobs` });
         } else {
-          // No recoverable jobs – mark as failed
-          await sb.from("course_packages").update({
-            status: "failed",
-            stuck_reason: "No active or retryable jobs remaining",
-          }).eq("id", pkg.id);
-          orphanResults.push({ package_id: pkg.id, action: "marked failed (no recoverable jobs)" });
+          // ── Fix 4: Exam-Pool Awareness ──
+          // Before marking failed, check if package needs more exam questions
+          const courseId = pkg.course_id;
+          let enqueudExamPool = false;
+          if (courseId) {
+            const { data: course } = await sb.from("courses").select("curriculum_id").eq("id", courseId).maybeSingle();
+            if (course?.curriculum_id) {
+              const { count: qCount } = await sb.from("exam_questions")
+                .select("id", { count: "exact", head: true })
+                .eq("curriculum_id", course.curriculum_id);
+              if ((qCount ?? 0) < 850) {
+                // Not enough questions — enqueue exam pool generation
+                await sb.from("job_queue").insert({
+                  job_type: "package_generate_exam_pool",
+                  status: "pending",
+                  attempts: 0,
+                  max_attempts: 25,
+                  run_after: new Date().toISOString(),
+                  payload: {
+                    package_id: pkg.id,
+                    curriculum_id: course.curriculum_id,
+                    options: { exam_target: 1000 },
+                    _stuck_scan_recovery: true,
+                  },
+                });
+                enqueudExamPool = true;
+                orphanResults.push({ package_id: pkg.id, action: `exam-pool recovery: ${qCount} questions < 850 target, enqueued new generation` });
+              }
+            }
+          }
+          if (!enqueudExamPool) {
+            // No recoverable jobs and enough questions – mark as failed
+            await sb.from("course_packages").update({
+              status: "failed",
+              stuck_reason: "No active or retryable jobs remaining",
+            }).eq("id", pkg.id);
+            orphanResults.push({ package_id: pkg.id, action: "marked failed (no recoverable jobs)" });
+          }
         }
       }
     }

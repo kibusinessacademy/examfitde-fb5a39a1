@@ -8,9 +8,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
  * - Fan-out: Groups blueprints by learning_field_id for parallel sub-jobs
  */
 const CHUNK_SIZE = 10;
-const AI_CHUNK_SIZE = 5;
-const AI_QUESTIONS_PER_BLUEPRINT = 15;
-const SHIP_TARGET = 1000;
+const AI_CHUNK_SIZE = 8;           // increased: process more BPs per run
+const AI_QUESTIONS_PER_BLUEPRINT = 30; // increased: generate more per BP
+const SHIP_TARGET = 850;           // ship-ready at 850, fill to 1000 in background
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -361,8 +361,8 @@ Deno.serve(async (req) => {
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
 
-    if (allBlueprintsProcessed || targetReached) {
-      // Only mark step as done if this is the main job (not a fan-out sub-job)
+    if (targetReached) {
+      // Target reached — mark step done
       if (!isFanOut) {
         await sb.rpc("update_course_package_step", {
           p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "done",
@@ -381,10 +381,19 @@ Deno.serve(async (req) => {
         ai_fallback: useAIFallback, fan_out: isFanOut,
         error_details: errors.slice(0, 5),
       });
+    } else if (allBlueprintsProcessed && !targetReached) {
+      // All blueprints processed but target NOT met → re-enqueue with index 0 to loop again
+      console.log(`[ExamPool] All BPs processed but only ${actualTotal}/${examTarget} — re-looping`);
+      return json({
+        ok: true, batch_complete: false,
+        batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: (batchCursor?.loop_count ?? 0) + 1 },
+        total_questions: actualTotal, chunk_errors: errors.length,
+        note: "Re-looping: all blueprints processed but target not reached",
+      });
     } else {
       return json({
         ok: true, batch_complete: false,
-        batch_cursor: { generated: actualTotal, blueprint_index: currentBpIndex, target: examTarget, blueprints_total: bps.length },
+        batch_cursor: { generated: actualTotal, blueprint_index: currentBpIndex, target: examTarget, blueprints_total: bps.length, loop_count: batchCursor?.loop_count ?? 0 },
         total_questions: actualTotal, chunk_errors: errors.length,
       });
     }
