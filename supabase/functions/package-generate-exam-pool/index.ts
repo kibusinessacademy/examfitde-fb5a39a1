@@ -411,12 +411,19 @@ Deno.serve(async (req) => {
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
+  // Heartbeat helper — call periodically to keep pipeline lock alive
+  const heartbeat = async () => {
+    try { await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId }); } catch { /* non-fatal */ }
+  };
+
   const failAndUnlock = async (msg: string) => {
     await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "failed", p_log: { error: msg },
     });
     await sb.from("course_package_locks").delete().eq("package_id", packageId);
+    // Release pipeline lock on failure
+    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
   };
 
   try {
@@ -489,6 +496,9 @@ Deno.serve(async (req) => {
     while (bpsProcessed < AI_CHUNK_SIZE && currentBpIndex < bps.length) {
       const bp = bps[currentBpIndex] as BlueprintInfo & { max_variations: number | null };
       
+      // Heartbeat pipeline lock every blueprint iteration
+      await heartbeat();
+
       // Distribute difficulty and question types across the chunk
       const questionsPerType = Math.max(1, Math.ceil(perBlueprint / 5));
       

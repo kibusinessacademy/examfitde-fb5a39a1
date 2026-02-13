@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { calculateHybridTarget, calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
+import { calculateHybridTarget } from "../_shared/hybridExamTarget.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,27 +39,37 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
-  // ── Pre-Build Autofix: repair common blockers before building ──
+  // ── Pipeline Lock Guard: am I the active package? ──
+  const { data: lock } = await sb
+    .from("pipeline_lock")
+    .select("active_package_id")
+    .eq("id", 1)
+    .single();
+
+  if (lock?.active_package_id !== packageId) {
+    console.warn(`[BuildPkg] ABORT: pipeline_lock active=${lock?.active_package_id}, but I am ${packageId}`);
+    return json({ error: "PIPELINE_LOCK_MISMATCH", detail: "Another package holds the pipeline lock." }, 409);
+  }
+
+  // Heartbeat immediately
+  await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId });
+
+  // ── Pre-Build Autofix ──
   try {
-    const autofixUrl = `${SUPABASE_URL}/functions/v1/prebuild-autofix`;
-    const afRes = await fetch(autofixUrl, {
+    const afRes = await fetch(`${SUPABASE_URL}/functions/v1/prebuild-autofix`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify({ package_id: packageId }),
     });
     const afData = await afRes.json();
     if (afData.fixes_applied > 0) {
-      console.log(`[BuildPkg] Autofix applied ${afData.fixes_applied} fixes for ${packageId}`);
+      console.log(`[BuildPkg] Autofix applied ${afData.fixes_applied} fixes`);
     }
   } catch (afErr) {
-    // Non-fatal: log but continue with build
     console.warn(`[BuildPkg] Autofix call failed (non-fatal):`, afErr);
   }
 
-  // Fetch package to get track + feature_flags + IDs
+  // Fetch package
   const { data: pkgRow, error: pkgErr } = await sb
     .from("course_packages")
     .select("id, course_id, certification_id, track, feature_flags")
@@ -67,6 +77,7 @@ Deno.serve(async (req) => {
     .single();
 
   if (pkgErr || !pkgRow) {
+    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
     return json({ error: "Package not found" }, 404);
   }
 
@@ -75,7 +86,7 @@ Deno.serve(async (req) => {
   const featureFlags = pkgRow.feature_flags || {};
   const track = pkgRow.track || "AUSBILDUNG_VOLL";
 
-  // Resolve curriculum_id from course (critical for downstream steps)
+  // Resolve curriculum_id
   let effectiveCurriculumId = curriculumId;
   if (!effectiveCurriculumId && effectiveCourseId) {
     const { data: courseRow } = await sb
@@ -86,42 +97,7 @@ Deno.serve(async (req) => {
     effectiveCurriculumId = courseRow?.curriculum_id || null;
   }
 
-  // 0) Active-packages guard: max N packages building simultaneously
-  const { data: budgetRow } = await sb
-    .from("llm_budget")
-    .select("max_active_packages")
-    .limit(1)
-    .maybeSingle();
-  const maxActive = budgetRow?.max_active_packages ?? 4;
-
-  const { count: buildingCount } = await sb
-    .from("course_packages")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "building")
-    .neq("id", packageId);
-
-  if ((buildingCount ?? 0) >= maxActive) {
-    return json(
-      { code: "SEQUENTIAL_QUEUE", error: `Bereits ${buildingCount} Pakete aktiv (max ${maxActive}). Dieses Paket wird automatisch gestartet, sobald ein Slot frei wird.` },
-      409
-    );
-  }
-
-  // 1) Acquire package lock (prevents double enqueue)
-  const lockRes = await sb
-    .from("course_package_locks")
-    .insert({ package_id: packageId })
-    .select("package_id")
-    .maybeSingle();
-
-  if (lockRes.error) {
-    return json(
-      { code: "PACKAGE_LOCKED", error: "Build already running/enqueued for this package." },
-      409
-    );
-  }
-
-  // 2) Ensure approved plan exists (Council gate) – auto-create if council_approved
+  // ── Council plan gate (auto-create if council_approved) ──
   let { data: planRow } = await sb
     .from("course_package_plans")
     .select("id")
@@ -132,7 +108,6 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   if (!planRow) {
-    // Check if council is approved on the package itself
     const { data: pkgCheck } = await sb
       .from("course_packages")
       .select("council_approved")
@@ -140,7 +115,6 @@ Deno.serve(async (req) => {
       .single();
 
     if (pkgCheck?.council_approved) {
-      // Auto-create an approved plan so the build can proceed
       const { data: newPlan, error: planInsErr } = await sb
         .from("course_package_plans")
         .insert({
@@ -151,20 +125,17 @@ Deno.serve(async (req) => {
         .select("id")
         .maybeSingle();
       if (planInsErr || !newPlan) {
-        await sb.from("course_package_locks").delete().eq("package_id", packageId);
+        await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
         return json({ error: "Could not create build plan: " + (planInsErr?.message || "unknown") }, 400);
       }
       planRow = newPlan;
     } else {
-      await sb.from("course_package_locks").delete().eq("package_id", packageId);
-      return json(
-        { error: "No approved course_package_plan found (Council approval required)." },
-        400
-      );
+      await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
+      return json({ error: "No approved course_package_plan found (Council approval required)." }, 400);
     }
   }
 
-  // ── HYBRID TARGET ENGINE v3 ──
+  // ── Hybrid Target Engine ──
   let ausbildungsDauer: number | null = null;
   let certCatalogData: {
     exam_complexity_score?: number;
@@ -175,22 +146,13 @@ Deno.serve(async (req) => {
   } = {};
 
   if (effectiveCurriculumId) {
-    const { data: currRow } = await sb
-      .from("curricula")
-      .select("beruf_id")
-      .eq("id", effectiveCurriculumId)
-      .maybeSingle();
+    const { data: currRow } = await sb.from("curricula").select("beruf_id").eq("id", effectiveCurriculumId).maybeSingle();
     if (currRow?.beruf_id) {
-      const { data: berufRow } = await sb
-        .from("berufe")
-        .select("ausbildungsdauer_monate")
-        .eq("id", currRow.beruf_id)
-        .maybeSingle();
+      const { data: berufRow } = await sb.from("berufe").select("ausbildungsdauer_monate").eq("id", currRow.beruf_id).maybeSingle();
       ausbildungsDauer = berufRow?.ausbildungsdauer_monate ?? null;
     }
   }
 
-  // Fetch hybrid target fields from certification_catalog
   if (effectiveCertId) {
     const { data: catRow } = await sb
       .from("certification_catalog")
@@ -207,12 +169,12 @@ Deno.serve(async (req) => {
     mathRatio: certCatalogData.math_ratio ?? 0.15,
     oralComponent: certCatalogData.oral_component ?? false,
     learningFieldCount: certCatalogData.learning_field_count ?? 0,
-    certificationLevel: certCatalogData.certification_level ?? 'ausbildung',
+    certificationLevel: certCatalogData.certification_level ?? "ausbildung",
   });
 
-  console.log(`[BuildPkg] Hybrid Target: ${hybridResult.target} (ship: ${hybridResult.shipTarget})`, hybridResult.breakdown);
+  console.log(`[BuildPkg] Hybrid Target: ${hybridResult.target} (ship: ${hybridResult.shipTarget})`);
 
-  // Derive options from feature_flags (Track-aware) + Hybrid Engine
+  // Build options from feature_flags + Hybrid Engine
   const opts = {
     include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL"),
     include_exam_pool: featureFlags.has_exam_trainer ?? true,
@@ -227,7 +189,7 @@ Deno.serve(async (req) => {
     ...(options || {}),
   };
 
-  // 3) Define pipeline steps → job_types (Track-filtered)
+  // ── Define pipeline steps ──
   const steps: Array<{ step_key: string; job_type: string }> = [];
 
   if (opts.include_learning_course)
@@ -241,18 +203,19 @@ Deno.serve(async (req) => {
   if (opts.include_handbook)
     steps.push({ step_key: "generate_handbook", job_type: "package_generate_handbook" });
 
-  // Always run integrity + publish
   steps.push({ step_key: "run_integrity_check", job_type: "package_run_integrity_check" });
   steps.push({ step_key: "auto_publish", job_type: "package_auto_publish" });
 
-  // 4) Init build steps in DB (UI sees queued steps immediately)
+  // Init build steps
   await sb.rpc("init_course_package_steps", {
     p_package_id: packageId,
     p_steps: steps.map((s) => s.step_key),
   });
 
-  // 5) Enqueue jobs into job_queue (Runner/pg_cron picks them up)
-  // Alternate provider between openai (GPT-5.2) and anthropic (Claude Opus) for parallel throughput
+  // Heartbeat again before enqueuing jobs
+  await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId });
+
+  // Enqueue jobs
   const nowIso = new Date().toISOString();
   const jobs = steps.map((s, idx) => ({
     job_type: s.job_type,
@@ -275,15 +238,15 @@ Deno.serve(async (req) => {
 
   const ins = await sb.from("job_queue").insert(jobs).select("id");
   if (ins.error) {
-    await sb.from("course_package_locks").delete().eq("package_id", packageId);
+    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
     return json({ error: ins.error.message }, 500);
   }
 
-  // 6) Mark package as building
+  // Mark package as building
   await sb
     .from("course_packages")
     .update({ status: "building", build_progress: 1 })
     .eq("id", packageId);
 
-  return json({ ok: true, enqueued: ins.data?.length || jobs.length, packageId });
+  return json({ ok: true, enqueued: ins.data?.length || jobs.length, packageId, pipeline_lock: "held" });
 });
