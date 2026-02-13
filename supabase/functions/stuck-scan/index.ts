@@ -88,23 +88,71 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3) Alert if there are stuck packages
-    if (results.filter(r => r.retried === 0).length > 0) {
+    // 3) Orphan detection: packages "building" with ZERO active jobs
+    const { data: buildingPkgs } = await sb
+      .from("course_packages")
+      .select("id, title, build_progress, updated_at")
+      .eq("status", "building");
+
+    const orphanResults: Array<{ package_id: string; action: string }> = [];
+    for (const pkg of buildingPkgs || []) {
+      const { count: activeJobs } = await sb
+        .from("job_queue")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "processing"])
+        .eq("payload->>package_id", pkg.id);
+
+      if ((activeJobs ?? 0) === 0) {
+        // Check if there are failed jobs we can re-enqueue
+        const { data: failedJobs } = await sb
+          .from("job_queue")
+          .select("id, job_type, attempts, max_attempts, payload")
+          .eq("status", "failed")
+          .eq("payload->>package_id", pkg.id)
+          .lt("attempts", 25);
+
+        if (failedJobs && failedJobs.length > 0) {
+          // Re-enqueue failed jobs with reset attempts
+          for (const fj of failedJobs) {
+            await sb.from("job_queue").update({
+              status: "pending",
+              attempts: fj.attempts,
+              run_after: new Date(Date.now() + 10_000).toISOString(),
+              locked_at: null,
+              locked_by: null,
+            }).eq("id", fj.id);
+          }
+          orphanResults.push({ package_id: pkg.id, action: `re-enqueued ${failedJobs.length} failed jobs` });
+        } else {
+          // No recoverable jobs – mark as failed
+          await sb.from("course_packages").update({
+            status: "failed",
+            stuck_reason: "No active or retryable jobs remaining",
+          }).eq("id", pkg.id);
+          orphanResults.push({ package_id: pkg.id, action: "marked failed (no recoverable jobs)" });
+        }
+      }
+    }
+
+    // 4) Alert if there are stuck packages
+    const allStuck = [...results.filter(r => r.retried === 0), ...orphanResults.filter(o => o.action.includes("failed"))];
+    if (allStuck.length > 0) {
       await sb.from("admin_notifications").insert({
-        title: `${results.filter(r => r.retried === 0).length} Package(s) stuck`,
-        body: `Packages ohne Fortschritt seit ${packageTimeout}min ohne retryable Jobs.`,
+        title: `${allStuck.length} Package(s) stuck/orphaned`,
+        body: `Pakete ohne Fortschritt oder verwaiste Builds erkannt.`,
         category: "ops",
         severity: "warning",
-        metadata: { stuck_packages: results.filter(r => r.retried === 0).map(r => r.package_id) },
+        metadata: { details: allStuck },
       });
     }
 
-    console.log(`[stuck-scan] ${results.length} packages checked, ${staleCount ?? 0} stale jobs reset, heartbeat=${heartbeatTimeout}s, pkg_timeout=${packageTimeout}min`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount ?? 0} stale jobs reset`);
 
     return json({
       ok: true,
       config: { heartbeat_timeout_s: heartbeatTimeout, package_timeout_min: packageTimeout },
       stuck_packages: results,
+      orphan_packages: orphanResults,
       stale_jobs_reset: staleCount ?? 0,
     });
   } catch (e: unknown) {
