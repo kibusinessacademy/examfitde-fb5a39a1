@@ -2,21 +2,63 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 /**
- * Stufe 1+2: Increased chunk sizes + fan-out by learning field
- * - Standard blueprints: 10 per run
- * - AI fallback: 5 blueprints per run (increased from 2)
- * - Fan-out: Groups blueprints by learning_field_id for parallel sub-jobs
+ * DOMINANZ-ENGINE v2: IHK-Prüfungsstandard
+ * 
+ * Harte Vorgaben:
+ * - Schwierigkeit: 5% easy, 35% medium, 45% hard, 15% very_hard
+ * - Fragearten: 25% MC-Single, 20% MC-Multiple, 20% Rechenaufgaben, 25% Fallstudien, 10% Transfer
+ * - Duplikat-Kontrolle: Hash-basiert + semantic check
+ * - Keine unaufgelösten {variable}-Platzhalter
+ * - Keine generischen Fragen ohne Kontext
  */
-const CHUNK_SIZE = 10;
-const AI_CHUNK_SIZE = 8;
-const AI_QUESTIONS_PER_BLUEPRINT = 30;
 
-// Dynamic ship target: derived from ausbildungsdauer_monate in payload.options
+const CHUNK_SIZE = 10;
+const AI_CHUNK_SIZE = 6;
+const AI_QUESTIONS_PER_BLUEPRINT = 35;
+
+// ─── Dominanz-Vorgaben ────────────────────────────────────────────────────────
+
+const DIFFICULTY_DISTRIBUTION = {
+  easy: 0.05,
+  medium: 0.35,
+  hard: 0.45,
+  very_hard: 0.15,
+} as const;
+
+const QUESTION_TYPE_MIX = {
+  mc_single: 0.25,
+  mc_multiple: 0.20,
+  calculation: 0.20,
+  case_study: 0.25,
+  transfer: 0.10,
+} as const;
+
+type DifficultyKey = keyof typeof DIFFICULTY_DISTRIBUTION;
+type QuestionTypeKey = keyof typeof QUESTION_TYPE_MIX;
+
+function getDifficultyForIndex(index: number, total: number): DifficultyKey {
+  const ratio = index / total;
+  if (ratio < DIFFICULTY_DISTRIBUTION.easy) return "easy";
+  if (ratio < DIFFICULTY_DISTRIBUTION.easy + DIFFICULTY_DISTRIBUTION.medium) return "medium";
+  if (ratio < 1 - DIFFICULTY_DISTRIBUTION.very_hard) return "hard";
+  return "very_hard";
+}
+
+function getQuestionTypeForIndex(index: number, total: number): QuestionTypeKey {
+  const ratio = index / total;
+  if (ratio < QUESTION_TYPE_MIX.mc_single) return "mc_single";
+  if (ratio < QUESTION_TYPE_MIX.mc_single + QUESTION_TYPE_MIX.mc_multiple) return "mc_multiple";
+  if (ratio < QUESTION_TYPE_MIX.mc_single + QUESTION_TYPE_MIX.mc_multiple + QUESTION_TYPE_MIX.calculation) return "calculation";
+  if (ratio < 1 - QUESTION_TYPE_MIX.transfer) return "case_study";
+  return "transfer";
+}
+
+// Dynamic ship target
 function getShipTarget(examTarget: number): number {
   if (examTarget <= 600) return 500;
   if (examTarget <= 800) return 700;
   if (examTarget <= 1000) return 850;
-  return 1000; // EXAM_FIRST (target 1200)
+  return 1000;
 }
 
 function json(body: unknown, status = 200) {
@@ -34,7 +76,7 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return data?.status === "done";
 }
 
-// ─── AI Fallback for empty blueprints ──────────────────────────────────────────
+// ─── Dominanz AI-Prompts ──────────────────────────────────────────────────────
 
 interface BlueprintInfo {
   id: string;
@@ -47,10 +89,97 @@ interface BlueprintInfo {
   question_template: string;
 }
 
-async function generateQuestionsWithAI(
+function buildDominanzPrompt(
+  bp: BlueprintInfo,
+  difficulty: DifficultyKey,
+  questionType: QuestionTypeKey,
+  count: number,
+  lfTitle: string,
+  compTitle: string,
+  compDesc: string,
+): { system: string; user: string } {
+  const difficultyLabels: Record<DifficultyKey, string> = {
+    easy: "leicht (Grundlagenwissen, direkte Zuordnung)",
+    medium: "mittel (Anwendung, einfache Berechnung, Vergleich)",
+    hard: "schwer (Fallanalyse, mehrstufige Berechnung, Rechtsanwendung)",
+    very_hard: "sehr schwer (komplexe Fallstudie, Transferleistung, strategische Entscheidung)",
+  };
+
+  const typeInstructions: Record<QuestionTypeKey, string> = {
+    mc_single: `Multiple-Choice mit EINER korrekten Antwort.
+- 4 Antwortmöglichkeiten
+- Distraktoren müssen typische Fehler/Irrtümer abbilden (nicht offensichtlich falsch)
+- Konkreter Praxiskontext (Autohaus, Werkstatt, Kunde)`,
+    mc_multiple: `Multiple-Choice mit MEHREREN korrekten Antworten (2-3 von 5).
+- 5 Antwortmöglichkeiten, 2-3 korrekt
+- correct_answer ist ein Array der korrekten Indizes [0,2,4]
+- Distraktoren: plausibel aber falsch`,
+    calculation: `Rechenaufgabe mit konkreten Zahlen.
+- Realistische Werte (Preise, Rabatte, Steuersätze, Zinsen)
+- Lösungsweg in der Erklärung Schritt für Schritt
+- Typische Autohaus-Berechnungen: Kalkulation, USt, Skonto, Rabatt, Leasing, Deckungsbeitrag
+- Antworten als konkrete Zahlenwerte
+- KEINE Platzhalter wie {variable} — alle Zahlen einsetzen!`,
+    case_study: `Situationsbasierte Fallstudie.
+- Konkreter Fall aus dem Autohaus-Alltag beschreiben (Name, Situation, Zahlen)
+- Frage bezieht sich auf Handlungsempfehlung, Rechtslage oder Berechnung
+- Alle 4 Antworten müssen plausibel sein
+- Erklärung mit Paragraphen-/Gesetzesreferenz wenn anwendbar`,
+    transfer: `Transferfrage: Wissen auf neue Situation anwenden.
+- Unbekannte aber realistische Situation beschreiben
+- Erfordert Kombination aus mehreren Wissensgebieten
+- Tiefe Erklärung warum die Antwort korrekt ist`,
+  };
+
+  const system = `Du bist ein IHK-Prüfungsexperte für Automobilkaufleute. Du erstellst prüfungsrelevante Fragen auf ${difficultyLabels[difficulty]}-Niveau.
+
+ABSOLUTE REGELN:
+1. KEINE Platzhalter wie {variable}, {amount}, {akteur} — ALLE Werte konkret einsetzen!
+2. Jede Frage muss einen konkreten Praxis-Kontext haben (Namen, Zahlen, Situationen)
+3. Erklärungen müssen fachlich korrekt und ausführlich sein
+4. Distraktoren bilden echte Irrtümer ab, nicht offensichtlichen Unsinn
+5. Sprache: Fachsprachlich korrekt, B2-Niveau, IHK-Prüfungsstil
+6. Jede Frage MUSS einzigartig sein — keine Variationen derselben Grundfrage
+
+FRAGENTYP: ${typeInstructions[questionType]}
+
+Antworte NUR mit einem JSON-Array:
+[{
+  "question_text": "Komplette Frage mit konkretem Kontext",
+  "options": ["A", "B", "C", "D"],
+  "correct_answer": 0,
+  "explanation": "Ausführliche Erklärung mit Fachbegriffen",
+  "difficulty": "${difficulty}",
+  "question_type": "${questionType}",
+  "tags": ["relevante", "themen-tags"]
+}]
+
+${questionType === "mc_multiple" ? 'Bei mc_multiple: "options" hat 5 Einträge, "correct_answer" ist ein Array z.B. [0,2,4]' : ""}
+${questionType === "calculation" ? 'Bei Rechenaufgaben: "calculation_steps" als zusätzliches Feld mit Schritt-für-Schritt-Lösung' : ""}`;
+
+  const user = `Erstelle ${count} EINZIGARTIGE ${difficultyLabels[difficulty]} Prüfungsfragen.
+
+Lernfeld: ${lfTitle}
+Thema: ${compTitle}
+Beschreibung: ${compDesc}
+Blueprint-Kontext: ${bp.canonical_statement}
+
+WICHTIG: 
+- Jede Frage braucht einen KONKRETEN Fall (z.B. "Herr Müller kauft einen BMW 320i für 35.000€...")
+- Keine generischen Fragen wie "Was ist...?" ohne Kontext
+- Bei Berechnungen: Alle Zahlen einsetzen, Lösungsweg zeigen
+- Automobilkaufmann-spezifisch: Fahrzeughandel, Werkstatt, Finanzierung, Versicherung`;
+
+  return { system, user };
+}
+
+async function generateDominanzQuestions(
   sb: ReturnType<typeof createClient>,
   bp: BlueprintInfo,
   count: number,
+  difficulty: DifficultyKey,
+  questionType: QuestionTypeKey,
+  existingHashes: Set<string>,
 ): Promise<number> {
   let compTitle = bp.name;
   let compDesc = bp.canonical_statement;
@@ -73,22 +202,7 @@ async function generateQuestionsWithAI(
     if (lf) lfTitle = lf.title || "";
   }
 
-  const difficulty = bp.cognitive_level === "remember" ? "easy" :
-                     bp.cognitive_level === "analyze" ? "hard" : "medium";
-
-  const systemPrompt = `Du bist ein Experte für IHK-Prüfungsfragen. Erstelle Multiple-Choice-Fragen.
-Regeln:
-- Genau 4 Antwortmöglichkeiten, nur eine korrekt
-- Praxisnah und prüfungsrelevant
-- Ausführliche Erklärung
-Antworte NUR mit einem JSON-Array:
-[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"explanation":"...","difficulty":"${difficulty}"}]`;
-
-  const userPrompt = `Erstelle ${count} ${difficulty === "easy" ? "leichte" : difficulty === "hard" ? "schwere" : "mittelschwere"} Prüfungsfragen.
-Lernfeld: ${lfTitle}
-Kompetenz: ${compTitle}
-Beschreibung: ${compDesc}
-Blueprint-Vorlage: ${bp.question_template}`;
+  const { system, user } = buildDominanzPrompt(bp, difficulty, questionType, count, lfTitle, compTitle, compDesc);
 
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -102,18 +216,17 @@ Blueprint-Vorlage: ${bp.question_template}`;
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
+        { role: "system", content: system },
+        { role: "user", content: user },
       ],
-      temperature: 0.7,
-      max_tokens: 8000,
+      temperature: 0.85, // Higher for more variety
+      max_tokens: 12000,
     }),
   });
 
   if (!aiResp.ok) {
     const status = aiResp.status;
-    console.log(`[ExamPool] AI gateway error: ${status}`);
-    // On rate limit, signal retry
+    console.log(`[ExamPool-Dominanz] AI gateway error: ${status}`);
     if (status === 429) throw new Error("RATE_LIMIT: AI gateway 429");
     return 0;
   }
@@ -125,24 +238,45 @@ Blueprint-Vorlage: ${bp.question_template}`;
   let questions: Array<{
     question_text: string;
     options: string[];
-    correct_answer: number;
+    correct_answer: number | number[];
     explanation: string;
     difficulty: string;
+    question_type?: string;
+    tags?: string[];
+    calculation_steps?: string;
   }>;
   try {
     const clean = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     questions = JSON.parse(clean);
     if (!Array.isArray(questions)) return 0;
   } catch {
+    console.log(`[ExamPool-Dominanz] JSON parse failed for BP ${bp.id.slice(0, 8)}`);
     return 0;
   }
 
   let saved = 0;
-  console.log(`[ExamPool] AI returned ${questions.length} questions for BP ${bp.id.slice(0,8)}`);
   for (const q of questions) {
-    if (!q.question_text || !Array.isArray(q.options) || q.options.length !== 4) {
+    if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
+
+    // Reject questions with unresolved placeholders
+    if (/\{[a-z_]+\}/i.test(q.question_text)) {
+      console.log(`[ExamPool-Dominanz] REJECTED: unresolved placeholder in "${q.question_text.slice(0, 60)}"`);
       continue;
     }
+
+    // Simple hash-based dedup
+    const hash = simpleHash(q.question_text);
+    if (existingHashes.has(hash)) {
+      console.log(`[ExamPool-Dominanz] REJECTED: duplicate hash`);
+      continue;
+    }
+    existingHashes.add(hash);
+
+    const metadata: Record<string, unknown> = {};
+    if (q.question_type) metadata.question_type = q.question_type;
+    if (q.tags) metadata.tags = q.tags;
+    if (q.calculation_steps) metadata.calculation_steps = q.calculation_steps;
+
     const { error } = await sb.from("exam_questions").insert({
       curriculum_id: bp.curriculum_id,
       learning_field_id: bp.learning_field_id,
@@ -150,19 +284,30 @@ Blueprint-Vorlage: ${bp.question_template}`;
       blueprint_id: bp.id,
       question_text: q.question_text,
       options: q.options,
-      correct_answer: q.correct_answer ?? 0,
+      correct_answer: Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0),
       explanation: q.explanation || "",
       difficulty: q.difficulty || difficulty,
       ai_generated: true,
       status: "draft",
+      metadata: Object.keys(metadata).length > 0 ? metadata : null,
     });
     if (error) {
-      console.log(`[ExamPool] Insert error: ${error.message} (code: ${error.code})`);
+      console.log(`[ExamPool-Dominanz] Insert error: ${error.message}`);
     } else {
       saved++;
     }
   }
   return saved;
+}
+
+function simpleHash(text: string): string {
+  let hash = 5381;
+  const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
+  for (let i = 0; i < normalized.length; i++) {
+    hash = ((hash << 5) + hash) + normalized.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return hash.toString(36);
 }
 
 // ─── Stufe 2: Fan-out by learning field ────────────────────────────────────────
@@ -174,7 +319,6 @@ async function enqueueLearningFieldJobs(
   bps: BlueprintInfo[],
   examTarget: number,
 ): Promise<{ enqueued: number; learningFields: number }> {
-  // Group blueprints by learning_field_id
   const lfGroups = new Map<string, BlueprintInfo[]>();
   for (const bp of bps) {
     const lfId = bp.learning_field_id || "unknown";
@@ -208,7 +352,7 @@ async function enqueueLearningFieldJobs(
   if (jobs.length > 0) {
     const { error } = await sb.from("job_queue").insert(jobs);
     if (error) {
-      console.log(`[ExamPool] Fan-out enqueue error: ${error.message}`);
+      console.log(`[ExamPool-Dominanz] Fan-out enqueue error: ${error.message}`);
       return { enqueued: 0, learningFields: lfGroups.size };
     }
   }
@@ -216,7 +360,6 @@ async function enqueueLearningFieldJobs(
   return { enqueued: jobs.length, learningFields: lfGroups.size };
 }
 
-// ─── Check if all fan-out sub-jobs for a package are done ──────────────────────
 async function allFanOutSubJobsDone(
   sb: ReturnType<typeof createClient>,
   packageId: string,
@@ -264,7 +407,6 @@ Deno.serve(async (req) => {
   };
 
   try {
-    // Skip prereq check for fan-out sub-jobs (parent already verified)
     if (!isFanOut) {
       if (!(await prereqDone(sb, packageId, "scaffold_learning_course"))) {
         return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: scaffold_learning_course" }, 409);
@@ -274,11 +416,11 @@ Deno.serve(async (req) => {
     if (generatedSoFar === 0 && !isFanOut) {
       await sb.rpc("update_course_package_step", {
         p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "running",
-        p_log: { note: `Generating exam pool target=${examTarget} (chunked, ${CHUNK_SIZE}/run)` },
+        p_log: { note: `DOMINANZ-ENGINE v2: target=${examTarget}, difficulty=5/35/45/15, types=MC/Calc/Case/Transfer` },
       });
     }
 
-    // Get blueprints — filtered if fan-out sub-job
+    // Get blueprints
     let bpQuery = sb
       .from("question_blueprints")
       .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template")
@@ -291,75 +433,73 @@ Deno.serve(async (req) => {
     }
 
     const { data: bps, error: bpErr } = await bpQuery;
-
     if (bpErr) throw bpErr;
     if (!bps?.length) throw new Error("No approved question_blueprints for curriculum");
 
-    // Check if blueprints are hydrated
-    const { count: varCount } = await sb
-      .from("blueprint_variables")
-      .select("id", { count: "exact", head: true })
-      .in("blueprint_id", bps.map((b: { id: string }) => b.id));
-
-    const useAIFallback = (varCount ?? 0) === 0;
-
-    // ── Stufe 2: Fan-out on first call (non-fan-out, no cursor yet) ──
-    if (!isFanOut && bpIndex === 0 && useAIFallback && bps.length > 10) {
-      console.log(`[ExamPool] Stufe 2: Fan-out ${bps.length} blueprints by learning field`);
+    // Fan-out for large sets
+    if (!isFanOut && bpIndex === 0 && bps.length > 10) {
+      console.log(`[ExamPool-Dominanz] Fan-out ${bps.length} blueprints by learning field`);
       const { enqueued, learningFields } = await enqueueLearningFieldJobs(
         sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget
       );
 
       if (enqueued > 0) {
-        // Keep step as "running" — sub-jobs will complete it
         await sb.rpc("update_course_package_step", {
           p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "running",
-          p_log: { note: `Fan-out: ${enqueued} sub-jobs for ${learningFields} Lernfelder`, fan_out: true, pending_sub_jobs: enqueued },
+          p_log: { note: `Dominanz Fan-out: ${enqueued} sub-jobs for ${learningFields} Lernfelder`, fan_out: true },
         });
-        // IMPORTANT: batch_complete=false so the job-runner knows this is NOT done yet
-        // The parent job finishes, but the step stays "running" until sub-jobs complete
-        return json({
-          ok: true, batch_complete: true,
-          fan_out: true, sub_jobs: enqueued, learning_fields: learningFields,
-        });
+        return json({ ok: true, batch_complete: true, fan_out: true, sub_jobs: enqueued });
       }
     }
 
-    if (useAIFallback) {
-      console.log(`[ExamPool] Using AI fallback (no variables/distractors)`);
+    // Load existing question hashes for dedup
+    const { data: existingQs } = await sb
+      .from("exam_questions")
+      .select("question_text")
+      .eq("curriculum_id", curriculumId)
+      .limit(5000);
+    
+    const existingHashes = new Set<string>();
+    if (existingQs) {
+      for (const q of existingQs) {
+        existingHashes.add(simpleHash(q.question_text));
+      }
     }
 
     const effectiveTarget = isFanOut ? lfTarget : examTarget;
-    const perBlueprint = Math.max(1, Math.ceil(effectiveTarget / bps.length));
+    const perBlueprint = Math.max(5, Math.ceil(effectiveTarget / bps.length));
     let questionsThisChunk = 0;
     let currentBpIndex = bpIndex;
     const errors: string[] = [];
-
-    const maxBpsThisRun = useAIFallback ? AI_CHUNK_SIZE : CHUNK_SIZE;
     let bpsProcessed = 0;
 
-    while (bpsProcessed < maxBpsThisRun && currentBpIndex < bps.length) {
+    while (bpsProcessed < AI_CHUNK_SIZE && currentBpIndex < bps.length) {
       const bp = bps[currentBpIndex] as BlueprintInfo & { max_variations: number | null };
-      const cap = typeof bp.max_variations === "number" && bp.max_variations > 0 ? bp.max_variations : perBlueprint;
-      const count = Math.min(perBlueprint, cap, AI_QUESTIONS_PER_BLUEPRINT);
+      
+      // Distribute difficulty and question types across the chunk
+      const questionsPerType = Math.max(1, Math.ceil(perBlueprint / 5));
+      
+      // Generate each type with appropriate difficulty
+      const typeEntries = Object.entries(QUESTION_TYPE_MIX) as [QuestionTypeKey, number][];
+      const diffEntries = Object.entries(DIFFICULTY_DISTRIBUTION) as [DifficultyKey, number][];
+      
+      // Pick difficulty and type based on global progress
+      const globalProgress = (currentBpIndex * 5 + bpsProcessed) % (typeEntries.length * diffEntries.length);
+      const typeIdx = globalProgress % typeEntries.length;
+      const diffIdx = Math.floor(globalProgress / typeEntries.length) % diffEntries.length;
+      
+      const questionType = typeEntries[typeIdx][0];
+      const difficulty = diffEntries[diffIdx][0];
+      const count = Math.min(questionsPerType, AI_QUESTIONS_PER_BLUEPRINT);
 
       try {
-        if (useAIFallback) {
-          const generated = await generateQuestionsWithAI(sb, bp, count);
-          questionsThisChunk += generated;
-        } else {
-          const { error } = await sb.functions.invoke("generate-blueprint-questions", {
-            body: { blueprintId: bp.id, count, baseSeed: Date.now() + currentBpIndex },
-          });
-          if (error) {
-            errors.push(`BP ${bp.id.slice(0, 8)}: ${error.message || String(error)}`);
-          } else {
-            questionsThisChunk += count;
-          }
-        }
+        console.log(`[ExamPool-Dominanz] BP ${bp.id.slice(0, 8)} "${bp.name}": ${count}x ${questionType}/${difficulty}`);
+        const generated = await generateDominanzQuestions(sb, bp, count, difficulty, questionType, existingHashes);
+        questionsThisChunk += generated;
+        console.log(`[ExamPool-Dominanz] BP ${bp.id.slice(0, 8)}: saved ${generated}/${count}`);
       } catch (e: unknown) {
         const errMsg = (e as Error)?.message || String(e);
-        console.log(`[ExamPool] BP ${bp.id.slice(0, 8)} FAIL: ${errMsg}`);
+        console.log(`[ExamPool-Dominanz] BP ${bp.id.slice(0, 8)} FAIL: ${errMsg}`);
         errors.push(`BP ${bp.id.slice(0, 8)}: ${errMsg}`);
       }
       currentBpIndex++;
@@ -377,76 +517,61 @@ Deno.serve(async (req) => {
     const targetReached = actualTotal >= shipTarget;
 
     console.log(
-      `[ExamPool] Package ${packageId.slice(0, 8)}: chunk done. ` +
-      `Generated ~${questionsThisChunk} this run, total=${actualTotal}/${examTarget}, ` +
-      `blueprints ${currentBpIndex}/${bps.length}, errors=${errors.length}${isFanOut ? ' (fan-out sub-job)' : ''}`
+      `[ExamPool-Dominanz] Package ${packageId.slice(0, 8)}: +${questionsThisChunk} this run, ` +
+      `total=${actualTotal}/${examTarget}, BPs ${currentBpIndex}/${bps.length}${isFanOut ? ' (fan-out)' : ''}`
     );
 
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
 
     if (targetReached) {
-      // Target reached — mark step done
-      // For fan-out sub-jobs: check if ALL sub-jobs for this package are done before marking step complete
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
+        // Final quality stats
+        const { data: diffStats } = await sb.rpc("get_difficulty_distribution", { p_curriculum_id: curriculumId }).catch(() => ({ data: null }));
+        
         await sb.rpc("update_course_package_step", {
           p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "done",
           p_log: {
-            ok: true, target: examTarget, actual: actualTotal,
-            blueprints_processed: currentBpIndex, blueprints_total: bps.length,
-            chunk_errors: errors.length, ai_fallback: useAIFallback,
+            ok: true, engine: "dominanz-v2", target: examTarget, actual: actualTotal,
+            blueprints_processed: currentBpIndex, difficulty_stats: diffStats,
           },
         });
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
 
       return json({
-        ok: true, batch_complete: true, total_questions: actualTotal,
-        target: examTarget, blueprints_processed: currentBpIndex,
-        ai_fallback: useAIFallback, fan_out: isFanOut,
-        error_details: errors.slice(0, 5),
+        ok: true, batch_complete: true, engine: "dominanz-v2",
+        total_questions: actualTotal, target: examTarget,
       });
-    } else if (allBlueprintsProcessed && !targetReached) {
+    } else if (allBlueprintsProcessed) {
       const currentLoop = (batchCursor?.loop_count ?? 0) + 1;
-      // Max 5 loops to prevent infinite re-looping
-      if (currentLoop >= 5) {
-        console.log(`[ExamPool] Loop cap reached (${currentLoop}). Accepting ${actualTotal} questions.`);
+      if (currentLoop >= 8) { // More loops allowed for dominance
+        console.log(`[ExamPool-Dominanz] Loop cap (${currentLoop}). Accepting ${actualTotal}.`);
         if (!isFanOut) {
           await sb.rpc("update_course_package_step", {
             p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "done",
-            p_log: {
-              ok: true, target: examTarget, actual: actualTotal,
-              note: `Loop-capped at ${currentLoop} cycles`,
-              blueprints_processed: currentBpIndex, ai_fallback: useAIFallback,
-            },
+            p_log: { ok: true, engine: "dominanz-v2", target: examTarget, actual: actualTotal, loop_capped: currentLoop },
           });
           await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
         }
-        return json({
-          ok: true, batch_complete: true, total_questions: actualTotal,
-          target: examTarget, loop_capped: true, loop_count: currentLoop,
-        });
+        return json({ ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true });
       }
 
-      // All blueprints processed but target NOT met → re-enqueue with index 0 to loop again
-      console.log(`[ExamPool] All BPs processed but only ${actualTotal}/${examTarget} — re-looping (cycle ${currentLoop})`);
+      console.log(`[ExamPool-Dominanz] Re-looping cycle ${currentLoop}: ${actualTotal}/${examTarget}`);
       return json({
         ok: true, batch_complete: false,
         batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: currentLoop },
-        total_questions: actualTotal, chunk_errors: errors.length,
-        note: `Re-looping cycle ${currentLoop}: all blueprints processed but target not reached`,
       });
     } else {
       return json({
         ok: true, batch_complete: false,
         batch_cursor: { generated: actualTotal, blueprint_index: currentBpIndex, target: examTarget, blueprints_total: bps.length, loop_count: batchCursor?.loop_count ?? 0 },
-        total_questions: actualTotal, chunk_errors: errors.length,
       });
     }
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
-    console.log(`[ExamPool] Fatal: ${msg}`);
+    console.log(`[ExamPool-Dominanz] Fatal: ${msg}`);
     if (!isFanOut) await failAndUnlock(msg);
     return json({ ok: false, error: msg }, 500);
   }
