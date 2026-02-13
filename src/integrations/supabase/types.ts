@@ -9922,6 +9922,51 @@ export type Database = {
         }
         Relationships: []
       }
+      provider_status: {
+        Row: {
+          avg_latency_ms: number | null
+          current_load: number
+          is_healthy: boolean
+          last_error: string | null
+          last_error_at: string | null
+          max_concurrency: number
+          priority: number
+          provider: string
+          rate_limited_until: string | null
+          total_errors_24h: number
+          total_jobs_24h: number
+          updated_at: string
+        }
+        Insert: {
+          avg_latency_ms?: number | null
+          current_load?: number
+          is_healthy?: boolean
+          last_error?: string | null
+          last_error_at?: string | null
+          max_concurrency?: number
+          priority?: number
+          provider: string
+          rate_limited_until?: string | null
+          total_errors_24h?: number
+          total_jobs_24h?: number
+          updated_at?: string
+        }
+        Update: {
+          avg_latency_ms?: number | null
+          current_load?: number
+          is_healthy?: boolean
+          last_error?: string | null
+          last_error_at?: string | null
+          max_concurrency?: number
+          priority?: number
+          provider?: string
+          rate_limited_until?: string | null
+          total_errors_24h?: number
+          total_jobs_24h?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       qa_budgets: {
         Row: {
           enabled: boolean
@@ -13904,6 +13949,7 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_provider_slot: { Args: { p_provider: string }; Returns: boolean }
       classify_job_error: { Args: { p_error: string }; Returns: string }
       cleanup_stale_locks: {
         Args: { p_timeout_minutes?: number }
@@ -14457,6 +14503,14 @@ export type Database = {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
       }
+      mark_provider_rate_limited: {
+        Args: {
+          p_cooldown_seconds?: number
+          p_error?: string
+          p_provider: string
+        }
+        Returns: undefined
+      }
       month_start: { Args: { p_any: string }; Returns: string }
       next_package_queue_position: { Args: never; Returns: number }
       normalize_question_text: { Args: { p_text: string }; Returns: string }
@@ -14523,6 +14577,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      recover_providers: { Args: never; Returns: number }
       refresh_course_forecast_actuals: { Args: never; Returns: undefined }
       register_cert_document: {
         Args: {
@@ -14567,6 +14622,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      release_provider_slot: {
+        Args: { p_provider: string }
+        Returns: undefined
       }
       report_audit_log: {
         Args: { p_limit?: number }
@@ -14693,6 +14752,10 @@ export type Database = {
           p_window_seconds: number
         }
         Returns: Json
+      }
+      select_best_provider: {
+        Args: { p_exclude?: string[]; p_preferred?: string }
+        Returns: string
       }
       set_compliance_finding_status: {
         Args: {
