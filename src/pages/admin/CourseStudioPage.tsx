@@ -622,6 +622,8 @@ function ExportTab({ pkg, packageId }: { pkg: any; packageId: string }) {
   const { toast } = useToast();
   const [exportUrl, setExportUrl] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [jsxExportUrl, setJsxExportUrl] = useState<string | null>(null);
+  const [jsxExporting, setJsxExporting] = useState(false);
 
   // Restore persisted export link on mount
   useEffect(() => {
@@ -658,9 +660,32 @@ function ExportTab({ pkg, packageId }: { pkg: any; packageId: string }) {
     }
   };
 
+  const handleJsxExport = async () => {
+    setJsxExporting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke('export-jsx-package', {
+        body: { packageId, courseId: pkg.course_id },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      });
+      if (res.error) throw res.error;
+      const resData = res.data as Record<string, unknown>;
+      if (resData?.downloadUrl) {
+        setJsxExportUrl(resData.downloadUrl as string);
+        // Auto-open download
+        window.open(resData.downloadUrl as string, '_blank');
+        toast({ title: 'JSX Export erstellt', description: 'Download wird geöffnet.' });
+      }
+    } catch (e: any) {
+      toast({ title: 'JSX Export-Fehler', description: e?.message || 'Unbekannt', variant: 'destructive' });
+    } finally {
+      setJsxExporting(false);
+    }
+  };
+
   const exports = [
     { key: 'zip', label: 'ZIP Package Export', desc: 'Komplett: Lernkurs + Fragen + Oral + Tutor + Handbuch + Plan + Steps', icon: '📦', action: handleExport, actionLabel: 'Exportieren', loading: exporting },
-    { key: 'jsx', label: 'JSX Export', desc: 'React/Content Pack', icon: '⚛️' },
+    { key: 'jsx', label: 'JSX Export', desc: 'React/Content Pack (Module + Lessons + Handbuch)', icon: '⚛️', action: handleJsxExport, actionLabel: 'JSX Exportieren', loading: jsxExporting },
     { key: 'json', label: 'JSON SSOT Snapshot', desc: 'Curriculum + Plan + Blueprints + Coverage', icon: '🗂' },
     { key: 'h5p', label: 'H5P Batch Export', desc: 'Alle H5P-Inhalte als ZIP', icon: '🎮' },
     { key: 'csv', label: 'Questions CSV/QTI', desc: 'Fragenpool als CSV oder QTI-Format', icon: '📊' },
