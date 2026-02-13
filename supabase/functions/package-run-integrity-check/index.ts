@@ -448,10 +448,11 @@ async function validateIntegrityV3(sb: ReturnType<typeof createClient>, curricul
     if (hardFails.length > 0) v3Deduction += hardFails.length * 5;
     if (warnings.length > 0) v3Deduction += warnings.length * 1;
     const finalScore = Math.max(0, Math.min(100, v2Score - v3Deduction));
-    // Ship-Ready Gate: pass at 850 questions (Base level) with score >= 60
-    // Authority level still requires >= 80
+    // Ship-Ready Gate: dynamic based on exam target from package options
+    const examTarget = Number(options?.exam_target ?? 1000);
+    const shipTarget = examTarget <= 600 ? 500 : examTarget <= 800 ? 700 : examTarget <= 1000 ? 850 : 1000;
     const questionCount = questions.length;
-    const shipReady = questionCount >= 850;
+    const shipReady = questionCount >= shipTarget;
     const basePass = shipReady && hardFails.length === 0 && finalScore >= 60;
     const authorityPass = hardFails.length === 0 && finalScore >= 80;
     const passed = basePass || authorityPass;
@@ -519,6 +520,23 @@ Deno.serve(async (req) => {
   };
 
   try {
+    // Prereq: exam pool must be fully done (including fan-out sub-jobs)
+    const examStepDone = await prereqDone(sb, packageId, "generate_exam_pool");
+    if (!examStepDone) {
+      return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_exam_pool" }, 409);
+    }
+
+    // Extra guard: check no pending/processing fan-out exam jobs remain
+    const { count: pendingExamJobs } = await sb
+      .from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("job_type", "package_generate_exam_pool")
+      .in("status", ["pending", "processing"])
+      .filter("payload->>package_id", "eq", packageId);
+    if ((pendingExamJobs ?? 0) > 0) {
+      return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${pendingExamJobs} exam fan-out jobs still running` }, 409);
+    }
+
     // Prereq: handbook must be done
     if (!(await prereqDone(sb, packageId, "generate_handbook"))) {
       return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_handbook" }, 409);

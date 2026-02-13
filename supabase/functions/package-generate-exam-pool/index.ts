@@ -216,6 +216,20 @@ async function enqueueLearningFieldJobs(
   return { enqueued: jobs.length, learningFields: lfGroups.size };
 }
 
+// ─── Check if all fan-out sub-jobs for a package are done ──────────────────────
+async function allFanOutSubJobsDone(
+  sb: ReturnType<typeof createClient>,
+  packageId: string,
+): Promise<boolean> {
+  const { count } = await sb
+    .from("job_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("job_type", "package_generate_exam_pool")
+    .in("status", ["pending", "processing"])
+    .contains("payload", { package_id: packageId, _fan_out: true });
+  return (count ?? 0) === 0;
+}
+
 // ─── Main Handler ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -297,11 +311,13 @@ Deno.serve(async (req) => {
       );
 
       if (enqueued > 0) {
-        // Mark this parent job as done — sub-jobs will continue
+        // Keep step as "running" — sub-jobs will complete it
         await sb.rpc("update_course_package_step", {
           p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "running",
-          p_log: { note: `Fan-out: ${enqueued} sub-jobs for ${learningFields} Lernfelder`, fan_out: true },
+          p_log: { note: `Fan-out: ${enqueued} sub-jobs for ${learningFields} Lernfelder`, fan_out: true, pending_sub_jobs: enqueued },
         });
+        // IMPORTANT: batch_complete=false so the job-runner knows this is NOT done yet
+        // The parent job finishes, but the step stays "running" until sub-jobs complete
         return json({
           ok: true, batch_complete: true,
           fan_out: true, sub_jobs: enqueued, learning_fields: learningFields,
@@ -371,7 +387,9 @@ Deno.serve(async (req) => {
 
     if (targetReached) {
       // Target reached — mark step done
-      if (!isFanOut) {
+      // For fan-out sub-jobs: check if ALL sub-jobs for this package are done before marking step complete
+      const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
+      if (shouldMarkDone) {
         await sb.rpc("update_course_package_step", {
           p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "done",
           p_log: {
