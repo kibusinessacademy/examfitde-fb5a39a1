@@ -93,8 +93,7 @@ serve(async (req) => {
     let docPriorityMap: Record<string, number> = {};
     if (docIds.length > 0) {
       const { data: docs } = await sb.from("certification_documents")
-        .select("id, legal_priority")
-        .in("id", docIds);
+        .select("id, legal_priority").in("id", docIds);
       for (const d of (docs || [])) {
         docPriorityMap[d.id] = d.legal_priority || 50;
       }
@@ -151,7 +150,7 @@ serve(async (req) => {
         const isMapped = m.confidence >= 0.7;
         const domainMatch = domains.find((d: any) => d.domain_key === m.domain_key);
 
-        // Get source doc legal priority for this topic
+        // Get source doc legal priority
         const topicData = batch.find((t: any) => t.id === m.topic_id);
         const sourcePriority = topicData?.source_document_id
           ? (docPriorityMap[topicData.source_document_id] || 50)

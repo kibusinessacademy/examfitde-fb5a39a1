@@ -251,3 +251,9 @@ verify_jwt = false
 
 [functions.deep-audit-runner]
 verify_jwt = false
+
+[functions.ingest-curriculum-document]
+verify_jwt = false
+
+[functions.auto-map-topics-to-blueprint]
+verify_jwt = false
