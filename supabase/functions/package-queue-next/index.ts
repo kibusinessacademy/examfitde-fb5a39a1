@@ -106,6 +106,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Dynamic exam target based on Ausbildungsdauer ──
+    let dynamicExamTarget = 1000;
+    if (curriculumId) {
+      const { data: currRow } = await sb.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
+      if (currRow?.beruf_id) {
+        const { data: berufRow } = await sb.from("berufe").select("ausbildungsdauer_monate").eq("id", currRow.beruf_id).maybeSingle();
+        const m = berufRow?.ausbildungsdauer_monate ?? 36;
+        if (m <= 24) dynamicExamTarget = 600;
+        else if (m <= 30) dynamicExamTarget = 800;
+        else dynamicExamTarget = 1000;
+      }
+    }
+
     // Ensure an approved plan exists
     const { data: plan } = await sb
       .from("course_package_plans")
@@ -125,7 +138,7 @@ Deno.serve(async (req) => {
           include_oral_exam: true,
           include_ai_tutor: true,
           include_handbook: true,
-          exam_target: 1000,
+          exam_target: dynamicExamTarget,
         },
       });
     }
@@ -151,7 +164,7 @@ Deno.serve(async (req) => {
         include_oral_exam: true,
         include_ai_tutor: true,
         include_handbook: true,
-        exam_target: 1000,
+        exam_target: dynamicExamTarget,
       },
     });
 

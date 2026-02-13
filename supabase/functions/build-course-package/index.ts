@@ -163,6 +163,32 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ── Dynamic exam target based on Ausbildungsdauer ──
+  let ausbildungsDauer: number | null = null;
+  if (effectiveCurriculumId) {
+    const { data: currRow } = await sb
+      .from("curricula")
+      .select("beruf_id")
+      .eq("id", effectiveCurriculumId)
+      .maybeSingle();
+    if (currRow?.beruf_id) {
+      const { data: berufRow } = await sb
+        .from("berufe")
+        .select("ausbildungsdauer_monate")
+        .eq("id", currRow.beruf_id)
+        .maybeSingle();
+      ausbildungsDauer = berufRow?.ausbildungsdauer_monate ?? null;
+    }
+  }
+
+  function calcExamTarget(months: number | null, t: string): number {
+    if (t === "EXAM_FIRST") return 1200;
+    const m = months ?? 36;
+    if (m <= 24) return 600;
+    if (m <= 30) return 800;
+    return 1000;
+  }
+
   // Derive options from feature_flags (Track-aware)
   const opts = {
     include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL"),
@@ -170,7 +196,8 @@ Deno.serve(async (req) => {
     include_oral_exam: featureFlags.has_oral_exam_trainer ?? (track === "AUSBILDUNG_VOLL"),
     include_ai_tutor: featureFlags.has_ai_tutor ?? (track === "AUSBILDUNG_VOLL"),
     include_handbook: featureFlags.has_handbook ?? (track === "AUSBILDUNG_VOLL"),
-    exam_target: track === "EXAM_FIRST" ? 1200 : 1000,
+    exam_target: calcExamTarget(ausbildungsDauer, track),
+    ausbildungsdauer_monate: ausbildungsDauer,
     ...(options || {}),
   };
 

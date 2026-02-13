@@ -426,26 +426,27 @@ export function generateHowToSchema(howTo: {
 
 // SEO content templates
 // WICHTIG: "IHK" nur beschreibend verwenden, nicht als offizieller Partner/Zertifikation
+// questionLabel: dynamisch z.B. "600+" oder "1.000+" je nach Ausbildungsdauer
 export const SEO_TEMPLATES = {
-  ihkPruefung: (beruf: string) => ({
+  ihkPruefung: (beruf: string, questionLabel?: string) => ({
     title: `${beruf} Prüfung bestehen | ExamFit`,
-    description: `Bereite dich optimal auf die Abschlussprüfung ${beruf} vor. Intelligentes Prüfungstraining mit Simulation, KI-Tutor & mündlicher Prüfung. Jetzt starten!`,
+    description: `Bereite dich optimal auf die Abschlussprüfung ${beruf} vor. ${questionLabel ? `${questionLabel} Prüfungsfragen, ` : ''}Intelligentes Prüfungstraining mit Simulation, KI-Tutor & mündlicher Prüfung. Jetzt starten!`,
   }),
-  lernkurs: (beruf: string) => ({
+  lernkurs: (beruf: string, questionLabel?: string) => ({
     title: `${beruf} Prüfungstraining | Prüfungswissen | ExamFit`,
-    description: `Prüfungsrelevantes Wissen für ${beruf}. Alle Lernfelder, gezielt aufbereitet für die Abschlussprüfung. 12 Monate Zugang.`,
+    description: `Prüfungsrelevantes Wissen für ${beruf}. Alle Lernfelder, ${questionLabel ? `${questionLabel} Übungsfragen, ` : ''}gezielt aufbereitet für die Abschlussprüfung. 12 Monate Zugang.`,
   }),
-  pruefungstrainer: (beruf: string) => ({
+  pruefungstrainer: (beruf: string, questionLabel?: string) => ({
     title: `${beruf} Prüfungstrainer | Aufgaben üben | ExamFit`,
-    description: `Trainiere mit prüfungsrelevanten Aufgaben für ${beruf}. Adaptive Schwächenanalyse & Prüfungssimulation.`,
+    description: `Trainiere mit ${questionLabel || 'prüfungsrelevanten'} Aufgaben für ${beruf}. Adaptive Schwächenanalyse & Prüfungssimulation.`,
   }),
-  bundle: (beruf: string) => ({
+  bundle: (beruf: string, questionLabel?: string) => ({
     title: `${beruf} Prüfungstraining komplett | ExamFit`,
-    description: `Das komplette Prüfungstraining für ${beruf}: Prüfungswissen + Simulation + mündliche Prüfung. Alles in einem Paket.`,
+    description: `Das komplette Prüfungstraining für ${beruf}: ${questionLabel ? `${questionLabel} Fragen, ` : ''}Prüfungswissen + Simulation + mündliche Prüfung. Alles in einem Paket.`,
   }),
-  beruf: (beruf: string, kammer: string = 'IHK') => ({
+  beruf: (beruf: string, kammer: string = 'IHK', questionLabel?: string) => ({
     title: `${beruf} – ${kammer}-Prüfung & Vorbereitung | ExamFit`,
-    description: `Alles zur Ausbildung ${beruf}: Berufsbild, ${kammer}-Prüfungsstruktur, typische Fehler & optimale Vorbereitung. Jetzt informieren!`,
+    description: `Alles zur Ausbildung ${beruf}: Berufsbild, ${kammer}-Prüfungsstruktur${questionLabel ? `, ${questionLabel} Prüfungsfragen` : ''}, typische Fehler & optimale Vorbereitung. Jetzt informieren!`,
   }),
   wissen: (topic: string) => ({
     title: `${topic} | Prüfungswissen | ExamFit`,
