@@ -1,14 +1,17 @@
-import { lazy, Suspense, useState } from 'react';
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, DollarSign } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useEffect } from 'react';
+import {
+  DollarSign, TrendingUp, TrendingDown, Loader2, RefreshCw,
+  AlertTriangle, BarChart3, PieChart
+} from 'lucide-react';
 import PageExplainer from '@/components/admin/PageExplainer';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
 
 const FinanceDashboard = lazy(() => import('@/pages/admin/FinanceDashboard'));
 const EnterpriseSeatManagement = lazy(() => import('@/pages/admin/EnterpriseSeatManagement'));
@@ -21,12 +24,147 @@ const Loading = () => (
 );
 
 const tabs = [
-  { path: '/admin/business', label: 'Umsatz' },
+  { path: '/admin/business', label: 'LLM-Kosten' },
+  { path: '/admin/business/revenue', label: 'Umsatz' },
   { path: '/admin/business/licenses', label: 'Lizenzen' },
   { path: '/admin/business/exports', label: 'Steuer-Export' },
 ];
 
-/* ── CSV Export ── */
+function LLMCostDashboard() {
+  const [kpis, setKpis] = useState<any>(null);
+  const [rollups, setRollups] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const [kpiRes, rollupRes] = await Promise.all([
+      (supabase as any).rpc('get_production_kpis'),
+      (supabase as any).from('kpi_daily_rollup')
+        .select('*')
+        .order('day', { ascending: false })
+        .limit(14),
+    ]);
+    setKpis(kpiRes.data);
+    setRollups(rollupRes.data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <Loading />;
+
+  const budget = kpis?.budget;
+  const budgetPct = budget ? Math.round((budget.spent_eur / budget.budget_eur) * 100) : 0;
+  const costToday = Number(kpis?.cost_today ?? 0);
+  const cost7d = Number(kpis?.cost_7d ?? 0);
+  const burnPerDay = cost7d / 7;
+  const daysLeft = budget ? Math.round((budget.budget_eur - budget.spent_eur) / Math.max(burnPerDay, 0.01)) : 999;
+
+  return (
+    <div className="space-y-6">
+      {/* Budget overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="py-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Budget</p>
+            <p className="text-2xl font-bold text-foreground">€{budget?.spent_eur?.toFixed(0) ?? 0} <span className="text-sm text-muted-foreground">/ €{budget?.budget_eur ?? 0}</span></p>
+            <Progress value={budgetPct} className="h-2 mt-2" />
+            <p className="text-[10px] text-muted-foreground mt-1">{budget?.hard_stop ? '🔴 Hard-Stop aktiv' : '🟢 Soft (kein Stopp)'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Heute</p>
+            <p className="text-2xl font-bold text-foreground">€{costToday.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Burn/Tag</p>
+            <p className="text-2xl font-bold text-foreground">€{burnPerDay.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className={cn(daysLeft < 7 && "border-destructive/50")}>
+          <CardContent className="py-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Forecast</p>
+            <p className={cn("text-2xl font-bold", daysLeft < 7 ? "text-destructive" : "text-foreground")}>{daysLeft} Tage</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Provider costs (from rate_limits) */}
+      {kpis?.rate_limits?.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <PieChart className="h-4 w-4" /> Provider Auslastung
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-3">
+              {kpis.rate_limits.map((rl: any) => {
+                const running = kpis.provider_load?.find((p: any) => p.provider === rl.provider)?.running ?? 0;
+                return (
+                  <div key={rl.provider} className="text-center p-3 rounded-lg bg-muted/30">
+                    <p className="text-xs font-medium uppercase">{rl.provider}</p>
+                    <p className="text-lg font-bold">{running}/{rl.max_concurrent}</p>
+                    <p className="text-[10px] text-muted-foreground">Cooldown: {rl.cooldown_seconds}s</p>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Daily history */}
+      {rollups.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" /> Letzte 14 Tage
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="text-left py-2 px-2">Tag</th>
+                    <th className="text-right py-2 px-2">Kosten</th>
+                    <th className="text-right py-2 px-2">OpenAI</th>
+                    <th className="text-right py-2 px-2">Anthro.</th>
+                    <th className="text-right py-2 px-2">Jobs ✅</th>
+                    <th className="text-right py-2 px-2">Jobs ❌</th>
+                    <th className="text-right py-2 px-2">Packages</th>
+                    <th className="text-right py-2 px-2">Backlog</th>
+                    <th className="text-right py-2 px-2">Top Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rollups.map(r => (
+                    <tr key={r.day} className="border-b border-border/30">
+                      <td className="py-2 px-2 font-mono">{r.day}</td>
+                      <td className="py-2 px-2 text-right font-medium">€{Number(r.cost_total_eur).toFixed(2)}</td>
+                      <td className="py-2 px-2 text-right">€{Number(r.cost_openai_eur).toFixed(2)}</td>
+                      <td className="py-2 px-2 text-right">€{Number(r.cost_anthropic_eur).toFixed(2)}</td>
+                      <td className="py-2 px-2 text-right text-success">{r.jobs_completed}</td>
+                      <td className={cn("py-2 px-2 text-right", r.jobs_failed > 0 && "text-destructive")}>{r.jobs_failed}</td>
+                      <td className="py-2 px-2 text-right">{r.packages_completed}</td>
+                      <td className="py-2 px-2 text-right text-muted-foreground">{r.backlog_jobs}</td>
+                      <td className="py-2 px-2 text-right text-destructive">{r.top_error_code || '–'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* CSV export */
 function SteuerExport() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,9 +172,7 @@ function SteuerExport() {
   useEffect(() => {
     (async () => {
       const { data } = await (supabase as any).from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(500);
+        .select('*').order('created_at', { ascending: false }).limit(500);
       setOrders(data || []);
       setLoading(false);
     })();
@@ -45,20 +181,16 @@ function SteuerExport() {
   const handleCSVExport = () => {
     const headers = ['Datum', 'OrderID', 'Produkt', 'Betrag', 'Netto', 'Steuer', 'Brutto', 'Land', 'Rechnungsempfänger'];
     const rows = orders.map(o => [
-      new Date(o.created_at).toLocaleDateString('de-DE'),
-      o.id,
+      new Date(o.created_at).toLocaleDateString('de-DE'), o.id,
       o.product_name || o.product_id || '–',
       `${((o.amount_cents || 0) / 100).toFixed(2).replace('.', ',')} €`,
       `${((o.net_cents || o.amount_cents || 0) / 100).toFixed(2).replace('.', ',')} €`,
       `${((o.tax_cents || 0) / 100).toFixed(2).replace('.', ',')} €`,
       `${((o.gross_cents || o.amount_cents || 0) / 100).toFixed(2).replace('.', ',')} €`,
-      o.country || 'DE',
-      o.customer_name || o.customer_email || '–',
+      o.country || 'DE', o.customer_name || o.customer_email || '–',
     ]);
-
     const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
-    const bom = '\uFEFF';
-    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `steuer-export-${Date.now()}.csv`; a.click();
     URL.revokeObjectURL(url);
@@ -68,25 +200,15 @@ function SteuerExport() {
   if (loading) return <Loading />;
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Download className="h-4 w-4" /> Steuer-Export
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            UTF-8, Semikolon-getrennt, EUR-Format. Spalten: Datum, OrderID, Produkt, Betrag, Netto, Steuer, Brutto, Land, Rechnungsempfänger.
-          </p>
-          <div className="flex gap-2">
-            <Button onClick={handleCSVExport} size="sm">
-              <Download className="h-3.5 w-3.5 mr-1" /> CSV exportieren ({orders.length} Bestellungen)
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Steuer-Export</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">UTF-8, Semikolon-getrennt, EUR-Format.</p>
+        <Button onClick={handleCSVExport} size="sm">CSV exportieren ({orders.length})</Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -99,46 +221,32 @@ export default function BusinessPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-foreground">Finanzen & Geschäft</h1>
-        <p className="text-sm text-muted-foreground">Umsatz, Lizenzen, Steuer-Exporte</p>
+        <h1 className="text-xl font-bold text-foreground">Finanzen & LLM-Budget</h1>
+        <p className="text-sm text-muted-foreground">Kosten/Tag, Burn Rate, Provider, Forecast</p>
       </div>
 
       <PageExplainer
-        title="Wie funktioniert Finanzen & Geschäft?"
-        description="Das kaufmännische Cockpit der Plattform. Hier siehst du Umsatzentwicklung, verwaltest Enterprise-Lizenzen und erstellst steuerlich konforme Exporte für den Steuerberater."
+        title="Finanzen & Budget"
+        description="LLM-Kosten pro Tag und Provider, Budget-Forecast, tägliche Rollups. Steuer-Export für DATEV."
         workflow={[
           { label: 'Leitstelle' },
           { label: 'Studio' },
           { label: 'Quality' },
           { label: 'Ops' },
           { label: 'Business', active: true },
-          { label: 'Growth' },
-          { label: 'Scale' },
-        ]}
-        actions={[
-          '"Umsatz" – Revenue-Dashboard mit MRR, Bestellungen und Produktumsätzen',
-          '"Lizenzen" – Enterprise Seat Management: Seats zuweisen, Nutzung überwachen, Renewals tracken',
-          '"Steuer-Export" – CSV-Export (UTF-8, Semikolon, EUR-Format) aller Bestellungen für DATEV/Steuerberater',
-        ]}
-        tips={[
-          'Der CSV-Export enthält Netto/Brutto/Steuer aufgeschlüsselt pro Bestellung',
-          'Enterprise-Lizenzen haben Seat-Limits und Renewal-Daten',
         ]}
       />
 
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border pb-px min-w-max">
           {tabs.map(tab => (
-            <Link
-              key={tab.path}
-              to={tab.path}
+            <Link key={tab.path} to={tab.path}
               className={cn(
                 "px-3 py-2 text-sm rounded-t-md transition-colors",
                 activeTab === tab.path
                   ? "bg-primary/10 text-primary font-medium border-b-2 border-primary"
                   : "text-muted-foreground hover:text-foreground"
-              )}
-            >
+              )}>
               {tab.label}
             </Link>
           ))}
@@ -147,7 +255,8 @@ export default function BusinessPage() {
 
       <Suspense fallback={<Loading />}>
         <Routes>
-          <Route index element={<FinanceDashboard />} />
+          <Route index element={<LLMCostDashboard />} />
+          <Route path="revenue" element={<FinanceDashboard />} />
           <Route path="licenses" element={<EnterpriseSeatManagement />} />
           <Route path="exports" element={<SteuerExport />} />
         </Routes>

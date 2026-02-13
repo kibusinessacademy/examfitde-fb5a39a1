@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_actions: {
+        Row: {
+          action: string
+          created_at: string | null
+          id: string
+          payload: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          id?: string
+          payload?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          id?: string
+          payload?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       admin_notifications: {
         Row: {
           body: string | null
@@ -3393,12 +3417,17 @@ export type Database = {
           course_id: string | null
           created_at: string
           created_by: string | null
+          current_step: number | null
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          last_progress_at: string | null
           published_at: string | null
           queue_position: number | null
+          started_at: string | null
           status: string
+          step_status_json: Json | null
+          stuck_reason: string | null
           title: string
           updated_at: string
         }
@@ -3412,12 +3441,17 @@ export type Database = {
           course_id?: string | null
           created_at?: string
           created_by?: string | null
+          current_step?: number | null
           id?: string
           integrity_passed?: boolean
           integrity_report?: Json | null
+          last_progress_at?: string | null
           published_at?: string | null
           queue_position?: number | null
+          started_at?: string | null
           status?: string
+          step_status_json?: Json | null
+          stuck_reason?: string | null
           title?: string
           updated_at?: string
         }
@@ -3431,12 +3465,17 @@ export type Database = {
           course_id?: string | null
           created_at?: string
           created_by?: string | null
+          current_step?: number | null
           id?: string
           integrity_passed?: boolean
           integrity_report?: Json | null
+          last_progress_at?: string | null
           published_at?: string | null
           queue_position?: number | null
+          started_at?: string | null
           status?: string
+          step_status_json?: Json | null
+          stuck_reason?: string | null
           title?: string
           updated_at?: string
         }
@@ -5391,6 +5430,66 @@ export type Database = {
           started_at?: string | null
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      kpi_daily_rollup: {
+        Row: {
+          avg_build_minutes: number | null
+          backlog_jobs: number | null
+          cost_anthropic_eur: number | null
+          cost_google_eur: number | null
+          cost_openai_eur: number | null
+          cost_total_eur: number | null
+          created_at: string | null
+          day: string
+          eta_hours: number | null
+          id: string
+          jobs_completed: number | null
+          jobs_failed: number | null
+          jobs_retried: number | null
+          packages_completed: number | null
+          packages_started: number | null
+          top_error_code: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avg_build_minutes?: number | null
+          backlog_jobs?: number | null
+          cost_anthropic_eur?: number | null
+          cost_google_eur?: number | null
+          cost_openai_eur?: number | null
+          cost_total_eur?: number | null
+          created_at?: string | null
+          day: string
+          eta_hours?: number | null
+          id?: string
+          jobs_completed?: number | null
+          jobs_failed?: number | null
+          jobs_retried?: number | null
+          packages_completed?: number | null
+          packages_started?: number | null
+          top_error_code?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avg_build_minutes?: number | null
+          backlog_jobs?: number | null
+          cost_anthropic_eur?: number | null
+          cost_google_eur?: number | null
+          cost_openai_eur?: number | null
+          cost_total_eur?: number | null
+          created_at?: string | null
+          day?: string
+          eta_hours?: number | null
+          id?: string
+          jobs_completed?: number | null
+          jobs_failed?: number | null
+          jobs_retried?: number | null
+          packages_completed?: number | null
+          packages_started?: number | null
+          top_error_code?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -11645,6 +11744,10 @@ export type Database = {
         }
         Returns: Json
       }
+      auto_retry_stuck_package: {
+        Args: { p_package_id: string }
+        Returns: number
+      }
       calculate_daily_kpis: { Args: never; Returns: Json }
       calculate_exam_readiness: {
         Args: { p_curriculum_id: string; p_user_id: string }
@@ -11884,6 +11987,7 @@ export type Database = {
       }
       generate_invite_code: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
+      get_active_package_count: { Args: never; Returns: number }
       get_adaptive_recommendation: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
@@ -12099,6 +12203,7 @@ export type Database = {
           title: string
         }[]
       }
+      get_production_kpis: { Args: never; Returns: Json }
       get_profiles_security_status: { Args: never; Returns: Json }
       get_reconcile_gaps: {
         Args: { p_limit?: number }
@@ -12226,6 +12331,10 @@ export type Database = {
         }[]
       }
       llm_running_count: { Args: { p_provider: string }; Returns: number }
+      mark_package_stuck: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
       month_start: { Args: { p_any: string }; Returns: string }
       next_package_queue_position: { Args: never; Returns: number }
       normalize_question_text: { Args: { p_text: string }; Returns: string }
@@ -12233,6 +12342,10 @@ export type Database = {
       note_code_failure: {
         Args: { p_code: string; p_lock_seconds?: number; p_max_fail?: number }
         Returns: Json
+      }
+      pick_next_package_to_start: {
+        Args: { max_active?: number }
+        Returns: string
       }
       publish_approved_blueprint_version: {
         Args: { p_blueprint_id: string; p_version_id: string }
@@ -12453,12 +12566,17 @@ export type Database = {
           course_id: string | null
           created_at: string
           created_by: string | null
+          current_step: number | null
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          last_progress_at: string | null
           published_at: string | null
           queue_position: number | null
+          started_at: string | null
           status: string
+          step_status_json: Json | null
+          stuck_reason: string | null
           title: string
           updated_at: string
         }
@@ -12471,6 +12589,10 @@ export type Database = {
       }
       set_growth_action_cooldown: {
         Args: { p_action_id: string; p_days?: number }
+        Returns: undefined
+      }
+      set_package_status: {
+        Args: { p_id: string; p_meta?: Json; p_status: string }
         Returns: undefined
       }
       start_exam_session: {
@@ -12556,6 +12678,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_package_progress: {
+        Args: {
+          p_id: string
+          p_progress_at?: string
+          p_step: number
+          p_step_status: Json
+        }
+        Returns: undefined
+      }
       update_spaced_repetition: {
         Args: {
           p_is_correct: boolean
@@ -12586,12 +12717,17 @@ export type Database = {
           course_id: string | null
           created_at: string
           created_by: string | null
+          current_step: number | null
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          last_progress_at: string | null
           published_at: string | null
           queue_position: number | null
+          started_at: string | null
           status: string
+          step_status_json: Json | null
+          stuck_reason: string | null
           title: string
           updated_at: string
         }
