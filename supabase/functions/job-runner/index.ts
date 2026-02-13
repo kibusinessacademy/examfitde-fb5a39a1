@@ -183,6 +183,42 @@ async function logProviderUsage(
   }).catch(() => {});
 }
 
+// ─── JOB COST LEDGER LOGGING ────────────────────────────────────────
+async function logJobCost(
+  admin: ReturnType<typeof createClient>,
+  job: JobRecord,
+  provider: string,
+  latencyMs: number,
+  responseData: unknown
+): Promise<void> {
+  try {
+    const rd = (responseData && typeof responseData === "object") ? responseData as Record<string, unknown> : {};
+    const tokensInput = Number(rd.tokens_input ?? rd.input_tokens ?? rd.usage?.prompt_tokens ?? 0);
+    const tokensOutput = Number(rd.tokens_output ?? rd.output_tokens ?? rd.usage?.completion_tokens ?? 0);
+    const costEur = Number(rd.cost_eur ?? rd.cost ?? 0) || null;
+    const model = String(rd.model ?? rd.model_used ?? "");
+    const packageId = (job.payload?.package_id ?? job.payload?.packageId ?? null) as string | null;
+    const certId = (job.payload?.certification_id ?? null) as string | null;
+    const currId = (job.payload?.curriculum_id ?? job.payload?.curriculumId ?? null) as string | null;
+
+    await admin.rpc("log_job_cost", {
+      p_job_id: job.id,
+      p_job_type: job.job_type,
+      p_provider: provider,
+      p_tokens_input: tokensInput,
+      p_tokens_output: tokensOutput,
+      p_cost_eur: costEur,
+      p_package_id: packageId,
+      p_certification_id: certId,
+      p_curriculum_id: currId,
+      p_latency_ms: latencyMs,
+      p_model: model || null,
+    });
+  } catch (e) {
+    console.warn(`[Runner] logJobCost failed:`, (e as Error).message);
+  }
+}
+
 // ─── PREDICTIVE BACKPRESSURE SNAPSHOT ────────────────────────────────
 async function recordBackpressureSnapshot(
   admin: ReturnType<typeof createClient>,
@@ -787,9 +823,10 @@ Deno.serve(async (req) => {
         if (response.ok) {
           const rd = responseData as Record<string, unknown>;
 
-          // Log success usage
+          // Log success usage + cost ledger
           if (job.provider) {
             await logProviderUsage(admin, job.provider, job.job_type, true, latencyMs);
+            await logJobCost(admin, job, job.provider, latencyMs, responseData);
           }
 
           if (rd?.batch_cursor && rd?.batch_complete === false) {
