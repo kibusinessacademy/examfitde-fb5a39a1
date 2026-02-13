@@ -69,7 +69,17 @@ Deno.serve(async (req) => {
       }
 
       const today = new Date().toISOString().slice(0, 10);
+      // Compute per-provider duplicate/low-conf rates from exam_questions
+      const { data: dupByProv } = await sb
+        .from("duplicate_detection_log")
+        .select("id")
+        .gte("detected_at", new Date(Date.now() - 86400_000).toISOString());
+      const totalDups = dupByProv?.length || 0;
+
       for (const [provider, stats] of Object.entries(byProvider)) {
+        const dupShare = stats.calls > 0 ? Math.round(100 * (totalDups / Object.keys(byProvider).length) / stats.calls * 10) / 10 : 0;
+        const lowConfRate = stats.calls > 0 ? Math.round(100 * stats.err / stats.calls * 10) / 10 : 0;
+
         await sb.from("provider_performance").upsert({
           date: today,
           provider,
@@ -80,6 +90,9 @@ Deno.serve(async (req) => {
           avg_latency_ms: stats.calls ? Math.round(stats.latSum / stats.calls) : 0,
           avg_tokens_out: stats.calls ? Math.round(stats.tokSum / stats.calls) : 0,
           total_cost_eur: Math.round(stats.costSum * 10000) / 10000,
+          near_duplicate_rate: dupShare,
+          low_confidence_rate: lowConfRate,
+          blocked_question_count: 0,
         }, { onConflict: "date,provider,model" });
       }
     }

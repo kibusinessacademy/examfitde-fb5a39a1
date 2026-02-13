@@ -8309,6 +8309,7 @@ export type Database = {
       production_quality_snapshots: {
         Row: {
           auto_paused: boolean
+          confidence_score: number | null
           created_at: string
           curriculum_id: string
           difficulty_easy_pct: number
@@ -8327,6 +8328,7 @@ export type Database = {
         }
         Insert: {
           auto_paused?: boolean
+          confidence_score?: number | null
           created_at?: string
           curriculum_id: string
           difficulty_easy_pct?: number
@@ -8345,6 +8347,7 @@ export type Database = {
         }
         Update: {
           auto_paused?: boolean
+          confidence_score?: number | null
           created_at?: string
           curriculum_id?: string
           difficulty_easy_pct?: number
@@ -8575,11 +8578,13 @@ export type Database = {
         Row: {
           avg_latency_ms: number | null
           avg_tokens_out: number | null
+          blocked_question_count: number | null
           created_at: string
           date: string
           error_count: number
           hallucination_flags: number
           id: string
+          low_confidence_rate: number | null
           metadata: Json | null
           model: string | null
           near_duplicate_rate: number | null
@@ -8592,11 +8597,13 @@ export type Database = {
         Insert: {
           avg_latency_ms?: number | null
           avg_tokens_out?: number | null
+          blocked_question_count?: number | null
           created_at?: string
           date?: string
           error_count?: number
           hallucination_flags?: number
           id?: string
+          low_confidence_rate?: number | null
           metadata?: Json | null
           model?: string | null
           near_duplicate_rate?: number | null
@@ -8609,11 +8616,13 @@ export type Database = {
         Update: {
           avg_latency_ms?: number | null
           avg_tokens_out?: number | null
+          blocked_question_count?: number | null
           created_at?: string
           date?: string
           error_count?: number
           hallucination_flags?: number
           id?: string
+          low_confidence_rate?: number | null
           metadata?: Json | null
           model?: string | null
           near_duplicate_rate?: number | null
@@ -13015,6 +13024,10 @@ export type Database = {
       qa_severity_rank: {
         Args: { p: Database["public"]["Enums"]["qa_severity"] }
         Returns: number
+      }
+      quality_hold_resume: {
+        Args: { p_action?: string; p_package_id: string }
+        Returns: Json
       }
       recompute_compliance_block: {
         Args: { p_course_id: string }
