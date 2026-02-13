@@ -8439,6 +8439,8 @@ export type Database = {
           completion_status: string
           confidence: number | null
           conversion_rate: number | null
+          coverage_level: string
+          coverage_priority: number
           created_at: string
           demand_score: number
           exam_target: number
@@ -8447,6 +8449,7 @@ export type Database = {
           id: string
           last_quality_hold_at: string | null
           market_sector: string | null
+          min_confidence_for_level: number
           occupation_slug: string | null
           priority_index: number | null
           quality_status: string
@@ -8470,6 +8473,8 @@ export type Database = {
           completion_status?: string
           confidence?: number | null
           conversion_rate?: number | null
+          coverage_level?: string
+          coverage_priority?: number
           created_at?: string
           demand_score?: number
           exam_target?: number
@@ -8478,6 +8483,7 @@ export type Database = {
           id?: string
           last_quality_hold_at?: string | null
           market_sector?: string | null
+          min_confidence_for_level?: number
           occupation_slug?: string | null
           priority_index?: number | null
           quality_status?: string
@@ -8501,6 +8507,8 @@ export type Database = {
           completion_status?: string
           confidence?: number | null
           conversion_rate?: number | null
+          coverage_level?: string
+          coverage_priority?: number
           created_at?: string
           demand_score?: number
           exam_target?: number
@@ -8509,6 +8517,7 @@ export type Database = {
           id?: string
           last_quality_hold_at?: string | null
           market_sector?: string | null
+          min_confidence_for_level?: number
           occupation_slug?: string | null
           priority_index?: number | null
           quality_status?: string
@@ -9983,57 +9992,72 @@ export type Database = {
         Row: {
           authority_thresholds: Json | null
           auto_upgrade_threshold: Json | null
+          base_exam_target: number
+          coverage_target_pct: number
           created_at: string
           id: string
           is_active: boolean
           last_evaluated_at: string | null
           max_authority_concurrent: number | null
+          max_authority_slots: number
           max_concurrent_builds: number
           max_global_dup_rate: number
           max_provider_risk: number
           min_confidence_avg: number
           min_governance_avg: number
+          min_lf_coverage_base: number
           mode: string
           revenue_protection: Json | null
           ship_level_config: Json | null
+          strategy: string
           updated_at: string
           weekly_target: number
         }
         Insert: {
           authority_thresholds?: Json | null
           auto_upgrade_threshold?: Json | null
+          base_exam_target?: number
+          coverage_target_pct?: number
           created_at?: string
           id?: string
           is_active?: boolean
           last_evaluated_at?: string | null
           max_authority_concurrent?: number | null
+          max_authority_slots?: number
           max_concurrent_builds?: number
           max_global_dup_rate?: number
           max_provider_risk?: number
           min_confidence_avg?: number
           min_governance_avg?: number
+          min_lf_coverage_base?: number
           mode?: string
           revenue_protection?: Json | null
           ship_level_config?: Json | null
+          strategy?: string
           updated_at?: string
           weekly_target?: number
         }
         Update: {
           authority_thresholds?: Json | null
           auto_upgrade_threshold?: Json | null
+          base_exam_target?: number
+          coverage_target_pct?: number
           created_at?: string
           id?: string
           is_active?: boolean
           last_evaluated_at?: string | null
           max_authority_concurrent?: number | null
+          max_authority_slots?: number
           max_concurrent_builds?: number
           max_global_dup_rate?: number
           max_provider_risk?: number
           min_confidence_avg?: number
           min_governance_avg?: number
+          min_lf_coverage_base?: number
           mode?: string
           revenue_protection?: Json | null
           ship_level_config?: Json | null
+          strategy?: string
           updated_at?: string
           weekly_target?: number
         }
@@ -13278,6 +13302,7 @@ export type Database = {
         }[]
       }
       get_course_progress: { Args: { p_course_id: string }; Returns: Json }
+      get_coverage_stats: { Args: never; Returns: Json }
       get_datev_prep_lines: {
         Args: { p_config_name?: string; p_currency?: string; p_month: string }
         Returns: {
@@ -13596,6 +13621,7 @@ export type Database = {
         Args: { p_action?: string; p_package_id: string }
         Returns: Json
       }
+      recalculate_coverage_priorities: { Args: never; Returns: Json }
       recompute_compliance_block: {
         Args: { p_course_id: string }
         Returns: undefined

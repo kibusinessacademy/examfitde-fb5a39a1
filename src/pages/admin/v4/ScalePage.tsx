@@ -23,7 +23,7 @@ const tabs = [
   { path: '/admin/scale', label: 'Berufe-Status' },
   { path: '/admin/scale/curriculum', label: 'Curriculum Health' },
   { path: '/admin/scale/deep-audit', label: 'Deep Audit' },
-  { path: '/admin/scale/rollout', label: 'Mass Rollout' },
+  { path: '/admin/scale/rollout', label: '🌐 Total Coverage' },
   { path: '/admin/scale/dominance', label: '🌍 Dominanz' },
   { path: '/admin/scale/ceo', label: '👑 CEO Command' },
   { path: '/admin/scale/reporting', label: 'Reporting' },
@@ -313,8 +313,8 @@ export default function ScalePage() {
         ]}
         actions={[
           '"Berufe-Status" – Alle Berufe mit Pipeline-Fortschritt. Batch-Generierung: 5 oder 10 auf einmal starten',
-          '"Alle bestandenen veröffentlichen" – Publiziert alle Pakete mit bestandenem Integrity-Check',
-          '"Curriculum Health" – Übersicht aller Curricula: Lernfelder, Kompetenzen, Seed-Status, Fehler',
+      '"Alle bestandenen veröffentlichen" – Publiziert alle Pakete mit bestandenem Integrity-Check',
+          '"Total Coverage" – Marktabdeckung: Base (600Q) → Optimize (850Q) → Authority (1200Q). Ziel: 95% aller Berufe ≥ Base',
           '"Reporting" – KPIs: Publishes, Fehlerrate, Ø Build-Dauer, aktive Pipeline-Jobs',
         ]}
         tips={[
