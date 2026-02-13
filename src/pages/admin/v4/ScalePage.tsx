@@ -16,12 +16,14 @@ import PageExplainer from '@/components/admin/PageExplainer';
 const CurriculumHealthDashboard = lazy(() => import('@/components/admin/CurriculumHealthDashboard'));
 const DeepAuditPanel = lazy(() => import('@/components/admin/DeepAuditPanel'));
 const MassRolloutDashboard = lazy(() => import('@/components/admin/MassRolloutDashboard'));
+const CEOStrategicDashboard = lazy(() => import('@/components/admin/CEOStrategicDashboard'));
 
 const tabs = [
   { path: '/admin/scale', label: 'Berufe-Status' },
   { path: '/admin/scale/curriculum', label: 'Curriculum Health' },
   { path: '/admin/scale/deep-audit', label: 'Deep Audit' },
   { path: '/admin/scale/rollout', label: 'Mass Rollout' },
+  { path: '/admin/scale/ceo', label: '👑 CEO Command' },
   { path: '/admin/scale/reporting', label: 'Reporting' },
 ];
 
@@ -345,6 +347,7 @@ export default function ScalePage() {
           <Route path="curriculum" element={<CurriculumHealthDashboard />} />
           <Route path="deep-audit" element={<DeepAuditPanel />} />
           <Route path="rollout" element={<MassRolloutDashboard />} />
+          <Route path="ceo" element={<CEOStrategicDashboard />} />
           <Route path="reporting" element={<ScaleReporting />} />
         </Routes>
       </Suspense>
