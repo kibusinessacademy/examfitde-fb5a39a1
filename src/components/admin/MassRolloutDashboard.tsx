@@ -81,8 +81,9 @@ function ReadinessGate({ label, ok, value, threshold, unit = '' }: {
 }
 
 const SHIP_COLORS: Record<string, string> = {
-  ship: 'bg-primary/20 text-primary',
+  ship: 'bg-muted text-muted-foreground',
   optimize: 'bg-warning/20 text-warning',
+  advanced: 'bg-primary/20 text-primary',
   authority: 'bg-success/20 text-success',
 };
 

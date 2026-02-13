@@ -803,6 +803,50 @@ export type Database = {
         }
         Relationships: []
       }
+      authority_decisions: {
+        Row: {
+          authority_index_at: number | null
+          confidence_at: number | null
+          created_at: string | null
+          decided_by: string
+          decision: string
+          governance_at: number | null
+          id: string
+          portfolio_id: string | null
+          reason: string | null
+        }
+        Insert: {
+          authority_index_at?: number | null
+          confidence_at?: number | null
+          created_at?: string | null
+          decided_by?: string
+          decision: string
+          governance_at?: number | null
+          id?: string
+          portfolio_id?: string | null
+          reason?: string | null
+        }
+        Update: {
+          authority_index_at?: number | null
+          confidence_at?: number | null
+          created_at?: string | null
+          decided_by?: string
+          decision?: string
+          governance_at?: number | null
+          id?: string
+          portfolio_id?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "authority_decisions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_priority"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_heal_log: {
         Row: {
           action_type: string
@@ -8250,55 +8294,82 @@ export type Database = {
       }
       portfolio_priority: {
         Row: {
+          audit_cycles_passed: number | null
+          authority_approved_at: string | null
+          authority_approved_by: string | null
+          authority_index: number | null
+          authority_status: string | null
           beruf_id: string | null
           competition_score: number
           completion_status: string
           confidence: number | null
+          conversion_rate: number | null
           created_at: string
           demand_score: number
           exam_target: number
           governance_score: number | null
           id: string
+          last_quality_hold_at: string | null
+          market_sector: string | null
           occupation_slug: string | null
           priority_index: number | null
           quality_status: string
           release_status: string
+          revenue_monthly: number | null
           revenue_potential_score: number
           ship_level: string
           updated_at: string
         }
         Insert: {
+          audit_cycles_passed?: number | null
+          authority_approved_at?: string | null
+          authority_approved_by?: string | null
+          authority_index?: number | null
+          authority_status?: string | null
           beruf_id?: string | null
           competition_score?: number
           completion_status?: string
           confidence?: number | null
+          conversion_rate?: number | null
           created_at?: string
           demand_score?: number
           exam_target?: number
           governance_score?: number | null
           id?: string
+          last_quality_hold_at?: string | null
+          market_sector?: string | null
           occupation_slug?: string | null
           priority_index?: number | null
           quality_status?: string
           release_status?: string
+          revenue_monthly?: number | null
           revenue_potential_score?: number
           ship_level?: string
           updated_at?: string
         }
         Update: {
+          audit_cycles_passed?: number | null
+          authority_approved_at?: string | null
+          authority_approved_by?: string | null
+          authority_index?: number | null
+          authority_status?: string | null
           beruf_id?: string | null
           competition_score?: number
           completion_status?: string
           confidence?: number | null
+          conversion_rate?: number | null
           created_at?: string
           demand_score?: number
           exam_target?: number
           governance_score?: number | null
           id?: string
+          last_quality_hold_at?: string | null
+          market_sector?: string | null
           occupation_slug?: string | null
           priority_index?: number | null
           quality_status?: string
           release_status?: string
+          revenue_monthly?: number | null
           revenue_potential_score?: number
           ship_level?: string
           updated_at?: string
@@ -9757,49 +9828,58 @@ export type Database = {
       }
       rollout_control: {
         Row: {
+          authority_thresholds: Json | null
           auto_upgrade_threshold: Json | null
           created_at: string
           id: string
           is_active: boolean
           last_evaluated_at: string | null
+          max_authority_concurrent: number | null
           max_concurrent_builds: number
           max_global_dup_rate: number
           max_provider_risk: number
           min_confidence_avg: number
           min_governance_avg: number
           mode: string
+          revenue_protection: Json | null
           ship_level_config: Json | null
           updated_at: string
           weekly_target: number
         }
         Insert: {
+          authority_thresholds?: Json | null
           auto_upgrade_threshold?: Json | null
           created_at?: string
           id?: string
           is_active?: boolean
           last_evaluated_at?: string | null
+          max_authority_concurrent?: number | null
           max_concurrent_builds?: number
           max_global_dup_rate?: number
           max_provider_risk?: number
           min_confidence_avg?: number
           min_governance_avg?: number
           mode?: string
+          revenue_protection?: Json | null
           ship_level_config?: Json | null
           updated_at?: string
           weekly_target?: number
         }
         Update: {
+          authority_thresholds?: Json | null
           auto_upgrade_threshold?: Json | null
           created_at?: string
           id?: string
           is_active?: boolean
           last_evaluated_at?: string | null
+          max_authority_concurrent?: number | null
           max_concurrent_builds?: number
           max_global_dup_rate?: number
           max_provider_risk?: number
           min_confidence_avg?: number
           min_governance_avg?: number
           mode?: string
+          revenue_protection?: Json | null
           ship_level_config?: Json | null
           updated_at?: string
           weekly_target?: number
@@ -12712,6 +12792,18 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: number
       }
+      calculate_authority_index: {
+        Args: {
+          p_audit_stability: number
+          p_confidence: number
+          p_difficulty_balance: number
+          p_dup_rate: number
+          p_governance: number
+          p_lf_coverage: number
+          p_provider_stability: number
+        }
+        Returns: number
+      }
       calculate_daily_kpis: { Args: never; Returns: Json }
       calculate_exam_readiness: {
         Args: { p_curriculum_id: string; p_user_id: string }
@@ -12904,6 +12996,7 @@ export type Database = {
         }
         Returns: string
       }
+      evaluate_portfolio_health: { Args: never; Returns: Json }
       evaluate_rollout_readiness: { Args: never; Returns: Json }
       export_course_pack: {
         Args: {
@@ -13221,6 +13314,7 @@ export type Database = {
         }[]
       }
       get_security_spike_score: { Args: { p_minutes?: number }; Returns: Json }
+      get_ship_level: { Args: { p_authority_index: number }; Returns: string }
       get_user_dashboard_stats: { Args: never; Returns: Json }
       get_user_entitlements: {
         Args: { p_curriculum_id?: string; p_user_id: string }
@@ -13319,6 +13413,10 @@ export type Database = {
       pick_next_package_to_start: {
         Args: { max_active?: number }
         Returns: string
+      }
+      promote_to_authority: {
+        Args: { p_admin_id?: string; p_portfolio_id: string }
+        Returns: Json
       }
       publish_approved_blueprint_version: {
         Args: { p_blueprint_id: string; p_version_id: string }
