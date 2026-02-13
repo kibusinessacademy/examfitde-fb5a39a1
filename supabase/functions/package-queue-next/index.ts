@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
   );
 
   try {
-    // Check active packages vs max_active_packages limit
+    // Use completion-first RPC with aging
     const { data: budgetRow } = await sb
       .from("llm_budget")
       .select("max_active_packages")
@@ -37,28 +37,25 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const maxActive = budgetRow?.max_active_packages ?? 4;
 
-    const { count: buildingCount } = await sb
-      .from("course_packages")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "building");
+    const { data: nextId } = await sb.rpc("pick_next_package_to_start", { max_active: maxActive });
 
-    if ((buildingCount ?? 0) >= maxActive) {
-      return json({ ok: true, skipped: true, reason: `${buildingCount}/${maxActive} packages active, waiting for slot` });
+    if (!nextId) {
+      const { data: activeCount } = await sb.rpc("get_active_package_count");
+      return json({ ok: true, skipped: true, reason: `${activeCount}/${maxActive} active, no eligible queued packages` });
     }
 
-    // Find next queued package (lowest queue_position, not yet published/building)
+    // Atomically set to building
+    await sb.rpc("set_package_status", { p_id: nextId, p_status: "building" });
+
     const { data: next, error } = await sb
       .from("course_packages")
       .select("id, course_id, certification_id, queue_position")
-      .not("status", "in", '("published","building","qa")')
-      .not("queue_position", "is", null)
-      .order("queue_position", { ascending: true })
-      .limit(1)
+      .eq("id", nextId)
       .maybeSingle();
 
     if (error) throw error;
     if (!next) {
-      return json({ ok: true, skipped: true, reason: "No packages in queue" });
+      return json({ ok: true, skipped: true, reason: "Package not found after pick" });
     }
 
     // Find curriculum_id from the course
