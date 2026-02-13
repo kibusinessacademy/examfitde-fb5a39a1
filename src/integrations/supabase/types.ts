@@ -4264,6 +4264,74 @@ export type Database = {
           },
         ]
       }
+      duplicate_detection_log: {
+        Row: {
+          auto_blocked: boolean
+          created_at: string
+          detection_method: string
+          id: string
+          package_id: string
+          question_a_id: string
+          question_b_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          similarity_score: number
+        }
+        Insert: {
+          auto_blocked?: boolean
+          created_at?: string
+          detection_method?: string
+          id?: string
+          package_id: string
+          question_a_id: string
+          question_b_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          similarity_score: number
+        }
+        Update: {
+          auto_blocked?: boolean
+          created_at?: string
+          detection_method?: string
+          id?: string
+          package_id?: string
+          question_a_id?: string
+          question_b_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          similarity_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
       email_campaigns: {
         Row: {
           content: string
@@ -8238,6 +8306,92 @@ export type Database = {
           },
         ]
       }
+      production_quality_snapshots: {
+        Row: {
+          auto_paused: boolean
+          created_at: string
+          curriculum_id: string
+          difficulty_easy_pct: number
+          difficulty_hard_pct: number
+          difficulty_medium_pct: number
+          duplicate_rate: number
+          flags: string[] | null
+          id: string
+          lf_coverage_pct: number
+          lf_detail: Json | null
+          low_confidence_count: number
+          package_id: string
+          pause_reason: string | null
+          snapshot_at: string
+          total_questions: number
+        }
+        Insert: {
+          auto_paused?: boolean
+          created_at?: string
+          curriculum_id: string
+          difficulty_easy_pct?: number
+          difficulty_hard_pct?: number
+          difficulty_medium_pct?: number
+          duplicate_rate?: number
+          flags?: string[] | null
+          id?: string
+          lf_coverage_pct?: number
+          lf_detail?: Json | null
+          low_confidence_count?: number
+          package_id: string
+          pause_reason?: string | null
+          snapshot_at?: string
+          total_questions?: number
+        }
+        Update: {
+          auto_paused?: boolean
+          created_at?: string
+          curriculum_id?: string
+          difficulty_easy_pct?: number
+          difficulty_hard_pct?: number
+          difficulty_medium_pct?: number
+          duplicate_rate?: number
+          flags?: string[] | null
+          id?: string
+          lf_coverage_pct?: number
+          lf_detail?: Json | null
+          low_confidence_count?: number
+          package_id?: string
+          pause_reason?: string | null
+          snapshot_at?: string
+          total_questions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -8414,6 +8568,60 @@ export type Database = {
           updated_at?: string | null
           valid_from?: string | null
           valid_until?: string | null
+        }
+        Relationships: []
+      }
+      provider_performance: {
+        Row: {
+          avg_latency_ms: number | null
+          avg_tokens_out: number | null
+          created_at: string
+          date: string
+          error_count: number
+          hallucination_flags: number
+          id: string
+          metadata: Json | null
+          model: string | null
+          near_duplicate_rate: number | null
+          provider: string
+          success_count: number
+          total_calls: number
+          total_cost_eur: number | null
+          updated_at: string
+        }
+        Insert: {
+          avg_latency_ms?: number | null
+          avg_tokens_out?: number | null
+          created_at?: string
+          date?: string
+          error_count?: number
+          hallucination_flags?: number
+          id?: string
+          metadata?: Json | null
+          model?: string | null
+          near_duplicate_rate?: number | null
+          provider: string
+          success_count?: number
+          total_calls?: number
+          total_cost_eur?: number | null
+          updated_at?: string
+        }
+        Update: {
+          avg_latency_ms?: number | null
+          avg_tokens_out?: number | null
+          created_at?: string
+          date?: string
+          error_count?: number
+          hallucination_flags?: number
+          id?: string
+          metadata?: Json | null
+          model?: string | null
+          near_duplicate_rate?: number | null
+          provider?: string
+          success_count?: number
+          total_calls?: number
+          total_cost_eur?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -12229,6 +12437,10 @@ export type Database = {
       cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
       check_lesson_progression: {
         Args: { p_lesson_id: string; p_user_id: string }
+        Returns: Json
+      }
+      check_production_quality: {
+        Args: { p_curriculum_id: string; p_package_id: string }
         Returns: Json
       }
       check_simulation_gate: {

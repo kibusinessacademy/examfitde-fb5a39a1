@@ -111,6 +111,34 @@ Deno.serve(async (req) => {
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
     const targetReached = actualTotal >= SHIP_TARGET;
 
+    // Quality Shield: run live guardrail every ~200 questions
+    if (actualTotal > 0 && actualTotal % 200 < CHUNK_SIZE) {
+      try {
+        await sb.rpc("check_production_quality", {
+          p_package_id: packageId,
+          p_curriculum_id: curriculumId,
+        });
+        // Check if pipeline was auto-paused
+        const { data: pkgCheck } = await sb
+          .from("course_packages")
+          .select("status")
+          .eq("id", packageId)
+          .single();
+        if (pkgCheck?.status === "quality_hold") {
+          console.log(`[ExamPool] Package ${packageId.slice(0, 8)}: AUTO-PAUSED by Quality Shield`);
+          return json({
+            ok: true,
+            batch_complete: false,
+            quality_hold: true,
+            total_questions: actualTotal,
+            message: "Pipeline paused by Quality Shield guardrail",
+          });
+        }
+      } catch (qErr) {
+        console.warn(`[ExamPool] Quality check warning: ${(qErr as Error)?.message}`);
+      }
+    }
+
     console.log(
       `[ExamPool] Package ${packageId.slice(0, 8)}: chunk done. ` +
       `Generated ~${questionsThisChunk} this run, total=${actualTotal}/${examTarget}, ` +

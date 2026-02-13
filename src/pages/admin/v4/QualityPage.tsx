@@ -19,8 +19,11 @@ const Loading = () => (
   </div>
 );
 
+const QualityShieldDashboard = lazy(() => import('@/components/admin/QualityShieldDashboard'));
+
 const tabs = [
   { path: '/admin/quality', label: 'Übersicht' },
+  { path: '/admin/quality/shield', label: 'Quality Shield' },
   { path: '/admin/quality/integrity', label: 'Integrität' },
   { path: '/admin/quality/compliance', label: 'Compliance' },
   { path: '/admin/quality/azav', label: 'AZAV/ISO' },
@@ -264,6 +267,7 @@ export default function QualityPage() {
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route index element={<QualityOverview />} />
+          <Route path="shield" element={<QualityShieldDashboard />} />
           <Route path="integrity" element={<IntegrityOverview />} />
           <Route path="compliance" element={<ComplianceDashboardPage />} />
           <Route path="azav" element={<AZAVCompliancePage />} />
