@@ -443,12 +443,21 @@ async function validateIntegrityV3(sb: ReturnType<typeof createClient>, curricul
 
   // Combine with v2 score
   const v2Score = Number(v2Report?.score ?? 0);
-  // V3 deductions
-  let v3Deduction = 0;
-  if (hardFails.length > 0) v3Deduction += hardFails.length * 5;
-  if (warnings.length > 0) v3Deduction += warnings.length * 1;
-  const finalScore = Math.max(0, Math.min(100, v2Score - v3Deduction));
-  const passed = hardFails.length === 0 && finalScore >= 80;
+    // V3 deductions
+    let v3Deduction = 0;
+    if (hardFails.length > 0) v3Deduction += hardFails.length * 5;
+    if (warnings.length > 0) v3Deduction += warnings.length * 1;
+    const finalScore = Math.max(0, Math.min(100, v2Score - v3Deduction));
+    // Ship-Ready Gate: pass at 850 questions (Base level) with score >= 60
+    // Authority level still requires >= 80
+    const questionCount = questions.length;
+    const shipReady = questionCount >= 850;
+    const basePass = shipReady && hardFails.length === 0 && finalScore >= 60;
+    const authorityPass = hardFails.length === 0 && finalScore >= 80;
+    const passed = basePass || authorityPass;
+    if (shipReady && !authorityPass && basePass) {
+      warnings.push(`Ship-ready (${questionCount} questions, score ${finalScore}) but below Authority threshold (80)`);
+    }
 
   return {
     passed,
