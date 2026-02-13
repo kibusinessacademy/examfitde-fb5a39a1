@@ -19,10 +19,13 @@ const Loading = () => (
   </div>
 );
 
+const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
+
 const tabs = [
   { path: '/admin/ops', label: 'Ampel' },
   { path: '/admin/ops/queue', label: 'Queue' },
   { path: '/admin/ops/autoheal', label: 'Auto-Heal' },
+  { path: '/admin/ops/load-control', label: 'Load Control' },
   { path: '/admin/ops/logs', label: 'Live Logs' },
   { path: '/admin/ops/deadletter', label: 'Dead Letter' },
   { path: '/admin/ops/health', label: 'Health' },
@@ -684,6 +687,7 @@ export default function OpsPage() {
           <Route index element={<OpsOverview />} />
           <Route path="queue" element={<QueueDashboard />} />
           <Route path="autoheal" element={<AutoHealCenter />} />
+          <Route path="load-control" element={<LoadControlPage />} />
           <Route path="logs" element={<LiveLogs />} />
           <Route path="deadletter" element={<DeadLetterCenter />} />
           <Route path="health" element={<SystemHealthPage />} />

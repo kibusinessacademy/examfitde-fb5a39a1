@@ -230,3 +230,12 @@ verify_jwt = false
 
 [functions.daily-test-runner]
 verify_jwt = false
+
+[functions.stuck-scan]
+verify_jwt = false
+
+[functions.kpi-rollup]
+verify_jwt = false
+
+[functions.package-queue-next]
+verify_jwt = false
