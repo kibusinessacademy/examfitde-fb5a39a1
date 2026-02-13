@@ -172,15 +172,17 @@ async function logProviderUsage(
   cost: number = 0,
   errorCategory: string | null = null
 ): Promise<void> {
-  await admin.rpc("log_provider_usage", {
-    p_provider: provider,
-    p_job_type: jobType,
-    p_success: success,
-    p_latency_ms: latencyMs,
-    p_tokens: tokens,
-    p_cost: cost,
-    p_error_category: errorCategory,
-  }).catch(() => {});
+  try {
+    await admin.rpc("log_provider_usage", {
+      p_provider: provider,
+      p_job_type: jobType,
+      p_success: success,
+      p_latency_ms: latencyMs,
+      p_tokens: tokens,
+      p_cost: cost,
+      p_error_category: errorCategory,
+    });
+  } catch { /* ignore */ }
 }
 
 // ─── JOB COST LEDGER LOGGING ────────────────────────────────────────
@@ -244,16 +246,18 @@ async function recordBackpressureSnapshot(
   const prevPending = prev?.pending_count ?? pendingCount;
   const trend = pendingCount > prevPending * 1.1 ? "rising" : pendingCount < prevPending * 0.9 ? "falling" : "stable";
 
-  await admin.from("backpressure_snapshots").insert({
-    pending_count: pendingCount,
-    processing_count: processingCount,
-    completed_1h: completed1h,
-    failed_1h: failed1h,
-    throughput_per_min: Math.round(throughputPerMin * 100) / 100,
-    eta_clear_minutes: Math.round(etaClearMin * 10) / 10,
-    forecast_trend: trend,
-    throttle_active: throttle,
-  }).catch(() => {});
+  try {
+    await admin.from("backpressure_snapshots").insert({
+      pending_count: pendingCount,
+      processing_count: processingCount,
+      completed_1h: completed1h,
+      failed_1h: failed1h,
+      throughput_per_min: Math.round(throughputPerMin * 100) / 100,
+      eta_clear_minutes: Math.round(etaClearMin * 10) / 10,
+      forecast_trend: trend,
+      throttle_active: throttle,
+    });
+  } catch { /* ignore */ }
 
   if (trend === "rising" && pendingCount > BACKPRESSURE_WARN) {
     console.warn(`[Runner:${RUNNER_ID}] 📈 Backpressure RISING: ${pendingCount} pending, ETA ${etaClearMin.toFixed(0)}min`);
@@ -266,7 +270,7 @@ async function maybeRecalcScores(admin: ReturnType<typeof createClient>): Promis
   const now = Date.now();
   if (now - _lastScoreRecalc < 300_000) return; // 5 min
   _lastScoreRecalc = now;
-  await admin.rpc("recalculate_routing_scores").catch(() => {});
+  try { await admin.rpc("recalculate_routing_scores"); } catch { /* ignore */ }
   console.log(`[Runner:${RUNNER_ID}] 📊 Routing scores recalculated`);
 }
 
@@ -280,7 +284,7 @@ async function claimProviderSlot(admin: ReturnType<typeof createClient>, provide
 }
 
 async function releaseProviderSlot(admin: ReturnType<typeof createClient>, provider: string): Promise<void> {
-  await admin.rpc("release_provider_slot", { p_provider: provider }).catch(() => {});
+  try { await admin.rpc("release_provider_slot", { p_provider: provider }); } catch { /* ignore */ }
 }
 
 async function markProviderRateLimited(
@@ -289,11 +293,13 @@ async function markProviderRateLimited(
   cooldownSec: number,
   errorMsg: string
 ): Promise<void> {
-  await admin.rpc("mark_provider_rate_limited", {
-    p_provider: provider,
-    p_cooldown_seconds: cooldownSec,
-    p_error: errorMsg.slice(0, 500),
-  }).catch(() => {});
+  try {
+    await admin.rpc("mark_provider_rate_limited", {
+      p_provider: provider,
+      p_cooldown_seconds: cooldownSec,
+      p_error: errorMsg.slice(0, 500),
+    });
+  } catch { /* ignore */ }
 }
 
 async function recoverProviders(admin: ReturnType<typeof createClient>): Promise<number> {
@@ -527,7 +533,7 @@ async function checkBackpressure(
       category: "ops",
       severity: "critical",
       metadata: { pending_count: pendingCount, threshold: BACKPRESSURE_THROTTLE },
-    }).catch(() => {});
+    }).then(() => {}, () => {});
   } else if (warn) {
     console.warn(`[Runner:${RUNNER_ID}] ⚠️ Queue growing: ${pendingCount} pending jobs`);
   }
