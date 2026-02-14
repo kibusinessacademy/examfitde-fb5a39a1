@@ -82,7 +82,7 @@ function BerufeStatus() {
   const load = async () => {
     const [pkgRes, berufRes] = await Promise.all([
       (supabase as any).from('course_packages')
-        .select('id, title, status, integrity_passed, certification_id, build_progress, created_at, track, certification_type, feature_flags')
+        .select('id, title, status, integrity_passed, curriculum_id, certification_id, build_progress, created_at, track, certification_type, feature_flags')
         .order('title'),
       (supabase as any).from('berufe')
         .select('id, bezeichnung_kurz, ist_aktiv')
@@ -135,7 +135,7 @@ function BerufeStatus() {
   );
 
   // Map berufe to packages
-  const berufMap = new Map(packages.map(p => [p.certification_id, p]));
+  const berufMap = new Map(packages.map(p => [p.curriculum_id || p.certification_id, p]));
   const statusCounts = STATUS_PIPELINE.reduce((acc, s) => ({ ...acc, [s]: 0 }), {} as Record<string, number>);
   
   const berufList = berufe.map(b => {
@@ -147,7 +147,7 @@ function BerufeStatus() {
 
   // Also count packages not linked to a beruf
   for (const pkg of packages) {
-    if (!berufe.find(b => b.id === pkg.certification_id)) {
+    if (!berufe.find(b => b.id === (pkg.curriculum_id || pkg.certification_id))) {
       const status = mapPackageStatus(pkg);
       statusCounts[status] = (statusCounts[status] || 0) + 1;
     }
