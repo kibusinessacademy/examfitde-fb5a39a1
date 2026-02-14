@@ -96,6 +96,7 @@ interface StepRow {
   max_attempts: number;
   timeout_seconds?: number;
   started_at?: string;
+  meta?: Record<string, unknown> | null;
 }
 
 /**
@@ -350,7 +351,7 @@ Deno.serve(async (req) => {
     // ── 3) Load steps & pick next ──
     const { data: steps, error: stepsErr } = await sb
       .from("package_steps")
-      .select("step_key,status,attempts,max_attempts,timeout_seconds,started_at")
+      .select("step_key,status,attempts,max_attempts,timeout_seconds,started_at,meta")
       .eq("package_id", packageId);
 
     if (stepsErr) {
@@ -505,17 +506,46 @@ Deno.serve(async (req) => {
         stepKey,
         runnerId,
         functionName,
-        body: {
-          payload: {
+        body: (() => {
+          const stepMeta = (steps ?? []).find((s: StepRow) => s.step_key === stepKey)?.meta;
+          const batchCursor = stepMeta?.batch_cursor ?? null;
+          const payload: Record<string, unknown> = {
             package_id: packageId,
             course_id: pkg.course_id,
             curriculum_id: pkg.curriculum_id,
             certification_id: pkg.certification_id,
             mode,
             feature_flags: pkg.feature_flags ?? {},
-          },
-        },
+          };
+          if (batchCursor) payload.batch_cursor = batchCursor;
+          return { payload };
+        })(),
       });
+
+      // ── Batch continuation: if step returns batch_complete=false, reset to queued ──
+      if (result?.batch_complete === false && result?.batch_cursor) {
+        // Step needs more iterations — reset to queued so next cron picks it up
+        await safeQuery(
+          sb.from("package_steps")
+            .update({
+              status: "queued",
+              last_heartbeat_at: new Date().toISOString(),
+              runner_id: null,
+              meta: { batch_cursor: result.batch_cursor },
+            })
+            .eq("package_id", packageId)
+            .eq("step_key", stepKey),
+        );
+        // Keep package building, release lease for next cron
+        await safeRpc(sb, "release_package_lease", {
+          p_package_id: packageId,
+          p_runner_id: runnerId,
+        });
+        console.log(
+          `[runner] 🔄 Step ${stepKey} batch incomplete for ${packageId.slice(0, 8)} — re-queued (cursor: bp ${result.batch_cursor.blueprint_index}/${result.batch_cursor.blueprints_total})`,
+        );
+        return json({ ok: true, packageId, stepKey, batch_continue: true, cursor: result.batch_cursor });
+      }
 
       // QA: factory = non-blocking, production = blocking
       if (stepKey === "quality_council" && mode === "factory") {

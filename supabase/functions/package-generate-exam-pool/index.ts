@@ -15,7 +15,7 @@ import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
  */
 
 const CHUNK_SIZE = 10;
-const AI_CHUNK_SIZE = 6;
+const AI_CHUNK_SIZE = 2; // Keep small to stay within edge function timeout (150s)
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
 
 // ─── Dominanz-Engine v3: Dynamic distributions from Hybrid Target ────────────
