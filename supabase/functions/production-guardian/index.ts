@@ -213,8 +213,8 @@ Deno.serve(async (req) => {
       .select("id", { count: "exact", head: true })
       .eq("status", "draft");
 
-    const freezePriority = (draftCount ?? 0) > 50;
-    const batchSize = freezePriority ? 40 : 25;
+    const dc = draftCount ?? 0;
+    const batchSize = dc > 200 ? 60 : dc > 100 ? 40 : 25;
 
     const { count: pendingPipelineJobs } = await sb
       .from("job_queue")

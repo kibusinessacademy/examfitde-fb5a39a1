@@ -189,52 +189,77 @@ Deno.serve(async (req) => {
     ...(options || {}),
   };
 
-  // ── Define pipeline steps ──
-  const steps: Array<{ step_key: string; job_type: string }> = [];
-
+  // ── Define pipeline steps (parallel content generation, then serial gates) ──
+  // Phase 1: content steps run in PARALLEL (sequence=1)
+  const contentSteps: Array<{ step_key: string; job_type: string }> = [];
   if (opts.include_learning_course)
-    steps.push({ step_key: "scaffold_learning_course", job_type: "package_scaffold_learning_course" });
+    contentSteps.push({ step_key: "scaffold_learning_course", job_type: "package_scaffold_learning_course" });
   if (opts.include_exam_pool)
-    steps.push({ step_key: "generate_exam_pool", job_type: "package_generate_exam_pool" });
+    contentSteps.push({ step_key: "generate_exam_pool", job_type: "package_generate_exam_pool" });
   if (opts.include_oral_exam)
-    steps.push({ step_key: "generate_oral_exam", job_type: "package_generate_oral_exam" });
+    contentSteps.push({ step_key: "generate_oral_exam", job_type: "package_generate_oral_exam" });
   if (opts.include_ai_tutor)
-    steps.push({ step_key: "build_ai_tutor_index", job_type: "package_build_ai_tutor_index" });
+    contentSteps.push({ step_key: "build_ai_tutor_index", job_type: "package_build_ai_tutor_index" });
   if (opts.include_handbook)
-    steps.push({ step_key: "generate_handbook", job_type: "package_generate_handbook" });
+    contentSteps.push({ step_key: "generate_handbook", job_type: "package_generate_handbook" });
 
-  steps.push({ step_key: "run_integrity_check", job_type: "package_run_integrity_check" });
-  steps.push({ step_key: "auto_publish", job_type: "package_auto_publish" });
+  // Phase 2+3: serial gates after all content is done
+  const gateSteps: Array<{ step_key: string; job_type: string }> = [
+    { step_key: "run_integrity_check", job_type: "package_run_integrity_check" },
+    { step_key: "auto_publish", job_type: "package_auto_publish" },
+  ];
+
+  const allSteps = [...contentSteps, ...gateSteps];
 
   // Init build steps
   await sb.rpc("init_course_package_steps", {
     p_package_id: packageId,
-    p_steps: steps.map((s) => s.step_key),
+    p_steps: allSteps.map((s) => s.step_key),
   });
 
   // Heartbeat again before enqueuing jobs
   await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId });
 
-  // Enqueue jobs
+  // Enqueue jobs: content steps all get sequence=1 (parallel), gates get 2, 3
   const nowIso = new Date().toISOString();
-  const jobs = steps.map((s, idx) => ({
-    job_type: s.job_type,
-    status: "pending",
-    attempts: 0,
-    max_attempts: 25,
-    run_after: nowIso,
-    payload: {
-      job_version: "course_studio_v2",
-      package_id: packageId,
-      step_key: s.step_key,
-      course_id: effectiveCourseId,
-      curriculum_id: effectiveCurriculumId,
-      certification_id: effectiveCertId,
-      provider: idx % 2 === 0 ? "openai" : "anthropic",
-      options: opts,
-      sequence: idx + 1,
-    },
-  }));
+  const jobs = [
+    ...contentSteps.map((s, idx) => ({
+      job_type: s.job_type,
+      status: "pending",
+      attempts: 0,
+      max_attempts: 25,
+      run_after: nowIso,
+      payload: {
+        job_version: "course_studio_v2",
+        package_id: packageId,
+        step_key: s.step_key,
+        course_id: effectiveCourseId,
+        curriculum_id: effectiveCurriculumId,
+        certification_id: effectiveCertId,
+        provider: idx % 2 === 0 ? "openai" : "anthropic",
+        options: opts,
+        sequence: 1, // all content steps run in parallel
+      },
+    })),
+    ...gateSteps.map((s, idx) => ({
+      job_type: s.job_type,
+      status: "pending",
+      attempts: 0,
+      max_attempts: 25,
+      run_after: nowIso,
+      payload: {
+        job_version: "course_studio_v2",
+        package_id: packageId,
+        step_key: s.step_key,
+        course_id: effectiveCourseId,
+        curriculum_id: effectiveCurriculumId,
+        certification_id: effectiveCertId,
+        provider: "openai",
+        options: opts,
+        sequence: idx + 2, // integrity_check=2, auto_publish=3
+      },
+    })),
+  ];
 
   const ins = await sb.from("job_queue").insert(jobs).select("id");
   if (ins.error) {

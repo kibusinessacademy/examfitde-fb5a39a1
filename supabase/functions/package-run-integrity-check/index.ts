@@ -521,10 +521,27 @@ Deno.serve(async (req) => {
   };
 
   try {
-    // Prereq: exam pool must be fully done (including fan-out sub-jobs)
-    const examStepDone = await prereqDone(sb, packageId, "generate_exam_pool");
-    if (!examStepDone) {
-      return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_exam_pool" }, 409);
+    // Prereq: ALL content steps must be done before integrity check
+    const contentPrereqs = [
+      "scaffold_learning_course",
+      "generate_exam_pool",
+      "generate_oral_exam",
+      "build_ai_tutor_index",
+      "generate_handbook",
+    ];
+
+    for (const stepKey of contentPrereqs) {
+      // Check if step exists for this package (some may be skipped)
+      const { data: stepRow } = await sb
+        .from("course_package_build_steps")
+        .select("status")
+        .eq("package_id", packageId)
+        .eq("step_key", stepKey)
+        .maybeSingle();
+      // If step exists and is not done, defer
+      if (stepRow && stepRow.status !== "done") {
+        return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${stepKey} (status: ${stepRow.status})` }, 409);
+      }
     }
 
     // Extra guard: check no pending/processing fan-out exam jobs remain
@@ -536,11 +553,6 @@ Deno.serve(async (req) => {
       .filter("payload->>package_id", "eq", packageId);
     if ((pendingExamJobs ?? 0) > 0) {
       return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${pendingExamJobs} exam fan-out jobs still running` }, 409);
-    }
-
-    // Prereq: handbook must be done
-    if (!(await prereqDone(sb, packageId, "generate_handbook"))) {
-      return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_handbook" }, 409);
     }
 
     await sb.rpc("update_course_package_step", {

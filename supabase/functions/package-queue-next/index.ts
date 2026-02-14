@@ -46,13 +46,23 @@ Deno.serve(async (req) => {
       .from("course_packages")
       .select("id", { count: "exact", head: true });
 
-    // During initial ramp-up, prioritize freezing curricula over building packages
-    if ((totalPkgs ?? 0) < 10 && (frozenCount ?? 0) < 5) {
+    // Freeze-phase gate: don't start builds until enough curricula are frozen
+    const { count: draftCount } = await sb
+      .from("curricula")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "draft");
+
+    const drafts = draftCount ?? 0;
+    const frozen = frozenCount ?? 0;
+
+    // Start packages only when drafts < 50 OR frozen > 150
+    if (drafts >= 50 && frozen < 150) {
       return json({
         ok: true,
         skipped: true,
         reason: "Freeze-phase priority: waiting for more frozen curricula",
-        frozenCount: frozenCount ?? 0,
+        frozenCount: frozen,
+        draftCount: drafts,
       });
     }
 
