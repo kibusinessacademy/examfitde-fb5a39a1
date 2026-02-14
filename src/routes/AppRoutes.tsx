@@ -59,6 +59,9 @@ const GrowthPage = lazy(() => import('@/pages/admin/v4/GrowthPage'));
 const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
 const PipelineMonitorPage = lazy(() => import('@/pages/admin/v4/PipelineMonitorPage'));
 const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
+const ContentPagesOverview = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentPagesOverview })));
+const CRMOverview = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.CRMOverview })));
+const SupportOverview = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.SupportOverview })));
 
 
 // Learner Pages
@@ -182,6 +185,9 @@ const AppRoutes = () => {
           <Route path="scale/*" element={<ScalePage />} />
           <Route path="pipeline" element={<PipelineMonitorPage />} />
           <Route path="load-control" element={<LoadControlPage />} />
+          <Route path="content/*" element={<ContentPagesOverview />} />
+          <Route path="crm/*" element={<CRMOverview />} />
+          <Route path="support/*" element={<SupportOverview />} />
         </Route>
 
         {/* Legacy redirects → V4 */}
