@@ -151,7 +151,7 @@ serve(async (req) => {
       context_course_id: contextCourseId || null,
       context_lesson_id: contextLessonId || null,
       context_competency_id: contextCompetencyId || null,
-      model_used: "google/gemini-3-flash-preview",
+      model_used: "deepseek-chat",
       tokens_used: tokensUsed,
       guardrail_flags: guardrailFlags,
     });
