@@ -4006,6 +4006,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_step: number | null
+          curriculum_id: string | null
           feature_flags: Json | null
           id: string
           integrity_passed: boolean
@@ -4037,6 +4038,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_step?: number | null
+          curriculum_id?: string | null
           feature_flags?: Json | null
           id?: string
           integrity_passed?: boolean
@@ -4068,6 +4070,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_step?: number | null
+          curriculum_id?: string | null
           feature_flags?: Json | null
           id?: string
           integrity_passed?: boolean
@@ -4087,17 +4090,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "course_packages_certification_id_fkey"
-            columns: ["certification_id"]
-            isOneToOne: false
-            referencedRelation: "curricula"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
             referencedColumns: ["id"]
           },
         ]
@@ -14254,15 +14257,7 @@ export type Database = {
           seeding_version: string | null
           version_status: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "course_packages_certification_id_fkey"
-            columns: ["certification_id"]
-            isOneToOne: false
-            referencedRelation: "curricula"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_exam_questions_approved: {
         Row: {
@@ -15588,6 +15583,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_step: number | null
+          curriculum_id: string | null
           feature_flags: Json | null
           id: string
           integrity_passed: boolean
@@ -15774,6 +15770,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_step: number | null
+          curriculum_id: string | null
           feature_flags: Json | null
           id: string
           integrity_passed: boolean

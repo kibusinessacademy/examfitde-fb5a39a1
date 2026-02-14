@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
         .insert({
           title: `ExamFit – ${berufName}`,
           course_id: courseId,
-          certification_id: curriculumId,
+          curriculum_id: curriculumId,
           status: "planning",
           queue_position: nextPosition,
           components: {

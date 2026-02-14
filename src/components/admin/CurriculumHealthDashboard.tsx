@@ -62,11 +62,11 @@ export default function CurriculumHealthDashboard() {
 
     // Load packages
     const { data: packages } = await (supabase as any).from('course_packages')
-      .select('certification_id, status');
+      .select('curriculum_id, certification_id, status');
 
     const lfMap = new Map<string, number>((lfCounts || []).map((r: any) => [r.curriculum_id, r.count]));
     const compMap = new Map<string, number>((compCounts || []).map((r: any) => [r.curriculum_id, r.count]));
-    const pkgMap = new Map<string, string>((packages || []).map((p: any) => [p.certification_id, p.status]));
+    const pkgMap = new Map<string, string>((packages || []).map((p: any) => [p.curriculum_id || p.certification_id, p.status]));
 
     // Fallback: count LFs and competencies directly if RPCs don't exist
     const lfFallback = new Map<string, number>();
