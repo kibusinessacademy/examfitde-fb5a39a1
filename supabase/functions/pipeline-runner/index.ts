@@ -2,15 +2,16 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 /**
- * pipeline-runner — Cron-triggered (every 60s)
+ * pipeline-runner — Pure Orchestrator (v2: Runner ↔ Worker Marriage)
  *
- * 1. Check capacity (MAX_CONCURRENT_PACKAGES)
- * 2. acquire_next_package_lease() → one package
- * 3. Preflight checks for the next step
- * 4. Execute the step's edge function with heartbeat + lease renewal
- * 5. Mark step done/fail, release lease, exit
+ * The Runner NEVER executes steps directly. It only:
+ * 1. Acquires package lease (slots/concurrency)
+ * 2. Determines next step via state machine
+ * 3. Enqueues a worker job into job_queue
+ * 4. Polls enqueued job status and propagates results
  *
- * Designed for short-lived invocations (max 1 step per run).
+ * All "real work" (LLM, H5P, DB writes) flows through the job-runner/worker,
+ * which provides governance: budget, provider autopilot, retry/backoff, cost tracking.
  */
 
 const corsHeaders = {
@@ -19,9 +20,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// MAX_CONCURRENT_PACKAGES is now dynamic via ops_pipeline_config table
-
-// ── Step ordering + mapping to actual edge functions ──
+// ── Step ordering ──
 type StepKey =
   | "scaffold_learning_course"
   | "auto_seed_exam_blueprints"
@@ -45,16 +44,17 @@ const STEP_ORDER: StepKey[] = [
   "auto_publish",
 ];
 
-const STEP_FUNCTION_MAP: Record<StepKey, string> = {
-  scaffold_learning_course: "package-scaffold-learning-course",
-  auto_seed_exam_blueprints: "package-auto-seed-exam-blueprints",
-  generate_exam_pool: "package-generate-exam-pool",
-  generate_oral_exam: "package-generate-oral-exam",
-  build_ai_tutor_index: "package-build-ai-tutor-index",
-  generate_handbook: "package-generate-handbook",
-  run_integrity_check: "package-run-integrity-check",
-  quality_council: "package-quality-council",
-  auto_publish: "package-auto-publish",
+/** Maps step_key → job_type in job_queue (matches job-runner's JOB_TYPE_MAP) */
+const STEP_TO_JOB_TYPE: Record<StepKey, string> = {
+  scaffold_learning_course: "package_scaffold_learning_course",
+  auto_seed_exam_blueprints: "package_auto_seed_exam_blueprints",
+  generate_exam_pool: "package_generate_exam_pool",
+  generate_oral_exam: "package_generate_oral_exam",
+  build_ai_tutor_index: "package_build_ai_tutor_index",
+  generate_handbook: "package_generate_handbook",
+  run_integrity_check: "package_run_integrity_check",
+  quality_council: "package_quality_council",
+  auto_publish: "package_auto_publish",
 };
 
 function json(body: unknown, status = 200) {
@@ -64,18 +64,13 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 async function safeRpc(
   sb: ReturnType<typeof createClient>,
   fn: string,
   params: Record<string, unknown>,
 ) {
   try {
-    const result = await sb.rpc(fn, params);
-    return result;
+    return await sb.rpc(fn, params);
   } catch (_) {
     return { data: null, error: _ };
   }
@@ -97,103 +92,18 @@ interface StepRow {
   timeout_seconds?: number;
   started_at?: string;
   meta?: Record<string, unknown> | null;
+  job_id?: string | null;
 }
 
-/**
- * Run step function with heartbeat + lease renewal in background.
- */
-async function runStepWithHeartbeat(opts: {
-  sb: ReturnType<typeof createClient>;
-  supabaseUrl: string;
-  serviceRoleKey: string;
-  packageId: string;
-  stepKey: string;
-  runnerId: string;
-  functionName: string;
-  body: Record<string, unknown>;
-}) {
-  const {
-    sb,
-    supabaseUrl,
-    serviceRoleKey,
-    packageId,
-    stepKey,
-    runnerId,
-    functionName,
-    body,
-  } = opts;
+// ── State machine: pick next actionable step ──
+type StepAction =
+  | { action: "enqueue"; stepKey: StepKey }
+  | { action: "poll"; stepKey: StepKey; jobId: string }
+  | { action: "exhausted"; stepKey: StepKey }
+  | { action: "timed_out"; stepKey: StepKey }
+  | null; // all done or blocked
 
-  let stopped = false;
-
-  // Background heartbeat loop (every 30s)
-  const heartbeatLoop = (async () => {
-    while (!stopped) {
-      try {
-        await sb.rpc("step_heartbeat", {
-          p_package_id: packageId,
-          p_step_key: stepKey,
-          p_runner_id: runnerId,
-        });
-      } catch (_) {
-        /* ignore */
-      }
-      await sleep(30_000);
-    }
-  })();
-
-  // Background lease renewal (every 90s, lease = 600s)
-  const renewLoop = (async () => {
-    while (!stopped) {
-      try {
-        await sb.rpc("renew_package_lease", {
-          p_package_id: packageId,
-          p_runner_id: runnerId,
-          p_lease_seconds: 600,
-        });
-      } catch (_) {
-        /* ignore */
-      }
-      await sleep(90_000);
-    }
-  })();
-
-  // Actually call the step function
-  const res = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      apikey: serviceRoleKey,
-      authorization: `Bearer ${serviceRoleKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  stopped = true;
-  await Promise.allSettled([heartbeatLoop, renewLoop]);
-
-  const text = await res.text().catch(() => "");
-  if (!res.ok) {
-    throw new Error(
-      `${functionName} HTTP ${res.status}: ${text.slice(0, 800)}`,
-    );
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { ok: true, raw: text };
-  }
-}
-
-/**
- * Find the next step to run for this package (FIFO by STEP_ORDER).
- */
-function pickNextRunnableStep(
-  steps: StepRow[],
-): {
-  stepKey: StepKey;
-  reason: "runnable" | "exhausted" | "already_running" | "timed_out";
-} | null {
+function pickNextAction(steps: StepRow[]): StepAction {
   const byKey = new Map<string, StepRow>();
   for (const s of steps) byKey.set(s.step_key, s);
 
@@ -204,25 +114,32 @@ function pickNextRunnableStep(
     if (s.status === "done" || s.status === "skipped") continue;
     if (s.status === "blocked") continue;
 
-    // Check for timeout on running steps
+    // Step is enqueued → poll the worker job
+    if (s.status === "enqueued" && s.job_id) {
+      return { action: "poll", stepKey: k, jobId: s.job_id };
+    }
+
+    // Step is running (legacy / edge case) → check timeout
     if (s.status === "running") {
       const timeout = s.timeout_seconds || 600;
       if (s.started_at) {
-        const elapsed =
-          (Date.now() - new Date(s.started_at).getTime()) / 1000;
+        const elapsed = (Date.now() - new Date(s.started_at).getTime()) / 1000;
         if (elapsed > timeout) {
-          return { stepKey: k, reason: "timed_out" };
+          return { action: "timed_out", stepKey: k };
         }
       }
-      return { stepKey: k, reason: "already_running" };
+      // Still running, don't interfere
+      return null;
     }
 
-    const retryable =
-      s.status === "queued" || s.status === "failed" || s.status === "timeout";
-    if (retryable && s.attempts < s.max_attempts)
-      return { stepKey: k, reason: "runnable" };
-    if (retryable && s.attempts >= s.max_attempts)
-      return { stepKey: k, reason: "exhausted" };
+    // Retryable states
+    const retryable = s.status === "queued" || s.status === "failed" || s.status === "timeout";
+    if (retryable && s.attempts < s.max_attempts) {
+      return { action: "enqueue", stepKey: k };
+    }
+    if (retryable && s.attempts >= s.max_attempts) {
+      return { action: "exhausted", stepKey: k };
+    }
   }
 
   return null;
@@ -239,13 +156,7 @@ Deno.serve(async (req) => {
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
-    // ── 0+1) Capacity check + Acquire lease (atomic in RPC) ──
-    // The upgraded acquire_next_package_lease now:
-    //   - Purges expired leases atomically (self-healing)
-    //   - Counts only active leases for hard concurrency slots
-    //   - Claims both queued AND orphaned building packages
-    // No separate capacity check needed — RPC returns null if all 3 slots full.
-    // acquire_next_package_lease handles capacity + reclaim atomically
+    // ── 1) Acquire lease (atomic: purge expired + claim queued/orphaned) ──
     const { data: pkgId, error: acquireErr } = await sb.rpc(
       "acquire_next_package_lease",
       { p_runner_id: runnerId, p_lease_seconds: 600 },
@@ -257,36 +168,22 @@ Deno.serve(async (req) => {
     }
 
     if (!pkgId) {
-      return json({
-        ok: true,
-        idle: true,
-        reason: "no_claimable_packages_or_slots_full",
-      });
+      return json({ ok: true, idle: true, reason: "no_claimable_packages_or_slots_full" });
     }
 
     const packageId = String(pkgId);
-    console.log(
-      `[runner] Acquired lease for package ${packageId.slice(0, 8)}`,
-    );
+    console.log(`[runner] Acquired lease for package ${packageId.slice(0, 8)}`);
 
     // ── 2) Load package metadata ──
     const { data: pkg, error: pkgErr } = await sb
       .from("course_packages")
-      .select(
-        "id,pipeline_mode,course_id,curriculum_id,certification_id,feature_flags",
-      )
+      .select("id,pipeline_mode,course_id,curriculum_id,certification_id,feature_flags")
       .eq("id", packageId)
       .single();
 
     if (pkgErr || !pkg) {
-      await safeRpc(sb, "release_package_lease", {
-        p_package_id: packageId,
-        p_runner_id: runnerId,
-      });
-      return json(
-        { ok: false, error: pkgErr?.message ?? "package not found" },
-        500,
-      );
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return json({ ok: false, error: pkgErr?.message ?? "package not found" }, 500);
     }
 
     // ── Auto-resolve missing curriculum_id from course ──
@@ -299,334 +196,322 @@ Deno.serve(async (req) => {
 
       if (course?.curriculum_id) {
         await safeQuery(
-          sb
-            .from("course_packages")
+          sb.from("course_packages")
             .update({ curriculum_id: course.curriculum_id })
             .eq("id", packageId),
         );
         pkg.curriculum_id = course.curriculum_id;
-        console.log(
-          `[runner] Auto-resolved curriculum_id for package ${packageId.slice(0, 8)}`,
-        );
+        console.log(`[runner] Auto-resolved curriculum_id for ${packageId.slice(0, 8)}`);
       }
     }
 
     // ── Block if still missing required IDs ──
     if (!pkg.curriculum_id || !pkg.course_id) {
       await safeQuery(
-        sb
-          .from("course_packages")
-          .update({
-            status: "blocked",
-            blocked_reason: "missing_curriculum_or_course_id",
-          })
+        sb.from("course_packages")
+          .update({ status: "blocked", blocked_reason: "missing_curriculum_or_course_id" })
           .eq("id", packageId),
       );
-      await safeRpc(sb, "release_package_lease", {
-        p_package_id: packageId,
-        p_runner_id: runnerId,
-      });
-      console.warn(
-        `[runner] Package ${packageId.slice(0, 8)} blocked: missing curriculum_id or course_id`,
-      );
-      return json({
-        ok: true,
-        packageId,
-        blocked: true,
-        reason: "missing_curriculum_or_course_id",
-      });
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return json({ ok: true, packageId, blocked: true, reason: "missing_curriculum_or_course_id" });
     }
 
     const mode = (pkg.pipeline_mode ?? "factory") as "factory" | "production";
 
-    // ── 3) Load steps & pick next ──
+    // ── 3) Load steps & determine next action ──
     const { data: steps, error: stepsErr } = await sb
       .from("package_steps")
-      .select("step_key,status,attempts,max_attempts,timeout_seconds,started_at,meta")
+      .select("step_key,status,attempts,max_attempts,timeout_seconds,started_at,meta,job_id")
       .eq("package_id", packageId);
 
     if (stepsErr) {
-      await safeRpc(sb, "release_package_lease", {
-        p_package_id: packageId,
-        p_runner_id: runnerId,
-      });
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
       return json({ ok: false, error: stepsErr.message }, 500);
     }
 
-    const next = pickNextRunnableStep((steps ?? []) as StepRow[]);
+    const nextAction = pickNextAction((steps ?? []) as StepRow[]);
 
-    if (!next) {
+    // ── All steps done / no actionable step ──
+    if (!nextAction) {
       const statuses = (steps ?? []).map((s: StepRow) => s.status);
-      const allDone =
-        statuses.length > 0 &&
-        statuses.every((s: string) => s === "done" || s === "skipped");
+      const allDone = statuses.length > 0 && statuses.every((s: string) => s === "done" || s === "skipped");
 
       if (allDone) {
-        await safeQuery(
-          sb
-            .from("course_packages")
-            .update({ status: "done" })
-            .eq("id", packageId),
-        );
-        console.log(
-          `[runner] Package ${packageId.slice(0, 8)} → done (all steps complete)`,
-        );
+        await safeQuery(sb.from("course_packages").update({ status: "done" }).eq("id", packageId));
+        console.log(`[runner] Package ${packageId.slice(0, 8)} → done`);
       } else {
-        await safeQuery(
-          sb
-            .from("course_packages")
-            .update({
-              status: "blocked",
-              blocked_reason: "no_runnable_steps",
-            })
-            .eq("id", packageId),
-        );
+        // Check if there's an enqueued step without a job_id (shouldn't happen, but safety)
+        const hasEnqueued = statuses.includes("enqueued");
+        if (!hasEnqueued) {
+          await safeQuery(
+            sb.from("course_packages")
+              .update({ status: "blocked", blocked_reason: "no_runnable_steps" })
+              .eq("id", packageId),
+          );
+        }
+        // If enqueued, just wait — job-runner will process it
       }
 
-      await safeRpc(sb, "release_package_lease", {
-        p_package_id: packageId,
-        p_runner_id: runnerId,
-      });
-      return json({
-        ok: true,
-        packageId,
-        finished: allDone,
-        blocked: !allDone,
-      });
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return json({ ok: true, packageId, finished: statuses.every((s: string) => s === "done" || s === "skipped") });
     }
 
-    // ── Exhausted retries → fail-forward ──
-    if (next.reason === "exhausted") {
+    // ── Handle: exhausted retries ──
+    if (nextAction.action === "exhausted") {
       await safeQuery(
-        sb
-          .from("course_packages")
-          .update({
-            status: "failed",
-            last_error: `Attempts exhausted on step ${next.stepKey}`,
-          })
+        sb.from("course_packages")
+          .update({ status: "failed", last_error: `Attempts exhausted on step ${nextAction.stepKey}` })
           .eq("id", packageId),
       );
-
       await safeQuery(
         sb.from("ops_alerts").insert({
           source: "pipeline-runner",
           severity: "error",
-          message: `STEP_EXHAUSTED: ${next.stepKey} pkg ${packageId.slice(0, 8)}`,
-          payload: { packageId, stepKey: next.stepKey },
+          message: `STEP_EXHAUSTED: ${nextAction.stepKey} pkg ${packageId.slice(0, 8)}`,
+          payload: { packageId, stepKey: nextAction.stepKey },
         }),
       );
-
-      await safeRpc(sb, "release_package_lease", {
-        p_package_id: packageId,
-        p_runner_id: runnerId,
-      });
-      return json({
-        ok: true,
-        packageId,
-        stepKey: next.stepKey,
-        exhausted: true,
-      });
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return json({ ok: true, packageId, stepKey: nextAction.stepKey, exhausted: true });
     }
 
-    // ── Already running ──
-    if (next.reason === "already_running") {
-      console.warn(
-        `[runner] Step ${next.stepKey} already running for ${packageId.slice(0, 8)} — skipping`,
-      );
-      await safeRpc(sb, "release_package_lease", {
-        p_package_id: packageId,
-        p_runner_id: runnerId,
-      });
-      return json({
-        ok: true,
-        packageId,
-        stepKey: next.stepKey,
-        skipped: "already_running",
-      });
-    }
-
-    // ── Timed out → reset to failed for retry ──
-    if (next.reason === "timed_out") {
-      console.warn(
-        `[runner] Step ${next.stepKey} timed out for ${packageId.slice(0, 8)} — marking timeout`,
-      );
+    // ── Handle: step timed out → reset to failed for retry ──
+    if (nextAction.action === "timed_out") {
+      console.warn(`[runner] Step ${nextAction.stepKey} timed out for ${packageId.slice(0, 8)}`);
       await safeRpc(sb, "step_fail", {
         p_package_id: packageId,
-        p_step_key: next.stepKey,
+        p_step_key: nextAction.stepKey,
         p_error: "STEP_TIMEOUT",
       });
       await safeQuery(
-        sb
-          .from("course_packages")
-          .update({
-            status: "building",
-            last_error: `Step ${next.stepKey}: TIMEOUT`,
-          })
+        sb.from("course_packages")
+          .update({ status: "building", last_error: `Step ${nextAction.stepKey}: TIMEOUT` })
           .eq("id", packageId),
       );
-      await safeRpc(sb, "release_package_lease", {
-        p_package_id: packageId,
-        p_runner_id: runnerId,
-      });
-      return json({
-        ok: true,
-        packageId,
-        stepKey: next.stepKey,
-        timeout_reset: true,
-      });
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return json({ ok: true, packageId, stepKey: nextAction.stepKey, timeout_reset: true });
     }
 
-    const stepKey = next.stepKey;
-    const functionName = STEP_FUNCTION_MAP[stepKey];
-    console.log(`[runner] Starting step ${stepKey} → ${functionName}`);
+    // ══════════════════════════════════════════════════════════════
+    // ACTION: POLL — Check status of an enqueued worker job
+    // ══════════════════════════════════════════════════════════════
+    if (nextAction.action === "poll") {
+      const { stepKey, jobId } = nextAction;
+      console.log(`[runner] Polling job ${jobId.slice(0, 8)} for step ${stepKey}`);
 
-    // ── 4) step_start ──
-    await sb.rpc("step_start", {
-      p_package_id: packageId,
-      p_step_key: stepKey,
-      p_runner_id: runnerId,
-    });
+      const { data: job } = await sb
+        .from("job_queue")
+        .select("status,result,error,last_error,batch_cursor")
+        .eq("id", jobId)
+        .single();
 
-    // ── 5) Execute with heartbeat ──
-    try {
-      const result = await runStepWithHeartbeat({
-        sb,
-        supabaseUrl: SUPABASE_URL,
-        serviceRoleKey: SERVICE_ROLE_KEY,
-        packageId,
-        stepKey,
-        runnerId,
-        functionName,
-        body: (() => {
-          const stepMeta = (steps ?? []).find((s: StepRow) => s.step_key === stepKey)?.meta;
-          const batchCursor = stepMeta?.batch_cursor ?? null;
-          const payload: Record<string, unknown> = {
-            package_id: packageId,
-            course_id: pkg.course_id,
-            curriculum_id: pkg.curriculum_id,
-            certification_id: pkg.certification_id,
-            mode,
-            feature_flags: pkg.feature_flags ?? {},
-          };
-          if (batchCursor) payload.batch_cursor = batchCursor;
-          return { payload };
-        })(),
-      });
-
-      // ── Batch continuation: if step returns batch_complete=false, reset to queued ──
-      if (result?.batch_complete === false && result?.batch_cursor) {
-        // Step needs more iterations — reset to queued so next cron picks it up
+      if (!job) {
+        // Job disappeared — reset step to queued for re-enqueue
+        console.warn(`[runner] Job ${jobId.slice(0, 8)} not found — resetting step`);
         await safeQuery(
           sb.from("package_steps")
-            .update({
-              status: "queued",
-              last_heartbeat_at: new Date().toISOString(),
-              runner_id: null,
-              meta: { batch_cursor: result.batch_cursor },
-            })
+            .update({ status: "queued", job_id: null, runner_id: null })
             .eq("package_id", packageId)
             .eq("step_key", stepKey),
         );
-        // Keep package building, release lease for next cron
-        await safeRpc(sb, "release_package_lease", {
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return json({ ok: true, packageId, stepKey, job_reset: true });
+      }
+
+      // ── Job still pending or processing → wait ──
+      if (job.status === "pending" || job.status === "processing") {
+        // Renew lease so package doesn't get orphaned while job runs
+        await safeRpc(sb, "renew_package_lease", {
           p_package_id: packageId,
           p_runner_id: runnerId,
+          p_lease_seconds: 600,
         });
-        console.log(
-          `[runner] 🔄 Step ${stepKey} batch incomplete for ${packageId.slice(0, 8)} — re-queued (cursor: bp ${result.batch_cursor.blueprint_index}/${result.batch_cursor.blueprints_total})`,
-        );
-        return json({ ok: true, packageId, stepKey, batch_continue: true, cursor: result.batch_cursor });
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return json({ ok: true, packageId, stepKey, waiting: true, jobStatus: job.status });
       }
 
-      // QA: factory = non-blocking, production = blocking
-      if (stepKey === "quality_council" && mode === "factory") {
+      // ── Job completed successfully ──
+      if (job.status === "completed") {
+        const result = (job.result ?? {}) as Record<string, unknown>;
+
+        // Handle batch continuation
+        if (result.batch_complete === false && result.batch_cursor) {
+          // Re-enqueue: reset step to queued so next tick creates a new job
+          await safeQuery(
+            sb.from("package_steps")
+              .update({
+                status: "queued",
+                job_id: null,
+                runner_id: null,
+                meta: { batch_cursor: result.batch_cursor },
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", stepKey),
+          );
+          console.log(`[runner] 🔄 Step ${stepKey} batch incomplete — re-queued`);
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return json({ ok: true, packageId, stepKey, batch_continue: true });
+        }
+
+        // Step done!
         await sb.rpc("step_done", {
           p_package_id: packageId,
           p_step_key: stepKey,
-          p_meta: {
-            mode,
-            score: result?.score,
-            warnings: result?.warnings ?? [],
-          },
+          p_meta: result,
         });
-      } else {
-        await sb.rpc("step_done", {
-          p_package_id: packageId,
-          p_step_key: stepKey,
-          p_meta: result ?? {},
-        });
-      }
 
-      // Update build_progress
-      const doneCount =
-        (steps ?? []).filter(
+        // Update build_progress
+        const doneCount = (steps ?? []).filter(
           (s: StepRow) => s.status === "done" || s.status === "skipped",
         ).length + 1;
-      const totalSteps = STEP_ORDER.length;
-      const progress = Math.round((doneCount / totalSteps) * 100);
-      await safeQuery(
-        sb
-          .from("course_packages")
-          .update({ build_progress: progress })
-          .eq("id", packageId),
-      );
-
-      // If last step done → package done
-      if (stepKey === "auto_publish") {
+        const progress = Math.round((doneCount / STEP_ORDER.length) * 100);
         await safeQuery(
-          sb
-            .from("course_packages")
-            .update({ status: "done" })
+          sb.from("course_packages")
+            .update({ build_progress: progress })
             .eq("id", packageId),
+        );
+
+        // If last step → package done
+        if (stepKey === "auto_publish") {
+          await safeQuery(
+            sb.from("course_packages")
+              .update({ status: "done" })
+              .eq("id", packageId),
+          );
+        }
+
+        console.log(`[runner] ✅ Step ${stepKey} done for ${packageId.slice(0, 8)} (progress ${progress}%)`);
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return json({ ok: true, packageId, stepKey, mode, progress });
+      }
+
+      // ── Job failed ──
+      if (job.status === "failed") {
+        const errorMsg = job.last_error || job.error || "Worker job failed";
+        console.error(`[runner] ❌ Step ${stepKey} job failed: ${errorMsg}`);
+
+        await safeRpc(sb, "step_fail", {
+          p_package_id: packageId,
+          p_step_key: stepKey,
+          p_error: errorMsg,
+        });
+
+        // Clear job_id so it can be re-enqueued on retry
+        await safeQuery(
+          sb.from("package_steps")
+            .update({ job_id: null })
+            .eq("package_id", packageId)
+            .eq("step_key", stepKey),
+        );
+
+        // Keep package building for retry
+        await safeQuery(
+          sb.from("course_packages")
+            .update({ status: "building", last_error: `Step ${stepKey}: ${errorMsg.slice(0, 250)}` })
+            .eq("id", packageId),
+        );
+
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return json({ ok: true, packageId, stepKey, job_failed: true, error: errorMsg });
+      }
+
+      // Unknown job status — release and wait
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return json({ ok: true, packageId, stepKey, jobStatus: job.status });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // ACTION: ENQUEUE — Create a worker job in job_queue
+    // ══════════════════════════════════════════════════════════════
+    if (nextAction.action === "enqueue") {
+      const stepKey = nextAction.stepKey;
+      const jobType = STEP_TO_JOB_TYPE[stepKey];
+      const stepMeta = (steps ?? []).find((s: StepRow) => s.step_key === stepKey)?.meta;
+      const batchCursor = (stepMeta?.batch_cursor as Record<string, unknown>) ?? null;
+
+      console.log(`[runner] Enqueuing job ${jobType} for step ${stepKey} (pkg ${packageId.slice(0, 8)})`);
+
+      // Build payload — top-level fields required by job_queue SSOT triggers
+      const payload: Record<string, unknown> = {
+        package_id: packageId,
+        course_id: pkg.course_id,
+        curriculum_id: pkg.curriculum_id,
+        certification_id: pkg.certification_id,
+        mode,
+        feature_flags: pkg.feature_flags ?? {},
+      };
+      if (batchCursor) {
+        payload.batch_cursor = batchCursor;
+      }
+
+      // Insert job with idempotency (partial unique index prevents duplicates)
+      const jobId = crypto.randomUUID();
+      const { error: insertErr } = await sb.from("job_queue").insert({
+        id: jobId,
+        job_type: jobType,
+        status: "pending",
+        payload,
+        priority: 10, // Pipeline steps get high priority
+        max_attempts: 25, // Worker handles retries via triage policy
+        batch_cursor: batchCursor,
+      });
+
+      if (insertErr) {
+        // Likely idempotency violation → job already exists
+        if (insertErr.message?.includes("duplicate") || insertErr.message?.includes("unique")) {
+          console.warn(`[runner] Job already enqueued for ${stepKey} — skipping`);
+          // Find the existing job
+          const { data: existingJob } = await sb
+            .from("job_queue")
+            .select("id")
+            .eq("job_type", jobType)
+            .in("status", ["pending", "processing"])
+            .contains("payload", { package_id: packageId })
+            .limit(1)
+            .maybeSingle();
+
+          if (existingJob) {
+            // Update step with existing job_id
+            await safeQuery(
+              sb.from("package_steps")
+                .update({ status: "enqueued", job_id: existingJob.id, runner_id: runnerId })
+                .eq("package_id", packageId)
+                .eq("step_key", stepKey),
+            );
+          }
+        } else {
+          console.error(`[runner] Failed to enqueue job: ${insertErr.message}`);
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return json({ ok: false, error: insertErr.message }, 500);
+        }
+      } else {
+        // Job created — update step to enqueued with job_id
+        await safeQuery(
+          sb.from("package_steps")
+            .update({ status: "enqueued", job_id: jobId, runner_id: runnerId })
+            .eq("package_id", packageId)
+            .eq("step_key", stepKey),
         );
       }
 
-      await safeRpc(sb, "release_package_lease", {
-        p_package_id: packageId,
-        p_runner_id: runnerId,
-      });
+      // Mark step as started (for heartbeat tracking)
+      try {
+        await sb.rpc("step_start", {
+          p_package_id: packageId,
+          p_step_key: stepKey,
+          p_runner_id: runnerId,
+        });
+      } catch { /* ignore if RPC doesn't exist yet */ }
 
-      console.log(
-        `[runner] ✅ Step ${stepKey} done for ${packageId.slice(0, 8)} (progress ${progress}%)`,
-      );
-      return json({ ok: true, packageId, stepKey, mode, progress });
-    } catch (e: unknown) {
-      const msg = (e as Error)?.message || String(e);
-      console.error(`[runner] ❌ Step ${stepKey} failed: ${msg}`);
-
-      await safeRpc(sb, "step_fail", {
-        p_package_id: packageId,
-        p_step_key: stepKey,
-        p_error: msg,
-      });
-
-      // IMPORTANT: do NOT hard-fail the whole package here.
-      // Keep it "building" so the runner can retry until max_attempts is exhausted
-      await safeQuery(
-        sb
-          .from("course_packages")
-          .update({
-            status: "building",
-            last_error: `Step ${stepKey}: ${msg.slice(0, 250)}`,
-          })
-          .eq("id", packageId),
-      );
-
-      await safeQuery(
-        sb.from("ops_alerts").insert({
-          source: "pipeline-runner",
-          severity: "error",
-          message: `STEP_FAILED: ${stepKey} pkg ${packageId.slice(0, 8)}`,
-          payload: { packageId, stepKey, error: msg.slice(0, 1200) },
-        }),
-      );
-
-      await safeRpc(sb, "release_package_lease", {
-        p_package_id: packageId,
-        p_runner_id: runnerId,
-      });
-      return json({ ok: false, packageId, stepKey, error: msg }, 500);
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      console.log(`[runner] 📤 Enqueued ${jobType} (job ${jobId.slice(0, 8)}) for ${packageId.slice(0, 8)}`);
+      return json({ ok: true, packageId, stepKey, enqueued: true, jobId });
     }
+
+    // Fallback (shouldn't reach here)
+    await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+    return json({ ok: true, packageId, noop: true });
+
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error("[runner] Fatal:", msg);
