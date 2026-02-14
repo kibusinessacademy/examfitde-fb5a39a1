@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       .from("course_packages")
       .select("id", { count: "exact", head: true });
 
-    // Freeze-phase gate: don't start builds until enough curricula are frozen
+    // Freeze-phase gate: only block builds if almost no curricula are frozen yet
     const { count: draftCount } = await sb
       .from("curricula")
       .select("id", { count: "exact", head: true })
@@ -54,13 +54,20 @@ Deno.serve(async (req) => {
 
     const drafts = draftCount ?? 0;
     const frozen = frozenCount ?? 0;
+    const queuedPkgs = totalPkgs ?? 0;
 
-    // Start packages only when drafts < 50 OR frozen > 150
-    if (drafts >= 50 && frozen < 150) {
+    // Only block if we have almost no frozen curricula AND no queued packages ready
+    // Once packages are queued, always allow building (they passed setup already)
+    const { count: queuedCount } = await sb
+      .from("course_packages")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "queued");
+
+    if (frozen < 10 && (queuedCount ?? 0) === 0) {
       return json({
         ok: true,
         skipped: true,
-        reason: "Freeze-phase priority: waiting for more frozen curricula",
+        reason: "Freeze-phase priority: waiting for first frozen curricula",
         frozenCount: frozen,
         draftCount: drafts,
       });
