@@ -161,7 +161,42 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
   };
 }
 
-/** Handle rate-limit / payment errors with typed classes */
+/**
+ * Log an LLM cost event to llm_cost_events table.
+ * Call this after every successful AI call for ROI tracking.
+ */
+export async function logLLMCostEvent(
+  sb: { from: (table: string) => any },
+  opts: {
+    job_type: string;
+    provider: string;
+    model: string;
+    tokens_in: number;
+    tokens_out: number;
+    cost_usd: number;
+    package_id?: string | null;
+    certification_id?: string | null;
+    course_id?: string | null;
+    meta?: Record<string, unknown>;
+  }
+): Promise<void> {
+  try {
+    await sb.from("llm_cost_events").insert({
+      job_type: opts.job_type,
+      provider: opts.provider,
+      model: opts.model,
+      tokens_in: opts.tokens_in,
+      tokens_out: opts.tokens_out,
+      cost_usd: opts.cost_usd,
+      package_id: opts.package_id || null,
+      certification_id: opts.certification_id || null,
+      course_id: opts.course_id || null,
+      meta: opts.meta || {},
+    });
+  } catch {
+    // Non-blocking – don't let cost logging break production
+  }
+}
 export class RateLimitError extends Error {
   constructor(msg: string) {
     super(msg);
