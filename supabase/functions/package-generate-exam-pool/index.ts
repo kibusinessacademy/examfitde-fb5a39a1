@@ -15,7 +15,7 @@ import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
  */
 
 const CHUNK_SIZE = 10;
-const AI_CHUNK_SIZE = 6; // Increased for faster throughput while staying within 150s timeout
+const AI_CHUNK_SIZE = 4; // Sweet spot: fast throughput without 504 timeouts
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
 
 // ─── Dominanz-Engine v3: Dynamic distributions from Hybrid Target ────────────
