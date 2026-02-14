@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
     });
     await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
     await sb.from("course_package_locks").delete().eq("package_id", packageId);
+    await sb.from("pipeline_active_packages").delete().eq("package_id", packageId);
   };
 
   try {
@@ -179,9 +180,10 @@ Deno.serve(async (req) => {
       p_package_id: packageId, p_step_key: "auto_publish", p_status: "done", p_log: { ok: true },
     });
 
-    // Unlock package + release global pipeline lock
+    // Unlock package + release global pipeline lock + free slot
     await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
     await sb.from("course_package_locks").delete().eq("package_id", packageId);
+    await sb.from("pipeline_active_packages").delete().eq("package_id", packageId);
 
     // Trigger next queued package
     await sb.from("job_queue").insert({
