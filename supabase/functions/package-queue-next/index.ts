@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Step 6: Fire build-course-package (fire-and-forget) ──
+    // ── Step 6: Start build-course-package (await, no fire-and-forget) ──
     const featureFlags = pkg.feature_flags || {};
     const buildBody = JSON.stringify({
       packageId: nextId,
@@ -174,42 +174,39 @@ Deno.serve(async (req) => {
       },
     });
 
-    fetch(`${SUPABASE_URL}/functions/v1/build-course-package`, {
+    const buildRes = await fetch(`${SUPABASE_URL}/functions/v1/build-course-package`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        apikey: SERVICE_ROLE_KEY,
         Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       },
       body: buildBody,
-    }).then(async (res) => {
-      if (!res.ok) {
-        const errText = await res.text().catch(() => "unknown");
-        console.error(`[queue-next] Build returned ${res.status}: ${errText}`);
-        // Alert + cleanup on build start failure
-        await sb.from("ops_alerts").insert({
-          source: "package-queue-next",
-          severity: "error",
-          message: `Build-Start failed for ${nextId.slice(0, 8)}: HTTP ${res.status}`,
-          payload: { package_id: nextId, status: res.status, error: errText.slice(0, 500) },
-        });
-        await sb.from("course_packages").update({ status: "failed", last_error: `Build HTTP ${res.status}: ${errText.slice(0, 200)}` }).eq("id", nextId);
-        await sb.rpc("release_pipeline_slot", { p_package_id: nextId }).catch(() => {});
-        await sb.rpc("release_pipeline_lock", { p_package_id: nextId }).catch(() => {});
-      }
-    }).catch(async (e) => {
-      console.error(`[queue-next] Fire-and-forget error: ${(e as Error).message}`);
+    });
+
+    if (!buildRes.ok) {
+      const errText = await buildRes.text().catch(() => "unknown");
+      console.error(`[queue-next] Build start failed ${buildRes.status}: ${errText}`);
+
       await sb.from("ops_alerts").insert({
         source: "package-queue-next",
         severity: "error",
-        message: `Build fire-and-forget failed: ${(e as Error).message}`,
-        payload: { package_id: nextId },
-      });
+        message: `Build-Start failed for ${nextId.slice(0, 8)}: HTTP ${buildRes.status}`,
+        payload: { package_id: nextId, status: buildRes.status, error: errText.slice(0, 800) },
+      }).catch(() => {});
+
+      await sb.from("course_packages").update({
+        status: "failed",
+        last_error: `Build start HTTP ${buildRes.status}: ${errText.slice(0, 250)}`,
+      }).eq("id", nextId).catch(() => {});
+
       await sb.rpc("release_pipeline_slot", { p_package_id: nextId }).catch(() => {});
       await sb.rpc("release_pipeline_lock", { p_package_id: nextId }).catch(() => {});
-      await sb.from("course_packages").update({ status: "failed", last_error: (e as Error).message }).eq("id", nextId);
-    });
 
-    console.log(`[queue-next] 🔒 Claimed package ${nextId} (queue_pos=${pkg.queue_position}, curriculum=${curriculumId})`);
+      return json({ ok: false, error: `Build-Start failed: HTTP ${buildRes.status}` }, 502);
+    }
+
+    console.log(`[queue-next] ✅ Build started for package ${nextId} (queue_pos=${pkg.queue_position}, curriculum=${curriculumId})`);
 
     return json({
       ok: true,

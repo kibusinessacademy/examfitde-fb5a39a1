@@ -242,15 +242,41 @@ Deno.serve(async (req) => {
     const { data: activeSlotCheck } = await sb.rpc("get_active_pipeline_packages").catch(() => ({ data: null }));
     const activeSlotsNow = (activeSlotCheck as string[] | null) ?? [];
 
-    if ((queuedCount ?? 0) > 0 && (buildingCount ?? 0) === 0 && activeSlotsNow.length === 0) {
-      // Pipeline stalled! Write alert
-      await sb.from("ops_alerts").insert({
-        source: "production-guardian",
-        severity: "warning",
-        message: `PIPELINE_STALLED: ${queuedCount} packages queued but 0 building, 0 slots active`,
-        payload: { queued: queuedCount, building: buildingCount, active_slots: activeSlotsNow.length },
-      });
-      warnings.push(`STALL DETECTED: ${queuedCount} queued, 0 building, 0 slots`);
+    const isStalled = (queuedCount ?? 0) > 0 && (buildingCount ?? 0) === 0 && activeSlotsNow.length === 0;
+    const isHealthy = !isStalled && ((buildingCount ?? 0) > 0 || activeSlotsNow.length > 0);
+
+    // Auto-resolve stale PIPELINE_STALLED alerts if pipeline is healthy again
+    if (isHealthy) {
+      await sb.from("ops_alerts")
+        .update({ acknowledged_at: new Date().toISOString() })
+        .eq("source", "production-guardian")
+        .is("acknowledged_at", null)
+        .ilike("message", "%PIPELINE_STALLED%")
+        .catch(() => {});
+    }
+
+    if (isStalled) {
+      // Dedupe: only alert if no open stall alert in last 10 minutes
+      const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+      const { data: recentStall } = await sb.from("ops_alerts")
+        .select("id")
+        .eq("source", "production-guardian")
+        .is("acknowledged_at", null)
+        .gte("created_at", tenMinAgo)
+        .ilike("message", "%PIPELINE_STALLED%")
+        .limit(1);
+
+      if (!recentStall || recentStall.length === 0) {
+        await sb.from("ops_alerts").insert({
+          source: "production-guardian",
+          severity: "warning",
+          message: `PIPELINE_STALLED: ${queuedCount} packages queued but 0 building, 0 slots active`,
+          payload: { queued: queuedCount, building: buildingCount, active_slots: activeSlotsNow.length },
+        });
+        warnings.push(`STALL DETECTED: ${queuedCount} queued, 0 building, 0 slots`);
+      } else {
+        console.log("[guardian] Stall detected but alert deduped (open recent alert exists).");
+      }
     }
 
     if (pipelineIdle || ((queuedCount ?? 0) > 0 && (buildingCount ?? 0) === 0)) {
