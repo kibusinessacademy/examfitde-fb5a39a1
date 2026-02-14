@@ -77,6 +77,19 @@ Deno.serve(async (req) => {
   return await seedFromFields(sb, curriculumId, lfs, packageId);
 });
 
+const TAXONOMY_MAP: Record<string, string> = {
+  "erinnern": "remember", "wissen": "remember", "kennen": "remember",
+  "verstehen": "understand", "begreifen": "understand",
+  "anwenden": "apply", "durchführen": "apply",
+  "analysieren": "analyze", "bewerten": "analyze", "beurteilen": "analyze",
+  "remember": "remember", "understand": "understand", "apply": "apply", "analyze": "analyze",
+};
+function normCognitive(raw: string | null | undefined): string {
+  if (!raw) return "understand";
+  const key = raw.trim().toLowerCase();
+  return TAXONOMY_MAP[key] ?? "understand";
+}
+
 async function seedFromFields(
   sb: ReturnType<typeof createClient>,
   curriculumId: string,
@@ -127,7 +140,7 @@ async function seedFromFields(
     competency_id: c.id,
     name: c.title || c.code || "Kompetenz",
     canonical_statement: c.description || c.title || "",
-    cognitive_level: c.taxonomy_level || "understand",
+    cognitive_level: normCognitive(c.taxonomy_level),
     question_template: "",
     status: "approved",
     version: 1,
