@@ -516,6 +516,7 @@ Deno.serve(async (req) => {
       p_package_id: packageId, p_step_key: "run_integrity_check", p_status: "failed",
       p_log: { error: msg, report },
     });
+    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
     await sb.from("course_package_locks").delete().eq("package_id", packageId);
   };
 

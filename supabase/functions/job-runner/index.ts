@@ -795,6 +795,36 @@ Deno.serve(async (req) => {
           normalized._batch_cursor = job.batch_cursor;
         }
 
+        // ── Patch A: Keep global pipeline lock alive while package jobs run ──
+        const pkgId = (normalized.package_id ?? normalized.packageId ?? null) as string | null;
+        if (pkgId) {
+          try {
+            await admin.rpc("heartbeat_pipeline_lock", { p_package_id: pkgId });
+          } catch { /* ignore */ }
+        }
+
+        // ── Patch: WIP=1 — Only execute jobs for the active package ──
+        const activeData = await admin.rpc("get_active_pipeline_package");
+        const activeRow = Array.isArray(activeData?.data) ? activeData.data[0] : activeData?.data;
+        const activePackageId = activeRow?.active_package_id ?? null;
+
+        if (activePackageId && pkgId && pkgId !== activePackageId) {
+          // This job belongs to a different package — defer it
+          if (job.provider && LLM_JOB_TYPES.has(job.job_type)) {
+            await releaseProviderSlot(admin, job.provider);
+            slotReleased = true;
+          }
+          try {
+            await admin.rpc("defer_job", {
+              p_job_id: job.id,
+              p_delay_seconds: 300,
+              p_reason: `WIP=1: active_package=${activePackageId}, job_package=${pkgId}`,
+            });
+          } catch { /* ignore */ }
+          results.push({ id: job.id, job_type: job.job_type, outcome: "deferred_wip1", provider: job.provider });
+          continue;
+        }
+
         const response = await fetch(functionUrl, {
           method: "POST",
           headers: {

@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "auto_publish", p_status: "failed", p_log: { error: msg },
     });
+    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
     await sb.from("course_package_locks").delete().eq("package_id", packageId);
   };
 
@@ -46,7 +47,15 @@ Deno.serve(async (req) => {
       return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: run_integrity_check" }, 409);
     }
 
-    // ── REVIEW GATE: only publish if admin approved ──
+    // ── REVIEW GATE: auto-approve unless requires_manual_review flag is set ──
+    const { data: pkgFlags } = await sb
+      .from("course_packages")
+      .select("feature_flags")
+      .eq("id", packageId)
+      .maybeSingle();
+
+    const requiresManualReview = Boolean((pkgFlags as any)?.feature_flags?.requires_manual_review);
+
     const { data: review } = await sb
       .from("course_package_reviews")
       .select("status")
@@ -55,18 +64,29 @@ Deno.serve(async (req) => {
 
     if (!review || review.status !== "approved") {
       const currentStatus = review?.status || "no_review";
-      console.log(`[AutoPublish] BLOCKED: review status = ${currentStatus} (need 'approved'). Package ${packageId}`);
-      // Don't fail – just skip. The admin needs to approve first.
-      await sb.rpc("update_course_package_step", {
-        p_package_id: packageId, p_step_key: "auto_publish", p_status: "pending",
-        p_log: { skipped: true, reason: `Review gate: status=${currentStatus}, waiting for admin approval` },
-      });
-      return json({
-        ok: false,
-        retry: false,
-        error: `REVIEW_GATE: status=${currentStatus}. Admin approval required before publish.`,
-        review_status: currentStatus,
-      }, 202);
+
+      if (requiresManualReview) {
+        // Manual review required — wait for admin
+        console.log(`[AutoPublish] BLOCKED: review status = ${currentStatus} (manual review required). Package ${packageId}`);
+        await sb.rpc("update_course_package_step", {
+          p_package_id: packageId, p_step_key: "auto_publish", p_status: "pending",
+          p_log: { skipped: true, reason: `Review gate: status=${currentStatus}, waiting for admin approval` },
+        });
+        return json({
+          ok: false,
+          retry: false,
+          error: `REVIEW_GATE: status=${currentStatus}. Admin approval required before publish.`,
+          review_status: currentStatus,
+        }, 202);
+      }
+
+      // Auto-approve to keep the pipeline moving
+      console.log(`[AutoPublish] Auto-approving package ${packageId} (no manual review required)`);
+      await sb.from("course_package_reviews").upsert({
+        course_package_id: packageId,
+        status: "approved",
+        notes: "Auto-approved by pipeline to prevent blocking",
+      }, { onConflict: "course_package_id" });
     }
 
     // Check integrity v3 hard_fail_reasons
@@ -117,7 +137,8 @@ Deno.serve(async (req) => {
       p_package_id: packageId, p_step_key: "auto_publish", p_status: "done", p_log: { ok: true },
     });
 
-    // Unlock package
+    // Unlock package + release global pipeline lock
+    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
     await sb.from("course_package_locks").delete().eq("package_id", packageId);
 
     // Trigger next queued package

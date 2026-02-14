@@ -14501,6 +14501,10 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      defer_job: {
+        Args: { p_delay_seconds: number; p_job_id: string; p_reason: string }
+        Returns: undefined
+      }
       derive_feature_flags: {
         Args: {
           p_cert_type: Database["public"]["Enums"]["certification_type"]
@@ -14594,6 +14598,13 @@ export type Database = {
       generate_invite_code: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       get_active_package_count: { Args: never; Returns: number }
+      get_active_pipeline_package: {
+        Args: never
+        Returns: {
+          active_package_id: string
+          heartbeat_at: string
+        }[]
+      }
       get_adaptive_recommendation: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
