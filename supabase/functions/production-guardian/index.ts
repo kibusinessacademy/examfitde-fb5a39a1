@@ -444,43 +444,68 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 9.5 DEADLOCK RECOVERY: building packages without active slots
+    // 9.5 DEADLOCK RECOVERY (step-0 stuck + stale heartbeats)
     // ═══════════════════════════════════════════════════════════════
+    // A) Auto-fail packages stuck at step 0 with empty step_status_json
+    try {
+      const { data: recoveredPkgs } = await sb.rpc("recover_stuck_packages", {
+        p_age_minutes: 15,
+        p_limit: 10,
+      });
+      for (const r of recoveredPkgs ?? []) {
+        actions.push(`🔧 Auto-recovered deadlocked pkg ${String(r.package_id).slice(0, 8)} → ${r.action}`);
+      }
+    } catch (e) {
+      warnings.push(`recover_stuck_packages RPC failed: ${(e as Error).message}`);
+    }
+
+    // B) Release slots with stale heartbeats (no heartbeat for 10 min)
+    try {
+      const { data: staleCount } = await sb.rpc("release_stale_slots", {
+        p_age_minutes: 10,
+      });
+      if ((staleCount ?? 0) > 0) {
+        actions.push(`🔧 Released ${staleCount} stale pipeline slots (heartbeat timeout)`);
+      }
+    } catch (e) {
+      warnings.push(`release_stale_slots RPC failed: ${(e as Error).message}`);
+    }
+
+    // C) Building packages without active slots → reclaim or fail
     const { data: buildingPkgs } = await sb
       .from("course_packages")
-      .select("id, course_id, updated_at")
+      .select("id, course_id, current_step, updated_at")
       .eq("status", "building");
 
     for (const bPkg of buildingPkgs ?? []) {
       const isInSlot = slotList.includes(bPkg.id);
       if (!isInSlot) {
-        // Building package has NO active pipeline slot → deadlock!
-        // Check if it has been building for more than 10 minutes without a slot
         const buildAge = Date.now() - new Date(bPkg.updated_at).getTime();
         if (buildAge > 10 * 60_000) {
-          // Reclaim the slot
-          try {
-            await sb.from("pipeline_active_packages").upsert(
-              { package_id: bPkg.id, claimed_at: new Date().toISOString(), heartbeat_at: new Date().toISOString() },
-              { onConflict: "package_id" }
-            );
-            actions.push(`🔧 Reclaimed slot for orphaned building pkg ${bPkg.id.slice(0, 8)} (${Math.round(buildAge / 60_000)}min without slot)`);
+          // If still at step 0, fail it outright (init never happened)
+          if (((bPkg as any).current_step ?? 0) === 0) {
+            await sb.from("course_packages")
+              .update({ status: "failed", updated_at: new Date().toISOString() })
+              .eq("id", bPkg.id)
+              .eq("status", "building");
+            actions.push(`🔧 Failed orphaned step-0 pkg ${bPkg.id.slice(0, 8)} (no slot, never initialized)`);
+          } else {
+            // Has progress → reclaim slot
+            try {
+              await sb.from("pipeline_active_packages").upsert(
+                { package_id: bPkg.id, claimed_at: new Date().toISOString(), heartbeat_at: new Date().toISOString() },
+                { onConflict: "package_id" }
+              );
+              actions.push(`🔧 Reclaimed slot for orphaned building pkg ${bPkg.id.slice(0, 8)}`);
 
-            // Reset any failed integrity/publish jobs for this package
-            await sb.from("job_queue")
-              .update({ status: "pending", attempts: 0, error: null, started_at: null })
-              .eq("status", "failed")
-              .in("job_type", ["package_run_integrity_check", "package_auto_publish"])
-              .contains("payload", { package_id: bPkg.id });
-
-            // Reset high-attempt pending jobs
-            await sb.from("job_queue")
-              .update({ attempts: 0, error: null })
-              .eq("status", "pending")
-              .gt("attempts", 5)
-              .contains("payload", { package_id: bPkg.id });
-          } catch (e) {
-            warnings.push(`Failed to reclaim slot for ${bPkg.id.slice(0, 8)}: ${(e as Error).message}`);
+              await sb.from("job_queue")
+                .update({ status: "pending", attempts: 0, error: null, started_at: null })
+                .eq("status", "failed")
+                .in("job_type", ["package_run_integrity_check", "package_auto_publish"])
+                .contains("payload", { package_id: bPkg.id });
+            } catch (e) {
+              warnings.push(`Failed to reclaim slot for ${bPkg.id.slice(0, 8)}: ${(e as Error).message}`);
+            }
           }
         }
       }
