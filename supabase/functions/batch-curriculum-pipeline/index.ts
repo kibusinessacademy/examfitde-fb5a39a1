@@ -56,14 +56,17 @@ Deno.serve(async (req) => {
   // ── Main: Enqueue jobs for N draft curricula ────────────────────
 
   // Find draft curricula not yet in the job queue
-  const { data: pendingJobCurrIds } = await sb
+  // Load full payload to extract curriculum_id (arrow select returns wrong key)
+  const { data: pendingJobRows } = await sb
     .from("job_queue")
-    .select("payload->curriculum_id")
+    .select("payload")
     .eq("job_type", "generate_curriculum_content")
     .in("status", ["pending", "processing"]);
 
   const alreadyQueued = new Set(
-    (pendingJobCurrIds || []).map((j: any) => j.curriculum_id).filter(Boolean)
+    (pendingJobRows || [])
+      .map((j: any) => j?.payload?.curriculum_id)
+      .filter(Boolean)
   );
 
   const { data: draftCurricula, error: fetchErr } = await sb
