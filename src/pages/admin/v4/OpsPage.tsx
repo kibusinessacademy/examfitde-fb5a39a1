@@ -29,6 +29,9 @@ const tabs = [
   { path: '/admin/ops', label: 'Ampel' },
   { path: '/admin/ops/queue', label: 'Queue' },
   { path: '/admin/ops/throughput', label: '📊 ETA & Throughput' },
+  { path: '/admin/ops/scaling', label: '⚡ Scaling' },
+  { path: '/admin/ops/quality', label: '🛡️ Quality Council' },
+  { path: '/admin/ops/roi', label: '💰 ROI' },
   { path: '/admin/ops/providers', label: 'Provider Autopilot' },
   { path: '/admin/ops/autoheal', label: 'Auto-Heal' },
   { path: '/admin/ops/load-control', label: 'Load Control' },
@@ -1247,6 +1250,288 @@ function ThroughputDashboard() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// SCALING DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function ScalingDashboard() {
+  const [capacity, setCapacity] = useState<any>(null);
+  const [limits, setLimits] = useState<any[]>([]);
+  const [signals, setSignals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const [capRes, limRes, sigRes] = await Promise.all([
+      (supabase as any).from('pipeline_capacity').select('*').eq('id', true).maybeSingle(),
+      (supabase as any).from('jobtype_limits').select('*').order('job_type'),
+      (supabase as any).from('ops_runtime_signals').select('*').order('ts', { ascending: false }).limit(20),
+    ]);
+    setCapacity(capRes.data);
+    setLimits(limRes.data || []);
+    setSignals(sigRes.data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); const i = setInterval(load, 10000); return () => clearInterval(i); }, [load]);
+
+  if (loading) return <Loading />;
+
+  const lastDecision = capacity?.last_decision || {};
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MiniKPI label="Current WIP" value={capacity?.max_wip ?? '–'} sub={`min: ${capacity?.min_wip ?? 1}`} />
+        <MiniKPI label="Last Action" value={lastDecision.action || '–'} sub={lastDecision.trigger || ''} />
+        <MiniKPI label="Error Rate" value={`${lastDecision.error_rate ?? 0}%`} alert={(lastDecision.error_rate ?? 0) > 20} />
+        <MiniKPI label="Rate Limits (10m)" value={lastDecision.rate_limit_errors_10m ?? 0} alert={(lastDecision.rate_limit_errors_10m ?? 0) > 5} />
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Zap className="h-4 w-4" /> Job Type Concurrency Limits
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="text-left py-2 px-3">Job Type</th>
+                  <th className="text-right py-2 px-3">Max Parallel</th>
+                </tr>
+              </thead>
+              <tbody>
+                {limits.map((l: any) => (
+                  <tr key={l.job_type} className="border-b border-border/30">
+                    <td className="py-2 px-3 font-mono">{l.job_type}</td>
+                    <td className="py-2 px-3 text-right font-bold">{l.max_processing}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {signals.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Activity className="h-4 w-4" /> Scaling Signals (letzte 20)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {signals.map((s: any, i: number) => (
+                <div key={i} className="flex items-center gap-3 text-xs">
+                  <span className="text-muted-foreground shrink-0 w-[100px]">
+                    {new Date(s.ts).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                  </span>
+                  <Badge variant="outline" className={cn("text-[10px]",
+                    s.signal?.action === 'scale_down' ? 'bg-destructive/10 text-destructive' :
+                    s.signal?.action === 'scale_up' ? 'bg-emerald-500/10 text-emerald-600' : ''
+                  )}>{s.signal?.action || '–'}</Badge>
+                  <span className="text-muted-foreground">{s.signal?.trigger || ''}</span>
+                  <span className="text-foreground">err: {s.signal?.error_rate ?? 0}%</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// QUALITY COUNCIL DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function QualityCouncilDashboard() {
+  const [reports, setReports] = useState<any[]>([]);
+  const [rules, setRules] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const [repRes, rulesRes] = await Promise.all([
+      (supabase as any).from('package_quality_reports').select('*, course_packages(title)').order('created_at', { ascending: false }).limit(30),
+      (supabase as any).from('quality_rules').select('*').order('rule_key'),
+    ]);
+    setReports(repRes.data || []);
+    setRules(rulesRes.data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <Loading />;
+
+  const passed = reports.filter(r => r.status === 'pass').length;
+  const warned = reports.filter(r => r.status === 'warn').length;
+  const failed = reports.filter(r => r.status === 'fail').length;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MiniKPI label="Reports" value={reports.length} />
+        <MiniKPI label="Pass" value={passed} />
+        <MiniKPI label="Warn" value={warned} alert={warned > 0} />
+        <MiniKPI label="Fail" value={failed} alert={failed > 0} />
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Shield className="h-4 w-4" /> Quality Reports
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="text-left py-2 px-3">Paket</th>
+                  <th className="text-left py-2 px-3">Status</th>
+                  <th className="text-right py-2 px-3">Score</th>
+                  <th className="text-left py-2 px-3">Erstellt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reports.map((r: any) => (
+                  <tr key={r.package_id} className={cn("border-b border-border/30",
+                    r.status === 'fail' && 'bg-destructive/5'
+                  )}>
+                    <td className="py-2 px-3 font-medium truncate max-w-[200px]">{r.course_packages?.title || r.package_id?.slice(0, 8)}</td>
+                    <td className="py-2 px-3">
+                      <Badge variant="outline" className={cn("text-[10px]",
+                        r.status === 'pass' ? 'bg-emerald-500/10 text-emerald-600' :
+                        r.status === 'warn' ? 'bg-yellow-500/10 text-yellow-600' :
+                        'bg-destructive/10 text-destructive'
+                      )}>{r.status}</Badge>
+                    </td>
+                    <td className="py-2 px-3 text-right font-bold">{r.score}</td>
+                    <td className="py-2 px-3 text-muted-foreground">
+                      {new Date(r.created_at).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Quality Rules ({rules.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="text-left py-2 px-3">Rule</th>
+                  <th className="text-left py-2 px-3">Severity</th>
+                  <th className="text-center py-2 px-3">Aktiv</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rules.map((r: any) => (
+                  <tr key={r.id} className="border-b border-border/30">
+                    <td className="py-2 px-3 font-mono">{r.rule_key}</td>
+                    <td className="py-2 px-3">
+                      <Badge variant="outline" className={cn("text-[10px]",
+                        r.severity === 'block' ? 'bg-destructive/10 text-destructive' : 'bg-yellow-500/10 text-yellow-600'
+                      )}>{r.severity}</Badge>
+                    </td>
+                    <td className="py-2 px-3 text-center">{r.enabled ? '✅' : '❌'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ROI DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function ROIDashboard() {
+  const [roi, setRoi] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const { data } = await (supabase as any).rpc('get_roi_dashboard');
+    setRoi(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <Loading />;
+
+  const totalRevenue = roi.reduce((s, r) => s + Number(r.revenue_eur || 0), 0);
+  const totalCost = roi.reduce((s, r) => s + Number(r.llm_cost_usd || 0), 0);
+  const totalNet = roi.reduce((s, r) => s + Number(r.net_revenue_eur || 0), 0);
+  const profitable = roi.filter(r => Number(r.net_revenue_eur || 0) > 0).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MiniKPI label="Gesamt-Umsatz" value={`€${totalRevenue.toFixed(0)}`} />
+        <MiniKPI label="LLM-Kosten" value={`$${totalCost.toFixed(0)}`} />
+        <MiniKPI label="Netto-Umsatz" value={`€${totalNet.toFixed(0)}`} alert={totalNet < 0} />
+        <MiniKPI label="Profitable" value={`${profitable}/${roi.length}`} />
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            💰 ROI pro Zertifizierung
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {roi.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Noch keine Daten vorhanden.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="text-left py-2 px-3">Certification</th>
+                    <th className="text-right py-2 px-3">Revenue (€)</th>
+                    <th className="text-right py-2 px-3">Refunds (€)</th>
+                    <th className="text-right py-2 px-3">LLM Cost ($)</th>
+                    <th className="text-right py-2 px-3">Netto (€)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roi.map((r: any, i: number) => (
+                    <tr key={i} className={cn("border-b border-border/30",
+                      Number(r.net_revenue_eur || 0) < 0 && 'bg-destructive/5'
+                    )}>
+                      <td className="py-2 px-3 font-mono">{r.certification_id?.slice(0, 8) || '–'}</td>
+                      <td className="py-2 px-3 text-right text-emerald-600">€{Number(r.revenue_eur || 0).toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right text-destructive">€{Number(r.refunds_eur || 0).toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right text-muted-foreground">${Number(r.llm_cost_usd || 0).toFixed(2)}</td>
+                      <td className={cn("py-2 px-3 text-right font-bold",
+                        Number(r.net_revenue_eur || 0) >= 0 ? "text-emerald-600" : "text-destructive"
+                      )}>€{Number(r.net_revenue_eur || 0).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════
 export default function OpsPage() {
@@ -1309,6 +1594,9 @@ export default function OpsPage() {
           <Route index element={<OpsOverview />} />
           <Route path="queue" element={<QueueDashboard />} />
           <Route path="throughput" element={<ThroughputDashboard />} />
+          <Route path="scaling" element={<ScalingDashboard />} />
+          <Route path="quality" element={<QualityCouncilDashboard />} />
+          <Route path="roi" element={<ROIDashboard />} />
           <Route path="providers" element={<ProviderAutopilotDashboard />} />
           <Route path="autoheal" element={<AutoHealCenter />} />
           <Route path="load-control" element={<LoadControlPage />} />

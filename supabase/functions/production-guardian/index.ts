@@ -363,7 +363,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 9. WIP=2 STALE SLOT CLEANUP
+    // 9. STALE SLOT CLEANUP
     // ═══════════════════════════════════════════════════════════════
     const { data: activeSlots } = await sb.rpc("get_active_pipeline_packages");
     const slotList = (activeSlots as string[] | null) ?? [];
@@ -375,7 +375,6 @@ Deno.serve(async (req) => {
         .eq("id", slotPkgId)
         .maybeSingle();
 
-      // If package is no longer building (published/failed/etc), release the slot
       if (pkgStatus && !["building", "queued"].includes(pkgStatus.status)) {
         await sb.rpc("release_pipeline_slot", { p_package_id: slotPkgId });
         actions.push(`Released stale slot for pkg ${slotPkgId.slice(0, 8)} (status: ${pkgStatus.status})`);
@@ -383,7 +382,111 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 9. QUEUE STATS SNAPSHOT
+    // 10. ADAPTIVE AUTO-SCALING (429/timeout-driven WIP + concurrency)
+    // ═══════════════════════════════════════════════════════════════
+    const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+
+    // Count recent 429/rate-limit errors
+    const { count: rateLimitErrors } = await sb
+      .from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "failed")
+      .gte("completed_at", tenMinAgo)
+      .ilike("last_error", "%rate%limit%");
+
+    const { count: timeoutErrors } = await sb
+      .from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "failed")
+      .gte("completed_at", tenMinAgo)
+      .ilike("last_error", "%timeout%");
+
+    const { count: recentCompleted } = await sb
+      .from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "completed")
+      .gte("completed_at", tenMinAgo);
+
+    const rlErrors = rateLimitErrors ?? 0;
+    const toErrors = timeoutErrors ?? 0;
+    const recentOk = recentCompleted ?? 0;
+    const totalRecent = recentOk + rlErrors + toErrors;
+    const errorRate = totalRecent > 5 ? (rlErrors + toErrors) / totalRecent : 0;
+
+    // Read current capacity
+    const { data: capacity } = await sb
+      .from("pipeline_capacity")
+      .select("max_wip, min_wip")
+      .eq("id", true)
+      .maybeSingle();
+
+    const currentMaxWip = capacity?.max_wip ?? 2;
+    const minWip = capacity?.min_wip ?? 1;
+    let newMaxWip = currentMaxWip;
+    const scalingReason: Record<string, unknown> = {
+      error_rate: +(errorRate * 100).toFixed(1),
+      rate_limit_errors_10m: rlErrors,
+      timeout_errors_10m: toErrors,
+      completed_10m: recentOk,
+      budget_pct: monthlyBudget ? +(((monthlyBudget.spent_eur / monthlyBudget.budget_eur) * 100).toFixed(1)) : 0,
+    };
+
+    if (errorRate > 0.3 || rlErrors > 10) {
+      // High error rate → scale DOWN
+      newMaxWip = Math.max(minWip, currentMaxWip - 1);
+      scalingReason.action = "scale_down";
+      scalingReason.trigger = errorRate > 0.3 ? "high_error_rate" : "rate_limit_spike";
+
+      // Also reduce jobtype limits for content-heavy types
+      for (const jt of ["generate_curriculum_content", "package_generate_exam_pool", "package_generate_oral_exam"]) {
+        const { data: jtLimit } = await sb.from("jobtype_limits").select("max_processing").eq("job_type", jt).maybeSingle();
+        if (jtLimit && jtLimit.max_processing > 1) {
+          await sb.from("jobtype_limits").update({ max_processing: Math.max(1, jtLimit.max_processing - 1) }).eq("job_type", jt);
+          actions.push(`Scaled down ${jt} concurrency → ${jtLimit.max_processing - 1}`);
+        }
+      }
+    } else if (errorRate < 0.05 && recentOk > 20 && (dc < 50 || frozenCount > 150)) {
+      // Stable + productive → scale UP (max 6)
+      newMaxWip = Math.min(6, currentMaxWip + 1);
+      scalingReason.action = "scale_up";
+      scalingReason.trigger = "stable_throughput";
+
+      // Also increase jobtype limits back
+      for (const jt of ["generate_curriculum_content", "package_generate_exam_pool"]) {
+        const { data: jtLimit } = await sb.from("jobtype_limits").select("max_processing").eq("job_type", jt).maybeSingle();
+        if (jtLimit && jtLimit.max_processing < 6) {
+          await sb.from("jobtype_limits").update({ max_processing: Math.min(6, jtLimit.max_processing + 1) }).eq("job_type", jt);
+          actions.push(`Scaled up ${jt} concurrency → ${jtLimit.max_processing + 1}`);
+        }
+      }
+    } else {
+      scalingReason.action = "hold";
+    }
+
+    // Budget override: if > 80% budget → cap WIP at 1
+    const budgetPctValue = monthlyBudget && monthlyBudget.budget_eur > 0
+      ? (monthlyBudget.spent_eur / monthlyBudget.budget_eur) * 100 : 0;
+    if (budgetPctValue >= 80) {
+      newMaxWip = Math.min(newMaxWip, 1);
+      scalingReason.budget_override = true;
+    }
+
+    if (newMaxWip !== currentMaxWip) {
+      await sb.rpc("set_pipeline_capacity", { p_max_wip: newMaxWip, p_reason: scalingReason });
+      actions.push(`Auto-scaled WIP: ${currentMaxWip} → ${newMaxWip} (${scalingReason.action})`);
+
+      // Log signal
+      await sb.from("ops_runtime_signals").insert({ signal: scalingReason });
+    }
+
+    // Grab frozen count for reference
+    const { count: frozenCount } = await sb
+      .from("curricula")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "frozen");
+
+    // ═══════════════════════════════════════════════════════════════
+    // 11. QUEUE STATS SNAPSHOT
     // ═══════════════════════════════════════════════════════════════
     const counts: Record<string, number> = {};
     for (const s of ["pending", "processing", "completed", "failed"]) {
@@ -397,6 +500,7 @@ Deno.serve(async (req) => {
       pipeline_idle: pipelineIdle,
       actions_taken: actions.length,
       warnings_count: warnings.length,
+      scaling: { current_wip: newMaxWip, error_rate: +(errorRate * 100).toFixed(1) },
       actions,
       warnings,
     };
@@ -421,7 +525,7 @@ Deno.serve(async (req) => {
       metadata: summary,
     });
 
-    console.log(`[Guardian] ${actions.length} actions, ${warnings.length} warnings, queue: ${JSON.stringify(counts)}`);
+    console.log(`[Guardian] ${actions.length} actions, ${warnings.length} warnings, WIP=${newMaxWip}, queue: ${JSON.stringify(counts)}`);
     return json(summary);
   } catch (e) {
     const msg = (e as Error)?.message || String(e);

@@ -114,6 +114,7 @@ const JOB_TYPE_MAP: Record<string, string> = {
   package_generate_handbook: "package-generate-handbook",
   package_run_integrity_check: "package-run-integrity-check",
   package_auto_publish: "package-auto-publish",
+  package_quality_council: "package-quality-council",
   auto_gap_close: "auto-gap-close",
   daily_test_run: "daily-test-runner",
 };

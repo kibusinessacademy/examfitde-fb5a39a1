@@ -47,6 +47,48 @@ Deno.serve(async (req) => {
       return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: run_integrity_check" }, 409);
     }
 
+    // ── QUALITY COUNCIL GATE: require quality report before publish ──
+    const { data: qualityReport } = await sb
+      .from("package_quality_reports")
+      .select("status, score")
+      .eq("package_id", packageId)
+      .maybeSingle();
+
+    if (!qualityReport) {
+      // Enqueue quality council check and wait
+      await sb.from("job_queue").upsert({
+        job_type: "package_quality_council",
+        status: "pending",
+        attempts: 0,
+        max_attempts: 3,
+        payload: { package_id: packageId, course_id: courseId },
+        run_after: new Date().toISOString(),
+      }, { onConflict: "id", ignoreDuplicates: false });
+      return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: quality_council_report" }, 409);
+    }
+
+    if (qualityReport.status === "fail") {
+      // Quality Council failed → block publish, release lock
+      await sb.from("course_packages")
+        .update({ status: "qa_failed", updated_at: new Date().toISOString() })
+        .eq("id", packageId);
+      await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
+      await sb.from("course_package_locks").delete().eq("package_id", packageId);
+      await sb.from("admin_notifications").insert({
+        title: `🚫 Quality Council: Package blocked`,
+        body: `Score: ${qualityReport.score}. Package failed quality checks.`,
+        category: "quality",
+        severity: "warning",
+        entity_type: "course_package",
+        entity_id: packageId,
+      });
+      return json({
+        ok: false,
+        error: `QUALITY_GATE_FAILED: score=${qualityReport.score}`,
+        quality_status: qualityReport.status,
+      }, 422);
+    }
+
     // ── REVIEW GATE: auto-approve unless requires_manual_review flag is set ──
     const { data: pkgFlags } = await sb
       .from("course_packages")
