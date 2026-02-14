@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { validateAuth, unauthorizedResponse } from "../_shared/auth.ts";
 
 /**
  * Bloom's Taxonomy Service
@@ -129,6 +130,12 @@ serve(async (req) => {
 
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
+
+  // Require authentication
+  const auth = await validateAuth(req, false);
+  if (auth.error) {
+    return unauthorizedResponse(auth.error, origin ?? undefined);
+  }
 
   try {
     const { action, ...params } = await req.json();

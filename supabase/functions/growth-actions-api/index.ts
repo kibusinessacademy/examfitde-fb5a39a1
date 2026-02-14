@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -48,7 +49,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, action: data?.[0] ?? null }), { status: 200, headers });
     }
 
-    // Admin operations via service role
+    // Admin operations - require admin role
+    const adminAuth = await validateAuth(req, true);
+    if (adminAuth.error) {
+      return forbiddenResponse(adminAuth.error, origin ?? undefined);
+    }
+
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE);
 
     if (action === "list_actions") {
