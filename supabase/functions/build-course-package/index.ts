@@ -107,8 +107,8 @@ Deno.serve(async (req) => {
         blocked_reason: "missing_curriculum_or_course_id",
         updated_at: new Date().toISOString(),
       }).eq("id", packageId);
-      await sb.rpc("release_pipeline_lock", { p_package_id: packageId }).catch(() => {});
-      await sb.from("pipeline_active_packages").delete().eq("package_id", packageId).catch(() => {});
+      try { await sb.rpc("release_pipeline_lock", { p_package_id: packageId }); } catch (_) { /* ignore */ }
+      try { await sb.from("pipeline_active_packages").delete().eq("package_id", packageId); } catch (_) { /* ignore */ }
       return json({ ok: false, error: "MISSING_REQUIRED_IDS", detail: { effectiveCourseId, effectiveCurriculumId } }, 409);
     }
 
