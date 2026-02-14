@@ -2,10 +2,12 @@ import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { ActiveCourseProvider } from '@/contexts/ActiveCourseContext';
 import ActiveCourseBar from '@/components/admin/ActiveCourseBar';
+import GlobalStatusBar from '@/components/admin/GlobalStatusBar';
 import {
   LayoutDashboard, BookOpen, LogOut, ChevronLeft, Menu,
   DollarSign, Activity, Brain, ChevronDown, Shield,
-  TrendingUp, Layers, Search, Radio
+  TrendingUp, Layers, Search, Radio, FileText, Headphones,
+  Users
 } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -23,7 +25,21 @@ interface NavItem {
 const navModules: NavItem[] = [
   { path: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
   {
-    path: '/admin/studio', label: 'Kurs-Studio', icon: BookOpen,
+    path: '/admin/ops', label: 'Ops (Realtime)', icon: Activity,
+    children: [
+      { path: '/admin/ops', label: 'Ampel & Alerts' },
+      { path: '/admin/ops/queue', label: 'Queue' },
+      { path: '/admin/pipeline', label: 'Pipeline Live' },
+      { path: '/admin/ops/load-control', label: 'Load Control' },
+      { path: '/admin/ops/logs', label: 'Live Logs' },
+      { path: '/admin/ops/deadletter', label: 'Dead Letter' },
+      { path: '/admin/ops/health', label: 'Health' },
+      { path: '/admin/ops/ai-workers', label: 'AI Workers' },
+      { path: '/admin/ops/security', label: 'Security' },
+    ],
+  },
+  {
+    path: '/admin/studio', label: 'Factory', icon: BookOpen,
     children: [
       { path: '/admin/studio', label: 'Pakete' },
       { path: '/admin/studio/new', label: 'Neues Paket' },
@@ -40,15 +56,27 @@ const navModules: NavItem[] = [
     ],
   },
   {
-    path: '/admin/ops', label: 'System & Betrieb', icon: Activity,
+    path: '/admin/content', label: 'Content & SEO', icon: FileText,
     children: [
-      { path: '/admin/ops', label: 'Ampel' },
-      { path: '/admin/ops/queue', label: 'Queue' },
-      { path: '/admin/ops/load-control', label: 'Load Control' },
-      { path: '/admin/ops/logs', label: 'Live Logs' },
-      { path: '/admin/ops/deadletter', label: 'Dead Letter' },
-      { path: '/admin/ops/health', label: 'Health' },
-      { path: '/admin/ops/ai-workers', label: 'AI Workers' },
+      { path: '/admin/content', label: 'Seiten' },
+      { path: '/admin/content/blog', label: 'Blog' },
+      { path: '/admin/content/assets', label: 'Assets' },
+      { path: '/admin/content/seo', label: 'SEO & Redirects' },
+    ],
+  },
+  {
+    path: '/admin/crm', label: 'CRM', icon: Users,
+    children: [
+      { path: '/admin/crm', label: 'Kontakte' },
+      { path: '/admin/crm/segments', label: 'Segmente' },
+      { path: '/admin/crm/churn', label: 'Churn Risk' },
+    ],
+  },
+  {
+    path: '/admin/support', label: 'Support', icon: Headphones,
+    children: [
+      { path: '/admin/support', label: 'Tickets' },
+      { path: '/admin/support/faq', label: 'FAQ Knüpfung' },
     ],
   },
   {
@@ -60,9 +88,9 @@ const navModules: NavItem[] = [
     ],
   },
   {
-    path: '/admin/growth', label: 'Wachstum & CRM', icon: TrendingUp,
+    path: '/admin/growth', label: 'Wachstum', icon: TrendingUp,
     children: [
-      { path: '/admin/growth', label: 'Churn' },
+      { path: '/admin/growth', label: 'Übersicht' },
       { path: '/admin/growth/nudges', label: 'Nudge Engine' },
       { path: '/admin/growth/feedback', label: 'Feedback' },
     ],
@@ -74,7 +102,6 @@ const navModules: NavItem[] = [
       { path: '/admin/scale/reporting', label: 'Reporting' },
     ],
   },
-  { path: '/admin/pipeline', label: 'Pipeline Monitor', icon: Radio },
 ];
 
 export default function AdminV4Layout() {
@@ -110,16 +137,18 @@ export default function AdminV4Layout() {
   // Breadcrumbs
   const pathParts = location.pathname.replace('/admin/', '').split('/').filter(Boolean);
   const breadcrumbLabels: Record<string, string> = {
-    command: 'Leitstelle', studio: 'Kurs-Studio', quality: 'Qualität',
-    ops: 'System', business: 'Finanzen', growth: 'Wachstum', scale: 'Skalierung',
+    command: 'Leitstelle', studio: 'Factory', quality: 'Qualität',
+    ops: 'Ops', business: 'Finanzen', growth: 'Wachstum', scale: 'Skalierung',
+    content: 'Content & SEO', crm: 'CRM', support: 'Support',
     new: 'Neues Paket', integrity: 'Integrität', compliance: 'Compliance',
     azav: 'AZAV/ISO', logs: 'Live Logs', deadletter: 'Dead Letter',
     health: 'Health', 'ai-workers': 'AI Workers', licenses: 'Lizenzen',
     exports: 'Exporte', nudges: 'Nudge Engine', feedback: 'Feedback',
-    reporting: 'Reporting',
-    pipeline: 'Pipeline Monitor',
-    review: 'Review Inbox',
-    'load-control': 'Load Control',
+    reporting: 'Reporting', pipeline: 'Pipeline Live',
+    review: 'Review Inbox', 'load-control': 'Load Control',
+    blog: 'Blog', assets: 'Assets', seo: 'SEO & Redirects',
+    segments: 'Segmente', churn: 'Churn Risk',
+    tickets: 'Tickets', faq: 'FAQ Knüpfung',
   };
 
   return (
@@ -270,10 +299,12 @@ export default function AdminV4Layout() {
 
       {/* Main */}
       <main className={cn(
-        "flex-1 min-h-screen transition-all duration-200",
+        "flex-1 min-h-screen transition-all duration-200 flex flex-col",
         sidebarCollapsed ? "lg:ml-16" : "lg:ml-56",
         "pt-14 lg:pt-0"
       )}>
+        {/* Global Realtime Status Bar */}
+        <GlobalStatusBar />
         <ActiveCourseProvider>
           <ActiveCourseBar />
           {/* Breadcrumbs */}
