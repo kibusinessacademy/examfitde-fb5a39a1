@@ -19,7 +19,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const MAX_CONCURRENT_PACKAGES = 3;
+// MAX_CONCURRENT_PACKAGES is now dynamic via ops_pipeline_config table
 
 // ── Step ordering + mapping to actual edge functions ──
 type StepKey =
