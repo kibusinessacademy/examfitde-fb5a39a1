@@ -1,0 +1,309 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useRealtimeInvalidation } from './useAdminRealtimeInvalidation';
+import { toast } from 'sonner';
+
+// ═══════════════════════════════════════════════════════════
+// Content Pages
+// ═══════════════════════════════════════════════════════════
+
+export interface ContentPage {
+  id: string;
+  slug: string;
+  page_type: string;
+  title: string;
+  meta_title: string | null;
+  meta_description: string | null;
+  canonical_url: string | null;
+  body_md: string;
+  schema_json: any;
+  status: 'draft' | 'review' | 'published' | 'archived';
+  language: string;
+  audience: string;
+  og_image_url: string | null;
+  noindex: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useContentPages() {
+  useRealtimeInvalidation('content_pages', [['content-pages']]);
+
+  return useQuery({
+    queryKey: ['content-pages'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('content_pages')
+        .select('*')
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as ContentPage[];
+    },
+  });
+}
+
+export function useContentPageMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['content-pages'] });
+
+  const create = useMutation({
+    mutationFn: async (page: Partial<ContentPage>) => {
+      const { data, error } = await supabase.from('content_pages').insert(page as any).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => { invalidate(); toast.success('Seite erstellt'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<ContentPage> & { id: string }) => {
+      const { error } = await supabase.from('content_pages').update(updates as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success('Seite gespeichert'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const publish = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('content_pages')
+        .update({ status: 'published', published_at: new Date().toISOString() } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success('Seite veröffentlicht'); },
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('content_pages').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success('Seite gelöscht'); },
+  });
+
+  return { create, update, publish, remove };
+}
+
+// ═══════════════════════════════════════════════════════════
+// Blog Posts
+// ═══════════════════════════════════════════════════════════
+
+export interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  meta_title: string | null;
+  meta_description: string | null;
+  excerpt: string | null;
+  body_md: string;
+  category: string | null;
+  tags: string[];
+  internal_links: any;
+  schema_json: any;
+  status: 'draft' | 'review' | 'published' | 'archived';
+  author_name: string | null;
+  og_image_url: string | null;
+  canonical_url: string | null;
+  noindex: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useBlogPosts() {
+  useRealtimeInvalidation('blog_posts', [['blog-posts']]);
+
+  return useQuery({
+    queryKey: ['blog-posts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('blog_posts')
+        .select('*')
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as BlogPost[];
+    },
+  });
+}
+
+export function useBlogPostMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['blog-posts'] });
+
+  const create = useMutation({
+    mutationFn: async (post: Partial<BlogPost>) => {
+      const { data, error } = await supabase.from('blog_posts').insert(post as any).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => { invalidate(); toast.success('Artikel erstellt'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<BlogPost> & { id: string }) => {
+      const { error } = await supabase.from('blog_posts').update(updates as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success('Artikel gespeichert'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const publish = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('blog_posts')
+        .update({ status: 'published', published_at: new Date().toISOString() } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success('Artikel veröffentlicht'); },
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('blog_posts').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success('Artikel gelöscht'); },
+  });
+
+  return { create, update, publish, remove };
+}
+
+// ═══════════════════════════════════════════════════════════
+// Content Assets
+// ═══════════════════════════════════════════════════════════
+
+export interface ContentAsset {
+  id: string;
+  file_path: string;
+  file_name: string;
+  mime_type: string | null;
+  file_size_bytes: number | null;
+  alt_text: string | null;
+  caption: string | null;
+  keywords: string[];
+  license: string | null;
+  source_url: string | null;
+  used_on_pages: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export function useContentAssets() {
+  useRealtimeInvalidation('content_assets', [['content-assets']]);
+
+  return useQuery({
+    queryKey: ['content-assets'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('content_assets')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as ContentAsset[];
+    },
+  });
+}
+
+export function useContentAssetMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['content-assets'] });
+
+  const create = useMutation({
+    mutationFn: async (asset: Partial<ContentAsset>) => {
+      const { data, error } = await supabase.from('content_assets').insert(asset as any).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => { invalidate(); toast.success('Asset hinzugefügt'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<ContentAsset> & { id: string }) => {
+      const { error } = await supabase.from('content_assets').update(updates as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success('Asset aktualisiert'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('content_assets').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success('Asset gelöscht'); },
+  });
+
+  return { create, update, remove };
+}
+
+// ═══════════════════════════════════════════════════════════
+// SEO Redirects
+// ═══════════════════════════════════════════════════════════
+
+export interface SEORedirect {
+  id: string;
+  from_path: string;
+  to_path: string;
+  status_code: number;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useSEORedirects() {
+  useRealtimeInvalidation('seo_redirects', [['seo-redirects']]);
+
+  return useQuery({
+    queryKey: ['seo-redirects'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('seo_redirects')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as SEORedirect[];
+    },
+  });
+}
+
+export function useSEORedirectMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['seo-redirects'] });
+
+  const create = useMutation({
+    mutationFn: async (redirect: Partial<SEORedirect>) => {
+      const { data, error } = await supabase.from('seo_redirects').insert(redirect as any).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => { invalidate(); toast.success('Redirect erstellt'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<SEORedirect> & { id: string }) => {
+      const { error } = await supabase.from('seo_redirects').update(updates as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success('Redirect aktualisiert'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('seo_redirects').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success('Redirect gelöscht'); },
+  });
+
+  return { create, update, remove };
+}

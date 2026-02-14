@@ -3,6 +3,7 @@ import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Loader2, CheckCircle2, XCircle, AlertTriangle, Copy, Download, RotateCcw, RefreshCw, Shield, Zap, Activity, Clock, Server, HeartPulse, Gauge, BookOpen, Brain, FileQuestion, Mic, Factory, Eye, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { useRealtimeAlerts } from '@/hooks/useAdminRealtime';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -48,30 +49,7 @@ const tabs = [
 // OPS ALERTS WIDGET
 // ═══════════════════════════════════════════════════════════
 function OpsAlertsWidget() {
-  const [alerts, setAlerts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await (supabase as any)
-        .from('ops_alerts')
-        .select('*')
-        .is('acknowledged_at', null)
-        .order('created_at', { ascending: false })
-        .limit(20);
-      setAlerts(data || []);
-      setLoading(false);
-    };
-    load();
-    const interval = setInterval(load, 15000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const acknowledge = async (id: string) => {
-    await (supabase as any).from('ops_alerts').update({ acknowledged_at: new Date().toISOString() }).eq('id', id);
-    setAlerts(prev => prev.filter(a => a.id !== id));
-    toast.success('Alert bestätigt');
-  };
+  const { alerts, loading, acknowledge } = useRealtimeAlerts(20);
 
   if (loading || alerts.length === 0) return null;
 

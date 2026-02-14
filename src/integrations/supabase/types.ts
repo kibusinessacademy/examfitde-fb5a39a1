@@ -1566,6 +1566,78 @@ export type Database = {
         }
         Relationships: []
       }
+      blog_posts: {
+        Row: {
+          author_name: string | null
+          body_md: string | null
+          canonical_url: string | null
+          category: string | null
+          created_at: string
+          created_by: string | null
+          excerpt: string | null
+          id: string
+          internal_links: Json | null
+          meta_description: string | null
+          meta_title: string | null
+          noindex: boolean | null
+          og_image_url: string | null
+          published_at: string | null
+          schema_json: Json | null
+          slug: string
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          author_name?: string | null
+          body_md?: string | null
+          canonical_url?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          excerpt?: string | null
+          id?: string
+          internal_links?: Json | null
+          meta_description?: string | null
+          meta_title?: string | null
+          noindex?: boolean | null
+          og_image_url?: string | null
+          published_at?: string | null
+          schema_json?: Json | null
+          slug: string
+          status?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          author_name?: string | null
+          body_md?: string | null
+          canonical_url?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          excerpt?: string | null
+          id?: string
+          internal_links?: Json | null
+          meta_description?: string | null
+          meta_title?: string | null
+          noindex?: boolean | null
+          og_image_url?: string | null
+          published_at?: string | null
+          schema_json?: Json | null
+          slug?: string
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       blueprint_audit_log: {
         Row: {
           action: string
@@ -2557,6 +2629,57 @@ export type Database = {
         }
         Relationships: []
       }
+      content_assets: {
+        Row: {
+          alt_text: string | null
+          caption: string | null
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size_bytes: number | null
+          id: string
+          keywords: string[] | null
+          license: string | null
+          mime_type: string | null
+          source_url: string | null
+          updated_at: string
+          uploaded_by: string | null
+          used_on_pages: string[] | null
+        }
+        Insert: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size_bytes?: number | null
+          id?: string
+          keywords?: string[] | null
+          license?: string | null
+          mime_type?: string | null
+          source_url?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          used_on_pages?: string[] | null
+        }
+        Update: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size_bytes?: number | null
+          id?: string
+          keywords?: string[] | null
+          license?: string | null
+          mime_type?: string | null
+          source_url?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          used_on_pages?: string[] | null
+        }
+        Relationships: []
+      }
       content_effectiveness: {
         Row: {
           abort_rate: number | null
@@ -2632,6 +2755,72 @@ export type Database = {
           readability_score?: number | null
           seo_score?: number | null
           suggestions?: Json | null
+        }
+        Relationships: []
+      }
+      content_pages: {
+        Row: {
+          audience: string | null
+          body_md: string | null
+          canonical_url: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          language: string | null
+          meta_description: string | null
+          meta_title: string | null
+          noindex: boolean | null
+          og_image_url: string | null
+          page_type: string
+          published_at: string | null
+          schema_json: Json | null
+          slug: string
+          status: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          audience?: string | null
+          body_md?: string | null
+          canonical_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          language?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
+          noindex?: boolean | null
+          og_image_url?: string | null
+          page_type?: string
+          published_at?: string | null
+          schema_json?: Json | null
+          slug: string
+          status?: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          audience?: string | null
+          body_md?: string | null
+          canonical_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          language?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
+          noindex?: boolean | null
+          og_image_url?: string | null
+          page_type?: string
+          published_at?: string | null
+          schema_json?: Json | null
+          slug?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -12311,6 +12500,42 @@ export type Database = {
             referencedColumns: ["template_key"]
           },
         ]
+      }
+      seo_redirects: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          from_path: string
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          status_code: number
+          to_path: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          from_path: string
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          status_code?: number
+          to_path: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          from_path?: string
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          status_code?: number
+          to_path?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       seo_settings: {
         Row: {

@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
+import { useRealtimeInvalidation } from '@/hooks/useAdminRealtimeInvalidation';
 
 interface Notification {
   id: string;
@@ -26,6 +27,9 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
 
+  // Gold-Pattern: Realtime invalidation instead of polling
+  useRealtimeInvalidation('admin_notifications', [['admin-notifications']], 'bell');
+
   const { data: notifications = [] } = useQuery({
     queryKey: ['admin-notifications'],
     queryFn: async () => {
@@ -37,7 +41,6 @@ export default function NotificationBell() {
       if (error) throw error;
       return (data || []) as Notification[];
     },
-    refetchInterval: 15_000,
   });
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
