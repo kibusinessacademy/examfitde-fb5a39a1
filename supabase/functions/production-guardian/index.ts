@@ -169,6 +169,62 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // 4b. RE-CHECK QA_FAILED PACKAGES (auto-retry quality council)
+    // ═══════════════════════════════════════════════════════════════
+    const { data: qaFailedPkgs } = await sb
+      .from("course_packages")
+      .select("id, course_id, updated_at")
+      .eq("status", "qa_failed")
+      .order("updated_at", { ascending: true })
+      .limit(3);
+
+    for (const qaPkg of qaFailedPkgs ?? []) {
+      // Check if content was regenerated after the QA report
+      const { data: qaReport } = await sb
+        .from("package_quality_reports")
+        .select("created_at")
+        .eq("package_id", qaPkg.id)
+        .maybeSingle();
+
+      const reportAge = qaReport?.created_at ? Date.now() - new Date(qaReport.created_at).getTime() : Infinity;
+      const pkgUpdateAge = Date.now() - new Date(qaPkg.updated_at).getTime();
+
+      // Re-check if: report is older than 30 min AND package was updated after report
+      if (qaReport && reportAge > 30 * 60_000 && pkgUpdateAge < reportAge) {
+        // Delete old report so quality council runs fresh
+        await sb.from("package_quality_reports").delete().eq("package_id", qaPkg.id);
+        // Re-queue quality council
+        await sb.from("job_queue").insert({
+          job_type: "package_quality_council",
+          status: "pending",
+          attempts: 0,
+          max_attempts: 3,
+          payload: { package_id: qaPkg.id, course_id: qaPkg.course_id, retry_from: "guardian_qa_retry" },
+          run_after: new Date().toISOString(),
+        });
+        // Set package back to building so auto-publish can pick it up
+        await sb.from("course_packages")
+          .update({ status: "building", updated_at: new Date().toISOString() })
+          .eq("id", qaPkg.id);
+        actions.push(`Re-triggered QA for qa_failed pkg ${qaPkg.id.slice(0, 8)} (content updated since last report)`);
+      } else if (!qaReport) {
+        // No report at all — just re-trigger
+        await sb.from("job_queue").insert({
+          job_type: "package_quality_council",
+          status: "pending",
+          attempts: 0,
+          max_attempts: 3,
+          payload: { package_id: qaPkg.id, course_id: qaPkg.course_id, retry_from: "guardian_qa_retry" },
+          run_after: new Date().toISOString(),
+        });
+        await sb.from("course_packages")
+          .update({ status: "building", updated_at: new Date().toISOString() })
+          .eq("id", qaPkg.id);
+        actions.push(`QA retry for pkg ${qaPkg.id.slice(0, 8)} (no report found)`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 5. AUTO-TRIGGER PIPELINE (if idle + queued packages exist)
     // ═══════════════════════════════════════════════════════════════
     if (pipelineIdle) {
