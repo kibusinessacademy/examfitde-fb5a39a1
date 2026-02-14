@@ -163,7 +163,11 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
 
 /**
  * Log an LLM cost event to llm_cost_events table.
- * Call this after every successful AI call for ROI tracking.
+ * Call this after every AI call (success, fail, retry) for ROI tracking.
+ *
+ * @param opts.status - "success" | "fail" | "retry" (default: "success")
+ * @param opts.error_message - Error text for failed calls
+ * @param opts.attempt - Which attempt number (for retry tracking)
  */
 export async function logLLMCostEvent(
   sb: { from: (table: string) => any },
@@ -177,6 +181,9 @@ export async function logLLMCostEvent(
     package_id?: string | null;
     certification_id?: string | null;
     course_id?: string | null;
+    status?: "success" | "fail" | "retry";
+    error_message?: string | null;
+    attempt?: number;
     meta?: Record<string, unknown>;
   }
 ): Promise<void> {
@@ -191,7 +198,12 @@ export async function logLLMCostEvent(
       package_id: opts.package_id || null,
       certification_id: opts.certification_id || null,
       course_id: opts.course_id || null,
-      meta: opts.meta || {},
+      meta: {
+        ...(opts.meta || {}),
+        status: opts.status || "success",
+        ...(opts.error_message ? { error: opts.error_message } : {}),
+        ...(opts.attempt !== undefined ? { attempt: opts.attempt } : {}),
+      },
     });
   } catch {
     // Non-blocking – don't let cost logging break production

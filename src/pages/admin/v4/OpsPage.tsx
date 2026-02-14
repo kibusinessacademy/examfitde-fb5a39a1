@@ -1285,6 +1285,31 @@ function ScalingDashboard() {
         <MiniKPI label="Rate Limits (10m)" value={lastDecision.rate_limit_errors_10m ?? 0} alert={(lastDecision.rate_limit_errors_10m ?? 0) > 5} />
       </div>
 
+      {/* WIP Override */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Server className="h-4 w-4" /> WIP Override
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">max_wip:</span>
+            {[1, 2, 3, 4, 5, 6].map(v => (
+              <Button key={v} size="sm" variant={capacity?.max_wip === v ? 'default' : 'outline'}
+                className="h-7 w-8 text-xs"
+                onClick={async () => {
+                  await (supabase as any).from('pipeline_capacity').update({ max_wip: v, last_decision: { action: 'manual_override', set_by: 'admin' }, updated_at: new Date().toISOString() }).eq('id', true);
+                  toast.success(`WIP → ${v}`);
+                  load();
+                }}>
+                {v}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -1298,6 +1323,7 @@ function ScalingDashboard() {
                 <tr className="border-b border-border text-muted-foreground">
                   <th className="text-left py-2 px-3">Job Type</th>
                   <th className="text-right py-2 px-3">Max Parallel</th>
+                  <th className="text-right py-2 px-3">Aktion</th>
                 </tr>
               </thead>
               <tbody>
@@ -1305,6 +1331,19 @@ function ScalingDashboard() {
                   <tr key={l.job_type} className="border-b border-border/30">
                     <td className="py-2 px-3 font-mono">{l.job_type}</td>
                     <td className="py-2 px-3 text-right font-bold">{l.max_processing}</td>
+                    <td className="py-2 px-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-xs" onClick={async () => {
+                          if (l.max_processing <= 1) return;
+                          await (supabase as any).from('jobtype_limits').update({ max_processing: l.max_processing - 1 }).eq('job_type', l.job_type);
+                          load();
+                        }}>−</Button>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-xs" onClick={async () => {
+                          await (supabase as any).from('jobtype_limits').update({ max_processing: l.max_processing + 1 }).eq('job_type', l.job_type);
+                          load();
+                        }}>+</Button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1432,6 +1471,7 @@ function QualityCouncilDashboard() {
                   <th className="text-left py-2 px-3">Rule</th>
                   <th className="text-left py-2 px-3">Severity</th>
                   <th className="text-center py-2 px-3">Aktiv</th>
+                  <th className="text-center py-2 px-3">Aktion</th>
                 </tr>
               </thead>
               <tbody>
@@ -1439,11 +1479,26 @@ function QualityCouncilDashboard() {
                   <tr key={r.id} className="border-b border-border/30">
                     <td className="py-2 px-3 font-mono">{r.rule_key}</td>
                     <td className="py-2 px-3">
-                      <Badge variant="outline" className={cn("text-[10px]",
-                        r.severity === 'block' ? 'bg-destructive/10 text-destructive' : 'bg-yellow-500/10 text-yellow-600'
-                      )}>{r.severity}</Badge>
+                      <Button size="sm" variant="ghost" className="h-6 p-1 text-[10px]" onClick={async () => {
+                        const newSev = r.severity === 'block' ? 'warn' : 'block';
+                        await (supabase as any).from('quality_rules').update({ severity: newSev }).eq('id', r.id);
+                        toast.success(`${r.rule_key} → ${newSev}`);
+                        load();
+                      }}>
+                        <Badge variant="outline" className={cn("text-[10px]",
+                          r.severity === 'block' ? 'bg-destructive/10 text-destructive' : 'bg-yellow-500/10 text-yellow-600'
+                        )}>{r.severity}</Badge>
+                      </Button>
                     </td>
-                    <td className="py-2 px-3 text-center">{r.enabled ? '✅' : '❌'}</td>
+                    <td className="py-2 px-3 text-center">
+                      <Button size="sm" variant="ghost" className="h-6 w-8 p-0 text-xs" onClick={async () => {
+                        await (supabase as any).from('quality_rules').update({ enabled: !r.enabled }).eq('id', r.id);
+                        load();
+                      }}>
+                        {r.enabled ? '✅' : '❌'}
+                      </Button>
+                    </td>
+                    <td className="py-2 px-3 text-center text-muted-foreground text-[10px]">Klick zum Ändern</td>
                   </tr>
                 ))}
               </tbody>

@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { callAIJSON, RateLimitError } from "../_shared/ai-client.ts";
+import { callAIJSON, RateLimitError, logLLMCostEvent } from "../_shared/ai-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -118,6 +118,18 @@ Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
       max_tokens: 8000,
     });
 
+    // Log cost event (success)
+    await logLLMCostEvent(sb, {
+      job_type: "generate_curriculum_content",
+      provider,
+      model,
+      tokens_in: aiResult.usage?.input_tokens ?? 0,
+      tokens_out: aiResult.usage?.output_tokens ?? 0,
+      cost_usd: ((aiResult.usage?.input_tokens ?? 0) * 0.000002 + (aiResult.usage?.output_tokens ?? 0) * 0.000008),
+      certification_id: curr.beruf_id,
+      status: "success",
+    });
+
     // 4) Parse
     let parsed;
     try {
@@ -185,9 +197,27 @@ Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
     });
   } catch (err) {
     if (err instanceof RateLimitError) {
+      await logLLMCostEvent(sb, {
+        job_type: "generate_curriculum_content",
+        provider: "openai",
+        model: "unknown",
+        tokens_in: 0, tokens_out: 0, cost_usd: 0,
+        certification_id: curriculumId,
+        status: "fail",
+        error_message: "rate_limit",
+      });
       return json({ error: "Rate limit", retry: true }, 429);
     }
     const msg = err instanceof Error ? err.message : String(err);
+    await logLLMCostEvent(sb, {
+      job_type: "generate_curriculum_content",
+      provider: "openai",
+      model: "unknown",
+      tokens_in: 0, tokens_out: 0, cost_usd: 0,
+      certification_id: curriculumId,
+      status: "fail",
+      error_message: msg.slice(0, 200),
+    });
     console.error(`[GenContent] Error: ${msg}`);
     return json({ error: msg }, 500);
   }
