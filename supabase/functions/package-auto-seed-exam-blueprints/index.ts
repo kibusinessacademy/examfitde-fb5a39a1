@@ -21,7 +21,8 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
-  const body = await req.json().catch(() => ({}));
+  let body: any = {};
+  try { body = await req.json(); } catch (_) { /* empty */ }
   const p = body.payload || body;
 
   try {
@@ -154,11 +155,12 @@ async function seedFromFields(
   console.log(`[AutoSeedBP] Seeded ${seedRows.length} blueprints from competencies`);
 
   // Non-critical progress hint
-  await sb
-    .from("course_packages")
-    .update({ build_progress: 20 })
-    .eq("id", packageId)
-    .catch(() => {});
+  try {
+    await sb
+      .from("course_packages")
+      .update({ build_progress: 20 })
+      .eq("id", packageId);
+  } catch (_) { /* ignore */ }
 
   return json({ ok: true, seeded: seedRows.length, source: "competencies" });
 }

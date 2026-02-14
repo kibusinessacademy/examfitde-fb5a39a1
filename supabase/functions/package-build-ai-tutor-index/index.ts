@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
   }
 
   // Optional progress hint (non-critical)
-  await sb.from("course_packages").update({ build_progress: 80 }).eq("id", packageId).catch(() => {});
+  try { await sb.from("course_packages").update({ build_progress: 80 }).eq("id", packageId); } catch (_) { /* ignore */ }
 
   return json({ ok: true, policyVersion, lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0 });
 });

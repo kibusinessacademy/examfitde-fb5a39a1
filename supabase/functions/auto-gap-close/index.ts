@@ -319,10 +319,12 @@ Deno.serve(async (req) => {
     console.error("[AutoGapClose] Error:", msg);
 
     if (autofixRunId) {
-      await sb.from("autofix_runs").update({
-        status: "failed",
-        stop_reason: msg.slice(0, 500),
-      }).eq("id", autofixRunId).catch(() => {});
+      try {
+        await sb.from("autofix_runs").update({
+          status: "failed",
+          stop_reason: msg.slice(0, 500),
+        }).eq("id", autofixRunId);
+      } catch (_) { /* ignore */ }
     }
 
     return json({ error: msg }, 500, origin);

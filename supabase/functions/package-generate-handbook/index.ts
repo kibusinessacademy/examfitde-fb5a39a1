@@ -54,8 +54,8 @@ Deno.serve(async (req) => {
 
   if (existingChapters?.length) {
     const chapterIds = existingChapters.map((x: { id: string }) => x.id);
-    await sb.from("handbook_sections").delete().in("chapter_id", chapterIds).catch(() => {});
-    await sb.from("handbook_chapters").delete().eq("curriculum_id", curriculumId).catch(() => {});
+    try { await sb.from("handbook_sections").delete().in("chapter_id", chapterIds); } catch (_) { /* ignore */ }
+    try { await sb.from("handbook_chapters").delete().eq("curriculum_id", curriculumId); } catch (_) { /* ignore */ }
   }
 
   // 3) Create chapters (target 5)
@@ -127,6 +127,6 @@ Deno.serve(async (req) => {
   const { error: secErr } = await sb.from("handbook_sections").insert(sectionRows);
   if (secErr) throw new Error(`Section insert: ${secErr.message}`);
 
-  await sb.from("course_packages").update({ build_progress: 90 }).eq("id", packageId).catch(() => {});
+  try { await sb.from("course_packages").update({ build_progress: 90 }).eq("id", packageId); } catch (_) { /* ignore */ }
   return json({ ok: true, chapters: chapters.length, sections: sectionRows.length });
 });
