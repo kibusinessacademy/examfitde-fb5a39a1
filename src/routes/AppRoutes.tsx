@@ -41,6 +41,9 @@ const WissenAllePage = lazy(() => import('@/pages/seo/WissenAllePage'));
 const SearchPage = lazy(() => import('@/pages/seo/SearchPage'));
 const CertificationCategoryPage = lazy(() => import('@/pages/seo/CertificationCategoryPage'));
 const CertificationSEOPage = lazy(() => import('@/pages/seo/CertificationSEOPage'));
+const PruefungstrainingHub = lazy(() => import('@/pages/seo/PruefungstrainingHub'));
+const PruefungstrainingCategoryPage = lazy(() => import('@/pages/seo/PruefungstrainingCategoryPage'));
+const PruefungstrainingDetailPage = lazy(() => import('@/pages/seo/PruefungstrainingDetailPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 
 // Legal Pages
@@ -107,6 +110,11 @@ const AppRoutes = () => {
 
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
+          {/* ─── Prüfungstraining SEO Engine ─── */}
+          <Route path="/pruefungstraining" element={<PruefungstrainingHub />} />
+          <Route path="/pruefungstraining/:slugOrCategory" element={<PruefungstrainingDetailPage />} />
+          <Route path="/pruefungstraining/:category/:slug" element={<PruefungstrainingDetailPage />} />
+
           {/* Certification category routes */}
           <Route path="/ausbildung" element={<CertificationCategoryPage />} />
           <Route path="/ausbildung/:slug" element={<CertificationSEOPage />} />
@@ -130,7 +138,6 @@ const AppRoutes = () => {
           <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
           <Route path="/berufe" element={<BerufePage />} />
           <Route path="/berufe/:slug" element={<BerufDetailPage />} />
-          <Route path="/pruefungstraining" element={<ProductListPage />} />
           <Route path="/lernkurse" element={<LernkurseListPage />} />
           <Route path="/lernkurse/:slug" element={<LernkursDetailPage />} />
           <Route path="/pruefungstrainer" element={<PruefungstrainerListPage />} />

@@ -1,0 +1,239 @@
+import { Link } from 'react-router-dom';
+import { SEOHead } from '@/components/seo/SEOHead';
+import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
+import { generateFAQSchema, generateBreadcrumbSchema, SITE_URL } from '@/lib/seo';
+import { useCertificationCatalog } from '@/hooks/useCertificationSEO';
+import { Target, GraduationCap, Award, BookOpen, Shield, Briefcase, ArrowRight, CheckCircle2, Zap, Brain } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+
+const CATEGORIES = [
+  {
+    slug: 'ausbildung',
+    title: 'Ausbildungsberufe',
+    description: 'IHK-Abschlussprüfungen für alle Ausbildungsberufe',
+    icon: GraduationCap,
+    catalogTypes: ['Ausbildung'],
+  },
+  {
+    slug: 'fachwirt',
+    title: 'Fachwirt-Prüfungen',
+    description: 'IHK-Fortbildungsprüfungen für Fachwirte',
+    icon: Award,
+    catalogTypes: ['Fortbildung_IHK'],
+    filter: (t: string) => t.toLowerCase().includes('fachwirt'),
+  },
+  {
+    slug: 'meister',
+    title: 'Meisterprüfungen',
+    description: 'Industriemeister & Handwerksmeister Prüfungen',
+    icon: Shield,
+    catalogTypes: ['Meister'],
+  },
+  {
+    slug: 'betriebswirt',
+    title: 'Betriebswirt-Prüfungen',
+    description: 'IHK-Fortbildung zum Geprüften Betriebswirt',
+    icon: Briefcase,
+    catalogTypes: ['Fortbildung_IHK'],
+    filter: (t: string) => t.toLowerCase().includes('betriebswirt'),
+  },
+  {
+    slug: 'sachkunde',
+    title: 'Sachkundeprüfungen',
+    description: 'Sachkunde nach §34a, §34d, §34f GewO',
+    icon: BookOpen,
+    catalogTypes: ['Sachkunde'],
+  },
+  {
+    slug: 'aevo',
+    title: 'AEVO Prüfungstraining',
+    description: 'Ausbildereignungsprüfung (AdA-Schein)',
+    icon: Target,
+    catalogTypes: ['Sonstiges'],
+    filter: (t: string) => t.toLowerCase().includes('aevo') || t.toLowerCase().includes('ausbilder'),
+    directLink: '/pruefungstraining/aevo',
+  },
+];
+
+const FAQS = [
+  {
+    question: 'Was ist Prüfungstraining bei ExamFit?',
+    answer: 'ExamFit bietet KI-gestütztes Prüfungstraining für IHK-Prüfungen. Du trainierst mit prüfungsrelevanten Aufgaben, realistischen Simulationen und einem KI-Prüfungscoach – alles darauf ausgerichtet, deine Prüfung sicher zu bestehen.',
+  },
+  {
+    question: 'Für welche Prüfungen bietet ExamFit Training an?',
+    answer: 'ExamFit deckt IHK-Ausbildungsprüfungen, Fachwirt- und Betriebswirtprüfungen, Meisterprüfungen, Sachkundeprüfungen (§34a/d/f), AEVO und Projektmanagement-Zertifizierungen ab.',
+  },
+  {
+    question: 'Wie realistisch ist die Prüfungssimulation?',
+    answer: 'Die Prüfungssimulation bildet die echte IHK-Prüfung so genau wie möglich nach: gleiche Zeitvorgaben, gleiche Fragentypen, realistische Schwierigkeit. So erkennst du frühzeitig deine Schwächen.',
+  },
+  {
+    question: 'Was kostet das Prüfungstraining?',
+    answer: 'Das komplette Prüfungstraining kostet 39 € und beinhaltet alle Lernmodule, den Prüfungstrainer mit hunderten Fragen, die Prüfungssimulation und den KI-Prüfungscoach. 12 Monate Zugang.',
+  },
+  {
+    question: 'Reicht Prüfungstraining statt klassischem Lernen?',
+    answer: 'Ja, ExamFit kombiniert gezieltes Prüfungswissen mit aktivem Training. Studien zeigen, dass aktives Üben effektiver ist als passives Lesen. Der KI-Coach erkennt deine Schwächen und passt das Training an.',
+  },
+];
+
+const PruefungstrainingHub = () => {
+  const { data: catalog } = useCertificationCatalog();
+
+  const breadcrumbs = [
+    { name: 'Start', url: SITE_URL },
+    { name: 'Prüfungstraining' },
+  ];
+
+  const structuredData = [
+    generateFAQSchema(FAQS),
+    generateBreadcrumbSchema(breadcrumbs),
+  ];
+
+  // Count certifications per category
+  const getCategoryCount = (cat: typeof CATEGORIES[0]) => {
+    if (!catalog) return 0;
+    return catalog.filter(c => {
+      if (cat.filter) return cat.filter(c.title);
+      return cat.catalogTypes.includes(c.catalog_type);
+    }).length;
+  };
+
+  return (
+    <>
+      <SEOHead
+        title="Prüfungstraining – IHK-Prüfung sicher bestehen"
+        description="KI-gestütztes Prüfungstraining für IHK-Prüfungen: Ausbildung, Fachwirt, Betriebswirt, Meister, AEVO & Sachkunde. Realistische Prüfungssimulation, Musterfragen & KI-Prüfungscoach. Jetzt starten!"
+        canonical={`${SITE_URL}/pruefungstraining`}
+        structuredData={structuredData}
+      />
+
+      <div className="container py-12 space-y-16">
+        {/* Hero */}
+        <section className="text-center max-w-4xl mx-auto space-y-6">
+          <Breadcrumbs items={[{ label: 'Start', href: '/' }, { label: 'Prüfungstraining' }]} />
+          <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">
+            Prüfungstraining – IHK-Prüfung <span className="text-primary">sicher bestehen</span>
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            KI-gestütztes Prüfungstraining mit realistischer Simulation, prüfungsrelevanten Aufgaben und persönlichem KI-Prüfungscoach. Für Azubis, Fachwirte & Meister.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link to="/shop">
+              <Button size="lg" className="shadow-glow">
+                <Target className="mr-2 h-5 w-5" /> Prüfung starten
+              </Button>
+            </Link>
+            <Link to="/pruefungstraining/ausbildung">
+              <Button size="lg" variant="outline">
+                Ausbildungsberufe ansehen <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </section>
+
+        {/* USPs */}
+        <section className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {[
+            { icon: Zap, title: 'Realistische Simulation', desc: 'Gleiche Fragentypen, Zeitvorgaben und Schwierigkeit wie in der echten Prüfung.' },
+            { icon: Brain, title: 'KI-Prüfungscoach', desc: 'Erkennt deine Schwächen und erstellt einen individuellen Trainingsplan.' },
+            { icon: CheckCircle2, title: 'Prüfungsreife garantiert', desc: 'Hunderte prüfungsrelevante Aufgaben – gezielt aufbereitet für dein Bestehen.' },
+          ].map(usp => (
+            <Card key={usp.title} className="border-border/50">
+              <CardContent className="pt-6 text-center space-y-3">
+                <usp.icon className="h-10 w-10 mx-auto text-primary" />
+                <h3 className="font-semibold text-lg">{usp.title}</h3>
+                <p className="text-sm text-muted-foreground">{usp.desc}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
+
+        {/* Categories */}
+        <section className="space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold mb-2">Prüfungstraining nach Kategorie</h2>
+            <p className="text-muted-foreground">Wähle deine Prüfungsart und starte mit dem Training.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {CATEGORIES.map(cat => {
+              const count = getCategoryCount(cat);
+              const Icon = cat.icon;
+              const href = cat.directLink || `/pruefungstraining/${cat.slug}`;
+              return (
+                <Link key={cat.slug} to={href}>
+                  <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer group">
+                    <CardContent className="pt-6 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                          <Icon className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold group-hover:text-primary transition-colors">{cat.title}</h3>
+                          {count > 0 && <span className="text-xs text-muted-foreground">{count} Prüfungen</span>}
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{cat.description}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Top Certifications */}
+        {catalog && catalog.length > 0 && (
+          <section className="space-y-6">
+            <h2 className="text-2xl font-bold text-center">Beliebtestes Prüfungstraining</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+              {catalog.slice(0, 9).map(cert => (
+                <Link key={cert.id} to={`/pruefungstraining/${cert.slug}`}>
+                  <Card className="hover:border-primary/30 transition-colors">
+                    <CardContent className="py-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{cert.title}</p>
+                        <p className="text-xs text-muted-foreground">{cert.chamber_type} · {cert.catalog_type.replace(/_/g, ' ')}</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* FAQ */}
+        <section className="max-w-3xl mx-auto space-y-6">
+          <h2 className="text-2xl font-bold text-center">Häufige Fragen zum Prüfungstraining</h2>
+          <div className="space-y-4">
+            {FAQS.map(faq => (
+              <details key={faq.question} className="group border border-border rounded-lg">
+                <summary className="px-6 py-4 cursor-pointer font-medium hover:text-primary transition-colors">
+                  {faq.question}
+                </summary>
+                <p className="px-6 pb-4 text-muted-foreground">{faq.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="text-center py-8 space-y-4 bg-card rounded-2xl border border-border">
+          <h2 className="text-2xl font-bold">Bereit für deine Prüfung?</h2>
+          <p className="text-muted-foreground">Starte jetzt mit dem Prüfungstraining – nur 39 € für 12 Monate.</p>
+          <Link to="/shop">
+            <Button size="lg" className="shadow-glow">
+              <Target className="mr-2 h-5 w-5" /> Jetzt Prüfungstraining starten
+            </Button>
+          </Link>
+        </section>
+      </div>
+    </>
+  );
+};
+
+export default PruefungstrainingHub;
