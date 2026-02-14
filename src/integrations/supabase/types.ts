@@ -15366,6 +15366,13 @@ export type Database = {
         Returns: undefined
       }
       recover_providers: { Args: never; Returns: number }
+      recover_stuck_packages: {
+        Args: { p_age_minutes?: number; p_limit?: number }
+        Returns: {
+          action: string
+          package_id: string
+        }[]
+      }
       refresh_course_forecast_actuals: { Args: never; Returns: undefined }
       register_cert_document: {
         Args: {
@@ -15423,6 +15430,7 @@ export type Database = {
         Args: { p_provider: string }
         Returns: undefined
       }
+      release_stale_slots: { Args: { p_age_minutes?: number }; Returns: number }
       report_audit_log: {
         Args: { p_limit?: number }
         Returns: {
