@@ -41,7 +41,6 @@ const WissenAllePage = lazy(() => import('@/pages/seo/WissenAllePage'));
 const SearchPage = lazy(() => import('@/pages/seo/SearchPage'));
 const CertificationCategoryPage = lazy(() => import('@/pages/seo/CertificationCategoryPage'));
 const CertificationSEOPage = lazy(() => import('@/pages/seo/CertificationSEOPage'));
-const QualityScorePage = lazy(() => import('@/pages/seo/QualityScorePage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 
 // Legal Pages
@@ -60,7 +59,7 @@ const GrowthPage = lazy(() => import('@/pages/admin/v4/GrowthPage'));
 const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
 const PipelineMonitorPage = lazy(() => import('@/pages/admin/v4/PipelineMonitorPage'));
 const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
-const ReviewInboxPage = lazy(() => import('@/pages/admin/v4/ReviewInboxPage'));
+
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
