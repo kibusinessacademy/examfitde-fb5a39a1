@@ -7072,6 +7072,21 @@ export type Database = {
         }
         Relationships: []
       }
+      jobtype_limits: {
+        Row: {
+          job_type: string
+          max_processing: number
+        }
+        Insert: {
+          job_type: string
+          max_processing?: number
+        }
+        Update: {
+          job_type?: string
+          max_processing?: number
+        }
+        Relationships: []
+      }
       kpi_daily_rollup: {
         Row: {
           avg_build_minutes: number | null
@@ -8090,6 +8105,51 @@ export type Database = {
         }
         Relationships: []
       }
+      llm_cost_events: {
+        Row: {
+          certification_id: string | null
+          cost_eur: number | null
+          course_id: string | null
+          id: string
+          job_type: string | null
+          meta: Json
+          model: string | null
+          package_id: string | null
+          provider: string | null
+          tokens_in: number | null
+          tokens_out: number | null
+          ts: string
+        }
+        Insert: {
+          certification_id?: string | null
+          cost_eur?: number | null
+          course_id?: string | null
+          id?: string
+          job_type?: string | null
+          meta?: Json
+          model?: string | null
+          package_id?: string | null
+          provider?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+          ts?: string
+        }
+        Update: {
+          certification_id?: string | null
+          cost_eur?: number | null
+          course_id?: string | null
+          id?: string
+          job_type?: string | null
+          meta?: Json
+          model?: string | null
+          package_id?: string | null
+          provider?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+          ts?: string
+        }
+        Relationships: []
+      }
       llm_rate_limits: {
         Row: {
           cooldown_seconds: number
@@ -8850,6 +8910,27 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_runtime_signals: {
+        Row: {
+          id: string
+          signal: Json
+          signal_type: string
+          ts: string
+        }
+        Insert: {
+          id?: string
+          signal: Json
+          signal_type?: string
+          ts?: string
+        }
+        Update: {
+          id?: string
+          signal?: Json
+          signal_type?: string
+          ts?: string
+        }
+        Relationships: []
+      }
       oral_exam_blueprints: {
         Row: {
           certification_id: string | null
@@ -9289,6 +9370,39 @@ export type Database = {
           },
         ]
       }
+      package_quality_reports: {
+        Row: {
+          created_at: string
+          package_id: string
+          report: Json
+          rules_failed: number
+          rules_passed: number
+          rules_warned: number
+          score: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          package_id: string
+          report: Json
+          rules_failed?: number
+          rules_passed?: number
+          rules_warned?: number
+          score?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          package_id?: string
+          report?: Json
+          rules_failed?: number
+          rules_passed?: number
+          rules_warned?: number
+          score?: number
+          status?: string
+        }
+        Relationships: []
+      }
       patch_proposals: {
         Row: {
           after: Json
@@ -9488,6 +9602,48 @@ export type Database = {
           threshold_critical?: number | null
           threshold_warning?: number | null
           unit?: string | null
+        }
+        Relationships: []
+      }
+      pipeline_active_packages: {
+        Row: {
+          claimed_at: string
+          heartbeat_at: string
+          package_id: string
+        }
+        Insert: {
+          claimed_at?: string
+          heartbeat_at?: string
+          package_id: string
+        }
+        Update: {
+          claimed_at?: string
+          heartbeat_at?: string
+          package_id?: string
+        }
+        Relationships: []
+      }
+      pipeline_capacity: {
+        Row: {
+          id: boolean
+          last_decision: Json
+          max_wip: number
+          min_wip: number
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          last_decision?: Json
+          max_wip?: number
+          min_wip?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          last_decision?: Json
+          max_wip?: number
+          min_wip?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -10896,6 +11052,33 @@ export type Database = {
           },
         ]
       }
+      quality_rules: {
+        Row: {
+          config: Json
+          created_at: string
+          enabled: boolean
+          id: string
+          rule_key: string
+          severity: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          rule_key: string
+          severity?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          rule_key?: string
+          severity?: string
+        }
+        Relationships: []
+      }
       question_attempts: {
         Row: {
           answered_at: string
@@ -11223,6 +11406,7 @@ export type Database = {
           affiliate_id: string | null
           amount: number
           bundle_id: string | null
+          certification_id: string | null
           course_id: string | null
           created_at: string | null
           currency: string | null
@@ -11236,6 +11420,7 @@ export type Database = {
           affiliate_id?: string | null
           amount: number
           bundle_id?: string | null
+          certification_id?: string | null
           course_id?: string | null
           created_at?: string | null
           currency?: string | null
@@ -11249,6 +11434,7 @@ export type Database = {
           affiliate_id?: string | null
           amount?: number
           bundle_id?: string | null
+          certification_id?: string | null
           course_id?: string | null
           created_at?: string | null
           currency?: string | null
@@ -14229,6 +14415,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_roi_certification: {
+        Row: {
+          certification_id: string | null
+          llm_cost_eur: number | null
+          net_profit_eur: number | null
+          refunds_eur: number | null
+          revenue_eur: number | null
+          total_orders: number | null
+          total_tokens: number | null
+        }
+        Relationships: []
+      }
       v_vat_monthly: {
         Row: {
           currency: string | null
@@ -14402,6 +14600,7 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_pipeline_slot: { Args: { p_package_id: string }; Returns: boolean }
       claim_provider_slot: { Args: { p_provider: string }; Returns: boolean }
       classify_job_error: { Args: { p_error: string }; Returns: string }
       cleanup_provider_history: { Args: never; Returns: number }
@@ -14818,6 +15017,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_ops_scaling_status: { Args: never; Returns: Json }
       get_placeholder_lessons: {
         Args: { p_course_id?: string; p_limit?: number }
         Returns: {
@@ -14834,6 +15034,7 @@ export type Database = {
       }
       get_production_kpis: { Args: never; Returns: Json }
       get_profiles_security_status: { Args: never; Returns: Json }
+      get_quality_dashboard: { Args: never; Returns: Json }
       get_reconcile_gaps: {
         Args: { p_limit?: number }
         Returns: {
@@ -14866,6 +15067,7 @@ export type Database = {
           tax_cents: number
         }[]
       }
+      get_roi_dashboard: { Args: never; Returns: Json }
       get_security_report: {
         Args: { p_from: string; p_limit?: number; p_to: string }
         Returns: {
@@ -14918,6 +15120,10 @@ export type Database = {
       }
       hash_email: { Args: { p_email: string }; Returns: string }
       heartbeat_pipeline_lock: {
+        Args: { p_package_id: string }
+        Returns: undefined
+      }
+      heartbeat_pipeline_slot: {
         Args: { p_package_id: string }
         Returns: undefined
       }
@@ -15326,6 +15532,10 @@ export type Database = {
       }
       set_package_status: {
         Args: { p_id: string; p_meta?: Json; p_status: string }
+        Returns: undefined
+      }
+      set_pipeline_capacity: {
+        Args: { p_max_wip: number; p_reason: Json }
         Returns: undefined
       }
       snapshot_certification_cost: {

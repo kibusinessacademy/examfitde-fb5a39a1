@@ -260,3 +260,6 @@ verify_jwt = false
 
 [functions.production-guardian]
 verify_jwt = false
+
+[functions.package-quality-council]
+verify_jwt = false

@@ -66,26 +66,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Step 1: Check WIP=2 pipeline capacity ──
+    // ── Step 1: Check dynamic WIP from pipeline_capacity ──
     const { data: activeIds } = await sb.rpc("get_active_pipeline_packages");
     const currentActive = (activeIds as string[] | null) ?? [];
 
-    // Also check legacy single-lock
-    const { data: lock } = await sb
-      .from("pipeline_lock")
-      .select("active_package_id, locked_at, locked_by, heartbeat_at, max_active_packages")
-      .eq("id", 1)
-      .single();
+    // Read dynamic max_wip from pipeline_capacity (not hardcoded)
+    const { data: capRow } = await sb
+      .from("pipeline_capacity")
+      .select("max_wip")
+      .eq("id", true)
+      .maybeSingle();
 
-    const maxActive = lock?.max_active_packages ?? 2;
+    const maxActive = capRow?.max_wip ?? 2;
 
-    if (currentActive.length >= maxActive && lock?.active_package_id) {
+    if (currentActive.length >= maxActive) {
       return json({
         ok: true,
         skipped: true,
         reason: `pipeline_full (${currentActive.length}/${maxActive} active)`,
         active_packages: currentActive,
-        locked_by: lock.locked_by,
       });
     }
 
@@ -115,10 +114,9 @@ Deno.serve(async (req) => {
       return json({ ok: true, skipped: true, reason: "no_queued_packages" });
     }
 
-    // ── Step 3: Claim pipeline slot atomically (WIP=2) ──
-    const { data: slotClaimed } = await sb.rpc("try_claim_pipeline_slot", {
+    // ── Step 3: Claim pipeline slot atomically (dynamic WIP) ──
+    const { data: slotClaimed } = await sb.rpc("claim_pipeline_slot", {
       p_package_id: nextId,
-      p_locked_by: "package-queue-next",
     });
 
     if (!slotClaimed) {
