@@ -14437,6 +14437,18 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_health: {
+        Row: {
+          active_leases: number | null
+          blocked_packages: number | null
+          building_packages: number | null
+          done_packages: number | null
+          failed_packages: number | null
+          queued_packages: number | null
+          running_steps: number | null
+        }
+        Relationships: []
+      }
       v_exam_questions_approved: {
         Row: {
           ai_generated: boolean | null
