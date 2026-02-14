@@ -207,6 +207,15 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════
     const pipelineJobTypes = ["generate_curriculum_content", "setup_course_package"];
 
+    // Also trigger freeze-priority: if many drafts remain, boost curriculum content jobs
+    const { count: draftCount } = await sb
+      .from("curricula")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "draft");
+
+    const freezePriority = (draftCount ?? 0) > 50;
+    const batchSize = freezePriority ? 40 : 25;
+
     const { count: pendingPipelineJobs } = await sb
       .from("job_queue")
       .select("id", { count: "exact", head: true })
@@ -223,7 +232,7 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             job_types: pipelineJobTypes,
-            max_jobs: 12,
+            max_jobs: batchSize,
             triggered_by: "production-guardian",
           }),
         });
