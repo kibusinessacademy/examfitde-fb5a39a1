@@ -270,6 +270,12 @@ Deno.serve(async (req) => {
       .eq("status", "draft");
 
     const dc = draftCount ?? 0;
+
+    const { count: frozenCount } = await sb
+      .from("curricula")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "frozen");
+
     const batchSize = dc > 200 ? 60 : dc > 100 ? 40 : 25;
 
     const { count: pendingPipelineJobs } = await sb
@@ -438,6 +444,49 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // 9.5 DEADLOCK RECOVERY: building packages without active slots
+    // ═══════════════════════════════════════════════════════════════
+    const { data: buildingPkgs } = await sb
+      .from("course_packages")
+      .select("id, course_id, updated_at")
+      .eq("status", "building");
+
+    for (const bPkg of buildingPkgs ?? []) {
+      const isInSlot = slotList.includes(bPkg.id);
+      if (!isInSlot) {
+        // Building package has NO active pipeline slot → deadlock!
+        // Check if it has been building for more than 10 minutes without a slot
+        const buildAge = Date.now() - new Date(bPkg.updated_at).getTime();
+        if (buildAge > 10 * 60_000) {
+          // Reclaim the slot
+          try {
+            await sb.from("pipeline_active_packages").upsert(
+              { package_id: bPkg.id, claimed_at: new Date().toISOString(), heartbeat_at: new Date().toISOString() },
+              { onConflict: "package_id" }
+            );
+            actions.push(`🔧 Reclaimed slot for orphaned building pkg ${bPkg.id.slice(0, 8)} (${Math.round(buildAge / 60_000)}min without slot)`);
+
+            // Reset any failed integrity/publish jobs for this package
+            await sb.from("job_queue")
+              .update({ status: "pending", attempts: 0, error: null, started_at: null })
+              .eq("status", "failed")
+              .in("job_type", ["package_run_integrity_check", "package_auto_publish"])
+              .contains("payload", { package_id: bPkg.id });
+
+            // Reset high-attempt pending jobs
+            await sb.from("job_queue")
+              .update({ attempts: 0, error: null })
+              .eq("status", "pending")
+              .gt("attempts", 5)
+              .contains("payload", { package_id: bPkg.id });
+          } catch (e) {
+            warnings.push(`Failed to reclaim slot for ${bPkg.id.slice(0, 8)}: ${(e as Error).message}`);
+          }
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 10. ADAPTIVE AUTO-SCALING (429/timeout-driven WIP + concurrency)
     // ═══════════════════════════════════════════════════════════════
     const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
@@ -535,11 +584,7 @@ Deno.serve(async (req) => {
       await sb.from("ops_runtime_signals").insert({ signal: scalingReason });
     }
 
-    // Grab frozen count for reference
-    const { count: frozenCount } = await sb
-      .from("curricula")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "frozen");
+    // frozenCount already fetched above in section 5
 
     // ═══════════════════════════════════════════════════════════════
     // 11. QUEUE STATS SNAPSHOT
