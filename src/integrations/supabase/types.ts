@@ -4013,6 +4013,7 @@ export type Database = {
           last_progress_at: string | null
           published_at: string | null
           queue_position: number | null
+          retry_count: number | null
           started_at: string | null
           status: string
           step_status_json: Json | null
@@ -4043,6 +4044,7 @@ export type Database = {
           last_progress_at?: string | null
           published_at?: string | null
           queue_position?: number | null
+          retry_count?: number | null
           started_at?: string | null
           status?: string
           step_status_json?: Json | null
@@ -4073,6 +4075,7 @@ export type Database = {
           last_progress_at?: string | null
           published_at?: string | null
           queue_position?: number | null
+          retry_count?: number | null
           started_at?: string | null
           status?: string
           step_status_json?: Json | null
@@ -15274,6 +15277,7 @@ export type Database = {
           last_progress_at: string | null
           published_at: string | null
           queue_position: number | null
+          retry_count: number | null
           started_at: string | null
           status: string
           step_status_json: Json | null
@@ -15451,6 +15455,7 @@ export type Database = {
           last_progress_at: string | null
           published_at: string | null
           queue_position: number | null
+          retry_count: number | null
           started_at: string | null
           status: string
           step_status_json: Json | null
