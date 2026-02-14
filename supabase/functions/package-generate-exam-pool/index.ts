@@ -535,7 +535,8 @@ Deno.serve(async (req) => {
     if (targetReached) {
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
-        const { data: diffStats } = await sb.rpc("get_difficulty_distribution", { p_curriculum_id: curriculumId }).catch(() => ({ data: null }));
+        let diffStats = null;
+        try { const res = await sb.rpc("get_difficulty_distribution", { p_curriculum_id: curriculumId }); diffStats = res.data; } catch { /* ignore */ }
         console.log(`[ExamPool-Dominanz] Target reached: ${actualTotal}/${examTarget}, BPs=${currentBpIndex}`);
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
