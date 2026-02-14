@@ -1,0 +1,70 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+
+/**
+ * cron-trigger — Secure proxy for pg_cron → pipeline-runner
+ *
+ * pg_cron calls this every minute with x-cron-secret header.
+ * This function validates the secret and forwards to pipeline-runner
+ * using the service role key (never exposed in SQL).
+ */
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS")
+    return new Response(null, { headers: corsHeaders });
+
+  try {
+    const CRON_SECRET = Deno.env.get("CRON_SECRET");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    if (!CRON_SECRET) {
+      return json({ ok: false, error: "CRON_SECRET not configured" }, 500);
+    }
+
+    const provided = req.headers.get("x-cron-secret") ?? "";
+    if (provided !== CRON_SECRET) {
+      return json({ ok: false, error: "unauthorized" }, 401);
+    }
+
+    // Determine which function to trigger (default: pipeline-runner)
+    let targetFn = "pipeline-runner";
+    try {
+      const body = await req.json();
+      if (body?.function) targetFn = String(body.function);
+    } catch {
+      // no body is fine
+    }
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/${targetFn}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        apikey: SERVICE_ROLE_KEY,
+        authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      },
+      body: "{}",
+    });
+
+    const text = await res.text().catch(() => "");
+    return new Response(text, {
+      status: res.status,
+      headers: { ...corsHeaders, "content-type": "application/json" },
+    });
+  } catch (e: unknown) {
+    const msg = (e as Error)?.message || String(e);
+    return json({ ok: false, error: msg }, 500);
+  }
+});

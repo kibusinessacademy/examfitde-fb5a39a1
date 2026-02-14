@@ -1,0 +1,363 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+
+/**
+ * pipeline-runner — Cron-triggered (every 60s)
+ *
+ * 1. acquire_next_package_lease() → one package (strict serial)
+ * 2. Pick next runnable step from package_steps
+ * 3. Execute the step's edge function with heartbeat + lease renewal
+ * 4. Mark step done/fail, release lease, exit
+ *
+ * Designed for short-lived invocations (max 1 step per run).
+ */
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+// ── Step ordering + mapping to actual edge functions ──
+type StepKey =
+  | "scaffold_learning_course"
+  | "generate_exam_pool"
+  | "generate_oral_exam"
+  | "build_ai_tutor_index"
+  | "generate_handbook"
+  | "run_integrity_check"
+  | "quality_council"
+  | "auto_publish";
+
+const STEP_ORDER: StepKey[] = [
+  "scaffold_learning_course",
+  "generate_exam_pool",
+  "generate_oral_exam",
+  "build_ai_tutor_index",
+  "generate_handbook",
+  "run_integrity_check",
+  "quality_council",
+  "auto_publish",
+];
+
+const STEP_FUNCTION_MAP: Record<StepKey, string> = {
+  scaffold_learning_course: "package-scaffold-learning-course",
+  generate_exam_pool: "package-generate-exam-pool",
+  generate_oral_exam: "package-generate-oral-exam",
+  build_ai_tutor_index: "package-build-ai-tutor-index",
+  generate_handbook: "package-generate-handbook",
+  run_integrity_check: "package-run-integrity-check",
+  quality_council: "package-quality-council",
+  auto_publish: "package-auto-publish",
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+interface StepRow {
+  step_key: string;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+}
+
+/**
+ * Run step function with heartbeat + lease renewal in background.
+ */
+async function runStepWithHeartbeat(opts: {
+  sb: ReturnType<typeof createClient>;
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  packageId: string;
+  stepKey: string;
+  runnerId: string;
+  functionName: string;
+  body: Record<string, unknown>;
+}) {
+  const { sb, supabaseUrl, serviceRoleKey, packageId, stepKey, runnerId, functionName, body } = opts;
+
+  let stopped = false;
+
+  // Background heartbeat loop (every 30s)
+  const heartbeatLoop = (async () => {
+    while (!stopped) {
+      await sb.rpc("step_heartbeat", {
+        p_package_id: packageId,
+        p_step_key: stepKey,
+        p_runner_id: runnerId,
+      }).catch(() => {});
+      await sleep(30_000);
+    }
+  })();
+
+  // Background lease renewal (every 90s, lease = 600s)
+  const renewLoop = (async () => {
+    while (!stopped) {
+      await sb.rpc("renew_package_lease", {
+        p_package_id: packageId,
+        p_runner_id: runnerId,
+        p_lease_seconds: 600,
+      }).catch(() => {});
+      await sleep(90_000);
+    }
+  })();
+
+  // Actually call the step function
+  const res = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      apikey: serviceRoleKey,
+      authorization: `Bearer ${serviceRoleKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  stopped = true;
+  await Promise.allSettled([heartbeatLoop, renewLoop]);
+
+  const text = await res.text().catch(() => "");
+  if (!res.ok) {
+    throw new Error(`${functionName} HTTP ${res.status}: ${text.slice(0, 800)}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { ok: true, raw: text };
+  }
+}
+
+/**
+ * Find the next step to run for this package (FIFO by STEP_ORDER).
+ */
+function pickNextRunnableStep(steps: StepRow[]): {
+  stepKey: StepKey;
+  reason: "runnable" | "exhausted" | "already_running";
+} | null {
+  const byKey = new Map<string, StepRow>();
+  for (const s of steps) byKey.set(s.step_key, s);
+
+  for (const k of STEP_ORDER) {
+    const s = byKey.get(k);
+    if (!s) continue;
+
+    if (s.status === "done" || s.status === "skipped") continue;
+
+    if (s.status === "running") {
+      return { stepKey: k, reason: "already_running" };
+    }
+
+    if (s.status === "blocked") continue;
+
+    const retryable = s.status === "queued" || s.status === "failed" || s.status === "timeout";
+    if (retryable && s.attempts < s.max_attempts) {
+      return { stepKey: k, reason: "runnable" };
+    }
+    if (retryable && s.attempts >= s.max_attempts) {
+      return { stepKey: k, reason: "exhausted" };
+    }
+  }
+
+  return null;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS")
+    return new Response(null, { headers: corsHeaders });
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const runnerId = `runner_${crypto.randomUUID().slice(0, 8)}`;
+
+  const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  try {
+    // ── 1) Acquire lease ──
+    const { data: pkgId, error: acquireErr } = await sb.rpc(
+      "acquire_next_package_lease",
+      { p_runner_id: runnerId, p_lease_seconds: 600 },
+    );
+
+    if (acquireErr) {
+      console.error("[runner] acquire error:", acquireErr.message);
+      return json({ ok: false, error: acquireErr.message }, 500);
+    }
+
+    if (!pkgId) {
+      return json({ ok: true, idle: true, reason: "no_queued_packages_or_lease_active" });
+    }
+
+    const packageId = String(pkgId);
+    console.log(`[runner] Acquired lease for package ${packageId.slice(0, 8)}`);
+
+    // ── 2) Load package metadata ──
+    const { data: pkg, error: pkgErr } = await sb
+      .from("course_packages")
+      .select("id,pipeline_mode,course_id,curriculum_id,certification_id,feature_flags")
+      .eq("id", packageId)
+      .single();
+
+    if (pkgErr || !pkg) {
+      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      return json({ ok: false, error: pkgErr?.message ?? "package not found" }, 500);
+    }
+
+    const mode = (pkg.pipeline_mode ?? "factory") as "factory" | "production";
+
+    // ── 3) Load steps & pick next ──
+    const { data: steps, error: stepsErr } = await sb
+      .from("package_steps")
+      .select("step_key,status,attempts,max_attempts")
+      .eq("package_id", packageId);
+
+    if (stepsErr) {
+      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      return json({ ok: false, error: stepsErr.message }, 500);
+    }
+
+    const next = pickNextRunnableStep((steps ?? []) as StepRow[]);
+
+    if (!next) {
+      // Check if all done
+      const statuses = (steps ?? []).map((s: StepRow) => s.status);
+      const allDone = statuses.length > 0 && statuses.every((s: string) => s === "done" || s === "skipped");
+
+      if (allDone) {
+        await sb.from("course_packages").update({ status: "done" }).eq("id", packageId);
+        console.log(`[runner] Package ${packageId.slice(0, 8)} → done (all steps complete)`);
+      } else {
+        await sb.from("course_packages").update({ status: "blocked", blocked_reason: "no_runnable_steps" }).eq("id", packageId);
+      }
+
+      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      return json({ ok: true, packageId, finished: allDone, blocked: !allDone });
+    }
+
+    // ── Exhausted retries → fail-forward ──
+    if (next.reason === "exhausted") {
+      await sb.from("course_packages").update({
+        status: "failed",
+        last_error: `Attempts exhausted on step ${next.stepKey}`,
+      }).eq("id", packageId);
+
+      await sb.from("ops_alerts").insert({
+        source: "pipeline-runner",
+        severity: "error",
+        message: `STEP_EXHAUSTED: ${next.stepKey} pkg ${packageId.slice(0, 8)}`,
+        payload: { packageId, stepKey: next.stepKey },
+      }).catch(() => {});
+
+      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      return json({ ok: true, packageId, stepKey: next.stepKey, exhausted: true });
+    }
+
+    // ── Already running (shouldn't happen in strict serial) ──
+    if (next.reason === "already_running") {
+      console.warn(`[runner] Step ${next.stepKey} already running for ${packageId.slice(0, 8)} — skipping`);
+      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      return json({ ok: true, packageId, stepKey: next.stepKey, skipped: "already_running" });
+    }
+
+    const stepKey = next.stepKey;
+    const functionName = STEP_FUNCTION_MAP[stepKey];
+    console.log(`[runner] Starting step ${stepKey} → ${functionName}`);
+
+    // ── 4) step_start ──
+    await sb.rpc("step_start", {
+      p_package_id: packageId,
+      p_step_key: stepKey,
+      p_runner_id: runnerId,
+    });
+
+    // ── 5) Execute with heartbeat ──
+    try {
+      const result = await runStepWithHeartbeat({
+        sb,
+        supabaseUrl: SUPABASE_URL,
+        serviceRoleKey: SERVICE_ROLE_KEY,
+        packageId,
+        stepKey,
+        runnerId,
+        functionName,
+        body: {
+          payload: {
+            package_id: packageId,
+            course_id: pkg.course_id,
+            curriculum_id: pkg.curriculum_id,
+            certification_id: pkg.certification_id,
+            mode,
+            feature_flags: pkg.feature_flags ?? {},
+          },
+        },
+      });
+
+      // QA: factory = non-blocking, production = blocking
+      if (stepKey === "quality_council" && mode === "factory") {
+        await sb.rpc("step_done", {
+          p_package_id: packageId,
+          p_step_key: stepKey,
+          p_meta: { mode, score: result?.score, warnings: result?.warnings ?? [] },
+        });
+      } else {
+        await sb.rpc("step_done", {
+          p_package_id: packageId,
+          p_step_key: stepKey,
+          p_meta: result ?? {},
+        });
+      }
+
+      // Update build_progress
+      const doneCount = (steps ?? []).filter((s: StepRow) => s.status === "done" || s.status === "skipped").length + 1;
+      const totalSteps = STEP_ORDER.length;
+      const progress = Math.round((doneCount / totalSteps) * 100);
+      await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId).catch(() => {});
+
+      // If last step (publish) done → package done
+      if (stepKey === "auto_publish") {
+        await sb.from("course_packages").update({ status: "done" }).eq("id", packageId);
+      }
+
+      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+
+      console.log(`[runner] ✅ Step ${stepKey} done for ${packageId.slice(0, 8)} (progress ${progress}%)`);
+      return json({ ok: true, packageId, stepKey, mode, progress });
+    } catch (e: unknown) {
+      const msg = (e as Error)?.message || String(e);
+      console.error(`[runner] ❌ Step ${stepKey} failed: ${msg}`);
+
+      await sb.rpc("step_fail", {
+        p_package_id: packageId,
+        p_step_key: stepKey,
+        p_error: msg,
+      }).catch(() => {});
+
+      await sb.from("course_packages").update({
+        status: "failed",
+        last_error: `Step ${stepKey}: ${msg.slice(0, 250)}`,
+      }).eq("id", packageId).catch(() => {});
+
+      await sb.from("ops_alerts").insert({
+        source: "pipeline-runner",
+        severity: "error",
+        message: `STEP_FAILED: ${stepKey} pkg ${packageId.slice(0, 8)}`,
+        payload: { packageId, stepKey, error: msg.slice(0, 1200) },
+      }).catch(() => {});
+
+      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      return json({ ok: false, packageId, stepKey, error: msg }, 500);
+    }
+  } catch (e: unknown) {
+    const msg = (e as Error)?.message || String(e);
+    console.error("[runner] Fatal:", msg);
+    return json({ ok: false, error: msg }, 500);
+  }
+});

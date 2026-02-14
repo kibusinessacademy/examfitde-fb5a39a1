@@ -269,3 +269,9 @@ verify_jwt = false
 
 [functions.pipeline-watchdog]
 verify_jwt = false
+
+[functions.pipeline-runner]
+verify_jwt = false
+
+[functions.cron-trigger]
+verify_jwt = false
