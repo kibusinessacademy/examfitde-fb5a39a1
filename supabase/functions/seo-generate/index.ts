@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON, aiErrorResponse } from "../_shared/ai-client.ts";
+import { getModel } from "../_shared/model-routing.ts";
 
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
@@ -109,13 +110,14 @@ serve(async (req) => {
     let metaDescription = "";
     let excerpt = "";
     let tokensUsed = 0;
-    const model = "gpt-4.1";
+    const routed = getModel("seo_content");
+    const model = routed.model;
 
     const fullPrompt = `${userPrompt}\n\nAntworte mit einem JSON-Objekt:\n{\n  "title": "Seitentitel",\n  "meta_title": "SEO Title (max 60 Zeichen)",\n  "meta_description": "SEO Description (max 160 Zeichen)",\n  "excerpt": "Kurze Zusammenfassung (max 200 Zeichen)",\n  "content_md": "Der gesamte Inhalt in Markdown"\n}`;
 
     try {
       const result = await callAIJSON({
-        provider: "openai",
+        provider: routed.provider,
         model,
         messages: [
           { role: "system", content: systemPrompt },

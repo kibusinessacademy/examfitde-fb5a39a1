@@ -233,7 +233,7 @@ Antworte NUR mit einem JSON-Objekt:
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4.1",
+      model: "gpt-4.1-mini",
       messages: [
         { role: "system", content: "Du bist ein Experte für Didaktik und Bloom's Taxonomy. Klassifiziere Prüfungsfragen präzise." },
         { role: "user", content: prompt }
