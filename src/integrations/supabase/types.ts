@@ -15196,6 +15196,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_storage_entitlement: {
+        Args: { p_curriculum_id?: string; p_user_id: string }
+        Returns: boolean
+      }
       hash_email: { Args: { p_email: string }; Returns: string }
       heartbeat_pipeline_lock: {
         Args: { p_package_id: string }
