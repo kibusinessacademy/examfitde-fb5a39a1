@@ -18,8 +18,8 @@ interface TabItem {
 
 const defaultTabs: TabItem[] = [
   { icon: <Home className="h-5 w-5" />, label: 'Start', href: '/' },
-  { icon: <BookOpen className="h-5 w-5" />, label: 'Kurse', href: '/kurse' },
-  { icon: <GraduationCap className="h-5 w-5" />, label: 'Trainer', href: '/pruefungstrainer' },
+  { icon: <BookOpen className="h-5 w-5" />, label: 'Kurse', href: '/courses' },
+  { icon: <GraduationCap className="h-5 w-5" />, label: 'Trainer', href: '/exam-trainer' },
   { icon: <ShoppingBag className="h-5 w-5" />, label: 'Shop', href: '/shop' },
   { icon: <User className="h-5 w-5" />, label: 'Profil', href: '/dashboard' },
 ];
