@@ -8,13 +8,6 @@ function assertUuid(name: string, v: unknown) {
   const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
-async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
-  const { data, error } = await sb
-    .from("course_package_build_steps").select("status")
-    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
-  if (error) throw error;
-  return data?.status === "done";
-}
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -32,34 +25,18 @@ Deno.serve(async (req) => {
 
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
-  const certificationId = p.certification_id || curriculumId; // fallback
+  const certificationId = p.certification_id || curriculumId;
 
-  const unlockFail = async (msg: string) => {
-    await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "generate_oral_exam", p_status: "failed", p_log: { error: msg },
-    });
-    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-    await sb.from("course_package_locks").delete().eq("package_id", packageId);
-  };
+  // pipeline-runner handles step_start/step_done/step_fail.
+  // Do NOT touch pipeline_lock / course_package_locks / update_course_package_step.
 
   try {
-    if (!(await prereqDone(sb, packageId, "generate_exam_pool"))) {
-      return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_exam_pool" }, 409);
-    }
-
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "generate_oral_exam", p_status: "running",
-      p_log: { note: "Generating oral exam blueprints from competencies" },
-    });
-
-    // Step 1: Load competencies for this curriculum
+    // Load competencies
+    const { data: lfIds } = await sb.from("learning_fields").select("id").eq("curriculum_id", curriculumId);
     const { data: competencies, error: compErr } = await sb
       .from("competencies")
       .select("id, title, description, learning_field_id")
-      .in("learning_field_id", 
-        (await sb.from("learning_fields").select("id").eq("curriculum_id", curriculumId)).data?.map((lf: { id: string }) => lf.id) || []
-      )
+      .in("learning_field_id", (lfIds || []).map((lf: { id: string }) => lf.id))
       .limit(100);
     if (compErr) throw new Error(`Competencies query: ${compErr.message}`);
 
@@ -67,11 +44,11 @@ Deno.serve(async (req) => {
       throw new Error("No competencies found for curriculum – cannot generate oral exam blueprints");
     }
 
-    // Step 2: Delete existing blueprints for idempotent rebuild
+    // Idempotent rebuild
     await sb.from("oral_exam_blueprints").delete().eq("curriculum_id", curriculumId);
 
-    // Step 3: Generate oral exam blueprints from competencies
-    const blueprintRows = competencies.slice(0, 30).map((comp: { id: string; title: string; description: string | null }, idx: number) => ({
+    // Generate blueprints
+    const blueprintRows = competencies.slice(0, 30).map((comp: { id: string; title: string; description: string | null }) => ({
       curriculum_id: curriculumId,
       certification_id: certificationId,
       competency_id: comp.id,
@@ -101,15 +78,12 @@ Deno.serve(async (req) => {
       .from("oral_exam_blueprints")
       .insert(blueprintRows)
       .select("id");
-
     if (insertErr) throw new Error(`oral_exam_blueprints insert: ${insertErr.message}`);
     if (!inserted || inserted.length === 0) {
-      throw new Error("oral_exam_blueprints: 0 rows inserted – aborting job");
+      throw new Error("oral_exam_blueprints: 0 rows inserted – aborting");
     }
 
-    console.log(`[OralExam] Inserted ${inserted.length} blueprints for curriculum ${curriculumId}`);
-
-    // Step 4: Create sessionset from the newly created blueprints
+    // Sessionset
     const blueprintIds = inserted.map((x: { id: string }) => x.id);
     const { error: upErr } = await sb
       .from("oral_exam_sessionsets")
@@ -119,17 +93,10 @@ Deno.serve(async (req) => {
       );
     if (upErr) throw new Error(`oral_exam_sessionsets upsert: ${upErr.message}`);
 
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "generate_oral_exam", p_status: "done",
-      p_log: { ok: true, blueprints_created: inserted.length, competencies_used: competencies.length },
-    });
-    await sb.from("course_packages").update({ build_progress: 70 }).eq("id", packageId);
-
     return json({ ok: true, blueprints_created: inserted.length });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error(`[OralExam] Error: ${msg}`);
-    await unlockFail(msg);
     return json({ ok: false, error: msg }, 500);
   }
 });

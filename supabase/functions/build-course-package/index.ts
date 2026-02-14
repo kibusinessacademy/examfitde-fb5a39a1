@@ -100,6 +100,18 @@ Deno.serve(async (req) => {
       effectiveCurriculumId = courseRow?.curriculum_id || null;
     }
 
+    // FIX 4: Block if required IDs are missing instead of enqueuing broken jobs
+    if (!effectiveCurriculumId || !effectiveCourseId) {
+      await sb.from("course_packages").update({
+        status: "blocked",
+        blocked_reason: "missing_curriculum_or_course_id",
+        updated_at: new Date().toISOString(),
+      }).eq("id", packageId);
+      await sb.rpc("release_pipeline_lock", { p_package_id: packageId }).catch(() => {});
+      await sb.from("pipeline_active_packages").delete().eq("package_id", packageId).catch(() => {});
+      return json({ ok: false, error: "MISSING_REQUIRED_IDS", detail: { effectiveCourseId, effectiveCurriculumId } }, 409);
+    }
+
     // ── Council plan gate (auto-create if council_approved) ──
     let { data: planRow } = await sb
       .from("course_package_plans")

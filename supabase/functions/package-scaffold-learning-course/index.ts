@@ -8,12 +8,10 @@ function json(body: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
+  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
+
   const packageId = p.package_id;
   const courseId = p.course_id;
   const curriculumId = p.curriculum_id;
@@ -22,38 +20,25 @@ Deno.serve(async (req) => {
     return json({ error: "Missing package_id, course_id, or curriculum_id" }, 400);
   }
 
-  const failAndUnlock = async (msg: string) => {
-    await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "scaffold_learning_course", p_status: "failed", p_log: { error: msg },
-    });
-    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-    await sb.from("course_package_locks").delete().eq("package_id", packageId);
-  };
+  // pipeline-runner handles step_start/step_done/step_fail.
+  // Do NOT touch pipeline_lock / course_package_locks / update_course_package_step.
 
   try {
-    // Step 1 has no prereq
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "scaffold_learning_course", p_status: "running",
-      p_log: { note: "Invoking generate-course" },
-    });
-
     const { data, error } = await sb.functions.invoke("generate-course", {
       body: { courseId, curriculumId },
-      headers: { "x-job-runner-key": SERVICE_ROLE_KEY },
+      headers: { "x-job-runner-key": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
     });
+
     if (error) throw error;
-    if ((data as Record<string, unknown>)?.code === "GENERATION_LOCKED") throw new Error("GENERATION_LOCKED");
+    if ((data as Record<string, unknown>)?.code === "GENERATION_LOCKED") {
+      return json({ ok: false, retry: true, error: "GENERATION_LOCKED" }, 409);
+    }
 
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "scaffold_learning_course", p_status: "done", p_log: { ok: true },
-    });
-    await sb.from("course_packages").update({ build_progress: 25 }).eq("id", packageId);
-
-    return json({ ok: true });
+    return json({ ok: true, result: data ?? null });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
-    await failAndUnlock(msg);
+    console.error(`[scaffold] Error: ${msg}`);
+    // Let pipeline-runner handle step_fail + package status
     return json({ ok: false, error: msg }, 500);
   }
 });

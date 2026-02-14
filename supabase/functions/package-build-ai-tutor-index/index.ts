@@ -8,13 +8,6 @@ function assertUuid(name: string, v: unknown) {
   const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
-async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
-  const { data, error } = await sb
-    .from("course_package_build_steps").select("status")
-    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
-  if (error) throw error;
-  return data?.status === "done";
-}
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -37,25 +30,10 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id;
   const certificationId = p.certification_id;
 
-  const unlockFail = async (msg: string) => {
-    await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "build_ai_tutor_index", p_status: "failed", p_log: { error: msg },
-    });
-    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-    await sb.from("course_package_locks").delete().eq("package_id", packageId);
-  };
+  // pipeline-runner handles step_start/step_done/step_fail.
+  // Do NOT touch pipeline_lock / course_package_locks / update_course_package_step.
 
   try {
-    if (!(await prereqDone(sb, packageId, "generate_oral_exam"))) {
-      return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_oral_exam" }, 409);
-    }
-
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "build_ai_tutor_index", p_status: "running",
-      p_log: { note: "Creating SSOT-bound tutor policy + index stats" },
-    });
-
     // Idempotent: check if already done for this package
     const { data: existingIdx } = await sb
       .from("ai_tutor_context_index").select("id")
@@ -73,7 +51,6 @@ Deno.serve(async (req) => {
 
     let policyVersion = existing?.version || 0;
 
-    // Only create policy if none exists yet
     if (!existing) {
       policyVersion = 1;
       const policy = {
@@ -87,7 +64,6 @@ Deno.serve(async (req) => {
         curriculum_id: curriculumId, policy, version: policyVersion,
       });
       if (polErr) {
-        console.error("Policy insert error:", JSON.stringify(polErr));
         throw new Error(`Policy insert failed: ${polErr.message || JSON.stringify(polErr)}`);
       }
     }
@@ -106,22 +82,14 @@ Deno.serve(async (req) => {
         stats: { lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0, policyVersion },
       });
       if (idxErr) {
-        console.error("Context index insert error:", JSON.stringify(idxErr));
         throw new Error(`Context index insert failed: ${idxErr.message || JSON.stringify(idxErr)}`);
       }
     }
 
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "build_ai_tutor_index", p_status: "done",
-      p_log: { ok: true, policyVersion, lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0 },
-    });
-    await sb.from("course_packages").update({ build_progress: 80 }).eq("id", packageId);
-
-    return json({ ok: true });
+    return json({ ok: true, policyVersion, lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0 });
   } catch (e: unknown) {
     const msg = typeof e === "object" && e !== null && "message" in e ? (e as Error).message : JSON.stringify(e);
     console.error("build_ai_tutor_index error:", msg);
-    await unlockFail(msg);
     return json({ ok: false, error: msg }, 500);
   }
 });

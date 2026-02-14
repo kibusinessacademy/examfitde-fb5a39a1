@@ -21,18 +21,28 @@ export interface CoursePackage {
 }
 
 export interface BuildStep {
-  id: string;
   package_id: string;
   step_key: string;
-  step_label: string;
   sort_order: number;
   status: string;
   started_at: string | null;
   finished_at: string | null;
-  duration_ms: number | null;
-  log: any;
-  error_message: string | null;
-  retry_count: number;
+  attempts?: number;
+  max_attempts?: number;
+  last_error?: string | null;
+  runner_id?: string | null;
+  meta?: any;
+  created_at?: string;
+  updated_at?: string;
+  // legacy compat (may be absent from view)
+  id?: string;
+  step_label?: string;
+  duration_ms?: number | null;
+  log?: any;
+  error_message?: string | null;
+  retry_count?: number;
+  timeout_seconds?: number;
+  last_heartbeat_at?: string | null;
 }
 
 export interface CouncilSession {

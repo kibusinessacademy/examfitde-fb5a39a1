@@ -3876,7 +3876,7 @@ export type Database = {
           },
         ]
       }
-      course_package_build_steps: {
+      course_package_build_steps_legacy: {
         Row: {
           created_at: string
           duration_ms: number | null
@@ -14240,6 +14240,89 @@ export type Database = {
           total_tokens_output: number | null
         }
         Relationships: []
+      }
+      course_package_build_steps: {
+        Row: {
+          attempts: number | null
+          created_at: string | null
+          finished_at: string | null
+          last_error: string | null
+          last_heartbeat_at: string | null
+          max_attempts: number | null
+          meta: Json | null
+          package_id: string | null
+          runner_id: string | null
+          sort_order: number | null
+          started_at: string | null
+          status: string | null
+          step_key: string | null
+          timeout_seconds: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string | null
+          finished_at?: string | null
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          max_attempts?: number | null
+          meta?: Json | null
+          package_id?: string | null
+          runner_id?: string | null
+          sort_order?: never
+          started_at?: string | null
+          status?: never
+          step_key?: string | null
+          timeout_seconds?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string | null
+          finished_at?: string | null
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          max_attempts?: number | null
+          meta?: Json | null
+          package_id?: string | null
+          runner_id?: string | null
+          sort_order?: never
+          started_at?: string | null
+          status?: never
+          step_key?: string | null
+          timeout_seconds?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+        ]
       }
       curriculum_products_overview: {
         Row: {
