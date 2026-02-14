@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "build_ai_tutor_index", p_status: "failed", p_log: { error: msg },
     });
+    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
     await sb.from("course_package_locks").delete().eq("package_id", packageId);
   };
 
