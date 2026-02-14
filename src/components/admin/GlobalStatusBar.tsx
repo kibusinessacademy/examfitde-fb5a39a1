@@ -9,6 +9,7 @@ import {
 
 const STEP_LABELS: Record<string, string> = {
   scaffold_learning_course: 'Scaffold',
+  auto_seed_exam_blueprints: 'Blueprints',
   generate_exam_pool: 'Prüfungen',
   generate_oral_exam: 'Mündlich',
   build_ai_tutor_index: 'Tutor',
