@@ -15135,6 +15135,36 @@ export type Database = {
         }[]
       }
       get_ops_scaling_status: { Args: never; Returns: Json }
+      get_ops_summary: {
+        Args: never
+        Returns: {
+          active_slots: number
+          draft_curricula: number
+          frozen_curricula: number
+          last_package_completed_at: string
+          last_package_started_at: string
+          open_alerts: number
+          packages_blocked: number
+          packages_building: number
+          packages_failed_24h: number
+          packages_queued: number
+        }[]
+      }
+      get_ops_summary_admin: {
+        Args: never
+        Returns: {
+          active_slots: number
+          draft_curricula: number
+          frozen_curricula: number
+          last_package_completed_at: string
+          last_package_started_at: string
+          open_alerts: number
+          packages_blocked: number
+          packages_building: number
+          packages_failed_24h: number
+          packages_queued: number
+        }[]
+      }
       get_placeholder_lessons: {
         Args: { p_course_id?: string; p_limit?: number }
         Returns: {
