@@ -66,21 +66,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Step 1: Check if pipeline is already busy ──
+    // ── Step 1: Check WIP=2 pipeline capacity ──
+    const { data: activeIds } = await sb.rpc("get_active_pipeline_packages");
+    const currentActive = (activeIds as string[] | null) ?? [];
+
+    // Also check legacy single-lock
     const { data: lock } = await sb
       .from("pipeline_lock")
-      .select("active_package_id, locked_at, locked_by, heartbeat_at")
+      .select("active_package_id, locked_at, locked_by, heartbeat_at, max_active_packages")
       .eq("id", 1)
       .single();
 
-    if (lock?.active_package_id) {
+    const maxActive = lock?.max_active_packages ?? 2;
+
+    if (currentActive.length >= maxActive && lock?.active_package_id) {
       return json({
         ok: true,
         skipped: true,
-        reason: "pipeline_busy",
-        active_package_id: lock.active_package_id,
+        reason: `pipeline_full (${currentActive.length}/${maxActive} active)`,
+        active_packages: currentActive,
         locked_by: lock.locked_by,
-        locked_at: lock.locked_at,
       });
     }
 
@@ -110,15 +115,21 @@ Deno.serve(async (req) => {
       return json({ ok: true, skipped: true, reason: "no_queued_packages" });
     }
 
-    // ── Step 3: Claim pipeline lock atomically ──
-    const { data: claimed } = await sb.rpc("try_claim_pipeline_lock", {
+    // ── Step 3: Claim pipeline slot atomically (WIP=2) ──
+    const { data: slotClaimed } = await sb.rpc("try_claim_pipeline_slot", {
       p_package_id: nextId,
       p_locked_by: "package-queue-next",
     });
 
-    if (!claimed) {
-      return json({ ok: true, skipped: true, reason: "lock_claim_failed_race_condition" });
+    if (!slotClaimed) {
+      return json({ ok: true, skipped: true, reason: "slot_claim_failed_race_condition" });
     }
+
+    // Also set legacy single-lock for backward compat
+    await sb.rpc("try_claim_pipeline_lock", {
+      p_package_id: nextId,
+      p_locked_by: "package-queue-next",
+    }).catch(() => {});
 
     // ── Step 4: Fetch package details ──
     const { data: next, error } = await sb
@@ -128,7 +139,8 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (error || !next) {
-      await sb.rpc("release_pipeline_lock", { p_package_id: nextId });
+      await sb.rpc("release_pipeline_slot", { p_package_id: nextId });
+      await sb.rpc("release_pipeline_lock", { p_package_id: nextId }).catch(() => {});
       return json({ ok: false, error: "Package not found after lock claim" }, 404);
     }
 
@@ -156,7 +168,8 @@ Deno.serve(async (req) => {
       } catch { /* non-fatal */ }
 
       if (!curriculumId) {
-        await sb.rpc("release_pipeline_lock", { p_package_id: nextId });
+        await sb.rpc("release_pipeline_slot", { p_package_id: nextId });
+        await sb.rpc("release_pipeline_lock", { p_package_id: nextId }).catch(() => {});
         await sb.from("course_packages").update({ status: "failed", updated_at: new Date().toISOString() }).eq("id", nextId);
         await sb.from("admin_notifications").insert({
           title: `⚠️ Paket ohne Curriculum: ${next.id.slice(0, 8)}`,
@@ -280,18 +293,18 @@ Deno.serve(async (req) => {
       }
     }).catch(async (e) => {
       console.error(`[queue-next] Fire-and-forget error: ${(e as Error).message}`);
-      // Release lock on network failure so pipeline doesn't get stuck
-      await sb.rpc("release_pipeline_lock", { p_package_id: next.id });
+      await sb.rpc("release_pipeline_slot", { p_package_id: next.id });
+      await sb.rpc("release_pipeline_lock", { p_package_id: next.id }).catch(() => {});
       await sb.from("course_packages").update({ status: "failed" }).eq("id", next.id);
     });
 
-    console.log(`[queue-next] 🔒 Locked pipeline for package ${next.id} (queue_position=${next.queue_position})`);
+    console.log(`[queue-next] 🔒 Pipeline slot claimed for package ${next.id} (queue_position=${next.queue_position})`);
 
     return json({
       ok: true,
       started_package_id: next.id,
       queue_position: next.queue_position,
-      mode: "single_lock",
+      mode: "wip2_slot",
       hybrid_target: hybridResult.target,
     });
   } catch (e: unknown) {

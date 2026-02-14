@@ -9494,31 +9494,37 @@ export type Database = {
       pipeline_lock: {
         Row: {
           active_package_id: string | null
+          active_package_ids: string[] | null
           heartbeat_at: string | null
           id: number
           locked_at: string | null
           locked_by: string | null
           max_active: number
+          max_active_packages: number | null
           mode: string
           updated_at: string
         }
         Insert: {
           active_package_id?: string | null
+          active_package_ids?: string[] | null
           heartbeat_at?: string | null
           id?: number
           locked_at?: string | null
           locked_by?: string | null
           max_active?: number
+          max_active_packages?: number | null
           mode?: string
           updated_at?: string
         }
         Update: {
           active_package_id?: string | null
+          active_package_ids?: string[] | null
           heartbeat_at?: string | null
           id?: number
           locked_at?: string | null
           locked_by?: string | null
           max_active?: number
+          max_active_packages?: number | null
           mode?: string
           updated_at?: string
         }
@@ -14605,6 +14611,7 @@ export type Database = {
           heartbeat_at: string
         }[]
       }
+      get_active_pipeline_packages: { Args: never; Returns: string[] }
       get_adaptive_recommendation: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
@@ -15120,6 +15127,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: undefined
       }
+      release_pipeline_slot: {
+        Args: { p_package_id: string }
+        Returns: undefined
+      }
       release_provider_slot: {
         Args: { p_provider: string }
         Returns: undefined
@@ -15373,6 +15384,10 @@ export type Database = {
       table_exists: { Args: { p_table: string }; Returns: boolean }
       try_claim_pipeline_lock: {
         Args: { p_locked_by: string; p_package_id: string }
+        Returns: boolean
+      }
+      try_claim_pipeline_slot: {
+        Args: { p_locked_by?: string; p_package_id: string }
         Returns: boolean
       }
       update_course_package_step: {

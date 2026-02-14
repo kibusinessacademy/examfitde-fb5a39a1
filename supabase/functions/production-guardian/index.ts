@@ -285,9 +285,50 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 8. WORKER POLICY CHECK (cost/error budget)
+    // 8. ADAPTIVE COST GUARD (daily + monthly budget enforcement)
     // ═══════════════════════════════════════════════════════════════
     const today = new Date().toISOString().slice(0, 10);
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
+    // Monthly budget check
+    const { data: monthlyBudget } = await sb
+      .from("llm_budget")
+      .select("budget_eur, spent_eur, hard_stop")
+      .eq("month", currentMonth)
+      .maybeSingle();
+
+    if (monthlyBudget) {
+      const spentPct = monthlyBudget.budget_eur > 0
+        ? (monthlyBudget.spent_eur / monthlyBudget.budget_eur) * 100
+        : 0;
+
+      if (spentPct >= 90 && !monthlyBudget.hard_stop) {
+        // Enable hard stop at 90% budget
+        await sb.from("llm_budget")
+          .update({ hard_stop: true, updated_at: new Date().toISOString() })
+          .eq("month", currentMonth);
+        warnings.push(`Budget Guard: €${monthlyBudget.spent_eur.toFixed(2)}/€${monthlyBudget.budget_eur} (${spentPct.toFixed(0)}%) → HARD STOP enabled`);
+
+        await sb.from("admin_notifications").insert({
+          title: `🚨 LLM Budget: ${spentPct.toFixed(0)}% verbraucht – Hard Stop aktiv`,
+          body: `Monat ${currentMonth}: €${monthlyBudget.spent_eur.toFixed(2)} / €${monthlyBudget.budget_eur}. Neue LLM-Jobs werden blockiert.`,
+          category: "ops",
+          severity: "critical",
+        });
+      } else if (spentPct >= 70) {
+        warnings.push(`Budget Guard: €${monthlyBudget.spent_eur.toFixed(2)}/€${monthlyBudget.budget_eur} (${spentPct.toFixed(0)}%) – nähert sich Limit`);
+      }
+
+      // Auto-reset hard_stop on new month
+      if (spentPct < 50 && monthlyBudget.hard_stop) {
+        await sb.from("llm_budget")
+          .update({ hard_stop: false, updated_at: new Date().toISOString() })
+          .eq("month", currentMonth);
+        actions.push(`Budget Guard: Hard stop released (${spentPct.toFixed(0)}% spent)`);
+      }
+    }
+
+    // Daily worker policy check
     const { data: usageToday } = await sb
       .from("ai_worker_usage_daily")
       .select("job_type, runs, errors, cost_eur")
@@ -304,6 +345,12 @@ Deno.serve(async (req) => {
       if (!usage) continue;
       const errRate = usage.runs > 4 ? usage.errors / usage.runs : 0;
 
+      // Cost guard per job type
+      if (usage.cost_eur >= pol.max_cost_eur_per_day && pol.enabled) {
+        await sb.from("ai_worker_policies").update({ enabled: false }).eq("job_type", pol.job_type);
+        warnings.push(`Cost Guard: Paused ${pol.job_type} (€${usage.cost_eur.toFixed(2)} >= €${pol.max_cost_eur_per_day}/day)`);
+      }
+
       if (errRate >= pol.pause_on_error_rate && pol.enabled) {
         await sb.from("ai_worker_policies").update({ enabled: false }).eq("job_type", pol.job_type);
         warnings.push(`Paused ${pol.job_type}: err ${(errRate * 100).toFixed(0)}%`);
@@ -312,6 +359,26 @@ Deno.serve(async (req) => {
       if (!pol.enabled && errRate < pol.pause_on_error_rate * 0.5 && usage.cost_eur < pol.max_cost_eur_per_day * 0.8) {
         await sb.from("ai_worker_policies").update({ enabled: true }).eq("job_type", pol.job_type);
         actions.push(`Re-enabled ${pol.job_type}`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 9. WIP=2 STALE SLOT CLEANUP
+    // ═══════════════════════════════════════════════════════════════
+    const { data: activeSlots } = await sb.rpc("get_active_pipeline_packages");
+    const slotList = (activeSlots as string[] | null) ?? [];
+
+    for (const slotPkgId of slotList) {
+      const { data: pkgStatus } = await sb
+        .from("course_packages")
+        .select("status")
+        .eq("id", slotPkgId)
+        .maybeSingle();
+
+      // If package is no longer building (published/failed/etc), release the slot
+      if (pkgStatus && !["building", "queued"].includes(pkgStatus.status)) {
+        await sb.rpc("release_pipeline_slot", { p_package_id: slotPkgId });
+        actions.push(`Released stale slot for pkg ${slotPkgId.slice(0, 8)} (status: ${pkgStatus.status})`);
       }
     }
 
