@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { label: 'Finanzen', path: '/admin/business', icon: DollarSign, group: 'Navigation' },
   { label: 'Wachstum & CRM', path: '/admin/growth', icon: TrendingUp, group: 'Navigation' },
   { label: 'Skalierung (300 Berufe)', path: '/admin/scale', icon: Layers, group: 'Navigation' },
+  { label: 'System-Handbuch', path: '/admin/handbook', icon: BookOpen, group: 'Navigation' },
 ];
 
 const ACTIONS = [

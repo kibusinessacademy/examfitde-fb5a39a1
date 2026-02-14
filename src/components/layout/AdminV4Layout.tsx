@@ -7,7 +7,7 @@ import {
   LayoutDashboard, BookOpen, LogOut, ChevronLeft, Menu,
   DollarSign, Activity, Brain, ChevronDown, Shield,
   TrendingUp, Layers, Search, Radio, FileText, Headphones,
-  Users
+  Users, Library
 } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -102,6 +102,7 @@ const navModules: NavItem[] = [
       { path: '/admin/scale/reporting', label: 'Reporting' },
     ],
   },
+  { path: '/admin/handbook', label: 'Handbuch', icon: Library },
 ];
 
 export default function AdminV4Layout() {
@@ -149,6 +150,7 @@ export default function AdminV4Layout() {
     blog: 'Blog', assets: 'Assets', seo: 'SEO & Redirects',
     segments: 'Segmente', churn: 'Churn Risk',
     tickets: 'Tickets', faq: 'FAQ Knüpfung',
+    handbook: 'Handbuch',
   };
 
   return (
