@@ -9403,6 +9403,41 @@ export type Database = {
         }
         Relationships: []
       }
+      package_quality_scores: {
+        Row: {
+          badge: string
+          package_id: string
+          public_summary: Json
+          score: number
+          score_version: number
+          updated_at: string
+        }
+        Insert: {
+          badge: string
+          package_id: string
+          public_summary?: Json
+          score: number
+          score_version: number
+          updated_at?: string
+        }
+        Update: {
+          badge?: string
+          package_id?: string
+          public_summary?: Json
+          score?: number
+          score_version?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_quality_scores_score_version_fkey"
+            columns: ["score_version"]
+            isOneToOne: false
+            referencedRelation: "quality_score_versions"
+            referencedColumns: ["version"]
+          },
+        ]
+      }
       patch_proposals: {
         Row: {
           after: Json
@@ -10009,6 +10044,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      product_factory_specs: {
+        Row: {
+          certification_id: string
+          enabled: boolean
+          spec: Json
+          updated_at: string
+        }
+        Insert: {
+          certification_id: string
+          enabled?: boolean
+          spec?: Json
+          updated_at?: string
+        }
+        Update: {
+          certification_id?: string
+          enabled?: boolean
+          spec?: Json
+          updated_at?: string
+        }
+        Relationships: []
       }
       product_price_tiers: {
         Row: {
@@ -11076,6 +11132,24 @@ export type Database = {
           id?: string
           rule_key?: string
           severity?: string
+        }
+        Relationships: []
+      }
+      quality_score_versions: {
+        Row: {
+          created_at: string
+          version: number
+          weights: Json
+        }
+        Insert: {
+          created_at?: string
+          version: number
+          weights: Json
+        }
+        Update: {
+          created_at?: string
+          version?: number
+          weights?: Json
         }
         Relationships: []
       }
@@ -15035,6 +15109,10 @@ export type Database = {
       get_production_kpis: { Args: never; Returns: Json }
       get_profiles_security_status: { Args: never; Returns: Json }
       get_quality_dashboard: { Args: never; Returns: Json }
+      get_quality_public_summary: {
+        Args: { p_certification_id: string }
+        Returns: Json
+      }
       get_reconcile_gaps: {
         Args: { p_limit?: number }
         Returns: {

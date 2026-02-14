@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, useRef, useCallback } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Loader2, CheckCircle2, XCircle, AlertTriangle, Copy, Download, RotateCcw, RefreshCw, Shield, Zap, Activity, Clock, Server, HeartPulse, Gauge, BookOpen, Brain, FileQuestion, Mic, Factory } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Copy, Download, RotateCcw, RefreshCw, Shield, Zap, Activity, Clock, Server, HeartPulse, Gauge, BookOpen, Brain, FileQuestion, Mic, Factory, Eye, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,8 @@ const tabs = [
   { path: '/admin/ops/scaling', label: '⚡ Scaling' },
   { path: '/admin/ops/quality', label: '🛡️ Quality Council' },
   { path: '/admin/ops/roi', label: '💰 ROI' },
+  { path: '/admin/ops/factory', label: '🏭 Factory' },
+  { path: '/admin/ops/trust', label: '🏅 Trust' },
   { path: '/admin/ops/providers', label: 'Provider Autopilot' },
   { path: '/admin/ops/autoheal', label: 'Auto-Heal' },
   { path: '/admin/ops/load-control', label: 'Load Control' },
@@ -1587,6 +1589,202 @@ function ROIDashboard() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// FACTORY DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function FactoryDashboard() {
+  const [specs, setSpecs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+
+  const load = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('product_factory_specs')
+      .select('*, certification_catalog(title)')
+      .order('updated_at', { ascending: false });
+    setSpecs(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const runOrchestrator = async () => {
+    setRunning(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/factory-orchestrator`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ manual: true }),
+      });
+      const data = await res.json();
+      toast.success(`Orchestrator: ${data.actions_count ?? 0} Aktionen`);
+      load();
+    } catch {
+      toast.error('Orchestrator-Fehler');
+    }
+    setRunning(false);
+  };
+
+  if (loading) return <Loading />;
+
+  const enabled = specs.filter(s => s.enabled).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 flex-1">
+          <MiniKPI label="Factory Specs" value={specs.length} />
+          <MiniKPI label="Aktiviert" value={enabled} />
+          <MiniKPI label="Deaktiviert" value={specs.length - enabled} />
+        </div>
+        <Button onClick={runOrchestrator} disabled={running} className="ml-4">
+          {running ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Factory className="h-4 w-4 mr-2" />}
+          Orchestrator jetzt
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Factory className="h-4 w-4" /> Product Factory Specs ({specs.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="text-left py-2 px-3">Zertifizierung</th>
+                  <th className="text-center py-2 px-3">Aktiv</th>
+                  <th className="text-left py-2 px-3">Module</th>
+                  <th className="text-left py-2 px-3">Aktualisiert</th>
+                </tr>
+              </thead>
+              <tbody>
+                {specs.map((s: any) => {
+                  const spec = s.spec || {};
+                  const modules = Object.entries(spec)
+                    .filter(([, v]: any) => v?.enabled)
+                    .map(([k]) => k);
+                  return (
+                    <tr key={s.certification_id} className="border-b border-border/30">
+                      <td className="py-2 px-3 font-medium truncate max-w-[200px]">
+                        {s.certification_catalog?.title || s.certification_id?.slice(0, 8)}
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        <Button size="sm" variant="ghost" className="h-6 w-8 p-0 text-xs" onClick={async () => {
+                          await (supabase as any).from('product_factory_specs').update({ enabled: !s.enabled, updated_at: new Date().toISOString() }).eq('certification_id', s.certification_id);
+                          load();
+                        }}>
+                          {s.enabled ? '✅' : '❌'}
+                        </Button>
+                      </td>
+                      <td className="py-2 px-3">
+                        <div className="flex flex-wrap gap-1">
+                          {modules.map(m => (
+                            <Badge key={m} variant="outline" className="text-[9px]">{m}</Badge>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-2 px-3 text-muted-foreground">
+                        {new Date(s.updated_at).toLocaleDateString('de-DE')}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// TRUST (PUBLIC QUALITY) DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function TrustDashboard() {
+  const [scores, setScores] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('package_quality_scores')
+      .select('*, course_packages(title, certification_id)')
+      .order('updated_at', { ascending: false })
+      .limit(50);
+    setScores(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <Loading />;
+
+  const BADGE_EMOJI: Record<string, string> = { platinum: '💎', gold: '🥇', silver: '🥈', bronze: '🥉' };
+
+  const platCount = scores.filter(s => s.badge === 'platinum').length;
+  const goldCount = scores.filter(s => s.badge === 'gold').length;
+  const silverCount = scores.filter(s => s.badge === 'silver').length;
+  const bronzeCount = scores.filter(s => s.badge === 'bronze').length;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MiniKPI label="💎 Platin" value={platCount} />
+        <MiniKPI label="🥇 Gold" value={goldCount} />
+        <MiniKPI label="🥈 Silber" value={silverCount} />
+        <MiniKPI label="🥉 Bronze" value={bronzeCount} alert={bronzeCount > goldCount} />
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Award className="h-4 w-4" /> Quality Scores (Public View)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="text-left py-2 px-3">Paket</th>
+                  <th className="text-center py-2 px-3">Badge</th>
+                  <th className="text-right py-2 px-3">Score</th>
+                  <th className="text-right py-2 px-3">Version</th>
+                  <th className="text-left py-2 px-3">Aktualisiert</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scores.map((s: any) => (
+                  <tr key={s.package_id} className="border-b border-border/30">
+                    <td className="py-2 px-3 font-medium truncate max-w-[200px]">
+                      {s.course_packages?.title || s.package_id?.slice(0, 8)}
+                    </td>
+                    <td className="py-2 px-3 text-center text-lg">{BADGE_EMOJI[s.badge] || '–'}</td>
+                    <td className={cn("py-2 px-3 text-right font-bold",
+                      s.score >= 85 ? "text-emerald-600" : s.score >= 75 ? "text-yellow-600" : "text-destructive"
+                    )}>{s.score}</td>
+                    <td className="py-2 px-3 text-right text-muted-foreground">V{s.score_version}</td>
+                    <td className="py-2 px-3 text-muted-foreground">
+                      {new Date(s.updated_at).toLocaleDateString('de-DE')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════
 export default function OpsPage() {
@@ -1652,6 +1850,8 @@ export default function OpsPage() {
           <Route path="scaling" element={<ScalingDashboard />} />
           <Route path="quality" element={<QualityCouncilDashboard />} />
           <Route path="roi" element={<ROIDashboard />} />
+          <Route path="factory" element={<FactoryDashboard />} />
+          <Route path="trust" element={<TrustDashboard />} />
           <Route path="providers" element={<ProviderAutopilotDashboard />} />
           <Route path="autoheal" element={<AutoHealCenter />} />
           <Route path="load-control" element={<LoadControlPage />} />
