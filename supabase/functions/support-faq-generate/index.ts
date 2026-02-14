@@ -9,9 +9,9 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const deepseekApiKey = Deno.env.get("DEEPSEEK_API_KEY");
 
-    if (!lovableApiKey) {
+    if (!deepseekApiKey) {
       return new Response(JSON.stringify({ error: "AI not configured" }), {
         status: 500, headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" }
       });

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { callAIJSON, aiErrorResponse } from "../_shared/ai-client.ts";
 
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
@@ -71,7 +72,6 @@ serve(async (req) => {
     let systemPrompt = template.prompt_system || "";
     let userPrompt = template.prompt_user || "";
 
-    // Replace template variables
     for (const [key, value] of Object.entries(variables)) {
       const regex = new RegExp(`\\{\\{${key}\\}\\}`, "g");
       systemPrompt = systemPrompt.replace(regex, value);
@@ -102,68 +102,48 @@ serve(async (req) => {
 
     if (jobErr) throw jobErr;
 
-    // 4) Call Lovable AI Gateway
+    // 4) Call OpenAI via ai-client
     let contentMd = "";
     let title = "";
     let metaTitle = "";
     let metaDescription = "";
     let excerpt = "";
     let tokensUsed = 0;
-    let model = "google/gemini-2.5-flash";
+    const model = "gpt-4.1";
 
     const fullPrompt = `${userPrompt}\n\nAntworte mit einem JSON-Objekt:\n{\n  "title": "Seitentitel",\n  "meta_title": "SEO Title (max 60 Zeichen)",\n  "meta_description": "SEO Description (max 160 Zeichen)",\n  "excerpt": "Kurze Zusammenfassung (max 200 Zeichen)",\n  "content_md": "Der gesamte Inhalt in Markdown"\n}`;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
-    }
-
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    try {
+      const result = await callAIJSON({
+        provider: "openai",
         model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: fullPrompt },
         ],
         temperature: 0.8,
-      }),
-    });
+      });
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      if (aiResponse.status === 429) {
-        await admin.from("seo_generation_jobs").update({ status: "failed", error: "Rate limited", completed_at: new Date().toISOString() }).eq("id", job.id);
-        return new Response(JSON.stringify({ error: "Rate limited – bitte später erneut versuchen" }), { status: 429, headers });
+      tokensUsed = result.usage?.total_tokens || 0;
+      const raw = result.content || "";
+
+      try {
+        const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        title = parsed.title || variables.beruf;
+        metaTitle = (parsed.meta_title || title).substring(0, 60);
+        metaDescription = (parsed.meta_description || "").substring(0, 160);
+        excerpt = (parsed.excerpt || "").substring(0, 250);
+        contentMd = parsed.content_md || raw;
+      } catch {
+        contentMd = raw;
+        title = `${variables.beruf} – ${template.display_name}`;
+        metaTitle = title.substring(0, 60);
       }
-      if (aiResponse.status === 402) {
-        await admin.from("seo_generation_jobs").update({ status: "failed", error: "Credits exhausted", completed_at: new Date().toISOString() }).eq("id", job.id);
-        return new Response(JSON.stringify({ error: "AI Credits aufgebraucht" }), { status: 402, headers });
-      }
-      throw new Error(`AI API error: ${aiResponse.status} ${errText.slice(0, 200)}`);
-    }
-
-    const result = await aiResponse.json();
-    const raw = result.choices?.[0]?.message?.content || "";
-    tokensUsed = result.usage?.total_tokens || 0;
-
-    // Parse JSON from response
-    try {
-      const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const parsed = JSON.parse(cleaned);
-      title = parsed.title || variables.beruf;
-      metaTitle = (parsed.meta_title || title).substring(0, 60);
-      metaDescription = (parsed.meta_description || "").substring(0, 160);
-      excerpt = (parsed.excerpt || "").substring(0, 250);
-      contentMd = parsed.content_md || raw;
-    } catch {
-      contentMd = raw;
-      title = `${variables.beruf} – ${template.display_name}`;
-      metaTitle = title.substring(0, 60);
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Unknown AI error";
+      await admin.from("seo_generation_jobs").update({ status: "failed", error: errMsg, completed_at: new Date().toISOString() }).eq("id", job.id);
+      return aiErrorResponse(error, headers);
     }
 
     // 5) Generate slug

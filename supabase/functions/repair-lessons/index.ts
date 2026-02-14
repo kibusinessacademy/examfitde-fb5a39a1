@@ -150,8 +150,8 @@ serve(async (req) => {
     const batchSize = Math.min(body.batchSize || 10, 20);
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+    const API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!API_KEY) throw new Error('OPENAI_API_KEY not configured');
 
     // Use RPC to find placeholder lessons
     const { data: toFix, error: rpcErr } = await supabase.rpc('get_placeholder_lessons', {
