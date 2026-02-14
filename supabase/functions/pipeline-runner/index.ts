@@ -239,22 +239,13 @@ Deno.serve(async (req) => {
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
-    // ── 0) Capacity check ──
-    const { count: activeLeases } = await sb
-      .from("package_leases")
-      .select("package_id", { count: "exact", head: true });
-
-    if ((activeLeases ?? 0) >= MAX_CONCURRENT_PACKAGES) {
-      return json({
-        ok: true,
-        idle: true,
-        reason: "capacity_reached",
-        active: activeLeases,
-        max: MAX_CONCURRENT_PACKAGES,
-      });
-    }
-
-    // ── 1) Acquire lease ──
+    // ── 0+1) Capacity check + Acquire lease (atomic in RPC) ──
+    // The upgraded acquire_next_package_lease now:
+    //   - Purges expired leases atomically (self-healing)
+    //   - Counts only active leases for hard concurrency slots
+    //   - Claims both queued AND orphaned building packages
+    // No separate capacity check needed — RPC returns null if all 3 slots full.
+    // acquire_next_package_lease handles capacity + reclaim atomically
     const { data: pkgId, error: acquireErr } = await sb.rpc(
       "acquire_next_package_lease",
       { p_runner_id: runnerId, p_lease_seconds: 600 },
@@ -269,7 +260,7 @@ Deno.serve(async (req) => {
       return json({
         ok: true,
         idle: true,
-        reason: "no_queued_packages_or_lease_active",
+        reason: "no_claimable_packages_or_slots_full",
       });
     }
 

@@ -33,13 +33,16 @@ async function hasRecentOpenAlert(
 }
 
 /**
- * pipeline-watchdog — Runs every 5 minutes via cron
+ * pipeline-watchdog — Safety-net fallback (runs every 5 minutes via cron)
  *
+ * The primary self-healing now happens in acquire_next_package_lease (RPC),
+ * which atomically purges expired leases and reclaims orphaned packages.
+ *
+ * This watchdog only handles edge cases the runner can't:
  * 1. Expire stale steps (no heartbeat within timeout_seconds)
- * 2. Expire stale leases (lease_until < now)
- * 3. Mark orphaned building packages as failed
- * 4. Detect pipeline stalls (queued > 0 but nothing building)
- * 5. Auto-resolve stall alerts when pipeline is healthy
+ * 2. Detect pipeline stalls (queued > 0 but nothing processing)
+ * 3. Auto-resolve stall alerts when pipeline is healthy
+ * 4. Final safety-net: re-queue orphaned building packages (belt-and-suspenders)
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -54,7 +57,7 @@ Deno.serve(async (req) => {
   const actions: string[] = [];
 
   try {
-    // ── 1) Expire stale steps ──
+    // ── 1) Expire stale steps (heartbeat-based timeout) ──
     const { data: expiredSteps, error: stepErr } = await sb.rpc(
       "expire_stale_steps",
     );
@@ -71,19 +74,16 @@ Deno.serve(async (req) => {
       actions.push(
         `Step timeout: ${s.step_key} on pkg ${s.package_id.slice(0, 8)}`,
       );
-
-      // Reset package to queued so runner can re-acquire and retry
+      // Keep as building — the runner's acquire function will reclaim it
       await sb
         .from("course_packages")
         .update({
-          status: "queued",
-          last_error: `Watchdog: step '${s.step_key}' timed out — re-queued`,
+          last_error: `Watchdog: step '${s.step_key}' timed out`,
         })
-        .eq("id", s.package_id)
-        .eq("status", "building");
+        .eq("id", s.package_id);
     }
 
-    // ── 2) Expire stale leases ──
+    // ── 2) Safety-net: purge any expired leases the runner missed ──
     const { data: expiredLeases, error: leaseErr } = await sb.rpc(
       "expire_stale_leases",
     );
@@ -95,51 +95,16 @@ Deno.serve(async (req) => {
       runner_id: string;
     }>) ?? [];
 
-    for (const l of staleLeases) {
-      actions.push(
-        `Lease expired: pkg ${l.package_id.slice(0, 8)} (runner: ${l.runner_id})`,
-      );
-
-      // Reset package to queued so runner can re-acquire
-      await sb
-        .from("course_packages")
-        .update({
-          status: "queued",
-          last_error: `Watchdog: lease expired — re-queued`,
-        })
-        .eq("id", l.package_id)
-        .eq("status", "building");
+    if (staleLeases.length > 0) {
+      actions.push(`Safety-net: purged ${staleLeases.length} expired leases`);
     }
 
-    // ── 3) Orphaned building packages (no lease, still building) → re-queue ──
-    const { data: allLeases } = await sb
+    // ── 3) Count active state ──
+    const { count: activeLeases } = await sb
       .from("package_leases")
-      .select("package_id");
-    const leasedIds = new Set(
-      (allLeases ?? []).map((r: { package_id: string }) => r.package_id),
-    );
+      .select("package_id", { count: "exact", head: true })
+      .gt("lease_until", new Date().toISOString());
 
-    const { data: buildingPkgs } = await sb
-      .from("course_packages")
-      .select("id")
-      .eq("status", "building");
-
-    const orphanedPkgs = (buildingPkgs ?? []).filter(
-      (p: { id: string }) => !leasedIds.has(p.id),
-    );
-
-    for (const o of orphanedPkgs) {
-      actions.push(`Orphaned building pkg: ${o.id.slice(0, 8)} → re-queued`);
-      await sb
-        .from("course_packages")
-        .update({
-          status: "queued",
-          last_error: "Watchdog: orphaned — re-queued for retry",
-        })
-        .eq("id", o.id);
-    }
-
-    // ── 4) Stall detection ──
     const { count: queuedCount } = await sb
       .from("course_packages")
       .select("id", { count: "exact", head: true })
@@ -150,8 +115,11 @@ Deno.serve(async (req) => {
       .select("id", { count: "exact", head: true })
       .eq("status", "building");
 
+    // ── 4) Stall detection ──
     const isStalled =
-      (queuedCount ?? 0) > 0 && (buildingCount ?? 0) === 0 && leasedIds.size === 0;
+      (queuedCount ?? 0) > 0 &&
+      (buildingCount ?? 0) === 0 &&
+      (activeLeases ?? 0) === 0;
 
     if (isStalled) {
       const alreadyAlerted = await hasRecentOpenAlert(
@@ -166,10 +134,11 @@ Deno.serve(async (req) => {
           .insert({
             source: "pipeline-watchdog",
             severity: "error",
-            message: `PIPELINE_STALLED: queued=${queuedCount} building=${buildingCount} leases=0`,
+            message: `PIPELINE_STALLED: queued=${queuedCount} building=${buildingCount} leases=${activeLeases}`,
             payload: {
               queued: queuedCount,
               building: buildingCount,
+              activeLeases,
               ts: new Date().toISOString(),
             },
           })
@@ -181,7 +150,7 @@ Deno.serve(async (req) => {
     }
 
     // ── 5) Auto-resolve stall alerts when healthy ──
-    const isHealthy = (buildingCount ?? 0) > 0 || leasedIds.size > 0;
+    const isHealthy = (activeLeases ?? 0) > 0;
     if (isHealthy) {
       await sb
         .from("ops_alerts")
@@ -204,15 +173,15 @@ Deno.serve(async (req) => {
           actions,
           queued: queuedCount,
           building: buildingCount,
+          activeLeases,
           stale_steps: staleSteps.length,
           stale_leases: staleLeases.length,
-          orphaned: orphanedPkgs.length,
         },
       })
       .catch(() => {});
 
     console.log(
-      `[watchdog] Cycle done: ${actions.length} actions, queued=${queuedCount} building=${buildingCount}`,
+      `[watchdog] Cycle done: ${actions.length} actions, queued=${queuedCount} building=${buildingCount} leases=${activeLeases}`,
     );
 
     return json({
@@ -221,6 +190,7 @@ Deno.serve(async (req) => {
       actions,
       queued: queuedCount,
       building: buildingCount,
+      activeLeases,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
