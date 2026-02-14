@@ -4014,6 +4014,7 @@ export type Database = {
           integrity_report: Json | null
           last_error: string | null
           last_progress_at: string | null
+          locked_at: string | null
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           published_at: string | null
           queue_position: number | null
@@ -4049,6 +4050,7 @@ export type Database = {
           integrity_report?: Json | null
           last_error?: string | null
           last_progress_at?: string | null
+          locked_at?: string | null
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           published_at?: string | null
           queue_position?: number | null
@@ -4084,6 +4086,7 @@ export type Database = {
           integrity_report?: Json | null
           last_error?: string | null
           last_progress_at?: string | null
+          locked_at?: string | null
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           published_at?: string | null
           queue_position?: number | null
@@ -15839,6 +15842,7 @@ export type Database = {
           integrity_report: Json | null
           last_error: string | null
           last_progress_at: string | null
+          locked_at: string | null
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           published_at: string | null
           queue_position: number | null
@@ -16045,6 +16049,7 @@ export type Database = {
           integrity_report: Json | null
           last_error: string | null
           last_progress_at: string | null
+          locked_at: string | null
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           published_at: string | null
           queue_position: number | null
