@@ -70,7 +70,7 @@ function json(body: unknown, status = 200) {
 
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
   const { data, error } = await sb
-    .from("course_package_build_steps")
+    .from("package_steps")
     .select("status")
     .eq("package_id", packageId)
     .eq("step_key", stepKey)
@@ -416,14 +416,9 @@ Deno.serve(async (req) => {
     try { await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId }); } catch { /* non-fatal */ }
   };
 
+  // pipeline-runner handles step_start/step_done/step_fail.
   const failAndUnlock = async (msg: string) => {
     await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "failed", p_log: { error: msg },
-    });
-    await sb.from("course_package_locks").delete().eq("package_id", packageId);
-    // Release pipeline lock on failure
-    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
   };
 
   try {
@@ -434,10 +429,7 @@ Deno.serve(async (req) => {
     }
 
     if (generatedSoFar === 0 && !isFanOut) {
-      await sb.rpc("update_course_package_step", {
-        p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "running",
-        p_log: { note: `DOMINANZ-ENGINE v2: target=${examTarget}, difficulty=5/35/45/15, types=MC/Calc/Case/Transfer` },
-      });
+      console.log(`[ExamPool-Dominanz] Starting: target=${examTarget}, difficulty=5/35/45/15, types=MC/Calc/Case/Transfer`);
     }
 
     // Get blueprints
@@ -464,10 +456,7 @@ Deno.serve(async (req) => {
       );
 
       if (enqueued > 0) {
-        await sb.rpc("update_course_package_step", {
-          p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "running",
-          p_log: { note: `Dominanz Fan-out: ${enqueued} sub-jobs for ${learningFields} Lernfelder`, fan_out: true },
-        });
+        console.log(`[ExamPool-Dominanz] Fan-out: ${enqueued} sub-jobs for ${learningFields} Lernfelder`);
         return json({ ok: true, batch_complete: true, fan_out: true, sub_jobs: enqueued });
       }
     }
@@ -550,16 +539,8 @@ Deno.serve(async (req) => {
     if (targetReached) {
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
-        // Final quality stats
         const { data: diffStats } = await sb.rpc("get_difficulty_distribution", { p_curriculum_id: curriculumId }).catch(() => ({ data: null }));
-        
-        await sb.rpc("update_course_package_step", {
-          p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "done",
-          p_log: {
-            ok: true, engine: "dominanz-v2", target: examTarget, actual: actualTotal,
-            blueprints_processed: currentBpIndex, difficulty_stats: diffStats,
-          },
-        });
+        console.log(`[ExamPool-Dominanz] Target reached: ${actualTotal}/${examTarget}, BPs=${currentBpIndex}`);
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
 
@@ -569,13 +550,9 @@ Deno.serve(async (req) => {
       });
     } else if (allBlueprintsProcessed) {
       const currentLoop = (batchCursor?.loop_count ?? 0) + 1;
-      if (currentLoop >= 8) { // More loops allowed for dominance
+      if (currentLoop >= 8) {
         console.log(`[ExamPool-Dominanz] Loop cap (${currentLoop}). Accepting ${actualTotal}.`);
         if (!isFanOut) {
-          await sb.rpc("update_course_package_step", {
-            p_package_id: packageId, p_step_key: "generate_exam_pool", p_status: "done",
-            p_log: { ok: true, engine: "dominanz-v2", target: examTarget, actual: actualTotal, loop_capped: currentLoop },
-          });
           await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
         }
         return json({ ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true });

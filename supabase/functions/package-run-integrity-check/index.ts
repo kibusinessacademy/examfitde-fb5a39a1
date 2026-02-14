@@ -10,7 +10,7 @@ function assertUuid(name: string, v: unknown) {
 }
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
   const { data, error } = await sb
-    .from("course_package_build_steps").select("status")
+    .from("package_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
   if (error) throw error;
   return data?.status === "done";
@@ -506,18 +506,13 @@ Deno.serve(async (req) => {
     curriculumId = crs.curriculum_id;
   }
 
+  // pipeline-runner handles step_start/step_done/step_fail.
   const unlockFail = async (msg: string, report?: unknown) => {
     await sb.from("course_packages").update({
       status: "failed",
       integrity_passed: false,
       integrity_report: report || { error: msg },
     }).eq("id", packageId);
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "run_integrity_check", p_status: "failed",
-      p_log: { error: msg, report },
-    });
-    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-    await sb.from("course_package_locks").delete().eq("package_id", packageId);
   };
 
   try {
@@ -531,14 +526,12 @@ Deno.serve(async (req) => {
     ];
 
     for (const stepKey of contentPrereqs) {
-      // Check if step exists for this package (some may be skipped)
       const { data: stepRow } = await sb
-        .from("course_package_build_steps")
+        .from("package_steps")
         .select("status")
         .eq("package_id", packageId)
         .eq("step_key", stepKey)
         .maybeSingle();
-      // If step exists and is not done, defer
       if (stepRow && stepRow.status !== "done") {
         return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${stepKey} (status: ${stepRow.status})` }, 409);
       }
@@ -555,12 +548,11 @@ Deno.serve(async (req) => {
       return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${pendingExamJobs} exam fan-out jobs still running` }, 409);
     }
 
+    // Run v2
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "run_integrity_check", p_status: "running",
       p_log: { note: "Running validate_course_integrity_v3 (high-assurance)" },
-    });
-
-    // Run v2 first
+    }).catch(() => {});
     const { data, error } = await sb.rpc("validate_course_integrity_v2", {
       p_curriculum_id: curriculumId,
     });
@@ -667,7 +659,7 @@ Deno.serve(async (req) => {
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "run_integrity_check", p_status: "done",
       p_log: { ok: true, ...summary, review_status: "ready_for_review" },
-    });
+    }).catch(() => {});
 
     return json({ ok: true, score: v3Result.score, summary, review_status: "ready_for_review" });
   } catch (e: unknown) {

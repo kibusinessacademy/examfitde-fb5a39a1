@@ -10,7 +10,7 @@ function assertUuid(name: string, v: unknown) {
 }
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
   const { data, error } = await sb
-    .from("course_package_build_steps").select("status")
+    .from("package_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
   if (error) throw error;
   return data?.status === "done";
@@ -33,14 +33,10 @@ Deno.serve(async (req) => {
   const packageId = p.package_id;
   const courseId = p.course_id;
 
+  // pipeline-runner handles step_start/step_done/step_fail.
+  // Minimal failure handler — only update package status, no legacy locks.
   const unlockFail = async (msg: string) => {
     await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "auto_publish", p_status: "failed", p_log: { error: msg },
-    });
-    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-    await sb.from("course_package_locks").delete().eq("package_id", packageId);
-    await sb.from("pipeline_active_packages").delete().eq("package_id", packageId);
   };
 
   try {
@@ -73,8 +69,6 @@ Deno.serve(async (req) => {
       await sb.from("course_packages")
         .update({ status: "qa_failed", updated_at: new Date().toISOString() })
         .eq("id", packageId);
-      await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-      await sb.from("course_package_locks").delete().eq("package_id", packageId);
       await sb.from("admin_notifications").insert({
         title: `🚫 Quality Council: Package blocked`,
         body: `Score: ${qualityReport.score}. Package failed quality checks.`,
@@ -109,12 +103,7 @@ Deno.serve(async (req) => {
       const currentStatus = review?.status || "no_review";
 
       if (requiresManualReview) {
-        // Manual review required — wait for admin
         console.log(`[AutoPublish] BLOCKED: review status = ${currentStatus} (manual review required). Package ${packageId}`);
-        await sb.rpc("update_course_package_step", {
-          p_package_id: packageId, p_step_key: "auto_publish", p_status: "pending",
-          p_log: { skipped: true, reason: `Review gate: status=${currentStatus}, waiting for admin approval` },
-        });
         return json({
           ok: false,
           retry: false,
@@ -166,7 +155,7 @@ Deno.serve(async (req) => {
     await sb.rpc("update_course_package_step", {
       p_package_id: packageId, p_step_key: "auto_publish", p_status: "running",
       p_log: { note: "Admin approved. Publishing course." },
-    });
+    }).catch(() => {});
 
     const { error: cErr } = await sb
       .from("courses").update({ publishing_status: "publish_ready", status: "published" }).eq("id", courseId);
@@ -175,15 +164,6 @@ Deno.serve(async (req) => {
     const { error: pErr } = await sb
       .from("course_packages").update({ status: "published", build_progress: 100, council_approved: true }).eq("id", packageId);
     if (pErr) throw pErr;
-
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "auto_publish", p_status: "done", p_log: { ok: true },
-    });
-
-    // Unlock package + release global pipeline lock + free slot
-    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-    await sb.from("course_package_locks").delete().eq("package_id", packageId);
-    await sb.from("pipeline_active_packages").delete().eq("package_id", packageId);
 
     // Trigger next queued package
     await sb.from("job_queue").insert({
