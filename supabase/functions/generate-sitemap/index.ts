@@ -249,6 +249,45 @@ serve(async (req) => {
       });
     }
 
+    // Prüfungstraining Hub + Category pages
+    const pruefungstrainingPages = [
+      { path: "/pruefungstraining", priority: 0.9, changefreq: "weekly" },
+      { path: "/pruefungstraining/ausbildung", priority: 0.8, changefreq: "weekly" },
+      { path: "/pruefungstraining/fachwirt", priority: 0.8, changefreq: "weekly" },
+      { path: "/pruefungstraining/meister", priority: 0.8, changefreq: "weekly" },
+      { path: "/pruefungstraining/betriebswirt", priority: 0.8, changefreq: "weekly" },
+      { path: "/pruefungstraining/sachkunde", priority: 0.8, changefreq: "weekly" },
+      { path: "/pruefungstraining/aevo", priority: 0.8, changefreq: "weekly" },
+    ];
+
+    pruefungstrainingPages.forEach((page) => {
+      urls.push({
+        loc: `${SITE_URL}${page.path}`,
+        lastmod: today,
+        changefreq: page.changefreq,
+        priority: page.priority,
+      });
+    });
+
+    // Prüfungstraining detail pages from certification_catalog
+    const { data: certCatalog } = await supabase
+      .from("certification_catalog")
+      .select("id, title, slug, updated_at")
+      .not("slug", "is", null);
+
+    if (certCatalog) {
+      certCatalog.forEach((cert) => {
+        if (cert.slug) {
+          urls.push({
+            loc: `${SITE_URL}/pruefungstraining/${cert.slug}`,
+            lastmod: cert.updated_at?.split("T")[0] || today,
+            changefreq: "weekly",
+            priority: 0.7,
+          });
+        }
+      });
+    }
+
     // Published SEO documents (blog, landing, faq, glossary, cluster)
     const { data: seoDocs } = await supabase
       .from("seo_documents")
