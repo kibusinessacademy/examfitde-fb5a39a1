@@ -642,27 +642,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ─── STEP-LEVEL CONCURRENCY LIMITS (per job type) ──────────────────
-    const STEP_CONCURRENCY_LIMITS: Record<string, number> = {
-      package_generate_exam_pool: 2,
-      package_generate_oral_exam: 2,
-      package_build_ai_tutor_index: 2,
-      package_generate_handbook: 2,
-      package_scaffold_learning_course: 2,
-      generate_curriculum_content: 3,
-      generate_course: 2,
-      generate_course_batch: 2,
-      auto_gap_close: 2,
-      seo_generate: 2,
-    };
+    // ─── STEP-LEVEL CONCURRENCY LIMITS (DB-driven from jobtype_limits) ──
+    const { data: dbLimits } = await admin
+      .from("jobtype_limits")
+      .select("job_type, max_processing");
+
+    const STEP_CONCURRENCY_LIMITS: Record<string, number> = {};
+    for (const row of dbLimits ?? []) {
+      STEP_CONCURRENCY_LIMITS[row.job_type] = row.max_processing;
+    }
 
     // Pre-fetch current processing counts per limited job type
     const limitedTypes = Object.keys(STEP_CONCURRENCY_LIMITS);
-    const { data: processingByType } = await admin
-      .from("job_queue")
-      .select("job_type")
-      .eq("status", "processing")
-      .in("job_type", limitedTypes);
+    const { data: processingByType } = limitedTypes.length > 0
+      ? await admin
+          .from("job_queue")
+          .select("job_type")
+          .eq("status", "processing")
+          .in("job_type", limitedTypes)
+      : { data: [] };
     
     const typeProcessingCounts: Record<string, number> = {};
     for (const row of processingByType ?? []) {
