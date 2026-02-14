@@ -72,38 +72,15 @@ Deno.serve(async (req) => {
         `Step timeout: ${s.step_key} on pkg ${s.package_id.slice(0, 8)}`,
       );
 
-      // Mark package as failed if step timed out
+      // Reset package to queued so runner can re-acquire and retry
       await sb
         .from("course_packages")
         .update({
-          status: "failed",
-          last_error: `Watchdog: step '${s.step_key}' timed out (no heartbeat)`,
+          status: "queued",
+          last_error: `Watchdog: step '${s.step_key}' timed out — re-queued`,
         })
         .eq("id", s.package_id)
         .eq("status", "building");
-
-      // Alert (deduplicated)
-      const alreadyAlerted = await hasRecentOpenAlert(
-        sb,
-        "pipeline-watchdog",
-        s.package_id.slice(0, 8),
-        10,
-      );
-      if (!alreadyAlerted) {
-        await sb
-          .from("ops_alerts")
-          .insert({
-            source: "pipeline-watchdog",
-            severity: "error",
-            message: `STEP_TIMEOUT: ${s.step_key} on pkg ${s.package_id.slice(0, 8)} (runner: ${s.runner_id ?? "unknown"})`,
-            payload: {
-              package_id: s.package_id,
-              step_key: s.step_key,
-              runner_id: s.runner_id,
-            },
-          })
-          .catch(() => {});
-      }
     }
 
     // ── 2) Expire stale leases ──
@@ -123,37 +100,18 @@ Deno.serve(async (req) => {
         `Lease expired: pkg ${l.package_id.slice(0, 8)} (runner: ${l.runner_id})`,
       );
 
-      // Mark package as failed if it was still building
+      // Reset package to queued so runner can re-acquire
       await sb
         .from("course_packages")
         .update({
-          status: "failed",
-          last_error: `Watchdog: lease expired for runner '${l.runner_id}'`,
+          status: "queued",
+          last_error: `Watchdog: lease expired — re-queued`,
         })
         .eq("id", l.package_id)
         .eq("status", "building");
-
-      // Also release legacy locks if they exist
-      await sb
-        .rpc("release_pipeline_slot", { p_package_id: l.package_id })
-        .catch(() => {});
-      await sb
-        .rpc("release_pipeline_lock", { p_package_id: l.package_id })
-        .catch(() => {});
     }
 
-    // ── 3) Orphaned building packages (no lease, still building) ──
-    const { data: orphaned } = await sb
-      .from("course_packages")
-      .select("id")
-      .eq("status", "building")
-      .not(
-        "id",
-        "in",
-        `(${(await sb.from("package_leases").select("package_id")).data?.map((r: { package_id: string }) => `"${r.package_id}"`).join(",") || "'00000000-0000-0000-0000-000000000000'"})`,
-      );
-
-    // Simpler approach: find building packages without a lease
+    // ── 3) Orphaned building packages (no lease, still building) → re-queue ──
     const { data: allLeases } = await sb
       .from("package_leases")
       .select("package_id");
@@ -171,12 +129,12 @@ Deno.serve(async (req) => {
     );
 
     for (const o of orphanedPkgs) {
-      actions.push(`Orphaned building pkg: ${o.id.slice(0, 8)} → failed`);
+      actions.push(`Orphaned building pkg: ${o.id.slice(0, 8)} → re-queued`);
       await sb
         .from("course_packages")
         .update({
-          status: "failed",
-          last_error: "Watchdog: building without lease (orphaned)",
+          status: "queued",
+          last_error: "Watchdog: orphaned — re-queued for retry",
         })
         .eq("id", o.id);
     }
