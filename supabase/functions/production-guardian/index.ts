@@ -493,7 +493,7 @@ Deno.serve(async (req) => {
             // Has progress → reclaim slot
             try {
               await sb.from("pipeline_active_packages").upsert(
-                { package_id: bPkg.id, claimed_at: new Date().toISOString(), heartbeat_at: new Date().toISOString() },
+                { package_id: bPkg.id, claimed_at: new Date().toISOString(), last_heartbeat: new Date().toISOString() },
                 { onConflict: "package_id" }
               );
               actions.push(`🔧 Reclaimed slot for orphaned building pkg ${bPkg.id.slice(0, 8)}`);

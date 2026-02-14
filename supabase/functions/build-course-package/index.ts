@@ -69,209 +69,229 @@ Deno.serve(async (req) => {
     console.warn(`[BuildPkg] Autofix call failed (non-fatal):`, afErr);
   }
 
-  // Fetch package
-  const { data: pkgRow, error: pkgErr } = await sb
-    .from("course_packages")
-    .select("id, course_id, certification_id, track, feature_flags")
-    .eq("id", packageId)
-    .single();
-
-  if (pkgErr || !pkgRow) {
-    await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-    return json({ error: "Package not found" }, 404);
-  }
-
-  const effectiveCourseId = courseId || pkgRow.course_id;
-  const effectiveCertId = certificationId || pkgRow.certification_id;
-  const featureFlags = pkgRow.feature_flags || {};
-  const track = pkgRow.track || "AUSBILDUNG_VOLL";
-
-  // Resolve curriculum_id
-  let effectiveCurriculumId = curriculumId;
-  if (!effectiveCurriculumId && effectiveCourseId) {
-    const { data: courseRow } = await sb
-      .from("courses")
-      .select("curriculum_id")
-      .eq("id", effectiveCourseId)
-      .single();
-    effectiveCurriculumId = courseRow?.curriculum_id || null;
-  }
-
-  // ── Council plan gate (auto-create if council_approved) ──
-  let { data: planRow } = await sb
-    .from("course_package_plans")
-    .select("id")
-    .eq("package_id", packageId)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!planRow) {
-    const { data: pkgCheck } = await sb
+  // ── Global try/catch: ensure slot + lock cleanup on ANY error ──
+  try {
+    // Fetch package
+    const { data: pkgRow, error: pkgErr } = await sb
       .from("course_packages")
-      .select("council_approved")
+      .select("id, course_id, certification_id, track, feature_flags")
       .eq("id", packageId)
       .single();
 
-    if (pkgCheck?.council_approved) {
-      const { data: newPlan, error: planInsErr } = await sb
-        .from("course_package_plans")
-        .insert({
-          package_id: packageId,
-          status: "approved",
-          plan: { auto_created: true, track, feature_flags: featureFlags },
-        })
-        .select("id")
-        .maybeSingle();
-      if (planInsErr || !newPlan) {
-        await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-        return json({ error: "Could not create build plan: " + (planInsErr?.message || "unknown") }, 400);
-      }
-      planRow = newPlan;
-    } else {
+    if (pkgErr || !pkgRow) {
       await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-      return json({ error: "No approved course_package_plan found (Council approval required)." }, 400);
+      await sb.from("pipeline_active_packages").delete().eq("package_id", packageId);
+      return json({ error: "Package not found" }, 404);
     }
-  }
 
-  // ── Hybrid Target Engine ──
-  let ausbildungsDauer: number | null = null;
-  let certCatalogData: {
-    exam_complexity_score?: number;
-    math_ratio?: number;
-    oral_component?: boolean;
-    learning_field_count?: number;
-    certification_level?: string;
-  } = {};
+    const effectiveCourseId = courseId || pkgRow.course_id;
+    const effectiveCertId = certificationId || pkgRow.certification_id;
+    const featureFlags = pkgRow.feature_flags || {};
+    const track = pkgRow.track || "AUSBILDUNG_VOLL";
 
-  if (effectiveCurriculumId) {
-    const { data: currRow } = await sb.from("curricula").select("beruf_id").eq("id", effectiveCurriculumId).maybeSingle();
-    if (currRow?.beruf_id) {
-      const { data: berufRow } = await sb.from("berufe").select("ausbildungsdauer_monate").eq("id", currRow.beruf_id).maybeSingle();
-      ausbildungsDauer = berufRow?.ausbildungsdauer_monate ?? null;
+    // Resolve curriculum_id
+    let effectiveCurriculumId = curriculumId;
+    if (!effectiveCurriculumId && effectiveCourseId) {
+      const { data: courseRow } = await sb
+        .from("courses")
+        .select("curriculum_id")
+        .eq("id", effectiveCourseId)
+        .single();
+      effectiveCurriculumId = courseRow?.curriculum_id || null;
     }
-  }
 
-  if (effectiveCertId) {
-    const { data: catRow } = await sb
-      .from("certification_catalog")
-      .select("exam_complexity_score, math_ratio, oral_component, learning_field_count, certification_level")
-      .eq("linked_certification_id", effectiveCertId)
+    // ── Council plan gate (auto-create if council_approved) ──
+    let { data: planRow } = await sb
+      .from("course_package_plans")
+      .select("id")
+      .eq("package_id", packageId)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
-    if (catRow) certCatalogData = catRow;
-  }
 
-  const hybridResult = calculateHybridTarget({
-    durationMonths: ausbildungsDauer,
-    track,
-    examComplexityScore: certCatalogData.exam_complexity_score ?? 1.0,
-    mathRatio: certCatalogData.math_ratio ?? 0.15,
-    oralComponent: certCatalogData.oral_component ?? false,
-    learningFieldCount: certCatalogData.learning_field_count ?? 0,
-    certificationLevel: certCatalogData.certification_level ?? "ausbildung",
-  });
+    if (!planRow) {
+      const { data: pkgCheck } = await sb
+        .from("course_packages")
+        .select("council_approved")
+        .eq("id", packageId)
+        .single();
 
-  console.log(`[BuildPkg] Hybrid Target: ${hybridResult.target} (ship: ${hybridResult.shipTarget})`);
+      if (pkgCheck?.council_approved) {
+        const { data: newPlan, error: planInsErr } = await sb
+          .from("course_package_plans")
+          .insert({
+            package_id: packageId,
+            status: "approved",
+            plan: { auto_created: true, track, feature_flags: featureFlags },
+          })
+          .select("id")
+          .maybeSingle();
+        if (planInsErr || !newPlan) {
+          await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
+          await sb.from("pipeline_active_packages").delete().eq("package_id", packageId);
+          return json({ error: "Could not create build plan: " + (planInsErr?.message || "unknown") }, 400);
+        }
+        planRow = newPlan;
+      } else {
+        await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
+        await sb.from("pipeline_active_packages").delete().eq("package_id", packageId);
+        return json({ error: "No approved course_package_plan found (Council approval required)." }, 400);
+      }
+    }
 
-  // Build options from feature_flags + Hybrid Engine
-  const opts = {
-    include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL"),
-    include_exam_pool: featureFlags.has_exam_trainer ?? true,
-    include_oral_exam: featureFlags.has_oral_exam_trainer ?? (track === "AUSBILDUNG_VOLL"),
-    include_ai_tutor: featureFlags.has_ai_tutor ?? (track === "AUSBILDUNG_VOLL"),
-    include_handbook: featureFlags.has_handbook ?? (track === "AUSBILDUNG_VOLL"),
-    exam_target: hybridResult.target,
-    ship_target: hybridResult.shipTarget,
-    ausbildungsdauer_monate: ausbildungsDauer,
-    difficulty_distribution: hybridResult.difficultyDistribution,
-    question_type_mix: hybridResult.questionTypeMix,
-    ...(options || {}),
-  };
+    // ── Hybrid Target Engine ──
+    let ausbildungsDauer: number | null = null;
+    let certCatalogData: {
+      exam_complexity_score?: number;
+      math_ratio?: number;
+      oral_component?: boolean;
+      learning_field_count?: number;
+      certification_level?: string;
+    } = {};
 
-  // ── Define pipeline steps (parallel content generation, then serial gates) ──
-  // Phase 1: content steps run in PARALLEL (sequence=1)
-  const contentSteps: Array<{ step_key: string; job_type: string }> = [];
-  if (opts.include_learning_course)
-    contentSteps.push({ step_key: "scaffold_learning_course", job_type: "package_scaffold_learning_course" });
-  if (opts.include_exam_pool)
-    contentSteps.push({ step_key: "generate_exam_pool", job_type: "package_generate_exam_pool" });
-  if (opts.include_oral_exam)
-    contentSteps.push({ step_key: "generate_oral_exam", job_type: "package_generate_oral_exam" });
-  if (opts.include_ai_tutor)
-    contentSteps.push({ step_key: "build_ai_tutor_index", job_type: "package_build_ai_tutor_index" });
-  if (opts.include_handbook)
-    contentSteps.push({ step_key: "generate_handbook", job_type: "package_generate_handbook" });
+    if (effectiveCurriculumId) {
+      const { data: currRow } = await sb.from("curricula").select("beruf_id").eq("id", effectiveCurriculumId).maybeSingle();
+      if (currRow?.beruf_id) {
+        const { data: berufRow } = await sb.from("berufe").select("ausbildungsdauer_monate").eq("id", currRow.beruf_id).maybeSingle();
+        ausbildungsDauer = berufRow?.ausbildungsdauer_monate ?? null;
+      }
+    }
 
-  // Phase 2+3: serial gates after all content is done
-  const gateSteps: Array<{ step_key: string; job_type: string }> = [
-    { step_key: "run_integrity_check", job_type: "package_run_integrity_check" },
-    { step_key: "auto_publish", job_type: "package_auto_publish" },
-  ];
+    if (effectiveCertId) {
+      const { data: catRow } = await sb
+        .from("certification_catalog")
+        .select("exam_complexity_score, math_ratio, oral_component, learning_field_count, certification_level")
+        .eq("linked_certification_id", effectiveCertId)
+        .maybeSingle();
+      if (catRow) certCatalogData = catRow;
+    }
 
-  const allSteps = [...contentSteps, ...gateSteps];
+    const hybridResult = calculateHybridTarget({
+      durationMonths: ausbildungsDauer,
+      track,
+      examComplexityScore: certCatalogData.exam_complexity_score ?? 1.0,
+      mathRatio: certCatalogData.math_ratio ?? 0.15,
+      oralComponent: certCatalogData.oral_component ?? false,
+      learningFieldCount: certCatalogData.learning_field_count ?? 0,
+      certificationLevel: certCatalogData.certification_level ?? "ausbildung",
+    });
 
-  // Init build steps
-  await sb.rpc("init_course_package_steps", {
-    p_package_id: packageId,
-    p_steps: allSteps.map((s) => s.step_key),
-  });
+    console.log(`[BuildPkg] Hybrid Target: ${hybridResult.target} (ship: ${hybridResult.shipTarget})`);
 
-  // Heartbeat again before enqueuing jobs
-  await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId });
+    // Build options from feature_flags + Hybrid Engine
+    const opts = {
+      include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL"),
+      include_exam_pool: featureFlags.has_exam_trainer ?? true,
+      include_oral_exam: featureFlags.has_oral_exam_trainer ?? (track === "AUSBILDUNG_VOLL"),
+      include_ai_tutor: featureFlags.has_ai_tutor ?? (track === "AUSBILDUNG_VOLL"),
+      include_handbook: featureFlags.has_handbook ?? (track === "AUSBILDUNG_VOLL"),
+      exam_target: hybridResult.target,
+      ship_target: hybridResult.shipTarget,
+      ausbildungsdauer_monate: ausbildungsDauer,
+      difficulty_distribution: hybridResult.difficultyDistribution,
+      question_type_mix: hybridResult.questionTypeMix,
+      ...(options || {}),
+    };
 
-  // Enqueue jobs: content steps all get sequence=1 (parallel), gates get 2, 3
-  const nowIso = new Date().toISOString();
-  const jobs = [
-    ...contentSteps.map((s, idx) => ({
-      job_type: s.job_type,
-      status: "pending",
-      attempts: 0,
-      max_attempts: 25,
-      run_after: nowIso,
-      payload: {
-        job_version: "course_studio_v2",
-        package_id: packageId,
-        step_key: s.step_key,
-        course_id: effectiveCourseId,
-        curriculum_id: effectiveCurriculumId,
-        certification_id: effectiveCertId,
-        provider: idx % 2 === 0 ? "openai" : "anthropic",
-        options: opts,
-        sequence: 1, // all content steps run in parallel
-      },
-    })),
-    ...gateSteps.map((s, idx) => ({
-      job_type: s.job_type,
-      status: "pending",
-      attempts: 0,
-      max_attempts: 25,
-      run_after: nowIso,
-      payload: {
-        job_version: "course_studio_v2",
-        package_id: packageId,
-        step_key: s.step_key,
-        course_id: effectiveCourseId,
-        curriculum_id: effectiveCurriculumId,
-        certification_id: effectiveCertId,
-        provider: "openai",
-        options: opts,
-        sequence: idx + 2, // integrity_check=2, auto_publish=3
-      },
-    })),
-  ];
+    // ── Define pipeline steps (parallel content generation, then serial gates) ──
+    // Phase 1: content steps run in PARALLEL (sequence=1)
+    const contentSteps: Array<{ step_key: string; job_type: string }> = [];
+    if (opts.include_learning_course)
+      contentSteps.push({ step_key: "scaffold_learning_course", job_type: "package_scaffold_learning_course" });
+    if (opts.include_exam_pool)
+      contentSteps.push({ step_key: "generate_exam_pool", job_type: "package_generate_exam_pool" });
+    if (opts.include_oral_exam)
+      contentSteps.push({ step_key: "generate_oral_exam", job_type: "package_generate_oral_exam" });
+    if (opts.include_ai_tutor)
+      contentSteps.push({ step_key: "build_ai_tutor_index", job_type: "package_build_ai_tutor_index" });
+    if (opts.include_handbook)
+      contentSteps.push({ step_key: "generate_handbook", job_type: "package_generate_handbook" });
 
-  const ins = await sb.from("job_queue").insert(jobs).select("id");
-  if (ins.error) {
+    // Phase 2+3: serial gates after all content is done
+    const gateSteps: Array<{ step_key: string; job_type: string }> = [
+      { step_key: "run_integrity_check", job_type: "package_run_integrity_check" },
+      { step_key: "auto_publish", job_type: "package_auto_publish" },
+    ];
+
+    const allSteps = [...contentSteps, ...gateSteps];
+
+    // Init build steps
+    await sb.rpc("init_course_package_steps", {
+      p_package_id: packageId,
+      p_steps: allSteps.map((s) => s.step_key),
+    });
+
+    // Heartbeat again before enqueuing jobs
+    await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId });
+
+    // Enqueue jobs: content steps all get sequence=1 (parallel), gates get 2, 3
+    const nowIso = new Date().toISOString();
+    const jobs = [
+      ...contentSteps.map((s, idx) => ({
+        job_type: s.job_type,
+        status: "pending",
+        attempts: 0,
+        max_attempts: 25,
+        run_after: nowIso,
+        payload: {
+          job_version: "course_studio_v2",
+          package_id: packageId,
+          step_key: s.step_key,
+          course_id: effectiveCourseId,
+          curriculum_id: effectiveCurriculumId,
+          certification_id: effectiveCertId,
+          provider: idx % 2 === 0 ? "openai" : "anthropic",
+          options: opts,
+          sequence: 1, // all content steps run in parallel
+        },
+      })),
+      ...gateSteps.map((s, idx) => ({
+        job_type: s.job_type,
+        status: "pending",
+        attempts: 0,
+        max_attempts: 25,
+        run_after: nowIso,
+        payload: {
+          job_version: "course_studio_v2",
+          package_id: packageId,
+          step_key: s.step_key,
+          course_id: effectiveCourseId,
+          curriculum_id: effectiveCurriculumId,
+          certification_id: effectiveCertId,
+          provider: "openai",
+          options: opts,
+          sequence: idx + 2, // integrity_check=2, auto_publish=3
+        },
+      })),
+    ];
+
+    const ins = await sb.from("job_queue").insert(jobs).select("id");
+    if (ins.error) {
+      await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
+      await sb.from("pipeline_active_packages").delete().eq("package_id", packageId);
+      return json({ error: ins.error.message }, 500);
+    }
+
+    // Mark package as building
+    await sb
+      .from("course_packages")
+      .update({ status: "building", build_progress: 1 })
+      .eq("id", packageId);
+
+    return json({ ok: true, enqueued: ins.data?.length || jobs.length, packageId, pipeline_lock: "held" });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[BuildPkg] FATAL: ${msg}`);
+
+    // Fail package, release slot + lock
+    await sb.from("course_packages").update({
+      status: "failed",
+      updated_at: new Date().toISOString(),
+    }).eq("id", packageId);
+    await sb.from("pipeline_active_packages").delete().eq("package_id", packageId);
     await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-    return json({ error: ins.error.message }, 500);
+
+    return json({ ok: false, error: msg }, 500);
   }
-
-  // Mark package as building
-  await sb
-    .from("course_packages")
-    .update({ status: "building", build_progress: 1 })
-    .eq("id", packageId);
-
-  return json({ ok: true, enqueued: ins.data?.length || jobs.length, packageId, pipeline_lock: "held" });
 });
