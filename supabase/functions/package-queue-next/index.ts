@@ -16,13 +16,15 @@ function json(body: unknown, status = 200) {
 }
 
 /**
- * package-queue-next — WIP-limit = 1
+ * package-queue-next — Per-Package Isolation, NO global gates
  *
- * Called by pg_cron every minute.
- * 1. Check pipeline_lock — if locked → return busy
- * 2. Pick next queued package
- * 3. Claim pipeline_lock atomically
- * 4. Fire build-course-package (fire-and-forget)
+ * Uses claim_next_queued_package() RPC which:
+ * 1. Iterates queued packages in FIFO order (FOR UPDATE SKIP LOCKED)
+ * 2. Checks per-package: is THIS curriculum frozen?
+ * 3. If not frozen → blocks only THIS package, tries next
+ * 4. If frozen → claims it atomically, returns it
+ *
+ * No global draft/frozen counts. No global hard-stops.
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -33,51 +35,13 @@ Deno.serve(async (req) => {
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
-    // ── Step 0: Cleanup stale locks (>10 min without heartbeat) ──
-    await sb.rpc("cleanup_stale_pipeline_lock");
+    // ── Step 0: Cleanup stale locks ──
+    await sb.rpc("cleanup_stale_pipeline_lock").catch(() => {});
 
-    // ── Step 0.5: Freeze-phase gate ──
-    const { count: frozenCount } = await sb
-      .from("curricula")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "frozen");
-
-    const { count: totalPkgs } = await sb
-      .from("course_packages")
-      .select("id", { count: "exact", head: true });
-
-    // Freeze-phase gate: only block builds if almost no curricula are frozen yet
-    const { count: draftCount } = await sb
-      .from("curricula")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "draft");
-
-    const drafts = draftCount ?? 0;
-    const frozen = frozenCount ?? 0;
-    const queuedPkgs = totalPkgs ?? 0;
-
-    // Only block if we have almost no frozen curricula AND no queued packages ready
-    // Once packages are queued, always allow building (they passed setup already)
-    const { count: queuedCount } = await sb
-      .from("course_packages")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "queued");
-
-    if (frozen < 10 && (queuedCount ?? 0) === 0) {
-      return json({
-        ok: true,
-        skipped: true,
-        reason: "Freeze-phase priority: waiting for first frozen curricula",
-        frozenCount: frozen,
-        draftCount: drafts,
-      });
-    }
-
-    // ── Step 1: Check dynamic WIP from pipeline_capacity ──
-    const { data: activeIds } = await sb.rpc("get_active_pipeline_packages");
+    // ── Step 1: Check WIP capacity ──
+    const { data: activeIds } = await sb.rpc("get_active_pipeline_packages").catch(() => ({ data: null }));
     const currentActive = (activeIds as string[] | null) ?? [];
 
-    // Read dynamic max_wip from pipeline_capacity (not hardcoded)
     const { data: capRow } = await sb
       .from("pipeline_capacity")
       .select("max_wip")
@@ -95,40 +59,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Step 2: Pick next queued package (priority-based, then FIFO) ──
-    let nextId: string | null = null;
+    // ── Step 2: Atomic per-package claim via RPC ──
+    // This RPC iterates queued packages, checks per-package curriculum status,
+    // blocks non-frozen ones individually, and claims the first buildable one.
+    const { data: claimed, error: claimErr } = await sb.rpc("claim_next_queued_package");
 
-    // Try priority pick first
-    try {
-      const { data: priorityId } = await sb.rpc("pick_next_package_by_priority", { max_active: 1 });
-      if (priorityId) nextId = priorityId;
-    } catch { /* rpc may not exist yet */ }
-
-    if (!nextId) {
-      // Fallback: simple FIFO from queued packages
-      const { data: nextPkg } = await sb
-        .from("course_packages")
-        .select("id")
-        .eq("status", "queued")
-        .order("queue_position", { ascending: true, nullsFirst: false })
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      nextId = nextPkg?.id || null;
+    if (claimErr) {
+      console.error("[queue-next] claim RPC error:", claimErr.message);
+      return json({ ok: false, error: claimErr.message }, 500);
     }
 
-    if (!nextId) {
-      return json({ ok: true, skipped: true, reason: "no_queued_packages" });
+    const pkg = Array.isArray(claimed) ? claimed[0] : claimed;
+    if (!pkg?.package_id) {
+      return json({
+        ok: true,
+        skipped: true,
+        reason: "no_buildable_package (all queued packages blocked or none queued)",
+      });
     }
 
-    // ── Step 3: Claim pipeline slot atomically (dynamic WIP) ──
+    const nextId = pkg.package_id;
+    const curriculumId = pkg.curriculum_id;
+
+    // ── Step 3: Register in pipeline slot registry ──
     const { data: slotClaimed } = await sb.rpc("claim_pipeline_slot", {
       p_package_id: nextId,
-    });
-
-    if (!slotClaimed) {
-      return json({ ok: true, skipped: true, reason: "slot_claim_failed_race_condition" });
-    }
+    }).catch(() => ({ data: false }));
 
     // Also set legacy single-lock for backward compat
     await sb.rpc("try_claim_pipeline_lock", {
@@ -136,56 +92,7 @@ Deno.serve(async (req) => {
       p_locked_by: "package-queue-next",
     }).catch(() => {});
 
-    // ── Step 4: Fetch package details ──
-    const { data: next, error } = await sb
-      .from("course_packages")
-      .select("id, course_id, certification_id, track, feature_flags, queue_position")
-      .eq("id", nextId)
-      .maybeSingle();
-
-    if (error || !next) {
-      await sb.rpc("release_pipeline_slot", { p_package_id: nextId });
-      await sb.rpc("release_pipeline_lock", { p_package_id: nextId }).catch(() => {});
-      return json({ ok: false, error: "Package not found after lock claim" }, 404);
-    }
-
-    // ── Step 5: Resolve curriculum_id ──
-    const { data: course } = await sb
-      .from("courses")
-      .select("curriculum_id")
-      .eq("id", next.course_id)
-      .maybeSingle();
-
-    let curriculumId = course?.curriculum_id;
-    if (!curriculumId) {
-      // Try autofix
-      try {
-        const afRes = await fetch(`${SUPABASE_URL}/functions/v1/prebuild-autofix`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
-          body: JSON.stringify({ package_id: next.id }),
-        });
-        const afData = await afRes.json();
-        if (afData.fixes_applied > 0) {
-          const { data: retry } = await sb.from("courses").select("curriculum_id").eq("id", next.course_id).maybeSingle();
-          curriculumId = retry?.curriculum_id;
-        }
-      } catch { /* non-fatal */ }
-
-      if (!curriculumId) {
-        await sb.rpc("release_pipeline_slot", { p_package_id: nextId });
-        await sb.rpc("release_pipeline_lock", { p_package_id: nextId }).catch(() => {});
-        await sb.from("course_packages").update({ status: "failed", updated_at: new Date().toISOString() }).eq("id", nextId);
-        await sb.from("admin_notifications").insert({
-          title: `⚠️ Paket ohne Curriculum: ${next.id.slice(0, 8)}`,
-          body: `Kurs ${next.course_id} hat kein curriculum_id. Lock freigegeben.`,
-          category: "ops", severity: "warning",
-        });
-        return json({ ok: false, error: "No curriculum_id" }, 400);
-      }
-    }
-
-    // ── Step 6: Hybrid Target Engine ──
+    // ── Step 4: Hybrid Target Engine ──
     let durationMonths: number | null = null;
     let certCatalogData: {
       exam_complexity_score?: number;
@@ -203,16 +110,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (next.certification_id) {
+    if (pkg.certification_id) {
       const { data: catRow } = await sb
         .from("certification_catalog")
         .select("exam_complexity_score, math_ratio, oral_component, learning_field_count, certification_level")
-        .eq("linked_certification_id", next.certification_id)
+        .eq("linked_certification_id", pkg.certification_id)
         .maybeSingle();
       if (catRow) certCatalogData = catRow;
     }
 
-    const track = next.track || "AUSBILDUNG_VOLL";
+    const track = pkg.track || "AUSBILDUNG_VOLL";
     const hybridResult = calculateHybridTarget({
       durationMonths,
       track,
@@ -223,18 +130,18 @@ Deno.serve(async (req) => {
       certificationLevel: certCatalogData.certification_level ?? "ausbildung",
     });
 
-    // ── Step 7: Ensure approved plan ──
+    // ── Step 5: Ensure approved plan ──
     const { data: plan } = await sb
       .from("course_package_plans")
       .select("id")
-      .eq("package_id", next.id)
+      .eq("package_id", nextId)
       .eq("status", "approved")
       .limit(1)
       .maybeSingle();
 
     if (!plan) {
       await sb.from("course_package_plans").insert({
-        package_id: next.id,
+        package_id: nextId,
         status: "approved",
         plan: {
           auto_created: true,
@@ -247,24 +154,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Ensure council_approved
-    await sb
-      .from("course_packages")
-      .update({
-        council_approved: true,
-        council_approved_at: new Date().toISOString(),
-        status: "building",
-        build_progress: 1,
-      })
-      .eq("id", next.id);
-
-    // ── Step 8: Fire build-course-package (fire-and-forget) ──
-    const featureFlags = next.feature_flags || {};
+    // ── Step 6: Fire build-course-package (fire-and-forget) ──
+    const featureFlags = pkg.feature_flags || {};
     const buildBody = JSON.stringify({
-      packageId: next.id,
-      courseId: next.course_id,
+      packageId: nextId,
+      courseId: pkg.course_id,
       curriculumId,
-      certificationId: next.certification_id,
+      certificationId: pkg.certification_id,
       options: {
         include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL"),
         include_exam_pool: featureFlags.has_exam_trainer ?? true,
@@ -289,32 +185,47 @@ Deno.serve(async (req) => {
       if (!res.ok) {
         const errText = await res.text().catch(() => "unknown");
         console.error(`[queue-next] Build returned ${res.status}: ${errText}`);
-        await sb.from("admin_notifications").insert({
-          title: `🔴 Build-Start fehlgeschlagen: ${next.id.slice(0, 8)}`,
-          body: `HTTP ${res.status}: ${errText.slice(0, 200)}`,
-          category: "ops", severity: "error",
-          metadata: { package_id: next.id },
+        // Alert + cleanup on build start failure
+        await sb.from("ops_alerts").insert({
+          source: "package-queue-next",
+          severity: "error",
+          message: `Build-Start failed for ${nextId.slice(0, 8)}: HTTP ${res.status}`,
+          payload: { package_id: nextId, status: res.status, error: errText.slice(0, 500) },
         });
+        await sb.from("course_packages").update({ status: "failed", last_error: `Build HTTP ${res.status}: ${errText.slice(0, 200)}` }).eq("id", nextId);
+        await sb.rpc("release_pipeline_slot", { p_package_id: nextId }).catch(() => {});
+        await sb.rpc("release_pipeline_lock", { p_package_id: nextId }).catch(() => {});
       }
     }).catch(async (e) => {
       console.error(`[queue-next] Fire-and-forget error: ${(e as Error).message}`);
-      await sb.rpc("release_pipeline_slot", { p_package_id: next.id });
-      await sb.rpc("release_pipeline_lock", { p_package_id: next.id }).catch(() => {});
-      await sb.from("course_packages").update({ status: "failed" }).eq("id", next.id);
+      await sb.from("ops_alerts").insert({
+        source: "package-queue-next",
+        severity: "error",
+        message: `Build fire-and-forget failed: ${(e as Error).message}`,
+        payload: { package_id: nextId },
+      });
+      await sb.rpc("release_pipeline_slot", { p_package_id: nextId }).catch(() => {});
+      await sb.rpc("release_pipeline_lock", { p_package_id: nextId }).catch(() => {});
+      await sb.from("course_packages").update({ status: "failed", last_error: (e as Error).message }).eq("id", nextId);
     });
 
-    console.log(`[queue-next] 🔒 Pipeline slot claimed for package ${next.id} (queue_position=${next.queue_position})`);
+    console.log(`[queue-next] 🔒 Claimed package ${nextId} (queue_pos=${pkg.queue_position}, curriculum=${curriculumId})`);
 
     return json({
       ok: true,
-      started_package_id: next.id,
-      queue_position: next.queue_position,
-      mode: "wip2_slot",
+      started_package_id: nextId,
+      queue_position: pkg.queue_position,
+      mode: "per_package_isolation",
       hybrid_target: hybridResult.target,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error("[queue-next] Error:", msg);
+    await sb.from("ops_alerts").insert({
+      source: "package-queue-next",
+      severity: "error",
+      message: `Unhandled error: ${msg}`,
+    }).catch(() => {});
     return json({ ok: false, error: msg }, 500);
   }
 });

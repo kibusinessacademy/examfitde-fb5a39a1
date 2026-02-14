@@ -226,13 +226,34 @@ Deno.serve(async (req) => {
 
     // ═══════════════════════════════════════════════════════════════
     // 5. AUTO-TRIGGER PIPELINE (if idle + queued packages exist)
+    //    + STALL DETECTION → ops_alerts
     // ═══════════════════════════════════════════════════════════════
-    if (pipelineIdle) {
-      const { count: queuedCount } = await sb
-        .from("course_packages")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "queued");
+    const { count: queuedCount } = await sb
+      .from("course_packages")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "queued");
 
+    const { count: buildingCount } = await sb
+      .from("course_packages")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "building");
+
+    // Stall detection: queued > 0 BUT nothing building AND no active slots
+    const { data: activeSlotCheck } = await sb.rpc("get_active_pipeline_packages").catch(() => ({ data: null }));
+    const activeSlotsNow = (activeSlotCheck as string[] | null) ?? [];
+
+    if ((queuedCount ?? 0) > 0 && (buildingCount ?? 0) === 0 && activeSlotsNow.length === 0) {
+      // Pipeline stalled! Write alert
+      await sb.from("ops_alerts").insert({
+        source: "production-guardian",
+        severity: "warning",
+        message: `PIPELINE_STALLED: ${queuedCount} packages queued but 0 building, 0 slots active`,
+        payload: { queued: queuedCount, building: buildingCount, active_slots: activeSlotsNow.length },
+      });
+      warnings.push(`STALL DETECTED: ${queuedCount} queued, 0 building, 0 slots`);
+    }
+
+    if (pipelineIdle || ((queuedCount ?? 0) > 0 && (buildingCount ?? 0) === 0)) {
       if ((queuedCount ?? 0) > 0) {
         // Fire package-queue-next to pick up the next package
         try {
