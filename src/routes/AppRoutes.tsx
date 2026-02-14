@@ -190,7 +190,7 @@ const AppRoutes = () => {
           <Route path="support/*" element={<SupportOverview />} />
         </Route>
 
-        {/* Legacy redirects → V4 */}
+        {/* Legacy redirects → V4 (content/* and curriculum/* removed — now live routes) */}
         <Route path="/admin/dashboard" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/course-studio" element={<Navigate to="/admin/studio/new" replace />} />
@@ -199,8 +199,6 @@ const AppRoutes = () => {
         <Route path="/admin/jobs/*" element={<Navigate to="/admin/ops" replace />} />
         <Route path="/admin/system/*" element={<Navigate to="/admin/ops" replace />} />
         <Route path="/admin/finance/*" element={<Navigate to="/admin/business" replace />} />
-        <Route path="/admin/content/*" element={<Navigate to="/admin/studio" replace />} />
-        <Route path="/admin/curriculum/*" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/council/*" element={<Navigate to="/admin/quality" replace />} />
         <Route path="/admin-v2/*" element={<Navigate to="/admin/command" replace />} />
 
