@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getProtectedAssetUrl } from '@/lib/storageAccess';
 import { Loader2, AlertCircle, PlayCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 interface H5PPlayerProps {
   contentId: string;
+  curriculumId?: string;
   onCompleted?: (score?: number, maxScore?: number) => void;
   onProgress?: (progress: number) => void;
 }
@@ -25,7 +26,7 @@ interface XAPIStatement {
   };
 }
 
-export default function H5PPlayer({ contentId, onCompleted, onProgress }: H5PPlayerProps) {
+export default function H5PPlayer({ contentId, curriculumId, onCompleted, onProgress }: H5PPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const h5pInstanceRef = useRef<unknown>(null);
   const [loading, setLoading] = useState(true);
@@ -35,15 +36,17 @@ export default function H5PPlayer({ contentId, onCompleted, onProgress }: H5PPla
   useEffect(() => {
     const fetchContentUrl = async () => {
       try {
-        // Get the public URL for the H5P content from storage
-        const { data } = supabase
-          .storage
-          .from('h5p-content')
-          .getPublicUrl(`${contentId}/content.json`);
+        // Get a signed URL for the H5P content folder via entitlement-gated edge function
+        const signedUrl = await getProtectedAssetUrl({
+          bucket: 'h5p-content',
+          path: `${contentId}/content.json`,
+          curriculumId,
+          expiresIn: 300,
+        });
 
-        if (data?.publicUrl) {
+        if (signedUrl) {
           // The base path for the H5P content folder
-          const basePath = data.publicUrl.replace('/content.json', '');
+          const basePath = signedUrl.replace('/content.json', '');
           setContentUrl(basePath);
         } else {
           setError('H5P-Inhalt nicht gefunden');
@@ -55,7 +58,7 @@ export default function H5PPlayer({ contentId, onCompleted, onProgress }: H5PPla
     };
 
     fetchContentUrl();
-  }, [contentId]);
+  }, [contentId, curriculumId]);
 
   useEffect(() => {
     if (!contentUrl || !containerRef.current) return;
