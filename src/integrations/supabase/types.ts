@@ -4014,6 +4014,7 @@ export type Database = {
           integrity_report: Json | null
           last_error: string | null
           last_progress_at: string | null
+          pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           published_at: string | null
           queue_position: number | null
           retry_count: number | null
@@ -4048,6 +4049,7 @@ export type Database = {
           integrity_report?: Json | null
           last_error?: string | null
           last_progress_at?: string | null
+          pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           published_at?: string | null
           queue_position?: number | null
           retry_count?: number | null
@@ -4082,6 +4084,7 @@ export type Database = {
           integrity_report?: Json | null
           last_error?: string | null
           last_progress_at?: string | null
+          pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           published_at?: string | null
           queue_position?: number | null
           retry_count?: number | null
@@ -9409,6 +9412,59 @@ export type Database = {
           },
         ]
       }
+      package_leases: {
+        Row: {
+          acquired_at: string
+          lease_until: string
+          package_id: string
+          renewed_at: string
+          runner_id: string
+        }
+        Insert: {
+          acquired_at?: string
+          lease_until: string
+          package_id: string
+          renewed_at?: string
+          runner_id: string
+        }
+        Update: {
+          acquired_at?: string
+          lease_until?: string
+          package_id?: string
+          renewed_at?: string
+          runner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
       package_quality_reports: {
         Row: {
           created_at: string
@@ -9474,6 +9530,89 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "quality_score_versions"
             referencedColumns: ["version"]
+          },
+        ]
+      }
+      package_steps: {
+        Row: {
+          attempts: number
+          created_at: string
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          last_heartbeat_at: string | null
+          max_attempts: number
+          meta: Json
+          package_id: string
+          runner_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["step_status"]
+          step_key: string
+          timeout_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          max_attempts?: number
+          meta?: Json
+          package_id: string
+          runner_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["step_status"]
+          step_key: string
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          max_attempts?: number
+          meta?: Json
+          package_id?: string
+          runner_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["step_status"]
+          step_key?: string
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
           },
         ]
       }
@@ -14554,6 +14693,10 @@ export type Database = {
         }
         Returns: string
       }
+      acquire_next_package_lease: {
+        Args: { p_lease_seconds?: number; p_runner_id: string }
+        Returns: string
+      }
       admin_approve_growth_action: {
         Args: { p_action_id: string }
         Returns: undefined
@@ -14868,6 +15011,21 @@ export type Database = {
       evaluate_cluster_dominance: { Args: never; Returns: Json }
       evaluate_portfolio_health: { Args: never; Returns: Json }
       evaluate_rollout_readiness: { Args: never; Returns: Json }
+      expire_stale_leases: {
+        Args: never
+        Returns: {
+          package_id: string
+          runner_id: string
+        }[]
+      }
+      expire_stale_steps: {
+        Args: never
+        Returns: {
+          package_id: string
+          runner_id: string
+          step_key: string
+        }[]
+      }
       export_course_pack: {
         Args: {
           p_course_id: string
@@ -15491,6 +15649,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      release_package_lease: {
+        Args: { p_package_id: string; p_runner_id: string }
+        Returns: undefined
+      }
       release_pipeline_lock: {
         Args: { p_package_id: string }
         Returns: undefined
@@ -15504,6 +15666,14 @@ export type Database = {
         Returns: undefined
       }
       release_stale_slots: { Args: { p_age_minutes?: number }; Returns: number }
+      renew_package_lease: {
+        Args: {
+          p_lease_seconds?: number
+          p_package_id: string
+          p_runner_id: string
+        }
+        Returns: boolean
+      }
       report_audit_log: {
         Args: { p_limit?: number }
         Returns: {
@@ -15669,6 +15839,7 @@ export type Database = {
           integrity_report: Json | null
           last_error: string | null
           last_progress_at: string | null
+          pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           published_at: string | null
           queue_position: number | null
           retry_count: number | null
@@ -15747,6 +15918,22 @@ export type Database = {
       start_weakness_exam_session: {
         Args: { p_blueprint_id: string }
         Returns: string
+      }
+      step_done: {
+        Args: { p_meta?: Json; p_package_id: string; p_step_key: string }
+        Returns: undefined
+      }
+      step_fail: {
+        Args: { p_error: string; p_package_id: string; p_step_key: string }
+        Returns: undefined
+      }
+      step_heartbeat: {
+        Args: { p_package_id: string; p_runner_id: string; p_step_key: string }
+        Returns: undefined
+      }
+      step_start: {
+        Args: { p_package_id: string; p_runner_id: string; p_step_key: string }
+        Returns: undefined
       }
       submit_exam_answer: {
         Args: {
@@ -15858,6 +16045,7 @@ export type Database = {
           integrity_report: Json | null
           last_error: string | null
           last_progress_at: string | null
+          pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           published_at: string | null
           queue_position: number | null
           retry_count: number | null
@@ -16004,6 +16192,7 @@ export type Database = {
         | "anwenden"
         | "wiederholen"
         | "mini_check"
+      pipeline_mode: "factory" | "production"
       product_track: "AUSBILDUNG_VOLL" | "EXAM_FIRST"
       qa_severity: "low" | "medium" | "high" | "critical"
       qa_status: "open" | "resolved" | "accepted_risk"
@@ -16022,6 +16211,14 @@ export type Database = {
         | "admin_block"
         | "admin_unblock"
       security_review_status: "open" | "approved" | "blocked" | "dismissed"
+      step_status:
+        | "queued"
+        | "running"
+        | "done"
+        | "failed"
+        | "blocked"
+        | "timeout"
+        | "skipped"
       variation_mode:
         | "lexical"
         | "numerical"
@@ -16261,6 +16458,7 @@ export const Constants = {
         "wiederholen",
         "mini_check",
       ],
+      pipeline_mode: ["factory", "production"],
       product_track: ["AUSBILDUNG_VOLL", "EXAM_FIRST"],
       qa_severity: ["low", "medium", "high", "critical"],
       qa_status: ["open", "resolved", "accepted_risk"],
@@ -16280,6 +16478,15 @@ export const Constants = {
         "admin_unblock",
       ],
       security_review_status: ["open", "approved", "blocked", "dismissed"],
+      step_status: [
+        "queued",
+        "running",
+        "done",
+        "failed",
+        "blocked",
+        "timeout",
+        "skipped",
+      ],
       variation_mode: [
         "lexical",
         "numerical",

@@ -266,3 +266,6 @@ verify_jwt = false
 
 [functions.factory-orchestrator]
 verify_jwt = false
+
+[functions.pipeline-watchdog]
+verify_jwt = false
