@@ -275,11 +275,6 @@ async function generateDominanzQuestions(
     }
     existingHashes.add(hash);
 
-    const metadata: Record<string, unknown> = {};
-    if (q.question_type) metadata.question_type = q.question_type;
-    if (q.tags) metadata.tags = q.tags;
-    if (q.calculation_steps) metadata.calculation_steps = q.calculation_steps;
-
     const { error } = await sb.from("exam_questions").insert({
       curriculum_id: bp.curriculum_id,
       learning_field_id: bp.learning_field_id,
@@ -292,7 +287,6 @@ async function generateDominanzQuestions(
       difficulty: q.difficulty || difficulty,
       ai_generated: true,
       status: "draft",
-      metadata: Object.keys(metadata).length > 0 ? metadata : null,
     });
     if (error) {
       console.log(`[ExamPool-Dominanz] Insert error: ${error.message}`);
