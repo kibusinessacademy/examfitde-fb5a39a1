@@ -41,6 +41,7 @@ const WissenAllePage = lazy(() => import('@/pages/seo/WissenAllePage'));
 const SearchPage = lazy(() => import('@/pages/seo/SearchPage'));
 const CertificationCategoryPage = lazy(() => import('@/pages/seo/CertificationCategoryPage'));
 const CertificationSEOPage = lazy(() => import('@/pages/seo/CertificationSEOPage'));
+const QualityScorePage = lazy(() => import('@/pages/seo/QualityScorePage'));
 
 // Legal Pages
 const AGBPage = lazy(() => import('@/pages/seo/AGBPage'));
@@ -120,6 +121,7 @@ const AppRoutes = () => {
           <Route path="/:slug-muendliche-pruefung" element={<CertificationSEOPage />} />
           <Route path="/:slug-schweregrad" element={<CertificationSEOPage />} />
           <Route path="/:slug-pruefungssimulation" element={<CertificationSEOPage />} />
+          <Route path="/:slug-qualitaet" element={<QualityScorePage />} />
 
           {/* Existing SEO routes */}
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />

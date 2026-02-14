@@ -15,6 +15,8 @@ function json(body: unknown, status = 200) {
  * - Min question count (>= 500)
  * - Difficulty distribution
  * - MiniCheck presence
+ *
+ * Also writes package_quality_scores with badge.
  */
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -117,6 +119,37 @@ Deno.serve(async (req) => {
       created_at: new Date().toISOString(),
     }, { onConflict: "package_id" });
 
+    // ── Compute & save package_quality_scores with badge ──
+    const badge = rulesFailed > 0 ? "bronze"
+      : score >= 92 ? "platinum"
+      : score >= 85 ? "gold"
+      : score >= 75 ? "silver"
+      : "bronze";
+
+    const publicSummary = {
+      score,
+      badge,
+      total_questions: totalQuestions,
+      blueprint_coverage_pct: blueprintCoverage,
+      lf_coverage_pct: lfCoverage,
+      duplicate_rate_pct: duplicateRate,
+      difficulty: { easy_pct: +easyPct.toFixed(1), hard_pct: +hardPct.toFixed(1) },
+      rules_total: results.length,
+      rules_passed: rulesPassed,
+      rules_warned: rulesWarned,
+      rules_failed: rulesFailed,
+      checked_at: new Date().toISOString(),
+    };
+
+    await sb.from("package_quality_scores").upsert({
+      package_id: packageId,
+      score_version: 1,
+      score,
+      badge,
+      public_summary: publicSummary,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "package_id" });
+
     // Update review status based on quality
     if (status === "fail") {
       await sb.from("course_package_reviews").upsert({
@@ -130,7 +163,7 @@ Deno.serve(async (req) => {
     if (status === "fail") {
       await sb.from("admin_notifications").insert({
         title: `🛑 Quality Council: Package blocked`,
-        body: `${rulesFailed} blocking rules failed. Score: ${score}%`,
+        body: `${rulesFailed} blocking rules failed. Score: ${score}% Badge: ${badge}`,
         category: "quality",
         severity: "error",
         entity_type: "course_package",
@@ -138,7 +171,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return json({ ok: true, package_id: packageId, score, status, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned });
+    return json({ ok: true, package_id: packageId, score, status, badge, rules_passed: rulesPassed, rules_failed: rulesFailed, rules_warned: rulesWarned });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }

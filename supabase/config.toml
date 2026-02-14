@@ -263,3 +263,6 @@ verify_jwt = false
 
 [functions.package-quality-council]
 verify_jwt = false
+
+[functions.factory-orchestrator]
+verify_jwt = false
