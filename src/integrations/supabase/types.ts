@@ -4205,6 +4205,7 @@ export type Database = {
           last_progress_at: string | null
           locked_at: string | null
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
+          priority: number
           published_at: string | null
           queue_position: number | null
           retry_count: number | null
@@ -4241,6 +4242,7 @@ export type Database = {
           last_progress_at?: string | null
           locked_at?: string | null
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
+          priority?: number
           published_at?: string | null
           queue_position?: number | null
           retry_count?: number | null
@@ -4277,6 +4279,7 @@ export type Database = {
           last_progress_at?: string | null
           locked_at?: string | null
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
+          priority?: number
           published_at?: string | null
           queue_position?: number | null
           retry_count?: number | null
@@ -9141,6 +9144,27 @@ export type Database = {
           overall_status?: string
           root_causes?: Json
           snapshot_at?: string
+        }
+        Relationships: []
+      }
+      ops_pipeline_config: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
         }
         Relationships: []
       }
@@ -16164,6 +16188,7 @@ export type Database = {
           last_progress_at: string | null
           locked_at: string | null
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
+          priority: number
           published_at: string | null
           queue_position: number | null
           retry_count: number | null
@@ -16371,6 +16396,7 @@ export type Database = {
           last_progress_at: string | null
           locked_at: string | null
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
+          priority: number
           published_at: string | null
           queue_position: number | null
           retry_count: number | null
