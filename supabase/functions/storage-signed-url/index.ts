@@ -51,8 +51,14 @@ Deno.serve(async (req) => {
       return jsonResponse(403, { error: "Bucket not allowed" });
     }
 
-    // Clamp expiry: 30s–300s
-    const clampedExpiry = Math.max(30, Math.min(300, expiresIn));
+    // Clamp expiry: 30s–600s (videos may need longer)
+    const clampedExpiry = Math.max(30, Math.min(600, expiresIn));
+
+    // Path validation: if curriculumId is provided, the path must start with it
+    // This prevents cross-curriculum access (user entitled to course A reading course B files)
+    if (curriculumId && !path.startsWith(`${curriculumId}/`)) {
+      return jsonResponse(403, { error: "Path does not match curriculum scope" });
+    }
 
     // Service client for entitlement check + signed URL generation
     const sbService = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
