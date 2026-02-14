@@ -411,14 +411,15 @@ Deno.serve(async (req) => {
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
-  // Heartbeat helper — call periodically to keep pipeline lock alive
+  // Heartbeat helper — non-critical, pipeline-runner manages heartbeats
   const heartbeat = async () => {
-    try { await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId }); } catch { /* non-fatal */ }
+    // Legacy heartbeat removed — pipeline-runner handles lease renewal
   };
 
   // pipeline-runner handles step_start/step_done/step_fail.
-  const failAndUnlock = async (msg: string) => {
-    await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
+  // Do NOT set package status here — let the runner manage it.
+  const failAndUnlock = async (_msg: string) => {
+    // No-op: pipeline-runner handles failure state
   };
 
   try {

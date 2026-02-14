@@ -8,6 +8,13 @@ function assertUuid(name: string, v: unknown) {
   const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
+async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
+  const { data, error } = await sb
+    .from("course_package_build_steps").select("status")
+    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
+  if (error) throw error;
+  return data?.status === "done";
+}
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -18,17 +25,20 @@ Deno.serve(async (req) => {
 
   try {
     assertUuid("package_id", p?.package_id);
+    assertUuid("course_id", p?.course_id);
     assertUuid("curriculum_id", p?.curriculum_id);
   } catch (e: unknown) {
     return json({ error: (e as Error).message }, 400);
   }
 
-  const packageId = p.package_id;
-  const curriculumId = p.curriculum_id;
+  const packageId = p.package_id as string;
+  const courseId = p.course_id as string;
+  const curriculumId = p.curriculum_id as string;
   const certificationId = p.certification_id || curriculumId;
 
-  // pipeline-runner handles step_start/step_done/step_fail.
-  // Do NOT touch pipeline_lock / course_package_locks / update_course_package_step.
+  if (!(await prereqDone(sb, packageId, "generate_exam_pool"))) {
+    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_exam_pool" }, 409);
+  }
 
   try {
     // Load competencies
