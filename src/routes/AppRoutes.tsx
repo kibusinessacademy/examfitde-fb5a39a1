@@ -62,6 +62,7 @@ const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
 const ContentPagesOverview = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentPagesOverview })));
 const CRMPage = lazy(() => import('@/pages/admin/v4/CRMPage'));
 const SupportPage = lazy(() => import('@/pages/admin/v4/SupportPage'));
+const SystemHandbookPage = lazy(() => import('@/pages/admin/v4/SystemHandbookPage'));
 
 
 // Learner Pages
@@ -188,6 +189,7 @@ const AppRoutes = () => {
           <Route path="content/*" element={<ContentPagesOverview />} />
           <Route path="crm/*" element={<CRMPage />} />
           <Route path="support/*" element={<SupportPage />} />
+          <Route path="handbook" element={<SystemHandbookPage />} />
         </Route>
 
         {/* Legacy redirects → V4 (content/* and curriculum/* removed — now live routes) */}
