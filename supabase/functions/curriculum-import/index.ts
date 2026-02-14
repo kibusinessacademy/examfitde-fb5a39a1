@@ -435,7 +435,7 @@ Deno.serve(async (req) => {
 
         // Fetch content via Firecrawl
         const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+        const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
         let textContent = '';
 
         if (FIRECRAWL_API_KEY && sourceUrl) {
@@ -453,13 +453,13 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (textContent.length >= 100 && LOVABLE_API_KEY) {
+        if (textContent.length >= 100 && OPENAI_API_KEY) {
           try {
-            const llmRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            const llmRes = await fetch('https://api.openai.com/v1/chat/completions', {
               method: 'POST',
-              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+              headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                model: 'google/gemini-2.5-flash',
+                model: 'gpt-4.1',
                 messages: [
                   { role: 'system', content: EXTRACTION_PROMPT },
                   { role: 'user', content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\n${textContent}` },

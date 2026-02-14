@@ -169,8 +169,8 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+    const API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!API_KEY) throw new Error('OPENAI_API_KEY not configured');
 
     const body = await req.json().catch(() => ({}));
     const { courseId, sampleSize = 10 } = body;
@@ -385,7 +385,7 @@ serve(async (req) => {
         issues: a.issues.slice(0, 5),
       })),
       audited_by: 'ai-ihk-pruefer-v2',
-      model_used: 'google/gemini-2.5-flash',
+      model_used: 'gpt-4.1',
     };
 
     const { data: insertedAudit } = await supabase.from('course_quality_audits').insert(auditRecord).select('id').single();
@@ -509,11 +509,11 @@ Identifiziere gezielt Verbesserungspotenzial für den AI-Verbesserungsagenten.`;
 ${ctx.contentSummary.slice(0, 4000)}`;
 
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "gpt-4.1",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -564,11 +564,11 @@ Prüfe:
 4. Werden prüfungsrelevante Schwerpunkte ausreichend berücksichtigt?`;
 
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "gpt-4.1",
         messages: [
           { role: "system", content: "Du bist ein erfahrener IHK-Prüfungsausschuss-Vorsitzender. Bewerte die Themengewichtung streng nach Rahmenlehrplan." },
           { role: "user", content: prompt },
