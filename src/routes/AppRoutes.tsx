@@ -42,6 +42,7 @@ const SearchPage = lazy(() => import('@/pages/seo/SearchPage'));
 const CertificationCategoryPage = lazy(() => import('@/pages/seo/CertificationCategoryPage'));
 const CertificationSEOPage = lazy(() => import('@/pages/seo/CertificationSEOPage'));
 const QualityScorePage = lazy(() => import('@/pages/seo/QualityScorePage'));
+import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 
 // Legal Pages
 const AGBPage = lazy(() => import('@/pages/seo/AGBPage'));
@@ -115,13 +116,8 @@ const AppRoutes = () => {
           <Route path="/projektmanagement" element={<CertificationCategoryPage />} />
           <Route path="/projektmanagement/:slug" element={<CertificationSEOPage />} />
 
-          {/* Programmatic SEO sub-pages */}
-          <Route path="/:slug-pruefung" element={<CertificationSEOPage />} />
-          <Route path="/:slug-durchfallquote" element={<CertificationSEOPage />} />
-          <Route path="/:slug-muendliche-pruefung" element={<CertificationSEOPage />} />
-          <Route path="/:slug-schweregrad" element={<CertificationSEOPage />} />
-          <Route path="/:slug-pruefungssimulation" element={<CertificationSEOPage />} />
-          <Route path="/:slug-qualitaet" element={<QualityScorePage />} />
+          {/* Programmatic SEO sub-pages — single dispatcher handles suffix routing */}
+          <Route path="/:slug" element={<ProgrammaticSEODispatcher />} />
 
           {/* Existing SEO routes */}
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
