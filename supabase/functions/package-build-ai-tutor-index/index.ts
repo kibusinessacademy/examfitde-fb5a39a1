@@ -8,6 +8,13 @@ function assertUuid(name: string, v: unknown) {
   const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
+async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
+  const { data, error } = await sb
+    .from("course_package_build_steps").select("status")
+    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
+  if (error) throw error;
+  return data?.status === "done";
+}
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -30,66 +37,64 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id;
   const certificationId = p.certification_id;
 
-  // pipeline-runner handles step_start/step_done/step_fail.
-  // Do NOT touch pipeline_lock / course_package_locks / update_course_package_step.
-
-  try {
-    // Idempotent: check if already done for this package
-    const { data: existingIdx } = await sb
-      .from("ai_tutor_context_index").select("id")
-      .eq("package_id", packageId).maybeSingle();
-
-    if (existingIdx) {
-      console.log("ai_tutor_context_index already exists for package, skipping insert");
-    }
-
-    // Policy: find or create for this curriculum
-    const { data: existing } = await sb
-      .from("ai_tutor_policies").select("id, version")
-      .eq("curriculum_id", curriculumId)
-      .order("version", { ascending: false }).limit(1).maybeSingle();
-
-    let policyVersion = existing?.version || 0;
-
-    if (!existing) {
-      policyVersion = 1;
-      const policy = {
-        forbid_invention: true,
-        require_reference: true,
-        allowed_sources: ["curriculum_topics", "lessons", "question_blueprints", "exam_sessions", "oral_exam_sessionsets"],
-        modes: ["explainer", "coach", "examiner", "feedback"],
-        binding_rule: "each answer must map to competency OR lesson OR exam_session",
-      };
-      const { error: polErr } = await sb.from("ai_tutor_policies").insert({
-        curriculum_id: curriculumId, policy, version: policyVersion,
-      });
-      if (polErr) {
-        throw new Error(`Policy insert failed: ${polErr.message || JSON.stringify(polErr)}`);
-      }
-    }
-
-    // Counts
-    const { count: lessonCount } = await sb
-      .from("lessons").select("id", { count: "exact", head: true }).eq("course_id", courseId);
-
-    const { count: topicCount } = await sb
-      .from("curriculum_topics").select("id", { count: "exact", head: true }).eq("certification_id", certificationId);
-
-    // Context index (idempotent)
-    if (!existingIdx) {
-      const { error: idxErr } = await sb.from("ai_tutor_context_index").insert({
-        package_id: packageId, index_version: 1,
-        stats: { lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0, policyVersion },
-      });
-      if (idxErr) {
-        throw new Error(`Context index insert failed: ${idxErr.message || JSON.stringify(idxErr)}`);
-      }
-    }
-
-    return json({ ok: true, policyVersion, lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0 });
-  } catch (e: unknown) {
-    const msg = typeof e === "object" && e !== null && "message" in e ? (e as Error).message : JSON.stringify(e);
-    console.error("build_ai_tutor_index error:", msg);
-    return json({ ok: false, error: msg }, 500);
+  // Runner SSOT: prerequisites via view (mapped to package_steps)
+  if (!(await prereqDone(sb, packageId, "generate_oral_exam"))) {
+    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_oral_exam" }, 409);
   }
+
+  // Idempotent: check if already done for this package
+  const { data: existingIdx, error: exErr } = await sb
+    .from("ai_tutor_context_index").select("id")
+    .eq("package_id", packageId).maybeSingle();
+  if (exErr) throw exErr;
+
+  // Policy: find or create for this curriculum
+  const { data: existingPolicy, error: polQErr } = await sb
+    .from("ai_tutor_policies").select("id, version")
+    .eq("curriculum_id", curriculumId)
+    .order("version", { ascending: false }).limit(1).maybeSingle();
+  if (polQErr) throw polQErr;
+
+  let policyVersion = existingPolicy?.version || 0;
+
+  if (!existingPolicy) {
+    policyVersion = 1;
+    const policy = {
+      forbid_invention: true,
+      require_reference: true,
+      allowed_sources: ["curriculum_topics", "lessons", "question_blueprints", "exam_sessions", "oral_exam_sessionsets"],
+      modes: ["explainer", "coach", "examiner", "feedback"],
+      binding_rule: "each answer must map to competency OR lesson OR exam_session",
+    };
+    const { error: polInsErr } = await sb.from("ai_tutor_policies").insert({
+      curriculum_id: curriculumId, policy, version: policyVersion,
+    });
+    if (polInsErr) throw new Error(`Policy insert failed: ${polInsErr.message}`);
+  }
+
+  // Counts
+  const { count: lessonCount } = await sb
+    .from("lessons").select("id", { count: "exact", head: true }).eq("course_id", courseId);
+
+  const { count: topicCount } = await sb
+    .from("curriculum_topics").select("id", { count: "exact", head: true }).eq("certification_id", certificationId);
+
+  // Context index (idempotent)
+  if (!existingIdx) {
+    const { error: idxErr } = await sb.from("ai_tutor_context_index").insert({
+      package_id: packageId,
+      index_version: 1,
+      stats: {
+        lessonCount: lessonCount ?? 0,
+        topicCount: topicCount ?? 0,
+        policyVersion,
+      },
+    });
+    if (idxErr) throw new Error(`Context index insert failed: ${idxErr.message}`);
+  }
+
+  // Optional progress hint (non-critical)
+  await sb.from("course_packages").update({ build_progress: 80 }).eq("id", packageId).catch(() => {});
+
+  return json({ ok: true, policyVersion, lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0 });
 });

@@ -379,15 +379,22 @@ Deno.serve(async (req) => {
         p_error: msg,
       });
 
-      // FIX 3: Do NOT hard-fail the package. Keep it "building" so retry is possible.
-      // The package only gets "failed" when attempts are exhausted (handled above via "exhausted" branch).
+      // IMPORTANT: do NOT hard-fail the whole package here.
+      // Keep it "building" so the runner can retry until max_attempts is exhausted
       await safeQuery(sb.from("course_packages").update({
         status: "building",
         last_error: `Step ${stepKey}: ${msg.slice(0, 250)}`,
       }).eq("id", packageId));
 
+      await safeQuery(sb.from("ops_alerts").insert({
+        source: "pipeline-runner",
+        severity: "error",
+        message: `STEP_FAILED: ${stepKey} pkg ${packageId.slice(0, 8)}`,
+        payload: { packageId, stepKey, error: msg.slice(0, 1200) },
+      }));
+
       await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-      return json({ ok: false, packageId, stepKey, error: msg, retryable: true }, 500);
+      return json({ ok: false, packageId, stepKey, error: msg }, 500);
     }
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);

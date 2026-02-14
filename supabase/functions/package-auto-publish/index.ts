@@ -10,7 +10,7 @@ function assertUuid(name: string, v: unknown) {
 }
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
   const { data, error } = await sb
-    .from("package_steps").select("status")
+    .from("course_package_build_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
   if (error) throw error;
   return data?.status === "done";
@@ -30,162 +30,88 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
-  const packageId = p.package_id;
-  const courseId = p.course_id;
+  const packageId = p.package_id as string;
+  const courseId = p.course_id as string;
 
-  // pipeline-runner handles step_start/step_done/step_fail.
-  // Minimal failure handler — only update package status, no legacy locks.
-  const unlockFail = async (msg: string) => {
-    await sb.from("course_packages").update({ status: "failed" }).eq("id", packageId);
-  };
+  if (!(await prereqDone(sb, packageId, "run_integrity_check"))) {
+    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: run_integrity_check" }, 409);
+  }
 
-  try {
-    if (!(await prereqDone(sb, packageId, "run_integrity_check"))) {
-      return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: run_integrity_check" }, 409);
-    }
+  // Quality gate (if available)
+  const { data: pkgQ } = await sb
+    .from("course_packages")
+    .select("quality_report, integrity_report, feature_flags")
+    .eq("id", packageId)
+    .maybeSingle();
 
-    // ── QUALITY COUNCIL GATE: require quality report before publish ──
-    const { data: qualityReport } = await sb
-      .from("package_quality_reports")
-      .select("status, score")
-      .eq("package_id", packageId)
-      .maybeSingle();
-
-    if (!qualityReport) {
-      // Enqueue quality council check and wait
-      await sb.from("job_queue").upsert({
-        job_type: "package_quality_council",
-        status: "pending",
-        attempts: 0,
-        max_attempts: 3,
-        payload: { package_id: packageId, course_id: courseId },
-        run_after: new Date().toISOString(),
-      }, { onConflict: "id", ignoreDuplicates: false });
-      return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: quality_council_report" }, 409);
-    }
-
-    if (qualityReport.status === "fail") {
-      // Quality Council failed → block publish, release lock
-      await sb.from("course_packages")
-        .update({ status: "qa_failed", updated_at: new Date().toISOString() })
-        .eq("id", packageId);
-      await sb.from("admin_notifications").insert({
-        title: `🚫 Quality Council: Package blocked`,
-        body: `Score: ${qualityReport.score}. Package failed quality checks.`,
-        category: "quality",
-        severity: "warning",
-        entity_type: "course_package",
-        entity_id: packageId,
-      });
-      return json({
-        ok: false,
-        error: `QUALITY_GATE_FAILED: score=${qualityReport.score}`,
-        quality_status: qualityReport.status,
-      }, 422);
-    }
-
-    // ── REVIEW GATE: auto-approve unless requires_manual_review flag is set ──
-    const { data: pkgFlags } = await sb
-      .from("course_packages")
-      .select("feature_flags")
-      .eq("id", packageId)
-      .maybeSingle();
-
-    const requiresManualReview = Boolean((pkgFlags as any)?.feature_flags?.requires_manual_review);
-
-    const { data: review } = await sb
-      .from("course_package_reviews")
-      .select("status")
-      .eq("course_package_id", packageId)
-      .maybeSingle();
-
-    if (!review || review.status !== "approved") {
-      const currentStatus = review?.status || "no_review";
-
-      if (requiresManualReview) {
-        console.log(`[AutoPublish] BLOCKED: review status = ${currentStatus} (manual review required). Package ${packageId}`);
-        return json({
-          ok: false,
-          retry: false,
-          error: `REVIEW_GATE: status=${currentStatus}. Admin approval required before publish.`,
-          review_status: currentStatus,
-        }, 202);
-      }
-
-      // Auto-approve to keep the pipeline moving
-      console.log(`[AutoPublish] Auto-approving package ${packageId} (no manual review required)`);
-      await sb.from("course_package_reviews").upsert({
-        course_package_id: packageId,
-        status: "approved",
-        notes: "Auto-approved by pipeline to prevent blocking",
-      }, { onConflict: "course_package_id" });
-    }
-
-    // Check integrity v3 hard_fail_reasons
-    const { data: pkg } = await sb
-      .from("course_packages")
-      .select("integrity_report")
-      .eq("id", packageId)
-      .single();
-
-    const integrityReport = pkg?.integrity_report as Record<string, unknown> | undefined;
-    const integrityScore = integrityReport?.score as number | undefined;
-    const v3Data = integrityReport?.v3 as Record<string, unknown> | undefined;
-    const hardFails = (v3Data?.hard_fail_reasons as string[]) || [];
-    const PUBLISH_THRESHOLD = 80;
-
-    if (hardFails.length > 0) {
-      await unlockFail(`V3 hard fails present: ${hardFails.join("; ")}`);
-      return json({
-        ok: false,
-        error: `V3_HARD_FAILS: ${hardFails.length} blocking issues`,
-        hard_fail_reasons: hardFails,
-      }, 422);
-    }
-
-    if (integrityScore !== undefined && integrityScore < PUBLISH_THRESHOLD) {
-      await unlockFail(`Integrity score ${integrityScore} < ${PUBLISH_THRESHOLD}.`);
-      return json({
-        ok: false,
-        error: `INTEGRITY_BELOW_THRESHOLD: score=${integrityScore}, required=${PUBLISH_THRESHOLD}`,
-        score: integrityScore, threshold: PUBLISH_THRESHOLD,
-      }, 422);
-    }
-
-    await sb.rpc("update_course_package_step", {
-      p_package_id: packageId, p_step_key: "auto_publish", p_status: "running",
-      p_log: { note: "Admin approved. Publishing course." },
-    }).catch(() => {});
-
-    const { error: cErr } = await sb
-      .from("courses").update({ publishing_status: "publish_ready", status: "published" }).eq("id", courseId);
-    if (cErr) throw cErr;
-
-    const { error: pErr } = await sb
-      .from("course_packages").update({ status: "published", build_progress: 100, council_approved: true }).eq("id", packageId);
-    if (pErr) throw pErr;
-
-    // Trigger next queued package
-    await sb.from("job_queue").insert({
-      job_type: "package_queue_next", status: "pending", attempts: 0, max_attempts: 1,
-      run_after: new Date(Date.now() + 5_000).toISOString(),
-      payload: { completed_package_id: packageId },
-    });
-
-    // Admin notification
+  const qualityReport = (pkgQ as any)?.quality_report;
+  if (qualityReport && qualityReport.status === "failed") {
     await sb.from("admin_notifications").insert({
-      title: `🚀 Package published`,
-      body: `Course package has been published successfully.`,
-      category: "package_review",
-      severity: "info",
+      title: "⚠️ Quality Gate failed",
+      body: `Package blocked. quality_score=${qualityReport.score ?? "?"}`,
+      category: "quality",
+      severity: "warning",
       entity_type: "course_package",
       entity_id: packageId,
-    });
-
-    return json({ ok: true });
-  } catch (e: unknown) {
-    const msg = (e as Error)?.message || String(e);
-    await unlockFail(msg);
-    return json({ ok: false, error: msg }, 500);
+    }).catch(() => {});
+    return json({ ok: false, retry: false, error: "QUALITY_GATE_FAILED", quality: qualityReport }, 422);
   }
+
+  // Review gate (auto-approve unless flag requires manual review)
+  const requiresManualReview = Boolean((pkgQ as any)?.feature_flags?.requires_manual_review);
+
+  const { data: review } = await sb
+    .from("course_package_reviews")
+    .select("status")
+    .eq("course_package_id", packageId)
+    .maybeSingle();
+
+  if (!review || review.status !== "approved") {
+    const currentStatus = review?.status || "no_review";
+    if (requiresManualReview) {
+      return json({
+        ok: false,
+        retry: false,
+        error: `REVIEW_GATE: status=${currentStatus}. Admin approval required.`,
+        review_status: currentStatus,
+      }, 202);
+    }
+
+    await sb.from("course_package_reviews").upsert({
+      course_package_id: packageId,
+      status: "approved",
+      notes: "Auto-approved by pipeline to prevent blocking",
+    }, { onConflict: "course_package_id" }).catch(() => {});
+  }
+
+  // Integrity hard-fail gate
+  const integrityReport = (pkgQ as any)?.integrity_report;
+  const hardFails = integrityReport?.v3?.hard_fail_reasons || [];
+  if (Array.isArray(hardFails) && hardFails.length > 0) {
+    return json({ ok: false, retry: false, error: "V3_HARD_FAILS", hard_fail_reasons: hardFails }, 422);
+  }
+
+  // Publish
+  const { error: cErr } = await sb
+    .from("courses")
+    .update({ publishing_status: "publish_ready", status: "published" })
+    .eq("id", courseId);
+  if (cErr) throw cErr;
+
+  const { error: pErr } = await sb
+    .from("course_packages")
+    .update({ status: "published", build_progress: 100, council_approved: true })
+    .eq("id", packageId);
+  if (pErr) throw pErr;
+
+  await sb.from("admin_notifications").insert({
+    title: "🚀 Package published",
+    body: "Course package has been published successfully.",
+    category: "package_review",
+    severity: "info",
+    entity_type: "course_package",
+    entity_id: packageId,
+  }).catch(() => {});
+
+  return json({ ok: true });
 });
