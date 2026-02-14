@@ -141,6 +141,16 @@ const LLM_JOB_TYPES: Set<string> = new Set([
   "council_revise_step",
 ]);
 
+// ─── PIPELINE-INDEPENDENT JOB TYPES (run without active slot) ───────
+// These "factory" jobs CREATE packages — they must not be gated by WIP isolation
+// or the system deadlocks (no packages → no slots → no jobs → no packages).
+const PIPELINE_INDEPENDENT_TYPES: Set<string> = new Set([
+  "setup_course_package",
+  "generate_curriculum_content",
+  "extract_curriculum",
+  "package_queue_next",
+]);
+
 const DEFAULT_LLM_PROVIDER = "openai";
 
 // ─── DB-DRIVEN PROVIDER AUTOPILOT ───────────────────────────────────
@@ -853,33 +863,38 @@ Deno.serve(async (req) => {
           } catch { /* ignore */ }
         }
 
-        // ── Patch: WIP=2 — Only execute jobs for active pipeline packages ──
-        const { data: activePackageIds } = await admin.rpc("get_active_pipeline_packages");
-        const activeList = (activePackageIds as string[] | null) ?? [];
+        // ── Patch: WIP=N — Only execute BUILD jobs for active pipeline packages ──
+        // Factory/pipeline-independent jobs bypass this check entirely
+        const isPipelineIndependent = PIPELINE_INDEPENDENT_TYPES.has(job.job_type);
 
-        // Fallback: also check legacy single-lock
-        if (activeList.length === 0) {
-          const activeData = await admin.rpc("get_active_pipeline_package");
-          const activeRow = Array.isArray(activeData?.data) ? activeData.data[0] : activeData?.data;
-          const legacyId = activeRow?.active_package_id ?? null;
-          if (legacyId) activeList.push(legacyId);
-        }
+        if (!isPipelineIndependent) {
+          const { data: activePackageIds } = await admin.rpc("get_active_pipeline_packages");
+          const activeList = (activePackageIds as string[] | null) ?? [];
 
-        if (activeList.length > 0 && pkgId && !activeList.includes(pkgId)) {
-          // This job belongs to a non-active package — defer it
-          if (job.provider && LLM_JOB_TYPES.has(job.job_type)) {
-            await releaseProviderSlot(admin, job.provider);
-            slotReleased = true;
+          // Fallback: also check legacy single-lock
+          if (activeList.length === 0) {
+            const activeData = await admin.rpc("get_active_pipeline_package");
+            const activeRow = Array.isArray(activeData?.data) ? activeData.data[0] : activeData?.data;
+            const legacyId = activeRow?.active_package_id ?? null;
+            if (legacyId) activeList.push(legacyId);
           }
-          try {
-            await admin.rpc("defer_job", {
-              p_job_id: job.id,
-              p_delay_seconds: 300,
-              p_reason: `WIP=2: active=[${activeList.map(id => id.slice(0, 8)).join(',')}], job_package=${pkgId.slice(0, 8)}`,
-            });
-          } catch { /* ignore */ }
-          results.push({ id: job.id, job_type: job.job_type, outcome: "deferred_wip2", provider: job.provider });
-          continue;
+
+          if (activeList.length > 0 && pkgId && !activeList.includes(pkgId)) {
+            // This job belongs to a non-active package — defer it
+            if (job.provider && LLM_JOB_TYPES.has(job.job_type)) {
+              await releaseProviderSlot(admin, job.provider);
+              slotReleased = true;
+            }
+            try {
+              await admin.rpc("defer_job", {
+                p_job_id: job.id,
+                p_delay_seconds: 300,
+                p_reason: `WIP=N: active=[${activeList.map(id => id.slice(0, 8)).join(',')}], job_package=${pkgId.slice(0, 8)}`,
+              });
+            } catch { /* ignore */ }
+            results.push({ id: job.id, job_type: job.job_type, outcome: "deferred_wip", provider: job.provider });
+            continue;
+          }
         }
 
         const response = await fetch(functionUrl, {
