@@ -318,15 +318,16 @@ Deno.serve(async (req) => {
         return json({ ok: true, packageId, stepKey, job_reset: true });
       }
 
-      // ── Job still pending or processing → wait ──
+      // ── Job still pending or processing → keep lease (don't release!) ──
       if (job.status === "pending" || job.status === "processing") {
         // Renew lease so package doesn't get orphaned while job runs
+        // IMPORTANT: Do NOT release the lease here — keeping it ensures
+        // the next runner invocation picks a DIFFERENT package to fill another slot.
         await safeRpc(sb, "renew_package_lease", {
           p_package_id: packageId,
           p_runner_id: runnerId,
           p_lease_seconds: 600,
         });
-        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
         return json({ ok: true, packageId, stepKey, waiting: true, jobStatus: job.status });
       }
 
@@ -503,7 +504,7 @@ Deno.serve(async (req) => {
         });
       } catch { /* ignore if RPC doesn't exist yet */ }
 
-      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      // Keep lease after enqueue — job is now pending/processing, lease protects the slot
       console.log(`[runner] 📤 Enqueued ${jobType} (job ${jobId.slice(0, 8)}) for ${packageId.slice(0, 8)}`);
       return json({ ok: true, packageId, stepKey, enqueued: true, jobId });
     }
