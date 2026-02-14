@@ -203,16 +203,17 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 6. PROCESS PENDING CURRICULUM CONTENT JOBS (batch trigger)
+    // 6. PROCESS PENDING CURRICULUM + SETUP JOBS (batch trigger)
     // ═══════════════════════════════════════════════════════════════
-    const { count: pendingCurriculum } = await sb
+    const pipelineJobTypes = ["generate_curriculum_content", "setup_course_package"];
+
+    const { count: pendingPipelineJobs } = await sb
       .from("job_queue")
       .select("id", { count: "exact", head: true })
       .eq("status", "pending")
-      .eq("job_type", "generate_curriculum_content");
+      .in("job_type", pipelineJobTypes);
 
-    if ((pendingCurriculum ?? 0) > 0) {
-      // Trigger job-runner to process pending curriculum jobs
+    if ((pendingPipelineJobs ?? 0) > 0) {
       try {
         const res = await fetch(`${SUPABASE_URL}/functions/v1/job-runner`, {
           method: "POST",
@@ -221,13 +222,13 @@ Deno.serve(async (req) => {
             Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
           },
           body: JSON.stringify({
-            job_types: ["generate_curriculum_content"],
-            max_jobs: 3,
+            job_types: pipelineJobTypes,
+            max_jobs: 12,
             triggered_by: "production-guardian",
           }),
         });
         const data = await res.json();
-        actions.push(`Triggered job-runner for ${pendingCurriculum} pending curriculum jobs: ${JSON.stringify(data).slice(0, 100)}`);
+        actions.push(`Triggered job-runner for ${pendingPipelineJobs} pending pipeline jobs (content+setup): ${JSON.stringify(data).slice(0, 120)}`);
       } catch (e) {
         warnings.push(`Job-runner trigger failed: ${(e as Error).message}`);
       }
