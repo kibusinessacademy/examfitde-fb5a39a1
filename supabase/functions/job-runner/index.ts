@@ -642,12 +642,56 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5) Claim jobs with DB-DRIVEN PROVIDER AUTOPILOT
+    // ─── STEP-LEVEL CONCURRENCY LIMITS (per job type) ──────────────────
+    const STEP_CONCURRENCY_LIMITS: Record<string, number> = {
+      package_generate_exam_pool: 2,
+      package_generate_oral_exam: 2,
+      package_build_ai_tutor_index: 2,
+      package_generate_handbook: 2,
+      package_scaffold_learning_course: 2,
+      generate_curriculum_content: 3,
+      generate_course: 2,
+      generate_course_batch: 2,
+      auto_gap_close: 2,
+      seo_generate: 2,
+    };
+
+    // Pre-fetch current processing counts per limited job type
+    const limitedTypes = Object.keys(STEP_CONCURRENCY_LIMITS);
+    const { data: processingByType } = await admin
+      .from("job_queue")
+      .select("job_type")
+      .eq("status", "processing")
+      .in("job_type", limitedTypes);
+    
+    const typeProcessingCounts: Record<string, number> = {};
+    for (const row of processingByType ?? []) {
+      typeProcessingCounts[row.job_type] = (typeProcessingCounts[row.job_type] || 0) + 1;
+    }
+
+    // 5) Claim jobs with DB-DRIVEN PROVIDER AUTOPILOT + step-level concurrency
     const claimed: JobRecord[] = [];
     const skippedLLM: string[] = [];
+    const skippedConcurrency: string[] = [];
 
     for (const job of pendingJobs as JobRecord[]) {
       if (claimed.length >= effectiveBatch) break;
+
+      // ─── STEP-LEVEL CONCURRENCY CHECK ──────────────────────────────
+      const typeLimit = STEP_CONCURRENCY_LIMITS[job.job_type];
+      if (typeLimit !== undefined) {
+        const currentCount = typeProcessingCounts[job.job_type] || 0;
+        if (currentCount >= typeLimit) {
+          const delayUntil = new Date(Date.now() + 20_000).toISOString();
+          await admin
+            .from("job_queue")
+            .update({ scheduled_at: delayUntil, updated_at: now })
+            .eq("id", job.id)
+            .eq("status", "pending");
+          skippedConcurrency.push(`${job.job_type}(${currentCount}/${typeLimit})`);
+          continue;
+        }
+      }
 
       const isLLM = LLM_JOB_TYPES.has(job.job_type);
       let provider = job.provider || (isLLM ? DEFAULT_LLM_PROVIDER : null);
@@ -732,6 +776,10 @@ Deno.serve(async (req) => {
 
       if (!lockErr && locked) {
         claimed.push({ ...job, provider });
+        // Update local concurrency tracking
+        if (STEP_CONCURRENCY_LIMITS[job.job_type] !== undefined) {
+          typeProcessingCounts[job.job_type] = (typeProcessingCounts[job.job_type] || 0) + 1;
+        }
       } else if (isLLM && provider) {
         // Failed to claim – release the provider slot
         await releaseProviderSlot(admin, provider);
@@ -741,10 +789,13 @@ Deno.serve(async (req) => {
     if (skippedLLM.length > 0) {
       console.log(`[Runner:${RUNNER_ID}] Delayed ${skippedLLM.length} LLM jobs (all providers at capacity)`);
     }
+    if (skippedConcurrency.length > 0) {
+      console.log(`[Runner:${RUNNER_ID}] Deferred ${skippedConcurrency.length} jobs (step-level concurrency): ${skippedConcurrency.join(', ')}`);
+    }
 
     if (claimed.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No jobs claimed", runner: RUNNER_ID, skipped_llm: skippedLLM.length, providers: providerLog }),
+        JSON.stringify({ message: "No jobs claimed", runner: RUNNER_ID, skipped_llm: skippedLLM.length, skipped_concurrency: skippedConcurrency.length, providers: providerLog }),
         { status: 200, headers }
       );
     }
@@ -803,13 +854,20 @@ Deno.serve(async (req) => {
           } catch { /* ignore */ }
         }
 
-        // ── Patch: WIP=1 — Only execute jobs for the active package ──
-        const activeData = await admin.rpc("get_active_pipeline_package");
-        const activeRow = Array.isArray(activeData?.data) ? activeData.data[0] : activeData?.data;
-        const activePackageId = activeRow?.active_package_id ?? null;
+        // ── Patch: WIP=2 — Only execute jobs for active pipeline packages ──
+        const { data: activePackageIds } = await admin.rpc("get_active_pipeline_packages");
+        const activeList = (activePackageIds as string[] | null) ?? [];
 
-        if (activePackageId && pkgId && pkgId !== activePackageId) {
-          // This job belongs to a different package — defer it
+        // Fallback: also check legacy single-lock
+        if (activeList.length === 0) {
+          const activeData = await admin.rpc("get_active_pipeline_package");
+          const activeRow = Array.isArray(activeData?.data) ? activeData.data[0] : activeData?.data;
+          const legacyId = activeRow?.active_package_id ?? null;
+          if (legacyId) activeList.push(legacyId);
+        }
+
+        if (activeList.length > 0 && pkgId && !activeList.includes(pkgId)) {
+          // This job belongs to a non-active package — defer it
           if (job.provider && LLM_JOB_TYPES.has(job.job_type)) {
             await releaseProviderSlot(admin, job.provider);
             slotReleased = true;
@@ -818,10 +876,10 @@ Deno.serve(async (req) => {
             await admin.rpc("defer_job", {
               p_job_id: job.id,
               p_delay_seconds: 300,
-              p_reason: `WIP=1: active_package=${activePackageId}, job_package=${pkgId}`,
+              p_reason: `WIP=2: active=[${activeList.map(id => id.slice(0, 8)).join(',')}], job_package=${pkgId.slice(0, 8)}`,
             });
           } catch { /* ignore */ }
-          results.push({ id: job.id, job_type: job.job_type, outcome: "deferred_wip1", provider: job.provider });
+          results.push({ id: job.id, job_type: job.job_type, outcome: "deferred_wip2", provider: job.provider });
           continue;
         }
 
