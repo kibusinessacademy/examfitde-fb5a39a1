@@ -151,6 +151,17 @@ const PIPELINE_INDEPENDENT_TYPES: Set<string> = new Set([
   "generate_curriculum_content",
   "extract_curriculum",
   "package_queue_next",
+  // Pipeline build steps — WIP isolation is handled by pipeline-runner (lease/slots),
+  // so the job-runner must NOT double-gate them or they get stuck in DEFER loops.
+  "package_scaffold_learning_course",
+  "package_auto_seed_exam_blueprints",
+  "package_generate_exam_pool",
+  "package_generate_oral_exam",
+  "package_build_ai_tutor_index",
+  "package_generate_handbook",
+  "package_run_integrity_check",
+  "package_quality_council",
+  "package_auto_publish",
 ]);
 
 const DEFAULT_LLM_PROVIDER = "openai";

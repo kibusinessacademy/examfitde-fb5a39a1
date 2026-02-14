@@ -25,17 +25,12 @@ interface NavItem {
 const navModules: NavItem[] = [
   { path: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
   {
-    path: '/admin/ops', label: 'Ops (Realtime)', icon: Activity,
+    path: '/admin/ops', label: 'Ops', icon: Activity,
     children: [
       { path: '/admin/ops', label: 'Ampel & Alerts' },
       { path: '/admin/ops/queue', label: 'Queue' },
       { path: '/admin/pipeline', label: 'Pipeline Live' },
-      { path: '/admin/ops/load-control', label: 'Load Control' },
-      { path: '/admin/ops/logs', label: 'Live Logs' },
-      { path: '/admin/ops/deadletter', label: 'Dead Letter' },
-      { path: '/admin/ops/health', label: 'Health' },
       { path: '/admin/ops/ai-workers', label: 'AI Workers' },
-      { path: '/admin/ops/security', label: 'Security' },
     ],
   },
   {
@@ -50,59 +45,20 @@ const navModules: NavItem[] = [
     children: [
       { path: '/admin/quality', label: 'Übersicht' },
       { path: '/admin/quality/review', label: 'Review Inbox' },
-      { path: '/admin/quality/integrity', label: 'Integrität' },
-      { path: '/admin/quality/compliance', label: 'Compliance' },
-      { path: '/admin/quality/azav', label: 'AZAV/ISO' },
     ],
   },
-  {
-    path: '/admin/content', label: 'Content & SEO', icon: FileText,
-    children: [
-      { path: '/admin/content', label: 'Seiten' },
-      { path: '/admin/content/blog', label: 'Blog' },
-      { path: '/admin/content/assets', label: 'Assets' },
-      { path: '/admin/content/seo', label: 'SEO & Redirects' },
-    ],
-  },
-  {
-    path: '/admin/crm', label: 'CRM', icon: Users,
-    children: [
-      { path: '/admin/crm', label: 'Kontakte' },
-      { path: '/admin/crm/segments', label: 'Segmente' },
-      { path: '/admin/crm/churn', label: 'Churn Risk' },
-    ],
-  },
-  {
-    path: '/admin/support', label: 'Support', icon: Headphones,
-    children: [
-      { path: '/admin/support', label: 'Tickets' },
-      { path: '/admin/support/faq', label: 'FAQ Knüpfung' },
-    ],
-  },
+  { path: '/admin/content', label: 'Content & SEO', icon: FileText },
+  { path: '/admin/crm', label: 'CRM', icon: Users },
+  { path: '/admin/support', label: 'Support', icon: Headphones },
   {
     path: '/admin/business', label: 'Finanzen', icon: DollarSign,
     children: [
-      { path: '/admin/business', label: 'Umsatz' },
+      { path: '/admin/business', label: 'Übersicht' },
       { path: '/admin/business/licenses', label: 'Lizenzen' },
-      { path: '/admin/business/exports', label: 'Steuer-Export' },
     ],
   },
-  {
-    path: '/admin/growth', label: 'Wachstum', icon: TrendingUp,
-    children: [
-      { path: '/admin/growth', label: 'Übersicht' },
-      { path: '/admin/growth/nudges', label: 'Nudge Engine' },
-      { path: '/admin/growth/feedback', label: 'Feedback' },
-    ],
-  },
-  {
-    path: '/admin/scale', label: 'Skalierung', icon: Layers,
-    children: [
-      { path: '/admin/scale', label: 'Berufe-Status' },
-      { path: '/admin/scale/reporting', label: 'Reporting' },
-    ],
-  },
-  { path: '/admin/handbook', label: 'Handbuch', icon: Library },
+  { path: '/admin/growth', label: 'Wachstum', icon: TrendingUp },
+  { path: '/admin/scale', label: 'Skalierung', icon: Layers },
 ];
 
 export default function AdminV4Layout() {
