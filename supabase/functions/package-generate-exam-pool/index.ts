@@ -445,9 +445,58 @@ Deno.serve(async (req) => {
       bpQuery = bpQuery.in("id", blueprintIds);
     }
 
-    const { data: bps, error: bpErr } = await bpQuery;
+    let { data: bps, error: bpErr } = await bpQuery;
     if (bpErr) throw bpErr;
-    if (!bps?.length) throw new Error("No approved question_blueprints for curriculum");
+
+    // ── Auto-seed blueprints from competencies if none exist ──
+    if (!bps?.length && !isFanOut) {
+      console.log(`[ExamPool-Dominanz] No approved blueprints for ${curriculumId.slice(0,8)} — auto-seeding from competencies`);
+
+      const { data: lfs } = await sb
+        .from("learning_fields")
+        .select("id, code, title")
+        .eq("curriculum_id", curriculumId);
+
+      if (!lfs?.length) throw new Error(`No learning_fields for curriculum ${curriculumId}`);
+
+      const lfIds = lfs.map((lf: any) => lf.id);
+      const { data: comps } = await sb
+        .from("competencies")
+        .select("id, learning_field_id, code, title, description, taxonomy_level")
+        .in("learning_field_id", lfIds)
+        .order("sort_order", { ascending: true });
+
+      if (!comps?.length) throw new Error(`No competencies for curriculum ${curriculumId}`);
+
+      const seedRows = comps.map((c: any) => ({
+        curriculum_id: curriculumId,
+        learning_field_id: c.learning_field_id,
+        competency_id: c.id,
+        name: c.title || c.code || "Kompetenz",
+        canonical_statement: c.description || c.title || "",
+        cognitive_level: c.taxonomy_level || "understand",
+        question_template: "",
+        status: "approved",
+        version: 1,
+      }));
+
+      const { error: seedErr } = await sb.from("question_blueprints").insert(seedRows);
+      if (seedErr) throw new Error(`Blueprint auto-seed failed: ${seedErr.message}`);
+
+      console.log(`[ExamPool-Dominanz] Auto-seeded ${seedRows.length} blueprints`);
+
+      // Re-query
+      const { data: newBps, error: newBpErr } = await sb
+        .from("question_blueprints")
+        .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template")
+        .eq("curriculum_id", curriculumId)
+        .eq("status", "approved")
+        .order("created_at", { ascending: true });
+      if (newBpErr) throw newBpErr;
+      bps = newBps;
+    }
+
+    if (!bps?.length) throw new Error("No blueprints available even after auto-seed");
 
     // Fan-out for large sets
     if (!isFanOut && bpIndex === 0 && bps.length > 10) {
