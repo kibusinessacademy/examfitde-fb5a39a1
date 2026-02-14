@@ -225,6 +225,32 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: pkgErr?.message ?? "package not found" }, 500);
     }
 
+    // ── Auto-resolve missing curriculum_id from course ──
+    if (!pkg.curriculum_id && pkg.course_id) {
+      const { data: course } = await sb
+        .from("courses")
+        .select("curriculum_id")
+        .eq("id", pkg.course_id)
+        .single();
+
+      if (course?.curriculum_id) {
+        await safeQuery(sb.from("course_packages").update({ curriculum_id: course.curriculum_id }).eq("id", packageId));
+        pkg.curriculum_id = course.curriculum_id;
+        console.log(`[runner] Auto-resolved curriculum_id for package ${packageId.slice(0, 8)}`);
+      }
+    }
+
+    // ── Block if still missing required IDs ──
+    if (!pkg.curriculum_id || !pkg.course_id) {
+      await safeQuery(sb.from("course_packages").update({
+        status: "blocked",
+        blocked_reason: "missing_curriculum_or_course_id",
+      }).eq("id", packageId));
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      console.warn(`[runner] Package ${packageId.slice(0, 8)} blocked: missing curriculum_id or course_id`);
+      return json({ ok: true, packageId, blocked: true, reason: "missing_curriculum_or_course_id" });
+    }
+
     const mode = (pkg.pipeline_mode ?? "factory") as "factory" | "production";
 
     // ── 3) Load steps & pick next ──
