@@ -9755,6 +9755,7 @@ export type Database = {
           created_at: string
           finished_at: string | null
           id: string
+          job_id: string | null
           last_error: string | null
           last_heartbeat_at: string | null
           max_attempts: number
@@ -9772,6 +9773,7 @@ export type Database = {
           created_at?: string
           finished_at?: string | null
           id?: string
+          job_id?: string | null
           last_error?: string | null
           last_heartbeat_at?: string | null
           max_attempts?: number
@@ -9789,6 +9791,7 @@ export type Database = {
           created_at?: string
           finished_at?: string | null
           id?: string
+          job_id?: string | null
           last_error?: string | null
           last_heartbeat_at?: string | null
           max_attempts?: number
@@ -16564,6 +16567,7 @@ export type Database = {
       security_review_status: "open" | "approved" | "blocked" | "dismissed"
       step_status:
         | "queued"
+        | "enqueued"
         | "running"
         | "done"
         | "failed"
@@ -16831,6 +16835,7 @@ export const Constants = {
       security_review_status: ["open", "approved", "blocked", "dismissed"],
       step_status: [
         "queued",
+        "enqueued",
         "running",
         "done",
         "failed",
