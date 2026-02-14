@@ -60,8 +60,8 @@ const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
 const PipelineMonitorPage = lazy(() => import('@/pages/admin/v4/PipelineMonitorPage'));
 const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
 const ContentPagesOverview = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentPagesOverview })));
-const CRMOverview = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.CRMOverview })));
-const SupportOverview = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.SupportOverview })));
+const CRMPage = lazy(() => import('@/pages/admin/v4/CRMPage'));
+const SupportPage = lazy(() => import('@/pages/admin/v4/SupportPage'));
 
 
 // Learner Pages
@@ -186,8 +186,8 @@ const AppRoutes = () => {
           <Route path="pipeline" element={<PipelineMonitorPage />} />
           <Route path="load-control" element={<LoadControlPage />} />
           <Route path="content/*" element={<ContentPagesOverview />} />
-          <Route path="crm/*" element={<CRMOverview />} />
-          <Route path="support/*" element={<SupportOverview />} />
+          <Route path="crm/*" element={<CRMPage />} />
+          <Route path="support/*" element={<SupportPage />} />
         </Route>
 
         {/* Legacy redirects → V4 (content/* and curriculum/* removed — now live routes) */}
