@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
+import { getModel } from "../_shared/model-routing.ts";
 
 /**
  * Universal Lesson Repair Function (Council-Compliant)
@@ -113,8 +114,10 @@ async function generateContent(
     : `${STEP_PROMPTS[step]}\n\nKompetenz: ${comp.code} – ${comp.title}\n${comp.description}\nTaxonomie: ${comp.taxonomy_level}`;
 
   try {
+    const routed = isMiniCheck ? getModel("minicheck") : getModel("repair");
     const result = await callAIJSON({
-      provider: "openai",
+      provider: routed.provider,
+      model: routed.model,
       messages: [
         { role: "system", content: "Du bist IHK-Ausbildungsexperte. Erstelle prüfungsrelevante Inhalte auf Deutsch. Nutze IMMER die Funktion." },
         { role: "user", content: prompt }

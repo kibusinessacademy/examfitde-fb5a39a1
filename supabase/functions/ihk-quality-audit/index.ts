@@ -169,8 +169,10 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!API_KEY) throw new Error('OPENAI_API_KEY not configured');
+    // Quality Audit → Claude (kritischer Blick, bessere didaktische Bewertung)
+    const API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || Deno.env.get('OPENAI_API_KEY');
+    const useAnthropic = !!Deno.env.get('ANTHROPIC_API_KEY');
+    if (!API_KEY) throw new Error('ANTHROPIC_API_KEY or OPENAI_API_KEY not configured');
 
     const body = await req.json().catch(() => ({}));
     const { courseId, sampleSize = 10 } = body;
