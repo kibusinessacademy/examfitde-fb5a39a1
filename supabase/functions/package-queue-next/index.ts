@@ -36,6 +36,26 @@ Deno.serve(async (req) => {
     // ── Step 0: Cleanup stale locks (>10 min without heartbeat) ──
     await sb.rpc("cleanup_stale_pipeline_lock");
 
+    // ── Step 0.5: Freeze-phase gate ──
+    const { count: frozenCount } = await sb
+      .from("curricula")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "frozen");
+
+    const { count: totalPkgs } = await sb
+      .from("course_packages")
+      .select("id", { count: "exact", head: true });
+
+    // During initial ramp-up, prioritize freezing curricula over building packages
+    if ((totalPkgs ?? 0) < 10 && (frozenCount ?? 0) < 5) {
+      return json({
+        ok: true,
+        skipped: true,
+        reason: "Freeze-phase priority: waiting for more frozen curricula",
+        frozenCount: frozenCount ?? 0,
+      });
+    }
+
     // ── Step 1: Check if pipeline is already busy ──
     const { data: lock } = await sb
       .from("pipeline_lock")
