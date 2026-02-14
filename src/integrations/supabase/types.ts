@@ -3993,6 +3993,7 @@ export type Database = {
       }
       course_packages: {
         Row: {
+          blocked_reason: string | null
           build_progress: number
           certification_id: string | null
           certification_type:
@@ -4011,6 +4012,7 @@ export type Database = {
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          last_error: string | null
           last_progress_at: string | null
           published_at: string | null
           queue_position: number | null
@@ -4025,6 +4027,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          blocked_reason?: string | null
           build_progress?: number
           certification_id?: string | null
           certification_type?:
@@ -4043,6 +4046,7 @@ export type Database = {
           id?: string
           integrity_passed?: boolean
           integrity_report?: Json | null
+          last_error?: string | null
           last_progress_at?: string | null
           published_at?: string | null
           queue_position?: number | null
@@ -4057,6 +4061,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          blocked_reason?: string | null
           build_progress?: number
           certification_id?: string | null
           certification_type?:
@@ -4075,6 +4080,7 @@ export type Database = {
           id?: string
           integrity_passed?: boolean
           integrity_report?: Json | null
+          last_error?: string | null
           last_progress_at?: string | null
           published_at?: string | null
           queue_position?: number | null
@@ -8865,6 +8871,36 @@ export type Database = {
           subscribed_at?: string | null
           unsubscribed_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      ops_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          id: string
+          message: string
+          payload: Json
+          severity: string
+          source: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          payload?: Json
+          severity?: string
+          source: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          payload?: Json
+          severity?: string
+          source?: string
         }
         Relationships: []
       }
@@ -14669,6 +14705,18 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_next_queued_package: {
+        Args: never
+        Returns: {
+          certification_id: string
+          course_id: string
+          curriculum_id: string
+          feature_flags: Json
+          package_id: string
+          queue_position: number
+          track: string
+        }[]
+      }
       claim_pipeline_slot: { Args: { p_package_id: string }; Returns: boolean }
       claim_provider_slot: { Args: { p_provider: string }; Returns: boolean }
       classify_job_error: { Args: { p_error: string }; Returns: string }
@@ -15570,6 +15618,7 @@ export type Database = {
       set_course_package_council_approved: {
         Args: { p_approved: boolean; p_package_id: string }
         Returns: {
+          blocked_reason: string | null
           build_progress: number
           certification_id: string | null
           certification_type:
@@ -15588,6 +15637,7 @@ export type Database = {
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          last_error: string | null
           last_progress_at: string | null
           published_at: string | null
           queue_position: number | null
@@ -15757,6 +15807,7 @@ export type Database = {
       upsert_course_package: {
         Args: { p_certification_id: string; p_course_id?: string }
         Returns: {
+          blocked_reason: string | null
           build_progress: number
           certification_id: string | null
           certification_type:
@@ -15775,6 +15826,7 @@ export type Database = {
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          last_error: string | null
           last_progress_at: string | null
           published_at: string | null
           queue_position: number | null
