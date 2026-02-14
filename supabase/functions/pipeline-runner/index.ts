@@ -62,6 +62,24 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** Safe wrapper for Supabase calls that may not return a standard Promise */
+async function safeRpc(sb: ReturnType<typeof createClient>, fn: string, params: Record<string, unknown>) {
+  try {
+    const result = await sb.rpc(fn, params);
+    return result;
+  } catch (_) {
+    return { data: null, error: _ };
+  }
+}
+
+async function safeQuery(promise: PromiseLike<unknown>) {
+  try {
+    return await promise;
+  } catch (_) {
+    return null;
+  }
+}
+
 interface StepRow {
   step_key: string;
   status: string;
@@ -89,11 +107,13 @@ async function runStepWithHeartbeat(opts: {
   // Background heartbeat loop (every 30s)
   const heartbeatLoop = (async () => {
     while (!stopped) {
-      await sb.rpc("step_heartbeat", {
-        p_package_id: packageId,
-        p_step_key: stepKey,
-        p_runner_id: runnerId,
-      }).catch(() => {});
+      try {
+        await sb.rpc("step_heartbeat", {
+          p_package_id: packageId,
+          p_step_key: stepKey,
+          p_runner_id: runnerId,
+        });
+      } catch (_) { /* ignore */ }
       await sleep(30_000);
     }
   })();
@@ -101,11 +121,13 @@ async function runStepWithHeartbeat(opts: {
   // Background lease renewal (every 90s, lease = 600s)
   const renewLoop = (async () => {
     while (!stopped) {
-      await sb.rpc("renew_package_lease", {
-        p_package_id: packageId,
-        p_runner_id: runnerId,
-        p_lease_seconds: 600,
-      }).catch(() => {});
+      try {
+        await sb.rpc("renew_package_lease", {
+          p_package_id: packageId,
+          p_runner_id: runnerId,
+          p_lease_seconds: 600,
+        });
+      } catch (_) { /* ignore */ }
       await sleep(90_000);
     }
   })();
@@ -151,20 +173,12 @@ function pickNextRunnableStep(steps: StepRow[]): {
     if (!s) continue;
 
     if (s.status === "done" || s.status === "skipped") continue;
-
-    if (s.status === "running") {
-      return { stepKey: k, reason: "already_running" };
-    }
-
+    if (s.status === "running") return { stepKey: k, reason: "already_running" };
     if (s.status === "blocked") continue;
 
     const retryable = s.status === "queued" || s.status === "failed" || s.status === "timeout";
-    if (retryable && s.attempts < s.max_attempts) {
-      return { stepKey: k, reason: "runnable" };
-    }
-    if (retryable && s.attempts >= s.max_attempts) {
-      return { stepKey: k, reason: "exhausted" };
-    }
+    if (retryable && s.attempts < s.max_attempts) return { stepKey: k, reason: "runnable" };
+    if (retryable && s.attempts >= s.max_attempts) return { stepKey: k, reason: "exhausted" };
   }
 
   return null;
@@ -207,7 +221,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (pkgErr || !pkg) {
-      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
       return json({ ok: false, error: pkgErr?.message ?? "package not found" }, 500);
     }
 
@@ -220,50 +234,49 @@ Deno.serve(async (req) => {
       .eq("package_id", packageId);
 
     if (stepsErr) {
-      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
       return json({ ok: false, error: stepsErr.message }, 500);
     }
 
     const next = pickNextRunnableStep((steps ?? []) as StepRow[]);
 
     if (!next) {
-      // Check if all done
       const statuses = (steps ?? []).map((s: StepRow) => s.status);
       const allDone = statuses.length > 0 && statuses.every((s: string) => s === "done" || s === "skipped");
 
       if (allDone) {
-        await sb.from("course_packages").update({ status: "done" }).eq("id", packageId);
+        await safeQuery(sb.from("course_packages").update({ status: "done" }).eq("id", packageId));
         console.log(`[runner] Package ${packageId.slice(0, 8)} → done (all steps complete)`);
       } else {
-        await sb.from("course_packages").update({ status: "blocked", blocked_reason: "no_runnable_steps" }).eq("id", packageId);
+        await safeQuery(sb.from("course_packages").update({ status: "blocked", blocked_reason: "no_runnable_steps" }).eq("id", packageId));
       }
 
-      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
       return json({ ok: true, packageId, finished: allDone, blocked: !allDone });
     }
 
     // ── Exhausted retries → fail-forward ──
     if (next.reason === "exhausted") {
-      await sb.from("course_packages").update({
+      await safeQuery(sb.from("course_packages").update({
         status: "failed",
         last_error: `Attempts exhausted on step ${next.stepKey}`,
-      }).eq("id", packageId);
+      }).eq("id", packageId));
 
-      await sb.from("ops_alerts").insert({
+      await safeQuery(sb.from("ops_alerts").insert({
         source: "pipeline-runner",
         severity: "error",
         message: `STEP_EXHAUSTED: ${next.stepKey} pkg ${packageId.slice(0, 8)}`,
         payload: { packageId, stepKey: next.stepKey },
-      }).catch(() => {});
+      }));
 
-      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
       return json({ ok: true, packageId, stepKey: next.stepKey, exhausted: true });
     }
 
-    // ── Already running (shouldn't happen in strict serial) ──
+    // ── Already running ──
     if (next.reason === "already_running") {
       console.warn(`[runner] Step ${next.stepKey} already running for ${packageId.slice(0, 8)} — skipping`);
-      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
       return json({ ok: true, packageId, stepKey: next.stepKey, skipped: "already_running" });
     }
 
@@ -319,14 +332,14 @@ Deno.serve(async (req) => {
       const doneCount = (steps ?? []).filter((s: StepRow) => s.status === "done" || s.status === "skipped").length + 1;
       const totalSteps = STEP_ORDER.length;
       const progress = Math.round((doneCount / totalSteps) * 100);
-      await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId).catch(() => {});
+      await safeQuery(sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId));
 
-      // If last step (publish) done → package done
+      // If last step done → package done
       if (stepKey === "auto_publish") {
-        await sb.from("course_packages").update({ status: "done" }).eq("id", packageId);
+        await safeQuery(sb.from("course_packages").update({ status: "done" }).eq("id", packageId));
       }
 
-      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
 
       console.log(`[runner] ✅ Step ${stepKey} done for ${packageId.slice(0, 8)} (progress ${progress}%)`);
       return json({ ok: true, packageId, stepKey, mode, progress });
@@ -334,25 +347,25 @@ Deno.serve(async (req) => {
       const msg = (e as Error)?.message || String(e);
       console.error(`[runner] ❌ Step ${stepKey} failed: ${msg}`);
 
-      await sb.rpc("step_fail", {
+      await safeRpc(sb, "step_fail", {
         p_package_id: packageId,
         p_step_key: stepKey,
         p_error: msg,
-      }).catch(() => {});
+      });
 
-      await sb.from("course_packages").update({
+      await safeQuery(sb.from("course_packages").update({
         status: "failed",
         last_error: `Step ${stepKey}: ${msg.slice(0, 250)}`,
-      }).eq("id", packageId).catch(() => {});
+      }).eq("id", packageId));
 
-      await sb.from("ops_alerts").insert({
+      await safeQuery(sb.from("ops_alerts").insert({
         source: "pipeline-runner",
         severity: "error",
         message: `STEP_FAILED: ${stepKey} pkg ${packageId.slice(0, 8)}`,
         payload: { packageId, stepKey, error: msg.slice(0, 1200) },
-      }).catch(() => {});
+      }));
 
-      await sb.rpc("release_package_lease", { p_package_id: packageId, p_runner_id: runnerId }).catch(() => {});
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
       return json({ ok: false, packageId, stepKey, error: msg }, 500);
     }
   } catch (e: unknown) {
