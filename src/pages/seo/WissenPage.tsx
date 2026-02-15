@@ -1,43 +1,35 @@
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, ArrowRight, BookOpen, Tag } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, BookOpen, Tag, FileText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useSEODocuments } from '@/hooks/useSEODocuments';
-import { 
-  blogArticles, 
-  getFeaturedArticles, 
-  getBlogCategories 
-} from '@/data/blogArticles';
+import type { BlogArticle } from '@/data/blogArticles';
 import { generateOrganizationSchema, SITE_URL } from '@/lib/seo';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 export default function WissenPage() {
-  // Load from DB first, fallback to hardcoded
-  const { data: dbArticles = [] } = useSEODocuments('blog');
-  
-  const featuredArticles = getFeaturedArticles();
-  const categories = getBlogCategories();
-  
-  // Merge: DB articles first, then hardcoded as fallback
-  const dbMapped = dbArticles.map(a => ({
+  const { data: dbArticles = [], isLoading } = useSEODocuments('blog');
+
+  const allArticles: BlogArticle[] = dbArticles.map(a => ({
     id: a.id,
     slug: a.slug,
     title: a.title,
     excerpt: a.excerpt || '',
-    category: 'Ratgeber',
-    author: 'ExamFit',
+    category: (a as any).category || 'Ratgeber',
+    author: (a as any).author || 'ExamFit',
     publishedAt: a.published_at || a.updated_at,
     readingTime: Math.ceil((a.content_md?.split(/\s+/).length || 200) / 200),
-    tags: [] as string[],
-    featured: false,
+    tags: ((a as any).tags as string[]) || [],
+    featured: !!(a as any).featured,
     content: a.content_md || '',
   }));
-  
-  const allArticles = [...dbMapped, ...blogArticles];
+
+  const featuredArticles = allArticles.filter(a => a.featured);
+  const categories = [...new Set(allArticles.map(a => a.category))];
   const recentArticles = [...allArticles]
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     .slice(0, 6);
@@ -56,6 +48,8 @@ export default function WissenPage() {
     ],
   };
 
+  const isEmpty = !isLoading && allArticles.length === 0;
+
   return (
     <>
       <SEOHead
@@ -70,11 +64,7 @@ export default function WissenPage() {
         <section className="relative py-16 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
           <div className="container relative z-10">
-            <Breadcrumbs
-              items={[{ label: 'Wissen' }]}
-              className="mb-8"
-            />
-
+            <Breadcrumbs items={[{ label: 'Wissen' }]} className="mb-8" />
             <div className="max-w-3xl">
               <Badge className="mb-4 bg-primary/20 text-primary border-primary/30">
                 Ratgeber & Tipps
@@ -90,116 +80,118 @@ export default function WissenPage() {
           </div>
         </section>
 
-        {/* Featured Articles */}
-        <section className="py-12 bg-muted/30">
-          <div className="container">
-            <h2 className="text-2xl font-display font-bold mb-8">
-              Beliebte Artikel
-            </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredArticles.map((article) => (
-                <Link key={article.id} to={`/wissen/${article.slug}`}>
-                  <Card className="glass-card h-full hover:shadow-glow-sm transition-all duration-300">
-                    <CardHeader>
-                      <Badge variant="outline" className="w-fit mb-2">
-                        {article.category}
-                      </Badge>
-                      <CardTitle className="line-clamp-2">{article.title}</CardTitle>
-                      <CardDescription className="line-clamp-3">
-                        {article.excerpt}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {format(new Date(article.publishedAt), 'dd. MMM yyyy', { locale: de })}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          {article.readingTime} Min.
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Categories */}
-        <section className="py-12">
-          <div className="container">
-            <h2 className="text-2xl font-display font-bold mb-8">
-              Themen entdecken
-            </h2>
-            <div className="flex flex-wrap gap-3">
-              {categories.map((category) => (
-                <Link 
-                  key={category} 
-                  to={`/wissen/kategorie/${category.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  <Badge 
-                    variant="outline" 
-                    className="px-4 py-2 text-base hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer"
-                  >
-                    <Tag className="h-4 w-4 mr-2" />
-                    {category}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Recent Articles */}
-        <section className="py-12 bg-muted/30">
-          <div className="container">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-display font-bold">
-                Neueste Artikel
-              </h2>
-            </div>
-            <div className="grid gap-6">
-              {recentArticles.map((article) => (
-                <Link key={article.id} to={`/wissen/${article.slug}`}>
-                  <Card className="glass-card hover:shadow-glow-sm transition-all duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col md:flex-row md:items-center gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline">{article.category}</Badge>
-                            <span className="text-sm text-muted-foreground">
-                              {format(new Date(article.publishedAt), 'dd. MMMM yyyy', { locale: de })}
-                            </span>
-                          </div>
-                          <h3 className="text-xl font-semibold mb-2">{article.title}</h3>
-                          <p className="text-muted-foreground line-clamp-2">{article.excerpt}</p>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            {article.readingTime} Min.
-                          </span>
-                          <ArrowRight className="h-5 w-5 text-primary" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-
-            <div className="text-center mt-8">
-              <Button variant="outline" size="lg" asChild>
-                <Link to="/wissen/alle">
-                  Alle Artikel anzeigen <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
+        {isEmpty ? (
+          <section className="py-16">
+            <div className="container text-center">
+              <FileText className="h-16 w-16 text-muted-foreground/40 mx-auto mb-4" />
+              <h2 className="text-2xl font-display font-bold mb-2">Bald verfügbar</h2>
+              <p className="text-muted-foreground max-w-md mx-auto mb-6">
+                Unsere Experten arbeiten an hilfreichen Artikeln rund um Ausbildung, Prüfungsvorbereitung und Karriere.
+              </p>
+              <Button asChild>
+                <Link to="/shop">Produkte entdecken <ArrowRight className="ml-2 h-4 w-4" /></Link>
               </Button>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : (
+          <>
+            {/* Featured Articles */}
+            {featuredArticles.length > 0 && (
+              <section className="py-12 bg-muted/30">
+                <div className="container">
+                  <h2 className="text-2xl font-display font-bold mb-8">Beliebte Artikel</h2>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {featuredArticles.map((article) => (
+                      <Link key={article.id} to={`/wissen/${article.slug}`}>
+                        <Card className="glass-card h-full hover:shadow-glow-sm transition-all duration-300">
+                          <CardHeader>
+                            <Badge variant="outline" className="w-fit mb-2">{article.category}</Badge>
+                            <CardTitle className="line-clamp-2">{article.title}</CardTitle>
+                            <CardDescription className="line-clamp-3">{article.excerpt}</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                {format(new Date(article.publishedAt), 'dd. MMM yyyy', { locale: de })}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-4 w-4" />
+                                {article.readingTime} Min.
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Categories */}
+            {categories.length > 0 && (
+              <section className="py-12">
+                <div className="container">
+                  <h2 className="text-2xl font-display font-bold mb-8">Themen entdecken</h2>
+                  <div className="flex flex-wrap gap-3">
+                    {categories.map((category) => (
+                      <Link key={category} to={`/wissen/kategorie/${category.toLowerCase().replace(/\s+/g, '-')}`}>
+                        <Badge variant="outline" className="px-4 py-2 text-base hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer">
+                          <Tag className="h-4 w-4 mr-2" />
+                          {category}
+                        </Badge>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Recent Articles */}
+            <section className="py-12 bg-muted/30">
+              <div className="container">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-2xl font-display font-bold">Neueste Artikel</h2>
+                </div>
+                <div className="grid gap-6">
+                  {recentArticles.map((article) => (
+                    <Link key={article.id} to={`/wissen/${article.slug}`}>
+                      <Card className="glass-card hover:shadow-glow-sm transition-all duration-300">
+                        <CardContent className="p-6">
+                          <div className="flex flex-col md:flex-row md:items-center gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge variant="outline">{article.category}</Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  {format(new Date(article.publishedAt), 'dd. MMMM yyyy', { locale: de })}
+                                </span>
+                              </div>
+                              <h3 className="text-xl font-semibold mb-2">{article.title}</h3>
+                              <p className="text-muted-foreground line-clamp-2">{article.excerpt}</p>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-4 w-4" />
+                                {article.readingTime} Min.
+                              </span>
+                              <ArrowRight className="h-5 w-5 text-primary" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+                <div className="text-center mt-8">
+                  <Button variant="outline" size="lg" asChild>
+                    <Link to="/wissen/alle">Alle Artikel anzeigen <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                  </Button>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
 
         {/* CTA Section */}
         <section className="py-16">
@@ -216,14 +208,10 @@ export default function WissenPage() {
                 </p>
                 <div className="flex flex-wrap justify-center gap-4">
                   <Button size="lg" asChild>
-                    <Link to="/shop">
-                      Produkte entdecken <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
+                    <Link to="/shop">Produkte entdecken <ArrowRight className="ml-2 h-4 w-4" /></Link>
                   </Button>
                   <Button size="lg" variant="outline" asChild>
-                    <Link to="/berufe">
-                      Deinen Beruf finden
-                    </Link>
+                    <Link to="/berufe">Deinen Beruf finden</Link>
                   </Button>
                 </div>
               </CardContent>
