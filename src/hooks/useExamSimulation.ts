@@ -219,11 +219,13 @@ export function useSubmitAnswer() {
       questionId,
       answer,
       timeSpent = 0,
+      confidence,
     }: {
       sessionId: string;
       questionId: string;
       answer: number;
       timeSpent?: number;
+      confidence?: number;
     }) => {
       const { data, error } = await supabase.functions.invoke('submit-exam-answer', {
         body: {
@@ -231,6 +233,7 @@ export function useSubmitAnswer() {
           selected_answer: answer,
           session_id: sessionId,
           time_spent: timeSpent,
+          confidence,
         },
       });
 
@@ -292,7 +295,7 @@ export function useExamSimulation(sessionId?: string) {
   const answeredCount = questions?.filter(q => q.user_answer !== null).length || 0;
   const isComplete = session?.finished_at !== null;
   
-  const handleAnswer = useCallback(async (answer: number, timeSpent?: number) => {
+  const handleAnswer = useCallback(async (answer: number, timeSpent?: number, confidence?: number) => {
     if (!sessionId || !currentQuestion) return;
 
     const result = await submitAnswer.mutateAsync({
@@ -300,6 +303,7 @@ export function useExamSimulation(sessionId?: string) {
       questionId: currentQuestion.question_id,
       answer,
       timeSpent,
+      confidence,
     });
 
     setLastAnswer(result);
