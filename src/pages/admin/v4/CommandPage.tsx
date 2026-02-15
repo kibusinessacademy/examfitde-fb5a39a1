@@ -1,61 +1,69 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  AlertTriangle, ArrowRight, CheckCircle2, Clock, Package,
-  XCircle, Wrench, Activity, DollarSign, Rocket,
-  Play, RefreshCw, RotateCcw, Loader2, Radio, Layers, Zap
+  CheckCircle2, Clock, Package, XCircle, Activity,
+  DollarSign, RefreshCw, Loader2, FileText, Headphones,
+  Users, AlertTriangle, TrendingUp, ArrowRight, Play, RotateCcw, Pause
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-const MAX_SLOTS = 5;
 const REFRESH_INTERVAL = 30_000;
+const TOTAL_STEPS = 9;
 
-interface SlotInfo {
+interface PackageInfo {
   id: string;
   title: string | null;
   status: string;
   build_progress: number;
-  current_step: string | null;
   priority: number;
+  current_step: string | null;
+  step_status_json: Record<string, string> | null;
+  created_at: string;
   updated_at: string;
+  track: string | null;
 }
 
-interface PipelineStepInfo {
-  step_key: string;
-  status: string;
-  attempts: number;
-  max_attempts: number;
-  job_id: string | null;
+interface PlatformKPIs {
+  seoPages: number;
+  ticketsOpen: number;
+  ticketsTotal: number;
+  usersTotal: number;
+  ordersPaid: number;
+  revenueCents: number;
 }
 
-interface QueueStats {
-  queued: number;
-  building: number;
-  failed: number;
-  published: number;
-  blocked: number;
-  pendingJobs: number;
-  processingJobs: number;
-  completedJobs24h: number;
-  failedJobs24h: number;
-  dailyCost: number;
-}
+const STEP_LABELS: Record<string, string> = {
+  scaffold_learning_course: 'Lernkurs',
+  auto_seed_exam_blueprints: 'Blueprints',
+  generate_exam_pool: 'Fragenpool',
+  generate_oral_exam: 'Mündliche',
+  build_ai_tutor_index: 'KI-Tutor',
+  generate_handbook: 'Handbuch',
+  run_integrity_check: 'Integrität',
+  quality_council: 'QA Council',
+  auto_publish: 'Publish',
+};
+
+const STEP_ORDER = [
+  'scaffold_learning_course', 'auto_seed_exam_blueprints', 'generate_exam_pool',
+  'generate_oral_exam', 'build_ai_tutor_index', 'generate_handbook',
+  'run_integrity_check', 'quality_council', 'auto_publish',
+];
+
+const fmtEur = (cents: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 
 export default function CommandPage() {
-  const [slots, setSlots] = useState<SlotInfo[]>([]);
-  const [stepsMap, setStepsMap] = useState<Record<string, PipelineStepInfo[]>>({});
-  const [stats, setStats] = useState<QueueStats>({
-    queued: 0, building: 0, failed: 0, published: 0, blocked: 0,
-    pendingJobs: 0, processingJobs: 0, completedJobs24h: 0, failedJobs24h: 0, dailyCost: 0,
-  });
-  const [failedPkgs, setFailedPkgs] = useState<SlotInfo[]>([]);
+  const [packages, setPackages] = useState<PackageInfo[]>([]);
+  const [kpis, setKpis] = useState<PlatformKPIs>({ seoPages: 0, ticketsOpen: 0, ticketsTotal: 0, usersTotal: 0, ordersPaid: 0, revenueCents: 0 });
+  const [dailyCost, setDailyCost] = useState(0);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -64,65 +72,38 @@ export default function CommandPage() {
   const load = useCallback(async () => {
     try {
       const sb = supabase as any;
-      const now24h = new Date(Date.now() - 86400_000).toISOString();
-      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
-      const [pkgRes, failedRes, statsRes, jobStatsRes, costRes] = await Promise.all([
+      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, costRes] = await Promise.all([
         sb.from('course_packages')
-          .select('id, title, status, build_progress, current_step, priority, updated_at')
-          .eq('status', 'building')
-          .order('priority', { ascending: true })
-          .limit(MAX_SLOTS),
-        sb.from('course_packages')
-          .select('id, title, status, build_progress, current_step, priority, updated_at')
-          .eq('status', 'failed')
-          .order('updated_at', { ascending: false })
-          .limit(5),
-        sb.from('course_packages')
-          .select('status'),
-        sb.from('job_queue')
-          .select('status, completed_at'),
-        sb.from('ai_usage_log')
-          .select('cost_eur')
-          .gte('created_at', todayStart.toISOString()),
+          .select('id, title, status, build_progress, priority, current_step, step_status_json, created_at, updated_at, track')
+          .lte('priority', 20)
+          .order('priority')
+          .order('created_at'),
+        sb.from('support_tickets').select('status'),
+        sb.from('profiles').select('id', { count: 'exact', head: true }),
+        sb.from('certification_seo_pages').select('id', { count: 'exact', head: true }),
+        sb.from('orders').select('status, total_cents'),
+        sb.from('ai_usage_log').select('cost_eur').gte('created_at', todayStart.toISOString()),
       ]);
 
-      const activeSlots = (pkgRes.data || []) as SlotInfo[];
-      setSlots(activeSlots);
-      setFailedPkgs((failedRes.data || []) as SlotInfo[]);
+      setPackages((pkgRes.data || []) as PackageInfo[]);
 
-      // Load steps for active packages
-      if (activeSlots.length > 0) {
-        const { data: stepsData } = await sb.from('package_steps')
-          .select('package_id, step_key, status, attempts, max_attempts, job_id')
-          .in('package_id', activeSlots.map(s => s.id))
-          .order('created_at', { ascending: true });
-        
-        const map: Record<string, PipelineStepInfo[]> = {};
-        for (const step of (stepsData || [])) {
-          if (!map[step.package_id]) map[step.package_id] = [];
-          map[step.package_id].push(step);
-        }
-        setStepsMap(map);
-      }
+      const tickets = (ticketRes.data || []) as { status: string }[];
+      const orders = (orderRes.data || []) as { status: string; total_cents: number }[];
+      const paidOrders = orders.filter(o => o.status === 'paid');
 
-      // Compute stats
-      const allPkgs = (statsRes.data || []) as { status: string }[];
-      const allJobs = (jobStatsRes.data || []) as { status: string; completed_at: string | null }[];
-      const costs = (costRes.data || []) as { cost_eur: number }[];
-
-      setStats({
-        queued: allPkgs.filter(p => p.status === 'queued').length,
-        building: allPkgs.filter(p => p.status === 'building').length,
-        failed: allPkgs.filter(p => p.status === 'failed').length,
-        published: allPkgs.filter(p => p.status === 'published').length,
-        blocked: allPkgs.filter(p => p.status === 'blocked').length,
-        pendingJobs: allJobs.filter(j => j.status === 'pending').length,
-        processingJobs: allJobs.filter(j => j.status === 'processing').length,
-        completedJobs24h: allJobs.filter(j => j.status === 'completed' && j.completed_at && j.completed_at >= now24h).length,
-        failedJobs24h: allJobs.filter(j => j.status === 'failed' && j.completed_at && j.completed_at >= now24h).length,
-        dailyCost: costs.reduce((sum, c) => sum + (c.cost_eur || 0), 0),
+      setKpis({
+        seoPages: seoRes.count || 0,
+        ticketsOpen: tickets.filter(t => t.status === 'open').length,
+        ticketsTotal: tickets.length,
+        usersTotal: profileRes.count || 0,
+        ordersPaid: paidOrders.length,
+        revenueCents: paidOrders.reduce((s, o) => s + (o.total_cents || 0), 0),
       });
+
+      const costs = (costRes.data || []) as { cost_eur: number }[];
+      setDailyCost(costs.reduce((s, c) => s + (c.cost_eur || 0), 0));
 
       setLastRefresh(new Date());
     } catch (e) { console.error('[Command] Load error:', e); }
@@ -135,15 +116,34 @@ export default function CommandPage() {
     return () => clearInterval(intervalRef.current);
   }, [load]);
 
-  // Realtime subscription for instant updates
   useEffect(() => {
     const channel = supabase
       .channel('command-rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'course_packages' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'package_steps' }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load]);
+
+  // Analysis
+  const analysis = useMemo(() => {
+    if (!packages.length) return null;
+
+    const total = packages.length;
+    const published = packages.filter(p => p.status === 'published').length;
+    const building = packages.filter(p => p.status === 'building').length;
+    const queued = packages.filter(p => p.status === 'queued').length;
+    const blocked = packages.filter(p => p.status === 'blocked').length;
+    const failed = packages.filter(p => p.status === 'failed').length;
+    const remaining = total - published;
+
+    // Zero-based estimation: assume ~4h per package with 5 slots
+    const hoursPerPackage = 4;
+    const slotsAvailable = 5;
+    const estimatedDays = Math.ceil((remaining * hoursPerPackage) / (slotsAvailable * 24));
+    const estimatedDate = new Date(Date.now() + estimatedDays * 86400_000);
+
+    return { total, published, building, queued, blocked, failed, remaining, estimatedDays, estimatedDate };
+  }, [packages]);
 
   const triggerRunner = async () => {
     setActing(true);
@@ -163,43 +163,35 @@ export default function CommandPage() {
     setActing(false);
   };
 
-  const retryAllFailed = async () => {
-    setActing(true);
-    await (supabase as any).from('job_queue')
-      .update({ status: 'pending', attempts: 0, run_after: new Date().toISOString(), scheduled_at: null, locked_at: null, locked_by: null })
-      .eq('status', 'failed');
-    toast.success('Failed Jobs zurückgesetzt');
-    load();
-    setActing(false);
-  };
-
   if (loading) return (
     <div className="space-y-6">
       <Skeleton className="h-10 w-64" />
-      <div className="grid grid-cols-5 gap-3">
-        {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
       </div>
+      <Skeleton className="h-96" />
     </div>
   );
 
-  const slotsUsed = slots.length;
+  // Group by priority
+  const prio5 = packages.filter(p => p.priority === 5);
+  const prio10 = packages.filter(p => p.priority === 10);
+  const prio15 = packages.filter(p => p.priority === 15);
+  const prio20 = packages.filter(p => p.priority === 20);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Produktions-Leitstelle</h1>
+          <h1 className="text-2xl font-display font-bold text-foreground">Leitstelle</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Echtzeit · Auto-Refresh {REFRESH_INTERVAL / 1000}s · Letztes Update: {lastRefresh.toLocaleTimeString('de-DE')}
+            Auto-Refresh {REFRESH_INTERVAL / 1000}s · {lastRefresh.toLocaleTimeString('de-DE')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={triggerRunner} disabled={acting}>
-            <Play className="h-3.5 w-3.5 mr-1" /> Runner starten
-          </Button>
-          <Button variant="outline" size="sm" onClick={retryAllFailed} disabled={acting || stats.failedJobs24h === 0}>
-            <RotateCcw className="h-3.5 w-3.5 mr-1" /> Failed retrien
+            <Play className="h-3.5 w-3.5 mr-1" /> Pipeline starten
           </Button>
           <Button variant="ghost" size="sm" onClick={load}>
             <RefreshCw className="h-3.5 w-3.5" />
@@ -207,76 +199,90 @@ export default function CommandPage() {
         </div>
       </div>
 
-      {/* KPI Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-        <MiniKPI label="Slots" value={`${slotsUsed}/${MAX_SLOTS}`} alert={slotsUsed === 0} icon={<Radio className="h-3 w-3" />} />
-        <MiniKPI label="Queue" value={stats.queued} icon={<Layers className="h-3 w-3" />} />
-        <MiniKPI label="Published" value={stats.published} color="text-emerald-500" icon={<CheckCircle2 className="h-3 w-3" />} />
-        <MiniKPI label="Failed" value={stats.failed} alert={stats.failed > 0} icon={<XCircle className="h-3 w-3" />} />
-        <MiniKPI label="Jobs aktiv" value={stats.processingJobs} icon={<Activity className="h-3 w-3" />} />
-        <MiniKPI label="Jobs wartend" value={stats.pendingJobs} icon={<Clock className="h-3 w-3" />} />
-        <MiniKPI label="Jobs ✓ 24h" value={stats.completedJobs24h} color="text-emerald-500" />
-        <MiniKPI label="Kosten" value={`€${stats.dailyCost.toFixed(1)}`} icon={<DollarSign className="h-3 w-3" />} />
-      </div>
+      {/* ═══ PRODUKT-KPIs ═══ */}
+      {analysis && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <KPICard icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />} label="Fertig" value={`${analysis.published}/${analysis.total}`} accent="border-emerald-500/20" />
+          <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="In Produktion" value={analysis.building} accent="border-primary/20" />
+          <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Warteschlange" value={analysis.queued} />
+          <KPICard icon={<Pause className="h-4 w-4 text-amber-500" />} label="Blockiert" value={analysis.blocked} alert={analysis.blocked > 0} />
+          <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Fehlgeschlagen" value={analysis.failed} alert={analysis.failed > 0} />
+          <KPICard icon={<TrendingUp className="h-4 w-4 text-primary" />} label="Prognose" value={`~${analysis.estimatedDays}d`} sublabel={analysis.estimatedDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} />
+        </div>
+      )}
 
-      {/* ═══ SLOT UTILIZATION ═══ */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <Radio className="h-4 w-4 text-primary" />
-              Slot-Auslastung ({slotsUsed}/{MAX_SLOTS})
-            </span>
-            <SlotMeter used={slotsUsed} total={MAX_SLOTS} />
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            {Array.from({ length: MAX_SLOTS }).map((_, i) => {
-              const slot = slots[i];
-              if (!slot) return <EmptySlot key={i} index={i} />;
-              const steps = stepsMap[slot.id] || [];
-              return <ActiveSlot key={slot.id} slot={slot} steps={steps} index={i} />;
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Failed Packages */}
-      {failedPkgs.length > 0 && (
-        <Card className="border-destructive/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2 text-destructive">
-              <XCircle className="h-4 w-4" /> Fehlgeschlagen ({failedPkgs.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {failedPkgs.map(pkg => (
-              <Link key={pkg.id} to={`/admin/studio/${pkg.id}`} className="block">
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-destructive/5 border border-destructive/10 transition-colors">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                    <span className="text-sm truncate">{pkg.title || pkg.id.slice(0, 12)}</span>
-                  </div>
-                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                </div>
-              </Link>
-            ))}
+      {/* ═══ FORTSCHRITTS-BALKEN ═══ */}
+      {analysis && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Gesamtfortschritt</span>
+              <span className="text-sm text-muted-foreground">{analysis.published} von {analysis.total} Produkten live</span>
+            </div>
+            <Progress value={(analysis.published / analysis.total) * 100} className="h-3" />
           </CardContent>
         </Card>
       )}
 
-      {/* Quick Links */}
-      <div className="flex flex-wrap gap-2 text-xs">
-        <Button asChild variant="outline" size="sm">
-          <Link to="/admin/studio/new"><Rocket className="h-3.5 w-3.5 mr-1" /> Neues Paket</Link>
-        </Button>
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/admin/ops"><Activity className="h-3.5 w-3.5 mr-1" /> Ops Details</Link>
-        </Button>
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/admin/business"><DollarSign className="h-3.5 w-3.5 mr-1" /> Finanzen</Link>
-        </Button>
+      {/* ═══ PRODUKT-TABELLEN ═══ */}
+      {prio10.length > 0 && (
+        <ProductGroup title="Top 10 Ausbildungsberufe" emoji="🥇" packages={prio10} />
+      )}
+      {prio15.length > 0 && (
+        <ProductGroup title="AEVO" emoji="🎓" packages={prio15} />
+      )}
+      {prio20.length > 0 && (
+        <ProductGroup title="Nächste 10 Ausbildungsberufe" emoji="🥈" packages={prio20} />
+      )}
+      {prio5.length > 0 && (
+        <ProductGroup title="Sonstige / Legacy" emoji="📦" packages={prio5} />
+      )}
+
+      {/* ═══ INTERPRETATION ═══ */}
+      {analysis && (
+        <Card className="border-primary/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">📊 Aktueller Stand</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-2 text-muted-foreground">
+            <p>
+              <strong>{analysis.building} Produkte</strong> werden aktuell gebaut (max. 5 parallele Slots).
+              {analysis.queued > 0 && <> <strong>{analysis.queued} Produkte</strong> warten in der Warteschlange und werden automatisch gestartet.</>}
+            </p>
+            {analysis.blocked > 0 && (
+              <p className="text-amber-600 dark:text-amber-400">
+                ⚠️ <strong>{analysis.blocked} Produkte sind blockiert</strong> — der Factory-Orchestrator löst dies automatisch auf, sobald die Curriculum-Daten (Lernfelder & Kompetenzen) bereitstehen.
+              </p>
+            )}
+            {analysis.failed > 0 && (
+              <p className="text-destructive">
+                ❌ <strong>{analysis.failed} Produkte fehlgeschlagen</strong> — Status kann auf „queued" zurückgesetzt werden für einen Retry.
+              </p>
+            )}
+            <p>
+              📅 <strong>Prognose:</strong> Bei ~4h/Produkt und 5 parallelen Slots sind alle {analysis.total} Produkte in ca. <strong>{analysis.estimatedDays} Tagen</strong> fertig 
+              (≈ {analysis.estimatedDate.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}).
+              <em className="block text-xs mt-1">Hinweis: Schätzung startet bei null — reale Durchlaufzeiten werden sich mit abgeschlossenen Paketen verfeinern.</em>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ═══ PLATTFORM-KPIs ═══ */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <Link to="/admin/content" className="block">
+          <PlatformCard icon={<FileText className="h-4 w-4" />} label="SEO-Seiten" value={kpis.seoPages} />
+        </Link>
+        <Link to="/admin/crm" className="block">
+          <PlatformCard icon={<Users className="h-4 w-4" />} label="Nutzer" value={kpis.usersTotal} />
+        </Link>
+        <Link to="/admin/support" className="block">
+          <PlatformCard icon={<Headphones className="h-4 w-4" />} label="Tickets offen" value={kpis.ticketsOpen} sublabel={`${kpis.ticketsTotal} gesamt`} alert={kpis.ticketsOpen > 0} />
+        </Link>
+        <Link to="/admin/business" className="block">
+          <PlatformCard icon={<DollarSign className="h-4 w-4" />} label="Umsatz" value={fmtEur(kpis.revenueCents)} sublabel={`${kpis.ordersPaid} Bestellungen`} />
+        </Link>
+        <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten heute" value={`€${dailyCost.toFixed(2)}`} />
       </div>
     </div>
   );
@@ -284,99 +290,134 @@ export default function CommandPage() {
 
 // ═══ Sub-Components ═══
 
-const STEP_LABELS: Record<string, string> = {
-  scaffold_learning_course: 'Scaffold',
-  auto_seed_exam_blueprints: 'Blueprints',
-  generate_exam_pool: 'Prüfungen',
-  generate_oral_exam: 'Mündlich',
-  build_ai_tutor_index: 'Tutor',
-  generate_handbook: 'Handbuch',
-  run_integrity_check: 'Integrität',
-  quality_council: 'QA',
-  auto_publish: 'Publish',
-};
-
-function SlotMeter({ used, total }: { used: number; total: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: total }).map((_, i) => (
-        <div key={i} className={cn(
-          "w-3 h-3 rounded-sm transition-colors",
-          i < used ? "bg-primary" : "bg-muted"
-        )} />
-      ))}
-    </div>
-  );
-}
-
-function EmptySlot({ index }: { index: number }) {
-  return (
-    <div className="border border-dashed border-border rounded-lg p-3 flex flex-col items-center justify-center min-h-[120px] opacity-40">
-      <Package className="h-5 w-5 text-muted-foreground mb-1" />
-      <span className="text-[10px] text-muted-foreground">Slot {index + 1} frei</span>
-    </div>
-  );
-}
-
-function ActiveSlot({ slot, steps, index }: { slot: SlotInfo; steps: PipelineStepInfo[]; index: number }) {
-  const doneSteps = steps.filter(s => s.status === 'done' || s.status === 'skipped').length;
-  const totalSteps = steps.length || 9;
-  const activeStep = steps.find(s => s.status === 'enqueued' || s.status === 'running');
-  const failedStep = steps.find(s => s.status === 'failed');
-
-  return (
-    <Link to={`/admin/studio/${slot.id}`} className="block">
-      <div className={cn(
-        "border rounded-lg p-3 min-h-[120px] hover:shadow-md transition-all",
-        failedStep ? "border-destructive/30 bg-destructive/5" : "border-primary/30 bg-primary/5"
-      )}>
-        <div className="flex items-center justify-between mb-2">
-          <Badge variant="outline" className="text-[9px] px-1">Slot {index + 1}</Badge>
-          {activeStep && (
-            <Loader2 className="h-3 w-3 animate-spin text-primary" />
-          )}
-        </div>
-        <p className="text-xs font-medium truncate mb-2">{slot.title || slot.id.slice(0, 12)}</p>
-        
-        {/* Step progress mini-bar */}
-        <div className="flex gap-0.5 mb-1.5">
-          {steps.map(s => (
-            <div key={s.step_key} className={cn(
-              "h-1 flex-1 rounded-full",
-              s.status === 'done' || s.status === 'skipped' ? 'bg-emerald-500' :
-              s.status === 'enqueued' || s.status === 'running' ? 'bg-primary animate-pulse' :
-              s.status === 'failed' ? 'bg-destructive' :
-              'bg-muted'
-            )} title={`${STEP_LABELS[s.step_key] || s.step_key}: ${s.status}`} />
-          ))}
-        </div>
-
-        <p className="text-[10px] text-muted-foreground">
-          {doneSteps}/{totalSteps} Steps
-          {activeStep && <> · <span className="text-primary">{STEP_LABELS[activeStep.step_key] || activeStep.step_key}</span></>}
-          {failedStep && <> · <span className="text-destructive">{STEP_LABELS[failedStep.step_key]} ❌</span></>}
-        </p>
-        {activeStep && activeStep.attempts > 1 && (
-          <p className="text-[9px] text-muted-foreground">Attempt {activeStep.attempts}/{activeStep.max_attempts}</p>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function MiniKPI({ label, value, color, alert: isAlert, icon }: { 
-  label: string; value: any; color?: string; alert?: boolean; icon?: React.ReactNode 
+function KPICard({ icon, label, value, sublabel, accent, alert: isAlert }: {
+  icon: React.ReactNode; label: string; value: any; sublabel?: string; accent?: string; alert?: boolean;
 }) {
   return (
-    <div className={cn(
-      "rounded-lg border px-3 py-2",
-      isAlert ? "border-destructive/50 bg-destructive/5" : "border-border"
+    <Card className={cn(
+      "transition-colors",
+      isAlert ? "border-destructive/40 bg-destructive/5" : accent || ""
     )}>
-      <div className="flex items-center gap-1 text-muted-foreground mb-0.5">
-        {icon}
-        <span className="text-[10px] uppercase tracking-wider">{label}</span>
-      </div>
-      <p className={cn("text-lg font-bold", isAlert ? "text-destructive" : color || "text-foreground")}>{value}</p>
-    </div>
+      <CardContent className="pt-4 pb-3">
+        <div className="flex items-center gap-2 mb-1">
+          {icon}
+          <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
+        </div>
+        <p className={cn("text-xl font-bold", isAlert && "text-destructive")}>{value}</p>
+        {sublabel && <p className="text-xs text-muted-foreground">{sublabel}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PlatformCard({ icon, label, value, sublabel, alert: isAlert }: {
+  icon: React.ReactNode; label: string; value: any; sublabel?: string; alert?: boolean;
+}) {
+  return (
+    <Card className={cn("hover:shadow-md transition-all", isAlert && "border-amber-500/30")}>
+      <CardContent className="pt-4 pb-3">
+        <div className="flex items-center gap-2 mb-1 text-muted-foreground">
+          {icon}
+          <span className="text-xs">{label}</span>
+        </div>
+        <p className="text-lg font-bold">{value}</p>
+        {sublabel && <p className="text-xs text-muted-foreground">{sublabel}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProductGroup({ title, emoji, packages }: { title: string; emoji: string; packages: PackageInfo[] }) {
+  const done = packages.filter(p => p.status === 'published').length;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          {emoji} {title}
+        </CardTitle>
+        <CardDescription>{done}/{packages.length} fertig</CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="pl-6">Produkt</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Phasen</TableHead>
+              <TableHead className="text-right pr-6">Fortschritt</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {packages.map(pkg => <ProductRow key={pkg.id} pkg={pkg} />)}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProductRow({ pkg }: { pkg: PackageInfo }) {
+  const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
+  const progress = pkg.build_progress || 0;
+
+  const statusBadge = (() => {
+    switch (pkg.status) {
+      case 'published':
+        return <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">Live</Badge>;
+      case 'building':
+        return <Badge className="bg-primary/10 text-primary border-primary/20 text-xs"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Baut</Badge>;
+      case 'queued':
+        return <Badge variant="outline" className="text-xs"><Clock className="h-3 w-3 mr-1" />Queue</Badge>;
+      case 'blocked':
+        return <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-xs"><Pause className="h-3 w-3 mr-1" />Blockiert</Badge>;
+      case 'failed':
+        return <Badge variant="destructive" className="text-xs">Fehler</Badge>;
+      default:
+        return <Badge variant="outline" className="text-xs">{pkg.status}</Badge>;
+    }
+  })();
+
+  // Display short title
+  const shortTitle = (pkg.title || pkg.id.slice(0, 12)).replace('ExamFit – ', '');
+
+  return (
+    <TableRow className={cn(
+      pkg.status === 'building' && 'bg-primary/5',
+      pkg.status === 'failed' && 'bg-destructive/5',
+    )}>
+      <TableCell className="pl-6">
+        <Link to={`/admin/studio/${pkg.id}`} className="hover:underline font-medium text-sm">
+          {shortTitle}
+        </Link>
+      </TableCell>
+      <TableCell>{statusBadge}</TableCell>
+      <TableCell>
+        <div className="flex gap-0.5">
+          {STEP_ORDER.map(step => {
+            const s = stepStatuses[step];
+            return (
+              <div
+                key={step}
+                className={cn(
+                  "w-4 h-2 rounded-sm",
+                  s === 'done' || s === 'skipped' ? 'bg-emerald-500' :
+                  s === 'running' || s === 'enqueued' ? 'bg-primary animate-pulse' :
+                  s === 'failed' ? 'bg-destructive' :
+                  'bg-muted'
+                )}
+                title={`${STEP_LABELS[step] || step}: ${s || 'ausstehend'}`}
+              />
+            );
+          })}
+        </div>
+      </TableCell>
+      <TableCell className="text-right pr-6">
+        <div className="flex items-center gap-2 justify-end">
+          <Progress value={progress} className="h-1.5 w-20" />
+          <span className="text-xs font-mono text-muted-foreground w-8 text-right">{progress}%</span>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
