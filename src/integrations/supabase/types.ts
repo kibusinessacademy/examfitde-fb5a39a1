@@ -482,6 +482,13 @@ export type Database = {
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       ai_tutor_logs: {
@@ -2309,6 +2316,13 @@ export type Database = {
             referencedRelation: "certification_catalog"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "certification_seo_pages_certification_catalog_id_fkey"
+            columns: ["certification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_cost_ratio"
+            referencedColumns: ["certification_id"]
+          },
         ]
       }
       churn_predictions: {
@@ -3496,6 +3510,13 @@ export type Database = {
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       council_states: {
@@ -4005,6 +4026,13 @@ export type Database = {
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       course_package_locks: {
@@ -4047,6 +4075,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_unit_economics_package"
             referencedColumns: ["package_id"]
           },
         ]
@@ -4100,6 +4135,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
             referencedColumns: ["package_id"]
           },
         ]
@@ -4159,6 +4201,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
             referencedColumns: ["package_id"]
           },
         ]
@@ -4230,6 +4279,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "v_unit_economics_package"
             referencedColumns: ["package_id"]
           },
         ]
@@ -5756,6 +5812,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
             referencedColumns: ["package_id"]
           },
         ]
@@ -9586,6 +9649,13 @@ export type Database = {
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       order_items: {
@@ -9783,6 +9853,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_unit_economics_package"
             referencedColumns: ["package_id"]
           },
         ]
@@ -9994,6 +10071,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
             referencedColumns: ["package_id"]
           },
         ]
@@ -10306,6 +10390,13 @@ export type Database = {
             columns: ["active_package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
             referencedColumns: ["package_id"]
           },
         ]
@@ -10820,6 +10911,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
             referencedColumns: ["package_id"]
           },
         ]
@@ -14851,6 +14949,13 @@ export type Database = {
             referencedRelation: "ops_seeding_summary"
             referencedColumns: ["package_id"]
           },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
         ]
       }
       curriculum_products_overview: {
@@ -15313,6 +15418,26 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cost_per_question: {
+        Row: {
+          certification_id: string | null
+          certification_name: string | null
+          cost_per_question: number | null
+          exam_pool_cost_eur: number | null
+          package_id: string | null
+          question_count: number | null
+        }
+        Relationships: []
+      }
+      v_escalation_rate: {
+        Row: {
+          day: string | null
+          escalated_calls: number | null
+          escalation_pct: number | null
+          total_calls: number | null
+        }
+        Relationships: []
+      }
       v_exam_questions_approved: {
         Row: {
           ai_generated: boolean | null
@@ -15527,6 +15652,17 @@ export type Database = {
           },
         ]
       }
+      v_revenue_cost_ratio: {
+        Row: {
+          certification_id: string | null
+          certification_name: string | null
+          llm_cost_total: number | null
+          refunds_total: number | null
+          revenue_cost_ratio: number | null
+          revenue_total: number | null
+        }
+        Relationships: []
+      }
       v_revenue_daily: {
         Row: {
           currency: string | null
@@ -15549,6 +15685,32 @@ export type Database = {
           total_tokens: number | null
         }
         Relationships: []
+      }
+      v_unit_economics_package: {
+        Row: {
+          avg_quality_score: number | null
+          certification_id: string | null
+          certification_name: string | null
+          cost_per_question: number | null
+          curriculum_id: string | null
+          llm_cost_30d: number | null
+          llm_cost_total: number | null
+          net_profit_30d: number | null
+          package_id: string | null
+          question_count: number | null
+          refunds_30d: number | null
+          revenue_30d: number | null
+          roi_ratio: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_vat_monthly: {
         Row: {
