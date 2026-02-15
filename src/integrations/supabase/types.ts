@@ -10220,6 +10220,24 @@ export type Database = {
           },
         ]
       }
+      pipeline_step_order: {
+        Row: {
+          job_type: string
+          required_package_step: string
+          step_index: number
+        }
+        Insert: {
+          job_type: string
+          required_package_step: string
+          step_index?: number
+        }
+        Update: {
+          job_type?: string
+          required_package_step?: string
+          step_index?: number
+        }
+        Relationships: []
+      }
       platform_risk_scores: {
         Row: {
           compliance_score: number
@@ -16236,6 +16254,7 @@ export type Database = {
         Args: { p_action?: string; p_package_id: string }
         Returns: Json
       }
+      reap_stale_locks: { Args: { p_max_age_minutes?: number }; Returns: Json }
       recalculate_coverage_priorities: { Args: never; Returns: Json }
       recalculate_routing_scores: { Args: never; Returns: undefined }
       recompute_compliance_block: {
