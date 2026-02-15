@@ -10,10 +10,10 @@ import { de } from 'date-fns/locale';
 
 interface PackageLease {
   package_id: string;
-  worker_id: string;
-  leased_at: string;
+  runner_id: string;
+  acquired_at: string;
   lease_until: string;
-  heartbeat_at: string;
+  renewed_at: string;
 }
 
 interface QueuedPackage {
@@ -128,7 +128,7 @@ export default function PipelineLockPanel() {
             <p className="text-xs font-medium text-muted-foreground">Aktive Verarbeitung ({activePkgs.length})</p>
             {activePkgs.map((pkg) => {
               const lease = activeLeases?.find(l => l.package_id === pkg.id);
-              const isStale = lease && new Date(lease.heartbeat_at) < new Date(Date.now() - 5 * 60 * 1000);
+              const isStale = lease && new Date(lease.renewed_at) < new Date(Date.now() - 5 * 60 * 1000);
               
               return (
                 <div key={pkg.id} className="rounded-lg border bg-card p-3 space-y-2 text-xs">
@@ -140,11 +140,11 @@ export default function PipelineLockPanel() {
                   </div>
                   <div className="flex justify-between text-muted-foreground">
                     <span>Progress: {(pkg as any).build_progress}%</span>
-                    <span>Worker: {lease?.worker_id?.slice(0,6)}</span>
+                    <span>Worker: {lease?.runner_id?.slice(0,6)}</span>
                   </div>
                   {lease && (
                     <div className="text-[10px] text-muted-foreground/70">
-                      Heartbeat: {formatDistanceToNow(new Date(lease.heartbeat_at), { locale: de, addSuffix: true })}
+                      Heartbeat: {formatDistanceToNow(new Date(lease.renewed_at), { locale: de, addSuffix: true })}
                     </div>
                   )}
                 </div>

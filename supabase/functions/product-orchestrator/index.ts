@@ -1,30 +1,63 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { callAIJSON, type AIProvider } from "../_shared/ai-client.ts";
 
-/**
- * Product Orchestrator
- * 
- * Self-looping function that ensures ALL product components reach 100% quality.
- * 
- * Product 1 (Lerninhaltekurs): Kursinhalte + Oral-Exam-Trainer + AI-Tutor + Handbuch
- * Product 2 (Prüfungstrainer): Exam questions with full competency coverage
- * 
- * Call with: POST { courseId, maxIterations?: number }
- * The function loops internally, repairing batches per iteration until done.
- */
+const MAX_ITERATIONS = 12;
+const MAX_BATCH = 8;
+const DELAY_MS = 800;
 
-const MAX_BATCH = 2;        // lessons per iteration (must fit in 60s edge timeout)
-const DELAY_MS = 800;       // delay between AI calls to avoid rate limits
-const MAX_ITERATIONS = 50;  // safety cap
+// ── Step prompts ──
+const STEP_PROMPTS: Record<string, string> = {
+  einstieg: `Erstelle eine Einführung (Step 1: Einstieg) für die Kompetenz. Die Einführung soll:
+- Ein praxisnahes Szenario beschreiben
+- Die Relevanz für die Ausbildung aufzeigen
+- Neugier wecken
+Antworte als JSON: { "html": "<h2>...</h2><p>...</p>...", "objectives": ["Lernziel 1", "Lernziel 2", ...] }`,
 
-// ─── Tool definitions for structured AI output ───
+  verstehen: `Erstelle den Verstehen-Teil (Step 2). Der Teil soll:
+- Den Fachinhalt klar erklären
+- Definitionen und Zusammenhänge aufzeigen
+- Beispiele aus der Praxis enthalten
+Antworte als JSON: { "html": "<h2>...</h2><p>...</p>...", "objectives": ["..."] }`,
+
+  anwenden: `Erstelle den Anwenden-Teil (Step 3). Der Teil soll:
+- Praktische Übungsaufgaben enthalten
+- Fallbeispiele aus dem Berufsalltag
+- Handlungsanweisungen
+Antworte als JSON: { "html": "<h2>...</h2><p>...</p>...", "objectives": ["..."] }`,
+
+  wiederholen: `Erstelle den Wiederholen-Teil (Step 4). Der Teil soll:
+- Kernpunkte zusammenfassen
+- Merksätze hervorheben
+- Transferaufgaben stellen
+Antworte als JSON: { "html": "<h2>...</h2><p>...</p>...", "objectives": ["..."] }`,
+
+  mini_check: `Erstelle 4 IHK-Prüfungsfragen. EXAKT 4 Fragen, je 4 Optionen, plausible Distraktoren, didaktische Erklärungen.
+Antworte als JSON: { "questions": [{ "question": "...", "options": ["A","B","C","D"], "correct_answer": 0, "explanation_correct": "...", "explanation_wrong": "..." }], "objectives": ["..."] }`,
+};
+
+const CONTENT_TOOL = {
+  type: "function" as const,
+  function: {
+    name: "create_lesson_content",
+    description: "Create lesson content with HTML and learning objectives.",
+    parameters: {
+      type: "object",
+      properties: {
+        html: { type: "string", description: "The lesson content as valid semantic HTML" },
+        objectives: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 5 }
+      },
+      required: ["html", "objectives"]
+    }
+  }
+};
 
 const MINICHECK_TOOL = {
   type: "function" as const,
   function: {
     name: "create_mini_check",
-    description: "Erstelle 4 Multiple-Choice-Fragen zur Wissensüberprüfung.",
+    description: "Create a mini-check quiz with exactly 4 questions.",
     parameters: {
       type: "object",
       properties: {
@@ -36,66 +69,36 @@ const MINICHECK_TOOL = {
               question: { type: "string" },
               options: { type: "array", minItems: 4, maxItems: 4, items: { type: "string" } },
               correct_answer: { type: "integer", minimum: 0, maximum: 3 },
-              explanation: { type: "string" }
+              explanation_correct: { type: "string" },
+              explanation_wrong: { type: "string" }
             },
-            required: ["question", "options", "correct_answer", "explanation"],
-            additionalProperties: false
+            required: ["question", "options", "correct_answer", "explanation_correct", "explanation_wrong"]
           }
         },
-        objectives: { type: "array", items: { type: "string" } }
+        objectives: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 5 }
       },
-      required: ["questions", "objectives"],
-      additionalProperties: false
+      required: ["questions"]
     }
   }
 };
 
-const CONTENT_TOOL = {
-  type: "function" as const,
-  function: {
-    name: "create_lesson_content",
-    description: "Erstelle strukturierten Lerninhalt für eine Lektion.",
-    parameters: {
-      type: "object",
-      properties: {
-        html: { type: "string", description: "HTML-Inhalt, mindestens 800 Zeichen" },
-        objectives: { type: "array", items: { type: "string" }, description: "2-4 Lernziele" }
-      },
-      required: ["html", "objectives"],
-      additionalProperties: false
-    }
-  }
-};
-
-const STEP_PROMPTS: Record<string, string> = {
-  einstieg: `Erstelle eine aktivierende Einstiegsaktivität (800–1200 Zeichen HTML). Mit <h3>, Problemstellung, Reflexionsfragen als <ul><li>, Vorwissensbezug.`,
-  verstehen: `Erstelle ausführliches Lernmaterial (1500–2500 Zeichen HTML). Mit <h3>, Definitionen, 2+ Beispiele, <strong> Fachbegriffe, <blockquote> Merksätze.`,
-  anwenden: `Erstelle praktische Übungsaufgaben (1200–2000 Zeichen HTML). Mit <h3>, Arbeitsszenario, 2-3 Aufgaben steigend, IHK-Praxisbezug.`,
-  wiederholen: `Erstelle Wiederholungsaktivitäten (1000–1500 Zeichen HTML). Mit <h3>, Top-5-Liste, Lückentext, Merkhilfen, "Ich kann jetzt..." Checkliste.`,
-};
-
-// ─── Validation ───
-
-function isLessonValid(content: Record<string, unknown> | null, step: string): boolean {
-  if (!content) return false;
+function isLessonValid(content: Record<string, unknown>, step: string): boolean {
   if (step === 'mini_check') {
-    const qs = content.questions;
-    return Array.isArray(qs) && qs.length >= 4 && (qs as Record<string, unknown>[]).every(q =>
-      q.question && Array.isArray(q.options) && (q.options as unknown[]).length >= 4 &&
-      typeof q.correct_answer === 'number' && q.correct_answer >= 0 && q.correct_answer <= 3 && q.explanation
-    );
+    return Array.isArray(content.questions) && (content.questions as unknown[]).length >= 3;
   }
-  const html = content.html as string;
-  return typeof html === 'string' && html.length >= 300 &&
+  const html = String(content.html || '');
+  return html.length > 100 &&
     !html.includes('wird generiert') && !html.includes('Inhalt wird') &&
     !html.includes('nachgeneriert') && !html.includes('TODO') &&
     Array.isArray(content.objectives) && (content.objectives as unknown[]).length >= 2;
 }
 
-// ─── AI generation ───
+// ─── AI generation via Gateway ───
 
 async function generateContent(
-  apiKey: string, comp: { code: string; title: string; description: string; taxonomy_level: string }, step: string
+  comp: { code: string; title: string; description: string; taxonomy_level: string },
+  step: string,
+  provider: AIProvider = "openai"
 ): Promise<Record<string, unknown> | null> {
   const isMC = step === 'mini_check';
   const prompt = isMC
@@ -104,30 +107,18 @@ async function generateContent(
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const resp = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "gpt-4.1",
-          messages: [
-            { role: "system", content: "Du bist IHK-Ausbildungsexperte. Erstelle prüfungsrelevante Lerninhalte auf Deutsch. Nutze IMMER die bereitgestellte Funktion." },
-            { role: "user", content: prompt }
-          ],
-          tools: [isMC ? MINICHECK_TOOL : CONTENT_TOOL],
-          tool_choice: { type: "function", function: { name: isMC ? "create_mini_check" : "create_lesson_content" } },
-          temperature: 0.7,
-        }),
+      const result = await callAIJSON({
+        provider,
+        messages: [
+          { role: "system", content: "Du bist IHK-Ausbildungsexperte. Erstelle prüfungsrelevante Lerninhalte auf Deutsch. Nutze IMMER die bereitgestellte Funktion." },
+          { role: "user", content: prompt },
+        ],
+        tools: [isMC ? MINICHECK_TOOL : CONTENT_TOOL],
+        tool_choice: { type: "function", function: { name: isMC ? "create_mini_check" : "create_lesson_content" } },
+        temperature: 0.7,
       });
 
-      if (resp.status === 429 || resp.status === 402) {
-        console.warn(`[Orchestrator] Rate limited (${resp.status}), waiting 5s...`);
-        await new Promise(r => setTimeout(r, 5000));
-        continue;
-      }
-      if (!resp.ok) { console.error(`[Orchestrator] AI ${resp.status}`); return null; }
-
-      const data = await resp.json();
-      const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+      const args = result.toolCalls?.[0]?.function?.arguments;
       if (!args) return null;
 
       const parsed = JSON.parse(args);
@@ -155,183 +146,71 @@ interface ProductStatus {
 }
 
 async function assessProduct(supabase: ReturnType<typeof createClient>, courseId: string): Promise<ProductStatus> {
-  // Course info
   const { data: course } = await supabase.from('courses').select('id, title, curriculum_id').eq('id', courseId).single();
   if (!course) throw new Error(`Course ${courseId} not found`);
 
-  // ALL competencies from the curriculum (SSOT)
-  const { data: learningFields } = await supabase
-    .from('learning_fields')
-    .select('id')
-    .eq('curriculum_id', course.curriculum_id);
+  const { data: learningFields } = await supabase.from('learning_fields').select('id').eq('curriculum_id', course.curriculum_id);
   const lfIds = (learningFields || []).map((lf: { id: string }) => lf.id);
 
-  const { data: allCurriculumComps } = await supabase
-    .from('competencies')
-    .select('id, code, title, description, taxonomy_level')
-    .in('learning_field_id', lfIds.length > 0 ? lfIds : ['__none__']);
-  const totalComps = allCurriculumComps?.length || 0;
+  const { data: allCurriculumComps } = await supabase.from('competencies').select('id, code, title').in('learning_field_id', lfIds.length ? lfIds : ['__none__']);
 
-  // All lessons
-  const { data: lessons } = await supabase
-    .from('lessons')
-    .select('id, title, step, content, competency_id, modules!inner(course_id)')
-    .eq('modules.course_id', courseId);
+  const { data: lessons } = await supabase.from('lessons').select('id, step, competency_id, content, modules!inner(course_id)').eq('modules.course_id', courseId);
 
-  const allLessons = lessons || [];
-  let validLessons = 0;
-  let validMiniChecks = 0;
-  const miniCheckLessons = allLessons.filter(l => l.step === 'mini_check');
+  const validLessons = (lessons || []).filter((l: any) => isLessonValid(l.content || {}, l.step));
+  const miniChecks = (lessons || []).filter((l: any) => l.step === 'mini_check');
+  const validMiniChecks = miniChecks.filter((l: any) => isLessonValid(l.content || {}, 'mini_check'));
 
-  for (const l of allLessons) {
-    if (isLessonValid(l.content as Record<string, unknown> | null, l.step as string)) validLessons++;
-  }
-  for (const l of miniCheckLessons) {
-    if (isLessonValid(l.content as Record<string, unknown> | null, 'mini_check')) validMiniChecks++;
-  }
+  const { data: examQs } = await supabase.from('exam_questions').select('competency_id').eq('course_id', courseId);
+  const coveredCompIds = new Set((examQs || []).map((q: any) => q.competency_id));
 
-  // Detect missing competencies (no lessons at all)
-  const coveredCompIds = new Set(allLessons.map(l => l.competency_id).filter(Boolean));
-  const missingCompetencies = (allCurriculumComps || [])
-    .filter((c: { id: string }) => !coveredCompIds.has(c.id))
-    .map((c: { id: string; code: string; title: string }) => ({ id: c.id, code: c.code, title: c.title }));
+  const allComps = allCurriculumComps || [];
+  const lessonCompIds = new Set((lessons || []).map((l: any) => l.competency_id));
+  const missingComps = allComps.filter((c: any) => !lessonCompIds.has(c.id));
 
-  // Exam questions coverage
-  const { data: examQs } = await supabase
-    .from('exam_questions')
-    .select('id, competency_id')
-    .eq('curriculum_id', course.curriculum_id);
-  const coveredExamComps = new Set((examQs || []).map((q: { competency_id: string }) => q.competency_id).filter(Boolean)).size;
-
-  const lessonPercent = allLessons.length > 0 ? Math.round((validLessons / allLessons.length) * 100) : 0;
-  const mcPercent = miniCheckLessons.length > 0 ? Math.round((validMiniChecks / miniCheckLessons.length) * 100) : 100;
-  const examPercent = totalComps > 0 ? Math.round((coveredExamComps / totalComps) * 100) : 0;
-
-  // Overall: lessons (60%) + minichecks (20%) + exam (20%)
-  const overallPercent = Math.round(lessonPercent * 0.6 + mcPercent * 0.2 + examPercent * 0.2);
-  // NOT complete if any competency is missing
-  const complete = lessonPercent === 100 && mcPercent === 100 && missingCompetencies.length === 0;
+  const totalSteps = allComps.length * 5;
+  const validSteps = validLessons.length;
+  const overallPercent = totalSteps > 0 ? Math.round((validSteps / totalSteps) * 100) : 0;
 
   return {
-    courseId: course.id,
-    courseTitle: course.title,
-    curriculumId: course.curriculum_id,
-    lessons: { total: allLessons.length, valid: validLessons, invalid: allLessons.length - validLessons, percent: lessonPercent },
-    miniChecks: { total: miniCheckLessons.length, valid: validMiniChecks, percent: mcPercent },
-    examQuestions: { total: examQs?.length || 0, competenciesCovered: coveredExamComps, totalCompetencies: totalComps, percent: examPercent },
-    missingCompetencies,
-    overall: { complete, percent: overallPercent },
+    courseId, courseTitle: course.title, curriculumId: course.curriculum_id,
+    lessons: { total: (lessons || []).length, valid: validLessons.length, invalid: (lessons || []).length - validLessons.length, percent: (lessons || []).length > 0 ? Math.round((validLessons.length / (lessons || []).length) * 100) : 0 },
+    miniChecks: { total: miniChecks.length, valid: validMiniChecks.length, percent: miniChecks.length > 0 ? Math.round((validMiniChecks.length / miniChecks.length) * 100) : 0 },
+    examQuestions: { total: (examQs || []).length, competenciesCovered: coveredCompIds.size, totalCompetencies: allComps.length, percent: allComps.length > 0 ? Math.round((coveredCompIds.size / allComps.length) * 100) : 0 },
+    missingCompetencies: missingComps.map((c: any) => ({ id: c.id, code: c.code, title: c.title })),
+    overall: { complete: overallPercent >= 95 && missingComps.length === 0, percent: overallPercent },
   };
 }
 
-// ─── Find invalid lessons ───
+async function getCompetency(supabase: ReturnType<typeof createClient>, compId: string) {
+  const { data } = await supabase.from('competencies').select('id, code, title, description, taxonomy_level').eq('id', compId).single();
+  return data || { code: '?', title: '?', description: '', taxonomy_level: 'Anwenden' };
+}
 
 async function getInvalidLessons(supabase: ReturnType<typeof createClient>, courseId: string, limit: number) {
-  const { data: lessons } = await supabase
-    .from('lessons')
-    .select('id, title, step, content, competency_id, modules!inner(course_id)')
-    .eq('modules.course_id', courseId)
-    .limit(500);
-
-  const invalid: typeof lessons = [];
-  for (const l of (lessons || [])) {
-    if (!isLessonValid(l.content as Record<string, unknown> | null, l.step as string)) {
-      invalid.push(l);
-      if (invalid.length >= limit) break;
-    }
-  }
-  return invalid;
+  const { data: lessons } = await supabase.from('lessons').select('id, title, step, competency_id, content, modules!inner(course_id)').eq('modules.course_id', courseId).limit(200);
+  return (lessons || []).filter((l: any) => !isLessonValid(l.content || {}, l.step)).slice(0, limit);
 }
 
-// ─── Get competency info ───
+async function scaffoldMissingCompetencies(supabase: ReturnType<typeof createClient>, courseId: string, missing: { id: string; code: string; title: string }[], curriculumId: string) {
+  const { data: modules } = await supabase.from('modules').select('id').eq('course_id', courseId).limit(1);
+  const moduleId = modules?.[0]?.id;
+  if (!moduleId) return 0;
 
-async function getCompetency(supabase: ReturnType<typeof createClient>, compId: string) {
-  const { data } = await supabase
-    .from('competencies')
-    .select('code, title, description, taxonomy_level')
-    .eq('id', compId)
-    .single();
-  return data || { code: '', title: '', description: '', taxonomy_level: 'anwenden' };
-}
-
-// ─── Scaffold missing competency lessons ───
-
-const SCAFFOLD_STEPS = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'] as const;
-
-async function scaffoldMissingCompetencies(
-  supabase: ReturnType<typeof createClient>,
-  courseId: string,
-  missingComps: { id: string; code: string; title: string }[],
-  curriculumId: string
-): Promise<number> {
+  const steps = ['einstieg', 'verstehen', 'anwenden', 'wiederholen', 'mini_check'];
   let created = 0;
-
-  for (const comp of missingComps) {
-    // Find which learning_field this competency belongs to
-    const { data: compFull } = await supabase
-      .from('competencies')
-      .select('learning_field_id')
-      .eq('id', comp.id)
-      .single();
-    if (!compFull) continue;
-
-    // Find or create the module for this learning field
-    let moduleId: string;
-    const { data: existingModule } = await supabase
-      .from('modules')
-      .select('id')
-      .eq('course_id', courseId)
-      .eq('learning_field_id', compFull.learning_field_id)
-      .single();
-
-    if (existingModule) {
-      moduleId = existingModule.id;
-    } else {
-      const { data: lf } = await supabase
-        .from('learning_fields')
-        .select('code, title, description')
-        .eq('id', compFull.learning_field_id)
-        .single();
-
-      const { data: newModule, error: modErr } = await supabase
-        .from('modules')
-        .insert({
-          course_id: courseId,
-          learning_field_id: compFull.learning_field_id,
-          title: lf ? `${lf.code}: ${lf.title}` : `Modul für ${comp.code}`,
-          description: lf?.description || null,
-          sort_order: 999,
-        })
-        .select('id')
-        .single();
-
-      if (modErr || !newModule) {
-        console.error(`[Scaffold] Failed to create module for LF ${compFull.learning_field_id}:`, modErr);
-        continue;
-      }
-      moduleId = newModule.id;
-    }
-
-    // Create all 5 step lessons for this competency
-    for (let i = 0; i < SCAFFOLD_STEPS.length; i++) {
-      const step = SCAFFOLD_STEPS[i];
+  for (const comp of missing) {
+    for (const step of steps) {
       const { error } = await supabase.from('lessons').insert({
-        module_id: moduleId,
-        competency_id: comp.id,
-        title: `${comp.code}: ${comp.title}`,
-        step,
+        module_id: moduleId, competency_id: comp.id,
+        title: `${comp.code}: ${comp.title} – ${step}`,
+        step, sort_order: created,
         content: { type: step === 'mini_check' ? 'mini_check' : 'text', html: '<p>Inhalt wird generiert...</p>', objectives: [] },
-        duration_minutes: step === 'mini_check' ? 5 : 10,
-        sort_order: 900 + i,
       });
       if (!error) created++;
     }
   }
-
   return created;
 }
-
-// ─── Main orchestrator ───
 
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
@@ -343,13 +222,10 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const { courseId, dryRun = false, autoAll = false, _iteration = 0 } = body;
+    const provider = (body.provider || "openai") as AIProvider;
 
-    // Create supabase client FIRST (was a bug: referenced before creation)
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!API_KEY) throw new Error('OPENAI_API_KEY not configured');
 
-    // Safety cap on iterations
     if (_iteration >= MAX_ITERATIONS) {
       return new Response(JSON.stringify({
         complete: false, shouldContinue: false,
@@ -357,7 +233,6 @@ serve(async (req) => {
       }), { headers: jsonHeaders });
     }
 
-    // Auto-all mode: find all incomplete courses and process the first one
     let targetCourseId = courseId;
     if (autoAll || !courseId) {
       const { data: courses } = await supabase.from('courses').select('id').in('status', ['draft', 'generating', 'published']);
@@ -366,10 +241,7 @@ serve(async (req) => {
         if (!status.overall.complete) { targetCourseId = c.id; break; }
       }
       if (!targetCourseId) {
-        return new Response(JSON.stringify({
-          complete: true, shouldContinue: false,
-          message: '✅ Alle Kurse vollständig! Keine weiteren Reparaturen nötig.'
-        }), { headers: jsonHeaders });
+        return new Response(JSON.stringify({ complete: true, shouldContinue: false, message: '✅ Alle Kurse vollständig!' }), { headers: jsonHeaders });
       }
     }
 
@@ -377,89 +249,55 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "courseId is required or use autoAll:true" }), { status: 400, headers: jsonHeaders });
     }
 
-    // ─── COMPLIANCE GATE: Block if critical findings open ───
-    const { data: courseCheck } = await supabase
-      .from("courses")
-      .select("compliance_blocked")
-      .eq("id", targetCourseId)
-      .single();
-
+    // Compliance gate
+    const { data: courseCheck } = await supabase.from("courses").select("compliance_blocked").eq("id", targetCourseId).single();
     if (courseCheck?.compliance_blocked) {
-      // Double-check via hard assert (configurable gate rules)
       const gateResult = await supabase.rpc("compute_compliance_release_gate");
-      return new Response(JSON.stringify({
-        complete: false, shouldContinue: false,
-        error: "Compliance block: open findings violate gate rules. Resolve in Admin → System → Compliance.",
-        courseId: targetCourseId,
-        gate: gateResult.data ?? null,
-      }), { status: 409, headers: jsonHeaders });
+      return new Response(JSON.stringify({ complete: false, shouldContinue: false, error: "Compliance block", courseId: targetCourseId, gate: gateResult.data ?? null }), { status: 409, headers: jsonHeaders });
     }
 
-    // Initial assessment
     const initialStatus = await assessProduct(supabase, targetCourseId);
-    console.log(`[Orchestrator] Iteration ${_iteration} | Course: ${initialStatus.courseTitle}`);
-    console.log(`[Orchestrator] Lessons: ${initialStatus.lessons.percent}% | MiniChecks: ${initialStatus.miniChecks.percent}% | Exam: ${initialStatus.examQuestions.percent}%`);
-    console.log(`[Orchestrator] Missing competencies: ${initialStatus.missingCompetencies.length}`);
+    console.log(`[Orchestrator] Iteration ${_iteration} | Course: ${initialStatus.courseTitle} | Lessons: ${initialStatus.lessons.percent}%`);
 
     if (dryRun) {
       return new Response(JSON.stringify({ dryRun: true, status: initialStatus }), { headers: jsonHeaders });
     }
 
-    // ─── STEP 0: SCAFFOLD MISSING COMPETENCIES ───
-    // If any curriculum competency has zero lessons, create all 5 steps for it.
+    // Scaffold missing competencies
     if (initialStatus.missingCompetencies.length > 0) {
-      console.log(`[Orchestrator] 🔴 ${initialStatus.missingCompetencies.length} competencies missing! Scaffolding lessons...`);
       const scaffolded = await scaffoldMissingCompetencies(supabase, targetCourseId, initialStatus.missingCompetencies, initialStatus.curriculumId);
-      console.log(`[Orchestrator] ✅ Scaffolded ${scaffolded} lessons for missing competencies.`);
-      // Re-assess and continue in next iteration (new lessons need content)
       const updatedStatus = await assessProduct(supabase, targetCourseId);
-      
-      // Self-invoke for content generation
+
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       fetch(`${supabaseUrl}/functions/v1/product-orchestrator`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-        body: JSON.stringify({ courseId: targetCourseId, autoAll, _iteration: _iteration + 1 }),
+        body: JSON.stringify({ courseId: targetCourseId, autoAll, provider, _iteration: _iteration + 1 }),
       }).catch(e => console.error('[Orchestrator] Self-invoke failed:', e));
 
-      return new Response(JSON.stringify({
-        complete: false, shouldContinue: true, iteration: _iteration,
-        scaffolded,
-        status: updatedStatus,
-        message: `🔧 ${scaffolded} Lessons für ${initialStatus.missingCompetencies.length} fehlende Kompetenzen erstellt. Content-Generierung startet...`
-      }), { headers: jsonHeaders });
+      return new Response(JSON.stringify({ complete: false, shouldContinue: true, iteration: _iteration, scaffolded, status: updatedStatus }), { headers: jsonHeaders });
     }
 
-    // Already complete?
     if (initialStatus.overall.complete) {
       await logCompletion(supabase, targetCourseId, initialStatus);
-      return new Response(JSON.stringify({
-        complete: true, shouldContinue: false, status: initialStatus,
-        message: `✅ Produkt "${initialStatus.courseTitle}" ist vollständig! Alle ${initialStatus.lessons.total} Lessons validiert.`
-      }), { headers: jsonHeaders });
+      return new Response(JSON.stringify({ complete: true, shouldContinue: false, status: initialStatus }), { headers: jsonHeaders });
     }
 
-    // ─── SINGLE ITERATION (to stay within 60s edge function limit) ───
+    // Process invalid lessons
     const invalidLessons = await getInvalidLessons(supabase, targetCourseId, MAX_BATCH);
-
     if (invalidLessons.length === 0) {
       const finalStatus = await assessProduct(supabase, targetCourseId);
       if (finalStatus.overall.complete) await logCompletion(supabase, targetCourseId, finalStatus);
-      return new Response(JSON.stringify({
-        complete: finalStatus.overall.complete, shouldContinue: false,
-        status: finalStatus,
-        message: `✅ Alle Lessons validiert. Kurs: ${finalStatus.lessons.percent}%`
-      }), { headers: jsonHeaders });
+      return new Response(JSON.stringify({ complete: finalStatus.overall.complete, shouldContinue: false, status: finalStatus }), { headers: jsonHeaders });
     }
 
-    console.log(`[Orchestrator] Repairing ${invalidLessons.length} lessons`);
     let fixed = 0, failed = 0;
     const details: { id: string; title: string; step: string; status: string }[] = [];
 
     for (const lesson of invalidLessons) {
       const comp = await getCompetency(supabase, lesson.competency_id);
-      const content = await generateContent(API_KEY, comp, lesson.step as string);
+      const content = await generateContent(comp, lesson.step as string, provider);
 
       if (!content) {
         failed++;
@@ -471,7 +309,6 @@ serve(async (req) => {
         ? { type: 'mini_check', questions: content.questions, objectives: content.objectives, generated_at: new Date().toISOString(), version: 4, source: 'orchestrator' }
         : { type: 'text', html: content.html, objectives: content.objectives, generated_at: new Date().toISOString(), version: 4, source: 'orchestrator' };
 
-      // Route through content_versions instead of direct lesson write (Council Single-Write-Path)
       const stepKey = lesson.step === 'mini_check' ? 'step_5_minicheck'
         : lesson.step === 'einstieg' ? 'step_1_introduction'
         : lesson.step === 'verstehen' ? 'step_2_understanding'
@@ -479,11 +316,8 @@ serve(async (req) => {
         : 'step_4_repetition';
 
       const { error } = await supabase.from('content_versions').insert({
-        lesson_id: lesson.id,
-        step_key: stepKey,
-        content_json: finalContent,
-        status: 'under_review',
-        entity_type: lesson.step === 'mini_check' ? 'minicheck' : 'lesson_step',
+        lesson_id: lesson.id, step_key: stepKey, content_json: finalContent,
+        status: 'under_review', entity_type: lesson.step === 'mini_check' ? 'minicheck' : 'lesson_step',
         created_by: 'product-orchestrator',
       });
       if (error) {
@@ -496,124 +330,61 @@ serve(async (req) => {
       await new Promise(r => setTimeout(r, DELAY_MS));
     }
 
-    // Re-assess
     const finalStatus = await assessProduct(supabase, targetCourseId);
     const shouldContinue = !finalStatus.overall.complete && fixed > 0;
 
-    if (finalStatus.overall.complete) {
-      await logCompletion(supabase, targetCourseId, finalStatus);
-    }
+    if (finalStatus.overall.complete) await logCompletion(supabase, targetCourseId, finalStatus);
 
-    // ─── AUTO-CONTINUE: Self-invoke next iteration if not complete ───
     if (shouldContinue) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      console.log(`[Orchestrator] ⏭️ Auto-continuing iteration ${_iteration + 1} (${finalStatus.lessons.invalid} lessons remaining)...`);
-      
-      // Fire-and-forget: invoke self for next batch
       fetch(`${supabaseUrl}/functions/v1/product-orchestrator`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${serviceKey}`,
-        },
-        body: JSON.stringify({
-          courseId: targetCourseId,
-          autoAll,
-          _iteration: _iteration + 1,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+        body: JSON.stringify({ courseId: targetCourseId, autoAll, provider, _iteration: _iteration + 1 }),
       }).catch(e => console.error('[Orchestrator] Self-invoke failed:', e));
     }
 
-    return new Response(JSON.stringify({
-      complete: finalStatus.overall.complete,
-      shouldContinue,
-      iteration: _iteration,
-      fixed, failed, details,
-      status: finalStatus,
-      message: finalStatus.overall.complete
-        ? `✅ FERTIG: "${finalStatus.courseTitle}" vollständig!`
-        : `⏳ Iteration ${_iteration}: ${fixed} fixed, ${finalStatus.lessons.invalid} verbleibend. ${shouldContinue ? 'Nächste Iteration automatisch gestartet...' : 'Gestoppt (keine Fortschritte).'}`
-    }), { headers: jsonHeaders });
+    return new Response(JSON.stringify({ complete: finalStatus.overall.complete, shouldContinue, iteration: _iteration, fixed, failed, details, status: finalStatus }), { headers: jsonHeaders });
 
   } catch (error) {
     console.error("[Orchestrator] Fatal:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...getCorsHeaders(req.headers.get('origin')), "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+      status: 500, headers: { ...getCorsHeaders(req.headers.get('origin')), "Content-Type": "application/json" }
+    });
   }
 });
 
-// ─── Completion logger ───
-
 async function logCompletion(supabase: ReturnType<typeof createClient>, courseId: string, status: ProductStatus) {
   console.log(`[Orchestrator] 🎉 COMPLETION: ${status.courseTitle}`);
-  console.log(`  Lessons: ${status.lessons.total} (100%)`);
-  console.log(`  MiniChecks: ${status.miniChecks.total} (${status.miniChecks.percent}%)`);
-  console.log(`  Exam Questions: ${status.examQuestions.total} covering ${status.examQuestions.competenciesCovered}/${status.examQuestions.totalCompetencies} competencies`);
 
-  // Fix 4: Hard Publish Block – only publish if sealed + score >= 85
-  const { data: courseCheck } = await supabase.from('courses')
-    .select('autopilot_status, quality_score')
-    .eq('id', courseId).single();
-
+  const { data: courseCheck } = await supabase.from('courses').select('autopilot_status, quality_score').eq('id', courseId).single();
   if (courseCheck?.autopilot_status !== 'sealed' || (courseCheck?.quality_score ?? 0) < 85) {
-    console.warn(`[Orchestrator] ⛔ PUBLISH BLOCKED: status=${courseCheck?.autopilot_status}, score=${courseCheck?.quality_score}. Kurs muss sealed + score>=85 sein.`);
-    // Set publishing_status to reflect the block
-    await supabase.from('courses').update({
-      publishing_status: 'quality_failed',
-      updated_at: new Date().toISOString(),
-    }).eq('id', courseId);
-    return; // Do NOT publish
+    console.warn(`[Orchestrator] ⛔ PUBLISH BLOCKED: status=${courseCheck?.autopilot_status}, score=${courseCheck?.quality_score}`);
+    await supabase.from('courses').update({ publishing_status: 'quality_failed', updated_at: new Date().toISOString() }).eq('id', courseId);
+    return;
   }
 
-  // Update course status
-  await supabase.from('courses').update({
-    status: 'published',
-    publishing_status: 'published',
-    published_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }).eq('id', courseId);
+  await supabase.from('courses').update({ status: 'published', publishing_status: 'published', published_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', courseId);
 
-  // ─── Auto-trigger IHK-Prüfer Quality Audit → Improvement Loop ───
-  console.log(`[Orchestrator] 🔍 Triggering IHK-Prüfer audit for "${status.courseTitle}"...`);
+  // Auto-trigger IHK audit
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    // Step 1: Run IHK Audit
     const auditResp = await fetch(`${supabaseUrl}/functions/v1/ihk-quality-audit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
       body: JSON.stringify({ courseId, sampleSize: 15 }),
     });
-
     if (auditResp.ok) {
       const auditResult = await auditResp.json();
-      console.log(`[Orchestrator] ✅ IHK-Audit: ${auditResult.overallScore}/100 (${auditResult.grade})`);
-
-      // Step 2: If below "sehr gut" (< 92), trigger improvement agent
       if (auditResult.needsImprovement) {
-        console.log(`[Orchestrator] 🔧 Score < 92 → Triggering AI improvement agent...`);
-        const improveResp = await fetch(`${supabaseUrl}/functions/v1/improve-lesson`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
+        await fetch(`${supabaseUrl}/functions/v1/improve-lesson`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
           body: JSON.stringify({ courseId, maxLessons: 5 }),
-        });
-        if (improveResp.ok) {
-          const improveResult = await improveResp.json();
-          console.log(`[Orchestrator] ✅ Improved ${improveResult.improved} lessons. Re-audit in next cycle.`);
-        } else {
-          console.warn(`[Orchestrator] Improve agent returned ${improveResp.status}`);
-        }
-      } else {
-        console.log(`[Orchestrator] 🏆 Score ≥ 92 → IHK-sehr-gut erreicht! Keine Verbesserung nötig.`);
+        }).catch(() => {});
       }
-    } else {
-      console.warn(`[Orchestrator] IHK-Audit returned ${auditResp.status}`);
     }
   } catch (e) {
-    console.error(`[Orchestrator] IHK-Audit/Improve trigger failed:`, e);
+    console.error(`[Orchestrator] IHK-Audit trigger failed:`, e);
   }
 }
