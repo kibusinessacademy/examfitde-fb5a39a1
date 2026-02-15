@@ -4,7 +4,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 
 /**
- * AI Lesson Improvement Agent (Council-Compliant)
+ * AI Lesson Improvement Agent (Council-Compliant, Profession-Aware)
  * 
  * Creates content_versions instead of direct lesson writes.
  * Content goes through Council pipeline before publishing.
@@ -59,46 +59,72 @@ const IMPROVE_MINICHECK_TOOL = {
   }
 };
 
-const IMPROVEMENT_INSTRUCTIONS: Record<string, string> = {
-  pruefungsbezug_ergaenzen: `FÜGE am Ende des Inhalts einen klar sichtbaren IHK-Prüfungsbezug-Block hinzu:
+function getImprovementInstructions(professionName: string): Record<string, string> {
+  return {
+    pruefungsbezug_ergaenzen: `FÜGE am Ende des Inhalts einen klar sichtbaren IHK-Prüfungsbezug-Block für ${professionName} hinzu:
 <div class="pruefungsbezug" style="background:#f0f9ff;border-left:4px solid #0369a1;padding:16px;margin-top:24px;border-radius:4px">
-<h4>🔍 IHK-Prüfungsbezug</h4>
+<h4>🔍 IHK-Prüfungsbezug für ${professionName}</h4>
 <ul>
-<li><strong>So fragt die IHK:</strong> [Formuliere eine typische IHK-Prüfungsfrage zum Thema]</li>
-<li><strong>Häufige Prüfungsfalle:</strong> [Nenne einen typischen Fehler, den Prüflinge machen]</li>
-<li><strong>Prüfer achten auf:</strong> [Was erwarten IHK-Prüfer bei der Antwort?]</li>
+<li><strong>So fragt die IHK:</strong> [Formuliere eine typische IHK-Prüfungsfrage zum Thema, wie sie ${professionName} gestellt wird]</li>
+<li><strong>Häufige Prüfungsfalle:</strong> [Nenne einen typischen Fehler, den ${professionName} in der Prüfung machen]</li>
+<li><strong>Prüfer achten auf:</strong> [Was erwarten IHK-Prüfer bei ${professionName} bei der Antwort?]</li>
 </ul>
 </div>`,
 
-  anwenden_umformulieren: `ERSETZE rein beschreibende Anwenden-Abschnitte durch ENTSCHEIDUNGSBASIERTE Aufgaben:
-- Statt "So funktioniert X" → "Was würdest du tun, wenn...? Warum?"
-- Füge Abwägungsfragen ein: "Welche Option ist sinnvoller – und warum?"
-- Mindestens 1 Entscheidungsszenario mit 2 Optionen`,
+    anwenden_umformulieren: `ERSETZE rein beschreibende Anwenden-Abschnitte durch ENTSCHEIDUNGSBASIERTE Aufgaben für ${professionName}:
+- Statt "So funktioniert X" → "Als ${professionName}: Was würdest du tun, wenn...? Warum?"
+- Nutze realistische Szenarien aus dem Berufsalltag von ${professionName}
+- Füge Abwägungsfragen ein: "Welche Option ist für ${professionName} sinnvoller – und warum?"
+- Mindestens 1 Entscheidungsszenario mit 2 Optionen aus dem Arbeitsalltag`,
 
-  betriebsbezug_ergaenzen: `ERGÄNZE mindestens 1 konkreten betrieblichen Bezug:
-- Statt "im Unternehmen" → "In deinem Ausbildungsbetrieb..."
-- Füge ein konkretes Praxisszenario hinzu
-- Verwende IHK-konforme Fachterminologie (kein Marketing-Deutsch)`,
+    betriebsbezug_ergaenzen: `ERGÄNZE mindestens 1 konkreten betrieblichen Bezug für ${professionName}:
+- Statt "im Unternehmen" → "In deinem Ausbildungsbetrieb als ${professionName}..."
+- Füge ein konkretes Praxisszenario aus dem Alltag von ${professionName} hinzu
+- Verwende die Fachbegriffe, die ${professionName} im Betrieb verwenden`,
 
-  gegenbeispiel_ergaenzen: `ERGÄNZE in der Verstehen-Phase mindestens 1 Gegenbeispiel:
-- Nach jeder Definition/Erklärung: "Beispiel: ... Gegenbeispiel: ..."
-- Das Gegenbeispiel soll eine häufige Fehlannahme verdeutlichen`,
+    gegenbeispiel_ergaenzen: `ERGÄNZE in der Verstehen-Phase mindestens 1 Gegenbeispiel für ${professionName}:
+- Nach jeder Definition/Erklärung: "Beispiel im Berufsalltag: ... Gegenbeispiel: ..."
+- Das Gegenbeispiel soll eine häufige Fehlannahme von ${professionName} verdeutlichen`,
 
-  minicheck_verbessern: `VERBESSERE die MiniCheck-Fragen auf IHK-Prüfungsniveau:
-1. DISTRAKTOREN: Jeder Distraktor muss einen konkreten Denkfehler abbilden
-2. SITUATIONSAUFGABEN: Mindestens 2 Fragen müssen ein konkretes Fallbeispiel enthalten
-3. ABWÄGUNGSFRAGE: Mind. 1 Frage mit "Welche Aussage trifft am EHESTEN zu?"
+    minicheck_verbessern: `VERBESSERE die MiniCheck-Fragen auf IHK-Prüfungsniveau für ${professionName}:
+1. DISTRAKTOREN: Jeder Distraktor muss einen konkreten Denkfehler von ${professionName} abbilden
+2. SITUATIONSAUFGABEN: Mindestens 2 Fragen müssen ein Fallbeispiel aus dem Alltag von ${professionName} enthalten
+3. ABWÄGUNGSFRAGE: Mind. 1 Frage mit "Welche Aussage trifft für ${professionName} am EHESTEN zu?"
 4. ERKLÄRUNGEN: Erkläre den KONKRETEN Denkfehler hinter jedem falschen Distraktor
 5. SCHWIERIGKEIT: Mix aus easy (1), medium (2), hard (1)
-6. Keine reinen Wissensfragen – mehr Entscheidungs- und Analysefragen`,
+6. Keine reinen Wissensfragen – berufsspezifische Entscheidungs- und Analysefragen`,
 
-  wiederholen_verdichten: `ERSETZE reine Wiederholung durch PRÜFUNGSVERDICHTUNG:
-1. Merksätze: 3-5 kompakte Merksätze mit Fachbegriffen
-2. Typische IHK-Prüfungsfallen: 3 häufige Fehler mit Erklärung
-3. Abgrenzungstabelle: Vergleich ähnlicher Begriffe
-4. Formulierungsübungen: 2 Sätze in IHK-Prüfungssprache umformulieren
+    wiederholen_verdichten: `ERSETZE reine Wiederholung durch PRÜFUNGSVERDICHTUNG für ${professionName}:
+1. Merksätze: 3-5 kompakte Merksätze mit den Fachbegriffen von ${professionName}
+2. Typische IHK-Prüfungsfallen für ${professionName}: 3 häufige Fehler mit Erklärung
+3. Abgrenzungstabelle: Vergleich ähnlicher Begriffe, die ${professionName} verwechseln
+4. Formulierungsübungen: 2 Sätze in IHK-Prüfungssprache für ${professionName} umformulieren
 5. KEINE erneute Erklärung des Stoffes – nur Verdichtung`,
-};
+  };
+}
+
+/**
+ * Load profession name from course → curriculum → berufe
+ */
+async function loadProfessionFromCourse(supabase: any, courseId: string): Promise<string> {
+  let professionName = "Auszubildende";
+  try {
+    const { data: course } = await supabase.from("courses").select("curriculum_id").eq("id", courseId).single();
+    if (!course?.curriculum_id) return professionName;
+    
+    const { data: curriculum } = await supabase.from("curricula").select("title, beruf_id").eq("id", course.curriculum_id).maybeSingle();
+    if (curriculum?.beruf_id) {
+      const { data: beruf } = await supabase.from("berufe").select("bezeichnung_kurz, bezeichnung_lang").eq("id", curriculum.beruf_id).maybeSingle();
+      if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
+    } else if (curriculum?.title) {
+      const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
+      if (match) professionName = match;
+    }
+  } catch (e) {
+    console.error("[Improve] Profession load failed:", e);
+  }
+  return professionName;
+}
 
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
@@ -116,6 +142,10 @@ serve(async (req) => {
     if (!courseId) {
       return new Response(JSON.stringify({ error: "courseId required" }), { status: 400, headers: jsonHeaders });
     }
+
+    // Load profession name
+    const professionName = await loadProfessionFromCourse(supabase, courseId);
+    const IMPROVEMENT_INSTRUCTIONS = getImprovementInstructions(professionName);
 
     // Get the latest audit for this course
     let audit;
@@ -138,7 +168,6 @@ serve(async (req) => {
       overall: number; verbesserungspotenzial?: Record<string, boolean>;
     }>;
 
-    // Find lessons needing improvement (score < 92 or with improvement flags)
     const needsWork = lessonAudits
       .filter(la => la.overall < 92 || Object.values(la.verbesserungspotenzial || {}).some(v => v))
       .sort((a, b) => a.overall - b.overall)
@@ -150,7 +179,7 @@ serve(async (req) => {
       }), { headers: jsonHeaders });
     }
 
-    console.log(`[Improve] Creating ${needsWork.length} improvement versions for course ${courseId} (Council pipeline)`);
+    console.log(`[Improve] Creating ${needsWork.length} improvement versions for "${professionName}" course ${courseId}`);
 
     const results: { lessonId: string; title: string; status: string; improvements: string[]; versionId?: string }[] = [];
 
@@ -188,8 +217,9 @@ serve(async (req) => {
         competencyTitle: comp?.title || '',
         taxonomyLevel: comp?.taxonomy_level || 'anwenden',
         currentContent,
-        instructions: instructions || 'Verbessere die Qualität auf IHK-sehr-gut-Niveau.',
+        instructions: instructions || `Verbessere die Qualität auf IHK-sehr-gut-Niveau für ${professionName}.`,
         isMiniCheck: isMC,
+        professionName,
       });
 
       if (!improved) {
@@ -197,7 +227,6 @@ serve(async (req) => {
         continue;
       }
 
-      // ═══ COUNCIL-COMPLIANT: Create content_version instead of direct write ═══
       const contentJson = isMC
         ? { ...content, questions: improved.questions, objectives: improved.objectives, improved_at: new Date().toISOString(), improvements_applied: improved.improvements_applied }
         : { ...content, html: improved.html, objectives: improved.objectives, improved_at: new Date().toISOString(), improvements_applied: improved.improvements_applied };
@@ -205,7 +234,6 @@ serve(async (req) => {
       const entityType = isMC ? 'minicheck' : 'lesson_step';
       const stepKey = `step_${lesson.step}`;
 
-      // Find current max round for idempotency
       const { data: existingVersions } = await supabase
         .from('content_versions')
         .select('council_round')
@@ -238,7 +266,6 @@ serve(async (req) => {
         continue;
       }
 
-      // Log as council message for audit trail
       await supabase.from('council_messages').insert({
         content_version_id: newVersion!.id,
         agent_name: 'improve-lesson',
@@ -248,6 +275,7 @@ serve(async (req) => {
           audit_id: audit.id,
           score_before: la.overall,
           improvements_requested: neededImprovements,
+          profession: professionName,
         },
       });
 
@@ -263,7 +291,7 @@ serve(async (req) => {
     }
 
     const versionsCreated = results.filter(r => r.status === 'version_created').length;
-    console.log(`[Improve] ✅ ${versionsCreated}/${needsWork.length} improvement versions created → Council review pending`);
+    console.log(`[Improve] ✅ ${versionsCreated}/${needsWork.length} improvement versions created for "${professionName}"`);
 
     return new Response(JSON.stringify({
       courseId,
@@ -272,8 +300,9 @@ serve(async (req) => {
       versionsCreated,
       total: needsWork.length,
       results,
+      profession: professionName,
       message: versionsCreated > 0
-        ? `✅ ${versionsCreated} Improvement-Versionen erstellt → warten auf Council-Review.`
+        ? `✅ ${versionsCreated} Improvement-Versionen für ${professionName} erstellt → warten auf Council-Review.`
         : `⚠️ Keine Verbesserungen möglich. Prüfe AI-Credits.`
     }), { headers: jsonHeaders });
 
@@ -289,23 +318,28 @@ serve(async (req) => {
 async function improveContent(ctx: {
   title: string; step: string; competencyCode: string; competencyTitle: string;
   taxonomyLevel: string; currentContent: string; instructions: string; isMiniCheck: boolean;
+  professionName: string;
 }): Promise<Record<string, unknown> | null> {
-  const systemPrompt = `Du bist ein IHK-Prüfungsexperte, der bestehende Lerninhalte VERBESSERT (nicht neu erstellt).
+  const systemPrompt = `Du bist ein erfahrener IHK-Fachexperte für ${ctx.professionName}, der bestehende Lerninhalte VERBESSERT (nicht neu erstellt).
+
+DEINE EXPERTISE: Du kennst den Berufsalltag von ${ctx.professionName} aus erster Hand und verbesserst Inhalte so, dass sie authentisch und praxisnah für diesen Beruf sind.
 
 WICHTIG:
 - Behalte den Kern des bestehenden Inhalts bei
-- Ergänze und verbessere gezielt
+- Ergänze und verbessere gezielt mit Bezug zu ${ctx.professionName}
 - Lösche KEINEN korrekten bestehenden Inhalt
 - Der verbesserte Inhalt MUSS länger sein als der Originalinhalt
 - Verwende HTML-Formatierung (<h3>, <strong>, <ul>, <li>, <blockquote>)
-- Alle Verbesserungen müssen IHK-prüfungsniveau erreichen`;
+- Alle Verbesserungen müssen IHK-Prüfungsniveau für ${ctx.professionName} erreichen
+- Beispiele und Szenarien MÜSSEN aus dem Arbeitsalltag von ${ctx.professionName} stammen`;
 
-  const userPrompt = `VERBESSERE diese Lektion:
+  const userPrompt = `VERBESSERE diese Lektion für ${ctx.professionName}:
 
 **Lektion:** ${ctx.title}
 **Step:** ${ctx.step}
 **Kompetenz:** ${ctx.competencyCode} – ${ctx.competencyTitle}
 **Taxonomiestufe:** ${ctx.taxonomyLevel}
+**Beruf:** ${ctx.professionName}
 
 **AKTUELLER INHALT:**
 ${ctx.currentContent.slice(0, 5000)}

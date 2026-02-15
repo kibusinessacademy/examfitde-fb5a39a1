@@ -7,13 +7,53 @@ import { getModel } from "../_shared/model-routing.ts";
 const LESSON_STEPS = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"] as const;
 type LessonStep = (typeof LESSON_STEPS)[number];
 
-const STEP_PROMPTS: Record<string, string> = {
-  einstieg: "Erstelle eine aktivierende Einstiegsaktivität, die das Vorwissen der Lernenden anspricht und Neugier für das Thema weckt. Nutze ein konkretes Praxisszenario aus dem Berufsalltag.",
-  verstehen: "Erstelle Lernmaterial zum Verstehen der Konzepte mit klaren Erklärungen, Gegenbeispielen und IHK-Prüfungsbezügen. Markiere prüfungsrelevante Inhalte mit ⭐. Füge nach jeder Erklärung ein Gegenbeispiel hinzu, das typische Fehlannahmen verdeutlicht.",
-  anwenden: "Erstelle ein Entscheidungsszenario (KEINE reine Beschreibung). Der Lernende muss eine berufliche Entscheidung treffen und begründen. Zeige typische Prüfungsfallen mit ⚠️. Mindestens 2 Entscheidungsoptionen mit Abwägung.",
-  wiederholen: "Erstelle KEINE erneute Erklärung. Erstelle stattdessen PRÜFUNGSVERDICHTUNG: 1. Merksätze 2. Typische IHK-Prüfungsfallen 3. Abgrenzungen 4. Formulierungsübungen 5. Prüfer-Hinweis",
-  mini_check: "Erstelle 4 situative Multiple-Choice-Fragen auf IHK-Prüfungsniveau. QUALITÄTSSTANDARD: Mindestens 2 Fragen MÜSSEN ein konkretes Fallbeispiel/Szenario enthalten. Distraktoren müssen PLAUSIBEL sein.",
-};
+/**
+ * Step prompts are now FUNCTIONS that receive professionName for deep profession context.
+ * Every step must produce content that feels handcrafted for the specific Berufsbild.
+ */
+function getStepPrompt(step: string, professionName: string): string {
+  const prompts: Record<string, string> = {
+    einstieg: `Erstelle eine aktivierende Einstiegsaktivität, die das Vorwissen der Lernenden anspricht und Neugier für das Thema weckt.
+PFLICHT: Nutze ein konkretes Praxisszenario aus dem typischen Arbeitsalltag von ${professionName}.
+Das Szenario muss eine realistische berufliche Situation beschreiben, die ${professionName} tatsächlich so erleben — mit konkreten Akteuren (Kunden, Vorgesetzte, Kollegen), Zahlen und branchenüblichen Fachbegriffen.
+VERBOTEN: Generische Szenarien wie "in einem Unternehmen" oder "ein Mitarbeiter" ohne Berufsbezug.`,
+
+    verstehen: `Erstelle Lernmaterial zum Verstehen der Konzepte mit klaren Erklärungen, die direkt auf den Berufsalltag von ${professionName} bezogen sind.
+PFLICHT-ELEMENTE:
+1. Fachliche Erklärung mit berufsspezifischen Beispielen aus dem Arbeitsalltag von ${professionName}
+2. Nach JEDER Erklärung ein Gegenbeispiel, das typische Fehlannahmen von ${professionName} verdeutlicht
+3. IHK-Prüfungsbezüge: Markiere prüfungsrelevante Inhalte mit ⭐ und formuliere, wie die IHK dieses Thema typischerweise abfragt
+4. Fachbegriffe müssen so erklärt werden, wie sie im Berufsfeld ${professionName} tatsächlich verwendet werden
+VERBOTEN: Akademische Definitionen ohne Praxisbezug. Jeder Absatz muss den Bezug zu ${professionName} herstellen.`,
+
+    anwenden: `Erstelle ein Entscheidungsszenario (KEINE reine Beschreibung) aus dem Berufsalltag von ${professionName}.
+PFLICHT-ELEMENTE:
+1. Konkretes Fallbeispiel: Ein/e ${professionName} steht vor einer beruflichen Entscheidung mit realistischen Zahlen, Namen und Kontexten
+2. Mindestens 2 Entscheidungsoptionen mit fachlicher Abwägung der Vor- und Nachteile
+3. Typische Prüfungsfallen mit ⚠️ markiert — Fehler, die ${professionName} in der IHK-Prüfung häufig machen
+4. Der Lernende muss die Entscheidung treffen UND fachlich begründen
+VERBOTEN: Reine Beschreibungen ("So funktioniert X"). Der Lernende muss HANDELN und ENTSCHEIDEN.`,
+
+    wiederholen: `Erstelle KEINE erneute Erklärung. Erstelle stattdessen eine PRÜFUNGSVERDICHTUNG für ${professionName}:
+PFLICHT-ELEMENTE:
+1. 3-5 kompakte Merksätze mit den Fachbegriffen, wie sie in der IHK-Prüfung für ${professionName} erwartet werden
+2. Typische IHK-Prüfungsfallen: 3 häufige Fehler, die ${professionName} in der Prüfung machen, mit Erklärung warum sie falsch sind
+3. Abgrenzungstabelle: Vergleich ähnlicher Begriffe/Konzepte, die ${professionName} verwechseln
+4. 2 Formulierungsübungen: Sätze in IHK-Prüfungssprache umformulieren (vorher/nachher)
+5. Prüfer-Hinweis: Was IHK-Prüfer bei ${professionName} besonders gern nachfragen
+VERBOTEN: Erneute Erklärung des Stoffes. NUR Verdichtung und Prüfungsvorbereitung.`,
+
+    mini_check: `Erstelle 4 situative Multiple-Choice-Fragen auf IHK-Prüfungsniveau für ${professionName}.
+QUALITÄTSSTANDARD:
+1. Mindestens 2 Fragen MÜSSEN ein konkretes Fallbeispiel/Szenario aus dem Berufsalltag von ${professionName} enthalten
+2. Distraktoren müssen PLAUSIBEL sein — sie bilden typische Denkfehler von ${professionName} ab, nicht offensichtlichen Unsinn
+3. Jede Frage muss berufsspezifisch formuliert sein (nicht generisch übertragbar auf andere Berufe)
+4. Erklärungen müssen den KONKRETEN Denkfehler hinter jedem falschen Distraktor benennen
+5. Mix: 1x leicht (Grundwissen), 2x mittel (Anwendung), 1x schwer (Transfer/Analyse)
+VERBOTEN: Reine Wissensfragen wie "Was ist...?" ohne beruflichen Kontext.`,
+  };
+  return prompts[step] || prompts.einstieg;
+}
 
 const MINI_CHECK_TOOL: AITool = {
   type: "function",
@@ -110,6 +150,7 @@ serve(async (req) => {
     const curriculumId = course?.curriculum_id || "";
 
     let professionName = "Auszubildende";
+    let certificationContext = "berufliche Ausbildung";
     if (curriculumId) {
       try {
         const { data: curriculum } = await supabase
@@ -120,10 +161,13 @@ serve(async (req) => {
         if (curriculum?.beruf_id) {
           const { data: beruf } = await supabase
             .from("berufe")
-            .select("bezeichnung_kurz, bezeichnung_lang")
+            .select("bezeichnung_kurz, bezeichnung_lang, branche")
             .eq("id", curriculum.beruf_id)
             .maybeSingle();
-          if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
+          if (beruf) {
+            professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
+            if ((beruf as any).branche) certificationContext = (beruf as any).branche;
+          }
         } else if (curriculum?.title) {
           const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
           if (match) professionName = match;
@@ -139,21 +183,35 @@ serve(async (req) => {
       : "";
 
     const routed = step === "mini_check" ? getModel("minicheck") : getModel("learning_course");
-    const systemPrompt = `Du bist ein IHK-Experte für den Ausbildungsberuf "${professionName}". Erstelle strukturierte, praxisnahe Lerninhalte im JSON-Format, die spezifisch auf den Berufsalltag von ${professionName} zugeschnitten sind. Markiere prüfungsrelevante Stellen mit ⭐.
 
-QUALITÄTSSTANDARD TIEFE:
-- Jeder Lernschritt MUSS die fachliche Tiefe des Rahmenplans für ${professionName} abbilden
-- Verwende konkrete Fachbegriffe und berufsspezifische Unterthemen aus dem Curriculum
-- Praxisbeispiele MÜSSEN aus dem typischen Arbeitsalltag von ${professionName} stammen
-- Oberflächliche Erklärungen ohne Fachtiefe und Berufsbezug sind NICHT akzeptabel
-- Beziehe dich auf spezifische Unterthemen, nicht nur auf das übergeordnete Lernfeld`;
+    const systemPrompt = `Du bist ein erfahrener IHK-Fachexperte für den Beruf "${professionName}". Du erstellst Lerninhalte, die sich anfühlen, als wären sie von einem Fachlehrer mit 20 Jahren Berufserfahrung als ${professionName} geschrieben.
 
+IDENTITÄT: Du denkst, sprichst und erklärst wie jemand, der den Beruf ${professionName} von Grund auf kennt. Deine Beispiele stammen aus echten Arbeitssituationen, deine Fachbegriffe sind die, die ${professionName} täglich verwenden.
+
+QUALITÄTSSTANDARD:
+- Jeder Lernschritt MUSS die fachliche Tiefe des offiziellen Rahmenplans für ${professionName} abbilden
+- Verwende die konkreten Fachbegriffe und berufsspezifischen Unterthemen aus dem Curriculum
+- Praxisbeispiele MÜSSEN aus dem typischen Arbeitsalltag von ${professionName} stammen — mit realistischen Kunden, Produkten, Zahlen und Situationen
+- Oberflächliche Erklärungen ohne Fachtiefe und konkreten Berufsbezug zu ${professionName} sind NICHT akzeptabel
+- Beziehe dich auf spezifische Unterthemen des Rahmenplans, nicht nur auf das übergeordnete Lernfeld
+- Der Inhalt darf NICHT nach KI klingen — keine generischen Floskeln, keine akademische Überfrachtung
+
+ANTI-KI-REGELN:
+- KEINE Sätze wie "In der heutigen Geschäftswelt..." oder "Es ist wichtig zu verstehen, dass..."
+- KEINE generischen Aufzählungen ohne konkreten Bezug zu ${professionName}
+- KEINE Wiederholung der Aufgabenstellung in der Antwort
+- Schreibe so, wie ein erfahrener Ausbilder im Betrieb einem Azubi etwas erklärt
+- Markiere prüfungsrelevante Stellen mit ⭐`;
+
+    const stepPrompt = getStepPrompt(step, professionName);
     const userPrompt = `Erstelle Lerninhalt für den Beruf "${professionName}":
 Kompetenz: ${competency.title}
 Beschreibung: ${competency.description}
 Taxonomie: ${competency.taxonomy_level}
 Lernschritt: ${step}
-Aufgabe: ${STEP_PROMPTS[step]}${topicDepth}`;
+
+AUFGABE:
+${stepPrompt}${topicDepth}`;
 
     let result;
     if (step === "mini_check") {
@@ -171,6 +229,7 @@ Aufgabe: ${STEP_PROMPTS[step]}${topicDepth}`;
         objectives: parsed.objectives || [`Wissen zu ${competency.title} überprüfen`],
         questions: parsed.questions,
         _depth_enriched: !!topicDepth,
+        _profession: professionName,
       };
     } else {
       const aiRes = await callAIJSON({
@@ -181,13 +240,14 @@ Aufgabe: ${STEP_PROMPTS[step]}${topicDepth}`;
         const jsonMatch = aiRes.content.match(/\{[\s\S]*\}/);
         result = JSON.parse(jsonMatch?.[0] || aiRes.content);
         result._depth_enriched = !!topicDepth;
+        result._profession = professionName;
       } catch { throw new Error("Failed to parse AI response"); }
     }
 
     // Track generation
     const { data: genRec } = await supabase.from("ai_generations").insert({
       entity_type: "lesson", generator_model: routed.model,
-      input_context: { competency: competency.title, step, taxonomy: competency.taxonomy_level, courseId, depth_enriched: !!topicDepth },
+      input_context: { competency: competency.title, step, taxonomy: competency.taxonomy_level, courseId, depth_enriched: !!topicDepth, profession: professionName },
       output_content: result, status: "generated", metadata: { provider: routed.provider, competencyCode: competency.code }
     }).select("id").single();
 
