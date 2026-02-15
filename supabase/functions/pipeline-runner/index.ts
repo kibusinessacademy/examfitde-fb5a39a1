@@ -123,6 +123,12 @@ function pickNextAction(steps: StepRow[]): StepAction {
       return { action: "poll", stepKey: k, jobId: s.job_id };
     }
 
+    // Running WITHOUT job_id = orphaned step → reset to queued for re-enqueue
+    if (s.status === "running" && !s.job_id) {
+      console.warn(`[runner] Step ${k} is running without job_id — resetting to queued`);
+      return { action: "enqueue", stepKey: k };
+    }
+
     if (s.status === "running") {
       const timeout = s.timeout_seconds || 600;
       if (s.started_at) {
