@@ -86,17 +86,34 @@ async function loadSSOTContext(
   const resolved: Record<string, unknown> = {};
   const parts: string[] = [];
 
-  // Load curriculum
+  // Load curriculum + profession name
   if (curriculumId) {
     const { data } = await supabase
       .from('curricula')
-      .select('id, title, curriculum_code, profession_title')
+      .select('id, title, beruf_id')
       .eq('id', curriculumId)
       .single();
     if (data) {
       resolved.curriculum = data;
-      parts.push(`Curriculum: ${data.title} (${data.curriculum_code})`);
-      if (data.profession_title) parts.push(`Beruf: ${data.profession_title}`);
+      parts.push(`Curriculum: ${data.title}`);
+      
+      // Load profession name from berufe
+      let professionName = "";
+      if (data.beruf_id) {
+        const { data: beruf } = await supabase
+          .from('berufe')
+          .select('bezeichnung_kurz, bezeichnung_lang')
+          .eq('id', data.beruf_id)
+          .maybeSingle();
+        if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || "";
+      }
+      if (!professionName && data.title) {
+        professionName = data.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
+      }
+      if (professionName) {
+        parts.push(`Beruf: ${professionName}`);
+        resolved.professionName = professionName;
+      }
     }
   }
 

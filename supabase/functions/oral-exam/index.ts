@@ -119,6 +119,29 @@ async function generateQuestionForSession(
   curriculumId: string, 
   orderIndex: number
 ) {
+  // Load profession name dynamically
+  let professionName = "Auszubildende";
+  try {
+    const { data: curriculum } = await supabase
+      .from("curricula")
+      .select("title, beruf_id")
+      .eq("id", curriculumId)
+      .maybeSingle();
+    if (curriculum?.beruf_id) {
+      const { data: beruf } = await supabase
+        .from("berufe")
+        .select("bezeichnung_kurz, bezeichnung_lang")
+        .eq("id", curriculum.beruf_id)
+        .maybeSingle();
+      if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
+    } else if (curriculum?.title) {
+      const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
+      if (match) professionName = match;
+    }
+  } catch (e) {
+    console.error("[OralExam] Profession load failed:", e);
+  }
+
   // Load competencies for this curriculum
   const { data: competencies } = await supabase
     .from('competencies')
@@ -185,7 +208,7 @@ async function generateQuestionForSession(
     source = 'llm_fallback';
     console.warn(`[OralExam] ⚠️ No oral blueprints for competency ${competency.code} – using LLM fallback`);
 
-    const llmResult = await generateQuestionViaLLM(competency);
+    const llmResult = await generateQuestionViaLLM(competency, professionName);
     questionText = llmResult.question;
     expectedPoints = llmResult.expected_points;
     followUpQuestions = llmResult.follow_up_questions;
@@ -258,22 +281,24 @@ async function generateFollowUps(competency: any, mainQuestion: string): Promise
 /**
  * LLM Fallback for question generation (when no blueprints exist)
  */
-async function generateQuestionViaLLM(competency: any): Promise<{
+async function generateQuestionViaLLM(competency: any, professionName: string = "Auszubildende"): Promise<{
   question: string;
   expected_points: string[];
   follow_up_questions: string[];
 }> {
-  const prompt = `Du bist ein IHK-Prüfer für die mündliche Abschlussprüfung.
+  const prompt = `Du bist ein IHK-Prüfer für die mündliche Abschlussprüfung im Beruf "${professionName}".
 
 Generiere eine mündliche Prüfungsfrage zum Thema:
+Beruf: ${professionName}
 Lernfeld: ${competency.learning_field.title}
 Kompetenz: ${competency.title}
 
 Die Frage soll:
 - Offen formuliert sein (keine Multiple Choice)
-- Praxisbezug haben
+- Konkreten Praxisbezug zum Berufsalltag von ${professionName} haben
 - In 2-3 Minuten beantwortbar sein
 - Dem IHK-Prüfungsniveau entsprechen
+- Berufsspezifische Fachbegriffe und Szenarien verwenden
 
 Antworte NUR im folgenden JSON-Format:
 {
