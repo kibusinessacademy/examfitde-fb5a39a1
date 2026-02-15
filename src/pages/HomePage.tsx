@@ -23,7 +23,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="py-20 px-4 relative">
+      <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 relative">
         <div className="container mx-auto text-center max-w-4xl relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6 animate-fade-in">
             <Star className="h-4 w-4 text-warning fill-warning" />
@@ -73,7 +73,7 @@ export default function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 px-4">
+      <section className="py-10 sm:py-12 md:py-16 px-3 sm:px-4">
         <div className="container mx-auto max-w-5xl">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
@@ -82,8 +82,8 @@ export default function HomePage() {
               { value: '500+', label: 'Prüfungsrelevante Aufgaben', gradient: 'text-gradient' },
               { value: '24/7', label: 'Trainieren wann du willst', gradient: 'text-gradient-accent' },
             ].map(({ value, label, gradient }, i) => (
-              <div key={label} className="glass-card rounded-2xl text-center p-6 animate-fade-in" style={{ animationDelay: `${0.3 + i * 0.05}s` }}>
-                <div className={`text-4xl font-display font-bold ${gradient} mb-2`}>{value}</div>
+              <div key={label} className="glass-card rounded-2xl text-center p-4 sm:p-6 animate-fade-in" style={{ animationDelay: `${0.3 + i * 0.05}s` }}>
+                <div className={`text-2xl sm:text-4xl font-display font-bold ${gradient} mb-1 sm:mb-2`}>{value}</div>
                 <div className="text-sm text-muted-foreground">{label}</div>
               </div>
             ))}
@@ -92,9 +92,9 @@ export default function HomePage() {
       </section>
 
       {/* Problem → Solution */}
-      <section className="py-20 px-4 bg-muted/30">
+      <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
         <div className="container mx-auto max-w-4xl text-center">
-          <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4 sm:mb-6">
             Du verkaufst kein Lernen. Du verkaufst <span className="text-gradient">Prüfungssicherheit.</span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
@@ -102,7 +102,7 @@ export default function HomePage() {
             ExamFit trainiert gezielt Prüfungsreife – nicht unnötige Theorie.
           </p>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
             <div className="glass-card rounded-2xl p-6 text-center">
               <div className="text-4xl mb-4">😰</div>
               <h3 className="font-semibold mb-2">Das Problem</h3>
@@ -129,18 +129,18 @@ export default function HomePage() {
       </section>
 
       {/* Ein Produkt */}
-      <section className="py-20 px-4">
+      <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
         <div className="container mx-auto max-w-4xl text-center">
-          <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
             Ein Produkt. Ein Ziel. <span className="text-gradient">Bestehen.</span>
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto mb-12">
             ExamFit – Intelligentes Prüfungstraining. Alles, was du für die Abschlussprüfung brauchst, in einem System.
           </p>
 
-          <div className="glass-card rounded-2xl p-8 md:p-12 border-2 border-primary/30 max-w-2xl mx-auto">
-            <div className="flex items-baseline gap-2 justify-center mb-6">
-              <span className="text-5xl font-display font-bold text-gradient">39 €</span>
+          <div className="glass-card rounded-2xl p-5 sm:p-8 md:p-12 border-2 border-primary/30 max-w-2xl mx-auto">
+            <div className="flex items-baseline gap-2 justify-center mb-4 sm:mb-6">
+              <span className="text-4xl sm:text-5xl font-display font-bold text-gradient">39 €</span>
               <span className="text-muted-foreground">einmalig · 12 Monate</span>
             </div>
 
@@ -171,15 +171,15 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-4 bg-muted/30">
+      <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
         <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
+          <div className="text-center mb-8 md:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
               Das macht ExamFit <span className="text-gradient">besonders</span>
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
             {[
               { icon: Brain, color: 'text-primary', title: 'Adaptives Training', text: 'Das System erkennt deine Schwächen und trainiert gezielt.' },
               { icon: Mic, color: 'text-accent', title: 'Mündliche Prüfung', text: 'Übe das Fachgespräch mit KI-Feedback zu deinen Antworten.' },
@@ -197,16 +197,16 @@ export default function HomePage() {
       </section>
 
       {/* Zielgruppen-Einstiege */}
-      <section className="py-20 px-4">
+      <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
         <div className="container mx-auto max-w-5xl">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
+          <div className="text-center mb-8 md:mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
               Ein Produkt – <span className="text-gradient">drei Perspektiven</span>
             </h2>
             <p className="text-muted-foreground">Gleiches System, passende Argumente für jede Rolle.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
             <Link to="/pruefungstraining-azubis" className="glass-card rounded-2xl p-8 group hover:border-primary/30 transition-all duration-500">
               <GraduationCap className="h-10 w-10 text-primary mb-4" />
               <h3 className="text-lg font-display font-bold mb-2">Für Auszubildende</h3>
@@ -244,9 +244,9 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4">
+      <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4">
         <div className="container mx-auto max-w-4xl">
-          <div className="glass-strong rounded-3xl p-12 text-center relative overflow-hidden">
+          <div className="glass-strong rounded-3xl p-6 sm:p-8 md:p-12 text-center relative overflow-hidden">
             <div className="absolute inset-0 gradient-hero opacity-10" />
             <div className="relative z-10">
               <Target className="h-16 w-16 text-primary mx-auto mb-6" />

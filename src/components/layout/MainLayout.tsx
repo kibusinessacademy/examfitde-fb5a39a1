@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { GraduationCap, LogOut, User, Menu, X, Download } from 'lucide-react';
 import { useState } from 'react';
+import { NativeTabBar } from '@/components/native/NativeTabBar';
+import { useNativeApp } from '@/hooks/useNativeApp';
 
 export default function MainLayout() {
   const { user, signOut, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isNative } = useNativeApp();
 
   const handleSignOut = async () => {
     await signOut();
@@ -180,11 +183,15 @@ export default function MainLayout() {
       </header>
 
       {/* Main Content */}
-      <main>
+      <main className={isNative ? 'pb-20' : ''}>
         <Outlet />
       </main>
 
-      {/* Footer */}
+      {/* Native Tab Bar */}
+      <NativeTabBar />
+
+      {/* Footer - hidden in native/PWA mode */}
+      {!isNative && (
       <footer className="border-t border-border mt-20 bg-muted/30">
         <div className="container mx-auto px-4 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
@@ -254,6 +261,7 @@ export default function MainLayout() {
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 }
