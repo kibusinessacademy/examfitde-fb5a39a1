@@ -16,6 +16,61 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return data?.status === "done";
 }
 
+/**
+ * Load curriculum_topics depth for a learning field to enrich handbook sections.
+ */
+async function loadFieldTopicDepth(
+  sb: ReturnType<typeof createClient>,
+  curriculumId: string,
+  fieldCode: string,
+  fieldTitle: string,
+): Promise<string> {
+  try {
+    // Find parent topic matching this learning field
+    const { data: parentTopics } = await sb
+      .from("curriculum_topics")
+      .select("id, topic_name")
+      .eq("certification_id", curriculumId)
+      .is("parent_topic_id", null)
+      .ilike("topic_name", `%${fieldTitle.slice(0, 30)}%`)
+      .limit(3);
+
+    if (!parentTopics?.length) {
+      // Fallback: get ANY subtopics for this curriculum
+      const { data: allParents } = await sb
+        .from("curriculum_topics")
+        .select("id, topic_name")
+        .eq("certification_id", curriculumId)
+        .is("parent_topic_id", null)
+        .limit(50);
+      if (!allParents?.length) return "";
+      
+      // Use all parents to gather subtopics
+      const parentIds = allParents.map((p: any) => p.id);
+      const { data: allSubs } = await sb
+        .from("curriculum_topics")
+        .select("topic_name, difficulty_level")
+        .in("parent_topic_id", parentIds)
+        .limit(200);
+      
+      if (!allSubs?.length) return "";
+      return allSubs.map((s: any) => `- ${s.topic_name}`).join("\n");
+    }
+
+    const parentIds = parentTopics.map((t: any) => t.id);
+    const { data: subtopics } = await sb
+      .from("curriculum_topics")
+      .select("topic_name, difficulty_level")
+      .in("parent_topic_id", parentIds)
+      .limit(50);
+
+    if (!subtopics?.length) return "";
+    return subtopics.map((s: any) => `- ${s.topic_name} (${s.difficulty_level || "mittel"})`).join("\n");
+  } catch {
+    return "";
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
@@ -94,7 +149,7 @@ Deno.serve(async (req) => {
     for (let fi = 0; fi < rawChunks[ci].length; fi++) fieldToChapter.push(ci + 1);
   }
 
-  // 4) Create sections
+  // 4) Create sections WITH DEPTH from curriculum_topics
   const sectionRows: Array<Record<string, unknown>> = [];
   let sectionOrder = 1;
 
@@ -104,6 +159,13 @@ Deno.serve(async (req) => {
     const chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
     if (!chapter) continue;
 
+    // ═══ DEPTH ENRICHMENT: Load subtopics from curriculum_topics ═══
+    const subtopicList = await loadFieldTopicDepth(sb, curriculumId, lf.code, lf.title);
+
+    const kernthemenBlock = subtopicList
+      ? `### Kernthemen (aus dem Rahmenplan)\n${subtopicList}`
+      : "### Kernthemen\n- _Wird durch Council + Curriculum-Analyse ergänzt._";
+
     sectionRows.push({
       chapter_id: chapter.id,
       section_key: `lf-${String(lf.code).toLowerCase().replace(/\s+/g, '-')}-${curriculumId.slice(0, 8)}`,
@@ -111,8 +173,7 @@ Deno.serve(async (req) => {
       content_markdown: [
         `## ${lf.code}: ${lf.title}`, "",
         lf.description ? String(lf.description) : "_Beschreibung folgt (Council/LLM)._", "",
-        "### Kernthemen",
-        "- _Wird durch Council + Curriculum-Analyse ergänzt._", "",
+        kernthemenBlock, "",
         "### Typische Prüfungsfallen",
         "- _Wird durch Council + Blueprint-Analyse ergänzt._", "",
         "### Praxisbeispiele",
@@ -120,6 +181,7 @@ Deno.serve(async (req) => {
       ].join("\n"),
       content_type: "text",
       sort_order: sectionOrder++,
+      metadata: { depth_enriched: !!subtopicList },
     });
   }
 
@@ -128,5 +190,5 @@ Deno.serve(async (req) => {
   if (secErr) throw new Error(`Section insert: ${secErr.message}`);
 
   try { await sb.from("course_packages").update({ build_progress: 90 }).eq("id", packageId); } catch (_) { /* ignore */ }
-  return json({ ok: true, chapters: chapters.length, sections: sectionRows.length });
+  return json({ ok: true, chapters: chapters.length, sections: sectionRows.length, depth_enriched: sectionRows.filter((s: any) => s.metadata?.depth_enriched).length });
 });

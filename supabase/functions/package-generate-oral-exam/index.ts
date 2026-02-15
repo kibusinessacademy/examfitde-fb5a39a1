@@ -16,6 +16,42 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return data?.status === "done";
 }
 
+/**
+ * Load curriculum_topics depth for a competency to generate deeper oral exam scenarios.
+ */
+async function loadCompetencyTopicDepth(
+  sb: ReturnType<typeof createClient>,
+  curriculumId: string,
+  compTitle: string,
+): Promise<string[]> {
+  try {
+    // Search for subtopics matching this competency title
+    const { data: matchingTopics } = await sb
+      .from("curriculum_topics")
+      .select("topic_name, difficulty_level")
+      .eq("certification_id", curriculumId)
+      .not("parent_topic_id", "is", null)
+      .ilike("topic_name", `%${compTitle.slice(0, 25)}%`)
+      .limit(10);
+
+    if (matchingTopics?.length) {
+      return matchingTopics.map((t: any) => t.topic_name);
+    }
+
+    // Fallback: get all subtopics for this curriculum
+    const { data: allSubs } = await sb
+      .from("curriculum_topics")
+      .select("topic_name")
+      .eq("certification_id", curriculumId)
+      .not("parent_topic_id", "is", null)
+      .limit(100);
+
+    return (allSubs || []).map((t: any) => t.topic_name);
+  } catch {
+    return [];
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
@@ -54,35 +90,65 @@ Deno.serve(async (req) => {
       throw new Error("No competencies found for curriculum – cannot generate oral exam blueprints");
     }
 
+    // ═══ DEPTH ENRICHMENT: Load all curriculum subtopics ═══
+    const { data: allSubtopics } = await sb
+      .from("curriculum_topics")
+      .select("topic_name, difficulty_level, parent_topic_id")
+      .eq("certification_id", curriculumId)
+      .not("parent_topic_id", "is", null)
+      .limit(500);
+
+    const subtopicNames = (allSubtopics || []).map((t: any) => t.topic_name);
+
     // Idempotent rebuild
     await sb.from("oral_exam_blueprints").delete().eq("curriculum_id", curriculumId);
 
-    // Generate blueprints
-    const blueprintRows = competencies.slice(0, 30).map((comp: { id: string; title: string; description: string | null }) => ({
-      curriculum_id: curriculumId,
-      certification_id: certificationId,
-      competency_id: comp.id,
-      title: `Mündliche Prüfung: ${comp.title}`,
-      scenario: `Der Prüfling soll im Rahmen eines Fachgesprächs nachweisen, dass er die Kompetenz "${comp.title}" beherrscht. ${comp.description || ""}`.trim(),
-      lead_questions: [
-        `Erklären Sie den Zusammenhang von "${comp.title}" in Ihrem Ausbildungsbetrieb.`,
-        `Welche praktischen Erfahrungen haben Sie im Bereich "${comp.title}" gesammelt?`,
-        `Beschreiben Sie eine konkrete Situation aus Ihrem Arbeitsalltag zu "${comp.title}".`,
-      ],
-      followups: [
-        "Wie würden Sie in einer alternativen Situation vorgehen?",
-        "Welche rechtlichen Grundlagen sind hier relevant?",
-        "Wie bewerten Sie das Ergebnis Ihres Vorgehens?",
-      ],
-      rubric: {
-        criteria: [
-          { name: "Fachkompetenz", weight: 40, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
-          { name: "Problemlösekompetenz", weight: 30, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
-          { name: "Kommunikation", weight: 30, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
+    // Generate blueprints with DEPTH
+    const blueprintRows = competencies.slice(0, 30).map((comp: { id: string; title: string; description: string | null }, idx: number) => {
+      // Pick relevant subtopics for this competency
+      const relevantTopics = subtopicNames.filter((name: string) => {
+        const compWords = comp.title.toLowerCase().split(/\s+/);
+        const topicLower = name.toLowerCase();
+        return compWords.some((w: string) => w.length > 3 && topicLower.includes(w));
+      }).slice(0, 5);
+
+      // If no direct match, use rotating subset
+      const topicsForScenario = relevantTopics.length > 0
+        ? relevantTopics
+        : subtopicNames.slice((idx * 3) % Math.max(1, subtopicNames.length), (idx * 3) % Math.max(1, subtopicNames.length) + 3);
+
+      const topicContext = topicsForScenario.length > 0
+        ? `\n\nRelevante Fachthemen aus dem Rahmenplan:\n${topicsForScenario.map((t: string) => `• ${t}`).join("\n")}`
+        : "";
+
+      return {
+        curriculum_id: curriculumId,
+        certification_id: certificationId,
+        competency_id: comp.id,
+        title: `Mündliche Prüfung: ${comp.title}`,
+        scenario: `Der Prüfling soll im Rahmen eines Fachgesprächs nachweisen, dass er die Kompetenz "${comp.title}" beherrscht. ${comp.description || ""}${topicContext}`.trim(),
+        lead_questions: [
+          `Erklären Sie den Zusammenhang von "${comp.title}" in Ihrem Ausbildungsbetrieb und gehen Sie dabei auf ${topicsForScenario[0] || "relevante Fachaspekte"} ein.`,
+          `Welche praktischen Erfahrungen haben Sie im Bereich "${comp.title}" gesammelt? Beschreiben Sie insbesondere ${topicsForScenario[1] || "konkrete Arbeitsprozesse"}.`,
+          `Beschreiben Sie eine konkrete Situation aus Ihrem Arbeitsalltag zu "${comp.title}" und analysieren Sie die fachlichen Zusammenhänge.`,
         ],
-      },
-      status: "approved",
-    }));
+        followups: [
+          "Wie würden Sie in einer alternativen Situation vorgehen? Begründen Sie Ihre Entscheidung fachlich.",
+          "Welche rechtlichen Grundlagen und Vorschriften sind hier relevant?",
+          "Wie bewerten Sie das Ergebnis Ihres Vorgehens? Welche Alternativen hätten Sie?",
+          topicsForScenario.length > 2 ? `Wie hängt ${topicsForScenario[2]} mit Ihrer beschriebenen Situation zusammen?` : "Welche wirtschaftlichen Auswirkungen hat Ihre Entscheidung?",
+        ],
+        rubric: {
+          criteria: [
+            { name: "Fachkompetenz", weight: 40, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
+            { name: "Problemlösekompetenz", weight: 30, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
+            { name: "Kommunikation", weight: 30, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
+          ],
+        },
+        status: "approved",
+        metadata: { depth_enriched: topicsForScenario.length > 0, topic_count: topicsForScenario.length },
+      };
+    });
 
     const { data: inserted, error: insertErr } = await sb
       .from("oral_exam_blueprints")
@@ -103,7 +169,8 @@ Deno.serve(async (req) => {
       );
     if (upErr) throw new Error(`oral_exam_sessionsets upsert: ${upErr.message}`);
 
-    return json({ ok: true, blueprints_created: inserted.length });
+    const depthCount = blueprintRows.filter((b: any) => b.metadata?.depth_enriched).length;
+    return json({ ok: true, blueprints_created: inserted.length, depth_enriched: depthCount });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error(`[OralExam] Error: ${msg}`);

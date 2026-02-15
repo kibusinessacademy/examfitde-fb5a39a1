@@ -16460,6 +16460,7 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: number
       }
+      auto_heal_shallow_content: { Args: never; Returns: Json }
       auto_link_certification_documents: { Args: never; Returns: number }
       auto_ops_cycle: { Args: never; Returns: Json }
       auto_retry_stuck_package: {
