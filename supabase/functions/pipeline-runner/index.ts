@@ -208,6 +208,53 @@ async function processPackage(
     return { packageId, error: stepsErr.message };
   }
 
+  // ── Bootstrap: If no steps exist, invoke build-course-package to create them ──
+  if (!steps || steps.length === 0) {
+    console.log(`[runner] Package ${shortId} has no steps — invoking build-course-package to bootstrap`);
+    try {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+      const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+      // Ensure pipeline lock is held by this package before build-course-package checks it
+      await safeRpc(sb, "try_claim_pipeline_lock", { p_package_id: packageId, p_locked_by: runnerId });
+
+      const buildRes = await fetch(`${SUPABASE_URL}/functions/v1/build-course-package`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          packageId,
+          courseId: pkg.course_id,
+          curriculumId: pkg.curriculum_id,
+          certificationId: pkg.certification_id,
+        }),
+      });
+
+      const buildData = await buildRes.json().catch(() => ({}));
+
+      if (!buildRes.ok) {
+        console.error(`[runner] build-course-package failed for ${shortId}: ${JSON.stringify(buildData)}`);
+        await safeQuery(
+          sb.from("course_packages")
+            .update({ status: "blocked", blocked_reason: `build_init_failed: ${buildData.error || buildRes.status}` })
+            .eq("id", packageId),
+        );
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, error: "build_init_failed", detail: buildData };
+      }
+
+      console.log(`[runner] ✅ build-course-package bootstrapped ${shortId}: enqueued=${buildData.enqueued}`);
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return { packageId, bootstrapped: true, enqueued: buildData.enqueued };
+    } catch (buildErr) {
+      console.error(`[runner] Bootstrap error for ${shortId}:`, (buildErr as Error).message);
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return { packageId, error: `bootstrap_error: ${(buildErr as Error).message}` };
+    }
+  }
+
   const nextAction = pickNextAction((steps ?? []) as StepRow[]);
 
   // ── All steps done / no actionable step ──
