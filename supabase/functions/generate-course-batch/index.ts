@@ -105,9 +105,33 @@ serve(async (req) => {
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Load curriculum ID from course
+    // Load curriculum ID and profession name from course → curriculum → berufe
     const { data: course } = await supabase.from("courses").select("curriculum_id").eq("id", courseId).single();
     const curriculumId = course?.curriculum_id || "";
+
+    let professionName = "Auszubildende";
+    if (curriculumId) {
+      try {
+        const { data: curriculum } = await supabase
+          .from("curricula")
+          .select("title, beruf_id")
+          .eq("id", curriculumId)
+          .maybeSingle();
+        if (curriculum?.beruf_id) {
+          const { data: beruf } = await supabase
+            .from("berufe")
+            .select("bezeichnung_kurz, bezeichnung_lang")
+            .eq("id", curriculum.beruf_id)
+            .maybeSingle();
+          if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
+        } else if (curriculum?.title) {
+          const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
+          if (match) professionName = match;
+        }
+      } catch (e) {
+        console.error("[generate-course-batch] Profession load failed:", e);
+      }
+    }
 
     // ═══ DEPTH ENRICHMENT: Load granular curriculum topics ═══
     const topicDepth = curriculumId
@@ -115,15 +139,16 @@ serve(async (req) => {
       : "";
 
     const routed = step === "mini_check" ? getModel("minicheck") : getModel("learning_course");
-    const systemPrompt = `Du bist ein IHK-Experte für berufliche Ausbildungsinhalte. Erstelle strukturierte, praxisnahe Lerninhalte im JSON-Format. Markiere prüfungsrelevante Stellen mit ⭐.
+    const systemPrompt = `Du bist ein IHK-Experte für den Ausbildungsberuf "${professionName}". Erstelle strukturierte, praxisnahe Lerninhalte im JSON-Format, die spezifisch auf den Berufsalltag von ${professionName} zugeschnitten sind. Markiere prüfungsrelevante Stellen mit ⭐.
 
 QUALITÄTSSTANDARD TIEFE:
-- Jeder Lernschritt MUSS die fachliche Tiefe des Rahmenplans abbilden
-- Verwende konkrete Fachbegriffe und Unterthemen aus dem Curriculum
-- Oberflächliche Erklärungen ohne Fachtiefe sind NICHT akzeptabel
+- Jeder Lernschritt MUSS die fachliche Tiefe des Rahmenplans für ${professionName} abbilden
+- Verwende konkrete Fachbegriffe und berufsspezifische Unterthemen aus dem Curriculum
+- Praxisbeispiele MÜSSEN aus dem typischen Arbeitsalltag von ${professionName} stammen
+- Oberflächliche Erklärungen ohne Fachtiefe und Berufsbezug sind NICHT akzeptabel
 - Beziehe dich auf spezifische Unterthemen, nicht nur auf das übergeordnete Lernfeld`;
 
-    const userPrompt = `Erstelle Lerninhalt für:
+    const userPrompt = `Erstelle Lerninhalt für den Beruf "${professionName}":
 Kompetenz: ${competency.title}
 Beschreibung: ${competency.description}
 Taxonomie: ${competency.taxonomy_level}

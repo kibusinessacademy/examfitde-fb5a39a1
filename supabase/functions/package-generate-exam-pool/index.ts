@@ -533,16 +533,27 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Load profession name dynamically from curriculum
+    // Load profession name dynamically from curriculum → berufe
     let professionName = "Auszubildende"; // safe fallback
     try {
       const { data: curriculum } = await sb
         .from("curricula")
-        .select("title, profession")
+        .select("title, beruf_id")
         .eq("id", curriculumId)
         .maybeSingle();
-      if (curriculum) {
-        professionName = curriculum.profession || curriculum.title || professionName;
+      if (curriculum?.beruf_id) {
+        const { data: beruf } = await sb
+          .from("berufe")
+          .select("bezeichnung_kurz, bezeichnung_lang")
+          .eq("id", curriculum.beruf_id)
+          .maybeSingle();
+        if (beruf) {
+          professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
+        }
+      } else if (curriculum?.title) {
+        // Extract profession from curriculum title (e.g. "Rahmenlehrplan Bankkaufmann" → "Bankkaufmann")
+        const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
+        if (match) professionName = match;
       }
     } catch (e) {
       console.log(`[ExamPool-Dominanz] Profession load failed, using fallback: ${(e as Error).message}`);
