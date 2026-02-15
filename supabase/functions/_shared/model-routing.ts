@@ -27,6 +27,7 @@ export type PipelineIntent =
   | "support"
   | "summary"
   | "repair"
+  | "repair_content"
   | "blooms_classify"
   | "curriculum_import";
 
@@ -88,20 +89,25 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   images: [
     { provider: "openai", model: "gpt-image-1" },
   ],
-  // Support → DeepSeek (günstig)
+  // Support → GPT-4.1-mini primär (stabiler), DeepSeek Fallback
   support: [
-    { provider: "deepseek", model: "deepseek-chat" },
     { provider: "openai", model: "gpt-4.1-mini" },
+    { provider: "deepseek", model: "deepseek-chat" },
   ],
   // Zusammenfassungen → GPT-4.1-mini
   summary: [
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "deepseek", model: "deepseek-chat" },
   ],
-  // Repair → GPT-4.1 (Konsistenz)
+  // Repair JSON/Format → GPT-4.1-mini (billig + schnell)
   repair: [
+    { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
+  ],
+  // Repair Content/Didaktik → Sonnet 4
+  repair_content: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+    { provider: "openai", model: "gpt-4.1" },
   ],
   // Blooms Classification → GPT-4.1-mini (schnell + günstig)
   blooms_classify: [
@@ -129,7 +135,8 @@ export const INTENT_BUDGETS: Record<PipelineIntent, number> = {
   images: 0.5,
   support: 0.2,
   summary: 0.3,
-  repair: 1.0,
+  repair: 0.3,
+  repair_content: 1.0,
   blooms_classify: 0.2,
   curriculum_import: 1.0,
 };
