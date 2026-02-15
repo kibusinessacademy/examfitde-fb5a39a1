@@ -285,7 +285,12 @@ async function generateDominanzQuestions(
       status: "draft",
     });
     if (error) {
-      console.log(`[ExamPool-Dominanz] Insert error: ${error.message}`);
+      // Idempotency: skip duplicates silently
+      if (error.code === "23505") {
+        console.log(`[ExamPool-Dominanz] Duplicate question skipped`);
+      } else {
+        console.log(`[ExamPool-Dominanz] Insert error: ${error.message}`);
+      }
     } else {
       saved++;
     }
