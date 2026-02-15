@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { callAIJSON, aiErrorResponse } from "../_shared/ai-client.ts";
+import { getModel } from "../_shared/model-routing.ts";
 
 const systemPrompt = `Du bist ein Experte für die Analyse von Berufsausbildungs-Rahmenlehrplänen (Curricula). 
 Deine Aufgabe ist es, aus dem bereitgestellten Dokument strukturierte Daten zu extrahieren.
@@ -50,20 +52,14 @@ serve(async (req) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
-  // ==================== AUTH CHECK ====================
-  // Require admin role to extract curriculum (expensive AI operation)
-  const auth = await validateAuth(req, true); // requireAdmin = true
-  
+  const auth = await validateAuth(req, true);
   if (auth.error) {
-    if (auth.error === 'Admin access required') {
-      return forbiddenResponse(auth.error);
-    }
+    if (auth.error === 'Admin access required') return forbiddenResponse(auth.error);
     return unauthorizedResponse(auth.error);
   }
-  // ====================================================
 
   try {
-    const { curriculumId, fileContent, fileName, provider } = await req.json();
+    const { curriculumId, fileContent, fileName } = await req.json();
 
     if (!curriculumId || !fileContent) {
       return new Response(
@@ -72,91 +68,36 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[User: ${auth.user?.id}] Extracting curriculum from file: ${fileName}, provider: ${provider || 'lovable'}`);
+    console.log(`[User: ${auth.user?.id}] Extracting curriculum from file: ${fileName}`);
 
-    let apiUrl: string;
-    let apiHeaders: Record<string, string>;
-    let model: string;
-
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured');
-    apiUrl = 'https://api.openai.com/v1/chat/completions';
-    apiHeaders = { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' };
-    model = 'gpt-5.2';
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: apiHeaders,
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { 
-            role: 'user', 
-            content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\nDateiname: ${fileName}\n\nInhalt:\n${fileContent}`
-          },
-        ],
-        temperature: 0.1,
-      }),
+    const routed = getModel("curriculum_import");
+    const result = await callAIJSON({
+      provider: routed.provider,
+      model: routed.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\nDateiname: ${fileName}\n\nInhalt:\n${fileContent}` },
+      ],
+      temperature: 0.1,
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
-    }
+    if (!result.content) throw new Error('No content in AI response');
 
-    const aiResponse = await response.json();
-    const content = aiResponse.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('No content in AI response');
-    }
-
-    // Parse the JSON from the response (handle markdown code blocks)
     let extractedData;
     try {
-      // Remove markdown code blocks if present
-      const cleanContent = content
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-      
+      const cleanContent = result.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       extractedData = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      console.error('Raw content:', content);
+    } catch {
       throw new Error('Failed to parse AI response as JSON');
     }
 
-    console.log('Successfully extracted curriculum data');
-
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        extractedData,
-        curriculumId 
-      }),
+      JSON.stringify({ success: true, extractedData, curriculumId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Extract curriculum error:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return aiErrorResponse(error, corsHeaders);
   }
 });
