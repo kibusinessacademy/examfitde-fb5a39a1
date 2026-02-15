@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { validateAuth, unauthorizedResponse, forbiddenResponse } from '../_shared/auth.ts';
 import { getCorsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
+import { callAIJSON } from '../_shared/ai-client.ts';
 
 /**
  * curriculum-import — SSOT Edge Function
@@ -453,25 +454,19 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (textContent.length >= 100 && OPENAI_API_KEY) {
+        if (textContent.length >= 100) {
           try {
-            const llmRes = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                model: 'gpt-4.1',
-                messages: [
-                  { role: 'system', content: EXTRACTION_PROMPT },
-                  { role: 'user', content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\n${textContent}` },
-                ],
-                temperature: 0.1,
-              }),
+            const llmResult = await callAIJSON({
+              provider: "openai",
+              messages: [
+                { role: 'system', content: EXTRACTION_PROMPT },
+                { role: 'user', content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\n${textContent}` },
+              ],
+              temperature: 0.1,
             });
 
-            if (llmRes.ok) {
-              const llmData = await llmRes.json();
-              const rawContent = llmData.choices?.[0]?.message?.content || '';
-              const clean = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            if (llmResult.content) {
+              const clean = llmResult.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
               const extractedData = JSON.parse(clean) as ExtractedData;
               const normalized = normalizeData(extractedData);
 

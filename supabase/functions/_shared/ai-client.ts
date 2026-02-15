@@ -95,6 +95,21 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     if (systemMsg) body.system = systemMsg.content;
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
 
+    // Anthropic tool support: convert OpenAI tool format → Anthropic format
+    if (opts.tools && opts.tools.length > 0) {
+      body.tools = opts.tools.map((t) => ({
+        name: t.function.name,
+        description: t.function.description,
+        input_schema: t.function.parameters,
+      }));
+    }
+    if (opts.tool_choice) {
+      const fnName = (opts.tool_choice as any).function?.name;
+      if (fnName) {
+        body.tool_choice = { type: "tool", name: fnName };
+      }
+    }
+
     resp = await fetch(cfg.url, {
       method: "POST",
       headers: {
@@ -168,8 +183,12 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
   const data = await raw.json();
 
   if (opts.provider === "anthropic") {
+    // Extract tool_use blocks if present
+    const toolUseBlock = data.content?.find((b: any) => b.type === "tool_use");
+    const textBlock = data.content?.find((b: any) => b.type === "text");
     return {
-      content: data.content?.[0]?.text || "",
+      content: textBlock?.text || "",
+      toolCalls: toolUseBlock ? [{ function: { name: toolUseBlock.name, arguments: JSON.stringify(toolUseBlock.input) } }] : undefined,
       usage: {
         input_tokens: data.usage?.input_tokens,
         output_tokens: data.usage?.output_tokens,
