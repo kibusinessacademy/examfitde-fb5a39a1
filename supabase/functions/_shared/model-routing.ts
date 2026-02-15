@@ -3,12 +3,21 @@
  *
  * Intent-basiertes Routing mit Fallback-Kette pro Pipeline-Step.
  * 
- * Routing-Logik:
- *   Claude Sonnet 4  → SEO, Lernkurs, Council, Handbuch (Kreativität + Didaktik)
- *   GPT-4.1          → Prüfungsfragen, Oral Exam, Repair (Konsistenz + Logik)
- *   GPT-4.1-mini     → MiniChecks, Meta/FAQ, Zusammenfassungen (schnell + günstig)
- *   OpenAI Embeddings → Duplicate Detection
- *   gpt-image-1      → Bilder (Hero, SEO)
+ * Workload-Splitting nach Anforderung:
+ *   ┌─────────────────────┬───────────────────────────────┬────────────────────────┐
+ *   │ Workload-Typ        │ Primär                        │ Warum                  │
+ *   ├─────────────────────┼───────────────────────────────┼────────────────────────┤
+ *   │ Bulk MC (Exam-Pool) │ GPT-4.1-mini                  │ 1000+ Fragen, günstig  │
+ *   │ Lernkurs/Handbuch   │ Claude Sonnet 4               │ Kreativität + Didaktik │
+ *   │ Council/Validation  │ Claude Sonnet 4               │ Qualität > Volumen     │
+ *   │ Quality Audit       │ GPT-4.1                       │ Konsistenz-Checks      │
+ *   │ Tutor/Support       │ GPT-4.1-mini                  │ Schnell + günstig      │
+ *   │ SEO Content         │ Claude Sonnet 4               │ Menschlicher Ton       │
+ *   │ Repair (Format)     │ GPT-4.1-mini                  │ Schema-Fix, billig     │
+ *   │ Repair (Didaktik)   │ Claude Sonnet 4               │ Inhalt braucht Qualität│
+ *   │ Embeddings          │ text-embedding-3-large         │ Einziger Embedding-Anb.│
+ *   │ Images              │ gpt-image-1                   │ Einziger Image-Anb.    │
+ *   └─────────────────────┴───────────────────────────────┴────────────────────────┘
  */
 
 import type { AIProvider } from "./ai-client.ts";
@@ -39,24 +48,26 @@ export interface ModelChoice {
 /**
  * Primary + fallback models per intent.
  * First entry = primary, rest = fallbacks in order.
+ * 
+ * Kostenoptimiert: Bulk-Workloads → mini, Quality-Workloads → Sonnet/4.1
  */
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
-  // Kreativität + Didaktik → Claude
+  // Kreativität + Didaktik → Claude Sonnet 4
   learning_course: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Konsistenz + Logik → GPT-4.1
+  // Bulk MC-Generierung: 1000+ Fragen, kein Deep Reasoning → GPT-4.1-mini (Kosteneffizienz)
   exam_questions: [
+    { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
   ],
-  // Dialog + Didaktik → GPT-4.1
+  // Dialog + Didaktik, schnell → GPT-4.1-mini
   oral_exam: [
+    { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
   ],
-  // Längere kohärente Texte → Claude
+  // Längere kohärente Texte → Claude Sonnet 4
   handbook: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
@@ -66,20 +77,20 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // SEO-Content, menschlicher Ton → Claude
+  // SEO-Content, menschlicher Ton → Claude Sonnet 4
   seo_content: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Kritik + Verbesserung → Claude
+  // Council: Qualität > Volumen → Claude Sonnet 4
   council_review: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // IHK Quality Audit → Claude (kritischer Blick)
+  // Quality Audit: Konsistenz-Checks → GPT-4.1 (präzise Logik)
   quality_audit: [
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
+    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
   ],
   // Embeddings → OpenAI
   embeddings: [
@@ -89,7 +100,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   images: [
     { provider: "openai", model: "gpt-image-1" },
   ],
-  // Support → GPT-4.1-mini primär (stabiler), DeepSeek Fallback
+  // Support/Tutor → GPT-4.1-mini (schnell + günstig)
   support: [
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "deepseek", model: "deepseek-chat" },
@@ -104,7 +115,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Repair Content/Didaktik → Sonnet 4
+  // Repair Content/Didaktik → Sonnet 4 (Qualität wichtig)
   repair_content: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
@@ -114,30 +125,30 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Curriculum Import → GPT-4.1
+  // Curriculum Import → GPT-4.1 (Strukturerkennung)
   curriculum_import: [
     { provider: "openai", model: "gpt-4.1" },
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
   ],
 };
 
-/** Budget caps per intent (EUR per single invocation) */
+/** Budget caps per intent (EUR per single invocation) – optimiert für mini-Modelle */
 export const INTENT_BUDGETS: Record<PipelineIntent, number> = {
   learning_course: 2.5,
-  exam_questions: 3.0,
-  oral_exam: 2.0,
+  exam_questions: 0.8,   // ↓ von 3.0 – mini ist 10x günstiger
+  oral_exam: 0.5,        // ↓ von 2.0 – mini-basiert
   handbook: 2.0,
-  minicheck: 0.5,
+  minicheck: 0.3,        // ↓ von 0.5
   seo_content: 1.0,
   council_review: 0.8,
   quality_audit: 1.5,
   embeddings: 0.1,
   images: 0.5,
-  support: 0.2,
-  summary: 0.3,
-  repair: 0.3,
+  support: 0.15,         // ↓ von 0.2
+  summary: 0.2,          // ↓ von 0.3
+  repair: 0.2,           // ↓ von 0.3
   repair_content: 1.0,
-  blooms_classify: 0.2,
+  blooms_classify: 0.15, // ↓ von 0.2
   curriculum_import: 1.0,
 };
 
