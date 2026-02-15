@@ -16329,7 +16329,7 @@ export type Database = {
           p_package_id: string
           p_runner_id: string
         }
-        Returns: boolean
+        Returns: undefined
       }
       report_audit_log: {
         Args: { p_limit?: number }
