@@ -476,7 +476,7 @@ async function processPackage(
       status: "pending",
       payload,
       priority: 10,
-      max_attempts: 25,
+      max_attempts: 100,
       batch_cursor: batchCursor,
     });
 

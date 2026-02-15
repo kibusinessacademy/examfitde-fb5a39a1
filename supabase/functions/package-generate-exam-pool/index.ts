@@ -324,7 +324,7 @@ async function enqueueLearningFieldJobs(
       job_type: "package_generate_exam_pool",
       status: "pending",
       attempts: 0,
-      max_attempts: 25,
+      max_attempts: 100,
       run_after: nowIso,
       payload: {
         package_id: packageId,

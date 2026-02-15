@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
                   job_type: "package_generate_exam_pool",
                   status: "pending",
                   attempts: 0,
-                  max_attempts: 25,
+                  max_attempts: 100,
                   run_after: new Date().toISOString(),
                   payload: {
                     package_id: pkg.id,
