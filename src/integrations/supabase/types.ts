@@ -7270,6 +7270,7 @@ export type Database = {
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
+          meta: Json
           original_provider: string | null
           parent_job_id: string | null
           payload: Json
@@ -7302,6 +7303,7 @@ export type Database = {
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
+          meta?: Json
           original_provider?: string | null
           parent_job_id?: string | null
           payload: Json
@@ -7334,6 +7336,7 @@ export type Database = {
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
+          meta?: Json
           original_provider?: string | null
           parent_job_id?: string | null
           payload?: Json
@@ -15486,6 +15489,7 @@ export type Database = {
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
+          meta: Json
           original_provider: string | null
           parent_job_id: string | null
           payload: Json
