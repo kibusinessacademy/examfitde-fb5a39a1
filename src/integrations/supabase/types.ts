@@ -14652,6 +14652,18 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_quality_heatmap: {
+        Row: {
+          avg_cost_eur: number | null
+          avg_quality_score: number | null
+          call_count: number | null
+          job_type: string | null
+          model: string | null
+          quadrant: string | null
+          total_cost_eur: number | null
+        }
+        Relationships: []
+      }
       course_package_build_steps: {
         Row: {
           attempts: number | null
@@ -14793,6 +14805,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      error_observatory: {
+        Row: {
+          error_cluster: string | null
+          error_fingerprint: string | null
+          first_seen: string | null
+          is_spike: boolean | null
+          job_type: string | null
+          last_1h: number | null
+          last_24h: number | null
+          last_seen: string | null
+          occurrence_count: number | null
+          sample_error: string | null
+        }
+        Relationships: []
       }
       exam_questions_safe: {
         Row: {
@@ -15165,6 +15192,18 @@ export type Database = {
           failed_packages: number | null
           queued_packages: number | null
           running_steps: number | null
+        }
+        Relationships: []
+      }
+      quality_drift_monitor: {
+        Row: {
+          avg_quality_score: number | null
+          day: string | null
+          escalation_count: number | null
+          escalation_rate_pct: number | null
+          model: string | null
+          question_count: number | null
+          score_stddev: number | null
         }
         Relationships: []
       }
