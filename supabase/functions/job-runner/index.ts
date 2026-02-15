@@ -6,6 +6,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
  * (FOR UPDATE SKIP LOCKED), dispatches to Edge Functions, writes back
  * completed / failed / pending+run_after (backoff).
  *
+ * v4: Adaptive Concurrency Controller + Dead-Letter Queue
+ *
  * SSOT Status values: pending | processing | completed | failed | cancelled
  * Requeue = pending + run_after (backoff), NOT custom status values.
  */
@@ -122,15 +124,22 @@ const JOB_TYPE_MAP: Record<string, string> = {
   ingest_curriculum_document: "ingest-curriculum-document",
 };
 
-// ── Constants ────────────────────────────────────────────────────────
-const MAX_JOBS_PER_TICK = 12;     // Turbo: 12 parallel jobs per cron tick (was 5)
-const JOB_TIMEOUT_MS = 140_000;   // 140s — stay under Edge 150s hard limit
+// ── Adaptive Concurrency Constants ──────────────────────────────────
+const BASE_CONCURRENCY = 12;
+const MIN_CONCURRENCY = 6;
+const MAX_CONCURRENCY = 18;
+const JOB_TIMEOUT_MS = 140_000;
 
 // Backoff delays (ms) for requeue scenarios
-const BACKOFF_409_MS = 30_000;   // 30s for prereq-not-ready
-const BACKOFF_429_MS = 60_000;   // 60s for rate limits
-const BACKOFF_BATCH_MS = 3_000;  // 3s for batch continuation (was 5s — tighter loop)
-const BACKOFF_ERROR_MS = 30_000; // 30s for transient errors
+const BACKOFF_409_MS = 30_000;
+const BACKOFF_429_MS = 60_000;
+const BACKOFF_BATCH_MS = 3_000;
+const BACKOFF_ERROR_MS = 30_000;
+
+// Adaptive thresholds (rolling 5-min window)
+const THROTTLE_TIMEOUT_THRESHOLD = 10;
+const THROTTLE_RATELIMIT_THRESHOLD = 8;
+const STABLE_MINUTES_TO_RAMP = 10;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -161,6 +170,124 @@ async function requeueWithBackoff(
   }).eq("id", jobId);
 }
 
+// ── Adaptive Concurrency Controller ─────────────────────────────────
+
+interface TickMetrics {
+  timeouts: number;
+  rateLimits: number;
+  escalations: number;
+  dlqItems: number;
+  completed: number;
+  totalLatencyMs: number;
+}
+
+async function getAdaptiveConcurrency(
+  sb: ReturnType<typeof createClient>,
+): Promise<number> {
+  // Read last snapshot to get current concurrency level
+  const { data: lastSnapshot } = await sb.from("concurrency_snapshots")
+    .select("active_concurrency, snapshot_at, action_taken")
+    .order("snapshot_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!lastSnapshot) return BASE_CONCURRENCY;
+
+  const current = lastSnapshot.active_concurrency ?? BASE_CONCURRENCY;
+
+  // Read rolling 5-min failure metrics from job_queue
+  const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+
+  const { count: recentTimeouts } = await sb.from("job_queue")
+    .select("id", { count: "exact", head: true })
+    .gte("updated_at", fiveMinAgo)
+    .eq("status", "failed")
+    .ilike("error", "%timeout%");
+
+  const { count: recentRateLimits } = await sb.from("job_queue")
+    .select("id", { count: "exact", head: true })
+    .gte("updated_at", fiveMinAgo)
+    .in("status", ["pending", "failed"])
+    .or("error.ilike.%429%,error.ilike.%rate limit%,error.ilike.%Rate limit%");
+
+  const timeouts = recentTimeouts ?? 0;
+  const rateLimits = recentRateLimits ?? 0;
+
+  // Decision logic
+  if (timeouts >= THROTTLE_TIMEOUT_THRESHOLD || rateLimits >= THROTTLE_RATELIMIT_THRESHOLD) {
+    // Throttle down
+    const newConcurrency = Math.max(MIN_CONCURRENCY, current - 3);
+    console.log(`[Adaptive] THROTTLE: timeouts=${timeouts} rateLimits=${rateLimits} → ${current}→${newConcurrency}`);
+    return newConcurrency;
+  }
+
+  // Check if stable for ramp-up (last N snapshots all "stable")
+  if (lastSnapshot.action_taken === "stable") {
+    const tenMinAgo = new Date(Date.now() - STABLE_MINUTES_TO_RAMP * 60_000).toISOString();
+    const { data: recentSnapshots } = await sb.from("concurrency_snapshots")
+      .select("action_taken")
+      .gte("snapshot_at", tenMinAgo)
+      .order("snapshot_at", { ascending: false })
+      .limit(10);
+
+    const allStable = recentSnapshots?.every(s => s.action_taken === "stable") ?? false;
+    if (allStable && current < MAX_CONCURRENCY) {
+      const newConcurrency = Math.min(MAX_CONCURRENCY, current + 1);
+      console.log(`[Adaptive] RAMP-UP: stable ${STABLE_MINUTES_TO_RAMP}min → ${current}→${newConcurrency}`);
+      return newConcurrency;
+    }
+  }
+
+  return current;
+}
+
+async function writeSnapshot(
+  sb: ReturnType<typeof createClient>,
+  metrics: TickMetrics,
+  activeConcurrency: number,
+  action: string,
+) {
+  const medianLatency = metrics.completed > 0
+    ? Math.round(metrics.totalLatencyMs / metrics.completed)
+    : null;
+
+  await sb.from("concurrency_snapshots").insert({
+    timeouts_5min: metrics.timeouts,
+    rate_limits_5min: metrics.rateLimits,
+    escalations_5min: metrics.escalations,
+    dlq_count_5min: metrics.dlqItems,
+    jobs_per_min: metrics.completed, // approximation per tick
+    median_latency_ms: medianLatency,
+    active_concurrency: activeConcurrency,
+    action_taken: action,
+  }).then(() => {}, () => {}); // fire-and-forget
+}
+
+/** Write failed job to Dead-Letter Queue */
+async function writeToDLQ(
+  sb: ReturnType<typeof createClient>,
+  job: any,
+  errorType: string,
+  errorMessage: string,
+) {
+  try {
+    await sb.from("exam_pool_dlq").insert({
+      blueprint_id: job.payload?.blueprint_id ?? null,
+      job_id: job.id,
+      package_id: job.payload?.package_id ?? null,
+      provider: job.meta?.last_provider ?? null,
+      model: job.meta?.last_model ?? null,
+      error_type: errorType,
+      error_message: errorMessage?.slice(0, 2000),
+      attempt_count: job.attempts || 0,
+      prompt_hash: job.meta?.prompt_hash ?? null,
+      original_payload: job.payload ?? null,
+    });
+  } catch (e) {
+    console.log(`[DLQ] Write failed: ${(e as Error)?.message}`);
+  }
+}
+
 // ── Main Handler ─────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -170,9 +297,12 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+  // ── 0. Adaptive Concurrency: determine current tick size ──────────
+  const adaptiveConcurrency = await getAdaptiveConcurrency(sb).catch(() => BASE_CONCURRENCY);
+
   // ── 1. Atomically claim pending jobs (SKIP LOCKED + run_after) ──
   const { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs", {
-    p_limit: MAX_JOBS_PER_TICK,
+    p_limit: adaptiveConcurrency,
   });
 
   if (claimErr) {
@@ -181,12 +311,16 @@ Deno.serve(async (req) => {
   }
 
   if (!jobs || jobs.length === 0) {
-    return json({ ok: true, processed: 0, message: "No pending jobs" });
+    return json({ ok: true, processed: 0, concurrency: adaptiveConcurrency, message: "No pending jobs" });
   }
 
-  console.log(`[job-runner] Claimed ${jobs.length} job(s) atomically`);
+  console.log(`[job-runner] Claimed ${jobs.length} job(s) [concurrency=${adaptiveConcurrency}]`);
 
   const results: Record<string, unknown>[] = [];
+  const tickMetrics: TickMetrics = {
+    timeouts: 0, rateLimits: 0, escalations: 0, dlqItems: 0,
+    completed: 0, totalLatencyMs: 0,
+  };
 
   for (const job of jobs) {
     const fnName = JOB_TYPE_MAP[job.job_type];
@@ -201,6 +335,8 @@ Deno.serve(async (req) => {
       continue;
     }
 
+    const startMs = Date.now();
+
     // ── 2. Invoke the target Edge Function ───────────────────────────
     try {
       const controller = new AbortController();
@@ -208,7 +344,6 @@ Deno.serve(async (req) => {
 
       const payload = {
         ...(job.payload || {}),
-        // Pass cursor forward for chunked workers
         ...(job.batch_cursor ? { _batch_cursor: job.batch_cursor, batch_cursor: job.batch_cursor } : {}),
         _job_id: job.id,
         _job_type: job.job_type,
@@ -226,6 +361,7 @@ Deno.serve(async (req) => {
       });
 
       clearTimeout(timer);
+      const elapsedMs = Date.now() - startMs;
 
       const text = await res.text().catch(() => "");
       let parsed: any;
@@ -242,10 +378,11 @@ Deno.serve(async (req) => {
               result: { ...(typeof parsed === "object" ? parsed : {}), _409_idempotent: true },
               completed_at: new Date().toISOString(),
             }).eq("id", job.id);
+            tickMetrics.completed++;
+            tickMetrics.totalLatencyMs += elapsedMs;
             results.push({ id: job.id, status: "completed", reason: "409_idempotent" });
             continue;
           }
-          // 409 with retry=true → prereq not ready, backoff requeue
           console.warn(`[job-runner] ${fnName} 409 retry=true → requeue +${BACKOFF_409_MS}ms`);
           await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_409_MS,
             "HTTP 409 — prereq not ready, will retry");
@@ -255,6 +392,7 @@ Deno.serve(async (req) => {
 
         // ── Rate-limited or transient → requeue with delay ───────────
         if (res.status === 429 || res.status === 503) {
+          tickMetrics.rateLimits++;
           console.warn(`[job-runner] ${fnName} ${res.status} → requeue +${BACKOFF_429_MS}ms`);
           await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_429_MS,
             `HTTP ${res.status} — will retry`);
@@ -264,12 +402,20 @@ Deno.serve(async (req) => {
 
         // ── Hard failure ─────────────────────────────────────────────
         const maxAttempts = job.max_attempts || 3;
+        const errStr = typeof parsed === "string" ? parsed.slice(0, 500) : JSON.stringify(parsed).slice(0, 500);
         if ((job.attempts || 0) >= maxAttempts) {
           await sb.from("job_queue").update({
             status: "failed",
-            error: `HTTP ${res.status}: ${typeof parsed === "string" ? parsed.slice(0, 500) : JSON.stringify(parsed).slice(0, 500)}`,
+            error: `HTTP ${res.status}: ${errStr}`,
             completed_at: new Date().toISOString(),
           }).eq("id", job.id);
+
+          // DLQ for exam-pool jobs
+          if (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") {
+            tickMetrics.dlqItems++;
+            await writeToDLQ(sb, job, `http_${res.status}`, errStr);
+          }
+
           results.push({ id: job.id, status: "failed", httpStatus: res.status });
         } else {
           await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_ERROR_MS,
@@ -299,12 +445,17 @@ Deno.serve(async (req) => {
         completed_at: new Date().toISOString(),
       }).eq("id", job.id);
 
+      tickMetrics.completed++;
+      tickMetrics.totalLatencyMs += elapsedMs;
       results.push({ id: job.id, status: "completed", function: fnName });
 
     } catch (err: unknown) {
       const msg = (err as Error)?.message || String(err);
       const isTimeout = msg.includes("abort");
+      const elapsedMs = Date.now() - startMs;
       console.error(`[job-runner] ${fnName} error: ${msg}`);
+
+      if (isTimeout) tickMetrics.timeouts++;
 
       const maxAttempts = job.max_attempts || 3;
       if ((job.attempts || 0) >= maxAttempts) {
@@ -313,6 +464,13 @@ Deno.serve(async (req) => {
           error: isTimeout ? "Edge Function timeout" : msg.slice(0, 1000),
           completed_at: new Date().toISOString(),
         }).eq("id", job.id);
+
+        // DLQ for exam-pool jobs
+        if (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") {
+          tickMetrics.dlqItems++;
+          await writeToDLQ(sb, job, isTimeout ? "timeout" : "hard_failure", msg.slice(0, 1000));
+        }
+
         results.push({ id: job.id, status: "failed", reason: isTimeout ? "timeout" : "error" });
       } else {
         const delay = isTimeout ? BACKOFF_429_MS : BACKOFF_ERROR_MS;
@@ -323,6 +481,24 @@ Deno.serve(async (req) => {
     }
   }
 
-  console.log(`[job-runner] Tick done: ${JSON.stringify(results)}`);
-  return json({ ok: true, processed: results.length, results });
+  // ── 5. Write concurrency snapshot ──────────────────────────────────
+  const action = (tickMetrics.timeouts >= THROTTLE_TIMEOUT_THRESHOLD || tickMetrics.rateLimits >= THROTTLE_RATELIMIT_THRESHOLD)
+    ? "throttle_down"
+    : tickMetrics.dlqItems > 0 ? "degraded" : "stable";
+
+  await writeSnapshot(sb, tickMetrics, adaptiveConcurrency, action);
+
+  console.log(`[job-runner] Tick done [c=${adaptiveConcurrency}]: ${JSON.stringify(results)}`);
+  return json({
+    ok: true,
+    processed: results.length,
+    concurrency: adaptiveConcurrency,
+    metrics: {
+      completed: tickMetrics.completed,
+      timeouts: tickMetrics.timeouts,
+      rateLimits: tickMetrics.rateLimits,
+      dlqItems: tickMetrics.dlqItems,
+    },
+    results,
+  });
 });

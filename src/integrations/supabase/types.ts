@@ -2667,6 +2667,45 @@ export type Database = {
         }
         Relationships: []
       }
+      concurrency_snapshots: {
+        Row: {
+          action_taken: string | null
+          active_concurrency: number | null
+          dlq_count_5min: number
+          escalations_5min: number
+          id: string
+          jobs_per_min: number | null
+          median_latency_ms: number | null
+          rate_limits_5min: number
+          snapshot_at: string
+          timeouts_5min: number
+        }
+        Insert: {
+          action_taken?: string | null
+          active_concurrency?: number | null
+          dlq_count_5min?: number
+          escalations_5min?: number
+          id?: string
+          jobs_per_min?: number | null
+          median_latency_ms?: number | null
+          rate_limits_5min?: number
+          snapshot_at?: string
+          timeouts_5min?: number
+        }
+        Update: {
+          action_taken?: string | null
+          active_concurrency?: number | null
+          dlq_count_5min?: number
+          escalations_5min?: number
+          id?: string
+          jobs_per_min?: number | null
+          median_latency_ms?: number | null
+          rate_limits_5min?: number
+          snapshot_at?: string
+          timeouts_5min?: number
+        }
+        Relationships: []
+      }
       content_assets: {
         Row: {
           alt_text: string | null
@@ -6413,6 +6452,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      exam_pool_dlq: {
+        Row: {
+          attempt_count: number
+          blueprint_id: string | null
+          created_at: string
+          error_message: string | null
+          error_type: string
+          id: string
+          job_id: string | null
+          model: string | null
+          original_payload: Json | null
+          package_id: string | null
+          prompt_hash: string | null
+          provider: string | null
+        }
+        Insert: {
+          attempt_count?: number
+          blueprint_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          error_type: string
+          id?: string
+          job_id?: string | null
+          model?: string | null
+          original_payload?: Json | null
+          package_id?: string | null
+          prompt_hash?: string | null
+          provider?: string | null
+        }
+        Update: {
+          attempt_count?: number
+          blueprint_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          error_type?: string
+          id?: string
+          job_id?: string | null
+          model?: string | null
+          original_payload?: Json | null
+          package_id?: string | null
+          prompt_hash?: string | null
+          provider?: string | null
+        }
+        Relationships: []
       }
       exam_questions: {
         Row: {
