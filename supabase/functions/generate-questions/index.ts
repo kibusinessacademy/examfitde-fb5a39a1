@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON, aiErrorResponse } from "../_shared/ai-client.ts";
+import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { assertNoContamination } from "../_shared/contamination-guard.ts";
 
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
@@ -25,23 +27,12 @@ serve(async (req) => {
   try {
     const { competencyId, competencyTitle, competencyDescription, learningFieldTitle, curriculumId, count = 3, difficulty = 'medium' } = await req.json();
 
-    // Load profession name dynamically
-    let professionName = "Auszubildende";
-    if (curriculumId) {
-      const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-      try {
-        const { data: curriculum } = await supabase.from("curricula").select("title, beruf_id").eq("id", curriculumId).maybeSingle();
-        if (curriculum?.beruf_id) {
-          const { data: beruf } = await supabase.from("berufe").select("bezeichnung_kurz, bezeichnung_lang").eq("id", curriculum.beruf_id).maybeSingle();
-          if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
-        } else if (curriculum?.title) {
-          const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
-          if (match) professionName = match;
-        }
-      } catch (e) {
-        console.error("[generate-questions] Profession load failed:", e);
-      }
-    }
+    // Load profession from SSOT — HARD GUARD
+    if (!curriculumId) throw new Error("MISSING_CURRICULUM_ID: Cannot generate questions without curriculum context");
+    
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const professionResult = await resolveProfession(supabase, { curriculumId });
+    const professionName = professionResult.professionName;
 
     console.log(`[User: ${auth.user?.id}] Generating ${count} ${difficulty} questions for "${professionName}": ${competencyTitle}`);
 
@@ -104,16 +95,20 @@ WICHTIG: Jede Frage braucht ein konkretes Szenario aus dem Arbeitsalltag von ${p
       throw new Error('Failed to parse AI response as JSON');
     }
 
-    const formattedQuestions = questions.map((q: any, idx: number) => ({
-      question_text: q.question_text,
-      options: q.options,
-      correct_answer: q.correct_answer,
-      explanation: q.explanation,
-      difficulty: q.difficulty || difficulty,
-      competency_id: competencyId,
-      ai_generated: true,
-      status: 'draft',
-    }));
+    const formattedQuestions = questions.map((q: any, idx: number) => {
+      // Contamination guard on each question
+      assertNoContamination(q.question_text + " " + (q.explanation || ""), professionName, `question ${idx}`);
+      return {
+        question_text: q.question_text,
+        options: q.options,
+        correct_answer: q.correct_answer,
+        explanation: q.explanation,
+        difficulty: q.difficulty || difficulty,
+        competency_id: competencyId,
+        ai_generated: true,
+        status: 'draft',
+      };
+    });
 
     console.log(`Successfully generated ${formattedQuestions.length} questions for "${professionName}"`);
 

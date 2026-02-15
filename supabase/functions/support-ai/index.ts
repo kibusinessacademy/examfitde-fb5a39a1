@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
+import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 
 const ANSWER_TYPES: Record<string, string> = {
   verstaendnisfrage: "explanation",
@@ -44,15 +45,12 @@ serve(async (req) => {
         .maybeSingle();
       if (course) {
         contextParts.push(`Kurs: ${course.title}. ${course.description || ""}`);
-        // Load profession from course
-        if (course.curriculum_id) {
-          const { data: curriculum } = await adminClient.from("curricula").select("title, beruf_id").eq("id", course.curriculum_id).maybeSingle();
-          if (curriculum?.beruf_id) {
-            const { data: beruf } = await adminClient.from("berufe").select("bezeichnung_kurz, bezeichnung_lang").eq("id", curriculum.beruf_id).maybeSingle();
-            if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || "";
-          } else if (curriculum?.title) {
-            professionName = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
-          }
+        // Load profession from SSOT resolver
+        if (course.curriculum_id || contextCourseId) {
+          try {
+            const result = await resolveProfessionFromCourse(adminClient, contextCourseId, { allowGenericFallback: true });
+            professionName = result.professionName;
+          } catch { /* support-ai is user-facing, tolerate missing profession */ }
         }
       }
     }

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
+import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 
 /**
  * AI Lesson Improvement Agent (Council-Compliant, Profession-Aware)
@@ -104,26 +105,11 @@ function getImprovementInstructions(professionName: string): Record<string, stri
 }
 
 /**
- * Load profession name from course → curriculum → berufe
+ * Load profession name from SSOT — HARD GUARD
  */
 async function loadProfessionFromCourse(supabase: any, courseId: string): Promise<string> {
-  let professionName = "Auszubildende";
-  try {
-    const { data: course } = await supabase.from("courses").select("curriculum_id").eq("id", courseId).single();
-    if (!course?.curriculum_id) return professionName;
-    
-    const { data: curriculum } = await supabase.from("curricula").select("title, beruf_id").eq("id", course.curriculum_id).maybeSingle();
-    if (curriculum?.beruf_id) {
-      const { data: beruf } = await supabase.from("berufe").select("bezeichnung_kurz, bezeichnung_lang").eq("id", curriculum.beruf_id).maybeSingle();
-      if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
-    } else if (curriculum?.title) {
-      const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
-      if (match) professionName = match;
-    }
-  } catch (e) {
-    console.error("[Improve] Profession load failed:", e);
-  }
-  return professionName;
+  const result = await resolveProfessionFromCourse(supabase, courseId);
+  return result.professionName;
 }
 
 serve(async (req) => {

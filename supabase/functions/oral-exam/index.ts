@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
+import { resolveProfession } from "../_shared/profession-resolver.ts";
 
 /**
  * Oral-Exam – Blueprint-basiert (SSOT-konform)
@@ -84,31 +85,11 @@ serve(async (req) => {
 });
 
 /**
- * Load profession name from curriculum → berufe (reusable helper)
+ * Load profession name from SSOT — HARD GUARD for pipeline, generic fallback for user-facing
  */
-async function loadProfessionName(supabase: any, curriculumId: string): Promise<string> {
-  let professionName = "Auszubildende";
-  try {
-    const { data: curriculum } = await supabase
-      .from("curricula")
-      .select("title, beruf_id")
-      .eq("id", curriculumId)
-      .maybeSingle();
-    if (curriculum?.beruf_id) {
-      const { data: beruf } = await supabase
-        .from("berufe")
-        .select("bezeichnung_kurz, bezeichnung_lang")
-        .eq("id", curriculum.beruf_id)
-        .maybeSingle();
-      if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
-    } else if (curriculum?.title) {
-      const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
-      if (match) professionName = match;
-    }
-  } catch (e) {
-    console.error("[OralExam] Profession load failed:", e);
-  }
-  return professionName;
+async function loadProfessionName(supabase: any, curriculumId: string, allowFallback = true): Promise<string> {
+  const result = await resolveProfession(supabase, { curriculumId, allowGenericFallback: allowFallback });
+  return result.professionName;
 }
 
 async function startSession(supabase: any, userId: string, params: any) {

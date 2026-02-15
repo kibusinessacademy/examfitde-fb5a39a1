@@ -4,6 +4,8 @@ import { validateAuth, unauthorizedResponse } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
+import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
+import { checkContamination } from "../_shared/contamination-guard.ts";
 
 interface ValidationRequest {
   mode: "lesson" | "course" | "question" | "tutor_response" | "blog_article";
@@ -145,22 +147,38 @@ serve(async (req) => {
       if (context.blueprintId) contextStr += `\nBlueprint: ${context.blueprintId}`;
     }
 
-    // Load profession name for SSOT context validation
+    // Load profession name from SSOT via shared resolver
     let professionName = "";
     if (courseId) {
-      const supabaseCtx = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
       try {
-        const { data: course } = await supabaseCtx.from("courses").select("curriculum_id").eq("id", courseId).maybeSingle();
-        if (course?.curriculum_id) {
-          const { data: curriculum } = await supabaseCtx.from("curricula").select("title, beruf_id").eq("id", course.curriculum_id).maybeSingle();
-          if (curriculum?.beruf_id) {
-            const { data: beruf } = await supabaseCtx.from("berufe").select("bezeichnung_kurz, bezeichnung_lang").eq("id", curriculum.beruf_id).maybeSingle();
-            if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || "";
-          } else if (curriculum?.title) {
-            professionName = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
-          }
+        const supabaseCtx = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        const result = await resolveProfessionFromCourse(supabaseCtx, courseId, { allowGenericFallback: true });
+        professionName = result.professionName;
+      } catch { /* ignore for validation — it's not the generator */ }
+    }
+
+    // Pre-flight contamination check (before sending to LLM)
+    if (professionName && typeof content === "object" && content !== null) {
+      const contentStr = JSON.stringify(content).slice(0, 10000);
+      const contam = checkContamination(contentStr, professionName);
+      if (contam.isContaminated) {
+        console.warn(`[validate-content] PRE-FLIGHT CONTAMINATION: ${contam.detectedIndustry} terms in content for "${professionName}"`);
+        // Auto-reject without even calling the LLM
+        const autoRejectResult: ValidationResult = {
+          overall_score: 20,
+          decision: "reject",
+          dimension_scores: { berufsbezug: 0, fachlichkeit: 50, didaktik: 50, pruefungsrelevanz: 50, klarheit: 50, vollstaendigkeit: 50 },
+          critical_issues: [{ severity: "critical", category: "kontamination", message: `Fremdbranche "${contam.detectedIndustry}" erkannt: [${contam.matchedTerms.join(", ")}]`, suggestion: "Inhalt muss für den Beruf " + professionName + " neu generiert werden." }],
+          suggested_fixes: [{ type: "remove_content", reason: `Kontamination aus Branche "${contam.detectedIndustry}"` }],
+        };
+
+        if (generationId) {
+          const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+          await supabase.from("ai_generations").update({ validation_decision: "reject", validation_score: 20, status: "rejected" }).eq("id", generationId);
         }
-      } catch { /* ignore */ }
+
+        return new Response(JSON.stringify(autoRejectResult), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     if (professionName) {

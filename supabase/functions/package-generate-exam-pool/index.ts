@@ -4,6 +4,8 @@ import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.t
 import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
+import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { checkContamination } from "../_shared/contamination-guard.ts";
 
 /**
  * DOMINANZ-ENGINE v2: IHK-Prüfungsstandard
@@ -339,9 +341,7 @@ async function generateDominanzQuestions(
     return 0;
   }
 
-  // ── Contamination Guard: block auto-industry keywords when profession isn't Automobil/Kfz ──
-  const isAutoProfession = /auto|kfz|fahrzeug|kraftfahrzeug|automobil/i.test(professionName);
-  const AUTO_CONTAMINATION_REGEX = /\b(autohaus|werkstatt|fahrzeug|probefahrt|karosserie|kfz|automobil|lackier|inspektion|hauptuntersuchung|hebebühne|ölwechsel|bremsbelag|radwechsel|autohändler|gebrauchtwagen|neuwagen|fahrzeugbrief)\b/i;
+  // ── Contamination Guard: block foreign-industry keywords via shared guard ──
 
   let saved = 0;
   for (const q of questions) {
@@ -353,9 +353,10 @@ async function generateDominanzQuestions(
       continue;
     }
 
-    // CONTAMINATION GUARD: Block auto-industry content for non-auto professions
-    if (!isAutoProfession && AUTO_CONTAMINATION_REGEX.test(q.question_text + " " + (q.explanation || ""))) {
-      console.log(`[ExamPool-Dominanz] CONTAMINATION BLOCKED: Auto-Kontext in Frage für "${professionName}": "${q.question_text.slice(0, 60)}"`);
+    // CONTAMINATION GUARD: Block foreign-industry content
+    const contam = checkContamination(q.question_text + " " + (q.explanation || ""), professionName);
+    if (contam.isContaminated) {
+      console.log(`[ExamPool-Dominanz] CONTAMINATION BLOCKED: ${contam.detectedIndustry} terms [${contam.matchedTerms.join(",")}] in question for "${professionName}": "${q.question_text.slice(0, 60)}"`);
       continue;
     }
 
@@ -543,31 +544,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Load profession name dynamically from curriculum → berufe
-    let professionName = "Auszubildende"; // safe fallback
-    try {
-      const { data: curriculum } = await sb
-        .from("curricula")
-        .select("title, beruf_id")
-        .eq("id", curriculumId)
-        .maybeSingle();
-      if (curriculum?.beruf_id) {
-        const { data: beruf } = await sb
-          .from("berufe")
-          .select("bezeichnung_kurz, bezeichnung_lang")
-          .eq("id", curriculum.beruf_id)
-          .maybeSingle();
-        if (beruf) {
-          professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
-        }
-      } else if (curriculum?.title) {
-        // Extract profession from curriculum title (e.g. "Rahmenlehrplan Bankkaufmann" → "Bankkaufmann")
-        const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
-        if (match) professionName = match;
-      }
-    } catch (e) {
-      console.log(`[ExamPool-Dominanz] Profession load failed, using fallback: ${(e as Error).message}`);
-    }
+    // Load profession name from SSOT — HARD GUARD (no fallback)
+    const certificationId = p.certification_id || null;
+    const professionResult = await resolveProfession(sb, { certificationId, curriculumId });
+    const professionName = professionResult.professionName;
+    console.log(`[ExamPool-Dominanz] Profession resolved: "${professionName}" (source: ${professionResult.source})`);
 
     if (generatedSoFar === 0 && !isFanOut) {
       console.log(`[ExamPool-Dominanz] Starting for "${professionName}": target=${examTarget}, difficulty=5/35/45/15, types=MC/Calc/Case/Transfer`);
