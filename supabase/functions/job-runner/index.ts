@@ -144,24 +144,21 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  // ── 1. Claim pending jobs ──────────────────────────────────────────
-  const { data: jobs, error: fetchErr } = await sb
-    .from("job_queue")
-    .select("*")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true })
-    .limit(MAX_JOBS_PER_TICK);
+  // ── 1. Atomically claim pending jobs (SKIP LOCKED — no race conditions) ──
+  const { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs", {
+    p_limit: MAX_JOBS_PER_TICK,
+  });
 
-  if (fetchErr) {
-    console.error("[job-runner] fetch error:", fetchErr.message);
-    return json({ ok: false, error: fetchErr.message }, 500);
+  if (claimErr) {
+    console.error("[job-runner] claim_pending_jobs error:", claimErr.message);
+    return json({ ok: false, error: claimErr.message }, 500);
   }
 
   if (!jobs || jobs.length === 0) {
     return json({ ok: true, processed: 0, message: "No pending jobs" });
   }
 
-  console.log(`[job-runner] Processing ${jobs.length} job(s)`);
+  console.log(`[job-runner] Claimed ${jobs.length} job(s) atomically`);
 
   const results: Record<string, unknown>[] = [];
 
@@ -181,22 +178,7 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // Mark as processing
-    const { error: claimErr } = await sb
-      .from("job_queue")
-      .update({
-        status: "processing",
-        started_at: new Date().toISOString(),
-        attempts: (job.attempts || 0) + 1,
-      })
-      .eq("id", job.id)
-      .eq("status", "pending"); // optimistic lock
-
-    if (claimErr) {
-      console.warn(`[job-runner] Could not claim job ${job.id}: ${claimErr.message}`);
-      results.push({ id: job.id, status: "skipped", reason: "claim_failed" });
-      continue;
-    }
+    // Job is already claimed as 'processing' by the RPC — proceed directly
 
     // ── 2. Invoke the target Edge Function ───────────────────────────
     try {
