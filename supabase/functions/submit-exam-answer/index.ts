@@ -10,6 +10,8 @@ interface SubmitAnswerRequest {
   question_id: string;
   selected_answer: number;
   session_id?: string;
+  time_spent?: number;
+  confidence?: number;
 }
 
 interface AnswerResult {
@@ -58,7 +60,7 @@ serve(async (req) => {
 
     // Parse request
     const body: SubmitAnswerRequest = await req.json();
-    const { question_id, selected_answer, session_id } = body;
+    const { question_id, selected_answer, session_id, confidence } = body;
 
     if (!question_id || selected_answer === undefined || selected_answer === null) {
       return new Response(
@@ -124,8 +126,16 @@ serve(async (req) => {
       });
 
     if (attemptError) {
-      // Log but don't fail - storing attempt is secondary to returning result
       logStep("WARNING: Failed to store attempt", { error: attemptError });
+    }
+
+    // Store confidence on exam_session_questions if session provided
+    if (session_id && confidence !== undefined && confidence !== null) {
+      await adminClient
+        .from('exam_session_questions')
+        .update({ user_confidence: confidence })
+        .eq('exam_session_id', session_id)
+        .eq('question_id', question_id);
     }
 
     // Update spaced repetition data
@@ -137,6 +147,16 @@ serve(async (req) => {
       });
     } catch (srError) {
       logStep("WARNING: Failed to update spaced repetition", { error: srError });
+    }
+
+    // Recalculate user theta (non-blocking)
+    try {
+      await adminClient.rpc('calculate_user_theta', {
+        p_user_id: user.id,
+        p_curriculum_id: question.curriculum_id,
+      });
+    } catch (thetaError) {
+      logStep("WARNING: Failed to recalculate theta", { error: thetaError });
     }
 
     // Return result with correct answer and explanation (NOW ALLOWED - after entitlement check)

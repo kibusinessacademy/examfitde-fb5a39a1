@@ -22,11 +22,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { 
-  Clock, 
   ChevronLeft, 
   ChevronRight, 
   Flag,
   Loader2,
+  Bookmark,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +35,9 @@ import { BlueprintSelector } from '@/components/exam/BlueprintSelector';
 import { QuestionCard } from '@/components/exam/QuestionCard';
 import { ResultsScreen } from '@/components/exam/ResultsScreen';
 import { SimulationGateGuard } from '@/components/exam/SimulationGateGuard';
+import { ExamTimer } from '@/components/exam/ExamTimer';
+import { ConfidenceSlider } from '@/components/exam/ConfidenceSlider';
+import { PassProbabilityBadge } from '@/components/exam/PassProbabilityBadge';
 import { TutorPanel } from '@/components/tutor/TutorPanel';
 import PageExplainer from '@/components/admin/PageExplainer';
 import { AI_MODES, type AIMode } from '@/hooks/useAITutor';
@@ -58,6 +61,8 @@ export default function ExamSimulation() {
   
   const [examResult, setExamResult] = useState<ExamResult | null>(null);
   const [showFinishDialog, setShowFinishDialog] = useState(false);
+  const [confidence, setConfidence] = useState(50);
+  const [markedQuestions, setMarkedQuestions] = useState<Set<number>>(new Set());
   
   const { data: blueprints, isLoading: blueprintsLoading } = useExamBlueprints();
   const { data: activeSession } = useActiveExamSession();
@@ -207,15 +212,19 @@ export default function ExamSimulation() {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Badge variant="outline">{session?.mode}</Badge>
-            {session?.time_limit_minutes && (
-              <Badge variant="secondary" className="gap-1">
-                <Clock className="h-3 w-3" />
-                {session.time_limit_minutes} Min
-              </Badge>
+            {session?.time_limit_minutes && session?.started_at && (
+              <ExamTimer
+                timeLimitMinutes={session.time_limit_minutes}
+                startedAt={session.started_at}
+                onTimeUp={() => setShowFinishDialog(true)}
+              />
             )}
           </div>
-          <div className="text-sm text-muted-foreground">
-            {answeredCount} / {totalQuestions} beantwortet
+          <div className="flex items-center gap-2">
+            <PassProbabilityBadge curriculumId={session?.curriculum_id} />
+            <span className="text-sm text-muted-foreground">
+              {answeredCount} / {totalQuestions}
+            </span>
           </div>
         </div>
         <Progress value={(answeredCount / totalQuestions) * 100} className="h-2" />
@@ -226,6 +235,7 @@ export default function ExamSimulation() {
         {questions?.map((q, idx) => {
           const isAnswered = q.user_answer !== null;
           const isCurrentQuestion = idx === currentIndex;
+          const isMarked = markedQuestions.has(idx);
           let bgClass = "bg-muted hover:bg-muted/80";
           
           if (isAnswered) {
@@ -239,12 +249,15 @@ export default function ExamSimulation() {
               key={q.id}
               onClick={() => goToQuestion(idx)}
               className={cn(
-                "w-8 h-8 rounded-lg text-xs font-medium transition-all flex-shrink-0",
+                "w-8 h-8 rounded-lg text-xs font-medium transition-all flex-shrink-0 relative",
                 isCurrentQuestion && "ring-2 ring-primary",
                 bgClass
               )}
             >
               {idx + 1}
+              {isMarked && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-yellow-500" />
+              )}
             </button>
           );
         })}
@@ -252,17 +265,26 @@ export default function ExamSimulation() {
       
       {/* Question */}
       {currentQuestion && (
-        <QuestionCard
-          question={currentQuestion}
-          questionNumber={currentIndex + 1}
-          totalQuestions={totalQuestions}
-          selectedAnswer={currentQuestion.user_answer}
-          onAnswer={handleAnswer}
-          showResult={showResult}
-          lastAnswer={lastAnswer}
-          isSubmitting={isSubmitting}
-          mode={session?.mode || 'simulation'}
-        />
+        <>
+          <QuestionCard
+            question={currentQuestion}
+            questionNumber={currentIndex + 1}
+            totalQuestions={totalQuestions}
+            selectedAnswer={currentQuestion.user_answer}
+            onAnswer={(answer) => handleAnswer(answer, undefined, confidence)}
+            showResult={showResult}
+            lastAnswer={lastAnswer}
+            isSubmitting={isSubmitting}
+            mode={session?.mode || 'simulation'}
+          />
+          
+          {/* Confidence Slider - before answering */}
+          {currentQuestion.user_answer === null && !showResult && (
+            <div className="mt-4">
+              <ConfidenceSlider value={confidence} onChange={setConfidence} />
+            </div>
+          )}
+        </>
       )}
       
       {/* Navigation */}
@@ -275,14 +297,31 @@ export default function ExamSimulation() {
           <ChevronLeft className="h-4 w-4 mr-1" />
           Zurück
         </Button>
-        
-        <Button
-          variant="destructive"
-          onClick={() => setShowFinishDialog(true)}
-        >
-          <Flag className="h-4 w-4 mr-1" />
-          Prüfung beenden
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setMarkedQuestions(prev => {
+                const next = new Set(prev);
+                if (next.has(currentIndex)) next.delete(currentIndex);
+                else next.add(currentIndex);
+                return next;
+              });
+            }}
+            title="Frage markieren"
+          >
+            <Bookmark className={cn("h-4 w-4", markedQuestions.has(currentIndex) && "fill-yellow-500 text-yellow-500")} />
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => setShowFinishDialog(true)}
+          >
+            <Flag className="h-4 w-4 mr-1" />
+            Beenden
+          </Button>
+        </div>
         
         <Button
           onClick={handleNext}

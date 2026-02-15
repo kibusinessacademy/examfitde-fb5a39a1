@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LessonRecommendations } from '@/components/exam/LessonRecommendations';
+import { CompetencyRadarChart } from '@/components/exam/CompetencyRadarChart';
+import { PassProbabilityBadge } from '@/components/exam/PassProbabilityBadge';
 import PageExplainer from '@/components/admin/PageExplainer';
 
 interface ExamSessionData {
@@ -31,6 +33,7 @@ interface ExamSessionData {
   passed: boolean | null;
   started_at: string;
   finished_at: string | null;
+  curriculum_id?: string;
   breakdown: {
     by_difficulty?: Record<string, { correct: number; total: number }>;
     by_learning_field?: Record<string, { correct: number; total: number }>;
@@ -198,8 +201,18 @@ export default function ExamResultsPage() {
             </span>
             <Badge variant="outline">{session.mode}</Badge>
           </div>
+          {session.curriculum && (
+            <div className="mt-3 flex justify-center">
+              <PassProbabilityBadge curriculumId={(session as any).curriculum_id} />
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Cognitive Competency Radar */}
+      {(session as any).curriculum_id && (
+        <CompetencyRadarChart curriculumId={(session as any).curriculum_id} />
+      )}
 
       {/* Lesson Recommendations for failed exams */}
       {!passed && sessionId && (

@@ -6142,6 +6142,7 @@ export type Database = {
           ai_generated: boolean | null
           approved_version_id: string | null
           blueprint_id: string | null
+          cognitive_level: string | null
           competency_id: string | null
           correct_answer: number
           created_at: string
@@ -6149,6 +6150,11 @@ export type Database = {
           difficulty: Database["public"]["Enums"]["question_difficulty"] | null
           explanation: string | null
           id: string
+          item_calibrated_at: string | null
+          item_difficulty: number | null
+          item_discrimination: number | null
+          item_guessing: number | null
+          item_usage_count: number | null
           learning_field_id: string | null
           normalized_hash: string | null
           options: Json
@@ -6161,6 +6167,7 @@ export type Database = {
           ai_generated?: boolean | null
           approved_version_id?: string | null
           blueprint_id?: string | null
+          cognitive_level?: string | null
           competency_id?: string | null
           correct_answer: number
           created_at?: string
@@ -6168,6 +6175,11 @@ export type Database = {
           difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
           explanation?: string | null
           id?: string
+          item_calibrated_at?: string | null
+          item_difficulty?: number | null
+          item_discrimination?: number | null
+          item_guessing?: number | null
+          item_usage_count?: number | null
           learning_field_id?: string | null
           normalized_hash?: string | null
           options: Json
@@ -6180,6 +6192,7 @@ export type Database = {
           ai_generated?: boolean | null
           approved_version_id?: string | null
           blueprint_id?: string | null
+          cognitive_level?: string | null
           competency_id?: string | null
           correct_answer?: number
           created_at?: string
@@ -6187,6 +6200,11 @@ export type Database = {
           difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
           explanation?: string | null
           id?: string
+          item_calibrated_at?: string | null
+          item_difficulty?: number | null
+          item_discrimination?: number | null
+          item_guessing?: number | null
+          item_usage_count?: number | null
           learning_field_id?: string | null
           normalized_hash?: string | null
           options?: Json
@@ -6247,6 +6265,7 @@ export type Database = {
           question_id: string
           time_spent_seconds: number | null
           user_answer: number | null
+          user_confidence: number | null
         }
         Insert: {
           answered_at?: string | null
@@ -6261,6 +6280,7 @@ export type Database = {
           question_id: string
           time_spent_seconds?: number | null
           user_answer?: number | null
+          user_confidence?: number | null
         }
         Update: {
           answered_at?: string | null
@@ -6275,6 +6295,7 @@ export type Database = {
           question_id?: string
           time_spent_seconds?: number | null
           user_answer?: number | null
+          user_confidence?: number | null
         }
         Relationships: [
           {
@@ -6311,12 +6332,14 @@ export type Database = {
         Row: {
           blueprint_id: string
           breakdown: Json | null
+          cognitive_distribution: Json | null
           created_at: string
           current_index: number
           curriculum_id: string
           finished_at: string | null
           id: string
           mode: string
+          pass_probability_at_end: number | null
           passed: boolean | null
           points_earned: number | null
           points_total: number | null
@@ -6324,6 +6347,8 @@ export type Database = {
           seed: number
           started_at: string
           target_competencies: string[] | null
+          theta_at_end: number | null
+          theta_at_start: number | null
           time_limit_minutes: number | null
           total_questions: number
           user_id: string
@@ -6331,12 +6356,14 @@ export type Database = {
         Insert: {
           blueprint_id: string
           breakdown?: Json | null
+          cognitive_distribution?: Json | null
           created_at?: string
           current_index?: number
           curriculum_id: string
           finished_at?: string | null
           id?: string
           mode?: string
+          pass_probability_at_end?: number | null
           passed?: boolean | null
           points_earned?: number | null
           points_total?: number | null
@@ -6344,6 +6371,8 @@ export type Database = {
           seed: number
           started_at?: string
           target_competencies?: string[] | null
+          theta_at_end?: number | null
+          theta_at_start?: number | null
           time_limit_minutes?: number | null
           total_questions: number
           user_id: string
@@ -6351,12 +6380,14 @@ export type Database = {
         Update: {
           blueprint_id?: string
           breakdown?: Json | null
+          cognitive_distribution?: Json | null
           created_at?: string
           current_index?: number
           curriculum_id?: string
           finished_at?: string | null
           id?: string
           mode?: string
+          pass_probability_at_end?: number | null
           passed?: boolean | null
           points_earned?: number | null
           points_total?: number | null
@@ -6364,6 +6395,8 @@ export type Database = {
           seed?: number
           started_at?: string
           target_competencies?: string[] | null
+          theta_at_end?: number | null
+          theta_at_start?: number | null
           time_limit_minutes?: number | null
           total_questions?: number
           user_id?: string
@@ -11957,6 +11990,7 @@ export type Database = {
       question_quality_metrics: {
         Row: {
           blueprint_alignment_score: number | null
+          cognitive_depth_score: number | null
           created_at: string | null
           curriculum_id: string | null
           difficulty_consistency_score: number | null
@@ -11973,6 +12007,7 @@ export type Database = {
         }
         Insert: {
           blueprint_alignment_score?: number | null
+          cognitive_depth_score?: number | null
           created_at?: string | null
           curriculum_id?: string | null
           difficulty_consistency_score?: number | null
@@ -11989,6 +12024,7 @@ export type Database = {
         }
         Update: {
           blueprint_alignment_score?: number | null
+          cognitive_depth_score?: number | null
           created_at?: string | null
           curriculum_id?: string | null
           difficulty_consistency_score?: number | null
@@ -14112,6 +14148,60 @@ export type Database = {
         }
         Relationships: []
       }
+      user_ability_profiles: {
+        Row: {
+          confidence_adjusted_theta: number | null
+          created_at: string | null
+          curriculum_id: string
+          id: string
+          last_session_id: string | null
+          pass_probability: number | null
+          theta_analyze: number | null
+          theta_apply: number | null
+          theta_evaluate: number | null
+          theta_overall: number | null
+          theta_remember: number | null
+          theta_understand: number | null
+          total_items_seen: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence_adjusted_theta?: number | null
+          created_at?: string | null
+          curriculum_id: string
+          id?: string
+          last_session_id?: string | null
+          pass_probability?: number | null
+          theta_analyze?: number | null
+          theta_apply?: number | null
+          theta_evaluate?: number | null
+          theta_overall?: number | null
+          theta_remember?: number | null
+          theta_understand?: number | null
+          total_items_seen?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence_adjusted_theta?: number | null
+          created_at?: string | null
+          curriculum_id?: string
+          id?: string
+          last_session_id?: string | null
+          pass_probability?: number | null
+          theta_analyze?: number | null
+          theta_apply?: number | null
+          theta_evaluate?: number | null
+          theta_overall?: number | null
+          theta_remember?: number | null
+          theta_understand?: number | null
+          total_items_seen?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_activity_log: {
         Row: {
           activity_type: string
@@ -15592,6 +15682,14 @@ export type Database = {
           new_interval: number
           new_repetition_count: number
         }[]
+      }
+      calculate_user_theta: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: Json
+      }
+      calibrate_item_difficulty: {
+        Args: { p_min_responses?: number }
+        Returns: number
       }
       can_run_llm_job: { Args: { p_provider: string }; Returns: boolean }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
