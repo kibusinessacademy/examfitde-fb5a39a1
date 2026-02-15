@@ -70,6 +70,29 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
+// ─── Provider Autopilot: DB-based routing + rate-limit failover ─────────────
+
+async function pickProvider(sb: ReturnType<typeof createClient>, exclude: string[] = []): Promise<AIProvider> {
+  const { data, error } = await sb.rpc("select_best_provider", {
+    p_preferred: null,
+    p_exclude: exclude,
+    p_job_type: "package_generate_exam_pool",
+  });
+  if (error) {
+    console.log(`[ExamPool] pickProvider error: ${error.message}, fallback openai`);
+    return "openai";
+  }
+  return (data || "openai") as AIProvider;
+}
+
+async function markRateLimited(sb: ReturnType<typeof createClient>, provider: string, err: string) {
+  await sb.rpc("mark_provider_rate_limited", {
+    p_provider: provider,
+    p_cooldown_seconds: 90,
+    p_error: err,
+  }).catch((e: any) => console.log(`[ExamPool] markRateLimited error: ${e.message}`));
+}
+
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
   const { data, error } = await sb
     .from("package_steps")
@@ -209,26 +232,47 @@ async function generateDominanzQuestions(
 
   const { system, user } = buildDominanzPrompt(bp, difficulty, questionType, count, lfTitle, compTitle, compDesc);
 
-  // Route through shared ai-client gateway — provider can be overridden via payload
-  const provider: AIProvider = (globalThis as any).__examPoolProvider || "openai";
-  
-  let result: { content: string };
-  try {
-    result = await callAIJSON({
-      provider,
-      model: provider === "openai" ? "gpt-4.1" : undefined,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      temperature: 0.85,
-      max_tokens: 12000,
-    });
-  } catch (e: unknown) {
-    const errMsg = (e as Error)?.message || String(e);
-    console.log(`[ExamPool-Dominanz] AI gateway error: ${errMsg}`);
-    if (errMsg.includes("Rate limit") || errMsg.includes("429")) throw new Error("RATE_LIMIT: AI gateway 429");
-    return 0;
+  // Route through DB autopilot with provider failover
+  const sbRef = (globalThis as any).__examPoolSb;
+  let exclude: string[] = [];
+  let result: { content: string } | undefined;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const provider: AIProvider = sbRef
+      ? await pickProvider(sbRef, exclude)
+      : ((globalThis as any).__examPoolProvider || "openai") as AIProvider;
+
+    try {
+      result = await callAIJSON({
+        provider,
+        model: provider === "openai" ? "gpt-4.1" : undefined,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.85,
+        max_tokens: 12000,
+      });
+      break; // success
+    } catch (e: unknown) {
+      const errMsg = (e as Error)?.message || String(e);
+      const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409") || errMsg.includes("rate_limited");
+
+      if (isRate && sbRef) {
+        console.log(`[ExamPool-Dominanz] Rate limited on ${provider}, attempt ${attempt}/3, failing over...`);
+        await markRateLimited(sbRef, provider, errMsg);
+        exclude.push(provider);
+        continue;
+      }
+
+      console.log(`[ExamPool-Dominanz] AI error (${provider}): ${errMsg}`);
+      if (isRate) throw new Error("ALL_PROVIDERS_RATE_LIMITED");
+      return 0;
+    }
+  }
+
+  if (!result) {
+    throw new Error("ALL_PROVIDERS_RATE_LIMITED");
   }
 
   const rawContent = result.content || "";
@@ -389,10 +433,9 @@ Deno.serve(async (req) => {
   const isFanOut = p._fan_out === true;
   const blueprintIds: string[] | null = p.blueprint_ids || null;
 
-  // Accept provider from job payload (set by job-runner's routing)
-  const requestedProvider = (p.provider || p.options?.provider || "openai") as AIProvider;
-  (globalThis as any).__examPoolProvider = requestedProvider;
-  console.log(`[ExamPool-Dominanz] Using provider: ${requestedProvider}`);
+  // Store sb reference for provider autopilot inside generateDominanzQuestions
+  (globalThis as any).__examPoolSb = sb;
+  console.log(`[ExamPool-Dominanz] Provider autopilot active (DB-routed)`);
   const lfTarget = p.lf_target || examTarget;
 
   // Apply dynamic distributions from Hybrid Target Engine (if provided)
