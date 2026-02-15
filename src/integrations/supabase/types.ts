@@ -2045,6 +2045,7 @@ export type Database = {
       }
       certification_catalog: {
         Row: {
+          bloom_distribution: Json | null
           catalog_type: string
           certification_level: string | null
           chamber_type: string
@@ -2066,6 +2067,7 @@ export type Database = {
           written_exam_weight: number | null
         }
         Insert: {
+          bloom_distribution?: Json | null
           catalog_type: string
           certification_level?: string | null
           chamber_type: string
@@ -2087,6 +2089,7 @@ export type Database = {
           written_exam_weight?: number | null
         }
         Update: {
+          bloom_distribution?: Json | null
           catalog_type?: string
           certification_level?: string | null
           chamber_type?: string
@@ -5050,6 +5053,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "store_products"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_level_pricing"
+            referencedColumns: ["product_id"]
           },
         ]
       }
@@ -8499,6 +8509,13 @@ export type Database = {
             referencedRelation: "store_products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "license_packages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_level_pricing"
+            referencedColumns: ["product_id"]
+          },
         ]
       }
       license_seats: {
@@ -9836,6 +9853,13 @@ export type Database = {
             referencedRelation: "store_products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_level_pricing"
+            referencedColumns: ["product_id"]
+          },
         ]
       }
       orders: {
@@ -10674,6 +10698,13 @@ export type Database = {
             referencedRelation: "store_products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "platform_skus_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_level_pricing"
+            referencedColumns: ["product_id"]
+          },
         ]
       }
       portfolio_priority: {
@@ -10988,6 +11019,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "store_products"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_price_tiers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_level_pricing"
+            referencedColumns: ["product_id"]
           },
         ]
       }
@@ -13507,6 +13545,7 @@ export type Database = {
       store_products: {
         Row: {
           access_duration_days: number | null
+          certification_level: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -13524,6 +13563,7 @@ export type Database = {
         }
         Insert: {
           access_duration_days?: number | null
+          certification_level?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -13541,6 +13581,7 @@ export type Database = {
         }
         Update: {
           access_duration_days?: number | null
+          certification_level?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -13630,6 +13671,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "store_products"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_receipts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_level_pricing"
+            referencedColumns: ["product_id"]
           },
         ]
       }
@@ -15211,6 +15259,13 @@ export type Database = {
             referencedRelation: "store_products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "curriculum_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_level_pricing"
+            referencedColumns: ["product_id"]
+          },
         ]
       }
       error_observatory: {
@@ -15769,6 +15824,19 @@ export type Database = {
           rationale_json?: Json | null
           target_user_id?: string | null
           title?: string | null
+        }
+        Relationships: []
+      }
+      v_level_pricing: {
+        Row: {
+          certification_level: string | null
+          max_quantity: number | null
+          min_quantity: number | null
+          price_cents: number | null
+          product_id: string | null
+          product_key: string | null
+          product_name: string | null
+          recommended_price_cents: number | null
         }
         Relationships: []
       }
