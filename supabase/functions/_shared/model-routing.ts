@@ -172,3 +172,30 @@ export function getModelChain(intent: PipelineIntent): ModelChoice[] {
 export function getBudget(intent: PipelineIntent): number {
   return INTENT_BUDGETS[intent];
 }
+
+/**
+ * Quality Escalation Rule:
+ * If a cheap model (mini) produced low-quality output,
+ * escalate to a higher-quality model for re-validation.
+ * Returns the escalation model if score is below threshold, null otherwise.
+ */
+export function getEscalationModel(
+  intent: PipelineIntent,
+  validationScore: number,
+  threshold = 70
+): ModelChoice | null {
+  if (validationScore >= threshold) return null;
+
+  // Define escalation targets: mini → full model
+  const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
+    exam_questions: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+    oral_exam: { provider: "openai", model: "gpt-4.1" },
+    minicheck: { provider: "openai", model: "gpt-4.1" },
+    support: { provider: "openai", model: "gpt-4.1" },
+    summary: { provider: "openai", model: "gpt-4.1" },
+    repair: { provider: "openai", model: "gpt-4.1" },
+    blooms_classify: { provider: "openai", model: "gpt-4.1" },
+  };
+
+  return escalationMap[intent] || null;
+}

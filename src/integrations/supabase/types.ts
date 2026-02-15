@@ -9822,6 +9822,63 @@ export type Database = {
           },
         ]
       }
+      package_quality_summary: {
+        Row: {
+          avg_blueprint_alignment: number | null
+          avg_distractor_quality: number | null
+          avg_explanation_depth: number | null
+          created_at: string | null
+          difficulty_distribution: Json | null
+          duplicate_rate: number | null
+          flagged_count: number | null
+          id: string
+          last_audit_at: string | null
+          package_id: string
+          quality_badge: string | null
+          quality_score: number | null
+          sampled_questions: number | null
+          top_issues: Json | null
+          total_questions: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          avg_blueprint_alignment?: number | null
+          avg_distractor_quality?: number | null
+          avg_explanation_depth?: number | null
+          created_at?: string | null
+          difficulty_distribution?: Json | null
+          duplicate_rate?: number | null
+          flagged_count?: number | null
+          id?: string
+          last_audit_at?: string | null
+          package_id: string
+          quality_badge?: string | null
+          quality_score?: number | null
+          sampled_questions?: number | null
+          top_issues?: Json | null
+          total_questions?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          avg_blueprint_alignment?: number | null
+          avg_distractor_quality?: number | null
+          avg_explanation_depth?: number | null
+          created_at?: string | null
+          difficulty_distribution?: Json | null
+          duplicate_rate?: number | null
+          flagged_count?: number | null
+          id?: string
+          last_audit_at?: string | null
+          package_id?: string
+          quality_badge?: string | null
+          quality_score?: number | null
+          sampled_questions?: number | null
+          top_issues?: Json | null
+          total_questions?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       package_steps: {
         Row: {
           attempts: number
@@ -11896,6 +11953,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      question_quality_metrics: {
+        Row: {
+          blueprint_alignment_score: number | null
+          created_at: string | null
+          curriculum_id: string | null
+          difficulty_consistency_score: number | null
+          distractor_quality_score: number | null
+          duplicate_score: number | null
+          explanation_depth_score: number | null
+          flagged_reasons: string[] | null
+          id: string
+          overall_score: number | null
+          package_id: string | null
+          question_id: string
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          blueprint_alignment_score?: number | null
+          created_at?: string | null
+          curriculum_id?: string | null
+          difficulty_consistency_score?: number | null
+          distractor_quality_score?: number | null
+          duplicate_score?: number | null
+          explanation_depth_score?: number | null
+          flagged_reasons?: string[] | null
+          id?: string
+          overall_score?: number | null
+          package_id?: string | null
+          question_id: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          blueprint_alignment_score?: number | null
+          created_at?: string | null
+          curriculum_id?: string | null
+          difficulty_consistency_score?: number | null
+          distractor_quality_score?: number | null
+          duplicate_score?: number | null
+          explanation_depth_score?: number | null
+          flagged_reasons?: string[] | null
+          id?: string
+          overall_score?: number | null
+          package_id?: string | null
+          question_id?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: []
       }
       readiness_scores: {
         Row: {
