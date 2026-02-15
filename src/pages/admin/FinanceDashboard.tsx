@@ -527,44 +527,12 @@ function PipelineControllingTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('course_packages')
-        .select('id, title, status, priority, current_step, created_at, started_at, published_at, updated_at, step_status_json, track')
-        .in('priority', [10, 15])
+        .select('id, title, status, priority, current_step, build_progress, created_at, started_at, published_at, updated_at, step_status_json, track')
+        .lte('priority', 20)
         .order('priority')
         .order('created_at');
       if (error) throw error;
       return data || [];
-    },
-    refetchInterval: 30000,
-  });
-
-  const { data: jobStats } = useQuery({
-    queryKey: ['pipeline-job-stats'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('job_queue')
-        .select('payload, status, created_at, started_at, completed_at, job_type')
-        .in('status', ['completed', 'processing', 'failed', 'pending']);
-      if (error) throw error;
-      
-      // Group by package_id
-      const byPackage: Record<string, { completed: number; failed: number; total: number; firstJob: string | null; lastCompleted: string | null }> = {};
-      for (const j of (data || [])) {
-        const pkgId = (j.payload as any)?.package_id;
-        if (!pkgId) continue;
-        if (!byPackage[pkgId]) byPackage[pkgId] = { completed: 0, failed: 0, total: 0, firstJob: null, lastCompleted: null };
-        byPackage[pkgId].total++;
-        if (j.status === 'completed') {
-          byPackage[pkgId].completed++;
-          if (!byPackage[pkgId].lastCompleted || j.completed_at! > byPackage[pkgId].lastCompleted!) {
-            byPackage[pkgId].lastCompleted = j.completed_at;
-          }
-        }
-        if (j.status === 'failed') byPackage[pkgId].failed++;
-        if (!byPackage[pkgId].firstJob || j.created_at < byPackage[pkgId].firstJob!) {
-          byPackage[pkgId].firstJob = j.created_at;
-        }
-      }
-      return byPackage;
     },
     refetchInterval: 30000,
   });
@@ -584,67 +552,80 @@ function PipelineControllingTab() {
     },
   });
 
-  // Compute throughput and forecast
-  const analysis = useMemo(() => {
-    if (!packages || !jobStats) return null;
+  const { data: buildingSlotCount } = useQuery({
+    queryKey: ['pipeline-building-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('course_packages')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'building');
+      return count || 0;
+    },
+    refetchInterval: 30000,
+  });
 
-    // Find completed packages with timing data to estimate throughput
-    const completedTimings: number[] = [];
-    for (const [, stats] of Object.entries(jobStats)) {
-      if (stats.completed > 5 && stats.firstJob && stats.lastCompleted) {
-        const hours = (new Date(stats.lastCompleted).getTime() - new Date(stats.firstJob).getTime()) / 3600000;
-        if (hours > 0) completedTimings.push(hours);
-      }
+  // Analysis
+  const analysis = useMemo(() => {
+    if (!packages) return null;
+
+    const total = packages.length;
+    const published = packages.filter(p => p.status === 'published').length;
+    const building = packages.filter(p => p.status === 'building').length;
+    const queued = packages.filter(p => p.status === 'queued').length;
+    const blocked = packages.filter(p => p.status === 'blocked').length;
+    const failed = packages.filter(p => p.status === 'failed').length;
+    const remaining = total - published;
+
+    // Estimate throughput from packages that have progress
+    const withProgress = packages.filter(p => (p.build_progress || 0) > 0 && p.started_at);
+    let avgHoursPerPackage = 24;
+    if (withProgress.length > 0) {
+      const timings = withProgress.map(p => {
+        const start = new Date(p.started_at!).getTime();
+        const end = new Date(p.updated_at).getTime();
+        const progress = Math.max(p.build_progress || 1, 1);
+        return ((end - start) / 3600000) * (100 / progress);
+      });
+      avgHoursPerPackage = timings.reduce((a, b) => a + b, 0) / timings.length;
     }
 
-    const avgHoursPerPackage = completedTimings.length > 0
-      ? completedTimings.reduce((a, b) => a + b, 0) / completedTimings.length
-      : 24; // Default estimate: 24h per package
-
-    const totalPackages = packages.length;
-    const publishedCount = packages.filter(p => p.status === 'published' || p.status === 'completed').length;
-    const buildingCount = packages.filter(p => p.status === 'building').length;
-    const queuedCount = packages.filter(p => p.status === 'queued').length;
-    const remainingCount = totalPackages - publishedCount;
-
-    // Estimate: WIP=1, so sequential
-    const estimatedRemainingHours = remainingCount * avgHoursPerPackage;
+    const estimatedRemainingHours = remaining * avgHoursPerPackage;
     const estimatedCompletionDate = new Date(Date.now() + estimatedRemainingHours * 3600000);
 
-    // Budget estimate per package (from existing data)
-    const avgCostPerPackage = costData && costData.runs > 0 
-      ? costData.totalCost / Math.max(1, Object.keys(jobStats).length)
+    const avgCostPerPackage = costData && costData.runs > 0
+      ? costData.totalCost / Math.max(1, packages.filter(p => (p.build_progress || 0) > 0).length || 1)
       : 2.5;
-    const projectedTotalCost = avgCostPerPackage * totalPackages;
+    const projectedTotalCost = avgCostPerPackage * total;
+
+    // Priority breakdown
+    const prio10 = packages.filter(p => p.priority === 10);
+    const prio15 = packages.filter(p => p.priority === 15);
+    const prio20 = packages.filter(p => p.priority === 20);
 
     return {
-      totalPackages,
-      publishedCount,
-      buildingCount,
-      queuedCount,
-      remainingCount,
+      total, published, building, queued, blocked, failed, remaining,
       avgHoursPerPackage: Math.round(avgHoursPerPackage * 10) / 10,
       estimatedRemainingHours: Math.round(estimatedRemainingHours),
       estimatedCompletionDate,
       avgCostPerPackage: Math.round(avgCostPerPackage * 100) / 100,
       projectedTotalCost: Math.round(projectedTotalCost * 100) / 100,
-      progressPct: Math.round((publishedCount / totalPackages) * 100),
+      progressPct: Math.round((published / total) * 100),
+      prio10, prio15, prio20,
     };
-  }, [packages, jobStats, costData]);
+  }, [packages, costData]);
 
   if (isLoading) return <Skeleton className="h-64 w-full" />;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'published':
-      case 'completed':
         return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">✅ Fertig</Badge>;
       case 'building':
         return <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Baut…</Badge>;
-      case 'council_review':
-        return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20">🔍 Review</Badge>;
       case 'queued':
         return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />Warteschlange</Badge>;
+      case 'blocked':
+        return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20">⏸ Blocked</Badge>;
       case 'failed':
         return <Badge variant="destructive">❌ Fehler</Badge>;
       default:
@@ -652,59 +633,87 @@ function PipelineControllingTab() {
     }
   };
 
-  const getStepProgress = (pkg: any) => {
-    const step = pkg.current_step || 0;
-    return Math.round((step / PIPELINE_STEPS.length) * 100);
+  const renderPackageRow = (pkg: any, i: number) => {
+    const progress = pkg.build_progress || 0;
+    return (
+      <TableRow key={pkg.id} className={pkg.status === 'building' ? 'bg-blue-500/5' : pkg.status === 'failed' ? 'bg-destructive/5' : ''}>
+        <TableCell className="font-mono text-muted-foreground text-xs">{i + 1}</TableCell>
+        <TableCell>
+          <div className="font-medium text-sm">{pkg.title?.replace('ExamFit – ', '')}</div>
+          {pkg.track && <div className="text-xs text-muted-foreground">{pkg.track}</div>}
+        </TableCell>
+        <TableCell>{getStatusBadge(pkg.status)}</TableCell>
+        <TableCell>
+          <div className="flex items-center gap-2 min-w-[140px]">
+            <Progress value={progress} className="h-2 flex-1" />
+            <span className="text-xs font-mono w-10 text-right">{progress}%</span>
+          </div>
+        </TableCell>
+        <TableCell className="text-right">
+          <Badge variant={pkg.priority <= 10 ? 'default' : pkg.priority <= 15 ? 'secondary' : 'outline'}>{pkg.priority}</Badge>
+        </TableCell>
+      </TableRow>
+    );
   };
 
   return (
     <div className="space-y-6">
       {/* KPIs */}
       {analysis && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card className="glass-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Target className="h-5 w-5 text-primary" />
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
+          <Card className="glass-card border-emerald-500/20">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 <div>
-                  <div className="text-2xl font-bold">{analysis.publishedCount}/{analysis.totalPackages}</div>
-                  <div className="text-sm text-muted-foreground">Pakete fertig</div>
-                </div>
-              </div>
-              <Progress value={analysis.progressPct} className="mt-3 h-2" />
-            </CardContent>
-          </Card>
-          <Card className="glass-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-amber-500" />
-                <div>
-                  <div className="text-2xl font-bold">~{analysis.avgHoursPerPackage}h</div>
-                  <div className="text-sm text-muted-foreground">Ø pro Paket</div>
+                  <div className="text-xl font-bold">{analysis.published}/{analysis.total}</div>
+                  <div className="text-xs text-muted-foreground">Fertig</div>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="glass-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Factory className="h-5 w-5 text-blue-500" />
+          <Card className="glass-card border-blue-500/20">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
                 <div>
-                  <div className="text-2xl font-bold">
+                  <div className="text-xl font-bold">{analysis.building}</div>
+                  <div className="text-xs text-muted-foreground">In Produktion</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <div className="text-xl font-bold">{analysis.queued}</div>
+                  <div className="text-xs text-muted-foreground">Warteschlange</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card border-amber-500/20">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <div>
+                  <div className="text-xl font-bold">{analysis.blocked + analysis.failed}</div>
+                  <div className="text-xs text-muted-foreground">Blocked/Failed</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card border-primary/20">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-2">
+                <Factory className="h-4 w-4 text-primary" />
+                <div>
+                  <div className="text-xl font-bold">
                     {analysis.estimatedCompletionDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
                   </div>
-                  <div className="text-sm text-muted-foreground">Prognose Fertigstellung</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="glass-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <DollarSign className="h-5 w-5 text-emerald-500" />
-                <div>
-                  <div className="text-2xl font-bold">{fmtEur(analysis.projectedTotalCost)}</div>
-                  <div className="text-sm text-muted-foreground">Progn. Gesamtkosten</div>
+                  <div className="text-xs text-muted-foreground">Prognose</div>
                 </div>
               </div>
             </CardContent>
@@ -712,104 +721,139 @@ function PipelineControllingTab() {
         </div>
       )}
 
-      {/* Prognose-Info */}
+      {/* Interpretation */}
       {analysis && (
         <Card className="glass-card border-primary/20">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <BarChart3 className="h-5 w-5 text-primary mt-0.5" />
-              <div className="space-y-1">
-                <p className="font-medium">Prognose (basierend auf Echtdaten)</p>
-                <p className="text-sm text-muted-foreground">
-                  Bei aktuellem Durchsatz von ~{analysis.avgHoursPerPackage}h pro Paket und {analysis.remainingCount} verbleibenden Paketen
-                  werden voraussichtlich <strong>~{analysis.estimatedRemainingHours} Stunden</strong> ({Math.ceil(analysis.estimatedRemainingHours / 24)} Tage) benötigt.
-                  Geschätzte Fertigstellung: <strong>{analysis.estimatedCompletionDate.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</strong>.
-                  Ø Kosten pro Paket: {fmtEur(analysis.avgCostPerPackage)}.
-                </p>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" /> Interpretation der Echtdaten
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <p className="font-medium">📊 Pipeline-Status</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• <strong>{analysis.building} Pakete</strong> werden gerade aktiv gebaut (von max. 5 Slots)</li>
+                  <li>• <strong>{analysis.queued} Pakete</strong> warten in der Warteschlange</li>
+                  {analysis.blocked > 0 && (
+                    <li className="text-amber-500">• <strong>{analysis.blocked} Pakete blockiert</strong> — fehlende Curriculum-Daten oder Abhängigkeiten</li>
+                  )}
+                  {analysis.failed > 0 && (
+                    <li className="text-destructive">• <strong>{analysis.failed} Pakete fehlgeschlagen</strong> — Retry erforderlich oder manueller Eingriff</li>
+                  )}
+                </ul>
               </div>
+              <div className="space-y-2">
+                <p className="font-medium">⏱ Prognose</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• Ø Produktionszeit: <strong>~{analysis.avgHoursPerPackage}h</strong> pro Paket</li>
+                  <li>• Restliche Produktionszeit: <strong>~{analysis.estimatedRemainingHours}h</strong> ({Math.ceil(analysis.estimatedRemainingHours / 24)} Tage)</li>
+                  <li>• Fertigstellung aller {analysis.total} Pakete: <strong>{analysis.estimatedCompletionDate.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}</strong></li>
+                  <li>• Ø Kosten: <strong>{fmtEur(analysis.avgCostPerPackage)}</strong>/Paket · Gesamt: <strong>{fmtEur(analysis.projectedTotalCost)}</strong></li>
+                </ul>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-border/50">
+              <p className="text-xs text-muted-foreground">
+                💡 <strong>Blocked-Pakete</strong> benötigen ein vorgelagertes Curriculum (Lernfelder & Kompetenzen). 
+                Der Factory-Orchestrator löst dies automatisch auf, sobald die Daten verfügbar sind. 
+                <strong>Failed-Pakete</strong> können über einen Retry (Status → queued) erneut angestoßen werden.
+                Daten aktualisieren sich alle 30 Sekunden.
+              </p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Soll-Ist Tabelle */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Factory className="h-5 w-5" /> Soll-Ist-Vergleich: Top-11 Priority-Pakete
-          </CardTitle>
-          <CardDescription>Echtzeit-Status der priorisierten Ausbildungsberufe + AEVO</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8">#</TableHead>
-                <TableHead>Paket</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Step</TableHead>
-                <TableHead>Fortschritt</TableHead>
-                <TableHead className="text-right">Jobs</TableHead>
-                <TableHead className="text-right">Prio</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {packages?.map((pkg, i) => {
-                const stats = jobStats?.[pkg.id];
-                const stepPct = getStepProgress(pkg);
-                const currentStepLabel = STEP_LABELS[PIPELINE_STEPS[pkg.current_step || 0]] || `Step ${pkg.current_step}`;
-
-                return (
-                  <TableRow key={pkg.id}>
-                    <TableCell className="font-mono text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell>
-                      <div className="font-medium text-sm">{pkg.title}</div>
-                      <div className="text-xs text-muted-foreground">{pkg.track}</div>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(pkg.status)}</TableCell>
-                    <TableCell>
-                      <span className="text-sm">{currentStepLabel}</span>
-                      <span className="text-xs text-muted-foreground ml-1">({pkg.current_step || 0}/8)</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 min-w-[120px]">
-                        <Progress value={stepPct} className="h-2 flex-1" />
-                        <span className="text-xs font-mono w-8 text-right">{stepPct}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {stats ? (
-                        <span className="text-sm">
-                          <span className="text-emerald-500">{stats.completed}</span>
-                          {stats.failed > 0 && <span className="text-destructive">/{stats.failed}❌</span>}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">–</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant={pkg.priority <= 10 ? 'default' : 'secondary'}>{pkg.priority}</Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {(!packages || packages.length === 0) && (
+      {/* Soll-Ist Tabelle — Gruppe 1: Prio 10 (Top 10) */}
+      {analysis && analysis.prio10.length > 0 && (
+        <Card className="glass-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              🥇 Priorität 10 — Top 10 Ausbildungsberufe
+            </CardTitle>
+            <CardDescription>{analysis.prio10.filter(p => p.status === 'published').length}/{analysis.prio10.length} fertig</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    Keine priorisierten Pakete gefunden
-                  </TableCell>
+                  <TableHead className="w-8">#</TableHead>
+                  <TableHead>Kurspaket</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Fortschritt</TableHead>
+                  <TableHead className="text-right">Prio</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {analysis.prio10.map((pkg, i) => renderPackageRow(pkg, i))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Budget-Übersicht */}
+      {/* Prio 15: AEVO */}
+      {analysis && analysis.prio15.length > 0 && (
+        <Card className="glass-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              🎓 Priorität 15 — AEVO
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8">#</TableHead>
+                  <TableHead>Kurspaket</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Fortschritt</TableHead>
+                  <TableHead className="text-right">Prio</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {analysis.prio15.map((pkg, i) => renderPackageRow(pkg, i))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Prio 20: Nächste 10 */}
+      {analysis && analysis.prio20.length > 0 && (
+        <Card className="glass-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              🥈 Priorität 20 — Nächste 10 Ausbildungsberufe
+            </CardTitle>
+            <CardDescription>{analysis.prio20.filter(p => p.status === 'published').length}/{analysis.prio20.length} fertig</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8">#</TableHead>
+                  <TableHead>Kurspaket</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Fortschritt</TableHead>
+                  <TableHead className="text-right">Prio</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {analysis.prio20.map((pkg, i) => renderPackageRow(pkg, i))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Budget */}
       <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <DollarSign className="h-5 w-5" /> KI-Budget Kurserstellung
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <DollarSign className="h-4 w-4" /> KI-Budget Soll-Ist
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -820,7 +864,7 @@ function PipelineControllingTab() {
             </div>
             <div className="text-center p-4 rounded-lg bg-muted/50">
               <div className="text-2xl font-bold">{fmtEur(analysis?.projectedTotalCost || 0)}</div>
-              <div className="text-sm text-muted-foreground">Soll (Prognose 11 Pakete)</div>
+              <div className="text-sm text-muted-foreground">Soll (Prognose {analysis?.total || 0} Pakete)</div>
             </div>
             <div className="text-center p-4 rounded-lg bg-muted/50">
               <div className="text-2xl font-bold">
