@@ -45,6 +45,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   exam_questions: [
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
+    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
   ],
   oral_exam: [
     { provider: "openai", model: "gpt-4.1-mini" },

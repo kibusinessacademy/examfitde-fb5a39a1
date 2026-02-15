@@ -72,32 +72,36 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-// ─── Provider Autopilot: DB-based routing + rate-limit failover ─────────────
+// ─── Provider Routing: OpenAI primary, Anthropic fallback ─────────────
+// DeepSeek is excluded from exam-pool generation (too volatile for complex blueprints)
 
-async function pickProvider(sb: ReturnType<typeof createClient>, exclude: string[] = []): Promise<AIProvider> {
-  const { data, error } = await sb.rpc("select_best_provider", {
-    p_preferred: null,
-    p_exclude: exclude,
-    p_job_type: "package_generate_exam_pool",
-  });
-  if (error) {
-    console.log(`[ExamPool] pickProvider error: ${error.message}, fallback openai`);
-    return "openai";
+const EXAM_PROVIDER_CHAIN: { provider: AIProvider; model: string }[] = [
+  { provider: "openai", model: "gpt-4.1-mini" },    // Fast lane: stable, high throughput
+  { provider: "openai", model: "gpt-4.1" },          // Escalation: harder cases
+  { provider: "anthropic", model: "claude-sonnet-4-20250514" }, // Fallback: quality repair
+];
+
+function pickProvider(exclude: string[] = []): { provider: AIProvider; model: string } {
+  for (const entry of EXAM_PROVIDER_CHAIN) {
+    if (exclude.includes(entry.provider) || exclude.includes(`${entry.provider}:${entry.model}`)) continue;
+    // Skip providers without API keys
+    const keyEnv = entry.provider === "openai" ? "OPENAI_API_KEY"
+      : entry.provider === "anthropic" ? "ANTHROPIC_API_KEY" : null;
+    if (keyEnv && !Deno.env.get(keyEnv)) continue;
+    return entry;
   }
-  return (data || "openai") as AIProvider;
+  // Absolute fallback
+  return EXAM_PROVIDER_CHAIN[0];
 }
 
 async function markRateLimited(sb: ReturnType<typeof createClient>, provider: string, err: string) {
   try {
-    const { error } = await sb.rpc("mark_provider_rate_limited", {
+    await sb.rpc("mark_provider_rate_limited", {
       p_provider: provider,
       p_cooldown_seconds: 90,
       p_error: err,
     });
-    if (error) console.log(`[ExamPool] markRateLimited error: ${error.message}`);
-  } catch (e: any) {
-    console.log(`[ExamPool] markRateLimited error: ${e.message}`);
-  }
+  } catch { /* non-blocking */ }
 }
 
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
@@ -276,29 +280,24 @@ async function generateDominanzQuestions(
 
   const { system, user } = buildDominanzPrompt(bp, difficulty, questionType, count, lfTitle, compTitle, compDesc, professionName, depthTopics);
 
-  // Route through DB autopilot with provider failover
+  // Route: OpenAI primary → Anthropic fallback (DeepSeek/Google excluded)
   const sbRef = (globalThis as any).__examPoolSb;
-  // Pre-exclude providers without configured API keys
   let exclude: string[] = [];
-  if (!Deno.env.get("GOOGLE_AI_API_KEY")) exclude.push("google");
-  if (!Deno.env.get("DEEPSEEK_API_KEY")) exclude.push("deepseek");
   let result: { content: string } | undefined;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const provider: AIProvider = sbRef
-      ? await pickProvider(sbRef, exclude)
-      : ((globalThis as any).__examPoolProvider || "openai") as AIProvider;
+    const { provider, model } = pickProvider(exclude);
 
     try {
       result = await callAIJSON({
         provider,
-        model: provider === "openai" ? "gpt-4.1" : undefined,
+        model,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
         ],
         temperature: 0.85,
-        max_tokens: 12000,
+        max_tokens: count <= 2 ? 4096 : 8192, // Tight tokens for small batches
       });
       break; // success
     } catch (e: unknown) {
@@ -307,21 +306,20 @@ async function generateDominanzQuestions(
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
       const shouldFailover = isRate || isTimeout;
 
-      if (shouldFailover && sbRef) {
-        console.log(`[ExamPool-Dominanz] ${isTimeout ? "Timeout" : "Rate limited"} on ${provider}, attempt ${attempt}/3, failing over...`);
-        await markRateLimited(sbRef, provider, errMsg);
-        exclude.push(provider);
+      if (shouldFailover) {
+        console.log(`[ExamPool-Dominanz] ${isTimeout ? "Timeout" : "Rate limited"} on ${provider}/${model}, attempt ${attempt}/3, failing over...`);
+        if (sbRef) await markRateLimited(sbRef, provider, errMsg);
+        exclude.push(`${provider}:${model}`); // Exclude specific model, not whole provider
         continue;
       }
 
-      console.log(`[ExamPool-Dominanz] AI error (${provider}): ${errMsg}`);
-      if (shouldFailover) throw new Error("ALL_PROVIDERS_EXHAUSTED");
+      console.log(`[ExamPool-Dominanz] AI error (${provider}/${model}): ${errMsg}`);
       return 0;
     }
   }
 
   if (!result) {
-    throw new Error("ALL_PROVIDERS_RATE_LIMITED");
+    throw new Error("ALL_PROVIDERS_EXHAUSTED");
   }
 
   const rawContent = result.content || "";
@@ -491,9 +489,9 @@ Deno.serve(async (req) => {
   const isFanOut = p._fan_out === true;
   const blueprintIds: string[] | null = p.blueprint_ids || null;
 
-  // Store sb reference for provider autopilot inside generateDominanzQuestions
+  // Store sb reference for rate-limit tracking
   (globalThis as any).__examPoolSb = sb;
-  console.log(`[ExamPool-Dominanz] Provider autopilot active (DB-routed)`);
+  console.log(`[ExamPool-Dominanz] Provider routing: OpenAI primary → Anthropic fallback (DeepSeek excluded)`);
   const lfTarget = p.lf_target || examTarget;
 
   // Apply dynamic distributions from Hybrid Target Engine (if provided)
