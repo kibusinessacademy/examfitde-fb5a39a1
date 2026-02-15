@@ -72,10 +72,17 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
 /**
  * Call an AI provider directly. Returns the raw Response for streaming or JSON parsing.
  */
+/** Default fetch timeout for AI calls (30s) — prevents Edge Function hard-timeout */
+const AI_FETCH_TIMEOUT_MS = 30_000;
+
 export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const cfg = PROVIDER_DEFAULTS[opts.provider];
   const apiKey = Deno.env.get(cfg.keyEnv);
   if (!apiKey) throw new Error(`${cfg.keyEnv} not configured`);
+
+  const fetchTimeout = opts.max_tokens && opts.max_tokens > 8192
+    ? 55_000 // longer timeout for large generations
+    : AI_FETCH_TIMEOUT_MS;
 
   const model = opts.model || cfg.model;
 
@@ -118,6 +125,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(fetchTimeout),
     });
   } else if (cfg.format === "google") {
     // Google Gemini uses OpenAI-compatible endpoint with API key in header
@@ -136,6 +144,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(fetchTimeout),
     });
   } else {
     // OpenAI-compatible (OpenAI, DeepSeek)
@@ -156,6 +165,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(fetchTimeout),
     });
   }
 
@@ -171,16 +181,17 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
   toolCalls?: Array<{ function: { name: string; arguments: string } }>;
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
 }> {
-  const { raw, ok, status } = await callAI({ ...opts, stream: false });
+  try {
+    const { raw, ok, status } = await callAI({ ...opts, stream: false });
 
-  if (!ok) {
-    const errText = await raw.text().catch(() => "");
-    if (status === 429) throw new RateLimitError("Rate limit exceeded");
-    if (status === 402) throw new PaymentRequiredError("Payment required");
-    throw new Error(`AI ${opts.provider} error ${status}: ${errText.slice(0, 200)}`);
-  }
+    if (!ok) {
+      const errText = await raw.text().catch(() => "");
+      if (status === 429) throw new RateLimitError("Rate limit exceeded");
+      if (status === 402) throw new PaymentRequiredError("Payment required");
+      throw new Error(`AI ${opts.provider} error ${status}: ${errText.slice(0, 200)}`);
+    }
 
-  const data = await raw.json();
+    const data = await raw.json();
 
   if (opts.provider === "anthropic") {
     // Extract tool_use blocks if present
@@ -204,6 +215,13 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
     toolCalls: choice?.tool_calls,
     usage: data.usage,
   };
+  } catch (err: unknown) {
+    // Convert AbortError / TimeoutError into AITimeoutError
+    if (err instanceof DOMException && (err.name === "AbortError" || err.name === "TimeoutError")) {
+      throw new AITimeoutError(`AI ${opts.provider} request timed out`);
+    }
+    throw err;
+  }
 }
 
 /**
@@ -268,6 +286,13 @@ export class PaymentRequiredError extends Error {
   }
 }
 
+export class AITimeoutError extends Error {
+  constructor(msg: string) {
+    super(msg);
+    this.name = "AITimeoutError";
+  }
+}
+
 /**
  * Build a standard error response for AI errors (429/402/500).
  */
@@ -287,6 +312,12 @@ export function aiErrorResponse(
     return new Response(
       JSON.stringify({ error: "AI-Kontingent erschöpft. Bitte Credits aufladen." }),
       { status: 402, headers }
+    );
+  }
+  if (error instanceof AITimeoutError) {
+    return new Response(
+      JSON.stringify({ error: "AI-Anfrage Timeout. Wird automatisch wiederholt.", retry: true }),
+      { status: 504, headers }
     );
   }
 

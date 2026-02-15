@@ -35,20 +35,6 @@ Deno.serve(async (req) => {
   const packageId = p.package_id as string;
   const curriculumId = p.curriculum_id as string;
 
-  // Check if approved blueprints already exist → skip
-  const { count: existingCount } = await sb
-    .from("question_blueprints")
-    .select("id", { count: "exact", head: true })
-    .eq("curriculum_id", curriculumId)
-    .eq("status", "approved");
-
-  if ((existingCount ?? 0) > 0) {
-    console.log(
-      `[AutoSeedBP] ${curriculumId.slice(0, 8)} already has ${existingCount} approved blueprints — skipping`,
-    );
-    return json({ ok: true, skipped: true, existing: existingCount });
-  }
-
   // Load learning fields
   const { data: lfs, error: lfErr } = await sb
     .from("learning_fields")
@@ -56,6 +42,7 @@ Deno.serve(async (req) => {
     .eq("curriculum_id", curriculumId);
 
   if (lfErr) throw new Error(`LF query: ${lfErr.message}`);
+
   if (!lfs?.length) {
     // Try curriculum_learning_fields as fallback
     const { data: clfs, error: clfErr } = await sb
@@ -71,7 +58,6 @@ Deno.serve(async (req) => {
         detail: `No learning_fields for curriculum ${curriculumId}`,
       }, 409);
     }
-    // Use curriculum_learning_fields
     return await seedFromFields(sb, curriculumId, clfs, packageId);
   }
 
@@ -85,12 +71,18 @@ const TAXONOMY_MAP: Record<string, string> = {
   "analysieren": "analyze", "bewerten": "analyze", "beurteilen": "analyze",
   "remember": "remember", "understand": "understand", "apply": "apply", "analyze": "analyze",
 };
+
 function normCognitive(raw: string | null | undefined): string {
   if (!raw) return "understand";
   const key = raw.trim().toLowerCase();
   return TAXONOMY_MAP[key] ?? "understand";
 }
 
+/**
+ * Missing-only seed: always loads ALL existing blueprints for this curriculum,
+ * diffs against what should exist, and inserts ONLY the missing ones.
+ * This prevents partial-state skips (e.g. 1 exists but 80 missing).
+ */
 async function seedFromFields(
   sb: ReturnType<typeof createClient>,
   curriculumId: string,
@@ -99,28 +91,27 @@ async function seedFromFields(
 ) {
   const lfIds = lfs.map((lf) => lf.id);
 
+  // Load competencies for these learning fields
   const { data: comps, error: compErr } = await sb
     .from("competencies")
-    .select(
-      "id, learning_field_id, code, title, description, taxonomy_level",
-    )
+    .select("id, learning_field_id, code, title, description, taxonomy_level")
     .in("learning_field_id", lfIds)
     .order("created_at", { ascending: true });
 
   if (compErr) throw new Error(`Competencies query: ${compErr.message}`);
 
-  if (!comps?.length) {
-    // No competencies → create one blueprint per learning field
-    console.log(
-      `[AutoSeedBP] No competencies found — seeding from ${lfs.length} learning fields`,
-    );
-    // Diff against existing (idempotency for LF-based seeding)
-    const { data: existingLfBps } = await sb
-      .from("question_blueprints")
-      .select("learning_field_id")
-      .eq("curriculum_id", curriculumId);
+  // ── Load ALL existing blueprints for this curriculum (for diff) ────
+  const { data: existingBps } = await sb
+    .from("question_blueprints")
+    .select("competency_id, learning_field_id")
+    .eq("curriculum_id", curriculumId);
 
-    const existingLfIds = new Set((existingLfBps || []).map((b: any) => b.learning_field_id));
+  const existingCompIds = new Set((existingBps || []).filter((b: any) => b.competency_id).map((b: any) => b.competency_id));
+  const existingLfIds = new Set((existingBps || []).filter((b: any) => !b.competency_id && b.learning_field_id).map((b: any) => b.learning_field_id));
+
+  if (!comps?.length) {
+    // No competencies → seed from learning fields (missing-only)
+    console.log(`[AutoSeedBP] No competencies — seeding from ${lfs.length} LFs (missing-only)`);
 
     const seedRows = lfs
       .filter((lf) => !existingLfIds.has(lf.id))
@@ -136,28 +127,18 @@ async function seedFromFields(
       }));
 
     if (seedRows.length === 0) {
-      console.log(`[AutoSeedBP] All ${lfs.length} LF blueprints already exist — idempotent skip`);
+      console.log(`[AutoSeedBP] All ${lfs.length} LF blueprints exist — nothing to seed`);
       return json({ ok: true, skipped: true, existing: existingLfIds.size, source: "learning_fields" });
     }
 
-    const { error: seedErr } = await sb
-      .from("question_blueprints")
-      .insert(seedRows);
+    const { error: seedErr } = await sb.from("question_blueprints").insert(seedRows);
     if (seedErr && seedErr.code !== "23505") throw new Error(`Blueprint seed failed: ${seedErr.message}`);
 
-    console.log(`[AutoSeedBP] Seeded ${seedRows.length} blueprints from LFs`);
-    return json({ ok: true, seeded: seedRows.length, source: "learning_fields" });
+    console.log(`[AutoSeedBP] Seeded ${seedRows.length} LF blueprints (${existingLfIds.size} already existed)`);
+    return json({ ok: true, seeded: seedRows.length, existing: existingLfIds.size, source: "learning_fields" });
   }
 
-  // Seed from competencies
-  // Load existing blueprints to diff (idempotency)
-  const { data: existingBps } = await sb
-    .from("question_blueprints")
-    .select("competency_id")
-    .eq("curriculum_id", curriculumId);
-
-  const existingCompIds = new Set((existingBps || []).map((b: any) => b.competency_id));
-
+  // ── Seed from competencies (missing-only) ─────────────────────────
   const seedRows = comps
     .filter((c: any) => !existingCompIds.has(c.id))
     .map((c: any) => ({
@@ -173,15 +154,12 @@ async function seedFromFields(
     }));
 
   if (seedRows.length === 0) {
-    console.log(`[AutoSeedBP] All ${comps.length} competency blueprints already exist — idempotent skip`);
+    console.log(`[AutoSeedBP] All ${comps.length} competency blueprints exist — nothing to seed`);
     return json({ ok: true, skipped: true, existing: existingCompIds.size, source: "competencies" });
   }
 
-  const { error: seedErr } = await sb
-    .from("question_blueprints")
-    .insert(seedRows);
+  const { error: seedErr } = await sb.from("question_blueprints").insert(seedRows);
   if (seedErr) {
-    // Handle race: if another run inserted between our check and insert
     if (seedErr.code === "23505") {
       console.log(`[AutoSeedBP] Concurrent insert detected — idempotent success`);
       return json({ ok: true, skipped: true, source: "competencies" });
@@ -189,15 +167,12 @@ async function seedFromFields(
     throw new Error(`Blueprint seed failed: ${seedErr.message}`);
   }
 
-  console.log(`[AutoSeedBP] Seeded ${seedRows.length} blueprints from competencies`);
+  console.log(`[AutoSeedBP] Seeded ${seedRows.length} competency blueprints (${existingCompIds.size} already existed)`);
 
   // Non-critical progress hint
   try {
-    await sb
-      .from("course_packages")
-      .update({ build_progress: 20 })
-      .eq("id", packageId);
+    await sb.from("course_packages").update({ build_progress: 20 }).eq("id", packageId);
   } catch (_) { /* ignore */ }
 
-  return json({ ok: true, seeded: seedRows.length, source: "competencies" });
+  return json({ ok: true, seeded: seedRows.length, existing: existingCompIds.size, source: "competencies" });
 }

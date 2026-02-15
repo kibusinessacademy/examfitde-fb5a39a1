@@ -2,10 +2,12 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 /**
- * job-runner — Pulls pending jobs from job_queue, dispatches to the
- * matching Edge Function, writes back done / failed / requeued (batch).
+ * job-runner — Atomically claims pending jobs via claim_pending_jobs RPC
+ * (FOR UPDATE SKIP LOCKED), dispatches to Edge Functions, writes back
+ * completed / failed / pending+run_after (backoff).
  *
- * Called every minute by cron-trigger alongside pipeline-runner.
+ * SSOT Status values: pending | processing | completed | failed | cancelled
+ * Requeue = pending + run_after (backoff), NOT custom status values.
  */
 
 const JOB_TYPE_MAP: Record<string, string> = {
@@ -122,6 +124,12 @@ const JOB_TYPE_MAP: Record<string, string> = {
 const MAX_JOBS_PER_TICK = 5;
 const JOB_TIMEOUT_MS = 140_000; // 140s — stay under Edge 150s hard limit
 
+// Backoff delays (ms) for requeue scenarios
+const BACKOFF_409_MS = 30_000;   // 30s for prereq-not-ready
+const BACKOFF_429_MS = 60_000;   // 60s for rate limits
+const BACKOFF_BATCH_MS = 5_000;  // 5s for batch continuation
+const BACKOFF_ERROR_MS = 30_000; // 30s for transient errors
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -135,6 +143,22 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** Requeue a job as pending with a run_after backoff */
+async function requeueWithBackoff(
+  sb: ReturnType<typeof createClient>,
+  jobId: string,
+  meta: Record<string, unknown> | null,
+  delayMs: number,
+  errorMsg: string,
+) {
+  await sb.from("job_queue").update({
+    status: "pending",
+    run_after: new Date(Date.now() + delayMs).toISOString(),
+    error: errorMsg,
+    meta: { ...(meta || {}), last_retry: new Date().toISOString() },
+  }).eq("id", jobId);
+}
+
 // ── Main Handler ─────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -144,7 +168,7 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  // ── 1. Atomically claim pending jobs (SKIP LOCKED — no race conditions) ──
+  // ── 1. Atomically claim pending jobs (SKIP LOCKED + run_after) ──
   const { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs", {
     p_limit: MAX_JOBS_PER_TICK,
   });
@@ -166,19 +190,14 @@ Deno.serve(async (req) => {
     const fnName = JOB_TYPE_MAP[job.job_type];
     if (!fnName) {
       console.warn(`[job-runner] Unknown job_type: ${job.job_type}, skipping`);
-      await sb
-        .from("job_queue")
-        .update({
-          status: "failed",
-          error: `Unknown job_type: ${job.job_type}`,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", job.id);
+      await sb.from("job_queue").update({
+        status: "failed",
+        error: `Unknown job_type: ${job.job_type}`,
+        completed_at: new Date().toISOString(),
+      }).eq("id", job.id);
       results.push({ id: job.id, status: "failed", reason: "unknown_type" });
       continue;
     }
-
-    // Job is already claimed as 'processing' by the RPC — proceed directly
 
     // ── 2. Invoke the target Edge Function ───────────────────────────
     try {
@@ -209,68 +228,48 @@ Deno.serve(async (req) => {
       try { parsed = JSON.parse(text); } catch { parsed = text; }
 
       if (!res.ok) {
-        // ── 409 Conflict = idempotent success (already exists) ───────
+        // ── 409 Conflict ─────────────────────────────────────────────
         if (res.status === 409) {
           const isIdempotent = parsed?.skipped || parsed?.retry === false || parsed?.ok === true;
           if (isIdempotent || !parsed?.retry) {
-            console.log(`[job-runner] ${fnName} returned 409 (idempotent) — marking done`);
-            await sb
-              .from("job_queue")
-              .update({
-                status: "done",
-                result: { ...(typeof parsed === "object" ? parsed : {}), _409_idempotent: true },
-                completed_at: new Date().toISOString(),
-              })
-              .eq("id", job.id);
-            results.push({ id: job.id, status: "done", reason: "409_idempotent" });
+            console.log(`[job-runner] ${fnName} 409 idempotent → completed`);
+            await sb.from("job_queue").update({
+              status: "completed",
+              result: { ...(typeof parsed === "object" ? parsed : {}), _409_idempotent: true },
+              completed_at: new Date().toISOString(),
+            }).eq("id", job.id);
+            results.push({ id: job.id, status: "completed", reason: "409_idempotent" });
             continue;
           }
-          // 409 with retry=true means prereq not ready — requeue
-          console.warn(`[job-runner] ${fnName} returned 409 with retry=true, requeuing ${job.id}`);
-          await sb
-            .from("job_queue")
-            .update({
-              status: "pending",
-              error: `HTTP 409 — prereq not ready, will retry`,
-              meta: { ...(job.meta || {}), last_retry: new Date().toISOString() },
-            })
-            .eq("id", job.id);
+          // 409 with retry=true → prereq not ready, backoff requeue
+          console.warn(`[job-runner] ${fnName} 409 retry=true → requeue +${BACKOFF_409_MS}ms`);
+          await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_409_MS,
+            "HTTP 409 — prereq not ready, will retry");
           results.push({ id: job.id, status: "requeued", httpStatus: 409 });
           continue;
         }
 
         // ── Rate-limited or transient → requeue with delay ───────────
         if (res.status === 429 || res.status === 503) {
-          console.warn(`[job-runner] ${fnName} returned ${res.status}, requeuing ${job.id}`);
-          await sb
-            .from("job_queue")
-            .update({
-              status: "pending",
-              error: `HTTP ${res.status} — will retry`,
-              meta: { ...(job.meta || {}), last_retry: new Date().toISOString() },
-            })
-            .eq("id", job.id);
+          console.warn(`[job-runner] ${fnName} ${res.status} → requeue +${BACKOFF_429_MS}ms`);
+          await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_429_MS,
+            `HTTP ${res.status} — will retry`);
           results.push({ id: job.id, status: "requeued", httpStatus: res.status });
           continue;
         }
 
         // ── Hard failure ─────────────────────────────────────────────
         const maxAttempts = job.max_attempts || 3;
-        if ((job.attempts || 0) + 1 >= maxAttempts) {
-          await sb
-            .from("job_queue")
-            .update({
-              status: "failed",
-              error: `HTTP ${res.status}: ${typeof parsed === "string" ? parsed.slice(0, 500) : JSON.stringify(parsed).slice(0, 500)}`,
-              completed_at: new Date().toISOString(),
-            })
-            .eq("id", job.id);
+        if ((job.attempts || 0) >= maxAttempts) {
+          await sb.from("job_queue").update({
+            status: "failed",
+            error: `HTTP ${res.status}: ${typeof parsed === "string" ? parsed.slice(0, 500) : JSON.stringify(parsed).slice(0, 500)}`,
+            completed_at: new Date().toISOString(),
+          }).eq("id", job.id);
           results.push({ id: job.id, status: "failed", httpStatus: res.status });
         } else {
-          await sb
-            .from("job_queue")
-            .update({ status: "pending", error: `HTTP ${res.status} — attempt ${(job.attempts || 0) + 1}` })
-            .eq("id", job.id);
+          await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_ERROR_MS,
+            `HTTP ${res.status} — attempt ${job.attempts || 1}`);
           results.push({ id: job.id, status: "requeued", httpStatus: res.status });
         }
         continue;
@@ -278,29 +277,24 @@ Deno.serve(async (req) => {
 
       // ── 3. Handle batch_complete protocol ──────────────────────────
       if (parsed && parsed.batch_complete === false) {
-        console.log(`[job-runner] ${fnName} batch incomplete, requeuing with cursor`);
-        await sb
-          .from("job_queue")
-          .update({
-            status: "pending",
-            meta: { ...(job.meta || {}), batch_cursor: parsed.batch_cursor ?? null },
-          })
-          .eq("id", job.id);
-        results.push({ id: job.id, status: "batch_requeued" });
+        console.log(`[job-runner] ${fnName} batch incomplete → requeue +${BACKOFF_BATCH_MS}ms`);
+        await sb.from("job_queue").update({
+          status: "pending",
+          run_after: new Date(Date.now() + BACKOFF_BATCH_MS).toISOString(),
+          meta: { ...(job.meta || {}), batch_cursor: parsed.batch_cursor ?? null },
+        }).eq("id", job.id);
+        results.push({ id: job.id, status: "requeued", reason: "batch_incomplete" });
         continue;
       }
 
-      // ── 4. Done ────────────────────────────────────────────────────
-      await sb
-        .from("job_queue")
-        .update({
-          status: "done",
-          result: typeof parsed === "object" ? parsed : { raw: parsed },
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", job.id);
+      // ── 4. Completed ───────────────────────────────────────────────
+      await sb.from("job_queue").update({
+        status: "completed",
+        result: typeof parsed === "object" ? parsed : { raw: parsed },
+        completed_at: new Date().toISOString(),
+      }).eq("id", job.id);
 
-      results.push({ id: job.id, status: "done", function: fnName });
+      results.push({ id: job.id, status: "completed", function: fnName });
 
     } catch (err: unknown) {
       const msg = (err as Error)?.message || String(err);
@@ -308,24 +302,17 @@ Deno.serve(async (req) => {
       console.error(`[job-runner] ${fnName} error: ${msg}`);
 
       const maxAttempts = job.max_attempts || 3;
-      if ((job.attempts || 0) + 1 >= maxAttempts) {
-        await sb
-          .from("job_queue")
-          .update({
-            status: "failed",
-            error: isTimeout ? "Edge Function timeout" : msg.slice(0, 1000),
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", job.id);
+      if ((job.attempts || 0) >= maxAttempts) {
+        await sb.from("job_queue").update({
+          status: "failed",
+          error: isTimeout ? "Edge Function timeout" : msg.slice(0, 1000),
+          completed_at: new Date().toISOString(),
+        }).eq("id", job.id);
         results.push({ id: job.id, status: "failed", reason: isTimeout ? "timeout" : "error" });
       } else {
-        await sb
-          .from("job_queue")
-          .update({
-            status: "pending",
-            error: `Attempt ${(job.attempts || 0) + 1} failed: ${msg.slice(0, 500)}`,
-          })
-          .eq("id", job.id);
+        const delay = isTimeout ? BACKOFF_429_MS : BACKOFF_ERROR_MS;
+        await requeueWithBackoff(sb, job.id, job.meta, delay,
+          `Attempt ${job.attempts || 1} failed: ${msg.slice(0, 500)}`);
         results.push({ id: job.id, status: "requeued", reason: isTimeout ? "timeout" : "error" });
       }
     }
