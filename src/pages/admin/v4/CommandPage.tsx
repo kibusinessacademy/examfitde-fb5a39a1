@@ -136,7 +136,7 @@ export default function CommandPage() {
         sb.from('profiles').select('id', { count: 'exact', head: true }),
         sb.from('certification_seo_pages').select('id', { count: 'exact', head: true }),
         sb.from('orders').select('status, total_cents'),
-        sb.from('ai_usage_log').select('cost_eur').gte('created_at', todayStart.toISOString()),
+        sb.from('llm_cost_events').select('cost_usd').gte('created_at', todayStart.toISOString()),
         sb.from('ai_cost_budgets').select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1),
         callAdminOps('queue_health').catch(() => ({ pending: 0, processing: 0, failed: 0, stuck: 0 })),
         callDecisionEngine().catch(() => null),
@@ -156,8 +156,8 @@ export default function CommandPage() {
         revenueCents: paidOrders.reduce((s, o) => s + (o.total_cents || 0), 0),
       });
 
-      const costs = (costRes.data || []) as { cost_eur: number }[];
-      const dailyCost = costs.reduce((s, c) => s + (c.cost_eur || 0), 0);
+      const costs = (costRes.data || []) as { cost_usd: number }[];
+      const dailyCost = costs.reduce((s, c) => s + (c.cost_usd || 0), 0);
       const budgetRow = (budgetRes.data || [])[0];
       setBudget({
         dailyCost,
@@ -337,7 +337,7 @@ export default function CommandPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">KI-Kosten heute</span>
               </div>
-              <span className="text-lg font-bold">€{budget.dailyCost.toFixed(2)}</span>
+              <span className="text-lg font-bold">${budget.dailyCost.toFixed(2)}</span>
             </div>
             {budget.monthBudget > 0 && (
               <>

@@ -15448,14 +15448,16 @@ export type Database = {
         Returns: boolean
       }
       claim_license_seat: { Args: { p_invite_code: string }; Returns: string }
-      claim_next_job: {
-        Args: {
-          p_job_types?: string[]
-          p_lock_timeout_minutes?: number
-          p_worker_id: string
-        }
-        Returns: Json
-      }
+      claim_next_job:
+        | { Args: { p_worker_id: string }; Returns: Json }
+        | {
+            Args: {
+              p_job_types?: string[]
+              p_lock_timeout_minutes?: number
+              p_worker_id: string
+            }
+            Returns: Json
+          }
       claim_next_queued_package: {
         Args: never
         Returns: {
