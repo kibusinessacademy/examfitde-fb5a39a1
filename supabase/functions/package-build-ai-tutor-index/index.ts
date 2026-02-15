@@ -64,7 +64,8 @@ Deno.serve(async (req) => {
       require_reference: true,
       allowed_sources: ["curriculum_topics", "lessons", "question_blueprints", "exam_sessions", "oral_exam_sessionsets"],
       modes: ["explainer", "coach", "examiner", "feedback"],
-      binding_rule: "each answer must map to competency OR lesson OR exam_session",
+      binding_rule: "each answer must map to competency OR lesson OR exam_session OR curriculum_topic",
+      depth_requirement: "tutor must reference curriculum_topics subtopics when answering domain-specific questions",
     };
     const { error: polInsErr } = await sb.from("ai_tutor_policies").insert({
       curriculum_id: curriculumId, policy, version: policyVersion,
@@ -72,12 +73,23 @@ Deno.serve(async (req) => {
     if (polInsErr) throw new Error(`Policy insert failed: ${polInsErr.message}`);
   }
 
-  // Counts
+  // Counts — now including curriculum_topics depth
   const { count: lessonCount } = await sb
     .from("lessons").select("id", { count: "exact", head: true }).eq("course_id", courseId);
 
   const { count: topicCount } = await sb
     .from("curriculum_topics").select("id", { count: "exact", head: true }).eq("certification_id", certificationId);
+
+  const { count: subtopicCount } = await sb
+    .from("curriculum_topics").select("id", { count: "exact", head: true })
+    .eq("certification_id", certificationId)
+    .not("parent_topic_id", "is", null);
+
+  // ═══ DEPTH GATE: Warn if no subtopics exist ═══
+  const depthStatus = (subtopicCount ?? 0) > 0 ? "deep" : "shallow";
+  if (depthStatus === "shallow") {
+    console.warn(`[AI-Tutor-Index] ⚠️ No subtopics for certification ${certificationId} — tutor will have limited depth`);
+  }
 
   // Context index (idempotent)
   if (!existingIdx) {
@@ -87,14 +99,28 @@ Deno.serve(async (req) => {
       stats: {
         lessonCount: lessonCount ?? 0,
         topicCount: topicCount ?? 0,
+        subtopicCount: subtopicCount ?? 0,
+        depthStatus,
         policyVersion,
       },
     });
     if (idxErr) throw new Error(`Context index insert failed: ${idxErr.message}`);
+  } else {
+    // Update existing index with depth stats
+    await sb.from("ai_tutor_context_index").update({
+      stats: {
+        lessonCount: lessonCount ?? 0,
+        topicCount: topicCount ?? 0,
+        subtopicCount: subtopicCount ?? 0,
+        depthStatus,
+        policyVersion,
+      },
+      index_version: 2,
+    }).eq("package_id", packageId);
   }
 
   // Optional progress hint (non-critical)
   try { await sb.from("course_packages").update({ build_progress: 80 }).eq("id", packageId); } catch (_) { /* ignore */ }
 
-  return json({ ok: true, policyVersion, lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0 });
+  return json({ ok: true, policyVersion, lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0, subtopicCount: subtopicCount ?? 0, depthStatus });
 });
