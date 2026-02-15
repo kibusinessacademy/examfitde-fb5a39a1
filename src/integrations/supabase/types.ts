@@ -10892,6 +10892,30 @@ export type Database = {
         }
         Relationships: []
       }
+      provider_intent_affinity: {
+        Row: {
+          created_at: string
+          id: string
+          intent: string
+          provider: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intent: string
+          provider: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intent?: string
+          provider?: string
+          weight?: number
+        }
+        Relationships: []
+      }
       provider_job_affinity: {
         Row: {
           created_at: string | null

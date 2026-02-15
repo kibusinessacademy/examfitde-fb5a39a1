@@ -9,7 +9,7 @@
  * All calls go directly to provider APIs using stored API keys.
  */
 
-export type AIProvider = "openai" | "anthropic" | "deepseek";
+export type AIProvider = "openai" | "anthropic" | "deepseek" | "google";
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
@@ -42,21 +42,30 @@ export interface AIResponse {
   raw: Response;
 }
 
-const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv: string }> = {
+const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv: string; format: "openai" | "anthropic" | "google" }> = {
   openai: {
     url: "https://api.openai.com/v1/chat/completions",
     model: "gpt-4.1",
     keyEnv: "OPENAI_API_KEY",
+    format: "openai",
   },
   anthropic: {
     url: "https://api.anthropic.com/v1/messages",
     model: "claude-sonnet-4-20250514",
     keyEnv: "ANTHROPIC_API_KEY",
+    format: "anthropic",
   },
   deepseek: {
     url: "https://api.deepseek.com/v1/chat/completions",
     model: "deepseek-chat",
     keyEnv: "DEEPSEEK_API_KEY",
+    format: "openai",
+  },
+  google: {
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    model: "gemini-2.5-flash",
+    keyEnv: "GOOGLE_AI_API_KEY",
+    format: "google",
   },
 };
 
@@ -72,7 +81,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
 
   let resp: Response;
 
-  if (opts.provider === "anthropic") {
+  if (cfg.format === "anthropic") {
     // Anthropic has a different API format
     const systemMsg = opts.messages.find((m) => m.role === "system");
     const nonSystemMsgs = opts.messages.filter((m) => m.role !== "system");
@@ -85,13 +94,30 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     };
     if (systemMsg) body.system = systemMsg.content;
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
-    // Note: Anthropic tool calling has a different format; handle if needed
 
     resp = await fetch(cfg.url, {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } else if (cfg.format === "google") {
+    // Google Gemini uses OpenAI-compatible endpoint with API key in header
+    const body: Record<string, unknown> = {
+      model,
+      messages: opts.messages,
+      ...(opts.stream !== undefined && { stream: opts.stream }),
+    };
+    if (opts.temperature !== undefined) body.temperature = opts.temperature;
+    if (opts.max_tokens !== undefined) body.max_tokens = opts.max_tokens;
+
+    resp = await fetch(cfg.url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),

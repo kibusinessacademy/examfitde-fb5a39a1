@@ -2,6 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
 import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
+import { callAIJSON } from "../_shared/ai-client.ts";
+import type { AIProvider } from "../_shared/ai-client.ts";
 
 /**
  * DOMINANZ-ENGINE v2: IHK-Prüfungsstandard
@@ -207,35 +209,29 @@ async function generateDominanzQuestions(
 
   const { system, user } = buildDominanzPrompt(bp, difficulty, questionType, count, lfTitle, compTitle, compDesc);
 
-  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
-
-  const aiResp = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4.1",
+  // Route through shared ai-client gateway — provider can be overridden via payload
+  const provider: AIProvider = (globalThis as any).__examPoolProvider || "openai";
+  
+  let result: { content: string };
+  try {
+    result = await callAIJSON({
+      provider,
+      model: provider === "openai" ? "gpt-4.1" : undefined,
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
       ],
       temperature: 0.85,
       max_tokens: 12000,
-    }),
-  });
-
-  if (!aiResp.ok) {
-    const status = aiResp.status;
-    console.log(`[ExamPool-Dominanz] AI gateway error: ${status}`);
-    if (status === 429) throw new Error("RATE_LIMIT: AI gateway 429");
+    });
+  } catch (e: unknown) {
+    const errMsg = (e as Error)?.message || String(e);
+    console.log(`[ExamPool-Dominanz] AI gateway error: ${errMsg}`);
+    if (errMsg.includes("Rate limit") || errMsg.includes("429")) throw new Error("RATE_LIMIT: AI gateway 429");
     return 0;
   }
 
-  const aiData = await aiResp.json();
-  const rawContent = aiData.choices?.[0]?.message?.content || "";
+  const rawContent = result.content || "";
   if (!rawContent) return 0;
 
   let questions: Array<{
@@ -387,6 +383,11 @@ Deno.serve(async (req) => {
   const shipTarget = Number(p.options?.ship_target ?? getShipTarget(examTarget));
   const isFanOut = p._fan_out === true;
   const blueprintIds: string[] | null = p.blueprint_ids || null;
+
+  // Accept provider from job payload (set by job-runner's routing)
+  const requestedProvider = (p.provider || p.options?.provider || "openai") as AIProvider;
+  (globalThis as any).__examPoolProvider = requestedProvider;
+  console.log(`[ExamPool-Dominanz] Using provider: ${requestedProvider}`);
   const lfTarget = p.lf_target || examTarget;
 
   // Apply dynamic distributions from Hybrid Target Engine (if provided)

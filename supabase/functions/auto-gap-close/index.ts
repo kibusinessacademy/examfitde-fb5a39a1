@@ -201,8 +201,9 @@ Deno.serve(async (req) => {
 
       // Trigger auto_publish
       if (!dryRun) {
-        await sb.from("course_package_build_steps")
-          .update({ status: "pending", error_message: null, log: null })
+        // SSOT: Write to package_steps, not the legacy view
+        await sb.from("package_steps")
+          .update({ status: "queued", last_error: null, meta: null })
           .eq("package_id", packageId).eq("step_key", "auto_publish");
 
         await sb.from("job_queue").insert({
@@ -294,8 +295,9 @@ Deno.serve(async (req) => {
     });
 
     // Reset integrity check step for next round
-    await sb.from("course_package_build_steps")
-      .update({ status: "pending", error_message: null, log: null, started_at: null, finished_at: null })
+    // SSOT: Write to package_steps, not the legacy view
+    await sb.from("package_steps")
+      .update({ status: "queued", last_error: null, meta: null, started_at: null, finished_at: null })
       .eq("package_id", packageId).eq("step_key", "run_integrity_check");
 
     return json({
