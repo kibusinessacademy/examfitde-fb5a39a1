@@ -31,14 +31,20 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
     if ((data as Record<string, unknown>)?.code === "GENERATION_LOCKED") {
-      return json({ ok: false, retry: true, error: "GENERATION_LOCKED" }, 409);
+      // Idempotency: if already generating, treat as success (another run is handling it)
+      console.log(`[scaffold] Course ${courseId} already locked — treating as idempotent success`);
+      return json({ ok: true, skipped: true, reason: "GENERATION_LOCKED" });
     }
 
     return json({ ok: true, result: data ?? null });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
+    // Idempotency: if unique constraint violation, the scaffold already ran
+    if (msg.includes("23505") || msg.includes("duplicate") || msg.includes("already exists")) {
+      console.log(`[scaffold] Idempotent hit: ${msg}`);
+      return json({ ok: true, skipped: true, reason: "already_exists" });
+    }
     console.error(`[scaffold] Error: ${msg}`);
-    // Let pipeline-runner handle step_fail + package status
     return json({ ok: false, error: msg }, 500);
   }
 });

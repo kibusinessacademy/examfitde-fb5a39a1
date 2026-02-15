@@ -209,6 +209,36 @@ Deno.serve(async (req) => {
       try { parsed = JSON.parse(text); } catch { parsed = text; }
 
       if (!res.ok) {
+        // ── 409 Conflict = idempotent success (already exists) ───────
+        if (res.status === 409) {
+          const isIdempotent = parsed?.skipped || parsed?.retry === false || parsed?.ok === true;
+          if (isIdempotent || !parsed?.retry) {
+            console.log(`[job-runner] ${fnName} returned 409 (idempotent) — marking done`);
+            await sb
+              .from("job_queue")
+              .update({
+                status: "done",
+                result: { ...(typeof parsed === "object" ? parsed : {}), _409_idempotent: true },
+                completed_at: new Date().toISOString(),
+              })
+              .eq("id", job.id);
+            results.push({ id: job.id, status: "done", reason: "409_idempotent" });
+            continue;
+          }
+          // 409 with retry=true means prereq not ready — requeue
+          console.warn(`[job-runner] ${fnName} returned 409 with retry=true, requeuing ${job.id}`);
+          await sb
+            .from("job_queue")
+            .update({
+              status: "pending",
+              error: `HTTP 409 — prereq not ready, will retry`,
+              meta: { ...(job.meta || {}), last_retry: new Date().toISOString() },
+            })
+            .eq("id", job.id);
+          results.push({ id: job.id, status: "requeued", httpStatus: 409 });
+          continue;
+        }
+
         // ── Rate-limited or transient → requeue with delay ───────────
         if (res.status === 429 || res.status === 503) {
           console.warn(`[job-runner] ${fnName} returned ${res.status}, requeuing ${job.id}`);
