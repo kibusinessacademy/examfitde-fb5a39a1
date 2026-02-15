@@ -8,59 +8,31 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 
 /**
- * DOMINANZ-ENGINE v2: IHK-Prüfungsstandard
+ * DOMINANZ-ENGINE v3: HIGH-THROUGHPUT TURBO MODE
  * 
- * Harte Vorgaben:
- * - Schwierigkeit: 5% easy, 35% medium, 45% hard, 15% very_hard
- * - Fragearten: 25% MC-Single, 20% MC-Multiple, 20% Rechenaufgaben, 25% Fallstudien, 10% Transfer
- * - Duplikat-Kontrolle: Hash-basiert + semantic check
- * - Keine unaufgelösten {variable}-Platzhalter
- * - Keine generischen Fragen ohne Kontext
+ * Architecture: 1-2 questions per AI call → max parallelism, minimal timeouts
+ * Primary: gpt-4o-mini (fastest JSON), Escalation: gpt-4.1, Fallback: claude-sonnet-4
+ * Slim prompt: question + options + answer + difficulty only (no explanation in primary)
+ * JSON auto-repair before discard
  */
 
-const CHUNK_SIZE = 10;
-const AI_CHUNK_SIZE = 4; // Sweet spot: fast throughput without 504 timeouts
+const AI_CHUNK_SIZE = 8; // Blueprints per invocation cycle
+const AI_QUESTIONS_PER_CALL = 2; // TURBO: 1-2 questions per AI call — fast, retry-safe
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
 
-// ─── Dominanz-Engine v3: Dynamic distributions from Hybrid Target ────────────
+// ─── Dominanz-Engine v3: Dynamic distributions ────────────────────────────────
 
-// Defaults (overridden by Hybrid Engine at runtime)
 let DIFFICULTY_DISTRIBUTION: Record<string, number> = {
-  easy: 0.05,
-  medium: 0.35,
-  hard: 0.45,
-  very_hard: 0.15,
+  easy: 0.05, medium: 0.35, hard: 0.45, very_hard: 0.15,
 };
 
 let QUESTION_TYPE_MIX: Record<string, number> = {
-  mc_single: 0.25,
-  mc_multiple: 0.20,
-  calculation: 0.20,
-  case_study: 0.25,
-  transfer: 0.10,
+  mc_single: 0.25, mc_multiple: 0.20, calculation: 0.20, case_study: 0.25, transfer: 0.10,
 };
 
 type DifficultyKey = string;
 type QuestionTypeKey = string;
 
-function getDifficultyForIndex(index: number, total: number): DifficultyKey {
-  const ratio = index / total;
-  if (ratio < DIFFICULTY_DISTRIBUTION.easy) return "easy";
-  if (ratio < DIFFICULTY_DISTRIBUTION.easy + DIFFICULTY_DISTRIBUTION.medium) return "medium";
-  if (ratio < 1 - DIFFICULTY_DISTRIBUTION.very_hard) return "hard";
-  return "very_hard";
-}
-
-function getQuestionTypeForIndex(index: number, total: number): QuestionTypeKey {
-  const ratio = index / total;
-  if (ratio < QUESTION_TYPE_MIX.mc_single) return "mc_single";
-  if (ratio < QUESTION_TYPE_MIX.mc_single + QUESTION_TYPE_MIX.mc_multiple) return "mc_multiple";
-  if (ratio < QUESTION_TYPE_MIX.mc_single + QUESTION_TYPE_MIX.mc_multiple + QUESTION_TYPE_MIX.calculation) return "calculation";
-  if (ratio < 1 - QUESTION_TYPE_MIX.transfer) return "case_study";
-  return "transfer";
-}
-
-// Dynamic ship target
 function getShipTarget(examTarget: number): number {
   if (examTarget <= 600) return 500;
   if (examTarget <= 800) return 700;
@@ -72,50 +44,69 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-// ─── Provider Routing: OpenAI primary, Anthropic fallback ─────────────
-// DeepSeek is excluded from exam-pool generation (too volatile for complex blueprints)
+// ─── Provider Routing: Turbo Chain ────────────────────────────────────────────
 
 const EXAM_PROVIDER_CHAIN: { provider: AIProvider; model: string }[] = [
-  { provider: "openai", model: "gpt-4o-mini" },      // Turbo: fastest bulk JSON, lowest latency
-  { provider: "openai", model: "gpt-4.1" },           // Escalation: harder cases
-  { provider: "anthropic", model: "claude-sonnet-4-20250514" }, // Fallback: quality repair
+  { provider: "openai", model: "gpt-4o-mini" },                   // Turbo: fastest bulk JSON
+  { provider: "openai", model: "gpt-4.1" },                       // Escalation: harder cases
+  { provider: "anthropic", model: "claude-sonnet-4-20250514" },    // Fallback: quality repair
 ];
 
 function pickProvider(exclude: string[] = []): { provider: AIProvider; model: string } {
   for (const entry of EXAM_PROVIDER_CHAIN) {
-    if (exclude.includes(entry.provider) || exclude.includes(`${entry.provider}:${entry.model}`)) continue;
-    // Skip providers without API keys
+    if (exclude.includes(`${entry.provider}:${entry.model}`)) continue;
     const keyEnv = entry.provider === "openai" ? "OPENAI_API_KEY"
       : entry.provider === "anthropic" ? "ANTHROPIC_API_KEY" : null;
     if (keyEnv && !Deno.env.get(keyEnv)) continue;
     return entry;
   }
-  // Absolute fallback
   return EXAM_PROVIDER_CHAIN[0];
 }
 
 async function markRateLimited(sb: ReturnType<typeof createClient>, provider: string, err: string) {
   try {
-    await sb.rpc("mark_provider_rate_limited", {
-      p_provider: provider,
-      p_cooldown_seconds: 90,
-      p_error: err,
-    });
+    await sb.rpc("mark_provider_rate_limited", { p_provider: provider, p_cooldown_seconds: 90, p_error: err });
   } catch { /* non-blocking */ }
 }
 
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
-  const { data, error } = await sb
-    .from("package_steps")
-    .select("status")
-    .eq("package_id", packageId)
-    .eq("step_key", stepKey)
-    .maybeSingle();
+  const { data, error } = await sb.from("package_steps").select("status").eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
   if (error) throw error;
   return data?.status === "done";
 }
 
-// ─── Dominanz AI-Prompts ──────────────────────────────────────────────────────
+// ─── JSON Auto-Repair ─────────────────────────────────────────────────────────
+
+function repairJSON(raw: string): unknown | null {
+  // Step 1: Strip markdown fences
+  let clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+  // Step 2: Try direct parse
+  try { return JSON.parse(clean); } catch { /* continue */ }
+
+  // Step 3: Fix trailing commas before ] or }
+  clean = clean.replace(/,\s*([\]}])/g, "$1");
+  try { return JSON.parse(clean); } catch { /* continue */ }
+
+  // Step 4: Extract first JSON array from content
+  const arrMatch = clean.match(/\[[\s\S]*\]/);
+  if (arrMatch) {
+    try { return JSON.parse(arrMatch[0]); } catch { /* continue */ }
+    // Try fixing trailing commas in extracted array
+    const fixed = arrMatch[0].replace(/,\s*([\]}])/g, "$1");
+    try { return JSON.parse(fixed); } catch { /* continue */ }
+  }
+
+  // Step 5: Extract first JSON object
+  const objMatch = clean.match(/\{[\s\S]*\}/);
+  if (objMatch) {
+    try { return [JSON.parse(objMatch[0])]; } catch { /* continue */ }
+  }
+
+  return null;
+}
+
+// ─── Turbo Prompt (slim: no explanation in primary pass) ──────────────────────
 
 interface BlueprintInfo {
   id: string;
@@ -128,7 +119,7 @@ interface BlueprintInfo {
   question_template: string;
 }
 
-function buildDominanzPrompt(
+function buildTurboPrompt(
   bp: BlueprintInfo,
   difficulty: DifficultyKey,
   questionType: QuestionTypeKey,
@@ -139,87 +130,44 @@ function buildDominanzPrompt(
   professionName: string,
   depthTopics: string[],
 ): { system: string; user: string } {
-  const difficultyLabels: Record<DifficultyKey, string> = {
-    easy: "leicht (Grundlagenwissen, direkte Zuordnung)",
-    medium: "mittel (Anwendung, einfache Berechnung, Vergleich)",
-    hard: "schwer (Fallanalyse, mehrstufige Berechnung, Rechtsanwendung)",
-    very_hard: "sehr schwer (komplexe Fallstudie, Transferleistung, strategische Entscheidung)",
+  const diffLabel: Record<string, string> = {
+    easy: "leicht", medium: "mittel", hard: "schwer", very_hard: "sehr schwer",
   };
 
-  const typeInstructions: Record<QuestionTypeKey, string> = {
-    mc_single: `Multiple-Choice mit EINER korrekten Antwort.
-- 4 Antwortmöglichkeiten
-- Distraktoren müssen typische Fehler/Irrtümer abbilden (nicht offensichtlich falsch)
-- Konkreter Praxiskontext aus dem Berufsalltag (${professionName})`,
-    mc_multiple: `Multiple-Choice mit MEHREREN korrekten Antworten (2-3 von 5).
-- 5 Antwortmöglichkeiten, 2-3 korrekt
-- correct_answer ist ein Array der korrekten Indizes [0,2,4]
-- Distraktoren: plausibel aber falsch`,
-    calculation: `Rechenaufgabe mit konkreten Zahlen.
-- Realistische Werte (Preise, Rabatte, Steuersätze, Zinsen)
-- Lösungsweg in der Erklärung Schritt für Schritt
-- Berufstypische Berechnungen für ${professionName}
-- Antworten als konkrete Zahlenwerte
-- KEINE Platzhalter wie {variable} — alle Zahlen einsetzen!`,
-    case_study: `Situationsbasierte Fallstudie.
-- Konkreter Fall aus dem Berufsalltag (${professionName}) beschreiben (Name, Situation, Zahlen)
-- Frage bezieht sich auf Handlungsempfehlung, Rechtslage oder Berechnung
-- Alle 4 Antworten müssen plausibel sein
-- Erklärung mit Paragraphen-/Gesetzesreferenz wenn anwendbar`,
-    transfer: `Transferfrage: Wissen auf neue Situation anwenden.
-- Unbekannte aber realistische Situation beschreiben
-- Erfordert Kombination aus mehreren Wissensgebieten
-- Tiefe Erklärung warum die Antwort korrekt ist`,
+  const typeHint: Record<string, string> = {
+    mc_single: "MC mit 1 korrekten Antwort (4 Optionen). correct_answer = Index (0-3).",
+    mc_multiple: "MC mit 2-3 korrekten Antworten (5 Optionen). correct_answer = Array z.B. [0,2].",
+    calculation: "Rechenaufgabe mit konkreten Zahlen. Alle Werte einsetzen.",
+    case_study: "Fallstudie: konkreter Praxisfall (Name, Situation, Zahlen).",
+    transfer: "Transfer: Wissen auf neue Situation anwenden.",
   };
 
   const depthBlock = depthTopics.length > 0
-    ? `\n\nCURRICULUM-TIEFE (Unterthemen aus dem Rahmenplan – nutze diese als fachliche Grundlage):
-${depthTopics.map(t => `- ${t}`).join("\n")}`
+    ? `\nUnterthemen: ${depthTopics.slice(0, 8).join(", ")}`
     : "";
 
-  const system = `Du bist ein IHK-Prüfungsexperte für ${professionName}. Du erstellst prüfungsrelevante Fragen auf ${difficultyLabels[difficulty]}-Niveau.
+  const system = `IHK-Prüfungsexperte für ${professionName}. Erstelle ${diffLabel[difficulty]} ${typeHint[questionType]}
 
-ABSOLUTE REGELN:
-1. KEINE Platzhalter wie {variable}, {amount}, {akteur} — ALLE Werte konkret einsetzen!
-2. Jede Frage muss einen konkreten Praxis-Kontext haben (Namen, Zahlen, Situationen)
-3. Erklärungen müssen fachlich korrekt und ausführlich sein
-4. Distraktoren bilden echte Irrtümer ab, nicht offensichtlichen Unsinn
-5. Sprache: Fachsprachlich korrekt, B2-Niveau, IHK-Prüfungsstil
-6. Jede Frage MUSS einzigartig sein — keine Variationen derselben Grundfrage
+REGELN:
+- KEINE Platzhalter {variable} — alle Werte konkret
+- Konkreter Praxiskontext (Namen, Zahlen, Situationen)
+- Distraktoren = typische Fehlannahmen, nicht offensichtlich falsch
+- Fachsprache IHK-Niveau
 
-FRAGENTYP: ${typeInstructions[questionType]}
+Antworte NUR mit JSON-Array:
+[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","tags":["tag1"]}]`;
 
-Antworte NUR mit einem JSON-Array:
-[{
-  "question_text": "Komplette Frage mit konkretem Kontext",
-  "options": ["A", "B", "C", "D"],
-  "correct_answer": 0,
-  "explanation": "Ausführliche Erklärung mit Fachbegriffen",
-  "difficulty": "${difficulty}",
-  "question_type": "${questionType}",
-  "tags": ["relevante", "themen-tags"]
-}]
-
-${questionType === "mc_multiple" ? 'Bei mc_multiple: "options" hat 5 Einträge, "correct_answer" ist ein Array z.B. [0,2,4]' : ""}
-${questionType === "calculation" ? 'Bei Rechenaufgaben: "calculation_steps" als zusätzliches Feld mit Schritt-für-Schritt-Lösung' : ""}${depthBlock}`;
-
-  const user = `Erstelle ${count} EINZIGARTIGE ${difficultyLabels[difficulty]} Prüfungsfragen für den Beruf "${professionName}".
-
+  const user = `${count} Frage(n) für "${professionName}".
 Lernfeld: ${lfTitle}
-Thema: ${compTitle}
-Beschreibung: ${compDesc}
-Blueprint-Kontext: ${bp.canonical_statement}
-
-WICHTIG: 
-- Jede Frage braucht einen KONKRETEN Fall mit realistischem Praxisbezug für ${professionName}
-- Keine generischen Fragen wie "Was ist...?" ohne Kontext
-- Bei Berechnungen: Alle Zahlen einsetzen, Lösungsweg zeigen
-- Berufsspezifisch für ${professionName}`;
+Thema: ${compTitle} — ${compDesc}
+Blueprint: ${bp.canonical_statement}${depthBlock}`;
 
   return { system, user };
 }
 
-async function generateDominanzQuestions(
+// ─── Question Generator (Turbo: 1-2 questions per call) ──────────────────────
+
+async function generateTurboQuestions(
   sb: ReturnType<typeof createClient>,
   bp: BlueprintInfo,
   count: number,
@@ -234,141 +182,87 @@ async function generateDominanzQuestions(
   let depthTopics: string[] = [];
 
   if (bp.competency_id) {
-    const { data: comp } = await sb
-      .from("competencies")
-      .select("title, description")
-      .eq("id", bp.competency_id)
-      .maybeSingle();
+    const { data: comp } = await sb.from("competencies").select("title, description").eq("id", bp.competency_id).maybeSingle();
     if (comp) { compTitle = comp.title || compTitle; compDesc = comp.description || compDesc; }
   }
   if (bp.learning_field_id) {
-    const { data: lf } = await sb
-      .from("learning_fields")
-      .select("title")
-      .eq("id", bp.learning_field_id)
-      .maybeSingle();
+    const { data: lf } = await sb.from("learning_fields").select("title").eq("id", bp.learning_field_id).maybeSingle();
     if (lf) lfTitle = lf.title || "";
 
-    // Load curriculum depth topics for this learning field
     try {
-      const { data: parentTopics } = await sb
-        .from("curriculum_topics")
-        .select("id, title")
-        .eq("curriculum_id", bp.curriculum_id)
-        .is("parent_topic_id", null)
-        .ilike("title", `%${lfTitle.split(":")[0]?.trim() || lfTitle}%`)
-        .limit(3);
-
-      if (parentTopics && parentTopics.length > 0) {
-        const parentIds = parentTopics.map(t => t.id);
-        const { data: subtopics } = await sb
-          .from("curriculum_topics")
-          .select("title, difficulty_level")
-          .in("parent_topic_id", parentIds)
-          .limit(20);
-
-        if (subtopics) {
-          depthTopics = subtopics.map(s =>
-            `${s.title}${s.difficulty_level ? ` (${s.difficulty_level})` : ""}`
-          );
-        }
+      const { data: parentTopics } = await sb.from("curriculum_topics").select("id, title")
+        .eq("curriculum_id", bp.curriculum_id).is("parent_topic_id", null)
+        .ilike("title", `%${lfTitle.split(":")[0]?.trim() || lfTitle}%`).limit(3);
+      if (parentTopics?.length) {
+        const { data: subtopics } = await sb.from("curriculum_topics").select("title, difficulty_level")
+          .in("parent_topic_id", parentTopics.map(t => t.id)).limit(15);
+        if (subtopics) depthTopics = subtopics.map(s => `${s.title}${s.difficulty_level ? ` (${s.difficulty_level})` : ""}`);
       }
-    } catch (e) {
-      console.log(`[ExamPool-Dominanz] Depth load failed: ${(e as Error).message}`);
-    }
+    } catch { /* depth load optional */ }
   }
 
-  const { system, user } = buildDominanzPrompt(bp, difficulty, questionType, count, lfTitle, compTitle, compDesc, professionName, depthTopics);
+  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, count, lfTitle, compTitle, compDesc, professionName, depthTopics);
 
-  // Route: OpenAI primary → Anthropic fallback (DeepSeek/Google excluded)
-  const sbRef = (globalThis as any).__examPoolSb;
+  // Turbo token budget: 1-2 questions need max 1500 tokens
+  const maxTokens = count <= 1 ? 1200 : count <= 2 ? 1800 : 3000;
+
   let exclude: string[] = [];
   let result: { content: string } | undefined;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const { provider, model } = pickProvider(exclude);
-
     try {
       result = await callAIJSON({
-        provider,
-        model,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
+        provider, model,
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
         temperature: 0.85,
-        max_tokens: count <= 2 ? 4096 : 8192, // Tight tokens for small batches
+        max_tokens: maxTokens,
       });
-      break; // success
+      break;
     } catch (e: unknown) {
       const errMsg = (e as Error)?.message || String(e);
-      const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409") || errMsg.includes("rate_limited");
+      const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409");
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
-      const shouldFailover = isRate || isTimeout;
 
-      if (shouldFailover) {
-        console.log(`[ExamPool-Dominanz] ${isTimeout ? "Timeout" : "Rate limited"} on ${provider}/${model}, attempt ${attempt}/3, failing over...`);
-        if (sbRef) await markRateLimited(sbRef, provider, errMsg);
-        exclude.push(`${provider}:${model}`); // Exclude specific model, not whole provider
+      if (isRate || isTimeout) {
+        console.log(`[ExamPool-Turbo] ${isTimeout ? "Timeout" : "RateLimit"} ${provider}/${model} attempt ${attempt}/3`);
+        if ((globalThis as any).__examPoolSb) await markRateLimited((globalThis as any).__examPoolSb, provider, errMsg);
+        exclude.push(`${provider}:${model}`);
         continue;
       }
-
-      console.log(`[ExamPool-Dominanz] AI error (${provider}/${model}): ${errMsg}`);
+      console.log(`[ExamPool-Turbo] AI error (${provider}/${model}): ${errMsg}`);
       return 0;
     }
   }
 
-  if (!result) {
-    throw new Error("ALL_PROVIDERS_EXHAUSTED");
-  }
+  if (!result?.content) return 0;
 
-  const rawContent = result.content || "";
-  if (!rawContent) return 0;
-
-  let questions: Array<{
-    question_text: string;
-    options: string[];
-    correct_answer: number | number[];
-    explanation: string;
-    difficulty: string;
-    question_type?: string;
-    tags?: string[];
-    calculation_steps?: string;
-  }>;
-  try {
-    const clean = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    questions = JSON.parse(clean);
-    if (!Array.isArray(questions)) return 0;
-  } catch {
-    console.log(`[ExamPool-Dominanz] JSON parse failed for BP ${bp.id.slice(0, 8)}`);
+  // JSON auto-repair
+  const parsed = repairJSON(result.content);
+  if (!parsed) {
+    console.log(`[ExamPool-Turbo] JSON repair failed for BP ${bp.id.slice(0, 8)}`);
     return 0;
   }
 
-  // ── Contamination Guard: block foreign-industry keywords via shared guard ──
-
+  const questions = Array.isArray(parsed) ? parsed : [parsed];
   let saved = 0;
+
   for (const q of questions) {
     if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
 
-    // Reject questions with unresolved placeholders
-    if (/\{[a-z_]+\}/i.test(q.question_text)) {
-      console.log(`[ExamPool-Dominanz] REJECTED: unresolved placeholder in "${q.question_text.slice(0, 60)}"`);
-      continue;
-    }
+    // Reject unresolved placeholders
+    if (/\{[a-z_]+\}/i.test(q.question_text)) continue;
 
-    // CONTAMINATION GUARD: Block foreign-industry content
+    // Contamination guard
     const contam = checkContamination(q.question_text + " " + (q.explanation || ""), professionName);
     if (contam.isContaminated) {
-      console.log(`[ExamPool-Dominanz] CONTAMINATION BLOCKED: ${contam.detectedIndustry} terms [${contam.matchedTerms.join(",")}] in question for "${professionName}": "${q.question_text.slice(0, 60)}"`);
+      console.log(`[ExamPool-Turbo] CONTAMINATION: ${contam.detectedIndustry} in "${q.question_text.slice(0, 50)}"`);
       continue;
     }
 
-    // Simple hash-based dedup
+    // Hash dedup
     const hash = simpleHash(q.question_text);
-    if (existingHashes.has(hash)) {
-      console.log(`[ExamPool-Dominanz] REJECTED: duplicate hash`);
-      continue;
-    }
+    if (existingHashes.has(hash)) continue;
     existingHashes.add(hash);
 
     const { error } = await sb.from("exam_questions").insert({
@@ -384,13 +278,10 @@ async function generateDominanzQuestions(
       ai_generated: true,
       status: "draft",
     });
+
     if (error) {
-      // Idempotency: skip duplicates silently
-      if (error.code === "23505") {
-        console.log(`[ExamPool-Dominanz] Duplicate question skipped`);
-      } else {
-        console.log(`[ExamPool-Dominanz] Insert error: ${error.message}`);
-      }
+      if (error.code === "23505") { /* duplicate, skip */ }
+      else console.log(`[ExamPool-Turbo] Insert error: ${error.message}`);
     } else {
       saved++;
     }
@@ -403,12 +294,12 @@ function simpleHash(text: string): string {
   const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
   for (let i = 0; i < normalized.length; i++) {
     hash = ((hash << 5) + hash) + normalized.charCodeAt(i);
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash;
   }
   return hash.toString(36);
 }
 
-// ─── Stufe 2: Fan-out by learning field ────────────────────────────────────────
+// ─── Fan-out by learning field ────────────────────────────────────────────────
 
 async function enqueueLearningFieldJobs(
   sb: ReturnType<typeof createClient>,
@@ -450,7 +341,7 @@ async function enqueueLearningFieldJobs(
   if (jobs.length > 0) {
     const { error } = await sb.from("job_queue").insert(jobs);
     if (error) {
-      console.log(`[ExamPool-Dominanz] Fan-out enqueue error: ${error.message}`);
+      console.log(`[ExamPool-Turbo] Fan-out enqueue error: ${error.message}`);
       return { enqueued: 0, learningFields: lfGroups.size };
     }
   }
@@ -458,13 +349,8 @@ async function enqueueLearningFieldJobs(
   return { enqueued: jobs.length, learningFields: lfGroups.size };
 }
 
-async function allFanOutSubJobsDone(
-  sb: ReturnType<typeof createClient>,
-  packageId: string,
-): Promise<boolean> {
-  const { count } = await sb
-    .from("job_queue")
-    .select("id", { count: "exact", head: true })
+async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, packageId: string): Promise<boolean> {
+  const { count } = await sb.from("job_queue").select("id", { count: "exact", head: true })
     .eq("job_type", "package_generate_exam_pool")
     .in("status", ["pending", "processing"])
     .contains("payload", { package_id: packageId, _fan_out: true });
@@ -489,19 +375,16 @@ Deno.serve(async (req) => {
   const isFanOut = p._fan_out === true;
   const blueprintIds: string[] | null = p.blueprint_ids || null;
 
-  // Store sb reference for rate-limit tracking
   (globalThis as any).__examPoolSb = sb;
-  console.log(`[ExamPool-Dominanz] Provider routing: OpenAI primary → Anthropic fallback (DeepSeek excluded)`);
+  console.log(`[ExamPool-Turbo] Provider: gpt-4o-mini → gpt-4.1 → claude-sonnet-4`);
   const lfTarget = p.lf_target || examTarget;
 
-  // Apply dynamic distributions from Hybrid Target Engine (if provided)
+  // Apply dynamic distributions
   if (p.options?.difficulty_distribution) {
     DIFFICULTY_DISTRIBUTION = p.options.difficulty_distribution;
-    console.log(`[ExamPool-Dominanz] Using dynamic difficulty: ${JSON.stringify(DIFFICULTY_DISTRIBUTION)}`);
   }
   if (p.options?.question_type_mix) {
     QUESTION_TYPE_MIX = p.options.question_type_mix;
-    console.log(`[ExamPool-Dominanz] Using dynamic type mix: ${JSON.stringify(QUESTION_TYPE_MIX)}`);
   }
 
   const batchCursor = p._batch_cursor || p.batch_cursor || null;
@@ -510,154 +393,103 @@ Deno.serve(async (req) => {
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
-  // Heartbeat helper — non-critical, pipeline-runner manages heartbeats
-  const heartbeat = async () => {
-    // Legacy heartbeat removed — pipeline-runner handles lease renewal
-  };
-
-  // pipeline-runner handles step_start/step_done/step_fail.
-  // Do NOT set package status here — let the runner manage it.
-  const failAndUnlock = async (_msg: string) => {
-    // No-op: pipeline-runner handles failure state
-  };
-
   try {
     if (!isFanOut) {
       if (!(await prereqDone(sb, packageId, "scaffold_learning_course"))) {
-        // PREREQ not ready is a scheduling case, NOT an error.
-        // Defer the job without burning attempts — the runner will re-process it later.
         const jobId = p.job_id || body.job_id;
         if (jobId) {
-          await sb
-            .from("job_queue")
-            .update({
-              status: "pending",
-              run_after: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
-              locked_at: null,
-              locked_by: null,
-              updated_at: new Date().toISOString(),
-              // Do NOT increment attempts — this is not a real failure
-            })
-            .eq("id", jobId);
-          console.log(`[ExamPool] PREREQ_NOT_DONE: scaffold — deferred job ${jobId} by 2min (no attempt burn)`);
+          await sb.from("job_queue").update({
+            status: "pending",
+            run_after: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+            locked_at: null, locked_by: null,
+            updated_at: new Date().toISOString(),
+          }).eq("id", jobId);
           return json({ ok: true, delayed: true, reason: "PREREQ_NOT_DONE: scaffold_learning_course" });
         }
-        // Fallback if no job_id available: return 409 for pipeline-runner to handle
         return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: scaffold_learning_course" }, 409);
       }
     }
 
-    // Load profession name from SSOT — HARD GUARD (no fallback)
+    // Resolve profession
     const certificationId = p.certification_id || null;
     const professionResult = await resolveProfession(sb, { certificationId, curriculumId });
     const professionName = professionResult.professionName;
-    console.log(`[ExamPool-Dominanz] Profession resolved: "${professionName}" (source: ${professionResult.source})`);
 
     if (generatedSoFar === 0 && !isFanOut) {
-      console.log(`[ExamPool-Dominanz] Starting for "${professionName}": target=${examTarget}, difficulty=5/35/45/15, types=MC/Calc/Case/Transfer`);
+      console.log(`[ExamPool-Turbo] Start "${professionName}": target=${examTarget}`);
     }
 
     // Get blueprints
-    let bpQuery = sb
-      .from("question_blueprints")
+    let bpQuery = sb.from("question_blueprints")
       .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template")
-      .eq("curriculum_id", curriculumId)
-      .eq("status", "approved")
-      .order("created_at", { ascending: true });
+      .eq("curriculum_id", curriculumId).eq("status", "approved").order("created_at", { ascending: true });
 
-    if (blueprintIds && blueprintIds.length > 0) {
-      bpQuery = bpQuery.in("id", blueprintIds);
-    }
+    if (blueprintIds?.length) bpQuery = bpQuery.in("id", blueprintIds);
 
-    let { data: bps, error: bpErr } = await bpQuery;
+    const { data: bps, error: bpErr } = await bpQuery;
     if (bpErr) throw bpErr;
-
-    if (!bps?.length) throw new Error("No approved question_blueprints for curriculum. Run auto_seed_exam_blueprints step first.");
+    if (!bps?.length) throw new Error("No approved question_blueprints for curriculum.");
 
     // Fan-out for large sets
     if (!isFanOut && bpIndex === 0 && bps.length > 10) {
-      console.log(`[ExamPool-Dominanz] Fan-out ${bps.length} blueprints by learning field`);
-      const { enqueued, learningFields } = await enqueueLearningFieldJobs(
-        sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget
-      );
-
+      const { enqueued, learningFields } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
       if (enqueued > 0) {
-        console.log(`[ExamPool-Dominanz] Fan-out: ${enqueued} sub-jobs for ${learningFields} Lernfelder`);
+        console.log(`[ExamPool-Turbo] Fan-out: ${enqueued} sub-jobs for ${learningFields} LFs`);
         return json({ ok: true, batch_complete: true, fan_out: true, sub_jobs: enqueued });
       }
     }
 
-    // Load existing question hashes for dedup
-    const { data: existingQs } = await sb
-      .from("exam_questions")
-      .select("question_text")
-      .eq("curriculum_id", curriculumId)
-      .limit(5000);
-    
+    // Load existing hashes for dedup
+    const { data: existingQs } = await sb.from("exam_questions").select("question_text").eq("curriculum_id", curriculumId).limit(5000);
     const existingHashes = new Set<string>();
-    if (existingQs) {
-      for (const q of existingQs) {
-        existingHashes.add(simpleHash(q.question_text));
-      }
-    }
+    if (existingQs) for (const q of existingQs) existingHashes.add(simpleHash(q.question_text));
 
     const effectiveTarget = isFanOut ? lfTarget : examTarget;
-    const perBlueprint = Math.max(5, Math.ceil(effectiveTarget / bps.length));
+    const perBlueprint = Math.max(3, Math.ceil(effectiveTarget / bps.length));
     let questionsThisChunk = 0;
     let currentBpIndex = bpIndex;
-    const errors: string[] = [];
     let bpsProcessed = 0;
+
+    const typeEntries = Object.entries(QUESTION_TYPE_MIX) as [QuestionTypeKey, number][];
+    const diffEntries = Object.entries(DIFFICULTY_DISTRIBUTION) as [DifficultyKey, number][];
 
     while (bpsProcessed < AI_CHUNK_SIZE && currentBpIndex < bps.length) {
       const bp = bps[currentBpIndex] as BlueprintInfo & { max_variations: number | null };
-      
-      // Heartbeat pipeline lock every blueprint iteration
-      await heartbeat();
 
-      // Distribute difficulty and question types across the chunk
-      const questionsPerType = Math.max(1, Math.ceil(perBlueprint / 5));
-      
-      // Generate each type with appropriate difficulty
-      const typeEntries = Object.entries(QUESTION_TYPE_MIX) as [QuestionTypeKey, number][];
-      const diffEntries = Object.entries(DIFFICULTY_DISTRIBUTION) as [DifficultyKey, number][];
-      
-      // Pick difficulty and type based on global progress
-      const globalProgress = (currentBpIndex * 5 + bpsProcessed) % (typeEntries.length * diffEntries.length);
-      const typeIdx = globalProgress % typeEntries.length;
-      const diffIdx = Math.floor(globalProgress / typeEntries.length) % diffEntries.length;
-      
-      const questionType = typeEntries[typeIdx][0];
-      const difficulty = diffEntries[diffIdx][0];
-      const count = Math.min(questionsPerType, AI_QUESTIONS_PER_BLUEPRINT);
+      // TURBO: Multiple small calls per blueprint instead of one big call
+      const callsPerBp = Math.ceil(perBlueprint / AI_QUESTIONS_PER_CALL);
+      const maxCallsPerBp = Math.min(callsPerBp, 6); // Cap at 6 calls per BP per cycle
 
-      try {
-        console.log(`[ExamPool-Dominanz] BP ${bp.id.slice(0, 8)} "${bp.name}": ${count}x ${questionType}/${difficulty}`);
-        const generated = await generateDominanzQuestions(sb, bp, count, difficulty, questionType, existingHashes, professionName);
-        questionsThisChunk += generated;
-        console.log(`[ExamPool-Dominanz] BP ${bp.id.slice(0, 8)}: saved ${generated}/${count}`);
-      } catch (e: unknown) {
-        const errMsg = (e as Error)?.message || String(e);
-        console.log(`[ExamPool-Dominanz] BP ${bp.id.slice(0, 8)} FAIL: ${errMsg}`);
-        errors.push(`BP ${bp.id.slice(0, 8)}: ${errMsg}`);
+      for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx++) {
+        const globalIdx = (currentBpIndex * maxCallsPerBp + callIdx);
+        const typeIdx = globalIdx % typeEntries.length;
+        const diffIdx = Math.floor(globalIdx / typeEntries.length) % diffEntries.length;
+        const questionType = typeEntries[typeIdx][0];
+        const difficulty = diffEntries[diffIdx][0];
+
+        try {
+          const generated = await generateTurboQuestions(
+            sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, existingHashes, professionName
+          );
+          questionsThisChunk += generated;
+        } catch (e: unknown) {
+          console.log(`[ExamPool-Turbo] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
+        }
       }
+
       currentBpIndex++;
       bpsProcessed++;
     }
 
-    // Count actual questions
-    const { count: totalQuestions } = await sb
-      .from("exam_questions")
-      .select("id", { count: "exact", head: true })
-      .eq("curriculum_id", curriculumId);
+    // Count actual total
+    const { count: totalQuestions } = await sb.from("exam_questions")
+      .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
 
     const actualTotal = totalQuestions ?? 0;
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
     const targetReached = actualTotal >= shipTarget;
 
-    console.log(
-      `[ExamPool-Dominanz] Package ${packageId.slice(0, 8)}: +${questionsThisChunk} this run, ` +
-      `total=${actualTotal}/${examTarget}, BPs ${currentBpIndex}/${bps.length}${isFanOut ? ' (fan-out)' : ''}`
-    );
+    console.log(`[ExamPool-Turbo] +${questionsThisChunk} this run, total=${actualTotal}/${examTarget}, BPs ${currentBpIndex}/${bps.length}`);
 
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
@@ -665,27 +497,15 @@ Deno.serve(async (req) => {
     if (targetReached) {
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
-        let diffStats = null;
-        try { const res = await sb.rpc("get_difficulty_distribution", { p_curriculum_id: curriculumId }); diffStats = res.data; } catch { /* ignore */ }
-        console.log(`[ExamPool-Dominanz] Target reached: ${actualTotal}/${examTarget}, BPs=${currentBpIndex}`);
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
-
-      return json({
-        ok: true, batch_complete: true, engine: "dominanz-v2",
-        total_questions: actualTotal, target: examTarget,
-      });
+      return json({ ok: true, batch_complete: true, engine: "turbo-v3", total_questions: actualTotal, target: examTarget });
     } else if (allBlueprintsProcessed) {
       const currentLoop = (batchCursor?.loop_count ?? 0) + 1;
       if (currentLoop >= 8) {
-        console.log(`[ExamPool-Dominanz] Loop cap (${currentLoop}). Accepting ${actualTotal}.`);
-        if (!isFanOut) {
-          await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
-        }
+        if (!isFanOut) await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
         return json({ ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true });
       }
-
-      console.log(`[ExamPool-Dominanz] Re-looping cycle ${currentLoop}: ${actualTotal}/${examTarget}`);
       return json({
         ok: true, batch_complete: false,
         batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: currentLoop },
@@ -698,8 +518,7 @@ Deno.serve(async (req) => {
     }
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
-    console.log(`[ExamPool-Dominanz] Fatal: ${msg}`);
-    if (!isFanOut) await failAndUnlock(msg);
+    console.log(`[ExamPool-Turbo] Fatal: ${msg}`);
     return json({ ok: false, error: msg }, 500);
   }
 });
