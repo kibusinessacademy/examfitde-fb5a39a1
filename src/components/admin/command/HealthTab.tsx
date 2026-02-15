@@ -50,6 +50,7 @@ export default function HealthTab() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [lastAutoOps, setLastAutoOps] = useState<{ ts: string; failed_retried: number; stuck_recovered: number } | null>(null);
+  const [lastEscalation, setLastEscalation] = useState<{ level: number; action: string; target: string; ts: string } | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const isMobile = useIsMobile();
 
@@ -57,7 +58,7 @@ export default function HealthTab() {
     try {
       const sb = supabase as any;
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, costRes, budgetRes, queueRes, aiRes, autoOpsRes] = await Promise.all([
+      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, costRes, budgetRes, queueRes, aiRes, autoOpsRes, escalationRes] = await Promise.all([
         sb.from('course_packages').select('id, title, status, build_progress, priority, current_step, step_status_json, created_at, updated_at, track').lte('priority', 20).order('priority').order('created_at'),
         sb.from('support_tickets').select('status'),
         sb.from('profiles').select('id', { count: 'exact', head: true }),
@@ -68,6 +69,7 @@ export default function HealthTab() {
         callAdminOps('queue_health').catch(() => ({ pending: 0, processing: 0, failed: 0, stuck: 0 })),
         callDecisionEngine().catch(() => null),
         sb.from('auto_heal_log').select('created_at, metadata').eq('action_type', 'auto_ops_cycle').order('created_at', { ascending: false }).limit(1),
+        sb.from('escalation_log').select('escalation_level, action_type, target, created_at').order('created_at', { ascending: false }).limit(1),
       ]);
       setPackages((pkgRes.data || []) as PackageInfo[]);
       const tickets = (ticketRes.data || []) as { status: string }[];
@@ -85,6 +87,10 @@ export default function HealthTab() {
       const autoOpsRow = (autoOpsRes.data || [])[0];
       if (autoOpsRow?.metadata) {
         setLastAutoOps({ ts: autoOpsRow.created_at, failed_retried: autoOpsRow.metadata.failed_retried ?? 0, stuck_recovered: autoOpsRow.metadata.stuck_recovered ?? 0 });
+      }
+      const escRow = (escalationRes.data || [])[0];
+      if (escRow) {
+        setLastEscalation({ level: escRow.escalation_level, action: escRow.action_type, target: escRow.target, ts: escRow.created_at });
       }
       setLastRefresh(new Date());
     } catch (e) { console.error('[Command] Load error:', e); }
@@ -131,6 +137,12 @@ export default function HealthTab() {
                   {lastAutoOps.failed_retried + lastAutoOps.stuck_recovered} geheilt
                 </span>
               )}
+            </Badge>
+          )}
+          {lastEscalation && lastEscalation.level > 0 && (
+            <Badge variant="outline" className={cn("text-[10px] gap-1", lastEscalation.level >= 3 ? "border-destructive/40 text-destructive" : "border-amber-500/40 text-amber-600 dark:text-amber-400")}>
+              <Zap className="h-3 w-3" />
+              L{lastEscalation.level} {lastEscalation.action.replace(/_/g, ' ')}
             </Badge>
           )}
         </div>
