@@ -16419,6 +16419,10 @@ export type Database = {
         }
         Returns: Json
       }
+      auto_heal_prereq_retry_cap_failures: {
+        Args: { p_limit?: number }
+        Returns: number
+      }
       auto_retry_stuck_package: {
         Args: { p_package_id: string }
         Returns: number
