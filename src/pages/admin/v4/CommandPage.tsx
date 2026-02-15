@@ -1,9 +1,12 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Activity, Award, DollarSign, AlertTriangle } from 'lucide-react';
+import { Activity, Award, DollarSign, AlertTriangle, TrendingUp, Cpu, Users } from 'lucide-react';
 import HealthTab from '@/components/admin/command/HealthTab';
 import QualityTab from '@/components/admin/command/QualityTab';
 import CostTab from '@/components/admin/command/CostTab';
 import ErrorsTab from '@/components/admin/command/ErrorsTab';
+import RoiTab from '@/components/admin/command/RoiTab';
+import RoutingTab from '@/components/admin/command/RoutingTab';
+import SeatsTab from '@/components/admin/command/SeatsTab';
 
 export default function CommandPage() {
   return (
@@ -11,7 +14,7 @@ export default function CommandPage() {
       <h1 className="text-xl lg:text-2xl font-display font-bold text-foreground">Leitstelle</h1>
 
       <Tabs defaultValue="health" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-auto">
+        <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="health" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
             <Activity className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Health</span>
@@ -28,12 +31,27 @@ export default function CommandPage() {
             <AlertTriangle className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Errors</span>
           </TabsTrigger>
+          <TabsTrigger value="roi" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
+            <TrendingUp className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">ROI</span>
+          </TabsTrigger>
+          <TabsTrigger value="routing" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
+            <Cpu className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Routing</span>
+          </TabsTrigger>
+          <TabsTrigger value="seats" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
+            <Users className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Seats</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="health" className="mt-4"><HealthTab /></TabsContent>
         <TabsContent value="quality" className="mt-4"><QualityTab /></TabsContent>
         <TabsContent value="cost" className="mt-4"><CostTab /></TabsContent>
         <TabsContent value="errors" className="mt-4"><ErrorsTab /></TabsContent>
+        <TabsContent value="roi" className="mt-4"><RoiTab /></TabsContent>
+        <TabsContent value="routing" className="mt-4"><RoutingTab /></TabsContent>
+        <TabsContent value="seats" className="mt-4"><SeatsTab /></TabsContent>
       </Tabs>
     </div>
   );

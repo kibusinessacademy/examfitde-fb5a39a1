@@ -48,6 +48,7 @@ function getAIMode(examMode: string): AIMode {
     case 'timed_exam':
       return AI_MODES.EXAM;
     case 'practice':
+    case 'adaptive':
       return AI_MODES.PRACTICE;
     case 'simulation':
     default:
@@ -98,7 +99,7 @@ export default function ExamSimulation() {
   }, [activeSession, sessionId, navigate]);
   
   // Handle start exam
-  const handleStartExam = async (blueprintId: string, mode: 'simulation' | 'practice' | 'timed_exam') => {
+  const handleStartExam = async (blueprintId: string, mode: 'simulation' | 'practice' | 'timed_exam' | 'adaptive') => {
     const newSessionId = await startExam.mutateAsync({ blueprintId, mode });
     navigate(`/exam-simulation/${newSessionId}`);
   };
