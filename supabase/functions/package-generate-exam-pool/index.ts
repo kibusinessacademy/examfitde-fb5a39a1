@@ -86,11 +86,16 @@ async function pickProvider(sb: ReturnType<typeof createClient>, exclude: string
 }
 
 async function markRateLimited(sb: ReturnType<typeof createClient>, provider: string, err: string) {
-  await sb.rpc("mark_provider_rate_limited", {
-    p_provider: provider,
-    p_cooldown_seconds: 90,
-    p_error: err,
-  }).catch((e: any) => console.log(`[ExamPool] markRateLimited error: ${e.message}`));
+  try {
+    const { error } = await sb.rpc("mark_provider_rate_limited", {
+      p_provider: provider,
+      p_cooldown_seconds: 90,
+      p_error: err,
+    });
+    if (error) console.log(`[ExamPool] markRateLimited error: ${error.message}`);
+  } catch (e: any) {
+    console.log(`[ExamPool] markRateLimited error: ${e.message}`);
+  }
 }
 
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
@@ -125,6 +130,8 @@ function buildDominanzPrompt(
   lfTitle: string,
   compTitle: string,
   compDesc: string,
+  professionName: string,
+  depthTopics: string[],
 ): { system: string; user: string } {
   const difficultyLabels: Record<DifficultyKey, string> = {
     easy: "leicht (Grundlagenwissen, direkte Zuordnung)",
@@ -137,7 +144,7 @@ function buildDominanzPrompt(
     mc_single: `Multiple-Choice mit EINER korrekten Antwort.
 - 4 Antwortmöglichkeiten
 - Distraktoren müssen typische Fehler/Irrtümer abbilden (nicht offensichtlich falsch)
-- Konkreter Praxiskontext (Autohaus, Werkstatt, Kunde)`,
+- Konkreter Praxiskontext aus dem Berufsalltag (${professionName})`,
     mc_multiple: `Multiple-Choice mit MEHREREN korrekten Antworten (2-3 von 5).
 - 5 Antwortmöglichkeiten, 2-3 korrekt
 - correct_answer ist ein Array der korrekten Indizes [0,2,4]
@@ -145,11 +152,11 @@ function buildDominanzPrompt(
     calculation: `Rechenaufgabe mit konkreten Zahlen.
 - Realistische Werte (Preise, Rabatte, Steuersätze, Zinsen)
 - Lösungsweg in der Erklärung Schritt für Schritt
-- Typische Autohaus-Berechnungen: Kalkulation, USt, Skonto, Rabatt, Leasing, Deckungsbeitrag
+- Berufstypische Berechnungen für ${professionName}
 - Antworten als konkrete Zahlenwerte
 - KEINE Platzhalter wie {variable} — alle Zahlen einsetzen!`,
     case_study: `Situationsbasierte Fallstudie.
-- Konkreter Fall aus dem Autohaus-Alltag beschreiben (Name, Situation, Zahlen)
+- Konkreter Fall aus dem Berufsalltag (${professionName}) beschreiben (Name, Situation, Zahlen)
 - Frage bezieht sich auf Handlungsempfehlung, Rechtslage oder Berechnung
 - Alle 4 Antworten müssen plausibel sein
 - Erklärung mit Paragraphen-/Gesetzesreferenz wenn anwendbar`,
@@ -159,7 +166,12 @@ function buildDominanzPrompt(
 - Tiefe Erklärung warum die Antwort korrekt ist`,
   };
 
-  const system = `Du bist ein IHK-Prüfungsexperte für Automobilkaufleute. Du erstellst prüfungsrelevante Fragen auf ${difficultyLabels[difficulty]}-Niveau.
+  const depthBlock = depthTopics.length > 0
+    ? `\n\nCURRICULUM-TIEFE (Unterthemen aus dem Rahmenplan – nutze diese als fachliche Grundlage):
+${depthTopics.map(t => `- ${t}`).join("\n")}`
+    : "";
+
+  const system = `Du bist ein IHK-Prüfungsexperte für ${professionName}. Du erstellst prüfungsrelevante Fragen auf ${difficultyLabels[difficulty]}-Niveau.
 
 ABSOLUTE REGELN:
 1. KEINE Platzhalter wie {variable}, {amount}, {akteur} — ALLE Werte konkret einsetzen!
@@ -183,9 +195,9 @@ Antworte NUR mit einem JSON-Array:
 }]
 
 ${questionType === "mc_multiple" ? 'Bei mc_multiple: "options" hat 5 Einträge, "correct_answer" ist ein Array z.B. [0,2,4]' : ""}
-${questionType === "calculation" ? 'Bei Rechenaufgaben: "calculation_steps" als zusätzliches Feld mit Schritt-für-Schritt-Lösung' : ""}`;
+${questionType === "calculation" ? 'Bei Rechenaufgaben: "calculation_steps" als zusätzliches Feld mit Schritt-für-Schritt-Lösung' : ""}${depthBlock}`;
 
-  const user = `Erstelle ${count} EINZIGARTIGE ${difficultyLabels[difficulty]} Prüfungsfragen.
+  const user = `Erstelle ${count} EINZIGARTIGE ${difficultyLabels[difficulty]} Prüfungsfragen für den Beruf "${professionName}".
 
 Lernfeld: ${lfTitle}
 Thema: ${compTitle}
@@ -193,10 +205,10 @@ Beschreibung: ${compDesc}
 Blueprint-Kontext: ${bp.canonical_statement}
 
 WICHTIG: 
-- Jede Frage braucht einen KONKRETEN Fall (z.B. "Herr Müller kauft einen BMW 320i für 35.000€...")
+- Jede Frage braucht einen KONKRETEN Fall mit realistischem Praxisbezug für ${professionName}
 - Keine generischen Fragen wie "Was ist...?" ohne Kontext
 - Bei Berechnungen: Alle Zahlen einsetzen, Lösungsweg zeigen
-- Automobilkaufmann-spezifisch: Fahrzeughandel, Werkstatt, Finanzierung, Versicherung`;
+- Berufsspezifisch für ${professionName}`;
 
   return { system, user };
 }
@@ -208,10 +220,12 @@ async function generateDominanzQuestions(
   difficulty: DifficultyKey,
   questionType: QuestionTypeKey,
   existingHashes: Set<string>,
+  professionName: string,
 ): Promise<number> {
   let compTitle = bp.name;
   let compDesc = bp.canonical_statement;
   let lfTitle = "";
+  let depthTopics: string[] = [];
 
   if (bp.competency_id) {
     const { data: comp } = await sb
@@ -228,9 +242,37 @@ async function generateDominanzQuestions(
       .eq("id", bp.learning_field_id)
       .maybeSingle();
     if (lf) lfTitle = lf.title || "";
+
+    // Load curriculum depth topics for this learning field
+    try {
+      const { data: parentTopics } = await sb
+        .from("curriculum_topics")
+        .select("id, title")
+        .eq("curriculum_id", bp.curriculum_id)
+        .is("parent_topic_id", null)
+        .ilike("title", `%${lfTitle.split(":")[0]?.trim() || lfTitle}%`)
+        .limit(3);
+
+      if (parentTopics && parentTopics.length > 0) {
+        const parentIds = parentTopics.map(t => t.id);
+        const { data: subtopics } = await sb
+          .from("curriculum_topics")
+          .select("title, difficulty_level")
+          .in("parent_topic_id", parentIds)
+          .limit(20);
+
+        if (subtopics) {
+          depthTopics = subtopics.map(s =>
+            `${s.title}${s.difficulty_level ? ` (${s.difficulty_level})` : ""}`
+          );
+        }
+      }
+    } catch (e) {
+      console.log(`[ExamPool-Dominanz] Depth load failed: ${(e as Error).message}`);
+    }
   }
 
-  const { system, user } = buildDominanzPrompt(bp, difficulty, questionType, count, lfTitle, compTitle, compDesc);
+  const { system, user } = buildDominanzPrompt(bp, difficulty, questionType, count, lfTitle, compTitle, compDesc, professionName, depthTopics);
 
   // Route through DB autopilot with provider failover
   const sbRef = (globalThis as any).__examPoolSb;
@@ -491,8 +533,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Load profession name dynamically from curriculum
+    let professionName = "Auszubildende"; // safe fallback
+    try {
+      const { data: curriculum } = await sb
+        .from("curricula")
+        .select("title, profession")
+        .eq("id", curriculumId)
+        .maybeSingle();
+      if (curriculum) {
+        professionName = curriculum.profession || curriculum.title || professionName;
+      }
+    } catch (e) {
+      console.log(`[ExamPool-Dominanz] Profession load failed, using fallback: ${(e as Error).message}`);
+    }
+
     if (generatedSoFar === 0 && !isFanOut) {
-      console.log(`[ExamPool-Dominanz] Starting: target=${examTarget}, difficulty=5/35/45/15, types=MC/Calc/Case/Transfer`);
+      console.log(`[ExamPool-Dominanz] Starting for "${professionName}": target=${examTarget}, difficulty=5/35/45/15, types=MC/Calc/Case/Transfer`);
     }
 
     // Get blueprints
@@ -570,7 +627,7 @@ Deno.serve(async (req) => {
 
       try {
         console.log(`[ExamPool-Dominanz] BP ${bp.id.slice(0, 8)} "${bp.name}": ${count}x ${questionType}/${difficulty}`);
-        const generated = await generateDominanzQuestions(sb, bp, count, difficulty, questionType, existingHashes);
+        const generated = await generateDominanzQuestions(sb, bp, count, difficulty, questionType, existingHashes, professionName);
         questionsThisChunk += generated;
         console.log(`[ExamPool-Dominanz] BP ${bp.id.slice(0, 8)}: saved ${generated}/${count}`);
       } catch (e: unknown) {
