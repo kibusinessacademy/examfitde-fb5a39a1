@@ -16521,10 +16521,19 @@ export type Database = {
         Args: { p_error: string; p_package_id: string; p_step_key: string }
         Returns: undefined
       }
-      step_heartbeat: {
-        Args: { p_package_id: string; p_runner_id: string; p_step_key: string }
-        Returns: undefined
-      }
+      step_heartbeat:
+        | {
+            Args: { p_package_id: string; p_step_key: string }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_package_id: string
+              p_runner_id: string
+              p_step_key: string
+            }
+            Returns: undefined
+          }
       step_start: {
         Args: { p_package_id: string; p_runner_id?: string; p_step_key: string }
         Returns: undefined
