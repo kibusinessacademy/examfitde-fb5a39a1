@@ -10,7 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Clock, Package, XCircle, Activity,
   DollarSign, RefreshCw, Loader2, FileText, Headphones,
-  Users, AlertTriangle, TrendingUp, ArrowRight, Play, RotateCcw, Pause
+  Users, AlertTriangle, TrendingUp, ArrowRight, Play, RotateCcw, Pause,
+  ShieldAlert, Brain, Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -41,6 +42,25 @@ interface PlatformKPIs {
   revenueCents: number;
 }
 
+interface QueueHealth {
+  pending: number;
+  processing: number;
+  failed: number;
+  stuck: number;
+}
+
+interface BudgetInfo {
+  dailyCost: number;
+  monthBudget: number;
+  monthSpent: number;
+}
+
+interface AIDiagnose {
+  risks: { scope_id: string; score: number; risk_type: string }[];
+  recommendations: { title: string; impact: string; council_id: string }[];
+  systemHealth: { failedJobs: number; pendingJobs: number; gatePassRate: number; aiCostMtd: number; budgetPct: number } | null;
+}
+
 const STEP_LABELS: Record<string, string> = {
   scaffold_learning_course: 'Lernkurs',
   auto_seed_exam_blueprints: 'Blueprints',
@@ -61,12 +81,44 @@ const STEP_ORDER = [
 
 const fmtEur = (cents: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 
+async function callAdminOps(action: string) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-ops`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token || ''}`,
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+    body: JSON.stringify({ action }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function callDecisionEngine() {
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/decision-engine`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token || ''}`,
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+    body: JSON.stringify({ action: 'aggregate' }),
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export default function CommandPage() {
   const [packages, setPackages] = useState<PackageInfo[]>([]);
   const [kpis, setKpis] = useState<PlatformKPIs>({ seoPages: 0, ticketsOpen: 0, ticketsTotal: 0, usersTotal: 0, ordersPaid: 0, revenueCents: 0 });
-  const [dailyCost, setDailyCost] = useState(0);
+  const [queue, setQueue] = useState<QueueHealth>({ pending: 0, processing: 0, failed: 0, stuck: 0 });
+  const [budget, setBudget] = useState<BudgetInfo>({ dailyCost: 0, monthBudget: 0, monthSpent: 0 });
+  const [aiDiagnose, setAiDiagnose] = useState<AIDiagnose | null>(null);
   const [loading, setLoading] = useState(true);
-  const [acting, setActing] = useState(false);
+  const [acting, setActing] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const isMobile = useIsMobile();
@@ -76,17 +128,18 @@ export default function CommandPage() {
       const sb = supabase as any;
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
-      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, costRes] = await Promise.all([
+      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, costRes, budgetRes, queueRes, aiRes] = await Promise.all([
         sb.from('course_packages')
           .select('id, title, status, build_progress, priority, current_step, step_status_json, created_at, updated_at, track')
-          .lte('priority', 20)
-          .order('priority')
-          .order('created_at'),
+          .lte('priority', 20).order('priority').order('created_at'),
         sb.from('support_tickets').select('status'),
         sb.from('profiles').select('id', { count: 'exact', head: true }),
         sb.from('certification_seo_pages').select('id', { count: 'exact', head: true }),
         sb.from('orders').select('status, total_cents'),
         sb.from('ai_usage_log').select('cost_eur').gte('created_at', todayStart.toISOString()),
+        sb.from('ai_cost_budgets').select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1),
+        callAdminOps('queue_health').catch(() => ({ pending: 0, processing: 0, failed: 0, stuck: 0 })),
+        callDecisionEngine().catch(() => null),
       ]);
 
       setPackages((pkgRes.data || []) as PackageInfo[]);
@@ -94,7 +147,6 @@ export default function CommandPage() {
       const tickets = (ticketRes.data || []) as { status: string }[];
       const orders = (orderRes.data || []) as { status: string; total_cents: number }[];
       const paidOrders = orders.filter(o => o.status === 'paid');
-
       setKpis({
         seoPages: seoRes.count || 0,
         ticketsOpen: tickets.filter(t => t.status === 'open').length,
@@ -105,7 +157,25 @@ export default function CommandPage() {
       });
 
       const costs = (costRes.data || []) as { cost_eur: number }[];
-      setDailyCost(costs.reduce((s, c) => s + (c.cost_eur || 0), 0));
+      const dailyCost = costs.reduce((s, c) => s + (c.cost_eur || 0), 0);
+      const budgetRow = (budgetRes.data || [])[0];
+      setBudget({
+        dailyCost,
+        monthBudget: budgetRow?.budget_eur ?? 0,
+        monthSpent: budgetRow?.spent_eur ?? 0,
+      });
+
+      setQueue(queueRes as QueueHealth);
+
+      if (aiRes) {
+        setAiDiagnose({
+          risks: (aiRes.risks || []).slice(0, 5),
+          recommendations: (aiRes.decisions || []).slice(0, 6).map((d: any) => ({
+            title: d.title, impact: d.impact_score > 60 ? 'high' : 'medium', council_id: d.council_id,
+          })),
+          systemHealth: aiRes.systemHealth || null,
+        });
+      }
 
       setLastRefresh(new Date());
     } catch (e) { console.error('[Command] Load error:', e); }
@@ -126,10 +196,8 @@ export default function CommandPage() {
     return () => { supabase.removeChannel(channel); };
   }, [load]);
 
-  // Analysis
   const analysis = useMemo(() => {
     if (!packages.length) return null;
-
     const total = packages.length;
     const published = packages.filter(p => p.status === 'published').length;
     const building = packages.filter(p => p.status === 'building').length;
@@ -137,17 +205,25 @@ export default function CommandPage() {
     const blocked = packages.filter(p => p.status === 'blocked').length;
     const failed = packages.filter(p => p.status === 'failed').length;
     const remaining = total - published;
-
     const hoursPerPackage = 4;
     const slotsAvailable = 5;
     const estimatedDays = Math.ceil((remaining * hoursPerPackage) / (slotsAvailable * 24));
     const estimatedDate = new Date(Date.now() + estimatedDays * 86400_000);
-
     return { total, published, building, queued, blocked, failed, remaining, estimatedDays, estimatedDate };
   }, [packages]);
 
+  const runOpsAction = async (action: string, label: string) => {
+    setActing(action);
+    try {
+      const result = await callAdminOps(action);
+      toast.success(`${label}: ${result.count ?? 0} Jobs`);
+      setTimeout(load, 2000);
+    } catch (e: any) { toast.error(e.message); }
+    setActing(null);
+  };
+
   const triggerRunner = async () => {
-    setActing(true);
+    setActing('pipeline');
     try {
       const { data: { session } } = await supabase.auth.getSession();
       await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pipeline-runner`, {
@@ -161,24 +237,25 @@ export default function CommandPage() {
       toast.success('Pipeline-Runner getriggert');
       setTimeout(load, 2000);
     } catch (e: any) { toast.error(e.message); }
-    setActing(false);
+    setActing(null);
   };
 
   if (loading) return (
     <div className="space-y-6">
       <Skeleton className="h-10 w-64" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+        {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
       </div>
       <Skeleton className="h-96" />
     </div>
   );
 
-  // Group by priority
   const prio5 = packages.filter(p => p.priority === 5);
   const prio10 = packages.filter(p => p.priority === 10);
   const prio15 = packages.filter(p => p.priority === 15);
   const prio20 = packages.filter(p => p.priority === 20);
+
+  const budgetPct = budget.monthBudget > 0 ? Math.round((budget.monthSpent / budget.monthBudget) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -191,14 +268,53 @@ export default function CommandPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button size="sm" onClick={triggerRunner} disabled={acting} className="min-h-[44px] lg:min-h-0">
-            <Play className="h-3.5 w-3.5 mr-1" /> <span className="hidden sm:inline">Pipeline</span> Start
+          <Button size="sm" onClick={triggerRunner} disabled={!!acting} className="min-h-[44px] lg:min-h-0">
+            {acting === 'pipeline' ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Play className="h-3.5 w-3.5 mr-1" />}
+            <span className="hidden sm:inline">Pipeline</span> Start
           </Button>
           <Button variant="ghost" size="sm" onClick={load} className="min-h-[44px] lg:min-h-0 min-w-[44px]">
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
+
+      {/* ═══ JOB QUEUE HEALTH ═══ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-3">
+        <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Pending" value={queue.pending} />
+        <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Processing" value={queue.processing} />
+        <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Failed" value={queue.failed} alert={queue.failed > 0} />
+        <KPICard icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} label="Stuck (>10m)" value={queue.stuck} alert={queue.stuck > 0} />
+      </div>
+
+      {/* ═══ OPS ACTIONS ═══ */}
+      {(queue.failed > 0 || queue.stuck > 0) && (
+        <div className="flex flex-wrap gap-2">
+          {queue.failed > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => runOpsAction('retry_failed_jobs', 'Retry Failed')}
+              disabled={!!acting}
+              className="border-destructive/30 text-destructive hover:bg-destructive/10"
+            >
+              {acting === 'retry_failed_jobs' ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5 mr-1" />}
+              {queue.failed} Failed retrien
+            </Button>
+          )}
+          {queue.stuck > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => runOpsAction('recover_stuck_processing', 'Recover Stuck')}
+              disabled={!!acting}
+              className="border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+            >
+              {acting === 'recover_stuck_processing' ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
+              {queue.stuck} Stuck recovern
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* ═══ PRODUKT-KPIs ═══ */}
       {analysis && (
@@ -212,15 +328,101 @@ export default function CommandPage() {
         </div>
       )}
 
-      {/* ═══ FORTSCHRITTS-BALKEN ═══ */}
-      {analysis && (
+      {/* ═══ BUDGET / KOSTEN ═══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Card>
           <CardContent className="py-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Gesamtfortschritt</span>
-              <span className="text-xs lg:text-sm text-muted-foreground">{analysis.published}/{analysis.total} live</span>
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">KI-Kosten heute</span>
+              </div>
+              <span className="text-lg font-bold">€{budget.dailyCost.toFixed(2)}</span>
             </div>
-            <Progress value={(analysis.published / analysis.total) * 100} className="h-3" />
+            {budget.monthBudget > 0 && (
+              <>
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                  <span>Monatsbudget: €{budget.monthSpent.toFixed(0)} / €{budget.monthBudget.toFixed(0)}</span>
+                  <span className={cn(budgetPct > 80 && 'text-destructive font-semibold')}>{budgetPct}%</span>
+                </div>
+                <Progress value={budgetPct} className={cn("h-2", budgetPct > 80 && "[&>div]:bg-destructive")} />
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Fortschritt */}
+        {analysis && (
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Gesamtfortschritt</span>
+                <span className="text-xs lg:text-sm text-muted-foreground">{analysis.published}/{analysis.total} live</span>
+              </div>
+              <Progress value={(analysis.published / analysis.total) * 100} className="h-3" />
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* ═══ AI DIAGNOSE ═══ */}
+      {aiDiagnose && (
+        <Card className="border-primary/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Brain className="h-4 w-4 text-primary" /> AI Diagnose
+            </CardTitle>
+            <CardDescription>Decision Engine – Risk Scores & offene Empfehlungen</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Risk scores */}
+            {aiDiagnose.risks.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {aiDiagnose.risks.map((r, i) => (
+                  <Badge
+                    key={i}
+                    variant="outline"
+                    className={cn(
+                      "text-xs",
+                      r.score >= 70 && "border-destructive/40 text-destructive bg-destructive/5",
+                      r.score >= 40 && r.score < 70 && "border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5",
+                      r.score < 40 && "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+                    )}
+                  >
+                    <ShieldAlert className="h-3 w-3 mr-1" />
+                    {r.scope_id}: {r.score}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* System health from decision engine */}
+            {aiDiagnose.systemHealth && (
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 text-xs">
+                <Stat label="Failed Jobs" value={aiDiagnose.systemHealth.failedJobs} alert={aiDiagnose.systemHealth.failedJobs > 0} />
+                <Stat label="Pending Jobs" value={aiDiagnose.systemHealth.pendingJobs} />
+                <Stat label="Gate Pass %" value={`${aiDiagnose.systemHealth.gatePassRate}%`} alert={aiDiagnose.systemHealth.gatePassRate < 80} />
+                <Stat label="AI Cost MTD" value={`€${aiDiagnose.systemHealth.aiCostMtd.toFixed(2)}`} />
+                <Stat label="Budget %" value={`${aiDiagnose.systemHealth.budgetPct}%`} alert={aiDiagnose.systemHealth.budgetPct > 80} />
+              </div>
+            )}
+
+            {/* Top recommendations */}
+            {aiDiagnose.recommendations.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Top Empfehlungen</p>
+                {aiDiagnose.recommendations.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm">
+                    <Badge variant="outline" className={cn("text-[10px] shrink-0 mt-0.5",
+                      r.impact === 'high' && 'border-destructive/40 text-destructive'
+                    )}>
+                      {r.council_id}
+                    </Badge>
+                    <span className="text-muted-foreground line-clamp-1">{r.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -273,13 +475,22 @@ export default function CommandPage() {
         <Link to="/admin/business" className="block">
           <PlatformCard icon={<DollarSign className="h-4 w-4" />} label="Umsatz" value={fmtEur(kpis.revenueCents)} sublabel={`${kpis.ordersPaid} Best.`} />
         </Link>
-        <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten" value={`€${dailyCost.toFixed(2)}`} />
+        <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten" value={`€${budget.dailyCost.toFixed(2)}`} sublabel={budget.monthBudget > 0 ? `${budgetPct}% Budget` : undefined} />
       </div>
     </div>
   );
 }
 
 // ═══ Sub-Components ═══
+
+function Stat({ label, value, alert: isAlert }: { label: string; value: any; alert?: boolean }) {
+  return (
+    <div className={cn("rounded-md border px-2.5 py-1.5", isAlert && "border-destructive/30 bg-destructive/5")}>
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className={cn("font-bold text-sm", isAlert && "text-destructive")}>{value}</p>
+    </div>
+  );
+}
 
 function KPICard({ icon, label, value, sublabel, accent, alert: isAlert }: {
   icon: React.ReactNode; label: string; value: any; sublabel?: string; accent?: string; alert?: boolean;
@@ -317,13 +528,10 @@ function PlatformCard({ icon, label, value, sublabel, alert: isAlert }: {
 
 function ProductGroup({ title, emoji, packages, isMobile }: { title: string; emoji: string; packages: PackageInfo[]; isMobile: boolean }) {
   const done = packages.filter(p => p.status === 'published').length;
-
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          {emoji} {title}
-        </CardTitle>
+        <CardTitle className="text-base flex items-center gap-2">{emoji} {title}</CardTitle>
         <CardDescription>{done}/{packages.length} fertig</CardDescription>
       </CardHeader>
       <CardContent className={isMobile ? "px-3 pb-3" : "p-0"}>
@@ -372,11 +580,9 @@ function getShortTitle(pkg: PackageInfo) {
   return (pkg.title || pkg.id.slice(0, 12)).replace('ExamFit – ', '');
 }
 
-/** Mobile card view for a single package */
 function ProductCard({ pkg }: { pkg: PackageInfo }) {
   const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
   const progress = pkg.build_progress || 0;
-
   return (
     <Link
       to={`/admin/studio/${pkg.id}`}
@@ -390,7 +596,6 @@ function ProductCard({ pkg }: { pkg: PackageInfo }) {
         <span className="font-medium text-sm truncate">{getShortTitle(pkg)}</span>
         {getStatusBadge(pkg.status)}
       </div>
-      {/* Step dots */}
       <div className="flex gap-1 mb-2">
         {STEP_ORDER.map(step => {
           const s = stepStatuses[step];
@@ -422,11 +627,9 @@ function ProductCard({ pkg }: { pkg: PackageInfo }) {
   );
 }
 
-/** Desktop table row */
 function ProductRow({ pkg }: { pkg: PackageInfo }) {
   const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
   const progress = pkg.build_progress || 0;
-
   return (
     <TableRow className={cn(
       pkg.status === 'building' && 'bg-primary/5',
