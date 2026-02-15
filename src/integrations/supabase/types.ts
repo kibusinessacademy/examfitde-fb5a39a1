@@ -2758,6 +2758,60 @@ export type Database = {
         }
         Relationships: []
       }
+      content_packages: {
+        Row: {
+          build_status: string | null
+          built_at: string | null
+          checksum_sha256: string | null
+          course_id: string | null
+          created_at: string | null
+          curriculum_id: string
+          format: string
+          id: string
+          is_current: boolean | null
+          manifest: Json
+          signature: string | null
+          size_bytes: number | null
+          storage_path: string | null
+          updated_at: string | null
+          version: number
+        }
+        Insert: {
+          build_status?: string | null
+          built_at?: string | null
+          checksum_sha256?: string | null
+          course_id?: string | null
+          created_at?: string | null
+          curriculum_id: string
+          format?: string
+          id?: string
+          is_current?: boolean | null
+          manifest?: Json
+          signature?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          updated_at?: string | null
+          version?: number
+        }
+        Update: {
+          build_status?: string | null
+          built_at?: string | null
+          checksum_sha256?: string | null
+          course_id?: string | null
+          created_at?: string | null
+          curriculum_id?: string
+          format?: string
+          id?: string
+          is_current?: boolean | null
+          manifest?: Json
+          signature?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          updated_at?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       content_pages: {
         Row: {
           audience: string | null
@@ -5806,6 +5860,7 @@ export type Database = {
       }
       entitlements: {
         Row: {
+          auto_renew: boolean | null
           created_at: string | null
           curriculum_id: string
           has_ai_tutor: boolean | null
@@ -5814,11 +5869,14 @@ export type Database = {
           has_oral_trainer: boolean | null
           id: string
           seat_id: string | null
+          source: string | null
+          store_receipt_id: string | null
           user_id: string
           valid_from: string | null
           valid_until: string
         }
         Insert: {
+          auto_renew?: boolean | null
           created_at?: string | null
           curriculum_id: string
           has_ai_tutor?: boolean | null
@@ -5827,11 +5885,14 @@ export type Database = {
           has_oral_trainer?: boolean | null
           id?: string
           seat_id?: string | null
+          source?: string | null
+          store_receipt_id?: string | null
           user_id: string
           valid_from?: string | null
           valid_until: string
         }
         Update: {
+          auto_renew?: boolean | null
           created_at?: string | null
           curriculum_id?: string
           has_ai_tutor?: boolean | null
@@ -5840,6 +5901,8 @@ export type Database = {
           has_oral_trainer?: boolean | null
           id?: string
           seat_id?: string | null
+          source?: string | null
+          store_receipt_id?: string | null
           user_id?: string
           valid_from?: string | null
           valid_until?: string
@@ -5864,6 +5927,13 @@ export type Database = {
             columns: ["seat_id"]
             isOneToOne: false
             referencedRelation: "license_seats_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_store_receipt_id_fkey"
+            columns: ["store_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "store_receipts"
             referencedColumns: ["id"]
           },
         ]
@@ -10186,6 +10256,56 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_skus: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_consumable: boolean | null
+          metadata: Json | null
+          platform: string
+          price_tier: string | null
+          product_id: string
+          sku: string
+          store_product_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_consumable?: boolean | null
+          metadata?: Json | null
+          platform: string
+          price_tier?: string | null
+          product_id: string
+          sku: string
+          store_product_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_consumable?: boolean | null
+          metadata?: Json | null
+          platform?: string
+          price_tier?: string | null
+          product_id?: string
+          sku?: string
+          store_product_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_skus_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "store_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portfolio_priority: {
         Row: {
           audit_cycles_passed: number | null
@@ -12879,6 +12999,42 @@ export type Database = {
           },
         ]
       }
+      store_policy_flags: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          flag_key: string
+          id: string
+          is_enabled: boolean | null
+          metadata: Json | null
+          platform: string | null
+          regions: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          flag_key: string
+          id?: string
+          is_enabled?: boolean | null
+          metadata?: Json | null
+          platform?: string | null
+          regions?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          flag_key?: string
+          id?: string
+          is_enabled?: boolean | null
+          metadata?: Json | null
+          platform?: string | null
+          regions?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       store_products: {
         Row: {
           access_duration_days: number | null
@@ -12932,6 +13088,81 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      store_receipts: {
+        Row: {
+          created_at: string | null
+          curriculum_id: string | null
+          entitlement_id: string | null
+          environment: string | null
+          expires_at: string | null
+          id: string
+          original_transaction_id: string | null
+          platform: string
+          product_id: string | null
+          purchased_at: string | null
+          receipt_data: string | null
+          sku: string
+          transaction_id: string
+          updated_at: string | null
+          user_id: string
+          validation_response: Json | null
+          validation_status: string
+        }
+        Insert: {
+          created_at?: string | null
+          curriculum_id?: string | null
+          entitlement_id?: string | null
+          environment?: string | null
+          expires_at?: string | null
+          id?: string
+          original_transaction_id?: string | null
+          platform: string
+          product_id?: string | null
+          purchased_at?: string | null
+          receipt_data?: string | null
+          sku: string
+          transaction_id: string
+          updated_at?: string | null
+          user_id: string
+          validation_response?: Json | null
+          validation_status?: string
+        }
+        Update: {
+          created_at?: string | null
+          curriculum_id?: string | null
+          entitlement_id?: string | null
+          environment?: string | null
+          expires_at?: string | null
+          id?: string
+          original_transaction_id?: string | null
+          platform?: string
+          product_id?: string | null
+          purchased_at?: string | null
+          receipt_data?: string | null
+          sku?: string
+          transaction_id?: string
+          updated_at?: string | null
+          user_id?: string
+          validation_response?: Json | null
+          validation_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_receipts_entitlement_id_fkey"
+            columns: ["entitlement_id"]
+            isOneToOne: false
+            referencedRelation: "entitlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_receipts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "store_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stripe_event_log: {
         Row: {
@@ -15309,6 +15540,17 @@ export type Database = {
           p_patches: Json
           p_severity: string
           p_title: string
+        }
+        Returns: string
+      }
+      create_store_entitlement: {
+        Args: {
+          p_curriculum_id: string
+          p_expires_at: string
+          p_platform: string
+          p_product_id: string
+          p_receipt_id: string
+          p_user_id: string
         }
         Returns: string
       }
