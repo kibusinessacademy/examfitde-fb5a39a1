@@ -118,6 +118,8 @@ const JOB_TYPE_MAP: Record<string, string> = {
   generate_questions: "generate-questions",
   auto_map_topics_to_blueprint: "auto-map-topics-to-blueprint",
   blooms_classify: "blooms-taxonomy",
+  package_curriculum_ingest: "package-curriculum-ingest",
+  ingest_curriculum_document: "ingest-curriculum-document",
 };
 
 // ── Constants ────────────────────────────────────────────────────────
