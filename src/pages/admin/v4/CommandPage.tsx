@@ -7,11 +7,17 @@ import ErrorsTab from '@/components/admin/command/ErrorsTab';
 import RoiTab from '@/components/admin/command/RoiTab';
 import RoutingTab from '@/components/admin/command/RoutingTab';
 import SeatsTab from '@/components/admin/command/SeatsTab';
+import RealtimePipelineMonitor from '@/components/admin/RealtimePipelineMonitor';
+import RealtimeAlerts from '@/components/admin/RealtimeAlerts';
 
 export default function CommandPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl lg:text-2xl font-display font-bold text-foreground">Leitstelle</h1>
+
+      {/* Live Pipeline + Alerts direkt oben */}
+      <RealtimeAlerts />
+      <RealtimePipelineMonitor />
 
       <Tabs defaultValue="health" className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1">

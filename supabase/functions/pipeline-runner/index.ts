@@ -118,7 +118,8 @@ function pickNextAction(steps: StepRow[]): StepAction {
     if (s.status === "done" || s.status === "skipped") continue;
     if (s.status === "blocked") continue;
 
-    if (s.status === "enqueued" && s.job_id) {
+    // Poll if step has a linked job (both enqueued and running steps)
+    if ((s.status === "enqueued" || s.status === "running") && s.job_id) {
       return { action: "poll", stepKey: k, jobId: s.job_id };
     }
 
