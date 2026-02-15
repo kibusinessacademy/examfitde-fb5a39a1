@@ -15797,6 +15797,17 @@ export type Database = {
           },
         ]
       }
+      v_failed_job_clusters: {
+        Row: {
+          affected_packages: number | null
+          error_cluster: string | null
+          failure_count: number | null
+          first_seen: string | null
+          job_type: string | null
+          last_seen: string | null
+        }
+        Relationships: []
+      }
       v_growth_actions_approved: {
         Row: {
           action_type: Database["public"]["Enums"]["growth_action_type"] | null
@@ -15852,6 +15863,30 @@ export type Database = {
           unique_certifications: number | null
           upsells: number | null
           user_id: string | null
+        }
+        Relationships: []
+      }
+      v_pipeline_alerts: {
+        Row: {
+          alert_type: string | null
+          created_at: string | null
+          entity_id: string | null
+          job_type: string | null
+          message: string | null
+        }
+        Relationships: []
+      }
+      v_pipeline_execution_health: {
+        Row: {
+          avg_duration_sec: number | null
+          completed_24h: number | null
+          error_rate_pct: number | null
+          failed_24h: number | null
+          job_type: string | null
+          max_duration_sec: number | null
+          p95_duration_sec: number | null
+          pending_now: number | null
+          processing_now: number | null
         }
         Relationships: []
       }
