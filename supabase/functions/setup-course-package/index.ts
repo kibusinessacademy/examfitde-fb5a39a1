@@ -111,6 +111,7 @@ Deno.serve(async (req) => {
           curriculum_id: curriculumId,
           status: "planning",
           queue_position: nextPosition,
+          council_approved: true,
           components: {
             learning_course: true,
             exam_pool: true,
@@ -150,14 +151,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 6) Set to queued (build-course-package will pick it up)
+    // 6) Acquire pipeline lock for this package
+    const { data: lockRow } = await sb
+      .from("pipeline_lock")
+      .select("active_package_id")
+      .eq("id", 1)
+      .single();
+
+    const lockAcquired = !lockRow?.active_package_id;
+    if (lockAcquired) {
+      await sb
+        .from("pipeline_lock")
+        .update({ active_package_id: packageId, locked_at: new Date().toISOString(), heartbeat_at: new Date().toISOString() })
+        .eq("id", 1);
+    }
+
+    // 7) Set to queued (build-course-package will pick it up)
     await sb
       .from("course_packages")
       .update({ status: "queued" })
       .eq("id", packageId)
       .eq("status", "planning");
 
-    console.log(`[SetupPkg] Created package for ${berufName}: ${packageId}`);
+    console.log(`[SetupPkg] Created package for ${berufName}: ${packageId} (lock: ${lockAcquired ? 'acquired' : 'queued'})`);
 
     return json({
       success: true,
