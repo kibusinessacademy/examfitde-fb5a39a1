@@ -42,6 +42,8 @@ const CertificationCategoryPage = lazy(() => import('@/pages/seo/CertificationCa
 const CertificationSEOPage = lazy(() => import('@/pages/seo/CertificationSEOPage'));
 const PruefungstrainingHub = lazy(() => import('@/pages/seo/PruefungstrainingHub'));
 const PruefungstrainingDetailPage = lazy(() => import('@/pages/seo/PruefungstrainingDetailPage'));
+const KarrierePage = lazy(() => import('@/pages/seo/KarrierePage'));
+const BetriebeLandingPage = lazy(() => import('@/pages/seo/BetriebeLandingPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 
 // Legal Pages
@@ -145,6 +147,8 @@ const AppRoutes = () => {
           <Route path="/bundle/:slug" element={<BundleDetailPage />} />
           <Route path="/unternehmen" element={<UnternehmenPage />} />
           <Route path="/preise" element={<PreisePage />} />
+          <Route path="/karriere" element={<KarrierePage />} />
+          <Route path="/betriebe" element={<BetriebeLandingPage />} />
           <Route path="/pruefungshandbuch" element={<HandbookLandingPage />} />
           <Route path="/wissen" element={<WissenPage />} />
           <Route path="/wissen/alle" element={<WissenAllePage />} />
