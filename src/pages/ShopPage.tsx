@@ -143,14 +143,14 @@ export default function ShopPage() {
 
       {/* Main Content */}
       <main className="relative z-10">
-        <div className="container py-12">
+        <div className="container py-6 sm:py-8 md:py-12 px-3 sm:px-4">
           {/* Header */}
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6">
               <Star className="h-4 w-4 text-warning fill-warning" />
               <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
+            <h1 className="text-2xl sm:text-3xl md:text-5xl font-display font-bold mb-3 md:mb-4">
               Dein intelligentes <span className="text-gradient">Prüfungstraining</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -175,7 +175,7 @@ export default function ShopPage() {
           />
 
           {/* Trust Badges */}
-          <div className="flex flex-wrap justify-center gap-6 mb-12">
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-6 mb-8 md:mb-12">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Shield className="w-4 h-4 text-primary" />
               <span>Sichere Zahlung via Stripe</span>
@@ -228,12 +228,12 @@ export default function ShopPage() {
           )}
 
           {/* Guarantee Section */}
-          <div className="mt-16 glass-card rounded-2xl p-8 max-w-3xl mx-auto text-center">
+          <div className="mt-10 sm:mt-16 glass-card rounded-2xl p-4 sm:p-8 max-w-3xl mx-auto text-center">
             <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
             <h2 className="text-2xl font-display font-bold mb-4">
               Deine Vorteile auf einen Blick
             </h2>
-            <div className="grid md:grid-cols-3 gap-6 text-left">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left">
               <div>
                 <h3 className="font-semibold mb-2">Basierend auf Rahmenlehrplänen</h3>
                 <p className="text-sm text-muted-foreground">

@@ -80,11 +80,11 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="py-12 px-4">
+    <div className="py-6 sm:py-8 md:py-12 px-3 sm:px-4">
       <div className="container mx-auto max-w-6xl">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
+        <div className="text-center mb-8 md:mb-12">
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-display font-bold mb-3 md:mb-4">
             Dein <span className="text-gradient">Prüfungstraining</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -123,7 +123,7 @@ export default function CoursesPage() {
             </p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {courses.map((course) => (
               <Card key={course.id} className="glass-card border-border hover:border-primary/30 transition-all duration-300 group overflow-hidden">
                 {/* Thumbnail */}
