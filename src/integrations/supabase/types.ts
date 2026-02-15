@@ -486,6 +486,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_price_recommendation"
             referencedColumns: ["package_id"]
           },
@@ -3531,6 +3538,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_price_recommendation"
             referencedColumns: ["package_id"]
           },
@@ -4061,6 +4075,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_price_recommendation"
             referencedColumns: ["package_id"]
           },
@@ -4120,6 +4141,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
           {
@@ -4200,6 +4228,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_price_recommendation"
             referencedColumns: ["package_id"]
           },
@@ -4274,6 +4309,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
           {
@@ -4366,6 +4408,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
           {
@@ -5920,6 +5969,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
           {
@@ -8572,6 +8628,13 @@ export type Database = {
             foreignKeyName: "license_seats_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "corporate_seat_utilization"
+            referencedColumns: ["license_package_id"]
+          },
+          {
+            foreignKeyName: "license_seats_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "license_packages"
             referencedColumns: ["id"]
           },
@@ -9280,6 +9343,54 @@ export type Database = {
         }
         Relationships: []
       }
+      model_routing_rules: {
+        Row: {
+          budget_cap_eur: number | null
+          created_at: string
+          enabled: boolean
+          id: string
+          intent: string
+          is_fallback: boolean
+          max_output_tokens: number | null
+          model: string
+          notes: string | null
+          priority: number
+          provider: string
+          temperature: number | null
+          updated_at: string
+        }
+        Insert: {
+          budget_cap_eur?: number | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          intent: string
+          is_fallback?: boolean
+          max_output_tokens?: number | null
+          model: string
+          notes?: string | null
+          priority?: number
+          provider: string
+          temperature?: number | null
+          updated_at?: string
+        }
+        Update: {
+          budget_cap_eur?: number | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          intent?: string
+          is_fallback?: boolean
+          max_output_tokens?: number | null
+          model?: string
+          notes?: string | null
+          priority?: number
+          provider?: string
+          temperature?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       modules: {
         Row: {
           course_id: string
@@ -9782,6 +9893,13 @@ export type Database = {
             foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_price_recommendation"
             referencedColumns: ["package_id"]
           },
@@ -9949,6 +10067,13 @@ export type Database = {
             foreignKeyName: "orders_license_package_id_fkey"
             columns: ["license_package_id"]
             isOneToOne: false
+            referencedRelation: "corporate_seat_utilization"
+            referencedColumns: ["license_package_id"]
+          },
+          {
+            foreignKeyName: "orders_license_package_id_fkey"
+            columns: ["license_package_id"]
+            isOneToOne: false
             referencedRelation: "license_packages"
             referencedColumns: ["id"]
           },
@@ -10003,6 +10128,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
           {
@@ -10235,6 +10367,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
           {
@@ -10568,6 +10707,13 @@ export type Database = {
             columns: ["active_package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
           {
@@ -10984,6 +11130,27 @@ export type Database = {
         }
         Relationships: []
       }
+      product_features: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          feature_key: string
+          product_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          feature_key: string
+          product_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          feature_key?: string
+          product_id?: string
+        }
+        Relationships: []
+      }
       product_price_tiers: {
         Row: {
           created_at: string | null
@@ -11117,6 +11284,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
           {
@@ -15070,6 +15244,43 @@ export type Database = {
         }
         Relationships: []
       }
+      corporate_seat_utilization: {
+        Row: {
+          buyer_user_id: string | null
+          company_id: string | null
+          first_seat_assigned: string | null
+          last_seat_assigned: string | null
+          license_package_id: string | null
+          product_id: string | null
+          seats_free: number | null
+          seats_total: number | null
+          seats_used: number | null
+          utilization_pct: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "license_packages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "license_packages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "store_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "license_packages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_level_pricing"
+            referencedColumns: ["product_id"]
+          },
+        ]
+      }
       cost_intelligence: {
         Row: {
           avg_cost_eur: number | null
@@ -15177,6 +15388,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
             referencedColumns: ["package_id"]
           },
           {
@@ -15507,6 +15725,13 @@ export type Database = {
             foreignKeyName: "license_seats_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "corporate_seat_utilization"
+            referencedColumns: ["license_package_id"]
+          },
+          {
+            foreignKeyName: "license_seats_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "license_packages"
             referencedColumns: ["id"]
           },
@@ -15644,6 +15869,32 @@ export type Database = {
           version_status: string | null
         }
         Relationships: []
+      }
+      package_economics: {
+        Row: {
+          cost_eur_30d: number | null
+          course_id: string | null
+          created_at: string | null
+          gross_margin_eur_30d: number | null
+          llm_calls_30d: number | null
+          package_id: string | null
+          quality_badge: string | null
+          quality_score: number | null
+          revenue_eur_30d: number | null
+          roi_30d: number | null
+          status: string | null
+          tokens_in_30d: number | null
+          tokens_out_30d: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pipeline_health: {
         Row: {
@@ -16125,6 +16376,10 @@ export type Database = {
         Args: { p_reason?: string; p_user_id: string }
         Returns: undefined
       }
+      append_next_adaptive_question: {
+        Args: { p_session_id: string }
+        Returns: string
+      }
       approve_blueprint_version: {
         Args: { p_blueprint_id: string; p_version_id: string }
         Returns: undefined
@@ -16223,10 +16478,9 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
-      calibrate_item_difficulty: {
-        Args: { p_min_responses?: number }
-        Returns: number
-      }
+      calibrate_item_difficulty:
+        | { Args: { p_min_responses?: number }; Returns: number }
+        | { Args: { p_question_id: string }; Returns: undefined }
       can_run_llm_job: { Args: { p_provider: string }; Returns: boolean }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
       cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
@@ -16663,6 +16917,16 @@ export type Database = {
         }[]
       }
       get_edge_error_rate_24h: { Args: never; Returns: Json }
+      get_effective_price: {
+        Args: { p_product_id: string; p_quantity: number }
+        Returns: {
+          product_id: string
+          quantity: number
+          stripe_price_id: string
+          total_price_cents: number
+          unit_price_cents: number
+        }[]
+      }
       get_evidence_pack: { Args: { p_pack_id: string }; Returns: Json }
       get_evidence_pack_storage_info: {
         Args: { p_pack_id: string }
@@ -16998,6 +17262,10 @@ export type Database = {
       note_code_failure: {
         Args: { p_code: string; p_lock_seconds?: number; p_max_fail?: number }
         Returns: Json
+      }
+      pick_next_adaptive_question: {
+        Args: { p_session_id: string }
+        Returns: string
       }
       pick_next_package_by_priority: {
         Args: { max_active?: number }

@@ -1,26 +1,13 @@
 /**
- * Model Routing – Richtiges Modell für die richtige Aufgabe
+ * Model Routing – DB-first mit Hardcoded Fallback
  *
- * Intent-basiertes Routing mit Fallback-Kette pro Pipeline-Step.
- * 
- * Workload-Splitting nach Anforderung:
- *   ┌─────────────────────┬───────────────────────────────┬────────────────────────┐
- *   │ Workload-Typ        │ Primär                        │ Warum                  │
- *   ├─────────────────────┼───────────────────────────────┼────────────────────────┤
- *   │ Bulk MC (Exam-Pool) │ GPT-4.1-mini                  │ 1000+ Fragen, günstig  │
- *   │ Lernkurs/Handbuch   │ Claude Sonnet 4               │ Kreativität + Didaktik │
- *   │ Council/Validation  │ Claude Sonnet 4               │ Qualität > Volumen     │
- *   │ Quality Audit       │ GPT-4.1                       │ Konsistenz-Checks      │
- *   │ Tutor/Support       │ GPT-4.1-mini                  │ Schnell + günstig      │
- *   │ SEO Content         │ Claude Sonnet 4               │ Menschlicher Ton       │
- *   │ Repair (Format)     │ GPT-4.1-mini                  │ Schema-Fix, billig     │
- *   │ Repair (Didaktik)   │ Claude Sonnet 4               │ Inhalt braucht Qualität│
- *   │ Embeddings          │ text-embedding-3-large         │ Einziger Embedding-Anb.│
- *   │ Images              │ gpt-image-1                   │ Einziger Image-Anb.    │
- *   └─────────────────────┴───────────────────────────────┴────────────────────────┘
+ * Liest Routing-Regeln aus `model_routing_rules` (TTL-Cache 60s).
+ * Wenn DB leer oder nicht erreichbar → Fallback auf Hardcoded-Tabelle.
  */
 
-import type { AIProvider } from "./ai-client.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+export type AIProvider = "openai" | "anthropic" | "google" | "deepseek";
 
 export type PipelineIntent =
   | "learning_course"
@@ -43,165 +30,223 @@ export type PipelineIntent =
 export interface ModelChoice {
   provider: AIProvider;
   model: string;
+  is_fallback?: boolean;
+  max_output_tokens?: number;
+  temperature?: number;
+  budget_cap_eur?: number;
 }
 
-/**
- * Primary + fallback models per intent.
- * First entry = primary, rest = fallbacks in order.
- * 
- * Kostenoptimiert: Bulk-Workloads → mini, Quality-Workloads → Sonnet/4.1
- */
+// ── Hardcoded Fallback Table ──────────────────────────────────
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
-  // Kreativität + Didaktik → Claude Sonnet 4
   learning_course: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Bulk MC-Generierung: 1000+ Fragen, kein Deep Reasoning → GPT-4.1-mini (Kosteneffizienz)
   exam_questions: [
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Dialog + Didaktik, schnell → GPT-4.1-mini
   oral_exam: [
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Längere kohärente Texte → Claude Sonnet 4
   handbook: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Format-Treue, günstig → GPT-4.1-mini
   minicheck: [
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // SEO-Content, menschlicher Ton → Claude Sonnet 4
   seo_content: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Council: Qualität > Volumen → Claude Sonnet 4
   council_review: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Quality Audit: Konsistenz-Checks → GPT-4.1 (präzise Logik)
   quality_audit: [
     { provider: "openai", model: "gpt-4.1" },
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
   ],
-  // Embeddings → OpenAI
   embeddings: [
     { provider: "openai", model: "text-embedding-3-large" },
   ],
-  // Bilder → OpenAI Images
   images: [
     { provider: "openai", model: "gpt-image-1" },
   ],
-  // Support/Tutor → GPT-4.1-mini (schnell + günstig)
   support: [
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "deepseek", model: "deepseek-chat" },
   ],
-  // Zusammenfassungen → GPT-4.1-mini
   summary: [
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "deepseek", model: "deepseek-chat" },
   ],
-  // Repair JSON/Format → GPT-4.1-mini (billig + schnell)
   repair: [
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Repair Content/Didaktik → Sonnet 4 (Qualität wichtig)
   repair_content: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Blooms Classification → GPT-4.1-mini (schnell + günstig)
   blooms_classify: [
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
   ],
-  // Curriculum Import → GPT-4.1 (Strukturerkennung)
   curriculum_import: [
     { provider: "openai", model: "gpt-4.1" },
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
   ],
 };
 
-/** Budget caps per intent (EUR per single invocation) – optimiert für mini-Modelle */
+// ── Budget Caps ──────────────────────────────────────────────
 export const INTENT_BUDGETS: Record<PipelineIntent, number> = {
   learning_course: 2.5,
-  exam_questions: 0.8,   // ↓ von 3.0 – mini ist 10x günstiger
-  oral_exam: 0.5,        // ↓ von 2.0 – mini-basiert
+  exam_questions: 0.8,
+  oral_exam: 0.5,
   handbook: 2.0,
-  minicheck: 0.3,        // ↓ von 0.5
+  minicheck: 0.3,
   seo_content: 1.0,
   council_review: 0.8,
   quality_audit: 1.5,
   embeddings: 0.1,
   images: 0.5,
-  support: 0.15,         // ↓ von 0.2
-  summary: 0.2,          // ↓ von 0.3
-  repair: 0.2,           // ↓ von 0.3
+  support: 0.15,
+  summary: 0.2,
+  repair: 0.2,
   repair_content: 1.0,
-  blooms_classify: 0.15, // ↓ von 0.2
+  blooms_classify: 0.15,
   curriculum_import: 1.0,
 };
 
+// ── DB-Driven Routing with TTL Cache ─────────────────────────
+
+interface DbRule {
+  intent: string;
+  provider: string;
+  model: string;
+  priority: number;
+  is_fallback: boolean;
+  enabled: boolean;
+  budget_cap_eur: number | null;
+  max_output_tokens: number | null;
+  temperature: number | null;
+}
+
+let _cache: { ts: number; byIntent: Record<string, ModelChoice[]> } | null = null;
+const CACHE_TTL_MS = 60_000;
+
+function hasServiceRole(): boolean {
+  return !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") && !!Deno.env.get("SUPABASE_URL");
+}
+
+async function loadRulesFromDb(): Promise<Record<string, ModelChoice[]>> {
+  if (!hasServiceRole()) return {};
+
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const { data, error } = await supabase
+      .from("model_routing_rules")
+      .select("intent,provider,model,priority,is_fallback,enabled,budget_cap_eur,max_output_tokens,temperature")
+      .eq("enabled", true)
+      .order("intent", { ascending: true })
+      .order("priority", { ascending: true });
+
+    if (error || !data) {
+      console.warn("[MODEL-ROUTING] DB load failed, using hardcoded:", error?.message);
+      return {};
+    }
+
+    const byIntent: Record<string, ModelChoice[]> = {};
+    for (const r of data as DbRule[]) {
+      const step: ModelChoice = {
+        provider: r.provider as AIProvider,
+        model: r.model,
+        is_fallback: !!r.is_fallback,
+        ...(r.max_output_tokens ? { max_output_tokens: r.max_output_tokens } : {}),
+        ...(typeof r.temperature === "number" ? { temperature: r.temperature } : {}),
+        ...(typeof r.budget_cap_eur === "number" ? { budget_cap_eur: r.budget_cap_eur } : {}),
+      };
+      byIntent[r.intent] ??= [];
+      byIntent[r.intent].push(step);
+    }
+    return byIntent;
+  } catch (e) {
+    console.warn("[MODEL-ROUTING] DB load exception, using hardcoded:", e);
+    return {};
+  }
+}
+
+async function getDbRouting(intent: string): Promise<ModelChoice[] | null> {
+  const now = Date.now();
+  if (_cache && now - _cache.ts < CACHE_TTL_MS) {
+    return _cache.byIntent[intent] ?? null;
+  }
+  const byIntent = await loadRulesFromDb();
+  _cache = { ts: now, byIntent };
+  return byIntent[intent] ?? null;
+}
+
+/** Invalidate the cache (e.g. after admin changes routing rules) */
+export function invalidateRoutingCache(): void {
+  _cache = null;
+}
+
+// ── Public API ───────────────────────────────────────────────
+
 /**
  * Get the primary model for a given intent.
+ * DB-first, hardcoded fallback.
  */
-export function getModel(intent: PipelineIntent): ModelChoice {
+export async function getModelAsync(intent: PipelineIntent): Promise<ModelChoice> {
+  const dbPlan = await getDbRouting(intent);
+  if (dbPlan && dbPlan.length > 0) return dbPlan[0];
   return ROUTING_TABLE[intent][0];
 }
 
 /**
  * Get primary + all fallback models for a given intent.
+ * DB-first, hardcoded fallback.
  */
-export function getModelChain(intent: PipelineIntent): ModelChoice[] {
+export async function getModelChainAsync(intent: PipelineIntent): Promise<ModelChoice[]> {
+  const dbPlan = await getDbRouting(intent);
+  if (dbPlan && dbPlan.length > 0) return dbPlan;
   return ROUTING_TABLE[intent];
 }
 
 /**
- * Get the budget cap for a given intent.
+ * Synchronous access (uses hardcoded only). For backwards compatibility.
  */
+export function getModel(intent: PipelineIntent): ModelChoice {
+  return ROUTING_TABLE[intent][0];
+}
+
+export function getModelChain(intent: PipelineIntent): ModelChoice[] {
+  return ROUTING_TABLE[intent];
+}
+
 export function getBudget(intent: PipelineIntent): number {
   return INTENT_BUDGETS[intent];
 }
 
-/**
- * Adaptive Quality Escalation Rule:
- * Instead of a fixed threshold, escalation considers context:
- *   - difficulty level of the content
- *   - question type (case study needs higher bar)
- *   - intent category
- *
- * Returns the escalation model if score is below adaptive threshold, null otherwise.
- */
+// ── Adaptive Quality Escalation ──────────────────────────────
 
 export type ContentDifficulty = "easy" | "medium" | "hard" | "very_hard";
 export type QuestionType = "single_choice" | "multiple_choice" | "calculation" | "case_study" | "oral" | "other";
 
-/** Adaptive thresholds: harder content → higher bar before escalation */
 const DIFFICULTY_THRESHOLDS: Record<ContentDifficulty, number> = {
-  easy: 60,
-  medium: 70,
-  hard: 75,
-  very_hard: 80,
+  easy: 60, medium: 70, hard: 75, very_hard: 80,
 };
 
-/** Question type modifiers: complex types get +5 escalation sensitivity */
 const TYPE_MODIFIERS: Record<QuestionType, number> = {
-  single_choice: 0,
-  multiple_choice: 2,
-  calculation: 3,
-  case_study: 5,
-  oral: 5,
-  other: 0,
+  single_choice: 0, multiple_choice: 2, calculation: 3, case_study: 5, oral: 5, other: 0,
 };
 
 export function getAdaptiveThreshold(
@@ -221,7 +266,6 @@ export function getEscalationModel(
 
   if (validationScore >= threshold) return null;
 
-  // Define escalation targets: mini → full model
   const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
     exam_questions: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     oral_exam: { provider: "openai", model: "gpt-4.1" },
