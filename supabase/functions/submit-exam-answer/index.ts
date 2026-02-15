@@ -159,6 +159,23 @@ serve(async (req) => {
       logStep("WARNING: Failed to recalculate theta", { error: thetaError });
     }
 
+    // After theta update, append next question for adaptive sessions
+    if (session_id) {
+      try {
+        const { data: sessionRow } = await adminClient
+          .from("exam_sessions")
+          .select("mode")
+          .eq("id", session_id)
+          .maybeSingle();
+
+        if (sessionRow?.mode === "adaptive") {
+          await adminClient.rpc("append_next_adaptive_question", { p_session_id: session_id });
+        }
+      } catch (_e) {
+        logStep("WARNING: Adaptive append failed (non-blocking)", { error: _e });
+      }
+    }
+
     // Return result with correct answer and explanation (NOW ALLOWED - after entitlement check)
     const result: AnswerResult = {
       is_correct: isCorrect,
