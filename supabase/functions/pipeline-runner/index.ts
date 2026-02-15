@@ -266,6 +266,16 @@ async function processPackage(
     if (allDone) {
       await safeQuery(sb.from("course_packages").update({ status: "done" }).eq("id", packageId));
       console.log(`[runner] Package ${shortId} → done`);
+
+      // 🚀 Auto-enqueue next 10 prioritized certifications from catalog
+      try {
+        const enqueued = await autoEnqueueNextCertifications(sb, 10);
+        if (enqueued > 0) {
+          console.log(`[runner] 🏭 Auto-enqueued ${enqueued} new certification packages`);
+        }
+      } catch (e) {
+        console.warn(`[runner] Auto-enqueue failed (non-blocking): ${(e as Error)?.message}`);
+      }
     } else {
       const hasEnqueued = statuses.includes("enqueued");
       if (!hasEnqueued) {
@@ -532,6 +542,142 @@ async function processPackage(
   // Fallback
   await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
   return { packageId, noop: true };
+}
+
+// ══════════════════════════════════════════════════════════════
+// Auto-enqueue: Create packages for next N prioritized certifications
+// ══════════════════════════════════════════════════════════════
+async function autoEnqueueNextCertifications(
+  sb: ReturnType<typeof createClient>,
+  limit: number,
+): Promise<number> {
+  // 1. Get all catalog entries ordered by priority
+  const { data: catalog } = await sb
+    .from("certification_catalog")
+    .select("id, title, slug, track, min_question_target, priority_score")
+    .order("priority_score", { ascending: false })
+    .limit(50);
+
+  if (!catalog?.length) return 0;
+
+  // 2. Get all existing packages to find which certifications are already produced
+  const { data: existingPackages } = await sb
+    .from("course_packages")
+    .select("title, status")
+    .in("status", ["queued", "building", "done", "published", "planning"]);
+
+  const existingTitles = new Set(
+    (existingPackages ?? []).map((p: { title: string }) => p.title.toLowerCase()),
+  );
+
+  // 3. Get existing curricula to find which have been ingested
+  const { data: existingCurricula } = await sb
+    .from("curricula")
+    .select("id, title, status");
+
+  const curriculaByTitle = new Map<string, { id: string; status: string }>();
+  for (const c of existingCurricula ?? []) {
+    curriculaByTitle.set(c.title.toLowerCase(), { id: c.id, status: c.status });
+  }
+
+  // 4. Filter to certifications that don't have packages yet
+  const candidates = catalog.filter((c) => {
+    const packageTitle = `ExamFit – ${c.title}`.toLowerCase();
+    return !existingTitles.has(packageTitle);
+  });
+
+  if (candidates.length === 0) return 0;
+
+  const toEnqueue = candidates.slice(0, limit);
+  let enqueued = 0;
+
+  for (const cert of toEnqueue) {
+    // Check if there's already a curriculum for this certification
+    const matchKey = cert.title.toLowerCase();
+    const existingCurr = curriculaByTitle.get(matchKey) ||
+      [...curriculaByTitle.entries()].find(([k]) => k.includes(matchKey) || matchKey.includes(k))?.[1];
+
+    if (existingCurr?.status === "frozen") {
+      // Curriculum exists and is frozen → create setup job directly
+      const { count: pendingSetup } = await sb
+        .from("job_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("job_type", "setup_course_package")
+        .in("status", ["pending", "processing"])
+        .contains("payload", { curriculum_id: existingCurr.id });
+
+      if ((pendingSetup ?? 0) === 0) {
+        await sb.from("job_queue").insert({
+          job_type: "setup_course_package",
+          status: "pending",
+          attempts: 0,
+          max_attempts: 100,
+          payload: {
+            curriculum_id: existingCurr.id,
+            catalog_id: cert.id,
+            triggered_by: "auto_enqueue_next",
+            exam_target: cert.min_question_target || 1000,
+          },
+          run_after: new Date().toISOString(),
+        });
+        enqueued++;
+        console.log(`[runner] 🏭 Enqueued setup for "${cert.title}" (frozen curriculum)`);
+      }
+    } else if (!existingCurr) {
+      // No curriculum → enqueue curriculum ingest first
+      const { count: pendingIngest } = await sb
+        .from("job_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("job_type", "package_curriculum_ingest")
+        .in("status", ["pending", "processing"])
+        .contains("payload", { catalog_id: cert.id });
+
+      if ((pendingIngest ?? 0) === 0) {
+        // Create a draft curriculum
+        const { data: newCurr, error: currErr } = await sb
+          .from("curricula")
+          .insert({
+            title: cert.title,
+            status: "draft",
+            certification_type: cert.track || "ausbildung",
+            track: cert.track || "EXAM_FIRST",
+          })
+          .select("id")
+          .single();
+
+        if (!currErr && newCurr) {
+          await sb.from("job_queue").insert({
+            job_type: "package_curriculum_ingest",
+            status: "pending",
+            attempts: 0,
+            max_attempts: 100,
+            payload: {
+              curriculum_id: newCurr.id,
+              catalog_id: cert.id,
+              certification_title: cert.title,
+              triggered_by: "auto_enqueue_next",
+            },
+            run_after: new Date().toISOString(),
+          });
+          enqueued++;
+          console.log(`[runner] 🏭 Enqueued ingest+setup for "${cert.title}" (new curriculum)`);
+        }
+      }
+    }
+    // If curriculum exists but not frozen → skip, it will be picked up when frozen
+  }
+
+  if (enqueued > 0) {
+    await sb.from("auto_heal_log").insert({
+      action_type: "auto_enqueue_next_certifications",
+      trigger_source: "pipeline_runner",
+      result_status: "ok",
+      result_detail: `Enqueued ${enqueued} of ${toEnqueue.length} candidates`,
+      metadata: { enqueued, candidates: toEnqueue.map((c) => c.title) },
+    });
+  }
+
+  return enqueued;
 }
 
 // ══════════════════════════════════════════════════════════════
