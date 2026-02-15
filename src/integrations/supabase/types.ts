@@ -16747,6 +16747,7 @@ export type Database = {
         Args: { p_device_threshold?: number; p_hours?: number }
         Returns: Json
       }
+      enforce_priority_gate: { Args: never; Returns: undefined }
       enqueue_finance_export: {
         Args: { p_currency?: string; p_export_type: string; p_month: string }
         Returns: string
@@ -17105,6 +17106,7 @@ export type Database = {
           title: string
         }[]
       }
+      get_priority_ceiling: { Args: never; Returns: number }
       get_production_kpis: { Args: never; Returns: Json }
       get_profiles_security_status: { Args: never; Returns: Json }
       get_quality_dashboard: { Args: never; Returns: Json }
