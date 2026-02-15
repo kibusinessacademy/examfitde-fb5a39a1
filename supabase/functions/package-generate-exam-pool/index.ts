@@ -278,7 +278,10 @@ async function generateDominanzQuestions(
 
   // Route through DB autopilot with provider failover
   const sbRef = (globalThis as any).__examPoolSb;
+  // Pre-exclude providers without configured API keys
   let exclude: string[] = [];
+  if (!Deno.env.get("GOOGLE_AI_API_KEY")) exclude.push("google");
+  if (!Deno.env.get("DEEPSEEK_API_KEY")) exclude.push("deepseek");
   let result: { content: string } | undefined;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -301,16 +304,18 @@ async function generateDominanzQuestions(
     } catch (e: unknown) {
       const errMsg = (e as Error)?.message || String(e);
       const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409") || errMsg.includes("rate_limited");
+      const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
+      const shouldFailover = isRate || isTimeout;
 
-      if (isRate && sbRef) {
-        console.log(`[ExamPool-Dominanz] Rate limited on ${provider}, attempt ${attempt}/3, failing over...`);
+      if (shouldFailover && sbRef) {
+        console.log(`[ExamPool-Dominanz] ${isTimeout ? "Timeout" : "Rate limited"} on ${provider}, attempt ${attempt}/3, failing over...`);
         await markRateLimited(sbRef, provider, errMsg);
         exclude.push(provider);
         continue;
       }
 
       console.log(`[ExamPool-Dominanz] AI error (${provider}): ${errMsg}`);
-      if (isRate) throw new Error("ALL_PROVIDERS_RATE_LIMITED");
+      if (shouldFailover) throw new Error("ALL_PROVIDERS_EXHAUSTED");
       return 0;
     }
   }

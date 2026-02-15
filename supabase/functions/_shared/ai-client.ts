@@ -154,7 +154,12 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       ...(opts.stream !== undefined && { stream: opts.stream }),
     };
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
-    if (opts.max_tokens !== undefined) body.max_tokens = opts.max_tokens;
+    if (opts.max_tokens !== undefined) {
+      // DeepSeek hard limit: max_tokens must be ≤ 8192
+      body.max_tokens = opts.provider === "deepseek"
+        ? Math.min(opts.max_tokens, 8192)
+        : opts.max_tokens;
+    }
     if (opts.tools) body.tools = opts.tools;
     if (opts.tool_choice) body.tool_choice = opts.tool_choice;
 
