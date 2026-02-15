@@ -44,6 +44,7 @@ const PruefungstrainingHub = lazy(() => import('@/pages/seo/PruefungstrainingHub
 const PruefungstrainingDetailPage = lazy(() => import('@/pages/seo/PruefungstrainingDetailPage'));
 const KarrierePage = lazy(() => import('@/pages/seo/KarrierePage'));
 const BetriebeLandingPage = lazy(() => import('@/pages/seo/BetriebeLandingPage'));
+const WirtschaftsfachwirtPage = lazy(() => import('@/pages/seo/WirtschaftsfachwirtPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 
 // Legal Pages
@@ -117,6 +118,7 @@ const AppRoutes = () => {
         <Route element={<SEOLayout />}>
           <Route path="/pruefungstraining" element={<PruefungstrainingHub />} />
           <Route path="/pruefungstraining/:slugOrCategory" element={<PruefungstrainingDetailPage />} />
+          <Route path="/pruefungstraining/fachwirt/wirtschaftsfachwirt" element={<WirtschaftsfachwirtPage />} />
           <Route path="/pruefungstraining/:category/:slug" element={<PruefungstrainingDetailPage />} />
 
           <Route path="/ausbildung" element={<CertificationCategoryPage />} />
