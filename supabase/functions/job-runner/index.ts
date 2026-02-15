@@ -117,6 +117,7 @@ const JOB_TYPE_MAP: Record<string, string> = {
   package_auto_publish: "package-auto-publish",
   package_quality_council: "package-quality-council",
   auto_gap_close: "auto-gap-close",
+  generate_image: "generate-image",
   daily_test_run: "daily-test-runner",
 };
 
@@ -137,6 +138,7 @@ const LLM_JOB_TYPES: Set<string> = new Set([
   "seo_generate",
   "seo_content_batch",
   "auto_gap_close",
+  "generate_image",
   "assessment_questions_generate",
   "council_propose_step",
   "council_critique_step",
