@@ -540,13 +540,13 @@ function PipelineControllingTab() {
   const { data: costData } = useQuery({
     queryKey: ['pipeline-cost-data'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ai_usage_log')
-        .select('job_type, cost_eur, total_tokens, created_at');
+      const { data, error } = await (supabase as any)
+        .from('llm_cost_events')
+        .select('job_type, cost_eur, tokens_in, tokens_out, ts');
       if (error) throw error;
       return {
-        totalCost: (data || []).reduce((s, r) => s + Number(r.cost_eur || 0), 0),
-        totalTokens: (data || []).reduce((s, r) => s + Number(r.total_tokens || 0), 0),
+        totalCost: (data || []).reduce((s: number, r: any) => s + Number(r.cost_eur || 0), 0),
+        totalTokens: (data || []).reduce((s: number, r: any) => s + Number(r.tokens_in || 0) + Number(r.tokens_out || 0), 0),
         runs: data?.length || 0,
       };
     },
