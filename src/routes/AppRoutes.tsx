@@ -28,7 +28,6 @@ const BerufePage = lazy(() => import('@/pages/seo/BerufePage'));
 const BerufDetailPage = lazy(() => import('@/pages/seo/BerufDetailPage'));
 const UnternehmenPage = lazy(() => import('@/pages/seo/UnternehmenPage'));
 const PreisePage = lazy(() => import('@/pages/seo/PreisePage'));
-const ProductListPage = lazy(() => import('@/pages/seo/ProductListPage'));
 const LernkurseListPage = lazy(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.LernkurseListPage })));
 const PruefungstrainerListPage = lazy(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.PruefungstrainerListPage })));
 const BundleListPage = lazy(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.BundleListPage })));
@@ -42,7 +41,6 @@ const SearchPage = lazy(() => import('@/pages/seo/SearchPage'));
 const CertificationCategoryPage = lazy(() => import('@/pages/seo/CertificationCategoryPage'));
 const CertificationSEOPage = lazy(() => import('@/pages/seo/CertificationSEOPage'));
 const PruefungstrainingHub = lazy(() => import('@/pages/seo/PruefungstrainingHub'));
-const PruefungstrainingCategoryPage = lazy(() => import('@/pages/seo/PruefungstrainingCategoryPage'));
 const PruefungstrainingDetailPage = lazy(() => import('@/pages/seo/PruefungstrainingDetailPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 
@@ -62,11 +60,16 @@ const GrowthPage = lazy(() => import('@/pages/admin/v4/GrowthPage'));
 const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
 const PipelineMonitorPage = lazy(() => import('@/pages/admin/v4/PipelineMonitorPage'));
 const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
-const ContentPagesOverview = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentPagesOverview })));
 const CRMPage = lazy(() => import('@/pages/admin/v4/CRMPage'));
 const SupportPage = lazy(() => import('@/pages/admin/v4/SupportPage'));
 const SystemHandbookPage = lazy(() => import('@/pages/admin/v4/SystemHandbookPage'));
 
+// Content nested routes
+const ContentLayout = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentLayout })));
+const ContentPagesList = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentPagesList })));
+const BlogPostsList = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.BlogPostsList })));
+const AssetsManager = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.AssetsManager })));
+const RedirectsManager = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.RedirectsManager })));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
@@ -110,12 +113,10 @@ const AppRoutes = () => {
 
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
-          {/* ─── Prüfungstraining SEO Engine ─── */}
           <Route path="/pruefungstraining" element={<PruefungstrainingHub />} />
           <Route path="/pruefungstraining/:slugOrCategory" element={<PruefungstrainingDetailPage />} />
           <Route path="/pruefungstraining/:category/:slug" element={<PruefungstrainingDetailPage />} />
 
-          {/* Certification category routes */}
           <Route path="/ausbildung" element={<CertificationCategoryPage />} />
           <Route path="/ausbildung/:slug" element={<CertificationSEOPage />} />
           <Route path="/fachwirt" element={<CertificationCategoryPage />} />
@@ -127,10 +128,8 @@ const AppRoutes = () => {
           <Route path="/projektmanagement" element={<CertificationCategoryPage />} />
           <Route path="/projektmanagement/:slug" element={<CertificationSEOPage />} />
 
-          {/* Programmatic SEO sub-pages — single dispatcher handles suffix routing */}
           <Route path="/:slug" element={<ProgrammaticSEODispatcher />} />
 
-          {/* Existing SEO routes */}
           <Route path="/ihk-pruefungen" element={<IHKPruefungenPage />} />
           <Route path="/pruefungstraining-azubis" element={<PruefungstrainingAzubisPage />} />
           <Route path="/pruefungstraining-betriebe" element={<PruefungstrainingBetriebePage />} />
@@ -163,7 +162,6 @@ const AppRoutes = () => {
           <Route path="/courses" element={<CoursesPage />} />
           <Route path="/course/:slug" element={<CourseDetailPage />} />
           
-          {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<LearnerDashboard />} />
             <Route path="/exam-trainer" element={<ExamTrainer />} />
@@ -193,13 +191,19 @@ const AppRoutes = () => {
           <Route path="scale/*" element={<ScalePage />} />
           <Route path="pipeline" element={<PipelineMonitorPage />} />
           <Route path="load-control" element={<LoadControlPage />} />
-          <Route path="content/*" element={<ContentPagesOverview />} />
+          {/* Content with nested routes */}
+          <Route path="content" element={<ContentLayout />}>
+            <Route index element={<ContentPagesList />} />
+            <Route path="blog" element={<BlogPostsList />} />
+            <Route path="assets" element={<AssetsManager />} />
+            <Route path="seo" element={<RedirectsManager />} />
+          </Route>
           <Route path="crm/*" element={<CRMPage />} />
           <Route path="support/*" element={<SupportPage />} />
           <Route path="handbook" element={<SystemHandbookPage />} />
         </Route>
 
-        {/* Legacy redirects → V4 (content/* and curriculum/* removed — now live routes) */}
+        {/* Legacy redirects */}
         <Route path="/admin/dashboard" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/course-studio" element={<Navigate to="/admin/studio/new" replace />} />

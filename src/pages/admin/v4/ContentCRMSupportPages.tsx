@@ -1,20 +1,19 @@
 import { useState } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  FileText, Edit, Image, Globe, Search, Plus, Eye, Trash2,
-  CheckCircle2, Clock, Send, Archive, Link2, Users, Headphones,
-  ArrowRight, ExternalLink, AlertTriangle,
+  FileText, Edit, Image, Globe, Plus, Eye, Trash2,
+  CheckCircle2, Clock, Send, Archive, ArrowRight, AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -25,9 +24,7 @@ import {
   type ContentPage, type BlogPost, type ContentAsset, type SEORedirect,
 } from '@/hooks/useContentStudio';
 
-// ═══════════════════════════════════════════════════════════
-// Status Badge
-// ═══════════════════════════════════════════════════════════
+// ═══ Status Badge ═══
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { icon: React.ElementType; className: string }> = {
     draft: { icon: Clock, className: 'bg-muted text-muted-foreground' },
@@ -44,9 +41,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// SEO Checklist Mini
-// ═══════════════════════════════════════════════════════════
+// ═══ SEO Checklist ═══
 function SEOChecklist({ title, metaTitle, metaDescription, slug }: {
   title?: string; metaTitle?: string | null; metaDescription?: string | null; slug?: string;
 }) {
@@ -73,10 +68,8 @@ function SEOChecklist({ title, metaTitle, metaDescription, slug }: {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// Content Pages List + Editor
-// ═══════════════════════════════════════════════════════════
-function ContentPagesList() {
+// ═══ Content Pages List ═══
+export function ContentPagesList() {
   const { data: pages = [], isLoading } = useContentPages();
   const { create, update, publish, remove } = useContentPageMutations();
   const [editing, setEditing] = useState<Partial<ContentPage> | null>(null);
@@ -105,7 +98,6 @@ function ContentPagesList() {
 
   return (
     <div className="space-y-4">
-      {/* KPI Row */}
       <div className="grid grid-cols-3 gap-3">
         <Card><CardContent className="py-3 px-4">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Entwurf</p>
@@ -121,7 +113,6 @@ function ContentPagesList() {
         </CardContent></Card>
       </div>
 
-      {/* Toolbar */}
       <div className="flex items-center gap-2">
         <Input placeholder="Seiten durchsuchen…" value={filter} onChange={e => setFilter(e.target.value)} className="max-w-xs" />
         <Button size="sm" onClick={() => setEditing({ title: '', slug: '', page_type: 'landing', status: 'draft', body_md: '', audience: 'azubi' })}>
@@ -129,40 +120,37 @@ function ContentPagesList() {
         </Button>
       </div>
 
-      {/* Table */}
       <Card>
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">
                 <th className="text-left py-3 px-4">Titel</th>
-                <th className="text-left py-3 px-4">Slug</th>
-                <th className="text-left py-3 px-4">Typ</th>
+                <th className="text-left py-3 px-4 hidden md:table-cell">Slug</th>
+                <th className="text-left py-3 px-4 hidden lg:table-cell">Typ</th>
                 <th className="text-left py-3 px-4">Status</th>
-                <th className="text-left py-3 px-4">Zielgruppe</th>
                 <th className="text-right py-3 px-4">Aktionen</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Laden…</td></tr>
+                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Laden…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Keine Seiten gefunden</td></tr>
+                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Keine Seiten gefunden</td></tr>
               ) : filtered.map(page => (
                 <tr key={page.id} className="border-b border-border/50 hover:bg-muted/30">
                   <td className="py-2.5 px-4 font-medium">{page.title}</td>
-                  <td className="py-2.5 px-4 text-xs text-muted-foreground font-mono">/{page.slug}</td>
-                  <td className="py-2.5 px-4"><Badge variant="outline" className="text-[10px]">{page.page_type}</Badge></td>
+                  <td className="py-2.5 px-4 text-xs text-muted-foreground font-mono hidden md:table-cell">/{page.slug}</td>
+                  <td className="py-2.5 px-4 hidden lg:table-cell"><Badge variant="outline" className="text-[10px]">{page.page_type}</Badge></td>
                   <td className="py-2.5 px-4"><StatusBadge status={page.status} /></td>
-                  <td className="py-2.5 px-4 text-xs">{page.audience}</td>
                   <td className="py-2.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(page)}>
-                        <Edit className="h-3 w-3 mr-1" /> Bearbeiten
+                        <Edit className="h-3 w-3" />
                       </Button>
                       {page.status !== 'published' && (
                         <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" onClick={() => publish.mutate(page.id)}>
-                          <Send className="h-3 w-3 mr-1" /> Publish
+                          <Send className="h-3 w-3" />
                         </Button>
                       )}
                       <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => remove.mutate(page.id)}>
@@ -177,7 +165,6 @@ function ContentPagesList() {
         </CardContent>
       </Card>
 
-      {/* Editor Dialog */}
       <Dialog open={!!editing} onOpenChange={open => !open && setEditing(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -186,32 +173,21 @@ function ContentPagesList() {
           {editing && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2 space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Titel</label>
-                  <Input value={editing.title || ''} onChange={e => setEditing({ ...editing, title: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Slug</label>
-                  <Input value={editing.slug || ''} onChange={e => setEditing({ ...editing, slug: e.target.value })} placeholder="mein-slug" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Meta Title</label>
+                <div><label className="text-xs font-medium text-muted-foreground">Titel</label>
+                  <Input value={editing.title || ''} onChange={e => setEditing({ ...editing, title: e.target.value })} /></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Slug</label>
+                  <Input value={editing.slug || ''} onChange={e => setEditing({ ...editing, slug: e.target.value })} placeholder="mein-slug" /></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Meta Title</label>
                   <Input value={editing.meta_title || ''} onChange={e => setEditing({ ...editing, meta_title: e.target.value })} />
-                  <p className="text-[10px] text-muted-foreground mt-1">{(editing.meta_title || '').length}/60 Zeichen</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Meta Description</label>
+                  <p className="text-[10px] text-muted-foreground mt-1">{(editing.meta_title || '').length}/60</p></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Meta Description</label>
                   <Textarea value={editing.meta_description || ''} onChange={e => setEditing({ ...editing, meta_description: e.target.value })} rows={2} />
-                  <p className="text-[10px] text-muted-foreground mt-1">{(editing.meta_description || '').length}/160 Zeichen</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Inhalt (Markdown)</label>
-                  <Textarea value={editing.body_md || ''} onChange={e => setEditing({ ...editing, body_md: e.target.value })} rows={12} className="font-mono text-xs" />
-                </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">{(editing.meta_description || '').length}/160</p></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Inhalt (Markdown)</label>
+                  <Textarea value={editing.body_md || ''} onChange={e => setEditing({ ...editing, body_md: e.target.value })} rows={12} className="font-mono text-xs" /></div>
               </div>
               <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Seitentyp</label>
+                <div><label className="text-xs font-medium text-muted-foreground">Seitentyp</label>
                   <Select value={editing.page_type || 'landing'} onValueChange={v => setEditing({ ...editing, page_type: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -221,10 +197,8 @@ function ContentPagesList() {
                       <SelectItem value="faq">FAQ</SelectItem>
                       <SelectItem value="impressum">Impressum</SelectItem>
                     </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Status</label>
+                  </Select></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Status</label>
                   <Select value={editing.status || 'draft'} onValueChange={v => setEditing({ ...editing, status: v as any })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -233,10 +207,8 @@ function ContentPagesList() {
                       <SelectItem value="published">Veröffentlicht</SelectItem>
                       <SelectItem value="archived">Archiviert</SelectItem>
                     </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Zielgruppe</label>
+                  </Select></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Zielgruppe</label>
                   <Select value={editing.audience || 'azubi'} onValueChange={v => setEditing({ ...editing, audience: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -245,18 +217,10 @@ function ContentPagesList() {
                       <SelectItem value="institutionen">Institutionen</SelectItem>
                       <SelectItem value="alle">Alle</SelectItem>
                     </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Canonical URL</label>
-                  <Input value={editing.canonical_url || ''} onChange={e => setEditing({ ...editing, canonical_url: e.target.value })} placeholder="https://…" />
-                </div>
-                <SEOChecklist
-                  title={editing.title}
-                  metaTitle={editing.meta_title}
-                  metaDescription={editing.meta_description}
-                  slug={editing.slug}
-                />
+                  </Select></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Canonical URL</label>
+                  <Input value={editing.canonical_url || ''} onChange={e => setEditing({ ...editing, canonical_url: e.target.value })} placeholder="https://…" /></div>
+                <SEOChecklist title={editing.title} metaTitle={editing.meta_title} metaDescription={editing.meta_description} slug={editing.slug} />
               </div>
             </div>
           )}
@@ -270,26 +234,19 @@ function ContentPagesList() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// Blog Posts List + Editor
-// ═══════════════════════════════════════════════════════════
-function BlogPostsList() {
+// ═══ Blog Posts List ═══
+export function BlogPostsList() {
   const { data: posts = [], isLoading } = useBlogPosts();
   const { create, update, publish, remove } = useBlogPostMutations();
   const [editing, setEditing] = useState<Partial<BlogPost> | null>(null);
   const [filter, setFilter] = useState('');
 
-  const filtered = posts.filter(p =>
-    p.title.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filtered = posts.filter(p => p.title.toLowerCase().includes(filter.toLowerCase()));
 
   const handleSave = () => {
     if (!editing) return;
-    if (editing.id) {
-      update.mutate(editing as BlogPost & { id: string });
-    } else {
-      create.mutate(editing);
-    }
+    if (editing.id) { update.mutate(editing as BlogPost & { id: string }); }
+    else { create.mutate(editing); }
     setEditing(null);
   };
 
@@ -308,8 +265,8 @@ function BlogPostsList() {
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">
                 <th className="text-left py-3 px-4">Titel</th>
-                <th className="text-left py-3 px-4">Slug</th>
-                <th className="text-left py-3 px-4">Kategorie</th>
+                <th className="text-left py-3 px-4 hidden md:table-cell">Slug</th>
+                <th className="text-left py-3 px-4 hidden lg:table-cell">Kategorie</th>
                 <th className="text-left py-3 px-4">Status</th>
                 <th className="text-right py-3 px-4">Aktionen</th>
               </tr>
@@ -322,22 +279,16 @@ function BlogPostsList() {
               ) : filtered.map(post => (
                 <tr key={post.id} className="border-b border-border/50 hover:bg-muted/30">
                   <td className="py-2.5 px-4 font-medium">{post.title}</td>
-                  <td className="py-2.5 px-4 text-xs text-muted-foreground font-mono">/{post.slug}</td>
-                  <td className="py-2.5 px-4 text-xs">{post.category || '—'}</td>
+                  <td className="py-2.5 px-4 text-xs text-muted-foreground font-mono hidden md:table-cell">/{post.slug}</td>
+                  <td className="py-2.5 px-4 text-xs hidden lg:table-cell">{post.category || '—'}</td>
                   <td className="py-2.5 px-4"><StatusBadge status={post.status} /></td>
                   <td className="py-2.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(post)}>
-                        <Edit className="h-3 w-3 mr-1" /> Edit
-                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(post)}><Edit className="h-3 w-3" /></Button>
                       {post.status !== 'published' && (
-                        <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" onClick={() => publish.mutate(post.id)}>
-                          <Send className="h-3 w-3 mr-1" /> Publish
-                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" onClick={() => publish.mutate(post.id)}><Send className="h-3 w-3" /></Button>
                       )}
-                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => remove.mutate(post.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => remove.mutate(post.id)}><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </td>
                 </tr>
@@ -347,49 +298,31 @@ function BlogPostsList() {
         </CardContent>
       </Card>
 
-      {/* Editor Dialog */}
       <Dialog open={!!editing} onOpenChange={open => !open && setEditing(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing?.id ? 'Artikel bearbeiten' : 'Neuer Artikel'}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{editing?.id ? 'Artikel bearbeiten' : 'Neuer Artikel'}</DialogTitle></DialogHeader>
           {editing && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2 space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Titel</label>
-                  <Input value={editing.title || ''} onChange={e => setEditing({ ...editing, title: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Slug</label>
-                  <Input value={editing.slug || ''} onChange={e => setEditing({ ...editing, slug: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Excerpt</label>
-                  <Textarea value={editing.excerpt || ''} onChange={e => setEditing({ ...editing, excerpt: e.target.value })} rows={2} />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Inhalt (Markdown)</label>
-                  <Textarea value={editing.body_md || ''} onChange={e => setEditing({ ...editing, body_md: e.target.value })} rows={12} className="font-mono text-xs" />
-                </div>
+                <div><label className="text-xs font-medium text-muted-foreground">Titel</label>
+                  <Input value={editing.title || ''} onChange={e => setEditing({ ...editing, title: e.target.value })} /></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Slug</label>
+                  <Input value={editing.slug || ''} onChange={e => setEditing({ ...editing, slug: e.target.value })} /></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Excerpt</label>
+                  <Textarea value={editing.excerpt || ''} onChange={e => setEditing({ ...editing, excerpt: e.target.value })} rows={2} /></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Inhalt (Markdown)</label>
+                  <Textarea value={editing.body_md || ''} onChange={e => setEditing({ ...editing, body_md: e.target.value })} rows={12} className="font-mono text-xs" /></div>
               </div>
               <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Meta Title</label>
+                <div><label className="text-xs font-medium text-muted-foreground">Meta Title</label>
                   <Input value={editing.meta_title || ''} onChange={e => setEditing({ ...editing, meta_title: e.target.value })} />
-                  <p className="text-[10px] text-muted-foreground mt-1">{(editing.meta_title || '').length}/60</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Meta Description</label>
+                  <p className="text-[10px] text-muted-foreground mt-1">{(editing.meta_title || '').length}/60</p></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Meta Description</label>
                   <Textarea value={editing.meta_description || ''} onChange={e => setEditing({ ...editing, meta_description: e.target.value })} rows={2} />
-                  <p className="text-[10px] text-muted-foreground mt-1">{(editing.meta_description || '').length}/160</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Kategorie</label>
-                  <Input value={editing.category || ''} onChange={e => setEditing({ ...editing, category: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Status</label>
+                  <p className="text-[10px] text-muted-foreground mt-1">{(editing.meta_description || '').length}/160</p></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Kategorie</label>
+                  <Input value={editing.category || ''} onChange={e => setEditing({ ...editing, category: e.target.value })} /></div>
+                <div><label className="text-xs font-medium text-muted-foreground">Status</label>
                   <Select value={editing.status || 'draft'} onValueChange={v => setEditing({ ...editing, status: v as any })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -398,14 +331,8 @@ function BlogPostsList() {
                       <SelectItem value="published">Veröffentlicht</SelectItem>
                       <SelectItem value="archived">Archiviert</SelectItem>
                     </SelectContent>
-                  </Select>
-                </div>
-                <SEOChecklist
-                  title={editing.title}
-                  metaTitle={editing.meta_title}
-                  metaDescription={editing.meta_description}
-                  slug={editing.slug}
-                />
+                  </Select></div>
+                <SEOChecklist title={editing.title} metaTitle={editing.meta_title} metaDescription={editing.meta_description} slug={editing.slug} />
               </div>
             </div>
           )}
@@ -419,10 +346,8 @@ function BlogPostsList() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// Assets Manager
-// ═══════════════════════════════════════════════════════════
-function AssetsManager() {
+// ═══ Assets Manager ═══
+export function AssetsManager() {
   const { data: assets = [], isLoading } = useContentAssets();
   const { create, update, remove } = useContentAssetMutations();
   const [editing, setEditing] = useState<Partial<ContentAsset> | null>(null);
@@ -431,11 +356,8 @@ function AssetsManager() {
 
   const handleSave = () => {
     if (!editing) return;
-    if (editing.id) {
-      update.mutate(editing as ContentAsset & { id: string });
-    } else {
-      create.mutate(editing);
-    }
+    if (editing.id) { update.mutate(editing as ContentAsset & { id: string }); }
+    else { create.mutate(editing); }
     setEditing(null);
   };
 
@@ -459,30 +381,24 @@ function AssetsManager() {
               <tr className="border-b border-border text-xs text-muted-foreground">
                 <th className="text-left py-3 px-4">Datei</th>
                 <th className="text-left py-3 px-4">Alt-Text</th>
-                <th className="text-left py-3 px-4">Keywords</th>
-                <th className="text-left py-3 px-4">Lizenz</th>
+                <th className="text-left py-3 px-4 hidden lg:table-cell">Keywords</th>
                 <th className="text-right py-3 px-4">Aktionen</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Laden…</td></tr>
+                <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">Laden…</td></tr>
               ) : assets.length === 0 ? (
-                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Keine Assets</td></tr>
+                <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">Keine Assets</td></tr>
               ) : assets.map(asset => (
                 <tr key={asset.id} className={cn("border-b border-border/50 hover:bg-muted/30", !asset.alt_text && "bg-yellow-500/5")}>
                   <td className="py-2.5 px-4 font-mono text-xs">{asset.file_name}</td>
                   <td className="py-2.5 px-4 text-xs">{asset.alt_text || <span className="text-yellow-600">Fehlt!</span>}</td>
-                  <td className="py-2.5 px-4 text-xs">{(asset.keywords || []).join(', ') || '—'}</td>
-                  <td className="py-2.5 px-4 text-xs">{asset.license || '—'}</td>
+                  <td className="py-2.5 px-4 text-xs hidden lg:table-cell">{(asset.keywords || []).join(', ') || '—'}</td>
                   <td className="py-2.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(asset)}>
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => remove.mutate(asset.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(asset)}><Edit className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => remove.mutate(asset.id)}><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </td>
                 </tr>
@@ -521,21 +437,16 @@ function AssetsManager() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// SEO Redirects Manager
-// ═══════════════════════════════════════════════════════════
-function RedirectsManager() {
+// ═══ SEO Redirects Manager ═══
+export function RedirectsManager() {
   const { data: redirects = [], isLoading } = useSEORedirects();
   const { create, update, remove } = useSEORedirectMutations();
   const [editing, setEditing] = useState<Partial<SEORedirect> | null>(null);
 
   const handleSave = () => {
     if (!editing) return;
-    if (editing.id) {
-      update.mutate(editing as SEORedirect & { id: string });
-    } else {
-      create.mutate(editing);
-    }
+    if (editing.id) { update.mutate(editing as SEORedirect & { id: string }); }
+    else { create.mutate(editing); }
     setEditing(null);
   };
 
@@ -555,36 +466,26 @@ function RedirectsManager() {
               <tr className="border-b border-border text-xs text-muted-foreground">
                 <th className="text-left py-3 px-4">Von</th>
                 <th className="text-left py-3 px-4">Nach</th>
-                <th className="text-left py-3 px-4">Code</th>
-                <th className="text-left py-3 px-4">Aktiv</th>
+                <th className="text-left py-3 px-4 hidden md:table-cell">Code</th>
                 <th className="text-right py-3 px-4">Aktionen</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Laden…</td></tr>
+                <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">Laden…</td></tr>
               ) : redirects.length === 0 ? (
-                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Keine Redirects</td></tr>
+                <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">Keine Redirects</td></tr>
               ) : redirects.map(r => (
                 <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30">
                   <td className="py-2.5 px-4 font-mono text-xs">{r.from_path}</td>
                   <td className="py-2.5 px-4 font-mono text-xs flex items-center gap-1">
                     <ArrowRight className="h-3 w-3 text-muted-foreground" /> {r.to_path}
                   </td>
-                  <td className="py-2.5 px-4"><Badge variant="outline" className="text-[10px]">{r.status_code}</Badge></td>
-                  <td className="py-2.5 px-4">
-                    {r.is_active
-                      ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      : <span className="text-xs text-muted-foreground">Inaktiv</span>}
-                  </td>
+                  <td className="py-2.5 px-4 hidden md:table-cell"><Badge variant="outline" className="text-[10px]">{r.status_code}</Badge></td>
                   <td className="py-2.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(r)}>
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => remove.mutate(r.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(r)}><Edit className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => remove.mutate(r.id)}><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </td>
                 </tr>
@@ -610,8 +511,7 @@ function RedirectsManager() {
                     <SelectItem value="301">301 (Permanent)</SelectItem>
                     <SelectItem value="302">302 (Temporär)</SelectItem>
                   </SelectContent>
-                </Select>
-              </div>
+                </Select></div>
               <div><label className="text-xs font-medium text-muted-foreground">Notizen</label>
                 <Input value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} /></div>
             </div>
@@ -626,38 +526,36 @@ function RedirectsManager() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// Main Content Pages Overview (with sub-routing)
-// ═══════════════════════════════════════════════════════════
-function ContentPagesOverview() {
-  const location = useLocation();
-  const subPath = location.pathname.replace('/admin/content', '').replace(/^\//, '');
+// ═══ Content Layout (nested routing with Outlet) ═══
+const CONTENT_TABS = [
+  { path: '/admin/content', label: 'Seiten', icon: FileText, end: true },
+  { path: '/admin/content/blog', label: 'Blog', icon: Edit },
+  { path: '/admin/content/assets', label: 'Assets', icon: Image },
+  { path: '/admin/content/seo', label: 'SEO & Redirects', icon: Globe },
+];
 
-  const tabs = [
-    { path: '/admin/content', label: 'Seiten', icon: FileText, key: '' },
-    { path: '/admin/content/blog', label: 'Blog', icon: Edit, key: 'blog' },
-    { path: '/admin/content/assets', label: 'Assets', icon: Image, key: 'assets' },
-    { path: '/admin/content/seo', label: 'SEO & Redirects', icon: Globe, key: 'seo' },
-  ];
+export function ContentLayout() {
+  const location = useLocation();
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-foreground">Content & SEO</h1>
-        <p className="text-sm text-muted-foreground mt-1">Seiten, Blog, Assets & SEO verwalten — Draft → Review → Publish</p>
+        <p className="text-sm text-muted-foreground mt-1">Seiten, Blog, Assets & SEO verwalten</p>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex items-center gap-1 border-b border-border">
-        {tabs.map(tab => {
+      <div className="flex items-center gap-1 border-b border-border overflow-x-auto">
+        {CONTENT_TABS.map(tab => {
           const Icon = tab.icon;
-          const isActive = subPath === tab.key;
+          const isActive = tab.end
+            ? location.pathname === tab.path
+            : location.pathname.startsWith(tab.path);
           return (
             <Link
               key={tab.path}
               to={tab.path}
               className={cn(
-                "flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors -mb-px",
+                "flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors -mb-px whitespace-nowrap min-h-[44px]",
                 isActive
                   ? "border-primary text-primary font-medium"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -669,13 +567,10 @@ function ContentPagesOverview() {
         })}
       </div>
 
-      {/* Sub-content */}
-      {subPath === '' && <ContentPagesList />}
-      {subPath === 'blog' && <BlogPostsList />}
-      {subPath === 'assets' && <AssetsManager />}
-      {subPath === 'seo' && <RedirectsManager />}
+      <Outlet />
     </div>
   );
 }
 
-export { ContentPagesOverview };
+// Legacy export for backward compat
+export const ContentPagesOverview = ContentLayout;
