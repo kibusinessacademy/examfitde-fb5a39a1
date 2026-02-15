@@ -4,6 +4,7 @@ import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { generateFAQSchema, generateBreadcrumbSchema, generateCourseSchema, SITE_URL } from '@/lib/seo';
 import { useCertificationCatalog } from '@/hooks/useCertificationSEO';
 import { useCertificationSEOPage } from '@/hooks/useCertificationSEO';
+import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
 import { Target, ArrowRight, CheckCircle2, AlertTriangle, BookOpen, Brain, Clock, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,8 +54,10 @@ const PruefungstrainingDetailPage = () => {
 
   const { data: catalog, isLoading } = useCertificationCatalog();
   const { data: seoPage } = useCertificationSEOPage(resolvedSlug || '');
+  const { data: publishedIds } = usePublishedCertifications();
 
   const cert = useMemo(() => catalog?.find(c => c.slug === resolvedSlug), [catalog, resolvedSlug]);
+  const isPublished = cert ? publishedIds?.has(cert.id) : false;
   const relatedCerts = useMemo(() => {
     if (!cert || !catalog) return [];
     return catalog
@@ -135,6 +138,20 @@ const PruefungstrainingDetailPage = () => {
         {/* Breadcrumbs + Hero */}
         <section className="space-y-4">
           <Breadcrumbs items={breadcrumbsUI} />
+
+          {/* Coming Soon Banner */}
+          {!isPublished && (
+            <div className="relative rounded-2xl overflow-hidden bg-muted/60 border border-border p-8 text-center space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-primary text-sm font-semibold">
+                <Clock className="h-4 w-4" />
+                Coming Soon
+              </div>
+              <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                Das Prüfungstraining für <strong>{name}</strong> wird gerade erstellt und ist in Kürze verfügbar. Schau bald wieder vorbei!
+              </p>
+            </div>
+          )}
+
           <h1 className="text-3xl md:text-4xl font-bold">
             Prüfungstraining für {name} – <span className="text-primary">Prüfung sicher bestehen</span>
           </h1>
@@ -143,11 +160,17 @@ const PruefungstrainingDetailPage = () => {
             {questions > 0 && ` ${questions}+ prüfungsrelevante Aufgaben,`} realistische Simulation und KI-Prüfungscoach – alles in einem Paket.
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
-            <Link to="/shop">
-              <Button size="lg" className="shadow-glow">
-                <Target className="mr-2 h-5 w-5" /> Prüfung starten
+            {isPublished ? (
+              <Link to="/shop">
+                <Button size="lg" className="shadow-glow">
+                  <Target className="mr-2 h-5 w-5" /> Prüfung starten
+                </Button>
+              </Link>
+            ) : (
+              <Button size="lg" disabled className="opacity-60">
+                <Clock className="mr-2 h-5 w-5" /> Bald verfügbar
               </Button>
-            </Link>
+            )}
           </div>
         </section>
 
@@ -306,12 +329,18 @@ const PruefungstrainingDetailPage = () => {
         {/* Final CTA */}
         <section className="text-center py-8 space-y-4 bg-card rounded-2xl border border-border">
           <h2 className="text-2xl font-bold">Bereit für die Prüfung {name}?</h2>
-          <p className="text-muted-foreground">Starte jetzt – 39 € für 12 Monate Prüfungstraining.</p>
-          <Link to="/shop">
-            <Button size="lg" className="shadow-glow">
-              <Target className="mr-2 h-5 w-5" /> Jetzt Prüfungstraining starten
-            </Button>
-          </Link>
+          {isPublished ? (
+            <>
+              <p className="text-muted-foreground">Starte jetzt – 39 € für 12 Monate Prüfungstraining.</p>
+              <Link to="/shop">
+                <Button size="lg" className="shadow-glow">
+                  <Target className="mr-2 h-5 w-5" /> Jetzt Prüfungstraining starten
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <p className="text-muted-foreground">Dieses Prüfungstraining wird gerade erstellt und ist bald verfügbar.</p>
+          )}
         </section>
       </div>
     </>

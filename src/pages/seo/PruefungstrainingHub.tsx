@@ -3,7 +3,8 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { generateFAQSchema, generateBreadcrumbSchema, SITE_URL } from '@/lib/seo';
 import { useCertificationCatalog } from '@/hooks/useCertificationSEO';
-import { Target, GraduationCap, Award, BookOpen, Shield, Briefcase, ArrowRight, CheckCircle2, Zap, Brain } from 'lucide-react';
+import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
+import { Target, GraduationCap, Award, BookOpen, Shield, Briefcase, ArrowRight, CheckCircle2, Zap, Brain, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -81,6 +82,7 @@ const FAQS = [
 
 const PruefungstrainingHub = () => {
   const { data: catalog } = useCertificationCatalog();
+  const { data: publishedIds } = usePublishedCertifications();
 
   const breadcrumbs = [
     { name: 'Start', url: SITE_URL },
@@ -189,7 +191,9 @@ const PruefungstrainingHub = () => {
           <section className="space-y-6">
             <h2 className="text-2xl font-bold text-center">Beliebtestes Prüfungstraining</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
-              {catalog.slice(0, 9).map(cert => (
+              {catalog.slice(0, 9).map(cert => {
+                const isCertPublished = publishedIds?.has(cert.id);
+                return (
                 <Link key={cert.id} to={`/pruefungstraining/${cert.slug}`}>
                   <Card className="hover:border-primary/30 transition-colors">
                     <CardContent className="py-4 flex items-center justify-between">
@@ -197,11 +201,19 @@ const PruefungstrainingHub = () => {
                         <p className="font-medium text-sm">{cert.title}</p>
                         <p className="text-xs text-muted-foreground">{cert.chamber_type} · {cert.catalog_type.replace(/_/g, ' ')}</p>
                       </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex items-center gap-2 shrink-0">
+                        {!isCertPublished && (
+                          <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> Soon
+                          </span>
+                        )}
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
                     </CardContent>
                   </Card>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}
