@@ -1,4 +1,13 @@
-// ============= Lines 17-122 =============
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+
+/**
+ * job-runner — Pulls pending jobs from job_queue, dispatches to the
+ * matching Edge Function, writes back done / failed / requeued (batch).
+ *
+ * Called every minute by cron-trigger alongside pipeline-runner.
+ */
+
 const JOB_TYPE_MAP: Record<string, string> = {
   extract_curriculum: "extract-curriculum",
   generate_curriculum_content: "generate-curriculum-content",
@@ -104,8 +113,212 @@ const JOB_TYPE_MAP: Record<string, string> = {
   auto_gap_close: "auto-gap-close",
   generate_image: "generate-image",
   daily_test_run: "daily-test-runner",
-  // ADDED MISSING TYPES:
   generate_questions: "generate-questions",
   auto_map_topics_to_blueprint: "auto-map-topics-to-blueprint",
   blooms_classify: "blooms-taxonomy",
 };
+
+// ── Constants ────────────────────────────────────────────────────────
+const MAX_JOBS_PER_TICK = 5;
+const JOB_TIMEOUT_MS = 140_000; // 140s — stay under Edge 150s hard limit
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+}
+
+// ── Main Handler ─────────────────────────────────────────────────────
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS")
+    return new Response(null, { headers: corsHeaders });
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  // ── 1. Claim pending jobs ──────────────────────────────────────────
+  const { data: jobs, error: fetchErr } = await sb
+    .from("job_queue")
+    .select("*")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .limit(MAX_JOBS_PER_TICK);
+
+  if (fetchErr) {
+    console.error("[job-runner] fetch error:", fetchErr.message);
+    return json({ ok: false, error: fetchErr.message }, 500);
+  }
+
+  if (!jobs || jobs.length === 0) {
+    return json({ ok: true, processed: 0, message: "No pending jobs" });
+  }
+
+  console.log(`[job-runner] Processing ${jobs.length} job(s)`);
+
+  const results: Record<string, unknown>[] = [];
+
+  for (const job of jobs) {
+    const fnName = JOB_TYPE_MAP[job.job_type];
+    if (!fnName) {
+      console.warn(`[job-runner] Unknown job_type: ${job.job_type}, skipping`);
+      await sb
+        .from("job_queue")
+        .update({
+          status: "failed",
+          error: `Unknown job_type: ${job.job_type}`,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+      results.push({ id: job.id, status: "failed", reason: "unknown_type" });
+      continue;
+    }
+
+    // Mark as processing
+    const { error: claimErr } = await sb
+      .from("job_queue")
+      .update({
+        status: "processing",
+        started_at: new Date().toISOString(),
+        attempts: (job.attempts || 0) + 1,
+      })
+      .eq("id", job.id)
+      .eq("status", "pending"); // optimistic lock
+
+    if (claimErr) {
+      console.warn(`[job-runner] Could not claim job ${job.id}: ${claimErr.message}`);
+      results.push({ id: job.id, status: "skipped", reason: "claim_failed" });
+      continue;
+    }
+
+    // ── 2. Invoke the target Edge Function ───────────────────────────
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), JOB_TIMEOUT_MS);
+
+      const payload = {
+        ...(job.payload || {}),
+        _job_id: job.id,
+        _job_type: job.job_type,
+      };
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          apikey: SERVICE_ROLE_KEY,
+          authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timer);
+
+      const text = await res.text().catch(() => "");
+      let parsed: any;
+      try { parsed = JSON.parse(text); } catch { parsed = text; }
+
+      if (!res.ok) {
+        // ── Rate-limited or transient → requeue with delay ───────────
+        if (res.status === 429 || res.status === 503) {
+          console.warn(`[job-runner] ${fnName} returned ${res.status}, requeuing ${job.id}`);
+          await sb
+            .from("job_queue")
+            .update({
+              status: "pending",
+              error: `HTTP ${res.status} — will retry`,
+              meta: { ...(job.meta || {}), last_retry: new Date().toISOString() },
+            })
+            .eq("id", job.id);
+          results.push({ id: job.id, status: "requeued", httpStatus: res.status });
+          continue;
+        }
+
+        // ── Hard failure ─────────────────────────────────────────────
+        const maxAttempts = job.max_attempts || 3;
+        if ((job.attempts || 0) + 1 >= maxAttempts) {
+          await sb
+            .from("job_queue")
+            .update({
+              status: "failed",
+              error: `HTTP ${res.status}: ${typeof parsed === "string" ? parsed.slice(0, 500) : JSON.stringify(parsed).slice(0, 500)}`,
+              completed_at: new Date().toISOString(),
+            })
+            .eq("id", job.id);
+          results.push({ id: job.id, status: "failed", httpStatus: res.status });
+        } else {
+          await sb
+            .from("job_queue")
+            .update({ status: "pending", error: `HTTP ${res.status} — attempt ${(job.attempts || 0) + 1}` })
+            .eq("id", job.id);
+          results.push({ id: job.id, status: "requeued", httpStatus: res.status });
+        }
+        continue;
+      }
+
+      // ── 3. Handle batch_complete protocol ──────────────────────────
+      if (parsed && parsed.batch_complete === false) {
+        console.log(`[job-runner] ${fnName} batch incomplete, requeuing with cursor`);
+        await sb
+          .from("job_queue")
+          .update({
+            status: "pending",
+            meta: { ...(job.meta || {}), batch_cursor: parsed.batch_cursor ?? null },
+          })
+          .eq("id", job.id);
+        results.push({ id: job.id, status: "batch_requeued" });
+        continue;
+      }
+
+      // ── 4. Done ────────────────────────────────────────────────────
+      await sb
+        .from("job_queue")
+        .update({
+          status: "done",
+          result: typeof parsed === "object" ? parsed : { raw: parsed },
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+
+      results.push({ id: job.id, status: "done", function: fnName });
+
+    } catch (err: unknown) {
+      const msg = (err as Error)?.message || String(err);
+      const isTimeout = msg.includes("abort");
+      console.error(`[job-runner] ${fnName} error: ${msg}`);
+
+      const maxAttempts = job.max_attempts || 3;
+      if ((job.attempts || 0) + 1 >= maxAttempts) {
+        await sb
+          .from("job_queue")
+          .update({
+            status: "failed",
+            error: isTimeout ? "Edge Function timeout" : msg.slice(0, 1000),
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", job.id);
+        results.push({ id: job.id, status: "failed", reason: isTimeout ? "timeout" : "error" });
+      } else {
+        await sb
+          .from("job_queue")
+          .update({
+            status: "pending",
+            error: `Attempt ${(job.attempts || 0) + 1} failed: ${msg.slice(0, 500)}`,
+          })
+          .eq("id", job.id);
+        results.push({ id: job.id, status: "requeued", reason: isTimeout ? "timeout" : "error" });
+      }
+    }
+  }
+
+  console.log(`[job-runner] Tick done: ${JSON.stringify(results)}`);
+  return json({ ok: true, processed: results.length, results });
+});
