@@ -468,6 +468,25 @@ Deno.serve(async (req) => {
   try {
     if (!isFanOut) {
       if (!(await prereqDone(sb, packageId, "scaffold_learning_course"))) {
+        // PREREQ not ready is a scheduling case, NOT an error.
+        // Defer the job without burning attempts — the runner will re-process it later.
+        const jobId = p.job_id || body.job_id;
+        if (jobId) {
+          await sb
+            .from("job_queue")
+            .update({
+              status: "pending",
+              run_after: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+              locked_at: null,
+              locked_by: null,
+              updated_at: new Date().toISOString(),
+              // Do NOT increment attempts — this is not a real failure
+            })
+            .eq("id", jobId);
+          console.log(`[ExamPool] PREREQ_NOT_DONE: scaffold — deferred job ${jobId} by 2min (no attempt burn)`);
+          return json({ ok: true, delayed: true, reason: "PREREQ_NOT_DONE: scaffold_learning_course" });
+        }
+        // Fallback if no job_id available: return 409 for pipeline-runner to handle
         return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: scaffold_learning_course" }, 409);
       }
     }
