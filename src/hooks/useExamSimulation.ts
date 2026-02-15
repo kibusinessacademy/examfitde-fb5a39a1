@@ -25,7 +25,7 @@ export interface ExamSession {
   user_id: string;
   curriculum_id: string;
   blueprint_id: string;
-  mode: 'simulation' | 'practice' | 'timed_exam';
+  mode: 'simulation' | 'practice' | 'timed_exam' | 'adaptive';
   seed: number;
   total_questions: number;
   time_limit_minutes: number | null;
@@ -178,7 +178,7 @@ export function useStartExamSession() {
       mode = 'simulation' 
     }: { 
       blueprintId: string; 
-      mode?: 'simulation' | 'practice' | 'timed_exam';
+      mode?: 'simulation' | 'practice' | 'timed_exam' | 'adaptive';
     }) => {
       const { data, error } = await supabase
         .rpc('start_exam_session', {

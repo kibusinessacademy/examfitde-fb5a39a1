@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle, Clock, Target, Play, BookOpen } from 'lucide-react';
+import { Loader2, AlertCircle, Clock, Target, Play, BookOpen, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
@@ -19,14 +19,16 @@ interface ExamBlueprint {
   };
 }
 
+export type ExamMode = 'simulation' | 'practice' | 'timed_exam' | 'adaptive';
+
 interface BlueprintSelectorProps {
   blueprints: ExamBlueprint[] | undefined;
   isLoading: boolean;
-  onSelect: (blueprintId: string, mode: 'simulation' | 'practice' | 'timed_exam') => void;
+  onSelect: (blueprintId: string, mode: ExamMode) => void;
 }
 
 export function BlueprintSelector({ blueprints, isLoading, onSelect }: BlueprintSelectorProps) {
-  const [selectedMode, setSelectedMode] = useState<'simulation' | 'practice' | 'timed_exam'>('simulation');
+  const [selectedMode, setSelectedMode] = useState<ExamMode>('simulation');
   
   if (isLoading) {
     return (
@@ -66,7 +68,7 @@ export function BlueprintSelector({ blueprints, isLoading, onSelect }: Blueprint
         </CardHeader>
         <CardContent>
           <div className="grid gap-3">
-            {[
+            {([
               { 
                 value: 'simulation' as const, 
                 label: 'Simulation', 
@@ -85,7 +87,13 @@ export function BlueprintSelector({ blueprints, isLoading, onSelect }: Blueprint
                 desc: 'Mit Zeitlimit wie in der echten Prüfung',
                 icon: Clock
               },
-            ].map(mode => (
+              {
+                value: 'adaptive' as const,
+                label: 'Adaptive Übung (IRT)',
+                desc: 'Fragen passen sich deinem Können an – echte CAT-Logik',
+                icon: Brain
+              },
+            ] satisfies { value: ExamMode; label: string; desc: string; icon: typeof BookOpen }[]).map(mode => (
               <button
                 key={mode.value}
                 onClick={() => setSelectedMode(mode.value)}
