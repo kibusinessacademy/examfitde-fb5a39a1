@@ -206,6 +206,8 @@ Deno.serve(async (req) => {
 
       const payload = {
         ...(job.payload || {}),
+        // Pass cursor forward for chunked workers
+        ...(job.batch_cursor ? { _batch_cursor: job.batch_cursor, batch_cursor: job.batch_cursor } : {}),
         _job_id: job.id,
         _job_type: job.job_type,
       };
@@ -281,7 +283,8 @@ Deno.serve(async (req) => {
         await sb.from("job_queue").update({
           status: "pending",
           run_after: new Date(Date.now() + BACKOFF_BATCH_MS).toISOString(),
-          meta: { ...(job.meta || {}), batch_cursor: parsed.batch_cursor ?? null },
+          batch_cursor: parsed.batch_cursor ?? null,
+          meta: { ...(job.meta || {}), last_batch: new Date().toISOString() },
         }).eq("id", job.id);
         results.push({ id: job.id, status: "requeued", reason: "batch_incomplete" });
         continue;
