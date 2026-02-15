@@ -39,30 +39,40 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "unauthorized" }, 401);
     }
 
-    // Determine which function to trigger (default: pipeline-runner)
-    let targetFn = "pipeline-runner";
+    // Determine which functions to trigger (default: both pipeline-runner + job-runner)
+    let targetFns: string[] = ["pipeline-runner", "job-runner"];
     try {
       const body = await req.json();
-      if (body?.function) targetFn = String(body.function);
+      if (body?.function) targetFns = [String(body.function)];
+      if (body?.functions && Array.isArray(body.functions)) targetFns = body.functions.map(String);
     } catch {
-      // no body is fine
+      // no body is fine — trigger both by default
     }
 
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/${targetFn}`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        apikey: SERVICE_ROLE_KEY,
-        authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      },
-      body: "{}",
-    });
+    const results: Record<string, unknown>[] = [];
 
-    const text = await res.text().catch(() => "");
-    return new Response(text, {
-      status: res.status,
-      headers: { ...corsHeaders, "content-type": "application/json" },
-    });
+    for (const fn of targetFns) {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            apikey: SERVICE_ROLE_KEY,
+            authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+          },
+          body: "{}",
+        });
+
+        const text = await res.text().catch(() => "");
+        let parsed: unknown;
+        try { parsed = JSON.parse(text); } catch { parsed = text; }
+        results.push({ function: fn, status: res.status, result: parsed });
+      } catch (e: unknown) {
+        results.push({ function: fn, error: (e as Error)?.message || String(e) });
+      }
+    }
+
+    return json({ ok: true, triggered: targetFns, results });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     return json({ ok: false, error: msg }, 500);

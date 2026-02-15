@@ -69,9 +69,14 @@ async function safeRpc(
   params: Record<string, unknown>,
 ) {
   try {
-    return await sb.rpc(fn, params);
-  } catch (_) {
-    return { data: null, error: _ };
+    const result = await sb.rpc(fn, params);
+    if (result.error) {
+      console.warn(`[runner] RPC ${fn} returned error:`, result.error.message);
+    }
+    return result;
+  } catch (e) {
+    console.error(`[runner] RPC ${fn} threw:`, (e as Error).message);
+    return { data: null, error: e };
   }
 }
 
@@ -287,12 +292,17 @@ async function processPackage(
       return { packageId, stepKey, job_reset: true };
     }
 
-    // Job still pending/processing → keep lease
+    // Job still pending/processing → keep lease + send step heartbeat
     if (job.status === "pending" || job.status === "processing") {
       await safeRpc(sb, "renew_package_lease", {
         p_package_id: packageId,
         p_runner_id: runnerId,
         p_lease_seconds: 600,
+      });
+      // Fix B: Send step heartbeat to prevent false timeout by expire_stale_steps()
+      await safeRpc(sb, "step_heartbeat", {
+        p_package_id: packageId,
+        p_step_key: stepKey,
       });
       return { packageId, stepKey, waiting: true, jobStatus: job.status };
     }
@@ -456,13 +466,15 @@ async function processPackage(
       );
     }
 
-    try {
-      await sb.rpc("step_start", {
-        p_package_id: packageId,
-        p_step_key: stepKey,
-        p_runner_id: runnerId,
-      });
-    } catch { /* ignore if RPC doesn't exist */ }
+    // Fix D: Log step_start errors instead of swallowing them
+    const startResult = await safeRpc(sb, "step_start", {
+      p_package_id: packageId,
+      p_step_key: stepKey,
+      p_runner_id: runnerId,
+    });
+    if (startResult.error) {
+      console.error(`[runner] step_start failed for ${stepKey} pkg ${shortId}:`, (startResult.error as Error)?.message ?? startResult.error);
+    }
 
     // Keep lease — slot stays occupied
     console.log(`[runner] 📤 Enqueued ${jobType} (job ${jobId.slice(0, 8)}) for ${shortId}`);
@@ -491,7 +503,8 @@ Deno.serve(async (req) => {
     .select("value")
     .eq("key", "max_concurrent_packages")
     .maybeSingle();
-  const maxSlots = parseInt(configRow?.value ?? "5", 10);
+  // Fix C: No fallback mismatch — if config missing, default to 3 (matches DB seed)
+  const maxSlots = parseInt(configRow?.value ?? "3", 10);
 
   const results: Record<string, unknown>[] = [];
   const processedPackageIds = new Set<string>();
