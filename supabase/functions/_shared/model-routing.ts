@@ -174,16 +174,51 @@ export function getBudget(intent: PipelineIntent): number {
 }
 
 /**
- * Quality Escalation Rule:
- * If a cheap model (mini) produced low-quality output,
- * escalate to a higher-quality model for re-validation.
- * Returns the escalation model if score is below threshold, null otherwise.
+ * Adaptive Quality Escalation Rule:
+ * Instead of a fixed threshold, escalation considers context:
+ *   - difficulty level of the content
+ *   - question type (case study needs higher bar)
+ *   - intent category
+ *
+ * Returns the escalation model if score is below adaptive threshold, null otherwise.
  */
+
+export type ContentDifficulty = "easy" | "medium" | "hard" | "very_hard";
+export type QuestionType = "single_choice" | "multiple_choice" | "calculation" | "case_study" | "oral" | "other";
+
+/** Adaptive thresholds: harder content → higher bar before escalation */
+const DIFFICULTY_THRESHOLDS: Record<ContentDifficulty, number> = {
+  easy: 60,
+  medium: 70,
+  hard: 75,
+  very_hard: 80,
+};
+
+/** Question type modifiers: complex types get +5 escalation sensitivity */
+const TYPE_MODIFIERS: Record<QuestionType, number> = {
+  single_choice: 0,
+  multiple_choice: 2,
+  calculation: 3,
+  case_study: 5,
+  oral: 5,
+  other: 0,
+};
+
+export function getAdaptiveThreshold(
+  difficulty: ContentDifficulty = "medium",
+  questionType: QuestionType = "single_choice"
+): number {
+  return DIFFICULTY_THRESHOLDS[difficulty] + TYPE_MODIFIERS[questionType];
+}
+
 export function getEscalationModel(
   intent: PipelineIntent,
   validationScore: number,
-  threshold = 70
+  opts?: { difficulty?: ContentDifficulty; questionType?: QuestionType; threshold?: number }
 ): ModelChoice | null {
+  const threshold = opts?.threshold ??
+    getAdaptiveThreshold(opts?.difficulty ?? "medium", opts?.questionType ?? "single_choice");
+
   if (validationScore >= threshold) return null;
 
   // Define escalation targets: mini → full model
