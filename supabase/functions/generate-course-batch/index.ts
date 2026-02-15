@@ -251,10 +251,22 @@ ${stepPrompt}${topicDepth}`;
       output_content: result, status: "generated", metadata: { provider: routed.provider, competencyCode: competency.code }
     }).select("id").single();
 
-    // Trigger validation
+    // Trigger validation with full SSOT context
     try {
       await supabase.functions.invoke("validate-content", {
-        body: { mode: "lesson", content: result, generationId: genRec?.id, courseId, lessonId, generatorProvider: routed.provider }
+        body: {
+          mode: "lesson",
+          content: result,
+          generationId: genRec?.id,
+          courseId,
+          lessonId,
+          generatorProvider: routed.provider,
+          context: {
+            competencyTitle: competency.title,
+            taxonomyLevel: competency.taxonomy_level,
+            lessonStep: step,
+          },
+        }
       });
     } catch (e) { console.error("Validation trigger failed:", e); }
 
