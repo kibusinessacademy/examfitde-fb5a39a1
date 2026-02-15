@@ -3,9 +3,11 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { generateBreadcrumbSchema, SITE_URL } from '@/lib/seo';
 import { useCertificationCatalog } from '@/hooks/useCertificationSEO';
-import { ArrowRight, Target } from 'lucide-react';
+import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
+import { ArrowRight, Target, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 
 const CATEGORY_META: Record<string, { title: string; h1: string; description: string; filterFn: (c: any) => boolean }> = {
@@ -44,6 +46,7 @@ const CATEGORY_META: Record<string, { title: string; h1: string; description: st
 const PruefungstrainingCategoryPage = () => {
   const { category } = useParams<{ category: string }>();
   const { data: catalog, isLoading } = useCertificationCatalog();
+  const { data: publishedIds } = usePublishedCertifications();
 
   const meta = CATEGORY_META[category || ''];
   if (!meta) {
@@ -90,13 +93,22 @@ const PruefungstrainingCategoryPage = () => {
         ) : (
           <section className="max-w-5xl mx-auto">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {certifications.map(cert => (
+              {certifications.map(cert => {
+                const isCertPublished = publishedIds?.has(cert.id);
+                return (
                 <Link key={cert.id} to={`/pruefungstraining/${cert.slug}`}>
                   <Card className="h-full hover:border-primary/40 transition-colors group">
                     <CardContent className="py-5 space-y-2">
                       <h2 className="font-semibold group-hover:text-primary transition-colors flex items-center justify-between">
                         <span className="line-clamp-2">{cert.title}</span>
-                        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="flex items-center gap-2 shrink-0">
+                          {!isCertPublished && (
+                            <Badge variant="outline" className="text-[10px] border-muted-foreground/30 text-muted-foreground gap-1">
+                              <Clock className="h-3 w-3" /> Coming Soon
+                            </Badge>
+                          )}
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
                       </h2>
                       <div className="flex gap-2 text-xs text-muted-foreground">
                         <span>{cert.chamber_type}</span>
@@ -105,7 +117,8 @@ const PruefungstrainingCategoryPage = () => {
                     </CardContent>
                   </Card>
                 </Link>
-              ))}
+                );
+              })}
             </div>
 
             {certifications.length === 0 && (
