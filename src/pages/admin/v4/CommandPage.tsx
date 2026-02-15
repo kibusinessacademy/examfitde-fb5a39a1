@@ -11,7 +11,7 @@ import {
   CheckCircle2, Clock, Package, XCircle, Activity,
   DollarSign, RefreshCw, Loader2, FileText, Headphones,
   Users, AlertTriangle, TrendingUp, ArrowRight, Play, RotateCcw, Pause,
-  ShieldAlert, Brain, Zap
+  ShieldAlert, Brain, Zap, Award
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -461,6 +461,15 @@ export default function CommandPage() {
         </Card>
       )}
 
+      {/* ═══ ERROR OBSERVATORY ═══ */}
+      <ErrorObservatory />
+
+      {/* ═══ COST INTELLIGENCE ═══ */}
+      <CostIntelligence />
+
+      {/* ═══ QUALITY DASHBOARD ═══ */}
+      <QualityDashboard />
+
       {/* ═══ PLATTFORM-KPIs ═══ */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 lg:gap-3">
         <Link to="/admin/content" className="block">
@@ -521,6 +530,182 @@ function PlatformCard({ icon, label, value, sublabel, alert: isAlert }: {
         </div>
         <p className="text-base lg:text-lg font-bold">{value}</p>
         {sublabel && <p className="text-[10px] lg:text-xs text-muted-foreground">{sublabel}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ERROR OBSERVATORY
+// ═══════════════════════════════════════════════════════════
+function ErrorObservatory() {
+  const [errors, setErrors] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any).from('error_observatory').select('*').limit(20);
+      setErrors(data || []);
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading || errors.length === 0) return null;
+
+  const clusterColors: Record<string, string> = {
+    RATE_LIMIT: 'border-amber-500/40 text-amber-600 dark:text-amber-400',
+    TIMEOUT: 'border-orange-500/40 text-orange-600',
+    VALIDATION_FAIL: 'border-destructive/40 text-destructive',
+    PREREQ_NOT_DONE: 'border-blue-500/40 text-blue-600',
+    BUDGET_EXCEEDED: 'border-purple-500/40 text-purple-600',
+    DUPLICATE: 'border-muted-foreground/40 text-muted-foreground',
+    OTHER: 'border-muted-foreground/40 text-muted-foreground',
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-destructive" /> Error Observatory
+        </CardTitle>
+        <CardDescription>Fehler-Cluster nach Typ und Jobtype</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {errors.map((e, i) => (
+            <div key={i} className="flex items-center gap-3 text-sm">
+              <Badge variant="outline" className={cn("text-[10px] w-32 justify-center", clusterColors[e.error_cluster] || '')}>
+                {e.error_cluster}
+              </Badge>
+              <span className="text-muted-foreground text-xs w-40 truncate">{e.job_type}</span>
+              <span className="font-mono text-xs">{e.occurrence_count}×</span>
+              <span className="text-xs text-muted-foreground">1h: {e.last_1h}</span>
+              <span className="text-xs text-muted-foreground">24h: {e.last_24h}</span>
+              {e.provider && <Badge variant="outline" className="text-[9px]">{e.provider}</Badge>}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// COST INTELLIGENCE
+// ═══════════════════════════════════════════════════════════
+function CostIntelligence() {
+  const [costs, setCosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any).from('cost_intelligence').select('*').limit(30);
+      setCosts(data || []);
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading || costs.length === 0) return null;
+
+  const totalCost = costs.reduce((s: number, c: any) => s + (c.total_cost_eur || 0), 0);
+  const totalCalls = costs.reduce((s: number, c: any) => s + (c.call_count || 0), 0);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <DollarSign className="h-4 w-4 text-primary" /> Cost Intelligence (30d)
+        </CardTitle>
+        <CardDescription>€{totalCost.toFixed(2)} · {totalCalls} Calls</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground">
+                <th className="text-left py-2 px-2">Job-Typ</th>
+                <th className="text-left py-2 px-2">Modell</th>
+                <th className="text-right py-2 px-2">Calls</th>
+                <th className="text-right py-2 px-2">Kosten €</th>
+                <th className="text-right py-2 px-2">Ø €/Call</th>
+                <th className="text-right py-2 px-2">Tokens</th>
+              </tr>
+            </thead>
+            <tbody>
+              {costs.slice(0, 15).map((c: any, i: number) => (
+                <tr key={i} className="border-b border-border/30">
+                  <td className="py-1.5 px-2 font-medium">{c.job_type}</td>
+                  <td className="py-1.5 px-2 text-muted-foreground">{c.model || '—'}</td>
+                  <td className="py-1.5 px-2 text-right">{c.call_count}</td>
+                  <td className="py-1.5 px-2 text-right font-mono">€{(c.total_cost_eur || 0).toFixed(2)}</td>
+                  <td className="py-1.5 px-2 text-right text-muted-foreground">€{(c.avg_cost_eur || 0).toFixed(4)}</td>
+                  <td className="py-1.5 px-2 text-right text-muted-foreground">{(c.total_tokens || 0).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// QUALITY DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function QualityDashboard() {
+  const [summaries, setSummaries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('package_quality_summary')
+        .select('*')
+        .order('quality_score', { ascending: true })
+        .limit(20);
+      setSummaries(data || []);
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading || summaries.length === 0) return null;
+
+  const badgeColor = (badge: string) => {
+    switch (badge) {
+      case 'platin': return 'bg-violet-500/10 text-violet-600 border-violet-500/20';
+      case 'gold': return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+      case 'silber': return 'bg-gray-300/20 text-gray-500 border-gray-400/20';
+      default: return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Award className="h-4 w-4 text-primary" /> Fragenqualität
+        </CardTitle>
+        <CardDescription>Quality Score pro Package</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {summaries.map((s: any) => (
+            <div key={s.id} className="flex items-center gap-3 text-sm border-b border-border/30 pb-2">
+              <span className={cn("text-lg font-bold w-10 text-center",
+                s.quality_score >= 85 ? 'text-emerald-600' :
+                s.quality_score >= 70 ? 'text-amber-600' : 'text-destructive'
+              )}>{s.quality_score}</span>
+              <Badge variant="outline" className={cn("text-[10px]", badgeColor(s.quality_badge))}>
+                {s.quality_badge}
+              </Badge>
+              <span className="text-muted-foreground text-xs flex-1 truncate">{s.package_id?.substring(0, 8)}</span>
+              <span className="text-xs text-muted-foreground">Dup: {s.duplicate_rate}%</span>
+              <span className="text-xs text-muted-foreground">BP: {((s.avg_blueprint_alignment || 0) * 100).toFixed(0)}%</span>
+              <span className="text-xs text-muted-foreground">⚠ {s.flagged_count}</span>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
