@@ -16465,6 +16465,7 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: number
       }
+      auto_seed_curriculum_topics: { Args: never; Returns: number }
       auto_trigger_curriculum_ingest: { Args: never; Returns: number }
       calculate_authority_index: {
         Args: {
