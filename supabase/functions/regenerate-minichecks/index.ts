@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON, type AIProvider } from "../_shared/ai-client.ts";
+import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 
 /**
  * Regenerate MiniChecks — Dual-LLM Pipeline, Profession-Aware:
@@ -91,26 +92,17 @@ function applyCorrections(questions: any[], corrections: any[]): any[] {
 }
 
 /**
- * Load profession name from lesson → module → course → curriculum → berufe
+ * Load profession name from SSOT — uses shared resolver with generic fallback allowed
+ * (since minichecks may run for lessons without full course chain)
  */
 async function loadProfessionForLesson(supabase: any, lesson: any): Promise<string> {
-  let professionName = "Auszubildende";
   try {
-    if (!lesson.module_id) return professionName;
+    if (!lesson.module_id) return "Auszubildende";
     const { data: moduleData } = await supabase.from("modules").select("course_id").eq("id", lesson.module_id).single();
-    if (!moduleData?.course_id) return professionName;
-    const { data: course } = await supabase.from("courses").select("curriculum_id").eq("id", moduleData.course_id).single();
-    if (!course?.curriculum_id) return professionName;
-    const { data: curriculum } = await supabase.from("curricula").select("title, beruf_id").eq("id", course.curriculum_id).maybeSingle();
-    if (curriculum?.beruf_id) {
-      const { data: beruf } = await supabase.from("berufe").select("bezeichnung_kurz, bezeichnung_lang").eq("id", curriculum.beruf_id).maybeSingle();
-      if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
-    } else if (curriculum?.title) {
-      const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
-      if (match) professionName = match;
-    }
-  } catch { /* fallback */ }
-  return professionName;
+    if (!moduleData?.course_id) return "Auszubildende";
+    const result = await resolveProfessionFromCourse(supabase, moduleData.course_id, { allowGenericFallback: true });
+    return result.professionName;
+  } catch { return "Auszubildende"; }
 }
 
 serve(async (req) => {

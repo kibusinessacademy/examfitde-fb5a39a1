@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON, AITool } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
+import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { checkContamination } from "../_shared/contamination-guard.ts";
 
 const LESSON_STEPS = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"] as const;
 type LessonStep = (typeof LESSON_STEPS)[number];
@@ -149,33 +151,14 @@ serve(async (req) => {
     const { data: course } = await supabase.from("courses").select("curriculum_id").eq("id", courseId).single();
     const curriculumId = course?.curriculum_id || "";
 
-    let professionName = "Auszubildende";
-    let certificationContext = "berufliche Ausbildung";
-    if (curriculumId) {
-      try {
-        const { data: curriculum } = await supabase
-          .from("curricula")
-          .select("title, beruf_id")
-          .eq("id", curriculumId)
-          .maybeSingle();
-        if (curriculum?.beruf_id) {
-          const { data: beruf } = await supabase
-            .from("berufe")
-            .select("bezeichnung_kurz, bezeichnung_lang, branche")
-            .eq("id", curriculum.beruf_id)
-            .maybeSingle();
-          if (beruf) {
-            professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
-            if ((beruf as any).branche) certificationContext = (beruf as any).branche;
-          }
-        } else if (curriculum?.title) {
-          const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
-          if (match) professionName = match;
-        }
-      } catch (e) {
-        console.error("[generate-course-batch] Profession load failed:", e);
-      }
-    }
+    // Load profession from SSOT — HARD GUARD
+    const professionResult = await resolveProfession(supabase, {
+      certificationId: (course as any)?.certification_id || null,
+      curriculumId,
+    });
+    const professionName = professionResult.professionName;
+    const certificationContext = "berufliche Ausbildung";
+    console.log(`[generate-course-batch] Profession: "${professionName}" (${professionResult.source})`);
 
     // ═══ DEPTH ENRICHMENT: Load granular curriculum topics ═══
     const topicDepth = curriculumId

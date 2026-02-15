@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAI } from "../_shared/ai-client.ts";
+import { resolveProfession } from "../_shared/profession-resolver.ts";
 
 /**
  * AI-Tutor – Profession-Aware + Deep Thinking + Post-Validation
@@ -110,7 +111,7 @@ async function loadSSOTContext(
   const parts: string[] = [];
   let professionName = "Auszubildende";
 
-  // Load curriculum + profession name
+  // Load curriculum + profession name via SSOT resolver
   if (curriculumId) {
     const { data } = await supabase
       .from('curricula')
@@ -120,22 +121,18 @@ async function loadSSOTContext(
     if (data) {
       resolved.curriculum = data;
       parts.push(`Curriculum: ${data.title}`);
-      
-      if (data.beruf_id) {
-        const { data: beruf } = await supabase
-          .from('berufe')
-          .select('bezeichnung_kurz, bezeichnung_lang')
-          .eq('id', data.beruf_id)
-          .maybeSingle();
-        if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
-      }
-      if (professionName === "Auszubildende" && data.title) {
-        const match = data.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
-        if (match) professionName = match;
-      }
-      parts.push(`Beruf: ${professionName}`);
-      resolved.professionName = professionName;
     }
+    
+    // Use shared resolver (user-facing, so allow generic fallback)
+    try {
+      const profResult = await resolveProfession(supabase, { curriculumId, allowGenericFallback: true });
+      professionName = profResult.professionName;
+    } catch {
+      // For tutor, allow generic fallback
+      professionName = "Auszubildende";
+    }
+    parts.push(`Beruf: ${professionName}`);
+    resolved.professionName = professionName;
   }
 
   // Load learning field
