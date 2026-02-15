@@ -14742,6 +14742,21 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_intelligence: {
+        Row: {
+          avg_cost_eur: number | null
+          avg_tokens_per_call: number | null
+          call_count: number | null
+          cost_7d_eur: number | null
+          cost_today_eur: number | null
+          job_type: string | null
+          model: string | null
+          provider: string | null
+          total_cost_eur: number | null
+          total_tokens: number | null
+        }
+        Relationships: []
+      }
       cost_quality_heatmap: {
         Row: {
           avg_cost_eur: number | null
@@ -14749,6 +14764,7 @@ export type Database = {
           call_count: number | null
           job_type: string | null
           model: string | null
+          provider: string | null
           quadrant: string | null
           total_cost_eur: number | null
         }
