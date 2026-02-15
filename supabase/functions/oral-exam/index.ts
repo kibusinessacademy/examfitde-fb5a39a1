@@ -83,6 +83,34 @@ serve(async (req) => {
   }
 });
 
+/**
+ * Load profession name from curriculum → berufe (reusable helper)
+ */
+async function loadProfessionName(supabase: any, curriculumId: string): Promise<string> {
+  let professionName = "Auszubildende";
+  try {
+    const { data: curriculum } = await supabase
+      .from("curricula")
+      .select("title, beruf_id")
+      .eq("id", curriculumId)
+      .maybeSingle();
+    if (curriculum?.beruf_id) {
+      const { data: beruf } = await supabase
+        .from("berufe")
+        .select("bezeichnung_kurz, bezeichnung_lang")
+        .eq("id", curriculum.beruf_id)
+        .maybeSingle();
+      if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
+    } else if (curriculum?.title) {
+      const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
+      if (match) professionName = match;
+    }
+  } catch (e) {
+    console.error("[OralExam] Profession load failed:", e);
+  }
+  return professionName;
+}
+
 async function startSession(supabase: any, userId: string, params: any) {
   const { curriculum_id, blueprint_id, mode = 'practice', total_questions = 5 } = params;
 
@@ -108,10 +136,6 @@ async function startSession(supabase: any, userId: string, params: any) {
 
 /**
  * Blueprint-based question generation (SSOT)
- * 
- * 1. Try to find oral-type blueprints for the curriculum
- * 2. If found → derive question from blueprint template
- * 3. If not found → LLM fallback with warning log
  */
 async function generateQuestionForSession(
   supabase: any, 
@@ -119,28 +143,7 @@ async function generateQuestionForSession(
   curriculumId: string, 
   orderIndex: number
 ) {
-  // Load profession name dynamically
-  let professionName = "Auszubildende";
-  try {
-    const { data: curriculum } = await supabase
-      .from("curricula")
-      .select("title, beruf_id")
-      .eq("id", curriculumId)
-      .maybeSingle();
-    if (curriculum?.beruf_id) {
-      const { data: beruf } = await supabase
-        .from("berufe")
-        .select("bezeichnung_kurz, bezeichnung_lang")
-        .eq("id", curriculum.beruf_id)
-        .maybeSingle();
-      if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
-    } else if (curriculum?.title) {
-      const match = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
-      if (match) professionName = match;
-    }
-  } catch (e) {
-    console.error("[OralExam] Profession load failed:", e);
-  }
+  const professionName = await loadProfessionName(supabase, curriculumId);
 
   // Load competencies for this curriculum
   const { data: competencies } = await supabase
@@ -191,20 +194,15 @@ async function generateQuestionForSession(
   let source: 'blueprint' | 'llm_fallback' = 'blueprint';
 
   if (blueprints?.length) {
-    // ── Blueprint found → derive question ──
     const bp = blueprints[Math.floor(Math.random() * blueprints.length)];
     blueprintId = bp.id;
 
-    // Render template with variables
     questionText = renderTemplate(bp.question_template, bp.variables || []);
     expectedPoints = (bp.correct_answers || []).map((a: any) => a.answer_template);
-    
-    // Generate follow-ups from blueprint context via LLM (lightweight)
-    followUpQuestions = await generateFollowUps(competency, questionText);
+    followUpQuestions = await generateFollowUps(competency, questionText, professionName);
     
     console.log(`[OralExam] Blueprint-derived question for ${competency.code} (blueprint: ${bp.id})`);
   } else {
-    // ── No blueprint → LLM fallback with warning ──
     source = 'llm_fallback';
     console.warn(`[OralExam] ⚠️ No oral blueprints for competency ${competency.code} – using LLM fallback`);
 
@@ -224,8 +222,7 @@ async function generateQuestionForSession(
       expected_answer_points: expectedPoints,
       follow_up_questions: followUpQuestions,
       order_index: orderIndex,
-      // Store blueprint reference for audit trail
-      ...(blueprintId ? { metadata: { blueprint_id: blueprintId, source } } : { metadata: { source } }),
+      ...(blueprintId ? { metadata: { blueprint_id: blueprintId, source, profession: professionName } } : { metadata: { source, profession: professionName } }),
     })
     .select()
     .single();
@@ -234,9 +231,6 @@ async function generateQuestionForSession(
   return question;
 }
 
-/**
- * Render a blueprint template by substituting variables
- */
 function renderTemplate(template: string, variables: any[]): string {
   let rendered = template;
   for (const v of variables) {
@@ -250,7 +244,7 @@ function renderTemplate(template: string, variables: any[]): string {
       const range = Math.floor((v.range_max - v.range_min) / step);
       value = String(v.range_min + Math.floor(Math.random() * (range + 1)) * step);
     } else {
-      value = v.variable_name; // fallback: use variable name
+      value = v.variable_name;
     }
 
     rendered = rendered.replaceAll(placeholder, value);
@@ -259,46 +253,54 @@ function renderTemplate(template: string, variables: any[]): string {
 }
 
 /**
- * Generate follow-up questions (lightweight LLM call)
+ * Generate follow-up questions with profession context
  */
-async function generateFollowUps(competency: any, mainQuestion: string): Promise<string[]> {
+async function generateFollowUps(competency: any, mainQuestion: string, professionName: string): Promise<string[]> {
   try {
     const result = await callAIJSON({
       provider: "deepseek",
       messages: [
-        { role: "system", content: "Generiere 2 kurze Nachfragen eines IHK-Prüfers. NUR JSON-Array: [\"Frage1\", \"Frage2\"]" },
-        { role: "user", content: `Kompetenz: ${competency.title}\nHauptfrage: ${mainQuestion}` }
+        { role: "system", content: `Du bist ein erfahrener IHK-Prüfer für ${professionName}. Generiere 2 präzise Nachfragen, die ein echter Prüfer im Fachgespräch stellen würde. Die Nachfragen müssen fachlich tief und berufsspezifisch für ${professionName} sein. NUR JSON-Array: ["Frage1", "Frage2"]` },
+        { role: "user", content: `Beruf: ${professionName}\nKompetenz: ${competency.title}\nHauptfrage: ${mainQuestion}` }
       ],
-      max_tokens: 200,
+      max_tokens: 300,
     });
 
     const match = result.content.match(/\[[\s\S]*\]/);
     if (match) return JSON.parse(match[0]);
   } catch { /* ignore */ }
-  return ["Können Sie ein konkretes Beispiel nennen?", "Wie würden Sie das in der Praxis umsetzen?"];
+  return [
+    `Können Sie ein konkretes Beispiel aus Ihrem Arbeitsalltag als ${professionName} nennen?`,
+    `Wie würden Sie als ${professionName} das in der Praxis umsetzen?`
+  ];
 }
 
 /**
  * LLM Fallback for question generation (when no blueprints exist)
  */
-async function generateQuestionViaLLM(competency: any, professionName: string = "Auszubildende"): Promise<{
+async function generateQuestionViaLLM(competency: any, professionName: string): Promise<{
   question: string;
   expected_points: string[];
   follow_up_questions: string[];
 }> {
-  const prompt = `Du bist ein IHK-Prüfer für die mündliche Abschlussprüfung im Beruf "${professionName}".
+  const prompt = `Du bist ein erfahrener IHK-Prüfer, der das Fachgespräch in der Abschlussprüfung für ${professionName} führt. Du kennst den Berufsalltag von ${professionName} genau und stellst Fragen, die nur jemand beantworten kann, der diesen Beruf wirklich gelernt hat.
 
-Generiere eine mündliche Prüfungsfrage zum Thema:
+Generiere eine mündliche Prüfungsfrage:
 Beruf: ${professionName}
 Lernfeld: ${competency.learning_field.title}
 Kompetenz: ${competency.title}
 
-Die Frage soll:
-- Offen formuliert sein (keine Multiple Choice)
-- Konkreten Praxisbezug zum Berufsalltag von ${professionName} haben
-- In 2-3 Minuten beantwortbar sein
-- Dem IHK-Prüfungsniveau entsprechen
-- Berufsspezifische Fachbegriffe und Szenarien verwenden
+ANFORDERUNGEN an die Frage:
+- Offen formuliert (keine Multiple Choice)
+- Konkreter Praxisbezug zum täglichen Arbeitsalltag von ${professionName} — mit realistischem Szenario
+- In 2-3 Minuten beantwortbar
+- IHK-Prüfungsniveau: So wie ein echter Prüfer sie formulieren würde
+- Berufsspezifische Fachbegriffe und Arbeitsprozesse von ${professionName} verwenden
+- Die Frage darf NICHT generisch auf andere Berufe übertragbar sein
+
+ANFORDERUNGEN an die erwarteten Antwortpunkte:
+- Konkrete Fachbegriffe und Arbeitsprozesse, die ${professionName} kennen müssen
+- Bezug zu realen Werkzeugen, Software, Materialien oder Vorschriften im Beruf
 
 Antworte NUR im folgenden JSON-Format:
 {
@@ -311,10 +313,10 @@ Antworte NUR im folgenden JSON-Format:
     const result = await callAIJSON({
       provider: "openai",
       messages: [
-        { role: "system", content: "Du bist ein erfahrener IHK-Prüfer. Antworte ausschließlich im angeforderten JSON-Format." },
+        { role: "system", content: `Du bist ein erfahrener IHK-Prüfer für den Beruf ${professionName}. Du führst das Fachgespräch in der Abschlussprüfung. Antworte ausschließlich im angeforderten JSON-Format.` },
         { role: "user", content: prompt }
       ],
-      max_tokens: 800,
+      max_tokens: 1000,
     });
 
     const jsonMatch = result.content.match(/\{[\s\S]*\}/);
@@ -324,9 +326,9 @@ Antworte NUR im folgenden JSON-Format:
   }
 
   return {
-    question: `Erläutern Sie die wesentlichen Aspekte von: ${competency.title}`,
-    expected_points: ["Fachliche Definition", "Praktische Anwendung", "Relevanz im Berufsalltag"],
-    follow_up_questions: ["Können Sie ein konkretes Beispiel nennen?"]
+    question: `Erläutern Sie als ${professionName} die wesentlichen Aspekte von "${competency.title}" und beschreiben Sie einen konkreten Fall aus Ihrem Arbeitsalltag.`,
+    expected_points: ["Fachliche Definition mit berufsspezifischen Begriffen", "Praktische Anwendung im Berufsalltag", "Relevanz für die tägliche Arbeit"],
+    follow_up_questions: [`Können Sie ein konkretes Beispiel aus Ihrem Arbeitsalltag als ${professionName} nennen?`]
   };
 }
 
@@ -363,7 +365,21 @@ async function evaluateAnswer(supabase: any, params: any) {
 
   if (!question) throw new Error('Question not found');
 
-  const evaluationPrompt = `Du bist ein IHK-Prüfer und bewertest eine mündliche Prüfungsantwort.
+  // Load profession name for evaluation context
+  const { data: session } = await supabase
+    .from('oral_exam_sessions')
+    .select('curriculum_id')
+    .eq('id', question.session_id)
+    .single();
+
+  const professionName = session?.curriculum_id
+    ? await loadProfessionName(supabase, session.curriculum_id)
+    : "Auszubildende";
+
+  const evaluationPrompt = `Du bist ein erfahrener IHK-Prüfer für ${professionName} und bewertest eine mündliche Prüfungsantwort im Fachgespräch der Abschlussprüfung.
+
+BERUF: ${professionName}
+KOMPETENZ: ${question.competency?.title || ""}
 
 FRAGE: ${question.question_text}
 
@@ -373,11 +389,13 @@ ${question.expected_answer_points?.map((p: string, i: number) => `${i + 1}. ${p}
 ANTWORT DES PRÜFLINGS:
 ${user_answer}
 
-Bewerte die Antwort nach IHK-Kriterien (0.0 bis 1.0):
-1. Fachlichkeit: Korrektheit und Vollständigkeit
-2. Struktur: Logischer Aufbau
-3. Begriffssicherheit: Korrekter Einsatz von Fachbegriffen
-4. Praxisbezug: Anwendungsbeispiele und Bezug zur Praxis
+Bewerte die Antwort nach IHK-Kriterien für ${professionName} (0.0 bis 1.0):
+1. Fachlichkeit (35%): Fachliche Korrektheit und Vollständigkeit — kennt der Prüfling die berufsspezifischen Zusammenhänge?
+2. Struktur (20%): Logischer Aufbau der Antwort — argumentiert der Prüfling nachvollziehbar?
+3. Begriffssicherheit (25%): Korrekter Einsatz der Fachbegriffe, die ${professionName} beherrschen müssen
+4. Praxisbezug (20%): Konkrete Beispiele aus dem Berufsalltag von ${professionName}
+
+BEWERTUNGSSTIL: Bewerte wie ein wohlwollender aber anspruchsvoller IHK-Prüfer. Gib konstruktives Feedback, das dem Prüfling hilft, sich zu verbessern.
 
 Antworte NUR im folgenden JSON-Format:
 {
@@ -387,20 +405,20 @@ Antworte NUR im folgenden JSON-Format:
   "praxisbezug_score": 0.6,
   "covered_points": ["Punkt 1", "Punkt 3"],
   "missed_points": ["Punkt 2"],
-  "feedback": "Detailliertes Feedback zur Antwort...",
+  "feedback": "Detailliertes Feedback mit Bezug zu ${professionName}...",
   "strengths": ["Stärke 1"],
-  "improvements": ["Verbesserungsvorschlag 1"],
-  "sample_answer": "Eine optimale Musterantwort für diese Frage wäre...",
-  "follow_up_question": "Eine mögliche Nachfrage des Prüfers wäre..."
+  "improvements": ["Konkreter Verbesserungsvorschlag für ${professionName}"],
+  "sample_answer": "Eine optimale Musterantwort, wie sie ein/e ${professionName} geben sollte...",
+  "follow_up_question": "Eine mögliche Nachfrage des Prüfers..."
 }`;
 
   const result = await callAIJSON({
     provider: "openai",
     messages: [
-      { role: "system", content: "Du bist ein erfahrener IHK-Prüfer. Bewerte fair aber anspruchsvoll. Antworte nur im JSON-Format." },
+      { role: "system", content: `Du bist ein erfahrener IHK-Prüfer für den Beruf ${professionName}. Du bewertest fair aber anspruchsvoll, immer mit Bezug zum konkreten Berufsalltag. Antworte nur im JSON-Format.` },
       { role: "user", content: evaluationPrompt }
     ],
-    max_tokens: 1000,
+    max_tokens: 1200,
   });
 
   const responseText = result.content;
@@ -441,16 +459,16 @@ Antworte NUR im folgenden JSON-Format:
 
   if (error) throw error;
 
-  const { data: session } = await supabase
+  const { data: sessionData } = await supabase
     .from('oral_exam_sessions')
     .select('current_question_index, total_questions')
     .eq('id', question.session_id)
     .single();
 
-  if (session) {
+  if (sessionData) {
     await supabase
       .from('oral_exam_sessions')
-      .update({ current_question_index: session.current_question_index + 1 })
+      .update({ current_question_index: sessionData.current_question_index + 1 })
       .eq('id', question.session_id);
   }
 
@@ -464,7 +482,7 @@ Antworte NUR im folgenden JSON-Format:
         evaluation.praxisbezug_score * EVALUATION_CRITERIA.praxisbezug.weight
       )
     },
-    is_last: session ? session.current_question_index + 1 >= session.total_questions : false
+    is_last: sessionData ? sessionData.current_question_index + 1 >= sessionData.total_questions : false
   };
 }
 

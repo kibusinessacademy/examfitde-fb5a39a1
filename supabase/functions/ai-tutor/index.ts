@@ -4,7 +4,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAI } from "../_shared/ai-client.ts";
 
 /**
- * AI-Tutor – GPT-5.2 Deep Thinking + Opus Post-Validation
+ * AI-Tutor – Profession-Aware + Deep Thinking + Post-Validation
  * 
  * SSOT-Konform: Context wird serverseitig per IDs geladen,
  * Client-Textfelder werden ignoriert.
@@ -26,38 +26,62 @@ const AI_ROLES = {
 type AIMode = typeof AI_MODES[keyof typeof AI_MODES];
 type AIRole = typeof AI_ROLES[keyof typeof AI_ROLES];
 
-const MODE_RULES: Record<AIMode, { allowExplanations: boolean; systemPrompt: string }> = {
-  [AI_MODES.LEARNING]: {
-    allowExplanations: true,
-    systemPrompt: `Du bist ein erfahrener IHK-Lern-Tutor für Azubis in der dualen Ausbildung.
-Du nutzt Deep Thinking um komplexe Zusammenhänge verständlich zu erklären.
-Du darfst: Inhalte erklären, Beispiele geben, Schritt-für-Schritt-Erklärungen, Merkhilfen, Lernpfade empfehlen.
-WICHTIG: Du referenzierst NUR das Curriculum. Erfinde KEINE Fakten, Gesetze oder Paragraphen.
-Nenne immer die Quelle wenn du Fachbegriffe oder Regelungen erklärst.
-Sei freundlich, ermutigend und pädagogisch wertvoll.`
-  },
-  [AI_MODES.PRACTICE]: {
-    allowExplanations: true,
-    systemPrompt: `Du bist ein Übungs-Tutor im Trainingsmodus.
-REGELN: Gib NIEMALS die Lösung BEVOR der Nutzer geantwortet hat.
-Nach Antwort: Gib detailliertes Feedback, erkläre Denkfehler, zeige den korrekten Lösungsweg.
-Goldene Regel: Erst Antwort → dann Hilfe`
-  },
-  [AI_MODES.EXAM]: {
-    allowExplanations: false,
-    systemPrompt: `Du bist ein Prüfungsassistent im STRIKTEN PRÜFUNGSMODUS.
-🚨 STRIKT VERBOTEN: Lösungen, Hinweise, Erklärungen, inhaltliche Hilfe.
-✅ ERLAUBT: Organisatorisches, Technisches, Navigation.
-Bei JEDER inhaltlichen Anfrage: "Im Prüfungsmodus kann ich keine inhaltliche Hilfe geben."`
-  }
-};
+/**
+ * Mode system prompts are now FUNCTIONS that inject professionName
+ * so the tutor always speaks in the context of the specific Berufsbild.
+ */
+function getModeRules(mode: AIMode, professionName: string): { allowExplanations: boolean; systemPrompt: string } {
+  const rules: Record<AIMode, { allowExplanations: boolean; systemPrompt: string }> = {
+    [AI_MODES.LEARNING]: {
+      allowExplanations: true,
+      systemPrompt: `Du bist ein erfahrener IHK-Lern-Tutor für angehende ${professionName}.
+Du kennst den Berufsalltag von ${professionName} genau und erklärst Zusammenhänge so, wie ein erfahrener Ausbilder im Betrieb es tun würde.
 
-const ROLE_PROMPTS: Record<AIRole, string> = {
-  [AI_ROLES.EXPLAINER]: `\nROLLE: Erklärer – Erkläre Konzepte einfach, nutze Analogien, zerlege komplexe Themen.`,
-  [AI_ROLES.COACH]: `\nROLLE: Lern-Coach – Gib Tipps zur Lernstrategie, motiviere, identifiziere Lernblockaden.`,
-  [AI_ROLES.EXAMINER]: `\nROLLE: Prüfungs-Trainer – Stelle IHK-Prüfungsfragen, gib Feedback, trainiere Zeitmanagement.`,
-  [AI_ROLES.FEEDBACK]: `\nROLLE: Feedback-Geber – Analysiere Leistung, identifiziere Stärken/Schwächen.`
-};
+DEIN STIL:
+- Erkläre mit konkreten Beispielen aus dem Arbeitsalltag von ${professionName}
+- Nutze die Fachbegriffe, die ${professionName} täglich verwenden
+- Gib praxisnahe Merkhilfen und Eselsbrücken
+- Verweise auf typische IHK-Prüfungsfragen zum Thema
+- Sei freundlich, ermutigend und pädagogisch wertvoll
+
+REGELN:
+- Du referenzierst NUR das Curriculum und den SSOT-Kontext
+- Erfinde KEINE Fakten, Gesetze oder Paragraphen
+- Nenne immer die Quelle wenn du Fachbegriffe oder Regelungen erklärst
+- Deine Beispiele müssen zum Berufsbild ${professionName} passen`
+    },
+    [AI_MODES.PRACTICE]: {
+      allowExplanations: true,
+      systemPrompt: `Du bist ein Übungs-Tutor für angehende ${professionName} im Trainingsmodus.
+Du simulierst typische Aufgaben und Situationen, die ${professionName} in der IHK-Prüfung und im Berufsalltag meistern müssen.
+
+REGELN:
+- Gib NIEMALS die Lösung BEVOR der Nutzer geantwortet hat
+- Nach Antwort: Gib detailliertes Feedback mit Bezug zum Berufsalltag von ${professionName}
+- Erkläre Denkfehler anhand konkreter beruflicher Situationen
+- Zeige den korrekten Lösungsweg mit den Fachbegriffen von ${professionName}
+- Goldene Regel: Erst Antwort → dann Hilfe`
+    },
+    [AI_MODES.EXAM]: {
+      allowExplanations: false,
+      systemPrompt: `Du bist ein Prüfungsassistent für ${professionName} im STRIKTEN PRÜFUNGSMODUS.
+🚨 STRIKT VERBOTEN: Lösungen, Hinweise, Erklärungen, inhaltliche Hilfe.
+✅ ERLAUBT: Organisatorisches, Technisches, Navigation, Zeitmanagement-Tipps.
+Bei JEDER inhaltlichen Anfrage: "Im Prüfungsmodus kann ich keine inhaltliche Hilfe geben. Konzentriere dich auf die Aufgabe!"`
+    }
+  };
+  return rules[mode];
+}
+
+function getRolePrompt(role: AIRole, professionName: string): string {
+  const prompts: Record<AIRole, string> = {
+    [AI_ROLES.EXPLAINER]: `\nROLLE: Fach-Erklärer für ${professionName} – Erkläre Konzepte mit berufsspezifischen Analogien und Beispielen. Zerlege komplexe Themen in die Teilschritte, die ${professionName} im Arbeitsalltag durchführen.`,
+    [AI_ROLES.COACH]: `\nROLLE: Lern-Coach für ${professionName} – Gib Tipps zur Lernstrategie, motiviere bei schwierigen Themen, identifiziere Lernblockaden. Erinnere daran, warum dieses Wissen für den Erfolg als ${professionName} wichtig ist.`,
+    [AI_ROLES.EXAMINER]: `\nROLLE: Prüfungs-Trainer für ${professionName} – Stelle Fragen im IHK-Prüfungsstil, gib Feedback zur Antwortqualität, trainiere Zeitmanagement. Simuliere die Prüfungssituation authentisch.`,
+    [AI_ROLES.FEEDBACK]: `\nROLLE: Feedback-Geber für ${professionName} – Analysiere Leistung, identifiziere Stärken und Schwächen, gib konkrete Empfehlungen zur Verbesserung mit Bezug zu den Anforderungen an ${professionName}.`
+  };
+  return prompts[role];
+}
 
 function isAllowedInExamMode(message: string): boolean {
   const lower = message.toLowerCase();
@@ -75,16 +99,16 @@ async function sha256(message: string): Promise<string> {
 
 /**
  * SSOT Context Loader – loads context server-side by IDs
- * Client sends IDs only; all text fields are loaded from DB.
  */
 async function loadSSOTContext(
   supabase: ReturnType<typeof createClient>,
   context: Record<string, unknown>
-): Promise<{ contextPrompt: string; resolvedContext: Record<string, unknown> }> {
+): Promise<{ contextPrompt: string; resolvedContext: Record<string, unknown>; professionName: string }> {
   const { curriculumId, learningFieldId, competencyId, lessonId, lessonStep, miniCheckScore } = context;
   
   const resolved: Record<string, unknown> = {};
   const parts: string[] = [];
+  let professionName = "Auszubildende";
 
   // Load curriculum + profession name
   if (curriculumId) {
@@ -97,23 +121,20 @@ async function loadSSOTContext(
       resolved.curriculum = data;
       parts.push(`Curriculum: ${data.title}`);
       
-      // Load profession name from berufe
-      let professionName = "";
       if (data.beruf_id) {
         const { data: beruf } = await supabase
           .from('berufe')
           .select('bezeichnung_kurz, bezeichnung_lang')
           .eq('id', data.beruf_id)
           .maybeSingle();
-        if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || "";
+        if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || professionName;
       }
-      if (!professionName && data.title) {
-        professionName = data.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
+      if (professionName === "Auszubildende" && data.title) {
+        const match = data.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
+        if (match) professionName = match;
       }
-      if (professionName) {
-        parts.push(`Beruf: ${professionName}`);
-        resolved.professionName = professionName;
-      }
+      parts.push(`Beruf: ${professionName}`);
+      resolved.professionName = professionName;
     }
   }
 
@@ -146,7 +167,7 @@ async function loadSSOTContext(
     }
   }
 
-  // Load lesson content (actual SSOT content for the tutor to reference)
+  // Load lesson content
   if (lessonId) {
     const { data } = await supabase
       .from('lessons')
@@ -156,7 +177,6 @@ async function loadSSOTContext(
     if (data) {
       resolved.lesson = { id: data.id, title: data.title, step: data.step };
       parts.push(`Lektion: ${data.title} (Schritt: ${data.step})`);
-      // Include lesson objectives for context (not full HTML)
       const content = data.content as Record<string, unknown> | null;
       if (content?.objectives) {
         parts.push(`Lernziele: ${(content.objectives as string[]).join(', ')}`);
@@ -178,11 +198,11 @@ async function loadSSOTContext(
     ? `\n\n--- SSOT-KONTEXT (serverseitig geladen) ---\n${parts.join('\n')}`
     : '';
 
-  return { contextPrompt, resolvedContext: resolved };
+  return { contextPrompt, resolvedContext: resolved, professionName };
 }
 
 /**
- * Post-hoc Opus Validation
+ * Post-hoc Validation via ai-client (routed through model-routing)
  */
 async function postValidateTutorResponse(
   supabase: ReturnType<typeof createClient>,
@@ -191,41 +211,34 @@ async function postValidateTutorResponse(
   response: string,
   resolvedContext: Record<string, unknown>,
   generationId: string,
+  professionName: string,
 ) {
-  const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!ANTHROPIC_API_KEY) return;
-
   try {
     const startTime = Date.now();
-    const valResp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1024,
-        system: `Du prüfst eine KI-Tutor-Antwort auf fachliche Korrektheit. SCHNELL und PRÄZISE.
-Kontext: ${JSON.stringify(resolvedContext)}
+    const valResult = await callAI({
+      provider: "anthropic",
+      messages: [
+        { role: "system", content: `Du prüfst eine KI-Tutor-Antwort für ${professionName} auf fachliche Korrektheit. SCHNELL und PRÄZISE.
+Kontext: ${JSON.stringify(resolvedContext).slice(0, 3000)}
 
 PRÜFE:
-1. Alle Fakten korrekt?
+1. Alle Fakten korrekt für den Beruf ${professionName}?
 2. Keine erfundenen Gesetze/Paragraphen/Normen?
-3. Fachbegriffe korrekt verwendet?
+3. Fachbegriffe korrekt verwendet (so wie ${professionName} sie nutzen)?
+4. Berufsbezug vorhanden (nicht generisch)?
 
 Antworte NUR mit JSON:
-{"score": 0-100, "decision": "approve|revise|reject", "correction_needed": bool, "correction": "string|null", "issues": []}`,
-        messages: [{ role: "user", content: `FRAGE: ${prompt}\n\nTUTOR-ANTWORT: ${response}` }],
-      }),
+{"score": 0-100, "decision": "approve|revise|reject", "correction_needed": false, "correction": null, "issues": []}` },
+        { role: "user", content: `FRAGE: ${prompt}\n\nTUTOR-ANTWORT: ${response}` }
+      ],
+      temperature: 0.2,
     });
 
     const latencyMs = Date.now() - startTime;
-    if (!valResp.ok) return;
+    if (!valResult.ok) return;
 
-    const valData = await valResp.json();
-    const rawText = valData.content?.[0]?.text || "";
+    const data = await valResult.raw.json();
+    const rawText = data.content?.[0]?.text ?? data.choices?.[0]?.message?.content ?? "";
     
     let result;
     try {
@@ -242,8 +255,8 @@ Antworte NUR mit JSON:
       critical_issues: result.issues || [],
       suggested_fixes: result.correction_needed ? [{ type: "correction", reason: result.correction }] : [],
       corrected_content: result.correction_needed ? { correction: result.correction } : null,
-      input_tokens: valData.usage?.input_tokens || 0,
-      output_tokens: valData.usage?.output_tokens || 0,
+      input_tokens: data.usage?.input_tokens || 0,
+      output_tokens: data.usage?.output_tokens || 0,
       cost_eur: 0,
       latency_ms: latencyMs,
     });
@@ -274,8 +287,6 @@ serve(async (req) => {
 
     const validMode = Object.values(AI_MODES).includes(mode) ? mode : AI_MODES.LEARNING;
     const validRole = Object.values(AI_ROLES).includes(role) ? role : AI_ROLES.EXPLAINER;
-    const modeRules = MODE_RULES[validMode as AIMode];
-    const rolePrompt = ROLE_PROMPTS[validRole as AIRole] || '';
 
     // Auth
     const authHeader = req.headers.get('Authorization');
@@ -290,19 +301,21 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ── SSOT Context Loader (server-side) ──
+    const { contextPrompt, resolvedContext, professionName } = await loadSSOTContext(supabase, context);
+
+    // Now build mode and role prompts WITH profession name
+    const modeRules = getModeRules(validMode as AIMode, professionName);
+    const rolePrompt = getRolePrompt(validRole as AIRole, professionName);
+
     // Exam mode block
     if (validMode === AI_MODES.EXAM && !isAllowedInExamMode(message)) {
-      const blocked = 'Im Prüfungsmodus kann ich keine inhaltliche Hilfe geben. Bei technischen Problemen helfe ich gerne.';
+      const blocked = 'Im Prüfungsmodus kann ich keine inhaltliche Hilfe geben. Konzentriere dich auf die Aufgabe!';
       await logInteraction(supabase, user.id, sessionId, sessionType, validMode, message, blocked, 0, true, 'Inhaltliche Anfrage im Prüfungsmodus', conversationHistory.length);
       return new Response(JSON.stringify({ response: blocked, mode: validMode, wasBlocked: true, blockReason: 'exam_mode' }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
-
-    // ── SSOT Context Loader (server-side) ──
-    // Client sends IDs: curriculumId, learningFieldId, competencyId, lessonId
-    // Server loads actual data from DB → prevents client manipulation
-    const { contextPrompt, resolvedContext } = await loadSSOTContext(supabase, context);
 
     const systemPrompt = modeRules.systemPrompt + rolePrompt + contextPrompt;
     const aiMessages = [
@@ -315,7 +328,7 @@ serve(async (req) => {
     const { data: genRecord } = await supabase.from("ai_generations").insert({
       entity_type: "tutor_response",
       generator_model: "openai/gpt-4.1",
-      input_context: { mode: validMode, role: validRole, context: resolvedContext, prompt: message },
+      input_context: { mode: validMode, role: validRole, context: resolvedContext, prompt: message, profession: professionName },
       output_content: {},
       status: "generated",
       created_by: user.id,
@@ -392,7 +405,7 @@ serve(async (req) => {
         logInteraction(supabase, user.id, sessionId, sessionType, validMode, message, fullResponse, 0, false, null, conversationHistory.length).catch(console.error);
 
         if (generationId && validMode !== AI_MODES.EXAM) {
-          postValidateTutorResponse(supabase, user.id, message, fullResponse, resolvedContext, generationId).catch(console.error);
+          postValidateTutorResponse(supabase, user.id, message, fullResponse, resolvedContext, generationId, professionName).catch(console.error);
         }
       }
     })();
@@ -438,6 +451,6 @@ async function logInteraction(
     tokens_used: tokensUsed,
     was_blocked: wasBlocked,
     block_reason: blockReason,
-    metadata: { conversation_length: conversationLength, generator: "openai/gpt-5.2", validation: "async_opus" },
+    metadata: { conversation_length: conversationLength, generator: "openai/gpt-4.1", validation: "async_anthropic" },
   });
 }
