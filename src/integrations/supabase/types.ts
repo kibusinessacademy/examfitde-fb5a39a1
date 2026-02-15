@@ -16465,6 +16465,7 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: number
       }
+      auto_trigger_curriculum_ingest: { Args: never; Returns: number }
       calculate_authority_index: {
         Args: {
           p_audit_stability: number
@@ -17163,6 +17164,7 @@ export type Database = {
       }
       get_security_spike_score: { Args: { p_minutes?: number }; Returns: Json }
       get_ship_level: { Args: { p_authority_index: number }; Returns: string }
+      get_step_prerequisite: { Args: { p_step_key: string }; Returns: string }
       get_track_pipeline_steps: {
         Args: { p_package_id: string }
         Returns: Json
