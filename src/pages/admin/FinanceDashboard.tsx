@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,9 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 import {
   DollarSign, TrendingUp, Receipt, Download, FileText, RefreshCw,
-  AlertTriangle, BarChart3, Landmark, ArrowUpDown, CreditCard, Scale
+  AlertTriangle, BarChart3, Landmark, ArrowUpDown, CreditCard, Scale,
+  Factory, Clock, CheckCircle2, Loader2, Target
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -496,6 +498,343 @@ function ExportsTab({ from, to }: { from: string; to: string }) {
   );
 }
 
+// ---- Pipeline Controlling Tab (Soll-Ist) ----
+const PIPELINE_STEPS = [
+  'scaffold_learning_course',
+  'auto_seed_exam_blueprints',
+  'generate_exam_pool',
+  'generate_oral_exam',
+  'build_ai_tutor_index',
+  'generate_handbook',
+  'run_integrity_check',
+  'auto_publish',
+];
+
+const STEP_LABELS: Record<string, string> = {
+  scaffold_learning_course: 'Lernkurs',
+  auto_seed_exam_blueprints: 'Blueprints',
+  generate_exam_pool: 'Fragenpool',
+  generate_oral_exam: 'Mündliche',
+  build_ai_tutor_index: 'KI-Tutor',
+  generate_handbook: 'Handbuch',
+  run_integrity_check: 'Integrität',
+  auto_publish: 'Publish',
+};
+
+function PipelineControllingTab() {
+  const { data: packages, isLoading } = useQuery({
+    queryKey: ['pipeline-controlling-priority'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('course_packages')
+        .select('id, title, status, priority, current_step, created_at, started_at, published_at, updated_at, step_status_json, track')
+        .in('priority', [10, 15])
+        .order('priority')
+        .order('created_at');
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 30000,
+  });
+
+  const { data: jobStats } = useQuery({
+    queryKey: ['pipeline-job-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('job_queue')
+        .select('payload, status, created_at, started_at, completed_at, job_type')
+        .in('status', ['completed', 'processing', 'failed', 'pending']);
+      if (error) throw error;
+      
+      // Group by package_id
+      const byPackage: Record<string, { completed: number; failed: number; total: number; firstJob: string | null; lastCompleted: string | null }> = {};
+      for (const j of (data || [])) {
+        const pkgId = (j.payload as any)?.package_id;
+        if (!pkgId) continue;
+        if (!byPackage[pkgId]) byPackage[pkgId] = { completed: 0, failed: 0, total: 0, firstJob: null, lastCompleted: null };
+        byPackage[pkgId].total++;
+        if (j.status === 'completed') {
+          byPackage[pkgId].completed++;
+          if (!byPackage[pkgId].lastCompleted || j.completed_at! > byPackage[pkgId].lastCompleted!) {
+            byPackage[pkgId].lastCompleted = j.completed_at;
+          }
+        }
+        if (j.status === 'failed') byPackage[pkgId].failed++;
+        if (!byPackage[pkgId].firstJob || j.created_at < byPackage[pkgId].firstJob!) {
+          byPackage[pkgId].firstJob = j.created_at;
+        }
+      }
+      return byPackage;
+    },
+    refetchInterval: 30000,
+  });
+
+  const { data: costData } = useQuery({
+    queryKey: ['pipeline-cost-data'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ai_usage_log')
+        .select('job_type, cost_eur, total_tokens, created_at');
+      if (error) throw error;
+      return {
+        totalCost: (data || []).reduce((s, r) => s + Number(r.cost_eur || 0), 0),
+        totalTokens: (data || []).reduce((s, r) => s + Number(r.total_tokens || 0), 0),
+        runs: data?.length || 0,
+      };
+    },
+  });
+
+  // Compute throughput and forecast
+  const analysis = useMemo(() => {
+    if (!packages || !jobStats) return null;
+
+    // Find completed packages with timing data to estimate throughput
+    const completedTimings: number[] = [];
+    for (const [, stats] of Object.entries(jobStats)) {
+      if (stats.completed > 5 && stats.firstJob && stats.lastCompleted) {
+        const hours = (new Date(stats.lastCompleted).getTime() - new Date(stats.firstJob).getTime()) / 3600000;
+        if (hours > 0) completedTimings.push(hours);
+      }
+    }
+
+    const avgHoursPerPackage = completedTimings.length > 0
+      ? completedTimings.reduce((a, b) => a + b, 0) / completedTimings.length
+      : 24; // Default estimate: 24h per package
+
+    const totalPackages = packages.length;
+    const publishedCount = packages.filter(p => p.status === 'published' || p.status === 'completed').length;
+    const buildingCount = packages.filter(p => p.status === 'building').length;
+    const queuedCount = packages.filter(p => p.status === 'queued').length;
+    const remainingCount = totalPackages - publishedCount;
+
+    // Estimate: WIP=1, so sequential
+    const estimatedRemainingHours = remainingCount * avgHoursPerPackage;
+    const estimatedCompletionDate = new Date(Date.now() + estimatedRemainingHours * 3600000);
+
+    // Budget estimate per package (from existing data)
+    const avgCostPerPackage = costData && costData.runs > 0 
+      ? costData.totalCost / Math.max(1, Object.keys(jobStats).length)
+      : 2.5;
+    const projectedTotalCost = avgCostPerPackage * totalPackages;
+
+    return {
+      totalPackages,
+      publishedCount,
+      buildingCount,
+      queuedCount,
+      remainingCount,
+      avgHoursPerPackage: Math.round(avgHoursPerPackage * 10) / 10,
+      estimatedRemainingHours: Math.round(estimatedRemainingHours),
+      estimatedCompletionDate,
+      avgCostPerPackage: Math.round(avgCostPerPackage * 100) / 100,
+      projectedTotalCost: Math.round(projectedTotalCost * 100) / 100,
+      progressPct: Math.round((publishedCount / totalPackages) * 100),
+    };
+  }, [packages, jobStats, costData]);
+
+  if (isLoading) return <Skeleton className="h-64 w-full" />;
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'published':
+      case 'completed':
+        return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">✅ Fertig</Badge>;
+      case 'building':
+        return <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Baut…</Badge>;
+      case 'council_review':
+        return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20">🔍 Review</Badge>;
+      case 'queued':
+        return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />Warteschlange</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">❌ Fehler</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getStepProgress = (pkg: any) => {
+    const step = pkg.current_step || 0;
+    return Math.round((step / PIPELINE_STEPS.length) * 100);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* KPIs */}
+      {analysis && (
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card className="glass-card">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <Target className="h-5 w-5 text-primary" />
+                <div>
+                  <div className="text-2xl font-bold">{analysis.publishedCount}/{analysis.totalPackages}</div>
+                  <div className="text-sm text-muted-foreground">Pakete fertig</div>
+                </div>
+              </div>
+              <Progress value={analysis.progressPct} className="mt-3 h-2" />
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <Clock className="h-5 w-5 text-amber-500" />
+                <div>
+                  <div className="text-2xl font-bold">~{analysis.avgHoursPerPackage}h</div>
+                  <div className="text-sm text-muted-foreground">Ø pro Paket</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <Factory className="h-5 w-5 text-blue-500" />
+                <div>
+                  <div className="text-2xl font-bold">
+                    {analysis.estimatedCompletionDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Prognose Fertigstellung</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <DollarSign className="h-5 w-5 text-emerald-500" />
+                <div>
+                  <div className="text-2xl font-bold">{fmtEur(analysis.projectedTotalCost)}</div>
+                  <div className="text-sm text-muted-foreground">Progn. Gesamtkosten</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Prognose-Info */}
+      {analysis && (
+        <Card className="glass-card border-primary/20">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <BarChart3 className="h-5 w-5 text-primary mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-medium">Prognose (basierend auf Echtdaten)</p>
+                <p className="text-sm text-muted-foreground">
+                  Bei aktuellem Durchsatz von ~{analysis.avgHoursPerPackage}h pro Paket und {analysis.remainingCount} verbleibenden Paketen
+                  werden voraussichtlich <strong>~{analysis.estimatedRemainingHours} Stunden</strong> ({Math.ceil(analysis.estimatedRemainingHours / 24)} Tage) benötigt.
+                  Geschätzte Fertigstellung: <strong>{analysis.estimatedCompletionDate.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</strong>.
+                  Ø Kosten pro Paket: {fmtEur(analysis.avgCostPerPackage)}.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Soll-Ist Tabelle */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Factory className="h-5 w-5" /> Soll-Ist-Vergleich: Top-11 Priority-Pakete
+          </CardTitle>
+          <CardDescription>Echtzeit-Status der priorisierten Ausbildungsberufe + AEVO</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-8">#</TableHead>
+                <TableHead>Paket</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Step</TableHead>
+                <TableHead>Fortschritt</TableHead>
+                <TableHead className="text-right">Jobs</TableHead>
+                <TableHead className="text-right">Prio</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {packages?.map((pkg, i) => {
+                const stats = jobStats?.[pkg.id];
+                const stepPct = getStepProgress(pkg);
+                const currentStepLabel = STEP_LABELS[PIPELINE_STEPS[pkg.current_step || 0]] || `Step ${pkg.current_step}`;
+
+                return (
+                  <TableRow key={pkg.id}>
+                    <TableCell className="font-mono text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell>
+                      <div className="font-medium text-sm">{pkg.title}</div>
+                      <div className="text-xs text-muted-foreground">{pkg.track}</div>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(pkg.status)}</TableCell>
+                    <TableCell>
+                      <span className="text-sm">{currentStepLabel}</span>
+                      <span className="text-xs text-muted-foreground ml-1">({pkg.current_step || 0}/8)</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 min-w-[120px]">
+                        <Progress value={stepPct} className="h-2 flex-1" />
+                        <span className="text-xs font-mono w-8 text-right">{stepPct}%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {stats ? (
+                        <span className="text-sm">
+                          <span className="text-emerald-500">{stats.completed}</span>
+                          {stats.failed > 0 && <span className="text-destructive">/{stats.failed}❌</span>}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">–</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant={pkg.priority <= 10 ? 'default' : 'secondary'}>{pkg.priority}</Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {(!packages || packages.length === 0) && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    Keine priorisierten Pakete gefunden
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Budget-Übersicht */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <DollarSign className="h-5 w-5" /> KI-Budget Kurserstellung
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <div className="text-2xl font-bold">{fmtEur(costData?.totalCost || 0)}</div>
+              <div className="text-sm text-muted-foreground">Ist-Kosten (bisher)</div>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <div className="text-2xl font-bold">{fmtEur(analysis?.projectedTotalCost || 0)}</div>
+              <div className="text-sm text-muted-foreground">Soll (Prognose 11 Pakete)</div>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <div className="text-2xl font-bold">
+                {((costData?.totalTokens || 0) / 1000000).toFixed(1)}M
+              </div>
+              <div className="text-sm text-muted-foreground">Tokens verbraucht</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ---- Main Finance Dashboard ----
 export default function FinanceDashboard() {
   const { from, to, setFrom, setTo } = useDateRange();
@@ -505,10 +844,10 @@ export default function FinanceDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold flex items-center gap-3">
-            <DollarSign className="h-7 w-7 text-green-500" />
-            Finance & Billing
+            <DollarSign className="h-7 w-7 text-primary" />
+            Finance & Controlling
           </h1>
-          <p className="text-muted-foreground">Umsatz · USt · Fees · Refunds · Payouts · DATEV Export</p>
+          <p className="text-muted-foreground">Umsatz · USt · Pipeline-Controlling · Exporte</p>
         </div>
         <div className="flex items-center gap-2">
           <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" />
@@ -517,8 +856,9 @@ export default function FinanceDashboard() {
         </div>
       </div>
 
-      <Tabs defaultValue="revenue" className="space-y-4">
+      <Tabs defaultValue="pipeline" className="space-y-4">
         <TabsList className="flex flex-wrap">
+          <TabsTrigger value="pipeline" className="gap-1.5"><Factory className="h-4 w-4" /> Pipeline Controlling</TabsTrigger>
           <TabsTrigger value="revenue" className="gap-1.5"><TrendingUp className="h-4 w-4" /> Umsatz</TabsTrigger>
           <TabsTrigger value="vat" className="gap-1.5"><Scale className="h-4 w-4" /> USt</TabsTrigger>
           <TabsTrigger value="fees" className="gap-1.5"><CreditCard className="h-4 w-4" /> Fees & Refunds</TabsTrigger>
@@ -527,6 +867,7 @@ export default function FinanceDashboard() {
           <TabsTrigger value="open" className="gap-1.5"><Receipt className="h-4 w-4" /> Offene Posten</TabsTrigger>
           <TabsTrigger value="exports" className="gap-1.5"><Download className="h-4 w-4" /> Exporte</TabsTrigger>
         </TabsList>
+        <TabsContent value="pipeline"><PipelineControllingTab /></TabsContent>
         <TabsContent value="revenue"><RevenueTab from={from} to={to} /></TabsContent>
         <TabsContent value="vat"><VATTab from={from} to={to} /></TabsContent>
         <TabsContent value="fees"><FeesRefundsTab from={from} to={to} /></TabsContent>
