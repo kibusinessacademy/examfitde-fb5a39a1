@@ -80,10 +80,11 @@ async function safeRpc(
   }
 }
 
-async function safeQuery(promise: PromiseLike<unknown>) {
+async function safeQuery(promise: PromiseLike<unknown>, label?: string) {
   try {
     return await promise;
-  } catch (_) {
+  } catch (e) {
+    console.warn(`[runner] safeQuery${label ? ` (${label})` : ''} error:`, (e as Error).message);
     return null;
   }
 }
@@ -123,9 +124,15 @@ function pickNextAction(steps: StepRow[]): StepAction {
       return { action: "poll", stepKey: k, jobId: s.job_id };
     }
 
-    // Running WITHOUT job_id = orphaned step → reset to queued for re-enqueue
+    // Running WITHOUT job_id = orphaned step → auto-recover
     if (s.status === "running" && !s.job_id) {
-      console.warn(`[runner] Step ${k} is running without job_id — resetting to queued`);
+      console.warn(`[runner] ⚠️ Step ${k} is 'running' without job_id (orphaned) — will reset and re-enqueue`);
+      return { action: "enqueue", stepKey: k };
+    }
+
+    // Enqueued WITHOUT job_id = same orphan class
+    if (s.status === "enqueued" && !s.job_id) {
+      console.warn(`[runner] ⚠️ Step ${k} is 'enqueued' without job_id (orphaned) — will re-enqueue`);
       return { action: "enqueue", stepKey: k };
     }
 
@@ -470,8 +477,23 @@ async function processPackage(
   if (nextAction.action === "enqueue") {
     const stepKey = nextAction.stepKey;
     const jobType = STEP_TO_JOB_TYPE[stepKey];
-    const stepMeta = (steps ?? []).find((s: StepRow) => s.step_key === stepKey)?.meta;
+    const currentStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
+    const stepMeta = currentStep?.meta;
     const batchCursor = (stepMeta?.batch_cursor as Record<string, unknown>) ?? null;
+
+    // ── FIX: Reset orphaned steps to 'queued' before re-enqueue ──
+    // This prevents step_start from double-counting attempts on steps
+    // that were stuck in 'running' or 'enqueued' without a valid job
+    if (currentStep?.status === "running" || currentStep?.status === "enqueued") {
+      console.warn(`[runner] Resetting orphaned step ${stepKey} (was ${currentStep.status}) → queued`);
+      await safeQuery(
+        sb.from("package_steps")
+          .update({ status: "queued", job_id: null, runner_id: null, started_at: null })
+          .eq("package_id", packageId)
+          .eq("step_key", stepKey),
+        "reset_orphan",
+      );
+    }
 
     console.log(`[runner] Enqueuing ${jobType} for step ${stepKey} (pkg ${shortId})`);
 
@@ -514,6 +536,7 @@ async function processPackage(
               .update({ status: "enqueued", job_id: existingJob.id, runner_id: runnerId })
               .eq("package_id", packageId)
               .eq("step_key", stepKey),
+            "link_existing_job",
           );
         }
       } else {
@@ -527,10 +550,11 @@ async function processPackage(
           .update({ status: "enqueued", job_id: jobId, runner_id: runnerId })
           .eq("package_id", packageId)
           .eq("step_key", stepKey),
+        "set_enqueued",
       );
     }
 
-    // Fix D: Log step_start errors instead of swallowing them
+    // Transition step to running + increment attempts
     const startResult = await safeRpc(sb, "step_start", {
       p_package_id: packageId,
       p_step_key: stepKey,
