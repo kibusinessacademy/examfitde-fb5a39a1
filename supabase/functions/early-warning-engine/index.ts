@@ -113,7 +113,16 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, scores, escalated: critical.length }), { headers });
+    // Run escalation cycle for adaptive responses
+    let escalationResult = null;
+    try {
+      const { data } = await admin.rpc("auto_escalation_cycle");
+      escalationResult = data;
+    } catch (e) {
+      console.warn("[early-warning-engine] escalation cycle error:", e);
+    }
+
+    return new Response(JSON.stringify({ success: true, scores, escalated: critical.length, escalation: escalationResult }), { headers });
   } catch (e) {
     console.error("[early-warning-engine] error", e);
     return new Response(JSON.stringify({ error: String((e as Error)?.message || e) }), { status: 500, headers });

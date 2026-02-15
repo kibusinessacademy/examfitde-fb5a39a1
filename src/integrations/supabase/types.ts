@@ -6218,6 +6218,42 @@ export type Database = {
         }
         Relationships: []
       }
+      escalation_log: {
+        Row: {
+          action_type: string
+          auto_restore_at: string | null
+          created_at: string
+          escalation_level: number
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          reason: string | null
+          target: string
+        }
+        Insert: {
+          action_type: string
+          auto_restore_at?: string | null
+          created_at?: string
+          escalation_level: number
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          reason?: string | null
+          target: string
+        }
+        Update: {
+          action_type?: string
+          auto_restore_at?: string | null
+          created_at?: string
+          escalation_level?: number
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          reason?: string | null
+          target?: string
+        }
+        Relationships: []
+      }
       exam_anxiety_sessions: {
         Row: {
           anxiety_after: number | null
@@ -16419,6 +16455,7 @@ export type Database = {
         }
         Returns: Json
       }
+      auto_escalation_cycle: { Args: never; Returns: Json }
       auto_heal_prereq_retry_cap_failures: {
         Args: { p_limit?: number }
         Returns: number
