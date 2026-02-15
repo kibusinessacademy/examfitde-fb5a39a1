@@ -123,13 +123,13 @@ const JOB_TYPE_MAP: Record<string, string> = {
 };
 
 // ── Constants ────────────────────────────────────────────────────────
-const MAX_JOBS_PER_TICK = 5;
-const JOB_TIMEOUT_MS = 140_000; // 140s — stay under Edge 150s hard limit
+const MAX_JOBS_PER_TICK = 12;     // Turbo: 12 parallel jobs per cron tick (was 5)
+const JOB_TIMEOUT_MS = 140_000;   // 140s — stay under Edge 150s hard limit
 
 // Backoff delays (ms) for requeue scenarios
 const BACKOFF_409_MS = 30_000;   // 30s for prereq-not-ready
 const BACKOFF_429_MS = 60_000;   // 60s for rate limits
-const BACKOFF_BATCH_MS = 5_000;  // 5s for batch continuation
+const BACKOFF_BATCH_MS = 3_000;  // 3s for batch continuation (was 5s — tighter loop)
 const BACKOFF_ERROR_MS = 30_000; // 30s for transient errors
 
 const corsHeaders = {

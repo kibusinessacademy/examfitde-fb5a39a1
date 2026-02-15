@@ -551,8 +551,8 @@ Deno.serve(async (req) => {
     .select("value")
     .eq("key", "max_concurrent_packages")
     .maybeSingle();
-  // Fix C: No fallback mismatch — if config missing, default to 3 (matches DB seed)
-  const maxSlots = parseInt(configRow?.value ?? "3", 10);
+  // Turbo: Default 5 concurrent packages (was 3) — configurable via ops_pipeline_config
+  const maxSlots = parseInt(configRow?.value ?? "5", 10);
 
   const results: Record<string, unknown>[] = [];
   const processedPackageIds = new Set<string>();
