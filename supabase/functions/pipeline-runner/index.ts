@@ -301,6 +301,14 @@ async function processPackage(
     if (job.status === "completed") {
       const result = (job.result ?? {}) as Record<string, unknown>;
 
+      // Check if step is already marked done (idempotency guard against re-polling)
+      const currentStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
+      if (currentStep?.status === "done") {
+        console.log(`[runner] Step ${stepKey} already done for ${shortId} — skipping redundant step_done`);
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, already_done: true };
+      }
+
       if (result.batch_complete === false && result.batch_cursor) {
         await safeQuery(
           sb.from("package_steps")
@@ -337,6 +345,14 @@ async function processPackage(
           sb.from("course_packages").update({ status: "done" }).eq("id", packageId),
         );
       }
+
+      // Clear the job_id from the step so the next runner invocation doesn't re-poll the same completed job
+      await safeQuery(
+        sb.from("package_steps")
+          .update({ job_id: null })
+          .eq("package_id", packageId)
+          .eq("step_key", stepKey),
+      );
 
       console.log(`[runner] ✅ Step ${stepKey} done for ${shortId} (progress ${progress}%)`);
       await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
@@ -478,6 +494,7 @@ Deno.serve(async (req) => {
   const maxSlots = parseInt(configRow?.value ?? "5", 10);
 
   const results: Record<string, unknown>[] = [];
+  const processedPackageIds = new Set<string>();
 
   try {
     // Loop: try to acquire up to maxSlots packages
@@ -491,16 +508,24 @@ Deno.serve(async (req) => {
 
       if (acquireErr) {
         console.error(`[runner] acquire error on slot ${slot}:`, acquireErr.message);
-        break; // Stop trying more slots on RPC error
+        break;
       }
 
       if (!pkgId) {
-        // No more packages available or all slots full
         console.log(`[runner] No more packages available after ${slot} acquisitions`);
         break;
       }
 
       const packageId = String(pkgId);
+
+      // ── DEDUP: Skip if already processed in this invocation ──
+      if (processedPackageIds.has(packageId)) {
+        console.warn(`[runner] Slot ${slot + 1}: package ${packageId.slice(0, 8)} already processed this invocation — releasing duplicate lease`);
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        continue;
+      }
+      processedPackageIds.add(packageId);
+
       console.log(`[runner] Acquired slot ${slot + 1}/${maxSlots}: package ${packageId.slice(0, 8)}`);
 
       const result = await processPackage(sb, packageId, runnerId);

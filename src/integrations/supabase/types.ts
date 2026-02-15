@@ -16526,7 +16526,7 @@ export type Database = {
         Returns: undefined
       }
       step_start: {
-        Args: { p_package_id: string; p_runner_id: string; p_step_key: string }
+        Args: { p_package_id: string; p_runner_id?: string; p_step_key: string }
         Returns: undefined
       }
       submit_exam_answer: {
