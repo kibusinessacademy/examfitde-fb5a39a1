@@ -8,15 +8,12 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 
-interface PipelineLock {
-  id: number;
-  active_package_id: string | null;
-  locked_at: string | null;
-  locked_by: string | null;
-  heartbeat_at: string | null;
-  mode: string;
-  max_active: number;
-  updated_at: string;
+interface PackageLease {
+  package_id: string;
+  worker_id: string;
+  leased_at: string;
+  lease_until: string;
+  heartbeat_at: string;
 }
 
 interface QueuedPackage {
@@ -26,52 +23,36 @@ interface QueuedPackage {
   queue_position: number | null;
   created_at: string;
   courses: { title: string } | null;
+  build_progress: number;
 }
 
 export default function PipelineLockPanel() {
   const qc = useQueryClient();
 
-  const { data: lock, isLoading: lockLoading } = useQuery({
-    queryKey: ['pipeline-lock'],
+  const { data: activeLeases, isLoading: lockLoading } = useQuery({
+    queryKey: ['pipeline-active-leases'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('pipeline_lock')
+        .from('package_leases')
         .select('*')
-        .eq('id', 1)
-        .single();
+        .gt('lease_until', new Date().toISOString());
       if (error) throw error;
-      return data as PipelineLock;
+      return data as PackageLease[];
     },
-    refetchInterval: 10_000,
+    refetchInterval: 5000,
   });
 
-  const { data: activePkg } = useQuery({
-    queryKey: ['pipeline-active-pkg', lock?.active_package_id],
+  const { data: activePkgs } = useQuery({
+    queryKey: ['pipeline-active-pkgs', activeLeases?.map(l => l.package_id).join(',')],
     queryFn: async () => {
-      if (!lock?.active_package_id) return null;
+      if (!activeLeases || activeLeases.length === 0) return [];
       const { data } = await supabase
         .from('course_packages')
         .select('id, status, build_progress, course_id, courses(title)')
-        .eq('id', lock.active_package_id)
-        .single();
+        .in('id', activeLeases.map(l => l.package_id));
       return data;
     },
-    enabled: !!lock?.active_package_id,
-  });
-
-  const { data: activeSteps } = useQuery({
-    queryKey: ['pipeline-active-steps', lock?.active_package_id],
-    queryFn: async () => {
-      if (!lock?.active_package_id) return [];
-      const { data } = await supabase
-        .from('course_package_build_steps')
-        .select('step_key, status, started_at, finished_at')
-        .eq('package_id', lock.active_package_id)
-        .order('created_at', { ascending: true });
-      return data || [];
-    },
-    enabled: !!lock?.active_package_id,
-    refetchInterval: 10_000,
+    enabled: !!activeLeases && activeLeases.length > 0,
   });
 
   const { data: queue } = useQuery({
@@ -79,28 +60,23 @@ export default function PipelineLockPanel() {
     queryFn: async () => {
       const { data } = await supabase
         .from('course_packages')
-        .select('id, course_id, status, queue_position, created_at, courses(title)')
+        .select('id, course_id, status, queue_position, created_at, courses(title), build_progress')
         .eq('status', 'queued')
         .order('queue_position', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
         .limit(20);
       return (data || []) as QueuedPackage[];
     },
-    refetchInterval: 15_000,
+    refetchInterval: 10000,
   });
 
-  const forceRelease = useMutation({
+  const forceExpireLeases = useMutation({
     mutationFn: async () => {
-      if (!lock?.active_package_id) return;
-      await supabase.rpc('release_pipeline_lock', { p_package_id: lock.active_package_id });
-      await supabase
-        .from('course_packages')
-        .update({ status: 'failed' })
-        .eq('id', lock.active_package_id);
+      await supabase.rpc('expire_stale_leases');
     },
     onSuccess: () => {
-      toast.success('Pipeline Lock freigegeben');
-      qc.invalidateQueries({ queryKey: ['pipeline-lock'] });
+      toast.success('Stale Leases bereinigt');
+      qc.invalidateQueries({ queryKey: ['pipeline-active-leases'] });
     },
   });
 
@@ -116,14 +92,14 @@ export default function PipelineLockPanel() {
       } else {
         toast.success(`Paket ${data?.started_package_id?.slice(0, 8)} gestartet`);
       }
-      qc.invalidateQueries({ queryKey: ['pipeline-lock'] });
+      qc.invalidateQueries({ queryKey: ['pipeline-active-leases'] });
       qc.invalidateQueries({ queryKey: ['pipeline-queue'] });
     },
     onError: (e) => toast.error(`Fehler: ${e.message}`),
   });
 
-  const isLocked = !!lock?.active_package_id;
-  const isStale = lock?.heartbeat_at && new Date(lock.heartbeat_at) < new Date(Date.now() - 10 * 60 * 1000);
+  const activeCount = activeLeases?.length || 0;
+  const maxSlots = 5;
 
   const stepStatusIcon = (status: string) => {
     if (status === 'done') return <CheckCircle2 className="h-3 w-3 text-green-500" />;
@@ -138,49 +114,46 @@ export default function PipelineLockPanel() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          {isLocked ? <Lock className="h-4 w-4 text-warning" /> : <Unlock className="h-4 w-4 text-green-500" />}
-          Pipeline Lock
-          <Badge variant={isLocked ? 'destructive' : 'outline'} className="ml-auto text-[10px]">
-            {isLocked ? 'LOCKED' : 'FREE'}
+          {activeCount > 0 ? <RefreshCw className="h-4 w-4 text-primary animate-spin" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}
+          Pipeline Runner (SSOT)
+          <Badge variant={activeCount >= maxSlots ? 'destructive' : 'outline'} className="ml-auto text-[10px]">
+            {activeCount}/{maxSlots} SLOTS
           </Badge>
-          {isStale && <Badge variant="destructive" className="text-[10px]">STALE</Badge>}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Active Package */}
-        {isLocked && activePkg && (
-          <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-sm">{(activePkg as any).courses?.title || activePkg.id.slice(0, 8)}</span>
-              <Badge variant="outline" className="text-[10px]">
-                {(activePkg as any).status} – {(activePkg as any).build_progress}%
-              </Badge>
-            </div>
-            {lock?.locked_at && (
-              <p className="text-xs text-muted-foreground">
-                Gelockt {formatDistanceToNow(new Date(lock.locked_at), { locale: de, addSuffix: true })}
-                {lock.locked_by && ` von ${lock.locked_by}`}
-              </p>
-            )}
-            {lock?.heartbeat_at && (
-              <p className="text-xs text-muted-foreground">
-                Heartbeat: {formatDistanceToNow(new Date(lock.heartbeat_at), { locale: de, addSuffix: true })}
-              </p>
-            )}
-
-            {/* Build Steps */}
-            {activeSteps && activeSteps.length > 0 && (
-              <div className="space-y-1 pt-1">
-                {activeSteps.map((step: any) => (
-                  <div key={step.step_key} className="flex items-center gap-2 text-xs">
-                    {stepStatusIcon(step.status)}
-                    <span className={step.status === 'running' ? 'font-medium text-foreground' : 'text-muted-foreground'}>
-                      {step.step_key}
-                    </span>
+        {/* Active Packages Grid */}
+        {activePkgs && activePkgs.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Aktive Verarbeitung ({activePkgs.length})</p>
+            {activePkgs.map((pkg) => {
+              const lease = activeLeases?.find(l => l.package_id === pkg.id);
+              const isStale = lease && new Date(lease.heartbeat_at) < new Date(Date.now() - 5 * 60 * 1000);
+              
+              return (
+                <div key={pkg.id} className="rounded-lg border bg-card p-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium truncate max-w-[180px]">{(pkg as any).courses?.title || pkg.id.slice(0, 8)}</span>
+                    <Badge variant={isStale ? "destructive" : "secondary"} className="text-[10px] h-5">
+                      {isStale ? "STALE" : "RUNNING"}
+                    </Badge>
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Progress: {(pkg as any).build_progress}%</span>
+                    <span>Worker: {lease?.worker_id?.slice(0,6)}</span>
+                  </div>
+                  {lease && (
+                    <div className="text-[10px] text-muted-foreground/70">
+                      Heartbeat: {formatDistanceToNow(new Date(lease.heartbeat_at), { locale: de, addSuffix: true })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+            Alle Slots frei.
           </div>
         )}
 
@@ -190,22 +163,22 @@ export default function PipelineLockPanel() {
             size="sm"
             variant="outline"
             onClick={() => triggerNext.mutate()}
-            disabled={triggerNext.isPending || isLocked}
+            disabled={triggerNext.isPending || activeCount >= maxSlots}
           >
             <Play className="h-3 w-3 mr-1" />
-            Next starten
+            Next (Force)
           </Button>
-          {isLocked && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => forceRelease.mutate()}
-              disabled={forceRelease.isPending}
-            >
-              <Unlock className="h-3 w-3 mr-1" />
-              Force Release
-            </Button>
-          )}
+          
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => forceExpireLeases.mutate()}
+            disabled={forceExpireLeases.isPending}
+            title="Bereinigt steckengebliebene Worker-Leases (>5min ohne Heartbeat)"
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Cleanup Leases
+          </Button>
         </div>
 
         {/* Queue */}
@@ -224,9 +197,9 @@ export default function PipelineLockPanel() {
           </div>
         )}
 
-        {!isLocked && (!queue || queue.length === 0) && (
+        {activeCount === 0 && (!queue || queue.length === 0) && (
           <p className="text-xs text-muted-foreground text-center py-2">
-            Pipeline frei. Keine Pakete in der Queue.
+            System Idle.
           </p>
         )}
       </CardContent>

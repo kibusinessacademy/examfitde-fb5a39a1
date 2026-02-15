@@ -1,26 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
+import { validateAuth, unauthorizedResponse } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-
-/**
- * validate-content – LLM Council Validation Engine
- * 
- * Claude Opus 4.6 als unabhängige Qualitätskontroll-Instanz.
- * Validiert und verifiziert KI-generierte Inhalte (GPT-5.2 Output).
- * 
- * Modi:
- * - "lesson": Validiert einzelne Lektion (5-Schritte-Didaktik, IHK-Bezug)
- * - "course": Validiert gesamten Kurs (Batch, Kohärenz)
- * - "question": Validiert Prüfungsfragen (Eindeutigkeit, Distraktoren)
- * - "tutor_response": Validiert Tutor-Antwort async (Halluzinations-Check)
- * - "blog_article": Validiert SEO/Marketing-Content (DeepSeek Output)
- * 
- * Jede Validierung erzeugt einen strukturierten Report mit:
- * - decision: approve | revise | reject
- * - dimension_scores: gewichtete Einzelbewertungen
- * - suggested_fixes: maschinenlesbare Korrekturvorschläge
- */
+import { callAIJSON } from "../_shared/ai-client.ts";
+import { getModel } from "../_shared/model-routing.ts";
 
 interface ValidationRequest {
   mode: "lesson" | "course" | "question" | "tutor_response" | "blog_article";
@@ -32,12 +15,11 @@ interface ValidationRequest {
     lessonStep?: string;
     blueprintId?: string;
   };
-  generationId?: string; // FK to ai_generations
+  generationId?: string;
   courseId?: string;
   lessonId?: string;
   entityType?: string;
   entityId?: string;
-  /** Which provider generated the content – validator will be the OTHER provider */
   generatorProvider?: "openai" | "anthropic";
 }
 
@@ -45,30 +27,11 @@ interface ValidationResult {
   overall_score: number;
   decision: "approve" | "revise" | "reject";
   dimension_scores: Record<string, number>;
-  critical_issues: Array<{
-    severity: "critical" | "warning" | "info";
-    category: string;
-    message: string;
-    suggestion?: string;
-  }>;
-  suggested_fixes: Array<{
-    type: string;
-    target?: string;
-    reason: string;
-    replacement?: string;
-  }>;
+  critical_issues: Array<{ severity: "critical" | "warning" | "info"; category: string; message: string; suggestion?: string }>;
+  suggested_fixes: Array<{ type: string; target?: string; reason: string; replacement?: string }>;
   improvements?: string[];
   corrected_content?: unknown;
 }
-
-// Dimension weights per entity type (SSOT)
-const DIMENSION_WEIGHTS: Record<string, Record<string, number>> = {
-  lesson: { fachlichkeit: 30, didaktik: 25, pruefungsrelevanz: 20, klarheit: 15, vollstaendigkeit: 10 },
-  question: { eindeutigkeit: 35, distraktoren: 25, ihk_konformitaet: 25, taxonomie: 15 },
-  tutor_response: { fachlichkeit: 50, verstaendlichkeit: 30, keine_halluzination: 20 },
-  blog_article: { seo_qualitaet: 40, fachlichkeit: 40, sprachqualitaet: 20 },
-  course: { kohaerenz: 30, vollstaendigkeit: 25, didaktischer_aufbau: 25, qualitaetsniveau: 20 },
-};
 
 const VALIDATION_PROMPTS: Record<string, string> = {
   lesson: `Du bist ein IHK-Prüfer und Didaktik-Experte. Du validierst KI-generierte Lerninhalte.
@@ -155,30 +118,21 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
-
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
-  // Auth check – authenticated users can validate
   const auth = await validateAuth(req, false);
-  if (auth.error) {
-    return unauthorizedResponse(auth.error, origin ?? undefined);
-  }
+  if (auth.error) return unauthorizedResponse(auth.error, origin ?? undefined);
 
   try {
     const body: ValidationRequest = await req.json();
-    const { mode, content, context, generationId, courseId, lessonId, entityType, entityId, generatorProvider } = body;
+    const { mode, content, context, generationId, courseId, lessonId, generatorProvider } = body;
 
     if (!mode || !content) {
-      return new Response(
-        JSON.stringify({ error: "mode and content are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "mode and content are required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const systemPrompt = VALIDATION_PROMPTS[mode] || VALIDATION_PROMPTS.lesson;
-
-    // Build SSOT context
     let contextStr = "";
     if (context) {
       if (context.curriculumTitle) contextStr += `\nCurriculum: ${context.curriculumTitle}`;
@@ -188,136 +142,44 @@ serve(async (req) => {
       if (context.blueprintId) contextStr += `\nBlueprint: ${context.blueprintId}`;
     }
 
-    // Cross-provider validation: if anthropic generated → openai validates, and vice versa
-    // Default (no generatorProvider): anthropic validates (legacy behavior)
-    const validatorProvider = generatorProvider === "anthropic" ? "openai" : "anthropic";
-
     const generatorLabel = generatorProvider === "anthropic" ? "Claude Opus" : "GPT-5.2";
     const userPrompt = `${contextStr ? `SSOT-KONTEXT:${contextStr}\n\n` : ""}ZU VALIDIERENDER INHALT (generiert von ${generatorLabel}):\n${JSON.stringify(content, null, 2)}`;
 
+    // Use routed model for validation (e.g. Claude Sonnet 4 via Gateway)
+    const routed = getModel("quality_audit");
     const startTime = Date.now();
-    let rawText = "";
-    let model = "";
-    let inputTokens = 0;
-    let outputTokens = 0;
 
-    if (validatorProvider === "openai") {
-      // GPT-5.2 validates Anthropic-generated content
-      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-      if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
-
-      model = mode === "tutor_response" ? "gpt-5-mini" : "gpt-5.2";
-      const maxTokens = mode === "tutor_response" ? 1024 : 4096;
-
-      const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: maxTokens,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-        }),
-      });
-
-      if (!aiResponse.ok) {
-        const status = aiResponse.status;
-        const errText = await aiResponse.text();
-        console.error(`[validate-content] OpenAI error ${status}:`, errText);
-        if (status === 429) {
-          return new Response(JSON.stringify({ error: "Rate limit. Bitte später erneut versuchen." }), {
-            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        throw new Error(`OpenAI API error: ${status}`);
-      }
-
-      const aiData = await aiResponse.json();
-      rawText = aiData.choices?.[0]?.message?.content || "";
-      inputTokens = aiData.usage?.prompt_tokens || 0;
-      outputTokens = aiData.usage?.completion_tokens || 0;
-    } else {
-      // Anthropic validates OpenAI-generated content (default/legacy path)
-      const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-      if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
-
-      model = mode === "tutor_response" ? "claude-sonnet-4-20250514" : "claude-opus-4-20250514";
-      const maxTokens = mode === "tutor_response" ? 1024 : 4096;
-
-      const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: maxTokens,
-          system: systemPrompt,
-          messages: [{ role: "user", content: userPrompt }],
-        }),
-      });
-
-      if (!aiResponse.ok) {
-        const status = aiResponse.status;
-        const errText = await aiResponse.text();
-        console.error(`[validate-content] Anthropic error ${status}:`, errText);
-        if (status === 429) {
-          return new Response(JSON.stringify({ error: "Rate limit. Bitte später erneut versuchen." }), {
-            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        throw new Error(`Anthropic API error: ${status}`);
-      }
-
-      const aiData = await aiResponse.json();
-      rawText = aiData.content?.[0]?.text || "";
-      inputTokens = aiData.usage?.input_tokens || 0;
-      outputTokens = aiData.usage?.output_tokens || 0;
-    }
+    const aiResult = await callAIJSON({
+      provider: routed.provider,
+      model: routed.model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 4096,
+    });
 
     const latencyMs = Date.now() - startTime;
-
-    // Parse structured validation response
     let result: ValidationResult;
     try {
-      const cleanText = rawText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const cleanText = aiResult.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       result = JSON.parse(cleanText);
     } catch {
-      result = {
-        overall_score: 0,
-        decision: "reject",
-        dimension_scores: {},
-        critical_issues: [{ severity: "critical", category: "parse_error", message: "Validierungsantwort konnte nicht geparst werden" }],
-        suggested_fixes: [],
-      };
+      result = { overall_score: 0, decision: "reject", dimension_scores: {}, critical_issues: [{ severity: "critical", category: "parse_error", message: "Validierungsantwort konnte nicht geparst werden" }], suggested_fixes: [] };
     }
 
-    // Apply decision logic based on score thresholds
     if (!result.decision) {
       if (result.overall_score >= 85) result.decision = "approve";
       else if (result.overall_score >= 60) result.decision = "revise";
       else result.decision = "reject";
     }
 
-    // Persist to database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // inputTokens and outputTokens already set above from provider response
-
-    // Log to ai_validations if we have a generation reference
     if (generationId) {
       await supabase.from("ai_validations").insert({
         generation_id: generationId,
-        validator_model: model,
+        validator_model: routed.model,
         validation_mode: auth.user ? "manual" : "automatic",
         overall_score: result.overall_score,
         decision: result.decision,
@@ -326,22 +188,16 @@ serve(async (req) => {
         suggested_fixes: result.suggested_fixes,
         corrected_content: result.corrected_content || null,
         improvements: result.improvements || [],
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
+        input_tokens: aiResult.usage?.input_tokens || 0,
+        output_tokens: aiResult.usage?.output_tokens || 0,
         cost_eur: 0,
-        latency_ms: latencyMs,
+        latency_ms,
         validated_by: auth.user?.id || null,
       });
 
-      // Update generation status based on decision
       const newStatus = result.decision === "approve" ? "validated" : result.decision === "reject" ? "rejected" : "draft";
-      await supabase.from("ai_generations").update({
-        validation_decision: result.decision,
-        validation_score: result.overall_score,
-        status: newStatus,
-      }).eq("id", generationId);
+      await supabase.from("ai_generations").update({ validation_decision: result.decision, validation_score: result.overall_score, status: newStatus }).eq("id", generationId);
 
-      // Create quality gate entry
       await supabase.from("ai_quality_gates").insert({
         generation_id: generationId,
         gate_type: "auto_validation",
@@ -350,34 +206,14 @@ serve(async (req) => {
         actual_score: result.overall_score,
         decided_by: auth.user?.id || null,
         decided_at: new Date().toISOString(),
-        reason: result.decision === "approve"
-          ? "Automatische Validierung bestanden"
-          : `Score ${result.overall_score}/100 – ${result.critical_issues?.length || 0} kritische Issues`,
+        reason: result.decision === "approve" ? "Automatische Validierung bestanden" : `Score ${result.overall_score}/100`,
       });
     }
 
-    // Also log to ai_usage_log for cost tracking
-    await supabase.from("ai_usage_log").insert({
-      job_type: `validate_${mode}`,
-      model,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      total_tokens: inputTokens + outputTokens,
-      cost_eur: 0,
-      success: true,
-      latency_ms: latencyMs,
-      metadata: { mode, generationId, courseId, lessonId, score: result.overall_score, decision: result.decision },
-    });
+    return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    return new Response(
-      JSON.stringify(result),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   } catch (e) {
     console.error("[validate-content] Error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Validation failed" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Validation failed" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
