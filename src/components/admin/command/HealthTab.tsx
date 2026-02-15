@@ -7,8 +7,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Clock, XCircle, Activity, DollarSign, RefreshCw, Loader2,
-  FileText, Headphones, Users, AlertTriangle, TrendingUp, Play, RotateCcw,
-  Pause, ShieldAlert, Brain, Zap,
+  FileText, Headphones, Users, AlertTriangle, TrendingUp,
+  Pause, ShieldAlert, Brain, Zap, Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -48,8 +48,8 @@ export default function HealthTab() {
   const [budget, setBudget] = useState<BudgetInfo>({ dailyCost: 0, monthBudget: 0, monthSpent: 0 });
   const [aiDiagnose, setAiDiagnose] = useState<AIDiagnose | null>(null);
   const [loading, setLoading] = useState(true);
-  const [acting, setActing] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [lastAutoOps, setLastAutoOps] = useState<{ ts: string; failed_retried: number; stuck_recovered: number } | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const isMobile = useIsMobile();
 
@@ -57,7 +57,7 @@ export default function HealthTab() {
     try {
       const sb = supabase as any;
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, costRes, budgetRes, queueRes, aiRes] = await Promise.all([
+      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, costRes, budgetRes, queueRes, aiRes, autoOpsRes] = await Promise.all([
         sb.from('course_packages').select('id, title, status, build_progress, priority, current_step, step_status_json, created_at, updated_at, track').lte('priority', 20).order('priority').order('created_at'),
         sb.from('support_tickets').select('status'),
         sb.from('profiles').select('id', { count: 'exact', head: true }),
@@ -67,6 +67,7 @@ export default function HealthTab() {
         sb.from('ai_cost_budgets').select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1),
         callAdminOps('queue_health').catch(() => ({ pending: 0, processing: 0, failed: 0, stuck: 0 })),
         callDecisionEngine().catch(() => null),
+        sb.from('auto_heal_log').select('created_at, metadata').eq('action_type', 'auto_ops_cycle').order('created_at', { ascending: false }).limit(1),
       ]);
       setPackages((pkgRes.data || []) as PackageInfo[]);
       const tickets = (ticketRes.data || []) as { status: string }[];
@@ -80,6 +81,10 @@ export default function HealthTab() {
       setQueue(queueRes as QueueHealth);
       if (aiRes) {
         setAiDiagnose({ risks: (aiRes.risks || []).slice(0, 5), recommendations: (aiRes.decisions || []).slice(0, 6).map((d: any) => ({ title: d.title, impact: d.impact_score > 60 ? 'high' : 'medium', council_id: d.council_id })), systemHealth: aiRes.systemHealth || null });
+      }
+      const autoOpsRow = (autoOpsRes.data || [])[0];
+      if (autoOpsRow?.metadata) {
+        setLastAutoOps({ ts: autoOpsRow.created_at, failed_retried: autoOpsRow.metadata.failed_retried ?? 0, stuck_recovered: autoOpsRow.metadata.stuck_recovered ?? 0 });
       }
       setLastRefresh(new Date());
     } catch (e) { console.error('[Command] Load error:', e); }
@@ -103,22 +108,6 @@ export default function HealthTab() {
     return { total, published, building, queued, blocked, failed, remaining, estimatedDays, estimatedDate };
   }, [packages]);
 
-  const runOpsAction = async (action: string, label: string) => {
-    setActing(action);
-    try { const result = await callAdminOps(action); toast.success(`${label}: ${result.count ?? 0} Jobs`); setTimeout(load, 2000); } catch (e: any) { toast.error(e.message); }
-    setActing(null);
-  };
-
-  const triggerRunner = async () => {
-    setActing('pipeline');
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pipeline-runner`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } });
-      toast.success('Pipeline-Runner getriggert'); setTimeout(load, 2000);
-    } catch (e: any) { toast.error(e.message); }
-    setActing(null);
-  };
-
   if (loading) return <div className="space-y-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-24 bg-muted/30 rounded-lg animate-pulse" />)}</div>;
 
   const prio5 = packages.filter(p => p.priority === 5);
@@ -131,31 +120,30 @@ export default function HealthTab() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">Auto-Refresh {REFRESH_INTERVAL / 1000}s · {lastRefresh.toLocaleTimeString('de-DE')}</p>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button size="sm" onClick={triggerRunner} disabled={!!acting} className="min-h-[44px] lg:min-h-0">
-            {acting === 'pipeline' ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Play className="h-3.5 w-3.5 mr-1" />}
-            <span className="hidden sm:inline">Pipeline</span> Start
-          </Button>
-          <Button variant="ghost" size="sm" onClick={load} className="min-h-[44px] lg:min-h-0 min-w-[44px]"><RefreshCw className="h-3.5 w-3.5" /></Button>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-muted-foreground">Auto-Refresh {REFRESH_INTERVAL / 1000}s · {lastRefresh.toLocaleTimeString('de-DE')}</p>
+          {lastAutoOps && (
+            <Badge variant="outline" className="text-[10px] gap-1 border-primary/20">
+              <Bot className="h-3 w-3" />
+              Auto-Ops {new Date(lastAutoOps.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+              {(lastAutoOps.failed_retried + lastAutoOps.stuck_recovered) > 0 && (
+                <span className="text-primary font-semibold ml-0.5">
+                  {lastAutoOps.failed_retried + lastAutoOps.stuck_recovered} geheilt
+                </span>
+              )}
+            </Badge>
+          )}
         </div>
+        <Button variant="ghost" size="sm" onClick={load} className="min-h-[44px] lg:min-h-0 min-w-[44px]"><RefreshCw className="h-3.5 w-3.5" /></Button>
       </div>
 
       {/* Job Queue */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Pending" value={queue.pending} />
         <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Processing" value={queue.processing} />
-        <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Failed" value={queue.failed} alert={queue.failed > 0} />
-        <KPICard icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} label="Stuck (>10m)" value={queue.stuck} alert={queue.stuck > 0} />
+        <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Failed" value={queue.failed} alert={queue.failed > 0} sublabel={queue.failed > 0 ? 'Auto-Retry alle 5 Min.' : undefined} />
+        <KPICard icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} label="Stuck (>10m)" value={queue.stuck} alert={queue.stuck > 0} sublabel={queue.stuck > 0 ? 'Auto-Recovery aktiv' : undefined} />
       </div>
-
-      {/* Ops Actions */}
-      {(queue.failed > 0 || queue.stuck > 0) && (
-        <div className="flex flex-wrap gap-2">
-          {queue.failed > 0 && <Button size="sm" variant="outline" onClick={() => runOpsAction('retry_failed_jobs', 'Retry Failed')} disabled={!!acting} className="border-destructive/30 text-destructive hover:bg-destructive/10">{acting === 'retry_failed_jobs' ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5 mr-1" />}{queue.failed} Failed retrien</Button>}
-          {queue.stuck > 0 && <Button size="sm" variant="outline" onClick={() => runOpsAction('recover_stuck_processing', 'Recover Stuck')} disabled={!!acting} className="border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">{acting === 'recover_stuck_processing' ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Zap className="h-3.5 w-3.5 mr-1" />}{queue.stuck} Stuck recovern</Button>}
-        </div>
-      )}
 
       {/* Product KPIs + Budget */}
       {analysis && (

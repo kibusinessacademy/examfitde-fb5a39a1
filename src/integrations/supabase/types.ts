@@ -16423,6 +16423,7 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: number
       }
+      auto_ops_cycle: { Args: never; Returns: Json }
       auto_retry_stuck_package: {
         Args: { p_package_id: string }
         Returns: number
