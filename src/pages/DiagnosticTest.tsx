@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,15 +13,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Loader2, 
-  Brain, 
-  CheckCircle2, 
-  XCircle, 
-  ArrowRight, 
-  Calendar as CalendarIcon,
-  Clock,
-  Target,
-  Sparkles,
+  Loader2, Brain, CheckCircle2, XCircle, ArrowRight, 
+  Calendar as CalendarIcon, Clock, Target, Sparkles, AlertTriangle, RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -36,7 +29,6 @@ interface DiagnosticQuestion {
   options: string[];
 }
 
-
 type TestPhase = 'intro' | 'testing' | 'goals' | 'results';
 
 export default function DiagnosticTest() {
@@ -50,11 +42,11 @@ export default function DiagnosticTest() {
   const [answers, setAnswers] = useState<
     Map<string, { answer: number; correct: boolean; correctAnswer: number }>
   >(new Map());
+  const [answerError, setAnswerError] = useState<string | null>(null);
   const [examDate, setExamDate] = useState<Date | undefined>();
   const [weeklyHours, setWeeklyHours] = useState(5);
   const [results, setResults] = useState<DiagnosticResult[]>([]);
   
-  // Fetch curriculum info
   const { data: curriculum } = useQuery({
     queryKey: ['curriculum', curriculumId],
     queryFn: async () => {
@@ -69,13 +61,11 @@ export default function DiagnosticTest() {
     enabled: !!curriculumId,
   });
   
-  // Fetch diagnostic questions (sample ~1 pro Kompetenz via Backend-Funktion, ohne Lösungen)
-  const { data: questions, isLoading } = useQuery({
+  const { data: questions, isLoading, error: questionsError } = useQuery({
     queryKey: ['diagnostic-questions', curriculumId],
     queryFn: async (): Promise<DiagnosticQuestion[]> => {
       if (!curriculumId) return [];
 
-      // 1) Kompetenzen für dieses Curriculum laden (safe, keine Prüfungsfragen)
       const { data: learningFields, error: lfError } = await supabase
         .from('learning_fields')
         .select('id')
@@ -100,7 +90,6 @@ export default function DiagnosticTest() {
       const questionsOut: DiagnosticQuestion[] = [];
       const excludeIds: string[] = [];
 
-      // 2) Pro Kompetenz eine Frage serverseitig ziehen (sanitized)
       for (const comp of shuffledCompetencies) {
         const { data, error } = await supabase.functions.invoke('get-exam-questions', {
           body: {
@@ -111,10 +100,7 @@ export default function DiagnosticTest() {
           },
         });
 
-        if (error) {
-          // Bei fehlender Berechtigung o.ä. einfach skippen
-          continue;
-        }
+        if (error) continue;
 
         const q = (data?.questions || [])[0];
         if (!q) continue;
@@ -135,55 +121,46 @@ export default function DiagnosticTest() {
     },
     enabled: !!curriculumId && phase === 'testing',
   });
-
   
   const currentQuestion = questions?.[currentIndex];
   const progress = questions ? ((currentIndex + 1) / questions.length) * 100 : 0;
   
   const handleAnswer = async (answerIndex: number) => {
     if (!currentQuestion) return;
+    setAnswerError(null);
 
-    // Serverseitig bewerten (inkl. Entitlement-Check) und erst dann Ergebnis anzeigen
-    const { data, error } = await supabase.functions.invoke('submit-exam-answer', {
-      body: {
-        question_id: currentQuestion.id,
-        selected_answer: answerIndex,
-      },
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('submit-exam-answer', {
+        body: {
+          question_id: currentQuestion.id,
+          selected_answer: answerIndex,
+        },
+      });
 
-    if (error) {
-      // Fallback: als falsch werten, aber Flow nicht killen
+      if (error) throw error;
+
       setAnswers((prev) =>
         new Map(prev).set(currentQuestion.competency_id, {
           answer: answerIndex,
-          correct: false,
-          correctAnswer: -1,
+          correct: !!data?.is_correct,
+          correctAnswer: Number(data?.correct_answer ?? -1),
         })
       );
-      return;
+
+      setTimeout(() => {
+        if (currentIndex < (questions?.length || 0) - 1) {
+          setCurrentIndex((prev) => prev + 1);
+        } else {
+          calculateResults();
+        }
+      }, 1000);
+    } catch (err) {
+      console.error('Answer submission error:', err);
+      setAnswerError('Antwort konnte nicht gesendet werden. Bitte versuche es erneut.');
     }
-
-    setAnswers((prev) =>
-      new Map(prev).set(currentQuestion.competency_id, {
-        answer: answerIndex,
-        correct: !!data?.is_correct,
-        correctAnswer: Number(data?.correct_answer ?? -1),
-      })
-    );
-
-    // Move to next question or finish
-    setTimeout(() => {
-      if (currentIndex < (questions?.length || 0) - 1) {
-        setCurrentIndex((prev) => prev + 1);
-      } else {
-        calculateResults();
-      }
-    }, 1000);
   };
-
   
   const calculateResults = () => {
-    // Group by competency and calculate scores
     const competencyScores = new Map<string, { correct: number; total: number; title: string }>();
     
     answers.forEach((value, compId) => {
@@ -201,7 +178,6 @@ export default function DiagnosticTest() {
     competencyScores.forEach((value, compId) => {
       const score = (value.correct / value.total) * 100;
       let level: 'weak' | 'partial' | 'strong' = 'partial';
-      
       if (score >= 80) level = 'strong';
       else if (score < 50) level = 'weak';
       
@@ -317,6 +293,25 @@ export default function DiagnosticTest() {
         </div>
       );
     }
+
+    if (questionsError) {
+      return (
+        <div className="container max-w-2xl py-12">
+          <Card className="glass-card">
+            <CardContent className="p-8 text-center space-y-4">
+              <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
+              <h2 className="text-xl font-display font-bold">Fragen konnten nicht geladen werden</h2>
+              <p className="text-muted-foreground">
+                Bitte prüfe deine Internetverbindung und versuche es erneut.
+              </p>
+              <Button onClick={() => setPhase('intro')} variant="outline">
+                <RotateCcw className="h-4 w-4 mr-2" /> Zurück zum Start
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
     
     if (!currentQuestion) {
       return (
@@ -331,7 +326,6 @@ export default function DiagnosticTest() {
     
     return (
       <div className="container max-w-2xl py-8">
-        {/* Progress */}
         <div className="mb-6">
           <div className="flex items-center justify-between text-sm mb-2">
             <span className="text-muted-foreground">Frage {currentIndex + 1} von {questions.length}</span>
@@ -340,7 +334,6 @@ export default function DiagnosticTest() {
           <Progress value={progress} className="h-2" />
         </div>
         
-        {/* Question Card */}
         <Card className="glass-card">
           <CardHeader>
             <CardTitle className="text-xl font-display leading-relaxed">
@@ -386,6 +379,21 @@ export default function DiagnosticTest() {
                 </button>
               );
             })}
+
+            {answerError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>{answerError}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto text-destructive hover:text-destructive"
+                  onClick={() => setAnswerError(null)}
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" /> Erneut
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -401,12 +409,9 @@ export default function DiagnosticTest() {
         <Card className="glass-card">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-display">Deine Lernziele</CardTitle>
-            <CardDescription>
-              Fast geschafft! Hilf uns noch, deinen Lernplan zu optimieren.
-            </CardDescription>
+            <CardDescription>Fast geschafft! Hilf uns noch, deinen Lernplan zu optimieren.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Quick Results Preview */}
             <div className="grid grid-cols-3 gap-4 p-4 rounded-lg bg-muted/50">
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-500">{strongCount}</div>
@@ -422,7 +427,6 @@ export default function DiagnosticTest() {
               </div>
             </div>
             
-            {/* Exam Date */}
             <div className="space-y-2">
               <Label>Wann ist deine Prüfung? (optional)</Label>
               <Popover>
@@ -444,7 +448,6 @@ export default function DiagnosticTest() {
               </Popover>
             </div>
             
-            {/* Weekly Hours */}
             <div className="space-y-2">
               <Label>Wie viele Stunden kannst du pro Woche lernen?</Label>
               <div className="flex items-center gap-4">
@@ -466,9 +469,7 @@ export default function DiagnosticTest() {
               size="lg"
               disabled={saveDiagnostic.isPending}
             >
-              {saveDiagnostic.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
+              {saveDiagnostic.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Lernplan erstellen
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
@@ -478,7 +479,6 @@ export default function DiagnosticTest() {
     );
   }
   
-  // Results phase
   return (
     <div className="container max-w-2xl py-8">
       <Card className="glass-card">
@@ -487,18 +487,12 @@ export default function DiagnosticTest() {
             <CheckCircle2 className="h-8 w-8 text-green-500" />
           </div>
           <CardTitle className="text-2xl font-display">Dein Lernplan ist fertig!</CardTitle>
-          <CardDescription>
-            Basierend auf deinen Ergebnissen haben wir einen personalisierten Plan erstellt.
-          </CardDescription>
+          <CardDescription>Basierend auf deinen Ergebnissen haben wir einen personalisierten Plan erstellt.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Competency Results */}
           <div className="space-y-3">
             {results.map((result, idx) => (
-              <div 
-                key={idx} 
-                className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-              >
+              <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     "w-3 h-3 rounded-full",
