@@ -38,22 +38,25 @@ const VALIDATION_PROMPTS: Record<string, string> = {
 DEINE ROLLE: Unabhängiger Qualitätsvalidator. Du erfindest KEINE neuen Inhalte.
 
 BEWERTUNGSDIMENSIONEN (gewichtet):
-1. FACHLICHE KORREKTHEIT (30%): Fakten korrekt? Keine Halluzinationen? Fachbegriffe richtig?
-2. DIDAKTISCHE QUALITÄT (25%): 5-Schritte-Didaktik? Anwenden = Entscheidungsszenario? Progressive Komplexität?
-3. PRÜFUNGSRELEVANZ (20%): Explizite IHK-Prüfungsbezüge? Typische Prüfungsformulierungen? Prüfungsfallen benannt?
-4. SPRACHLICHE KLARHEIT (15%): Azubi-Niveau? Klare Fachsprache? Keine akademische Überfrachtung?
+1. FACHLICHE KORREKTHEIT (25%): Fakten korrekt? Keine Halluzinationen? Fachbegriffe richtig?
+2. DIDAKTISCHE QUALITÄT (20%): 5-Schritte-Didaktik? Anwenden = Entscheidungsszenario? Progressive Komplexität?
+3. PRÜFUNGSRELEVANZ (15%): Explizite IHK-Prüfungsbezüge? Typische Prüfungsformulierungen? Prüfungsfallen benannt?
+4. SPRACHLICHE KLARHEIT (10%): Azubi-Niveau? Klare Fachsprache? Keine akademische Überfrachtung?
 5. VOLLSTÄNDIGKEIT (10%): Lernziele definiert? Alle Aspekte abgedeckt? Mindestumfang?
+6. BERUFSBEZUG & SSOT (20%): Konkreter Bezug zum spezifischen Beruf? Beispiele aus dem richtigen Berufsalltag? KEINE Fremdbranche-Inhalte?
 
 PFLICHT-PRÜFUNGEN (Auto-Reject bei Fehlen):
 - Kein IHK-Prüfungsbezug → Score max 75
 - Anwenden-Phase ohne Entscheidungsszenario → Score max 80
 - Halluzination erkannt → Score max 50, decision=reject
+- FREMDBRANCHE-KONTAMINATION: Wenn Inhalte Fachbegriffe/Szenarien aus einem ANDEREN Beruf enthalten (z.B. Autohaus-Begriffe bei Bankkaufleuten), → Score max 30, decision=reject, critical_issue mit category="kontamination"
+- Generische Inhalte OHNE konkreten Berufsbezug → Score max 70
 
 Antworte AUSSCHLIESSLICH mit JSON:
 {
   "overall_score": 0-100,
   "decision": "approve|revise|reject",
-  "dimension_scores": {"fachlichkeit": 0-100, "didaktik": 0-100, "pruefungsrelevanz": 0-100, "klarheit": 0-100, "vollstaendigkeit": 0-100},
+  "dimension_scores": {"fachlichkeit": 0-100, "didaktik": 0-100, "pruefungsrelevanz": 0-100, "klarheit": 0-100, "vollstaendigkeit": 0-100, "berufsbezug": 0-100},
   "critical_issues": [{"severity": "critical|warning|info", "category": "string", "message": "string", "suggestion": "string"}],
   "suggested_fixes": [{"type": "replace_section|add_content|remove_content", "target": "step_name", "reason": "string", "replacement": "string"}],
   "improvements": ["Konkrete Verbesserung 1", "Konkrete Verbesserung 2"],
@@ -140,6 +143,29 @@ serve(async (req) => {
       if (context.taxonomyLevel) contextStr += `\nTaxonomiestufe: ${context.taxonomyLevel}`;
       if (context.lessonStep) contextStr += `\nLernschritt: ${context.lessonStep}`;
       if (context.blueprintId) contextStr += `\nBlueprint: ${context.blueprintId}`;
+    }
+
+    // Load profession name for SSOT context validation
+    let professionName = "";
+    if (courseId) {
+      const supabaseCtx = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      try {
+        const { data: course } = await supabaseCtx.from("courses").select("curriculum_id").eq("id", courseId).maybeSingle();
+        if (course?.curriculum_id) {
+          const { data: curriculum } = await supabaseCtx.from("curricula").select("title, beruf_id").eq("id", course.curriculum_id).maybeSingle();
+          if (curriculum?.beruf_id) {
+            const { data: beruf } = await supabaseCtx.from("berufe").select("bezeichnung_kurz, bezeichnung_lang").eq("id", curriculum.beruf_id).maybeSingle();
+            if (beruf) professionName = beruf.bezeichnung_kurz || beruf.bezeichnung_lang || "";
+          } else if (curriculum?.title) {
+            professionName = curriculum.title.replace(/^Rahmenlehrplan\s+/i, "").trim();
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    if (professionName) {
+      contextStr += `\nBeruf: ${professionName}`;
+      contextStr += `\nWICHTIG: Alle Inhalte MÜSSEN zum Beruf "${professionName}" passen. Inhalte aus anderen Berufsfeldern = KONTAMINATION = Auto-Reject!`;
     }
 
     const generatorLabel = generatorProvider === "anthropic" ? "Claude Opus" : "GPT-5.2";

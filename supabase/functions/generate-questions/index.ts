@@ -51,11 +51,17 @@ REGELN:
 - Jede Frage hat genau 4 Antwortmöglichkeiten
 - Nur eine Antwort ist korrekt
 - Fragen müssen einen konkreten Praxisbezug zum Berufsalltag von ${professionName} haben
-- Distraktoren bilden typische Denkfehler von ${professionName} ab
+- Distraktoren bilden typische Denkfehler von ${professionName} ab — NICHT offensichtlich falsch
 - Schwierigkeit: easy (Grundwissen), medium (Anwendung/Berechnung), hard (Analyse/Transfer)
 - Ausführliche Erklärung mit Fachbegriffen von ${professionName}
 - KEINE generischen Fragen ohne Berufsbezug
 - Fragen dürfen NICHT nach KI klingen — formuliere wie ein erfahrener IHK-Aufgabenersteller
+
+ANTI-KI-REGELN:
+- KEINE Sätze wie "In der heutigen Geschäftswelt..." oder "Es ist wichtig zu beachten..."
+- KEINE generischen Szenarien wie "ein Unternehmen" — verwende konkrete Namen, Zahlen, Abteilungen
+- JEDE Erklärung MUSS den konkreten Denkfehler hinter JEDEM falschen Distraktor benennen
+- Distraktoren-Check: Erkläre in "explanation" warum JEDE falsche Option falsch ist (nicht nur die richtige)
 
 Antworte AUSSCHLIESSLICH mit einem validen JSON-Array:
 [
@@ -63,7 +69,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array:
     "question_text": "Konkretes Szenario aus dem Alltag von ${professionName}...",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correct_answer": 0,
-    "explanation": "Fachliche Erklärung mit Bezug zu ${professionName}...",
+    "explanation": "Fachliche Erklärung: Richtig ist A weil... B ist falsch weil... C ist falsch weil... D ist falsch weil...",
     "difficulty": "easy|medium|hard"
   }
 ]`;

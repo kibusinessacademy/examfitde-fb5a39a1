@@ -339,6 +339,10 @@ async function generateDominanzQuestions(
     return 0;
   }
 
+  // ── Contamination Guard: block auto-industry keywords when profession isn't Automobil/Kfz ──
+  const isAutoProfession = /auto|kfz|fahrzeug|kraftfahrzeug|automobil/i.test(professionName);
+  const AUTO_CONTAMINATION_REGEX = /\b(autohaus|werkstatt|fahrzeug|probefahrt|karosserie|kfz|automobil|lackier|inspektion|hauptuntersuchung|hebebühne|ölwechsel|bremsbelag|radwechsel|autohändler|gebrauchtwagen|neuwagen|fahrzeugbrief)\b/i;
+
   let saved = 0;
   for (const q of questions) {
     if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
@@ -346,6 +350,12 @@ async function generateDominanzQuestions(
     // Reject questions with unresolved placeholders
     if (/\{[a-z_]+\}/i.test(q.question_text)) {
       console.log(`[ExamPool-Dominanz] REJECTED: unresolved placeholder in "${q.question_text.slice(0, 60)}"`);
+      continue;
+    }
+
+    // CONTAMINATION GUARD: Block auto-industry content for non-auto professions
+    if (!isAutoProfession && AUTO_CONTAMINATION_REGEX.test(q.question_text + " " + (q.explanation || ""))) {
+      console.log(`[ExamPool-Dominanz] CONTAMINATION BLOCKED: Auto-Kontext in Frage für "${professionName}": "${q.question_text.slice(0, 60)}"`);
       continue;
     }
 
