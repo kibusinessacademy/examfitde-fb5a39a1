@@ -76,8 +76,8 @@ function json(body: unknown, status = 200) {
 // DeepSeek is excluded from exam-pool generation (too volatile for complex blueprints)
 
 const EXAM_PROVIDER_CHAIN: { provider: AIProvider; model: string }[] = [
-  { provider: "openai", model: "gpt-4.1-mini" },    // Fast lane: stable, high throughput
-  { provider: "openai", model: "gpt-4.1" },          // Escalation: harder cases
+  { provider: "openai", model: "gpt-4o-mini" },      // Turbo: fastest bulk JSON, lowest latency
+  { provider: "openai", model: "gpt-4.1" },           // Escalation: harder cases
   { provider: "anthropic", model: "claude-sonnet-4-20250514" }, // Fallback: quality repair
 ];
 
