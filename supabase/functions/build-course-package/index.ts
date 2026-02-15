@@ -237,61 +237,19 @@ Deno.serve(async (req) => {
     // Heartbeat again before enqueuing jobs
     await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId });
 
-    // Enqueue jobs: content steps all get sequence=1 (parallel), gates get 2, 3
-    const nowIso = new Date().toISOString();
-    const jobs = [
-      ...contentSteps.map((s, idx) => ({
-        job_type: s.job_type,
-        status: "pending",
-        attempts: 0,
-        max_attempts: 25,
-        run_after: nowIso,
-        payload: {
-          job_version: "course_studio_v2",
-          package_id: packageId,
-          step_key: s.step_key,
-          course_id: effectiveCourseId,
-          curriculum_id: effectiveCurriculumId,
-          certification_id: effectiveCertId,
-          provider: idx % 2 === 0 ? "openai" : "anthropic",
-          options: opts,
-          sequence: 1, // all content steps run in parallel
-        },
-      })),
-      ...gateSteps.map((s, idx) => ({
-        job_type: s.job_type,
-        status: "pending",
-        attempts: 0,
-        max_attempts: 25,
-        run_after: nowIso,
-        payload: {
-          job_version: "course_studio_v2",
-          package_id: packageId,
-          step_key: s.step_key,
-          course_id: effectiveCourseId,
-          curriculum_id: effectiveCurriculumId,
-          certification_id: effectiveCertId,
-          provider: "openai",
-          options: opts,
-          sequence: idx + 2, // integrity_check=2, auto_publish=3
-        },
-      })),
-    ];
+    // ── NO job creation here! pipeline-runner is the sole job creator ──
+    // Steps are initialized above via init_course_package_steps.
+    // pipeline-runner will pick up queued steps and enqueue worker jobs.
 
-    const ins = await sb.from("job_queue").insert(jobs).select("id");
-    if (ins.error) {
-      await sb.rpc("release_pipeline_lock", { p_package_id: packageId });
-      await sb.from("pipeline_active_packages").delete().eq("package_id", packageId);
-      return json({ error: ins.error.message }, 500);
-    }
-
-    // Mark package as building
+    // Mark package as building (pipeline-runner will acquire lease and process)
     await sb
       .from("course_packages")
       .update({ status: "building", build_progress: 1 })
       .eq("id", packageId);
 
-    return json({ ok: true, enqueued: ins.data?.length || jobs.length, packageId, pipeline_lock: "held" });
+    console.log(`[BuildPkg] ✅ ${allSteps.length} steps initialized for ${packageId.slice(0, 8)} — pipeline-runner will enqueue jobs`);
+
+    return json({ ok: true, steps: allSteps.length, packageId, pipeline_lock: "held" });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[BuildPkg] FATAL: ${msg}`);
