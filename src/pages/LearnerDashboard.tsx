@@ -13,6 +13,7 @@ import { CoachHint } from '@/components/dashboard/CoachHint';
 import { ExamPreview } from '@/components/dashboard/ExamPreview';
 import { SilentMotivation } from '@/components/dashboard/SilentMotivation';
 import ProgressNarrative from '@/components/dashboard/ProgressNarrative';
+import { BadgeHistory } from '@/components/dashboard/BadgeHistory';
 import { ExamReadinessGauge } from '@/components/dashboard/ExamReadinessGauge';
 import { WeaknessLoopWidget } from '@/components/dashboard/WeaknessLoopWidget';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
@@ -263,9 +264,10 @@ export default function LearnerDashboard() {
           </div>
         )}
 
-        {/* ━━━ SECTION 4b: Progress Narrative ━━━ */}
-        <div className="mb-6">
+        {/* ━━━ SECTION 4b: Progress Narrative + Badge History ━━━ */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <ProgressNarrative />
+          <BadgeHistory />
         </div>
 
         {/* ━━━ SECTION 5: Enrolled Courses ━━━ */}

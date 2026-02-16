@@ -58,8 +58,8 @@ export function ResultsScreen({ result, sessionId, onRestart }: ResultsScreenPro
         </CardContent>
       </Card>
       
-      {/* Badge & Share */}
-      <BadgeShareSection scorePercent={result.score_percentage} passed={result.passed} />
+      {/* Badge & Share – Growth Loop */}
+      <BadgeShareSection scorePercent={result.score_percentage} passed={result.passed} sessionId={sessionId} />
 
       {/* Lesson Recommendations - P0.3 */}
       {sessionId && !result.passed && (

@@ -29,6 +29,12 @@ interface DailyKPI {
   new_signups: number;
   exam_sessions: number;
   avg_score: number | null;
+  shares_total: number;
+  shares_whatsapp: number;
+  shares_linkedin: number;
+  badge_share_rate: number;
+  referral_claims: number;
+  referral_conversion: number;
 }
 
 function KPICard({ icon, label, value, sub, trend, color = 'text-foreground' }: {
@@ -178,6 +184,33 @@ export default function CEODailyKPIs() {
           <PassRateBar label="7d" value={today.pass_rate_7d} />
           <PassRateBar label="14d" value={today.pass_rate_14d} />
           <PassRateBar label="30d" value={today.pass_rate_30d} />
+        </CardContent>
+      </Card>
+
+      {/* Growth Loop KPIs */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Sparkles className="h-4 w-4" /> Growth Loop
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="text-center">
+              <p className="text-2xl font-bold font-mono">{today.shares_total}</p>
+              <p className="text-[10px] text-muted-foreground">Shares heute</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold font-mono">{today.referral_claims}</p>
+              <p className="text-[10px] text-muted-foreground">Referral Claims</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold font-mono">
+                {today.badge_share_rate ? `${(today.badge_share_rate * 100).toFixed(0)}%` : '—'}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Badge→Share Rate</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
