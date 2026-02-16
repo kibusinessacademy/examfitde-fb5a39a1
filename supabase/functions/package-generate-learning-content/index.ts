@@ -112,10 +112,15 @@ function json(body: unknown, status = 200) {
 }
 
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
-  const { data } = await sb
+  // Check both step tables for compatibility (package_steps is authoritative)
+  const { data: d1 } = await sb
+    .from("package_steps").select("status")
+    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
+  if (d1?.status === "done") return true;
+  const { data: d2 } = await sb
     .from("course_package_build_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
-  return data?.status === "done";
+  return d2?.status === "done";
 }
 
 async function existingVersion(sb: ReturnType<typeof createClient>, lessonId: string, step: string) {
