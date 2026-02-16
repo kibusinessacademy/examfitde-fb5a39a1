@@ -18363,6 +18363,10 @@ export type Database = {
         Args: { max_active?: number }
         Returns: string
       }
+      pipeline_write_lesson_content: {
+        Args: { p_content: Json; p_lesson_id: string }
+        Returns: undefined
+      }
       promote_to_authority: {
         Args: { p_admin_id?: string; p_portfolio_id: string }
         Returns: Json
