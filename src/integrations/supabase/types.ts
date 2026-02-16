@@ -10008,6 +10008,7 @@ export type Database = {
           followups: string[]
           id: string
           lead_questions: string[]
+          metadata: Json | null
           rubric: Json
           scenario: string
           status: string
@@ -10021,6 +10022,7 @@ export type Database = {
           followups?: string[]
           id?: string
           lead_questions?: string[]
+          metadata?: Json | null
           rubric?: Json
           scenario: string
           status?: string
@@ -10034,6 +10036,7 @@ export type Database = {
           followups?: string[]
           id?: string
           lead_questions?: string[]
+          metadata?: Json | null
           rubric?: Json
           scenario?: string
           status?: string
