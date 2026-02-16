@@ -280,9 +280,14 @@ async function markRateLimited(sb: ReturnType<typeof createClient>, provider: st
 }
 
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
-  const { data, error } = await sb.from("package_steps").select("status").eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
-  if (error) throw error;
-  return data?.status === "done";
+  const { data: d1 } = await sb
+    .from("package_steps").select("status")
+    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
+  if (d1?.status === "done") return true;
+  const { data: d2 } = await sb
+    .from("course_package_build_steps").select("status")
+    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
+  return d2?.status === "done";
 }
 
 // ─── JSON Auto-Repair ─────────────────────────────────────────────────────────
