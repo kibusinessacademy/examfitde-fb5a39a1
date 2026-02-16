@@ -17496,6 +17496,7 @@ export type Database = {
       }
       auto_seed_curriculum_topics: { Args: never; Returns: number }
       auto_trigger_curriculum_ingest: { Args: never; Returns: number }
+      bulk_sync_content_versions_to_lessons: { Args: never; Returns: number }
       calculate_authority_index: {
         Args: {
           p_audit_stability: number
