@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +23,7 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [searchParams] = useSearchParams();
   
   const { signIn, signUp, user, loading } = useAuth();
   const navigate = useNavigate();
@@ -30,8 +32,25 @@ export default function Auth() {
   const isLogin = view === 'login';
   const isRegister = view === 'register';
 
+  // Capture referral code from URL (?ref=ABC123)
+  useEffect(() => {
+    const refCode = searchParams.get('ref');
+    if (refCode) {
+      localStorage.setItem('ef_referral_code', refCode);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (!loading && user) {
+      // Claim referral after login/signup if code exists
+      const refCode = localStorage.getItem('ef_referral_code');
+      if (refCode) {
+        supabase.functions.invoke('growth-actions-api', {
+          body: { action: 'claim_referral', payload: { invite_code: refCode } },
+        }).then(() => {
+          localStorage.removeItem('ef_referral_code');
+        }).catch(() => { /* silent */ });
+      }
       navigate('/');
     }
   }, [user, loading, navigate]);

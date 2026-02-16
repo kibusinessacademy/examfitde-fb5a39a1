@@ -13267,36 +13267,87 @@ export type Database = {
           },
         ]
       }
+      referral_claims: {
+        Row: {
+          claimed_at: string
+          conversion_order_id: string | null
+          converted_at: string | null
+          id: string
+          invite_code: string
+          referred_user_id: string
+          referrer_id: string
+          reward_granted: boolean | null
+          reward_type: string | null
+        }
+        Insert: {
+          claimed_at?: string
+          conversion_order_id?: string | null
+          converted_at?: string | null
+          id?: string
+          invite_code: string
+          referred_user_id: string
+          referrer_id: string
+          reward_granted?: boolean | null
+          reward_type?: string | null
+        }
+        Update: {
+          claimed_at?: string
+          conversion_order_id?: string | null
+          converted_at?: string | null
+          id?: string
+          invite_code?: string
+          referred_user_id?: string
+          referrer_id?: string
+          reward_granted?: boolean | null
+          reward_type?: string | null
+        }
+        Relationships: []
+      }
       referral_invites: {
         Row: {
           claimed_at: string | null
           claimed_by: string | null
+          conversion_order_id: string | null
+          converted_at: string | null
           created_at: string
+          expires_at: string | null
           id: string
           invite_code: string
           invited_email: string | null
           inviter_id: string
+          reward_detail: Json | null
           reward_granted: boolean | null
+          reward_type: string | null
         }
         Insert: {
           claimed_at?: string | null
           claimed_by?: string | null
+          conversion_order_id?: string | null
+          converted_at?: string | null
           created_at?: string
+          expires_at?: string | null
           id?: string
           invite_code: string
           invited_email?: string | null
           inviter_id: string
+          reward_detail?: Json | null
           reward_granted?: boolean | null
+          reward_type?: string | null
         }
         Update: {
           claimed_at?: string | null
           claimed_by?: string | null
+          conversion_order_id?: string | null
+          converted_at?: string | null
           created_at?: string
+          expires_at?: string | null
           id?: string
           invite_code?: string
           invited_email?: string | null
           inviter_id?: string
+          reward_detail?: Json | null
           reward_granted?: boolean | null
+          reward_type?: string | null
         }
         Relationships: []
       }
@@ -17580,6 +17631,10 @@ export type Database = {
       }
       claim_pipeline_slot: { Args: { p_package_id: string }; Returns: boolean }
       claim_provider_slot: { Args: { p_provider: string }; Returns: boolean }
+      claim_referral_code: {
+        Args: { p_invite_code: string; p_referred_user_id: string }
+        Returns: Json
+      }
       classify_job_error: { Args: { p_error: string }; Returns: string }
       cleanup_provider_history: { Args: never; Returns: number }
       cleanup_stale_locks: {
@@ -17635,6 +17690,10 @@ export type Database = {
       }
       compute_qa_release_gate: { Args: never; Returns: Json }
       compute_question_hash: { Args: { p_text: string }; Returns: string }
+      convert_referral_on_purchase: {
+        Args: { p_buyer_user_id: string; p_order_id: string }
+        Returns: Json
+      }
       course_pack_fingerprint: {
         Args: { p_course_id: string }
         Returns: string

@@ -102,6 +102,26 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
     }
 
+    // --- Learner-facing: claim_referral (requires user JWT) ---
+    if (action === "claim_referral") {
+      if (!hasUserJwt) {
+        return new Response(JSON.stringify({ ok: false, error: "Missing JWT" }), { status: 401, headers });
+      }
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: uRes, error: uErr2 } = await userClient.auth.getUser();
+      if (uErr2 || !uRes.user) return new Response(JSON.stringify({ ok: false, error: "Auth error" }), { status: 401, headers });
+
+      const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE);
+      const { data: result, error: claimErr } = await svc.rpc("claim_referral_code", {
+        p_invite_code: payload.invite_code,
+        p_referred_user_id: uRes.user.id,
+      });
+      if (claimErr) throw claimErr;
+      return new Response(JSON.stringify({ ok: true, result }), { status: 200, headers });
+    }
+
     // --- Learner-facing: record_share (requires user JWT, not admin) ---
     if (action === "record_share") {
       if (!hasUserJwt) {

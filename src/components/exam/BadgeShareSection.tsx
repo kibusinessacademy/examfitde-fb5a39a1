@@ -93,7 +93,9 @@ export function BadgeShareSection({ scorePercent, passed, sessionId }: BadgeShar
     ? `🏆 Ich habe meine Prüfungssimulation mit ${scorePercent.toFixed(0)}% bestanden! Trainierst du schon?`
     : `📊 ${scorePercent.toFixed(0)}% in meiner Prüfungssimulation – ich trainiere weiter!`;
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const shareUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}/auth${referralCode ? `?ref=${referralCode}` : ''}`
+    : '';
   const fullShareText = referralCode
     ? `${shareText}\n👉 Mit Code ${referralCode} bekommst du 7 Tage Pro gratis!\n${shareUrl}`
     : `${shareText}\n${shareUrl}`;
