@@ -11,6 +11,7 @@ export type AIProvider = "openai" | "anthropic" | "google" | "deepseek";
 
 export type PipelineIntent =
   | "learning_course"
+  | "learning_content"
   | "exam_questions"
   | "oral_exam"
   | "handbook"
@@ -39,6 +40,10 @@ export interface ModelChoice {
 // ── Hardcoded Fallback Table ──────────────────────────────────
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   learning_course: [
+    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+    { provider: "openai", model: "gpt-4.1" },
+  ],
+  learning_content: [
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
   ],
@@ -106,6 +111,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
 // ── Budget Caps ──────────────────────────────────────────────
 export const INTENT_BUDGETS: Record<PipelineIntent, number> = {
   learning_course: 2.5,
+  learning_content: 5.0,
   exam_questions: 0.8,
   oral_exam: 0.5,
   handbook: 2.0,

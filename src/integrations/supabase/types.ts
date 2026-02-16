@@ -17561,6 +17561,10 @@ export type Database = {
         Args: { p_lesson_id: string; p_user_id: string }
         Returns: Json
       }
+      check_no_placeholder_lessons: {
+        Args: { p_course_id: string }
+        Returns: boolean
+      }
       check_production_quality: {
         Args: { p_curriculum_id: string; p_package_id: string }
         Returns: Json
