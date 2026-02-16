@@ -2114,6 +2114,7 @@ export type Database = {
         Row: {
           active_subscriptions: number | null
           avg_score: number | null
+          badge_share_rate: number | null
           churn_rate: number | null
           coach_usage_rate: number | null
           cost_per_pass_eur: number | null
@@ -2129,13 +2130,19 @@ export type Database = {
           pass_rate_14d: number | null
           pass_rate_30d: number | null
           pass_rate_7d: number | null
+          referral_claims: number | null
+          referral_conversion: number | null
           retention_30d: number | null
           retention_7d: number | null
           revenue_eur: number | null
+          shares_linkedin: number | null
+          shares_total: number | null
+          shares_whatsapp: number | null
         }
         Insert: {
           active_subscriptions?: number | null
           avg_score?: number | null
+          badge_share_rate?: number | null
           churn_rate?: number | null
           coach_usage_rate?: number | null
           cost_per_pass_eur?: number | null
@@ -2151,13 +2158,19 @@ export type Database = {
           pass_rate_14d?: number | null
           pass_rate_30d?: number | null
           pass_rate_7d?: number | null
+          referral_claims?: number | null
+          referral_conversion?: number | null
           retention_30d?: number | null
           retention_7d?: number | null
           revenue_eur?: number | null
+          shares_linkedin?: number | null
+          shares_total?: number | null
+          shares_whatsapp?: number | null
         }
         Update: {
           active_subscriptions?: number | null
           avg_score?: number | null
+          badge_share_rate?: number | null
           churn_rate?: number | null
           coach_usage_rate?: number | null
           cost_per_pass_eur?: number | null
@@ -2173,9 +2186,14 @@ export type Database = {
           pass_rate_14d?: number | null
           pass_rate_30d?: number | null
           pass_rate_7d?: number | null
+          referral_claims?: number | null
+          referral_conversion?: number | null
           retention_30d?: number | null
           retention_7d?: number | null
           revenue_eur?: number | null
+          shares_linkedin?: number | null
+          shares_total?: number | null
+          shares_whatsapp?: number | null
         }
         Relationships: []
       }
@@ -14204,6 +14222,7 @@ export type Database = {
           entity_id: string | null
           entity_type: string | null
           id: string
+          metadata: Json | null
           share_channel: string | null
           share_type: string
           user_id: string
@@ -14213,6 +14232,7 @@ export type Database = {
           entity_id?: string | null
           entity_type?: string | null
           id?: string
+          metadata?: Json | null
           share_channel?: string | null
           share_type: string
           user_id: string
@@ -14222,6 +14242,7 @@ export type Database = {
           entity_id?: string | null
           entity_type?: string | null
           id?: string
+          metadata?: Json | null
           share_channel?: string | null
           share_type?: string
           user_id?: string

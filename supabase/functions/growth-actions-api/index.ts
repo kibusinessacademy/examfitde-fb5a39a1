@@ -116,10 +116,18 @@ Deno.serve(async (req) => {
       const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE);
       await svc.from("share_events").insert({
         user_id: uRes.user.id,
-        channel: payload.channel ?? "unknown",
-        event_type: "exam_result",
-        metadata: { score: payload.score },
+        share_channel: payload.channel ?? "unknown",
+        share_type: "exam_result",
+        entity_type: "exam_session",
+        entity_id: payload.sessionId ?? null,
       });
+      // Update share metadata for attribution
+      if (payload.referralCode) {
+        await svc.from("share_events").update({ metadata: { score: payload.score, passed: payload.passed, referral_code: payload.referralCode } })
+          .eq("user_id", uRes.user.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+      }
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
     }
 
