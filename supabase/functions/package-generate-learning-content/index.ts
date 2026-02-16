@@ -12,6 +12,10 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
  *
  * Batch protocol: processes up to BATCH_SIZE lessons per invocation.
  * Returns { batch_complete: false, batch_cursor } if more remain.
+ *
+ * Idempotency: checks content_versions before generating. If a version
+ * already exists, it skips AI generation and only ensures the lesson
+ * table is updated (write-back).
  */
 
 const BATCH_SIZE = 8;
@@ -109,9 +113,46 @@ function json(body: unknown, status = 200) {
 
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
   const { data } = await sb
-    .from("package_steps").select("status")
+    .from("course_package_build_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
   return data?.status === "done";
+}
+
+/**
+ * Check if a content_version already exists for a lesson+step combo.
+ * If so, return the existing content to use for lesson write-back.
+ */
+async function existingVersion(sb: ReturnType<typeof createClient>, lessonId: string, step: string) {
+  const { data } = await sb
+    .from("content_versions")
+    .select("id, content_json")
+    .eq("lesson_id", lessonId)
+    .eq("step_key", `step_${step}`)
+    .eq("entity_type", step === "mini_check" ? "minicheck" : "lesson_step")
+    .neq("status", "rejected")
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
+/**
+ * Write-back: update lesson content via council-bypass RPC.
+ * The guard trigger blocks direct writes; this RPC sets council.publish_bypass.
+ */
+async function writeBackToLesson(
+  sb: ReturnType<typeof createClient>,
+  lessonId: string,
+  contentJson: Record<string, unknown>,
+) {
+  const { error } = await sb.rpc("pipeline_write_lesson_content", {
+    p_lesson_id: lessonId,
+    p_content: { ...contentJson, _placeholder: false },
+  });
+  if (error) {
+    console.error(`[gen-content] Lesson write-back failed for ${lessonId}: ${error.message}`);
+    return false;
+  }
+  return true;
 }
 
 Deno.serve(async (req) => {
@@ -131,7 +172,7 @@ Deno.serve(async (req) => {
     return json({ error: "Missing package_id or curriculum_id" }, 400);
   }
 
-  // Prerequisite: scaffold must be done
+  // Prerequisite: scaffold must be done (uses correct table)
   if (!(await prereqDone(sb, packageId, "scaffold_learning_course"))) {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: scaffold_learning_course" }, 409);
   }
@@ -145,20 +186,23 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
-  // Find placeholder lessons
-  // Placeholder detection: content IS NULL or content->>'_placeholder' = 'true' or content->>'html' contains 'Platzhalter'
+  // Find placeholder lessons — those without generated content.
+  // A lesson is a placeholder if:
+  //   - content IS NULL
+  //   - content->>'_placeholder' = 'true'
+  //   - content html is very short (< 100 chars) or contains 'Platzhalter'
   const { data: allLessons, error: fetchErr } = await sb
     .from("lessons")
     .select("id, title, step, module_id, content, modules!inner(course_id, title)")
     .eq("modules.course_id", courseId)
-    .order("sort_order", { ascending: true });
+    .order("id", { ascending: true }); // deterministic order for batch cursor
 
   if (fetchErr) return json({ error: fetchErr.message }, 500);
 
   const placeholderLessons = (allLessons || []).filter((l: any) => {
     if (!l.content) return true;
     const c = l.content as Record<string, unknown>;
-    if (c._placeholder === true) return true;
+    if (c._placeholder === true || c._placeholder === "true") return true;
     if (typeof c.html === "string" && (c.html.includes("Platzhalter") || c.html.length < 100)) return true;
     return false;
   });
@@ -190,6 +234,7 @@ Deno.serve(async (req) => {
   const topicList = (topics || []).filter((t: any) => t.parent_topic_id).map((t: any) => t.topic_name);
 
   let generated = 0;
+  let skippedWriteBack = 0;
   let failed = 0;
   const details: any[] = [];
 
@@ -198,7 +243,21 @@ Deno.serve(async (req) => {
     const stepConfig = STEP_PROMPTS[lesson.step];
     const moduleName = (lesson as any).modules?.title || "";
 
-    // Build context-rich prompt
+    // ── Idempotency: check if content_version already exists ──
+    const existing = await existingVersion(sb, lesson.id, lesson.step);
+    if (existing) {
+      // Content was already generated in a previous run — just ensure lesson write-back
+      const wrote = await writeBackToLesson(sb, lesson.id, existing.content_json as Record<string, unknown>);
+      skippedWriteBack++;
+      details.push({
+        id: lesson.id, title: lesson.title, step: lesson.step,
+        status: wrote ? "write_back" : "write_back_failed",
+        versionId: existing.id,
+      });
+      continue;
+    }
+
+    // ── Generate new content via AI ──
     const contextBlock = [
       `Beruf: ${professionName}`,
       `Modul: ${moduleName}`,
@@ -256,10 +315,8 @@ Deno.serve(async (req) => {
 
       if (vErr) throw vErr;
 
-      // Also update lesson content directly (for immediate usability in factory mode)
-      await sb.from("lessons").update({
-        content: { ...finalContent, _placeholder: false },
-      }).eq("id", lesson.id);
+      // Write-back to lesson for immediate usability
+      await writeBackToLesson(sb, lesson.id, finalContent);
 
       // Council message for audit trail
       await sb.from("council_messages").insert({
@@ -302,12 +359,13 @@ Deno.serve(async (req) => {
     batch_complete: batchComplete,
     ...(batchComplete ? {} : { batch_cursor: { offset: startIdx + batch.length } }),
     generated,
+    skipped_write_back: skippedWriteBack,
     failed,
     total_placeholders: placeholderLessons.length,
     remaining,
     details,
     message: batchComplete
-      ? `✅ Alle Placeholder ersetzt. ${generated} Lektionen generiert.`
-      : `🔄 Batch ${Math.floor(startIdx / BATCH_SIZE) + 1}: ${generated} generiert, ${remaining} verbleibend.`,
+      ? `✅ Alle Placeholder ersetzt. ${generated} generiert, ${skippedWriteBack} write-back.`
+      : `🔄 Batch ${Math.floor(startIdx / BATCH_SIZE) + 1}: ${generated} generiert, ${skippedWriteBack} write-back, ${remaining} verbleibend.`,
   });
 });
