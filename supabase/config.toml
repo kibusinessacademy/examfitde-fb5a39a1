@@ -284,3 +284,12 @@ verify_jwt = false
 
 [functions.ab-variant-tracker]
 verify_jwt = false
+
+[functions.outcome-tracker]
+verify_jwt = false
+
+[functions.skill-graph]
+verify_jwt = false
+
+[functions.canary-manager]
+verify_jwt = false
