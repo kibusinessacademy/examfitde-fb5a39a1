@@ -239,7 +239,7 @@ function calculateSimilarity(
   return matches / keys.length;
 }
 
-// ─── Text Fingerprint (NEW: prevents textually near-identical variants) ───────
+// ─── Text Fingerprint (prevents textually near-identical variants) ────────────
 
 function normalizeTextHash(text: string): string {
   const normalized = text
@@ -253,6 +253,24 @@ function normalizeTextHash(text: string): string {
   }
   return hash.toString(36);
 }
+
+// ─── Text-Similarity (Jaccard n-gram) ─────────────────────────────────────────
+
+function textNgrams(text: string, n = 3): Set<string> {
+  const norm = text.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  const grams = new Set<string>();
+  for (let i = 0; i <= norm.length - n; i++) grams.add(norm.slice(i, i + n));
+  return grams;
+}
+
+function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+  let intersection = 0;
+  for (const g of a) if (b.has(g)) intersection++;
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 1 : intersection / union;
+}
+
+const BLUEPRINT_TEXT_SIMILARITY_THRESHOLD = 0.70;
 
 // ─── Unit Validation (NEW: checks €, %, Monate etc.) ──────────────────────────
 
@@ -460,10 +478,22 @@ serve(async (req) => {
       // Render question text
       const questionText = renderTemplate(blueprint.question_template, values);
 
-      // ──── NEW: Text-level duplicate check via normalized hash ────
+      // ──── Text-level duplicate check via normalized hash ────
       const textHash = normalizeTextHash(questionText);
       const allHashes = new Set([...existingHashes, ...generatedVariants.map((v) => v.questionTextHash)]);
       if (allHashes.has(textHash)) continue;
+
+      // ──── Text-similarity check (Jaccard n-gram, threshold 0.70) ────
+      const qNgrams = textNgrams(questionText);
+      const allExistingTexts = generatedVariants.map((v) => v.questionText);
+      let nearDup = false;
+      for (const existingText of allExistingTexts) {
+        if (jaccardSimilarity(qNgrams, textNgrams(existingText)) > BLUEPRINT_TEXT_SIMILARITY_THRESHOLD) {
+          nearDup = true;
+          break;
+        }
+      }
+      if (nearDup) continue;
 
       // Render correct answer
       const correctAnswerDef = correctAnswers?.[0];
