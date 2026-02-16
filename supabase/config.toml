@@ -275,3 +275,12 @@ verify_jwt = false
 
 [functions.cron-trigger]
 verify_jwt = false
+
+[functions.adaptive-remediation]
+verify_jwt = false
+
+[functions.exam-coach-feedback]
+verify_jwt = false
+
+[functions.ab-variant-tracker]
+verify_jwt = false

@@ -6293,6 +6293,53 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_ai_feedback: {
+        Row: {
+          coach_tone: string | null
+          created_at: string
+          curriculum_id: string
+          id: string
+          learning_plan: Json
+          session_id: string
+          strengths: Json
+          summary: string | null
+          user_id: string
+          weaknesses: Json
+        }
+        Insert: {
+          coach_tone?: string | null
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          learning_plan?: Json
+          session_id: string
+          strengths?: Json
+          summary?: string | null
+          user_id: string
+          weaknesses?: Json
+        }
+        Update: {
+          coach_tone?: string | null
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          learning_plan?: Json
+          session_id?: string
+          strengths?: Json
+          summary?: string | null
+          user_id?: string
+          weaknesses?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_ai_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_anxiety_sessions: {
         Row: {
           anxiety_after: number | null
@@ -6523,6 +6570,8 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["question_status"] | null
+          variant_group: string | null
+          variant_label: string | null
         }
         Insert: {
           ai_generated?: boolean | null
@@ -6548,6 +6597,8 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
+          variant_group?: string | null
+          variant_label?: string | null
         }
         Update: {
           ai_generated?: boolean | null
@@ -6573,6 +6624,8 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
+          variant_group?: string | null
+          variant_label?: string | null
         }
         Relationships: [
           {
@@ -12705,6 +12758,73 @@ export type Database = {
         }
         Relationships: []
       }
+      question_variant_stats: {
+        Row: {
+          abort_rate: number | null
+          attempts: number
+          avg_time_seconds: number | null
+          correct: number
+          created_at: string
+          discrimination_index: number | null
+          id: string
+          promoted_at: string | null
+          question_id: string
+          updated_at: string
+          variant_group: string
+          variant_label: string
+        }
+        Insert: {
+          abort_rate?: number | null
+          attempts?: number
+          avg_time_seconds?: number | null
+          correct?: number
+          created_at?: string
+          discrimination_index?: number | null
+          id?: string
+          promoted_at?: string | null
+          question_id: string
+          updated_at?: string
+          variant_group: string
+          variant_label?: string
+        }
+        Update: {
+          abort_rate?: number | null
+          attempts?: number
+          avg_time_seconds?: number | null
+          correct?: number
+          created_at?: string
+          discrimination_index?: number | null
+          id?: string
+          promoted_at?: string | null
+          question_id?: string
+          updated_at?: string
+          variant_group?: string
+          variant_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_variant_stats_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_variant_stats_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_variant_stats_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       readiness_scores: {
         Row: {
           calculated_at: string | null
@@ -12802,6 +12922,56 @@ export type Database = {
             columns: ["error_pattern_id"]
             isOneToOne: false
             referencedRelation: "error_patterns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      remediation_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          curriculum_id: string
+          id: string
+          score_after: number | null
+          score_before: number | null
+          source_session_id: string | null
+          status: string
+          training_questions: Json
+          user_id: string
+          weak_competencies: Json
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          score_after?: number | null
+          score_before?: number | null
+          source_session_id?: string | null
+          status?: string
+          training_questions?: Json
+          user_id: string
+          weak_competencies?: Json
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          score_after?: number | null
+          score_before?: number | null
+          source_session_id?: string | null
+          status?: string
+          training_questions?: Json
+          user_id?: string
+          weak_competencies?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "remediation_sessions_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
             referencedColumns: ["id"]
           },
         ]
