@@ -7,6 +7,7 @@ import { Trophy, XCircle, BarChart3, BookOpen, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ExamResult } from '@/hooks/useExamSimulation';
 import { LessonRecommendations } from './LessonRecommendations';
+import { BadgeShareSection } from './BadgeShareSection';
 
 interface ResultsScreenProps {
   result: ExamResult;
@@ -57,6 +58,9 @@ export function ResultsScreen({ result, sessionId, onRestart }: ResultsScreenPro
         </CardContent>
       </Card>
       
+      {/* Badge & Share */}
+      <BadgeShareSection scorePercent={result.score_percentage} passed={result.passed} />
+
       {/* Lesson Recommendations - P0.3 */}
       {sessionId && !result.passed && (
         <LessonRecommendations sessionId={sessionId} />
