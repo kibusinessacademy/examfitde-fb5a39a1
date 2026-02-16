@@ -102,6 +102,27 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
     }
 
+    // --- Learner-facing: record_share (requires user JWT, not admin) ---
+    if (action === "record_share") {
+      if (!hasUserJwt) {
+        return new Response(JSON.stringify({ ok: false, error: "Missing JWT" }), { status: 401, headers });
+      }
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: uRes, error: uErr2 } = await userClient.auth.getUser();
+      if (uErr2 || !uRes.user) return new Response(JSON.stringify({ ok: false, error: "Auth error" }), { status: 401, headers });
+
+      const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE);
+      await svc.from("share_events").insert({
+        user_id: uRes.user.id,
+        channel: payload.channel ?? "unknown",
+        event_type: "exam_result",
+        metadata: { score: payload.score },
+      });
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+    }
+
     return new Response(JSON.stringify({ ok: false, error: "Unknown action" }), { status: 400, headers });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
