@@ -17,7 +17,10 @@ import {
   TrendingUp,
   Clock,
   Loader2,
-  ChevronRight
+  ChevronRight,
+  Brain,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LessonRecommendations } from '@/components/exam/LessonRecommendations';
@@ -73,6 +76,9 @@ export default function ExamResultsPage() {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAllQuestions, setShowAllQuestions] = useState(false);
+  const [coachFeedback, setCoachFeedback] = useState<any>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [remediationLoading, setRemediationLoading] = useState(false);
 
   useEffect(() => {
     async function fetchResults() {
@@ -98,6 +104,46 @@ export default function ExamResultsPage() {
     fetchResults();
   }, [sessionId, user]);
 
+  // Auto-load coach feedback after results
+  useEffect(() => {
+    if (!session || !sessionId || !session.finished_at) return;
+    loadCoachFeedback();
+  }, [session, sessionId]);
+
+  async function loadCoachFeedback() {
+    if (feedbackLoading || coachFeedback) return;
+    setFeedbackLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('exam-coach-feedback', {
+        body: { session_id: sessionId },
+      });
+      if (!error && data?.feedback) {
+        setCoachFeedback(data.feedback);
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }
+
+  async function startRemediation() {
+    if (remediationLoading || !sessionId) return;
+    setRemediationLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('adaptive-remediation', {
+        body: { action: 'generate', session_id: sessionId },
+      });
+      if (!error && data?.remediation) {
+        // Navigate to remediation or show inline
+        navigate(`/exam-trainer?remediation=${data.remediation.id}`);
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setRemediationLoading(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -208,6 +254,102 @@ export default function ExamResultsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 🧠 KI-Coach Feedback */}
+      {(coachFeedback || feedbackLoading) && (
+        <Card className="glass-card border-primary/30 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Dein KI-Prüfungscoach
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {feedbackLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Analyse wird erstellt…
+              </div>
+            ) : coachFeedback ? (
+              <>
+                {coachFeedback.summary && (
+                  <p className="text-sm leading-relaxed">{coachFeedback.summary}</p>
+                )}
+
+                {coachFeedback.strengths?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Stärken</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {coachFeedback.strengths.map((s: any, i: number) => (
+                        <Badge key={i} variant="outline" className="border-primary/50 text-primary">
+                          LF {s.code}: {s.percentage}%
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {coachFeedback.weaknesses?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Schwächen</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {coachFeedback.weaknesses.map((w: any, i: number) => (
+                        <Badge key={i} variant="outline" className="border-destructive/50 text-destructive">
+                          LF {w.code}: {w.percentage}% ({w.errors} Fehler)
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {coachFeedback.learning_plan?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                      <Brain className="h-3.5 w-3.5 inline mr-1" />
+                      Dein 48h-Lernplan
+                    </h4>
+                    <ol className="space-y-1.5">
+                      {coachFeedback.learning_plan.map((step: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-sm">
+                          <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                            {i + 1}
+                          </span>
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 🔁 Adaptive Remediation CTA */}
+      {!passed && incorrectQuestions.length > 0 && (
+        <Card className="glass-card border-amber-500/30 bg-amber-500/5">
+          <CardContent className="pt-5 pb-4 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+              <Zap className="h-5 w-5 text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Schwächen gezielt trainieren</p>
+              <p className="text-xs text-muted-foreground">
+                {incorrectQuestions.length} Fehler → gezielte Übungsfragen aus deinen schwachen Bereichen
+              </p>
+            </div>
+            <Button 
+              size="sm" 
+              onClick={startRemediation}
+              disabled={remediationLoading}
+              className="flex-shrink-0"
+            >
+              {remediationLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Starten'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cognitive Competency Radar */}
       {(session as any).curriculum_id && (
