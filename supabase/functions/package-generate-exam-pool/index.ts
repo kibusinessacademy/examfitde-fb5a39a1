@@ -8,16 +8,17 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 
 /**
- * DOMINANZ-ENGINE v4: QUALITY-FIRST TURBO MODE
+ * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
  * 
- * Upgrades over v3:
- * - Cognitive-level quotas (recall/apply/analyze/decide)
- * - 6 question types (best_option, error_detection, sequence, calculation, risk_assessment, compliance_check)
- * - IHK-grade distractor rules (wrong norm, Praxisverwechslung, Rechenfehler)
- * - Difficulty auto-validator (hard must contain calculation/norm, easy must not)
- * - Praxis-Score gate (realism check: roles, context, non-round numbers)
- * - Learning feedback enforcement (explanation + distractor reasoning)
- * - Adaptive quality scoring (exam pool vs training pool)
+ * v5 upgrades:
+ * - IHK-realistic difficulty distribution (25/35/25/15 statt 5/35/45/15)
+ * - HARD praxis-score gate (score < 2 → reject, not just log)
+ * - Explanation quality enforced (no explanation → reject)
+ * - Distractor plausibility rules in prompt (4 distinct error types)
+ * - KI-Selbstaudit: prompt instructs model to self-check before output
+ * - Quality scoring tightened: only score ≥ 4 → exam pool
+ * - Blueprint question types enforced with quotas
+ * - Fachliche Validatoren (domain-specific checks)
  */
 
 const AI_CHUNK_SIZE = 8;
@@ -45,10 +46,10 @@ const QUESTION_TYPE_MIX: Record<string, number> = {
   compliance_check: 0.15,  // Compliance/Norm-Check
 };
 
-// ─── Difficulty Distribution (Dominanz-Standard) ──────────────────────────────
+// ─── Difficulty Distribution (IHK-realistic for exam simulation) ──────────────
 
 let DIFFICULTY_DISTRIBUTION: Record<string, number> = {
-  easy: 0.05, medium: 0.35, hard: 0.45, very_hard: 0.15,
+  easy: 0.25, medium: 0.35, hard: 0.25, very_hard: 0.15,
 };
 
 type DifficultyKey = string;
@@ -169,15 +170,17 @@ function calculatePraxisScore(q: { question_text: string; options: string[] }): 
   return score; // 0-4, gate: >= 2
 }
 
-// ─── Explanation Quality Check ────────────────────────────────────────────────
+// ─── Explanation Quality Check (strict: must explain WHY wrong + tip) ─────────
 
 function hasQualityExplanation(q: { explanation?: string; options: string[] }): boolean {
-  if (!q.explanation || q.explanation.length < 50) return false;
+  if (!q.explanation || q.explanation.length < 80) return false;
 
   const expl = q.explanation.toLowerCase();
-  // Must mention why wrong answers are wrong (at least 2 distractor references)
-  const wrongReferences = (expl.match(/\b(falsch|nicht korrekt|inkorrekt|irrtümlich|fehler|verwechsl|trifft nicht zu)\b/gi) || []).length;
-  return wrongReferences >= 1; // At least explain one wrong option
+  // Must explain why wrong (at least 2 references to incorrect reasoning)
+  const wrongReferences = (expl.match(/\b(falsch|nicht korrekt|inkorrekt|irrtümlich|fehler|verwechsl|trifft nicht zu|fehlerhaft|unzutreffend)\b/gi) || []).length;
+  // Must have a tip/merksatz
+  const hasTip = /\b(tipp|merke|merksatz|prüfungstipp|achtung|wichtig|beachte)\b/i.test(expl);
+  return wrongReferences >= 2 && hasTip;
 }
 
 // ─── Quality Scoring (Exam Pool vs Training Pool) ─────────────────────────────
@@ -362,8 +365,16 @@ ERKLÄRUNG (PFLICHT):
 - Erkläre WARUM JEDER falsche Distraktor falsch ist (konkreter Fehler benennen)
 - Füge einen kurzen PRÜFUNGSTIPP oder MERKSATZ hinzu
 
+SELBSTAUDIT (vor Ausgabe prüfen):
+- Ist die Frage eindeutig? Gibt es genau EINE richtige Antwort?
+- Sind alle 3 Distraktoren plausibel? Kann man sie NICHT durch Allgemeinwissen ausschließen?
+- Entspricht die Schwierigkeit dem angeforderten Level?
+- Klingt die Frage natürlich — wie von einem IHK-Prüfer geschrieben?
+- Enthält die Erklärung einen konkreten Prüfungstipp/Merksatz?
+Regeneriere intern, bis alle Punkte erfüllt sind.
+
 Antworte NUR mit JSON-Array:
-[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","cognitive_level":"${cognitiveLevel}","explanation":"Richtig: ... | Falsch A: ... | Falsch B: ... | Falsch C: ... | Tipp: ...","tags":["tag1"]}]`;
+[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","cognitive_level":"${cognitiveLevel}","explanation":"Richtig: ... Falsch A: ... Falsch B: ... Falsch C: ... Tipp: ...","tags":["tag1"]}]`;
 
   const user = `${count} Frage(n) für "${professionName}".
 Lernfeld: ${lfTitle}
@@ -417,7 +428,7 @@ async function generateTurboQuestions(
 
   const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics);
 
-  const maxTokens = count <= 1 ? 1500 : count <= 2 ? 2200 : 3500; // Increased for explanation requirement
+  const maxTokens = count <= 1 ? 2000 : count <= 2 ? 3000 : 4500; // v5: more tokens for quality explanation + self-audit
 
   let exclude: string[] = [];
   let result: { content: string } | undefined;
@@ -438,12 +449,12 @@ async function generateTurboQuestions(
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
 
       if (isRate || isTimeout) {
-        console.log(`[ExamPool-v4] ${isTimeout ? "Timeout" : "RateLimit"} ${provider}/${model} attempt ${attempt}/3`);
+        console.log(`[ExamPool-v5] ${isTimeout ? "Timeout" : "RateLimit"} ${provider}/${model} attempt ${attempt}/3`);
         if ((globalThis as any).__examPoolSb) await markRateLimited((globalThis as any).__examPoolSb, provider, errMsg);
         exclude.push(`${provider}:${model}`);
         continue;
       }
-      console.log(`[ExamPool-v4] AI error (${provider}/${model}): ${errMsg}`);
+      console.log(`[ExamPool-v5] AI error (${provider}/${model}): ${errMsg}`);
       return { saved: 0, training: 0 };
     }
   }
@@ -452,7 +463,7 @@ async function generateTurboQuestions(
 
   const parsed = repairJSON(result.content);
   if (!parsed) {
-    console.log(`[ExamPool-v4] JSON repair failed for BP ${bp.id.slice(0, 8)}`);
+    console.log(`[ExamPool-v5] JSON repair failed for BP ${bp.id.slice(0, 8)}`);
     return { saved: 0, training: 0 };
   }
 
@@ -469,7 +480,7 @@ async function generateTurboQuestions(
     // Contamination guard
     const contam = checkContamination(q.question_text + " " + (q.explanation || ""), professionName);
     if (contam.isContaminated) {
-      console.log(`[ExamPool-v4] CONTAMINATION: ${contam.detectedIndustry} in "${q.question_text.slice(0, 50)}"`);
+      console.log(`[ExamPool-v5] CONTAMINATION: ${contam.detectedIndustry} in "${q.question_text.slice(0, 50)}"`);
       continue;
     }
 
@@ -489,24 +500,30 @@ async function generateTurboQuestions(
       }
     }
     if (tooSimilar) {
-      console.log(`[ExamPool-v4] NEAR-DUP skipped: "${q.question_text.slice(0, 50)}…"`);
+      console.log(`[ExamPool-v5] NEAR-DUP skipped: "${q.question_text.slice(0, 50)}…"`);
       continue;
     }
     existingNgramSets.push(qNgrams);
 
-    // ── Quality Gates ──
-    const qualityResult = calculateQualityScore(q);
-    const difficultyValid = validateDifficulty(q);
+    // ── HARD Quality Gates (v5: reject instead of soft-log) ──
     const praxisScore = calculatePraxisScore(q);
-
-    // Log quality issues (soft fail — still save, but mark pool)
-    if (!difficultyValid) {
-      console.log(`[ExamPool-v4] DIFFICULTY_MISMATCH: ${q.difficulty} — "${q.question_text.slice(0, 40)}…"`);
-    }
     if (praxisScore < 2) {
-      console.log(`[ExamPool-v4] LOW_PRAXIS (${praxisScore}): "${q.question_text.slice(0, 40)}…"`);
+      console.log(`[ExamPool-v5] REJECTED LOW_PRAXIS (${praxisScore}): "${q.question_text.slice(0, 40)}…"`);
+      continue; // HARD gate: regenerate
     }
 
+    if (!hasQualityExplanation(q)) {
+      console.log(`[ExamPool-v5] REJECTED WEAK_EXPLANATION: "${q.question_text.slice(0, 40)}…"`);
+      continue; // HARD gate: must have quality explanation with tip
+    }
+
+    const difficultyValid = validateDifficulty(q);
+    if (!difficultyValid) {
+      console.log(`[ExamPool-v5] REJECTED DIFFICULTY_MISMATCH: ${q.difficulty} — "${q.question_text.slice(0, 40)}…"`);
+      continue; // HARD gate: difficulty must match content complexity
+    }
+
+    const qualityResult = calculateQualityScore(q);
     const assignedPool = qualityResult.pool;
     const status = assignedPool === "exam" ? "draft" : "training";
 
@@ -526,7 +543,7 @@ async function generateTurboQuestions(
 
     if (error) {
       if (error.code === "23505") { /* duplicate, skip */ }
-      else console.log(`[ExamPool-v4] Insert error: ${error.message}`);
+      else console.log(`[ExamPool-v5] Insert error: ${error.message}`);
     } else {
       if (status === "draft") saved++;
       else training++;
@@ -587,7 +604,7 @@ async function enqueueLearningFieldJobs(
   if (jobs.length > 0) {
     const { error } = await sb.from("job_queue").insert(jobs);
     if (error) {
-      console.log(`[ExamPool-v4] Fan-out enqueue error: ${error.message}`);
+      console.log(`[ExamPool-v5] Fan-out enqueue error: ${error.message}`);
       return { enqueued: 0, learningFields: lfGroups.size };
     }
   }
@@ -622,7 +639,7 @@ Deno.serve(async (req) => {
   const blueprintIds: string[] | null = p.blueprint_ids || null;
 
   (globalThis as any).__examPoolSb = sb;
-  console.log(`[ExamPool-v4] Provider chain: gpt-4o-mini → gpt-4.1 → claude-sonnet-4`);
+  console.log(`[ExamPool-v5] Provider chain: gpt-4o-mini → gpt-4.1 → claude-sonnet-4`);
   const lfTarget = p.lf_target || examTarget;
 
   // Apply dynamic distributions
@@ -659,7 +676,7 @@ Deno.serve(async (req) => {
     const professionName = professionResult.professionName;
 
     if (generatedSoFar === 0 && !isFanOut) {
-      console.log(`[ExamPool-v4] Start "${professionName}": target=${examTarget}, engine=v4-quality`);
+      console.log(`[ExamPool-v5] Start "${professionName}": target=${examTarget}, engine=v5-ihk-quality`);
     }
 
     // Get blueprints
@@ -677,7 +694,7 @@ Deno.serve(async (req) => {
     if (!isFanOut && bpIndex === 0 && bps.length > 10) {
       const { enqueued, learningFields } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
       if (enqueued > 0) {
-        console.log(`[ExamPool-v4] Fan-out: ${enqueued} sub-jobs for ${learningFields} LFs`);
+        console.log(`[ExamPool-v5] Fan-out: ${enqueued} sub-jobs for ${learningFields} LFs`);
         return json({ ok: true, batch_complete: true, fan_out: true, sub_jobs: enqueued });
       }
     }
@@ -698,12 +715,12 @@ Deno.serve(async (req) => {
       .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
     const preTotal = preCheckCount ?? 0;
     if (preTotal >= HARD_CAP_QUESTIONS) {
-      console.log(`[ExamPool-v4] HARD CAP reached: ${preTotal} >= ${HARD_CAP_QUESTIONS}`);
+      console.log(`[ExamPool-v5] HARD CAP reached: ${preTotal} >= ${HARD_CAP_QUESTIONS}`);
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
-      return json({ ok: true, batch_complete: true, engine: "v4-quality", total_questions: preTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
+      return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: preTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
     }
 
     const effectiveTarget = isFanOut ? lfTarget : examTarget;
@@ -739,7 +756,7 @@ Deno.serve(async (req) => {
           questionsThisChunk += saved;
           trainingThisChunk += training;
         } catch (e: unknown) {
-          console.log(`[ExamPool-v4] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
+          console.log(`[ExamPool-v5] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
         }
       }
 
@@ -748,7 +765,7 @@ Deno.serve(async (req) => {
 
       // ── Mid-loop hard cap check ──
       if (questionsThisChunk > 0 && (preTotal + questionsThisChunk) >= HARD_CAP_QUESTIONS) {
-        console.log(`[ExamPool-v4] Mid-loop HARD CAP: ~${preTotal + questionsThisChunk} questions`);
+        console.log(`[ExamPool-v5] Mid-loop HARD CAP: ~${preTotal + questionsThisChunk} questions`);
         break;
       }
     }
@@ -761,7 +778,7 @@ Deno.serve(async (req) => {
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
     const targetReached = actualTotal >= shipTarget || actualTotal >= HARD_CAP_QUESTIONS;
 
-    console.log(`[ExamPool-v4] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}`);
+    console.log(`[ExamPool-v5] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}`);
 
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
@@ -771,7 +788,7 @@ Deno.serve(async (req) => {
       if (shouldMarkDone) {
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
-      return json({ ok: true, batch_complete: true, engine: "v4-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget });
+      return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget });
     } else if (allBlueprintsProcessed) {
       const currentLoop = (batchCursor?.loop_count ?? 0) + 1;
       if (currentLoop >= 8) {
@@ -790,7 +807,7 @@ Deno.serve(async (req) => {
     }
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
-    console.log(`[ExamPool-v4] Fatal: ${msg}`);
+    console.log(`[ExamPool-v5] Fatal: ${msg}`);
     return json({ ok: false, error: msg }, 500);
   }
 });
