@@ -401,6 +401,19 @@ serve(async (req) => {
         packageId: licensePackage.id,
         orderId: order?.id,
       });
+
+      // ===== REFERRAL CONVERSION: mark referral as converted on purchase =====
+      try {
+        const { data: refResult } = await adminClient.rpc('convert_referral_on_purchase', {
+          p_buyer_user_id: userId,
+          p_order_id: order?.id ?? null,
+        });
+        if (refResult?.ok) {
+          logStep("Referral converted", { referrerId: refResult.referrer_id, rewardType: refResult.reward_type });
+        }
+      } catch (refErr) {
+        logStep("WARN: Referral conversion check failed (non-critical)", { error: String(refErr) });
+      }
     }
 
     // ========== charge.refunded ==========
