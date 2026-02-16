@@ -320,6 +320,7 @@ export async function callAIWithFailover(
   opts: Omit<AIRequestOptions, "provider" | "model">,
 ): Promise<{
   content: string;
+  toolCalls?: Array<{ function: { name: string; arguments: string } }>;
   provider: AIProvider;
   model: string;
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
@@ -361,6 +362,7 @@ export async function callAIWithFailover(
       });
       return {
         content: result.content,
+        toolCalls: result.toolCalls,
         provider: candidate.provider,
         model: candidate.model,
         usage: result.usage,
