@@ -9,7 +9,16 @@
  * All calls go directly to provider APIs using stored API keys.
  */
 
-export type AIProvider = "openai" | "anthropic" | "deepseek" | "google";
+import {
+  recordRequest,
+  recordRateLimit,
+  recordSuccess,
+  getProviderHealth,
+  pickAvailableProvider,
+  type AIProvider,
+} from "./provider-rate-limiter.ts";
+
+export type { AIProvider };
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
@@ -79,6 +88,14 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const cfg = PROVIDER_DEFAULTS[opts.provider];
   const apiKey = Deno.env.get(cfg.keyEnv);
   if (!apiKey) throw new Error(`${cfg.keyEnv} not configured`);
+
+  // ── Proactive rate-limit check ──
+  const health = getProviderHealth(opts.provider);
+  if (!health.available) {
+    console.warn(`[AI-CLIENT] Provider ${opts.provider} blocked: ${health.reason}`);
+    throw new RateLimitError(`Provider ${opts.provider} proactively blocked: ${health.reason}`);
+  }
+  recordRequest(opts.provider);
 
   const fetchTimeout = opts.max_tokens && opts.max_tokens > 8192
     ? 55_000 // longer timeout for large generations
@@ -172,6 +189,13 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(fetchTimeout),
     });
+  }
+
+  // ── Record outcome for rate-limiter ──
+  if (resp.status === 429) {
+    recordRateLimit(opts.provider);
+  } else if (resp.ok) {
+    recordSuccess(opts.provider);
   }
 
   return { ok: resp.ok, status: resp.status, raw: resp };
@@ -277,6 +301,80 @@ export async function logLLMCostEvent(
     // Non-blocking – don't let cost logging break production
   }
 }
+
+// Re-export rate limiter utilities for direct use
+export {
+  getProviderHealth,
+  getAllProviderHealth,
+  pickAvailableProvider,
+  clearCooldown,
+} from "./provider-rate-limiter.ts";
+
+/**
+ * Call AI with automatic failover across a model chain.
+ * Skips providers that are in cooldown or at RPM limit.
+ * Falls through the chain until one succeeds or all fail.
+ */
+export async function callAIWithFailover(
+  chain: Array<{ provider: AIProvider; model: string }>,
+  opts: Omit<AIRequestOptions, "provider" | "model">,
+): Promise<{
+  content: string;
+  provider: AIProvider;
+  model: string;
+  usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+}> {
+  const PROVIDER_KEYS: Record<string, string> = {
+    openai: "OPENAI_API_KEY",
+    anthropic: "ANTHROPIC_API_KEY",
+    deepseek: "DEEPSEEK_API_KEY",
+    google: "GOOGLE_AI_API_KEY",
+  };
+
+  // Build API key availability map
+  const keyAvailability: Record<string, boolean> = {};
+  for (const p of ["openai", "anthropic", "deepseek", "google"]) {
+    keyAvailability[p] = !!Deno.env.get(PROVIDER_KEYS[p]);
+  }
+
+  const errors: string[] = [];
+
+  for (const candidate of chain) {
+    // Skip if no API key
+    if (!keyAvailability[candidate.provider]) {
+      errors.push(`${candidate.provider}: no API key`);
+      continue;
+    }
+
+    // Skip if provider is blocked (cooldown or RPM)
+    const health = getProviderHealth(candidate.provider);
+    if (!health.available) {
+      errors.push(`${candidate.provider}: ${health.reason}`);
+      continue;
+    }
+
+    try {
+      const result = await callAIJSON({
+        ...opts,
+        provider: candidate.provider,
+        model: candidate.model,
+      });
+      return {
+        content: result.content,
+        provider: candidate.provider,
+        model: candidate.model,
+        usage: result.usage,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${candidate.provider}/${candidate.model}: ${msg}`);
+      // Continue to next provider in chain
+    }
+  }
+
+  throw new Error(`All providers failed: ${errors.join(" | ")}`);
+}
+
 export class RateLimitError extends Error {
   constructor(msg: string) {
     super(msg);

@@ -65,6 +65,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-4.1" },
   ],
   seo_content: [
+    { provider: "google", model: "gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
   ],
@@ -83,15 +84,18 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-image-1" },
   ],
   support: [
+    { provider: "google", model: "gemini-2.5-flash" },
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "deepseek", model: "deepseek-chat" },
   ],
   summary: [
+    { provider: "google", model: "gemini-2.5-flash" },
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "deepseek", model: "deepseek-chat" },
   ],
   repair: [
     { provider: "openai", model: "gpt-4.1-mini" },
+    { provider: "google", model: "gemini-2.5-flash" },
     { provider: "openai", model: "gpt-4.1" },
   ],
   repair_content: [
@@ -99,6 +103,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-4.1" },
   ],
   blooms_classify: [
+    { provider: "google", model: "gemini-2.5-flash" },
     { provider: "openai", model: "gpt-4.1-mini" },
     { provider: "openai", model: "gpt-4.1" },
   ],
