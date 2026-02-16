@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
 
     try {
       // ── Use failover chain instead of single provider ──
-      const chain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
+      const chain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_course");
 
       const result = await callAIWithFailover(
         chain.map(c => ({ provider: c.provider, model: c.model })),
