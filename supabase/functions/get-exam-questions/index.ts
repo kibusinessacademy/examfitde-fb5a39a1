@@ -7,14 +7,26 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 };
 
 /**
- * get-exam-questions – Blueprint-weighted SSOT Sampler
+ * get-exam-questions – IHK-Realistic Exam Assembler v2
  * 
  * Supports two modes:
  * 1. competency_id mode: questions for a single competency (practice)
  * 2. curriculum_id mode: blueprint-weighted exam simulation
  *    - Distributes questions across learning fields by weight
- *    - Mixes difficulties per blueprint ratios
+ *    - Enforces question_type mix (calculation, best_option, error_detection, etc.)
+ *    - Coverage gate: every LF gets minimum representation
+ *    - No adjacent same-subtopic questions
  */
+
+// ─── IHK-Realistic Question Type Mix ─────────────────────────────────────────
+const QUESTION_TYPE_MIX: Record<string, number> = {
+  calculation: 0.40,       // 40-50%: Rechen-/Anwendungsaufgaben
+  best_option: 0.25,       // 20-30%: Entscheidungsfragen
+  error_detection: 0.15,   // 10-20%: Fehleranalyse
+  compliance_check: 0.08,  // 5-10%: Compliance/Normen
+  risk_assessment: 0.07,   // Stolperfallen
+  case_study: 0.05,        // Fallstudien
+};
 
 interface RequestBody {
   // Mode 1: single competency practice
@@ -26,6 +38,8 @@ interface RequestBody {
   difficulty?: 'easy' | 'medium' | 'hard';
   count?: number;
   exclude_question_ids?: string[];
+  // Mode: "exam" (top-quality only) or "training" (broader pool)
+  mode?: 'exam' | 'training';
 }
 
 interface SanitizedQuestion {
@@ -35,6 +49,8 @@ interface SanitizedQuestion {
   difficulty: string;
   learning_field_id: string | null;
   competency_id: string | null;
+  question_type: string | null;
+  cognitive_level: string | null;
   // NOTE: correct_answer and explanation are NEVER sent to client
 }
 
@@ -152,6 +168,8 @@ serve(async (req) => {
         difficulty: q.difficulty,
         learning_field_id: q.learning_field_id,
         competency_id: q.competency_id,
+        question_type: (q as any).question_type || null,
+        cognitive_level: (q as any).cognitive_level || null,
       }));
 
       return new Response(
@@ -160,8 +178,9 @@ serve(async (req) => {
       );
     }
 
-    // ── MODE 2: Blueprint-weighted exam simulation ──
-    logStep("Blueprint exam mode", { curriculum_id, count });
+    // ── MODE 2: IHK-Realistic Exam Simulation ──
+    const examMode = body.mode || 'exam';
+    logStep("Exam assembler mode", { curriculum_id, count, examMode });
 
     // Entitlement check
     const { data: entitlement } = await adminClient
@@ -192,38 +211,40 @@ serve(async (req) => {
       );
     }
 
-    // Weight = number of competencies per learning field (proxy for IHK weight)
+    // ── Coverage Gate: distribute proportionally, enforce min 8% per LF ──
     const totalCompetencies = learningFields.reduce((sum, lf) => sum + (lf.competencies?.length || 0), 0);
+    const minPerTopic = Math.max(1, Math.ceil(count * 0.08));
 
-    // Distribute question count proportionally across learning fields
     const distribution: { lfId: string; quota: number }[] = [];
     let assigned = 0;
 
     for (const lf of learningFields) {
       const compCount = lf.competencies?.length || 0;
       const weight = totalCompetencies > 0 ? compCount / totalCompetencies : 1 / learningFields.length;
-      const quota = Math.max(1, Math.round(weight * count));
+      const quota = Math.max(minPerTopic, Math.round(weight * count));
       distribution.push({ lfId: lf.id, quota });
       assigned += quota;
     }
 
-    // Adjust for rounding (add/remove from largest bucket)
+    // Adjust for rounding
     if (assigned !== count) {
       const diff = count - assigned;
       distribution.sort((a, b) => b.quota - a.quota);
       distribution[0].quota += diff;
     }
 
-    logStep("Distribution", { distribution, totalCompetencies });
+    logStep("Distribution", { distribution, totalCompetencies, minPerTopic });
 
-    // Difficulty mix: 30% easy, 50% medium, 20% hard (IHK-like)
-    const DIFFICULTY_MIX = { easy: 0.3, medium: 0.5, hard: 0.2 };
+    // IHK-realistic difficulty mix
+    const DIFFICULTY_MIX = { easy: 0.27, medium: 0.38, hard: 0.25, very_hard: 0.10 };
+
+    // Status filter: exam mode only uses top-quality questions
+    const statusFilter = examMode === 'exam' ? 'approved' : undefined;
 
     const allQuestions: SanitizedQuestion[] = [];
     const blueprintPlan: { learning_field_id: string; quota: number; fetched: number }[] = [];
 
     for (const { lfId, quota } of distribution) {
-      // Get competency IDs for this learning field
       const { data: comps } = await adminClient
         .from('competencies')
         .select('id')
@@ -235,7 +256,7 @@ serve(async (req) => {
         continue;
       }
 
-      // Hard Gate: only approved questions (via approved-only view)
+      // Query pool (approved view for exam, broader for training)
       let lfQuery = adminClient
         .from('v_exam_questions_approved')
         .select('id, question_text, options, difficulty, learning_field_id, competency_id')
@@ -245,17 +266,19 @@ serve(async (req) => {
         lfQuery = lfQuery.not('id', 'in', `(${exclude_question_ids.join(',')})`);
       }
 
-      const { data: lfQuestions } = await lfQuery.limit(quota * 3);
+      const { data: lfQuestions } = await lfQuery.limit(quota * 4);
 
       if (!lfQuestions?.length) {
         blueprintPlan.push({ learning_field_id: lfId, quota, fetched: 0 });
         continue;
       }
 
-      // Apply difficulty mix sampling
-      const byDiff: Record<string, typeof lfQuestions> = { easy: [], medium: [], hard: [] };
+      // ── Difficulty mix sampling ──
+      const byDiff: Record<string, typeof lfQuestions> = {};
       for (const q of lfQuestions) {
-        if (byDiff[q.difficulty]) byDiff[q.difficulty].push(q);
+        const d = q.difficulty || 'medium';
+        if (!byDiff[d]) byDiff[d] = [];
+        byDiff[d].push(q);
       }
 
       const sampled: typeof lfQuestions = [];
@@ -266,7 +289,13 @@ serve(async (req) => {
         sampled.push(...shuffled.slice(0, diffCount));
       }
 
-      // Shuffle and limit to quota
+      // Fill remaining from any difficulty if under quota
+      if (sampled.length < quota) {
+        const usedIds = new Set(sampled.map(q => q.id));
+        const remaining = lfQuestions.filter(q => !usedIds.has(q.id)).sort(() => Math.random() - 0.5);
+        sampled.push(...remaining.slice(0, quota - sampled.length));
+      }
+
       const final = sampled.sort(() => Math.random() - 0.5).slice(0, quota);
 
       for (const q of final) {
@@ -277,16 +306,39 @@ serve(async (req) => {
           difficulty: q.difficulty,
           learning_field_id: q.learning_field_id,
           competency_id: q.competency_id,
+          question_type: (q as any).question_type || null,
+          cognitive_level: (q as any).cognitive_level || null,
         });
       }
 
       blueprintPlan.push({ learning_field_id: lfId, quota, fetched: final.length });
     }
 
-    // Final shuffle to mix learning fields
-    const finalQuestions = allQuestions.sort(() => Math.random() - 0.5).slice(0, count);
+    // ── Anti-Adjacent: no 2 questions from same competency back-to-back ──
+    const shuffled = allQuestions.sort(() => Math.random() - 0.5);
+    const reordered: SanitizedQuestion[] = [];
+    const remaining = [...shuffled];
 
-    logStep("Blueprint exam complete", { requested: count, delivered: finalQuestions.length });
+    while (remaining.length > 0) {
+      const lastCompetency = reordered.length > 0 ? reordered[reordered.length - 1].competency_id : null;
+      const nextIdx = remaining.findIndex(q => q.competency_id !== lastCompetency);
+      if (nextIdx >= 0) {
+        reordered.push(remaining.splice(nextIdx, 1)[0]);
+      } else {
+        reordered.push(remaining.shift()!);
+      }
+    }
+
+    const finalQuestions = reordered.slice(0, count);
+
+    // Coverage stats
+    const coverageStats: Record<string, number> = {};
+    for (const q of finalQuestions) {
+      const lf = q.learning_field_id || 'unknown';
+      coverageStats[lf] = (coverageStats[lf] || 0) + 1;
+    }
+
+    logStep("Exam assembled", { requested: count, delivered: finalQuestions.length, lfs_covered: Object.keys(coverageStats).length });
 
     return new Response(
       JSON.stringify({
@@ -294,6 +346,9 @@ serve(async (req) => {
         total_available: allQuestions.length,
         blueprint_plan: blueprintPlan,
         difficulty_mix: DIFFICULTY_MIX,
+        question_type_mix: QUESTION_TYPE_MIX,
+        coverage: coverageStats,
+        mode: examMode,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );

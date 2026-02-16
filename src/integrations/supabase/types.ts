@@ -12599,6 +12599,58 @@ export type Database = {
           },
         ]
       }
+      question_discrimination_stats: {
+        Row: {
+          bottom_quartile_correct_rate: number | null
+          correct_count: number
+          discrimination_index: number | null
+          last_calculated_at: string
+          question_id: string
+          top_quartile_correct_rate: number | null
+          total_attempts: number
+        }
+        Insert: {
+          bottom_quartile_correct_rate?: number | null
+          correct_count?: number
+          discrimination_index?: number | null
+          last_calculated_at?: string
+          question_id: string
+          top_quartile_correct_rate?: number | null
+          total_attempts?: number
+        }
+        Update: {
+          bottom_quartile_correct_rate?: number | null
+          correct_count?: number
+          discrimination_index?: number | null
+          last_calculated_at?: string
+          question_id?: string
+          top_quartile_correct_rate?: number | null
+          total_attempts?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_discrimination_stats_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_discrimination_stats_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_discrimination_stats_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_quality_metrics: {
         Row: {
           blueprint_alignment_score: number | null
