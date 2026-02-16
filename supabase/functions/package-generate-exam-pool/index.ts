@@ -148,13 +148,13 @@ function calculatePraxisScore(q: { question_text: string; options: string[] }): 
   const text = q.question_text;
   let score = 0;
 
-  // Has role/person (Kundenberater, Filialleiter, Azubi, etc.)
+  // Has role/person
   if (/\b(Kundenberater|Filialleiter|Auszubildende|Sachbearbeiter|Kollegin|Vorgesetzte|Geschäftsführer|Prokuristen|Berater|Mitarbeiter)\b/i.test(text)) score++;
 
-  // Has context (Beratungsgespräch, Filiale, Kreditprüfung, etc.)
+  // Has context
   if (/\b(Beratungsgespräch|Filiale|Kreditprüfung|Jahresabschluss|Kontoauszug|Girokonto|Depot|Finanzierung|Antrag|Sitzung|Besprechung)\b/i.test(text)) score++;
 
-  // Has realistic non-round numbers (not 1000, 10000, 100, etc.)
+  // Has realistic non-round numbers
   const numbers = text.match(/\d{3,}/g);
   if (numbers) {
     const hasNonRound = numbers.some(n => {
@@ -164,10 +164,35 @@ function calculatePraxisScore(q: { question_text: string; options: string[] }): 
     if (hasNonRound) score++;
   }
 
-  // Has concrete name (Herr/Frau + Name)
+  // Has concrete name
   if (/\b(Herr|Frau)\s+[A-ZÄÖÜ][a-zäöüß]+/i.test(text)) score++;
 
   return score; // 0-4, gate: >= 2
+}
+
+// ─── AI Style Gate (kill KI-Lehrbuch-Deutsch) ────────────────────────────────
+
+const AI_STYLE_BLACKLIST = [
+  "im folgenden", "es ist zu beachten", "grundsätzlich gilt",
+  "zusammenfassend lässt sich sagen", "in diesem zusammenhang",
+  "es sei darauf hingewiesen", "abschließend sei erwähnt",
+  "diesbezüglich", "hinsichtlich dessen", "in anbetracht",
+  "es ist wichtig zu verstehen", "man sollte beachten",
+  "folgende aspekte sind relevant", "hierbei handelt es sich um",
+  "in der praxis zeigt sich", "es empfiehlt sich",
+  "nachfolgend wird erläutert", "im weiteren verlauf",
+];
+
+function passesStyleGate(q: { question_text: string; explanation?: string }): boolean {
+  const text = (q.question_text + " " + (q.explanation || "")).toLowerCase();
+  for (const phrase of AI_STYLE_BLACKLIST) {
+    if (text.includes(phrase)) return false;
+  }
+  // Reject overly long sentences (>40 words = KI-typical)
+  const sentences = q.question_text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const longSentences = sentences.filter(s => s.trim().split(/\s+/).length > 40);
+  if (longSentences.length > 0) return false;
+  return true;
 }
 
 // ─── Explanation Quality Check (strict: must explain WHY wrong + tip) ─────────
@@ -342,6 +367,8 @@ FRAGETYP: ${typeHint[questionType] || typeHint.case_study}
 SPRACHE & STIL:
 - Schreibe wie ein erfahrener IHK-Prüfer, NICHT wie eine KI
 - Natürliches, flüssiges Deutsch — kein "Lehrbuch-Deutsch"
+- VERBOTENE FLOSKELN: "im Folgenden", "grundsätzlich gilt", "es ist zu beachten", "zusammenfassend lässt sich sagen", "in diesem Zusammenhang", "es sei darauf hingewiesen", "diesbezüglich", "hinsichtlich dessen", "es empfiehlt sich", "folgende Aspekte sind relevant"
+- Kurze, natürliche Sätze (max 30 Wörter). Realistische Dialogsprache in Beratungssituationen.
 - KEINE Platzhalter {variable} — alle Werte konkret einsetzen
 - JEDE Frage beginnt mit einem ANDEREN Satzanfang. Nutze z.B.: "${openerPool}"
 - NIEMALS mehrere Fragen mit "Die…", "Herr…" oder "Frau…" beginnen
@@ -360,10 +387,11 @@ PRAXISBEZUG (PFLICHT):
 - Jede Frage hat einen konkreten Kontext (Beratungsgespräch, Kreditprüfung, Jahresabschluss, etc.)
 - Verwende konkrete, nicht-runde Zahlen für Beträge, Zinssätze, Fristen
 
-ERKLÄRUNG (PFLICHT):
-- Erkläre WARUM die richtige Antwort richtig ist (mit Fachbegriff/Norm)
-- Erkläre WARUM JEDER falsche Distraktor falsch ist (konkreter Fehler benennen)
-- Füge einen kurzen PRÜFUNGSTIPP oder MERKSATZ hinzu
+ERKLÄRUNG (COACHING-STIL — PFLICHT):
+- "Warum ist das in der Prüfung die beste Antwort?" (fachliche Begründung mit Norm/Fachbegriff)
+- "Warum würden viele Prüflinge hier falsch antworten?" (typischer Denkfehler benennen)
+- Erkläre WARUM JEDER falsche Distraktor falsch ist (konkreter Fehler)
+- Füge einen kurzen MERKSATZ oder PRÜFUNGSTIPP hinzu (beginne mit "Tipp:" oder "Merke:")
 
 SELBSTAUDIT (vor Ausgabe prüfen):
 - Ist die Frage eindeutig? Gibt es genau EINE richtige Antwort?
@@ -514,7 +542,13 @@ async function generateTurboQuestions(
 
     if (!hasQualityExplanation(q)) {
       console.log(`[ExamPool-v5] REJECTED WEAK_EXPLANATION: "${q.question_text.slice(0, 40)}…"`);
-      continue; // HARD gate: must have quality explanation with tip
+      continue;
+    }
+
+    // Style gate: kill AI-typical phrases
+    if (!passesStyleGate(q)) {
+      console.log(`[ExamPool-v5] REJECTED AI_STYLE: "${q.question_text.slice(0, 40)}…"`);
+      continue;
     }
 
     const difficultyValid = validateDifficulty(q);
