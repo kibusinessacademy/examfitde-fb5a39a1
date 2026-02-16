@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { generateFAQSchema, generateBreadcrumbSchema, generateCourseSchema, SITE_URL } from '@/lib/seo';
@@ -211,7 +212,12 @@ const PruefungstrainingDetailPage = () => {
         {/* SEO Content from DB (if available) */}
         {seoPage?.content_html && (
           <section className="prose prose-lg dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: seoPage.content_html }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(seoPage.content_html, {
+              ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','br','strong','em','u','ul','ol','li','blockquote','code','pre','a','img','table','thead','tbody','tr','th','td','span','div','sub','sup','hr'],
+              ALLOWED_ATTR: ['href','src','alt','title','class','id','target','rel'],
+              FORBID_TAGS: ['script','iframe','object','embed','style','form'],
+              ALLOW_DATA_ATTR: false,
+            }) }}
           />
         )}
 

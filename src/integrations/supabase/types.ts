@@ -1446,6 +1446,42 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_snapshots: {
+        Row: {
+          backup_type: string
+          created_at: string
+          error_message: string | null
+          id: string
+          row_counts: Json
+          size_estimate_mb: number | null
+          status: string
+          tables_backed_up: string[]
+          triggered_by: string | null
+        }
+        Insert: {
+          backup_type?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          row_counts?: Json
+          size_estimate_mb?: number | null
+          status?: string
+          tables_backed_up?: string[]
+          triggered_by?: string | null
+        }
+        Update: {
+          backup_type?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          row_counts?: Json
+          size_estimate_mb?: number | null
+          status?: string
+          tables_backed_up?: string[]
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       beruf_aliases: {
         Row: {
           alias: string

@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import DOMPurify from 'dompurify';
 import { useCertificationSEOPage } from '@/hooks/useCertificationSEO';
 import { Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -44,7 +45,12 @@ const CertificationSEOPage = () => {
         {page.content_html && (
           <div
             className="prose prose-lg max-w-none dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: page.content_html }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(page.content_html, {
+              ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','br','strong','em','u','ul','ol','li','blockquote','code','pre','a','img','table','thead','tbody','tr','th','td','span','div','sub','sup','hr'],
+              ALLOWED_ATTR: ['href','src','alt','title','class','id','target','rel'],
+              FORBID_TAGS: ['script','iframe','object','embed','style','form'],
+              ALLOW_DATA_ATTR: false,
+            }) }}
           />
         )}
 
