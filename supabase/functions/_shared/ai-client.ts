@@ -269,7 +269,8 @@ export async function logLLMCostEvent(
     model: string;
     tokens_in: number;
     tokens_out: number;
-    cost_usd: number;
+    cost_usd?: number;
+    cost_eur?: number;
     package_id?: string | null;
     certification_id?: string | null;
     course_id?: string | null;
@@ -280,13 +281,15 @@ export async function logLLMCostEvent(
   }
 ): Promise<void> {
   try {
+    // Convert USD to EUR if only cost_usd provided (approx rate)
+    const costEur = opts.cost_eur ?? (opts.cost_usd ? opts.cost_usd * 0.92 : 0);
     await sb.from("llm_cost_events").insert({
       job_type: opts.job_type,
       provider: opts.provider,
       model: opts.model,
       tokens_in: opts.tokens_in,
       tokens_out: opts.tokens_out,
-      cost_usd: opts.cost_usd,
+      cost_eur: costEur,
       package_id: opts.package_id || null,
       certification_id: opts.certification_id || null,
       course_id: opts.course_id || null,
