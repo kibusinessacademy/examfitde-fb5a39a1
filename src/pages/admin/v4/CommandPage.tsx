@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Activity, Award, DollarSign, AlertTriangle, TrendingUp, Cpu, Users, BookOpen } from 'lucide-react';
+import { Activity, Award, DollarSign, AlertTriangle, TrendingUp, Cpu, Users, BookOpen, BarChart3 } from 'lucide-react';
 import HealthTab from '@/components/admin/command/HealthTab';
 import QualityTab from '@/components/admin/command/QualityTab';
 import CostTab from '@/components/admin/command/CostTab';
@@ -8,6 +8,7 @@ import RoiTab from '@/components/admin/command/RoiTab';
 import RoutingTab from '@/components/admin/command/RoutingTab';
 import SeatsTab from '@/components/admin/command/SeatsTab';
 import ExamQualityTab from '@/components/admin/command/ExamQualityTab';
+import OutcomeKPIsTab from '@/components/admin/command/OutcomeKPIsTab';
 import RealtimePipelineMonitor from '@/components/admin/RealtimePipelineMonitor';
 import RealtimeAlerts from '@/components/admin/RealtimeAlerts';
 
@@ -54,6 +55,10 @@ export default function CommandPage() {
             <BookOpen className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Exam KPIs</span>
           </TabsTrigger>
+          <TabsTrigger value="outcome" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Outcome</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="health" className="mt-4"><HealthTab /></TabsContent>
@@ -64,6 +69,7 @@ export default function CommandPage() {
         <TabsContent value="routing" className="mt-4"><RoutingTab /></TabsContent>
         <TabsContent value="seats" className="mt-4"><SeatsTab /></TabsContent>
         <TabsContent value="exam" className="mt-4"><ExamQualityTab /></TabsContent>
+        <TabsContent value="outcome" className="mt-4"><OutcomeKPIsTab /></TabsContent>
       </Tabs>
     </div>
   );
