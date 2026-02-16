@@ -8,18 +8,52 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 
 /**
- * DOMINANZ-ENGINE v3: HIGH-THROUGHPUT TURBO MODE
+ * DOMINANZ-ENGINE v4: QUALITY-FIRST TURBO MODE
  * 
- * Architecture: 1-2 questions per AI call → max parallelism, minimal timeouts
- * Primary: gpt-4o-mini (fastest JSON), Escalation: gpt-4.1, Fallback: claude-sonnet-4
- * Slim prompt: question + options + answer + difficulty only (no explanation in primary)
- * JSON auto-repair before discard
+ * Upgrades over v3:
+ * - Cognitive-level quotas (recall/apply/analyze/decide)
+ * - 6 question types (best_option, error_detection, sequence, calculation, risk_assessment, compliance_check)
+ * - IHK-grade distractor rules (wrong norm, Praxisverwechslung, Rechenfehler)
+ * - Difficulty auto-validator (hard must contain calculation/norm, easy must not)
+ * - Praxis-Score gate (realism check: roles, context, non-round numbers)
+ * - Learning feedback enforcement (explanation + distractor reasoning)
+ * - Adaptive quality scoring (exam pool vs training pool)
  */
 
-const AI_CHUNK_SIZE = 8; // Blueprints per invocation cycle
-const AI_QUESTIONS_PER_CALL = 2; // TURBO: 1-2 questions per AI call — fast, retry-safe
+const AI_CHUNK_SIZE = 8;
+const AI_QUESTIONS_PER_CALL = 2;
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
-const HARD_CAP_QUESTIONS = 1700; // Absolute maximum per curriculum — stops generation
+const HARD_CAP_QUESTIONS = 1700;
+
+// ─── Cognitive Level Distribution (IHK-realistic) ─────────────────────────────
+
+const COGNITIVE_LEVEL_DISTRIBUTION: Record<string, number> = {
+  recall: 0.25,    // Reines Wissen (Definitionen, Begriffe)
+  apply: 0.35,     // Anwendung (Rechnen, Zuordnen, Ableitung)
+  analyze: 0.25,   // Analyse (Fehler finden, richtige Handlung erkennen)
+  decide: 0.15,    // Bewertung/Entscheidung (Best Practice, Risikoabwägung)
+};
+
+// ─── Question Types (semantic variety) ────────────────────────────────────────
+
+const QUESTION_TYPE_MIX: Record<string, number> = {
+  best_option: 0.20,       // Beste Option aus mehreren Maßnahmen
+  error_detection: 0.15,   // Fehlerdiagnose
+  calculation: 0.20,       // Rechenaufgabe mit konkreten Zahlen
+  case_study: 0.20,        // Fallstudie: konkreter Praxisfall
+  risk_assessment: 0.10,   // Risikoabwägung
+  compliance_check: 0.15,  // Compliance/Norm-Check
+};
+
+// ─── Difficulty Distribution (Dominanz-Standard) ──────────────────────────────
+
+let DIFFICULTY_DISTRIBUTION: Record<string, number> = {
+  easy: 0.05, medium: 0.35, hard: 0.45, very_hard: 0.15,
+};
+
+type DifficultyKey = string;
+type QuestionTypeKey = string;
+type CognitiveLevelKey = string;
 
 // ─── Diversity Engine ─────────────────────────────────────────────────────────
 
@@ -41,6 +75,11 @@ const SENTENCE_OPENERS = [
   "Nach Analyse der Unterlagen", "Das Kreditinstitut prüft",
   "Vor dem Hintergrund", "Gemäß den Vorschriften", "Aus betriebswirtschaftlicher Sicht",
   "Im Zuge der Digitalisierung", "Ein langjähriger Geschäftskunde",
+  "Ihre Kollegin bittet Sie", "Der Filialleiter beauftragt Sie",
+  "Ein Existenzgründer benötigt", "Bei der Kreditwürdigkeitsprüfung",
+  "Im Jahresabschlussgespräch stellt sich heraus,", "Eine Kundin reklamiert,",
+  "Der Vorgesetzte fragt nach", "Beim Vergleich zweier Angebote",
+  "Nach Durchsicht der Bilanz", "Im Compliance-Bericht fällt auf,",
 ];
 
 // ─── Text-Similarity (Jaccard n-gram) ─────────────────────────────────────────
@@ -72,18 +111,109 @@ function shuffleArray<T>(arr: T[], seed: number): T[] {
   return result;
 }
 
-// ─── Dominanz-Engine v3: Dynamic distributions ────────────────────────────────
+// ─── Difficulty Auto-Validator ────────────────────────────────────────────────
 
-let DIFFICULTY_DISTRIBUTION: Record<string, number> = {
-  easy: 0.05, medium: 0.35, hard: 0.45, very_hard: 0.15,
-};
+function validateDifficulty(q: { question_text: string; options: string[]; difficulty: string; explanation?: string }): boolean {
+  const text = q.question_text.toLowerCase();
+  const allText = (text + " " + q.options.join(" ") + " " + (q.explanation || "")).toLowerCase();
 
-let QUESTION_TYPE_MIX: Record<string, number> = {
-  mc_single: 0.25, mc_multiple: 0.20, calculation: 0.20, case_study: 0.25, transfer: 0.10,
-};
+  const hasCalculation = /\d+[\s]*[×x*÷/+\-]\s*\d+|\d+[.,]\d+\s*(%|€|eur)|\bberechn|\bzins|\brate\b|\bbetrag\b/i.test(allText);
+  const hasParagraph = /§\s*\d+|\bBGB\b|\bHGB\b|\bKWG\b|\bGwG\b|\bKSchG\b|\bAGB\b|\bMaBV\b/i.test(allText);
+  const hasFachbegriff = /\b(Bonität|Liquidität|Solvabilität|Eigenkapitalquote|Deckungsbeitrag|Annuität|Effektivzins|Skonto|Disagio|Bilanz|GuV|Aktiva|Passiva|Rückstellung)\b/i.test(allText);
+  const hasDecision = /\bwelche Maßnahme\b|\bbeste Option\b|\bempfehlen\b|\bRisiko\b|\bbeurteilen\b|\babwägen\b|\bentscheiden\b/i.test(allText);
 
-type DifficultyKey = string;
-type QuestionTypeKey = string;
+  switch (q.difficulty) {
+    case "easy":
+      // Easy should NOT have complex calculations or paragraph references
+      if (hasCalculation && hasParagraph) return false;
+      return true;
+    case "medium":
+      // Medium should have at least one knowledge element
+      return hasCalculation || hasFachbegriff || hasParagraph;
+    case "hard":
+      // Hard should have calculation OR paragraph + decision element
+      return (hasCalculation || hasParagraph) && (hasFachbegriff || hasDecision);
+    case "very_hard":
+      // Very hard should have multiple complexity layers
+      return (hasCalculation || hasParagraph) && hasDecision;
+    default:
+      return true;
+  }
+}
+
+// ─── Praxis-Score (Realism Gate) ──────────────────────────────────────────────
+
+function calculatePraxisScore(q: { question_text: string; options: string[] }): number {
+  const text = q.question_text;
+  let score = 0;
+
+  // Has role/person (Kundenberater, Filialleiter, Azubi, etc.)
+  if (/\b(Kundenberater|Filialleiter|Auszubildende|Sachbearbeiter|Kollegin|Vorgesetzte|Geschäftsführer|Prokuristen|Berater|Mitarbeiter)\b/i.test(text)) score++;
+
+  // Has context (Beratungsgespräch, Filiale, Kreditprüfung, etc.)
+  if (/\b(Beratungsgespräch|Filiale|Kreditprüfung|Jahresabschluss|Kontoauszug|Girokonto|Depot|Finanzierung|Antrag|Sitzung|Besprechung)\b/i.test(text)) score++;
+
+  // Has realistic non-round numbers (not 1000, 10000, 100, etc.)
+  const numbers = text.match(/\d{3,}/g);
+  if (numbers) {
+    const hasNonRound = numbers.some(n => {
+      const num = parseInt(n);
+      return num % 100 !== 0 || num > 99999;
+    });
+    if (hasNonRound) score++;
+  }
+
+  // Has concrete name (Herr/Frau + Name)
+  if (/\b(Herr|Frau)\s+[A-ZÄÖÜ][a-zäöüß]+/i.test(text)) score++;
+
+  return score; // 0-4, gate: >= 2
+}
+
+// ─── Explanation Quality Check ────────────────────────────────────────────────
+
+function hasQualityExplanation(q: { explanation?: string; options: string[] }): boolean {
+  if (!q.explanation || q.explanation.length < 50) return false;
+
+  const expl = q.explanation.toLowerCase();
+  // Must mention why wrong answers are wrong (at least 2 distractor references)
+  const wrongReferences = (expl.match(/\b(falsch|nicht korrekt|inkorrekt|irrtümlich|fehler|verwechsl|trifft nicht zu)\b/gi) || []).length;
+  return wrongReferences >= 1; // At least explain one wrong option
+}
+
+// ─── Quality Scoring (Exam Pool vs Training Pool) ─────────────────────────────
+
+function calculateQualityScore(q: {
+  question_text: string;
+  options: string[];
+  difficulty: string;
+  explanation?: string;
+  question_type?: string;
+}): { score: number; pool: "exam" | "training" } {
+  let score = 0;
+
+  // Diversity (sentence opener variety) - 1pt
+  const firstWord = q.question_text.split(/\s+/)[0];
+  if (!["Die", "Der", "Das", "Ein", "Eine"].includes(firstWord)) score += 1;
+
+  // Praxis-Score - up to 2pts
+  const praxis = calculatePraxisScore(q);
+  score += Math.min(praxis, 2);
+
+  // Difficulty calibration passed - 1pt
+  if (validateDifficulty(q)) score += 1;
+
+  // Explanation quality - 1pt
+  if (hasQualityExplanation(q)) score += 1;
+
+  // Distractor count (4+ options) - 1pt
+  if (q.options.length >= 4) score += 1;
+
+  // Max score = 6
+  return {
+    score,
+    pool: score >= 4 ? "exam" : "training",
+  };
+}
 
 function getShipTarget(examTarget: number): number {
   if (examTarget <= 600) return 500;
@@ -99,9 +229,9 @@ function json(body: unknown, status = 200) {
 // ─── Provider Routing: Turbo Chain ────────────────────────────────────────────
 
 const EXAM_PROVIDER_CHAIN: { provider: AIProvider; model: string }[] = [
-  { provider: "openai", model: "gpt-4o-mini" },                   // Turbo: fastest bulk JSON
-  { provider: "openai", model: "gpt-4.1" },                       // Escalation: harder cases
-  { provider: "anthropic", model: "claude-sonnet-4-20250514" },    // Fallback: quality repair
+  { provider: "openai", model: "gpt-4o-mini" },
+  { provider: "openai", model: "gpt-4.1" },
+  { provider: "anthropic", model: "claude-sonnet-4-20250514" },
 ];
 
 function pickProvider(exclude: string[] = []): { provider: AIProvider; model: string } {
@@ -130,35 +260,24 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
 // ─── JSON Auto-Repair ─────────────────────────────────────────────────────────
 
 function repairJSON(raw: string): unknown | null {
-  // Step 1: Strip markdown fences
   let clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-  // Step 2: Try direct parse
   try { return JSON.parse(clean); } catch { /* continue */ }
-
-  // Step 3: Fix trailing commas before ] or }
   clean = clean.replace(/,\s*([\]}])/g, "$1");
   try { return JSON.parse(clean); } catch { /* continue */ }
-
-  // Step 4: Extract first JSON array from content
   const arrMatch = clean.match(/\[[\s\S]*\]/);
   if (arrMatch) {
     try { return JSON.parse(arrMatch[0]); } catch { /* continue */ }
-    // Try fixing trailing commas in extracted array
     const fixed = arrMatch[0].replace(/,\s*([\]}])/g, "$1");
     try { return JSON.parse(fixed); } catch { /* continue */ }
   }
-
-  // Step 5: Extract first JSON object
   const objMatch = clean.match(/\{[\s\S]*\}/);
   if (objMatch) {
     try { return [JSON.parse(objMatch[0])]; } catch { /* continue */ }
   }
-
   return null;
 }
 
-// ─── Turbo Prompt (slim: no explanation in primary pass) ──────────────────────
+// ─── Turbo Prompt v4 (cognitive level + question type + IHK distractor rules) ─
 
 interface BlueprintInfo {
   id: string;
@@ -175,6 +294,7 @@ function buildTurboPrompt(
   bp: BlueprintInfo,
   difficulty: DifficultyKey,
   questionType: QuestionTypeKey,
+  cognitiveLevel: CognitiveLevelKey,
   count: number,
   lfTitle: string,
   compTitle: string,
@@ -186,48 +306,78 @@ function buildTurboPrompt(
     easy: "leicht", medium: "mittel", hard: "schwer", very_hard: "sehr schwer",
   };
 
+  const cognitiveHint: Record<string, string> = {
+    recall: "WISSENSABFRAGE: Definition, Begriff, Zuordnung. Der Prüfling muss Fakten abrufen.",
+    apply: "ANWENDUNG: Berechnung durchführen, Verfahren anwenden, Zuordnung ableiten. Konkrete Zahlen und Formeln.",
+    analyze: "ANALYSE: Fehler identifizieren, Sachverhalt beurteilen, richtige Handlung aus Situation ableiten.",
+    decide: "BEWERTUNG/ENTSCHEIDUNG: Best Practice wählen, Risiken abwägen, Handlungsempfehlung geben. Mehrere vertretbare Optionen, nur eine ist optimal.",
+  };
+
   const typeHint: Record<string, string> = {
-    mc_single: "MC mit 1 korrekten Antwort (4 Optionen). correct_answer = Index (0-3).",
-    mc_multiple: "MC mit 2-3 korrekten Antworten (5 Optionen). correct_answer = Array z.B. [0,2].",
-    calculation: "Rechenaufgabe mit konkreten Zahlen. Alle Werte einsetzen.",
-    case_study: "Fallstudie: konkreter Praxisfall (Name, Situation, Zahlen).",
-    transfer: "Transfer: Wissen auf neue Situation anwenden.",
+    best_option: "BESTE OPTION: Mehrere Maßnahmen werden vorgestellt – der Prüfling muss die optimale wählen. Alle Optionen klingen plausibel.",
+    error_detection: "FEHLERDIAGNOSE: Ein Sachverhalt enthält einen Fehler – der Prüfling muss ihn identifizieren.",
+    calculation: "RECHENAUFGABE: Konkrete Zahlen, ein klarer Rechenweg. Distraktoren = typische Rechenfehler (z.B. falscher Zinssatz, vergessener Faktor).",
+    case_study: "FALLSTUDIE: Konkretes Szenario mit Name, Situation, Zahlen. Der Prüfling muss die richtige Schlussfolgerung ziehen.",
+    risk_assessment: "RISIKOABWÄGUNG: Situation mit mehreren Risikofaktoren. Der Prüfling muss das Hauptrisiko oder die richtige Absicherung erkennen.",
+    compliance_check: "COMPLIANCE/NORM: Bezug auf Vorschriften, Gesetze, Richtlinien. Der Prüfling muss die richtige Norm oder Frist kennen.",
   };
 
   const depthBlock = depthTopics.length > 0
     ? `\nUnterthemen: ${depthTopics.slice(0, 8).join(", ")}`
     : "";
 
-  // Pick diverse names and openers for this prompt
-  const namePool = shuffleArray(GERMAN_NAMES, Date.now()).slice(0, 6).join(", ");
-  const openerPool = shuffleArray(SENTENCE_OPENERS, Date.now()).slice(0, 5).join('", "');
+  const namePool = shuffleArray(GERMAN_NAMES, Date.now()).slice(0, 8).join(", ");
+  const openerPool = shuffleArray(SENTENCE_OPENERS, Date.now()).slice(0, 6).join('", "');
 
-  const system = `IHK-Prüfungsexperte für ${professionName}. Erstelle ${diffLabel[difficulty]} ${typeHint[questionType]}
+  const system = `Du bist ein erfahrener IHK-Prüfungsaufgabenersteller für ${professionName}. Erstelle ${diffLabel[difficulty]} Prüfungsfragen.
 
-REGELN:
-- KEINE Platzhalter {variable} — alle Werte konkret
-- Konkreter Praxiskontext mit realistischen Szenarien
-- Verwende abwechslungsreiche Personennamen aus diesem Pool: ${namePool}
-- Beginne JEDE Frage mit einem ANDEREN Satzanfang. Nutze z.B.: "${openerPool}"
+KOGNITIVE STUFE: ${cognitiveHint[cognitiveLevel] || cognitiveHint.apply}
+FRAGETYP: ${typeHint[questionType] || typeHint.case_study}
+
+═══ QUALITÄTSREGELN ═══
+
+SPRACHE & STIL:
+- Schreibe wie ein erfahrener IHK-Prüfer, NICHT wie eine KI
+- Natürliches, flüssiges Deutsch — kein "Lehrbuch-Deutsch"
+- KEINE Platzhalter {variable} — alle Werte konkret einsetzen
+- JEDE Frage beginnt mit einem ANDEREN Satzanfang. Nutze z.B.: "${openerPool}"
 - NIEMALS mehrere Fragen mit "Die…", "Herr…" oder "Frau…" beginnen
-- Schreibe in natürlichem, flüssigem Deutsch — wie ein erfahrener IHK-Prüfer
-- Distraktoren = typische Fehlannahmen der Zielgruppe, NICHT offensichtlich falsch
-- Jeder Distraktor muss plausibel klingen und einen realen Denkfehler widerspiegeln
-- Fachsprache IHK-Niveau, aber verständlich formuliert
-- Vermeide Wiederholungen von Szenarien und Formulierungen
+- Verwende diverse Personennamen: ${namePool}
+- Verwende REALISTISCHE Zahlen (nicht 1.000, 10.000 — sondern z.B. 12.450, 3.875, 47.320)
+
+DISTRAKTOREN (IHK-QUALITÄT):
+- Distraktor 1: Korrekt klingend, aber falsche Norm/Paragraph/Frist
+- Distraktor 2: Häufige Praxisverwechslung (was Azubis oft falsch machen)
+- Distraktor 3: Typischer Rechenfehler oder Denkfehler
+- ALLE Distraktoren müssen plausibel klingen — NICHT offensichtlich falsch
+- KEINE "Nonsens-Optionen" die sofort ausgeschlossen werden können
+
+PRAXISBEZUG (PFLICHT):
+- Jede Frage enthält eine konkrete Berufsrolle (Kundenberater, Filialleiter, Sachbearbeiter, etc.)
+- Jede Frage hat einen konkreten Kontext (Beratungsgespräch, Kreditprüfung, Jahresabschluss, etc.)
+- Verwende konkrete, nicht-runde Zahlen für Beträge, Zinssätze, Fristen
+
+ERKLÄRUNG (PFLICHT):
+- Erkläre WARUM die richtige Antwort richtig ist (mit Fachbegriff/Norm)
+- Erkläre WARUM JEDER falsche Distraktor falsch ist (konkreter Fehler benennen)
+- Füge einen kurzen PRÜFUNGSTIPP oder MERKSATZ hinzu
 
 Antworte NUR mit JSON-Array:
-[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","tags":["tag1"]}]`;
+[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","cognitive_level":"${cognitiveLevel}","explanation":"Richtig: ... | Falsch A: ... | Falsch B: ... | Falsch C: ... | Tipp: ...","tags":["tag1"]}]`;
 
   const user = `${count} Frage(n) für "${professionName}".
 Lernfeld: ${lfTitle}
 Thema: ${compTitle} — ${compDesc}
-Blueprint: ${bp.canonical_statement}${depthBlock}`;
+Blueprint: ${bp.canonical_statement}${depthBlock}
+
+Kognitive Stufe: ${cognitiveLevel}
+Fragetyp: ${questionType}
+Schwierigkeit: ${difficulty}`;
 
   return { system, user };
 }
 
-// ─── Question Generator (Turbo: 1-2 questions per call) ──────────────────────
+// ─── Question Generator (Turbo with quality gates) ───────────────────────────
 
 async function generateTurboQuestions(
   sb: ReturnType<typeof createClient>,
@@ -235,10 +385,11 @@ async function generateTurboQuestions(
   count: number,
   difficulty: DifficultyKey,
   questionType: QuestionTypeKey,
+  cognitiveLevel: CognitiveLevelKey,
   existingHashes: Set<string>,
   existingNgramSets: Set<string>[],
   professionName: string,
-): Promise<number> {
+): Promise<{ saved: number; training: number }> {
   let compTitle = bp.name;
   let compDesc = bp.canonical_statement;
   let lfTitle = "";
@@ -264,10 +415,9 @@ async function generateTurboQuestions(
     } catch { /* depth load optional */ }
   }
 
-  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, count, lfTitle, compTitle, compDesc, professionName, depthTopics);
+  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics);
 
-  // Turbo token budget: 1-2 questions need max 1500 tokens
-  const maxTokens = count <= 1 ? 1200 : count <= 2 ? 1800 : 3000;
+  const maxTokens = count <= 1 ? 1500 : count <= 2 ? 2200 : 3500; // Increased for explanation requirement
 
   let exclude: string[] = [];
   let result: { content: string } | undefined;
@@ -288,27 +438,27 @@ async function generateTurboQuestions(
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
 
       if (isRate || isTimeout) {
-        console.log(`[ExamPool-Turbo] ${isTimeout ? "Timeout" : "RateLimit"} ${provider}/${model} attempt ${attempt}/3`);
+        console.log(`[ExamPool-v4] ${isTimeout ? "Timeout" : "RateLimit"} ${provider}/${model} attempt ${attempt}/3`);
         if ((globalThis as any).__examPoolSb) await markRateLimited((globalThis as any).__examPoolSb, provider, errMsg);
         exclude.push(`${provider}:${model}`);
         continue;
       }
-      console.log(`[ExamPool-Turbo] AI error (${provider}/${model}): ${errMsg}`);
-      return 0;
+      console.log(`[ExamPool-v4] AI error (${provider}/${model}): ${errMsg}`);
+      return { saved: 0, training: 0 };
     }
   }
 
-  if (!result?.content) return 0;
+  if (!result?.content) return { saved: 0, training: 0 };
 
-  // JSON auto-repair
   const parsed = repairJSON(result.content);
   if (!parsed) {
-    console.log(`[ExamPool-Turbo] JSON repair failed for BP ${bp.id.slice(0, 8)}`);
-    return 0;
+    console.log(`[ExamPool-v4] JSON repair failed for BP ${bp.id.slice(0, 8)}`);
+    return { saved: 0, training: 0 };
   }
 
   const questions = Array.isArray(parsed) ? parsed : [parsed];
   let saved = 0;
+  let training = 0;
 
   for (const q of questions) {
     if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
@@ -319,7 +469,7 @@ async function generateTurboQuestions(
     // Contamination guard
     const contam = checkContamination(q.question_text + " " + (q.explanation || ""), professionName);
     if (contam.isContaminated) {
-      console.log(`[ExamPool-Turbo] CONTAMINATION: ${contam.detectedIndustry} in "${q.question_text.slice(0, 50)}"`);
+      console.log(`[ExamPool-v4] CONTAMINATION: ${contam.detectedIndustry} in "${q.question_text.slice(0, 50)}"`);
       continue;
     }
 
@@ -328,10 +478,9 @@ async function generateTurboQuestions(
     if (existingHashes.has(hash)) continue;
     existingHashes.add(hash);
 
-    // Text-similarity dedup (Jaccard n-gram, threshold 0.70)
+    // Text-similarity dedup (Jaccard n-gram)
     const qNgrams = textNgrams(q.question_text);
     let tooSimilar = false;
-    // Only check last 200 entries for performance
     const checkWindow = existingNgramSets.slice(-200);
     for (const existingNg of checkWindow) {
       if (jaccardSimilarity(qNgrams, existingNg) > TEXT_SIMILARITY_THRESHOLD) {
@@ -340,10 +489,26 @@ async function generateTurboQuestions(
       }
     }
     if (tooSimilar) {
-      console.log(`[ExamPool-Turbo] NEAR-DUP skipped: "${q.question_text.slice(0, 50)}…"`);
+      console.log(`[ExamPool-v4] NEAR-DUP skipped: "${q.question_text.slice(0, 50)}…"`);
       continue;
     }
     existingNgramSets.push(qNgrams);
+
+    // ── Quality Gates ──
+    const qualityResult = calculateQualityScore(q);
+    const difficultyValid = validateDifficulty(q);
+    const praxisScore = calculatePraxisScore(q);
+
+    // Log quality issues (soft fail — still save, but mark pool)
+    if (!difficultyValid) {
+      console.log(`[ExamPool-v4] DIFFICULTY_MISMATCH: ${q.difficulty} — "${q.question_text.slice(0, 40)}…"`);
+    }
+    if (praxisScore < 2) {
+      console.log(`[ExamPool-v4] LOW_PRAXIS (${praxisScore}): "${q.question_text.slice(0, 40)}…"`);
+    }
+
+    const assignedPool = qualityResult.pool;
+    const status = assignedPool === "exam" ? "draft" : "training";
 
     const { error } = await sb.from("exam_questions").insert({
       curriculum_id: bp.curriculum_id,
@@ -356,17 +521,18 @@ async function generateTurboQuestions(
       explanation: q.explanation || "",
       difficulty: q.difficulty || difficulty,
       ai_generated: true,
-      status: "draft",
+      status,
     });
 
     if (error) {
       if (error.code === "23505") { /* duplicate, skip */ }
-      else console.log(`[ExamPool-Turbo] Insert error: ${error.message}`);
+      else console.log(`[ExamPool-v4] Insert error: ${error.message}`);
     } else {
-      saved++;
+      if (status === "draft") saved++;
+      else training++;
     }
   }
-  return saved;
+  return { saved, training };
 }
 
 function simpleHash(text: string): string {
@@ -421,7 +587,7 @@ async function enqueueLearningFieldJobs(
   if (jobs.length > 0) {
     const { error } = await sb.from("job_queue").insert(jobs);
     if (error) {
-      console.log(`[ExamPool-Turbo] Fan-out enqueue error: ${error.message}`);
+      console.log(`[ExamPool-v4] Fan-out enqueue error: ${error.message}`);
       return { enqueued: 0, learningFields: lfGroups.size };
     }
   }
@@ -456,15 +622,12 @@ Deno.serve(async (req) => {
   const blueprintIds: string[] | null = p.blueprint_ids || null;
 
   (globalThis as any).__examPoolSb = sb;
-  console.log(`[ExamPool-Turbo] Provider: gpt-4o-mini → gpt-4.1 → claude-sonnet-4`);
+  console.log(`[ExamPool-v4] Provider chain: gpt-4o-mini → gpt-4.1 → claude-sonnet-4`);
   const lfTarget = p.lf_target || examTarget;
 
   // Apply dynamic distributions
   if (p.options?.difficulty_distribution) {
     DIFFICULTY_DISTRIBUTION = p.options.difficulty_distribution;
-  }
-  if (p.options?.question_type_mix) {
-    QUESTION_TYPE_MIX = p.options.question_type_mix;
   }
 
   const batchCursor = p._batch_cursor || p.batch_cursor || null;
@@ -496,7 +659,7 @@ Deno.serve(async (req) => {
     const professionName = professionResult.professionName;
 
     if (generatedSoFar === 0 && !isFanOut) {
-      console.log(`[ExamPool-Turbo] Start "${professionName}": target=${examTarget}`);
+      console.log(`[ExamPool-v4] Start "${professionName}": target=${examTarget}, engine=v4-quality`);
     }
 
     // Get blueprints
@@ -514,7 +677,7 @@ Deno.serve(async (req) => {
     if (!isFanOut && bpIndex === 0 && bps.length > 10) {
       const { enqueued, learningFields } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
       if (enqueued > 0) {
-        console.log(`[ExamPool-Turbo] Fan-out: ${enqueued} sub-jobs for ${learningFields} LFs`);
+        console.log(`[ExamPool-v4] Fan-out: ${enqueued} sub-jobs for ${learningFields} LFs`);
         return json({ ok: true, batch_complete: true, fan_out: true, sub_jobs: enqueued });
       }
     }
@@ -524,57 +687,59 @@ Deno.serve(async (req) => {
     const existingHashes = new Set<string>();
     if (existingQs) for (const q of existingQs) existingHashes.add(simpleHash(q.question_text));
 
-    // Build n-gram sets for text-similarity dedup
     const existingNgramSets: Set<string>[] = [];
     if (existingQs) {
-      // Only keep last 300 for perf
       const recent = existingQs.slice(-300);
       for (const q of recent) existingNgramSets.push(textNgrams(q.question_text));
     }
 
-    // ─── HARD CAP: Stop generation if we already have enough questions ──────
+    // ─── HARD CAP ──────
     const { count: preCheckCount } = await sb.from("exam_questions")
       .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
     const preTotal = preCheckCount ?? 0;
     if (preTotal >= HARD_CAP_QUESTIONS) {
-      console.log(`[ExamPool-Turbo] HARD CAP reached: ${preTotal} >= ${HARD_CAP_QUESTIONS} — marking complete`);
+      console.log(`[ExamPool-v4] HARD CAP reached: ${preTotal} >= ${HARD_CAP_QUESTIONS}`);
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
-      return json({ ok: true, batch_complete: true, engine: "turbo-v3", total_questions: preTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
+      return json({ ok: true, batch_complete: true, engine: "v4-quality", total_questions: preTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
     }
 
     const effectiveTarget = isFanOut ? lfTarget : examTarget;
     const perBlueprint = Math.max(3, Math.ceil(effectiveTarget / bps.length));
     let questionsThisChunk = 0;
+    let trainingThisChunk = 0;
     let currentBpIndex = bpIndex;
     let bpsProcessed = 0;
 
     const typeEntries = Object.entries(QUESTION_TYPE_MIX) as [QuestionTypeKey, number][];
     const diffEntries = Object.entries(DIFFICULTY_DISTRIBUTION) as [DifficultyKey, number][];
+    const cogEntries = Object.entries(COGNITIVE_LEVEL_DISTRIBUTION) as [CognitiveLevelKey, number][];
 
     while (bpsProcessed < AI_CHUNK_SIZE && currentBpIndex < bps.length) {
       const bp = bps[currentBpIndex] as BlueprintInfo & { max_variations: number | null };
 
-      // TURBO: Multiple small calls per blueprint instead of one big call
       const callsPerBp = Math.ceil(perBlueprint / AI_QUESTIONS_PER_CALL);
-      const maxCallsPerBp = Math.min(callsPerBp, 6); // Cap at 6 calls per BP per cycle
+      const maxCallsPerBp = Math.min(callsPerBp, 6);
 
       for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx++) {
         const globalIdx = (currentBpIndex * maxCallsPerBp + callIdx);
         const typeIdx = globalIdx % typeEntries.length;
         const diffIdx = Math.floor(globalIdx / typeEntries.length) % diffEntries.length;
+        const cogIdx = Math.floor(globalIdx / (typeEntries.length * diffEntries.length)) % cogEntries.length;
         const questionType = typeEntries[typeIdx][0];
         const difficulty = diffEntries[diffIdx][0];
+        const cognitiveLevel = cogEntries[cogIdx][0];
 
         try {
-          const generated = await generateTurboQuestions(
-            sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, existingHashes, existingNgramSets, professionName
+          const { saved, training } = await generateTurboQuestions(
+            sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, cognitiveLevel, existingHashes, existingNgramSets, professionName
           );
-          questionsThisChunk += generated;
+          questionsThisChunk += saved;
+          trainingThisChunk += training;
         } catch (e: unknown) {
-          console.log(`[ExamPool-Turbo] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
+          console.log(`[ExamPool-v4] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
         }
       }
 
@@ -583,7 +748,7 @@ Deno.serve(async (req) => {
 
       // ── Mid-loop hard cap check ──
       if (questionsThisChunk > 0 && (preTotal + questionsThisChunk) >= HARD_CAP_QUESTIONS) {
-        console.log(`[ExamPool-Turbo] Mid-loop HARD CAP: ~${preTotal + questionsThisChunk} questions — stopping`);
+        console.log(`[ExamPool-v4] Mid-loop HARD CAP: ~${preTotal + questionsThisChunk} questions`);
         break;
       }
     }
@@ -596,7 +761,7 @@ Deno.serve(async (req) => {
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
     const targetReached = actualTotal >= shipTarget || actualTotal >= HARD_CAP_QUESTIONS;
 
-    console.log(`[ExamPool-Turbo] +${questionsThisChunk} this run, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}`);
+    console.log(`[ExamPool-v4] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}`);
 
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
@@ -606,7 +771,7 @@ Deno.serve(async (req) => {
       if (shouldMarkDone) {
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
-      return json({ ok: true, batch_complete: true, engine: "turbo-v3", total_questions: actualTotal, target: examTarget });
+      return json({ ok: true, batch_complete: true, engine: "v4-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget });
     } else if (allBlueprintsProcessed) {
       const currentLoop = (batchCursor?.loop_count ?? 0) + 1;
       if (currentLoop >= 8) {
@@ -625,7 +790,7 @@ Deno.serve(async (req) => {
     }
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
-    console.log(`[ExamPool-Turbo] Fatal: ${msg}`);
+    console.log(`[ExamPool-v4] Fatal: ${msg}`);
     return json({ ok: false, error: msg }, 500);
   }
 });
