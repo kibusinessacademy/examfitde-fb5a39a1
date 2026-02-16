@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
 
   // 1) Load learning fields
   const { data: fields, error: lfErr } = await sb
-    .from("curriculum_learning_fields")
+    .from("learning_fields")
     .select("id, code, title, description, sort_order")
     .eq("curriculum_id", curriculumId)
     .order("sort_order", { ascending: true });

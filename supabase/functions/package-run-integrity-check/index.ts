@@ -37,9 +37,19 @@ Deno.serve(async (req) => {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_handbook" }, 409);
   }
 
+  // Get curriculum_id from course
+  const { data: courseData } = await sb.from("courses").select("curriculum_id").eq("id", courseId).single();
+  const currId = courseData?.curriculum_id;
+
+  // Get module IDs for this course to count lessons
+  const { data: modules } = await sb.from("modules").select("id").eq("course_id", courseId);
+  const moduleIds = (modules || []).map((m: any) => m.id);
+
   const [{ count: qCount }, { count: lessonCount }] = await Promise.all([
-    sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("course_id", courseId),
-    sb.from("lessons").select("id", { count: "exact", head: true }).eq("course_id", courseId),
+    sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", currId ?? courseId),
+    moduleIds.length > 0
+      ? sb.from("lessons").select("id", { count: "exact", head: true }).in("module_id", moduleIds)
+      : Promise.resolve({ count: 0 }),
   ]);
 
   const score =

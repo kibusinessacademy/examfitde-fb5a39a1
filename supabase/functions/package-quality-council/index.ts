@@ -34,23 +34,26 @@ Deno.serve(async (req) => {
     // Load package data
     const { data: pkg } = await sb
       .from("course_packages")
-      .select("id, course_id, certification_id, integrity_report")
+      .select("id, course_id, certification_id, curriculum_id, integrity_report")
       .eq("id", packageId)
       .maybeSingle();
 
     if (!pkg) return json({ error: "Package not found" }, 404);
 
+    // Use curriculum_id for exam_questions (no course_id column on exam_questions)
+    const curriculumId = pkg.curriculum_id;
+
     // Load exam questions stats
     const { count: totalQuestions } = await sb
       .from("exam_questions")
       .select("id", { count: "exact", head: true })
-      .eq("course_id", pkg.course_id);
+      .eq("curriculum_id", curriculumId);
 
     // Difficulty distribution
     const { data: difficultyData } = await sb
       .from("exam_questions")
       .select("difficulty")
-      .eq("course_id", pkg.course_id);
+      .eq("curriculum_id", curriculumId);
 
     const difficulties = difficultyData ?? [];
     const total = difficulties.length || 1;

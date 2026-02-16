@@ -4653,6 +4653,7 @@ export type Database = {
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
           published_at: string | null
+          quality_report: Json | null
           queue_position: number | null
           retry_count: number | null
           started_at: string | null
@@ -4690,6 +4691,7 @@ export type Database = {
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           priority?: number
           published_at?: string | null
+          quality_report?: Json | null
           queue_position?: number | null
           retry_count?: number | null
           started_at?: string | null
@@ -4727,6 +4729,7 @@ export type Database = {
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           priority?: number
           published_at?: string | null
+          quality_report?: Json | null
           queue_position?: number | null
           retry_count?: number | null
           started_at?: string | null
@@ -7784,6 +7787,7 @@ export type Database = {
           content_type: string | null
           created_at: string | null
           id: string
+          metadata: Json | null
           section_key: string
           sort_order: number
           title: string
@@ -7794,6 +7798,7 @@ export type Database = {
           content_type?: string | null
           created_at?: string | null
           id?: string
+          metadata?: Json | null
           section_key: string
           sort_order?: number
           title: string
@@ -7804,6 +7809,7 @@ export type Database = {
           content_type?: string | null
           created_at?: string | null
           id?: string
+          metadata?: Json | null
           section_key?: string
           sort_order?: number
           title?: string
@@ -18652,6 +18658,7 @@ export type Database = {
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
           published_at: string | null
+          quality_report: Json | null
           queue_position: number | null
           retry_count: number | null
           started_at: string | null
@@ -18869,6 +18876,7 @@ export type Database = {
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
           published_at: string | null
+          quality_report: Json | null
           queue_position: number | null
           retry_count: number | null
           started_at: string | null

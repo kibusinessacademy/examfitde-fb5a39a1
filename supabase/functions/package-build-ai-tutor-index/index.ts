@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     assertUuid("package_id", p?.package_id);
     assertUuid("course_id", p?.course_id);
     assertUuid("curriculum_id", p?.curriculum_id);
-    assertUuid("certification_id", p?.certification_id);
+    // certification_id is optional — fallback to curriculum_id for topic lookups
   } catch (e: unknown) {
     return json({ error: (e as Error).message }, 400);
   }
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
   const packageId = p.package_id;
   const courseId = p.course_id;
   const curriculumId = p.curriculum_id;
-  const certificationId = p.certification_id;
+  const certificationId = p.certification_id || curriculumId; // fallback for topic lookups
 
   // Runner SSOT: prerequisites via view (mapped to package_steps)
   if (!(await prereqDone(sb, packageId, "generate_oral_exam"))) {
@@ -74,8 +74,13 @@ Deno.serve(async (req) => {
   }
 
   // Counts — now including curriculum_topics depth
-  const { count: lessonCount } = await sb
-    .from("lessons").select("id", { count: "exact", head: true }).eq("course_id", courseId);
+  // Count lessons via modules (lessons has module_id, not course_id)
+  const { data: modulesForCourse } = await sb
+    .from("modules").select("id").eq("course_id", courseId);
+  const modIds = (modulesForCourse || []).map((m: any) => m.id);
+  const { count: lessonCount } = modIds.length > 0
+    ? await sb.from("lessons").select("id", { count: "exact", head: true }).in("module_id", modIds)
+    : { count: 0 };
 
   const { count: topicCount } = await sb
     .from("curriculum_topics").select("id", { count: "exact", head: true }).eq("certification_id", certificationId);
