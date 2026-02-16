@@ -2110,6 +2110,75 @@ export type Database = {
         }
         Relationships: []
       }
+      ceo_daily_kpis: {
+        Row: {
+          active_subscriptions: number | null
+          avg_score: number | null
+          churn_rate: number | null
+          coach_usage_rate: number | null
+          cost_per_pass_eur: number | null
+          created_at: string
+          date: string
+          dau: number | null
+          drift_events: number | null
+          exam_sessions: number | null
+          id: string
+          llm_cost_eur: number | null
+          mau: number | null
+          new_signups: number | null
+          pass_rate_14d: number | null
+          pass_rate_30d: number | null
+          pass_rate_7d: number | null
+          retention_30d: number | null
+          retention_7d: number | null
+          revenue_eur: number | null
+        }
+        Insert: {
+          active_subscriptions?: number | null
+          avg_score?: number | null
+          churn_rate?: number | null
+          coach_usage_rate?: number | null
+          cost_per_pass_eur?: number | null
+          created_at?: string
+          date: string
+          dau?: number | null
+          drift_events?: number | null
+          exam_sessions?: number | null
+          id?: string
+          llm_cost_eur?: number | null
+          mau?: number | null
+          new_signups?: number | null
+          pass_rate_14d?: number | null
+          pass_rate_30d?: number | null
+          pass_rate_7d?: number | null
+          retention_30d?: number | null
+          retention_7d?: number | null
+          revenue_eur?: number | null
+        }
+        Update: {
+          active_subscriptions?: number | null
+          avg_score?: number | null
+          churn_rate?: number | null
+          coach_usage_rate?: number | null
+          cost_per_pass_eur?: number | null
+          created_at?: string
+          date?: string
+          dau?: number | null
+          drift_events?: number | null
+          exam_sessions?: number | null
+          id?: string
+          llm_cost_eur?: number | null
+          mau?: number | null
+          new_signups?: number | null
+          pass_rate_14d?: number | null
+          pass_rate_30d?: number | null
+          pass_rate_7d?: number | null
+          retention_30d?: number | null
+          retention_7d?: number | null
+          revenue_eur?: number | null
+        }
+        Relationships: []
+      }
       certification_catalog: {
         Row: {
           bloom_distribution: Json | null
@@ -13180,6 +13249,39 @@ export type Database = {
           },
         ]
       }
+      referral_invites: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          id: string
+          invite_code: string
+          invited_email: string | null
+          inviter_id: string
+          reward_granted: boolean | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          id?: string
+          invite_code: string
+          invited_email?: string | null
+          inviter_id: string
+          reward_granted?: boolean | null
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          id?: string
+          invite_code?: string
+          invited_email?: string | null
+          inviter_id?: string
+          reward_granted?: boolean | null
+        }
+        Relationships: []
+      }
       remediation_sessions: {
         Row: {
           completed_at: string | null
@@ -13448,6 +13550,48 @@ export type Database = {
           strategy?: string
           updated_at?: string
           weekly_target?: number
+        }
+        Relationships: []
+      }
+      runbook_entries: {
+        Row: {
+          auto_actions: Json | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          last_triggered_at: string | null
+          severity: string
+          steps: Json
+          title: string
+          trigger_count: number | null
+          trigger_event: string
+          updated_at: string
+        }
+        Insert: {
+          auto_actions?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          severity?: string
+          steps?: Json
+          title: string
+          trigger_count?: number | null
+          trigger_event: string
+          updated_at?: string
+        }
+        Update: {
+          auto_actions?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          severity?: string
+          steps?: Json
+          title?: string
+          trigger_count?: number | null
+          trigger_event?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -14054,6 +14198,36 @@ export type Database = {
         }
         Relationships: []
       }
+      share_events: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          share_channel: string | null
+          share_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          share_channel?: string | null
+          share_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          share_channel?: string | null
+          share_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       skill_nodes: {
         Row: {
           created_at: string
@@ -14084,6 +14258,57 @@ export type Database = {
           lernfeld?: string
           mikro_skill?: string
           weight?: number | null
+        }
+        Relationships: []
+      }
+      slo_metrics: {
+        Row: {
+          cache_hit_rate: number | null
+          created_at: string
+          engine: string
+          error_rate: number | null
+          id: string
+          measured_at: string
+          metric_key: string
+          p50_ms: number | null
+          p95_ms: number | null
+          p99_ms: number | null
+          period: string
+          slo_met: boolean | null
+          slo_target: Json | null
+          total_requests: number | null
+        }
+        Insert: {
+          cache_hit_rate?: number | null
+          created_at?: string
+          engine: string
+          error_rate?: number | null
+          id?: string
+          measured_at?: string
+          metric_key: string
+          p50_ms?: number | null
+          p95_ms?: number | null
+          p99_ms?: number | null
+          period?: string
+          slo_met?: boolean | null
+          slo_target?: Json | null
+          total_requests?: number | null
+        }
+        Update: {
+          cache_hit_rate?: number | null
+          created_at?: string
+          engine?: string
+          error_rate?: number | null
+          id?: string
+          measured_at?: string
+          metric_key?: string
+          p50_ms?: number | null
+          p95_ms?: number | null
+          p99_ms?: number | null
+          period?: string
+          slo_met?: boolean | null
+          slo_target?: Json | null
+          total_requests?: number | null
         }
         Relationships: []
       }
@@ -14929,6 +15154,54 @@ export type Database = {
           },
         ]
       }
+      synthetic_test_results: {
+        Row: {
+          avg_discrimination: number | null
+          avg_quality_score: number | null
+          coverage_score: number | null
+          created_at: string
+          curriculum_id: string
+          error_message: string | null
+          id: string
+          latency_ms: number | null
+          metadata: Json | null
+          question_count: number | null
+          score: number | null
+          status: string
+          test_type: string
+        }
+        Insert: {
+          avg_discrimination?: number | null
+          avg_quality_score?: number | null
+          coverage_score?: number | null
+          created_at?: string
+          curriculum_id: string
+          error_message?: string | null
+          id?: string
+          latency_ms?: number | null
+          metadata?: Json | null
+          question_count?: number | null
+          score?: number | null
+          status?: string
+          test_type?: string
+        }
+        Update: {
+          avg_discrimination?: number | null
+          avg_quality_score?: number | null
+          coverage_score?: number | null
+          created_at?: string
+          curriculum_id?: string
+          error_message?: string | null
+          id?: string
+          latency_ms?: number | null
+          metadata?: Json | null
+          question_count?: number | null
+          score?: number | null
+          status?: string
+          test_type?: string
+        }
+        Relationships: []
+      }
       system_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -15365,6 +15638,42 @@ export type Database = {
           ip_address?: unknown
           metadata?: Json | null
           user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_badges: {
+        Row: {
+          badge_icon: string | null
+          badge_key: string
+          badge_label: string
+          curriculum_id: string | null
+          earned_at: string
+          id: string
+          metadata: Json | null
+          shared_at: string | null
+          user_id: string
+        }
+        Insert: {
+          badge_icon?: string | null
+          badge_key: string
+          badge_label: string
+          curriculum_id?: string | null
+          earned_at?: string
+          id?: string
+          metadata?: Json | null
+          shared_at?: string | null
+          user_id: string
+        }
+        Update: {
+          badge_icon?: string | null
+          badge_key?: string
+          badge_label?: string
+          curriculum_id?: string | null
+          earned_at?: string
+          id?: string
+          metadata?: Json | null
+          shared_at?: string | null
           user_id?: string
         }
         Relationships: []
