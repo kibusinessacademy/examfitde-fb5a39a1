@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { callAIJSON, logLLMCostEvent } from "../_shared/ai-client.ts";
-import { getModelAsync } from "../_shared/model-routing.ts";
+import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 
 /**
@@ -10,15 +10,15 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
  * Replaces placeholder lesson content with AI-generated, profession-specific
  * learning material. Writes to content_versions (Council write path).
  *
- * Batch protocol: processes up to BATCH_SIZE lessons per invocation.
- * Returns { batch_complete: false, batch_cursor } if more remain.
- *
- * Idempotency: checks content_versions before generating. If a version
- * already exists, it skips AI generation and only ensures the lesson
- * table is updated (write-back).
+ * v4 changes:
+ *   - Uses callAIWithFailover() for automatic provider rotation on 429s
+ *   - Adaptive delay with exponential backoff after rate limits
+ *   - Robust idempotency with ON CONFLICT handling
  */
 
 const BATCH_SIZE = 8;
+const BASE_DELAY_MS = 1200;   // 1.2s between calls (was 600ms — too aggressive)
+const MAX_DELAY_MS = 8000;    // Max backoff
 
 const STEP_PROMPTS: Record<string, { system: string; minChars: number }> = {
   einstieg: {
@@ -118,10 +118,6 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return data?.status === "done";
 }
 
-/**
- * Check if a content_version already exists for a lesson+step combo.
- * If so, return the existing content to use for lesson write-back.
- */
 async function existingVersion(sb: ReturnType<typeof createClient>, lessonId: string, step: string) {
   const { data } = await sb
     .from("content_versions")
@@ -135,10 +131,6 @@ async function existingVersion(sb: ReturnType<typeof createClient>, lessonId: st
   return data;
 }
 
-/**
- * Write-back: update lesson content via council-bypass RPC.
- * The guard trigger blocks direct writes; this RPC sets council.publish_bypass.
- */
 async function writeBackToLesson(
   sb: ReturnType<typeof createClient>,
   lessonId: string,
@@ -172,12 +164,10 @@ Deno.serve(async (req) => {
     return json({ error: "Missing package_id or curriculum_id" }, 400);
   }
 
-  // Prerequisite: scaffold must be done (uses correct table)
   if (!(await prereqDone(sb, packageId, "scaffold_learning_course"))) {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: scaffold_learning_course" }, 409);
   }
 
-  // Resolve profession context (Hard Guard)
   let professionName: string;
   try {
     const prof = await resolveProfession(sb, { certificationId, curriculumId });
@@ -186,16 +176,11 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
-  // Find placeholder lessons — those without generated content.
-  // A lesson is a placeholder if:
-  //   - content IS NULL
-  //   - content->>'_placeholder' = 'true'
-  //   - content html is very short (< 100 chars) or contains 'Platzhalter'
   const { data: allLessons, error: fetchErr } = await sb
     .from("lessons")
     .select("id, title, step, module_id, content, modules!inner(course_id, title)")
     .eq("modules.course_id", courseId)
-    .order("id", { ascending: true }); // deterministic order for batch cursor
+    .order("id", { ascending: true });
 
   if (fetchErr) return json({ error: fetchErr.message }, 500);
 
@@ -207,7 +192,6 @@ Deno.serve(async (req) => {
     return false;
   });
 
-  // Apply batch cursor offset
   const startIdx = batchCursor?.offset || 0;
   const batch = placeholderLessons.slice(startIdx, startIdx + BATCH_SIZE);
   const remaining = placeholderLessons.length - startIdx - batch.length;
@@ -224,7 +208,6 @@ Deno.serve(async (req) => {
 
   console.log(`[gen-content] Processing ${batch.length}/${placeholderLessons.length} placeholder lessons (offset ${startIdx}) for ${professionName}`);
 
-  // Load subtopics for context depth
   const { data: topics } = await sb
     .from("curriculum_topics")
     .select("topic_name, difficulty_level, parent_topic_id")
@@ -236,6 +219,7 @@ Deno.serve(async (req) => {
   let generated = 0;
   let skippedWriteBack = 0;
   let failed = 0;
+  let currentDelay = BASE_DELAY_MS;
   const details: any[] = [];
 
   for (const lesson of batch) {
@@ -243,10 +227,9 @@ Deno.serve(async (req) => {
     const stepConfig = STEP_PROMPTS[lesson.step];
     const moduleName = (lesson as any).modules?.title || "";
 
-    // ── Idempotency: check if content_version already exists ──
+    // ── Idempotency: check existing version ──
     const existing = await existingVersion(sb, lesson.id, lesson.step);
     if (existing) {
-      // Content was already generated in a previous run — just ensure lesson write-back
       const wrote = await writeBackToLesson(sb, lesson.id, existing.content_json as Record<string, unknown>);
       skippedWriteBack++;
       details.push({
@@ -257,7 +240,6 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // ── Generate new content via AI ──
     const contextBlock = [
       `Beruf: ${professionName}`,
       `Modul: ${moduleName}`,
@@ -270,29 +252,37 @@ Deno.serve(async (req) => {
       : `${stepConfig?.system || STEP_PROMPTS.verstehen.system}\n\n${contextBlock}`;
 
     try {
-      const routed = await getModelAsync(isMiniCheck ? "minicheck" : "learning_course");
+      // ── Use failover chain instead of single provider ──
+      const chain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
 
-      const result = await callAIJSON({
-        provider: routed.provider,
-        model: routed.model,
-        messages: [
-          {
-            role: "system",
-            content: `Du bist IHK-Ausbildungsexperte für ${professionName}. Erstelle prüfungsrelevante, fachlich tiefe Lerninhalte auf Deutsch. Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter, KEINE generischen Texte.`,
-          },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,
-        tool_choice: { type: "function", function: { name: isMiniCheck ? "create_mini_check" : "create_lesson_content" } },
-        temperature: 0.7,
-        max_tokens: isMiniCheck ? 4096 : 8192,
-      });
+      const result = await callAIWithFailover(
+        chain.map(c => ({ provider: c.provider, model: c.model })),
+        {
+          messages: [
+            {
+              role: "system",
+              content: `Du bist IHK-Ausbildungsexperte für ${professionName}. Erstelle prüfungsrelevante, fachlich tiefe Lerninhalte auf Deutsch. Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter, KEINE generischen Texte.`,
+            },
+            { role: "user", content: userPrompt },
+          ],
+          tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,
+          tool_choice: { type: "function", function: { name: isMiniCheck ? "create_mini_check" : "create_lesson_content" } },
+          temperature: 0.7,
+          max_tokens: isMiniCheck ? 4096 : 8192,
+        },
+      );
 
-      const args = result.toolCalls?.[0]?.function?.arguments;
-      if (!args) throw new Error("No tool response from AI");
-      const content = JSON.parse(args);
+      // Parse tool call from failover result
+      let content: any;
+      if (result.toolCalls && result.toolCalls.length > 0) {
+        content = JSON.parse(result.toolCalls[0].function.arguments);
+      } else if (result.content) {
+        try { content = JSON.parse(result.content); } catch { /* fallthrough */ }
+      }
+      if (!content || (!content.html && !content.questions)) {
+        throw new Error("No parseable tool response from AI");
+      }
 
-      // Validate minimum quality
       if (!isMiniCheck && (!content.html || content.html.length < (stepConfig?.minChars || 400))) {
         throw new Error(`Content too short: ${content.html?.length || 0} chars (min ${stepConfig?.minChars || 400})`);
       }
@@ -301,7 +291,7 @@ Deno.serve(async (req) => {
         ? { type: "mini_check", questions: content.questions, objectives: content.objectives, generated_at: new Date().toISOString(), version: 3 }
         : { type: "text", html: content.html, objectives: content.objectives, generated_at: new Date().toISOString(), version: 3 };
 
-      // Write to content_versions (Council write path — SSOT)
+      // Write to content_versions with upsert-like behavior
       const { data: newVersion, error: vErr } = await sb.from("content_versions").insert({
         course_id: courseId,
         lesson_id: lesson.id,
@@ -313,24 +303,33 @@ Deno.serve(async (req) => {
         entity_type: isMiniCheck ? "minicheck" : "lesson_step",
       }).select("id").single();
 
-      if (vErr) throw vErr;
+      if (vErr) {
+        // Handle duplicate key — likely a race condition retry
+        if (vErr.message?.includes("idx_cv_idempotency") || vErr.code === "23505") {
+          const existing2 = await existingVersion(sb, lesson.id, lesson.step);
+          if (existing2) {
+            await writeBackToLesson(sb, lesson.id, existing2.content_json as Record<string, unknown>);
+            skippedWriteBack++;
+            details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "deduped", versionId: existing2.id });
+            continue;
+          }
+        }
+        throw vErr;
+      }
 
-      // Write-back to lesson for immediate usability
       await writeBackToLesson(sb, lesson.id, finalContent);
 
-      // Council message for audit trail
       await sb.from("council_messages").insert({
         content_version_id: newVersion!.id,
         agent_name: "generate-learning-content",
         message_type: "proposal",
-        message_json: { source: "pipeline-step", reason: "placeholder_replacement", profession: professionName },
+        message_json: { source: "pipeline-step", reason: "placeholder_replacement", profession: professionName, used_provider: result.provider, used_model: result.model },
       });
 
-      // Cost logging
       await logLLMCostEvent(sb, {
         job_type: "generate_learning_content",
-        provider: routed.provider,
-        model: routed.model,
+        provider: result.provider,
+        model: result.model,
         tokens_in: result.usage?.input_tokens || 0,
         tokens_out: result.usage?.output_tokens || 0,
         cost_usd: ((result.usage?.input_tokens || 0) * 0.000003 + (result.usage?.output_tokens || 0) * 0.000015),
@@ -340,16 +339,26 @@ Deno.serve(async (req) => {
       });
 
       generated++;
-      details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "ok", versionId: newVersion!.id });
+      details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "ok", versionId: newVersion!.id, provider: result.provider, model: result.model });
+
+      // Success → reset delay toward base
+      currentDelay = Math.max(BASE_DELAY_MS, currentDelay * 0.7);
+
     } catch (e) {
       failed++;
       const errMsg = (e as Error).message || String(e);
       console.error(`[gen-content] Failed lesson ${lesson.id}: ${errMsg}`);
       details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "failed", error: errMsg });
+
+      // Rate limit → exponential backoff
+      if (e instanceof RateLimitError || errMsg.includes("Rate limit") || errMsg.includes("429")) {
+        currentDelay = Math.min(currentDelay * 2, MAX_DELAY_MS);
+        console.warn(`[gen-content] Backoff increased to ${currentDelay}ms`);
+      }
     }
 
-    // Rate limit protection
-    await new Promise(r => setTimeout(r, 600));
+    // Adaptive delay between calls
+    await new Promise(r => setTimeout(r, currentDelay));
   }
 
   const batchComplete = remaining <= 0;
