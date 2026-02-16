@@ -689,7 +689,12 @@ Deno.serve(async (req) => {
 
   try {
     if (!isFanOut) {
-      if (!(await prereqDone(sb, packageId, "scaffold_learning_course"))) {
+      // Prerequisite: scaffold + content generation must be done
+      const scaffoldDone = await prereqDone(sb, packageId, "scaffold_learning_course");
+      const contentDone = await prereqDone(sb, packageId, "generate_learning_content");
+      
+      if (!scaffoldDone || !contentDone) {
+        const missingStep = !scaffoldDone ? "scaffold_learning_course" : "generate_learning_content";
         const jobId = p.job_id || body.job_id;
         if (jobId) {
           await sb.from("job_queue").update({
@@ -698,9 +703,19 @@ Deno.serve(async (req) => {
             locked_at: null, locked_by: null,
             updated_at: new Date().toISOString(),
           }).eq("id", jobId);
-          return json({ ok: true, delayed: true, reason: "PREREQ_NOT_DONE: scaffold_learning_course" });
+          return json({ ok: true, delayed: true, reason: `PREREQ_NOT_DONE: ${missingStep}` });
         }
-        return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: scaffold_learning_course" }, 409);
+        return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${missingStep}` }, 409);
+      }
+
+      // Placeholder Guard: ensure no lessons still have placeholder content
+      const courseId = p.course_id;
+      if (courseId) {
+        const { data: guardResult } = await sb.rpc("check_no_placeholder_lessons", { p_course_id: courseId });
+        if (guardResult === false) {
+          console.warn(`[ExamPool-v5] BLOCKED: Placeholder lessons still exist for course ${courseId}`);
+          return json({ ok: false, retry: true, error: "PLACEHOLDER_GUARD: Lessons still have placeholder content. generate_learning_content must complete first." }, 409);
+        }
       }
     }
 
