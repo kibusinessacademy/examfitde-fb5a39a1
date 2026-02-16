@@ -19,6 +19,7 @@ import { checkContamination } from "../_shared/contamination-guard.ts";
 const AI_CHUNK_SIZE = 8; // Blueprints per invocation cycle
 const AI_QUESTIONS_PER_CALL = 2; // TURBO: 1-2 questions per AI call — fast, retry-safe
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
+const HARD_CAP_QUESTIONS = 1700; // Absolute maximum per curriculum — stops generation
 
 // ─── Dominanz-Engine v3: Dynamic distributions ────────────────────────────────
 
@@ -444,6 +445,19 @@ Deno.serve(async (req) => {
     const existingHashes = new Set<string>();
     if (existingQs) for (const q of existingQs) existingHashes.add(simpleHash(q.question_text));
 
+    // ─── HARD CAP: Stop generation if we already have enough questions ──────
+    const { count: preCheckCount } = await sb.from("exam_questions")
+      .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+    const preTotal = preCheckCount ?? 0;
+    if (preTotal >= HARD_CAP_QUESTIONS) {
+      console.log(`[ExamPool-Turbo] HARD CAP reached: ${preTotal} >= ${HARD_CAP_QUESTIONS} — marking complete`);
+      const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
+      if (shouldMarkDone) {
+        await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
+      }
+      return json({ ok: true, batch_complete: true, engine: "turbo-v3", total_questions: preTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
+    }
+
     const effectiveTarget = isFanOut ? lfTarget : examTarget;
     const perBlueprint = Math.max(3, Math.ceil(effectiveTarget / bps.length));
     let questionsThisChunk = 0;
@@ -479,6 +493,12 @@ Deno.serve(async (req) => {
 
       currentBpIndex++;
       bpsProcessed++;
+
+      // ── Mid-loop hard cap check ──
+      if (questionsThisChunk > 0 && (preTotal + questionsThisChunk) >= HARD_CAP_QUESTIONS) {
+        console.log(`[ExamPool-Turbo] Mid-loop HARD CAP: ~${preTotal + questionsThisChunk} questions — stopping`);
+        break;
+      }
     }
 
     // Count actual total
@@ -487,9 +507,9 @@ Deno.serve(async (req) => {
 
     const actualTotal = totalQuestions ?? 0;
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
-    const targetReached = actualTotal >= shipTarget;
+    const targetReached = actualTotal >= shipTarget || actualTotal >= HARD_CAP_QUESTIONS;
 
-    console.log(`[ExamPool-Turbo] +${questionsThisChunk} this run, total=${actualTotal}/${examTarget}, BPs ${currentBpIndex}/${bps.length}`);
+    console.log(`[ExamPool-Turbo] +${questionsThisChunk} this run, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}`);
 
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
