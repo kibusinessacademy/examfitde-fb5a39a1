@@ -21,6 +21,57 @@ const AI_QUESTIONS_PER_CALL = 2; // TURBO: 1-2 questions per AI call — fast, r
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
 const HARD_CAP_QUESTIONS = 1700; // Absolute maximum per curriculum — stops generation
 
+// ─── Diversity Engine ─────────────────────────────────────────────────────────
+
+const GERMAN_NAMES = [
+  "Frau Yılmaz", "Herr Petrov", "Frau Nguyen", "Herr Al-Rashid", "Frau Kowalski",
+  "Herr da Silva", "Frau Chen", "Herr Öztürk", "Frau Hoffmann", "Herr Becker",
+  "Frau Richter", "Herr Nowak", "Frau Lehmann", "Herr Braun", "Frau Klein",
+  "Herr Fischer", "Frau Schäfer", "Herr Krämer", "Frau Bergmann", "Herr Lorenz",
+  "Frau Hartmann", "Herr Weiß", "Frau Engel", "Herr Seidel", "Frau Haas",
+  "Herr Baumann", "Frau König", "Herr Dietrich", "Frau Schuster", "Herr Roth",
+  "Frau Maier", "Herr Scholz", "Frau Vogel", "Herr Franke", "Frau Ludwig",
+];
+
+const SENTENCE_OPENERS = [
+  "Ein Kunde möchte", "Im Beratungsgespräch", "Welche", "Stellen Sie sich vor,",
+  "Bei der Prüfung", "Während eines Kundentermins", "Im Rahmen der",
+  "Ein Unternehmen plant", "Zur Beurteilung", "Angenommen,",
+  "In der Filiale", "Beim Jahresabschluss", "Ein Auszubildender fragt",
+  "Nach Analyse der Unterlagen", "Das Kreditinstitut prüft",
+  "Vor dem Hintergrund", "Gemäß den Vorschriften", "Aus betriebswirtschaftlicher Sicht",
+  "Im Zuge der Digitalisierung", "Ein langjähriger Geschäftskunde",
+];
+
+// ─── Text-Similarity (Jaccard n-gram) ─────────────────────────────────────────
+
+function textNgrams(text: string, n = 3): Set<string> {
+  const norm = text.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  const grams = new Set<string>();
+  for (let i = 0; i <= norm.length - n; i++) grams.add(norm.slice(i, i + n));
+  return grams;
+}
+
+function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+  let intersection = 0;
+  for (const g of a) if (b.has(g)) intersection++;
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 1 : intersection / union;
+}
+
+const TEXT_SIMILARITY_THRESHOLD = 0.70;
+
+function shuffleArray<T>(arr: T[], seed: number): T[] {
+  const result = [...arr];
+  let s = seed;
+  for (let i = result.length - 1; i > 0; i--) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    const j = s % (i + 1);
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 // ─── Dominanz-Engine v3: Dynamic distributions ────────────────────────────────
 
 let DIFFICULTY_DISTRIBUTION: Record<string, number> = {
@@ -147,13 +198,23 @@ function buildTurboPrompt(
     ? `\nUnterthemen: ${depthTopics.slice(0, 8).join(", ")}`
     : "";
 
+  // Pick diverse names and openers for this prompt
+  const namePool = shuffleArray(GERMAN_NAMES, Date.now()).slice(0, 6).join(", ");
+  const openerPool = shuffleArray(SENTENCE_OPENERS, Date.now()).slice(0, 5).join('", "');
+
   const system = `IHK-Prüfungsexperte für ${professionName}. Erstelle ${diffLabel[difficulty]} ${typeHint[questionType]}
 
 REGELN:
 - KEINE Platzhalter {variable} — alle Werte konkret
-- Konkreter Praxiskontext (Namen, Zahlen, Situationen)
-- Distraktoren = typische Fehlannahmen, nicht offensichtlich falsch
-- Fachsprache IHK-Niveau
+- Konkreter Praxiskontext mit realistischen Szenarien
+- Verwende abwechslungsreiche Personennamen aus diesem Pool: ${namePool}
+- Beginne JEDE Frage mit einem ANDEREN Satzanfang. Nutze z.B.: "${openerPool}"
+- NIEMALS mehrere Fragen mit "Die…", "Herr…" oder "Frau…" beginnen
+- Schreibe in natürlichem, flüssigem Deutsch — wie ein erfahrener IHK-Prüfer
+- Distraktoren = typische Fehlannahmen der Zielgruppe, NICHT offensichtlich falsch
+- Jeder Distraktor muss plausibel klingen und einen realen Denkfehler widerspiegeln
+- Fachsprache IHK-Niveau, aber verständlich formuliert
+- Vermeide Wiederholungen von Szenarien und Formulierungen
 
 Antworte NUR mit JSON-Array:
 [{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","tags":["tag1"]}]`;
@@ -175,6 +236,7 @@ async function generateTurboQuestions(
   difficulty: DifficultyKey,
   questionType: QuestionTypeKey,
   existingHashes: Set<string>,
+  existingNgramSets: Set<string>[],
   professionName: string,
 ): Promise<number> {
   let compTitle = bp.name;
@@ -265,6 +327,23 @@ async function generateTurboQuestions(
     const hash = simpleHash(q.question_text);
     if (existingHashes.has(hash)) continue;
     existingHashes.add(hash);
+
+    // Text-similarity dedup (Jaccard n-gram, threshold 0.70)
+    const qNgrams = textNgrams(q.question_text);
+    let tooSimilar = false;
+    // Only check last 200 entries for performance
+    const checkWindow = existingNgramSets.slice(-200);
+    for (const existingNg of checkWindow) {
+      if (jaccardSimilarity(qNgrams, existingNg) > TEXT_SIMILARITY_THRESHOLD) {
+        tooSimilar = true;
+        break;
+      }
+    }
+    if (tooSimilar) {
+      console.log(`[ExamPool-Turbo] NEAR-DUP skipped: "${q.question_text.slice(0, 50)}…"`);
+      continue;
+    }
+    existingNgramSets.push(qNgrams);
 
     const { error } = await sb.from("exam_questions").insert({
       curriculum_id: bp.curriculum_id,
@@ -445,6 +524,14 @@ Deno.serve(async (req) => {
     const existingHashes = new Set<string>();
     if (existingQs) for (const q of existingQs) existingHashes.add(simpleHash(q.question_text));
 
+    // Build n-gram sets for text-similarity dedup
+    const existingNgramSets: Set<string>[] = [];
+    if (existingQs) {
+      // Only keep last 300 for perf
+      const recent = existingQs.slice(-300);
+      for (const q of recent) existingNgramSets.push(textNgrams(q.question_text));
+    }
+
     // ─── HARD CAP: Stop generation if we already have enough questions ──────
     const { count: preCheckCount } = await sb.from("exam_questions")
       .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
@@ -483,7 +570,7 @@ Deno.serve(async (req) => {
 
         try {
           const generated = await generateTurboQuestions(
-            sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, existingHashes, professionName
+            sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, existingHashes, existingNgramSets, professionName
           );
           questionsThisChunk += generated;
         } catch (e: unknown) {
