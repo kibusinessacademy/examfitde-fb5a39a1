@@ -17860,6 +17860,7 @@ export type Database = {
       expire_stale_steps: {
         Args: never
         Returns: {
+          job_id: string
           package_id: string
           runner_id: string
           step_key: string

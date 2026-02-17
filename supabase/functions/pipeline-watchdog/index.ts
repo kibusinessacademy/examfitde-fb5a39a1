@@ -151,20 +151,21 @@ Deno.serve(async (req) => {
         10,
       );
       if (!alreadyAlerted) {
-        await sb
-          .from("ops_alerts")
-          .insert({
-            source: "pipeline-watchdog",
-            severity: "error",
-            message: `PIPELINE_STALLED: queued=${queuedCount} building=${buildingCount} leases=${activeLeases}`,
-            payload: {
-              queued: queuedCount,
-              building: buildingCount,
-              activeLeases,
-              ts: new Date().toISOString(),
-            },
-          })
-          .catch(() => {});
+        try {
+          await sb
+            .from("ops_alerts")
+            .insert({
+              source: "pipeline-watchdog",
+              severity: "error",
+              message: `PIPELINE_STALLED: queued=${queuedCount} building=${buildingCount} leases=${activeLeases}`,
+              payload: {
+                queued: queuedCount,
+                building: buildingCount,
+                activeLeases,
+                ts: new Date().toISOString(),
+              },
+            });
+        } catch (_) { /* non-critical */ }
         actions.push(
           `PIPELINE_STALLED alert: queued=${queuedCount} building=${buildingCount}`,
         );
@@ -174,33 +175,35 @@ Deno.serve(async (req) => {
     // ── 5) Auto-resolve stall alerts when healthy ──
     const isHealthy = (activeLeases ?? 0) > 0;
     if (isHealthy) {
-      await sb
-        .from("ops_alerts")
-        .update({ acknowledged_at: new Date().toISOString() })
-        .eq("source", "pipeline-watchdog")
-        .is("acknowledged_at", null)
-        .ilike("message", "%PIPELINE_STALLED%")
-        .catch(() => {});
+      try {
+        await sb
+          .from("ops_alerts")
+          .update({ acknowledged_at: new Date().toISOString() })
+          .eq("source", "pipeline-watchdog")
+          .is("acknowledged_at", null)
+          .ilike("message", "%PIPELINE_STALLED%");
+      } catch (_) { /* non-critical */ }
     }
 
     // ── Log cycle ──
-    await sb
-      .from("auto_heal_log")
-      .insert({
-        action_type: "pipeline_watchdog_cycle",
-        trigger_source: "cron",
-        result_status: actions.length > 0 ? "healed" : "noop",
-        result_detail: `${actions.length} actions`,
-        metadata: {
-          actions,
-          queued: queuedCount,
-          building: buildingCount,
-          activeLeases,
-          stale_steps: staleSteps.length,
-          stale_leases: staleLeases.length,
-        },
-      })
-      .catch(() => {});
+    try {
+      await sb
+        .from("auto_heal_log")
+        .insert({
+          action_type: "pipeline_watchdog_cycle",
+          trigger_source: "cron",
+          result_status: actions.length > 0 ? "healed" : "noop",
+          result_detail: `${actions.length} actions`,
+          metadata: {
+            actions,
+            queued: queuedCount,
+            building: buildingCount,
+            activeLeases,
+            stale_steps: staleSteps.length,
+            stale_leases: staleLeases.length,
+          },
+        });
+    } catch (_) { /* non-critical */ }
 
     console.log(
       `[watchdog] Cycle done: ${actions.length} actions, queued=${queuedCount} building=${buildingCount} leases=${activeLeases}`,
@@ -217,14 +220,15 @@ Deno.serve(async (req) => {
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error("[watchdog] Error:", msg);
-    await sb
-      .from("ops_alerts")
-      .insert({
-        source: "pipeline-watchdog",
-        severity: "error",
-        message: `Watchdog crash: ${msg.slice(0, 500)}`,
-      })
-      .catch(() => {});
+    try {
+      await sb
+        .from("ops_alerts")
+        .insert({
+          source: "pipeline-watchdog",
+          severity: "error",
+          message: `Watchdog crash: ${msg.slice(0, 500)}`,
+        });
+    } catch (_) { /* can't alert about alert failure */ }
     return json({ ok: false, error: msg }, 500);
   }
 });
