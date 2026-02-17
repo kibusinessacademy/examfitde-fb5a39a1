@@ -122,8 +122,10 @@ function pickNextAction(steps: StepRow[]): StepAction {
     if (s.status === "done" || s.status === "skipped") continue;
     if (s.status === "blocked") continue;
 
-    // Poll if step has a linked job (both enqueued and running steps)
-    if ((s.status === "enqueued" || s.status === "running") && s.job_id) {
+    // Poll if step has a linked job (enqueued, running, OR timed-out steps)
+    // FIX: timeout steps with a job_id must poll the job first — the job may
+    // already be completed while expire_stale_steps() timed out the step.
+    if ((s.status === "enqueued" || s.status === "running" || s.status === "timeout") && s.job_id) {
       return { action: "poll", stepKey: k, jobId: s.job_id };
     }
 
