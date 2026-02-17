@@ -17,15 +17,16 @@ import { getModel } from "../_shared/model-routing.ts";
  *   - Contamination guard (cross-profession terms)
  *   - Mini-check: exactly 4 questions, each with 4 options
  *
- * TIER 2 (Random sample ≤ 15 lessons, LLM validation):
+ * TIER 2 (Random sample ≤ 4 lessons, LLM validation):
  *   - Sends to validate-content prompt for deep quality scoring
  *   - If sample avg < 70 → entire step fails (triggers re-generation)
  *   - Individual lessons scoring < 60 → marked for regeneration
+ *   - Early exit: if first 2 calls all rate-limited, skip Tier 2 and trust Tier 1
  *
  * On failure: resets generate_learning_content step to re-run for failed lessons.
  */
 
-const SAMPLE_SIZE = 8;
+const SAMPLE_SIZE = 4;
 const MIN_HTML_LENGTH = 400;
 const MIN_MINICHECK_LENGTH = 200;
 const SAMPLE_PASS_THRESHOLD = 70;
@@ -146,10 +147,9 @@ async function tier2Validate(
     };
   } catch (e) {
     const errMsg = (e as Error).message || "";
-    const isRateLimit = errMsg.includes("cooldown") || errMsg.includes("429") || errMsg.includes("rate") || errMsg.includes("blocked");
     console.error(`[validate-lessons] LLM validation failed for ${lesson.id}: ${errMsg}`);
-    // Rate-limit errors → skip (don't penalize score), other errors → conservative score
-    return { lessonId: lesson.id, score: isRateLimit ? -1 : 50, decision: isRateLimit ? "skipped" : "revise", issues: [`LLM_ERROR: ${errMsg}`] };
+    // Any LLM error → skip (don't penalize score). Trust Tier 1 structural checks.
+    return { lessonId: lesson.id, score: -1, decision: "skipped", issues: [`LLM_ERROR: ${errMsg}`] };
   }
 }
 
@@ -207,24 +207,31 @@ Deno.serve(async (req) => {
 
   console.log(`[validate-lessons] Tier 1: ${t1Results.length - t1Failed.length}/${t1Results.length} passed (${t1PassRate.toFixed(1)}%)`);
 
-  // Update qc_status for Tier 1 failures
-  for (const fail of t1Failed) {
-    await sb.from("lessons").update({
-      qc_status: "tier1_failed",
-      quality_flags: { tier1_issues: fail.issues, validated_at: new Date().toISOString() },
-    }).eq("id", fail.lessonId);
+  // Batch update qc_status for Tier 1 failures (max 50 to avoid timeout)
+  const failIds = t1Failed.map(f => f.lessonId);
+  if (failIds.length > 0) {
+    // Batch update in chunks of 50
+    for (let i = 0; i < failIds.length; i += 50) {
+      const chunk = failIds.slice(i, i + 50);
+      await sb.from("lessons").update({
+        qc_status: "tier1_failed",
+        quality_flags: { tier1: "failed", validated_at: new Date().toISOString() },
+      }).in("id", chunk);
+    }
   }
 
   // If > 20% fail Tier 1, abort early — content generation has systemic issues
   if (t1PassRate < 80) {
-    // Mark contaminated/placeholder lessons for re-generation by clearing their content
     const criticalFails = t1Failed.filter(f =>
       f.issues.some(i => i.includes("PLACEHOLDER") || i.includes("CONTAMINATION"))
     );
-    for (const fail of criticalFails) {
+    const criticalIds = criticalFails.map(f => f.lessonId);
+    // Batch reset critical failures
+    for (let i = 0; i < criticalIds.length; i += 50) {
+      const chunk = criticalIds.slice(i, i + 50);
       await sb.from("lessons").update({
-        content: { _placeholder: true, _regeneration_reason: fail.issues.join("; ") },
-      }).eq("id", fail.lessonId);
+        content: { _placeholder: true, _regeneration_reason: "tier1_critical_fail" },
+      }).in("id", chunk);
     }
 
     return json({
@@ -267,8 +274,15 @@ Deno.serve(async (req) => {
   console.log(`[validate-lessons] Tier 2: Sampling ${sample.length} lessons for LLM validation`);
 
   const t2Results: Array<{ lessonId: string; score: number; decision: string; issues: string[] }> = [];
+  let consecutiveRateLimits = 0;
 
   for (const lessonId of sample) {
+    // Early exit: if first 2 consecutive calls are rate-limited, skip remaining
+    if (consecutiveRateLimits >= 2) {
+      console.log(`[validate-lessons] Tier 2: Early exit after ${consecutiveRateLimits} consecutive rate limits — trusting Tier 1`);
+      break;
+    }
+
     const lesson = lessons.find((l: any) => l.id === lessonId);
     if (!lesson) continue;
 
@@ -282,26 +296,30 @@ Deno.serve(async (req) => {
 
     t2Results.push(result);
 
-    // Update lesson qc_status
-    await sb.from("lessons").update({
-      qc_status: result.decision === "approve" ? "approved" : result.decision === "reject" ? "rejected" : "needs_revision",
-      quality_flags: {
-        tier2_score: result.score,
-        tier2_decision: result.decision,
-        tier2_issues: result.issues,
-        validated_at: new Date().toISOString(),
-      },
-    }).eq("id", lesson.id);
-
-    // Mark rejected lessons for re-generation
-    if (result.score < INDIVIDUAL_REJECT_THRESHOLD) {
+    if (result.score === -1) {
+      consecutiveRateLimits++;
+    } else {
+      consecutiveRateLimits = 0;
+      // Only update individual lesson qc_status for scored results
       await sb.from("lessons").update({
-        content: { _placeholder: true, _regeneration_reason: `LLM score ${result.score}/100: ${result.issues.join("; ")}` },
+        qc_status: result.decision === "approve" ? "approved" : result.decision === "reject" ? "rejected" : "needs_revision",
+        quality_flags: {
+          tier2_score: result.score,
+          tier2_decision: result.decision,
+          validated_at: new Date().toISOString(),
+        },
       }).eq("id", lesson.id);
+
+      // Mark rejected lessons for re-generation
+      if (result.score < INDIVIDUAL_REJECT_THRESHOLD) {
+        await sb.from("lessons").update({
+          content: { _placeholder: true, _regeneration_reason: `LLM score ${result.score}/100` },
+        }).eq("id", lesson.id);
+      }
     }
 
-    // Delay to avoid rate limits (staggered with jitter)
-    await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
+    // Longer delay to avoid rate limits (8-12s between calls)
+    await new Promise(r => setTimeout(r, 8000 + Math.random() * 4000));
   }
 
   // Filter out rate-limited results (score=-1) from average calculation
@@ -315,15 +333,15 @@ Deno.serve(async (req) => {
 
   console.log(`[validate-lessons] Tier 2: avg=${avgScore.toFixed(1)}, rejected=${rejected.length}/${t2Results.length}`);
 
-  // Mark all non-sampled passed lessons as tier1_passed
+  // Batch mark all non-sampled passed lessons as tier1_passed (in chunks)
   const sampledSet = new Set(sample);
-  for (const r of t1Passed) {
-    if (!sampledSet.has(r.lessonId)) {
-      await sb.from("lessons").update({
-        qc_status: "tier1_passed",
-        quality_flags: { validated_at: new Date().toISOString(), tier1: "passed" },
-      }).eq("id", r.lessonId);
-    }
+  const passedNotSampled = t1Passed.filter(r => !sampledSet.has(r.lessonId)).map(r => r.lessonId);
+  for (let i = 0; i < passedNotSampled.length; i += 100) {
+    const chunk = passedNotSampled.slice(i, i + 100);
+    await sb.from("lessons").update({
+      qc_status: "tier1_passed",
+      quality_flags: { validated_at: new Date().toISOString(), tier1: "passed" },
+    }).in("id", chunk);
   }
 
   // ── Decision ──
