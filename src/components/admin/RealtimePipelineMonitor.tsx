@@ -134,10 +134,12 @@ export default function RealtimePipelineMonitor() {
                   {meta.label}
                 </span>
 
-                {/* Attempt counter */}
-                <span className="text-[10px] text-muted-foreground">
-                  {step.attempts}/{step.max_attempts}
-                </span>
+                {/* Attempt counter – only show for active/failed steps */}
+                {(isRunning || isFailed) && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {step.attempts}/{step.max_attempts}
+                  </span>
+                )}
 
                 {/* Heartbeat age (only for running) */}
                 {isRunning && <HeartbeatAge ts={step.last_heartbeat_at} />}
