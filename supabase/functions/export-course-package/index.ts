@@ -78,7 +78,15 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const planJson = plan as Record<string, unknown> | null;
-    const curriculumId = (planJson?.plan as Record<string, unknown>)?.curriculum_id as string | undefined;
+    let curriculumId = (planJson?.plan as Record<string, unknown>)?.curriculum_id as string | undefined;
+
+    // Fallback: resolve curriculumId from course record
+    if (!curriculumId && cid) {
+      try {
+        const { data: cRec } = await sb.from("courses").select("curriculum_id").eq("id", cid).maybeSingle();
+        if (cRec?.curriculum_id) curriculumId = cRec.curriculum_id;
+      } catch (_e) { /* best-effort */ }
+    }
 
     // ── Load handbook (best-effort) ──
     let handbookMd = "# Handbuch\n\n_(nicht verfügbar)_\n";
@@ -139,23 +147,38 @@ Deno.serve(async (req) => {
       tutorPolicy = data;
     }
 
-    // ── Questions summary ──
+    // ── Questions summary (curriculum-scoped!) ──
     let questionsSummary: Record<string, unknown> = { note: "no_summary" };
     try {
-      const { count } = await sb
-        .from("exam_questions")
-        .select("id", { count: "exact", head: true });
-      questionsSummary = { total_exam_questions: count ?? 0 };
+      if (curriculumId) {
+        const { count } = await sb
+          .from("exam_questions")
+          .select("id", { count: "exact", head: true })
+          .eq("curriculum_id", curriculumId);
+        questionsSummary = { total_exam_questions: count ?? 0, curriculum_id: curriculumId };
+      } else {
+        questionsSummary = { total_exam_questions: 0, note: "no_curriculum_id_resolved" };
+      }
     } catch (_e) { /* best-effort */ }
 
-    // ── Course snapshot ──
+    // ── Course snapshot (lessons via modules join) ──
     let courseSnapshot: unknown = null;
     if (cid) {
       try {
-        const { data: course } = await sb.from("courses").select("id, title, status, description, estimated_duration").eq("id", cid).maybeSingle();
+        const { data: course } = await sb.from("courses").select("id, title, status, description, estimated_duration, curriculum_id").eq("id", cid).maybeSingle();
         const { data: modules } = await sb.from("modules").select("id, title, sort_order").eq("course_id", cid).order("sort_order");
-        const { count: lessonCount } = await sb.from("lessons").select("id", { count: "exact", head: true }).eq("course_id", cid);
-        courseSnapshot = { course, modules, lessonsCount: lessonCount ?? 0 };
+        const moduleIds = (modules || []).map((m: Record<string, unknown>) => m.id as string);
+        let lessonCount = 0;
+        if (moduleIds.length > 0) {
+          const { count } = await sb.from("lessons").select("id", { count: "exact", head: true }).in("module_id", moduleIds);
+          lessonCount = count ?? 0;
+        }
+        courseSnapshot = { course, modules, lessonsCount: lessonCount };
+
+        // Resolve curriculumId from course if plan didn't have it
+        if (!curriculumId && course?.curriculum_id) {
+          // Use for downstream: tutor policy, handbook, questions
+        }
       } catch (_e) { /* best-effort */ }
     }
 
