@@ -7,7 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-export type AIProvider = "openai" | "anthropic" | "google" | "deepseek";
+export type AIProvider = "openai" | "anthropic" | "google" | "deepseek" | "lovable";
 
 export type PipelineIntent =
   | "learning_course"
@@ -40,43 +40,41 @@ export interface ModelChoice {
 // ── Hardcoded Fallback Table ──────────────────────────────────
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   learning_course: [
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-    { provider: "openai", model: "gpt-4.1" },
+    { provider: "lovable", model: "google/gemini-2.5-pro" },
+    { provider: "lovable", model: "openai/gpt-5" },
   ],
   learning_content: [
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-    { provider: "openai", model: "gpt-4.1" },
+    { provider: "lovable", model: "google/gemini-2.5-pro" },
+    { provider: "lovable", model: "openai/gpt-5" },
   ],
   exam_questions: [
-    { provider: "openai", model: "gpt-4o-mini" },
-    { provider: "google", model: "gemini-2.5-flash" },
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-    { provider: "openai", model: "gpt-4.1", is_fallback: true },
+    { provider: "lovable", model: "openai/gpt-5-mini" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "google/gemini-2.5-pro", is_fallback: true },
   ],
   oral_exam: [
-    { provider: "openai", model: "gpt-4.1-mini" },
-    { provider: "openai", model: "gpt-4.1" },
+    { provider: "lovable", model: "openai/gpt-5-mini" },
+    { provider: "lovable", model: "openai/gpt-5" },
   ],
   handbook: [
-    { provider: "openai", model: "gpt-4.1" },
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+    { provider: "lovable", model: "openai/gpt-5" },
+    { provider: "lovable", model: "google/gemini-2.5-pro" },
   ],
   minicheck: [
-    { provider: "openai", model: "gpt-4.1-mini" },
-    { provider: "openai", model: "gpt-4.1" },
+    { provider: "lovable", model: "openai/gpt-5-mini" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
   ],
   seo_content: [
-    { provider: "google", model: "gemini-2.5-flash" },
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-    { provider: "openai", model: "gpt-4.1" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "google/gemini-2.5-pro" },
   ],
   council_review: [
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-    { provider: "openai", model: "gpt-4.1" },
+    { provider: "lovable", model: "google/gemini-2.5-pro" },
+    { provider: "lovable", model: "openai/gpt-5" },
   ],
   quality_audit: [
-    { provider: "openai", model: "gpt-4.1" },
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+    { provider: "lovable", model: "openai/gpt-5" },
+    { provider: "lovable", model: "google/gemini-2.5-pro" },
   ],
   embeddings: [
     { provider: "openai", model: "text-embedding-3-large" },
@@ -85,32 +83,28 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-image-1" },
   ],
   support: [
-    { provider: "google", model: "gemini-2.5-flash" },
-    { provider: "openai", model: "gpt-4.1-mini" },
-    { provider: "deepseek", model: "deepseek-chat" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "openai/gpt-5-mini" },
   ],
   summary: [
-    { provider: "google", model: "gemini-2.5-flash" },
-    { provider: "openai", model: "gpt-4.1-mini" },
-    { provider: "deepseek", model: "deepseek-chat" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "openai/gpt-5-mini" },
   ],
   repair: [
-    { provider: "openai", model: "gpt-4.1-mini" },
-    { provider: "google", model: "gemini-2.5-flash" },
-    { provider: "openai", model: "gpt-4.1" },
+    { provider: "lovable", model: "openai/gpt-5-mini" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
   ],
   repair_content: [
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-    { provider: "openai", model: "gpt-4.1" },
+    { provider: "lovable", model: "google/gemini-2.5-pro" },
+    { provider: "lovable", model: "openai/gpt-5" },
   ],
   blooms_classify: [
-    { provider: "google", model: "gemini-2.5-flash" },
-    { provider: "openai", model: "gpt-4.1-mini" },
-    { provider: "openai", model: "gpt-4.1" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "openai/gpt-5-mini" },
   ],
   curriculum_import: [
-    { provider: "openai", model: "gpt-4.1" },
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+    { provider: "lovable", model: "openai/gpt-5" },
+    { provider: "lovable", model: "google/gemini-2.5-pro" },
   ],
 };
 
@@ -280,13 +274,13 @@ export function getEscalationModel(
   if (validationScore >= threshold) return null;
 
   const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
-    exam_questions: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-    oral_exam: { provider: "openai", model: "gpt-4.1" },
-    minicheck: { provider: "openai", model: "gpt-4.1" },
-    support: { provider: "openai", model: "gpt-4.1" },
-    summary: { provider: "openai", model: "gpt-4.1" },
-    repair: { provider: "openai", model: "gpt-4.1" },
-    blooms_classify: { provider: "openai", model: "gpt-4.1" },
+    exam_questions: { provider: "lovable", model: "google/gemini-2.5-pro" },
+    oral_exam: { provider: "lovable", model: "openai/gpt-5" },
+    minicheck: { provider: "lovable", model: "openai/gpt-5" },
+    support: { provider: "lovable", model: "openai/gpt-5" },
+    summary: { provider: "lovable", model: "openai/gpt-5" },
+    repair: { provider: "lovable", model: "openai/gpt-5" },
+    blooms_classify: { provider: "lovable", model: "openai/gpt-5" },
   };
 
   return escalationMap[intent] || null;
