@@ -275,22 +275,36 @@ Deno.serve(async (req) => {
     }
 
     // ── FIX 5: Stuck in "building" with no active jobs ──────────
+    // IMPORTANT: Check for active leases FIRST. If a runner holds a lease,
+    // the package is being actively processed and must NOT be reset.
+    // The old logic caused an infinite loop: runner sets building → autofix
+    // resets to queued → runner re-acquires → repeat (22 resets in 30min).
     if (pkg.status === "building") {
-      const { count: activeJobs } = await sb
-        .from("job_queue")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "processing"])
-        .contains("payload", { package_id: packageId });
+      const { count: activeLeases } = await sb
+        .from("package_leases")
+        .select("package_id", { count: "exact", head: true })
+        .eq("package_id", packageId)
+        .gt("lease_until", new Date().toISOString());
 
-      if ((activeJobs ?? 0) === 0) {
-        if (!dryRun) {
-          await sb.from("course_packages").update({ status: "queued", build_progress: 0 }).eq("id", packageId);
-          fixes.push({ fix: "STUCK_STATUS", status: "applied", detail: "Reset from 'building' to 'queued' (0 active jobs)" });
-        } else {
-          fixes.push({ fix: "STUCK_STATUS", status: "skipped", detail: "Would reset to 'queued' (dry run)" });
-        }
+      if ((activeLeases ?? 0) > 0) {
+        fixes.push({ fix: "STUCK_STATUS", status: "skipped", detail: `Active lease exists — runner is processing` });
       } else {
-        fixes.push({ fix: "STUCK_STATUS", status: "skipped", detail: `${activeJobs} active jobs still running` });
+        const { count: activeJobs } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["pending", "processing"])
+          .contains("payload", { package_id: packageId });
+
+        if ((activeJobs ?? 0) === 0) {
+          if (!dryRun) {
+            await sb.from("course_packages").update({ status: "queued", build_progress: 0 }).eq("id", packageId);
+            fixes.push({ fix: "STUCK_STATUS", status: "applied", detail: "Reset from 'building' to 'queued' (0 active jobs, 0 leases)" });
+          } else {
+            fixes.push({ fix: "STUCK_STATUS", status: "skipped", detail: "Would reset to 'queued' (dry run)" });
+          }
+        } else {
+          fixes.push({ fix: "STUCK_STATUS", status: "skipped", detail: `${activeJobs} active jobs still running` });
+        }
       }
     } else {
       fixes.push({ fix: "STUCK_STATUS", status: "skipped", detail: `Status is '${pkg.status}', not stuck` });
