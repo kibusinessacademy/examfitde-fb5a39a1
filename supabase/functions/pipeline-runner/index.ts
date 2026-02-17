@@ -26,9 +26,12 @@ type StepKey =
   | "validate_learning_content"
   | "auto_seed_exam_blueprints"
   | "generate_exam_pool"
+  | "validate_exam_pool"
   | "generate_oral_exam"
+  | "validate_oral_exam"
   | "build_ai_tutor_index"
   | "generate_handbook"
+  | "validate_handbook"
   | "run_integrity_check"
   | "quality_council"
   | "auto_publish";
@@ -39,9 +42,12 @@ const STEP_ORDER: StepKey[] = [
   "validate_learning_content",
   "auto_seed_exam_blueprints",
   "generate_exam_pool",
+  "validate_exam_pool",
   "generate_oral_exam",
+  "validate_oral_exam",
   "build_ai_tutor_index",
   "generate_handbook",
+  "validate_handbook",
   "run_integrity_check",
   "quality_council",
   "auto_publish",
@@ -54,9 +60,12 @@ const STEP_TO_JOB_TYPE: Record<StepKey, string> = {
   validate_learning_content: "package_validate_learning_content",
   auto_seed_exam_blueprints: "package_auto_seed_exam_blueprints",
   generate_exam_pool: "package_generate_exam_pool",
+  validate_exam_pool: "package_validate_exam_pool",
   generate_oral_exam: "package_generate_oral_exam",
+  validate_oral_exam: "package_validate_oral_exam",
   build_ai_tutor_index: "package_build_ai_tutor_index",
   generate_handbook: "package_generate_handbook",
+  validate_handbook: "package_validate_handbook",
   run_integrity_check: "package_run_integrity_check",
   quality_council: "package_quality_council",
   auto_publish: "package_auto_publish",

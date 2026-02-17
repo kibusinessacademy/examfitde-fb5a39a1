@@ -6794,6 +6794,7 @@ export type Database = {
           learning_field_id: string | null
           normalized_hash: string | null
           options: Json
+          qc_status: string | null
           question_text: string
           reviewed_at: string | null
           reviewed_by: string | null
@@ -6821,6 +6822,7 @@ export type Database = {
           learning_field_id?: string | null
           normalized_hash?: string | null
           options: Json
+          qc_status?: string | null
           question_text: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -6848,6 +6850,7 @@ export type Database = {
           learning_field_id?: string | null
           normalized_hash?: string | null
           options?: Json
+          qc_status?: string | null
           question_text?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
