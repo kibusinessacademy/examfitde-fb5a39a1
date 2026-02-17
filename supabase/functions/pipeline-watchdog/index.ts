@@ -58,6 +58,8 @@ Deno.serve(async (req) => {
 
   try {
     // ── 1) Expire stale steps (heartbeat-based timeout) ──
+    // SAFETY: Before expiring, verify the linked job isn't still active.
+    // The RPC only expires steps in 'running' status with stale heartbeats.
     const { data: expiredSteps, error: stepErr } = await sb.rpc(
       "expire_stale_steps",
     );
@@ -68,13 +70,33 @@ Deno.serve(async (req) => {
       package_id: string;
       step_key: string;
       runner_id: string;
+      job_id?: string;
     }>) ?? [];
 
     for (const s of staleSteps) {
+      // Double-check: if the step has a job_id, verify the job isn't still running
+      if (s.job_id) {
+        const { data: job } = await sb
+          .from("job_queue")
+          .select("status")
+          .eq("id", s.job_id)
+          .maybeSingle();
+
+        if (job && (job.status === "processing" || job.status === "pending")) {
+          // Job is still alive — revert the timeout, just heartbeat it
+          console.log(`[watchdog] Step ${s.step_key} timed out but job ${s.job_id.slice(0, 8)} is ${job.status} — reverting timeout`);
+          await sb
+            .from("package_steps")
+            .update({ status: "running", last_heartbeat_at: new Date().toISOString() })
+            .eq("package_id", s.package_id)
+            .eq("step_key", s.step_key);
+          continue;
+        }
+      }
+
       actions.push(
         `Step timeout: ${s.step_key} on pkg ${s.package_id.slice(0, 8)}`,
       );
-      // Keep as building — the runner's acquire function will reclaim it
       await sb
         .from("course_packages")
         .update({
