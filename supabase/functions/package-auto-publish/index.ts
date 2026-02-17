@@ -80,11 +80,21 @@ Deno.serve(async (req) => {
       }, 202);
     }
 
-    await sb.from("course_package_reviews").upsert({
-      course_package_id: packageId,
-      status: "approved",
-      notes: "Auto-approved by pipeline to prevent blocking",
-    }, { onConflict: "course_package_id" }).catch(() => {});
+    // Auto-approve: try update first, then insert if no row exists
+    try {
+      if (review) {
+        await sb.from("course_package_reviews")
+          .update({ status: "approved", notes: "Auto-approved by pipeline" })
+          .eq("course_package_id", packageId);
+      } else {
+        await sb.from("course_package_reviews")
+          .insert({
+            course_package_id: packageId,
+            status: "approved",
+            notes: "Auto-approved by pipeline to prevent blocking",
+          });
+      }
+    } catch (_) { /* non-critical — proceed to publish */ }
   }
 
   // Integrity hard-fail gate
