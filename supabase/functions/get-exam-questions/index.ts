@@ -197,7 +197,7 @@ serve(async (req) => {
       );
     }
 
-    // Load learning fields with competency counts for weighting
+    // Load learning fields with actual question counts for proportional weighting
     const { data: learningFields } = await adminClient
       .from('learning_fields')
       .select('id, title, code, sort_order, competencies(id)')
@@ -211,26 +211,54 @@ serve(async (req) => {
       );
     }
 
-    // ── Coverage Gate: distribute proportionally, enforce min 8% per LF ──
-    const totalCompetencies = learningFields.reduce((sum, lf) => sum + (lf.competencies?.length || 0), 0);
+    // ── Get real question counts per LF for proportional assembly ──
+    const lfQuestionCounts = new Map<string, number>();
+    for (const lf of learningFields) {
+      const { count: lfQCount } = await adminClient
+        .from('v_exam_questions_approved')
+        .select('id', { count: 'exact', head: true })
+        .eq('learning_field_id', lf.id);
+      lfQuestionCounts.set(lf.id, lfQCount ?? 0);
+    }
+
+    const totalAvailableQuestions = Array.from(lfQuestionCounts.values()).reduce((s, c) => s + c, 0);
+    logStep("LF question pool", { totalAvailable: totalAvailableQuestions, lfs: learningFields.length });
+
+    // ── Coverage Gate: distribute proportionally by available questions, enforce min 8% per LF ──
     const minPerTopic = Math.max(1, Math.ceil(count * 0.08));
 
     const distribution: { lfId: string; quota: number }[] = [];
     let assigned = 0;
 
     for (const lf of learningFields) {
-      const compCount = lf.competencies?.length || 0;
-      const weight = totalCompetencies > 0 ? compCount / totalCompetencies : 1 / learningFields.length;
+      const lfAvailable = lfQuestionCounts.get(lf.id) ?? 0;
+      if (lfAvailable === 0) continue; // Skip LFs with no questions
+
+      const weight = totalAvailableQuestions > 0 ? lfAvailable / totalAvailableQuestions : 1 / learningFields.length;
       const quota = Math.max(minPerTopic, Math.round(weight * count));
-      distribution.push({ lfId: lf.id, quota });
-      assigned += quota;
+      distribution.push({ lfId: lf.id, quota: Math.min(quota, lfAvailable) }); // Never request more than available
+      assigned += Math.min(quota, lfAvailable);
     }
 
     // Adjust for rounding
-    if (assigned !== count) {
+    if (assigned !== count && distribution.length > 0) {
       const diff = count - assigned;
       distribution.sort((a, b) => b.quota - a.quota);
-      distribution[0].quota += diff;
+      // Distribute surplus/deficit across LFs with available capacity
+      if (diff > 0) {
+        for (let i = 0; i < diff && i < distribution.length; i++) {
+          const lfAvail = lfQuestionCounts.get(distribution[i % distribution.length].lfId) ?? 0;
+          if (distribution[i % distribution.length].quota < lfAvail) {
+            distribution[i % distribution.length].quota++;
+          }
+        }
+      } else {
+        for (let i = 0; i < Math.abs(diff) && i < distribution.length; i++) {
+          if (distribution[i % distribution.length].quota > 1) {
+            distribution[i % distribution.length].quota--;
+          }
+        }
+      }
     }
 
     logStep("Distribution", { distribution, totalCompetencies, minPerTopic });

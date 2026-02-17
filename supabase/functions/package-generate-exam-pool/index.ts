@@ -604,7 +604,7 @@ function simpleHash(text: string): string {
   return hash.toString(36);
 }
 
-// ─── Fan-out by learning field ────────────────────────────────────────────────
+// ─── Fan-out by learning field (Proportional + Gap-First) ─────────────────────
 
 async function enqueueLearningFieldJobs(
   sb: ReturnType<typeof createClient>,
@@ -613,6 +613,7 @@ async function enqueueLearningFieldJobs(
   bps: BlueprintInfo[],
   examTarget: number,
 ): Promise<{ enqueued: number; learningFields: number }> {
+  // Group blueprints by learning field
   const lfGroups = new Map<string, BlueprintInfo[]>();
   for (const bp of bps) {
     const lfId = bp.learning_field_id || "unknown";
@@ -620,38 +621,94 @@ async function enqueueLearningFieldJobs(
     lfGroups.get(lfId)!.push(bp);
   }
 
-  const perLf = Math.ceil(examTarget / lfGroups.size);
+  const lfCount = lfGroups.size;
+  if (lfCount === 0) return { enqueued: 0, learningFields: 0 };
+
+  // ── Step 1: Proportional weighting by blueprint count per LF ──
+  const totalBps = bps.length;
+  const MIN_LF_SHARE = 0.06; // Every LF gets at least 6% of target
+
+  const lfWeights = new Map<string, number>();
+  for (const [lfId, lfBps] of lfGroups) {
+    const naturalWeight = totalBps > 0 ? lfBps.length / totalBps : 1 / lfCount;
+    lfWeights.set(lfId, Math.max(MIN_LF_SHARE, naturalWeight));
+  }
+  // Normalize weights to sum to 1
+  const totalWeight = Array.from(lfWeights.values()).reduce((s, w) => s + w, 0);
+  for (const [lfId, w] of lfWeights) lfWeights.set(lfId, w / totalWeight);
+
+  // ── Step 2: Query existing questions per LF (gap detection) ──
+  const lfIds = Array.from(lfGroups.keys());
+  const existingPerLf = new Map<string, number>();
+  for (const lfId of lfIds) {
+    const { count } = await sb.from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .eq("learning_field_id", lfId);
+    existingPerLf.set(lfId, count ?? 0);
+  }
+
+  // ── Step 3: Calculate gap-aware targets per LF ──
   const nowIso = new Date().toISOString();
   const jobs = [];
 
-  for (const [lfId, lfBps] of lfGroups) {
+  // Sort by gap size descending (biggest gaps first = higher priority)
+  const lfEntries = Array.from(lfGroups.entries()).sort((a, b) => {
+    const aExist = existingPerLf.get(a[0]) ?? 0;
+    const bExist = existingPerLf.get(b[0]) ?? 0;
+    const aTarget = Math.ceil(examTarget * (lfWeights.get(a[0]) ?? 0));
+    const bTarget = Math.ceil(examTarget * (lfWeights.get(b[0]) ?? 0));
+    const aGap = aTarget - aExist;
+    const bGap = bTarget - bExist;
+    return bGap - aGap; // Biggest gap first
+  });
+
+  for (const [lfId, lfBps] of lfEntries) {
+    const weight = lfWeights.get(lfId) ?? (1 / lfCount);
+    const proportionalTarget = Math.ceil(examTarget * weight);
+    const existing = existingPerLf.get(lfId) ?? 0;
+    const gap = Math.max(0, proportionalTarget - existing);
+
+    if (gap <= 0) {
+      console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: target=${proportionalTarget}, existing=${existing} → SKIP (covered)`);
+      continue;
+    }
+
+    // Priority: 0 = run first (biggest gaps), 1 = run later
+    const priority = existing === 0 ? 0 : 1;
+
     jobs.push({
       job_type: "package_generate_exam_pool",
       status: "pending",
       attempts: 0,
       max_attempts: 100,
-      run_after: nowIso,
+      run_after: priority === 0 ? nowIso : new Date(Date.now() + 30_000).toISOString(),
       payload: {
         package_id: packageId,
         curriculum_id: curriculumId,
         learning_field_filter: lfId,
-        lf_target: perLf,
+        lf_target: gap, // Only generate what's missing
+        lf_proportional_target: proportionalTarget,
+        lf_existing: existing,
         blueprint_ids: lfBps.map(b => b.id),
         options: { exam_target: examTarget },
         _fan_out: true,
       },
     });
+
+    console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: weight=${(weight * 100).toFixed(1)}%, target=${proportionalTarget}, existing=${existing}, gap=${gap}`);
   }
 
   if (jobs.length > 0) {
     const { error } = await sb.from("job_queue").insert(jobs);
     if (error) {
       console.log(`[ExamPool-v5] Fan-out enqueue error: ${error.message}`);
-      return { enqueued: 0, learningFields: lfGroups.size };
+      return { enqueued: 0, learningFields: lfCount };
     }
   }
 
-  return { enqueued: jobs.length, learningFields: lfGroups.size };
+  console.log(`[ExamPool-v5] Proportional fan-out: ${jobs.length} sub-jobs for ${lfCount} LFs, ${lfEntries.length - jobs.length} already covered`);
+  return { enqueued: jobs.length, learningFields: lfCount };
 }
 
 async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, packageId: string): Promise<boolean> {
@@ -780,12 +837,19 @@ Deno.serve(async (req) => {
       return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: preTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
     }
 
+    // ── LF-aware target: use gap-based lf_target for fan-out sub-jobs ──
+    const lfExisting = p.lf_existing ?? 0;
+    const lfProportionalTarget = p.lf_proportional_target ?? lfTarget;
     const effectiveTarget = isFanOut ? lfTarget : examTarget;
     const perBlueprint = Math.max(3, Math.ceil(effectiveTarget / bps.length));
     let questionsThisChunk = 0;
     let trainingThisChunk = 0;
     let currentBpIndex = bpIndex;
     let bpsProcessed = 0;
+
+    if (isFanOut) {
+      console.log(`[ExamPool-v5] LF sub-job: existing=${lfExisting}, proportional_target=${lfProportionalTarget}, gap=${effectiveTarget}, bps=${bps.length}`);
+    }
 
     const typeEntries = Object.entries(QUESTION_TYPE_MIX) as [QuestionTypeKey, number][];
     const diffEntries = Object.entries(DIFFICULTY_DISTRIBUTION) as [DifficultyKey, number][];
