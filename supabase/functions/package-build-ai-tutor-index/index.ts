@@ -27,7 +27,8 @@ Deno.serve(async (req) => {
     assertUuid("package_id", p?.package_id);
     assertUuid("course_id", p?.course_id);
     assertUuid("curriculum_id", p?.curriculum_id);
-    // certification_id is optional — fallback to curriculum_id for topic lookups
+    // certification_id is optional — curriculum_id is the SSOT for topic lookups
+    // because curriculum_topics.certification_id stores curriculum IDs (not cert IDs)
   } catch (e: unknown) {
     return json({ error: (e as Error).message }, 400);
   }
@@ -35,7 +36,9 @@ Deno.serve(async (req) => {
   const packageId = p.package_id;
   const courseId = p.course_id;
   const curriculumId = p.curriculum_id;
-  const certificationId = p.certification_id || curriculumId; // fallback for topic lookups
+  // SSOT: curriculum_topics.certification_id actually stores curriculum_id values,
+  // NOT the certification_id from course_packages. Always use curriculum_id for lookups.
+  const topicLookupId = curriculumId;
 
   // Runner SSOT: prerequisites via view (mapped to package_steps)
   if (!(await prereqDone(sb, packageId, "generate_oral_exam"))) {
@@ -83,17 +86,17 @@ Deno.serve(async (req) => {
     : { count: 0 };
 
   const { count: topicCount } = await sb
-    .from("curriculum_topics").select("id", { count: "exact", head: true }).eq("certification_id", certificationId);
+    .from("curriculum_topics").select("id", { count: "exact", head: true }).eq("certification_id", topicLookupId);
 
   const { count: subtopicCount } = await sb
     .from("curriculum_topics").select("id", { count: "exact", head: true })
-    .eq("certification_id", certificationId)
+    .eq("certification_id", topicLookupId)
     .not("parent_topic_id", "is", null);
 
   // ═══ DEPTH GATE: Warn if no subtopics exist ═══
   const depthStatus = (subtopicCount ?? 0) > 0 ? "deep" : "shallow";
   if (depthStatus === "shallow") {
-    console.warn(`[AI-Tutor-Index] ⚠️ No subtopics for certification ${certificationId} — tutor will have limited depth`);
+    console.warn(`[AI-Tutor-Index] ⚠️ No subtopics for topicLookupId ${topicLookupId} — tutor will have limited depth`);
   }
 
   // Context index (idempotent)
