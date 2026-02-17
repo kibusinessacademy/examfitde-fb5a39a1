@@ -205,7 +205,6 @@ Deno.serve(async (req) => {
     const chunk = failIds.slice(i, i + 50);
     await sb.from("exam_questions").update({
       qc_status: "tier1_failed",
-      metadata: { tier1: "failed", validated_at: new Date().toISOString() },
     }).in("id", chunk);
   }
 
@@ -270,7 +269,6 @@ Deno.serve(async (req) => {
       // Only update individual question qc_status for scored results
       await sb.from("exam_questions").update({
         qc_status: result.decision === "approve" ? "approved" : "needs_revision",
-        metadata: { tier2_score: result.score, tier2_decision: result.decision, validated_at: new Date().toISOString() },
       }).eq("id", q.id);
     }
 
