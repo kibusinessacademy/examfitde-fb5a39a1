@@ -141,15 +141,19 @@ function pickNextAction(steps: StepRow[]): StepAction {
       return { action: "enqueue", stepKey: k };
     }
 
+    // Running without job_id was already handled above (orphan recovery).
+    // If we reach here with status=running, it shouldn't happen — but guard anyway.
     if (s.status === "running") {
-      const timeout = s.timeout_seconds || 600;
-      if (s.started_at) {
-        const elapsed = (Date.now() - new Date(s.started_at).getTime()) / 1000;
-        if (elapsed > timeout) {
-          return { action: "timed_out", stepKey: k };
-        }
-      }
+      console.warn(`[runner] Unexpected: step ${k} is running but wasn't caught by earlier checks`);
       return null;
+    }
+
+    // Timeout WITHOUT job_id = needs re-enqueue (job_id timeout+poll handled above)
+    if (s.status === "timeout" && !s.job_id) {
+      if (s.attempts < s.max_attempts) {
+        return { action: "enqueue", stepKey: k };
+      }
+      return { action: "exhausted", stepKey: k };
     }
 
     const retryable = s.status === "queued" || s.status === "failed" || s.status === "timeout";
