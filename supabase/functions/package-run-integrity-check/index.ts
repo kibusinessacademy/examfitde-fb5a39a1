@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     score,
     generated_at: new Date().toISOString(),
     v3: {
-      hard_fail_reasons: (qCount ?? 0) < 150 ? ["TOO_FEW_QUESTIONS"] : [],
+      hard_fail_reasons: (qCount ?? 0) < 850 ? ["TOO_FEW_QUESTIONS"] : [],
       stats: { questionCount: qCount ?? 0, lessonCount: lessonCount ?? 0 },
     },
   };

@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
   }
 
   // Factory mode: bypass SOME hard-fails but enforce absolute minimum (50 questions)
-  const FACTORY_MIN_QUESTIONS = 50;
+  const FACTORY_MIN_QUESTIONS = 850;
   if (Array.isArray(hardFails) && hardFails.length > 0) {
     if (isFactoryMode && liveQuestionCount >= FACTORY_MIN_QUESTIONS) {
       console.log(`[auto-publish] Factory mode — bypassing ${hardFails.length} hard-fails (live=${liveQuestionCount} questions): ${hardFails.join(", ")}`);
