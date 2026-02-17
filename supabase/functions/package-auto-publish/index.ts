@@ -43,23 +43,31 @@ Deno.serve(async (req) => {
   // Quality gate (if available)
   const { data: pkgQ } = await sb
     .from("course_packages")
-    .select("quality_report, integrity_report, feature_flags")
+    .select("quality_report, integrity_report, feature_flags, pipeline_mode")
     .eq("id", packageId)
     .maybeSingle();
 
   const qualityReport = (pkgQ as any)?.quality_report;
+  const isFactoryMode = (pkgQ as any)?.pipeline_mode === "factory";
+
+  // In factory mode, quality gate failures are warnings (not blockers)
+  // In production mode, quality gate failures block publishing
   if (qualityReport && qualityReport.status === "failed") {
-  try {
-    await sb.from("admin_notifications").insert({
-      title: "⚠️ Quality Gate failed",
-      body: `Package blocked. quality_score=${qualityReport.score ?? "?"}`,
-      category: "quality",
-      severity: "warning",
-      entity_type: "course_package",
-      entity_id: packageId,
-    });
-  } catch (_) { /* non-critical */ }
-    return json({ ok: false, retry: false, error: "QUALITY_GATE_FAILED", quality: qualityReport }, 422);
+    if (isFactoryMode) {
+      console.log(`[auto-publish] Factory mode — bypassing quality gate (score=${qualityReport.score}, badge=${qualityReport.badge})`);
+    } else {
+      try {
+        await sb.from("admin_notifications").insert({
+          title: "⚠️ Quality Gate failed",
+          body: `Package blocked. quality_score=${qualityReport.score ?? "?"}`,
+          category: "quality",
+          severity: "warning",
+          entity_type: "course_package",
+          entity_id: packageId,
+        });
+      } catch (_) { /* non-critical */ }
+      return json({ ok: false, retry: false, error: "QUALITY_GATE_FAILED", quality: qualityReport }, 422);
+    }
   }
 
   // Review gate (auto-approve unless flag requires manual review)
@@ -100,24 +108,30 @@ Deno.serve(async (req) => {
   }
 
   // Integrity hard-fail gate (only blocks in production mode)
-  const { data: pkgMode } = await sb
-    .from("course_packages")
-    .select("pipeline_mode")
-    .eq("id", packageId)
-    .maybeSingle();
-  const isFactoryMode = (pkgMode as any)?.pipeline_mode === "factory";
+  // isFactoryMode already determined above from pkgQ
 
   const integrityReport = (pkgQ as any)?.integrity_report;
   const hardFails = integrityReport?.v3?.hard_fail_reasons || [];
-  const questionCount = integrityReport?.v3?.stats?.questionCount ?? 0;
+
+  // Live question count (integrity report may be stale)
+  const { data: courseData } = await sb
+    .from("courses").select("curriculum_id").eq("id", courseId).maybeSingle();
+  const curriculumId = (courseData as any)?.curriculum_id;
+  let liveQuestionCount = integrityReport?.v3?.stats?.questionCount ?? 0;
+  if (curriculumId) {
+    const { count } = await sb
+      .from("exam_questions").select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId);
+    liveQuestionCount = count ?? liveQuestionCount;
+  }
 
   // Factory mode: bypass SOME hard-fails but enforce absolute minimum (50 questions)
   const FACTORY_MIN_QUESTIONS = 50;
   if (Array.isArray(hardFails) && hardFails.length > 0) {
-    if (isFactoryMode && questionCount >= FACTORY_MIN_QUESTIONS) {
-      console.log(`[auto-publish] Factory mode — bypassing ${hardFails.length} hard-fails (${questionCount} questions): ${hardFails.join(", ")}`);
-    } else if (isFactoryMode && questionCount < FACTORY_MIN_QUESTIONS) {
-      return json({ ok: false, retry: false, error: `FACTORY_FLOOR_BLOCK: Only ${questionCount} questions (min ${FACTORY_MIN_QUESTIONS})`, hard_fail_reasons: hardFails }, 422);
+    if (isFactoryMode && liveQuestionCount >= FACTORY_MIN_QUESTIONS) {
+      console.log(`[auto-publish] Factory mode — bypassing ${hardFails.length} hard-fails (live=${liveQuestionCount} questions): ${hardFails.join(", ")}`);
+    } else if (isFactoryMode && liveQuestionCount < FACTORY_MIN_QUESTIONS) {
+      return json({ ok: false, retry: false, error: `FACTORY_FLOOR_BLOCK: Only ${liveQuestionCount} questions (min ${FACTORY_MIN_QUESTIONS})`, hard_fail_reasons: hardFails }, 422);
     } else {
       return json({ ok: false, retry: false, error: "V3_HARD_FAILS", hard_fail_reasons: hardFails }, 422);
     }
