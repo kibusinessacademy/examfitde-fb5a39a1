@@ -197,11 +197,34 @@ Deno.serve(async (req) => {
     return false;
   });
 
-  const startIdx = batchCursor?.offset || 0;
-  const batch = placeholderLessons.slice(startIdx, startIdx + BATCH_SIZE);
-  const remaining = placeholderLessons.length - startIdx - batch.length;
+  // NOTE: Don't use offset-based cursors — placeholder list shifts as content is generated.
+  // Instead, always take the first BATCH_SIZE placeholders (idempotent via existingVersion check).
+  const batch = placeholderLessons.slice(0, BATCH_SIZE);
+  const remaining = placeholderLessons.length - batch.length;
 
   if (batch.length === 0) {
+    // HARD GUARD: Re-query DB to confirm zero placeholders (don't trust in-memory filter alone)
+    const { count: dbPlaceholders } = await sb
+      .from("lessons")
+      .select("id", { count: "exact", head: true })
+      .eq("modules.course_id", courseId)
+      .or("content.is.null,content->_placeholder.eq.true")
+      .limit(1);
+    // Fallback: count via the allLessons we already fetched
+    const truePlaceholders = dbPlaceholders ?? placeholderLessons.length;
+
+    if (truePlaceholders > 0) {
+      console.warn(`[gen-content] In-memory filter found 0 but DB has ${truePlaceholders} placeholders — re-queue`);
+      return json({
+        ok: true,
+        batch_complete: false,
+        batch_cursor: { offset: 0 },
+        message: `🔄 ${truePlaceholders} Placeholder verbleibend — erneut versuchen.`,
+        total_lessons: allLessons?.length || 0,
+        placeholders_remaining: truePlaceholders,
+      });
+    }
+
     return json({
       ok: true,
       batch_complete: true,
@@ -366,12 +389,14 @@ Deno.serve(async (req) => {
     await new Promise(r => setTimeout(r, currentDelay));
   }
 
-  const batchComplete = remaining <= 0;
+  // NEVER mark batch_complete unless ALL placeholders are resolved
+  const batchComplete = remaining <= 0 && failed === 0;
 
   return json({
     ok: true,
     batch_complete: batchComplete,
-    ...(batchComplete ? {} : { batch_cursor: { offset: startIdx + batch.length } }),
+    // Always re-queue if there are remaining OR if any failed (retry next cycle)
+    ...(!batchComplete ? { batch_cursor: { offset: 0 } } : {}),
     generated,
     skipped_write_back: skippedWriteBack,
     failed,
