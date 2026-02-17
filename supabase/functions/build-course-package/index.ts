@@ -206,13 +206,18 @@ Deno.serve(async (req) => {
       ...(options || {}),
     };
 
-    // ── Define pipeline steps (parallel content generation, then serial gates) ──
-    // Phase 1: content steps run in PARALLEL (sequence=1)
+    // ── Define pipeline steps (sequential per STEP_ORDER) ──
+    // Phase 1: Scaffold + Content Generation
     const contentSteps: Array<{ step_key: string; job_type: string }> = [];
-    if (opts.include_learning_course)
+    if (opts.include_learning_course) {
       contentSteps.push({ step_key: "scaffold_learning_course", job_type: "package_scaffold_learning_course" });
-    if (opts.include_exam_pool)
+      contentSteps.push({ step_key: "generate_learning_content", job_type: "package_generate_learning_content" });
+      contentSteps.push({ step_key: "validate_learning_content", job_type: "package_validate_learning_content" });
+    }
+    if (opts.include_exam_pool) {
+      contentSteps.push({ step_key: "auto_seed_exam_blueprints", job_type: "package_auto_seed_exam_blueprints" });
       contentSteps.push({ step_key: "generate_exam_pool", job_type: "package_generate_exam_pool" });
+    }
     if (opts.include_oral_exam)
       contentSteps.push({ step_key: "generate_oral_exam", job_type: "package_generate_oral_exam" });
     if (opts.include_ai_tutor)
@@ -220,9 +225,10 @@ Deno.serve(async (req) => {
     if (opts.include_handbook)
       contentSteps.push({ step_key: "generate_handbook", job_type: "package_generate_handbook" });
 
-    // Phase 2+3: serial gates after all content is done
+    // Phase 2: Quality gates
     const gateSteps: Array<{ step_key: string; job_type: string }> = [
       { step_key: "run_integrity_check", job_type: "package_run_integrity_check" },
+      { step_key: "quality_council", job_type: "package_quality_council" },
       { step_key: "auto_publish", job_type: "package_auto_publish" },
     ];
 
