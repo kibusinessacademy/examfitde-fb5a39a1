@@ -11,7 +11,7 @@
  * providing distributed backpressure without DB overhead.
  */
 
-export type AIProvider = "openai" | "anthropic" | "deepseek" | "google";
+export type AIProvider = "openai" | "anthropic" | "deepseek" | "google" | "lovable";
 
 // ── Configuration ───────────────────────────────────────────────────
 
@@ -21,6 +21,7 @@ const RPM_LIMITS: Record<AIProvider, number> = {
   anthropic: 40,
   deepseek: 30,
   google: 60,
+  lovable: 60,
 };
 
 /** Number of 429s within COOLDOWN_WINDOW_MS to trigger cooldown */
@@ -50,6 +51,7 @@ const state: Record<AIProvider, ProviderState> = {
   anthropic: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, total429s: 0, totalRequests: 0 },
   deepseek: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, total429s: 0, totalRequests: 0 },
   google: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, total429s: 0, totalRequests: 0 },
+  lovable: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, total429s: 0, totalRequests: 0 },
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -206,7 +208,7 @@ export function pickAvailableProvider(
  * Get health summary for all providers (for monitoring/logging).
  */
 export function getAllProviderHealth(): ProviderHealth[] {
-  return (["openai", "anthropic", "deepseek", "google"] as AIProvider[]).map(getProviderHealth);
+  return (["openai", "anthropic", "deepseek", "google", "lovable"] as AIProvider[]).map(getProviderHealth);
 }
 
 /**

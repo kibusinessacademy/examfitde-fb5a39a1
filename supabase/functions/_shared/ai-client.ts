@@ -76,6 +76,12 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
     keyEnv: "GOOGLE_AI_API_KEY",
     format: "google",
   },
+  lovable: {
+    url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    model: "google/gemini-2.5-flash",
+    keyEnv: "LOVABLE_API_KEY",
+    format: "openai",
+  },
 };
 
 /**
@@ -333,11 +339,12 @@ export async function callAIWithFailover(
     anthropic: "ANTHROPIC_API_KEY",
     deepseek: "DEEPSEEK_API_KEY",
     google: "GOOGLE_AI_API_KEY",
+    lovable: "LOVABLE_API_KEY",
   };
 
   // Build API key availability map
   const keyAvailability: Record<string, boolean> = {};
-  for (const p of ["openai", "anthropic", "deepseek", "google"]) {
+  for (const p of ["openai", "anthropic", "deepseek", "google", "lovable"]) {
     keyAvailability[p] = !!Deno.env.get(PROVIDER_KEYS[p]);
   }
 
