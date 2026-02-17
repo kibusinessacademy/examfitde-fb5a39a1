@@ -67,8 +67,9 @@ Deno.serve(async (req) => {
       require_reference: true,
       allowed_sources: ["curriculum_topics", "lessons", "question_blueprints", "exam_sessions", "oral_exam_sessionsets"],
       modes: ["explainer", "coach", "examiner", "feedback"],
-      binding_rule: "each answer must map to competency OR lesson OR exam_session OR curriculum_topic",
+      binding_rule: "each answer must map to learning_field OR competency OR lesson OR exam_session OR curriculum_topic",
       depth_requirement: "tutor must reference curriculum_topics subtopics when answering domain-specific questions",
+      lf_coverage_rule: "tutor must cover all learning fields proportionally, not just the first few",
     };
     const { error: polInsErr } = await sb.from("ai_tutor_policies").insert({
       curriculum_id: curriculumId, policy, version: policyVersion,
@@ -76,7 +77,7 @@ Deno.serve(async (req) => {
     if (polInsErr) throw new Error(`Policy insert failed: ${polInsErr.message}`);
   }
 
-  // Counts — now including curriculum_topics depth
+  // Counts — now including curriculum_topics depth and LF coverage
   // Count lessons via modules (lessons has module_id, not course_id)
   const { data: modulesForCourse } = await sb
     .from("modules").select("id").eq("course_id", courseId);
@@ -93,6 +94,12 @@ Deno.serve(async (req) => {
     .eq("certification_id", topicLookupId)
     .not("parent_topic_id", "is", null);
 
+  // ═══ NEW: LF coverage stats ═══
+  const { data: lfData } = await sb
+    .from("learning_fields").select("id, code, title")
+    .eq("curriculum_id", curriculumId);
+  const lfCount = lfData?.length || 0;
+
   // ═══ DEPTH GATE: Warn if no subtopics exist ═══
   const depthStatus = (subtopicCount ?? 0) > 0 ? "deep" : "shallow";
   if (depthStatus === "shallow") {
@@ -100,29 +107,25 @@ Deno.serve(async (req) => {
   }
 
   // Context index (idempotent)
+  const statsObj = {
+    lessonCount: lessonCount ?? 0,
+    topicCount: topicCount ?? 0,
+    subtopicCount: subtopicCount ?? 0,
+    lfCount,
+    depthStatus,
+    policyVersion,
+  };
+
   if (!existingIdx) {
     const { error: idxErr } = await sb.from("ai_tutor_context_index").insert({
       package_id: packageId,
       index_version: 1,
-      stats: {
-        lessonCount: lessonCount ?? 0,
-        topicCount: topicCount ?? 0,
-        subtopicCount: subtopicCount ?? 0,
-        depthStatus,
-        policyVersion,
-      },
+      stats: statsObj,
     });
     if (idxErr) throw new Error(`Context index insert failed: ${idxErr.message}`);
   } else {
-    // Update existing index with depth stats
     await sb.from("ai_tutor_context_index").update({
-      stats: {
-        lessonCount: lessonCount ?? 0,
-        topicCount: topicCount ?? 0,
-        subtopicCount: subtopicCount ?? 0,
-        depthStatus,
-        policyVersion,
-      },
+      stats: statsObj,
       index_version: 2,
     }).eq("package_id", packageId);
   }
@@ -130,5 +133,5 @@ Deno.serve(async (req) => {
   // Optional progress hint (non-critical)
   try { await sb.from("course_packages").update({ build_progress: 80 }).eq("id", packageId); } catch (_) { /* ignore */ }
 
-  return json({ ok: true, policyVersion, lessonCount: lessonCount ?? 0, topicCount: topicCount ?? 0, subtopicCount: subtopicCount ?? 0, depthStatus });
+  return json({ ok: true, policyVersion, ...statsObj });
 });

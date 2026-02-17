@@ -67,6 +67,7 @@ async function loadFieldTopicDepth(
 
 /**
  * Generate real handbook section content via LLM.
+ * wordTarget controls section length based on exam weighting.
  */
 async function generateSectionContent(
   professionName: string,
@@ -74,11 +75,15 @@ async function generateSectionContent(
   fieldTitle: string,
   fieldDescription: string,
   subtopics: string[],
+  wordTarget: number,
 ): Promise<string> {
   const routed = getModel("handbook");
   const topicContext = subtopics.length > 0
     ? `\nKernthemen aus dem Rahmenplan:\n${subtopics.map(t => `- ${t}`).join("\n")}`
     : "";
+
+  const minWords = Math.round(wordTarget * 0.8);
+  const maxWords = Math.round(wordTarget * 1.3);
 
   const prompt = `Du bist ein IHK-Fachexperte für den Ausbildungsberuf "${professionName}". 
 Erstelle einen prüfungsrelevanten Handbuch-Abschnitt für das Lernfeld "${fieldCode}: ${fieldTitle}".
@@ -92,7 +97,7 @@ ANFORDERUNGEN:
 3. Mindestens 3 praxisnahe Beispiele mit konkreten Zahlen/Szenarien
 4. Typische Prüfungsfallen mit Erklärung, warum Prüflinge dort scheitern
 5. Markdown-Format mit ## und ### Überschriften
-6. Mindestens 400 Wörter, maximal 800 Wörter
+6. Umfang: ${minWords}–${maxWords} Wörter (Dieses Lernfeld hat eine hohe Prüfungsrelevanz und benötigt entsprechende Tiefe)
 7. KEINE Platzhalter wie "wird ergänzt" oder "TODO"
 
 Antworte NUR mit dem Markdown-Inhalt, KEIN JSON-Wrapper.`;
@@ -105,20 +110,16 @@ Antworte NUR mit dem Markdown-Inhalt, KEIN JSON-Wrapper.`;
         { role: "system", content: "Du schreibst prüfungsrelevante IHK-Handbuch-Inhalte. Antworte nur mit Markdown." },
         { role: "user", content: prompt },
       ],
-      max_tokens: 3000,
+      max_tokens: Math.min(4000, Math.round(wordTarget * 4)),
     });
 
-    // callAIJSON returns parsed JSON, but we asked for raw markdown
-    // The response might be wrapped in JSON or raw text
     let content = result.content || "";
-    // Strip JSON wrapper if present
     if (content.startsWith("{") || content.startsWith('"')) {
       try {
         const parsed = JSON.parse(content);
         content = typeof parsed === "string" ? parsed : parsed.content || parsed.markdown || JSON.stringify(parsed);
       } catch { /* use as-is */ }
     }
-    // Strip markdown code fences
     content = content.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
 
     if (content.length < 200) {
@@ -149,12 +150,10 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id as string;
   const certificationId = p.certification_id || null;
 
-  // Runner SSOT prerequisite
   if (!(await prereqDone(sb, packageId, "build_ai_tutor_index"))) {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: build_ai_tutor_index" }, 409);
   }
 
-  // Resolve profession name for LLM context
   let professionName = "Ausbildungsberuf";
   try {
     const prof = await resolveProfession(sb, { certificationId, curriculumId });
@@ -171,7 +170,52 @@ Deno.serve(async (req) => {
   if (lfErr) throw new Error(`LF query: ${lfErr.message}`);
   if (!fields || fields.length === 0) throw new Error(`No learning_fields for curriculum ${curriculumId}`);
 
-  console.log(`[generate-handbook] Generating handbook for ${professionName}: ${fields.length} learning fields (pkg ${packageId.slice(0, 8)})`);
+  // ═══ NEW: Load exam blueprint weights for proportional section lengths ═══
+  const { data: blueprintWeights } = await sb
+    .from("exam_blueprints")
+    .select("learning_field_id, weight_pct")
+    .eq("curriculum_id", curriculumId);
+
+  const weightByLf = new Map<string, number>();
+  if (blueprintWeights?.length) {
+    for (const bw of blueprintWeights) {
+      const lfId = (bw as any).learning_field_id;
+      if (lfId) weightByLf.set(lfId, (bw as any).weight_pct || 0);
+    }
+  }
+
+  // Calculate per-LF word targets based on exam weighting
+  const BASE_WORDS = 400;
+  const MAX_WORDS = 800;
+  const totalWeight = Array.from(weightByLf.values()).reduce((s, v) => s + v, 0) || fields.length;
+  
+  const lfWordTargets = new Map<string, number>();
+  for (const lf of fields) {
+    const w = weightByLf.get(lf.id) || (100 / fields.length);
+    const normalizedWeight = w / totalWeight;
+    // Higher-weighted LFs get more words (400-800 range)
+    const wordTarget = Math.round(BASE_WORDS + (MAX_WORDS - BASE_WORDS) * Math.min(1, normalizedWeight * fields.length));
+    lfWordTargets.set(lf.id, Math.max(BASE_WORDS, Math.min(MAX_WORDS, wordTarget)));
+  }
+
+  // ═══ NEW: Load competencies per LF for handbook section linkage ═══
+  const lfIds = fields.map((f: any) => f.id);
+  const { data: allComps } = await sb
+    .from("competencies")
+    .select("id, learning_field_id")
+    .in("learning_field_id", lfIds)
+    .limit(500);
+
+  // Map LF -> first competency (primary link for handbook section)
+  const primaryCompByLf = new Map<string, string>();
+  if (allComps?.length) {
+    for (const comp of allComps) {
+      const lfId = (comp as any).learning_field_id;
+      if (!primaryCompByLf.has(lfId)) primaryCompByLf.set(lfId, comp.id);
+    }
+  }
+
+  console.log(`[generate-handbook] Generating for ${professionName}: ${fields.length} LFs, weighted word targets (pkg ${packageId.slice(0, 8)})`);
 
   // 2) Delete existing handbook (idempotent rebuild)
   const { data: existingChapters } = await sb
@@ -213,13 +257,12 @@ Deno.serve(async (req) => {
   if (chErr) throw new Error(`Chapter insert: ${chErr.message}`);
   if (!chapters?.length) throw new Error("handbook_chapters: 0 rows inserted");
 
-  // Map field index -> chapter sort_order
   const fieldToChapter: number[] = [];
   for (let ci = 0; ci < rawChunks.length; ci++) {
     for (let fi = 0; fi < rawChunks[ci].length; fi++) fieldToChapter.push(ci + 1);
   }
 
-  // 4) Generate sections WITH REAL CONTENT via LLM
+  // 4) Generate sections WITH REAL CONTENT via LLM, weighted by exam relevance
   const sectionRows: Array<Record<string, unknown>> = [];
   let sectionOrder = 1;
   let llmSuccessCount = 0;
@@ -231,26 +274,22 @@ Deno.serve(async (req) => {
     const chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
     if (!chapter) continue;
 
-    // Load subtopics for depth
     const subtopics = await loadFieldTopicDepth(sb, curriculumId, lf.title);
+    const wordTarget = lfWordTargets.get(lf.id) || BASE_WORDS;
 
-    // Generate real content via LLM
     const generatedContent = await generateSectionContent(
       professionName,
       lf.code,
       lf.title,
       lf.description || "",
       subtopics,
+      wordTarget,
     );
 
     const hasRealContent = generatedContent.length >= 200;
-    if (hasRealContent) {
-      llmSuccessCount++;
-    } else {
-      llmFailCount++;
-    }
+    if (hasRealContent) llmSuccessCount++;
+    else llmFailCount++;
 
-    // Use generated content or fallback to enriched scaffold
     const contentMarkdown = hasRealContent
       ? generatedContent
       : buildFallbackContent(lf, subtopics);
@@ -262,10 +301,16 @@ Deno.serve(async (req) => {
       content_markdown: contentMarkdown,
       content_type: "text",
       sort_order: sectionOrder++,
-      metadata: { depth_enriched: subtopics.length > 0, llm_generated: hasRealContent },
+      learning_field_id: lf.id,
+      competency_id: primaryCompByLf.get(lf.id) || null,
+      metadata: {
+        depth_enriched: subtopics.length > 0,
+        llm_generated: hasRealContent,
+        word_target: wordTarget,
+        exam_weight_pct: weightByLf.get(lf.id) || null,
+      },
     });
 
-    // Rate-limit protection: 3s between LLM calls
     if (i < fields.length - 1) {
       await new Promise(r => setTimeout(r, 3000));
     }
@@ -288,10 +333,6 @@ Deno.serve(async (req) => {
   });
 });
 
-/**
- * Fallback content when LLM fails — still structured but minimal.
- * At least provides subtopic depth without placeholders.
- */
 function buildFallbackContent(lf: any, subtopics: string[]): string {
   const parts: string[] = [
     `## ${lf.code}: ${lf.title}`,
@@ -302,9 +343,7 @@ function buildFallbackContent(lf: any, subtopics: string[]): string {
 
   if (subtopics.length > 0) {
     parts.push("### Kernthemen aus dem Rahmenplan");
-    for (const t of subtopics) {
-      parts.push(`- ${t}`);
-    }
+    for (const t of subtopics) parts.push(`- ${t}`);
     parts.push("");
   }
 
