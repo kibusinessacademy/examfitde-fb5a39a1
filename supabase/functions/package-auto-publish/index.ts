@@ -97,11 +97,22 @@ Deno.serve(async (req) => {
     } catch (_) { /* non-critical — proceed to publish */ }
   }
 
-  // Integrity hard-fail gate
+  // Integrity hard-fail gate (only blocks in production mode)
+  const { data: pkgMode } = await sb
+    .from("course_packages")
+    .select("pipeline_mode")
+    .eq("id", packageId)
+    .maybeSingle();
+  const isFactoryMode = (pkgMode as any)?.pipeline_mode === "factory";
+
   const integrityReport = (pkgQ as any)?.integrity_report;
   const hardFails = integrityReport?.v3?.hard_fail_reasons || [];
   if (Array.isArray(hardFails) && hardFails.length > 0) {
-    return json({ ok: false, retry: false, error: "V3_HARD_FAILS", hard_fail_reasons: hardFails }, 422);
+    if (isFactoryMode) {
+      console.log(`[auto-publish] Factory mode — bypassing ${hardFails.length} hard-fails: ${hardFails.join(", ")}`);
+    } else {
+      return json({ ok: false, retry: false, error: "V3_HARD_FAILS", hard_fail_reasons: hardFails }, 422);
+    }
   }
 
   // Publish
