@@ -1564,7 +1564,11 @@ function ROIDashboard() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const { data } = await (supabase as any).rpc('get_roi_dashboard');
+    const { data } = await (supabase as any)
+      .from('package_economics')
+      .select('*')
+      .order('roi_30d', { ascending: false, nullsFirst: false })
+      .limit(100);
     setRoi(data || []);
     setLoading(false);
   }, []);
@@ -1573,24 +1577,24 @@ function ROIDashboard() {
 
   if (loading) return <Loading />;
 
-  const totalRevenue = roi.reduce((s, r) => s + Number(r.revenue_eur || 0), 0);
-  const totalCost = roi.reduce((s, r) => s + Number(r.llm_cost_usd || 0), 0);
-  const totalNet = roi.reduce((s, r) => s + Number(r.net_revenue_eur || 0), 0);
-  const profitable = roi.filter(r => Number(r.net_revenue_eur || 0) > 0).length;
+  const totalRevenue = roi.reduce((s: number, r: any) => s + Number(r.revenue_eur_30d || 0), 0);
+  const totalCost = roi.reduce((s: number, r: any) => s + Number(r.cost_eur_30d || 0), 0);
+  const totalMargin = totalRevenue - totalCost;
+  const profitable = roi.filter((r: any) => Number(r.gross_margin_eur_30d || 0) > 0).length;
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MiniKPI label="Gesamt-Umsatz" value={`€${totalRevenue.toFixed(0)}`} />
-        <MiniKPI label="LLM-Kosten" value={`$${totalCost.toFixed(0)}`} />
-        <MiniKPI label="Netto-Umsatz" value={`€${totalNet.toFixed(0)}`} alert={totalNet < 0} />
-        <MiniKPI label="Profitable" value={`${profitable}/${roi.length}`} />
+        <MiniKPI label="Revenue 30d" value={`€${totalRevenue.toFixed(2)}`} />
+        <MiniKPI label="AI-Kosten 30d" value={`€${totalCost.toFixed(2)}`} />
+        <MiniKPI label="Marge 30d" value={`€${totalMargin.toFixed(2)}`} alert={totalMargin < 0} />
+        <MiniKPI label="Profitabel" value={`${profitable}/${roi.length}`} />
       </div>
 
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
-            💰 ROI pro Zertifizierung
+            💰 ROI pro Package (30 Tage)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1601,27 +1605,34 @@ function ROIDashboard() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
-                    <th className="text-left py-2 px-3">Certification</th>
+                    <th className="text-left py-2 px-3">Package</th>
+                    <th className="text-left py-2 px-3">Status</th>
+                    <th className="text-right py-2 px-3">Kosten (€)</th>
                     <th className="text-right py-2 px-3">Revenue (€)</th>
-                    <th className="text-right py-2 px-3">Refunds (€)</th>
-                    <th className="text-right py-2 px-3">LLM Cost ($)</th>
-                    <th className="text-right py-2 px-3">Netto (€)</th>
+                    <th className="text-right py-2 px-3">Marge (€)</th>
+                    <th className="text-right py-2 px-3">ROI</th>
+                    <th className="text-right py-2 px-3">LLM Calls</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {roi.map((r: any, i: number) => (
-                    <tr key={i} className={cn("border-b border-border/30",
-                      Number(r.net_revenue_eur || 0) < 0 && 'bg-destructive/5'
-                    )}>
-                      <td className="py-2 px-3 font-mono">{r.certification_id?.slice(0, 8) || '–'}</td>
-                      <td className="py-2 px-3 text-right text-emerald-600">€{Number(r.revenue_eur || 0).toFixed(2)}</td>
-                      <td className="py-2 px-3 text-right text-destructive">€{Number(r.refunds_eur || 0).toFixed(2)}</td>
-                      <td className="py-2 px-3 text-right text-muted-foreground">${Number(r.llm_cost_usd || 0).toFixed(2)}</td>
-                      <td className={cn("py-2 px-3 text-right font-bold",
-                        Number(r.net_revenue_eur || 0) >= 0 ? "text-emerald-600" : "text-destructive"
-                      )}>€{Number(r.net_revenue_eur || 0).toFixed(2)}</td>
-                    </tr>
-                  ))}
+                  {roi.map((r: any) => {
+                    const margin = Number(r.gross_margin_eur_30d || 0);
+                    return (
+                      <tr key={r.package_id} className={cn("border-b border-border/30",
+                        margin < 0 && 'bg-destructive/5'
+                      )}>
+                        <td className="py-2 px-3 font-mono text-[11px]" title={r.package_id}>{r.package_id?.slice(0, 8)}…</td>
+                        <td className="py-2 px-3"><Badge variant="outline" className="text-[10px]">{r.status || '–'}</Badge></td>
+                        <td className="py-2 px-3 text-right tabular-nums">{Number(r.cost_eur_30d || 0).toFixed(2)}</td>
+                        <td className="py-2 px-3 text-right tabular-nums text-emerald-600">{Number(r.revenue_eur_30d || 0).toFixed(2)}</td>
+                        <td className={cn("py-2 px-3 text-right tabular-nums font-bold",
+                          margin >= 0 ? "text-emerald-600" : "text-destructive"
+                        )}>{margin.toFixed(2)}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">{r.roi_30d != null ? `${Number(r.roi_30d).toFixed(1)}x` : '—'}</td>
+                        <td className="py-2 px-3 text-right tabular-nums text-muted-foreground">{r.llm_calls_30d ?? 0}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
