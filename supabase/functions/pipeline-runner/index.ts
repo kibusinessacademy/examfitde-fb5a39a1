@@ -646,7 +646,7 @@ async function backfillPipelinePool(
     .in("status", ["queued", "building", "done", "published", "planning", "failed"]);
 
   const existingTitles = new Set(
-    (existingPackages ?? []).map((p: { title: string }) => p.title.toLowerCase()),
+    (existingPackages ?? []).filter((p: { title: string | null }) => p.title).map((p: { title: string }) => p.title.toLowerCase()),
   );
 
   // 4. Get existing curricula
