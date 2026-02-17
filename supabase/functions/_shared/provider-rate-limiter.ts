@@ -24,11 +24,11 @@ const RPM_LIMITS: Record<AIProvider, number> = {
 };
 
 /** Number of 429s within COOLDOWN_WINDOW_MS to trigger cooldown */
-const COOLDOWN_TRIGGER_COUNT = 3;
+const COOLDOWN_TRIGGER_COUNT = 6;
 /** Window in which COOLDOWN_TRIGGER_COUNT 429s trigger a cooldown */
 const COOLDOWN_WINDOW_MS = 60_000;
 /** How long to cool down a provider after trigger (ms) */
-const COOLDOWN_DURATION_MS = 60_000;
+const COOLDOWN_DURATION_MS = 30_000;
 
 // ── Internal State ──────────────────────────────────────────────────
 
