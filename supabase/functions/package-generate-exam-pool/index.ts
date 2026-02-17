@@ -397,6 +397,18 @@ PRAXISBEZUG (PFLICHT):
 - Jede Frage hat einen konkreten Kontext (Beratungsgespräch, Kreditprüfung, Jahresabschluss, etc.)
 - Verwende konkrete, nicht-runde Zahlen für Beträge, Zinssätze, Fristen
 
+REGULATORISCHE TIEFE (PFLICHT bei Compliance/Recht):
+- Konkrete §§-Referenzen (BGB, HGB, KWG, GwG, KSchG, AGB, MaBV, MaRisk, DSGVO)
+- Exakte Fristen, Schwellenwerte, Meldepflichten (z.B. GwG §43: 10.000 €-Grenze)
+- BaFin/EZB-Aufsichtsbezüge wo relevant
+- Unterscheide klar zwischen MUSS-Vorschriften und KANN-Regelungen
+
+RECHENAUFGABEN-TIEFE (PFLICHT bei Calculation):
+- Mehrstufige Berechnungen: Effektivzins MIT Disagio, Annuität MIT Sondertilgung, Tilgungsplan über mehrere Perioden
+- Kombinationsaufgaben: z.B. Kreditwürdigkeit prüfen UND Konditionen berechnen UND Sicherheiten bewerten
+- Distraktoren = typische Rechenfehler (falscher Zinssatz, vergessenes Disagio, falsche Laufzeit)
+- KEINE trivialen Einschritt-Rechnungen bei Schwierigkeit "hard" oder "very_hard"
+
 ERKLÄRUNG (COACHING-STIL — PFLICHT):
 - "Warum ist das in der Prüfung die beste Antwort?" (fachliche Begründung mit Norm/Fachbegriff)
 - "Warum würden viele Prüflinge hier falsch antworten?" (typischer Denkfehler benennen)

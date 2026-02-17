@@ -25,41 +25,54 @@ const STEP_PROMPTS: Record<string, { system: string; minChars: number }> = {
     system: `Erstelle eine **aktivierende Einstiegsaktivität** (ca. 800–1200 Zeichen HTML).
 Struktur:
 - <h3>Motivierender Titel</h3>
-- Kurze Problemstellung oder Alltagsszenario das neugierig macht
-- 2-3 Reflexionsfragen als <ul><li>
-- Bezug zum Vorwissen`,
+- Konkretes Praxisszenario aus dem typischen ARBEITSALLTAG des Berufs — mit realistischen Akteuren (Kunden, Vorgesetzte, Kollegen), konkreten Zahlen und branchenüblichen Fachbegriffen
+- 2-3 Reflexionsfragen als <ul><li> die zum Nachdenken anregen
+- Bezug zum Vorwissen UND zur IHK-Prüfungsrelevanz
+VERBOTEN: Generische Szenarien wie "in einem Unternehmen" oder "ein Mitarbeiter" ohne konkreten Berufsbezug.
+PFLICHT: Verwende realistische, nicht-runde Zahlen (z.B. 12.450 €, 3,75 %, 47 Tage).`,
     minChars: 600,
   },
   verstehen: {
-    system: `Erstelle **ausführliches Lernmaterial** (ca. 1500–2500 Zeichen HTML).
+    system: `Erstelle **ausführliches Lernmaterial** (ca. 2000–3500 Zeichen HTML).
 Struktur:
 - <h3>Konzept-Titel</h3>
-- Klare Definition und Erklärung der Kernkonzepte
-- Mindestens 2 praxisnahe Beispiele
-- Wichtige Fachbegriffe als <strong>
-- Optionale Merksätze als <blockquote>
-- Tabelle oder Liste zur Übersicht wenn sinnvoll`,
-    minChars: 1200,
+- Klare Definition und Erklärung der Kernkonzepte mit berufsspezifischen Beispielen
+- Mindestens 2 praxisnahe Beispiele aus dem realen Berufsalltag
+- Wichtige Fachbegriffe als <strong> — erklärt wie im Berufsfeld tatsächlich verwendet
+- Merksätze als <blockquote> mit ⭐ für prüfungsrelevante Inhalte
+- Nach JEDER Erklärung ein Gegenbeispiel das typische Fehlannahmen verdeutlicht
+- Bei regulatorischen Themen: Konkrete §§-Referenzen (BGB, HGB, KWG, GwG, MaRisk, DSGVO etc.)
+- Bei Rechenthemen: Vollständige Rechenwege mit Formeln und realistischen Zahlen
+- Tabelle oder Liste zur Übersicht wenn sinnvoll
+PFLICHT: Markiere IHK-Prüfungsbezüge mit ⭐ und formuliere, wie die IHK dieses Thema typischerweise abfragt.
+VERBOTEN: Akademische Definitionen ohne Praxisbezug. Oberflächliches Anreißen von Regulatorik.`,
+    minChars: 1500,
   },
   anwenden: {
-    system: `Erstelle **praktische Übungsaufgaben** (ca. 1200–2000 Zeichen HTML).
+    system: `Erstelle ein **Entscheidungsszenario** (ca. 1500–2500 Zeichen HTML) — KEINE reine Beschreibung.
 Struktur:
 - <h3>Praxis-Titel</h3>
-- Realistische Arbeitssituation als Szenario
-- 2-3 konkrete Aufgaben mit steigendem Schwierigkeitsgrad
-- Hinweise zur Lösung (ohne Lösung zu verraten)
-- Bezug zur beruflichen Praxis (IHK-relevant)`,
-    minChars: 900,
+- Konkretes Fallbeispiel mit realistischen Zahlen, Namen und Kontexten aus dem Berufsalltag
+- Mindestens 2 Entscheidungsoptionen mit fachlicher Abwägung der Vor- und Nachteile
+- Bei Rechenthemen: Mehrstufige Berechnungen (z.B. Effektivzins + Disagio + Tilgungsplan, nicht nur einfache Zinsrechnung)
+- Typische Prüfungsfallen mit ⚠️ markiert
+- Der Lernende muss die Entscheidung TREFFEN und fachlich BEGRÜNDEN
+PFLICHT: Kombinationsaufgaben bevorzugen (z.B. Kredit + Sicherheiten + Risikoanalyse statt isolierter Einzelaspekte).
+VERBOTEN: Reine Beschreibungen ("So funktioniert X"). Der Lernende muss HANDELN und ENTSCHEIDEN.`,
+    minChars: 1200,
   },
   wiederholen: {
-    system: `Erstelle **Wiederholungsaktivitäten** (ca. 1000–1500 Zeichen HTML).
+    system: `Erstelle eine **PRÜFUNGSVERDICHTUNG** (ca. 1200–1800 Zeichen HTML) — KEINE erneute Erklärung.
 Struktur:
-- <h3>Zusammenfassung & Wiederholung</h3>
-- Die 5 wichtigsten Punkte als nummerierte Liste
-- Lückentext oder Zuordnungsübung
-- Eselsbrücken oder Merkhilfen
-- Kurze Checkliste: "Ich kann jetzt..."`,
-    minChars: 700,
+- <h3>Prüfungsverdichtung</h3>
+- 3-5 kompakte Merksätze mit den Fachbegriffen wie sie in der IHK-Prüfung erwartet werden
+- Typische IHK-Prüfungsfallen: 3 häufige Fehler die Prüflinge machen, mit Erklärung warum sie falsch sind
+- Abgrenzungstabelle: Vergleich ähnlicher Begriffe/Konzepte die verwechselt werden (als <table>)
+- 2 Formulierungsübungen: Sätze in IHK-Prüfungssprache umformulieren (vorher → nachher)
+- Prüfer-Hinweis: Was IHK-Prüfer besonders gern nachfragen
+PFLICHT: Bei regulatorischen Themen: Konkrete §§ und Fristen als Merksätze.
+VERBOTEN: Erneute Erklärung des Stoffes. NUR Verdichtung und Prüfungsvorbereitung.`,
+    minChars: 900,
   },
 };
 
@@ -302,7 +315,22 @@ Deno.serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `Du bist IHK-Ausbildungsexperte für ${professionName}. Erstelle prüfungsrelevante, fachlich tiefe Lerninhalte auf Deutsch. Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter, KEINE generischen Texte.`,
+              content: `Du bist ein erfahrener IHK-Fachexperte mit 20 Jahren Berufserfahrung als ${professionName}. Du erstellst Lerninhalte die sich anfühlen, als wären sie von einem Fachlehrer geschrieben — NICHT von einer KI.
+
+QUALITÄTSSTANDARD:
+- Jeder Lernschritt MUSS die fachliche Tiefe des offiziellen Rahmenplans abbilden
+- Praxisbeispiele MÜSSEN aus dem typischen Arbeitsalltag stammen — mit realistischen Kunden, Produkten, Zahlen
+- Bei regulatorischen Themen: IMMER konkrete §§-Referenzen, Fristen, Aufsichtsbehörden nennen
+- Bei Rechenthemen: IMMER vollständige Rechenwege mit realistischen (nicht-runden) Zahlen
+- Kombinationsaufgaben bevorzugen (mehrere Konzepte verknüpfen)
+- Markiere prüfungsrelevante Stellen mit ⭐
+
+ANTI-KI-REGELN:
+- KEINE Sätze wie "In der heutigen Geschäftswelt..." oder "Es ist wichtig zu verstehen, dass..."
+- KEINE generischen Aufzählungen ohne konkreten Berufsbezug
+- Schreibe so, wie ein erfahrener Ausbilder im Betrieb einem Azubi etwas erklärt
+
+Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
             },
             { role: "user", content: userPrompt },
           ],
