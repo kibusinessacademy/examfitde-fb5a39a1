@@ -187,13 +187,21 @@ Deno.serve(async (req) => {
   if (fetchErr) return json({ error: fetchErr.message }, 500);
 
   const lessons = (allLessons || []).filter((l: any) => l.content && l.content._placeholder !== true);
+  const totalLessons = allLessons?.length || 0;
+  const placeholderCount = totalLessons - lessons.length;
 
   if (lessons.length === 0) {
+    // CRITICAL FIX: Return 500 (not 409!) so job-runner does NOT treat this as "idempotent completed".
+    // 409 was being misinterpreted as "already done" → pipeline skipped content generation entirely.
+    console.error(`[validate-lessons] BLOCKING: ${placeholderCount}/${totalLessons} lessons are still placeholders — content generation incomplete`);
     return json({
       ok: false,
-      error: "NO_CONTENT_TO_VALIDATE",
-      message: "Keine generierten Lektionen gefunden — Content-Step muss zuerst laufen.",
-    }, 409);
+      batch_complete: false,
+      error: "ALL_LESSONS_ARE_PLACEHOLDERS",
+      message: `❌ BLOCKIERT: Alle ${totalLessons} Lektionen sind Platzhalter. Content-Generierung muss zuerst vollständig laufen.`,
+      placeholders: placeholderCount,
+      total: totalLessons,
+    }, 500);
   }
 
   console.log(`[validate-lessons] Validating ${lessons.length} lessons for ${professionName} (pkg ${packageId.slice(0, 8)})`);
