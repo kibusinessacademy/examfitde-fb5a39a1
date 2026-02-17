@@ -7822,10 +7822,12 @@ export type Database = {
       handbook_sections: {
         Row: {
           chapter_id: string
+          competency_id: string | null
           content_markdown: string
           content_type: string | null
           created_at: string | null
           id: string
+          learning_field_id: string | null
           metadata: Json | null
           section_key: string
           sort_order: number
@@ -7833,10 +7835,12 @@ export type Database = {
         }
         Insert: {
           chapter_id: string
+          competency_id?: string | null
           content_markdown: string
           content_type?: string | null
           created_at?: string | null
           id?: string
+          learning_field_id?: string | null
           metadata?: Json | null
           section_key: string
           sort_order?: number
@@ -7844,10 +7848,12 @@ export type Database = {
         }
         Update: {
           chapter_id?: string
+          competency_id?: string | null
           content_markdown?: string
           content_type?: string | null
           created_at?: string | null
           id?: string
+          learning_field_id?: string | null
           metadata?: Json | null
           section_key?: string
           sort_order?: number
@@ -7859,6 +7865,20 @@ export type Database = {
             columns: ["chapter_id"]
             isOneToOne: false
             referencedRelation: "handbook_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handbook_sections_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handbook_sections_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
             referencedColumns: ["id"]
           },
         ]
