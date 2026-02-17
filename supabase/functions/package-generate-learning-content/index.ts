@@ -204,14 +204,27 @@ Deno.serve(async (req) => {
 
   if (batch.length === 0) {
     // HARD GUARD: Re-query DB to confirm zero placeholders (don't trust in-memory filter alone)
-    const { count: dbPlaceholders } = await sb
-      .from("lessons")
-      .select("id", { count: "exact", head: true })
-      .eq("modules.course_id", courseId)
-      .or("content.is.null,content->_placeholder.eq.true")
-      .limit(1);
-    // Fallback: count via the allLessons we already fetched
-    const truePlaceholders = dbPlaceholders ?? placeholderLessons.length;
+    // NOTE: Can't use cross-table filter with .or() in Supabase, so fetch module IDs first
+    const { data: courseModules } = await sb
+      .from("modules")
+      .select("id")
+      .eq("course_id", courseId);
+    const moduleIds = (courseModules || []).map((m: { id: string }) => m.id);
+
+    let truePlaceholders = 0;
+    if (moduleIds.length > 0) {
+      const { count: nullCount } = await sb
+        .from("lessons")
+        .select("id", { count: "exact", head: true })
+        .in("module_id", moduleIds)
+        .is("content", null);
+      const { count: phCount } = await sb
+        .from("lessons")
+        .select("id", { count: "exact", head: true })
+        .in("module_id", moduleIds)
+        .contains("content", { _placeholder: true });
+      truePlaceholders = (nullCount ?? 0) + (phCount ?? 0);
+    }
 
     if (truePlaceholders > 0) {
       console.warn(`[gen-content] In-memory filter found 0 but DB has ${truePlaceholders} placeholders — re-queue`);
@@ -234,7 +247,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  console.log(`[gen-content] Processing ${batch.length}/${placeholderLessons.length} placeholder lessons (offset ${startIdx}) for ${professionName}`);
+  console.log(`[gen-content] Processing ${batch.length}/${placeholderLessons.length} placeholder lessons for ${professionName}`);
 
   const { data: topics } = await sb
     .from("curriculum_topics")
@@ -405,6 +418,6 @@ Deno.serve(async (req) => {
     details,
     message: batchComplete
       ? `✅ Alle Placeholder ersetzt. ${generated} generiert, ${skippedWriteBack} write-back.`
-      : `🔄 Batch ${Math.floor(startIdx / BATCH_SIZE) + 1}: ${generated} generiert, ${skippedWriteBack} write-back, ${remaining} verbleibend.`,
+      : `🔄 ${generated} generiert, ${skippedWriteBack} write-back, ${remaining} verbleibend.`,
   });
 });
