@@ -28,51 +28,98 @@ Struktur:
 - Konkretes Praxisszenario aus dem typischen ARBEITSALLTAG des Berufs — mit realistischen Akteuren (Kunden, Vorgesetzte, Kollegen), konkreten Zahlen und branchenüblichen Fachbegriffen
 - 2-3 Reflexionsfragen als <ul><li> die zum Nachdenken anregen
 - Bezug zum Vorwissen UND zur IHK-Prüfungsrelevanz
+- PRÜFUNGSDRUCK-ELEMENT: "In der IHK-Prüfung wird dieses Thema häufig als Situationsaufgabe gestellt. Typische Falle: ..."
 VERBOTEN: Generische Szenarien wie "in einem Unternehmen" oder "ein Mitarbeiter" ohne konkreten Berufsbezug.
 PFLICHT: Verwende realistische, nicht-runde Zahlen (z.B. 12.450 €, 3,75 %, 47 Tage).`,
     minChars: 600,
   },
   verstehen: {
-    system: `Erstelle **ausführliches Lernmaterial** (ca. 2000–3500 Zeichen HTML).
+    system: `Erstelle **ausführliches Lernmaterial** (ca. 2500–4000 Zeichen HTML).
 Struktur:
 - <h3>Konzept-Titel</h3>
 - Klare Definition und Erklärung der Kernkonzepte mit berufsspezifischen Beispielen
-- Mindestens 2 praxisnahe Beispiele aus dem realen Berufsalltag
+- Mindestens 3 praxisnahe Beispiele aus dem realen Berufsalltag (verschiedene Schwierigkeitsgrade)
 - Wichtige Fachbegriffe als <strong> — erklärt wie im Berufsfeld tatsächlich verwendet
 - Merksätze als <blockquote> mit ⭐ für prüfungsrelevante Inhalte
 - Nach JEDER Erklärung ein Gegenbeispiel das typische Fehlannahmen verdeutlicht
-- Bei regulatorischen Themen: Konkrete §§-Referenzen (BGB, HGB, KWG, GwG, MaRisk, DSGVO etc.)
-- Bei Rechenthemen: Vollständige Rechenwege mit Formeln und realistischen Zahlen
-- Tabelle oder Liste zur Übersicht wenn sinnvoll
-PFLICHT: Markiere IHK-Prüfungsbezüge mit ⭐ und formuliere, wie die IHK dieses Thema typischerweise abfragt.
-VERBOTEN: Akademische Definitionen ohne Praxisbezug. Oberflächliches Anreißen von Regulatorik.`,
-    minChars: 1500,
+
+RECHENAUFGABEN (PFLICHT bei quantitativen Themen):
+- Vollständige Rechenwege mit Formeln: Formel → Einsetzen → Zwischenschritt → Ergebnis
+- Realistische, nicht-runde Zahlen (z.B. 47.832,50 € statt 50.000 €)
+- Mindestens 2 verschiedene Rechenbeispiele mit steigender Komplexität
+- Ergebnis IMMER mit Interpretation: "Was bedeutet dieses Ergebnis für die Praxis?"
+
+REGULATORIK (PFLICHT bei rechtlichen Themen):
+- Konkrete §§-Referenzen (BGB, HGB, AO, UStG, DSGVO, BetrVG, BBiG etc.)
+- Fristen und Termine explizit nennen
+- Typische Prüfungsfrage zu diesem § als Beispiel
+
+IHK-PRÜFUNGSBEZUG (PFLICHT):
+- ⭐ "IHK-Prüfungstipp: ..." mindestens 2x pro Lektion
+- "Typische Prüfungsfalle: ..." mindestens 1x
+- "Achten Sie in der Prüfung besonders auf: ..."
+- Abgrenzungstabelle: Ähnliche Begriffe die verwechselt werden (als <table>)
+
+VERBOTEN: Akademische Definitionen ohne Praxisbezug. Oberflächliches Anreißen. Weniger als 2 Rechenbeispiele bei quantitativen Themen.`,
+    minChars: 1800,
   },
   anwenden: {
-    system: `Erstelle ein **Entscheidungsszenario** (ca. 1500–2500 Zeichen HTML) — KEINE reine Beschreibung.
+    system: `Erstelle ein **Entscheidungsszenario mit Fallstudie** (ca. 1800–3000 Zeichen HTML) — KEINE reine Beschreibung.
 Struktur:
-- <h3>Praxis-Titel</h3>
+- <h3>Fallstudie: [konkreter Titel mit Namen/Firma]</h3>
 - Konkretes Fallbeispiel mit realistischen Zahlen, Namen und Kontexten aus dem Berufsalltag
+- SITUATION: Detaillierte Ausgangslage mit allen relevanten Daten (Zahlen, Termine, Beteiligte)
+- AUFGABE: 3-4 konkrete Teilaufgaben mit steigender Komplexität
 - Mindestens 2 Entscheidungsoptionen mit fachlicher Abwägung der Vor- und Nachteile
-- Bei Rechenthemen: Mehrstufige Berechnungen (z.B. Effektivzins + Disagio + Tilgungsplan, nicht nur einfache Zinsrechnung)
-- Typische Prüfungsfallen mit ⚠️ markiert
-- Der Lernende muss die Entscheidung TREFFEN und fachlich BEGRÜNDEN
-PFLICHT: Kombinationsaufgaben bevorzugen (z.B. Kredit + Sicherheiten + Risikoanalyse statt isolierter Einzelaspekte).
-VERBOTEN: Reine Beschreibungen ("So funktioniert X"). Der Lernende muss HANDELN und ENTSCHEIDEN.`,
-    minChars: 1200,
+
+RECHENAUFGABEN (PFLICHT bei quantitativen Themen):
+- Mehrstufige Berechnungen (z.B. Angebotsvergleich mit Rabatt + Skonto + Bezugskosten, nicht nur einfache Addition)
+- Alle Rechenwege vollständig ausformuliert
+- Interpretation des Ergebnisses: "Welche Handlungsempfehlung ergibt sich?"
+
+ENTSCHEIDUNGSLOGIK (PFLICHT):
+- Pro-Contra-Tabelle für mindestens 2 Optionen
+- Begründung der optimalen Entscheidung mit Fachbegriffen
+- "Was wäre passiert, wenn Sie sich anders entschieden hätten?" (Konsequenz-Analyse)
+
+PRÜFUNGSFALLEN:
+- ⚠️ Typische Prüfungsfallen mit Erklärung markiert
+- "Viele Prüflinge machen hier den Fehler, dass..."
+- "Der IHK-Prüfer erwartet, dass Sie..."
+
+Der Lernende muss die Entscheidung TREFFEN und fachlich BEGRÜNDEN.
+VERBOTEN: Reine Beschreibungen. Isolierte Einzelaspekte statt Kombinationsaufgaben.`,
+    minChars: 1400,
   },
   wiederholen: {
-    system: `Erstelle eine **PRÜFUNGSVERDICHTUNG** (ca. 1200–1800 Zeichen HTML) — KEINE erneute Erklärung.
+    system: `Erstelle eine **PRÜFUNGSVERDICHTUNG** (ca. 1500–2200 Zeichen HTML) — KEINE erneute Erklärung.
 Struktur:
 - <h3>Prüfungsverdichtung</h3>
-- 3-5 kompakte Merksätze mit den Fachbegriffen wie sie in der IHK-Prüfung erwartet werden
-- Typische IHK-Prüfungsfallen: 3 häufige Fehler die Prüflinge machen, mit Erklärung warum sie falsch sind
-- Abgrenzungstabelle: Vergleich ähnlicher Begriffe/Konzepte die verwechselt werden (als <table>)
-- 2 Formulierungsübungen: Sätze in IHK-Prüfungssprache umformulieren (vorher → nachher)
-- Prüfer-Hinweis: Was IHK-Prüfer besonders gern nachfragen
-PFLICHT: Bei regulatorischen Themen: Konkrete §§ und Fristen als Merksätze.
+
+MERKSÄTZE (PFLICHT):
+- 5-7 kompakte Merksätze mit den Fachbegriffen wie sie in der IHK-Prüfung erwartet werden
+- Bei §§-Themen: "Merke: § [Nr] [Gesetz] regelt [was] → Frist: [Tage/Monate]"
+- Bei Rechnen: Formeln als Merksatz mit Beispielzahlen
+
+PRÜFUNGSFALLEN (PFLICHT, mindestens 4):
+- "Falle 1: [Fehler] → Richtig ist: [Korrektur] → Warum: [Begründung]"
+- Typische Verwechslungen die in der IHK-Prüfung vorkommen
+- Falsche Rechenwege die Prüflinge häufig wählen
+
+ABGRENZUNGSTABELLE (PFLICHT):
+- <table> mit Vergleich ähnlicher Begriffe/Konzepte (mind. 3 Zeilen)
+- Spalten: Begriff | Definition | Beispiel | Prüfungsrelevanz
+
+TRANSFERÜBUNGEN (PFLICHT, mindestens 2):
+- "Aufgabe: Formulieren Sie die Antwort auf folgende IHK-Prüfungsfrage: ..."
+- "Musterlösung: ..." (in IHK-Prüfungssprache)
+
+PRÜFER-HINWEIS:
+- "Was IHK-Prüfer besonders gern nachfragen: ..."
+- "Zeitmanagement: Für diese Aufgabe haben Sie ca. X Minuten. Teilen Sie sich die Zeit so ein: ..."
+
 VERBOTEN: Erneute Erklärung des Stoffes. NUR Verdichtung und Prüfungsvorbereitung.`,
-    minChars: 900,
+    minChars: 1200,
   },
 };
 
@@ -270,6 +317,20 @@ Deno.serve(async (req) => {
 
   const topicList = (topics || []).filter((t: any) => t.parent_topic_id).map((t: any) => t.topic_name);
 
+  // ── Load LF weighting & IHK focus for enriched prompts ──
+  const { data: lfWeights } = await sb
+    .from("learning_fields")
+    .select("id, title, code, weight_percent, exam_part, difficulty_tier, ihk_focus_areas")
+    .eq("curriculum_id", curriculumId);
+  const lfMap = new Map((lfWeights || []).map((lf: any) => [lf.title, lf]));
+
+  // ── Load module→LF mapping for enrichment ──
+  const { data: modulesMeta } = await sb
+    .from("modules")
+    .select("id, title, learning_field_id")
+    .eq("course_id", courseId);
+  const moduleLfMap = new Map((modulesMeta || []).map((m: any) => [m.id, m.learning_field_id]));
+
   let generated = 0;
   let skippedWriteBack = 0;
   let failed = 0;
@@ -281,23 +342,22 @@ Deno.serve(async (req) => {
     const stepConfig = STEP_PROMPTS[lesson.step];
     const moduleName = (lesson as any).modules?.title || "";
 
-    // ── Idempotency: check existing version ──
-    const existing = await existingVersion(sb, lesson.id, lesson.step);
-    if (existing) {
-      const wrote = await writeBackToLesson(sb, lesson.id, existing.content_json as Record<string, unknown>);
-      skippedWriteBack++;
-      details.push({
-        id: lesson.id, title: lesson.title, step: lesson.step,
-        status: wrote ? "write_back" : "write_back_failed",
-        versionId: existing.id,
-      });
-      continue;
-    }
+    // ── Resolve LF context for this lesson ──
+    const lfId = moduleLfMap.get(lesson.module_id);
+    const lfData = lfId ? (lfWeights || []).find((lf: any) => lf.id === lfId) : (lfMap.get(moduleName) || null);
+    const lfContext = lfData ? [
+      `Lernfeld: ${lfData.code} – ${lfData.title}`,
+      `Prüfungsgewichtung: ${lfData.weight_percent}%`,
+      `Prüfungsteil: ${lfData.exam_part === 'teil_1' ? 'Teil 1 (Informationstechnisches Büromanagement)' : lfData.exam_part === 'teil_2' ? 'Teil 2 (Kundenbeziehungsprozesse / Wirtschaft & Steuerung)' : 'Teil 1 + Teil 2'}`,
+      `Schwierigkeitsstufe: ${lfData.difficulty_tier}`,
+      Array.isArray(lfData.ihk_focus_areas) && lfData.ihk_focus_areas.length > 0 ? `IHK-Schwerpunkte: ${lfData.ihk_focus_areas.join(", ")}` : "",
+    ].filter(Boolean).join("\n") : "";
 
     const contextBlock = [
       `Beruf: ${professionName}`,
       `Modul: ${moduleName}`,
       `Lektion: ${lesson.title}`,
+      lfContext,
       topicList.length > 0 ? `Relevante Themen: ${topicList.slice(0, 10).join(", ")}` : "",
     ].filter(Boolean).join("\n");
 
@@ -324,6 +384,14 @@ QUALITÄTSSTANDARD:
 - Bei Rechenthemen: IMMER vollständige Rechenwege mit realistischen (nicht-runden) Zahlen
 - Kombinationsaufgaben bevorzugen (mehrere Konzepte verknüpfen)
 - Markiere prüfungsrelevante Stellen mit ⭐
+
+PRÜFUNGSDRUCK-ELEMENTE (PFLICHT in jedem Lernschritt):
+- Mindestens 1x "⭐ IHK-Prüfungstipp: ..." pro Lektion
+- Mindestens 1x "⚠️ Typische Prüfungsfalle: ..." pro Lektion
+- Bei Rechenthemen: "Zeitmanagement: Für diese Aufgabe ~X Min einplanen"
+- Transferfrage am Ende: "Wie würde sich die Situation ändern, wenn...?"
+${lfData?.difficulty_tier === 'hard' ? '\nERHÖHTE SCHWIERIGKEIT (dieses Lernfeld ist prüfungskritisch!):\n- Mehrstufige Berechnungen mit mindestens 3 Rechenschritten\n- Kombinationsaufgaben aus mindestens 2 Themengebieten\n- Entscheidungsszenarien mit Pro-Contra-Analyse\n- Regulatorische Querverweise zwischen §§' : ''}
+${lfData?.ihk_focus_areas?.length ? `\nIHK-SCHWERPUNKTE für dieses Lernfeld: ${lfData.ihk_focus_areas.join(", ")}\nBaue diese Schwerpunkte gezielt in Beispiele und Übungen ein.` : ''}
 
 ANTI-KI-REGELN:
 - KEINE Sätze wie "In der heutigen Geschäftswelt..." oder "Es ist wichtig zu verstehen, dass..."

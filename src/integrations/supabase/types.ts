@@ -8471,30 +8471,42 @@ export type Database = {
           created_at: string
           curriculum_id: string
           description: string | null
+          difficulty_tier: string | null
+          exam_part: string | null
           hours: number | null
           id: string
+          ihk_focus_areas: Json | null
           sort_order: number | null
           title: string
+          weight_percent: number | null
         }
         Insert: {
           code: string
           created_at?: string
           curriculum_id: string
           description?: string | null
+          difficulty_tier?: string | null
+          exam_part?: string | null
           hours?: number | null
           id?: string
+          ihk_focus_areas?: Json | null
           sort_order?: number | null
           title: string
+          weight_percent?: number | null
         }
         Update: {
           code?: string
           created_at?: string
           curriculum_id?: string
           description?: string | null
+          difficulty_tier?: string | null
+          exam_part?: string | null
           hours?: number | null
           id?: string
+          ihk_focus_areas?: Json | null
           sort_order?: number | null
           title?: string
+          weight_percent?: number | null
         }
         Relationships: [
           {
