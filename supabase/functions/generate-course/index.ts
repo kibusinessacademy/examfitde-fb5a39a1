@@ -68,6 +68,32 @@ serve(async (req) => {
       if (lfError) throw lfError;
       if (!learningFields?.length) throw new Error("No learning fields found");
 
+      // ── HARD GUARD: If no competencies exist, create synthetic ones from LF titles ──
+      const totalComps = learningFields.reduce((sum, lf) => sum + (lf.competencies?.length || 0), 0);
+      if (totalComps === 0) {
+        console.warn(`[scaffold] Curriculum ${curriculumId} has ${learningFields.length} LFs but 0 competencies — creating synthetic competencies`);
+        for (const lf of learningFields) {
+          const syntheticComp = {
+            learning_field_id: lf.id,
+            code: `${lf.code || 'LF'}-K1`,
+            title: lf.title || `Kompetenz ${lf.code}`,
+            description: lf.description || lf.title || '',
+            taxonomy_level: 'apply',
+          };
+          const { data: inserted, error: insertErr } = await supabase
+            .from("competencies")
+            .insert(syntheticComp)
+            .select("*")
+            .single();
+          if (insertErr && insertErr.code !== '23505') {
+            console.error(`[scaffold] Failed to create synthetic competency for LF ${lf.id}: ${insertErr.message}`);
+          } else if (inserted) {
+            lf.competencies = [inserted];
+          }
+        }
+        console.log(`[scaffold] Created synthetic competencies for ${learningFields.length} LFs`);
+      }
+
       // ── BULK: Load existing modules for this course ────────────────
       const { data: existingModules } = await supabase
         .from("modules")
