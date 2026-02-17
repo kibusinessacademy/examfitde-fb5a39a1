@@ -217,13 +217,18 @@ Deno.serve(async (req) => {
     if (opts.include_exam_pool) {
       contentSteps.push({ step_key: "auto_seed_exam_blueprints", job_type: "package_auto_seed_exam_blueprints" });
       contentSteps.push({ step_key: "generate_exam_pool", job_type: "package_generate_exam_pool" });
+      contentSteps.push({ step_key: "validate_exam_pool", job_type: "package_validate_exam_pool" });
     }
-    if (opts.include_oral_exam)
+    if (opts.include_oral_exam) {
       contentSteps.push({ step_key: "generate_oral_exam", job_type: "package_generate_oral_exam" });
+      contentSteps.push({ step_key: "validate_oral_exam", job_type: "package_validate_oral_exam" });
+    }
     if (opts.include_ai_tutor)
       contentSteps.push({ step_key: "build_ai_tutor_index", job_type: "package_build_ai_tutor_index" });
-    if (opts.include_handbook)
+    if (opts.include_handbook) {
       contentSteps.push({ step_key: "generate_handbook", job_type: "package_generate_handbook" });
+      contentSteps.push({ step_key: "validate_handbook", job_type: "package_validate_handbook" });
+    }
 
     // Phase 2: Quality gates
     const gateSteps: Array<{ step_key: string; job_type: string }> = [
