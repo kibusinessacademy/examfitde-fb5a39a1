@@ -39,20 +39,15 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
-  // ── Pipeline Lock Guard: am I the active package? ──
-  const { data: lock } = await sb
-    .from("pipeline_lock")
-    .select("active_package_id")
-    .eq("id", 1)
-    .single();
-
-  if (lock?.active_package_id !== packageId) {
-    console.warn(`[BuildPkg] ABORT: pipeline_lock active=${lock?.active_package_id}, but I am ${packageId}`);
-    return json({ error: "PIPELINE_LOCK_MISMATCH", detail: "Another package holds the pipeline lock." }, 409);
-  }
-
-  // Heartbeat immediately
-  await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId });
+  // ── Pipeline Lock Guard: REMOVED ──
+  // The pipeline-runner uses package_leases for concurrency control.
+  // The old single-lock model blocked ALL packages except the lock holder,
+  // preventing multi-slot processing. Lock checks are now skipped during
+  // bootstrap — the runner's lease system ensures safe concurrency.
+  console.log(`[BuildPkg] Bootstrapping package ${packageId.slice(0, 8)} (no lock check)`);
+  
+  // Update pipeline_lock heartbeat if we happen to be the active package (backwards compat)
+  try { await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId }); } catch (_) { /* ignore */ }
 
   // ── Pre-Build Autofix ──
   try {
