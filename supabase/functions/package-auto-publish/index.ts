@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
 
   const qualityReport = (pkgQ as any)?.quality_report;
   if (qualityReport && qualityReport.status === "failed") {
+  try {
     await sb.from("admin_notifications").insert({
       title: "⚠️ Quality Gate failed",
       body: `Package blocked. quality_score=${qualityReport.score ?? "?"}`,
@@ -56,7 +57,8 @@ Deno.serve(async (req) => {
       severity: "warning",
       entity_type: "course_package",
       entity_id: packageId,
-    }).catch(() => {});
+    });
+  } catch (_) { /* non-critical */ }
     return json({ ok: false, retry: false, error: "QUALITY_GATE_FAILED", quality: qualityReport }, 422);
   }
 
@@ -128,14 +130,16 @@ Deno.serve(async (req) => {
     .eq("id", packageId);
   if (pErr) throw pErr;
 
-  await sb.from("admin_notifications").insert({
-    title: "🚀 Package published",
-    body: "Course package has been published successfully.",
-    category: "package_review",
-    severity: "info",
-    entity_type: "course_package",
-    entity_id: packageId,
-  }).catch(() => {});
+  try {
+    await sb.from("admin_notifications").insert({
+      title: "🚀 Package published",
+      body: "Course package has been published successfully.",
+      category: "package_review",
+      severity: "info",
+      entity_type: "course_package",
+      entity_id: packageId,
+    });
+  } catch (_) { /* non-critical */ }
 
   return json({ ok: true });
 });
