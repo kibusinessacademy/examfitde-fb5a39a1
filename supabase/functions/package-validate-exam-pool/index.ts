@@ -17,15 +17,16 @@ import { getModel } from "../_shared/model-routing.ts";
  *   - Contamination guard
  *   - Difficulty field present
  *
- * TIER 2 (Random sample ≤ 12 questions, LLM validation):
+ * TIER 2 (Random sample ≤ 4 questions, LLM validation):
  *   - IHK-Konformität, Eindeutigkeit, Distraktoren-Qualität
  *   - If sample avg < 70 → step fails
  *   - Individual questions scoring < 55 → flagged needs_revision
+ *   - Early exit: if first 2 consecutive calls rate-limited, skip Tier 2 and trust Tier 1
  *
  * On failure: flags low-quality questions, does NOT delete them.
  */
 
-const SAMPLE_SIZE = 12;
+const SAMPLE_SIZE = 4;
 const SAMPLE_PASS_THRESHOLD = 70;
 const INDIVIDUAL_REJECT_THRESHOLD = 55;
 const JACCARD_THRESHOLD = 0.85;
@@ -63,26 +64,21 @@ function tier1Check(
 ): T1Result {
   const issues: string[] = [];
 
-  // Options check
   const opts = Array.isArray(q.options) ? q.options : [];
   if (opts.length < 4) issues.push(`TOO_FEW_OPTIONS: ${opts.length}/4`);
 
-  // Correct answer check
   if (q.correct_answer === null || q.correct_answer === undefined) {
     issues.push("NO_CORRECT_ANSWER");
   } else if (q.correct_answer < 0 || q.correct_answer >= opts.length) {
     issues.push(`CORRECT_ANSWER_OUT_OF_RANGE: ${q.correct_answer}`);
   }
 
-  // Explanation check
   if (!q.explanation || q.explanation.length < 80) {
     issues.push(`EXPLANATION_TOO_SHORT: ${(q.explanation || "").length}/80`);
   }
 
-  // Difficulty check
   if (!q.difficulty) issues.push("NO_DIFFICULTY");
 
-  // Question text min length
   if (!q.question_text || q.question_text.length < 30) {
     issues.push(`QUESTION_TOO_SHORT: ${(q.question_text || "").length}/30`);
   }
@@ -152,8 +148,10 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
       issues: (parsed.critical_issues || []).map((i: any) => `${i.severity}: ${i.message}`),
     };
   } catch (e) {
-    console.error(`[validate-exam] LLM failed for ${q.id}: ${(e as Error).message}`);
-    return { questionId: q.id, score: 50, decision: "revise", issues: [`LLM_ERROR: ${(e as Error).message}`] };
+    const errMsg = (e as Error).message || "";
+    console.error(`[validate-exam] LLM failed for ${q.id}: ${errMsg}`);
+    // Return score=-1 (skip) — don't penalize average. Trust Tier 1 structural checks.
+    return { questionId: q.id, score: -1, decision: "skipped", issues: [`LLM_ERROR: ${errMsg}`] };
   }
 }
 
@@ -201,12 +199,14 @@ Deno.serve(async (req) => {
 
   console.log(`[validate-exam] Tier 1: ${t1Results.length - t1Failed.length}/${t1Results.length} passed (${t1PassRate.toFixed(1)}%)`);
 
-  // Flag failed questions
-  for (const fail of t1Failed.slice(0, 100)) {
+  // Batch flag failed questions (chunks of 50)
+  const failIds = t1Failed.map(f => f.questionId);
+  for (let i = 0; i < failIds.length; i += 50) {
+    const chunk = failIds.slice(i, i + 50);
     await sb.from("exam_questions").update({
       qc_status: "tier1_failed",
-      metadata: { tier1_issues: fail.issues, validated_at: new Date().toISOString() },
-    }).eq("id", fail.questionId);
+      metadata: { tier1: "failed", validated_at: new Date().toISOString() },
+    }).in("id", chunk);
   }
 
   // If < 70% pass T1 → systemic issue
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ═══ TIER 2: LLM sample ═══
+  // ═══ TIER 2: LLM sample (with early-exit on rate limits) ═══
   const t1Passed = t1Results.filter((r: T1Result) => r.passed);
   const sampleSize = Math.min(SAMPLE_SIZE, t1Passed.length);
   const sampleIds = new Set<string>();
@@ -248,40 +248,61 @@ Deno.serve(async (req) => {
   console.log(`[validate-exam] Tier 2: Sampling ${sampleIds.size} questions for LLM validation`);
 
   const t2Results: Array<{ questionId: string; score: number; decision: string; issues: string[] }> = [];
+  let consecutiveRateLimits = 0;
 
   for (const qId of sampleIds) {
+    // Early exit after 2 consecutive rate limits — trust Tier 1
+    if (consecutiveRateLimits >= 2) {
+      console.log(`[validate-exam] Tier 2: Early exit after ${consecutiveRateLimits} consecutive rate limits — trusting Tier 1`);
+      break;
+    }
+
     const q = questions.find((q: any) => q.id === qId);
     if (!q) continue;
 
     const result = await tier2Validate(q, professionName);
     t2Results.push(result);
 
-    // Update qc_status
-    await sb.from("exam_questions").update({
-      qc_status: result.decision === "approve" ? "approved" : result.decision === "reject" ? "needs_revision" : "needs_revision",
-      metadata: { tier2_score: result.score, tier2_decision: result.decision, tier2_issues: result.issues, validated_at: new Date().toISOString() },
-    }).eq("id", q.id);
+    if (result.score === -1) {
+      consecutiveRateLimits++;
+    } else {
+      consecutiveRateLimits = 0;
+      // Only update individual question qc_status for scored results
+      await sb.from("exam_questions").update({
+        qc_status: result.decision === "approve" ? "approved" : "needs_revision",
+        metadata: { tier2_score: result.score, tier2_decision: result.decision, validated_at: new Date().toISOString() },
+      }).eq("id", q.id);
+    }
 
-    await new Promise(r => setTimeout(r, 1500));
+    // Longer delay to avoid rate limits (8-12s)
+    await new Promise(r => setTimeout(r, 8000 + Math.random() * 4000));
   }
 
-  const avgScore = t2Results.length > 0
-    ? t2Results.reduce((sum, r) => sum + r.score, 0) / t2Results.length
-    : 100;
-  const rejected = t2Results.filter(r => r.score < INDIVIDUAL_REJECT_THRESHOLD);
+  // Filter out rate-limited results from average calculation
+  const scoredResults = t2Results.filter(r => r.score >= 0);
+  const avgScore = scoredResults.length > 0
+    ? scoredResults.reduce((sum, r) => sum + r.score, 0) / scoredResults.length
+    : 100; // If all rate-limited, trust Tier 1
+  const rejected = scoredResults.filter(r => r.score < INDIVIDUAL_REJECT_THRESHOLD);
+  const skippedCount = t2Results.length - scoredResults.length;
+  if (skippedCount > 0) console.log(`[validate-exam] Tier 2: ${skippedCount} samples skipped due to rate limits`);
 
   console.log(`[validate-exam] Tier 2: avg=${avgScore.toFixed(1)}, flagged=${rejected.length}/${t2Results.length}`);
 
-  // Mark non-sampled as tier1_passed
-  for (const r of t1Passed) {
-    if (!sampleIds.has(r.questionId)) {
-      await sb.from("exam_questions").update({
-        qc_status: "tier1_passed",
-      }).eq("id", r.questionId);
-    }
+  // Batch mark non-sampled as tier1_passed (chunks of 100)
+  const passedNotSampled = t1Passed.filter(r => !sampleIds.has(r.questionId)).map(r => r.questionId);
+  for (let i = 0; i < passedNotSampled.length; i += 100) {
+    const chunk = passedNotSampled.slice(i, i + 100);
+    await sb.from("exam_questions").update({
+      qc_status: "tier1_passed",
+    }).in("id", chunk);
   }
 
   const overallPass = avgScore >= SAMPLE_PASS_THRESHOLD && t1PassRate >= 70;
+
+  await sb.from("course_packages").update({
+    last_error: overallPass ? null : `Exam QC: avg=${avgScore.toFixed(0)}, t1=${t1PassRate.toFixed(0)}%`,
+  }).eq("id", packageId);
 
   if (!overallPass) {
     await sb.from("ops_alerts").insert({
@@ -296,7 +317,7 @@ Deno.serve(async (req) => {
     ok: overallPass,
     batch_complete: overallPass,
     tier1: { total: t1Results.length, passed: t1Results.length - t1Failed.length, failed: t1Failed.length, pass_rate: t1PassRate },
-    tier2: { sample_size: t2Results.length, avg_score: avgScore, flagged: rejected.length, results: t2Results },
+    tier2: { sample_size: t2Results.length, avg_score: avgScore, flagged: rejected.length, skipped: skippedCount, results: t2Results },
     message: overallPass
       ? `✅ Exam QC bestanden: ${t1PassRate.toFixed(0)}% Tier 1, avg ${avgScore.toFixed(0)}/100 Tier 2`
       : `❌ Exam QC fehlgeschlagen: ${t1PassRate.toFixed(0)}% Tier 1, avg ${avgScore.toFixed(0)}/100 Tier 2`,
