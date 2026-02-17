@@ -375,9 +375,13 @@ Deno.serve(async (req) => {
       if (!res.ok) {
         // ── 409 Conflict ─────────────────────────────────────────────
         if (res.status === 409) {
-          const isIdempotent = parsed?.skipped || parsed?.retry === false || parsed?.ok === true;
-          if (isIdempotent || !parsed?.retry) {
-            console.log(`[job-runner] ${fnName} 409 idempotent → completed`);
+          // CRITICAL FIX: Only treat 409 as idempotent-completed if EXPLICITLY marked as such.
+          // Previously, ANY 409 without retry:true was auto-completed — even ok:false responses.
+          // This caused validate_learning_content (which returned 409 + ok:false) to be marked
+          // as "completed", allowing the pipeline to skip content validation entirely.
+          const isIdempotent = parsed?.skipped === true || parsed?.ok === true || parsed?.retry === false;
+          if (isIdempotent) {
+            console.log(`[job-runner] ${fnName} 409 idempotent (ok=${parsed?.ok} skipped=${parsed?.skipped}) → completed`);
             await sb.from("job_queue").update({
               status: "completed",
               result: { ...(typeof parsed === "object" ? parsed : {}), _409_idempotent: true },
