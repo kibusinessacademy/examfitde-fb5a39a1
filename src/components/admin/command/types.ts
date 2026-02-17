@@ -40,19 +40,26 @@ export interface AIDiagnose {
 }
 
 export const STEP_LABELS: Record<string, string> = {
-  scaffold_learning_course: 'Lernkurs',
+  scaffold_learning_course: 'Scaffold',
+  generate_learning_content: 'Lerninhalte',
+  validate_learning_content: 'QG Lernen',
   auto_seed_exam_blueprints: 'Blueprints',
   generate_exam_pool: 'Fragenpool',
+  validate_exam_pool: 'QG Fragen',
   generate_oral_exam: 'Mündliche',
+  validate_oral_exam: 'QG Mündl.',
   build_ai_tutor_index: 'KI-Tutor',
   generate_handbook: 'Handbuch',
+  validate_handbook: 'QG Handbuch',
   run_integrity_check: 'Integrität',
   quality_council: 'QA Council',
   auto_publish: 'Publish',
 };
 
 export const STEP_ORDER = [
-  'scaffold_learning_course', 'auto_seed_exam_blueprints', 'generate_exam_pool',
-  'generate_oral_exam', 'build_ai_tutor_index', 'generate_handbook',
+  'scaffold_learning_course', 'generate_learning_content', 'validate_learning_content',
+  'auto_seed_exam_blueprints', 'generate_exam_pool', 'validate_exam_pool',
+  'generate_oral_exam', 'validate_oral_exam', 'build_ai_tutor_index',
+  'generate_handbook', 'validate_handbook',
   'run_integrity_check', 'quality_council', 'auto_publish',
 ];
