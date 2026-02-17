@@ -75,7 +75,7 @@ async function generateSectionContent(
   fieldDescription: string,
   subtopics: string[],
 ): Promise<string> {
-  const routed = getModel("content_generation");
+  const routed = getModel("handbook");
   const topicContext = subtopics.length > 0
     ? `\nKernthemen aus dem Rahmenplan:\n${subtopics.map(t => `- ${t}`).join("\n")}`
     : "";
