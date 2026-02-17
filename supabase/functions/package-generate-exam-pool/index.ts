@@ -257,9 +257,8 @@ function json(body: unknown, status = 200) {
 // ─── Provider Routing: Turbo Chain ────────────────────────────────────────────
 
 const EXAM_PROVIDER_CHAIN: { provider: AIProvider; model: string }[] = [
+  { provider: "lovable", model: "google/gemini-2.5-flash" },
   { provider: "openai", model: "gpt-4o-mini" },
-  { provider: "google", model: "gemini-2.5-flash" },
-  { provider: "openai", model: "gpt-4.1" },
   { provider: "anthropic", model: "claude-sonnet-4-20250514" },
 ];
 
@@ -269,7 +268,8 @@ function pickProvider(exclude: string[] = []): { provider: AIProvider; model: st
     const keyMap: Record<string, string> = {
       openai: "OPENAI_API_KEY",
       anthropic: "ANTHROPIC_API_KEY",
-      google: "GOOGLE_API_KEY",
+      google: "GOOGLE_AI_API_KEY",
+      lovable: "LOVABLE_API_KEY",
     };
     const keyEnv = keyMap[entry.provider];
     if (keyEnv && !Deno.env.get(keyEnv)) continue;

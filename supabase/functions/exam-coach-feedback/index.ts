@@ -28,7 +28,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    // LOVABLE_API_KEY checked later for AI feedback
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -116,9 +116,10 @@ serve(async (req) => {
     const scorePercent = session.score_percentage ?? 0;
     const coachTone = scorePercent >= 80 ? 'congratulatory' : scorePercent >= 60 ? 'encouraging' : 'supportive';
 
-    // Generate AI feedback if API key available
+    // Generate AI feedback via Lovable AI Gateway
     let aiSummary = '';
     let aiPlan: string[] = [];
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (LOVABLE_API_KEY) {
       try {
