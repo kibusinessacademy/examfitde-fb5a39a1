@@ -213,7 +213,8 @@ async function postValidateTutorResponse(
   try {
     const startTime = Date.now();
     const valResult = await callAI({
-      provider: "anthropic",
+      provider: "lovable",
+      model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: `Du prüfst eine KI-Tutor-Antwort für ${professionName} auf fachliche Korrektheit. SCHNELL und PRÄZISE.
 Kontext: ${JSON.stringify(resolvedContext).slice(0, 3000)}
@@ -244,7 +245,7 @@ Antworte NUR mit JSON:
 
     await supabase.from("ai_validations").insert({
       generation_id: generationId,
-      validator_model: "claude-sonnet-4-20250514",
+      validator_model: "lovable/gemini-2.5-flash",
       validation_mode: "automatic",
       overall_score: result.score || 0,
       decision: result.decision || "approve",
@@ -324,7 +325,7 @@ serve(async (req) => {
     // Create generation record BEFORE streaming
     const { data: genRecord } = await supabase.from("ai_generations").insert({
       entity_type: "tutor_response",
-      generator_model: "openai/gpt-4.1",
+      generator_model: "lovable/gpt-5",
       input_context: { mode: validMode, role: validRole, context: resolvedContext, prompt: message, profession: professionName },
       output_content: {},
       status: "generated",
@@ -335,7 +336,8 @@ serve(async (req) => {
 
     // Stream from OpenAI directly
     const { raw: aiResponse, ok, status } = await callAI({
-      provider: "openai",
+      provider: "lovable",
+      model: "openai/gpt-5",
       messages: aiMessages,
       stream: true,
     });
@@ -351,7 +353,7 @@ serve(async (req) => {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-      throw new Error(`OpenAI API error: ${status}`);
+      throw new Error(`Lovable AI error: ${status}`);
     }
 
     // Stream through + collect for post-validation
