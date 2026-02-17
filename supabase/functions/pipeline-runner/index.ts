@@ -377,7 +377,7 @@ async function processPackage(
       await safeRpc(sb, "renew_package_lease", {
         p_package_id: packageId,
         p_runner_id: runnerId,
-        p_lease_seconds: 600,
+        p_lease_seconds: 120,
       });
       // Heartbeat to keep step alive while waiting in queue
       await safeRpc(sb, "step_heartbeat", {
@@ -407,7 +407,7 @@ async function processPackage(
       await safeRpc(sb, "renew_package_lease", {
         p_package_id: packageId,
         p_runner_id: runnerId,
-        p_lease_seconds: 600,
+        p_lease_seconds: 120,
       });
       return { packageId, stepKey, waiting: true, jobStatus: "processing" };
     }
@@ -782,9 +782,12 @@ Deno.serve(async (req) => {
     for (let slot = 0; slot < maxSlots; slot++) {
       const runnerId = `runner_${crypto.randomUUID().slice(0, 8)}`;
 
+      // Lease duration: 120s (not 600s) — prevents poll starvation.
+      // The runner is a pure orchestrator that polls in <1s per package,
+      // so 120s gives ample time while allowing re-acquisition every ~2 min.
       const { data: pkgId, error: acquireErr } = await sb.rpc(
         "acquire_next_package_lease",
-        { p_runner_id: runnerId, p_lease_seconds: 600 },
+        { p_runner_id: runnerId, p_lease_seconds: 120 },
       );
 
       if (acquireErr) {
