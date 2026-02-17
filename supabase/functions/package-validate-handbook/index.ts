@@ -6,26 +6,26 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 /**
  * package-validate-handbook — Pipeline Step (after generate_handbook)
  *
- * Structural quality gate for handbook chapters/sections:
- *   - Min 3 chapters
- *   - Each chapter has ≥ 1 section
- *   - Section content_markdown ≥ 200 chars
- *   - No placeholder text remaining ("_Wird durch Council ergänzt._", "[TODO]", etc.)
- *   - Sections have heading structure (## or ###)
- *   - Contamination guard
- *   - Depth enrichment check (curriculum_topics referenced)
- *
- * No LLM needed — handbook is structural + template-based.
+ * Structural quality gate for handbook chapters/sections.
+ * 
+ * ANTI-LOOP PROTECTION: If this step has been retried ≥ 10 times,
+ * it resets generate_handbook to 'queued' to force re-generation,
+ * rather than retrying validation indefinitely.
  */
 
 const MIN_CHAPTERS = 3;
 const MIN_SECTION_LENGTH = 200;
+const MAX_RETRIES_BEFORE_REGEN = 10;
 const PLACEHOLDER_PATTERNS = [
   "_Wird durch Council",
   "_Beschreibung folgt",
   "[TODO]",
   "Lorem ipsum",
   "Platzhalter",
+  "Council ergänzt",
+  "Council/LLM",
+  "Blueprint-Analyse ergänzt",
+  "Curriculum-Analyse ergänzt",
 ];
 
 function json(body: unknown, status = 200) {
@@ -51,6 +51,50 @@ Deno.serve(async (req) => {
   const certificationId = p.certification_id || null;
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
+
+  // ── ANTI-LOOP: Check how many times this job has been attempted ──
+  const { data: jobData } = await sb
+    .from("job_queue")
+    .select("attempts")
+    .eq("job_type", "package_validate_handbook")
+    .contains("payload", { package_id: packageId })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const attempts = jobData?.attempts || 0;
+
+  if (attempts >= MAX_RETRIES_BEFORE_REGEN) {
+    console.log(`[validate-handbook] Anti-loop: ${attempts} attempts exceeded threshold. Resetting generate_handbook for re-generation.`);
+    
+    // Reset generate_handbook step to force content re-generation
+    await sb
+      .from("package_steps")
+      .update({ status: "queued", job_id: null, started_at: null, last_heartbeat_at: null })
+      .eq("package_id", packageId)
+      .eq("step_key", "generate_handbook");
+
+    // Also reset this validation step
+    await sb
+      .from("package_steps")
+      .update({ status: "queued", job_id: null, started_at: null, last_heartbeat_at: null })
+      .eq("package_id", packageId)
+      .eq("step_key", "validate_handbook");
+
+    // Cancel the current job to prevent further retries
+    await sb
+      .from("job_queue")
+      .update({ status: "cancelled", last_error: "Anti-loop: forcing handbook re-generation" })
+      .eq("job_type", "package_validate_handbook")
+      .contains("payload", { package_id: packageId })
+      .in("status", ["pending", "processing"]);
+
+    return json({
+      ok: false,
+      anti_loop: true,
+      message: `Anti-loop triggered after ${attempts} attempts. generate_handbook reset for re-generation.`,
+    });
+  }
 
   // Resolve profession
   let professionName: string;
@@ -130,7 +174,7 @@ Deno.serve(async (req) => {
 
     // Depth enrichment check
     const meta = sec.metadata as any;
-    if (meta?.depth_enriched) {
+    if (meta?.depth_enriched || meta?.llm_generated) {
       depthEnrichedCount++;
     }
 
@@ -161,12 +205,24 @@ Deno.serve(async (req) => {
   const overallPass = passRate >= 60 && placeholderRate <= 30 && chapterIssues.length === 0;
 
   if (!overallPass) {
-    await sb.from("ops_alerts").insert({
-      source: "validate-handbook",
-      severity: "warning",
-      message: `Handbook QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed, ${placeholderCount} placeholders`,
-      payload: { packageId, pass_rate: passRate, placeholder_count: placeholderCount, chapter_issues: chapterIssues },
-    }).then(() => {}).catch(() => {});
+    // Rate-limit alerts: only one per 10 minutes
+    const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: recentAlerts } = await sb
+      .from("ops_alerts")
+      .select("id")
+      .eq("source", "validate-handbook")
+      .gte("created_at", since)
+      .ilike("message", `%${packageId.slice(0, 8)}%`)
+      .limit(1);
+
+    if (!recentAlerts?.length) {
+      await sb.from("ops_alerts").insert({
+        source: "validate-handbook",
+        severity: "warning",
+        message: `Handbook QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed, ${placeholderCount} placeholders (attempt ${attempts})`,
+        payload: { packageId, pass_rate: passRate, placeholder_count: placeholderCount, chapter_issues: chapterIssues, attempt: attempts },
+      }).then(() => {}).catch(() => {});
+    }
   }
 
   return json({

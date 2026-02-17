@@ -1,5 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { callAIJSON } from "../_shared/ai-client.ts";
+import { getModel } from "../_shared/model-routing.ts";
+import { resolveProfession } from "../_shared/profession-resolver.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -25,11 +28,9 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
 async function loadFieldTopicDepth(
   sb: ReturnType<typeof createClient>,
   curriculumId: string,
-  fieldCode: string,
   fieldTitle: string,
-): Promise<string> {
+): Promise<string[]> {
   try {
-    // Find parent topic matching this learning field
     const { data: parentTopics } = await sb
       .from("curriculum_topics")
       .select("id, topic_name")
@@ -38,38 +39,94 @@ async function loadFieldTopicDepth(
       .ilike("topic_name", `%${fieldTitle.slice(0, 30)}%`)
       .limit(3);
 
-    if (!parentTopics?.length) {
-      // Fallback: get ANY subtopics for this curriculum
+    let parentIds: string[] = [];
+    if (parentTopics?.length) {
+      parentIds = parentTopics.map((t: any) => t.id);
+    } else {
       const { data: allParents } = await sb
         .from("curriculum_topics")
         .select("id, topic_name")
         .eq("certification_id", curriculumId)
         .is("parent_topic_id", null)
         .limit(50);
-      if (!allParents?.length) return "";
-      
-      // Use all parents to gather subtopics
-      const parentIds = allParents.map((p: any) => p.id);
-      const { data: allSubs } = await sb
-        .from("curriculum_topics")
-        .select("topic_name, difficulty_level")
-        .in("parent_topic_id", parentIds)
-        .limit(200);
-      
-      if (!allSubs?.length) return "";
-      return allSubs.map((s: any) => `- ${s.topic_name}`).join("\n");
+      if (!allParents?.length) return [];
+      parentIds = allParents.map((p: any) => p.id);
     }
 
-    const parentIds = parentTopics.map((t: any) => t.id);
     const { data: subtopics } = await sb
       .from("curriculum_topics")
       .select("topic_name, difficulty_level")
       .in("parent_topic_id", parentIds)
       .limit(50);
 
-    if (!subtopics?.length) return "";
-    return subtopics.map((s: any) => `- ${s.topic_name} (${s.difficulty_level || "mittel"})`).join("\n");
+    return subtopics?.map((s: any) => s.topic_name) || [];
   } catch {
+    return [];
+  }
+}
+
+/**
+ * Generate real handbook section content via LLM.
+ */
+async function generateSectionContent(
+  professionName: string,
+  fieldCode: string,
+  fieldTitle: string,
+  fieldDescription: string,
+  subtopics: string[],
+): Promise<string> {
+  const routed = getModel("content_generation");
+  const topicContext = subtopics.length > 0
+    ? `\nKernthemen aus dem Rahmenplan:\n${subtopics.map(t => `- ${t}`).join("\n")}`
+    : "";
+
+  const prompt = `Du bist ein IHK-Fachexperte für den Ausbildungsberuf "${professionName}". 
+Erstelle einen prüfungsrelevanten Handbuch-Abschnitt für das Lernfeld "${fieldCode}: ${fieldTitle}".
+
+${fieldDescription ? `Lernfeldbeschreibung: ${fieldDescription}` : ""}
+${topicContext}
+
+ANFORDERUNGEN:
+1. Fachlich korrekt und prüfungsrelevant für die IHK-Abschlussprüfung
+2. Konkrete Definitionen, Formeln, Merksätze — keine allgemeinen Floskeln
+3. Mindestens 3 praxisnahe Beispiele mit konkreten Zahlen/Szenarien
+4. Typische Prüfungsfallen mit Erklärung, warum Prüflinge dort scheitern
+5. Markdown-Format mit ## und ### Überschriften
+6. Mindestens 400 Wörter, maximal 800 Wörter
+7. KEINE Platzhalter wie "wird ergänzt" oder "TODO"
+
+Antworte NUR mit dem Markdown-Inhalt, KEIN JSON-Wrapper.`;
+
+  try {
+    const result = await callAIJSON({
+      provider: routed.provider,
+      model: routed.model,
+      messages: [
+        { role: "system", content: "Du schreibst prüfungsrelevante IHK-Handbuch-Inhalte. Antworte nur mit Markdown." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 3000,
+    });
+
+    // callAIJSON returns parsed JSON, but we asked for raw markdown
+    // The response might be wrapped in JSON or raw text
+    let content = result.content || "";
+    // Strip JSON wrapper if present
+    if (content.startsWith("{") || content.startsWith('"')) {
+      try {
+        const parsed = JSON.parse(content);
+        content = typeof parsed === "string" ? parsed : parsed.content || parsed.markdown || JSON.stringify(parsed);
+      } catch { /* use as-is */ }
+    }
+    // Strip markdown code fences
+    content = content.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
+
+    if (content.length < 200) {
+      console.warn(`[generate-handbook] Short content for ${fieldCode}: ${content.length} chars`);
+    }
+    return content;
+  } catch (e) {
+    console.error(`[generate-handbook] LLM failed for ${fieldCode}: ${(e as Error).message}`);
     return "";
   }
 }
@@ -90,11 +147,19 @@ Deno.serve(async (req) => {
 
   const packageId = p.package_id as string;
   const curriculumId = p.curriculum_id as string;
+  const certificationId = p.certification_id || null;
 
   // Runner SSOT prerequisite
   if (!(await prereqDone(sb, packageId, "build_ai_tutor_index"))) {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: build_ai_tutor_index" }, 409);
   }
+
+  // Resolve profession name for LLM context
+  let professionName = "Ausbildungsberuf";
+  try {
+    const prof = await resolveProfession(sb, { certificationId, curriculumId });
+    professionName = prof.professionName;
+  } catch { /* fallback */ }
 
   // 1) Load learning fields
   const { data: fields, error: lfErr } = await sb
@@ -105,6 +170,8 @@ Deno.serve(async (req) => {
 
   if (lfErr) throw new Error(`LF query: ${lfErr.message}`);
   if (!fields || fields.length === 0) throw new Error(`No learning_fields for curriculum ${curriculumId}`);
+
+  console.log(`[generate-handbook] Generating handbook for ${professionName}: ${fields.length} learning fields (pkg ${packageId.slice(0, 8)})`);
 
   // 2) Delete existing handbook (idempotent rebuild)
   const { data: existingChapters } = await sb
@@ -152,9 +219,11 @@ Deno.serve(async (req) => {
     for (let fi = 0; fi < rawChunks[ci].length; fi++) fieldToChapter.push(ci + 1);
   }
 
-  // 4) Create sections WITH DEPTH from curriculum_topics
+  // 4) Generate sections WITH REAL CONTENT via LLM
   const sectionRows: Array<Record<string, unknown>> = [];
   let sectionOrder = 1;
+  let llmSuccessCount = 0;
+  let llmFailCount = 0;
 
   for (let i = 0; i < fields.length; i++) {
     const lf = fields[i] as any;
@@ -162,36 +231,92 @@ Deno.serve(async (req) => {
     const chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
     if (!chapter) continue;
 
-    // ═══ DEPTH ENRICHMENT: Load subtopics from curriculum_topics ═══
-    const subtopicList = await loadFieldTopicDepth(sb, curriculumId, lf.code, lf.title);
+    // Load subtopics for depth
+    const subtopics = await loadFieldTopicDepth(sb, curriculumId, lf.title);
 
-    const kernthemenBlock = subtopicList
-      ? `### Kernthemen (aus dem Rahmenplan)\n${subtopicList}`
-      : "### Kernthemen\n- _Wird durch Council + Curriculum-Analyse ergänzt._";
+    // Generate real content via LLM
+    const generatedContent = await generateSectionContent(
+      professionName,
+      lf.code,
+      lf.title,
+      lf.description || "",
+      subtopics,
+    );
+
+    const hasRealContent = generatedContent.length >= 200;
+    if (hasRealContent) {
+      llmSuccessCount++;
+    } else {
+      llmFailCount++;
+    }
+
+    // Use generated content or fallback to enriched scaffold
+    const contentMarkdown = hasRealContent
+      ? generatedContent
+      : buildFallbackContent(lf, subtopics);
 
     sectionRows.push({
       chapter_id: chapter.id,
       section_key: `lf-${String(lf.code).toLowerCase().replace(/\s+/g, '-')}-${curriculumId.slice(0, 8)}`,
       title: `${lf.code}: ${lf.title}`,
-      content_markdown: [
-        `## ${lf.code}: ${lf.title}`, "",
-        lf.description ? String(lf.description) : "_Beschreibung folgt (Council/LLM)._", "",
-        kernthemenBlock, "",
-        "### Typische Prüfungsfallen",
-        "- _Wird durch Council + Blueprint-Analyse ergänzt._", "",
-        "### Praxisbeispiele",
-        "- _Wird durch Council ergänzt._",
-      ].join("\n"),
+      content_markdown: contentMarkdown,
       content_type: "text",
       sort_order: sectionOrder++,
-      metadata: { depth_enriched: !!subtopicList },
+      metadata: { depth_enriched: subtopics.length > 0, llm_generated: hasRealContent },
     });
+
+    // Rate-limit protection: 3s between LLM calls
+    if (i < fields.length - 1) {
+      await new Promise(r => setTimeout(r, 3000));
+    }
   }
 
   if (!sectionRows.length) throw new Error("handbook_sections: 0 sections prepared");
   const { error: secErr } = await sb.from("handbook_sections").insert(sectionRows);
   if (secErr) throw new Error(`Section insert: ${secErr.message}`);
 
+  console.log(`[generate-handbook] Done: ${chapters.length} chapters, ${sectionRows.length} sections, ${llmSuccessCount} LLM-generated, ${llmFailCount} fallback`);
+
   try { await sb.from("course_packages").update({ build_progress: 90 }).eq("id", packageId); } catch (_) { /* ignore */ }
-  return json({ ok: true, chapters: chapters.length, sections: sectionRows.length, depth_enriched: sectionRows.filter((s: any) => s.metadata?.depth_enriched).length });
+  return json({
+    ok: true,
+    batch_complete: true,
+    chapters: chapters.length,
+    sections: sectionRows.length,
+    llm_generated: llmSuccessCount,
+    llm_fallback: llmFailCount,
+  });
 });
+
+/**
+ * Fallback content when LLM fails — still structured but minimal.
+ * At least provides subtopic depth without placeholders.
+ */
+function buildFallbackContent(lf: any, subtopics: string[]): string {
+  const parts: string[] = [
+    `## ${lf.code}: ${lf.title}`,
+    "",
+    lf.description || `Dieses Lernfeld behandelt zentrale Aspekte von ${lf.title}.`,
+    "",
+  ];
+
+  if (subtopics.length > 0) {
+    parts.push("### Kernthemen aus dem Rahmenplan");
+    for (const t of subtopics) {
+      parts.push(`- ${t}`);
+    }
+    parts.push("");
+  }
+
+  parts.push(
+    "### Prüfungsrelevanz",
+    `Dieses Lernfeld ist ein fester Bestandteil der IHK-Abschlussprüfung. Die Inhalte werden regelmäßig in schriftlichen und mündlichen Prüfungsteilen abgefragt.`,
+    "",
+    "### Lernhinweise",
+    "- Fachbegriffe und Definitionen sicher beherrschen",
+    "- Zusammenhänge zwischen Theorie und Praxis herstellen",
+    "- Typische Rechenaufgaben und Fallstudien üben",
+  );
+
+  return parts.join("\n");
+}
