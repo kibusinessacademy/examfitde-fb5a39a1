@@ -64,17 +64,33 @@ function diagnoseError(errorMessage: string | null): { cause: string; fix: strin
 function IntegrityReportCard({ report }: { report: any }) {
   if (!report || typeof report !== 'object') return null;
   const score = report.score ?? 0;
-  const passed = report.passed;
+  const passed = report.passed ?? (score >= 80);
 
+  // Support both legacy format (report.lessons.actual) and v3 format (report.v3.stats)
+  const v3 = report.v3?.stats;
   const sections = [
-    { label: 'Lektionen', actual: report.lessons?.actual, expected: report.lessons?.expected, icon: BookOpen,
+    { label: 'Lektionen',
+      actual: report.lessons?.actual ?? v3?.lessonCount ?? null,
+      expected: report.lessons?.expected ?? v3?.lessonTarget ?? null,
+      icon: BookOpen,
       detail: report.lessons?.duplicates > 0 ? `${report.lessons.duplicates} Duplikate` : null },
-    { label: 'Prüfungsfragen', actual: report.exam?.total, expected: report.exam?.target, icon: ClipboardCheck,
+    { label: 'Prüfungsfragen',
+      actual: report.exam?.total ?? v3?.questionCount ?? null,
+      expected: report.exam?.target ?? v3?.questionTarget ?? 850,
+      icon: ClipboardCheck,
       detail: report.exam?.approved ? `${report.exam.approved} freigegeben` : null },
-    { label: 'Mündliche Szenarien', actual: report.oral?.total, expected: report.oral?.target, icon: MessageSquare },
-    { label: 'Handbuch-Kapitel', actual: report.handbook?.chapters, expected: report.handbook?.target, icon: FileText,
+    { label: 'Mündliche Szenarien',
+      actual: report.oral?.total ?? v3?.oralCount ?? null,
+      expected: report.oral?.target ?? v3?.oralTarget ?? null,
+      icon: MessageSquare },
+    { label: 'Handbuch-Kapitel',
+      actual: report.handbook?.chapters ?? v3?.handbookChapters ?? null,
+      expected: report.handbook?.target ?? v3?.handbookTarget ?? null,
+      icon: FileText,
       detail: report.handbook?.sections ? `${report.handbook.sections} Abschnitte` : null },
-    { label: 'AI Tutor Index', actual: report.tutor_index ? 1 : 0, expected: 1, icon: Bot },
+    { label: 'AI Tutor Index',
+      actual: (report.tutor_index || v3?.tutorIndex) ? 1 : 0,
+      expected: 1, icon: Bot },
   ];
 
   return (
@@ -94,6 +110,8 @@ function IntegrityReportCard({ report }: { report: any }) {
           const pct = s.expected > 0 ? Math.min(100, Math.round((s.actual / s.expected) * 100)) : 0;
           const ok = s.actual >= s.expected;
           const Icon = s.icon;
+          // Skip sections with no data at all
+          if (s.actual == null && s.expected == null) return null;
           return (
             <div key={s.label} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
@@ -101,11 +119,11 @@ function IntegrityReportCard({ report }: { report: any }) {
                   <Icon className="h-3 w-3 text-muted-foreground" /> {s.label}
                 </span>
                 <span className={cn("font-mono", ok ? "text-success" : "text-warning")}>
-                  {s.actual ?? '?'}/{s.expected ?? '?'}
+                  {s.actual ?? 0}{s.expected != null ? `/${s.expected}` : ''}
                   {s.detail && <span className="text-muted-foreground ml-1">({s.detail})</span>}
                 </span>
               </div>
-              <Progress value={pct} className="h-1" />
+              {s.expected != null && <Progress value={pct} className="h-1" />}
             </div>
           );
         })}
