@@ -153,6 +153,20 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     }, { onConflict: "package_id" });
 
+    // ── CRITICAL: Also write quality_report to course_packages so auto_publish can read it ──
+    await sb.from("course_packages").update({
+      quality_report: {
+        status: status === "fail" ? "failed" : "passed",
+        score,
+        badge,
+        total_questions: totalQuestions,
+        rules_passed: rulesPassed,
+        rules_failed: rulesFailed,
+        rules_warned: rulesWarned,
+        checked_at: new Date().toISOString(),
+      },
+    }).eq("id", packageId);
+
     // Update review status based on quality
     if (status === "fail") {
       await sb.from("course_package_reviews").upsert({
