@@ -372,19 +372,44 @@ async function processPackage(
       return { packageId, stepKey, job_reset: true };
     }
 
-    // Job still pending/processing → keep lease + send step heartbeat
-    if (job.status === "pending" || job.status === "processing") {
+    // Job still pending → keep lease, heartbeat the step (step stays 'enqueued')
+    if (job.status === "pending") {
       await safeRpc(sb, "renew_package_lease", {
         p_package_id: packageId,
         p_runner_id: runnerId,
         p_lease_seconds: 600,
       });
-      // Fix B: Send step heartbeat to prevent false timeout by expire_stale_steps()
+      // Heartbeat to keep step alive while waiting in queue
       await safeRpc(sb, "step_heartbeat", {
         p_package_id: packageId,
         p_step_key: stepKey,
       });
-      return { packageId, stepKey, waiting: true, jobStatus: job.status };
+      return { packageId, stepKey, waiting: true, jobStatus: "pending" };
+    }
+
+    // Job processing → transition step to 'running' if not already
+    if (job.status === "processing") {
+      const currentStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
+      if (currentStep?.status !== "running") {
+        // NOW is the right time to call step_start — the job is actually running
+        await safeRpc(sb, "step_start", {
+          p_package_id: packageId,
+          p_step_key: stepKey,
+          p_runner_id: runnerId,
+        });
+      } else {
+        // Already running — just heartbeat
+        await safeRpc(sb, "step_heartbeat", {
+          p_package_id: packageId,
+          p_step_key: stepKey,
+        });
+      }
+      await safeRpc(sb, "renew_package_lease", {
+        p_package_id: packageId,
+        p_runner_id: runnerId,
+        p_lease_seconds: 600,
+      });
+      return { packageId, stepKey, waiting: true, jobStatus: "processing" };
     }
 
     // Job completed
@@ -563,15 +588,12 @@ async function processPackage(
       );
     }
 
-    // Transition step to running + increment attempts
-    const startResult = await safeRpc(sb, "step_start", {
-      p_package_id: packageId,
-      p_step_key: stepKey,
-      p_runner_id: runnerId,
-    });
-    if (startResult.error) {
-      console.error(`[runner] step_start failed for ${stepKey} pkg ${shortId}:`, (startResult.error as Error)?.message ?? startResult.error);
-    }
+    // BUG FIX: Do NOT call step_start here.
+    // step_start transitions to 'running' and sets last_heartbeat_at = now().
+    // But the job is only enqueued (pending), not yet processing.
+    // If the job-runner takes minutes to pick it up, expire_stale_steps()
+    // will falsely timeout the step. Instead, keep step as 'enqueued' and
+    // only transition to 'running' during poll when job status = 'processing'.
 
     // Keep lease — slot stays occupied
     console.log(`[runner] 📤 Enqueued ${jobType} (job ${jobId.slice(0, 8)}) for ${shortId}`);
