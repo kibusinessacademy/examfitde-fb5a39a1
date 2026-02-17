@@ -171,17 +171,34 @@ Deno.serve(async (req) => {
   const overallPass = passRate >= 75;
 
   if (!overallPass) {
-    await sb.from("ops_alerts").insert({
-      source: "validate-oral-exam",
-      severity: "warning",
-      message: `Oral Exam QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed`,
-      payload: { packageId, pass_rate: passRate, failures: failed },
-    }).then(() => {}).catch(() => {});
+    // Deduplicate: only alert once per 30 min per package
+    const since30 = new Date(Date.now() - 30 * 60_000).toISOString();
+    const { data: existingAlert } = await sb
+      .from("ops_alerts")
+      .select("id")
+      .eq("source", "validate-oral-exam")
+      .gte("created_at", since30)
+      .ilike("message", `%${packageId.slice(0, 8)}%`)
+      .limit(1);
+
+    if (!existingAlert || existingAlert.length === 0) {
+      await sb.from("ops_alerts").insert({
+        source: "validate-oral-exam",
+        severity: "warning",
+        message: `Oral Exam QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed`,
+        payload: { packageId, pass_rate: passRate, failures: failed },
+      }).then(() => {}).catch(() => {});
+    }
   }
 
+  // CRITICAL FIX: Always set batch_complete: true.
+  // When validation fails, the step should be marked as FAILED (ok: false),
+  // NOT re-queued as a batch continuation. The job-runner interprets
+  // batch_complete: false as "more work needed → re-queue", causing an
+  // infinite loop when the underlying data can't pass validation.
   return json({
     ok: overallPass,
-    batch_complete: overallPass,
+    batch_complete: true,
     total: results.length,
     passed,
     failed,

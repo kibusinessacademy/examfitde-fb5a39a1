@@ -1564,13 +1564,22 @@ function ROIDashboard() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const { data } = await (supabase as any)
-      .from('package_economics')
-      .select('*')
-      .order('roi_30d', { ascending: false, nullsFirst: false })
-      .limit(100);
-    setRoi(data || []);
-    setLoading(false);
+    try {
+      const { data, error } = await (supabase as any)
+        .from('package_economics')
+        .select('*')
+        .order('roi_30d', { ascending: false, nullsFirst: false })
+        .limit(100);
+      if (error) {
+        console.error('[ROIDashboard] Query error:', error.message);
+      }
+      setRoi(data || []);
+    } catch (e) {
+      console.error('[ROIDashboard] Unexpected error:', e);
+      setRoi([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
