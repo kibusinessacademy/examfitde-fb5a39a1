@@ -109,9 +109,15 @@ Deno.serve(async (req) => {
 
   const integrityReport = (pkgQ as any)?.integrity_report;
   const hardFails = integrityReport?.v3?.hard_fail_reasons || [];
+  const questionCount = integrityReport?.v3?.stats?.questionCount ?? 0;
+
+  // Factory mode: bypass SOME hard-fails but enforce absolute minimum (50 questions)
+  const FACTORY_MIN_QUESTIONS = 50;
   if (Array.isArray(hardFails) && hardFails.length > 0) {
-    if (isFactoryMode) {
-      console.log(`[auto-publish] Factory mode — bypassing ${hardFails.length} hard-fails: ${hardFails.join(", ")}`);
+    if (isFactoryMode && questionCount >= FACTORY_MIN_QUESTIONS) {
+      console.log(`[auto-publish] Factory mode — bypassing ${hardFails.length} hard-fails (${questionCount} questions): ${hardFails.join(", ")}`);
+    } else if (isFactoryMode && questionCount < FACTORY_MIN_QUESTIONS) {
+      return json({ ok: false, retry: false, error: `FACTORY_FLOOR_BLOCK: Only ${questionCount} questions (min ${FACTORY_MIN_QUESTIONS})`, hard_fail_reasons: hardFails }, 422);
     } else {
       return json({ ok: false, retry: false, error: "V3_HARD_FAILS", hard_fail_reasons: hardFails }, 422);
     }
