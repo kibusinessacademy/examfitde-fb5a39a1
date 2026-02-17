@@ -179,6 +179,18 @@ QUALITÄTSSTANDARD:
 - Beziehe dich auf spezifische Unterthemen des Rahmenplans, nicht nur auf das übergeordnete Lernfeld
 - Der Inhalt darf NICHT nach KI klingen — keine generischen Floskeln, keine akademische Überfrachtung
 
+REGULATORISCHE TIEFE (bei rechtlichen/regulatorischen Themen):
+- IMMER konkrete §§-Referenzen nennen (BGB, HGB, KWG, GwG, MaRisk, DSGVO etc.)
+- Exakte Fristen, Schwellenwerte, Meldepflichten
+- Aufsichtsbehörden (BaFin, EZB, IHK) und deren Rollen
+- Unterscheide klar zwischen MUSS und KANN-Vorschriften
+
+RECHENAUFGABEN-TIEFE (bei quantitativen Themen):
+- Mehrstufige Berechnungen bevorzugen (Effektivzins + Disagio + Tilgungsplan, nicht nur einfache Zinsrechnung)
+- Realistische nicht-runde Zahlen verwenden (12.450 €, 3,75 %, 47 Tage)
+- Vollständige Rechenwege mit Formeln zeigen
+- Kombinationsaufgaben: mehrere Konzepte in einer Aufgabe verknüpfen
+
 ANTI-KI-REGELN:
 - KEINE Sätze wie "In der heutigen Geschäftswelt..." oder "Es ist wichtig zu verstehen, dass..."
 - KEINE generischen Aufzählungen ohne konkreten Bezug zu ${professionName}
