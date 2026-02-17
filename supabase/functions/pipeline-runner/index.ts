@@ -447,12 +447,19 @@ async function processPackage(
         p_meta: result,
       });
 
-      const doneCount = (steps ?? []).filter(
-        (s: StepRow) => s.status === "done" || s.status === "skipped",
-      ).length + 1;
-      const progress = Math.round((doneCount / STEP_ORDER.length) * 100);
+      // Re-query actual done count from DB (not stale in-memory snapshot)
+      const { count: doneCount } = await sb
+        .from("package_steps")
+        .select("step_key", { count: "exact", head: true })
+        .eq("package_id", packageId)
+        .in("status", ["done", "skipped"]);
+      const progress = Math.round(((doneCount ?? 0) / STEP_ORDER.length) * 100);
+      const stepIndex = STEP_ORDER.indexOf(stepKey);
       await safeQuery(
-        sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId),
+        sb.from("course_packages").update({
+          build_progress: progress,
+          current_step: stepIndex + 1,
+        }).eq("id", packageId),
       );
 
       if (stepKey === "auto_publish") {
