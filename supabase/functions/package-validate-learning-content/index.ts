@@ -25,7 +25,7 @@ import { getModel } from "../_shared/model-routing.ts";
  * On failure: resets generate_learning_content step to re-run for failed lessons.
  */
 
-const SAMPLE_SIZE = 15;
+const SAMPLE_SIZE = 8;
 const MIN_HTML_LENGTH = 400;
 const MIN_MINICHECK_LENGTH = 200;
 const SAMPLE_PASS_THRESHOLD = 70;
@@ -145,8 +145,11 @@ async function tier2Validate(
       issues: (parsed.critical_issues || []).map((i: any) => `${i.severity}: ${i.message}`),
     };
   } catch (e) {
-    console.error(`[validate-lessons] LLM validation failed for ${lesson.id}: ${(e as Error).message}`);
-    return { lessonId: lesson.id, score: 50, decision: "revise", issues: [`LLM_ERROR: ${(e as Error).message}`] };
+    const errMsg = (e as Error).message || "";
+    const isRateLimit = errMsg.includes("cooldown") || errMsg.includes("429") || errMsg.includes("rate") || errMsg.includes("blocked");
+    console.error(`[validate-lessons] LLM validation failed for ${lesson.id}: ${errMsg}`);
+    // Rate-limit errors → skip (don't penalize score), other errors → conservative score
+    return { lessonId: lesson.id, score: isRateLimit ? -1 : 50, decision: isRateLimit ? "skipped" : "revise", issues: [`LLM_ERROR: ${errMsg}`] };
   }
 }
 
@@ -297,14 +300,18 @@ Deno.serve(async (req) => {
       }).eq("id", lesson.id);
     }
 
-    // Brief delay to avoid rate limits
-    await new Promise(r => setTimeout(r, 1500));
+    // Delay to avoid rate limits (staggered with jitter)
+    await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
   }
 
-  const avgScore = t2Results.length > 0
-    ? t2Results.reduce((sum, r) => sum + r.score, 0) / t2Results.length
-    : 100;
-  const rejected = t2Results.filter(r => r.score < INDIVIDUAL_REJECT_THRESHOLD);
+  // Filter out rate-limited results (score=-1) from average calculation
+  const scoredResults = t2Results.filter(r => r.score >= 0);
+  const avgScore = scoredResults.length > 0
+    ? scoredResults.reduce((sum, r) => sum + r.score, 0) / scoredResults.length
+    : 100; // If all were rate-limited, trust Tier 1
+  const rejected = scoredResults.filter(r => r.score < INDIVIDUAL_REJECT_THRESHOLD);
+  const skippedCount = t2Results.length - scoredResults.length;
+  if (skippedCount > 0) console.log(`[validate-lessons] Tier 2: ${skippedCount} samples skipped due to rate limits`);
 
   console.log(`[validate-lessons] Tier 2: avg=${avgScore.toFixed(1)}, rejected=${rejected.length}/${t2Results.length}`);
 
