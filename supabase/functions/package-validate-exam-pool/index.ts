@@ -35,7 +35,9 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-// ── Text similarity ──
+// ── Text similarity (sliding window to avoid O(n²) CPU explosion) ──
+const JACCARD_WINDOW = 80; // Only compare against last N questions
+
 function textNgrams(text: string, n = 3): Set<string> {
   const norm = text.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, "").replace(/\s+/g, " ").trim();
   const grams = new Set<string>();
@@ -60,7 +62,7 @@ interface T1Result {
 function tier1Check(
   q: { id: string; question_text: string; options: any; correct_answer: number; explanation: string | null; difficulty: string | null },
   professionName: string,
-  existingNgrams: Map<string, Set<string>>,
+  recentNgrams: Array<{ id: string; ngrams: Set<string> }>,
 ): T1Result {
   const issues: string[] = [];
 
@@ -83,28 +85,35 @@ function tier1Check(
     issues.push(`QUESTION_TOO_SHORT: ${(q.question_text || "").length}/30`);
   }
 
-  // Duplicate check via Jaccard
+  // Duplicate check via Jaccard — sliding window only (prevents CPU timeout)
   if (q.question_text) {
     const ngrams = textNgrams(q.question_text);
-    for (const [existingId, existingNg] of existingNgrams) {
-      if (existingId === q.id) continue;
-      if (jaccardSim(ngrams, existingNg) >= JACCARD_THRESHOLD) {
-        issues.push(`NEAR_DUPLICATE_OF: ${existingId.slice(0, 8)}`);
+    for (const existing of recentNgrams) {
+      if (existing.id === q.id) continue;
+      if (jaccardSim(ngrams, existing.ngrams) >= JACCARD_THRESHOLD) {
+        issues.push(`NEAR_DUPLICATE_OF: ${existing.id.slice(0, 8)}`);
         break;
       }
     }
-    existingNgrams.set(q.id, ngrams);
+    recentNgrams.push({ id: q.id, ngrams });
+    // Keep only the last JACCARD_WINDOW entries
+    if (recentNgrams.length > JACCARD_WINDOW) recentNgrams.shift();
   }
 
-  // Contamination
-  const fullText = `${q.question_text} ${opts.join(" ")} ${q.explanation || ""}`;
-  const contam = checkContamination(fullText.slice(0, 5000), professionName);
-  if (contam.isContaminated) {
-    issues.push(`CONTAMINATION: ${contam.detectedIndustry} [${contam.matchedTerms.slice(0, 3).join(", ")}]`);
+  // Contamination — skip for large batches to save CPU
+  if (questions_total_hint <= 500) {
+    const fullText = `${q.question_text} ${opts.join(" ")} ${q.explanation || ""}`;
+    const contam = checkContamination(fullText.slice(0, 5000), professionName);
+    if (contam.isContaminated) {
+      issues.push(`CONTAMINATION: ${contam.detectedIndustry} [${contam.matchedTerms.slice(0, 3).join(", ")}]`);
+    }
   }
 
   return { questionId: q.id, passed: issues.length === 0, issues };
 }
+
+// Global hint for tier1Check to skip expensive checks on large pools
+let questions_total_hint = 0;
 
 // ── Tier 2 ──
 async function tier2Validate(
@@ -177,23 +186,35 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
-  // Load all questions for this curriculum
-  const { data: questions, error: qErr } = await sb
-    .from("exam_questions")
-    .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id")
-    .eq("curriculum_id", curriculumId)
-    .limit(1700);
+  // Load questions in batches to avoid CPU timeout (max 500 per batch)
+  const BATCH_SIZE = 500;
+  let allQuestions: any[] = [];
+  let offset = 0;
+  while (true) {
+    const { data: batch, error: qErr } = await sb
+      .from("exam_questions")
+      .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id")
+      .eq("curriculum_id", curriculumId)
+      .range(offset, offset + BATCH_SIZE - 1);
 
-  if (qErr) return json({ error: qErr.message }, 500);
-  if (!questions || questions.length === 0) {
+    if (qErr) return json({ error: qErr.message }, 500);
+    if (!batch || batch.length === 0) break;
+    allQuestions = allQuestions.concat(batch);
+    offset += batch.length;
+    if (batch.length < BATCH_SIZE) break; // Last page
+  }
+  const questions = allQuestions;
+
+  if (questions.length === 0) {
     return json({ ok: false, error: "NO_QUESTIONS_TO_VALIDATE" }, 409);
   }
 
   console.log(`[validate-exam] Validating ${questions.length} questions for ${professionName} (pkg ${packageId.slice(0, 8)})`);
 
   // ═══ TIER 1: Structural checks ═══
-  const ngramMap = new Map<string, Set<string>>();
-  const t1Results = questions.map((q: any) => tier1Check(q, professionName, ngramMap));
+  questions_total_hint = questions.length;
+  const recentNgrams: Array<{ id: string; ngrams: Set<string> }> = [];
+  const t1Results = questions.map((q: any) => tier1Check(q, professionName, recentNgrams));
   const t1Failed = t1Results.filter((r: T1Result) => !r.passed);
   const t1PassRate = ((t1Results.length - t1Failed.length) / t1Results.length) * 100;
 

@@ -57,8 +57,8 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-4.1" },
   ],
   handbook: [
-    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
     { provider: "openai", model: "gpt-4.1" },
+    { provider: "anthropic", model: "claude-sonnet-4-20250514" },
   ],
   minicheck: [
     { provider: "openai", model: "gpt-4.1-mini" },
