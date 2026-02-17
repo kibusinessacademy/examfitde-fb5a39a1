@@ -10073,6 +10073,7 @@ export type Database = {
           followups: string[]
           id: string
           lead_questions: string[]
+          learning_field_id: string | null
           metadata: Json | null
           rubric: Json
           scenario: string
@@ -10087,6 +10088,7 @@ export type Database = {
           followups?: string[]
           id?: string
           lead_questions?: string[]
+          learning_field_id?: string | null
           metadata?: Json | null
           rubric?: Json
           scenario: string
@@ -10101,13 +10103,22 @@ export type Database = {
           followups?: string[]
           id?: string
           lead_questions?: string[]
+          learning_field_id?: string | null
           metadata?: Json | null
           rubric?: Json
           scenario?: string
           status?: string
           title?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "oral_exam_blueprints_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       oral_exam_questions: {
         Row: {

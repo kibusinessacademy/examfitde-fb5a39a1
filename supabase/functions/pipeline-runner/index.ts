@@ -298,7 +298,7 @@ async function processPackage(
     const allDone = statuses.length > 0 && statuses.every((s: string) => s === "done" || s === "skipped");
 
     if (allDone) {
-      await safeQuery(sb.from("course_packages").update({ status: "done" }).eq("id", packageId));
+      await safeQuery(sb.from("course_packages").update({ status: "published" }).eq("id", packageId));
       console.log(`[runner] Package ${shortId} → done`);
 
       // 🚀 Backfill: keep active pipeline pool at TARGET_POOL_SIZE
@@ -476,7 +476,7 @@ async function processPackage(
 
       if (stepKey === "auto_publish") {
         await safeQuery(
-          sb.from("course_packages").update({ status: "done" }).eq("id", packageId),
+          sb.from("course_packages").update({ status: "published" }).eq("id", packageId),
         );
       }
 
