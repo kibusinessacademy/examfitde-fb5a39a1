@@ -21,8 +21,8 @@ import { checkContamination } from "../_shared/contamination-guard.ts";
  * - Fachliche Validatoren (domain-specific checks)
  */
 
-const AI_CHUNK_SIZE = 8;
-const AI_QUESTIONS_PER_CALL = 2;
+const AI_CHUNK_SIZE = 20;
+const AI_QUESTIONS_PER_CALL = 5;
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
 const HARD_CAP_QUESTIONS = 1700;
 
@@ -258,6 +258,7 @@ function json(body: unknown, status = 200) {
 
 const EXAM_PROVIDER_CHAIN: { provider: AIProvider; model: string }[] = [
   { provider: "openai", model: "gpt-4o-mini" },
+  { provider: "google", model: "gemini-2.5-flash" },
   { provider: "openai", model: "gpt-4.1" },
   { provider: "anthropic", model: "claude-sonnet-4-20250514" },
 ];
@@ -265,8 +266,12 @@ const EXAM_PROVIDER_CHAIN: { provider: AIProvider; model: string }[] = [
 function pickProvider(exclude: string[] = []): { provider: AIProvider; model: string } {
   for (const entry of EXAM_PROVIDER_CHAIN) {
     if (exclude.includes(`${entry.provider}:${entry.model}`)) continue;
-    const keyEnv = entry.provider === "openai" ? "OPENAI_API_KEY"
-      : entry.provider === "anthropic" ? "ANTHROPIC_API_KEY" : null;
+    const keyMap: Record<string, string> = {
+      openai: "OPENAI_API_KEY",
+      anthropic: "ANTHROPIC_API_KEY",
+      google: "GOOGLE_API_KEY",
+    };
+    const keyEnv = keyMap[entry.provider];
     if (keyEnv && !Deno.env.get(keyEnv)) continue;
     return entry;
   }
@@ -461,7 +466,7 @@ async function generateTurboQuestions(
 
   const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics);
 
-  const maxTokens = count <= 1 ? 2000 : count <= 2 ? 3000 : 4500; // v5: more tokens for quality explanation + self-audit
+  const maxTokens = count <= 2 ? 3000 : count <= 5 ? 6000 : 8000;
 
   let exclude: string[] = [];
   let result: { content: string } | undefined;
@@ -540,15 +545,13 @@ async function generateTurboQuestions(
 
     // ── HARD Quality Gates (v5: reject instead of soft-log) ──
     const praxisScore = calculatePraxisScore(q);
-    if (praxisScore < 2) {
+    if (praxisScore < 1) {
       console.log(`[ExamPool-v5] REJECTED LOW_PRAXIS (${praxisScore}): "${q.question_text.slice(0, 40)}…"`);
-      continue; // HARD gate: regenerate
+      continue; // HARD gate: must have at least some context
     }
 
-    if (!hasQualityExplanation(q)) {
-      console.log(`[ExamPool-v5] REJECTED WEAK_EXPLANATION: "${q.question_text.slice(0, 40)}…"`);
-      continue;
-    }
+    // Explanation quality: soft gate (low quality → training pool, not rejected)
+    const hasGoodExplanation = hasQualityExplanation(q);
 
     // Style gate: kill AI-typical phrases
     if (!passesStyleGate(q)) {
@@ -557,14 +560,13 @@ async function generateTurboQuestions(
     }
 
     const difficultyValid = validateDifficulty(q);
-    if (!difficultyValid) {
-      console.log(`[ExamPool-v5] REJECTED DIFFICULTY_MISMATCH: ${q.difficulty} — "${q.question_text.slice(0, 40)}…"`);
-      continue; // HARD gate: difficulty must match content complexity
-    }
+    // Difficulty mismatch: soft gate (wrong difficulty → training, not rejected)
 
     const qualityResult = calculateQualityScore(q);
-    const assignedPool = qualityResult.pool;
-    const status = assignedPool === "exam" ? "draft" : "training";
+    // Downgrade to training if explanation or difficulty is weak
+    const forceTraining = !hasGoodExplanation || !difficultyValid;
+    const assignedPool = forceTraining ? "training" : qualityResult.pool;
+    const status = "draft"; // all go as draft, qc_status differentiates
 
     const { error } = await sb.from("exam_questions").insert({
       curriculum_id: bp.curriculum_id,
@@ -578,13 +580,14 @@ async function generateTurboQuestions(
       difficulty: q.difficulty || difficulty,
       ai_generated: true,
       status,
+      qc_status: assignedPool === "exam" ? "approved" : "pending",
     });
 
     if (error) {
       if (error.code === "23505") { /* duplicate, skip */ }
       else console.log(`[ExamPool-v5] Insert error: ${error.message}`);
     } else {
-      if (status === "draft") saved++;
+      if (assignedPool === "exam") saved++;
       else training++;
     }
   }
