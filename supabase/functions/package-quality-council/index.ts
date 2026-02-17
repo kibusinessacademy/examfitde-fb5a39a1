@@ -167,6 +167,17 @@ Deno.serve(async (req) => {
       },
     }).eq("id", packageId);
 
+    // ── Promote tier1_passed exam questions → approved when council passes ──
+    if (status !== "fail") {
+      const { count: promoted } = await sb
+        .from("exam_questions")
+        .update({ qc_status: "approved" })
+        .eq("curriculum_id", curriculumId)
+        .eq("qc_status", "tier1_passed")
+        .select("id", { count: "exact", head: true });
+      console.log(`[QualityCouncil] Promoted ${promoted ?? 0} questions tier1_passed → approved for ${packageId.slice(0,8)}`);
+    }
+
     // Update review status based on quality
     if (status === "fail") {
       await sb.from("course_package_reviews").upsert({
