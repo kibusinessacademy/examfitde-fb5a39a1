@@ -140,9 +140,9 @@ Deno.serve(async (req) => {
     }
 
     // ── 2b) Zombie job sweep: fail jobs stuck in 'processing' with no lock ──
-    // These are jobs where the edge function completed/crashed but never wrote
-    // a result back. They will NEVER complete on their own.
-    const ZOMBIE_AGE_MINUTES = 10;
+    // Tightened from 10min to 5min — edge functions timeout at 55s,
+    // so anything unlocked for 5min is definitively dead.
+    const ZOMBIE_AGE_MINUTES = 5;
     const zombieCutoff = new Date(Date.now() - ZOMBIE_AGE_MINUTES * 60 * 1000).toISOString();
     const { data: zombieRows, error: zombieErr } = await sb
       .from("job_queue")

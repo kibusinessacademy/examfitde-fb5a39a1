@@ -55,15 +55,19 @@ Deno.serve(async (req) => {
       .select("id", { count: "exact", head: true })
       .eq("status", "pending");
 
-    // Costs
-    const { data: costData } = await sb.from("ai_usage_log")
-      .select("cost_eur, model")
-      .gte("created_at", dayStart);
+    // Costs — read from llm_cost_events (SSOT since Feb 2026, ai_usage_log is legacy)
+    const { data: costData } = await sb.from("llm_cost_events")
+      .select("cost_eur, model, provider, tokens_in, tokens_out")
+      .gte("ts", dayStart);
 
     let costTotal = 0, costOpenai = 0, costAnthropic = 0, costGoogle = 0;
+    let totalTokensIn = 0, totalTokensOut = 0, totalCalls = 0;
     for (const r of costData || []) {
+      totalCalls++;
       const c = r.cost_eur || 0;
       costTotal += c;
+      totalTokensIn += r.tokens_in || 0;
+      totalTokensOut += r.tokens_out || 0;
       const model = (r.model || "").toLowerCase();
       if (model.includes("gpt") || model.includes("openai")) costOpenai += c;
       else if (model.includes("claude") || model.includes("anthropic")) costAnthropic += c;
