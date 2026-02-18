@@ -522,6 +522,78 @@ async function processPackage(
         return { packageId, stepKey, batch_continue: true };
       }
 
+      // ══ AUTO-HEAL: Validation steps that complete with ok=false ══
+      // When a QG step succeeds technically but fails content validation,
+      // reset the predecessor generation step to trigger regeneration.
+      const VALIDATION_PREDECESSOR: Record<string, StepKey> = {
+        validate_blueprints: "auto_seed_exam_blueprints",
+        validate_tutor_index: "build_ai_tutor_index",
+        validate_learning_content: "generate_learning_content",
+        validate_exam_pool: "generate_exam_pool",
+        validate_oral_exam: "generate_oral_exam",
+        validate_handbook: "generate_handbook",
+      };
+
+      if (result.ok === false && VALIDATION_PREDECESSOR[stepKey]) {
+        const predecessorStep = VALIDATION_PREDECESSOR[stepKey];
+        const attempts = currentStep?.attempts ?? 0;
+        const MAX_HEAL_RETRIES = 3;
+
+        if (attempts < MAX_HEAL_RETRIES) {
+          console.warn(`[runner] 🔄 Auto-heal: ${stepKey} failed validation (attempt ${attempts + 1}/${MAX_HEAL_RETRIES}) — resetting predecessor ${predecessorStep}`);
+
+          // Reset predecessor to queued so it regenerates
+          await safeQuery(
+            sb.from("package_steps")
+              .update({ status: "queued", job_id: null, runner_id: null, started_at: null })
+              .eq("package_id", packageId)
+              .eq("step_key", predecessorStep),
+            "auto_heal_reset_predecessor",
+          );
+
+          // Reset this validation step to queued (will re-run after predecessor)
+          await safeQuery(
+            sb.from("package_steps")
+              .update({
+                status: "queued",
+                job_id: null,
+                runner_id: null,
+                started_at: null,
+                last_error: `Auto-heal: validation failed, regenerating ${predecessorStep} (attempt ${attempts + 1})`,
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", stepKey),
+            "auto_heal_reset_validation",
+          );
+
+          await safeQuery(
+            sb.from("auto_heal_log").insert({
+              action_type: "validation_auto_heal",
+              trigger_source: "pipeline_runner",
+              target_type: "package_step",
+              target_id: packageId,
+              result_status: "ok",
+              result_detail: `${stepKey} failed → reset ${predecessorStep} (attempt ${attempts + 1}/${MAX_HEAL_RETRIES})`,
+              metadata: { step: stepKey, predecessor: predecessorStep, attempt: attempts + 1, issues: result.issues },
+            }),
+          );
+
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return { packageId, stepKey, auto_heal: true, predecessor: predecessorStep, attempt: attempts + 1 };
+        } else {
+          // Max retries exhausted — fail the package
+          console.error(`[runner] ❌ Auto-heal exhausted for ${stepKey} after ${MAX_HEAL_RETRIES} retries`);
+          await safeQuery(
+            sb.from("course_packages")
+              .update({ status: "quality_gate_failed", last_error: `${stepKey}: validation failed after ${MAX_HEAL_RETRIES} auto-heal retries` })
+              .eq("id", packageId),
+          );
+          await safeRpc(sb, "step_fail", { p_package_id: packageId, p_step_key: stepKey, p_error: `Auto-heal exhausted after ${MAX_HEAL_RETRIES} retries` });
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return { packageId, stepKey, auto_heal_exhausted: true };
+        }
+      }
+
       await sb.rpc("step_done", {
         p_package_id: packageId,
         p_step_key: stepKey,
