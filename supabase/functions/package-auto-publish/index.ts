@@ -62,6 +62,9 @@ Deno.serve(async (req) => {
     console.log(`[auto-publish] 🛑 COURSE_READY blocked: ${hardFails.length} hard fail(s)`);
     for (const hf of hardFails) console.log(`  ❌ ${hf}`);
 
+    // Set status to quality_gate_failed
+    await sb.from("course_packages").update({ status: "quality_gate_failed" }).eq("id", packageId);
+
     try {
       await sb.from("admin_notifications").insert({
         title: "🛑 Auto-Publish blocked by COURSE_READY",
@@ -122,6 +125,7 @@ Deno.serve(async (req) => {
           entity_id: packageId,
         });
       } catch (_) { /* non-critical */ }
+      await sb.from("course_packages").update({ status: "quality_gate_failed" }).eq("id", packageId);
       return json({ ok: false, retry: false, error: "QUALITY_GATE_FAILED", quality: qualityReport }, 422);
     }
   }

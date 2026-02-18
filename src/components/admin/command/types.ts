@@ -11,6 +11,17 @@ export interface PackageInfo {
   track: string | null;
 }
 
+export const PACKAGE_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  draft: { label: 'Entwurf', color: 'bg-muted text-muted-foreground' },
+  queued: { label: 'Warteschlange', color: 'bg-blue-500/10 text-blue-600' },
+  building: { label: 'Wird gebaut', color: 'bg-primary/10 text-primary' },
+  quality_gate_failed: { label: 'QA blockiert', color: 'bg-destructive/10 text-destructive' },
+  frozen: { label: 'Eingefroren', color: 'bg-yellow-500/10 text-yellow-700' },
+  failed: { label: 'Fehlgeschlagen', color: 'bg-destructive/10 text-destructive' },
+  done: { label: 'Fertig', color: 'bg-emerald-500/10 text-emerald-600' },
+  published: { label: 'Veröffentlicht', color: 'bg-emerald-500/10 text-emerald-600' },
+};
+
 export interface PlatformKPIs {
   seoPages: number;
   ticketsOpen: number;

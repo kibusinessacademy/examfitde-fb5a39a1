@@ -57,6 +57,9 @@ export default function GlobalStatusBar() {
         <Layers className="h-3 w-3 text-muted-foreground" />
         <span className="text-muted-foreground">{kpis.queued_packages}q</span>
         <span className="text-primary">{kpis.building_packages}b</span>
+        {kpis.blocked_packages > 0 && (
+          <span className="text-yellow-600">{kpis.blocked_packages}🚫</span>
+        )}
         {kpis.failed_packages > 0 && (
           <span className="text-destructive">{kpis.failed_packages}f</span>
         )}
