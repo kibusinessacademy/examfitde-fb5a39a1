@@ -32,6 +32,17 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
+  // Wrap entire handler to catch unhandled errors → return 500 with error text
+  try {
+    return await handleSeed(sb, p);
+  } catch (e: unknown) {
+    const msg = (e as Error)?.message || String(e);
+    console.error(`[AutoSeedBP] Unhandled error: ${msg}`);
+    return json({ ok: false, error: msg }, 500);
+  }
+});
+
+async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
   const packageId = p.package_id as string;
   const curriculumId = p.curriculum_id as string;
 
@@ -62,7 +73,7 @@ Deno.serve(async (req) => {
   }
 
   return await seedFromFields(sb, curriculumId, lfs, packageId);
-});
+}
 
 const TAXONOMY_MAP: Record<string, string> = {
   "erinnern": "remember", "wissen": "remember", "kennen": "remember",
