@@ -59,10 +59,11 @@ Deno.serve(async (req) => {
     if (pkgErr || !pkg) return json({ error: pkgErr?.message || "Package not found" }, 404);
 
     const cid = courseId || (pkg as Record<string, unknown>).course_id;
+    console.log(`[export] Package ${packageId}, course ${cid}`);
 
     // ── Load build steps ──
     const { data: steps } = await sb
-      .from("course_package_build_steps")
+      .from("package_steps")
       .select("*")
       .eq("package_id", packageId)
       .order("sort_order");
@@ -88,7 +89,9 @@ Deno.serve(async (req) => {
       } catch (_e) { /* best-effort */ }
     }
 
-    // ── Load handbook (FIXED: use content_markdown, not content_md) ──
+    console.log(`[export] curriculumId: ${curriculumId}`);
+
+    // ── Load handbook ──
     let handbookMd = "# Handbuch\n\n_(nicht verfügbar)_\n";
     if (curriculumId) {
       try {
@@ -147,47 +150,43 @@ Deno.serve(async (req) => {
       tutorPolicy = data;
     }
 
-    // ── Questions summary with APPROVED vs TOTAL breakdown ──
+    // ── Questions summary ──
     let questionsSummary: Record<string, unknown> = { note: "no_summary" };
-    try {
-      if (curriculumId) {
-        const { count: totalCount } = await sb
-          .from("exam_questions").select("id", { count: "exact", head: true })
-          .eq("curriculum_id", curriculumId);
-        const { count: approvedCount } = await sb
-          .from("exam_questions").select("id", { count: "exact", head: true })
-          .eq("curriculum_id", curriculumId).eq("qc_status", "approved");
-        const { count: pendingCount } = await sb
-          .from("exam_questions").select("id", { count: "exact", head: true })
-          .eq("curriculum_id", curriculumId).eq("qc_status", "pending");
-        questionsSummary = {
-          total_exam_questions: totalCount ?? 0,
-          approved_questions: approvedCount ?? 0,
-          pending_questions: pendingCount ?? 0,
-          curriculum_id: curriculumId,
-          note: "approved = production-ready, pending = awaiting QC",
-        };
-      } else {
-        questionsSummary = { total_exam_questions: 0, note: "no_curriculum_id_resolved" };
-      }
-    } catch (_e) { /* best-effort */ }
+    if (curriculumId) {
+      const { count: totalCount } = await sb
+        .from("exam_questions").select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId);
+      const { count: approvedCount } = await sb
+        .from("exam_questions").select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId).eq("qc_status", "approved");
+      const { count: pendingCount } = await sb
+        .from("exam_questions").select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId).eq("qc_status", "pending");
+      questionsSummary = {
+        total_exam_questions: totalCount ?? 0,
+        approved_questions: approvedCount ?? 0,
+        pending_questions: pendingCount ?? 0,
+        curriculum_id: curriculumId,
+        note: "approved = production-ready, pending = awaiting QC",
+      };
+    }
 
-    // ── Course snapshot (lessons via modules join, with placeholder tracking) ──
+    // ── Course snapshot ──
     let courseSnapshot: unknown = null;
+    let moduleIds: string[] = [];
     if (cid) {
       try {
         const { data: course } = await sb.from("courses").select("id, title, status, description, estimated_duration, curriculum_id").eq("id", cid).maybeSingle();
         const { data: modules } = await sb.from("modules").select("id, title, sort_order").eq("course_id", cid).order("sort_order");
-        const moduleIds = (modules || []).map((m: Record<string, unknown>) => m.id as string);
+        moduleIds = (modules || []).map((m: Record<string, unknown>) => m.id as string);
         let lessonCount = 0;
         let placeholderCount = 0;
         if (moduleIds.length > 0) {
           const { count } = await sb.from("lessons").select("id", { count: "exact", head: true }).in("module_id", moduleIds);
           lessonCount = count ?? 0;
-          // Count lessons that are still placeholders (no real content)
           const { count: phCount } = await sb.from("lessons").select("id", { count: "exact", head: true })
             .in("module_id", moduleIds)
-            .or("content.is.null,content.eq.");
+            .is("content", null);
           placeholderCount = phCount ?? 0;
         }
         courseSnapshot = { course, modules, lessonsCount: lessonCount, placeholderLessons: placeholderCount };
@@ -195,71 +194,99 @@ Deno.serve(async (req) => {
     }
 
     // ══════════════════════════════════════════════════════
-    // ── NEW: Content Samples for Quality Audit ──
+    // ── CONTENT SAMPLES for Quality Audit ──
     // ══════════════════════════════════════════════════════
 
-    // ── Sample Lessons: 2-3 per module (up to 36 total) ──
-    let lessonSamples: unknown[] = [];
-    if (cid) {
+    // ── Sample Lessons: 2-3 per module ──
+    const lessonSamples: unknown[] = [];
+    if (cid && moduleIds.length > 0) {
+      console.log(`[export] Collecting lesson samples from ${moduleIds.length} modules`);
       try {
         const { data: modules } = await sb.from("modules").select("id, title, sort_order").eq("course_id", cid).order("sort_order");
         for (const mod of (modules || []).slice(0, 12) as Record<string, unknown>[]) {
-          const { data: lessons } = await sb
+          const { data: lessons, error: lErr } = await sb
             .from("lessons")
-            .select("id, title, content, mini_checks, metadata, sort_order")
+            .select("id, title, content, minicheck_parsed, sort_order, qc_status")
             .eq("module_id", mod.id as string)
+            .not("content", "is", null)
             .order("sort_order")
             .limit(3);
+          if (lErr) {
+            console.log(`[export] Lesson query error for module ${mod.id}: ${lErr.message}`);
+            continue;
+          }
           for (const l of (lessons || []) as Record<string, unknown>[]) {
+            const contentStr = typeof l.content === "string" ? l.content : JSON.stringify(l.content);
             lessonSamples.push({
               module: mod.title,
               lesson_id: l.id,
               title: l.title,
-              content: typeof l.content === "string" ? l.content.slice(0, 8000) : l.content,
-              mini_checks: l.mini_checks,
-              metadata: l.metadata,
+              content_preview: contentStr.slice(0, 8000),
+              content_length: contentStr.length,
+              minicheck_parsed: l.minicheck_parsed,
+              qc_status: l.qc_status,
             });
           }
         }
-      } catch (_e) { /* best-effort */ }
+      } catch (e) {
+        console.log(`[export] Lesson samples error: ${(e as Error).message}`);
+      }
     }
+    console.log(`[export] Collected ${lessonSamples.length} lesson samples`);
 
-    // ── Sample Exam Questions: 50 random approved questions ──
-    let questionSamples: unknown[] = [];
+    // ── Sample Exam Questions: 50 random approved ──
+    const questionSamples: unknown[] = [];
     if (curriculumId) {
+      console.log(`[export] Collecting exam question samples for curriculum ${curriculumId}`);
       try {
-        // Get 50 random approved questions across difficulty/type
-        const { data: questions } = await sb
+        const { data: questions, error: qErr } = await sb
           .from("exam_questions")
-          .select("id, question_text, options, correct_answer, explanation, difficulty, question_type, bloom_level, learning_field_id, qc_status, metadata")
+          .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status")
           .eq("curriculum_id", curriculumId)
           .eq("qc_status", "approved")
           .limit(50);
-        questionSamples = (questions || []).map((q: Record<string, unknown>) => ({
-          id: q.id,
-          question_text: q.question_text,
-          options: q.options,
-          correct_answer: q.correct_answer,
-          explanation: q.explanation,
-          difficulty: q.difficulty,
-          question_type: q.question_type,
-          bloom_level: q.bloom_level,
-          learning_field_id: q.learning_field_id,
-          qc_status: q.qc_status,
-        }));
-      } catch (_e) { /* best-effort */ }
+        if (qErr) {
+          console.log(`[export] Question query error: ${qErr.message}`);
+        } else {
+          for (const q of (questions || []) as Record<string, unknown>[]) {
+            questionSamples.push({
+              id: q.id,
+              question_text: q.question_text,
+              options: q.options,
+              correct_answer: q.correct_answer,
+              explanation: q.explanation,
+              difficulty: q.difficulty,
+              cognitive_level: q.cognitive_level,
+              learning_field_id: q.learning_field_id,
+              qc_status: q.qc_status,
+            });
+          }
+        }
+      } catch (e) {
+        console.log(`[export] Question samples error: ${(e as Error).message}`);
+      }
     }
+    console.log(`[export] Collected ${questionSamples.length} question samples`);
 
-    // ── AI Tutor Samples: recent tutor logs with prompts ──
-    let tutorSamples: unknown[] = [];
+    // ── AI Tutor Samples ──
+    const tutorSamples: unknown[] = [];
     try {
-      const { data: tutorLogs } = await sb
+      const { data: tutorLogs, error: tErr } = await sb
         .from("ai_tutor_logs")
         .select("id, mode, session_type, prompt_length, response_length, tokens_used, was_blocked, block_reason, metadata, created_at")
         .order("created_at", { ascending: false })
         .limit(10);
-      tutorSamples = tutorLogs || [];
-    } catch (_e) { /* best-effort */ }
+      if (tErr) {
+        console.log(`[export] Tutor logs error: ${tErr.message}`);
+      } else {
+        for (const t of (tutorLogs || []) as Record<string, unknown>[]) {
+          tutorSamples.push(t);
+        }
+      }
+    } catch (e) {
+      console.log(`[export] Tutor samples error: ${(e as Error).message}`);
+    }
+    console.log(`[export] Collected ${tutorSamples.length} tutor samples`);
 
     // ── Build ZIP ──
     const zip = new JSZip();
@@ -272,10 +299,27 @@ Deno.serve(async (req) => {
     zip.file("questions_summary.json", JSON.stringify(questionsSummary, null, 2));
     zip.file("course_snapshot.json", JSON.stringify(courseSnapshot || {}, null, 2));
 
-    // NEW: Audit content samples
+    // Content samples (critical for audit)
     zip.file("samples/lesson_samples.json", JSON.stringify(lessonSamples, null, 2));
     zip.file("samples/exam_question_samples.json", JSON.stringify(questionSamples, null, 2));
     zip.file("samples/tutor_log_samples.json", JSON.stringify(tutorSamples, null, 2));
+
+    // Export manifest with counts for quick verification
+    const manifest = {
+      exported_at: new Date().toISOString(),
+      package_id: packageId,
+      course_id: cid,
+      curriculum_id: curriculumId,
+      content_counts: {
+        lesson_samples: lessonSamples.length,
+        question_samples: questionSamples.length,
+        tutor_log_samples: tutorSamples.length,
+        handbook_length_chars: handbookMd.length,
+        handbook_is_placeholder: handbookMd.length < 500,
+      },
+      questions_summary: questionsSummary,
+    };
+    zip.file("manifest.json", JSON.stringify(manifest, null, 2));
 
     const bytes = await zip.generateAsync({ type: "uint8array" });
 
@@ -307,6 +351,11 @@ Deno.serve(async (req) => {
           path,
           fileSize: bytes.length,
           created_at: new Date().toISOString(),
+          samples: {
+            lessons: lessonSamples.length,
+            questions: questionSamples.length,
+            tutorLogs: tutorSamples.length,
+          },
         },
       },
       { onConflict: "package_id,output_key" }
@@ -322,6 +371,7 @@ Deno.serve(async (req) => {
         questions: questionSamples.length,
         tutorLogs: tutorSamples.length,
       },
+      manifest,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
