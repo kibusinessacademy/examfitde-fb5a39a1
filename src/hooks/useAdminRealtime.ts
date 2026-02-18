@@ -175,22 +175,23 @@ export function useRealtimePipeline() {
   const [loading, setLoading] = useState(true);
 
   const fetchPipeline = useCallback(async () => {
-    // Get building package
-    const { data: pkg } = await (supabase as any)
+    // Get ALL building packages (not just 1)
+    const { data: pkgs } = await (supabase as any)
       .from('course_packages')
       .select('id,title,status,build_progress,pipeline_mode,created_at,updated_at')
       .eq('status', 'building')
       .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(10);
 
+    const pkg = pkgs?.[0] ?? null;
     setActivePackage(pkg);
 
-    if (pkg) {
+    if (pkgs?.length) {
+      const pkgIds = pkgs.map((p: any) => p.id);
       const { data: stepsData } = await (supabase as any)
         .from('package_steps')
         .select('*')
-        .eq('package_id', pkg.id)
+        .in('package_id', pkgIds)
         .order('created_at', { ascending: true });
       setSteps(stepsData || []);
     } else {
