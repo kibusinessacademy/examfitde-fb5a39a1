@@ -61,12 +61,12 @@ Deno.serve(async (req) => {
     const cid = courseId || (pkg as Record<string, unknown>).course_id;
     console.log(`[export] Package ${packageId}, course ${cid}`);
 
-    // ── Load build steps ──
+    // ── Load build steps (with correct columns) ──
     const { data: steps } = await sb
       .from("package_steps")
-      .select("*")
+      .select("id, package_id, step_key, status, attempts, max_attempts, timeout_seconds, started_at, finished_at, last_heartbeat_at, runner_id, last_error, meta, created_at, updated_at, job_id")
       .eq("package_id", packageId)
-      .order("sort_order");
+      .order("created_at");
 
     // ── Load approved plan ──
     const { data: plan } = await sb
@@ -236,10 +236,18 @@ Deno.serve(async (req) => {
         if (moduleIds.length > 0) {
           const { count } = await sb.from("lessons").select("id", { count: "exact", head: true }).in("module_id", moduleIds);
           lessonCount = count ?? 0;
-          const { count: phCount } = await sb.from("lessons").select("id", { count: "exact", head: true })
-            .in("module_id", moduleIds)
-            .is("content", null);
-          placeholderCount = phCount ?? 0;
+          // Count REAL placeholders: content IS NULL OR content contains _placeholder flag
+          const { data: allLs } = await sb.from("lessons").select("id, content").in("module_id", moduleIds);
+          if (allLs) {
+            placeholderCount = allLs.filter((l: any) => {
+              if (!l.content) return true;
+              if (typeof l.content === 'object' && l.content._placeholder) return true;
+              if (typeof l.content === 'string') {
+                try { const p = JSON.parse(l.content); return p._placeholder === true; } catch { return false; }
+              }
+              return false;
+            }).length;
+          }
         }
         courseSnapshot = { course, modules, lessonsCount: lessonCount, placeholderLessons: placeholderCount };
       } catch (_e) { /* best-effort */ }
