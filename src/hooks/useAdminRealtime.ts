@@ -171,6 +171,7 @@ export interface PipelineStep {
   last_heartbeat_at: string | null;
   last_error: string | null;
   runner_id: string | null;
+  meta: Record<string, unknown> | null;
 }
 
 export function useRealtimePipeline() {
