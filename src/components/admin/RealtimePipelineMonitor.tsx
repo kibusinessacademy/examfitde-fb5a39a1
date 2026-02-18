@@ -6,10 +6,11 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Activity, CheckCircle2, Clock, Loader2, Radio, RefreshCw,
-  XCircle, AlertTriangle, HeartPulse, Timer
+  XCircle, AlertTriangle, HeartPulse, Timer, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useState } from 'react';
 
 const STEP_META: Record<string, { label: string; emoji: string }> = {
   scaffold_learning_course: { label: 'Lernkurs erstellen', emoji: '📚' },
@@ -39,7 +40,7 @@ const STEP_ORDER = [
 function StepStatusIcon({ status }: { status: string }) {
   switch (status) {
     case 'done': return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-    case 'running': return <Loader2 className="h-4 w-4 text-primary animate-spin" />;
+    case 'running': case 'enqueued': return <Loader2 className="h-4 w-4 text-primary animate-spin" />;
     case 'failed': return <XCircle className="h-4 w-4 text-destructive" />;
     case 'timeout': return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
     case 'skipped': return <CheckCircle2 className="h-4 w-4 text-muted-foreground" />;
@@ -61,12 +62,110 @@ function HeartbeatAge({ ts }: { ts: string | null }) {
   );
 }
 
+function PackagePipeline({ pkg, steps }: { pkg: any; steps: any[] }) {
+  const [expanded, setExpanded] = useState(true);
+  const pkgSteps = steps.filter(s => s.package_id === pkg.id);
+  const sortedSteps = STEP_ORDER.map(key => pkgSteps.find(s => s.step_key === key)).filter(Boolean);
+  const currentStep = sortedSteps.find(s => s!.status === 'running' || s!.status === 'enqueued');
+  const doneCount = sortedSteps.filter(s => s!.status === 'done' || s!.status === 'skipped').length;
+  const progress = Math.round((doneCount / STEP_ORDER.length) * 100);
+  const currentLabel = currentStep
+    ? STEP_META[currentStep.step_key]?.label || currentStep.step_key
+    : doneCount === STEP_ORDER.length ? 'Fertig' : 'Wartend';
+
+  return (
+    <div className="border border-border/50 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/30 transition-colors text-left"
+      >
+        {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+        <Activity className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="text-sm font-medium truncate flex-1">{pkg.title || pkg.id.slice(0, 8)}</span>
+        <span className="text-[10px] text-muted-foreground shrink-0">{currentLabel}</span>
+        <Badge variant="outline" className="text-[10px] shrink-0">{progress}%</Badge>
+      </button>
+
+      {/* Compact progress bar */}
+      <div className="w-full bg-muted h-1">
+        <div className="bg-primary h-1 transition-all duration-500" style={{ width: `${progress}%` }} />
+      </div>
+
+      {expanded && (
+        <div className="px-3 py-2 space-y-0.5">
+          {sortedSteps.map((step) => {
+            if (!step) return null;
+            const meta = STEP_META[step.step_key] || { label: step.step_key, emoji: '⚙️' };
+            const isRunning = step.status === 'running' || step.status === 'enqueued';
+            const isFailed = step.status === 'failed' || step.status === 'timeout';
+
+            return (
+              <div
+                key={step.step_key}
+                className={cn(
+                  "flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors",
+                  isRunning && "bg-primary/5 border border-primary/20",
+                  isFailed && "bg-destructive/5",
+                )}
+              >
+                <span className="text-sm">{meta.emoji}</span>
+                <StepStatusIcon status={step.status} />
+                <span className={cn("flex-1 truncate", isRunning && "font-medium text-primary")}>
+                  {meta.label}
+                </span>
+
+                {(isRunning || isFailed) && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {step.attempts}/{step.max_attempts}
+                  </span>
+                )}
+
+                {isRunning && <HeartbeatAge ts={step.last_heartbeat_at} />}
+
+                {step.status === 'done' && step.started_at && step.finished_at && (
+                  <span className="text-[10px] text-muted-foreground">
+                    <Timer className="h-2.5 w-2.5 inline mr-0.5" />
+                    {Math.round((new Date(step.finished_at).getTime() - new Date(step.started_at).getTime()) / 1000)}s
+                  </span>
+                )}
+
+                {isFailed && step.last_error && (
+                  <span className="text-[10px] text-destructive max-w-[180px] truncate">
+                    {step.last_error}
+                  </span>
+                )}
+
+                <Badge
+                  variant={step.status === 'done' ? 'default' : isRunning ? 'secondary' : isFailed ? 'destructive' : 'outline'}
+                  className="text-[9px] shrink-0"
+                >
+                  {step.status}
+                </Badge>
+              </div>
+            );
+          })}
+
+          {currentStep && (
+            <div className="mt-1.5 pt-1.5 border-t border-border/50 flex items-center gap-2 text-[10px] text-muted-foreground">
+              <Radio className="h-3 w-3 text-primary animate-pulse" />
+              Runner: {currentStep.runner_id || '–'}
+              {currentStep.started_at && (
+                <> · {formatDistanceToNow(new Date(currentStep.started_at), { locale: de, addSuffix: true })}</>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RealtimePipelineMonitor() {
-  const { steps, activePackage, loading, refetch } = useRealtimePipeline();
+  const { steps, allPackages, loading, refetch } = useRealtimePipeline();
 
   if (loading) return <Skeleton className="h-64" />;
 
-  if (!activePackage) {
+  if (!allPackages.length) {
     return (
       <Card className="border-dashed">
         <CardContent className="py-8 text-center">
@@ -80,106 +179,23 @@ export default function RealtimePipelineMonitor() {
     );
   }
 
-  const sortedSteps = STEP_ORDER.map(key => steps.find(s => s.step_key === key)).filter(Boolean);
-  const currentStep = sortedSteps.find(s => s!.status === 'running');
-  const doneCount = sortedSteps.filter(s => s!.status === 'done' || s!.status === 'skipped').length;
-  const progress = Math.round((doneCount / STEP_ORDER.length) * 100);
-
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary" />
-            Pipeline — {activePackage.title || activePackage.id.slice(0, 8)}
+            Active Pipelines ({allPackages.length})
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px]">{progress}%</Badge>
-            <Badge variant="secondary" className="text-[10px]">{activePackage.pipeline_mode || 'factory'}</Badge>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={refetch}>
-              <RefreshCw className="h-3 w-3" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={refetch}>
+            <RefreshCw className="h-3 w-3" />
+          </Button>
         </div>
       </CardHeader>
-      <CardContent>
-        {/* Progress bar */}
-        <div className="w-full bg-muted rounded-full h-2 mb-4">
-          <div
-            className="bg-primary h-2 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        {/* Steps */}
-        <div className="space-y-1">
-          {sortedSteps.map((step) => {
-            if (!step) return null;
-            const meta = STEP_META[step.step_key] || { label: step.step_key, emoji: '⚙️' };
-            const isRunning = step.status === 'running';
-            const isFailed = step.status === 'failed' || step.status === 'timeout';
-
-            return (
-              <div
-                key={step.step_key}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
-                  isRunning && "bg-primary/5 border border-primary/20",
-                  isFailed && "bg-destructive/5",
-                )}
-              >
-                <span className="text-base">{meta.emoji}</span>
-                <StepStatusIcon status={step.status} />
-                <span className={cn("flex-1", isRunning && "font-medium text-primary")}>
-                  {meta.label}
-                </span>
-
-                {/* Attempt counter – only show for active/failed steps */}
-                {(isRunning || isFailed) && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {step.attempts}/{step.max_attempts}
-                  </span>
-                )}
-
-                {/* Heartbeat age (only for running) */}
-                {isRunning && <HeartbeatAge ts={step.last_heartbeat_at} />}
-
-                {/* Duration for done */}
-                {step.status === 'done' && step.started_at && step.finished_at && (
-                  <span className="text-[10px] text-muted-foreground">
-                    <Timer className="h-2.5 w-2.5 inline mr-0.5" />
-                    {Math.round((new Date(step.finished_at).getTime() - new Date(step.started_at).getTime()) / 1000)}s
-                  </span>
-                )}
-
-                {/* Error snippet */}
-                {isFailed && step.last_error && (
-                  <span className="text-[10px] text-destructive max-w-[200px] truncate">
-                    {step.last_error}
-                  </span>
-                )}
-
-                <Badge
-                  variant={step.status === 'done' ? 'default' : step.status === 'running' ? 'secondary' : isFailed ? 'destructive' : 'outline'}
-                  className="text-[9px] shrink-0"
-                >
-                  {step.status}
-                </Badge>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Runner info */}
-        {currentStep && (
-          <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2 text-[10px] text-muted-foreground">
-            <Radio className="h-3 w-3 text-primary animate-pulse" />
-            Runner: {currentStep.runner_id || '–'}
-            {currentStep.started_at && (
-              <> · gestartet {formatDistanceToNow(new Date(currentStep.started_at), { locale: de, addSuffix: true })}</>
-            )}
-          </div>
-        )}
+      <CardContent className="space-y-2">
+        {allPackages.map((pkg: any) => (
+          <PackagePipeline key={pkg.id} pkg={pkg} steps={steps} />
+        ))}
       </CardContent>
     </Card>
   );
