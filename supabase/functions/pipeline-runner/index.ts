@@ -565,7 +565,7 @@ async function processPackage(
       if (result.ok === false && VALIDATION_PREDECESSOR[stepKey]) {
         const predecessorStep = VALIDATION_PREDECESSOR[stepKey];
         const attempts = currentStep?.attempts ?? 0;
-        const MAX_HEAL_RETRIES = 3;
+        const MAX_HEAL_RETRIES = 5;
 
         if (attempts < MAX_HEAL_RETRIES) {
           console.warn(`[runner] 🔄 Auto-heal: ${stepKey} failed validation (attempt ${attempts + 1}/${MAX_HEAL_RETRIES}) — resetting predecessor ${predecessorStep}`);
@@ -573,7 +573,7 @@ async function processPackage(
           // Reset predecessor to queued so it regenerates
           await safeQuery(
             sb.from("package_steps")
-              .update({ status: "queued", job_id: null, runner_id: null, started_at: null })
+              .update({ status: "queued", job_id: null, runner_id: null, started_at: null, attempts: 0 })
               .eq("package_id", packageId)
               .eq("step_key", predecessorStep),
             "auto_heal_reset_predecessor",
