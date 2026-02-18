@@ -633,6 +633,18 @@ const TARGET_POOL_SIZE = 10;
 async function backfillPipelinePool(
   sb: ReturnType<typeof createClient>,
 ): Promise<number> {
+  // Priority Gate: Don't backfill non-Top-30 while Top-30 are incomplete
+  const { count: top30Incomplete } = await sb
+    .from("course_packages")
+    .select("id", { count: "exact", head: true })
+    .lte("priority", 10)
+    .not("status", "in", '("published","done")');
+
+  if ((top30Incomplete ?? 0) > 0) {
+    console.log(`[runner] 🚧 Top-30 gate: ${top30Incomplete} packages still incomplete — skipping backfill of lower-priority packages`);
+    return 0;
+  }
+
   // 1. Count currently active packages (queued, building, planning)
   const { count: activeCount } = await sb
     .from("course_packages")
