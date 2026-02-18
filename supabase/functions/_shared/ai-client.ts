@@ -18,6 +18,8 @@ import {
   type AIProvider,
 } from "./provider-rate-limiter.ts";
 
+import { fillUsage, estimateCostEur } from "./token-estimator.ts";
+
 export type { AIProvider };
 
 export interface AIMessage {
@@ -229,6 +231,7 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
   content: string;
   toolCalls?: Array<{ function: { name: string; arguments: string } }>;
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+  estimatedUsage?: { tokens_in: number; tokens_out: number; cost_eur: number; estimated: boolean };
 }> {
   try {
     const { raw, ok, status } = await callAI({ ...opts, stream: false });
@@ -241,31 +244,41 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
     }
 
     const data = await raw.json();
+    const model = opts.model || PROVIDER_DEFAULTS[opts.provider].model;
 
-  if (opts.provider === "anthropic") {
-    // Extract tool_use blocks if present
-    const toolUseBlock = data.content?.find((b: any) => b.type === "tool_use");
-    const textBlock = data.content?.find((b: any) => b.type === "text");
-    return {
-      content: textBlock?.text || "",
-      toolCalls: toolUseBlock ? [{ function: { name: toolUseBlock.name, arguments: JSON.stringify(toolUseBlock.input) } }] : undefined,
-      usage: {
+    if (opts.provider === "anthropic") {
+      const toolUseBlock = data.content?.find((b: any) => b.type === "tool_use");
+      const textBlock = data.content?.find((b: any) => b.type === "text");
+      const content = textBlock?.text || "";
+      const rawUsage = {
         input_tokens: data.usage?.input_tokens,
         output_tokens: data.usage?.output_tokens,
         total_tokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
-      },
-    };
-  }
+      };
+      return {
+        content,
+        toolCalls: toolUseBlock ? [{ function: { name: toolUseBlock.name, arguments: JSON.stringify(toolUseBlock.input) } }] : undefined,
+        usage: rawUsage,
+        estimatedUsage: fillUsage(rawUsage, model, opts.messages, content),
+      };
+    }
 
-  // OpenAI-compatible
-  const choice = data.choices?.[0]?.message;
-  return {
-    content: choice?.content || "",
-    toolCalls: choice?.tool_calls,
-    usage: data.usage,
-  };
+    // OpenAI-compatible
+    const choice = data.choices?.[0]?.message;
+    const content = choice?.content || "";
+    const rawUsage = data.usage;
+    return {
+      content,
+      toolCalls: choice?.tool_calls,
+      usage: rawUsage,
+      estimatedUsage: fillUsage(
+        rawUsage ? { input_tokens: rawUsage.prompt_tokens ?? rawUsage.input_tokens, output_tokens: rawUsage.completion_tokens ?? rawUsage.output_tokens } : undefined,
+        model,
+        opts.messages,
+        content,
+      ),
+    };
   } catch (err: unknown) {
-    // Convert AbortError / TimeoutError into AITimeoutError
     if (err instanceof DOMException && (err.name === "AbortError" || err.name === "TimeoutError")) {
       throw new AITimeoutError(`AI ${opts.provider} request timed out`);
     }
@@ -298,18 +311,19 @@ export async function logLLMCostEvent(
     error_message?: string | null;
     attempt?: number;
     meta?: Record<string, unknown>;
+    estimated?: boolean;
   }
 ): Promise<void> {
   try {
-    // Convert USD to EUR if only cost_usd provided (approx rate)
-    const costEur = opts.cost_eur ?? (opts.cost_usd ? opts.cost_usd * 0.92 : 0);
+    // Use estimated cost if no real cost provided
+    const costEur = opts.cost_eur ?? (opts.cost_usd ? opts.cost_usd * 0.92 : estimateCostEur(opts.model, opts.tokens_in, opts.tokens_out));
     await sb.from("llm_cost_events").insert({
       job_type: opts.job_type,
       provider: opts.provider,
       model: opts.model,
       tokens_in: opts.tokens_in,
       tokens_out: opts.tokens_out,
-      cost_eur: costEur,
+      cost_eur: Math.round(costEur * 1_000_000) / 1_000_000, // 6 decimal precision
       package_id: opts.package_id || null,
       certification_id: opts.certification_id || null,
       course_id: opts.course_id || null,
@@ -318,10 +332,11 @@ export async function logLLMCostEvent(
         status: opts.status || "success",
         ...(opts.error_message ? { error: opts.error_message } : {}),
         ...(opts.attempt !== undefined ? { attempt: opts.attempt } : {}),
+        ...(opts.estimated ? { estimated: true } : {}),
       },
     });
   } catch {
-    // Non-blocking – don't let cost logging break production
+    // Non-blocking
   }
 }
 
@@ -347,6 +362,7 @@ export async function callAIWithFailover(
   provider: AIProvider;
   model: string;
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+  estimatedUsage?: { tokens_in: number; tokens_out: number; cost_eur: number; estimated: boolean };
 }> {
   const PROVIDER_KEYS: Record<string, string> = {
     openai: "OPENAI_API_KEY",
@@ -356,7 +372,6 @@ export async function callAIWithFailover(
     lovable: "LOVABLE_API_KEY",
   };
 
-  // Build API key availability map
   const keyAvailability: Record<string, boolean> = {};
   for (const p of ["openai", "anthropic", "deepseek", "google", "lovable"]) {
     keyAvailability[p] = !!Deno.env.get(PROVIDER_KEYS[p]);
@@ -365,13 +380,11 @@ export async function callAIWithFailover(
   const errors: string[] = [];
 
   for (const candidate of chain) {
-    // Skip if no API key
     if (!keyAvailability[candidate.provider]) {
       errors.push(`${candidate.provider}: no API key`);
       continue;
     }
 
-    // Skip if provider is blocked (cooldown or RPM)
     const health = getProviderHealth(candidate.provider);
     if (!health.available) {
       errors.push(`${candidate.provider}: ${health.reason}`);
@@ -390,11 +403,11 @@ export async function callAIWithFailover(
         provider: candidate.provider,
         model: candidate.model,
         usage: result.usage,
+        estimatedUsage: result.estimatedUsage,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`${candidate.provider}/${candidate.model}: ${msg}`);
-      // Continue to next provider in chain
     }
   }
 
