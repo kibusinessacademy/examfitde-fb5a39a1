@@ -404,7 +404,7 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
           ],
           tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,
           tool_choice: { type: "function", function: { name: isMiniCheck ? "create_mini_check" : "create_lesson_content" } },
-          temperature: 0.7,
+          // temperature omitted — GPT-5 only supports default (1)
           max_tokens: isMiniCheck ? 4096 : 8192,
         },
       );
