@@ -88,7 +88,7 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
  * Call an AI provider directly. Returns the raw Response for streaming or JSON parsing.
  */
 /** Default fetch timeout for AI calls (30s) — prevents Edge Function hard-timeout */
-const AI_FETCH_TIMEOUT_MS = 30_000;
+const AI_FETCH_TIMEOUT_MS = 55_000;
 
 export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const cfg = PROVIDER_DEFAULTS[opts.provider];
@@ -176,15 +176,21 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       messages: opts.messages,
       ...(opts.stream !== undefined && { stream: opts.stream }),
     };
-    if (opts.temperature !== undefined) body.temperature = opts.temperature;
+    // GPT-5 family: only supports temperature=1 (default) and max_completion_tokens
+    const isGpt5 = model.startsWith("gpt-5") || model.includes("/gpt-5");
+    const isLovableGpt5 = opts.provider === "lovable" && model.includes("openai/gpt-5");
+    const gpt5Mode = isGpt5 || isLovableGpt5;
+
+    if (opts.temperature !== undefined) {
+      // GPT-5 only supports default temperature (1) — omit custom values
+      if (!gpt5Mode) {
+        body.temperature = opts.temperature;
+      }
+    }
     if (opts.max_tokens !== undefined) {
-      // GPT-5 family requires max_completion_tokens instead of max_tokens
-      const isGpt5 = model.startsWith("gpt-5") || model.includes("/gpt-5");
-      const isLovableOpenAI = opts.provider === "lovable" && model.includes("openai/gpt-5");
-      if (isGpt5 || isLovableOpenAI) {
+      if (gpt5Mode) {
         body.max_completion_tokens = opts.max_tokens;
       } else if (opts.provider === "deepseek") {
-        // DeepSeek hard limit: max_tokens must be ≤ 8192
         body.max_tokens = Math.min(opts.max_tokens, 8192);
       } else {
         body.max_tokens = opts.max_tokens;

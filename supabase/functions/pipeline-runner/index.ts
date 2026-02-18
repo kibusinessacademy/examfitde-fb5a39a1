@@ -368,7 +368,7 @@ async function processPackage(
 
     const { data: job } = await sb
       .from("job_queue")
-      .select("status,result,error,last_error,batch_cursor")
+      .select("status,result,error,last_error,batch_cursor,updated_at")
       .eq("id", jobId)
       .single();
 
@@ -399,18 +399,47 @@ async function processPackage(
       return { packageId, stepKey, waiting: true, jobStatus: "pending" };
     }
 
-    // Job processing → transition step to 'running' if not already
+    // Job processing → check for stuck jobs (>30min = likely dead)
     if (job.status === "processing") {
       const currentStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
+
+      // Stuck job detection: if job has been processing for >30min, force-fail and re-enqueue
+      const jobAge = job.updated_at
+        ? Date.now() - new Date(job.updated_at as string).getTime()
+        : 0;
+      const STUCK_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+
+      if (jobAge > STUCK_THRESHOLD_MS) {
+        console.warn(`[runner] ⚠️ Job ${jobId.slice(0, 8)} stuck processing for ${Math.round(jobAge / 60000)}min — force-resetting`);
+        await safeQuery(
+          sb.from("job_queue").update({
+            status: "failed",
+            last_error: `Force-failed: stuck processing for ${Math.round(jobAge / 60000)}min`,
+            updated_at: new Date().toISOString(),
+          }).eq("id", jobId),
+          "force_fail_stuck_job",
+        );
+        await safeQuery(
+          sb.from("package_steps").update({
+            status: "queued",
+            job_id: null,
+            runner_id: null,
+            started_at: null,
+            last_error: `Job stuck >30min — auto-reset`,
+          }).eq("package_id", packageId).eq("step_key", stepKey),
+          "reset_stuck_step",
+        );
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, stuck_reset: true, jobAge: Math.round(jobAge / 60000) };
+      }
+
       if (currentStep?.status !== "running") {
-        // NOW is the right time to call step_start — the job is actually running
         await safeRpc(sb, "step_start", {
           p_package_id: packageId,
           p_step_key: stepKey,
           p_runner_id: runnerId,
         });
       } else {
-        // Already running — just heartbeat
         await safeRpc(sb, "step_heartbeat", {
           p_package_id: packageId,
           p_step_key: stepKey,
