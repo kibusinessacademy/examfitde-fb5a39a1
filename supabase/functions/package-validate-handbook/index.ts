@@ -6,15 +6,18 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 /**
  * package-validate-handbook — Pipeline Step (after generate_handbook)
  *
- * Structural quality gate for handbook chapters/sections.
+ * Structural + content quality gate for handbook chapters/sections.
  * 
+ * v2: Hardened against heading-only / placeholder content.
+ * Detects sections that contain only markdown headings but no prose.
+ *
  * ANTI-LOOP PROTECTION: If this step has been retried ≥ 10 times,
- * it resets generate_handbook to 'queued' to force re-generation,
- * rather than retrying validation indefinitely.
+ * it resets generate_handbook to 'queued' to force re-generation.
  */
 
 const MIN_CHAPTERS = 3;
 const MIN_SECTION_LENGTH = 200;
+const MIN_PROSE_LENGTH = 120; // NEW: minimum non-heading text
 const MAX_RETRIES_BEFORE_REGEN = 10;
 const PLACEHOLDER_PATTERNS = [
   "_Wird durch Council",
@@ -26,6 +29,8 @@ const PLACEHOLDER_PATTERNS = [
   "Council/LLM",
   "Blueprint-Analyse ergänzt",
   "Curriculum-Analyse ergänzt",
+  "_(kein Inhalt)_",
+  "_(nicht verfügbar)_",
 ];
 
 function json(body: unknown, status = 200) {
@@ -37,6 +42,24 @@ interface SectionResult {
   title: string;
   passed: boolean;
   issues: string[];
+}
+
+/** Strip all markdown headings and return only prose text */
+function extractProse(md: string): string {
+  return md
+    .split("\n")
+    .filter(line => !line.match(/^#{1,6}\s/) && line.trim().length > 0)
+    .join("\n")
+    .trim();
+}
+
+/** Check if content is essentially just headings with no real prose */
+function isHeadingOnly(md: string): boolean {
+  const lines = md.split("\n").filter(l => l.trim().length > 0);
+  if (lines.length === 0) return true;
+  const headingLines = lines.filter(l => l.match(/^#{1,6}\s/));
+  // If >80% of non-empty lines are headings, it's heading-only
+  return headingLines.length / lines.length > 0.8;
 }
 
 Deno.serve(async (req) => {
@@ -67,21 +90,18 @@ Deno.serve(async (req) => {
   if (attempts >= MAX_RETRIES_BEFORE_REGEN) {
     console.log(`[validate-handbook] Anti-loop: ${attempts} attempts exceeded threshold. Resetting generate_handbook for re-generation.`);
     
-    // Reset generate_handbook step to force content re-generation
     await sb
       .from("package_steps")
       .update({ status: "queued", job_id: null, started_at: null, last_heartbeat_at: null })
       .eq("package_id", packageId)
       .eq("step_key", "generate_handbook");
 
-    // Also reset this validation step
     await sb
       .from("package_steps")
       .update({ status: "queued", job_id: null, started_at: null, last_heartbeat_at: null })
       .eq("package_id", packageId)
       .eq("step_key", "validate_handbook");
 
-    // Cancel the current job to prevent further retries
     await sb
       .from("job_queue")
       .update({ status: "cancelled", last_error: "Anti-loop: forcing handbook re-generation" })
@@ -147,13 +167,33 @@ Deno.serve(async (req) => {
   // Validate each section
   const results: SectionResult[] = [];
   let placeholderCount = 0;
+  let headingOnlyCount = 0;
   let depthEnrichedCount = 0;
 
   for (const sec of sections) {
     const issues: string[] = [];
     const md = sec.content_markdown || "";
 
-    // Length check
+    // ── NEW: Empty/null content check ──
+    if (!md || md.trim().length === 0) {
+      issues.push("CONTENT_EMPTY");
+      results.push({ sectionId: sec.id, title: sec.title, passed: false, issues });
+      continue;
+    }
+
+    // ── NEW: Heading-only detection ──
+    if (isHeadingOnly(md)) {
+      issues.push("HEADING_ONLY: Section contains only headings, no prose content");
+      headingOnlyCount++;
+    }
+
+    // ── NEW: Prose length check (ignoring headings) ──
+    const prose = extractProse(md);
+    if (prose.length < MIN_PROSE_LENGTH) {
+      issues.push(`PROSE_TOO_SHORT: ${prose.length}/${MIN_PROSE_LENGTH} chars (excluding headings)`);
+    }
+
+    // Total length check (original)
     if (md.length < MIN_SECTION_LENGTH) {
       issues.push(`CONTENT_TOO_SHORT: ${md.length}/${MIN_SECTION_LENGTH}`);
     }
@@ -167,8 +207,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Heading structure
-    if (!md.includes("##") && !md.includes("###")) {
+    // Heading structure (only relevant if there's actual content)
+    if (prose.length >= MIN_PROSE_LENGTH && !md.includes("##") && !md.includes("###")) {
       issues.push("NO_HEADING_STRUCTURE");
     }
 
@@ -180,7 +220,7 @@ Deno.serve(async (req) => {
 
     // Content has actual topic-specific bullet points (not just template)
     const bulletCount = (md.match(/^[-•]\s/gm) || []).length;
-    if (bulletCount < 2 && md.length > 300) {
+    if (bulletCount < 2 && prose.length > 300) {
       issues.push("NO_BULLET_POINTS_IN_LONG_SECTION");
     }
 
@@ -198,11 +238,16 @@ Deno.serve(async (req) => {
   const passRate = (passed / results.length) * 100;
   const depthRate = (depthEnrichedCount / results.length) * 100;
 
-  console.log(`[validate-handbook] ${passed}/${results.length} sections passed (${passRate.toFixed(1)}%), depth: ${depthRate.toFixed(0)}%`);
+  console.log(`[validate-handbook] ${passed}/${results.length} sections passed (${passRate.toFixed(1)}%), depth: ${depthRate.toFixed(0)}%, heading-only: ${headingOnlyCount}`);
 
-  // Placeholder ratio determines severity
+  // ── Determine overall pass ──
   const placeholderRate = (placeholderCount / results.length) * 100;
-  const overallPass = passRate >= 60 && placeholderRate <= 30 && chapterIssues.length === 0;
+  // NEW: heading-only sections are a hard-fail signal
+  const headingOnlyRate = (headingOnlyCount / results.length) * 100;
+  const overallPass = passRate >= 60 
+    && placeholderRate <= 30 
+    && headingOnlyRate <= 10  // NEW: max 10% heading-only sections allowed
+    && chapterIssues.length === 0;
 
   if (!overallPass) {
     // Rate-limit alerts: only one per 10 minutes
@@ -218,9 +263,9 @@ Deno.serve(async (req) => {
     if (!recentAlerts?.length) {
       await sb.from("ops_alerts").insert({
         source: "validate-handbook",
-        severity: "warning",
-        message: `Handbook QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed, ${placeholderCount} placeholders (attempt ${attempts})`,
-        payload: { packageId, pass_rate: passRate, placeholder_count: placeholderCount, chapter_issues: chapterIssues, attempt: attempts },
+        severity: headingOnlyRate > 50 ? "critical" : "warning",
+        message: `Handbook QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed, ${placeholderCount} placeholders, ${headingOnlyCount} heading-only (attempt ${attempts})`,
+        payload: { packageId, pass_rate: passRate, placeholder_count: placeholderCount, heading_only_count: headingOnlyCount, chapter_issues: chapterIssues, attempt: attempts },
       }).then(() => {}).catch(() => {});
     }
   }
@@ -235,6 +280,8 @@ Deno.serve(async (req) => {
       failed,
       pass_rate: passRate,
       placeholder_count: placeholderCount,
+      heading_only_count: headingOnlyCount,
+      heading_only_rate: headingOnlyRate,
       depth_enriched: depthEnrichedCount,
       depth_rate: depthRate,
     },
@@ -242,6 +289,6 @@ Deno.serve(async (req) => {
     failures: results.filter(r => !r.passed).slice(0, 15),
     message: overallPass
       ? `✅ Handbook QC bestanden: ${passed}/${results.length} Sektionen (${passRate.toFixed(0)}%), ${depthEnrichedCount} mit Tiefe`
-      : `❌ Handbook QC fehlgeschlagen: ${passed}/${results.length} (${passRate.toFixed(0)}%), ${placeholderCount} Platzhalter`,
+      : `❌ Handbook QC fehlgeschlagen: ${passed}/${results.length} (${passRate.toFixed(0)}%), ${placeholderCount} Platzhalter, ${headingOnlyCount} heading-only`,
   });
 });

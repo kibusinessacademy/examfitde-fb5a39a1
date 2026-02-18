@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       } catch (_e) { /* best-effort */ }
     }
 
-    // ── Load handbook (best-effort) ──
+    // ── Load handbook (FIXED: use content_markdown, not content_md) ──
     let handbookMd = "# Handbuch\n\n_(nicht verfügbar)_\n";
     if (curriculumId) {
       try {
@@ -104,12 +104,12 @@ Deno.serve(async (req) => {
             parts.push(`\n## ${ch.title}\n`);
             const { data: sections } = await sb
               .from("handbook_sections")
-              .select("title, content_md, sort_order")
+              .select("title, content_markdown, sort_order")
               .eq("chapter_id", ch.id as string)
               .order("sort_order");
 
             for (const s of (sections || []) as Record<string, unknown>[]) {
-              parts.push(`\n### ${s.title}\n\n${s.content_md}\n`);
+              parts.push(`\n### ${s.title}\n\n${s.content_markdown || "_(kein Inhalt)_"}\n`);
             }
           }
           handbookMd = parts.join("\n");
@@ -147,15 +147,26 @@ Deno.serve(async (req) => {
       tutorPolicy = data;
     }
 
-    // ── Questions summary (curriculum-scoped!) ──
+    // ── Questions summary with APPROVED vs TOTAL breakdown ──
     let questionsSummary: Record<string, unknown> = { note: "no_summary" };
     try {
       if (curriculumId) {
-        const { count } = await sb
-          .from("exam_questions")
-          .select("id", { count: "exact", head: true })
+        const { count: totalCount } = await sb
+          .from("exam_questions").select("id", { count: "exact", head: true })
           .eq("curriculum_id", curriculumId);
-        questionsSummary = { total_exam_questions: count ?? 0, curriculum_id: curriculumId };
+        const { count: approvedCount } = await sb
+          .from("exam_questions").select("id", { count: "exact", head: true })
+          .eq("curriculum_id", curriculumId).eq("qc_status", "approved");
+        const { count: pendingCount } = await sb
+          .from("exam_questions").select("id", { count: "exact", head: true })
+          .eq("curriculum_id", curriculumId).eq("qc_status", "pending");
+        questionsSummary = {
+          total_exam_questions: totalCount ?? 0,
+          approved_questions: approvedCount ?? 0,
+          pending_questions: pendingCount ?? 0,
+          curriculum_id: curriculumId,
+          note: "approved = production-ready, pending = awaiting QC",
+        };
       } else {
         questionsSummary = { total_exam_questions: 0, note: "no_curriculum_id_resolved" };
       }
@@ -174,13 +185,75 @@ Deno.serve(async (req) => {
           lessonCount = count ?? 0;
         }
         courseSnapshot = { course, modules, lessonsCount: lessonCount };
+      } catch (_e) { /* best-effort */ }
+    }
 
-        // Resolve curriculumId from course if plan didn't have it
-        if (!curriculumId && course?.curriculum_id) {
-          // Use for downstream: tutor policy, handbook, questions
+    // ══════════════════════════════════════════════════════
+    // ── NEW: Content Samples for Quality Audit ──
+    // ══════════════════════════════════════════════════════
+
+    // ── Sample Lessons: 2-3 per module (up to 36 total) ──
+    let lessonSamples: unknown[] = [];
+    if (cid) {
+      try {
+        const { data: modules } = await sb.from("modules").select("id, title, sort_order").eq("course_id", cid).order("sort_order");
+        for (const mod of (modules || []).slice(0, 12) as Record<string, unknown>[]) {
+          const { data: lessons } = await sb
+            .from("lessons")
+            .select("id, title, content, mini_checks, metadata, sort_order")
+            .eq("module_id", mod.id as string)
+            .order("sort_order")
+            .limit(3);
+          for (const l of (lessons || []) as Record<string, unknown>[]) {
+            lessonSamples.push({
+              module: mod.title,
+              lesson_id: l.id,
+              title: l.title,
+              content: typeof l.content === "string" ? l.content.slice(0, 8000) : l.content,
+              mini_checks: l.mini_checks,
+              metadata: l.metadata,
+            });
+          }
         }
       } catch (_e) { /* best-effort */ }
     }
+
+    // ── Sample Exam Questions: 50 random approved questions ──
+    let questionSamples: unknown[] = [];
+    if (curriculumId) {
+      try {
+        // Get 50 random approved questions across difficulty/type
+        const { data: questions } = await sb
+          .from("exam_questions")
+          .select("id, question_text, options, correct_answer, explanation, difficulty, question_type, bloom_level, learning_field_id, qc_status, metadata")
+          .eq("curriculum_id", curriculumId)
+          .eq("qc_status", "approved")
+          .limit(50);
+        questionSamples = (questions || []).map((q: Record<string, unknown>) => ({
+          id: q.id,
+          question_text: q.question_text,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          explanation: q.explanation,
+          difficulty: q.difficulty,
+          question_type: q.question_type,
+          bloom_level: q.bloom_level,
+          learning_field_id: q.learning_field_id,
+          qc_status: q.qc_status,
+        }));
+      } catch (_e) { /* best-effort */ }
+    }
+
+    // ── AI Tutor Samples: recent tutor logs with prompts ──
+    let tutorSamples: unknown[] = [];
+    try {
+      const { data: tutorLogs } = await sb
+        .from("ai_tutor_logs")
+        .select("id, mode, session_type, prompt_length, response_length, tokens_used, was_blocked, block_reason, metadata, created_at")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      tutorSamples = tutorLogs || [];
+    } catch (_e) { /* best-effort */ }
 
     // ── Build ZIP ──
     const zip = new JSZip();
@@ -192,6 +265,11 @@ Deno.serve(async (req) => {
     zip.file("tutor_index.json", JSON.stringify({ tutorIndex, tutorPolicy }, null, 2));
     zip.file("questions_summary.json", JSON.stringify(questionsSummary, null, 2));
     zip.file("course_snapshot.json", JSON.stringify(courseSnapshot || {}, null, 2));
+
+    // NEW: Audit content samples
+    zip.file("samples/lesson_samples.json", JSON.stringify(lessonSamples, null, 2));
+    zip.file("samples/exam_question_samples.json", JSON.stringify(questionSamples, null, 2));
+    zip.file("samples/tutor_log_samples.json", JSON.stringify(tutorSamples, null, 2));
 
     const bytes = await zip.generateAsync({ type: "uint8array" });
 
@@ -233,6 +311,11 @@ Deno.serve(async (req) => {
       downloadUrl: signed.signedUrl,
       fileName: path,
       fileSize: bytes.length,
+      samples: {
+        lessons: lessonSamples.length,
+        questions: questionSamples.length,
+        tutorLogs: tutorSamples.length,
+      },
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);

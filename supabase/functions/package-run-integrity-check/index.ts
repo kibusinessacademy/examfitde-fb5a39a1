@@ -9,7 +9,6 @@ function assertUuid(name: string, v: unknown) {
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
-  // Check package_steps first (authoritative), then fallback to legacy table
   const { data: d1 } = await sb
     .from("package_steps").select("status")
     .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
@@ -49,29 +48,55 @@ Deno.serve(async (req) => {
   const { data: modules } = await sb.from("modules").select("id").eq("course_id", courseId);
   const moduleIds = (modules || []).map((m: any) => m.id);
 
-  const [{ count: qCount }, { count: lessonCount }] = await Promise.all([
+  // ── FIXED: Count approved vs total questions separately ──
+  const [
+    { count: totalQuestions },
+    { count: approvedQuestions },
+    { count: pendingQuestions },
+    { count: lessonCount },
+  ] = await Promise.all([
     sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", currId ?? courseId),
+    sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", currId ?? courseId).eq("qc_status", "approved"),
+    sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", currId ?? courseId).eq("qc_status", "pending"),
     moduleIds.length > 0
       ? sb.from("lessons").select("id", { count: "exact", head: true }).in("module_id", moduleIds)
       : Promise.resolve({ count: 0 }),
   ]);
 
+  const approved = approvedQuestions ?? 0;
+  const total = totalQuestions ?? 0;
+  const lessons = lessonCount ?? 0;
+
+  // Score based on APPROVED questions (the production-ready metric)
   const score =
-    (qCount ?? 0) >= 500 && (lessonCount ?? 0) >= 10 ? 90 :
-    (qCount ?? 0) >= 250 ? 75 : 55;
+    approved >= 850 && lessons >= 10 ? 95 :
+    approved >= 500 && lessons >= 10 ? 90 :
+    approved >= 250 ? 75 : 55;
+
+  const hardFailReasons: string[] = [];
+  if (approved < 850) hardFailReasons.push(`TOO_FEW_APPROVED_QUESTIONS (${approved}/850)`);
+  if (lessons < 10) hardFailReasons.push(`TOO_FEW_LESSONS (${lessons}/10)`);
 
   const report = {
     score,
     generated_at: new Date().toISOString(),
     v3: {
-      hard_fail_reasons: (qCount ?? 0) < 850 ? ["TOO_FEW_QUESTIONS"] : [],
-      stats: { questionCount: qCount ?? 0, lessonCount: lessonCount ?? 0 },
+      hard_fail_reasons: hardFailReasons,
+      stats: {
+        questionCount: total,
+        approvedQuestionCount: approved,
+        pendingQuestionCount: pendingQuestions ?? 0,
+        lessonCount: lessons,
+        note: "questionCount=total (all statuses), approvedQuestionCount=production-ready",
+      },
     },
   };
 
+  console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} approved=${approved} total=${total} lessons=${lessons} score=${score} hardFails=${hardFailReasons.length}`);
+
   const { error: uErr } = await sb.from("course_packages").update({
     integrity_report: report,
-    build_progress: 95,
+    build_progress: hardFailReasons.length === 0 ? 95 : 80,
   }).eq("id", packageId);
 
   if (uErr) throw uErr;
