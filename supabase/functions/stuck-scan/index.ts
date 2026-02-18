@@ -14,8 +14,11 @@ function json(body: unknown, status = 200) {
 }
 
 /**
- * stuck-scan – Policy-driven stuck detection
- * Uses triage_policy for heartbeat + package timeouts.
+ * stuck-scan v2 – Policy-driven stuck detection
+ * 
+ * CRITICAL FIX: Now checks package_steps (the SSOT for pipeline state)
+ * instead of only job_queue. Previously, packages with active steps
+ * in package_steps but no jobs in job_queue were falsely marked as stuck/failed.
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -58,14 +61,81 @@ Deno.serve(async (req) => {
     const stuckSince = new Date(Date.now() - packageTimeout * 60_000).toISOString();
     const { data: stuckPackages } = await sb
       .from("course_packages")
-      .select("id, title, last_progress_at, stuck_reason")
+      .select("id, title, last_progress_at, stuck_reason, course_id")
       .eq("status", "building")
       .lt("last_progress_at", stuckSince);
 
     const results: Array<{ package_id: string; retried: number; reason: string }> = [];
 
     for (const pkg of stuckPackages || []) {
-      // Auto-retry recoverable jobs
+      // ── FIX: Check package_steps FIRST (SSOT for pipeline state) ──
+      // If the package has active steps (running/enqueued), it's NOT stuck
+      const { count: activeSteps } = await sb
+        .from("package_steps")
+        .select("step_key", { count: "exact", head: true })
+        .eq("package_id", pkg.id)
+        .in("status", ["running", "enqueued"]);
+
+      if ((activeSteps ?? 0) > 0) {
+        // Package has active pipeline steps — NOT stuck, clear any false stuck_reason
+        if (pkg.stuck_reason) {
+          await sb.from("course_packages")
+            .update({ stuck_reason: null })
+            .eq("id", pkg.id);
+        }
+        results.push({
+          package_id: pkg.id,
+          retried: 0,
+          reason: `Skipped: ${activeSteps} active steps in package_steps`,
+        });
+        continue;
+      }
+
+      // ── FIX: Check active leases ──
+      const { count: activeLeases } = await sb
+        .from("package_leases")
+        .select("package_id", { count: "exact", head: true })
+        .eq("package_id", pkg.id)
+        .gt("lease_until", new Date().toISOString());
+
+      if ((activeLeases ?? 0) > 0) {
+        if (pkg.stuck_reason) {
+          await sb.from("course_packages")
+            .update({ stuck_reason: null })
+            .eq("id", pkg.id);
+        }
+        results.push({
+          package_id: pkg.id,
+          retried: 0,
+          reason: `Skipped: active lease exists`,
+        });
+        continue;
+      }
+
+      // ── Check for queued/failed steps that can be retried ──
+      const { count: retryableSteps } = await sb
+        .from("package_steps")
+        .select("step_key", { count: "exact", head: true })
+        .eq("package_id", pkg.id)
+        .in("status", ["queued", "failed"]);
+
+      if ((retryableSteps ?? 0) > 0) {
+        // Package has retryable steps but no active processing — it will be picked up
+        // by the next pipeline-runner invocation. Don't mark as stuck.
+        if (pkg.stuck_reason) {
+          await sb.from("course_packages")
+            .update({ stuck_reason: null })
+            .eq("id", pkg.id);
+        }
+        results.push({
+          package_id: pkg.id,
+          retried: 0,
+          reason: `Has ${retryableSteps} retryable steps — will be picked up by runner`,
+        });
+        continue;
+      }
+
+      // Auto-retry recoverable jobs in job_queue
       const { data: retried } = await sb.rpc("auto_retry_stuck_package", {
         p_package_id: pkg.id,
       });
@@ -73,101 +143,104 @@ Deno.serve(async (req) => {
       const retriedCount = retried ?? 0;
 
       if (retriedCount === 0) {
-        await sb.rpc("mark_package_stuck", {
-          p_id: pkg.id,
-          p_reason: `No progress for ${packageTimeout}min, no retryable failed jobs`,
+        // Check if ALL steps are done — package should be published, not stuck
+        const { count: totalSteps } = await sb
+          .from("package_steps")
+          .select("step_key", { count: "exact", head: true })
+          .eq("package_id", pkg.id);
+        
+        const { count: doneSteps } = await sb
+          .from("package_steps")
+          .select("step_key", { count: "exact", head: true })
+          .eq("package_id", pkg.id)
+          .in("status", ["done", "skipped"]);
+
+        if ((totalSteps ?? 0) > 0 && (doneSteps ?? 0) === (totalSteps ?? 0)) {
+          // All steps done but status is still "building" — fix to published
+          await sb.from("course_packages")
+            .update({ status: "published", stuck_reason: null, build_progress: 100 })
+            .eq("id", pkg.id);
+          results.push({
+            package_id: pkg.id,
+            retried: 0,
+            reason: `All ${totalSteps} steps done — promoted to published`,
+          });
+        } else {
+          await sb.rpc("mark_package_stuck", {
+            p_id: pkg.id,
+            p_reason: `No progress for ${packageTimeout}min, no retryable steps or jobs`,
+          });
+          results.push({
+            package_id: pkg.id,
+            retried: 0,
+            reason: `Marked stuck: no retryable steps or jobs`,
+          });
+        }
+      } else {
+        results.push({
+          package_id: pkg.id,
+          retried: retriedCount,
+          reason: `Auto-retried ${retriedCount} jobs`,
         });
       }
-
-      results.push({
-        package_id: pkg.id,
-        retried: retriedCount,
-        reason: retriedCount > 0
-          ? `Auto-retried ${retriedCount} jobs`
-          : `Marked stuck: no retryable jobs`,
-      });
     }
 
-    // 3) Orphan detection: packages "building" with ZERO active jobs
+    // 3) Orphan detection: packages "building" with ZERO active steps AND ZERO active jobs
     const { data: buildingPkgs } = await sb
       .from("course_packages")
       .select("id, title, build_progress, updated_at, course_id")
-      .eq("status", "building");
+      .eq("status", "building")
+      .is("stuck_reason", null); // only check non-stuck packages
 
     const orphanResults: Array<{ package_id: string; action: string }> = [];
     for (const pkg of buildingPkgs || []) {
-      const { count: activeJobs } = await sb
-        .from("job_queue")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "processing"])
-        .eq("payload->>package_id", pkg.id);
+      // Check package_steps first (SSOT)
+      const { count: activeSteps } = await sb
+        .from("package_steps")
+        .select("step_key", { count: "exact", head: true })
+        .eq("package_id", pkg.id)
+        .in("status", ["running", "enqueued", "queued", "failed"]);
 
-      if ((activeJobs ?? 0) === 0) {
-        // Check if there are failed jobs we can re-enqueue
-        const { data: failedJobs } = await sb
-          .from("job_queue")
-          .select("id, job_type, attempts, max_attempts, payload")
-          .eq("status", "failed")
-          .eq("payload->>package_id", pkg.id)
-          .lt("attempts", 25);
-
-        if (failedJobs && failedJobs.length > 0) {
-          // Re-enqueue failed jobs with reset attempts
-          for (const fj of failedJobs) {
-            await sb.from("job_queue").update({
-              status: "pending",
-              attempts: fj.attempts,
-              run_after: new Date(Date.now() + 10_000).toISOString(),
-              locked_at: null,
-              locked_by: null,
-            }).eq("id", fj.id);
-          }
-          orphanResults.push({ package_id: pkg.id, action: `re-enqueued ${failedJobs.length} failed jobs` });
-        } else {
-          // ── Fix 4: Exam-Pool Awareness ──
-          // Before marking failed, check if package needs more exam questions
-          const courseId = pkg.course_id;
-          let enqueudExamPool = false;
-          if (courseId) {
-            const { data: course } = await sb.from("courses").select("curriculum_id").eq("id", courseId).maybeSingle();
-            if (course?.curriculum_id) {
-              const { count: qCount } = await sb.from("exam_questions")
-                .select("id", { count: "exact", head: true })
-                .eq("curriculum_id", course.curriculum_id);
-              if ((qCount ?? 0) < 850) {
-                // Not enough questions — enqueue exam pool generation
-                await sb.from("job_queue").insert({
-                  job_type: "package_generate_exam_pool",
-                  status: "pending",
-                  attempts: 0,
-                  max_attempts: 100,
-                  run_after: new Date().toISOString(),
-                  payload: {
-                    package_id: pkg.id,
-                    curriculum_id: course.curriculum_id,
-                    options: { exam_target: 1000 },
-                    _stuck_scan_recovery: true,
-                  },
-                });
-                enqueudExamPool = true;
-                orphanResults.push({ package_id: pkg.id, action: `exam-pool recovery: ${qCount} questions < 850 target, enqueued new generation` });
-              }
-            }
-          }
-          if (!enqueudExamPool) {
-            // No recoverable jobs and enough questions – mark as failed
-            await sb.from("course_packages").update({
-              status: "failed",
-              stuck_reason: "No active or retryable jobs remaining",
-            }).eq("id", pkg.id);
-            orphanResults.push({ package_id: pkg.id, action: "marked failed (no recoverable jobs)" });
-          }
-        }
+      if ((activeSteps ?? 0) > 0) {
+        // Has actionable steps — pipeline-runner will handle it
+        continue;
       }
+
+      // Check if all steps are done
+      const { count: totalSteps } = await sb
+        .from("package_steps")
+        .select("step_key", { count: "exact", head: true })
+        .eq("package_id", pkg.id);
+
+      const { count: doneSteps } = await sb
+        .from("package_steps")
+        .select("step_key", { count: "exact", head: true })
+        .eq("package_id", pkg.id)
+        .in("status", ["done", "skipped"]);
+
+      if ((totalSteps ?? 0) > 0 && (doneSteps ?? 0) === (totalSteps ?? 0)) {
+        await sb.from("course_packages")
+          .update({ status: "published", build_progress: 100, stuck_reason: null })
+          .eq("id", pkg.id);
+        orphanResults.push({ package_id: pkg.id, action: "All steps done — promoted to published" });
+        continue;
+      }
+
+      // No steps at all = needs bootstrap (pipeline-runner handles this)
+      if ((totalSteps ?? 0) === 0) {
+        orphanResults.push({ package_id: pkg.id, action: "No steps yet — waiting for runner bootstrap" });
+        continue;
+      }
+
+      // Truly orphaned: has steps but none actionable
+      await sb.from("course_packages").update({
+        stuck_reason: "No actionable steps remaining",
+      }).eq("id", pkg.id);
+      orphanResults.push({ package_id: pkg.id, action: "marked stuck (no actionable steps)" });
     }
 
     // 4) Alert if there are stuck packages
-    const allStuck = [...results.filter(r => r.retried === 0), ...orphanResults.filter(o => o.action.includes("failed"))];
+    const allStuck = [...results.filter(r => r.reason.includes("Marked stuck")), ...orphanResults.filter(o => o.action.includes("stuck"))];
     if (allStuck.length > 0) {
       await sb.from("admin_notifications").insert({
         title: `${allStuck.length} Package(s) stuck/orphaned`,
