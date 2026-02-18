@@ -501,23 +501,39 @@ function ExportsTab({ from, to }: { from: string; to: string }) {
 // ---- Pipeline Controlling Tab (Soll-Ist) ----
 const PIPELINE_STEPS = [
   'scaffold_learning_course',
+  'generate_learning_content',
+  'validate_learning_content',
   'auto_seed_exam_blueprints',
+  'validate_blueprints',
   'generate_exam_pool',
+  'validate_exam_pool',
   'generate_oral_exam',
+  'validate_oral_exam',
   'build_ai_tutor_index',
+  'validate_tutor_index',
   'generate_handbook',
+  'validate_handbook',
   'run_integrity_check',
+  'quality_council',
   'auto_publish',
 ];
 
 const STEP_LABELS: Record<string, string> = {
   scaffold_learning_course: 'Lernkurs',
+  generate_learning_content: 'Lerninhalte',
+  validate_learning_content: 'QG Lernen',
   auto_seed_exam_blueprints: 'Blueprints',
+  validate_blueprints: 'QG Blueprints',
   generate_exam_pool: 'Fragenpool',
+  validate_exam_pool: 'QG Fragen',
   generate_oral_exam: 'Mündliche',
+  validate_oral_exam: 'QG Mündl.',
   build_ai_tutor_index: 'KI-Tutor',
+  validate_tutor_index: 'QG Tutor',
   generate_handbook: 'Handbuch',
+  validate_handbook: 'QG Handbuch',
   run_integrity_check: 'Integrität',
+  quality_council: 'QA Council',
   auto_publish: 'Publish',
 };
 
