@@ -97,10 +97,28 @@ Deno.serve(async (req) => {
       actions.push(
         `Step timeout: ${s.step_key} on pkg ${s.package_id.slice(0, 8)}`,
       );
+
+      // FIX: Reset the timed-out step to 'queued' so the runner can re-enqueue it.
+      // Previously, the step stayed in 'timeout' status and the package stayed in 'queued',
+      // causing the package to be permanently stuck.
+      await sb
+        .from("package_steps")
+        .update({
+          status: "queued",
+          job_id: null,
+          runner_id: null,
+          started_at: null,
+          last_error: `Watchdog: step '${s.step_key}' timed out — auto-reset to queued`,
+        })
+        .eq("package_id", s.package_id)
+        .eq("step_key", s.step_key);
+
+      // Ensure the package is in 'building' so the runner picks it up
       await sb
         .from("course_packages")
         .update({
-          last_error: `Watchdog: step '${s.step_key}' timed out`,
+          status: "building",
+          last_error: `Watchdog: step '${s.step_key}' timed out — auto-recovered`,
         })
         .eq("id", s.package_id);
     }
