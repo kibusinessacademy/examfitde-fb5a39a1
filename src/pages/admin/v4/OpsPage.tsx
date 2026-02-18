@@ -1028,13 +1028,18 @@ function ThroughputDashboard() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [currRes, pkgRes, bpRes, budgetRes, lockRes] = await Promise.all([
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    const [currRes, pkgRes, bpRes, mtdCostRes, budgetRes, lockRes] = await Promise.all([
       (supabase as any).rpc('count_curricula_by_status'),
       (supabase as any).rpc('count_packages_by_status'),
       (supabase as any).from('backpressure_snapshots').select('*').order('snapshot_at', { ascending: false }).limit(30),
-      (supabase as any).from('llm_budget').select('*').order('month', { ascending: false }).limit(1).maybeSingle(),
+      (supabase as any).from('llm_cost_events').select('cost_eur').gte('ts', monthStart.toISOString()),
+      (supabase as any).from('ai_cost_budgets').select('budget_eur').order('month', { ascending: false }).limit(1).maybeSingle(),
       (supabase as any).from('pipeline_lock').select('active_package_ids, max_active_packages').eq('id', 1).maybeSingle(),
     ]);
+    const mtdCosts = (mtdCostRes.data || []) as { cost_eur: number }[];
+    const spentEur = mtdCosts.reduce((s, c) => s + (c.cost_eur || 0), 0);
+    const budgetEur = budgetRes.data?.budget_eur ?? 200;
 
     // Fallback: if RPCs don't exist, use direct queries
     let curricula: Record<string, number> = {};
@@ -1062,7 +1067,7 @@ function ThroughputDashboard() {
       curricula,
       packages,
       backpressure: bpRes.data || [],
-      budget: budgetRes.data,
+      budget: { spent_eur: spentEur, budget_eur: budgetEur, hard_stop: false },
       activeSlots: lockRes.data?.active_package_ids || [],
     });
     setLoading(false);
