@@ -35,7 +35,6 @@ Deno.serve(async (req) => {
 
   let { packageId, courseId } = await req.json().catch(() => ({} as Record<string, unknown>));
 
-  // Resolve packageId from courseId if needed
   if (!packageId && courseId) {
     const { data: latestPkg } = await sb
       .from("course_packages")
@@ -50,7 +49,6 @@ Deno.serve(async (req) => {
   if (!packageId) return json({ error: "packageId or courseId required" }, 400);
 
   try {
-    // Load package
     const { data: pkg, error: pkgErr } = await sb
       .from("course_packages")
       .select("*")
@@ -64,7 +62,7 @@ Deno.serve(async (req) => {
     // Load course
     const { data: course } = await sb
       .from("courses")
-      .select("id, title, status, description, estimated_duration")
+      .select("id, title, status, description, estimated_duration, curriculum_id")
       .eq("id", cid)
       .maybeSingle();
 
@@ -75,25 +73,35 @@ Deno.serve(async (req) => {
       .eq("course_id", cid)
       .order("sort_order");
 
-    // Load all lessons for each module
+    // Load ALL lessons (paginated to avoid 1000-row limit)
     const moduleIds = (modules || []).map((m: any) => m.id);
-    const { data: allLessons } = moduleIds.length > 0
-      ? await sb
+    let allLessons: any[] = [];
+    if (moduleIds.length > 0) {
+      let offset = 0;
+      const pageSize = 500;
+      while (true) {
+        const { data: batch } = await sb
           .from("lessons")
           .select("id, module_id, title, content, h5p_content_id, duration_minutes, sort_order, step, status, exam_block, minicheck_parsed")
           .in("module_id", moduleIds)
           .order("sort_order")
-      : { data: [] };
+          .range(offset, offset + pageSize - 1);
+        if (!batch || batch.length === 0) break;
+        allLessons = allLessons.concat(batch);
+        if (batch.length < pageSize) break;
+        offset += pageSize;
+      }
+    }
 
     // Group lessons by module
     const lessonsByModule: Record<string, any[]> = {};
-    for (const lesson of (allLessons || [])) {
-      const mid = (lesson as any).module_id;
+    for (const lesson of allLessons) {
+      const mid = lesson.module_id;
       if (!lessonsByModule[mid]) lessonsByModule[mid] = [];
       lessonsByModule[mid].push(lesson);
     }
 
-    // Load handbook chapters (if curriculum exists)
+    // Resolve curriculumId: plan → course record fallback
     const planRes = await sb
       .from("course_package_plans")
       .select("plan")
@@ -103,8 +111,14 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const curriculumId = (planRes.data?.plan as any)?.curriculum_id;
+    let curriculumId = (planRes.data?.plan as any)?.curriculum_id;
 
+    // Fallback: resolve from course record
+    if (!curriculumId && course) {
+      curriculumId = (course as any).curriculum_id;
+    }
+
+    // Load handbook - use content_markdown (correct column name)
     let handbookData: any[] = [];
     if (curriculumId) {
       const { data: chapters } = await sb
@@ -116,21 +130,29 @@ Deno.serve(async (req) => {
       for (const ch of (chapters || []) as any[]) {
         const { data: sections } = await sb
           .from("handbook_sections")
-          .select("title, content_md, sort_order")
+          .select("title, content_markdown, sort_order")
           .eq("chapter_id", ch.id)
           .order("sort_order");
-        handbookData.push({ ...ch, sections: sections || [] });
+        handbookData.push({
+          ...ch,
+          sections: (sections || []).map((s: any) => ({
+            title: s.title,
+            content_markdown: s.content_markdown || "",
+            sort_order: s.sort_order,
+          })),
+        });
       }
     }
 
-    // Build JSX content pack structure
+    // Build JSX content pack
     const jsxPack = {
       meta: {
         exportType: "jsx-content-pack",
         exportedAt: new Date().toISOString(),
         packageId,
         courseId: cid,
-        version: "1.0",
+        curriculumId: curriculumId || null,
+        version: "1.1",
       },
       course: course || {},
       modules: (modules || []).map((m: any) => ({
@@ -151,42 +173,41 @@ Deno.serve(async (req) => {
       handbook: handbookData,
     };
 
-    // Build ZIP with structured files
+    // Build ZIP
     const zip = new JSZip();
-    
-    // Main manifest
     zip.file("manifest.json", JSON.stringify(jsxPack.meta, null, 2));
     zip.file("course.json", JSON.stringify(jsxPack.course, null, 2));
 
-    // Modules & lessons as individual files
+    // Modules & lessons
     const modulesDir = zip.folder("modules");
     for (const mod of jsxPack.modules) {
       const moduleDir = modulesDir!.folder(safeFilename(mod.title || `module-${mod.sort_order}`));
       moduleDir!.file("module.json", JSON.stringify({ id: mod.id, title: mod.title, sortOrder: mod.sort_order, description: mod.description }, null, 2));
-      
       for (const lesson of mod.lessons) {
         const lessonFile = safeFilename(lesson.title || `lesson-${lesson.sortOrder}`) + ".json";
         moduleDir!.file(lessonFile, JSON.stringify(lesson, null, 2));
       }
     }
 
-    // Handbook
+    // Handbook - use content_markdown
     if (handbookData.length > 0) {
       const hbDir = zip.folder("handbook");
       for (const ch of handbookData) {
         const chDir = hbDir!.folder(safeFilename(ch.title || `chapter-${ch.sort_order}`));
         for (const sec of ch.sections) {
-          chDir!.file(safeFilename(sec.title || `section-${sec.sort_order}`) + ".md", sec.content_md || "");
+          chDir!.file(
+            safeFilename(sec.title || `section-${sec.sort_order}`) + ".md",
+            sec.content_markdown || ""
+          );
         }
       }
     }
 
-    // Full pack as single JSON for programmatic use
     zip.file("full-pack.json", JSON.stringify(jsxPack, null, 2));
 
     const bytes = await zip.generateAsync({ type: "uint8array" });
 
-    // Upload to storage
+    // Upload
     const bucket = "exports";
     const pkgTitle = safeFilename(String((pkg as Record<string, unknown>).title || packageId));
     const dateStr = new Date().toISOString().split("T")[0];
@@ -197,13 +218,11 @@ Deno.serve(async (req) => {
       .upload(path, bytes, { contentType: "application/zip", upsert: true });
     if (uploadErr) return json({ error: `Upload failed: ${uploadErr.message}` }, 500);
 
-    // Signed URL (1h)
     const { data: signed, error: signErr } = await sb.storage
       .from(bucket)
       .createSignedUrl(path, 3600);
     if (signErr) return json({ error: signErr.message }, 500);
 
-    // Persist
     await sb.from("course_package_outputs").upsert(
       {
         package_id: packageId,
@@ -224,6 +243,11 @@ Deno.serve(async (req) => {
       downloadUrl: signed.signedUrl,
       fileName: path,
       fileSize: bytes.length,
+      stats: {
+        modules: jsxPack.modules.length,
+        lessons: allLessons.length,
+        handbookChapters: handbookData.length,
+      },
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
