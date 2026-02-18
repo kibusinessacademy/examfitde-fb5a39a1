@@ -399,9 +399,14 @@ Deno.serve(async (req) => {
     }).then(() => {}).catch(() => {});
   }
 
+  const errorSummary = overallPass
+    ? null
+    : `Tier1 ${t1PassRate.toFixed(0)}% pass, Tier2 avg ${avgScore.toFixed(0)}/100, ${rejected.length} rejected`;
+
   return json({
     ok: overallPass,
     batch_complete: overallPass,
+    error: errorSummary,
     // If failed, mark as failed (not batch_cursor) so pipeline retries after re-generation
     tier1: {
       total: t1Results.length,

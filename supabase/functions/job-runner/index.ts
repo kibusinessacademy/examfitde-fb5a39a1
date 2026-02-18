@@ -129,6 +129,7 @@ const JOB_TYPE_MAP: Record<string, string> = {
   blooms_classify: "blooms-taxonomy",
   package_curriculum_ingest: "package-curriculum-ingest",
   ingest_curriculum_document: "ingest-curriculum-document",
+  generate_handbook: "package-generate-handbook",
 };
 
 // ── Adaptive Concurrency Constants ──────────────────────────────────
