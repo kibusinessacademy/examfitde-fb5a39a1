@@ -15,10 +15,7 @@ const LEGAL_INFO = {
   land: 'Deutschland',
   email: 'info@examfit.de',
   website: 'https://examfit.de',
-  // USt-IdNr. falls vorhanden eintragen, sonst null
   ustIdNr: null as string | null,
-  // Hinweis: Kleinunternehmerregelung nach § 19 UStG - kann hier dokumentiert werden
-  kleinunternehmer: true,
 } as const;
 
 // Automatische Aktualisierung: Rechtsstand-Datum
@@ -37,7 +34,7 @@ export default function ImpressumPage() {
         title="Impressum | ExamFit"
         description={`Impressum von ExamFit – Angaben gemäß § 5 TMG und § 18 Abs. 2 MStV. ${LEGAL_INFO.firmenname}, ${LEGAL_INFO.ort}.`}
         canonical={`${SITE_URL}/impressum`}
-        noindex={false}
+        noindex={true}
       />
 
       <div className="min-h-screen py-12">
@@ -125,14 +122,6 @@ export default function ImpressumPage() {
                 <p className="text-muted-foreground">
                   Umsatzsteuer-Identifikationsnummer gemäß § 27a UStG:<br />
                   <strong>{LEGAL_INFO.ustIdNr}</strong>
-                </p>
-              ) : LEGAL_INFO.kleinunternehmer ? (
-                <p className="text-muted-foreground">
-                  Gemäß § 19 UStG wird keine Umsatzsteuer berechnet (Kleinunternehmerregelung).
-                  <br />
-                  <span className="text-sm">
-                    Eine Umsatzsteuer-Identifikationsnummer ist nicht vorhanden.
-                  </span>
                 </p>
               ) : (
                 <p className="text-muted-foreground">
@@ -320,7 +309,6 @@ export default function ImpressumPage() {
                 <li>§ 18 Abs. 2 Medienstaatsvertrag (MStV)</li>
                 <li>§ 36 Verbraucherstreitbeilegungsgesetz (VSBG)</li>
                 <li>Art. 13, 14 Verordnung (EU) Nr. 524/2013 (ODR-Verordnung)</li>
-                <li>§ 19 Umsatzsteuergesetz (UStG) – Kleinunternehmerregelung</li>
               </ul>
               <p className="text-sm text-muted-foreground mt-4">
                 Letzte Prüfung: {RECHTSSTAND}
