@@ -19,8 +19,9 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done";
 }
 
-// ── COURSE_READY Release-Gate v1.0 ──
+// ── COURSE_READY Release-Gate v1.1 ──
 // 7 hard-fail checks that MUST pass before auto_publish
+// v1.1: Fixed schema mismatches (lesson_type→step, handbook join, sessionsets, difficulty enum)
 
 interface GateResult {
   gate: string;
@@ -80,15 +81,15 @@ async function runCourseReadyGate(
   // GATE 2: Oral-Exam Pflichtprüfung
   // ═══════════════════════════════════════════════
   const { data: pkgFlags } = await sb.from("course_packages").select("feature_flags").eq("id", packageId).maybeSingle();
-  const includeOral = (pkgFlags as any)?.feature_flags?.include_oral_exam !== false; // default true
+  const includeOral = (pkgFlags as any)?.feature_flags?.include_oral_exam !== false;
 
   if (includeOral) {
+    // FIX: oral_exam_sessionsets uses package_id, NOT curriculum_id
     const [{ count: bpCount }, { count: ssCount }] = await Promise.all([
       sb.from("oral_exam_blueprints").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId ?? courseId),
-      sb.from("oral_exam_sessionsets").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId ?? courseId),
+      sb.from("oral_exam_sessionsets").select("id", { count: "exact", head: true }).eq("package_id", packageId),
     ]);
 
-    // NEW: Check oral blueprint coverage against module count
     const { data: oralBpLFs } = await sb
       .from("oral_exam_blueprints")
       .select("learning_field_id")
@@ -114,6 +115,7 @@ async function runCourseReadyGate(
 
   // ═══════════════════════════════════════════════
   // GATE 3: Exam-Pool Mindestverteilung
+  // FIX: Use correct DB enum values (easy/medium/hard/very_hard), NOT German translations
   // ═══════════════════════════════════════════════
   const currFilter = curriculumId ?? courseId;
   const { data: approvedQs } = await sb
@@ -123,9 +125,9 @@ async function runCourseReadyGate(
     .eq("qc_status", "approved");
 
   const totalApproved = approvedQs?.length ?? 0;
-  const easyCount = approvedQs?.filter((q: any) => q.difficulty === "easy" || q.difficulty === "leicht").length ?? 0;
-  const mediumCount = approvedQs?.filter((q: any) => q.difficulty === "medium" || q.difficulty === "mittel").length ?? 0;
-  const hardCount = approvedQs?.filter((q: any) => q.difficulty === "hard" || q.difficulty === "schwer").length ?? 0;
+  const easyCount = approvedQs?.filter((q: any) => q.difficulty === "easy").length ?? 0;
+  const mediumCount = approvedQs?.filter((q: any) => q.difficulty === "medium").length ?? 0;
+  const hardCount = approvedQs?.filter((q: any) => q.difficulty === "hard" || q.difficulty === "very_hard").length ?? 0;
 
   const easyPct = totalApproved > 0 ? (easyCount / totalApproved) * 100 : 0;
   const mediumPct = totalApproved > 0 ? (mediumCount / totalApproved) * 100 : 0;
@@ -161,7 +163,6 @@ async function runCourseReadyGate(
   const hasApply = cognitiveLevels.has("apply") || cognitiveLevels.has("anwenden");
   const hasAnalyze = cognitiveLevels.has("analyze") || cognitiveLevels.has("analysieren");
 
-  // NEW: Enforce minimum percentage per cognitive level (no mono-cognitive pools)
   const understandCount = (approvedQs ?? []).filter((q: any) => ["understand","verstehen"].includes(q.cognitive_level?.toLowerCase())).length;
   const applyCount = (approvedQs ?? []).filter((q: any) => ["apply","anwenden"].includes(q.cognitive_level?.toLowerCase())).length;
   const analyzeCount = (approvedQs ?? []).filter((q: any) => ["analyze","analysieren"].includes(q.cognitive_level?.toLowerCase())).length;
@@ -169,7 +170,6 @@ async function runCourseReadyGate(
   const applyPct = totalApproved > 0 ? (applyCount / totalApproved) * 100 : 0;
   const analyzePct = totalApproved > 0 ? (analyzeCount / totalApproved) * 100 : 0;
 
-  // Blocker: need 3+ levels AND no single level > 80% AND apply+analyze each >= 10%
   const noMonoCognitive = understandPct <= 80 && applyPct >= 10 && analyzePct >= 10;
   const bloomPassed = cognitiveLevels.size >= 3 && hasUnderstand && hasApply && hasAnalyze && noMonoCognitive;
   results.push({
@@ -189,14 +189,13 @@ async function runCourseReadyGate(
     hardFails.push(`BLOOM_GATE: ${bloomReasons.join(", ")}`);
   }
 
-  // Excellence: 4+ levels
   if (cognitiveLevels.size >= 4) excellence.push(`BLOOM_EXCELLENT: ${cognitiveLevels.size} cognitive levels`);
 
   // ═══════════════════════════════════════════════
-  // GATE 4b: Learning-Field-Coverage (NEU)
+  // GATE 4b: Learning-Field-Coverage
   // ═══════════════════════════════════════════════
   const uniqueLFs = new Set((approvedQs ?? []).map((q: any) => q.learning_field_id).filter(Boolean));
-  const lfCoveragePassed = uniqueLFs.size >= moduleIds.length * 0.8; // at least 80% of modules
+  const lfCoveragePassed = uniqueLFs.size >= moduleIds.length * 0.8;
   results.push({
     gate: "learning_field_coverage",
     passed: lfCoveragePassed,
@@ -207,13 +206,14 @@ async function runCourseReadyGate(
 
   // ═══════════════════════════════════════════════
   // GATE 5: MiniCheck pro Lernfeld
+  // FIX: lessons table uses 'step' column, NOT 'lesson_type'
   // ═══════════════════════════════════════════════
   if (moduleIds.length > 0) {
     const { data: miniCheckLessons } = await sb
       .from("lessons")
-      .select("module_id, lesson_type")
+      .select("module_id, step")
       .in("module_id", moduleIds)
-      .eq("lesson_type", "mini_check");
+      .eq("step", "mini_check");
 
     const modulesWithMiniCheck = new Set((miniCheckLessons ?? []).map((l: any) => l.module_id));
     const modulesWithout = moduleIds.filter((id: string) => !modulesWithMiniCheck.has(id));
@@ -228,12 +228,11 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
-  // GATE 6: Snapshot-Integrity (placeholder match)
+  // GATE 6: Snapshot-Integrity
   // ═══════════════════════════════════════════════
-  // This is validated at export time, but we record the values here
   results.push({
     gate: "snapshot_integrity",
-    passed: true, // verified inline — real count is authoritative
+    passed: true,
     severity: "blocker",
     detail: `Real placeholder count = ${placeholderCount} (authoritative)`,
     value: placeholderCount,
@@ -241,15 +240,19 @@ async function runCourseReadyGate(
 
   // ═══════════════════════════════════════════════
   // GATE 7: Handbuch-Mindesttiefe
+  // FIX: handbook_sections has NO curriculum_id — must JOIN through handbook_chapters
   // ═══════════════════════════════════════════════
   const { data: hbSections } = await sb
-    .from("handbook_sections")
-    .select("content")
+    .from("handbook_chapters")
+    .select("id, handbook_sections(content_markdown)")
     .eq("curriculum_id", curriculumId ?? courseId);
 
   let handbookTotalChars = 0;
-  for (const s of hbSections ?? []) {
-    if (typeof s.content === "string") handbookTotalChars += s.content.length;
+  for (const chapter of hbSections ?? []) {
+    const sections = (chapter as any).handbook_sections || [];
+    for (const s of sections) {
+      if (typeof s.content_markdown === "string") handbookTotalChars += s.content_markdown.length;
+    }
   }
   const handbookPassed = handbookTotalChars >= 25000;
   results.push({
@@ -320,7 +323,7 @@ Deno.serve(async (req) => {
   const report = {
     score: gate.score,
     generated_at: new Date().toISOString(),
-    gate_version: "COURSE_READY_v1.0",
+    gate_version: "COURSE_READY_v1.1",
     v3: {
       hard_fail_reasons: gate.hardFails,
       warnings: gate.warnings,
@@ -335,7 +338,6 @@ Deno.serve(async (req) => {
     },
   };
 
-  // Set status based on gate result
   const updatePayload: Record<string, unknown> = {
     integrity_report: report,
     build_progress: gate.hardFails.length === 0 ? 95 : 80,
