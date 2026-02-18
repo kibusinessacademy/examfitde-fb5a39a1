@@ -51,11 +51,13 @@ async function runCourseReadyGate(
   let totalLessons = 0;
   let placeholderCount = 0;
   let regeneratingCount = 0;
+  let tier1FailedCount = 0;
   if (moduleIds.length > 0) {
-    const { data: allLessons } = await sb.from("lessons").select("id, content").in("module_id", moduleIds);
+    const { data: allLessons } = await sb.from("lessons").select("id, content, qc_status").in("module_id", moduleIds);
     totalLessons = allLessons?.length ?? 0;
     for (const l of allLessons ?? []) {
-      const c = l.content;
+      if ((l as any).qc_status === "tier1_failed") tier1FailedCount++;
+      const c = (l as any).content;
       if (!c) { placeholderCount++; continue; }
       let obj: any = null;
       if (typeof c === "object") obj = c;
@@ -64,15 +66,15 @@ async function runCourseReadyGate(
       if (obj?._regenerating) regeneratingCount++;
     }
   }
-  const phPassed = placeholderCount === 0 && regeneratingCount === 0;
+  const phPassed = placeholderCount === 0 && regeneratingCount === 0 && tier1FailedCount === 0;
   results.push({
     gate: "placeholder_check",
     passed: phPassed,
     severity: "blocker",
-    detail: `${placeholderCount} placeholder, ${regeneratingCount} regenerating of ${totalLessons} lessons`,
-    value: placeholderCount + regeneratingCount,
+    detail: `${placeholderCount} placeholder, ${regeneratingCount} regenerating, ${tier1FailedCount} tier1_failed of ${totalLessons} lessons`,
+    value: placeholderCount + regeneratingCount + tier1FailedCount,
   });
-  if (!phPassed) hardFails.push(`PLACEHOLDER_LESSONS: ${placeholderCount} placeholder, ${regeneratingCount} regenerating`);
+  if (!phPassed) hardFails.push(`LESSON_QUALITY: ${placeholderCount} placeholder, ${regeneratingCount} regenerating, ${tier1FailedCount} tier1_failed`);
 
   // ═══════════════════════════════════════════════
   // GATE 2: Oral-Exam Pflichtprüfung
@@ -85,14 +87,29 @@ async function runCourseReadyGate(
       sb.from("oral_exam_blueprints").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId ?? courseId),
       sb.from("oral_exam_sessionsets").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId ?? courseId),
     ]);
-    const oralPassed = (bpCount ?? 0) >= 10 && (ssCount ?? 0) >= 1;
+
+    // NEW: Check oral blueprint coverage against module count
+    const { data: oralBpLFs } = await sb
+      .from("oral_exam_blueprints")
+      .select("learning_field_id")
+      .eq("curriculum_id", curriculumId ?? courseId);
+    const uniqueOralLFs = new Set((oralBpLFs ?? []).map((b: any) => b.learning_field_id).filter(Boolean));
+    const oralCoveragePct = moduleIds.length > 0 ? (uniqueOralLFs.size / moduleIds.length) * 100 : 0;
+
+    const oralPassed = (bpCount ?? 0) >= 10 && (ssCount ?? 0) >= 1 && oralCoveragePct >= 90;
     results.push({
       gate: "oral_exam_ready",
       passed: oralPassed,
       severity: "blocker",
-      detail: `${bpCount ?? 0} blueprints, ${ssCount ?? 0} sessionsets`,
+      detail: `${bpCount ?? 0} blueprints, ${ssCount ?? 0} sessionsets, ${uniqueOralLFs.size}/${moduleIds.length} LFs (${oralCoveragePct.toFixed(0)}%)`,
     });
-    if (!oralPassed) hardFails.push(`ORAL_EXAM_INCOMPLETE: ${bpCount ?? 0} blueprints (min 10), ${ssCount ?? 0} sessionsets (min 1)`);
+    if (!oralPassed) {
+      const oralReasons: string[] = [];
+      if ((bpCount ?? 0) < 10) oralReasons.push(`TOO_FEW_BLUEPRINTS(${bpCount}/10)`);
+      if ((ssCount ?? 0) < 1) oralReasons.push(`NO_SESSIONSETS`);
+      if (oralCoveragePct < 90) oralReasons.push(`LF_COVERAGE(${uniqueOralLFs.size}/${moduleIds.length}=${oralCoveragePct.toFixed(0)}%<90%)`);
+      hardFails.push(`ORAL_EXAM: ${oralReasons.join(", ")}`);
+    }
   }
 
   // ═══════════════════════════════════════════════
@@ -101,7 +118,7 @@ async function runCourseReadyGate(
   const currFilter = curriculumId ?? courseId;
   const { data: approvedQs } = await sb
     .from("exam_questions")
-    .select("id, difficulty, cognitive_level")
+    .select("id, difficulty, cognitive_level, learning_field_id")
     .eq("curriculum_id", currFilter)
     .eq("qc_status", "approved");
 
@@ -137,24 +154,56 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
-  // GATE 4: Bloom Kognitive Stufen
+  // GATE 4: Bloom Kognitive Stufen (verschärft)
   // ═══════════════════════════════════════════════
   const cognitiveLevels = new Set((approvedQs ?? []).map((q: any) => q.cognitive_level?.toLowerCase()).filter(Boolean));
   const hasUnderstand = cognitiveLevels.has("understand") || cognitiveLevels.has("verstehen");
   const hasApply = cognitiveLevels.has("apply") || cognitiveLevels.has("anwenden");
   const hasAnalyze = cognitiveLevels.has("analyze") || cognitiveLevels.has("analysieren");
 
-  const bloomPassed = cognitiveLevels.size >= 3 && hasUnderstand && hasApply && hasAnalyze;
+  // NEW: Enforce minimum percentage per cognitive level (no mono-cognitive pools)
+  const understandCount = (approvedQs ?? []).filter((q: any) => ["understand","verstehen"].includes(q.cognitive_level?.toLowerCase())).length;
+  const applyCount = (approvedQs ?? []).filter((q: any) => ["apply","anwenden"].includes(q.cognitive_level?.toLowerCase())).length;
+  const analyzeCount = (approvedQs ?? []).filter((q: any) => ["analyze","analysieren"].includes(q.cognitive_level?.toLowerCase())).length;
+  const understandPct = totalApproved > 0 ? (understandCount / totalApproved) * 100 : 0;
+  const applyPct = totalApproved > 0 ? (applyCount / totalApproved) * 100 : 0;
+  const analyzePct = totalApproved > 0 ? (analyzeCount / totalApproved) * 100 : 0;
+
+  // Blocker: need 3+ levels AND no single level > 80% AND apply+analyze each >= 10%
+  const noMonoCognitive = understandPct <= 80 && applyPct >= 10 && analyzePct >= 10;
+  const bloomPassed = cognitiveLevels.size >= 3 && hasUnderstand && hasApply && hasAnalyze && noMonoCognitive;
   results.push({
     gate: "bloom_cognitive_levels",
     passed: bloomPassed,
     severity: "blocker",
-    detail: `${cognitiveLevels.size} levels: [${[...cognitiveLevels].join(", ")}]`,
+    detail: `${cognitiveLevels.size} levels: understand=${understandPct.toFixed(0)}% apply=${applyPct.toFixed(0)}% analyze=${analyzePct.toFixed(0)}%`,
   });
-  if (!bloomPassed) hardFails.push(`BLOOM_GATE: Only ${cognitiveLevels.size} cognitive level(s): [${[...cognitiveLevels].join(", ")}]. Need understand+apply+analyze`);
+  if (!bloomPassed) {
+    const bloomReasons: string[] = [];
+    if (cognitiveLevels.size < 3) bloomReasons.push(`ONLY_${cognitiveLevels.size}_LEVELS`);
+    if (!hasApply) bloomReasons.push("MISSING_APPLY");
+    if (!hasAnalyze) bloomReasons.push("MISSING_ANALYZE");
+    if (understandPct > 80) bloomReasons.push(`UNDERSTAND_MONO(${understandPct.toFixed(0)}%>80%)`);
+    if (applyPct < 10) bloomReasons.push(`APPLY_TOO_LOW(${applyPct.toFixed(0)}%<10%)`);
+    if (analyzePct < 10) bloomReasons.push(`ANALYZE_TOO_LOW(${analyzePct.toFixed(0)}%<10%)`);
+    hardFails.push(`BLOOM_GATE: ${bloomReasons.join(", ")}`);
+  }
 
   // Excellence: 4+ levels
   if (cognitiveLevels.size >= 4) excellence.push(`BLOOM_EXCELLENT: ${cognitiveLevels.size} cognitive levels`);
+
+  // ═══════════════════════════════════════════════
+  // GATE 4b: Learning-Field-Coverage (NEU)
+  // ═══════════════════════════════════════════════
+  const uniqueLFs = new Set((approvedQs ?? []).map((q: any) => q.learning_field_id).filter(Boolean));
+  const lfCoveragePassed = uniqueLFs.size >= moduleIds.length * 0.8; // at least 80% of modules
+  results.push({
+    gate: "learning_field_coverage",
+    passed: lfCoveragePassed,
+    severity: "blocker",
+    detail: `${uniqueLFs.size} LFs covered in exam pool, ${moduleIds.length} modules in course`,
+  });
+  if (!lfCoveragePassed) hardFails.push(`LF_COVERAGE: Only ${uniqueLFs.size}/${moduleIds.length} learning fields have exam questions`);
 
   // ═══════════════════════════════════════════════
   // GATE 5: MiniCheck pro Lernfeld
