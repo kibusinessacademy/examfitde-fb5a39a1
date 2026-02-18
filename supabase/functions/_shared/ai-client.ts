@@ -312,17 +312,33 @@ export async function logLLMCostEvent(
     attempt?: number;
     meta?: Record<string, unknown>;
     estimated?: boolean;
+    /** Pass estimatedUsage from callAIJSON/callAIWithFailover to auto-fill zeros */
+    estimatedUsage?: { tokens_in: number; tokens_out: number; cost_eur: number; estimated: boolean };
   }
 ): Promise<void> {
   try {
+    // CRITICAL FIX: If provider returned 0 tokens (Lovable Gateway), use estimated values
+    let tokensIn = opts.tokens_in;
+    let tokensOut = opts.tokens_out;
+    let isEstimated = opts.estimated ?? false;
+
+    if (tokensIn === 0 && tokensOut === 0 && opts.estimatedUsage) {
+      tokensIn = opts.estimatedUsage.tokens_in;
+      tokensOut = opts.estimatedUsage.tokens_out;
+      isEstimated = opts.estimatedUsage.estimated;
+    }
+
     // Use estimated cost if no real cost provided
-    const costEur = opts.cost_eur ?? (opts.cost_usd ? opts.cost_usd * 0.92 : estimateCostEur(opts.model, opts.tokens_in, opts.tokens_out));
+    const costEur = (tokensIn > 0 || tokensOut > 0)
+      ? (opts.cost_eur ?? (opts.cost_usd ? opts.cost_usd * 0.92 : estimateCostEur(opts.model, tokensIn, tokensOut)))
+      : (opts.estimatedUsage?.cost_eur ?? estimateCostEur(opts.model, 500, 200)); // minimum fallback: ~500 in + 200 out
+
     await sb.from("llm_cost_events").insert({
       job_type: opts.job_type,
       provider: opts.provider,
       model: opts.model,
-      tokens_in: opts.tokens_in,
-      tokens_out: opts.tokens_out,
+      tokens_in: tokensIn,
+      tokens_out: tokensOut,
       cost_eur: Math.round(costEur * 1_000_000) / 1_000_000, // 6 decimal precision
       package_id: opts.package_id || null,
       certification_id: opts.certification_id || null,
@@ -332,7 +348,7 @@ export async function logLLMCostEvent(
         status: opts.status || "success",
         ...(opts.error_message ? { error: opts.error_message } : {}),
         ...(opts.attempt !== undefined ? { attempt: opts.attempt } : {}),
-        ...(opts.estimated ? { estimated: true } : {}),
+        ...(isEstimated ? { estimated: true } : {}),
       },
     });
   } catch {
