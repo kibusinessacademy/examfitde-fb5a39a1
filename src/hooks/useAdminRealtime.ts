@@ -172,10 +172,11 @@ export interface PipelineStep {
 export function useRealtimePipeline() {
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [activePackage, setActivePackage] = useState<any>(null);
+  const [allPackages, setAllPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPipeline = useCallback(async () => {
-    // Get ALL building packages (not just 1)
+    // Get ALL building packages
     const { data: pkgs } = await (supabase as any)
       .from('course_packages')
       .select('id,title,status,build_progress,pipeline_mode,created_at,updated_at')
@@ -185,6 +186,7 @@ export function useRealtimePipeline() {
 
     const pkg = pkgs?.[0] ?? null;
     setActivePackage(pkg);
+    setAllPackages(pkgs || []);
 
     if (pkgs?.length) {
       const pkgIds = pkgs.map((p: any) => p.id);
@@ -214,5 +216,5 @@ export function useRealtimePipeline() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchPipeline]);
 
-  return { steps, activePackage, loading, refetch: fetchPipeline };
+  return { steps, activePackage, allPackages, loading, refetch: fetchPipeline };
 }
