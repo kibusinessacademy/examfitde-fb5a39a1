@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
       }
     } catch (_e) { /* best-effort */ }
 
-    // ── Course snapshot (lessons via modules join) ──
+    // ── Course snapshot (lessons via modules join, with placeholder tracking) ──
     let courseSnapshot: unknown = null;
     if (cid) {
       try {
@@ -180,11 +180,17 @@ Deno.serve(async (req) => {
         const { data: modules } = await sb.from("modules").select("id, title, sort_order").eq("course_id", cid).order("sort_order");
         const moduleIds = (modules || []).map((m: Record<string, unknown>) => m.id as string);
         let lessonCount = 0;
+        let placeholderCount = 0;
         if (moduleIds.length > 0) {
           const { count } = await sb.from("lessons").select("id", { count: "exact", head: true }).in("module_id", moduleIds);
           lessonCount = count ?? 0;
+          // Count lessons that are still placeholders (no real content)
+          const { count: phCount } = await sb.from("lessons").select("id", { count: "exact", head: true })
+            .in("module_id", moduleIds)
+            .or("content.is.null,content.eq.");
+          placeholderCount = phCount ?? 0;
         }
-        courseSnapshot = { course, modules, lessonsCount: lessonCount };
+        courseSnapshot = { course, modules, lessonsCount: lessonCount, placeholderLessons: placeholderCount };
       } catch (_e) { /* best-effort */ }
     }
 
