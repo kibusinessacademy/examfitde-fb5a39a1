@@ -604,6 +604,14 @@ async function generateTurboQuestions(
     const assignedPool = forceTraining ? "training" : qualityResult.pool;
     const status = "draft"; // all go as draft, qc_status differentiates
 
+    // Map generator cognitive levels to DB enum values
+    const cogLevelMap: Record<string, string> = {
+      recall: "remember", apply: "apply", analyze: "analyze", decide: "evaluate",
+      remember: "remember", understand: "understand", evaluate: "evaluate", create: "create",
+    };
+    const aiCogLevel = (q.cognitive_level || cognitiveLevel || "understand").toLowerCase();
+    const mappedCogLevel = cogLevelMap[aiCogLevel] || aiCogLevel;
+
     const { error } = await sb.from("exam_questions").insert({
       curriculum_id: bp.curriculum_id,
       learning_field_id: bp.learning_field_id,
@@ -614,6 +622,7 @@ async function generateTurboQuestions(
       correct_answer: Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0),
       explanation: q.explanation || "",
       difficulty: q.difficulty || difficulty,
+      cognitive_level: mappedCogLevel,
       ai_generated: true,
       status,
       qc_status: assignedPool === "exam" ? "approved" : "pending",
