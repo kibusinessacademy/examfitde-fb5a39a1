@@ -89,7 +89,7 @@ function IntegrityReportCard({ report }: { report: any }) {
       icon: FileText,
       detail: report.handbook?.sections ? `${report.handbook.sections} Abschnitte` : null },
     { label: 'AI Tutor Index',
-      actual: (report.tutor_index || v3?.tutorIndex) ? 1 : 0,
+      actual: (report.tutor_index === true || report.tutor_index === 1 || v3?.tutorIndex === true || v3?.tutorIndex === 1 || (typeof report.tutor_index === 'object' && report.tutor_index !== null)) ? 1 : 0,
       expected: 1, icon: Bot },
   ];
 

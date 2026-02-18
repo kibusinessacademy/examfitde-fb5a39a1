@@ -17,10 +17,10 @@ export function ExamPreview({ curriculumId }: ExamPreviewProps) {
   const weakCount = readiness?.weak_areas?.length || 0;
   const strongCount = readiness?.strong_areas?.length || 0;
 
-  // Simulated exam difficulty distribution
-  const easyPct = 30;
-  const mediumPct = 50;
-  const hardPct = 20;
+  // Derive difficulty distribution from readiness data
+  const easyPct = score >= 70 ? 35 : score >= 40 ? 25 : 20;
+  const hardPct = score >= 70 ? 15 : score >= 40 ? 25 : 35;
+  const mediumPct = 100 - easyPct - hardPct;
 
   return (
     <Card className="glass-card">
