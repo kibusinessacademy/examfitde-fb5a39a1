@@ -524,10 +524,34 @@ async function generateTurboQuestions(
   for (const q of questions) {
     if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
 
+    // HARD GATE: correct_answer must be valid index (audit P1 fix)
+    const correctIdx = Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0);
+    if (typeof correctIdx !== 'number' || correctIdx < 0 || correctIdx >= q.options.length) {
+      console.log(`[ExamPool-v5] REJECTED INVALID_INDEX: correct_answer=${q.correct_answer} for ${q.options.length} options`);
+      continue;
+    }
+
+    // HARD GATE: No meta-text / AI editing artifacts (audit P1 fix)
+    const META_REJECT_PATTERNS = [
+      /\bich muss\b/i, /\bich ändere\b/i, /\btippfehler\b/i,
+      /\bes tut mir leid\b/i, /\bich habe einen fehler\b/i,
+      /\bich korrigiere\b/i, /\bich prüfe\b/i, /\blass mich\b/i,
+      /\bfehler in der frage\b/i, /\bich entschuldige\b/i,
+      /\bfehlende.{0,15}korrekte option\b/i,
+    ];
+    const explanationText = (q.explanation || '');
+    let hasMetaText = false;
+    for (const pat of META_REJECT_PATTERNS) {
+      if (pat.test(explanationText)) { hasMetaText = true; break; }
+    }
+    if (hasMetaText) {
+      console.log(`[ExamPool-v5] REJECTED META_TEXT: "${explanationText.slice(0, 60)}…"`);
+      continue;
+    }
+
     // Reject unresolved placeholders
     if (/\{[a-z_]+\}/i.test(q.question_text)) continue;
 
-    // Contamination guard
     const contam = checkContamination(q.question_text + " " + (q.explanation || ""), professionName);
     if (contam.isContaminated) {
       console.log(`[ExamPool-v5] CONTAMINATION: ${contam.detectedIndustry} in "${q.question_text.slice(0, 50)}"`);
