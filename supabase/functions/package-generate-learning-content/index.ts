@@ -16,9 +16,9 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
  *   - Robust idempotency with ON CONFLICT handling
  */
 
-const BATCH_SIZE = 8;
-const BASE_DELAY_MS = 1200;   // 1.2s between calls (was 600ms — too aggressive)
-const MAX_DELAY_MS = 8000;    // Max backoff
+const BATCH_SIZE = 3;          // Reduced from 8 — prevents concurrent timeout storms
+const BASE_DELAY_MS = 1500;    // 1.5s between calls
+const MAX_DELAY_MS = 10000;    // Max backoff
 
 const STEP_PROMPTS: Record<string, { system: string; minChars: number }> = {
   einstieg: {
