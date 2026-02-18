@@ -15,15 +15,15 @@ export function ExamTrapsWidget({ curriculumId }: ExamTrapsWidgetProps) {
 
   // Generate trap insights from weak areas
   const traps = weakAreas.slice(0, 3).map((area, idx) => {
-    const failPercent = Math.round(Math.max(40, 100 - area.score * 1.2));
+    const riskLevel = area.score < 30 ? 'hoch' : area.score < 60 ? 'mittel' : 'niedrig';
     return {
       id: area.competency_id,
       title: area.title,
-      failPercent,
+      failPercent: Math.round(Math.max(20, 100 - area.score)),
       insight: idx === 0
-        ? `${failPercent}% der Prüflinge scheitern an diesem Thema`
+        ? `Dein schwächster Bereich – Risiko: ${riskLevel}`
         : idx === 1
-        ? 'Typischer Stolperstein – oft unterschätzt'
+        ? 'Häufiger Stolperstein in der Prüfung'
         : 'Prüfer erwarten hier Fachbegriffe',
     };
   });
@@ -60,7 +60,7 @@ export function ExamTrapsWidget({ curriculumId }: ExamTrapsWidgetProps) {
           ))}
         </div>
         <p className="text-xs text-muted-foreground mt-3 italic">
-          📌 Das fühlt sich an wie Insider-Wissen – weil es echte Prüfungsdaten sind.
+          📌 Basierend auf deinem aktuellen Lernstand und typischen Prüfungsschwerpunkten.
         </p>
       </CardContent>
     </Card>

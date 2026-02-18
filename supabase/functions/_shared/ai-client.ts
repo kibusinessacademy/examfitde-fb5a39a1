@@ -170,7 +170,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       signal: AbortSignal.timeout(fetchTimeout),
     });
   } else {
-    // OpenAI-compatible (OpenAI, DeepSeek)
+    // OpenAI-compatible (OpenAI, DeepSeek, Lovable)
     const body: Record<string, unknown> = {
       model,
       messages: opts.messages,
@@ -178,10 +178,17 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     };
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
     if (opts.max_tokens !== undefined) {
-      // DeepSeek hard limit: max_tokens must be ≤ 8192
-      body.max_tokens = opts.provider === "deepseek"
-        ? Math.min(opts.max_tokens, 8192)
-        : opts.max_tokens;
+      // GPT-5 family requires max_completion_tokens instead of max_tokens
+      const isGpt5 = model.startsWith("gpt-5") || model.includes("/gpt-5");
+      const isLovableOpenAI = opts.provider === "lovable" && model.includes("openai/gpt-5");
+      if (isGpt5 || isLovableOpenAI) {
+        body.max_completion_tokens = opts.max_tokens;
+      } else if (opts.provider === "deepseek") {
+        // DeepSeek hard limit: max_tokens must be ≤ 8192
+        body.max_tokens = Math.min(opts.max_tokens, 8192);
+      } else {
+        body.max_tokens = opts.max_tokens;
+      }
     }
     if (opts.tools) body.tools = opts.tools;
     if (opts.tool_choice) body.tool_choice = opts.tool_choice;

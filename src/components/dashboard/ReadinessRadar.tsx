@@ -39,12 +39,14 @@ export function ReadinessRadar({ curriculumId }: ReadinessRadarProps) {
   const strongCount = readiness?.strong_areas?.length || 0;
 
   // Derive dimension scores from readiness data
+  // These are estimates based on available data points
   const totalAreas = weakCount + strongCount || 1;
-  const knowledgeScore = Math.min(100, Math.round(score * 1.1));
-  const applicationScore = Math.min(100, Math.round(score * 0.9));
-  const speedScore = Math.min(100, Math.round(score * 0.85));
-  const repetitionScore = Math.min(100, Math.max(20, score - weakCount * 5));
-  const accuracyScore = Math.min(100, Math.round((strongCount / totalAreas) * 100));
+  const strongRatio = strongCount / totalAreas;
+  const knowledgeScore = Math.min(100, Math.round(strongRatio * 100));
+  const applicationScore = Math.min(100, Math.round(score * (weakCount === 0 ? 1 : 0.85)));
+  const speedScore = Math.min(100, Math.round(score * 0.8 + strongRatio * 20));
+  const repetitionScore = Math.min(100, Math.max(10, score - weakCount * 8));
+  const accuracyScore = Math.min(100, Math.round(strongRatio * 90 + (score > 70 ? 10 : 0)));
 
   const dimensionScores = [knowledgeScore, applicationScore, speedScore, repetitionScore, accuracyScore];
 
