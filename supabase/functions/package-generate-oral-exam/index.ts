@@ -207,57 +207,15 @@ Deno.serve(async (req) => {
       );
     if (upErr) throw new Error(`oral_exam_sessionsets upsert: ${upErr.message}`);
 
-    // ═══ NEW: Auto-generate oral exam sessions from blueprints ═══
-    // This was missing (audit: sessions_all = 0)
-    const { data: sessionset } = await sb
-      .from("oral_exam_sessionsets")
-      .select("id")
-      .eq("package_id", packageId)
-      .maybeSingle();
-
-    if (sessionset) {
-      const sessionRows: any[] = [];
-      for (const bp of blueprintRows) {
-        const bpInserted = inserted.find((_: any, idx: number) => idx < blueprintRows.length);
-        // Create a default session for each blueprint
-        sessionRows.push({
-          sessionset_id: sessionset.id,
-          blueprint_id: inserted[blueprintRows.indexOf(bp)]?.id,
-          scenario_text: bp.scenario,
-          lead_questions: bp.lead_questions,
-          followup_questions: bp.followups,
-          rubric: bp.rubric,
-          status: "ready",
-          metadata: {
-            auto_generated: true,
-            competency_id: bp.competency_id,
-            generated_at: new Date().toISOString(),
-          },
-        });
-      }
-
-      // Insert sessions in batches of 50
-      let sessionsCreated = 0;
-      for (let i = 0; i < sessionRows.length; i += 50) {
-        const batch = sessionRows.slice(i, i + 50);
-        const { data: sessInserted, error: sessErr } = await sb
-          .from("oral_exam_sessions")
-          .insert(batch)
-          .select("id");
-        if (sessErr) {
-          console.error(`[OralExam] Session insert error (batch ${i}): ${sessErr.message}`);
-        } else {
-          sessionsCreated += sessInserted?.length || 0;
-        }
-      }
-      console.log(`[OralExam] Auto-generated ${sessionsCreated} sessions from ${inserted.length} blueprints`);
-    }
+    // NOTE: oral_exam_sessions are user-specific (require user_id). 
+    // They are created at runtime when a learner starts a session, not during pipeline.
+    // The pipeline delivers blueprints + sessionsets; the frontend creates sessions on-demand.
 
     const depthCount = blueprintRows.filter((b: any) => b.metadata?.depth_enriched).length;
     const lfCoverage = lfTargets.length;
     console.log(`[OralExam] Done: ${inserted.length} blueprints across ${lfCoverage} LFs, ${depthCount} depth-enriched`);
 
-    return json({ ok: true, blueprints_created: inserted.length, sessions_created: sessionRows?.length || 0, lf_coverage: lfCoverage, depth_enriched: depthCount });
+    return json({ ok: true, batch_complete: true, blueprints_created: inserted.length, lf_coverage: lfCoverage, depth_enriched: depthCount });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error(`[OralExam] Error: ${msg}`);
