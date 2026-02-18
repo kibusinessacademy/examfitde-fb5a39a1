@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
   // ── Load blueprints ──
   const { data: blueprints, error: bpErr } = await sb
     .from("question_blueprints")
-    .select("id, curriculum_id, learning_field_id, competency_id, canonical_statement, knowledge_type, cognitive_level, question_template, difficulty, max_variations, metadata")
+    .select("id, curriculum_id, learning_field_id, competency_id, canonical_statement, knowledge_type, cognitive_level, question_template, max_variations")
     .eq("curriculum_id", curriculumId);
 
   if (bpErr) return json({ error: bpErr.message }, 500);
@@ -174,15 +174,21 @@ Deno.serve(async (req) => {
     issues.push(`SCHEMA_MISSING: …und ${schemaErrors - 5} weitere Schema-Fehler`);
   }
 
-  // ═══ CHECK 5: Difficulty Distribution (HARD FAIL) ═══
+  // ═══ CHECK 5: Difficulty Distribution (derived from cognitive_level) ═══
+  const BLOOM_TO_DIFFICULTY: Record<string, string> = {
+    remember: "easy", understand: "easy",
+    apply: "medium",
+    analyze: "hard", evaluate: "hard", create: "hard",
+  };
   const difficultyCount: Record<string, number> = {};
   for (const bp of blueprints) {
-    const d = (bp.difficulty || "medium").toString().toLowerCase();
+    const cl = (bp.cognitive_level || "apply").toString().toLowerCase();
+    const d = BLOOM_TO_DIFFICULTY[cl] || "medium";
     difficultyCount[d] = (difficultyCount[d] || 0) + 1;
   }
   const total = blueprints.length;
-  const easyPct = ((difficultyCount["easy"] || difficultyCount["leicht"] || 0) / total) * 100;
-  const hardPct = ((difficultyCount["hard"] || difficultyCount["schwer"] || 0) / total) * 100;
+  const easyPct = ((difficultyCount["easy"] || 0) / total) * 100;
+  const hardPct = ((difficultyCount["hard"] || 0) / total) * 100;
 
   if (easyPct > MAX_EASY_PCT) {
     issues.push(`EASY_OVERLOAD: ${easyPct.toFixed(0)}% leicht (Max ${MAX_EASY_PCT}%) — Exam-Pool wird zu einfach`);
