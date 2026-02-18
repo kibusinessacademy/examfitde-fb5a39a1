@@ -121,6 +121,31 @@ Deno.serve(async (req) => {
       actions.push(`Safety-net: purged ${staleLeases.length} expired leases`);
     }
 
+    // ── 2b) Zombie job sweep: fail jobs stuck in 'processing' with no lock ──
+    // These are jobs where the edge function completed/crashed but never wrote
+    // a result back. They will NEVER complete on their own.
+    const ZOMBIE_AGE_MINUTES = 10;
+    const zombieCutoff = new Date(Date.now() - ZOMBIE_AGE_MINUTES * 60 * 1000).toISOString();
+    const { data: zombieRows, error: zombieErr } = await sb
+      .from("job_queue")
+      .update({
+        status: "failed",
+        last_error: `Watchdog zombie sweep: processing with no lock for >${ZOMBIE_AGE_MINUTES}min`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("status", "processing")
+      .is("locked_at", null)
+      .lt("updated_at", zombieCutoff)
+      .select("id");
+
+    if (zombieErr) {
+      console.error("[watchdog] zombie sweep error:", zombieErr.message);
+    }
+    const zombieCount = zombieRows?.length ?? 0;
+    if (zombieCount > 0) {
+      actions.push(`Zombie sweep: failed ${zombieCount} stuck processing jobs`);
+    }
+
     // ── 3) Count active state ──
     const { count: activeLeases } = await sb
       .from("package_leases")
@@ -201,6 +226,7 @@ Deno.serve(async (req) => {
             activeLeases,
             stale_steps: staleSteps.length,
             stale_leases: staleLeases.length,
+            zombie_jobs: zombieCount,
           },
         });
     } catch (_) { /* non-critical */ }
