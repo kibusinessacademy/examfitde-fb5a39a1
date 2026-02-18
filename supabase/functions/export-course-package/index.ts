@@ -91,13 +91,14 @@ Deno.serve(async (req) => {
 
     console.log(`[export] curriculumId: ${curriculumId}`);
 
-    // ── Load handbook ──
+    // ── Load FULL handbook (chapters + sections + exercises) ──
     let handbookMd = "# Handbuch\n\n_(nicht verfügbar)_\n";
+    const handbookStructured: unknown[] = [];
     if (curriculumId) {
       try {
         const { data: chapters } = await sb
           .from("handbook_chapters")
-          .select("id, title, sort_order")
+          .select("*")
           .eq("curriculum_id", curriculumId)
           .order("sort_order");
 
@@ -105,20 +106,43 @@ Deno.serve(async (req) => {
           const parts: string[] = ["# Handbuch\n"];
           for (const ch of chapters as Record<string, unknown>[]) {
             parts.push(`\n## ${ch.title}\n`);
+            if (ch.description) parts.push(`\n${ch.description}\n`);
+
             const { data: sections } = await sb
               .from("handbook_sections")
-              .select("title, content_markdown, sort_order")
+              .select("*")
+              .eq("chapter_id", ch.id as string)
+              .order("sort_order");
+
+            const { data: exercises } = await sb
+              .from("handbook_exercises")
+              .select("*")
               .eq("chapter_id", ch.id as string)
               .order("sort_order");
 
             for (const s of (sections || []) as Record<string, unknown>[]) {
               parts.push(`\n### ${s.title}\n\n${s.content_markdown || "_(kein Inhalt)_"}\n`);
             }
+
+            if ((exercises || []).length > 0) {
+              parts.push(`\n### Übungen\n`);
+              for (const ex of (exercises || []) as Record<string, unknown>[]) {
+                parts.push(`\n**${ex.exercise_type}:** ${ex.question_text}\n`);
+                if (ex.hint_text) parts.push(`> Hinweis: ${ex.hint_text}\n`);
+              }
+            }
+
+            handbookStructured.push({
+              ...ch,
+              sections: sections || [],
+              exercises: exercises || [],
+            });
           }
           handbookMd = parts.join("\n");
         }
       } catch (_e) { /* best-effort */ }
     }
+    console.log(`[export] Handbook: ${handbookStructured.length} chapters, ${handbookMd.length} chars`);
 
     // ── Oral sessionset ──
     const { data: oralSet } = await sb
@@ -301,6 +325,7 @@ Deno.serve(async (req) => {
     zip.file("plan.json", JSON.stringify(plan || {}, null, 2));
     zip.file("steps.json", JSON.stringify(steps || [], null, 2));
     zip.file("handbook.md", handbookMd);
+    zip.file("handbook_structured.json", JSON.stringify(handbookStructured, null, 2));
     zip.file("oral_exam.json", JSON.stringify(oralSet || {}, null, 2));
     zip.file("tutor_index.json", JSON.stringify({ tutorIndex, tutorPolicy }, null, 2));
     zip.file("questions_summary.json", JSON.stringify(questionsSummary, null, 2));
@@ -321,6 +346,7 @@ Deno.serve(async (req) => {
         lesson_samples: lessonSamples.length,
         question_samples: questionSamples.length,
         tutor_log_samples: tutorSamples.length,
+        handbook_chapters: handbookStructured.length,
         handbook_length_chars: handbookMd.length,
         handbook_is_placeholder: handbookMd.length < 500,
       },
