@@ -286,10 +286,15 @@ Deno.serve(async (req) => {
     },
   };
 
-  const { error: uErr } = await sb.from("course_packages").update({
+  // Set status based on gate result
+  const updatePayload: Record<string, unknown> = {
     integrity_report: report,
     build_progress: gate.hardFails.length === 0 ? 95 : 80,
-  }).eq("id", packageId);
+  };
+  if (gate.hardFails.length > 0) {
+    updatePayload.status = "quality_gate_failed";
+  }
+  const { error: uErr } = await sb.from("course_packages").update(updatePayload).eq("id", packageId);
 
   if (uErr) throw uErr;
 

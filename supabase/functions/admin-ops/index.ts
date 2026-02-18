@@ -80,7 +80,33 @@ serve(async (req) => {
       });
     }
 
-    return json({ error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health" }, 400);
+    // ── freeze_package ───────────────────────────────────────
+    if (action === "freeze_package") {
+      const packageId = body.package_id as string;
+      if (!packageId) return json({ error: "package_id required" }, 400);
+      const { error: err } = await sb
+        .from("course_packages")
+        .update({ status: "frozen" })
+        .eq("id", packageId);
+      if (err) return json({ error: err.message }, 500);
+      console.log(`[admin-ops] freeze_package: ${packageId} frozen by ${user.id}`);
+      return json({ success: true });
+    }
+
+    // ── unfreeze_package ─────────────────────────────────────
+    if (action === "unfreeze_package") {
+      const packageId = body.package_id as string;
+      if (!packageId) return json({ error: "package_id required" }, 400);
+      const { error: err } = await sb
+        .from("course_packages")
+        .update({ status: "building" })
+        .eq("id", packageId);
+      if (err) return json({ error: err.message }, 500);
+      console.log(`[admin-ops] unfreeze_package: ${packageId} unfrozen by ${user.id}`);
+      return json({ success: true });
+    }
+
+    return json({ error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health | freeze_package | unfreeze_package" }, 400);
   } catch (e) {
     console.error("[admin-ops] error", e);
     return json({ error: String((e as Error)?.message || e) }, 500);
