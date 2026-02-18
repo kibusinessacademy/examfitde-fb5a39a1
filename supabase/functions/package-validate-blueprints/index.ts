@@ -50,10 +50,10 @@ function jaccardSim(a: Set<string>, b: Set<string>): number {
 
 const JACCARD_THRESHOLD = 0.80;
 const MIN_BLUEPRINTS_TOTAL = 10;
-const MIN_BLUEPRINTS_PER_LF = 3;
-const MAX_BLUEPRINTS_PER_LF = 80;
+const MIN_BLUEPRINTS_PER_LF = 4;
+const MAX_BLUEPRINTS_PER_LF = 40;
 const WEIGHT_TOLERANCE_PP = 15;
-const MAX_EASY_PCT = 60;
+const MAX_EASY_PCT = 25;
 const MIN_HARD_PCT = 5;
 const REQUIRED_BLOOM_LEVELS = ["apply", "analyze"];
 
@@ -208,12 +208,8 @@ Deno.serve(async (req) => {
     }
   }
   if (bloomMissingLfs.length > 0) {
-    // Only hard-fail if >50% of LFs are missing required levels
-    if (bloomMissingLfs.length > lfMap.size * 0.5) {
-      issues.push(`BLOOM_GAPS: ${bloomMissingLfs.length} Lernfelder ohne Apply/Analyze: ${bloomMissingLfs.slice(0, 3).join("; ")}${bloomMissingLfs.length > 3 ? "…" : ""}`);
-    } else {
-      warnings.push(`BLOOM_PARTIAL: ${bloomMissingLfs.length} LF mit unvollständiger Bloom-Abdeckung`);
-    }
+    // Hard-fail: EVERY LF must have Apply+Analyze
+    issues.push(`BLOOM_GAPS: ${bloomMissingLfs.length}/${bloomByLf.size} Lernfelder ohne Apply/Analyze: ${bloomMissingLfs.slice(0, 5).join("; ")}${bloomMissingLfs.length > 5 ? "…" : ""}`);
   }
 
   // ═══ CHECK 7: Near-duplicates ═══
