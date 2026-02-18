@@ -40,18 +40,74 @@ Deno.serve(async (req) => {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: run_integrity_check" }, 409);
   }
 
-  // Quality gate (if available)
+  // ── Load package data ──
   const { data: pkgQ } = await sb
     .from("course_packages")
     .select("quality_report, integrity_report, feature_flags, pipeline_mode")
     .eq("id", packageId)
     .maybeSingle();
 
-  const qualityReport = (pkgQ as any)?.quality_report;
+  const integrityReport = (pkgQ as any)?.integrity_report;
   const isFactoryMode = (pkgQ as any)?.pipeline_mode === "factory";
 
-  // In factory mode, quality gate failures are warnings (not blockers)
-  // In production mode, quality gate failures block publishing
+  // ═══════════════════════════════════════════════════════════
+  // COURSE_READY ENFORCEMENT — hard fails block ALL modes
+  // Factory mode can ONLY bypass quality_report (soft QA),
+  // but NEVER bypass COURSE_READY structural gates.
+  // ═══════════════════════════════════════════════════════════
+  const gateVersion = integrityReport?.gate_version;
+  const hardFails = integrityReport?.v3?.hard_fail_reasons || [];
+
+  if (gateVersion === "COURSE_READY_v1.0" && hardFails.length > 0) {
+    console.log(`[auto-publish] 🛑 COURSE_READY blocked: ${hardFails.length} hard fail(s)`);
+    for (const hf of hardFails) console.log(`  ❌ ${hf}`);
+
+    try {
+      await sb.from("admin_notifications").insert({
+        title: "🛑 Auto-Publish blocked by COURSE_READY",
+        body: `${hardFails.length} blocker(s): ${hardFails.slice(0, 3).join("; ")}`,
+        category: "quality",
+        severity: "error",
+        entity_type: "course_package",
+        entity_id: packageId,
+      });
+    } catch (_) { /* non-critical */ }
+
+    return json({
+      ok: false,
+      retry: false,
+      error: "COURSE_READY_GATE_FAILED",
+      gate_version: gateVersion,
+      hard_fail_count: hardFails.length,
+      hard_fail_reasons: hardFails,
+      integrity_score: integrityReport?.score ?? 0,
+    }, 422);
+  }
+
+  // ── Legacy gate (pre-COURSE_READY reports) ──
+  if (!gateVersion && Array.isArray(hardFails) && hardFails.length > 0) {
+    if (isFactoryMode) {
+      // Factory mode: check minimum question floor
+      const { data: courseData } = await sb.from("courses").select("curriculum_id").eq("id", courseId).maybeSingle();
+      const curriculumId = (courseData as any)?.curriculum_id;
+      let liveQuestionCount = 0;
+      if (curriculumId) {
+        const { count } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+        liveQuestionCount = count ?? 0;
+      }
+      const FACTORY_MIN_QUESTIONS = 850;
+      if (liveQuestionCount >= FACTORY_MIN_QUESTIONS) {
+        console.log(`[auto-publish] Factory mode — bypassing ${hardFails.length} legacy hard-fails (live=${liveQuestionCount} questions)`);
+      } else {
+        return json({ ok: false, retry: false, error: `FACTORY_FLOOR_BLOCK: Only ${liveQuestionCount} questions (min ${FACTORY_MIN_QUESTIONS})`, hard_fail_reasons: hardFails }, 422);
+      }
+    } else {
+      return json({ ok: false, retry: false, error: "V3_HARD_FAILS", hard_fail_reasons: hardFails }, 422);
+    }
+  }
+
+  // ── Quality report gate (soft QA — factory can bypass) ──
+  const qualityReport = (pkgQ as any)?.quality_report;
   if (qualityReport && qualityReport.status === "failed") {
     if (isFactoryMode) {
       console.log(`[auto-publish] Factory mode — bypassing quality gate (score=${qualityReport.score}, badge=${qualityReport.badge})`);
@@ -70,9 +126,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Review gate (auto-approve unless flag requires manual review)
+  // ── Review gate ──
   const requiresManualReview = Boolean((pkgQ as any)?.feature_flags?.requires_manual_review);
-
   const { data: review } = await sb
     .from("course_package_reviews")
     .select("status")
@@ -80,83 +135,31 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   if (!review || review.status !== "approved") {
-    const currentStatus = review?.status || "no_review";
     if (requiresManualReview) {
-      return json({
-        ok: false,
-        retry: false,
-        error: `REVIEW_GATE: status=${currentStatus}. Admin approval required.`,
-        review_status: currentStatus,
-      }, 202);
+      return json({ ok: false, retry: false, error: `REVIEW_GATE: status=${review?.status || "no_review"}. Admin approval required.` }, 202);
     }
-
-    // Auto-approve: try update first, then insert if no row exists
     try {
       if (review) {
-        await sb.from("course_package_reviews")
-          .update({ status: "approved", notes: "Auto-approved by pipeline" })
-          .eq("course_package_id", packageId);
+        await sb.from("course_package_reviews").update({ status: "approved", notes: "Auto-approved by pipeline (COURSE_READY passed)" }).eq("course_package_id", packageId);
       } else {
-        await sb.from("course_package_reviews")
-          .insert({
-            course_package_id: packageId,
-            status: "approved",
-            notes: "Auto-approved by pipeline to prevent blocking",
-          });
+        await sb.from("course_package_reviews").insert({ course_package_id: packageId, status: "approved", notes: "Auto-approved — COURSE_READY gate passed" });
       }
-    } catch (_) { /* non-critical — proceed to publish */ }
+    } catch (_) { /* non-critical */ }
   }
 
-  // Integrity hard-fail gate (only blocks in production mode)
-  // isFactoryMode already determined above from pkgQ
-
-  const integrityReport = (pkgQ as any)?.integrity_report;
-  const hardFails = integrityReport?.v3?.hard_fail_reasons || [];
-
-  // Live question count (integrity report may be stale)
-  const { data: courseData } = await sb
-    .from("courses").select("curriculum_id").eq("id", courseId).maybeSingle();
-  const curriculumId = (courseData as any)?.curriculum_id;
-  let liveQuestionCount = integrityReport?.v3?.stats?.questionCount ?? 0;
-  if (curriculumId) {
-    const { count } = await sb
-      .from("exam_questions").select("id", { count: "exact", head: true })
-      .eq("curriculum_id", curriculumId);
-    liveQuestionCount = count ?? liveQuestionCount;
-  }
-
-  // Factory mode: bypass SOME hard-fails but enforce absolute minimum (50 questions)
-  const FACTORY_MIN_QUESTIONS = 850;
-  if (Array.isArray(hardFails) && hardFails.length > 0) {
-    if (isFactoryMode && liveQuestionCount >= FACTORY_MIN_QUESTIONS) {
-      console.log(`[auto-publish] Factory mode — bypassing ${hardFails.length} hard-fails (live=${liveQuestionCount} questions): ${hardFails.join(", ")}`);
-    } else if (isFactoryMode && liveQuestionCount < FACTORY_MIN_QUESTIONS) {
-      return json({ ok: false, retry: false, error: `FACTORY_FLOOR_BLOCK: Only ${liveQuestionCount} questions (min ${FACTORY_MIN_QUESTIONS})`, hard_fail_reasons: hardFails }, 422);
-    } else {
-      return json({ ok: false, retry: false, error: "V3_HARD_FAILS", hard_fail_reasons: hardFails }, 422);
-    }
-  }
-
-  // ── Calculate estimated_duration from lesson count ──
+  // ── Calculate estimated_duration ──
   const { data: courseModules } = await sb.from("modules").select("id").eq("course_id", courseId);
   const moduleIds = (courseModules || []).map((m: any) => m.id);
   let estimatedDuration = 0;
   if (moduleIds.length > 0) {
-    const { count: lessonCount } = await sb.from("lessons")
-      .select("id", { count: "exact", head: true })
-      .in("module_id", moduleIds);
-    // ~10 min per lesson average
+    const { count: lessonCount } = await sb.from("lessons").select("id", { count: "exact", head: true }).in("module_id", moduleIds);
     estimatedDuration = (lessonCount || 0) * 10;
   }
 
-  // Publish course with consistent status
+  // ── Publish ──
   const { error: cErr } = await sb
     .from("courses")
-    .update({
-      publishing_status: "publish_ready",
-      status: "published",
-      estimated_duration: estimatedDuration > 0 ? estimatedDuration : undefined,
-    })
+    .update({ publishing_status: "publish_ready", status: "published", estimated_duration: estimatedDuration > 0 ? estimatedDuration : undefined })
     .eq("id", courseId);
   if (cErr) throw cErr;
 
@@ -166,10 +169,14 @@ Deno.serve(async (req) => {
     .eq("id", packageId);
   if (pErr) throw pErr;
 
+  // ── Log excellence level ──
+  const excellenceList = integrityReport?.v3?.excellence || [];
+  const badge = excellenceList.length >= 3 ? "🏆 Excellence" : excellenceList.length > 0 ? "🥇 Gold" : "✅ Ready";
+
   try {
     await sb.from("admin_notifications").insert({
-      title: "🚀 Package published",
-      body: "Course package has been published successfully.",
+      title: `🚀 ${badge} Package published`,
+      body: `COURSE_READY passed. Score: ${integrityReport?.score ?? "?"}/100. ${excellenceList.length} excellence criteria met.`,
       category: "package_review",
       severity: "info",
       entity_type: "course_package",
@@ -177,5 +184,5 @@ Deno.serve(async (req) => {
     });
   } catch (_) { /* non-critical */ }
 
-  return json({ ok: true });
+  return json({ ok: true, badge, integrity_score: integrityReport?.score ?? 100, excellence: excellenceList });
 });
