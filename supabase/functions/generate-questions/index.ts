@@ -25,7 +25,7 @@ serve(async (req) => {
   // ====================================================
 
   try {
-    const { competencyId, competencyTitle, competencyDescription, learningFieldTitle, curriculumId, count = 3, difficulty = 'medium' } = await req.json();
+    const { competencyId, competencyTitle, competencyDescription, learningFieldTitle, curriculumId, count = 3, difficulty = 'medium', cognitive_level } = await req.json();
 
     // Load profession from SSOT — HARD GUARD
     if (!curriculumId) throw new Error("MISSING_CURRICULUM_ID: Cannot generate questions without curriculum context");
@@ -34,25 +34,75 @@ serve(async (req) => {
     const professionResult = await resolveProfession(supabase, { curriculumId });
     const professionName = professionResult.professionName;
 
-    console.log(`[User: ${auth.user?.id}] Generating ${count} ${difficulty} questions for "${professionName}": ${competencyTitle}`);
+    // ── Enforce cognitive level distribution across batch ──
+    const COGNITIVE_LEVELS = ['recall', 'apply', 'analyze', 'decide'];
+    const COGNITIVE_DISTRIBUTION = { recall: 0.25, apply: 0.35, analyze: 0.25, decide: 0.15 };
+    const COGNITIVE_HINTS: Record<string, string> = {
+      recall: 'WISSENSABFRAGE: Definition, Begriff, Zuordnung — Fakten abrufen.',
+      apply: 'ANWENDUNG: Berechnung, Verfahren anwenden, konkreter Rechenweg mit Zahlen.',
+      analyze: 'ANALYSE: Fehler identifizieren, Sachverhalt beurteilen, richtige Handlung ableiten.',
+      decide: 'BEWERTUNG: Best Practice wählen, Risiken abwägen, Handlungsempfehlung mit Begründung.',
+    };
+
+    // Assign cognitive levels to requested questions proportionally
+    const assignedLevels: string[] = [];
+    if (cognitive_level && COGNITIVE_LEVELS.includes(cognitive_level)) {
+      for (let i = 0; i < count; i++) assignedLevels.push(cognitive_level);
+    } else {
+      const remaining = [...COGNITIVE_LEVELS];
+      for (let i = 0; i < count; i++) {
+        // Weighted random selection
+        const r = Math.random();
+        let cum = 0;
+        let picked = 'apply';
+        for (const [level, weight] of Object.entries(COGNITIVE_DISTRIBUTION)) {
+          cum += weight;
+          if (r <= cum) { picked = level; break; }
+        }
+        assignedLevels.push(picked);
+      }
+    }
+
+    const cogBlock = assignedLevels.length > 0
+      ? `\nVerteile die Fragen auf folgende kognitive Stufen:\n${assignedLevels.map((l, i) => `Frage ${i + 1}: ${l.toUpperCase()} — ${COGNITIVE_HINTS[l]}`).join('\n')}`
+      : '';
+
+    console.log(`[User: ${auth.user?.id}] Generating ${count} ${difficulty} questions for "${professionName}": ${competencyTitle} [cognitive: ${assignedLevels.join(',')}]`);
 
     const systemPrompt = `Du bist ein erfahrener IHK-Prüfungsexperte für ${professionName}. Du erstellst Prüfungsfragen, die sich anfühlen, als kämen sie direkt aus einer echten IHK-Abschlussprüfung für ${professionName}.
 
 REGELN:
-- Jede Frage hat genau 4 Antwortmöglichkeiten
-- Nur eine Antwort ist korrekt
+- Jede Frage hat genau 4 Antwortmöglichkeiten (Index 0-3)
+- Nur eine Antwort ist korrekt — correct_answer MUSS 0, 1, 2 oder 3 sein
 - Fragen müssen einen konkreten Praxisbezug zum Berufsalltag von ${professionName} haben
 - Distraktoren bilden typische Denkfehler von ${professionName} ab — NICHT offensichtlich falsch
-- Schwierigkeit: easy (Grundwissen), medium (Anwendung/Berechnung), hard (Analyse/Transfer)
 - Ausführliche Erklärung mit Fachbegriffen von ${professionName}
 - KEINE generischen Fragen ohne Berufsbezug
 - Fragen dürfen NICHT nach KI klingen — formuliere wie ein erfahrener IHK-Aufgabenersteller
+
+KOGNITIVE STUFEN (PFLICHT — jede Frage muss die zugewiesene Stufe erfüllen):
+- recall: Faktenwissen abrufen (Definitionen, Begriffe, Zuordnungen)
+- apply: Anwendung (Berechnungen mit konkreten Zahlen, Formeln einsetzen)
+- analyze: Analyse (Fehler finden, Situation beurteilen, Handlung ableiten)
+- decide: Bewertung (zwischen Optionen entscheiden, Risiken abwägen)
+
+SCHWIERIGKEITSGRADE (PFLICHT):
+- easy: Grundwissen, einfache Zuordnung
+- medium: Anwendung mit Berechnung oder Regelwissen
+- hard: Analyse + Transfer, mehrstufige Rechenwege, Kombinationsaufgaben
 
 ANTI-KI-REGELN:
 - KEINE Sätze wie "In der heutigen Geschäftswelt..." oder "Es ist wichtig zu beachten..."
 - KEINE generischen Szenarien wie "ein Unternehmen" — verwende konkrete Namen, Zahlen, Abteilungen
 - JEDE Erklärung MUSS den konkreten Denkfehler hinter JEDEM falschen Distraktor benennen
-- Distraktoren-Check: Erkläre in "explanation" warum JEDE falsche Option falsch ist (nicht nur die richtige)
+- NIEMALS in der Erklärung eigene Fehler eingestehen ("Ich muss prüfen", "Tippfehler", "Ich ändere")
+- Die richtige Antwort MUSS exakt der Option an Index correct_answer entsprechen
+
+SELBSTPRÜFUNG vor Ausgabe:
+1. Ist correct_answer 0, 1, 2 oder 3?
+2. Steht die richtige Antwort tatsächlich an der Position correct_answer in options?
+3. Enthält die Erklärung keine "Ich"-Sätze oder Metakommentare?
+4. Erfüllt jede Frage die zugewiesene kognitive Stufe?
 
 Antworte AUSSCHLIESSLICH mit einem validen JSON-Array:
 [
@@ -60,18 +110,22 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array:
     "question_text": "Konkretes Szenario aus dem Alltag von ${professionName}...",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correct_answer": 0,
-    "explanation": "Fachliche Erklärung: Richtig ist A weil... B ist falsch weil... C ist falsch weil... D ist falsch weil...",
-    "difficulty": "easy|medium|hard"
+    "explanation": "Fachliche Erklärung: Richtig ist A weil... B ist falsch weil... C ist falsch weil... D ist falsch weil... Tipp: ...",
+    "difficulty": "easy|medium|hard",
+    "cognitive_level": "recall|apply|analyze|decide"
   }
 ]`;
 
-    const userPrompt = `Erstelle ${count} ${difficulty === 'easy' ? 'leichte' : difficulty === 'medium' ? 'mittelschwere' : 'schwere'} Prüfungsfragen für ${professionName}.
+    const userPrompt = `Erstelle ${count} Prüfungsfragen für ${professionName}.
 
 Lernfeld: ${learningFieldTitle}
 Kompetenz: ${competencyTitle}
 ${competencyDescription ? `Beschreibung: ${competencyDescription}` : ''}
+Schwierigkeit: ${difficulty === 'easy' ? 'leicht' : difficulty === 'medium' ? 'mittelschwer' : 'schwer'}
+${cogBlock}
 
-WICHTIG: Jede Frage braucht ein konkretes Szenario aus dem Arbeitsalltag von ${professionName}. Keine generischen "Was ist...?"-Fragen.`;
+WICHTIG: Jede Frage braucht ein konkretes Szenario aus dem Arbeitsalltag von ${professionName}. Keine generischen "Was ist...?"-Fragen.
+PFLICHT: correct_answer muss 0, 1, 2 oder 3 sein. Prüfe vor Ausgabe, ob die richtige Antwort an der richtigen Position steht.`;
 
     const result = await callAIJSON({
       provider: "openai",
@@ -95,20 +149,47 @@ WICHTIG: Jede Frage braucht ein konkretes Szenario aus dem Arbeitsalltag von ${p
       throw new Error('Failed to parse AI response as JSON');
     }
 
-    const formattedQuestions = questions.map((q: any, idx: number) => {
-      // Contamination guard on each question
-      assertNoContamination(q.question_text + " " + (q.explanation || ""), professionName, `question ${idx}`);
-      return {
-        question_text: q.question_text,
-        options: q.options,
-        correct_answer: q.correct_answer,
-        explanation: q.explanation,
-        difficulty: q.difficulty || difficulty,
-        competency_id: competencyId,
-        ai_generated: true,
-        status: 'draft',
-      };
-    });
+    // ── Post-generation validation gates ──
+    const META_TEXT_PATTERNS = [
+      /\bich muss\b/i, /\bich ändere\b/i, /\btippfehler\b/i,
+      /\bes tut mir leid\b/i, /\bich habe einen fehler\b/i,
+      /\bich korrigiere\b/i, /\bich prüfe\b/i, /\blass mich\b/i,
+    ];
+
+    const formattedQuestions = questions
+      .filter((q: any, idx: number) => {
+        // HARD GATE: correct_answer must be valid index
+        if (q.correct_answer === undefined || q.correct_answer === null) return false;
+        const ca = typeof q.correct_answer === 'number' ? q.correct_answer : parseInt(q.correct_answer);
+        if (isNaN(ca) || ca < 0 || ca >= (q.options?.length || 4)) {
+          console.warn(`[gen-q] REJECTED Q${idx}: correct_answer=${q.correct_answer} out of range`);
+          return false;
+        }
+        // HARD GATE: no meta-text in explanation
+        const expl = (q.explanation || '').toLowerCase();
+        for (const pattern of META_TEXT_PATTERNS) {
+          if (pattern.test(expl)) {
+            console.warn(`[gen-q] REJECTED Q${idx}: meta-text detected in explanation`);
+            return false;
+          }
+        }
+        return true;
+      })
+      .map((q: any, idx: number) => {
+        // Contamination guard on each question
+        assertNoContamination(q.question_text + " " + (q.explanation || ""), professionName, `question ${idx}`);
+        return {
+          question_text: q.question_text,
+          options: q.options,
+          correct_answer: typeof q.correct_answer === 'number' ? q.correct_answer : parseInt(q.correct_answer),
+          explanation: q.explanation,
+          difficulty: q.difficulty || difficulty,
+          cognitive_level: q.cognitive_level || assignedLevels[idx] || 'apply',
+          competency_id: competencyId,
+          ai_generated: true,
+          status: 'draft',
+        };
+      });
 
     console.log(`Successfully generated ${formattedQuestions.length} questions for "${professionName}"`);
 

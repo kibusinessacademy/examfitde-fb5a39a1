@@ -137,10 +137,26 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Publish
+  // ── Calculate estimated_duration from lesson count ──
+  const { data: courseModules } = await sb.from("modules").select("id").eq("course_id", courseId);
+  const moduleIds = (courseModules || []).map((m: any) => m.id);
+  let estimatedDuration = 0;
+  if (moduleIds.length > 0) {
+    const { count: lessonCount } = await sb.from("lessons")
+      .select("id", { count: "exact", head: true })
+      .in("module_id", moduleIds);
+    // ~10 min per lesson average
+    estimatedDuration = (lessonCount || 0) * 10;
+  }
+
+  // Publish course with consistent status
   const { error: cErr } = await sb
     .from("courses")
-    .update({ publishing_status: "publish_ready", status: "published" })
+    .update({
+      publishing_status: "publish_ready",
+      status: "published",
+      estimated_duration: estimatedDuration > 0 ? estimatedDuration : undefined,
+    })
     .eq("id", courseId);
   if (cErr) throw cErr;
 

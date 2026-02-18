@@ -28,9 +28,20 @@ import { getModel } from "../_shared/model-routing.ts";
 
 const SAMPLE_SIZE = 4;
 const MIN_HTML_LENGTH = 400;
+const MIN_HTML_WORD_COUNT = 200; // NEW: minimum word count for text lessons
+const TARGET_HTML_WORD_COUNT = 400; // Audit finding: median 160 too low
 const MIN_MINICHECK_LENGTH = 200;
 const SAMPLE_PASS_THRESHOLD = 70;
 const INDIVIDUAL_REJECT_THRESHOLD = 60;
+
+// META_TEXT patterns (same as exam-pool-cleanup — system-wide standard)
+const META_TEXT_PATTERNS = [
+  /\bich muss\b/i, /\bich ändere\b/i, /\btippfehler\b/i,
+  /\bes tut mir leid\b/i, /\bich habe einen fehler\b/i,
+  /\bich korrigiere\b/i, /\bich prüfe\b/i, /\blass mich\b/i,
+  /\bich entschuldige\b/i, /\bfehler in der frage\b/i,
+  /\bich habe .{0,20}geändert\b/i,
+];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -85,11 +96,24 @@ function tier1Check(
     if (html.length < MIN_HTML_LENGTH) {
       issues.push(`HTML_TOO_SHORT: ${html.length}/${MIN_HTML_LENGTH}`);
     }
+    // NEW: Word count check (audit: median 160 too low for premium)
+    const wordCount = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter((w: string) => w.length > 0).length;
+    if (wordCount < MIN_HTML_WORD_COUNT) {
+      issues.push(`WORD_COUNT_TOO_LOW: ${wordCount}/${MIN_HTML_WORD_COUNT} (target: ${TARGET_HTML_WORD_COUNT})`);
+    }
     if (!/<h[3-4]>/i.test(html)) {
       issues.push("MISSING_HEADING_H3_H4");
     }
     if (html.includes("Platzhalter") || html.includes("Lorem ipsum") || html.includes("[TODO]")) {
       issues.push("PLACEHOLDER_TEXT_FOUND");
+    }
+    // NEW: Meta-text detection (AI editing artifacts in lessons)
+    const htmlLower = html.toLowerCase();
+    for (const pattern of META_TEXT_PATTERNS) {
+      if (pattern.test(htmlLower)) {
+        issues.push("META_TEXT_DETECTED: AI editing artifact in lesson content");
+        break;
+      }
     }
   }
 

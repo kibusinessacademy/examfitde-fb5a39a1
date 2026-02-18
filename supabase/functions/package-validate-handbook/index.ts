@@ -17,7 +17,9 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 
 const MIN_CHAPTERS = 3;
 const MIN_SECTION_LENGTH = 200;
-const MIN_PROSE_LENGTH = 120; // NEW: minimum non-heading text
+const MIN_PROSE_LENGTH = 120;
+const MIN_SECTION_WORD_COUNT = 80; // NEW: minimum words per section (audit: handbook too short)
+const MIN_HANDBOOK_TOTAL_CHARS = 30000; // NEW: minimum total handbook size (audit: 9k too short)
 const MAX_RETRIES_BEFORE_REGEN = 10;
 const PLACEHOLDER_PATTERNS = [
   "_Wird durch Council",
@@ -193,6 +195,12 @@ Deno.serve(async (req) => {
       issues.push(`PROSE_TOO_SHORT: ${prose.length}/${MIN_PROSE_LENGTH} chars (excluding headings)`);
     }
 
+    // ── NEW: Word count check ──
+    const sectionWordCount = prose.split(/\s+/).filter((w: string) => w.length > 0).length;
+    if (sectionWordCount < MIN_SECTION_WORD_COUNT) {
+      issues.push(`WORD_COUNT_TOO_LOW: ${sectionWordCount}/${MIN_SECTION_WORD_COUNT} words`);
+    }
+
     // Total length check (original)
     if (md.length < MIN_SECTION_LENGTH) {
       issues.push(`CONTENT_TOO_SHORT: ${md.length}/${MIN_SECTION_LENGTH}`);
@@ -242,11 +250,16 @@ Deno.serve(async (req) => {
 
   // ── Determine overall pass ──
   const placeholderRate = (placeholderCount / results.length) * 100;
-  // NEW: heading-only sections are a hard-fail signal
   const headingOnlyRate = (headingOnlyCount / results.length) * 100;
+  
+  // NEW: Total handbook character count check
+  const totalHandbookChars = (sections as any[]).reduce((sum, s) => sum + (s.content_markdown || '').length, 0);
+  const handbookSizePass = totalHandbookChars >= MIN_HANDBOOK_TOTAL_CHARS;
+  
   const overallPass = passRate >= 60 
     && placeholderRate <= 30 
-    && headingOnlyRate <= 10  // NEW: max 10% heading-only sections allowed
+    && headingOnlyRate <= 10
+    && handbookSizePass  // NEW: handbook must meet minimum total size
     && chapterIssues.length === 0;
 
   if (!overallPass) {
@@ -263,9 +276,9 @@ Deno.serve(async (req) => {
     if (!recentAlerts?.length) {
       await sb.from("ops_alerts").insert({
         source: "validate-handbook",
-        severity: headingOnlyRate > 50 ? "critical" : "warning",
-        message: `Handbook QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed, ${placeholderCount} placeholders, ${headingOnlyCount} heading-only (attempt ${attempts})`,
-        payload: { packageId, pass_rate: passRate, placeholder_count: placeholderCount, heading_only_count: headingOnlyCount, chapter_issues: chapterIssues, attempt: attempts },
+        severity: headingOnlyRate > 50 || !handbookSizePass ? "critical" : "warning",
+        message: `Handbook QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed, ${placeholderCount} placeholders, ${headingOnlyCount} heading-only, total=${totalHandbookChars} chars (min ${MIN_HANDBOOK_TOTAL_CHARS}) (attempt ${attempts})`,
+        payload: { packageId, pass_rate: passRate, placeholder_count: placeholderCount, heading_only_count: headingOnlyCount, total_chars: totalHandbookChars, chapter_issues: chapterIssues, attempt: attempts },
       }).then(() => {}).catch(() => {});
     }
   }
@@ -284,11 +297,13 @@ Deno.serve(async (req) => {
       heading_only_rate: headingOnlyRate,
       depth_enriched: depthEnrichedCount,
       depth_rate: depthRate,
+      total_handbook_chars: totalHandbookChars,
+      min_handbook_chars: MIN_HANDBOOK_TOTAL_CHARS,
     },
     chapter_issues: chapterIssues,
     failures: results.filter(r => !r.passed).slice(0, 15),
     message: overallPass
-      ? `✅ Handbook QC bestanden: ${passed}/${results.length} Sektionen (${passRate.toFixed(0)}%), ${depthEnrichedCount} mit Tiefe`
-      : `❌ Handbook QC fehlgeschlagen: ${passed}/${results.length} (${passRate.toFixed(0)}%), ${placeholderCount} Platzhalter, ${headingOnlyCount} heading-only`,
+      ? `✅ Handbook QC bestanden: ${passed}/${results.length} Sektionen (${passRate.toFixed(0)}%), ${depthEnrichedCount} mit Tiefe, ${totalHandbookChars} Zeichen`
+      : `❌ Handbook QC fehlgeschlagen: ${passed}/${results.length} (${passRate.toFixed(0)}%), ${placeholderCount} Platzhalter, ${headingOnlyCount} heading-only, ${totalHandbookChars}/${MIN_HANDBOOK_TOTAL_CHARS} Zeichen`,
   });
 });
