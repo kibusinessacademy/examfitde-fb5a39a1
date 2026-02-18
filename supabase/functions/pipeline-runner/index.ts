@@ -368,7 +368,7 @@ async function processPackage(
 
     const { data: job } = await sb
       .from("job_queue")
-      .select("status,result,error,last_error,batch_cursor,updated_at")
+      .select("status,result,error,last_error,batch_cursor,updated_at,locked_at")
       .eq("id", jobId)
       .single();
 
@@ -425,22 +425,30 @@ async function processPackage(
       return { packageId, stepKey, waiting: true, jobStatus: "pending" };
     }
 
-    // Job processing → check for stuck jobs (>30min = likely dead)
+    // Job processing → check for stuck jobs
     if (job.status === "processing") {
       const currentStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
 
-      // Stuck job detection: if job has been processing for >30min, force-fail and re-enqueue
       const jobAge = job.updated_at
         ? Date.now() - new Date(job.updated_at as string).getTime()
         : 0;
-      const STUCK_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 
-      if (jobAge > STUCK_THRESHOLD_MS) {
-        console.warn(`[runner] ⚠️ Job ${jobId.slice(0, 8)} stuck processing for ${Math.round(jobAge / 60000)}min — force-resetting`);
+      // FIX: Detect zombie jobs — processing but locked_at is null means the
+      // edge function completed/crashed but the result was never written back.
+      // These jobs will NEVER complete on their own. Reset after 5 minutes.
+      const ZOMBIE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+      const STUCK_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+      const isZombie = !job.locked_at && jobAge > ZOMBIE_THRESHOLD_MS;
+
+      if (isZombie || jobAge > STUCK_THRESHOLD_MS) {
+        const reason = isZombie
+          ? `Zombie job: processing with no lock for ${Math.round(jobAge / 60000)}min`
+          : `Stuck processing for ${Math.round(jobAge / 60000)}min`;
+        console.warn(`[runner] ⚠️ Job ${jobId.slice(0, 8)} ${reason} — force-resetting`);
         await safeQuery(
           sb.from("job_queue").update({
             status: "failed",
-            last_error: `Force-failed: stuck processing for ${Math.round(jobAge / 60000)}min`,
+            last_error: reason,
             updated_at: new Date().toISOString(),
           }).eq("id", jobId),
           "force_fail_stuck_job",
@@ -451,12 +459,12 @@ async function processPackage(
             job_id: null,
             runner_id: null,
             started_at: null,
-            last_error: `Job stuck >30min — auto-reset`,
+            last_error: reason,
           }).eq("package_id", packageId).eq("step_key", stepKey),
           "reset_stuck_step",
         );
         await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-        return { packageId, stepKey, stuck_reset: true, jobAge: Math.round(jobAge / 60000) };
+        return { packageId, stepKey, stuck_reset: true, zombie: isZombie, jobAge: Math.round(jobAge / 60000) };
       }
 
       if (currentStep?.status !== "running") {
