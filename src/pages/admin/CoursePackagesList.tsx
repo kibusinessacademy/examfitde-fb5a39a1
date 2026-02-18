@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCoursePackages } from '@/hooks/useCoursePackages';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,13 +8,15 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowRight, CheckCircle2, Clock, XCircle, Wrench, Shield,
-  Brain, Package, Rocket, Plus
+  Brain, Package, Rocket, Plus, Filter
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PageExplainer from '@/components/admin/PageExplainer';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  all: { label: 'Alle', color: 'bg-muted text-muted-foreground', icon: Filter },
   planning: { label: 'Draft', color: 'bg-muted text-muted-foreground', icon: Clock },
+  queued: { label: 'Queued', color: 'bg-muted text-muted-foreground', icon: Clock },
   council_review: { label: 'Council Review', color: 'bg-warning/20 text-warning', icon: Brain },
   building: { label: 'Build läuft', color: 'bg-primary/20 text-primary', icon: Wrench },
   qa: { label: 'QA', color: 'bg-accent/20 text-accent-foreground', icon: Shield },
@@ -21,8 +24,19 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   failed: { label: 'Fehlgeschlagen', color: 'bg-destructive/20 text-destructive', icon: XCircle },
 };
 
+const FILTER_OPTIONS = ['all', 'building', 'published', 'queued', 'planning', 'failed', 'qa', 'council_review'] as const;
+
 export default function CoursePackagesList() {
   const { data: packages, isLoading } = useCoursePackages();
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (packages || []).forEach(p => {
+      counts[p.status] = (counts[p.status] || 0) + 1;
+    });
+    return counts;
+  }, [packages]);
 
   if (isLoading) {
     return (
@@ -35,9 +49,10 @@ export default function CoursePackagesList() {
     );
   }
 
-  const sorted = [...(packages || [])].sort((a, b) => {
-    // Failed/building first, then by date
-    const priority: Record<string, number> = { failed: 0, building: 1, qa: 2, council_review: 3, planning: 4, published: 5 };
+  const filtered = (packages || []).filter(p => statusFilter === 'all' || p.status === statusFilter);
+
+  const sorted = [...filtered].sort((a, b) => {
+    const priority: Record<string, number> = { failed: 0, building: 1, qa: 2, council_review: 3, planning: 4, queued: 5, published: 6 };
     const pa = priority[a.status] ?? 4;
     const pb = priority[b.status] ?? 4;
     if (pa !== pb) return pa - pb;
@@ -58,6 +73,35 @@ export default function CoursePackagesList() {
             <Plus className="h-4 w-4 mr-1" /> Neues Paket
           </Link>
         </Button>
+      </div>
+
+      {/* Status Filter Chips */}
+      <div className="flex flex-wrap gap-2">
+        {FILTER_OPTIONS.map(status => {
+          const cfg = STATUS_CONFIG[status];
+          const count = status === 'all' ? (packages?.length || 0) : (statusCounts[status] || 0);
+          const isActive = statusFilter === status;
+          return (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+                isActive
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+              )}
+            >
+              {cfg.label}
+              <span className={cn(
+                "rounded-full px-1.5 py-0.5 text-[10px] font-bold min-w-[20px] text-center",
+                isActive ? "bg-primary-foreground/20" : "bg-muted"
+              )}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <PageExplainer
