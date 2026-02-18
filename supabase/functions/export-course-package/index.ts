@@ -144,14 +144,45 @@ Deno.serve(async (req) => {
     }
     console.log(`[export] Handbook: ${handbookStructured.length} chapters, ${handbookMd.length} chars`);
 
-    // ── Oral sessionset ──
-    const { data: oralSet } = await sb
+    // ── Oral Exam: ALL sessionsets for this package ──
+    const { data: oralSessionsets } = await sb
       .from("oral_exam_sessionsets")
       .select("*")
       .eq("package_id", packageId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
+
+    // ── Oral Exam: Blueprints (via curriculum) ──
+    let oralBlueprints: unknown[] = [];
+    if (curriculumId) {
+      const { data } = await sb
+        .from("oral_exam_blueprints")
+        .select("*")
+        .eq("curriculum_id", curriculumId)
+        .order("created_at", { ascending: false });
+      oralBlueprints = data || [];
+    }
+
+    // ── Oral Exam: ALL sessions (paginated) ──
+    const allOralSessions: unknown[] = [];
+    if (oralSessionsets?.length) {
+      const setIds = (oralSessionsets as Record<string, unknown>[]).map(s => s.id as string);
+      const pageSize = 500;
+      let offset = 0;
+      while (true) {
+        const { data: batch, error: oErr } = await sb
+          .from("oral_exam_sessions")
+          .select("*")
+          .in("sessionset_id", setIds)
+          .order("sort_order")
+          .range(offset, offset + pageSize - 1);
+        if (oErr) { console.log(`[export] Oral sessions error: ${oErr.message}`); break; }
+        if (!batch || batch.length === 0) break;
+        allOralSessions.push(...batch);
+        if (batch.length < pageSize) break;
+        offset += pageSize;
+      }
+    }
+    console.log(`[export] Oral exam: ${(oralSessionsets || []).length} sets, ${oralBlueprints.length} blueprints, ${allOralSessions.length} sessions`);
 
     // ── Tutor: ALL context indices for this package ──
     const { data: tutorIndices } = await sb
@@ -336,7 +367,9 @@ Deno.serve(async (req) => {
     zip.file("steps.json", JSON.stringify(steps || [], null, 2));
     zip.file("handbook.md", handbookMd);
     zip.file("handbook_structured.json", JSON.stringify(handbookStructured, null, 2));
-    zip.file("oral_exam.json", JSON.stringify(oralSet || {}, null, 2));
+    zip.file("oral_exam/sessionsets.json", JSON.stringify(oralSessionsets || [], null, 2));
+    zip.file("oral_exam/blueprints.json", JSON.stringify(oralBlueprints, null, 2));
+    zip.file("oral_exam/sessions_all.json", JSON.stringify(allOralSessions, null, 2));
     zip.file("tutor/context_indices.json", JSON.stringify(tutorIndices || [], null, 2));
     zip.file("tutor/policies.json", JSON.stringify(tutorPolicies, null, 2));
     zip.file("tutor/logs_all.json", JSON.stringify(allTutorLogs, null, 2));
@@ -356,6 +389,9 @@ Deno.serve(async (req) => {
       content_counts: {
         lessons_total: allLessons.length,
         questions_approved: questionSamples.length,
+        oral_exam_sessionsets: (oralSessionsets || []).length,
+        oral_exam_blueprints: oralBlueprints.length,
+        oral_exam_sessions: allOralSessions.length,
         tutor_logs: allTutorLogs.length,
         tutor_policy_versions: tutorPolicies.length,
         tutor_context_indices: (tutorIndices || []).length,
@@ -400,6 +436,7 @@ Deno.serve(async (req) => {
           content: {
             lessons: allLessons.length,
             questions: questionSamples.length,
+            oralExamSessions: allOralSessions.length,
             tutorLogs: allTutorLogs.length,
             tutorPolicies: tutorPolicies.length,
             handbookChapters: handbookStructured.length,
@@ -417,6 +454,7 @@ Deno.serve(async (req) => {
       content: {
         lessons: allLessons.length,
         questions: questionSamples.length,
+        oralExamSessions: allOralSessions.length,
         tutorLogs: allTutorLogs.length,
         tutorPolicies: tutorPolicies.length,
         handbookChapters: handbookStructured.length,
