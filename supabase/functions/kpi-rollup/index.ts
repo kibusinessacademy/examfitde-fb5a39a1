@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     const throughputPerHour = (jobsCompleted ?? 0) / Math.max(new Date().getUTCHours(), 1);
     const etaHours = throughputPerHour > 0 ? (backlog ?? 0) / throughputPerHour : 0;
 
-    // Upsert
+    // Upsert daily rollup
     await sb.from("kpi_daily_rollup").upsert({
       day: today,
       packages_completed: pkgCompleted ?? 0,
@@ -109,7 +109,18 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     }, { onConflict: "day" });
 
-    console.log(`[kpi-rollup] Day ${today}: ${jobsCompleted} completed, €${costTotal.toFixed(2)}, ETA ${etaHours.toFixed(1)}h`);
+    // FIX: Sync budget spent_eur from actual llm_cost_events (MTD)
+    const currentMonth = today.slice(0, 7) + "-01"; // e.g. "2026-02-01"
+    const { data: mtdAll } = await sb.from("llm_cost_events")
+      .select("cost_eur")
+      .gte("ts", `${currentMonth}T00:00:00Z`);
+    const mtdSpent = (mtdAll || []).reduce((s: number, r: any) => s + (r.cost_eur || 0), 0);
+    
+    await sb.from("ai_cost_budgets")
+      .update({ spent_eur: Math.round(mtdSpent * 100) / 100, updated_at: new Date().toISOString() })
+      .eq("month", currentMonth);
+
+    console.log(`[kpi-rollup] Day ${today}: ${jobsCompleted} completed, €${costTotal.toFixed(2)}, budget MTD €${mtdSpent.toFixed(2)}, ETA ${etaHours.toFixed(1)}h`);
 
     return json({
       ok: true,

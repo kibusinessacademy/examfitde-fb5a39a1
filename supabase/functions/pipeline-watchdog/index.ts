@@ -140,10 +140,15 @@ Deno.serve(async (req) => {
     }
 
     // ── 2b) Zombie job sweep: fail jobs stuck in 'processing' with no lock ──
-    // Tightened from 10min to 5min — edge functions timeout at 55s,
+    // Tightened to 5min — edge functions timeout at 55s,
     // so anything unlocked for 5min is definitively dead.
+    // ALSO catch jobs where locked_at is stale (>10min old) even if non-null.
     const ZOMBIE_AGE_MINUTES = 5;
+    const STALE_LOCK_MINUTES = 10;
     const zombieCutoff = new Date(Date.now() - ZOMBIE_AGE_MINUTES * 60 * 1000).toISOString();
+    const staleLockCutoff = new Date(Date.now() - STALE_LOCK_MINUTES * 60 * 1000).toISOString();
+
+    // Type 1: Processing with NO lock at all
     const { data: zombieRows, error: zombieErr } = await sb
       .from("job_queue")
       .update({
@@ -159,9 +164,27 @@ Deno.serve(async (req) => {
     if (zombieErr) {
       console.error("[watchdog] zombie sweep error:", zombieErr.message);
     }
-    const zombieCount = zombieRows?.length ?? 0;
+
+    // Type 2: Processing with STALE lock (locked_at too old)
+    const { data: staleLockRows, error: staleLockErr } = await sb
+      .from("job_queue")
+      .update({
+        status: "failed",
+        last_error: `Watchdog: stale lock >${STALE_LOCK_MINUTES}min`,
+        locked_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("status", "processing")
+      .lt("locked_at", staleLockCutoff)
+      .select("id");
+
+    if (staleLockErr) {
+      console.error("[watchdog] stale lock sweep error:", staleLockErr.message);
+    }
+
+    const zombieCount = (zombieRows?.length ?? 0) + (staleLockRows?.length ?? 0);
     if (zombieCount > 0) {
-      actions.push(`Zombie sweep: failed ${zombieCount} stuck processing jobs`);
+      actions.push(`Zombie sweep: failed ${zombieRows?.length ?? 0} unlocked + ${staleLockRows?.length ?? 0} stale-locked jobs`);
     }
 
     // ── 3) Count active state ──
