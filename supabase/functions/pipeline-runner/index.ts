@@ -296,6 +296,34 @@ async function processPackage(
     }
   }
 
+  // ── Sequence integrity guard: reset out-of-order "done" steps ──
+  // If a later step is "done" but an earlier step is NOT done, reset the later one.
+  {
+    const byKey = new Map<string, StepRow>();
+    for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
+    let lastIncompleteSeq = -1;
+    for (let i = 0; i < STEP_ORDER.length; i++) {
+      const s = byKey.get(STEP_ORDER[i]);
+      if (!s) continue;
+      if (s.status !== "done" && s.status !== "skipped") {
+        lastIncompleteSeq = i;
+      } else if (s.status === "done" && lastIncompleteSeq >= 0) {
+        // This step is "done" but a predecessor is not — reset it
+        console.warn(`[runner] 🔧 Sequence fix: resetting ${STEP_ORDER[i]} to queued (predecessor ${STEP_ORDER[lastIncompleteSeq]} not done)`);
+        await safeQuery(
+          sb.from("package_steps").update({
+            status: "queued", job_id: null, runner_id: null,
+            started_at: null, finished_at: null,
+            last_error: `Sequence guard: predecessor ${STEP_ORDER[lastIncompleteSeq]} not done`,
+          }).eq("package_id", packageId).eq("step_key", STEP_ORDER[i]),
+          "sequence_guard_reset",
+        );
+        // Update in-memory too so pickNextAction sees corrected state
+        s.status = "queued";
+      }
+    }
+  }
+
   const nextAction = pickNextAction((steps ?? []) as StepRow[]);
 
   // ── All steps done / no actionable step ──
