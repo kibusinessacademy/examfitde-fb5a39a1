@@ -221,42 +221,48 @@ Deno.serve(async (req) => {
     // ── CONTENT SAMPLES for Quality Audit ──
     // ══════════════════════════════════════════════════════
 
-    // ── Sample Lessons: 2-3 per module ──
-    const lessonSamples: unknown[] = [];
+    // ── ALL Lessons (paginated, full content) ──
+    const allLessons: unknown[] = [];
     if (cid && moduleIds.length > 0) {
-      console.log(`[export] Collecting lesson samples from ${moduleIds.length} modules`);
+      console.log(`[export] Collecting ALL lessons from ${moduleIds.length} modules`);
       try {
         const { data: modules } = await sb.from("modules").select("id, title, sort_order").eq("course_id", cid).order("sort_order");
-        for (const mod of (modules || []).slice(0, 12) as Record<string, unknown>[]) {
-          const { data: lessons, error: lErr } = await sb
-            .from("lessons")
-            .select("id, title, content, minicheck_parsed, sort_order, qc_status")
-            .eq("module_id", mod.id as string)
-            .not("content", "is", null)
-            .order("sort_order")
-            .limit(3);
-          if (lErr) {
-            console.log(`[export] Lesson query error for module ${mod.id}: ${lErr.message}`);
-            continue;
-          }
-          for (const l of (lessons || []) as Record<string, unknown>[]) {
-            const contentStr = typeof l.content === "string" ? l.content : JSON.stringify(l.content);
-            lessonSamples.push({
-              module: mod.title,
-              lesson_id: l.id,
-              title: l.title,
-              content_preview: contentStr.slice(0, 8000),
-              content_length: contentStr.length,
-              minicheck_parsed: l.minicheck_parsed,
-              qc_status: l.qc_status,
-            });
+        for (const mod of (modules || []) as Record<string, unknown>[]) {
+          const pageSize = 500;
+          let offset = 0;
+          while (true) {
+            const { data: batch, error: lErr } = await sb
+              .from("lessons")
+              .select("id, title, content, minicheck_parsed, sort_order, qc_status")
+              .eq("module_id", mod.id as string)
+              .order("sort_order")
+              .range(offset, offset + pageSize - 1);
+            if (lErr) {
+              console.log(`[export] Lesson query error for module ${mod.id}: ${lErr.message}`);
+              break;
+            }
+            if (!batch || batch.length === 0) break;
+            for (const l of batch as Record<string, unknown>[]) {
+              allLessons.push({
+                module: mod.title,
+                module_id: mod.id,
+                lesson_id: l.id,
+                title: l.title,
+                content: l.content,
+                minicheck_parsed: l.minicheck_parsed,
+                sort_order: l.sort_order,
+                qc_status: l.qc_status,
+              });
+            }
+            if (batch.length < pageSize) break;
+            offset += pageSize;
           }
         }
       } catch (e) {
-        console.log(`[export] Lesson samples error: ${(e as Error).message}`);
+        console.log(`[export] Lessons export error: ${(e as Error).message}`);
       }
     }
-    console.log(`[export] Collected ${lessonSamples.length} lesson samples`);
+    console.log(`[export] Collected ${allLessons.length} lessons (full content)`);
 
     // ── ALL approved Exam Questions (paginated, no limit) ──
     const questionSamples: unknown[] = [];
@@ -331,10 +337,10 @@ Deno.serve(async (req) => {
     zip.file("questions_summary.json", JSON.stringify(questionsSummary, null, 2));
     zip.file("course_snapshot.json", JSON.stringify(courseSnapshot || {}, null, 2));
 
-    // Content samples (critical for audit)
-    zip.file("samples/lesson_samples.json", JSON.stringify(lessonSamples, null, 2));
-    zip.file("samples/exam_questions_approved.json", JSON.stringify(questionSamples, null, 2));
-    zip.file("samples/tutor_log_samples.json", JSON.stringify(tutorSamples, null, 2));
+    // Content (full course data for audit)
+    zip.file("content/lessons_all.json", JSON.stringify(allLessons, null, 2));
+    zip.file("content/exam_questions_approved.json", JSON.stringify(questionSamples, null, 2));
+    zip.file("content/tutor_log_samples.json", JSON.stringify(tutorSamples, null, 2));
 
     // Export manifest with counts for quick verification
     const manifest = {
@@ -343,8 +349,8 @@ Deno.serve(async (req) => {
       course_id: cid,
       curriculum_id: curriculumId,
       content_counts: {
-        lesson_samples: lessonSamples.length,
-        question_samples: questionSamples.length,
+        lessons_total: allLessons.length,
+        questions_approved: questionSamples.length,
         tutor_log_samples: tutorSamples.length,
         handbook_chapters: handbookStructured.length,
         handbook_length_chars: handbookMd.length,
@@ -384,10 +390,11 @@ Deno.serve(async (req) => {
           path,
           fileSize: bytes.length,
           created_at: new Date().toISOString(),
-          samples: {
-            lessons: lessonSamples.length,
+          content: {
+            lessons: allLessons.length,
             questions: questionSamples.length,
             tutorLogs: tutorSamples.length,
+            handbookChapters: handbookStructured.length,
           },
         },
       },
@@ -399,10 +406,11 @@ Deno.serve(async (req) => {
       downloadUrl: signed.signedUrl,
       fileName: path,
       fileSize: bytes.length,
-      samples: {
-        lessons: lessonSamples.length,
+      content: {
+        lessons: allLessons.length,
         questions: questionSamples.length,
         tutorLogs: tutorSamples.length,
+        handbookChapters: handbookStructured.length,
       },
       manifest,
     });
