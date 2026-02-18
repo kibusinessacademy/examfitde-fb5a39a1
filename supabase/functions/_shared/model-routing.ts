@@ -44,6 +44,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "openai/gpt-5" },
   ],
   learning_content: [
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "lovable", model: "google/gemini-2.5-pro" },
     { provider: "lovable", model: "openai/gpt-5" },
   ],
@@ -61,8 +62,8 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "google/gemini-2.5-pro" },
   ],
   minicheck: [
-    { provider: "lovable", model: "openai/gpt-5-mini" },
     { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "openai/gpt-5-mini" },
   ],
   seo_content: [
     { provider: "lovable", model: "google/gemini-2.5-flash" },

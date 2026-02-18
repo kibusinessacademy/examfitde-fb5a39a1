@@ -103,8 +103,9 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   }
   recordRequest(opts.provider);
 
-  const fetchTimeout = opts.max_tokens && opts.max_tokens > 8192
-    ? 55_000 // longer timeout for large generations
+  // Dynamic timeout: large content gen needs more time, tool-calling adds latency
+  const fetchTimeout = opts.max_tokens && opts.max_tokens > 4096
+    ? 90_000 // 90s for large content generation (tool calling + long prompts)
     : AI_FETCH_TIMEOUT_MS;
 
   const model = opts.model || cfg.model;

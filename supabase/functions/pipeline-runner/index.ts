@@ -384,14 +384,40 @@ async function processPackage(
       return { packageId, stepKey, job_reset: true };
     }
 
-    // Job still pending → keep lease, heartbeat the step (step stays 'enqueued')
+    // Job still pending → check if step is already "running" (state mismatch = deadlock)
     if (job.status === "pending") {
+      const currentStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
+
+      // DEADLOCK FIX: step=running but job=pending means the job was reset after a batch
+      // failure but the step was never reset. The job-runner won't re-pick this up
+      // because the step holds a stale state. Reset step to 'enqueued' so runner
+      // can properly track it, and check for staleness.
+      const jobAge = job.updated_at
+        ? Date.now() - new Date(job.updated_at as string).getTime()
+        : 0;
+      const PENDING_STALE_MS = 10 * 60 * 1000; // 10 minutes
+
+      if (currentStep?.status === "running" && jobAge > PENDING_STALE_MS) {
+        console.warn(`[runner] ⚠️ Deadlock: step ${stepKey} running but job ${jobId.slice(0, 8)} pending for ${Math.round(jobAge / 60000)}min — resetting`);
+        await safeQuery(
+          sb.from("package_steps").update({
+            status: "queued",
+            job_id: null,
+            runner_id: null,
+            started_at: null,
+            last_error: `Deadlock reset: job pending ${Math.round(jobAge / 60000)}min while step running`,
+          }).eq("package_id", packageId).eq("step_key", stepKey),
+          "reset_deadlocked_step",
+        );
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, deadlock_reset: true, jobAge: Math.round(jobAge / 60000) };
+      }
+
       await safeRpc(sb, "renew_package_lease", {
         p_package_id: packageId,
         p_runner_id: runnerId,
         p_lease_seconds: 120,
       });
-      // Heartbeat to keep step alive while waiting in queue
       await safeRpc(sb, "step_heartbeat", {
         p_package_id: packageId,
         p_step_key: stepKey,
