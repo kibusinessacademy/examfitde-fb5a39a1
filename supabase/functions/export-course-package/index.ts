@@ -234,21 +234,26 @@ Deno.serve(async (req) => {
     }
     console.log(`[export] Collected ${lessonSamples.length} lesson samples`);
 
-    // ── Sample Exam Questions: 50 random approved ──
+    // ── ALL approved Exam Questions (paginated, no limit) ──
     const questionSamples: unknown[] = [];
     if (curriculumId) {
-      console.log(`[export] Collecting exam question samples for curriculum ${curriculumId}`);
+      console.log(`[export] Collecting ALL approved exam questions for curriculum ${curriculumId}`);
       try {
-        const { data: questions, error: qErr } = await sb
-          .from("exam_questions")
-          .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status")
-          .eq("curriculum_id", curriculumId)
-          .eq("qc_status", "approved")
-          .limit(50);
-        if (qErr) {
-          console.log(`[export] Question query error: ${qErr.message}`);
-        } else {
-          for (const q of (questions || []) as Record<string, unknown>[]) {
+        const pageSize = 500;
+        let offset = 0;
+        while (true) {
+          const { data: batch, error: qErr } = await sb
+            .from("exam_questions")
+            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status")
+            .eq("curriculum_id", curriculumId)
+            .eq("qc_status", "approved")
+            .range(offset, offset + pageSize - 1);
+          if (qErr) {
+            console.log(`[export] Question query error at offset ${offset}: ${qErr.message}`);
+            break;
+          }
+          if (!batch || batch.length === 0) break;
+          for (const q of batch as Record<string, unknown>[]) {
             questionSamples.push({
               id: q.id,
               question_text: q.question_text,
@@ -261,12 +266,14 @@ Deno.serve(async (req) => {
               qc_status: q.qc_status,
             });
           }
+          if (batch.length < pageSize) break;
+          offset += pageSize;
         }
       } catch (e) {
-        console.log(`[export] Question samples error: ${(e as Error).message}`);
+        console.log(`[export] Question export error: ${(e as Error).message}`);
       }
     }
-    console.log(`[export] Collected ${questionSamples.length} question samples`);
+    console.log(`[export] Collected ${questionSamples.length} approved questions`);
 
     // ── AI Tutor Samples ──
     const tutorSamples: unknown[] = [];
@@ -301,7 +308,7 @@ Deno.serve(async (req) => {
 
     // Content samples (critical for audit)
     zip.file("samples/lesson_samples.json", JSON.stringify(lessonSamples, null, 2));
-    zip.file("samples/exam_question_samples.json", JSON.stringify(questionSamples, null, 2));
+    zip.file("samples/exam_questions_approved.json", JSON.stringify(questionSamples, null, 2));
     zip.file("samples/tutor_log_samples.json", JSON.stringify(tutorSamples, null, 2));
 
     // Export manifest with counts for quick verification
