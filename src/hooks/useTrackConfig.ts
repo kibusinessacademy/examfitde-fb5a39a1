@@ -67,8 +67,10 @@ export const DEFAULT_FLAGS: Record<ProductTrack, FeatureFlags> = {
 export const ALL_PIPELINE_STEPS = [
   { key: 'scaffold_learning_course', label: 'Lernkurs', flag: 'has_learning_course' },
   { key: 'generate_exam_pool', label: 'Prüfungsfragen', flag: 'has_exam_trainer' },
+  { key: 'validate_blueprints', label: 'QG Blueprints', flag: 'has_exam_trainer' },
   { key: 'generate_oral_exam', label: 'Mündliche', flag: 'has_oral_exam_trainer' },
   { key: 'build_ai_tutor_index', label: 'AI Tutor', flag: 'has_ai_tutor' },
+  { key: 'validate_tutor_index', label: 'QG Tutor', flag: 'has_ai_tutor' },
   { key: 'generate_handbook', label: 'Handbuch', flag: 'has_handbook' },
   { key: 'run_integrity_check', label: 'Qualitätsprüfung', flag: null },
   { key: 'auto_publish', label: 'Veröffentlichen', flag: null },

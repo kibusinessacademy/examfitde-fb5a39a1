@@ -28,11 +28,20 @@ interface BuildLiveLogProps {
 
 const STEP_LABELS: Record<string, string> = {
   scaffold_learning_course: 'Lernkurs',
+  generate_learning_content: 'Lerninhalte',
+  validate_learning_content: 'QG Lernen',
+  auto_seed_exam_blueprints: 'Blueprints',
+  validate_blueprints: 'QG Blueprints',
   generate_exam_pool: 'Prüfungsfragen',
+  validate_exam_pool: 'QG Fragen',
   generate_oral_exam: 'Mündliche',
+  validate_oral_exam: 'QG Mündl.',
   build_ai_tutor_index: 'AI Tutor',
+  validate_tutor_index: 'QG Tutor',
   generate_handbook: 'Handbuch',
+  validate_handbook: 'QG Handbuch',
   run_integrity_check: 'Qualitätsprüfung',
+  quality_council: 'QA Council',
   auto_publish: 'Veröffentlichen',
 };
 

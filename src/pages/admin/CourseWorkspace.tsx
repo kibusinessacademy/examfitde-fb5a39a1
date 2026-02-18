@@ -27,13 +27,15 @@ import { useTrackConfig, type FeatureFlags } from '@/hooks/useTrackConfig';
 
 /* ───── stepper config ───── */
 const ALL_PIPELINE_STEPS = [
-  { key: 'scaffold_learning_course', label: 'Lernkurs',      icon: BookOpen,       shortLabel: 'Kurs',  flag: 'has_learning_course' },
-  { key: 'generate_exam_pool',      label: 'Prüfungsfragen', icon: ClipboardCheck, shortLabel: 'Exam',  flag: 'has_exam_trainer' },
-  { key: 'generate_oral_exam',      label: 'Mündliche',      icon: MessageSquare,  shortLabel: 'Oral',  flag: 'has_oral_exam_trainer' },
-  { key: 'build_ai_tutor_index',    label: 'AI Tutor',       icon: Bot,            shortLabel: 'Tutor', flag: 'has_ai_tutor' },
-  { key: 'generate_handbook',       label: 'Handbuch',       icon: FileText,       shortLabel: 'Buch',  flag: 'has_handbook' },
-  { key: 'run_integrity_check',     label: 'Qualitätsprüfung', icon: Shield,       shortLabel: 'QA',    flag: null },
-  { key: 'auto_publish',            label: 'Veröffentlichen', icon: Rocket,        shortLabel: 'Pub',   flag: null },
+  { key: 'scaffold_learning_course', label: 'Lernkurs',         icon: BookOpen,       shortLabel: 'Kurs',  flag: 'has_learning_course' },
+  { key: 'generate_exam_pool',      label: 'Prüfungsfragen',    icon: ClipboardCheck, shortLabel: 'Exam',  flag: 'has_exam_trainer' },
+  { key: 'validate_blueprints',     label: 'QG Blueprints',     icon: Shield,         shortLabel: 'QG BP', flag: 'has_exam_trainer' },
+  { key: 'generate_oral_exam',      label: 'Mündliche',         icon: MessageSquare,  shortLabel: 'Oral',  flag: 'has_oral_exam_trainer' },
+  { key: 'build_ai_tutor_index',    label: 'AI Tutor',          icon: Bot,            shortLabel: 'Tutor', flag: 'has_ai_tutor' },
+  { key: 'validate_tutor_index',    label: 'QG Tutor',          icon: Shield,         shortLabel: 'QG T',  flag: 'has_ai_tutor' },
+  { key: 'generate_handbook',       label: 'Handbuch',          icon: FileText,       shortLabel: 'Buch',  flag: 'has_handbook' },
+  { key: 'run_integrity_check',     label: 'Qualitätsprüfung',  icon: Shield,         shortLabel: 'QA',    flag: null },
+  { key: 'auto_publish',            label: 'Veröffentlichen',   icon: Rocket,         shortLabel: 'Pub',   flag: null },
 ];
 
 /* ───── error diagnosis ───── */
