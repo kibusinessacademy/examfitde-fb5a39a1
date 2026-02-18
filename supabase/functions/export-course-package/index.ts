@@ -153,25 +153,22 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    // ── Tutor index + policy ──
-    const { data: tutorIndex } = await sb
+    // ── Tutor: ALL context indices for this package ──
+    const { data: tutorIndices } = await sb
       .from("ai_tutor_context_index")
       .select("*")
       .eq("package_id", packageId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
 
-    let tutorPolicy: unknown = null;
+    // ── Tutor: ALL policy versions for this curriculum ──
+    let tutorPolicies: unknown[] = [];
     if (curriculumId) {
       const { data } = await sb
         .from("ai_tutor_policies")
         .select("*")
         .eq("curriculum_id", curriculumId)
-        .order("version", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      tutorPolicy = data;
+        .order("version", { ascending: false });
+      tutorPolicies = data || [];
     }
 
     // ── Questions summary ──
@@ -305,25 +302,32 @@ Deno.serve(async (req) => {
     }
     console.log(`[export] Collected ${questionSamples.length} approved questions`);
 
-    // ── AI Tutor Samples ──
-    const tutorSamples: unknown[] = [];
+    // ── ALL AI Tutor Logs (paginated) ──
+    const allTutorLogs: unknown[] = [];
     try {
-      const { data: tutorLogs, error: tErr } = await sb
-        .from("ai_tutor_logs")
-        .select("id, mode, session_type, prompt_length, response_length, tokens_used, was_blocked, block_reason, metadata, created_at")
-        .order("created_at", { ascending: false })
-        .limit(10);
-      if (tErr) {
-        console.log(`[export] Tutor logs error: ${tErr.message}`);
-      } else {
-        for (const t of (tutorLogs || []) as Record<string, unknown>[]) {
-          tutorSamples.push(t);
+      const pageSize = 500;
+      let offset = 0;
+      while (true) {
+        const { data: batch, error: tErr } = await sb
+          .from("ai_tutor_logs")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (tErr) {
+          console.log(`[export] Tutor logs error at offset ${offset}: ${tErr.message}`);
+          break;
         }
+        if (!batch || batch.length === 0) break;
+        for (const t of batch as Record<string, unknown>[]) {
+          allTutorLogs.push(t);
+        }
+        if (batch.length < pageSize) break;
+        offset += pageSize;
       }
     } catch (e) {
-      console.log(`[export] Tutor samples error: ${(e as Error).message}`);
+      console.log(`[export] Tutor logs export error: ${(e as Error).message}`);
     }
-    console.log(`[export] Collected ${tutorSamples.length} tutor samples`);
+    console.log(`[export] Collected ${allTutorLogs.length} tutor logs`);
 
     // ── Build ZIP ──
     const zip = new JSZip();
@@ -333,14 +337,15 @@ Deno.serve(async (req) => {
     zip.file("handbook.md", handbookMd);
     zip.file("handbook_structured.json", JSON.stringify(handbookStructured, null, 2));
     zip.file("oral_exam.json", JSON.stringify(oralSet || {}, null, 2));
-    zip.file("tutor_index.json", JSON.stringify({ tutorIndex, tutorPolicy }, null, 2));
+    zip.file("tutor/context_indices.json", JSON.stringify(tutorIndices || [], null, 2));
+    zip.file("tutor/policies.json", JSON.stringify(tutorPolicies, null, 2));
+    zip.file("tutor/logs_all.json", JSON.stringify(allTutorLogs, null, 2));
     zip.file("questions_summary.json", JSON.stringify(questionsSummary, null, 2));
     zip.file("course_snapshot.json", JSON.stringify(courseSnapshot || {}, null, 2));
 
     // Content (full course data for audit)
     zip.file("content/lessons_all.json", JSON.stringify(allLessons, null, 2));
     zip.file("content/exam_questions_approved.json", JSON.stringify(questionSamples, null, 2));
-    zip.file("content/tutor_log_samples.json", JSON.stringify(tutorSamples, null, 2));
 
     // Export manifest with counts for quick verification
     const manifest = {
@@ -351,7 +356,9 @@ Deno.serve(async (req) => {
       content_counts: {
         lessons_total: allLessons.length,
         questions_approved: questionSamples.length,
-        tutor_log_samples: tutorSamples.length,
+        tutor_logs: allTutorLogs.length,
+        tutor_policy_versions: tutorPolicies.length,
+        tutor_context_indices: (tutorIndices || []).length,
         handbook_chapters: handbookStructured.length,
         handbook_length_chars: handbookMd.length,
         handbook_is_placeholder: handbookMd.length < 500,
@@ -393,7 +400,8 @@ Deno.serve(async (req) => {
           content: {
             lessons: allLessons.length,
             questions: questionSamples.length,
-            tutorLogs: tutorSamples.length,
+            tutorLogs: allTutorLogs.length,
+            tutorPolicies: tutorPolicies.length,
             handbookChapters: handbookStructured.length,
           },
         },
@@ -409,7 +417,8 @@ Deno.serve(async (req) => {
       content: {
         lessons: allLessons.length,
         questions: questionSamples.length,
-        tutorLogs: tutorSamples.length,
+        tutorLogs: allTutorLogs.length,
+        tutorPolicies: tutorPolicies.length,
         handbookChapters: handbookStructured.length,
       },
       manifest,
