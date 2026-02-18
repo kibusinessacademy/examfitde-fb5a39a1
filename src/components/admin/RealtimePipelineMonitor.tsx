@@ -17,11 +17,13 @@ const STEP_META: Record<string, { label: string; emoji: string }> = {
   generate_learning_content: { label: 'Lerninhalte generieren', emoji: '✏️' },
   validate_learning_content: { label: 'Lerninhalte validieren', emoji: '✅' },
   auto_seed_exam_blueprints: { label: 'Blueprints seeden', emoji: '🗺️' },
+  validate_blueprints: { label: 'Blueprints validieren', emoji: '✅' },
   generate_exam_pool: { label: 'Prüfungsfragen', emoji: '❓' },
   validate_exam_pool: { label: 'Prüfungen validieren', emoji: '✅' },
   generate_oral_exam: { label: 'Mündliche Prüfung', emoji: '🎤' },
   validate_oral_exam: { label: 'Mündliche validieren', emoji: '✅' },
   build_ai_tutor_index: { label: 'KI-Tutor Index', emoji: '🤖' },
+  validate_tutor_index: { label: 'Tutor-Index validieren', emoji: '✅' },
   generate_handbook: { label: 'Handbuch', emoji: '📖' },
   validate_handbook: { label: 'Handbuch validieren', emoji: '✅' },
   run_integrity_check: { label: 'Integritätsprüfung', emoji: '🔍' },
@@ -31,10 +33,12 @@ const STEP_META: Record<string, { label: string; emoji: string }> = {
 
 const STEP_ORDER = [
   'scaffold_learning_course', 'generate_learning_content', 'validate_learning_content',
-  'auto_seed_exam_blueprints', 'generate_exam_pool', 'validate_exam_pool',
-  'generate_oral_exam', 'validate_oral_exam', 'build_ai_tutor_index',
-  'generate_handbook', 'validate_handbook', 'run_integrity_check',
-  'quality_council', 'auto_publish',
+  'auto_seed_exam_blueprints', 'validate_blueprints',
+  'generate_exam_pool', 'validate_exam_pool',
+  'generate_oral_exam', 'validate_oral_exam',
+  'build_ai_tutor_index', 'validate_tutor_index',
+  'generate_handbook', 'validate_handbook',
+  'run_integrity_check', 'quality_council', 'auto_publish',
 ];
 
 function StepStatusIcon({ status }: { status: string }) {
@@ -114,11 +118,25 @@ function PackagePipeline({ pkg, steps }: { pkg: any; steps: any[] }) {
                   {meta.label}
                 </span>
 
-                {(isRunning || isFailed) && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {step.attempts}/{step.max_attempts}
-                  </span>
-                )}
+                {(isRunning || isFailed) && (() => {
+                  const m = step.meta as Record<string, unknown> | null;
+                  const remaining = m?.remaining != null ? Number(m.remaining) : null;
+                  const generated = m?.generated != null ? Number(m.generated) : null;
+                  const totalPh = m?.total_placeholders != null ? Number(m.total_placeholders) : null;
+                  // Show batch progress if available, otherwise show attempts
+                  if (remaining !== null && generated !== null) {
+                    return (
+                      <span className="text-[10px] text-muted-foreground">
+                        {generated}/{generated + remaining}
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="text-[10px] text-muted-foreground">
+                      #{step.attempts}
+                    </span>
+                  );
+                })()}
 
                 {isRunning && <HeartbeatAge ts={step.last_heartbeat_at} />}
 
