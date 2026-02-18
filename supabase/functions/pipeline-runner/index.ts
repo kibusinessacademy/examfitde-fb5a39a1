@@ -565,7 +565,7 @@ async function processPackage(
       if (result.ok === false && VALIDATION_PREDECESSOR[stepKey]) {
         const predecessorStep = VALIDATION_PREDECESSOR[stepKey];
         const attempts = currentStep?.attempts ?? 0;
-        const MAX_HEAL_RETRIES = 5;
+        const MAX_HEAL_RETRIES = 7;
 
         if (attempts < MAX_HEAL_RETRIES) {
           console.warn(`[runner] 🔄 Auto-heal: ${stepKey} failed validation (attempt ${attempts + 1}/${MAX_HEAL_RETRIES}) — resetting predecessor ${predecessorStep}`);
@@ -662,15 +662,59 @@ async function processPackage(
       return { packageId, stepKey, mode, progress };
     }
 
-    // Job failed
+    // Job failed — auto-heal with up to 7 retries for ALL steps
     if (job.status === "failed") {
       const errorMsg = job.last_error || job.error || "Worker job failed";
-      console.error(`[runner] ❌ Step ${stepKey} job failed: ${errorMsg}`);
+      const MAX_STEP_RETRIES = 7;
+      const stepAttempts = currentStep?.attempts ?? 0;
+
+      if (stepAttempts < MAX_STEP_RETRIES) {
+        console.warn(`[runner] 🔄 Auto-heal: ${stepKey} job failed (attempt ${stepAttempts + 1}/${MAX_STEP_RETRIES}) — re-queuing`);
+
+        // Re-queue the step for retry
+        await safeQuery(
+          sb.from("package_steps")
+            .update({
+              status: "queued",
+              job_id: null,
+              runner_id: null,
+              started_at: null,
+              last_error: `Auto-heal retry ${stepAttempts + 1}/${MAX_STEP_RETRIES}: ${errorMsg.slice(0, 200)}`,
+            })
+            .eq("package_id", packageId)
+            .eq("step_key", stepKey),
+          "auto_heal_retry_step",
+        );
+
+        await safeQuery(
+          sb.from("auto_heal_log").insert({
+            action_type: "step_job_retry",
+            trigger_source: "pipeline_runner",
+            target_type: "package_step",
+            target_id: packageId,
+            result_status: "ok",
+            result_detail: `${stepKey} job failed → re-queued (attempt ${stepAttempts + 1}/${MAX_STEP_RETRIES})`,
+            metadata: { step: stepKey, attempt: stepAttempts + 1, error: errorMsg.slice(0, 500) },
+          }),
+        );
+
+        await safeQuery(
+          sb.from("course_packages")
+            .update({ status: "building", last_error: `Step ${stepKey}: retry ${stepAttempts + 1}/${MAX_STEP_RETRIES}` })
+            .eq("id", packageId),
+        );
+
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, auto_heal_retry: true, attempt: stepAttempts + 1, maxRetries: MAX_STEP_RETRIES };
+      }
+
+      // Retries exhausted
+      console.error(`[runner] ❌ Step ${stepKey} failed after ${MAX_STEP_RETRIES} auto-heal retries: ${errorMsg}`);
 
       await safeRpc(sb, "step_fail", {
         p_package_id: packageId,
         p_step_key: stepKey,
-        p_error: errorMsg,
+        p_error: `Exhausted after ${MAX_STEP_RETRIES} retries: ${errorMsg}`,
       });
 
       await safeQuery(
@@ -682,12 +726,12 @@ async function processPackage(
 
       await safeQuery(
         sb.from("course_packages")
-          .update({ status: "building", last_error: `Step ${stepKey}: ${errorMsg.slice(0, 250)}` })
+          .update({ status: "quality_gate_failed", last_error: `Step ${stepKey}: failed after ${MAX_STEP_RETRIES} retries` })
           .eq("id", packageId),
       );
 
       await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-      return { packageId, stepKey, job_failed: true, error: errorMsg };
+      return { packageId, stepKey, job_failed: true, retries_exhausted: true, error: errorMsg };
     }
 
     // Unknown job status
