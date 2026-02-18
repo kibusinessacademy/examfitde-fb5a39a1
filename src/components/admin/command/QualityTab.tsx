@@ -2,23 +2,30 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Award, TrendingDown, TrendingUp, Minus } from 'lucide-react';
+import { Award, TrendingDown, TrendingUp, Minus, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function QualityTab() {
   const [summaries, setSummaries] = useState<any[]>([]);
   const [drift, setDrift] = useState<any[]>([]);
+  const [gateStats, setGateStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       const sb = supabase as any;
-      const [sumRes, driftRes] = await Promise.all([
+      const [sumRes, driftRes, gateRes] = await Promise.all([
         sb.from('package_quality_summary').select('*').order('quality_score', { ascending: true }).limit(30),
         sb.from('quality_drift_monitor').select('*').limit(60),
+        sb.from('package_steps')
+          .select('step_key, status, package_id, last_error, meta')
+          .in('step_key', ['validate_blueprints', 'validate_tutor_index', 'validate_learning_content', 'validate_exam_pool', 'validate_oral_exam', 'validate_handbook'])
+          .order('updated_at', { ascending: false })
+          .limit(200),
       ]);
       setSummaries(sumRes.data || []);
       setDrift(driftRes.data || []);
+      setGateStats(gateRes.data || []);
       setLoading(false);
     })();
   }, []);
@@ -36,7 +43,6 @@ export default function QualityTab() {
 
   interface ModelDriftData { days: any[]; avgScore: number; avgEscRate: number }
 
-  // Aggregate drift by model
   const modelDrift: Record<string, ModelDriftData> = drift.reduce((acc: Record<string, ModelDriftData>, d: any) => {
     if (!acc[d.model]) acc[d.model] = { days: [], avgScore: 0, avgEscRate: 0 };
     acc[d.model].days.push(d);
@@ -48,11 +54,27 @@ export default function QualityTab() {
     m.avgEscRate = m.days.reduce((s: number, d: any) => s + (d.escalation_rate_pct || 0), 0) / m.days.length;
   }
 
-  // Calculate overall stats
   const totalPackages = summaries.length;
   const avgScore = totalPackages > 0 ? Math.round(summaries.reduce((s, p) => s + (p.quality_score || 0), 0) / totalPackages) : 0;
   const avgDupRate = totalPackages > 0 ? (summaries.reduce((s, p) => s + (p.duplicate_rate || 0), 0) / totalPackages).toFixed(1) : '0';
   const totalEscalations = drift.reduce((s: number, d: any) => s + (d.escalation_count || 0), 0);
+
+  // ── Aggregate QG stats ──
+  const gateAgg: Record<string, { passed: number; failed: number; pending: number }> = {};
+  const GATE_LABELS: Record<string, string> = {
+    validate_blueprints: 'Blueprint QG',
+    validate_tutor_index: 'Tutor-Index QG',
+    validate_learning_content: 'Content QG',
+    validate_exam_pool: 'Exam-Pool QG',
+    validate_oral_exam: 'Oral-Exam QG',
+    validate_handbook: 'Handbuch QG',
+  };
+  for (const g of gateStats) {
+    if (!gateAgg[g.step_key]) gateAgg[g.step_key] = { passed: 0, failed: 0, pending: 0 };
+    if (g.status === 'done') gateAgg[g.step_key].passed++;
+    else if (g.status === 'failed') gateAgg[g.step_key].failed++;
+    else gateAgg[g.step_key].pending++;
+  }
 
   return (
     <div className="space-y-4">
@@ -63,6 +85,43 @@ export default function QualityTab() {
         <Card><CardContent className="pt-3 pb-2.5 px-3"><p className="text-[10px] text-muted-foreground uppercase">Packages bewertet</p><p className="text-xl font-bold">{totalPackages}</p></CardContent></Card>
         <Card><CardContent className="pt-3 pb-2.5 px-3"><p className="text-[10px] text-muted-foreground uppercase">Escalations (30d)</p><p className="text-xl font-bold">{totalEscalations}</p></CardContent></Card>
       </div>
+
+      {/* Quality Gate Status */}
+      {Object.keys(gateAgg).length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> Quality Gates</CardTitle>
+            <CardDescription>Pipeline-Validierungsschritte: Pass/Fail/Pending</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              {Object.entries(gateAgg).map(([key, stats]) => {
+                const total = stats.passed + stats.failed + stats.pending;
+                const passRate = total > 0 ? Math.round((stats.passed / total) * 100) : 0;
+                return (
+                  <div key={key} className="flex flex-col gap-1 p-2 rounded-lg border border-border/40 bg-muted/10">
+                    <span className="text-xs font-medium truncate">{GATE_LABELS[key] || key}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-lg font-bold", passRate >= 80 ? 'text-emerald-600' : passRate >= 50 ? 'text-amber-600' : 'text-destructive')}>{passRate}%</span>
+                      <div className="flex gap-1 text-[10px] text-muted-foreground">
+                        <span className="text-emerald-600">✅{stats.passed}</span>
+                        {stats.failed > 0 && <span className="text-destructive">❌{stats.failed}</span>}
+                        {stats.pending > 0 && <span>⏳{stats.pending}</span>}
+                      </div>
+                    </div>
+                    {/* Mini progress bar */}
+                    <div className="h-1 rounded-full bg-muted flex overflow-hidden">
+                      {stats.passed > 0 && <div className="bg-emerald-500 h-full" style={{ width: `${(stats.passed / total) * 100}%` }} />}
+                      {stats.failed > 0 && <div className="bg-destructive h-full" style={{ width: `${(stats.failed / total) * 100}%` }} />}
+                      {stats.pending > 0 && <div className="bg-amber-400 h-full" style={{ width: `${(stats.pending / total) * 100}%` }} />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quality Drift Monitor */}
       {Object.keys(modelDrift).length > 0 && (

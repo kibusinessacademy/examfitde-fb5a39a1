@@ -8,14 +8,22 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
  * Validates that the seeded blueprints provide complete, well-distributed,
  * schema-valid coverage before expensive exam-question generation begins.
  *
- * Checks:
- *  1. COVERAGE: Every learning-field has at least 1 blueprint (gap detection)
- *  2. DISTRIBUTION: Blueprint count per LF roughly matches weight_percent (±15pp tolerance)
- *  3. SCHEMA: Required fields present (topic_id, difficulty, question_type, cognitive_level)
- *  4. DUPLICATES: Near-duplicate canonical_statements (Jaccard ≥ 0.80)
- *  5. PLAUSIBILITY: No generic/empty learning_objectives
+ * Hard-Fail Gates (block pipeline):
+ *  1. COVERAGE: Every learning-field has at least 1 blueprint
+ *  2. SCHEMA: Required fields present
+ *  3. PLAUSIBILITY: No generic/empty learning_objectives
+ *  4. MIN TOTAL: At least 10 blueprints
+ *  5. HIGH DUPLICATE RATE: >15% near-duplicates
+ *  6. DIFFICULTY DISTRIBUTION: Not >60% easy, at least 5% hard
+ *  7. BLOOM COVERAGE: At least Apply+Analyze per LF
+ *  8. MIN PER LF: At least 3 blueprints per learning field
  *
- * On failure: returns ok=false + batch_complete=true (pipeline step fails, no infinite loop)
+ * Warnings (logged, don't block):
+ *  - Weight drift >15pp
+ *  - Near-duplicates (individual)
+ *  - Max per LF exceeded (>80)
+ *
+ * On failure: returns ok=false + batch_complete=true
  */
 
 function json(body: unknown, status = 200) {
@@ -42,7 +50,12 @@ function jaccardSim(a: Set<string>, b: Set<string>): number {
 
 const JACCARD_THRESHOLD = 0.80;
 const MIN_BLUEPRINTS_TOTAL = 10;
-const WEIGHT_TOLERANCE_PP = 15; // percentage-point tolerance
+const MIN_BLUEPRINTS_PER_LF = 3;
+const MAX_BLUEPRINTS_PER_LF = 80;
+const WEIGHT_TOLERANCE_PP = 15;
+const MAX_EASY_PCT = 60;
+const MIN_HARD_PCT = 5;
+const REQUIRED_BLOOM_LEVELS = ["apply", "analyze"];
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -61,7 +74,6 @@ Deno.serve(async (req) => {
     return json({ error: "Missing package_id or curriculum_id" }, 400);
   }
 
-  // Resolve profession for logging
   let professionName = "unbekannt";
   try {
     const prof = await resolveProfession(sb, {
@@ -69,7 +81,7 @@ Deno.serve(async (req) => {
       curriculumId,
     });
     professionName = prof.professionName;
-  } catch { /* continue with unknown */ }
+  } catch { /* continue */ }
 
   console.log(`[validate-blueprints] Starting for ${professionName} (pkg ${packageId.slice(0, 8)})`);
 
@@ -89,7 +101,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── Load learning fields for coverage check ──
+  // ── Load learning fields ──
   const { data: learningFields } = await sb
     .from("learning_fields")
     .select("id, name, weight_percent")
@@ -99,14 +111,16 @@ Deno.serve(async (req) => {
   const issues: string[] = [];
   const warnings: string[] = [];
 
-  // ═══ CHECK 1: Coverage — every LF has blueprints ═══
-  const bpByLf = new Map<string, number>();
+  // ── Aggregate by LF ──
+  const bpByLf = new Map<string, any[]>();
   for (const bp of blueprints) {
     if (bp.learning_field_id) {
-      bpByLf.set(bp.learning_field_id, (bpByLf.get(bp.learning_field_id) || 0) + 1);
+      if (!bpByLf.has(bp.learning_field_id)) bpByLf.set(bp.learning_field_id, []);
+      bpByLf.get(bp.learning_field_id)!.push(bp);
     }
   }
 
+  // ═══ CHECK 1: Coverage — every LF has blueprints ═══
   const missingLfs: string[] = [];
   for (const [lfId, lf] of lfMap) {
     if (!bpByLf.has(lfId)) {
@@ -117,13 +131,25 @@ Deno.serve(async (req) => {
     issues.push(`MISSING_LF_COVERAGE: ${missingLfs.length} Lernfelder ohne Blueprints: ${missingLfs.slice(0, 5).join(", ")}${missingLfs.length > 5 ? "…" : ""}`);
   }
 
-  // ═══ CHECK 2: Distribution vs weight ═══
+  // ═══ CHECK 2: Min/Max per LF ═══
+  for (const [lfId, bps] of bpByLf) {
+    const lf = lfMap.get(lfId) as any;
+    const lfName = lf?.name || lfId.slice(0, 8);
+    if (bps.length < MIN_BLUEPRINTS_PER_LF) {
+      issues.push(`TOO_FEW_PER_LF: ${lfName} hat nur ${bps.length}/${MIN_BLUEPRINTS_PER_LF} Blueprints`);
+    }
+    if (bps.length > MAX_BLUEPRINTS_PER_LF) {
+      warnings.push(`TOO_MANY_PER_LF: ${lfName} hat ${bps.length} Blueprints (Max ${MAX_BLUEPRINTS_PER_LF})`);
+    }
+  }
+
+  // ═══ CHECK 3: Distribution vs weight ═══
   if (learningFields && learningFields.length > 0 && blueprints.length >= MIN_BLUEPRINTS_TOTAL) {
-    for (const [lfId, count] of bpByLf) {
+    for (const [lfId, bps] of bpByLf) {
       const lf = lfMap.get(lfId) as any;
       if (!lf?.weight_percent) continue;
       const expectedPct = lf.weight_percent;
-      const actualPct = (count / blueprints.length) * 100;
+      const actualPct = (bps.length / blueprints.length) * 100;
       const diff = Math.abs(actualPct - expectedPct);
       if (diff > WEIGHT_TOLERANCE_PP) {
         warnings.push(`WEIGHT_DRIFT: ${lf.name}: erwartet ~${expectedPct.toFixed(0)}%, tatsächlich ${actualPct.toFixed(0)}% (Δ${diff.toFixed(0)}pp)`);
@@ -131,7 +157,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ═══ CHECK 3: Schema — required fields ═══
+  // ═══ CHECK 4: Schema — required fields ═══
   let schemaErrors = 0;
   const requiredFields = ["canonical_statement", "knowledge_type", "cognitive_level"];
   for (const bp of blueprints) {
@@ -148,7 +174,49 @@ Deno.serve(async (req) => {
     issues.push(`SCHEMA_MISSING: …und ${schemaErrors - 5} weitere Schema-Fehler`);
   }
 
-  // ═══ CHECK 4: Near-duplicates ═══
+  // ═══ CHECK 5: Difficulty Distribution (HARD FAIL) ═══
+  const difficultyCount: Record<string, number> = {};
+  for (const bp of blueprints) {
+    const d = (bp.difficulty || "medium").toString().toLowerCase();
+    difficultyCount[d] = (difficultyCount[d] || 0) + 1;
+  }
+  const total = blueprints.length;
+  const easyPct = ((difficultyCount["easy"] || difficultyCount["leicht"] || 0) / total) * 100;
+  const hardPct = ((difficultyCount["hard"] || difficultyCount["schwer"] || 0) / total) * 100;
+
+  if (easyPct > MAX_EASY_PCT) {
+    issues.push(`EASY_OVERLOAD: ${easyPct.toFixed(0)}% leicht (Max ${MAX_EASY_PCT}%) — Exam-Pool wird zu einfach`);
+  }
+  if (total >= MIN_BLUEPRINTS_TOTAL && hardPct < MIN_HARD_PCT) {
+    issues.push(`TOO_FEW_HARD: nur ${hardPct.toFixed(0)}% schwer (Min ${MIN_HARD_PCT}%) — keine Prüfungstiefe`);
+  }
+
+  // ═══ CHECK 6: Bloom/Cognitive Level Coverage per LF (HARD FAIL) ═══
+  const bloomByLf = new Map<string, Set<string>>();
+  for (const bp of blueprints) {
+    if (!bp.learning_field_id || !bp.cognitive_level) continue;
+    if (!bloomByLf.has(bp.learning_field_id)) bloomByLf.set(bp.learning_field_id, new Set());
+    bloomByLf.get(bp.learning_field_id)!.add(bp.cognitive_level.toLowerCase());
+  }
+
+  const bloomMissingLfs: string[] = [];
+  for (const [lfId, levels] of bloomByLf) {
+    const missing = REQUIRED_BLOOM_LEVELS.filter(l => !levels.has(l));
+    if (missing.length > 0) {
+      const lfName = (lfMap.get(lfId) as any)?.name || lfId.slice(0, 8);
+      bloomMissingLfs.push(`${lfName} fehlt: ${missing.join(", ")}`);
+    }
+  }
+  if (bloomMissingLfs.length > 0) {
+    // Only hard-fail if >50% of LFs are missing required levels
+    if (bloomMissingLfs.length > lfMap.size * 0.5) {
+      issues.push(`BLOOM_GAPS: ${bloomMissingLfs.length} Lernfelder ohne Apply/Analyze: ${bloomMissingLfs.slice(0, 3).join("; ")}${bloomMissingLfs.length > 3 ? "…" : ""}`);
+    } else {
+      warnings.push(`BLOOM_PARTIAL: ${bloomMissingLfs.length} LF mit unvollständiger Bloom-Abdeckung`);
+    }
+  }
+
+  // ═══ CHECK 7: Near-duplicates ═══
   const recentNgrams: Array<{ id: string; ngrams: Set<string>; text: string }> = [];
   let dupCount = 0;
   for (const bp of blueprints) {
@@ -175,7 +243,7 @@ Deno.serve(async (req) => {
     issues.push(`HIGH_DUPLICATE_RATE: ${dupCount}/${blueprints.length} (${((dupCount / blueprints.length) * 100).toFixed(0)}%) Beinahe-Duplikate`);
   }
 
-  // ═══ CHECK 5: Plausibility — no empty/generic statements ═══
+  // ═══ CHECK 8: Plausibility — no empty/generic statements ═══
   let genericCount = 0;
   for (const bp of blueprints) {
     const stmt = (bp.canonical_statement || "").trim();
@@ -198,6 +266,14 @@ Deno.serve(async (req) => {
     ? ((bpByLf.size / lfMap.size) * 100)
     : 100;
 
+  // ── Compute quality sub-score (0-100) ──
+  let score = 100;
+  if (issues.length > 0) score -= issues.length * 12;
+  if (warnings.length > 0) score -= warnings.length * 3;
+  if (coveragePct < 100) score -= (100 - coveragePct) * 0.5;
+  if (dupCount > 0) score -= dupCount * 2;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
   const summary = {
     total_blueprints: blueprints.length,
     learning_fields_total: lfMap.size,
@@ -206,23 +282,25 @@ Deno.serve(async (req) => {
     schema_errors: schemaErrors,
     duplicates: dupCount,
     generic: genericCount,
+    difficulty_distribution: difficultyCount,
+    bloom_coverage: Object.fromEntries([...bloomByLf].map(([k, v]) => [k, [...v]])),
+    quality_score: score,
   };
 
-  console.log(`[validate-blueprints] Result: ${passed ? "PASS" : "FAIL"} | ${blueprints.length} blueprints, ${coveragePct.toFixed(0)}% LF coverage, ${issues.length} issues, ${warnings.length} warnings`);
+  console.log(`[validate-blueprints] Result: ${passed ? "PASS" : "FAIL"} | score=${score} | ${blueprints.length} blueprints, ${coveragePct.toFixed(0)}% LF, ${issues.length} issues, ${warnings.length} warnings`);
 
-  // Store validation result on the package
   await sb.from("course_packages").update({
     last_error: passed ? null : `Blueprint QC: ${issues.length} Fehler`,
   }).eq("id", packageId);
 
   return json({
     ok: passed,
-    batch_complete: true, // Always complete — no infinite loop
+    batch_complete: true,
     summary,
     issues,
     warnings,
     message: passed
-      ? `✅ Blueprint-Validierung bestanden: ${blueprints.length} Blueprints, ${coveragePct.toFixed(0)}% Coverage`
+      ? `✅ Blueprint-Validierung bestanden: ${blueprints.length} Blueprints, ${coveragePct.toFixed(0)}% Coverage, Score ${score}`
       : `❌ Blueprint-Validierung fehlgeschlagen: ${issues.join("; ")}`,
   });
 });
