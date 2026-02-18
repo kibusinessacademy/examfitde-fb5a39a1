@@ -666,7 +666,9 @@ async function processPackage(
     if (job.status === "failed") {
       const errorMsg = job.last_error || job.error || "Worker job failed";
       const MAX_STEP_RETRIES = 7;
-      const stepAttempts = currentStep?.attempts ?? 0;
+      // FIX: currentStep must be resolved HERE (not from the "completed" block scope)
+      const failedStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
+      const stepAttempts = failedStep?.attempts ?? 0;
 
       if (stepAttempts < MAX_STEP_RETRIES) {
         console.warn(`[runner] 🔄 Auto-heal: ${stepKey} job failed (attempt ${stepAttempts + 1}/${MAX_STEP_RETRIES}) — re-queuing`);
