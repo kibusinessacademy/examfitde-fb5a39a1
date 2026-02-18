@@ -1,34 +1,40 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Activity, Award, DollarSign, AlertTriangle, TrendingUp, Cpu, Users, BookOpen, BarChart3, Shield, Sparkles } from 'lucide-react';
-import HealthTab from '@/components/admin/command/HealthTab';
-import QualityTab from '@/components/admin/command/QualityTab';
-import CostTab from '@/components/admin/command/CostTab';
-import ErrorsTab from '@/components/admin/command/ErrorsTab';
-import RoiTab from '@/components/admin/command/RoiTab';
-import RoutingTab from '@/components/admin/command/RoutingTab';
-import SeatsTab from '@/components/admin/command/SeatsTab';
-import ExamQualityTab from '@/components/admin/command/ExamQualityTab';
-import OutcomeKPIsTab from '@/components/admin/command/OutcomeKPIsTab';
-import RealtimePipelineMonitor from '@/components/admin/RealtimePipelineMonitor';
+import { Activity, Award, DollarSign, AlertTriangle, TrendingUp, Cpu, Users, BookOpen, BarChart3, Shield, Sparkles, LayoutDashboard } from 'lucide-react';
+import { lazy, Suspense } from 'react';
+import { Loader2 } from 'lucide-react';
+import Leitstelle from '@/components/admin/command/Leitstelle';
 import RealtimeAlerts from '@/components/admin/RealtimeAlerts';
-import ProductionSafetyNet from '@/components/admin/ProductionSafetyNet';
-import CEODailyKPIs from '@/components/admin/CEODailyKPIs';
+
+const HealthTab = lazy(() => import('@/components/admin/command/HealthTab'));
+const QualityTab = lazy(() => import('@/components/admin/command/QualityTab'));
+const CostTab = lazy(() => import('@/components/admin/command/CostTab'));
+const ErrorsTab = lazy(() => import('@/components/admin/command/ErrorsTab'));
+const RoiTab = lazy(() => import('@/components/admin/command/RoiTab'));
+const RoutingTab = lazy(() => import('@/components/admin/command/RoutingTab'));
+const SeatsTab = lazy(() => import('@/components/admin/command/SeatsTab'));
+const ExamQualityTab = lazy(() => import('@/components/admin/command/ExamQualityTab'));
+const OutcomeKPIsTab = lazy(() => import('@/components/admin/command/OutcomeKPIsTab'));
+const ProductionSafetyNet = lazy(() => import('@/components/admin/ProductionSafetyNet'));
+const CEODailyKPIs = lazy(() => import('@/components/admin/CEODailyKPIs'));
+const RealtimePipelineMonitor = lazy(() => import('@/components/admin/RealtimePipelineMonitor'));
+
+const Fallback = () => <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
 
 export default function CommandPage() {
   return (
     <div className="space-y-4">
-      <h1 className="text-xl lg:text-2xl font-display font-bold text-foreground">Leitstelle</h1>
-
       <RealtimeAlerts />
-      <RealtimePipelineMonitor />
 
-      <Tabs defaultValue="health" className="w-full">
+      <Tabs defaultValue="leitstelle" className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1">
+          <TabsTrigger value="leitstelle" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
+            <LayoutDashboard className="h-3.5 w-3.5" /><span className="hidden sm:inline">Leitstelle</span>
+          </TabsTrigger>
+          <TabsTrigger value="pipeline" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
+            <Activity className="h-3.5 w-3.5" /><span className="hidden sm:inline">Pipeline</span>
+          </TabsTrigger>
           <TabsTrigger value="health" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
             <Activity className="h-3.5 w-3.5" /><span className="hidden sm:inline">Health</span>
-          </TabsTrigger>
-          <TabsTrigger value="quality" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
-            <Award className="h-3.5 w-3.5" /><span className="hidden sm:inline">Quality</span>
           </TabsTrigger>
           <TabsTrigger value="cost" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
             <DollarSign className="h-3.5 w-3.5" /><span className="hidden sm:inline">Cost</span>
@@ -36,40 +42,17 @@ export default function CommandPage() {
           <TabsTrigger value="errors" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
             <AlertTriangle className="h-3.5 w-3.5" /><span className="hidden sm:inline">Errors</span>
           </TabsTrigger>
-          <TabsTrigger value="roi" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
-            <TrendingUp className="h-3.5 w-3.5" /><span className="hidden sm:inline">ROI</span>
-          </TabsTrigger>
-          <TabsTrigger value="routing" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
-            <Cpu className="h-3.5 w-3.5" /><span className="hidden sm:inline">Routing</span>
-          </TabsTrigger>
-          <TabsTrigger value="seats" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
-            <Users className="h-3.5 w-3.5" /><span className="hidden sm:inline">Seats</span>
-          </TabsTrigger>
-          <TabsTrigger value="exam" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
-            <BookOpen className="h-3.5 w-3.5" /><span className="hidden sm:inline">Exam KPIs</span>
-          </TabsTrigger>
-          <TabsTrigger value="outcome" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
-            <BarChart3 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Outcome</span>
-          </TabsTrigger>
-          <TabsTrigger value="safety" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
-            <Shield className="h-3.5 w-3.5" /><span className="hidden sm:inline">Safety Net</span>
-          </TabsTrigger>
           <TabsTrigger value="ceo" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
-            <Sparkles className="h-3.5 w-3.5" /><span className="hidden sm:inline">CEO KPIs</span>
+            <Sparkles className="h-3.5 w-3.5" /><span className="hidden sm:inline">CEO</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="health" className="mt-4"><HealthTab /></TabsContent>
-        <TabsContent value="quality" className="mt-4"><QualityTab /></TabsContent>
-        <TabsContent value="cost" className="mt-4"><CostTab /></TabsContent>
-        <TabsContent value="errors" className="mt-4"><ErrorsTab /></TabsContent>
-        <TabsContent value="roi" className="mt-4"><RoiTab /></TabsContent>
-        <TabsContent value="routing" className="mt-4"><RoutingTab /></TabsContent>
-        <TabsContent value="seats" className="mt-4"><SeatsTab /></TabsContent>
-        <TabsContent value="exam" className="mt-4"><ExamQualityTab /></TabsContent>
-        <TabsContent value="outcome" className="mt-4"><OutcomeKPIsTab /></TabsContent>
-        <TabsContent value="safety" className="mt-4"><ProductionSafetyNet /></TabsContent>
-        <TabsContent value="ceo" className="mt-4"><CEODailyKPIs /></TabsContent>
+        <TabsContent value="leitstelle" className="mt-4"><Leitstelle /></TabsContent>
+        <TabsContent value="pipeline" className="mt-4"><Suspense fallback={<Fallback />}><RealtimePipelineMonitor /></Suspense></TabsContent>
+        <TabsContent value="health" className="mt-4"><Suspense fallback={<Fallback />}><HealthTab /></Suspense></TabsContent>
+        <TabsContent value="cost" className="mt-4"><Suspense fallback={<Fallback />}><CostTab /></Suspense></TabsContent>
+        <TabsContent value="errors" className="mt-4"><Suspense fallback={<Fallback />}><ErrorsTab /></Suspense></TabsContent>
+        <TabsContent value="ceo" className="mt-4"><Suspense fallback={<Fallback />}><CEODailyKPIs /></Suspense></TabsContent>
       </Tabs>
     </div>
   );
