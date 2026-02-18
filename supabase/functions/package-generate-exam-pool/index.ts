@@ -799,12 +799,15 @@ Deno.serve(async (req) => {
 
   try {
     if (!isFanOut) {
-      // Prerequisite: scaffold + content generation must be done
+      // Prerequisite: scaffold + content generation + blueprint seeding must be done
       const scaffoldDone = await prereqDone(sb, packageId, "scaffold_learning_course");
       const contentDone = await prereqDone(sb, packageId, "generate_learning_content");
+      const seedDone = await prereqDone(sb, packageId, "auto_seed_exam_blueprints");
       
-      if (!scaffoldDone || !contentDone) {
-        const missingStep = !scaffoldDone ? "scaffold_learning_course" : "generate_learning_content";
+      if (!scaffoldDone || !contentDone || !seedDone) {
+        const missingStep = !scaffoldDone ? "scaffold_learning_course" 
+          : !contentDone ? "generate_learning_content" 
+          : "auto_seed_exam_blueprints";
         const jobId = p.job_id || body.job_id;
         if (jobId) {
           await sb.from("job_queue").update({
@@ -847,7 +850,11 @@ Deno.serve(async (req) => {
 
     const { data: bps, error: bpErr } = await bpQuery;
     if (bpErr) throw bpErr;
-    if (!bps?.length) throw new Error("No approved question_blueprints for curriculum.");
+    // Graceful prereq guard: if no blueprints exist, return 409 retry instead of crashing
+    if (!bps?.length) {
+      console.warn(`[ExamPool-v5] No approved blueprints for curriculum ${curriculumId} → 409 retry`);
+      return json({ ok: false, retry: true, error: "NO_BLUEPRINTS: auto_seed_exam_blueprints must complete first." }, 409);
+    }
 
     // Fan-out for large sets
     if (!isFanOut && bpIndex === 0 && bps.length > 10) {
