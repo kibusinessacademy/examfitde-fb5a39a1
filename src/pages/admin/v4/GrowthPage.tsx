@@ -113,8 +113,12 @@ function ChurnDashboard() {
         })}
         {predictions.length === 0 && (
           <Card className="border-dashed">
-            <CardContent className="py-8 text-center text-muted-foreground text-sm">
-              Keine Churn-Vorhersagen vorhanden.
+            <CardContent className="py-12 text-center">
+              <UserX className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+              <p className="text-sm font-medium text-foreground mb-1">Keine Churn-Vorhersagen</p>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                Churn-Vorhersagen werden automatisch erstellt, sobald Nutzer auf der Plattform aktiv sind und das System genügend Verhaltensdaten gesammelt hat (min. 7 Tage Aktivität).
+              </p>
             </CardContent>
           </Card>
         )}
@@ -184,8 +188,12 @@ function NudgeEngine() {
         })}
         {actions.length === 0 && (
           <Card className="border-dashed">
-            <CardContent className="py-8 text-center text-muted-foreground text-sm">
-              Noch keine Nudges konfiguriert.
+            <CardContent className="py-12 text-center">
+              <Bell className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+              <p className="text-sm font-medium text-foreground mb-1">Nudge Engine inaktiv</p>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                Nudges werden automatisch generiert, sobald Churn-Vorhersagen vorliegen. Regeln: 3 Tage inaktiv → Erinnerung, Integrität &lt;70% → Lernhinweis, Prüfung in 14 Tagen → Motivation.
+              </p>
             </CardContent>
           </Card>
         )}
@@ -241,9 +249,12 @@ function FeedbackInbox() {
         ))}
         {feedback.length === 0 && (
           <Card className="border-dashed">
-            <CardContent className="py-8 text-center text-muted-foreground text-sm">
-              <MessageSquare className="h-8 w-8 mx-auto mb-2" />
-              Kein Feedback vorhanden.
+            <CardContent className="py-12 text-center">
+              <MessageSquare className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+              <p className="text-sm font-medium text-foreground mb-1">Kein Feedback vorhanden</p>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                Feedback und Support-Tickets erscheinen hier, sobald Nutzer über die Plattform Anfragen stellen. Ticket-Typen: Verständnisfragen, Technik, Prüfungsangst, Lernstrategie, Abrechnung.
+              </p>
             </CardContent>
           </Card>
         )}

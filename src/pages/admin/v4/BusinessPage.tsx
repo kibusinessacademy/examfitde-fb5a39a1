@@ -37,18 +37,35 @@ const tabs = [
 function LLMCostDashboard() {
   const [kpis, setKpis] = useState<any>(null);
   const [rollups, setRollups] = useState<any[]>([]);
+  const [costToday, setCostToday] = useState(0);
+  const [costMtd, setCostMtd] = useState(0);
+  const [cost7d, setCost7d] = useState(0);
+  const [budgetRow, setBudgetRow] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [kpiRes, rollupRes] = await Promise.all([
-      (supabase as any).rpc('get_production_kpis'),
-      (supabase as any).from('kpi_daily_rollup')
-        .select('*')
-        .order('day', { ascending: false })
-        .limit(14),
+    const sb = supabase as any;
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    const weekAgo = new Date(Date.now() - 7 * 86400_000);
+
+    const [kpiRes, rollupRes, todayCostRes, mtdCostRes, weekCostRes, budgetRes] = await Promise.all([
+      sb.rpc('get_production_kpis').catch(() => ({ data: null })),
+      sb.from('kpi_daily_rollup').select('*').order('day', { ascending: false }).limit(14),
+      sb.from('llm_cost_events').select('cost_eur').gte('ts', todayStart.toISOString()),
+      sb.from('llm_cost_events').select('cost_eur').gte('ts', monthStart.toISOString()),
+      sb.from('llm_cost_events').select('cost_eur').gte('ts', weekAgo.toISOString()),
+      sb.from('ai_cost_budgets').select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1),
     ]);
     setKpis(kpiRes.data);
     setRollups(rollupRes.data || []);
+    const todayCosts = (todayCostRes.data || []) as { cost_eur: number }[];
+    setCostToday(todayCosts.reduce((s, c) => s + (c.cost_eur || 0), 0));
+    const mtdCosts = (mtdCostRes.data || []) as { cost_eur: number }[];
+    setCostMtd(mtdCosts.reduce((s, c) => s + (c.cost_eur || 0), 0));
+    const weekCosts = (weekCostRes.data || []) as { cost_eur: number }[];
+    setCost7d(weekCosts.reduce((s, c) => s + (c.cost_eur || 0), 0));
+    setBudgetRow((budgetRes.data || [])[0]);
     setLoading(false);
   }, []);
 
@@ -56,12 +73,10 @@ function LLMCostDashboard() {
 
   if (loading) return <Loading />;
 
-  const budget = kpis?.budget;
-  const budgetPct = budget ? Math.round((budget.spent_eur / budget.budget_eur) * 100) : 0;
-  const costToday = Number(kpis?.cost_today ?? 0);
-  const cost7d = Number(kpis?.cost_7d ?? 0);
+  const monthBudget = budgetRow?.budget_eur ?? 200;
+  const budgetPct = monthBudget > 0 ? Math.round((costMtd / monthBudget) * 100) : 0;
   const burnPerDay = cost7d / 7;
-  const daysLeft = budget ? Math.round((budget.budget_eur - budget.spent_eur) / Math.max(burnPerDay, 0.01)) : 999;
+  const daysLeft = monthBudget > 0 ? Math.round((monthBudget - costMtd) / Math.max(burnPerDay, 0.01)) : 999;
 
   return (
     <div className="space-y-6">
@@ -69,10 +84,10 @@ function LLMCostDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <Card>
           <CardContent className="py-4 text-center">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Budget</p>
-            <p className="text-2xl font-bold text-foreground">€{budget?.spent_eur?.toFixed(0) ?? 0} <span className="text-sm text-muted-foreground">/ €{budget?.budget_eur ?? 0}</span></p>
-            <Progress value={budgetPct} className="h-2 mt-2" />
-            <p className="text-[10px] text-muted-foreground mt-1">{budget?.hard_stop ? '🔴 Hard-Stop aktiv' : '🟢 Soft (kein Stopp)'}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Budget MTD</p>
+            <p className="text-2xl font-bold text-foreground">€{costMtd.toFixed(2)} <span className="text-sm text-muted-foreground">/ €{monthBudget}</span></p>
+            <Progress value={budgetPct} className={cn("h-2 mt-2", budgetPct > 80 && "[&>div]:bg-destructive")} />
+            <p className="text-[10px] text-muted-foreground mt-1">{budgetPct}% verbraucht</p>
           </CardContent>
         </Card>
         <Card>
@@ -83,13 +98,13 @@ function LLMCostDashboard() {
         </Card>
         <Card>
           <CardContent className="py-4 text-center">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Burn/Tag</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ø Burn/Tag (7d)</p>
             <p className="text-2xl font-bold text-foreground">€{burnPerDay.toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card className={cn(daysLeft < 7 && "border-destructive/50")}>
           <CardContent className="py-4 text-center">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Forecast</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Forecast Rest</p>
             <p className={cn("text-2xl font-bold", daysLeft < 7 ? "text-destructive" : "text-foreground")}>{daysLeft} Tage</p>
           </CardContent>
         </Card>
