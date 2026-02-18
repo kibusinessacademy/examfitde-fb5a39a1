@@ -52,6 +52,18 @@ function jaccardSim(a: Set<string>, b: Set<string>): number {
   return union === 0 ? 1 : inter / union;
 }
 
+// ── Meta-text patterns that indicate unfinished AI output ──
+const META_TEXT_PATTERNS = [
+  /\bich muss prüfen\b/i, /\bich muss korrigieren\b/i, /\bich muss überprüfen\b/i,
+  /\bes tut mir leid\b/i, /\bich ändere option\b/i, /\bich ändere die\b/i,
+  /\btippfehler\b/i, /\bich korrigiere\b/i, /\bfehler in der frage\b/i,
+  /\bich habe einen fehler\b/i, /\blassen sie mich\b/i,
+  /\bich prüfe nochmals\b/i, /\bich überprüfe nochmals\b/i,
+  /\bkorrektur:/i, /\bhinweis: die frage\b/i,
+  /\banmerkung:/i, /\bachtung: ich\b/i,
+  /\bich muss die frage\b/i, /\bich muss die antwort\b/i,
+];
+
 // ── Tier 1 ──
 interface T1Result {
   questionId: string;
@@ -72,7 +84,7 @@ function tier1Check(
   if (q.correct_answer === null || q.correct_answer === undefined) {
     issues.push("NO_CORRECT_ANSWER");
   } else if (q.correct_answer < 0 || q.correct_answer >= opts.length) {
-    issues.push(`CORRECT_ANSWER_OUT_OF_RANGE: ${q.correct_answer}`);
+    issues.push(`CORRECT_ANSWER_OUT_OF_RANGE: ${q.correct_answer}/${opts.length}`);
   }
 
   if (!q.explanation || q.explanation.length < 80) {
@@ -83,6 +95,32 @@ function tier1Check(
 
   if (!q.question_text || q.question_text.length < 30) {
     issues.push(`QUESTION_TOO_SHORT: ${(q.question_text || "").length}/30`);
+  }
+
+  // ── NEW: Meta-text / first-person / editing artifact detection ──
+  const fullText = `${q.question_text || ""} ${q.explanation || ""}`;
+  for (const pat of META_TEXT_PATTERNS) {
+    if (pat.test(fullText)) {
+      issues.push(`META_TEXT_DETECTED: ${pat.source}`);
+      break; // one match is enough
+    }
+  }
+
+  // ── NEW: Answer value not in options check ──
+  if (q.explanation && q.correct_answer !== null && q.correct_answer !== undefined && opts.length > 0) {
+    // Extract numbers from explanation marked as "richtig" and check plausibility
+    const explLower = (q.explanation || "").toLowerCase();
+    if (explLower.includes("richtig ist") || explLower.includes("richtig:")) {
+      const numMatch = explLower.match(/richtig(?:\s+ist)?[:\s]+([0-9.,]+)/);
+      if (numMatch) {
+        const correctVal = numMatch[1].replace(/\./g, "").replace(",", ".");
+        const correctOpt = String(opts[q.correct_answer] || "");
+        // If the "correct" value from explanation doesn't appear in the marked correct option
+        if (correctVal.length >= 3 && !correctOpt.includes(numMatch[1]) && !correctOpt.includes(correctVal)) {
+          issues.push(`ANSWER_MISMATCH: explanation says "${numMatch[1]}" but correct option is "${correctOpt.slice(0, 60)}"`);
+        }
+      }
+    }
   }
 
   // Duplicate check via Jaccard — sliding window only (prevents CPU timeout)
