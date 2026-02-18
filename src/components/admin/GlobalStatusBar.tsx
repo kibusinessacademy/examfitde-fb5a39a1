@@ -100,9 +100,8 @@ export default function GlobalStatusBar() {
       {/* Cost */}
       <div className="flex items-center gap-1 shrink-0">
         <DollarSign className="h-3 w-3 text-muted-foreground" />
-        <span className={cn("text-muted-foreground", kpis.daily_cost > 12 && "text-destructive")}>
-          €{kpis.daily_cost.toFixed(0)}/15
-        </span>
+        <span className={cn("text-muted-foreground", kpis.daily_cost > 15 && "text-destructive")}>
+          €{kpis.daily_cost.toFixed(2)}</span>
       </div>
 
       {/* Auto-Heal */}

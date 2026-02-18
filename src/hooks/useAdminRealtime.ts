@@ -37,13 +37,17 @@ export function useAdminKPIs() {
 
   const fetchKPIs = useCallback(async () => {
     try {
-      const [healthRes, pipelineRes] = await Promise.all([
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const [healthRes, pipelineRes, costRes] = await Promise.all([
         (supabase as any).from('ops_health_summary').select('*').single(),
         (supabase as any).from('pipeline_health').select('*').single(),
+        (supabase as any).from('llm_cost_events').select('cost_eur').gte('ts', todayStart.toISOString()),
       ]);
 
       const h = healthRes.data;
       const p = pipelineRes.data;
+      const costs = (costRes.data || []) as { cost_eur: number }[];
+      const dailyLlmCost = costs.reduce((s, c) => s + (c.cost_eur || 0), 0);
 
       setKpis({
         active_leases: p?.active_leases ?? 0,
@@ -53,11 +57,11 @@ export function useAdminKPIs() {
         failed_packages: p?.failed_packages ?? 0,
         done_packages: p?.done_packages ?? 0,
         blocked_packages: p?.blocked_packages ?? 0,
-        health_score: h?.health_score ?? 100,
-        traffic_light: h?.traffic_light ?? 'green',
+        health_score: h?.health_score ?? 0,
+        traffic_light: h?.traffic_light ?? 'red',
         failed_1h: h?.failed_1h ?? 0,
         stuck_jobs: h?.stuck_jobs ?? 0,
-        daily_cost: h?.daily_autofix_cost ?? 0,
+        daily_cost: dailyLlmCost + (h?.daily_autofix_cost ?? 0),
         auto_heal_allowed: h?.auto_heal_allowed ?? true,
       });
     } catch (e) {

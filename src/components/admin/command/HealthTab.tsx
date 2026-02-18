@@ -19,16 +19,7 @@ import { ProductGroup } from './ProductGroup';
 const REFRESH_INTERVAL = 30_000;
 const fmtEur = (cents: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 
-async function callAdminOps(action: string) {
-  const { data: { session } } = await supabase.auth.getSession();
-  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-ops`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-    body: JSON.stringify({ action }),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
+// callDecisionEngine for AI Diagnose
 
 async function callDecisionEngine() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -58,29 +49,39 @@ export default function HealthTab() {
     try {
       const sb = supabase as any;
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, costRes, budgetRes, queueRes, aiRes, autoOpsRes, escalationRes] = await Promise.all([
+      const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, todayCostRes, mtdCostRes, budgetRes, aiRes, autoOpsRes, escalationRes, opsHealthRes] = await Promise.all([
         sb.from('course_packages').select('id, title, status, build_progress, priority, current_step, step_status_json, created_at, updated_at, track').lte('priority', 20).order('priority').order('created_at'),
         sb.from('support_tickets').select('status'),
         sb.from('profiles').select('id', { count: 'exact', head: true }),
         sb.from('certification_seo_pages').select('id', { count: 'exact', head: true }),
         sb.from('orders').select('status, total_cents'),
-        sb.from('llm_cost_events').select('cost_usd').gte('created_at', todayStart.toISOString()),
+        sb.from('llm_cost_events').select('cost_eur').gte('ts', todayStart.toISOString()),
+        sb.from('llm_cost_events').select('cost_eur').gte('ts', monthStart.toISOString()),
         sb.from('ai_cost_budgets').select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1),
-        callAdminOps('queue_health').catch(() => ({ pending: 0, processing: 0, failed: 0, stuck: 0 })),
         callDecisionEngine().catch(() => null),
         sb.from('auto_heal_log').select('created_at, metadata').eq('action_type', 'auto_ops_cycle').order('created_at', { ascending: false }).limit(1),
         sb.from('escalation_log').select('escalation_level, action_type, target, created_at').order('created_at', { ascending: false }).limit(1),
+        sb.from('ops_health_summary').select('*').single(),
       ]);
       setPackages((pkgRes.data || []) as PackageInfo[]);
       const tickets = (ticketRes.data || []) as { status: string }[];
       const orders = (orderRes.data || []) as { status: string; total_cents: number }[];
       const paidOrders = orders.filter(o => o.status === 'paid');
       setKpis({ seoPages: seoRes.count || 0, ticketsOpen: tickets.filter(t => t.status === 'open').length, ticketsTotal: tickets.length, usersTotal: profileRes.count || 0, ordersPaid: paidOrders.length, revenueCents: paidOrders.reduce((s, o) => s + (o.total_cents || 0), 0) });
-      const costs = (costRes.data || []) as { cost_usd: number }[];
-      const dailyCost = costs.reduce((s, c) => s + (c.cost_usd || 0), 0);
+      const todayCosts = (todayCostRes.data || []) as { cost_eur: number }[];
+      const dailyCost = todayCosts.reduce((s, c) => s + (c.cost_eur || 0), 0);
+      const mtdCosts = (mtdCostRes.data || []) as { cost_eur: number }[];
+      const monthSpent = mtdCosts.reduce((s, c) => s + (c.cost_eur || 0), 0);
       const budgetRow = (budgetRes.data || [])[0];
-      setBudget({ dailyCost, monthBudget: budgetRow?.budget_eur ?? 0, monthSpent: budgetRow?.spent_eur ?? 0 });
-      setQueue(queueRes as QueueHealth);
+      setBudget({ dailyCost, monthBudget: budgetRow?.budget_eur ?? 200, monthSpent });
+      const oh = opsHealthRes?.data;
+      setQueue({
+        pending: oh?.pending_total ?? 0,
+        processing: oh?.processing_total ?? 0,
+        failed: oh?.failed_total ?? 0,
+        stuck: oh?.stuck_jobs ?? 0,
+      });
       if (aiRes) {
         setAiDiagnose({ risks: (aiRes.risks || []).slice(0, 5), recommendations: (aiRes.decisions || []).slice(0, 6).map((d: any) => ({ title: d.title, impact: d.impact_score > 60 ? 'high' : 'medium', council_id: d.council_id })), systemHealth: aiRes.systemHealth || null });
       }
@@ -175,7 +176,7 @@ export default function HealthTab() {
           <CardContent className="py-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2"><DollarSign className="h-4 w-4 text-muted-foreground" /><span className="text-sm font-medium">KI-Kosten heute</span></div>
-              <span className="text-lg font-bold">${budget.dailyCost.toFixed(2)}</span>
+              <span className="text-lg font-bold">€{budget.dailyCost.toFixed(2)}</span>
             </div>
             {budget.monthBudget > 0 && (
               <>
@@ -253,7 +254,7 @@ export default function HealthTab() {
         <Link to="/admin/crm"><PlatformCard icon={<Users className="h-4 w-4" />} label="Nutzer" value={kpis.usersTotal} /></Link>
         <Link to="/admin/support"><PlatformCard icon={<Headphones className="h-4 w-4" />} label="Tickets" value={kpis.ticketsOpen} sublabel={`${kpis.ticketsTotal} ges.`} alert={kpis.ticketsOpen > 0} /></Link>
         <Link to="/admin/business"><PlatformCard icon={<DollarSign className="h-4 w-4" />} label="Umsatz" value={fmtEur(kpis.revenueCents)} sublabel={`${kpis.ordersPaid} Best.`} /></Link>
-        <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten" value={`€${budget.dailyCost.toFixed(2)}`} sublabel={budget.monthBudget > 0 ? `${budgetPct}% Budget` : undefined} />
+        <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten" value={`€${budget.monthSpent.toFixed(2)}`} sublabel={budget.monthBudget > 0 ? `${budgetPct}% von €${budget.monthBudget}` : `heute: €${budget.dailyCost.toFixed(2)}`} />
       </div>
     </div>
   );
