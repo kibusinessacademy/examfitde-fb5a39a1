@@ -18807,6 +18807,14 @@ export type Database = {
           packages_queued: number
         }[]
       }
+      get_package_question_counts: {
+        Args: { p_curriculum_ids: string[] }
+        Returns: {
+          approved: number
+          curriculum_id: string
+          total: number
+        }[]
+      }
       get_placeholder_lessons: {
         Args: { p_course_id?: string; p_limit?: number }
         Returns: {
