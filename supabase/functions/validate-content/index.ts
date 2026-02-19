@@ -6,7 +6,7 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
-import { measureDepth } from "../_shared/prompt-kit.ts";
+import { measureDepth, runV2QualityGate, mapToDifficultyLevel, buildImpactScorePrompt } from "../_shared/prompt-kit.ts";
 
 interface ValidationRequest {
   mode: "lesson" | "course" | "question" | "tutor_response" | "blog_article";
@@ -186,23 +186,38 @@ serve(async (req) => {
       }
     }
 
-    // Pre-LLM depth metrics (heuristic — no LLM cost)
-    let depthWarnings: string[] = [];
+    // v2: Combined quality gate (depth + hallucination + variation)
+    let v2Warnings: string[] = [];
+    let v2Verdict = "pass";
     if (mode === "lesson" && typeof content === "object" && content !== null) {
       const htmlContent = (content as any).html || "";
+      const lessonStep = context?.lessonStep || "verstehen";
+      const diffLevel = mapToDifficultyLevel(context?.taxonomyLevel);
       if (htmlContent) {
-        const metrics = measureDepth(htmlContent);
-        if (!metrics.hasTipp) depthWarnings.push("Kein ⭐ IHK-Prüfungstipp gefunden");
-        if (!metrics.hasFalle) depthWarnings.push("Keine ⚠️ Prüfungsfalle gefunden");
-        if (metrics.wordCount < 200) depthWarnings.push(`Nur ${metrics.wordCount} Wörter (Minimum 200)`);
+        const v2Result = runV2QualityGate(htmlContent, lessonStep, diffLevel);
+        v2Verdict = v2Result.overallVerdict;
+        if (!v2Result.depthPasses) {
+          v2Warnings.push(...v2Result.depthMissing);
+        }
+        if (v2Result.hallucinationRisk.verdict !== "safe") {
+          v2Warnings.push(`Halluzinationsrisiko: ${v2Result.hallucinationRisk.riskScore} — ${v2Result.hallucinationRisk.suspiciousRegulatory.join(", ") || "unbekannte Entitäten"}`);
+        }
+        if (v2Result.variationScore.verdict === "rewrite_needed") {
+          v2Warnings.push(`Formelhaftigkeit: Score ${v2Result.variationScore.score} — ${v2Result.variationScore.repetitiveOpeners.join(", ")}`);
+        }
       }
     }
 
     if (professionName) {
       contextStr += `\nBeruf: ${professionName}`;
       contextStr += `\nWICHTIG: Alle Inhalte MÜSSEN zum Beruf "${professionName}" passen. Inhalte aus anderen Berufsfeldern = KONTAMINATION = Auto-Reject!`;
-      if (depthWarnings.length > 0) {
-        contextStr += `\n\nVOR-ANALYSE (automatisch erkannt):\n${depthWarnings.map(w => `⚠️ ${w}`).join("\n")}\nBerücksichtige diese Punkte bei deiner Bewertung.`;
+      if (v2Warnings.length > 0) {
+        contextStr += `\n\nV2-QUALITÄTS-ANALYSE (automatisch erkannt):\n${v2Warnings.map(w => `⚠️ ${w}`).join("\n")}\nBerücksichtige diese Punkte bei deiner Bewertung.`;
+      }
+      // v2: Inject impact score prompt for lesson validation
+      if (mode === "lesson") {
+        const diffLevel = mapToDifficultyLevel(context?.taxonomyLevel);
+        contextStr += `\n\n${buildImpactScorePrompt(professionName, diffLevel)}`;
       }
     }
 

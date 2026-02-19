@@ -1,10 +1,16 @@
 /**
- * prompt-kit.ts — Shared Prompt Library v1
+ * prompt-kit.ts — Shared Prompt Library v2
  * 
  * Centralized prompt building blocks for consistent depth, quality
  * and profession-specificity across all AI edge functions.
  * 
- * VERSION: 1.0.0
+ * VERSION: 2.0.0
+ * 
+ * v2 additions:
+ *   - Adaptive Depth Engine (difficulty-aware requirements)
+ *   - Hallucination Risk Guard (SSOT drift scoring)  
+ *   - Didactic Impact Score (exam effectiveness)
+ *   - Anti-Formelhaftigkeit Score (variation analysis)
  */
 
 // ─── Depth Self-Check (invisible to output) ──────────────────────────────────
@@ -146,53 +152,6 @@ NACHFRAGE-ACHSEN (wähle die passendste für ${professionName}):
 Die Nachfrage muss berufsspezifisch für ${professionName} formuliert sein.`;
 }
 
-// ─── Pre-LLM Depth Metrics ──────────────────────────────────────────────────
-
-export interface DepthMetrics {
-  wordCount: number;
-  hasTipp: boolean;
-  hasFalle: boolean;
-  hasTable: boolean;
-  hasCalcExample: boolean;
-  hasPraxisBeispiel: boolean;
-  starCount: number;
-  warningCount: number;
-}
-
-export function measureDepth(html: string): DepthMetrics {
-  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return {
-    wordCount: text.split(/\s+/).filter(Boolean).length,
-    hasTipp: /⭐|IHK-Prüfungstipp|Prüfungstipp/i.test(html),
-    hasFalle: /⚠️|Prüfungsfalle|Typische Falle/i.test(html),
-    hasTable: /<table/i.test(html),
-    hasCalcExample: /\d+[\s]*[×x*÷\/+\-=]\s*\d+|Formel|Rechenweg|Berechnung/i.test(html),
-    hasPraxisBeispiel: /Beispiel|Praxisfall|Fallbeispiel|Szenario/i.test(html),
-    starCount: (html.match(/⭐/g) || []).length,
-    warningCount: (html.match(/⚠️/g) || []).length,
-  };
-}
-
-export function depthMeetsMinimum(metrics: DepthMetrics, step: string): { passes: boolean; missing: string[] } {
-  const missing: string[] = [];
-  
-  const minWords: Record<string, number> = {
-    einstieg: 250, verstehen: 400, anwenden: 350, wiederholen: 300,
-  };
-  
-  if (metrics.wordCount < (minWords[step] || 200)) {
-    missing.push(`Zu wenig Wörter: ${metrics.wordCount} (min ${minWords[step] || 200})`);
-  }
-  if (!metrics.hasTipp) missing.push("Kein ⭐ IHK-Prüfungstipp gefunden");
-  if (!metrics.hasFalle) missing.push("Keine ⚠️ Prüfungsfalle gefunden");
-  if (step === "wiederholen" && !metrics.hasTable) missing.push("Keine Abgrenzungstabelle gefunden");
-  if (step === "verstehen" && !metrics.hasCalcExample && !metrics.hasPraxisBeispiel) {
-    missing.push("Weder Rechenbeispiel noch Praxisbeispiel gefunden");
-  }
-  
-  return { passes: missing.length === 0, missing };
-}
-
 // ─── Dynamic Support Response Length ─────────────────────────────────────────
 
 export function getSupportMaxLength(ticketType: string): { maxSentences: number; instruction: string } {
@@ -237,4 +196,377 @@ Praxisbezug (20%):
 - 0.0 = Kein Praxisbezug, rein theoretisch
 
 MUSTERANTWORT-LIMIT: Max 180–220 Wörter (2–3 Minuten Redezeit).`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v2 MODULES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── 1. Adaptive Depth Engine ────────────────────────────────────────────────
+
+export type DifficultyLevel = "basic" | "intermediate" | "advanced";
+
+export interface AdaptiveDepthRequirements {
+  minExamples: number;
+  minMistakes: number;
+  requiresCalculation: boolean;
+  requiresComparison: boolean;
+  requiresEdgeCase: boolean;
+  minWords: number;
+  promptSuffix: string;
+}
+
+export function getRequiredDepth(difficulty: DifficultyLevel): AdaptiveDepthRequirements {
+  switch (difficulty) {
+    case "basic":
+      return {
+        minExamples: 1,
+        minMistakes: 1,
+        requiresCalculation: false,
+        requiresComparison: false,
+        requiresEdgeCase: false,
+        minWords: 250,
+        promptSuffix: `TIEFE-STUFE: GRUNDLAGEN
+- 1 Praxisbeispiel aus dem Berufsalltag
+- 1 typische Prüfungsfalle
+- Klare Definitionen, einfache Sprache (B1-Niveau)`,
+      };
+    case "intermediate":
+      return {
+        minExamples: 1,
+        minMistakes: 2,
+        requiresCalculation: true,
+        requiresComparison: true,
+        requiresEdgeCase: false,
+        minWords: 350,
+        promptSuffix: `TIEFE-STUFE: ANWENDUNG + ABGRENZUNG
+- 1 Praxisbeispiel mit konkreten Zahlen
+- 2 typische Prüfungsfallen (verschiedene Fehlertypen)
+- 1 Zahlenbeispiel mit vollständigem Rechenweg
+- 1 Abgrenzungstabelle (ähnliche Begriffe/Verfahren gegenübergestellt)`,
+      };
+    case "advanced":
+      return {
+        minExamples: 2,
+        minMistakes: 2,
+        requiresCalculation: true,
+        requiresComparison: true,
+        requiresEdgeCase: true,
+        minWords: 450,
+        promptSuffix: `TIEFE-STUFE: GRENZFÄLLE + TRANSFER
+- 2 Praxisfälle mit steigender Komplexität
+- 1 Zahlenbeispiel mit mehrstufiger Berechnung
+- 1 Grenzfall / Sonderfall ("Was passiert wenn...?")
+- 1 Abgrenzungstabelle mit mindestens 4 Zeilen
+- Typische Fehlinterpretationen und deren Konsequenzen
+- Praxisvarianten: "Im Großunternehmen vs. im Handwerksbetrieb"`,
+      };
+  }
+}
+
+/**
+ * Map a difficulty_tier or cognitive_level string to our AdaptiveDepthLevel.
+ * Accepts various formats from the DB (easy/medium/hard, K1-K4, remember/apply/analyze).
+ */
+export function mapToDifficultyLevel(raw: string | null | undefined): DifficultyLevel {
+  if (!raw) return "intermediate";
+  const norm = raw.toLowerCase().trim();
+  if (["easy", "basic", "k1", "remember", "einfach", "leicht"].includes(norm)) return "basic";
+  if (["hard", "advanced", "k4", "k3", "analyze", "evaluate", "create", "schwer", "sehr_schwer", "very_hard"].includes(norm)) return "advanced";
+  return "intermediate";
+}
+
+// ─── Pre-LLM Depth Metrics ──────────────────────────────────────────────────
+
+export interface DepthMetrics {
+  wordCount: number;
+  hasTipp: boolean;
+  hasFalle: boolean;
+  hasTable: boolean;
+  hasCalcExample: boolean;
+  hasPraxisBeispiel: boolean;
+  starCount: number;
+  warningCount: number;
+  exampleCount: number;
+  edgeCaseCount: number;
+}
+
+export function measureDepth(html: string): DepthMetrics {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return {
+    wordCount: text.split(/\s+/).filter(Boolean).length,
+    hasTipp: /⭐|IHK-Prüfungstipp|Prüfungstipp/i.test(html),
+    hasFalle: /⚠️|Prüfungsfalle|Typische Falle/i.test(html),
+    hasTable: /<table/i.test(html),
+    hasCalcExample: /\d+[\s]*[×x*÷\/+\-=]\s*\d+|Formel|Rechenweg|Berechnung/i.test(html),
+    hasPraxisBeispiel: /Beispiel|Praxisfall|Fallbeispiel|Szenario/i.test(html),
+    starCount: (html.match(/⭐/g) || []).length,
+    warningCount: (html.match(/⚠️/g) || []).length,
+    exampleCount: (html.match(/Beispiel|Praxisfall|Fallbeispiel|Szenario/gi) || []).length,
+    edgeCaseCount: (html.match(/Grenzfall|Sonderfall|Ausnahme|Was passiert wenn|Was wäre wenn/gi) || []).length,
+  };
+}
+
+/**
+ * Check if depth metrics meet minimum requirements for a given step.
+ * v2: now accepts optional difficulty for adaptive thresholds.
+ */
+export function depthMeetsMinimum(
+  metrics: DepthMetrics,
+  step: string,
+  difficulty?: DifficultyLevel,
+): { passes: boolean; missing: string[] } {
+  const missing: string[] = [];
+  const req = difficulty ? getRequiredDepth(difficulty) : null;
+
+  const minWords: Record<string, number> = {
+    einstieg: 250, verstehen: 400, anwenden: 350, wiederholen: 300,
+  };
+  const effectiveMinWords = req ? Math.max(req.minWords, minWords[step] || 200) : (minWords[step] || 200);
+
+  if (metrics.wordCount < effectiveMinWords) {
+    missing.push(`Zu wenig Wörter: ${metrics.wordCount} (min ${effectiveMinWords})`);
+  }
+  if (!metrics.hasTipp) missing.push("Kein ⭐ IHK-Prüfungstipp gefunden");
+  if (!metrics.hasFalle) missing.push("Keine ⚠️ Prüfungsfalle gefunden");
+  if (step === "wiederholen" && !metrics.hasTable) missing.push("Keine Abgrenzungstabelle gefunden");
+  if (step === "verstehen" && !metrics.hasCalcExample && !metrics.hasPraxisBeispiel) {
+    missing.push("Weder Rechenbeispiel noch Praxisbeispiel gefunden");
+  }
+
+  // v2 adaptive checks
+  if (req) {
+    if (metrics.exampleCount < req.minExamples) {
+      missing.push(`Zu wenig Praxisbeispiele: ${metrics.exampleCount} (min ${req.minExamples})`);
+    }
+    if (metrics.warningCount < req.minMistakes) {
+      missing.push(`Zu wenig Prüfungsfallen: ${metrics.warningCount} (min ${req.minMistakes})`);
+    }
+    if (req.requiresCalculation && !metrics.hasCalcExample) {
+      missing.push("Rechenbeispiel fehlt (Pflicht für dieses Difficulty-Level)");
+    }
+    if (req.requiresComparison && !metrics.hasTable) {
+      missing.push("Abgrenzungstabelle fehlt (Pflicht für dieses Difficulty-Level)");
+    }
+    if (req.requiresEdgeCase && metrics.edgeCaseCount === 0) {
+      missing.push("Kein Grenzfall/Sonderfall gefunden (Pflicht für Advanced)");
+    }
+  }
+
+  return { passes: missing.length === 0, missing };
+}
+
+// ─── 2. Hallucination Risk Guard (SSOT Drift Detection) ─────────────────────
+
+export interface HallucinationRiskResult {
+  riskScore: number; // 0.0–1.0
+  unknownEntities: string[];
+  suspiciousRegulatory: string[];
+  verdict: "safe" | "review" | "regenerate";
+}
+
+/**
+ * Heuristic hallucination risk scorer (no LLM call — fast + free).
+ * Checks content against known SSOT terms and flags suspicious regulatory references.
+ */
+export function computeHallucinationRisk(
+  content: string,
+  ssotTerms: string[],
+  knownLaws: string[],
+): HallucinationRiskResult {
+  const unknownEntities: string[] = [];
+  const suspiciousRegulatory: string[] = [];
+
+  // Extract all §-references from content
+  const paragraphRefs = content.match(/§\s*\d+[a-z]?(?:\s*(?:Abs\.|Absatz)\s*\d+)?(?:\s*(?:S\.|Satz)\s*\d+)?(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß]+(?:GB|StG|SchG|VG|BiG|GVO|VO|G)\b)?/g) || [];
+  
+  // Known law abbreviations that are safe
+  const KNOWN_LAWS = new Set([
+    "BGB", "HGB", "AO", "UStG", "EStG", "KStG", "GewStG",
+    "KSchG", "ArbZG", "BetrVG", "BBiG", "DSGVO", "BDSG",
+    "GewO", "SGB", "StGB", "InsO", "GmbHG", "AktG",
+    "MuSchG", "JArbSchG", "AGG", "TzBfG", "ArbSchG",
+    "ProdHaftG", "UWG", "GWB", "PatG", "MarkenG",
+    ...knownLaws,
+  ]);
+
+  for (const ref of paragraphRefs) {
+    // Extract law name from reference
+    const lawMatch = ref.match(/[A-ZÄÖÜ][A-Za-zÄÖÜäöüß]+(?:GB|StG|SchG|VG|BiG|GVO|VO|G)\b/);
+    if (lawMatch && !KNOWN_LAWS.has(lawMatch[0])) {
+      suspiciousRegulatory.push(ref.trim());
+    }
+  }
+
+  // Check for potentially fictitious institutions
+  const institutionPatterns = [
+    /(?:Bundesamt|Bundesanstalt|Bundesinstitut|Landesamt)\s+für\s+[A-ZÄÖÜ][a-zäöüß]+(?:\s+[a-zäöüß]+){0,3}/g,
+  ];
+  for (const pat of institutionPatterns) {
+    const matches = content.match(pat) || [];
+    for (const m of matches) {
+      const KNOWN_INSTITUTIONS = [
+        "Bundesamt für Wirtschaft", "Bundesanstalt für Arbeit", "Bundesanstalt für Finanzdienstleistungsaufsicht",
+        "Bundesinstitut für Berufsbildung", "Bundesamt für Justiz",
+      ];
+      if (!KNOWN_INSTITUTIONS.some(ki => m.includes(ki))) {
+        unknownEntities.push(m);
+      }
+    }
+  }
+
+  // Check for specific numbers that look invented (very specific percentages, amounts without context)
+  const suspiciousNumbers = content.match(/\b\d{1,2},\d{3,}%|\b\d+\.\d{3,}\s*€/g) || [];
+  // Only flag if there's no SSOT context for the number
+  if (ssotTerms.length > 0 && suspiciousNumbers.length > 3) {
+    unknownEntities.push(`${suspiciousNumbers.length} spezifische Zahlenangaben ohne SSOT-Referenz`);
+  }
+
+  // Compute risk score
+  const regulatoryRisk = Math.min(suspiciousRegulatory.length * 0.15, 0.6);
+  const entityRisk = Math.min(unknownEntities.length * 0.1, 0.4);
+  const riskScore = Math.min(regulatoryRisk + entityRisk, 1.0);
+
+  return {
+    riskScore: Math.round(riskScore * 100) / 100,
+    unknownEntities,
+    suspiciousRegulatory,
+    verdict: riskScore > 0.5 ? "regenerate" : riskScore > 0.25 ? "review" : "safe",
+  };
+}
+
+// ─── 3. Didactic Impact Score ────────────────────────────────────────────────
+
+/**
+ * LLM prompt fragment for didactic impact evaluation.
+ * Used by validate-content to assess exam effectiveness.
+ */
+export function buildImpactScorePrompt(professionName: string, difficulty: DifficultyLevel): string {
+  return `
+DIDAKTISCHER IMPACT-SCORE (zusätzliche Bewertungsdimension):
+
+Bewerte auf einer Skala von 0.0 bis 1.0:
+"Wie wahrscheinlich ist es, dass ein durchschnittlicher Azubi für ${professionName} dieses Thema 
+nach Durcharbeiten dieser Lektion in einer echten IHK-Prüfung sicher anwenden kann?"
+
+Schwierigkeitsstufe des Inhalts: ${difficulty}
+
+BEWERTUNGSKRITERIEN:
+- Klarheit (0.25): Ist die Erklärung verständlich ohne Vorwissen jenseits des Curriculums?
+- Praxisnähe (0.25): Sind die Beispiele aus dem echten Berufsalltag von ${professionName}?
+- Transferfähigkeit (0.25): Kann der Azubi das Gelernte auf neue Situationen übertragen?
+- Kognitive Aktivierung (0.25): Wird der Azubi zum Mitdenken/Entscheiden gezwungen (nicht nur Lesen)?
+
+SCHWELLENWERTE:
+- >= 0.9 → exzellent (Elite-Niveau)
+- 0.75–0.89 → prüfungstauglich (Standard)
+- 0.6–0.74 → mittelmäßig (Verbesserung nötig)
+- < 0.6 → unzureichend → REGENERIEREN
+
+Gib das Ergebnis als Teil deines JSON zurück:
+"didactic_impact": { "score": 0.0-1.0, "klarheit": 0.0-1.0, "praxisnaehe": 0.0-1.0, "transferfaehigkeit": 0.0-1.0, "kognitive_aktivierung": 0.0-1.0, "weak_areas": ["..."], "suggested_improvements": ["..."] }`;
+}
+
+// ─── 4. Anti-Formelhaftigkeit Score (Variation Analysis) ─────────────────────
+
+export interface VariationResult {
+  score: number; // 0.0–1.0 (higher = more varied)
+  repetitiveOpeners: string[];
+  duplicatePatterns: string[];
+  verdict: "ok" | "rewrite_needed";
+}
+
+/**
+ * Heuristic variation scorer — detects repetitive patterns in generated content.
+ * No LLM call needed.
+ */
+export function computeVariationScore(html: string): VariationResult {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
+
+  if (sentences.length < 3) {
+    return { score: 1.0, repetitiveOpeners: [], duplicatePatterns: [], verdict: "ok" };
+  }
+
+  // Check sentence openers (first 3 words)
+  const openers = sentences.map(s => s.split(/\s+/).slice(0, 3).join(" ").toLowerCase());
+  const openerCounts = new Map<string, number>();
+  for (const o of openers) {
+    openerCounts.set(o, (openerCounts.get(o) || 0) + 1);
+  }
+  const repetitiveOpeners = [...openerCounts.entries()]
+    .filter(([_, count]) => count >= 3)
+    .map(([opener, count]) => `"${opener}" (${count}×)`);
+
+  // Check for duplicate structural patterns (e.g., repeated bullet point templates)
+  const structures = sentences.map(s => {
+    return s.replace(/\d+/g, "N")
+            .replace(/"[^"]+"/g, "STR")
+            .replace(/[A-ZÄÖÜ][a-zäöüß]+/g, "W")
+            .slice(0, 40);
+  });
+  const structCounts = new Map<string, number>();
+  for (const s of structures) {
+    structCounts.set(s, (structCounts.get(s) || 0) + 1);
+  }
+  const duplicatePatterns = [...structCounts.entries()]
+    .filter(([_, count]) => count >= 4)
+    .map(([pattern, count]) => `Pattern wiederholt ${count}×`);
+
+  // Calculate score
+  const uniqueOpeners = openerCounts.size;
+  const openerVariety = Math.min(uniqueOpeners / Math.max(sentences.length * 0.6, 1), 1.0);
+  const patternPenalty = Math.min(duplicatePatterns.length * 0.15, 0.4);
+  const repetitivePenalty = Math.min(repetitiveOpeners.length * 0.1, 0.3);
+
+  const score = Math.max(0, Math.min(1.0, openerVariety - patternPenalty - repetitivePenalty));
+
+  return {
+    score: Math.round(score * 100) / 100,
+    repetitiveOpeners,
+    duplicatePatterns,
+    verdict: score < 0.4 ? "rewrite_needed" : "ok",
+  };
+}
+
+// ─── Combined v2 Quality Gate ────────────────────────────────────────────────
+
+export interface V2QualityResult {
+  depthPasses: boolean;
+  depthMissing: string[];
+  hallucinationRisk: HallucinationRiskResult;
+  variationScore: VariationResult;
+  overallVerdict: "pass" | "warn" | "fail";
+}
+
+/**
+ * Run all v2 quality checks in one call (no LLM — pure heuristics).
+ * Impact score requires LLM and is handled separately in validate-content.
+ */
+export function runV2QualityGate(
+  html: string,
+  step: string,
+  difficulty: DifficultyLevel,
+  ssotTerms: string[] = [],
+  knownLaws: string[] = [],
+): V2QualityResult {
+  const metrics = measureDepth(html);
+  const depth = depthMeetsMinimum(metrics, step, difficulty);
+  const hallucination = computeHallucinationRisk(html, ssotTerms, knownLaws);
+  const variation = computeVariationScore(html);
+
+  let overallVerdict: "pass" | "warn" | "fail" = "pass";
+  if (hallucination.verdict === "regenerate" || !depth.passes) {
+    overallVerdict = "fail";
+  } else if (hallucination.verdict === "review" || variation.verdict === "rewrite_needed") {
+    overallVerdict = "warn";
+  }
+
+  return {
+    depthPasses: depth.passes,
+    depthMissing: depth.missing,
+    hallucinationRisk: hallucination,
+    variationScore: variation,
+    overallVerdict,
+  };
 }

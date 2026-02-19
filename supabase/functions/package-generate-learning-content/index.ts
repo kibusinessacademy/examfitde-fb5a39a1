@@ -4,7 +4,8 @@ import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
-import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES, buildMiniCheckPrompt, measureDepth, depthMeetsMinimum } from "../_shared/prompt-kit.ts";
+import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES, buildMiniCheckPrompt, measureDepth, depthMeetsMinimum, mapToDifficultyLevel, getRequiredDepth, runV2QualityGate } from "../_shared/prompt-kit.ts";
+import type { DifficultyLevel } from "../_shared/prompt-kit.ts";
 
 /**
  * package-generate-learning-content — Pipeline Step
@@ -402,12 +403,17 @@ Deno.serve(async (req) => {
       Array.isArray(lfData.ihk_focus_areas) && lfData.ihk_focus_areas.length > 0 ? `IHK-Schwerpunkte: ${lfData.ihk_focus_areas.join(", ")}` : "",
     ].filter(Boolean).join("\n") : "";
 
+    // ── v2: Adaptive Depth based on difficulty ──
+    const difficultyLevel: DifficultyLevel = mapToDifficultyLevel(lfData?.difficulty_tier);
+    const adaptiveReq = getRequiredDepth(difficultyLevel);
+
     const contextBlock = [
       `Beruf: ${professionName}`,
       `Modul: ${moduleName}`,
       `Lektion: ${lesson.title}`,
       lfContext,
       topicList.length > 0 ? `Relevante Themen: ${topicList.slice(0, 10).join(", ")}` : "",
+      `\n${adaptiveReq.promptSuffix}`,
     ].filter(Boolean).join("\n");
 
     const userPrompt = isMiniCheck
@@ -477,14 +483,17 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         if (!content.html || charCount < minChars) {
           throw new Error(`Content too short: ${charCount} chars (min ${minChars})`);
         }
-        // Enhanced depth metrics check
-        const metrics = measureDepth(content.html || "");
-        if (metrics.wordCount < minWords) {
-          throw new Error(`Content too few words: ${metrics.wordCount} words (min ${minWords}) — step ${lesson.step}`);
+        // v2: Combined quality gate (depth + hallucination + variation)
+        const v2Result = runV2QualityGate(content.html || "", lesson.step, difficultyLevel);
+        if (v2Result.overallVerdict === "fail") {
+          const reasons = [
+            ...v2Result.depthMissing,
+            ...(v2Result.hallucinationRisk.verdict === "regenerate" ? [`Halluzinationsrisiko: ${v2Result.hallucinationRisk.riskScore} (${v2Result.hallucinationRisk.suspiciousRegulatory.join(", ")})`] : []),
+          ].join("; ");
+          throw new Error(`v2 Quality Gate FAILED for ${lesson.id}: ${reasons}`);
         }
-        const depthCheck = depthMeetsMinimum(metrics, lesson.step);
-        if (!depthCheck.passes) {
-          console.warn(`[gen-content] Depth gaps for ${lesson.id} step ${lesson.step}: ${depthCheck.missing.join("; ")}`);
+        if (v2Result.overallVerdict === "warn") {
+          console.warn(`[gen-content] v2 Quality WARN for ${lesson.id}: depth=${v2Result.depthPasses}, hallucination=${v2Result.hallucinationRisk.riskScore}, variation=${v2Result.variationScore.score}`);
         }
       }
 
