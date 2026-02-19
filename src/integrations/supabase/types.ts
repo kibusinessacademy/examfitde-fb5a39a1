@@ -18990,6 +18990,7 @@ export type Database = {
         Args: { p_content: Json; p_lesson_id: string }
         Returns: undefined
       }
+      populate_admin_search_index: { Args: never; Returns: undefined }
       promote_to_authority: {
         Args: { p_admin_id?: string; p_portfolio_id: string }
         Returns: Json
