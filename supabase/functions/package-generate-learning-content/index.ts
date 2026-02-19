@@ -20,25 +20,35 @@ const BATCH_SIZE = 3;          // Reduced from 8 — prevents concurrent timeout
 const BASE_DELAY_MS = 1500;    // 1.5s between calls
 const MAX_DELAY_MS = 10000;    // Max backoff
 
-const STEP_PROMPTS: Record<string, { system: string; minChars: number }> = {
+const STEP_PROMPTS: Record<string, { system: string; minChars: number; minWords: number }> = {
   einstieg: {
-    system: `Erstelle eine **aktivierende Einstiegsaktivität** (ca. 800–1200 Zeichen HTML).
+    system: `Erstelle eine **aktivierende Einstiegsaktivität** für eine IHK-Prüfungsvorbereitung.
+
+MINDESTUMFANG: 250 Wörter Fließtext. Antworte NIEMALS mit weniger als 250 Wörtern. Kurze Antworten werden automatisch abgelehnt.
+
 Struktur:
-- <h3>Motivierender Titel</h3>
-- Konkretes Praxisszenario aus dem typischen ARBEITSALLTAG des Berufs — mit realistischen Akteuren (Kunden, Vorgesetzte, Kollegen), konkreten Zahlen und branchenüblichen Fachbegriffen
-- 2-3 Reflexionsfragen als <ul><li> die zum Nachdenken anregen
-- Bezug zum Vorwissen UND zur IHK-Prüfungsrelevanz
-- PRÜFUNGSDRUCK-ELEMENT: "In der IHK-Prüfung wird dieses Thema häufig als Situationsaufgabe gestellt. Typische Falle: ..."
+- <h3>Motivierender Titel mit konkretem Bezug zum Thema</h3>
+- Konkretes Praxisszenario aus dem typischen ARBEITSALLTAG des Berufs — mit realistischen Akteuren (Kunden, Vorgesetzte, Kollegen), konkreten Zahlen und branchenüblichen Fachbegriffen. Das Szenario muss MINDESTENS 120 Wörter umfassen.
+- 2-3 Reflexionsfragen als <ul><li> die zum Nachdenken anregen — jede mit kurzer Erläuterung (1-2 Sätze)
+- Bezug zum Vorwissen UND zur IHK-Prüfungsrelevanz (mindestens 3 Sätze)
+- PRÜFUNGSDRUCK-ELEMENT: "⭐ In der IHK-Prüfung wird dieses Thema häufig als Situationsaufgabe gestellt. Typische Falle: ..." (mindestens 2 Sätze)
+- Abschluss: Überleitung zum Lernschritt "Verstehen" mit einer Leitfrage
+
 VERBOTEN: Generische Szenarien wie "in einem Unternehmen" oder "ein Mitarbeiter" ohne konkreten Berufsbezug.
-PFLICHT: Verwende realistische, nicht-runde Zahlen (z.B. 12.450 €, 3,75 %, 47 Tage).`,
+PFLICHT: Verwende realistische, nicht-runde Zahlen (z.B. 12.450 €, 3,75 %, 47 Tage).
+PFLICHT: Schreibe ausführlich und detailreich. Jeder Absatz muss mindestens 3 Sätze haben.`,
     minChars: 600,
+    minWords: 250,
   },
   verstehen: {
-    system: `Erstelle **ausführliches Lernmaterial** (ca. 2500–4000 Zeichen HTML).
+    system: `Erstelle **ausführliches Lernmaterial** für eine IHK-Prüfungsvorbereitung.
+
+MINDESTUMFANG: 400 Wörter Fließtext. Antworte NIEMALS mit weniger als 400 Wörtern. Kurze Antworten werden automatisch abgelehnt.
+
 Struktur:
 - <h3>Konzept-Titel</h3>
-- Klare Definition und Erklärung der Kernkonzepte mit berufsspezifischen Beispielen
-- Mindestens 3 praxisnahe Beispiele aus dem realen Berufsalltag (verschiedene Schwierigkeitsgrade)
+- Klare Definition und Erklärung der Kernkonzepte mit berufsspezifischen Beispielen (mindestens 80 Wörter für die KernDefinition)
+- Mindestens 3 praxisnahe Beispiele aus dem realen Berufsalltag (verschiedene Schwierigkeitsgrade), JEDES mit mindestens 40 Wörtern
 - Wichtige Fachbegriffe als <strong> — erklärt wie im Berufsfeld tatsächlich verwendet
 - Merksätze als <blockquote> mit ⭐ für prüfungsrelevante Inhalte
 - Nach JEDER Erklärung ein Gegenbeispiel das typische Fehlannahmen verdeutlicht
@@ -56,24 +66,29 @@ REGULATORIK (PFLICHT bei rechtlichen Themen):
 
 IHK-PRÜFUNGSBEZUG (PFLICHT):
 - ⭐ "IHK-Prüfungstipp: ..." mindestens 2x pro Lektion
-- "Typische Prüfungsfalle: ..." mindestens 1x
+- "⚠️ Typische Prüfungsfalle: ..." mindestens 1x
 - "Achten Sie in der Prüfung besonders auf: ..."
 - Abgrenzungstabelle: Ähnliche Begriffe die verwechselt werden (als <table>)
 
-VERBOTEN: Akademische Definitionen ohne Praxisbezug. Oberflächliches Anreißen. Weniger als 2 Rechenbeispiele bei quantitativen Themen.`,
+VERBOTEN: Akademische Definitionen ohne Praxisbezug. Oberflächliches Anreißen. Weniger als 2 Rechenbeispiele bei quantitativen Themen.
+PFLICHT: Schreibe ausführlich und detailreich. Jeder Absatz muss mindestens 3-4 Sätze haben. Erkläre lieber zu viel als zu wenig.`,
     minChars: 1800,
+    minWords: 400,
   },
   anwenden: {
-    system: `Erstelle ein **Entscheidungsszenario mit Fallstudie** (ca. 1800–3000 Zeichen HTML) — KEINE reine Beschreibung.
+    system: `Erstelle ein **Entscheidungsszenario mit Fallstudie** für eine IHK-Prüfungsvorbereitung — KEINE reine Beschreibung.
+
+MINDESTUMFANG: 350 Wörter Fließtext. Antworte NIEMALS mit weniger als 350 Wörtern. Kurze Antworten werden automatisch abgelehnt.
+
 Struktur:
 - <h3>Fallstudie: [konkreter Titel mit Namen/Firma]</h3>
-- Konkretes Fallbeispiel mit realistischen Zahlen, Namen und Kontexten aus dem Berufsalltag
+- Konkretes Fallbeispiel mit realistischen Zahlen, Namen und Kontexten aus dem Berufsalltag (mindestens 100 Wörter Situationsbeschreibung)
 - SITUATION: Detaillierte Ausgangslage mit allen relevanten Daten (Zahlen, Termine, Beteiligte)
 - AUFGABE: 3-4 konkrete Teilaufgaben mit steigender Komplexität
-- Mindestens 2 Entscheidungsoptionen mit fachlicher Abwägung der Vor- und Nachteile
+- Mindestens 2 Entscheidungsoptionen mit fachlicher Abwägung der Vor- und Nachteile (jeweils mindestens 3 Argumente)
 
 RECHENAUFGABEN (PFLICHT bei quantitativen Themen):
-- Mehrstufige Berechnungen (z.B. Angebotsvergleich mit Rabatt + Skonto + Bezugskosten, nicht nur einfache Addition)
+- Mehrstufige Berechnungen (z.B. Angebotsvergleich mit Rabatt + Skonto + Bezugskosten)
 - Alle Rechenwege vollständig ausformuliert
 - Interpretation des Ergebnisses: "Welche Handlungsempfehlung ergibt sich?"
 
@@ -88,23 +103,29 @@ PRÜFUNGSFALLEN:
 - "Der IHK-Prüfer erwartet, dass Sie..."
 
 Der Lernende muss die Entscheidung TREFFEN und fachlich BEGRÜNDEN.
-VERBOTEN: Reine Beschreibungen. Isolierte Einzelaspekte statt Kombinationsaufgaben.`,
+VERBOTEN: Reine Beschreibungen. Isolierte Einzelaspekte statt Kombinationsaufgaben.
+PFLICHT: Schreibe ausführlich. Die Fallstudie muss sich wie eine echte IHK-Prüfungsaufgabe anfühlen.`,
     minChars: 1400,
+    minWords: 350,
   },
   wiederholen: {
-    system: `Erstelle eine **PRÜFUNGSVERDICHTUNG** (ca. 1500–2200 Zeichen HTML) — KEINE erneute Erklärung.
+    system: `Erstelle eine **PRÜFUNGSVERDICHTUNG** für eine IHK-Prüfungsvorbereitung — KEINE erneute Erklärung.
+
+MINDESTUMFANG: 300 Wörter Fließtext. Antworte NIEMALS mit weniger als 300 Wörtern. Kurze Antworten werden automatisch abgelehnt.
+
 Struktur:
 - <h3>Prüfungsverdichtung</h3>
 
 MERKSÄTZE (PFLICHT):
 - 5-7 kompakte Merksätze mit den Fachbegriffen wie sie in der IHK-Prüfung erwartet werden
 - Bei §§-Themen: "Merke: § [Nr] [Gesetz] regelt [was] → Frist: [Tage/Monate]"
-- Bei Rechnen: Formeln als Merksatz mit Beispielzahlen
+- Bei Rechnen: Formeln als Merksatz mit Beispielzahlen und kurzem Rechenweg
 
 PRÜFUNGSFALLEN (PFLICHT, mindestens 4):
-- "Falle 1: [Fehler] → Richtig ist: [Korrektur] → Warum: [Begründung]"
+- "⚠️ Falle 1: [Fehler] → Richtig ist: [Korrektur] → Warum: [Begründung]"
 - Typische Verwechslungen die in der IHK-Prüfung vorkommen
 - Falsche Rechenwege die Prüflinge häufig wählen
+- Jede Falle mit mindestens 2 Sätzen Erklärung
 
 ABGRENZUNGSTABELLE (PFLICHT):
 - <table> mit Vergleich ähnlicher Begriffe/Konzepte (mind. 3 Zeilen)
@@ -112,14 +133,16 @@ ABGRENZUNGSTABELLE (PFLICHT):
 
 TRANSFERÜBUNGEN (PFLICHT, mindestens 2):
 - "Aufgabe: Formulieren Sie die Antwort auf folgende IHK-Prüfungsfrage: ..."
-- "Musterlösung: ..." (in IHK-Prüfungssprache)
+- "Musterlösung: ..." (in IHK-Prüfungssprache, mindestens 3 Sätze)
 
 PRÜFER-HINWEIS:
 - "Was IHK-Prüfer besonders gern nachfragen: ..."
 - "Zeitmanagement: Für diese Aufgabe haben Sie ca. X Minuten. Teilen Sie sich die Zeit so ein: ..."
 
-VERBOTEN: Erneute Erklärung des Stoffes. NUR Verdichtung und Prüfungsvorbereitung.`,
+VERBOTEN: Erneute Erklärung des Stoffes. NUR Verdichtung und Prüfungsvorbereitung.
+PFLICHT: Schreibe ausführlich. Jede Prüfungsfalle und jede Transferübung muss substanziell sein.`,
     minChars: 1200,
+    minWords: 300,
   },
 };
 
@@ -420,8 +443,17 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         throw new Error("No parseable tool response from AI");
       }
 
-      if (!isMiniCheck && (!content.html || content.html.length < (stepConfig?.minChars || 400))) {
-        throw new Error(`Content too short: ${content.html?.length || 0} chars (min ${stepConfig?.minChars || 400})`);
+      if (!isMiniCheck) {
+        const charCount = content.html?.length || 0;
+        const wordCount = (content.html || "").replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length;
+        const minChars = stepConfig?.minChars || 400;
+        const minWords = stepConfig?.minWords || 200;
+        if (!content.html || charCount < minChars) {
+          throw new Error(`Content too short: ${charCount} chars (min ${minChars})`);
+        }
+        if (wordCount < minWords) {
+          throw new Error(`Content too few words: ${wordCount} words (min ${minWords}) — step ${lesson.step}`);
+        }
       }
 
       const finalContent = isMiniCheck
