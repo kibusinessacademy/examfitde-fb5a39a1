@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
+import { getModelAsync } from "../_shared/model-routing.ts";
 
 /**
  * Tech Council – Deliberative Security & Infrastructure Governance
@@ -14,8 +15,17 @@ import { callAIJSON } from "../_shared/ai-client.ts";
  *   validate_patch  – Claude validates/vetoes the patch
  */
 
-const PROPOSER_MODEL = "gpt-4.1";
-const VALIDATOR_MODEL = "claude-sonnet-4-20250514";
+// Models resolved dynamically per-request via model-routing
+async function resolveModels() {
+  const p = await getModelAsync("council_proposer");
+  const v = await getModelAsync("council_validator");
+  return {
+    proposerProvider: p.provider as any,
+    proposerModel: p.model,
+    validatorProvider: v.provider as any,
+    validatorModel: v.model,
+  };
+}
 
 interface Finding {
   title: string;
@@ -76,13 +86,15 @@ serve(async (req) => {
     const body = await req.json();
     const { action, findingId, patchPlanId } = body;
 
+    const { proposerProvider, proposerModel, validatorProvider, validatorModel } = await resolveModels();
+
     switch (action) {
       // ─── SCAN: RLS AUDIT ────────────────────────────────────────────────
       case "scan_rls": {
         try {
           const aiResult = await callAIJSON({
-            provider: "openai",
-            model: PROPOSER_MODEL,
+            provider: proposerProvider,
+            model: proposerModel,
             messages: [
               {
                 role: "system",
@@ -120,7 +132,7 @@ Generiere 3-5 realistische Findings.`
             if (!error) created++;
           }
 
-          await logRecommendation(supabase, `RLS Scan: ${created} Findings`, PROPOSER_MODEL, JSON.stringify({ findings_count: created }).slice(0, 500), "scan", "rls_audit");
+          await logRecommendation(supabase, `RLS Scan: ${created} Findings`, proposerModel, JSON.stringify({ findings_count: created }).slice(0, 500), "scan", "rls_audit");
 
           return new Response(JSON.stringify({ action: "scan_rls", findings_created: created }), { headers: jsonHeaders });
         } catch (e) {
@@ -191,8 +203,8 @@ Generiere 3-5 realistische Findings.`
       case "scan_edge": {
         try {
           const aiResult = await callAIJSON({
-            provider: "openai",
-            model: PROPOSER_MODEL,
+            provider: proposerProvider,
+            model: proposerModel,
             messages: [
               {
                 role: "system",
@@ -222,7 +234,7 @@ Generiere 2-4 Findings.`
             if (!error) created++;
           }
 
-          await logRecommendation(supabase, `Edge Scan: ${created} Findings`, PROPOSER_MODEL, `${created} edge function issues found`, "scan", "edge_function_audit");
+          await logRecommendation(supabase, `Edge Scan: ${created} Findings`, proposerModel, `${created} edge function issues found`, "scan", "edge_function_audit");
 
           return new Response(JSON.stringify({ action: "scan_edge", findings_created: created }), { headers: jsonHeaders });
         } catch (e) {
@@ -244,8 +256,8 @@ Generiere 2-4 Findings.`
         if (!finding) return new Response(JSON.stringify({ error: "Finding not found" }), { status: 404, headers: jsonHeaders });
 
         const proposal = await callAIJSON({
-          provider: "openai",
-          model: PROPOSER_MODEL,
+          provider: proposerProvider,
+          model: proposerModel,
           messages: [
             {
               role: "system",
@@ -269,13 +281,13 @@ Antworte als JSON: {"title":"Patch: ...","patches":[{"type":"sql|code","path":"o
           severity: finding.severity,
           affected_area: finding.scan_type === "rls_audit" ? "rls" : finding.scan_type === "edge_function_audit" ? "edge" : finding.scan_type === "queue_health" ? "queue" : "db",
           patches_json: plan.patches || [],
-          proposer_model: PROPOSER_MODEL,
+          proposer_model: proposerModel,
           proposer_reasoning: (plan.reasoning as string) || "",
           status: "proposed",
         }).select("id").single();
 
         await supabase.from("tech_council_findings").update({ status: "in_review" }).eq("id", findingId);
-        await logRecommendation(supabase, `Patch proposed: ${plan.title || finding.title}`, PROPOSER_MODEL, (plan.reasoning as string) || "", "patch", saved?.id || "");
+        await logRecommendation(supabase, `Patch proposed: ${plan.title || finding.title}`, proposerModel, (plan.reasoning as string) || "", "patch", saved?.id || "");
 
         return new Response(JSON.stringify({ action: "propose_patch", patch_plan_id: saved?.id, finding_id: findingId }), { headers: jsonHeaders });
       }
@@ -289,8 +301,8 @@ Antworte als JSON: {"title":"Patch: ...","patches":[{"type":"sql|code","path":"o
         if (!plan) return new Response(JSON.stringify({ error: "Patch plan not found" }), { status: 404, headers: jsonHeaders });
 
         const validation = await callAIJSON({
-          provider: "anthropic",
-          model: VALIDATOR_MODEL,
+          provider: validatorProvider,
+          model: validatorModel,
           messages: [
             {
               role: "system",
@@ -313,7 +325,7 @@ Antworte als JSON: {"decision":"approved|rejected|revise","confidence":0.0-1.0,"
           : verdict.decision === "approved" ? "approved" : "proposed";
 
         await supabase.from("admin_patch_plans").update({
-          validator_model: VALIDATOR_MODEL,
+          validator_model: validatorModel,
           validator_reasoning: (verdict.reasoning as string) || "",
           status: finalStatus,
           ...(finalStatus === "approved" ? { approved_at: new Date().toISOString() } : {}),
@@ -323,7 +335,7 @@ Antworte als JSON: {"decision":"approved|rejected|revise","confidence":0.0-1.0,"
           await supabase.from("tech_council_findings").update({ status: "dismissed" }).eq("id", plan.finding_id);
         }
 
-        await logRecommendation(supabase, `Verdict: ${verdict.decision} for ${plan.title}`, VALIDATOR_MODEL, (verdict.reasoning as string) || "", "verdict", targetId);
+        await logRecommendation(supabase, `Verdict: ${verdict.decision} for ${plan.title}`, validatorModel, (verdict.reasoning as string) || "", "verdict", targetId);
 
         return new Response(JSON.stringify({
           action: "validate_patch", patch_plan_id: targetId,

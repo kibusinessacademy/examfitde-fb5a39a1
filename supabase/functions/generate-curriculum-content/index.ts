@@ -103,8 +103,16 @@ Deno.serve(async (req) => {
 Zuständigkeit: ${beruf.zustaendigkeit}
 Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
 
-    const provider = providerOverride || "openai";
-    const model = provider === "anthropic" ? "claude-sonnet-4-20250514" : provider === "google" ? "gemini-2.5-flash" : "gpt-4.1";
+    let provider = providerOverride || "";
+    let model = "";
+    if (provider) {
+      model = provider === "anthropic" ? "claude-sonnet-4-20250514" : provider === "google" ? "gemini-2.5-flash" : "gpt-4.1";
+    } else {
+      const { getModelAsync } = await import("../_shared/model-routing.ts");
+      const routed = await getModelAsync("curriculum_import");
+      provider = routed.provider;
+      model = routed.model;
+    }
     console.log(`[GenContent] Using ${provider}/${model}`);
 
     const aiResult = await callAIJSON({

@@ -1,15 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAI } from "../_shared/ai-client.ts";
+import { getModelAsync } from "../_shared/model-routing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-/* ── Model config (SSOT) ── */
-const PROPOSER_MODEL = "openai/gpt-4.1";
-const VALIDATOR_MODEL = "anthropic/claude-sonnet-4-20250514";
-const PROPOSER_LABEL = "gpt-4.1";
-const VALIDATOR_LABEL = "claude-sonnet-4";
+// Models resolved dynamically per-request
+async function resolveModels() {
+  const p = await getModelAsync("council_proposer");
+  const v = await getModelAsync("council_validator");
+  return { pm: p.model, vm: v.model, pl: p.model, vl: v.model };
+}
 
 /* ── Types ── */
 interface BlueprintPayload { entityType: "blueprint"; blueprintId: string; round?: number; maxRounds?: number }
@@ -28,6 +30,7 @@ Deno.serve(async (req) => {
   try {
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     const body = await req.json();
+    const { pm: PROPOSER_MODEL, vm: VALIDATOR_MODEL, pl: PROPOSER_LABEL, vl: VALIDATOR_LABEL } = await resolveModels();
 
     const payload: Payload = body.payload ?? body;
     const jobType: string = body._job_type ?? body.action ?? "";
@@ -375,8 +378,9 @@ async function callLLM(
   opts: { model: string; system: string; user: string }
 ): Promise<Record<string, unknown>> {
   try {
+    const provider = opts.model.includes("/") ? "lovable" : opts.model.startsWith("anthropic") ? "anthropic" : "openai";
     const result = await callAI({
-      provider: opts.model.startsWith("anthropic") ? "anthropic" : "openai",
+      provider,
       messages: [
         { role: "system", content: opts.system },
         { role: "user", content: opts.user },

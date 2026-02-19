@@ -1,15 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
+import { getModelAsync } from "../_shared/model-routing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// Model config (swap to gpt-5.2 / opus-4.6 when available in router)
-const PROPOSER_MODEL = "gpt-4.1";
-const PROPOSER_LABEL = "gpt-4.1";
-const VALIDATOR_MODEL = "claude-sonnet-4-20250514";
-const VALIDATOR_LABEL = "claude-sonnet-4";
+// Models resolved dynamically per-request
+async function resolveModels() {
+  const p = await getModelAsync("council_proposer");
+  const v = await getModelAsync("council_validator");
+  return { pp: p.provider as any, pm: p.model, vp: v.provider as any, vm: v.model };
+}
 
 type Decision = "approved" | "revise" | "rejected";
 
@@ -42,6 +44,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const payload = body.payload ?? body;
     const limit = Math.min(Number(payload.limit ?? 10), 25);
+    const { pp: PROPOSER_PROVIDER, pm: PROPOSER_MODEL, vp: VALIDATOR_PROVIDER, vm: VALIDATOR_MODEL } = await resolveModels();
+    const PROPOSER_LABEL = PROPOSER_MODEL;
+    const VALIDATOR_LABEL = VALIDATOR_MODEL;
 
     // Load open findings without existing remediation
     const { data: findings, error: fErr } = await sb
@@ -65,7 +70,7 @@ Deno.serve(async (req) => {
       try {
         // 1) PROPOSE remediation plan
         const proposalResult = await callAIJSON({
-          provider: "openai",
+          provider: PROPOSER_PROVIDER,
           model: PROPOSER_MODEL,
           messages: [
             {
@@ -118,7 +123,7 @@ Beachte: DSGVO, EU AI Act Art. 12/14, AZAV § 178-180 SGB III, ISO 29993.`,
 
         // 3) VALIDATE remediation (Claude)
         const critiqueResult = await callAIJSON({
-          provider: "anthropic",
+          provider: VALIDATOR_PROVIDER,
           model: VALIDATOR_MODEL,
           messages: [
             {

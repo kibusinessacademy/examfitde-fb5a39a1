@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
+import { getModelAsync } from "../_shared/model-routing.ts";
 
 /**
  * Council Worker v2 – Deliberative Architecture
@@ -110,9 +111,10 @@ async function proposeStep(
 
   if (!lesson) throw new Error(`Lesson ${lesson_id} not found`);
 
+  const proposerModel = await getModelAsync("council_proposer");
   const { content: aiContent } = await callAIJSON({
-    provider: "openai",
-    model: "gpt-4.1",
+    provider: proposerModel.provider,
+    model: proposerModel.model,
     messages: [
       {
         role: "system",
@@ -143,7 +145,7 @@ Antworte als JSON mit: { "html": "...", "objectives": [...], "key_concepts": [..
       lesson_id,
       step_key,
       content_json: contentJson,
-      created_by_agent: "gpt-4.1",
+      created_by_agent: proposerModel.model,
       created_by_job_id: jobId || null,
       status: "proposed",
       council_round: 1,
@@ -156,7 +158,7 @@ Antworte als JSON mit: { "html": "...", "objectives": [...], "key_concepts": [..
   // Log proposal message
   await db.from("council_messages").insert({
     content_version_id: version.id,
-    agent_name: "gpt-4.1",
+    agent_name: proposerModel.model,
     message_type: "proposal",
     message_json: {
       summary: `Proposal for ${step_key} of lesson "${lesson.title}"`,
@@ -193,9 +195,10 @@ async function critiqueStep(
 
   const contentStr = JSON.stringify(version.content_json);
 
+  const validatorModel = await getModelAsync("council_validator");
   const { content: critiqueContent } = await callAIJSON({
-    provider: "anthropic",
-    model: "claude-sonnet-4-20250514",
+    provider: validatorModel.provider,
+    model: validatorModel.model,
     messages: [
       {
         role: "system",
@@ -234,7 +237,7 @@ Antworte als JSON:
   // Store critique as council message
   await db.from("council_messages").insert({
     content_version_id: version_id,
-    agent_name: "claude-sonnet-4",
+    agent_name: validatorModel.model,
     message_type: "critique",
     message_json: critiqueJson,
   });
@@ -278,9 +281,10 @@ async function reviseStep(
 
   const latestCritique = critiques?.[0]?.message_json || {};
 
+  const reviserModel = await getModelAsync("council_proposer");
   const { content: revisedContent } = await callAIJSON({
-    provider: "openai",
-    model: "gpt-4.1",
+    provider: reviserModel.provider,
+    model: reviserModel.model,
     messages: [
       {
         role: "system",

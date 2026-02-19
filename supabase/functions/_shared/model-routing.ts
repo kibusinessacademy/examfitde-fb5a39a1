@@ -18,6 +18,8 @@ export type PipelineIntent =
   | "minicheck"
   | "seo_content"
   | "council_review"
+  | "council_proposer"
+  | "council_validator"
   | "quality_audit"
   | "embeddings"
   | "images"
@@ -73,6 +75,14 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "google/gemini-2.5-pro" },
     { provider: "lovable", model: "openai/gpt-5" },
   ],
+  council_proposer: [
+    { provider: "lovable", model: "openai/gpt-5" },
+    { provider: "lovable", model: "google/gemini-2.5-pro" },
+  ],
+  council_validator: [
+    { provider: "lovable", model: "google/gemini-2.5-pro" },
+    { provider: "lovable", model: "openai/gpt-5" },
+  ],
   quality_audit: [
     { provider: "lovable", model: "openai/gpt-5" },
     { provider: "lovable", model: "google/gemini-2.5-pro" },
@@ -119,6 +129,8 @@ export const INTENT_BUDGETS: Record<PipelineIntent, number> = {
   minicheck: 0.3,
   seo_content: 1.0,
   council_review: 0.8,
+  council_proposer: 1.0,
+  council_validator: 0.8,
   quality_audit: 1.5,
   embeddings: 0.1,
   images: 0.5,

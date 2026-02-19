@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { callAIJSON } from "../_shared/ai-client.ts";
+import { getModelAsync } from "../_shared/model-routing.ts";
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -9,14 +11,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const deepseekApiKey = Deno.env.get("DEEPSEEK_API_KEY");
-
-    if (!deepseekApiKey) {
-      return new Response(JSON.stringify({ error: "AI not configured" }), {
-        status: 500, headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" }
-      });
-    }
-
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Find resolved tickets without FAQ entries
@@ -49,6 +43,7 @@ serve(async (req) => {
       });
     }
 
+    const routed = await getModelAsync("support");
     let generated = 0;
 
     for (const ticket of newTickets.slice(0, 5)) {
@@ -67,49 +62,39 @@ Antworte im Format:
 FRAGE: [Frage]
 ANTWORT: [Antwort]`;
 
-      const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
-      if (!DEEPSEEK_API_KEY) continue;
-
-      const aiResponse = await fetch("https://api.deepseek.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
+      try {
+        const { content } = await callAIJSON({
+          provider: routed.provider,
+          model: routed.model,
           messages: [
             { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Erstelle FAQ-Einträge die Azubis sofort helfen." },
             { role: "user", content: prompt },
           ],
           max_tokens: 300,
-        }),
-      });
-
-      if (!aiResponse.ok) continue;
-
-      const aiData = await aiResponse.json();
-      const content = aiData.choices?.[0]?.message?.content || "";
-
-      const questionMatch = content.match(/FRAGE:\s*(.+?)(?:\n|ANTWORT:)/s);
-      const answerMatch = content.match(/ANTWORT:\s*(.+)/s);
-
-      if (questionMatch && answerMatch) {
-        await adminClient.from("support_faq").insert({
-          question: questionMatch[1].trim(),
-          answer: answerMatch[1].trim(),
-          ticket_type: ticket.ticket_type || ticket.category || "general",
-          course_id: ticket.context_course_id,
-          source_ticket_id: ticket.id,
-          is_published: false, // Needs admin approval
         });
-        generated++;
+
+        const questionMatch = content.match(/FRAGE:\s*(.+?)(?:\n|ANTWORT:)/s);
+        const answerMatch = content.match(/ANTWORT:\s*(.+)/s);
+
+        if (questionMatch && answerMatch) {
+          await adminClient.from("support_faq").insert({
+            question: questionMatch[1].trim(),
+            answer: answerMatch[1].trim(),
+            ticket_type: ticket.ticket_type || ticket.category || "general",
+            course_id: ticket.context_course_id,
+            source_ticket_id: ticket.id,
+            is_published: false,
+          });
+          generated++;
+        }
+      } catch (e) {
+        console.warn(`[FAQ-Gen] Failed for ticket ${ticket.id}:`, e);
       }
     }
 
     // Also classify tickets for feedback loop
     for (const ticket of newTickets.slice(0, 5)) {
-      const classifications = [];
+      const classifications: string[] = [];
       const lower = (ticket.description || "").toLowerCase();
 
       if (["verstehe nicht", "unklar", "erklär", "was bedeutet"].some(w => lower.includes(w))) {
