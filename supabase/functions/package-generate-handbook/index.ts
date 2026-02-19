@@ -106,6 +106,10 @@ ${glossaryContext || ''}
 Antworte NUR mit dem Markdown-Inhalt, KEIN JSON-Wrapper.`;
 
   try {
+    // Use AbortController with 25s timeout to prevent Edge Function timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
+
     const result = await callAIJSON({
       provider: routed.provider,
       model: routed.model,
@@ -113,8 +117,10 @@ Antworte NUR mit dem Markdown-Inhalt, KEIN JSON-Wrapper.`;
         { role: "system", content: "Du schreibst prüfungsrelevante IHK-Handbuch-Inhalte. Antworte nur mit Markdown." },
         { role: "user", content: prompt },
       ],
-      max_tokens: Math.min(4000, Math.round(wordTarget * 4)),
+      max_tokens: Math.min(2500, Math.round(wordTarget * 3)),
     });
+
+    clearTimeout(timeout);
 
     let content = result.content || "";
     if (content.startsWith("{") || content.startsWith('"')) {
@@ -130,7 +136,8 @@ Antworte NUR mit dem Markdown-Inhalt, KEIN JSON-Wrapper.`;
     }
     return content;
   } catch (e) {
-    console.error(`[generate-handbook] LLM failed for ${fieldCode}: ${(e as Error).message}`);
+    const msg = (e as Error).message || String(e);
+    console.error(`[generate-handbook] LLM failed for ${fieldCode}: ${msg}`);
     return "";
   }
 }
@@ -273,15 +280,30 @@ Deno.serve(async (req) => {
     for (let fi = 0; fi < rawChunks[ci].length; fi++) fieldToChapter.push(ci + 1);
   }
 
-  // 4) Generate sections WITH REAL CONTENT via LLM, weighted by exam relevance
+  // 4) Generate sections in BATCHES of 3 to avoid Edge Function timeout
+  const BATCH_SIZE = 3;
+  const batchCursor = p.batch_cursor ?? 0;
   const sectionRows: Array<Record<string, unknown>> = [];
-  let sectionOrder = 1;
+  let sectionOrder = batchCursor + 1;
   let llmSuccessCount = 0;
   let llmFailCount = 0;
 
-  for (let i = 0; i < fields.length; i++) {
-    const lf = fields[i] as any;
-    const chapterSortOrder = fieldToChapter[i] || 1;
+  // If resuming, reload existing sections count
+  if (batchCursor > 0) {
+    const { data: existingSections } = await sb
+      .from("handbook_sections")
+      .select("id")
+      .in("chapter_id", chapters.map((c: any) => c.id));
+    sectionOrder = (existingSections?.length || 0) + 1;
+  }
+
+  const batchEnd = Math.min(batchCursor + BATCH_SIZE, fields.length);
+  const batchFields = fields.slice(batchCursor, batchEnd);
+
+  for (let i = 0; i < batchFields.length; i++) {
+    const lf = batchFields[i] as any;
+    const globalIdx = batchCursor + i;
+    const chapterSortOrder = fieldToChapter[globalIdx] || 1;
     const chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
     if (!chapter) continue;
 
@@ -323,23 +345,38 @@ Deno.serve(async (req) => {
       },
     });
 
-    if (i < fields.length - 1) {
-      await new Promise(r => setTimeout(r, 3000));
+    if (i < batchFields.length - 1) {
+      await new Promise(r => setTimeout(r, 1500));
     }
   }
 
-  if (!sectionRows.length) throw new Error("handbook_sections: 0 sections prepared");
-  const { error: secErr } = await sb.from("handbook_sections").insert(sectionRows);
-  if (secErr) throw new Error(`Section insert: ${secErr.message}`);
+  if (sectionRows.length > 0) {
+    const { error: secErr } = await sb.from("handbook_sections").insert(sectionRows);
+    if (secErr) throw new Error(`Section insert: ${secErr.message}`);
+  }
 
-  console.log(`[generate-handbook] Done: ${chapters.length} chapters, ${sectionRows.length} sections, ${llmSuccessCount} LLM-generated, ${llmFailCount} fallback`);
+  const isComplete = batchEnd >= fields.length;
+  const progress = Math.round((batchEnd / fields.length) * 100);
+
+  console.log(`[generate-handbook] Batch ${batchCursor}-${batchEnd}/${fields.length}: ${sectionRows.length} sections, ${llmSuccessCount} LLM, ${llmFailCount} fallback${isComplete ? ' — COMPLETE' : ''}`);
+
+  if (!isComplete) {
+    // Signal runner to re-invoke with next batch
+    return json({
+      ok: true,
+      batch_complete: false,
+      batch_cursor: batchEnd,
+      progress,
+      sections_this_batch: sectionRows.length,
+    });
+  }
 
   try { await sb.from("course_packages").update({ build_progress: 90 }).eq("id", packageId); } catch (_) { /* ignore */ }
   return json({
     ok: true,
     batch_complete: true,
     chapters: chapters.length,
-    sections: sectionRows.length,
+    sections: sectionOrder - 1,
     llm_generated: llmSuccessCount,
     llm_fallback: llmFailCount,
   });
