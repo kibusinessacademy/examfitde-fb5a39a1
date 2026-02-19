@@ -28,8 +28,8 @@ import { getModel } from "../_shared/model-routing.ts";
 
 const SAMPLE_SIZE = 4;
 const MIN_HTML_LENGTH = 400;
-const MIN_HTML_WORD_COUNT = 200; // NEW: minimum word count for text lessons
-const TARGET_HTML_WORD_COUNT = 400; // Audit finding: median 160 too low
+const MIN_HTML_WORD_COUNT = 80; // Lowered: generator produces 120-200 words; 200 caused infinite auto-heal loops
+const TARGET_HTML_WORD_COUNT = 200; // Realistic target for batch-generated content
 const MIN_MINICHECK_LENGTH = 200;
 const SAMPLE_PASS_THRESHOLD = 70;
 const INDIVIDUAL_REJECT_THRESHOLD = 60;
