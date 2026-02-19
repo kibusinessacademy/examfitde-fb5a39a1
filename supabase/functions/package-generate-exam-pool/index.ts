@@ -6,6 +6,7 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
+import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
@@ -337,6 +338,7 @@ function buildTurboPrompt(
   compDesc: string,
   professionName: string,
   depthTopics: string[],
+  glossaryContext?: string,
 ): { system: string; user: string } {
   const diffLabel: Record<string, string> = {
     easy: "leicht", medium: "mittel", hard: "schwer", very_hard: "sehr schwer",
@@ -421,6 +423,7 @@ SELBSTAUDIT (vor Ausgabe prüfen):
 - Klingt die Frage natürlich — wie von einem IHK-Prüfer geschrieben?
 - Enthält die Erklärung einen konkreten Prüfungstipp/Merksatz?
 Regeneriere intern, bis alle Punkte erfüllt sind.
+${glossaryContext || ''}
 
 Antworte NUR mit JSON-Array:
 [{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","cognitive_level":"${cognitiveLevel}","explanation":"Richtig: ... Falsch A: ... Falsch B: ... Falsch C: ... Tipp: ...","tags":["tag1"]}]`;
@@ -449,6 +452,7 @@ async function generateTurboQuestions(
   existingHashes: Set<string>,
   existingNgramSets: Set<string>[],
   professionName: string,
+  glossaryContext?: string,
 ): Promise<{ saved: number; training: number }> {
   let compTitle = bp.name;
   let compDesc = bp.canonical_statement;
@@ -475,7 +479,7 @@ async function generateTurboQuestions(
     } catch { /* depth load optional */ }
   }
 
-  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics);
+  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics, glossaryContext);
 
   const maxTokens = count <= 2 ? 3000 : count <= 5 ? 6000 : 8000;
 
@@ -831,10 +835,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Resolve profession
+    // Resolve profession + load glossary
     const certificationId = p.certification_id || null;
     const professionResult = await resolveProfession(sb, { certificationId, curriculumId });
     const professionName = professionResult.professionName;
+
+    let glossaryContext = "";
+    try {
+      const { data: cu } = await sb.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
+      if (cu?.beruf_id) {
+        const glossary = await loadOrGenerateGlossary(sb, cu.beruf_id, professionName, curriculumId);
+        glossaryContext = formatGlossaryForPrompt(glossary);
+        console.log(`[ExamPool-v5] Glossary loaded for "${professionName}" (${glossaryContext.length} chars)`);
+      }
+    } catch (e) { console.warn(`[ExamPool-v5] Glossary load failed: ${(e as Error).message}`); }
 
     if (generatedSoFar === 0 && !isFanOut) {
       console.log(`[ExamPool-v5] Start "${professionName}": target=${examTarget}, engine=v5-ihk-quality`);
@@ -923,7 +937,7 @@ Deno.serve(async (req) => {
 
         try {
           const { saved, training } = await generateTurboQuestions(
-            sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, cognitiveLevel, existingHashes, existingNgramSets, professionName
+            sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, cognitiveLevel, existingHashes, existingNgramSets, professionName, glossaryContext
           );
           questionsThisChunk += saved;
           trainingThisChunk += training;
