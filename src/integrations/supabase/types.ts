@@ -18350,6 +18350,20 @@ export type Database = {
         Args: { p_buyer_user_id: string; p_order_id: string }
         Returns: Json
       }
+      count_curricula_by_status: {
+        Args: never
+        Returns: {
+          count: number
+          status: string
+        }[]
+      }
+      count_packages_by_status: {
+        Args: never
+        Returns: {
+          count: number
+          status: string
+        }[]
+      }
       course_pack_fingerprint: {
         Args: { p_course_id: string }
         Returns: string
@@ -18607,6 +18621,20 @@ export type Database = {
       }
       get_course_progress: { Args: { p_course_id: string }; Returns: Json }
       get_coverage_stats: { Args: never; Returns: Json }
+      get_curriculum_competency_counts: {
+        Args: never
+        Returns: {
+          count: number
+          curriculum_id: string
+        }[]
+      }
+      get_curriculum_lf_counts: {
+        Args: never
+        Returns: {
+          count: number
+          curriculum_id: string
+        }[]
+      }
       get_datev_prep_lines: {
         Args: { p_config_name?: string; p_currency?: string; p_month: string }
         Returns: {
