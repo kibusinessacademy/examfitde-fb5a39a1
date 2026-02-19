@@ -55,9 +55,9 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
   if (lfErr) throw new Error(`LF query: ${lfErr.message}`);
 
   if (!lfs?.length) {
-    // Try curriculum_learning_fields as fallback
+    // Fallback: try with different column filter (legacy compat)
     const { data: clfs, error: clfErr } = await sb
-      .from("curriculum_learning_fields")
+      .from("learning_fields")
       .select("id, code, title")
       .eq("curriculum_id", curriculumId);
     if (clfErr) throw new Error(`CLF query: ${clfErr.message}`);

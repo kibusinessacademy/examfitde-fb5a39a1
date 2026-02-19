@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
   // 1. SCHEMA PRECHECKS
   // ═══════════════════════════════════════════════════════════
   const coreTables = checksConfig.prechecks?.find((c: any) => c.id === "schema_core_tables")?.tables
-    || ["profiles", "curricula", "curriculum_learning_fields", "job_queue", "autofix_runs"];
+    || ["profiles", "curricula", "learning_fields", "job_queue", "autofix_runs"];
 
   let schemaMissing = 0;
   for (const table of coreTables) {
