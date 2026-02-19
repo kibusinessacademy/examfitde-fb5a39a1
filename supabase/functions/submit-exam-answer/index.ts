@@ -176,6 +176,43 @@ serve(async (req) => {
       }
     }
 
+    // ── v3: Update competency_performance_stats (Mastery-Feedback-Loop) ──
+    try {
+      const topicKey = question.competency_id || question.curriculum_id;
+      const { data: existingStat } = await adminClient
+        .from("competency_performance_stats")
+        .select("id, total_attempts, total_correct, avg_score, fail_rate, common_error_patterns")
+        .eq("curriculum_id", question.curriculum_id)
+        .eq("competency_id", question.competency_id)
+        .maybeSingle();
+
+      const newAttempts = (existingStat?.total_attempts || 0) + 1;
+      const newCorrect = (existingStat?.total_correct || 0) + (isCorrect ? 1 : 0);
+      const newAvgScore = newAttempts > 0 ? (newCorrect / newAttempts) * 100 : 0;
+      const newFailRate = newAttempts > 0 ? 1 - (newCorrect / newAttempts) : 0;
+      
+      let fragilityLevel = "stable";
+      if (newAttempts >= 10) {
+        if (newFailRate > 0.5) fragilityLevel = "critical";
+        else if (newFailRate > 0.35) fragilityLevel = "fragile";
+      }
+
+      await adminClient.from("competency_performance_stats").upsert({
+        curriculum_id: question.curriculum_id,
+        competency_id: question.competency_id,
+        learning_field_id: null,
+        topic_key: topicKey,
+        total_attempts: newAttempts,
+        total_correct: newCorrect,
+        avg_score: Math.round(newAvgScore * 100) / 100,
+        fail_rate: Math.round(newFailRate * 10000) / 10000,
+        fragility_level: fragilityLevel,
+        last_updated: new Date().toISOString(),
+      }, { onConflict: "curriculum_id,competency_id,learning_field_id,topic_key" });
+    } catch (perfErr) {
+      logStep("WARNING: competency_performance_stats update failed (non-blocking)", { error: perfErr });
+    }
+
     // Return result with correct answer and explanation (NOW ALLOWED - after entitlement check)
     const result: AnswerResult = {
       is_correct: isCorrect,

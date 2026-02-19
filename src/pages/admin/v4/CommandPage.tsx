@@ -17,6 +17,7 @@ const OutcomeKPIsTab = lazy(() => import('@/components/admin/command/OutcomeKPIs
 const ProductionSafetyNet = lazy(() => import('@/components/admin/ProductionSafetyNet'));
 const CEODailyKPIs = lazy(() => import('@/components/admin/CEODailyKPIs'));
 const RealtimePipelineMonitor = lazy(() => import('@/components/admin/RealtimePipelineMonitor'));
+const QualityCockpitTab = lazy(() => import('@/components/admin/command/QualityCockpitTab'));
 
 const Fallback = () => <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
 
@@ -45,6 +46,9 @@ export default function CommandPage() {
           <TabsTrigger value="ceo" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
             <Sparkles className="h-3.5 w-3.5" /><span className="hidden sm:inline">CEO</span>
           </TabsTrigger>
+          <TabsTrigger value="mastery" className="flex items-center gap-1.5 text-xs lg:text-sm py-2">
+            <Shield className="h-3.5 w-3.5" /><span className="hidden sm:inline">Mastery</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="leitstelle" className="mt-4"><Leitstelle /></TabsContent>
@@ -53,6 +57,7 @@ export default function CommandPage() {
         <TabsContent value="cost" className="mt-4"><Suspense fallback={<Fallback />}><CostTab /></Suspense></TabsContent>
         <TabsContent value="errors" className="mt-4"><Suspense fallback={<Fallback />}><ErrorsTab /></Suspense></TabsContent>
         <TabsContent value="ceo" className="mt-4"><Suspense fallback={<Fallback />}><CEODailyKPIs /></Suspense></TabsContent>
+        <TabsContent value="mastery" className="mt-4"><Suspense fallback={<Fallback />}><QualityCockpitTab /></Suspense></TabsContent>
       </Tabs>
     </div>
   );

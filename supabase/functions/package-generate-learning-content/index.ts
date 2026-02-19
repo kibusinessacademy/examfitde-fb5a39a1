@@ -4,8 +4,8 @@ import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
-import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES, buildMiniCheckPrompt, measureDepth, depthMeetsMinimum, mapToDifficultyLevel, getRequiredDepth, runV2QualityGate } from "../_shared/prompt-kit.ts";
-import type { DifficultyLevel } from "../_shared/prompt-kit.ts";
+import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES, buildMiniCheckPrompt, measureDepth, depthMeetsMinimum, mapToDifficultyLevel, getRequiredDepth, runV2QualityGate, loadMasteryContext, buildMasteryFeedbackSuffix, adjustDifficultyByMastery } from "../_shared/prompt-kit.ts";
+import type { DifficultyLevel, MasteryContext } from "../_shared/prompt-kit.ts";
 
 /**
  * package-generate-learning-content — Pipeline Step
@@ -404,8 +404,17 @@ Deno.serve(async (req) => {
     ].filter(Boolean).join("\n") : "";
 
     // ── v2: Adaptive Depth based on difficulty ──
-    const difficultyLevel: DifficultyLevel = mapToDifficultyLevel(lfData?.difficulty_tier);
+    const baseDifficultyLevel: DifficultyLevel = mapToDifficultyLevel(lfData?.difficulty_tier);
+    
+    // ── v3: Mastery-Feedback-Loop — load real learner performance data ──
+    let masteryCtx: MasteryContext | null = null;
+    try {
+      masteryCtx = await loadMasteryContext(sb, curriculumId, lfId || null);
+    } catch (e) { console.warn(`[gen-content] Mastery context load failed: ${(e as Error).message}`); }
+    
+    const difficultyLevel = adjustDifficultyByMastery(baseDifficultyLevel, masteryCtx);
     const adaptiveReq = getRequiredDepth(difficultyLevel);
+    const masteryInjection = buildMasteryFeedbackSuffix(masteryCtx);
 
     const contextBlock = [
       `Beruf: ${professionName}`,
@@ -414,6 +423,7 @@ Deno.serve(async (req) => {
       lfContext,
       topicList.length > 0 ? `Relevante Themen: ${topicList.slice(0, 10).join(", ")}` : "",
       `\n${adaptiveReq.promptSuffix}`,
+      masteryInjection,
     ].filter(Boolean).join("\n");
 
     const userPrompt = isMiniCheck
