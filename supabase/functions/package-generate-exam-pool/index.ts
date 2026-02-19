@@ -68,19 +68,20 @@ const GERMAN_NAMES = [
   "Frau Maier", "Herr Scholz", "Frau Vogel", "Herr Franke", "Frau Ludwig",
 ];
 
+// PROFESSION-AGNOSTIC openers — no banking/industry-specific terms
 const SENTENCE_OPENERS = [
   "Ein Kunde möchte", "Im Beratungsgespräch", "Welche", "Stellen Sie sich vor,",
   "Bei der Prüfung", "Während eines Kundentermins", "Im Rahmen der",
   "Ein Unternehmen plant", "Zur Beurteilung", "Angenommen,",
-  "In der Filiale", "Beim Jahresabschluss", "Ein Auszubildender fragt",
-  "Nach Analyse der Unterlagen", "Das Kreditinstitut prüft",
+  "In Ihrem Ausbildungsbetrieb", "Bei der Qualitätskontrolle", "Ein Auszubildender fragt",
+  "Nach Analyse der Unterlagen", "Die Geschäftsleitung prüft",
   "Vor dem Hintergrund", "Gemäß den Vorschriften", "Aus betriebswirtschaftlicher Sicht",
-  "Im Zuge der Digitalisierung", "Ein langjähriger Geschäftskunde",
-  "Ihre Kollegin bittet Sie", "Der Filialleiter beauftragt Sie",
-  "Ein Existenzgründer benötigt", "Bei der Kreditwürdigkeitsprüfung",
-  "Im Jahresabschlussgespräch stellt sich heraus,", "Eine Kundin reklamiert,",
-  "Der Vorgesetzte fragt nach", "Beim Vergleich zweier Angebote",
-  "Nach Durchsicht der Bilanz", "Im Compliance-Bericht fällt auf,",
+  "Im Zuge der Digitalisierung", "Ein langjähriger Geschäftspartner",
+  "Ihre Kollegin bittet Sie", "Ihr Vorgesetzter beauftragt Sie",
+  "Ein neuer Auftrag erfordert", "Bei der Abrechnung stellen Sie fest,",
+  "Im Teamgespräch wird diskutiert,", "Eine Kundin reklamiert,",
+  "Der Abteilungsleiter fragt nach", "Beim Vergleich zweier Angebote",
+  "Nach Durchsicht der Dokumente", "Im Tagesgeschäft fällt auf,",
 ];
 
 // ─── Text-Similarity (Jaccard n-gram) ─────────────────────────────────────────
@@ -118,41 +119,38 @@ function validateDifficulty(q: { question_text: string; options: string[]; diffi
   const text = q.question_text.toLowerCase();
   const allText = (text + " " + q.options.join(" ") + " " + (q.explanation || "")).toLowerCase();
 
-  const hasCalculation = /\d+[\s]*[×x*÷/+\-]\s*\d+|\d+[.,]\d+\s*(%|€|eur)|\bberechn|\bzins|\brate\b|\bbetrag\b/i.test(allText);
-  const hasParagraph = /§\s*\d+|\bBGB\b|\bHGB\b|\bKWG\b|\bGwG\b|\bKSchG\b|\bAGB\b|\bMaBV\b/i.test(allText);
-  const hasFachbegriff = /\b(Bonität|Liquidität|Solvabilität|Eigenkapitalquote|Deckungsbeitrag|Annuität|Effektivzins|Skonto|Disagio|Bilanz|GuV|Aktiva|Passiva|Rückstellung)\b/i.test(allText);
-  const hasDecision = /\bwelche Maßnahme\b|\bbeste Option\b|\bempfehlen\b|\bRisiko\b|\bbeurteilen\b|\babwägen\b|\bentscheiden\b/i.test(allText);
+  // PROFESSION-AGNOSTIC indicators (no banking-specific terms)
+  const hasCalculation = /\d+[\s]*[×x*÷/+\-]\s*\d+|\d+[.,]\d+\s*(%|€|eur)|\bberechn|\brate\b|\bbetrag\b|\bformel\b|\bergebnis\b/i.test(allText);
+  const hasParagraph = /§\s*\d+|\bBGB\b|\bHGB\b|\bAO\b|\bUStG\b|\bKSchG\b|\bAGB\b|\bDSGVO\b|\bBetrVG\b|\bBBiG\b|\bVerordnung\b|\bRichtlinie\b/i.test(allText);
+  const hasFachbegriff = /\b(Qualität|Kennzahl|Kalkulation|Deckungsbeitrag|Bilanz|GuV|Skonto|Rabatt|Gewährleistung|Reklamation|Dokumentation|Arbeitsschutz|Hygiene|Toleranz|Prüfprotokoll|Lieferschein|Bestellung|Inventur|Abschreibung)\b/i.test(allText);
+  const hasDecision = /\bwelche Maßnahme\b|\bbeste Option\b|\bempfehlen\b|\bRisiko\b|\bbeurteilen\b|\babwägen\b|\bentscheiden\b|\bhandeln\b|\bpriorisieren\b/i.test(allText);
 
   switch (q.difficulty) {
     case "easy":
-      // Easy should NOT have complex calculations or paragraph references
       if (hasCalculation && hasParagraph) return false;
       return true;
     case "medium":
-      // Medium should have at least one knowledge element
       return hasCalculation || hasFachbegriff || hasParagraph;
     case "hard":
-      // Hard should have calculation OR paragraph + decision element
       return (hasCalculation || hasParagraph) && (hasFachbegriff || hasDecision);
     case "very_hard":
-      // Very hard should have multiple complexity layers
       return (hasCalculation || hasParagraph) && hasDecision;
     default:
       return true;
   }
 }
 
-// ─── Praxis-Score (Realism Gate) ──────────────────────────────────────────────
+// ─── Praxis-Score (Realism Gate) — PROFESSION-AGNOSTIC ───────────────────────
 
 function calculatePraxisScore(q: { question_text: string; options: string[] }): number {
   const text = q.question_text;
   let score = 0;
 
-  // Has role/person
-  if (/\b(Kundenberater|Filialleiter|Auszubildende|Sachbearbeiter|Kollegin|Vorgesetzte|Geschäftsführer|Prokuristen|Berater|Mitarbeiter)\b/i.test(text)) score++;
+  // Has role/person (generic across all professions)
+  if (/\b(Auszubildende[r]?|Sachbearbeiter|Kollegin|Kollege|Vorgesetzte[r]?|Geschäftsführer|Meister|Fachkraft|Mitarbeiter|Ausbilder|Teamleiter|Abteilungsleiter|Kunde|Kundin|Auftraggeber|Lieferant|Patient|Mandant)\b/i.test(text)) score++;
 
-  // Has context
-  if (/\b(Beratungsgespräch|Filiale|Kreditprüfung|Jahresabschluss|Kontoauszug|Girokonto|Depot|Finanzierung|Antrag|Sitzung|Besprechung)\b/i.test(text)) score++;
+  // Has situational context (generic across all professions)
+  if (/\b(Beratungsgespräch|Besprechung|Arbeitsplatz|Auftrag|Bestellung|Reklamation|Lieferung|Inventur|Qualitätskontrolle|Arbeitsschutz|Schulung|Abrechnung|Dokumentation|Prüfung|Wartung|Projektplanung|Kundengespräch|Wareneingang|Arbeitsanweisung)\b/i.test(text)) score++;
 
   // Has realistic non-round numbers
   const numbers = text.match(/\d{3,}/g);
@@ -167,7 +165,7 @@ function calculatePraxisScore(q: { question_text: string; options: string[] }): 
   // Has concrete name
   if (/\b(Herr|Frau)\s+[A-ZÄÖÜ][a-zäöüß]+/i.test(text)) score++;
 
-  return score; // 0-4, gate: >= 2
+  return score; // 0-4, gate: >= 1
 }
 
 // ─── AI Style Gate (kill KI-Lehrbuch-Deutsch) ────────────────────────────────
@@ -393,20 +391,21 @@ DISTRAKTOREN (IHK-QUALITÄT):
 - KEINE "Nonsens-Optionen" die sofort ausgeschlossen werden können
 
 PRAXISBEZUG (PFLICHT):
-- Jede Frage enthält eine konkrete Berufsrolle (Kundenberater, Filialleiter, Sachbearbeiter, etc.)
-- Jede Frage hat einen konkreten Kontext (Beratungsgespräch, Kreditprüfung, Jahresabschluss, etc.)
-- Verwende konkrete, nicht-runde Zahlen für Beträge, Zinssätze, Fristen
+- Jede Frage enthält eine konkrete Berufsrolle aus dem Alltag von ${professionName} (Auszubildende, Fachkraft, Meister, Vorgesetzte, Kunde etc.)
+- Jede Frage hat einen konkreten Kontext aus dem typischen Arbeitsalltag von ${professionName}
+- Verwende konkrete, nicht-runde Zahlen für Beträge, Mengen, Fristen
+- Szenarien MÜSSEN berufsspezifisch für ${professionName} sein — NICHT generisch übertragbar
 
 REGULATORISCHE TIEFE (PFLICHT bei Compliance/Recht):
-- Konkrete §§-Referenzen (BGB, HGB, KWG, GwG, KSchG, AGB, MaBV, MaRisk, DSGVO)
-- Exakte Fristen, Schwellenwerte, Meldepflichten (z.B. GwG §43: 10.000 €-Grenze)
-- BaFin/EZB-Aufsichtsbezüge wo relevant
+- Konkrete §§-Referenzen die für ${professionName} relevant sind (BGB, HGB, AO, UStG, DSGVO, BetrVG, BBiG, branchenspezifische Vorschriften)
+- Exakte Fristen, Schwellenwerte, Meldepflichten die ${professionName} kennen müssen
+- Zuständige Behörden und Institutionen des Berufsfelds
 - Unterscheide klar zwischen MUSS-Vorschriften und KANN-Regelungen
 
 RECHENAUFGABEN-TIEFE (PFLICHT bei Calculation):
-- Mehrstufige Berechnungen: Effektivzins MIT Disagio, Annuität MIT Sondertilgung, Tilgungsplan über mehrere Perioden
-- Kombinationsaufgaben: z.B. Kreditwürdigkeit prüfen UND Konditionen berechnen UND Sicherheiten bewerten
-- Distraktoren = typische Rechenfehler (falscher Zinssatz, vergessenes Disagio, falsche Laufzeit)
+- Mehrstufige Berechnungen die im Berufsalltag von ${professionName} vorkommen
+- Kombinationsaufgaben: Mehrere berufstypische Berechnungsschritte verknüpfen
+- Distraktoren = typische Rechenfehler die ${professionName} in der Prüfung machen (falscher Faktor, vergessener Schritt, falsche Einheit)
 - KEINE trivialen Einschritt-Rechnungen bei Schwierigkeit "hard" oder "very_hard"
 
 ERKLÄRUNG (COACHING-STIL — PFLICHT):

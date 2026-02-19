@@ -73,18 +73,21 @@ ENTSCHEIDUNGSLOGIK:
   question: `Du bist ein IHK-Prüfungsexperte. Validiere KI-generierte Prüfungsfragen.
 
 BEWERTUNGSDIMENSIONEN:
-1. EINDEUTIGKEIT (35%): Genau eine richtige Antwort? Keine Interpretationsspielräume?
-2. DISTRAKTOREN-QUALITÄT (25%): Plausibel aber eindeutig falsch? Typische Fehler abgebildet?
-3. IHK-KONFORMITÄT (25%): IHK-Prüfungsstil? Realistische Aufgabenstellung?
-4. TAXONOMIE-PASSUNG (15%): Passt zur Bloom-Stufe? Kognitive Anforderung korrekt?
+1. EINDEUTIGKEIT (30%): Genau eine richtige Antwort? Keine Interpretationsspielräume?
+2. DISTRAKTOREN-QUALITÄT (20%): Plausibel aber eindeutig falsch? Typische Fehler abgebildet?
+3. IHK-KONFORMITÄT (20%): IHK-Prüfungsstil? Realistische Aufgabenstellung?
+4. BERUFSBEZUG (15%): Konkreter Bezug zum spezifischen Beruf? Szenarien aus dem richtigen Berufsalltag? KEINE generischen Fragen ohne Berufsbezug? KEINE Fremdbranche-Begriffe?
+5. TAXONOMIE-PASSUNG (15%): Passt zur Bloom-Stufe? Kognitive Anforderung korrekt?
 
 AUTO-REJECT:
 - Mehrere korrekte Antworten möglich → reject
 - Offensichtlich falsche Distraktoren → revise
 - Fachlicher Fehler in korrekter Antwort → reject
+- FREMDBRANCHE-KONTAMINATION: Fachbegriffe aus einem anderen Beruf → reject mit category="kontamination"
+- Generische Fragen OHNE jeglichen Berufsbezug → Score max 60
 
 Antworte AUSSCHLIESSLICH mit JSON:
-{"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {"eindeutigkeit": 0-100, "distraktoren": 0-100, "ihk_konformitaet": 0-100, "taxonomie": 0-100}, "critical_issues": [...], "suggested_fixes": [...]}`,
+{"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {"eindeutigkeit": 0-100, "distraktoren": 0-100, "ihk_konformitaet": 0-100, "berufsbezug": 0-100, "taxonomie": 0-100}, "critical_issues": [...], "suggested_fixes": [...]}`,
 
   tutor_response: `Du prüfst eine KI-Tutor-Antwort auf fachliche Korrektheit. SCHNELL und PRÄZISE.
 

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
+import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 
 /**
@@ -238,8 +239,10 @@ function renderTemplate(template: string, variables: any[]): string {
  */
 async function generateFollowUps(competency: any, mainQuestion: string, professionName: string): Promise<string[]> {
   try {
+    const routed = getModel("oral_exam");
     const result = await callAIJSON({
-      provider: "deepseek",
+      provider: routed.provider,
+      model: routed.model,
       messages: [
         { role: "system", content: `Du bist ein erfahrener IHK-Prüfer für ${professionName}. Generiere 2 präzise Nachfragen, die ein echter Prüfer im Fachgespräch stellen würde. Die Nachfragen müssen fachlich tief und berufsspezifisch für ${professionName} sein. NUR JSON-Array: ["Frage1", "Frage2"]` },
         { role: "user", content: `Beruf: ${professionName}\nKompetenz: ${competency.title}\nHauptfrage: ${mainQuestion}` }
