@@ -30,10 +30,10 @@ function Metric({ icon, label, value, sub, alert }: {
   );
 }
 
-function ContentIcon({ ok }: { ok: boolean }) {
-  return ok
-    ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-    : <XCircle className="h-3.5 w-3.5 text-destructive" />;
+function ContentIcon({ ok, partial }: { ok: boolean; partial?: boolean }) {
+  if (ok) return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
+  if (partial) return <Clock className="h-3.5 w-3.5 text-amber-500" />;
+  return <XCircle className="h-3.5 w-3.5 text-destructive" />;
 }
 
 function PackageRow({ pkg }: { pkg: PipelinePackage }) {
@@ -66,9 +66,9 @@ function PackageRow({ pkg }: { pkg: PipelinePackage }) {
       </TableCell>
       <TableCell className="text-right font-mono text-xs">{pkg.lessons}</TableCell>
       <TableCell className="text-right font-mono text-xs">{pkg.q_total}</TableCell>
-      <TableCell className="text-center"><ContentIcon ok={pkg.oral_sets > 0} /></TableCell>
-      <TableCell className="text-center"><ContentIcon ok={pkg.tutor_index > 0} /></TableCell>
-      <TableCell className="text-center"><ContentIcon ok={pkg.hb_chapters > 0} /></TableCell>
+      <TableCell className="text-center"><ContentIcon ok={pkg.step_generate_oral === 'done' && pkg.step_validate_oral === 'done'} partial={pkg.step_generate_oral === 'done'} /></TableCell>
+      <TableCell className="text-center"><ContentIcon ok={pkg.step_build_tutor === 'done' && pkg.step_validate_tutor === 'done'} partial={pkg.step_build_tutor === 'done'} /></TableCell>
+      <TableCell className="text-center"><ContentIcon ok={pkg.step_generate_handbook === 'done' && pkg.step_validate_handbook === 'done'} partial={pkg.step_generate_handbook === 'done'} /></TableCell>
       <TableCell className="text-right">
         <div className="flex items-center gap-1.5 justify-end">
           <Progress value={pkg.build_progress} className="h-1.5 w-14" />
@@ -94,9 +94,9 @@ function PackageCard({ pkg }: { pkg: PipelinePackage }) {
       <div className="grid grid-cols-5 gap-1 text-[10px] text-center text-muted-foreground">
         <div><span className="font-mono font-bold text-foreground">{pkg.lessons}</span><br/>Lekt.</div>
         <div><span className="font-mono font-bold text-foreground">{pkg.q_total}</span><br/>Fragen</div>
-        <div><ContentIcon ok={pkg.oral_sets > 0} /><br/>Oral</div>
-        <div><ContentIcon ok={pkg.tutor_index > 0} /><br/>Tutor</div>
-        <div><ContentIcon ok={pkg.hb_chapters > 0} /><br/>Handb.</div>
+        <div><ContentIcon ok={pkg.step_generate_oral === 'done' && pkg.step_validate_oral === 'done'} partial={pkg.step_generate_oral === 'done'} /><br/>Oral</div>
+        <div><ContentIcon ok={pkg.step_build_tutor === 'done' && pkg.step_validate_tutor === 'done'} partial={pkg.step_build_tutor === 'done'} /><br/>Tutor</div>
+        <div><ContentIcon ok={pkg.step_generate_handbook === 'done' && pkg.step_validate_handbook === 'done'} partial={pkg.step_generate_handbook === 'done'} /><br/>Handb.</div>
       </div>
     </div>
   );

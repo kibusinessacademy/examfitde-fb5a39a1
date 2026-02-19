@@ -18,6 +18,15 @@ export interface PipelinePackage {
   tutor_index: number;
   updated_at: string;
   step_status_json: Record<string, string> | null;
+  /** Pipeline step statuses for accurate checkmarks */
+  step_generate_handbook: string;
+  step_validate_handbook: string;
+  step_build_tutor: string;
+  step_validate_tutor: string;
+  step_generate_oral: string;
+  step_validate_oral: string;
+  step_generate_exam_pool: string;
+  step_validate_exam_pool: string;
 }
 
 export interface CommandKPIs {
@@ -140,7 +149,7 @@ export function useCommandData() {
           ? sb.from('ai_tutor_context_index').select('id, package_id').in('package_id', packageIds)
           : Promise.resolve({ data: [] }),
         packageIds.length > 0
-          ? sb.from('package_steps').select('package_id, status').in('package_id', packageIds)
+          ? sb.from('package_steps').select('package_id, step_key, status').in('package_id', packageIds)
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -163,6 +172,7 @@ export function useCommandData() {
         const pkgHb = chapters.filter((h: any) => h.curriculum_id === pkg.curriculum_id).length;
         const pkgTutor = tutors.filter((t: any) => t.package_id === pkg.id).length;
         const pkgSteps = steps.filter((s: any) => s.package_id === pkg.id);
+        const stepMap = Object.fromEntries(pkgSteps.map((s: any) => [s.step_key, s.status]));
 
         totalLessons += pkgLessons;
         totalQuestions += pkgQAll.length;
@@ -185,6 +195,14 @@ export function useCommandData() {
           tutor_index: pkgTutor,
           updated_at: pkg.updated_at,
           step_status_json: pkg.step_status_json,
+          step_generate_handbook: stepMap['generate_handbook'] || 'queued',
+          step_validate_handbook: stepMap['validate_handbook'] || 'queued',
+          step_build_tutor: stepMap['build_ai_tutor_index'] || 'queued',
+          step_validate_tutor: stepMap['validate_tutor_index'] || 'queued',
+          step_generate_oral: stepMap['generate_oral_exam'] || 'queued',
+          step_validate_oral: stepMap['validate_oral_exam'] || 'queued',
+          step_generate_exam_pool: stepMap['generate_exam_pool'] || 'queued',
+          step_validate_exam_pool: stepMap['validate_exam_pool'] || 'queued',
         });
       }
 
