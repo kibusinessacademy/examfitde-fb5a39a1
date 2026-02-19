@@ -239,8 +239,19 @@ Deno.serve(async (req) => {
       .eq("status", "building");
 
     // Stall detection: queued > 0 BUT nothing building AND no active slots
-    const { data: activeSlotCheck } = await sb.rpc("get_active_pipeline_packages").catch(() => ({ data: null }));
-    const activeSlotsNow = (activeSlotCheck as string[] | null) ?? [];
+    let activeSlotsNow: string[] = [];
+    try {
+      const rpcResult = await sb.rpc("get_active_pipeline_packages");
+      if (!rpcResult.error && rpcResult.data) {
+        activeSlotsNow = rpcResult.data as string[];
+      }
+    } catch (_) {
+      // RPC may not exist — fall back to lease count
+      const { data: leaseData } = await sb.from("package_leases")
+        .select("package_id")
+        .gt("lease_until", new Date().toISOString());
+      activeSlotsNow = (leaseData ?? []).map((r: any) => r.package_id);
+    }
 
     const isStalled = (queuedCount ?? 0) > 0 && (buildingCount ?? 0) === 0 && activeSlotsNow.length === 0;
     const isHealthy = !isStalled && ((buildingCount ?? 0) > 0 || activeSlotsNow.length > 0);
