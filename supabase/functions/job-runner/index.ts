@@ -330,6 +330,21 @@ Deno.serve(async (req) => {
     completed: 0, totalLatencyMs: 0,
   };
 
+  // ── Pipeline prerequisite map: step → required predecessor step ──
+  const PIPELINE_PREREQS: Record<string, string> = {
+    package_generate_exam_pool: "auto_seed_exam_blueprints",
+    package_validate_exam_pool: "generate_exam_pool",
+    package_generate_oral_exam: "validate_exam_pool",
+    package_validate_oral_exam: "generate_oral_exam",
+    package_build_ai_tutor_index: "validate_oral_exam",
+    package_validate_tutor_index: "build_ai_tutor_index",
+    package_generate_handbook: "validate_tutor_index",
+    package_validate_handbook: "generate_handbook",
+    package_run_integrity_check: "validate_handbook",
+    package_quality_council: "run_integrity_check",
+    package_auto_publish: "quality_council",
+  };
+
   for (const job of jobs) {
     const fnName = JOB_TYPE_MAP[job.job_type];
     if (!fnName) {
@@ -341,6 +356,28 @@ Deno.serve(async (req) => {
       }).eq("id", job.id);
       results.push({ id: job.id, status: "failed", reason: "unknown_type" });
       continue;
+    }
+
+    // ── Prereq guard: cancel orphan pipeline jobs whose predecessor isn't done ──
+    const prereqStep = PIPELINE_PREREQS[job.job_type];
+    if (prereqStep && job.payload?.package_id) {
+      const { data: prereqRow } = await sb
+        .from("package_steps")
+        .select("status")
+        .eq("package_id", job.payload.package_id)
+        .eq("step_key", prereqStep)
+        .maybeSingle();
+
+      if (!prereqRow || prereqRow.status !== "done") {
+        console.warn(`[job-runner] Prereq guard: ${job.job_type} cancelled — ${prereqStep} is '${prereqRow?.status ?? 'missing'}' (pkg ${(job.payload.package_id as string).slice(0, 8)})`);
+        await sb.from("job_queue").update({
+          status: "cancelled",
+          error: `Prereq guard: ${prereqStep} not done (${prereqRow?.status ?? 'missing'})`,
+          completed_at: new Date().toISOString(),
+        }).eq("id", job.id);
+        results.push({ id: job.id, status: "cancelled", reason: "prereq_not_done" });
+        continue;
+      }
     }
 
     const startMs = Date.now();
