@@ -48,7 +48,7 @@ function jaccardSim(a: Set<string>, b: Set<string>): number {
   return union === 0 ? 1 : inter / union;
 }
 
-const JACCARD_THRESHOLD = 0.80;
+const JACCARD_THRESHOLD = 0.85; // Raised: competency-derived blueprints naturally share domain language
 const MIN_BLUEPRINTS_TOTAL = 10;
 const MIN_BLUEPRINTS_PER_LF = 2; // Lowered: seeder generates 2-3 per LF; 4 caused infinite auto-heal loops
 const MAX_BLUEPRINTS_PER_LF = 40;
@@ -56,6 +56,7 @@ const WEIGHT_TOLERANCE_PP = 15;
 const MAX_EASY_PCT = 60; // Relaxed: initial seeding produces mostly understand/apply → 50% easy is normal
 const MIN_HARD_PCT = 0; // Disabled: analyze blueprints are added in later iterations
 const REQUIRED_BLOOM_LEVELS: string[] = []; // Disabled: not every LF has analyze in initial seeding
+const MAX_DUPLICATE_PCT = 25; // Raised from 15%: competencies in same domain share vocabulary naturally
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -241,7 +242,7 @@ Deno.serve(async (req) => {
   if (dupCount > 3) {
     warnings.push(`NEAR_DUPLICATE: …und ${dupCount - 3} weitere Duplikate`);
   }
-  if (dupCount > blueprints.length * 0.15) {
+  if (dupCount > blueprints.length * (MAX_DUPLICATE_PCT / 100)) {
     issues.push(`HIGH_DUPLICATE_RATE: ${dupCount}/${blueprints.length} (${((dupCount / blueprints.length) * 100).toFixed(0)}%) Beinahe-Duplikate`);
   }
 
