@@ -144,12 +144,18 @@ function BerufeStatus() {
     </div>
   );
 
-  // Map berufe to packages
-  const berufMap = new Map(packages.map(p => [p.curriculum_id || p.certification_id, p]));
+  // Map berufe to packages – a package can link via curriculum_id OR certification_id
+  const berufToPkg = new Map<string, any>();
+  for (const p of packages) {
+    if (p.certification_id) berufToPkg.set(p.certification_id, p);
+    if (p.curriculum_id) berufToPkg.set(p.curriculum_id, p);
+  }
   const statusCounts = STATUS_PIPELINE.reduce((acc, s) => ({ ...acc, [s]: 0 }), {} as Record<string, number>);
   
+  const matchedPkgIds = new Set<string>();
   const berufList = berufe.map(b => {
-    const pkg = berufMap.get(b.id);
+    const pkg = berufToPkg.get(b.id);
+    if (pkg) matchedPkgIds.add(pkg.id);
     const status = pkg ? mapPackageStatus(pkg, stepsMap) : 'not_started';
     statusCounts[status] = (statusCounts[status] || 0) + 1;
     return { ...b, pkg, pipelineStatus: status };
@@ -157,7 +163,7 @@ function BerufeStatus() {
 
   // Also count packages not linked to a beruf
   for (const pkg of packages) {
-    if (!berufe.find(b => b.id === (pkg.curriculum_id || pkg.certification_id))) {
+    if (!matchedPkgIds.has(pkg.id)) {
       const status = mapPackageStatus(pkg, stepsMap);
       statusCounts[status] = (statusCounts[status] || 0) + 1;
     }
