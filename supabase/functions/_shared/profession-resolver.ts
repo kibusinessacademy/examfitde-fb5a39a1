@@ -9,7 +9,7 @@
  *   // profession is GUARANTEED to be a non-empty string or it throws
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 type SB = ReturnType<typeof createClient>;
 
