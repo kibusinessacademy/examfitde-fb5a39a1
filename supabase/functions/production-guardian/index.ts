@@ -258,12 +258,13 @@ Deno.serve(async (req) => {
 
     // Auto-resolve stale PIPELINE_STALLED alerts if pipeline is healthy again
     if (isHealthy) {
-      await sb.from("ops_alerts")
-        .update({ acknowledged_at: new Date().toISOString() })
-        .eq("source", "production-guardian")
-        .is("acknowledged_at", null)
-        .ilike("message", "%PIPELINE_STALLED%")
-        .catch(() => {});
+      try {
+        await sb.from("ops_alerts")
+          .update({ acknowledged_at: new Date().toISOString() })
+          .eq("source", "production-guardian")
+          .is("acknowledged_at", null)
+          .ilike("message", "%PIPELINE_STALLED%");
+      } catch (_) { /* non-critical */ }
     }
 
     if (isStalled) {
