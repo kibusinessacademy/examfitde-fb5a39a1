@@ -120,18 +120,17 @@ export function useCommandData() {
       const curriculumIds = buildPkgs.map((p: any) => p.curriculum_id).filter(Boolean);
       const packageIds = buildPkgs.map((p: any) => p.id);
 
-      // Use per-curriculum count queries to avoid 1000-row limit
+      // Use RPC for reliable question counts (avoids 1000-row limit and head:true issues)
       const questionCountsByCurriculum: Record<string, { total: number; approved: number }> = {};
-      const questionCountPromises = curriculumIds.map(async (cid: string) => {
-        const [totalRes, approvedRes] = await Promise.all([
-          sb.from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', cid),
-          sb.from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', cid).eq('status', 'approved'),
-        ]);
-        questionCountsByCurriculum[cid] = {
-          total: totalRes.count || 0,
-          approved: approvedRes.count || 0,
-        };
-      });
+      if (curriculumIds.length > 0) {
+        const qcRes = await sb.rpc('get_package_question_counts', { p_curriculum_ids: curriculumIds });
+        for (const row of (qcRes.data || [])) {
+          questionCountsByCurriculum[row.curriculum_id] = {
+            total: Number(row.total) || 0,
+            approved: Number(row.approved) || 0,
+          };
+        }
+      }
 
       // Use per-course lesson counts to avoid 1000-row limit
       const lessonCountsByCourse: Record<string, number> = {};
@@ -159,7 +158,6 @@ export function useCommandData() {
         packageIds.length > 0
           ? sb.from('package_steps').select('package_id, step_key, status').in('package_id', packageIds)
           : Promise.resolve({ data: [] }),
-        ...questionCountPromises,
         ...lessonCountPromises,
       ]);
 
