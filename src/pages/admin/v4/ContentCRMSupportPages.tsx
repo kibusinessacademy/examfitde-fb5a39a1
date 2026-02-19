@@ -530,7 +530,9 @@ export function RedirectsManager() {
 const CONTENT_TABS = [
   { path: '/admin/content', label: 'Seiten', icon: FileText, end: true },
   { path: '/admin/content/blog', label: 'Blog', icon: Edit },
+  { path: '/admin/content/blocks', label: 'Content Blocks', icon: FileText },
   { path: '/admin/content/assets', label: 'Assets', icon: Image },
+  { path: '/admin/content/media', label: 'Media & Alt', icon: Image },
   { path: '/admin/content/seo', label: 'SEO & Redirects', icon: Globe },
 ];
 

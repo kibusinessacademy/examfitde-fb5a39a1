@@ -49,7 +49,9 @@ export const adminNavModules: AdminNavItem[] = [
     children: [
       { path: '/admin/content', label: 'Seiten' },
       { path: '/admin/content/blog', label: 'Blog' },
+      { path: '/admin/content/blocks', label: 'Content Blocks' },
       { path: '/admin/content/assets', label: 'Assets' },
+      { path: '/admin/content/media', label: 'Media & Alt' },
       { path: '/admin/content/seo', label: 'SEO & Redirects' },
     ],
   },

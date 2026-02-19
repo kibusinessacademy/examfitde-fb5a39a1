@@ -73,6 +73,8 @@ const ContentPagesList = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPa
 const BlogPostsList = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.BlogPostsList })));
 const AssetsManager = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.AssetsManager })));
 const RedirectsManager = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.RedirectsManager })));
+const ContentBlocksEditor = lazy(() => import('@/pages/admin/v4/ContentBlocksEditor'));
+const MediaAltManager = lazy(() => import('@/pages/admin/v4/MediaAltManager'));
 
 // Learner Pages
 const LessonPlayer = lazy(() => import('@/pages/LessonPlayer'));
@@ -201,7 +203,9 @@ const AppRoutes = () => {
           <Route path="content" element={<ContentLayout />}>
             <Route index element={<ContentPagesList />} />
             <Route path="blog" element={<BlogPostsList />} />
+            <Route path="blocks" element={<ContentBlocksEditor />} />
             <Route path="assets" element={<AssetsManager />} />
+            <Route path="media" element={<MediaAltManager />} />
             <Route path="seo" element={<RedirectsManager />} />
           </Route>
           <Route path="crm/*" element={<CRMPage />} />
