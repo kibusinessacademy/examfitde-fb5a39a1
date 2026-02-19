@@ -7,6 +7,7 @@ import type { AIProvider } from "../_shared/ai-client.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
+import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD } from "../_shared/prompt-kit.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
@@ -411,22 +412,24 @@ RECHENAUFGABEN-TIEFE (PFLICHT bei Calculation):
 - KEINE trivialen Einschritt-Rechnungen bei Schwierigkeit "hard" oder "very_hard"
 
 ERKLÄRUNG (COACHING-STIL — PFLICHT):
-- "Warum ist das in der Prüfung die beste Antwort?" (fachliche Begründung mit Norm/Fachbegriff)
-- "Warum würden viele Prüflinge hier falsch antworten?" (typischer Denkfehler benennen)
-- Erkläre WARUM JEDER falsche Distraktor falsch ist (konkreter Fehler)
-- Füge einen kurzen MERKSATZ oder PRÜFUNGSTIPP hinzu (beginne mit "Tipp:" oder "Merke:")
+${EXPLANATION_TEMPLATE}
+
+${CALCULATION_GUARD}
+
+${REGULATORY_GUARD}
 
 SELBSTAUDIT (vor Ausgabe prüfen):
 - Ist die Frage eindeutig? Gibt es genau EINE richtige Antwort?
 - Sind alle 3 Distraktoren plausibel? Kann man sie NICHT durch Allgemeinwissen ausschließen?
 - Entspricht die Schwierigkeit dem angeforderten Level?
 - Klingt die Frage natürlich — wie von einem IHK-Prüfer geschrieben?
-- Enthält die Erklärung einen konkreten Prüfungstipp/Merksatz?
+- Enthält die Erklärung einen konkreten Prüfungsanker + Merksatz?
+- Bei Rechenaufgaben: Enthält die Aufgabe ALLE nötigen Zahlen/Parameter?
 Regeneriere intern, bis alle Punkte erfüllt sind.
 ${glossaryContext || ''}
 
-Antworte NUR mit JSON-Array:
-[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","cognitive_level":"${cognitiveLevel}","explanation":"Richtig: ... Falsch A: ... Falsch B: ... Falsch C: ... Tipp: ...","tags":["tag1"]}]`;
+Antworte NUR mit JSON-Array (keine Extra-Keys, options exakt 4, correct_answer 0..3):
+[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","cognitive_level":"${cognitiveLevel}","explanation":"Richtig: ... Falsch A: ... Falsch B: ... Falsch C: ... Prüfungsanker: ... Merke: ...","tags":["tag1"]}]`;
 
   const user = `${count} Frage(n) für "${professionName}".
 Lernfeld: ${lfTitle}

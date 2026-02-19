@@ -1,0 +1,240 @@
+/**
+ * prompt-kit.ts — Shared Prompt Library v1
+ * 
+ * Centralized prompt building blocks for consistent depth, quality
+ * and profession-specificity across all AI edge functions.
+ * 
+ * VERSION: 1.0.0
+ */
+
+// ─── Depth Self-Check (invisible to output) ──────────────────────────────────
+
+export const DEPTH_SELF_CHECK = `
+INTERNE SELBSTPRÜFUNG (nicht sichtbar ausgeben — intern prüfen, ggf. intern regenerieren):
+☐ Enthält mind. 1 ⭐ IHK-Prüfungstipp
+☐ Enthält mind. 1 ⚠️ Typische Prüfungsfalle
+☐ Enthält mind. 1 Transferfrage ("Was wäre wenn...?")
+☐ Enthält mind. 1 echtes Zahlenbeispiel mit realistischen, nicht-runden Zahlen
+☐ Bei Vergleichsthemen: Abgrenzungstabelle vorhanden
+☐ Fachbegriffe werden erklärt UND im Berufskontext eingeordnet
+Falls eine Pflicht fehlt: Ergänze intern vor der Ausgabe.`;
+
+// ─── Regulatory Hallucination Guard ──────────────────────────────────────────
+
+export const REGULATORY_GUARD = `
+REGULATORIK-REGEL (KRITISCH):
+- Nenne §§, Fristen und Normen NUR, wenn sie dir aus dem bereitgestellten SSOT-Kontext, Glossar oder allgemeinem Fachwissen sicher bekannt sind.
+- Bei Unsicherheit: Schreibe "Die genaue Rechtsgrundlage ist im Betrieb oder IHK-Merkblatt nachzuprüfen" statt einen § zu erfinden.
+- NIEMALS Paragraphen, Gesetze oder Fristen halluzinieren. Falsche §-Angaben führen zu Auto-Reject.`;
+
+// ─── MiniCheck Taxonomy Template ─────────────────────────────────────────────
+
+export function buildMiniCheckPrompt(professionName: string, context: string): string {
+  return `Erstelle exakt 4 IHK-Prüfungsfragen für ${professionName}.
+
+${context}
+
+TAXONOMIE-MIX (PFLICHT):
+- 1× Recall: Definition/Begriff im konkreten Berufskontext von ${professionName}
+- 2× Apply: Rechnung/Zuordnung mit Zahlen, Dokumenten oder Prozessschritten aus dem Berufsalltag
+- 1× Analyze/Decide: Fehlerdiagnose oder beste Maßnahme in einer realistischen Berufssituation
+
+DISTRAKTOR-TYPEN (jeder Distraktor = genau ein Fehlertyp):
+- Typ A: Norm/Frist-Verwechslung (falscher §, falsche Frist)
+- Typ B: Prozess-Verwechslung (falscher Schritt, falsche Reihenfolge)
+- Typ C: Rechenfehler (falscher Faktor, vergessener Schritt)
+- Typ D: Praxis-Fehleinschätzung (was plausibel klingt aber falsch ist)
+
+ERKLÄRUNGEN (PFLICHT für jede Frage):
+- Warum ist die richtige Antwort korrekt? (1-2 Sätze)
+- Warum ist Option A falsch? (konkreter Fehlertyp benennen)
+- Warum ist Option B falsch?
+- Warum ist Option C falsch?
+- Abschluss: "Merke: ..." oder "Tipp: ..." (1 Satz Prüfungstipp)
+
+VERBOTEN: Reine Wissensfragen ohne Berufsbezug. Offensichtlich falsche Distraktoren.`;
+}
+
+// ─── Anti-KI Style Rules ─────────────────────────────────────────────────────
+
+export const ANTI_KI_RULES = `
+ANTI-KI-REGELN:
+- KEINE Sätze wie "In der heutigen Geschäftswelt...", "Es ist wichtig zu verstehen, dass...", "Grundsätzlich gilt..."
+- KEINE generischen Aufzählungen ohne konkreten Berufsbezug
+- KEINE Wiederholung der Aufgabenstellung in der Antwort
+- KEIN "Lehrbuch-Deutsch" — schreibe wie ein erfahrener Ausbilder im Betrieb
+- Kurze, klare Sätze (max 30 Wörter pro Satz)`;
+
+// ─── Role-Specific Output Templates (for AI Tutor) ──────────────────────────
+
+export function getTutorOutputFormat(role: string, professionName: string): string {
+  const formats: Record<string, string> = {
+    explainer: `
+ANTWORT-FORMAT als Erklärer:
+1. 📖 Kurzdefinition (1 Satz, auf den Punkt)
+2. 💼 Praxisbeispiel aus dem Arbeitsalltag von ${professionName}
+3. ⚠️ Typische Prüfungsfalle, die ${professionName} kennen müssen
+4. ✅ Mini-Check: 1 kurze Verständnisfrage zum Selbsttest
+Halte die Gesamtantwort unter 200 Wörtern.`,
+    
+    coach: `
+ANTWORT-FORMAT als Lern-Coach:
+1. 📊 Aktuelle Einschätzung (1-2 Sätze basierend auf dem Kontext)
+2. 📋 3-Schritt-Lernplan:
+   - Heute: [konkrete Aufgabe]
+   - Morgen: [Vertiefung]
+   - Wiederholen: [Spaced Repetition Hinweis]
+3. 💪 Motivations-Impuls (1 Satz)
+Halte die Gesamtantwort unter 150 Wörtern.`,
+    
+    examiner: `
+ANTWORT-FORMAT als Prüfungs-Trainer:
+- Stelle EXAKT 1 Prüfungsfrage im IHK-Stil für ${professionName}
+- Warte auf die Antwort des Nutzers
+- Nach Antwort: Bewertung mit kurzer Rubrik (Stärke / Lücke / Tipp)
+Halte die Frage unter 80 Wörtern.`,
+    
+    feedback: `
+ANTWORT-FORMAT als Feedback-Geber:
+- ✅ Stärke: [was gut war] (1-2 Sätze)
+- ⚠️ Lücke: [was fehlt] (1-2 Sätze)  
+- ➡️ Nächster Schritt: [konkrete Empfehlung] (1 Satz)
+Maximal 5 Bullet Points. Unter 120 Wörtern.`,
+  };
+  return formats[role] || formats.explainer;
+}
+
+// ─── Source Citation Rule ────────────────────────────────────────────────────
+
+export const SOURCE_CITATION_RULE = `
+QUELLEN-REGEL:
+- Nenne Quellen (§, Gesetz, Norm, Richtlinie) NUR, wenn sie im SSOT-Kontext enthalten sind oder dir sicher bekannt sind.
+- Bei Unsicherheit: "Die genaue Rechtsgrundlage ist im Betrieb/IHK-Merkblatt zu prüfen."
+- NIEMALS Quellen erfinden oder raten.`;
+
+// ─── Explanation Template with Prüfungsanker ─────────────────────────────────
+
+export const EXPLANATION_TEMPLATE = `
+ERKLÄRUNG-TEMPLATE (PFLICHT für jede Prüfungsfrage):
+1. "Richtig ist [Option], weil: ..." (fachliche Begründung, 1-2 Sätze)
+2. "Falsch ist [Option A], weil: ..." (konkreter Fehler benennen)
+3. "Falsch ist [Option B], weil: ..."
+4. "Falsch ist [Option C], weil: ..."
+5. "Prüfungsanker: Woran erkennt man im Text die richtige Antwort?" (1 Satz)
+6. "Merke: ..." oder "Tipp: ..." (1 Satz Prüfungstipp)`;
+
+// ─── Calculation Completeness Guard ──────────────────────────────────────────
+
+export const CALCULATION_GUARD = `
+RECHENAUFGABEN-VOLLSTÄNDIGKEIT (PFLICHT bei calculation-Typ):
+- Die Aufgabenstellung MUSS alle Zahlen und Parameter enthalten, die zur Lösung nötig sind.
+- KEINE impliziten Annahmen (z.B. "üblicher Zinssatz" ohne Zahl zu nennen).
+- Der Rechenweg in der Erklärung: Formel → Einsetzen → Zwischenschritt → Ergebnis → Interpretation.
+- Distraktoren bei Rechenaufgaben = typische Rechenfehler (falscher Faktor, vergessener Schritt, falsche Einheit).`;
+
+// ─── Follow-Up Question Types (for Oral Exam) ───────────────────────────────
+
+export function getFollowUpTypes(professionName: string): string {
+  return `
+NACHFRAGE-ACHSEN (wähle die passendste für ${professionName}):
+- Risiko: "Welche Risiken sehen Sie dabei?"
+- Norm/Recht: "Auf welcher rechtlichen Grundlage basiert das?"
+- Prozess: "Beschreiben Sie den konkreten Ablauf Schritt für Schritt."
+- Dokumentation: "Wie würden Sie das dokumentieren?"
+- Qualitätssicherung: "Wie stellen Sie die Qualität sicher?"
+- Kundenbeziehung: "Wie kommunizieren Sie das dem Kunden?"
+Die Nachfrage muss berufsspezifisch für ${professionName} formuliert sein.`;
+}
+
+// ─── Pre-LLM Depth Metrics ──────────────────────────────────────────────────
+
+export interface DepthMetrics {
+  wordCount: number;
+  hasTipp: boolean;
+  hasFalle: boolean;
+  hasTable: boolean;
+  hasCalcExample: boolean;
+  hasPraxisBeispiel: boolean;
+  starCount: number;
+  warningCount: number;
+}
+
+export function measureDepth(html: string): DepthMetrics {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return {
+    wordCount: text.split(/\s+/).filter(Boolean).length,
+    hasTipp: /⭐|IHK-Prüfungstipp|Prüfungstipp/i.test(html),
+    hasFalle: /⚠️|Prüfungsfalle|Typische Falle/i.test(html),
+    hasTable: /<table/i.test(html),
+    hasCalcExample: /\d+[\s]*[×x*÷\/+\-=]\s*\d+|Formel|Rechenweg|Berechnung/i.test(html),
+    hasPraxisBeispiel: /Beispiel|Praxisfall|Fallbeispiel|Szenario/i.test(html),
+    starCount: (html.match(/⭐/g) || []).length,
+    warningCount: (html.match(/⚠️/g) || []).length,
+  };
+}
+
+export function depthMeetsMinimum(metrics: DepthMetrics, step: string): { passes: boolean; missing: string[] } {
+  const missing: string[] = [];
+  
+  const minWords: Record<string, number> = {
+    einstieg: 250, verstehen: 400, anwenden: 350, wiederholen: 300,
+  };
+  
+  if (metrics.wordCount < (minWords[step] || 200)) {
+    missing.push(`Zu wenig Wörter: ${metrics.wordCount} (min ${minWords[step] || 200})`);
+  }
+  if (!metrics.hasTipp) missing.push("Kein ⭐ IHK-Prüfungstipp gefunden");
+  if (!metrics.hasFalle) missing.push("Keine ⚠️ Prüfungsfalle gefunden");
+  if (step === "wiederholen" && !metrics.hasTable) missing.push("Keine Abgrenzungstabelle gefunden");
+  if (step === "verstehen" && !metrics.hasCalcExample && !metrics.hasPraxisBeispiel) {
+    missing.push("Weder Rechenbeispiel noch Praxisbeispiel gefunden");
+  }
+  
+  return { passes: missing.length === 0, missing };
+}
+
+// ─── Dynamic Support Response Length ─────────────────────────────────────────
+
+export function getSupportMaxLength(ticketType: string): { maxSentences: number; instruction: string } {
+  const config: Record<string, { maxSentences: number; instruction: string }> = {
+    technisch: { maxSentences: 10, instruction: "6–10 Sätze + nummerierte Schritte 1-3 zur Lösung" },
+    abrechnung: { maxSentences: 8, instruction: "5–8 Sätze + konkreter Klickpfad zum Ziel" },
+    pruefungsangst: { maxSentences: 5, instruction: "3–5 Sätze, kurz, empathisch, ermutigend" },
+    verstaendnisfrage: { maxSentences: 7, instruction: "5–7 Sätze mit konkretem Beispiel" },
+    lernstrategie: { maxSentences: 7, instruction: "5–7 Sätze mit 2–3 konkreten Tipps" },
+  };
+  return config[ticketType] || { maxSentences: 5, instruction: "3–5 Sätze — kurz und hilfreich" };
+}
+
+export const SUPPORT_CONTEXT_REQUEST = `
+Wenn kein SSOT-Kontext vorhanden ist und die Frage fachspezifisch ist, antworte mit:
+"Um dir besser helfen zu können, nenne mir bitte: 1) Welchen Kurs/welche Lektion betrifft es? 2) Was genau ist das Problem? Dann kann ich dir eine gezielte Antwort geben."`;
+
+// ─── Oral Exam Evaluation Anchors ────────────────────────────────────────────
+
+export function getEvaluationRubric(professionName: string): string {
+  return `
+BEWERTUNGS-RUBRIK mit Ankerbeispielen für ${professionName}:
+
+Fachlichkeit (35%):
+- 1.0 = Nennt alle Kernpunkte korrekt, verwendet Fachbegriffe von ${professionName} präzise, zeigt tiefes Verständnis
+- 0.5 = Nennt Hauptpunkte, aber unvollständig oder mit kleinen Ungenauigkeiten
+- 0.0 = Grundlegende fachliche Fehler oder keine relevanten Inhalte
+
+Struktur (20%):
+- 1.0 = Logischer Aufbau: These → Begründung → Beispiel → Fazit
+- 0.5 = Erkennbare Struktur, aber Sprünge oder fehlende Übergänge
+- 0.0 = Unstrukturiert, zusammenhanglos
+
+Begriffssicherheit (25%):
+- 1.0 = Alle Fachbegriffe von ${professionName} korrekt und sicher verwendet
+- 0.5 = Fachbegriffe teilweise korrekt, aber unsicher oder unvollständig
+- 0.0 = Falsche Fachbegriffe oder Alltagssprache statt Fachsprache
+
+Praxisbezug (20%):
+- 1.0 = Konkrete Beispiele aus dem Arbeitsalltag von ${professionName}, mit Details
+- 0.5 = Allgemeine Beispiele ohne spezifischen Bezug zu ${professionName}
+- 0.0 = Kein Praxisbezug, rein theoretisch
+
+MUSTERANTWORT-LIMIT: Max 180–220 Wörter (2–3 Minuten Redezeit).`;
+}

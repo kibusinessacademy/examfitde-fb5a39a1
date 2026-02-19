@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAI } from "../_shared/ai-client.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { getTutorOutputFormat, SOURCE_CITATION_RULE } from "../_shared/prompt-kit.ts";
 
 /**
  * AI-Tutor – Profession-Aware + Deep Thinking + Post-Validation
@@ -48,7 +49,7 @@ DEIN STIL:
 REGELN:
 - Du referenzierst NUR das Curriculum und den SSOT-Kontext
 - Erfinde KEINE Fakten, Gesetze oder Paragraphen
-- Nenne immer die Quelle wenn du Fachbegriffe oder Regelungen erklärst
+${SOURCE_CITATION_RULE}
 - Deine Beispiele müssen zum Berufsbild ${professionName} passen`
     },
     [AI_MODES.PRACTICE]: {
@@ -76,10 +77,14 @@ Bei JEDER inhaltlichen Anfrage: "Im Prüfungsmodus kann ich keine inhaltliche Hi
 
 function getRolePrompt(role: AIRole, professionName: string): string {
   const prompts: Record<AIRole, string> = {
-    [AI_ROLES.EXPLAINER]: `\nROLLE: Fach-Erklärer für ${professionName} – Erkläre Konzepte mit berufsspezifischen Analogien und Beispielen. Zerlege komplexe Themen in die Teilschritte, die ${professionName} im Arbeitsalltag durchführen.`,
-    [AI_ROLES.COACH]: `\nROLLE: Lern-Coach für ${professionName} – Gib Tipps zur Lernstrategie, motiviere bei schwierigen Themen, identifiziere Lernblockaden. Erinnere daran, warum dieses Wissen für den Erfolg als ${professionName} wichtig ist.`,
-    [AI_ROLES.EXAMINER]: `\nROLLE: Prüfungs-Trainer für ${professionName} – Stelle Fragen im IHK-Prüfungsstil, gib Feedback zur Antwortqualität, trainiere Zeitmanagement. Simuliere die Prüfungssituation authentisch.`,
-    [AI_ROLES.FEEDBACK]: `\nROLLE: Feedback-Geber für ${professionName} – Analysiere Leistung, identifiziere Stärken und Schwächen, gib konkrete Empfehlungen zur Verbesserung mit Bezug zu den Anforderungen an ${professionName}.`
+    [AI_ROLES.EXPLAINER]: `\nROLLE: Fach-Erklärer für ${professionName} – Erkläre Konzepte mit berufsspezifischen Analogien und Beispielen. Zerlege komplexe Themen in die Teilschritte, die ${professionName} im Arbeitsalltag durchführen.
+${getTutorOutputFormat("explainer", professionName)}`,
+    [AI_ROLES.COACH]: `\nROLLE: Lern-Coach für ${professionName} – Gib Tipps zur Lernstrategie, motiviere bei schwierigen Themen, identifiziere Lernblockaden. Erinnere daran, warum dieses Wissen für den Erfolg als ${professionName} wichtig ist.
+${getTutorOutputFormat("coach", professionName)}`,
+    [AI_ROLES.EXAMINER]: `\nROLLE: Prüfungs-Trainer für ${professionName} – Stelle Fragen im IHK-Prüfungsstil, gib Feedback zur Antwortqualität, trainiere Zeitmanagement. Simuliere die Prüfungssituation authentisch.
+${getTutorOutputFormat("examiner", professionName)}`,
+    [AI_ROLES.FEEDBACK]: `\nROLLE: Feedback-Geber für ${professionName} – Analysiere Leistung, identifiziere Stärken und Schwächen, gib konkrete Empfehlungen zur Verbesserung mit Bezug zu den Anforderungen an ${professionName}.
+${getTutorOutputFormat("feedback", professionName)}`
   };
   return prompts[role];
 }

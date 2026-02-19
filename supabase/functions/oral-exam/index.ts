@@ -4,6 +4,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { getFollowUpTypes, getEvaluationRubric, REGULATORY_GUARD } from "../_shared/prompt-kit.ts";
 
 /**
  * Oral-Exam – Blueprint-basiert (SSOT-konform)
@@ -244,7 +245,9 @@ async function generateFollowUps(competency: any, mainQuestion: string, professi
       provider: routed.provider,
       model: routed.model,
       messages: [
-        { role: "system", content: `Du bist ein erfahrener IHK-Prüfer für ${professionName}. Generiere 2 präzise Nachfragen, die ein echter Prüfer im Fachgespräch stellen würde. Die Nachfragen müssen fachlich tief und berufsspezifisch für ${professionName} sein. NUR JSON-Array: ["Frage1", "Frage2"]` },
+        { role: "system", content: `Du bist ein erfahrener IHK-Prüfer für ${professionName}. Generiere 2 präzise Nachfragen, die ein echter Prüfer im Fachgespräch stellen würde. Die Nachfragen müssen fachlich tief und berufsspezifisch für ${professionName} sein.
+${getFollowUpTypes(professionName)}
+NUR JSON-Array: ["Frage1", "Frage2"]` },
         { role: "user", content: `Beruf: ${professionName}\nKompetenz: ${competency.title}\nHauptfrage: ${mainQuestion}` }
       ],
       max_tokens: 300,
@@ -285,6 +288,11 @@ ANFORDERUNGEN an die Frage:
 ANFORDERUNGEN an die erwarteten Antwortpunkte:
 - Konkrete Fachbegriffe und Arbeitsprozesse, die ${professionName} kennen müssen
 - Bezug zu realen Werkzeugen, Software, Materialien oder Vorschriften im Beruf
+- Max 5 Punkte, jeder Punkt als konkretes Bewertungskriterium
+
+${REGULATORY_GUARD}
+
+${getFollowUpTypes(professionName)}
 
 Antworte NUR im folgenden JSON-Format:
 {
@@ -373,11 +381,7 @@ ${question.expected_answer_points?.map((p: string, i: number) => `${i + 1}. ${p}
 ANTWORT DES PRÜFLINGS:
 ${user_answer}
 
-Bewerte die Antwort nach IHK-Kriterien für ${professionName} (0.0 bis 1.0):
-1. Fachlichkeit (35%): Fachliche Korrektheit und Vollständigkeit — kennt der Prüfling die berufsspezifischen Zusammenhänge?
-2. Struktur (20%): Logischer Aufbau der Antwort — argumentiert der Prüfling nachvollziehbar?
-3. Begriffssicherheit (25%): Korrekter Einsatz der Fachbegriffe, die ${professionName} beherrschen müssen
-4. Praxisbezug (20%): Konkrete Beispiele aus dem Berufsalltag von ${professionName}
+${getEvaluationRubric(professionName)}
 
 BEWERTUNGSSTIL: Bewerte wie ein wohlwollender aber anspruchsvoller IHK-Prüfer. Gib konstruktives Feedback, das dem Prüfling hilft, sich zu verbessern.
 
@@ -392,8 +396,8 @@ Antworte NUR im folgenden JSON-Format:
   "feedback": "Detailliertes Feedback mit Bezug zu ${professionName}...",
   "strengths": ["Stärke 1"],
   "improvements": ["Konkreter Verbesserungsvorschlag für ${professionName}"],
-  "sample_answer": "Eine optimale Musterantwort, wie sie ein/e ${professionName} geben sollte...",
-  "follow_up_question": "Eine mögliche Nachfrage des Prüfers..."
+  "sample_answer": "Musterantwort (max 180-220 Wörter / 2-3 Minuten Redezeit)...",
+  "follow_up_question": "Typische Prüfer-Nachfrage..."
 }`;
 
   const result = await callAIJSON({
