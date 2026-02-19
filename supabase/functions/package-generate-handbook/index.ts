@@ -280,8 +280,9 @@ Deno.serve(async (req) => {
     for (let fi = 0; fi < rawChunks[ci].length; fi++) fieldToChapter.push(ci + 1);
   }
 
-  // 4) Generate sections in BATCHES of 3 to avoid Edge Function timeout
-  const BATCH_SIZE = 3;
+  // 4) Generate sections ONE AT A TIME to stay within job-runner 140s timeout
+  // Each LLM call can take 30-60s; batch of 3 caused 180s+ timeouts
+  const BATCH_SIZE = 1;
   const batchCursor = p.batch_cursor ?? 0;
   const sectionRows: Array<Record<string, unknown>> = [];
   let sectionOrder = batchCursor + 1;
@@ -345,9 +346,7 @@ Deno.serve(async (req) => {
       },
     });
 
-    if (i < batchFields.length - 1) {
-      await new Promise(r => setTimeout(r, 1500));
-    }
+    // No inter-field delay needed with batch_size=1
   }
 
   if (sectionRows.length > 0) {
