@@ -85,42 +85,36 @@ async function generateSectionContent(
     : "";
 
   const minWords = Math.round(wordTarget * 0.8);
-  const maxWords = Math.round(wordTarget * 1.3);
+  const maxWords = Math.round(wordTarget * 1.2);
 
-  const prompt = `Du bist ein IHK-Fachexperte für den Ausbildungsberuf "${professionName}". 
-Erstelle einen prüfungsrelevanten Handbuch-Abschnitt für das Lernfeld "${fieldCode}: ${fieldTitle}".
+  const prompt = `Du bist ein IHK-Fachexperte für "${professionName}". 
+Erstelle einen prüfungsrelevanten Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}".
 
-${fieldDescription ? `Lernfeldbeschreibung: ${fieldDescription}` : ""}
+${fieldDescription ? `Beschreibung: ${fieldDescription}` : ""}
 ${topicContext}
 
 ANFORDERUNGEN:
-1. Fachlich korrekt und prüfungsrelevant für die IHK-Abschlussprüfung
-2. Konkrete Definitionen, Formeln, Merksätze — keine allgemeinen Floskeln
-3. Mindestens 3 praxisnahe Beispiele mit konkreten Zahlen/Szenarien
-4. Typische Prüfungsfallen mit Erklärung, warum Prüflinge dort scheitern
-5. Markdown-Format mit ## und ### Überschriften
-6. Umfang: ${minWords}–${maxWords} Wörter (Dieses Lernfeld hat eine hohe Prüfungsrelevanz und benötigt entsprechende Tiefe)
-7. KEINE Platzhalter wie "wird ergänzt" oder "TODO"
+1. Fachlich korrekt, prüfungsrelevant für IHK-Abschlussprüfung
+2. Konkrete Definitionen, Formeln, Merksätze
+3. Mindestens 2 praxisnahe Beispiele
+4. Typische Prüfungsfallen
+5. Markdown mit ## und ### Überschriften
+6. Umfang: ${minWords}–${maxWords} Wörter
+7. KEINE Platzhalter
 ${glossaryContext || ''}
 
-Antworte NUR mit dem Markdown-Inhalt, KEIN JSON-Wrapper.`;
+Antworte NUR mit Markdown.`;
 
   try {
-    // Use AbortController with 25s timeout to prevent Edge Function timeout
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25_000);
-
     const result = await callAIJSON({
       provider: routed.provider,
       model: routed.model,
       messages: [
-        { role: "system", content: "Du schreibst prüfungsrelevante IHK-Handbuch-Inhalte. Antworte nur mit Markdown." },
+        { role: "system", content: "Du schreibst prüfungsrelevante IHK-Handbuch-Inhalte. Antworte nur mit Markdown. Sei prägnant." },
         { role: "user", content: prompt },
       ],
-      max_tokens: Math.min(2500, Math.round(wordTarget * 3)),
+      max_tokens: Math.min(1800, Math.round(wordTarget * 2.5)),
     });
-
-    clearTimeout(timeout);
 
     let content = result.content || "";
     if (content.startsWith("{") || content.startsWith('"')) {
@@ -169,13 +163,9 @@ Deno.serve(async (req) => {
   try {
     const prof = await resolveProfession(sb, { certificationId, curriculumId });
     professionName = prof.professionName;
-    const { data: cu } = await sb.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
-    if (cu?.beruf_id) {
-      try {
-        const glossary = await loadOrGenerateGlossary(sb, cu.beruf_id, professionName, curriculumId);
-        glossaryContext = formatGlossaryForPrompt(glossary);
-      } catch (e) { console.warn(`[handbook] Glossary: ${(e as Error).message}`); }
-    }
+    // SKIP glossary generation — it was causing 30-60s LLM timeouts that ate
+    // into the section generation time budget, leading to job-runner aborts.
+    // Glossary context is nice-to-have, not critical for handbook quality.
   } catch { /* fallback */ }
 
   // 1) Load learning fields
