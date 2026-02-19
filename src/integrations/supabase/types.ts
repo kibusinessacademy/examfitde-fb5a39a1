@@ -145,6 +145,96 @@ export type Database = {
           },
         ]
       }
+      admin_pins: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          label: string
+          position: number | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          label: string
+          position?: number | null
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          label?: string
+          position?: number | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      admin_recent_pages: {
+        Row: {
+          id: string
+          label: string
+          url: string
+          user_id: string
+          visited_at: string
+        }
+        Insert: {
+          id?: string
+          label: string
+          url: string
+          user_id: string
+          visited_at?: string
+        }
+        Update: {
+          id?: string
+          label?: string
+          url?: string
+          user_id?: string
+          visited_at?: string
+        }
+        Relationships: []
+      }
+      admin_search_index: {
+        Row: {
+          entity_id: string
+          entity_type: string
+          id: string
+          keywords: unknown
+          subtitle: string | null
+          title: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          entity_id: string
+          entity_type: string
+          id?: string
+          keywords?: unknown
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          keywords?: unknown
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       affiliate_payouts: {
         Row: {
           affiliate_id: string
@@ -4880,6 +4970,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      course_pipeline_events: {
+        Row: {
+          course_id: string
+          created_at: string
+          event_type: string
+          id: string
+          message: string | null
+          meta: Json | null
+          package_id: string | null
+          progress: number | null
+          run_id: string | null
+          step_key: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          message?: string | null
+          meta?: Json | null
+          package_id?: string | null
+          progress?: number | null
+          run_id?: string | null
+          step_key: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          message?: string | null
+          meta?: Json | null
+          package_id?: string | null
+          progress?: number | null
+          run_id?: string | null
+          step_key?: string
+        }
+        Relationships: []
       }
       course_production_forecasts: {
         Row: {
@@ -9771,6 +9900,54 @@ export type Database = {
           validated_at?: string | null
           validation_report?: Json | null
           validation_score?: number | null
+        }
+        Relationships: []
+      }
+      media_assets: {
+        Row: {
+          context: string | null
+          created_at: string
+          generated_alt: string | null
+          generated_caption: string | null
+          height: number | null
+          id: string
+          manual_alt: string | null
+          manual_caption: string | null
+          mime: string | null
+          primary_keyword: string | null
+          storage_path: string
+          updated_at: string
+          width: number | null
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          generated_alt?: string | null
+          generated_caption?: string | null
+          height?: number | null
+          id?: string
+          manual_alt?: string | null
+          manual_caption?: string | null
+          mime?: string | null
+          primary_keyword?: string | null
+          storage_path: string
+          updated_at?: string
+          width?: number | null
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          generated_alt?: string | null
+          generated_caption?: string | null
+          height?: number | null
+          id?: string
+          manual_alt?: string | null
+          manual_caption?: string | null
+          mime?: string | null
+          primary_keyword?: string | null
+          storage_path?: string
+          updated_at?: string
+          width?: number | null
         }
         Relationships: []
       }
@@ -15852,6 +16029,57 @@ export type Database = {
         }
         Relationships: []
       }
+      ui_content_blocks: {
+        Row: {
+          audience: string
+          created_at: string
+          cta_label: string | null
+          cta_url: string | null
+          generated_copy: string | null
+          generated_image_id: string | null
+          id: string
+          locale: string
+          manual_copy: string | null
+          manual_image_id: string | null
+          placement: string
+          scope: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          generated_copy?: string | null
+          generated_image_id?: string | null
+          id?: string
+          locale?: string
+          manual_copy?: string | null
+          manual_image_id?: string | null
+          placement: string
+          scope: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          generated_copy?: string | null
+          generated_image_id?: string | null
+          id?: string
+          locale?: string
+          manual_copy?: string | null
+          manual_image_id?: string | null
+          placement?: string
+          scope?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_ability_profiles: {
         Row: {
           confidence_adjusted_theta: number | null
@@ -16768,6 +16996,87 @@ export type Database = {
           },
         ]
       }
+      effective_media_assets: {
+        Row: {
+          alt: string | null
+          caption: string | null
+          context: string | null
+          height: number | null
+          id: string | null
+          mime: string | null
+          primary_keyword: string | null
+          storage_path: string | null
+          updated_at: string | null
+          width: number | null
+        }
+        Insert: {
+          alt?: never
+          caption?: never
+          context?: string | null
+          height?: number | null
+          id?: string | null
+          mime?: string | null
+          primary_keyword?: string | null
+          storage_path?: string | null
+          updated_at?: string | null
+          width?: number | null
+        }
+        Update: {
+          alt?: never
+          caption?: never
+          context?: string | null
+          height?: number | null
+          id?: string | null
+          mime?: string | null
+          primary_keyword?: string | null
+          storage_path?: string | null
+          updated_at?: string | null
+          width?: number | null
+        }
+        Relationships: []
+      }
+      effective_ui_content_blocks: {
+        Row: {
+          audience: string | null
+          copy: string | null
+          cta_label: string | null
+          cta_url: string | null
+          id: string | null
+          image_id: string | null
+          locale: string | null
+          placement: string | null
+          scope: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          audience?: string | null
+          copy?: never
+          cta_label?: string | null
+          cta_url?: string | null
+          id?: string | null
+          image_id?: never
+          locale?: string | null
+          placement?: string | null
+          scope?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          audience?: string | null
+          copy?: never
+          cta_label?: string | null
+          cta_url?: string | null
+          id?: string | null
+          image_id?: never
+          locale?: string | null
+          placement?: string | null
+          scope?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       error_observatory: {
         Row: {
           error_cluster: string | null
@@ -16902,6 +17211,29 @@ export type Database = {
           pending: number | null
           processing: number | null
           total: number | null
+        }
+        Relationships: []
+      }
+      kpi_admin_nav_badges: {
+        Row: {
+          critical_competencies: number | null
+          failed_jobs_24h: number | null
+          open_alerts: number | null
+          seo_errors: number | null
+        }
+        Relationships: []
+      }
+      kpi_course_pipeline_status: {
+        Row: {
+          current_step: string | null
+          is_stuck: boolean | null
+          last_event_at: string | null
+          last_event_type: string | null
+          last_work_summary: string | null
+          package_id: string | null
+          package_title: string | null
+          progress_percent: number | null
+          seconds_since_last_event: number | null
         }
         Relationships: []
       }
