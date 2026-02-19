@@ -10675,6 +10675,27 @@ export type Database = {
           },
         ]
       }
+      orchestrator_leases: {
+        Row: {
+          expires_at: string | null
+          function_name: string
+          locked_at: string | null
+          locked_by: string | null
+        }
+        Insert: {
+          expires_at?: string | null
+          function_name: string
+          locked_at?: string | null
+          locked_by?: string | null
+        }
+        Update: {
+          expires_at?: string | null
+          function_name?: string
+          locked_at?: string | null
+          locked_by?: string | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string

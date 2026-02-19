@@ -6,6 +6,29 @@ import { callAIJSON, type AIProvider } from "../_shared/ai-client.ts";
 const MAX_ITERATIONS = 12;
 const MAX_BATCH = 8;
 const DELAY_MS = 800;
+const LEASE_TTL_MS = 10 * 60 * 1000; // 10 min lease
+
+// ── Lease guard to prevent parallel orchestrator chains ──
+async function acquireLease(supabase: ReturnType<typeof createClient>, instanceId: string): Promise<boolean> {
+  const now = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + LEASE_TTL_MS).toISOString();
+  // Only acquire if no active lease exists
+  const { data, error } = await supabase
+    .from('orchestrator_leases')
+    .update({ locked_at: now, locked_by: instanceId, expires_at: expiresAt })
+    .eq('function_name', 'product-orchestrator')
+    .or(`locked_at.is.null,expires_at.lt.${now}`)
+    .select()
+    .maybeSingle();
+  return !error && !!data;
+}
+
+async function releaseLease(supabase: ReturnType<typeof createClient>) {
+  await supabase
+    .from('orchestrator_leases')
+    .update({ locked_at: null, locked_by: null, expires_at: null })
+    .eq('function_name', 'product-orchestrator');
+}
 
 // ── Step prompts ──
 const STEP_PROMPTS: Record<string, string> = {
@@ -225,8 +248,21 @@ serve(async (req) => {
     const provider = (body.provider || "openai") as AIProvider;
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const instanceId = `iter-${_iteration}-${Date.now()}`;
+
+    // Lease guard: prevent parallel orchestrator chains
+    if (_iteration === 0) {
+      const acquired = await acquireLease(supabase, instanceId);
+      if (!acquired) {
+        return new Response(JSON.stringify({
+          complete: false, shouldContinue: false,
+          message: '⏳ Another orchestrator chain is already running. Skipping.',
+        }), { headers: jsonHeaders });
+      }
+    }
 
     if (_iteration >= MAX_ITERATIONS) {
+      await releaseLease(supabase);
       return new Response(JSON.stringify({
         complete: false, shouldContinue: false,
         message: `⛔ Max iterations (${MAX_ITERATIONS}) reached. Manual review required.`
@@ -241,6 +277,7 @@ serve(async (req) => {
         if (!status.overall.complete) { targetCourseId = c.id; break; }
       }
       if (!targetCourseId) {
+        await releaseLease(supabase);
         return new Response(JSON.stringify({ complete: true, shouldContinue: false, message: '✅ Alle Kurse vollständig!' }), { headers: jsonHeaders });
       }
     }
@@ -281,6 +318,7 @@ serve(async (req) => {
 
     if (initialStatus.overall.complete) {
       await logCompletion(supabase, targetCourseId, initialStatus);
+      await releaseLease(supabase);
       return new Response(JSON.stringify({ complete: true, shouldContinue: false, status: initialStatus }), { headers: jsonHeaders });
     }
 
@@ -333,9 +371,13 @@ serve(async (req) => {
     const finalStatus = await assessProduct(supabase, targetCourseId);
     const shouldContinue = !finalStatus.overall.complete && fixed > 0;
 
-    if (finalStatus.overall.complete) await logCompletion(supabase, targetCourseId, finalStatus);
+    if (finalStatus.overall.complete) {
+      await logCompletion(supabase, targetCourseId, finalStatus);
+      await releaseLease(supabase);
+    }
 
     if (shouldContinue) {
+      // Lease stays active — next iteration inherits it
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       fetch(`${supabaseUrl}/functions/v1/product-orchestrator`, {
@@ -343,6 +385,8 @@ serve(async (req) => {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
         body: JSON.stringify({ courseId: targetCourseId, autoAll, provider, _iteration: _iteration + 1 }),
       }).catch(e => console.error('[Orchestrator] Self-invoke failed:', e));
+    } else {
+      await releaseLease(supabase);
     }
 
     return new Response(JSON.stringify({ complete: finalStatus.overall.complete, shouldContinue, iteration: _iteration, fixed, failed, details, status: finalStatus }), { headers: jsonHeaders });
