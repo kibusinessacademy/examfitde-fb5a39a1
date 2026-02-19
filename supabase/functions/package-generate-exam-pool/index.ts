@@ -7,7 +7,7 @@ import type { AIProvider } from "../_shared/ai-client.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
-import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD } from "../_shared/prompt-kit.ts";
+import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD, computeHallucinationRisk, computeVariationScore } from "../_shared/prompt-kit.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
@@ -598,6 +598,15 @@ async function generateTurboQuestions(
     // Style gate: kill AI-typical phrases
     if (!passesStyleGate(q)) {
       console.log(`[ExamPool-v5] REJECTED AI_STYLE: "${q.question_text.slice(0, 40)}…"`);
+      continue;
+    }
+
+    // v2: Hallucination risk check on explanation
+    const halluRisk = computeHallucinationRisk(
+      q.question_text + " " + (q.explanation || ""), [], [],
+    );
+    if (halluRisk.verdict === "regenerate") {
+      console.log(`[ExamPool-v5] REJECTED HALLUCINATION_RISK (${halluRisk.riskScore}): suspicious=[${halluRisk.suspiciousRegulatory.join(", ")}]`);
       continue;
     }
 

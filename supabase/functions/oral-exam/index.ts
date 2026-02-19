@@ -4,7 +4,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
-import { getFollowUpTypes, getEvaluationRubric, REGULATORY_GUARD } from "../_shared/prompt-kit.ts";
+import { getFollowUpTypes, getEvaluationRubric, REGULATORY_GUARD, mapToDifficultyLevel, getRequiredDepth } from "../_shared/prompt-kit.ts";
 
 /**
  * Oral-Exam – Blueprint-basiert (SSOT-konform)
