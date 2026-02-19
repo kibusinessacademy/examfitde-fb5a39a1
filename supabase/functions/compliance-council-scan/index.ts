@@ -1,15 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
+import { getModelAsync } from "../_shared/model-routing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-/* ── Model config ── */
-const PROPOSER_MODEL = "openai/gpt-4.1";
-const VALIDATOR_MODEL = "anthropic/claude-sonnet-4-20250514";
-const PROPOSER_LABEL = "gpt-4.1";
-const VALIDATOR_LABEL = "claude-sonnet-4";
+// Models resolved dynamically per-request
+async function resolveModels() {
+  const p = await getModelAsync("council_proposer");
+  const v = await getModelAsync("council_validator");
+  return { pp: p.provider as any, pm: p.model, vp: v.provider as any, vm: v.model };
+}
 
 type SB = ReturnType<typeof createClient>;
 
@@ -57,8 +59,11 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const p: ScanPayload = body.payload ?? body;
     const scanType = p.scanType ?? "full";
+    const { pp: PROPOSER_PROVIDER, pm: PROPOSER_MODEL, vp: VALIDATOR_PROVIDER, vm: VALIDATOR_MODEL } = await resolveModels();
+    const PROPOSER_LABEL = PROPOSER_MODEL;
+    const VALIDATOR_LABEL = VALIDATOR_MODEL;
 
-    console.log(`[ComplianceCouncil] Starting scan: ${scanType}`);
+    console.log(`[ComplianceCouncil] Starting scan: ${scanType} with ${PROPOSER_MODEL}/${VALIDATOR_MODEL}`);
 
     const findings: FindingInput[] = [];
 
@@ -375,7 +380,7 @@ async function deliberateFindings(findings: FindingInput[]): Promise<FindingInpu
 
   try {
     const proposalResult = await callAIJSON({
-      provider: "openai",
+      provider: PROPOSER_PROVIDER,
       model: PROPOSER_MODEL,
       messages: [
         {
@@ -397,7 +402,7 @@ Beachte: DSGVO, EU AI Act, AZAV/SGB III, ISO 29993.`,
     try { remediations = (JSON.parse(proposalContent)).remediations ?? []; } catch { /* ignore */ }
 
     const validationResult = await callAIJSON({
-      provider: "anthropic",
+      provider: VALIDATOR_PROVIDER,
       model: VALIDATOR_MODEL,
       messages: [
         {

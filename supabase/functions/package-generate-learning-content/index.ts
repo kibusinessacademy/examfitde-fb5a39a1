@@ -385,7 +385,7 @@ Deno.serve(async (req) => {
     const lfContext = lfData ? [
       `Lernfeld: ${lfData.code} – ${lfData.title}`,
       `Prüfungsgewichtung: ${lfData.weight_percent}%`,
-      `Prüfungsteil: ${lfData.exam_part === 'teil_1' ? 'Teil 1 (Informationstechnisches Büromanagement)' : lfData.exam_part === 'teil_2' ? 'Teil 2 (Kundenbeziehungsprozesse / Wirtschaft & Steuerung)' : 'Teil 1 + Teil 2'}`,
+      lfData.exam_part ? `Prüfungsteil: ${lfData.exam_part_name || lfData.exam_part}` : "",
       `Schwierigkeitsstufe: ${lfData.difficulty_tier}`,
       Array.isArray(lfData.ihk_focus_areas) && lfData.ihk_focus_areas.length > 0 ? `IHK-Schwerpunkte: ${lfData.ihk_focus_areas.join(", ")}` : "",
     ].filter(Boolean).join("\n") : "";
