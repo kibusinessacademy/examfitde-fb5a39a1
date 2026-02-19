@@ -38,6 +38,14 @@ Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   const headers = { ...getCorsHeaders(origin), "Content-Type": "application/json" };
 
+  // Smoke-test guard: return immediately when called as part of edge smoke tests
+  try {
+    const body = await req.clone().json();
+    if (body?._smoke_test) {
+      return new Response(JSON.stringify({ ok: true, smoke: true }), { status: 200, headers });
+    }
+  } catch { /* no body is fine */ }
+
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
   const started = Date.now();
 
@@ -136,8 +144,9 @@ Deno.serve(async (req) => {
   // ═══════════════════════════════════════════════════════════
   // 5. EDGE FUNCTION SMOKE
   // ═══════════════════════════════════════════════════════════
-  const edgeFunctions = checksConfig.prechecks?.find((c: any) => c.id === "edge_smoke")?.functions
-    || ["auto-gap-close", "daily-test-runner", "job-runner"];
+  const edgeFunctions = (checksConfig.prechecks?.find((c: any) => c.id === "edge_smoke")?.functions
+    || ["auto-gap-close", "job-runner"])
+    .filter((fn: string) => fn !== "daily-test-runner"); // Never smoke-test ourselves
   let edgeFailures = 0;
 
   for (const fn of edgeFunctions) {
