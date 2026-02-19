@@ -4,6 +4,7 @@ import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
+import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES, buildMiniCheckPrompt, measureDepth, depthMeetsMinimum } from "../_shared/prompt-kit.ts";
 
 /**
  * package-generate-learning-content — Pipeline Step
@@ -37,7 +38,9 @@ Struktur:
 
 VERBOTEN: Generische Szenarien wie "in einem Unternehmen" oder "ein Mitarbeiter" ohne konkreten Berufsbezug.
 PFLICHT: Verwende realistische, nicht-runde Zahlen (z.B. 12.450 €, 3,75 %, 47 Tage).
-PFLICHT: Schreibe ausführlich und detailreich. Jeder Absatz muss mindestens 3 Sätze haben.`,
+PFLICHT: Schreibe ausführlich und detailreich. Jeder Absatz muss mindestens 3 Sätze haben.
+${DEPTH_SELF_CHECK}
+${REGULATORY_GUARD}`,
     minChars: 600,
     minWords: 250,
   },
@@ -72,7 +75,9 @@ IHK-PRÜFUNGSBEZUG (PFLICHT):
 - Abgrenzungstabelle: Ähnliche Begriffe die verwechselt werden (als <table>)
 
 VERBOTEN: Akademische Definitionen ohne Praxisbezug. Oberflächliches Anreißen. Weniger als 2 Rechenbeispiele bei quantitativen Themen.
-PFLICHT: Schreibe ausführlich und detailreich. Jeder Absatz muss mindestens 3-4 Sätze haben. Erkläre lieber zu viel als zu wenig.`,
+PFLICHT: Schreibe ausführlich und detailreich. Jeder Absatz muss mindestens 3-4 Sätze haben. Erkläre lieber zu viel als zu wenig.
+${DEPTH_SELF_CHECK}
+${REGULATORY_GUARD}`,
     minChars: 1800,
     minWords: 400,
   },
@@ -105,7 +110,9 @@ PRÜFUNGSFALLEN:
 
 Der Lernende muss die Entscheidung TREFFEN und fachlich BEGRÜNDEN.
 VERBOTEN: Reine Beschreibungen. Isolierte Einzelaspekte statt Kombinationsaufgaben.
-PFLICHT: Schreibe ausführlich. Die Fallstudie muss sich wie eine echte IHK-Prüfungsaufgabe anfühlen.`,
+PFLICHT: Schreibe ausführlich. Die Fallstudie muss sich wie eine echte IHK-Prüfungsaufgabe anfühlen.
+${DEPTH_SELF_CHECK}
+${REGULATORY_GUARD}`,
     minChars: 1400,
     minWords: 350,
   },
@@ -141,7 +148,8 @@ PRÜFER-HINWEIS:
 - "Zeitmanagement: Für diese Aufgabe haben Sie ca. X Minuten. Teilen Sie sich die Zeit so ein: ..."
 
 VERBOTEN: Erneute Erklärung des Stoffes. NUR Verdichtung und Prüfungsvorbereitung.
-PFLICHT: Schreibe ausführlich. Jede Prüfungsfalle und jede Transferübung muss substanziell sein.`,
+PFLICHT: Schreibe ausführlich. Jede Prüfungsfalle und jede Transferübung muss substanziell sein.
+${DEPTH_SELF_CHECK}`,
     minChars: 1200,
     minWords: 300,
   },
@@ -155,10 +163,14 @@ const CONTENT_TOOL = {
     parameters: {
       type: "object",
       properties: {
-        html: { type: "string", description: "HTML-Inhalt" },
+        html: { type: "string", description: "HTML-Inhalt der Lektion" },
         objectives: { type: "array", items: { type: "string" }, description: "2-4 Lernziele" },
+        key_terms: { type: "array", items: { type: "object", properties: { term: { type: "string" }, definition: { type: "string" } }, required: ["term", "definition"] }, description: "3-6 Schlüsselbegriffe mit 1-Satz-Definition" },
+        common_mistakes: { type: "array", items: { type: "string" }, description: "2-3 typische Azubi-Fehler" },
+        exam_triggers: { type: "array", items: { type: "string" }, description: "2-3 typische IHK-Fragestellungen ('So fragt die IHK')" },
       },
       required: ["html", "objectives"],
+      additionalProperties: false,
     },
   },
 };
@@ -399,7 +411,7 @@ Deno.serve(async (req) => {
     ].filter(Boolean).join("\n");
 
     const userPrompt = isMiniCheck
-      ? `Erstelle 4 IHK-Prüfungsfragen für ${professionName}.\n\n${contextBlock}\n\nExakt 4 Fragen, je 4 Optionen, plausible Distraktoren, didaktische Erklärungen.`
+      ? buildMiniCheckPrompt(professionName, contextBlock)
       : `${stepConfig?.system || STEP_PROMPTS.verstehen.system}\n\n${contextBlock}`;
 
     try {
@@ -460,14 +472,19 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
 
       if (!isMiniCheck) {
         const charCount = content.html?.length || 0;
-        const wordCount = (content.html || "").replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length;
         const minChars = stepConfig?.minChars || 400;
         const minWords = stepConfig?.minWords || 200;
         if (!content.html || charCount < minChars) {
           throw new Error(`Content too short: ${charCount} chars (min ${minChars})`);
         }
-        if (wordCount < minWords) {
-          throw new Error(`Content too few words: ${wordCount} words (min ${minWords}) — step ${lesson.step}`);
+        // Enhanced depth metrics check
+        const metrics = measureDepth(content.html || "");
+        if (metrics.wordCount < minWords) {
+          throw new Error(`Content too few words: ${metrics.wordCount} words (min ${minWords}) — step ${lesson.step}`);
+        }
+        const depthCheck = depthMeetsMinimum(metrics, lesson.step);
+        if (!depthCheck.passes) {
+          console.warn(`[gen-content] Depth gaps for ${lesson.id} step ${lesson.step}: ${depthCheck.missing.join("; ")}`);
         }
       }
 

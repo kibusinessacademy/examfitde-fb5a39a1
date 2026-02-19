@@ -5,6 +5,7 @@ import { callAIJSON, AITool } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
+import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES } from "../_shared/prompt-kit.ts";
 
 const LESSON_STEPS = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"] as const;
 type LessonStep = (typeof LESSON_STEPS)[number];
@@ -180,23 +181,21 @@ QUALITÄTSSTANDARD:
 - Der Inhalt darf NICHT nach KI klingen — keine generischen Floskeln, keine akademische Überfrachtung
 
 REGULATORISCHE TIEFE (bei rechtlichen/regulatorischen Themen):
-- IMMER konkrete §§-Referenzen nennen (BGB, HGB, KWG, GwG, MaRisk, DSGVO etc.)
-- Exakte Fristen, Schwellenwerte, Meldepflichten
-- Aufsichtsbehörden (BaFin, EZB, IHK) und deren Rollen
-- Unterscheide klar zwischen MUSS und KANN-Vorschriften
+- Nenne §§, Fristen und Normen NUR, wenn sie dir aus dem SSOT-Kontext oder allgemeinem Fachwissen sicher bekannt sind
+- Bei Unsicherheit: "Die genaue Rechtsgrundlage ist im Betrieb/IHK-Merkblatt nachzuprüfen"
+- Exakte Fristen, Schwellenwerte, Meldepflichten — NUR wenn für ${professionName} relevant
+- Zuständige Behörden und Institutionen des konkreten Berufsfelds
+- NIEMALS §§ halluzinieren
 
 RECHENAUFGABEN-TIEFE (bei quantitativen Themen):
-- Mehrstufige Berechnungen bevorzugen (Effektivzins + Disagio + Tilgungsplan, nicht nur einfache Zinsrechnung)
+- Mehrstufige Berechnungen bevorzugen
 - Realistische nicht-runde Zahlen verwenden (12.450 €, 3,75 %, 47 Tage)
 - Vollständige Rechenwege mit Formeln zeigen
 - Kombinationsaufgaben: mehrere Konzepte in einer Aufgabe verknüpfen
 
-ANTI-KI-REGELN:
-- KEINE Sätze wie "In der heutigen Geschäftswelt..." oder "Es ist wichtig zu verstehen, dass..."
-- KEINE generischen Aufzählungen ohne konkreten Bezug zu ${professionName}
-- KEINE Wiederholung der Aufgabenstellung in der Antwort
-- Schreibe so, wie ein erfahrener Ausbilder im Betrieb einem Azubi etwas erklärt
-- Markiere prüfungsrelevante Stellen mit ⭐`;
+${ANTI_KI_RULES}
+- Markiere prüfungsrelevante Stellen mit ⭐
+${DEPTH_SELF_CHECK}`;
 
     const stepPrompt = getStepPrompt(step, professionName);
     const userPrompt = `Erstelle Lerninhalt für den Beruf "${professionName}":

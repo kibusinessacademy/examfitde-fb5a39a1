@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
+import { measureDepth } from "../_shared/prompt-kit.ts";
 
 /**
  * AI Lesson Improvement Agent (Council-Compliant, Profession-Aware)
@@ -314,10 +315,11 @@ WICHTIG:
 - Behalte den Kern des bestehenden Inhalts bei
 - Ergänze und verbessere gezielt mit Bezug zu ${ctx.professionName}
 - Lösche KEINEN korrekten bestehenden Inhalt
-- Der verbesserte Inhalt MUSS länger sein als der Originalinhalt
+- Der verbesserte Inhalt MUSS länger sein als der Originalinhalt (mind. 15% mehr)
 - Verwende HTML-Formatierung (<h3>, <strong>, <ul>, <li>, <blockquote>)
 - Alle Verbesserungen müssen IHK-Prüfungsniveau für ${ctx.professionName} erreichen
-- Beispiele und Szenarien MÜSSEN aus dem Arbeitsalltag von ${ctx.professionName} stammen`;
+- Beispiele und Szenarien MÜSSEN aus dem Arbeitsalltag von ${ctx.professionName} stammen
+- Für wiederholen-Step: Ersetze Erklärpassagen durch Verdichtung; behalte Kernfakten, kürze Wiederholungen`;
 
   const userPrompt = `VERBESSERE diese Lektion für ${ctx.professionName}:
 
@@ -352,7 +354,22 @@ Liefere den VOLLSTÄNDIGEN verbesserten Inhalt (nicht nur die Änderungen).`;
 
     const args = result.toolCalls?.[0]?.function?.arguments;
     if (!args) return null;
-    return JSON.parse(args);
+    const parsed = JSON.parse(args);
+
+    // Post-AI measurement gate: improved content must be longer
+    if (!ctx.isMiniCheck && parsed.html) {
+      const originalLength = ctx.currentContent.replace(/<[^>]+>/g, " ").trim().length;
+      const improvedLength = parsed.html.replace(/<[^>]+>/g, " ").trim().length;
+      if (improvedLength < originalLength * 1.15) {
+        console.warn(`[Improve] Content not significantly improved: ${improvedLength} vs ${originalLength} chars (need 15% more)`);
+      }
+      // Depth metrics validation
+      const metrics = measureDepth(parsed.html);
+      if (!metrics.hasTipp) console.warn(`[Improve] Missing ⭐ IHK-Prüfungstipp in improved content`);
+      if (!metrics.hasFalle) console.warn(`[Improve] Missing ⚠️ Prüfungsfalle in improved content`);
+    }
+
+    return parsed;
   } catch (e) {
     console.error(`[Improve] Error:`, e);
     return null;

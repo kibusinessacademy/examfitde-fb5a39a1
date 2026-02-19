@@ -6,6 +6,7 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
+import { measureDepth } from "../_shared/prompt-kit.ts";
 
 interface ValidationRequest {
   mode: "lesson" | "course" | "question" | "tutor_response" | "blog_article";
@@ -60,10 +61,11 @@ Antworte AUSSCHLIESSLICH mit JSON:
   "decision": "approve|revise|reject",
   "dimension_scores": {"fachlichkeit": 0-100, "didaktik": 0-100, "pruefungsrelevanz": 0-100, "klarheit": 0-100, "vollstaendigkeit": 0-100, "berufsbezug": 0-100},
   "critical_issues": [{"severity": "critical|warning|info", "category": "string", "message": "string", "suggestion": "string"}],
-  "suggested_fixes": [{"type": "replace_section|add_content|remove_content", "target": "step_name", "reason": "string", "replacement": "string"}],
-  "improvements": ["Konkrete Verbesserung 1", "Konkrete Verbesserung 2"],
-  "corrected_content": null
-}
+   "suggested_fixes": [{"type": "replace_section|add_content|remove_content", "target": "step_einstieg.szenario|step_verstehen.definition|step_anwenden.pro_contra|step_wiederholen.tabelle|mini_check.frage_2", "reason": "string", "replacement": "string (kurze HTML-Snippets oder JSON-Patch)"}],
+   "improvements": ["Konkrete Verbesserung 1", "Konkrete Verbesserung 2"],
+   "corrected_content": null,
+   "depth_metrics": {"word_count": 0, "has_tipp": false, "has_falle": false, "has_table": false, "has_calc": false}
+ }
 
 ENTSCHEIDUNGSLOGIK:
 - score >= 85 → approve
@@ -184,9 +186,24 @@ serve(async (req) => {
       }
     }
 
+    // Pre-LLM depth metrics (heuristic — no LLM cost)
+    let depthWarnings: string[] = [];
+    if (mode === "lesson" && typeof content === "object" && content !== null) {
+      const htmlContent = (content as any).html || "";
+      if (htmlContent) {
+        const metrics = measureDepth(htmlContent);
+        if (!metrics.hasTipp) depthWarnings.push("Kein ⭐ IHK-Prüfungstipp gefunden");
+        if (!metrics.hasFalle) depthWarnings.push("Keine ⚠️ Prüfungsfalle gefunden");
+        if (metrics.wordCount < 200) depthWarnings.push(`Nur ${metrics.wordCount} Wörter (Minimum 200)`);
+      }
+    }
+
     if (professionName) {
       contextStr += `\nBeruf: ${professionName}`;
       contextStr += `\nWICHTIG: Alle Inhalte MÜSSEN zum Beruf "${professionName}" passen. Inhalte aus anderen Berufsfeldern = KONTAMINATION = Auto-Reject!`;
+      if (depthWarnings.length > 0) {
+        contextStr += `\n\nVOR-ANALYSE (automatisch erkannt):\n${depthWarnings.map(w => `⚠️ ${w}`).join("\n")}\nBerücksichtige diese Punkte bei deiner Bewertung.`;
+      }
     }
 
     const generatorLabel = generatorProvider === "anthropic" ? "Claude Opus" : "GPT-5.2";

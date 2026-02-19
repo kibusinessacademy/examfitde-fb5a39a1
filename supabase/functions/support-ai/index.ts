@@ -4,6 +4,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
+import { getSupportMaxLength, SUPPORT_CONTEXT_REQUEST, SOURCE_CITATION_RULE } from "../_shared/prompt-kit.ts";
 
 const ANSWER_TYPES: Record<string, string> = {
   verstaendnisfrage: "explanation",
@@ -93,6 +94,8 @@ serve(async (req) => {
     const contextStr = contextParts.length > 0 ? `\n\nKontext aus dem Lernsystem (SSOT):\n${contextParts.join("\n")}` : "";
     const professionContext = professionName ? `\nDer Nutzer lernt für den Beruf: ${professionName}. Beziehe dich in deinen Antworten auf diesen Beruf.` : "";
 
+    const lengthConfig = getSupportMaxLength(ticketType || "verstaendnisfrage");
+
     const guardrailRules = [
       professionName
         ? `Du bist ein freundlicher Lern-Assistent für angehende ${professionName}. Du hilfst bei Fragen rund um die Ausbildung und IHK-Prüfung.`
@@ -100,11 +103,13 @@ serve(async (req) => {
       "Antworte NUR basierend auf dem bereitgestellten Kontext. Erfinde KEINE Informationen.",
       "Wenn du es nicht weißt, sage ehrlich: 'Das kann ich leider nicht beantworten. Wende dich an deinen Ausbilder oder die IHK.'",
       "Antworte immer auf Deutsch, klar und motivierend.",
-      "Maximal 3-5 Sätze pro Antwort — kurz und hilfreich.",
+      `Antwortlänge: ${lengthConfig.instruction}`,
+      SOURCE_CITATION_RULE,
       "Gib KEINE rechtlichen oder medizinischen Ratschläge.",
       "Bei Prüfungsangst: Sei empathisch und ermutigend. Verweise bei Bedarf auf professionelle Hilfe.",
       "Nenne KEINE konkreten Prüfungsfragen oder Lösungen aus echten Prüfungen.",
-    ];
+      !contextParts.length ? SUPPORT_CONTEXT_REQUEST : "",
+    ].filter(Boolean);
 
     const systemPrompt = `${guardrailRules.join("\n")}\n\nAntworttyp: ${answerType}${professionContext}${contextStr}${emotionalContext}`;
 
