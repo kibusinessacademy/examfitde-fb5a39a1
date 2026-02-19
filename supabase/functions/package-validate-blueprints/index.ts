@@ -103,9 +103,10 @@ Deno.serve(async (req) => {
   }
 
   // ── Load learning fields ──
+  // FIX: Column is 'title', NOT 'name' — this mismatch caused silent crashes
   const { data: learningFields } = await sb
     .from("learning_fields")
-    .select("id, name, weight_percent")
+    .select("id, title, weight_percent")
     .eq("curriculum_id", curriculumId);
 
   const lfMap = new Map((learningFields || []).map((lf: any) => [lf.id, lf]));
@@ -125,7 +126,7 @@ Deno.serve(async (req) => {
   const missingLfs: string[] = [];
   for (const [lfId, lf] of lfMap) {
     if (!bpByLf.has(lfId)) {
-      missingLfs.push(`${(lf as any).name || lfId.slice(0, 8)}`);
+      missingLfs.push(`${(lf as any).title || lfId.slice(0, 8)}`);
     }
   }
   if (missingLfs.length > 0) {
@@ -135,7 +136,7 @@ Deno.serve(async (req) => {
   // ═══ CHECK 2: Min/Max per LF ═══
   for (const [lfId, bps] of bpByLf) {
     const lf = lfMap.get(lfId) as any;
-    const lfName = lf?.name || lfId.slice(0, 8);
+    const lfName = lf?.title || lfId.slice(0, 8);
     if (bps.length < MIN_BLUEPRINTS_PER_LF) {
       issues.push(`TOO_FEW_PER_LF: ${lfName} hat nur ${bps.length}/${MIN_BLUEPRINTS_PER_LF} Blueprints`);
     }
@@ -148,12 +149,12 @@ Deno.serve(async (req) => {
   if (learningFields && learningFields.length > 0 && blueprints.length >= MIN_BLUEPRINTS_TOTAL) {
     for (const [lfId, bps] of bpByLf) {
       const lf = lfMap.get(lfId) as any;
-      if (!lf?.weight_percent) continue;
-      const expectedPct = lf.weight_percent;
+      if (!(lf as any)?.weight_percent) continue;
+      const expectedPct = (lf as any).weight_percent;
       const actualPct = (bps.length / blueprints.length) * 100;
       const diff = Math.abs(actualPct - expectedPct);
       if (diff > WEIGHT_TOLERANCE_PP) {
-        warnings.push(`WEIGHT_DRIFT: ${lf.name}: erwartet ~${expectedPct.toFixed(0)}%, tatsächlich ${actualPct.toFixed(0)}% (Δ${diff.toFixed(0)}pp)`);
+        warnings.push(`WEIGHT_DRIFT: ${(lf as any).title}: erwartet ~${expectedPct.toFixed(0)}%, tatsächlich ${actualPct.toFixed(0)}% (Δ${diff.toFixed(0)}pp)`);
       }
     }
   }
@@ -210,7 +211,7 @@ Deno.serve(async (req) => {
   for (const [lfId, levels] of bloomByLf) {
     const missing = REQUIRED_BLOOM_LEVELS.filter(l => !levels.has(l));
     if (missing.length > 0) {
-      const lfName = (lfMap.get(lfId) as any)?.name || lfId.slice(0, 8);
+      const lfName = (lfMap.get(lfId) as any)?.title || lfId.slice(0, 8);
       bloomMissingLfs.push(`${lfName} fehlt: ${missing.join(", ")}`);
     }
   }
