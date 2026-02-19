@@ -529,7 +529,119 @@ export function computeVariationScore(html: string): VariationResult {
   };
 }
 
-// ─── Combined v2 Quality Gate ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// v3 MODULES — Mastery-Feedback-Loop
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── 5. Mastery Feedback Injection ──────────────────────────────────────────
+
+export interface MasteryContext {
+  failRate: number;
+  avgScore: number;
+  commonErrors: string[];
+  fragilityLevel: "stable" | "fragile" | "critical";
+  regenerationCount: number;
+}
+
+/**
+ * Builds a prompt suffix that injects real user performance data
+ * into content generation prompts. This creates a self-learning loop:
+ * areas where learners struggle get automatically deeper content.
+ */
+export function buildMasteryFeedbackSuffix(ctx: MasteryContext | null): string {
+  if (!ctx || ctx.fragilityLevel === "stable") return "";
+
+  const lines: string[] = ["\n═══ MASTERY-FEEDBACK (echte Lernerdaten) ═══"];
+
+  if (ctx.fragilityLevel === "critical") {
+    lines.push(`⚠️ KRITISCHE KOMPETENZ: Fehlerrate ${(ctx.failRate * 100).toFixed(0)}%, Ø Score ${ctx.avgScore.toFixed(0)}%`);
+    lines.push("VERSTÄRKE PFLICHT:");
+    lines.push("- Mehr Schritt-für-Schritt-Erklärungen (jeden Denkschritt einzeln)");
+    lines.push("- Zusätzliche Rechenweg-Darstellungen mit Zwischenschritten");
+    lines.push("- Explizite Erklärung der häufigsten Fehler (siehe unten)");
+    lines.push("- 2 zusätzliche Praxisbeispiele mit steigender Komplexität");
+    lines.push("- Abgrenzungstabelle für häufig verwechselte Konzepte");
+  } else if (ctx.fragilityLevel === "fragile") {
+    lines.push(`📊 FRAGILE KOMPETENZ: Fehlerrate ${(ctx.failRate * 100).toFixed(0)}%, Ø Score ${ctx.avgScore.toFixed(0)}%`);
+    lines.push("VERSTÄRKE:");
+    lines.push("- 1 zusätzliches Praxisbeispiel");
+    lines.push("- Häufige Norm-Verwechslungen adressieren");
+    lines.push("- Rechenweg mit häufigstem Fehler als Gegenbeispiel");
+  }
+
+  if (ctx.commonErrors.length > 0) {
+    lines.push(`\nHÄUFIGSTE FEHLERTYPEN der Lernenden:`);
+    for (const err of ctx.commonErrors.slice(0, 5)) {
+      lines.push(`  • ${err}`);
+    }
+    lines.push("Adressiere diese Fehler DIREKT mit Gegenbeispielen und Merksätzen.");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Adjusts the adaptive depth level based on mastery performance data.
+ * If learners struggle with a competency, we treat it as higher difficulty.
+ */
+export function adjustDifficultyByMastery(
+  baseDifficulty: DifficultyLevel,
+  mastery: MasteryContext | null,
+): DifficultyLevel {
+  if (!mastery) return baseDifficulty;
+  if (mastery.fragilityLevel === "critical" && baseDifficulty !== "advanced") {
+    return "advanced";
+  }
+  if (mastery.fragilityLevel === "fragile" && baseDifficulty === "basic") {
+    return "intermediate";
+  }
+  return baseDifficulty;
+}
+
+// ─── 6. Performance Aggregation Helper ──────────────────────────────────────
+
+/**
+ * Loads mastery context for a given curriculum + learning field from DB.
+ * Used by generators to inject feedback into prompts.
+ */
+export async function loadMasteryContext(
+  sb: any,
+  curriculumId: string,
+  learningFieldId?: string | null,
+): Promise<MasteryContext | null> {
+  const query = sb.from("competency_performance_stats")
+    .select("fail_rate, avg_score, common_error_patterns, fragility_level, regeneration_count")
+    .eq("curriculum_id", curriculumId);
+
+  if (learningFieldId) {
+    query.eq("learning_field_id", learningFieldId);
+  }
+
+  query.in("fragility_level", ["fragile", "critical"])
+    .order("fail_rate", { ascending: false })
+    .limit(5);
+
+  const { data } = await query;
+  if (!data || data.length === 0) return null;
+
+  // Aggregate across matching rows
+  const totalAttempts = data.length;
+  const avgFailRate = data.reduce((a: number, r: any) => a + (r.fail_rate || 0), 0) / totalAttempts;
+  const avgScore = data.reduce((a: number, r: any) => a + (r.avg_score || 0), 0) / totalAttempts;
+  const allErrors: string[] = data.flatMap((r: any) => (r.common_error_patterns || []));
+  const worstLevel = data.some((r: any) => r.fragility_level === "critical") ? "critical" : "fragile";
+  const totalRegens = data.reduce((a: number, r: any) => a + (r.regeneration_count || 0), 0);
+
+  return {
+    failRate: avgFailRate,
+    avgScore: avgScore,
+    commonErrors: [...new Set(allErrors)].slice(0, 8),
+    fragilityLevel: worstLevel,
+    regenerationCount: totalRegens,
+  };
+}
+
+// ─── Combined v2/v3 Quality Gate ─────────────────────────────────────────────
 
 export interface V2QualityResult {
   depthPasses: boolean;
@@ -540,7 +652,7 @@ export interface V2QualityResult {
 }
 
 /**
- * Run all v2 quality checks in one call (no LLM — pure heuristics).
+ * Run all v2/v3 quality checks in one call (no LLM — pure heuristics).
  * Impact score requires LLM and is handled separately in validate-content.
  */
 export function runV2QualityGate(

@@ -2742,6 +2742,63 @@ export type Database = {
           },
         ]
       }
+      competency_performance_stats: {
+        Row: {
+          avg_hallucination_risk: number | null
+          avg_impact_score: number | null
+          avg_score: number
+          common_error_patterns: Json | null
+          competency_id: string | null
+          created_at: string
+          curriculum_id: string
+          fail_rate: number
+          fragility_level: string
+          id: string
+          last_updated: string
+          learning_field_id: string | null
+          regeneration_count: number
+          topic_key: string | null
+          total_attempts: number
+          total_correct: number
+        }
+        Insert: {
+          avg_hallucination_risk?: number | null
+          avg_impact_score?: number | null
+          avg_score?: number
+          common_error_patterns?: Json | null
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id: string
+          fail_rate?: number
+          fragility_level?: string
+          id?: string
+          last_updated?: string
+          learning_field_id?: string | null
+          regeneration_count?: number
+          topic_key?: string | null
+          total_attempts?: number
+          total_correct?: number
+        }
+        Update: {
+          avg_hallucination_risk?: number | null
+          avg_impact_score?: number | null
+          avg_score?: number
+          common_error_patterns?: Json | null
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id?: string
+          fail_rate?: number
+          fragility_level?: string
+          id?: string
+          last_updated?: string
+          learning_field_id?: string | null
+          regeneration_count?: number
+          topic_key?: string | null
+          total_attempts?: number
+          total_correct?: number
+        }
+        Relationships: []
+      }
       compliance_findings: {
         Row: {
           area: string

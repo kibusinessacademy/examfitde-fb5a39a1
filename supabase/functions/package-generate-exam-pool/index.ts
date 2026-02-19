@@ -7,7 +7,7 @@ import type { AIProvider } from "../_shared/ai-client.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
-import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD, computeHallucinationRisk, computeVariationScore } from "../_shared/prompt-kit.ts";
+import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD, computeHallucinationRisk, computeVariationScore, loadMasteryContext, buildMasteryFeedbackSuffix } from "../_shared/prompt-kit.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
@@ -340,6 +340,7 @@ function buildTurboPrompt(
   professionName: string,
   depthTopics: string[],
   glossaryContext?: string,
+  masteryInjection?: string,
 ): { system: string; user: string } {
   const diffLabel: Record<string, string> = {
     easy: "leicht", medium: "mittel", hard: "schwer", very_hard: "sehr schwer",
@@ -438,7 +439,8 @@ Blueprint: ${bp.canonical_statement}${depthBlock}
 
 Kognitive Stufe: ${cognitiveLevel}
 Fragetyp: ${questionType}
-Schwierigkeit: ${difficulty}`;
+Schwierigkeit: ${difficulty}
+${masteryInjection || ""}`;
 
   return { system, user };
 }
@@ -482,7 +484,14 @@ async function generateTurboQuestions(
     } catch { /* depth load optional */ }
   }
 
-  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics, glossaryContext);
+  // ── v3: Load mastery context for this competency area ──
+  let masteryInjection = "";
+  try {
+    const masteryCtx = await loadMasteryContext(sb, bp.curriculum_id, bp.learning_field_id);
+    masteryInjection = buildMasteryFeedbackSuffix(masteryCtx);
+  } catch { /* non-blocking */ }
+
+  const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics, glossaryContext, masteryInjection);
 
   const maxTokens = count <= 2 ? 3000 : count <= 5 ? 6000 : 8000;
 
