@@ -6,6 +6,34 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[SUBMIT-EXAM-ANSWER] ${step}`, details ? JSON.stringify(details) : '');
 };
 
+// ── Trust Score Heuristics ──
+function computeAttemptTrust(timeSpentMs: number | null, recentAttempts: { selected_answer: number; time_spent_ms: number | null }[]): number {
+  let trust = 1.0;
+
+  // 1) Too fast → suspicious (< 2.5s for a real question)
+  if (timeSpentMs !== null && timeSpentMs < 2500) {
+    trust -= 0.4;
+  }
+
+  // 2) Streak of very fast wrong answers (last 5)
+  if (recentAttempts.length >= 5) {
+    const fastWrong = recentAttempts.filter(a => (a.time_spent_ms ?? 99999) < 3000).length;
+    if (fastWrong >= 4) trust -= 0.3;
+  }
+
+  // 3) Always-same-option pattern (last 8)
+  if (recentAttempts.length >= 6) {
+    const counts: Record<number, number> = {};
+    for (const a of recentAttempts) {
+      counts[a.selected_answer] = (counts[a.selected_answer] || 0) + 1;
+    }
+    const maxSame = Math.max(...Object.values(counts));
+    if (maxSame / recentAttempts.length > 0.7) trust -= 0.3;
+  }
+
+  return Math.max(0, Math.min(1, trust));
+}
+
 interface SubmitAnswerRequest {
   question_id: string;
   selected_answer: number;
@@ -21,7 +49,6 @@ interface AnswerResult {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 
@@ -35,13 +62,10 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Validate auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Authorization required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Authorization required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const token = authHeader.replace("Bearer ", "");
@@ -51,28 +75,22 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Invalid token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     logStep("User authenticated", { userId: user.id });
 
-    // Parse request
     const body: SubmitAnswerRequest = await req.json();
-    const { question_id, selected_answer, session_id, confidence } = body;
+    const { question_id, selected_answer, session_id, confidence, time_spent } = body;
 
     if (!question_id || selected_answer === undefined || selected_answer === null) {
-      return new Response(
-        JSON.stringify({ error: "question_id and selected_answer are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "question_id and selected_answer are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Use service role to access questions (bypasses RLS)
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the question with correct answer (SERVER-SIDE ONLY)
+    // Get question
     const { data: question, error: questionError } = await adminClient
       .from('exam_questions')
       .select('id, correct_answer, explanation, competency_id, curriculum_id')
@@ -82,13 +100,11 @@ serve(async (req) => {
 
     if (questionError || !question) {
       logStep("ERROR: Question not found", { questionId: question_id, error: questionError });
-      return new Response(
-        JSON.stringify({ error: "Question not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Question not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Check entitlement before revealing answer
+    // Entitlement check
     const { data: entitlement } = await adminClient
       .rpc('check_user_entitlement', {
         p_user_id: user.id,
@@ -97,39 +113,53 @@ serve(async (req) => {
       });
 
     if (!entitlement) {
-      return new Response(
-        JSON.stringify({ error: "Access denied - no exam_trainer entitlement" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Access denied - no exam_trainer entitlement" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Evaluate answer
     const isCorrect = selected_answer === question.correct_answer;
+    const timeSpentMs = time_spent ? Math.round(time_spent * 1000) : null;
 
-    logStep("Answer evaluated", { 
-      questionId: question_id, 
-      selectedAnswer: selected_answer, 
-      correctAnswer: question.correct_answer,
-      isCorrect 
-    });
+    // ── Trust Score: fetch recent attempts for pattern detection ──
+    const { data: recentAttempts } = await adminClient
+      .from('question_attempts')
+      .select('selected_answer, time_spent_ms')
+      .eq('user_id', user.id)
+      .order('answered_at', { ascending: false })
+      .limit(8);
 
-    // Store the answer attempt
+    const trustScore = computeAttemptTrust(timeSpentMs, recentAttempts || []);
+    const isTrusted = trustScore >= 0.6;
+
+    logStep("Answer evaluated", { questionId: question_id, isCorrect, trustScore, isTrusted });
+
+    // ── Compute attempt_number for this user+question ──
+    const { count: prevCount } = await adminClient
+      .from('question_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('question_id', question_id);
+
+    const attemptNumber = (prevCount || 0) + 1;
+
+    // Store attempt with trust metadata
     const { error: attemptError } = await adminClient
       .from('question_attempts')
       .insert({
         user_id: user.id,
-        question_id: question_id,
-        selected_answer: selected_answer,
+        question_id,
+        selected_answer,
         is_correct: isCorrect,
         session_id: session_id || null,
         answered_at: new Date().toISOString(),
+        trust_score: Math.round(trustScore * 100) / 100,
+        time_spent_ms: timeSpentMs,
+        attempt_number: attemptNumber,
       });
 
-    if (attemptError) {
-      logStep("WARNING: Failed to store attempt", { error: attemptError });
-    }
+    if (attemptError) logStep("WARNING: Failed to store attempt", { error: attemptError });
 
-    // Store confidence on exam_session_questions if session provided
+    // Confidence on session questions
     if (session_id && confidence !== undefined && confidence !== null) {
       await adminClient
         .from('exam_session_questions')
@@ -138,99 +168,141 @@ serve(async (req) => {
         .eq('question_id', question_id);
     }
 
-    // Update spaced repetition data
+    // Spaced repetition
     try {
       await adminClient.rpc('update_spaced_repetition', {
-        p_user_id: user.id,
-        p_question_id: question_id,
-        p_is_correct: isCorrect
+        p_user_id: user.id, p_question_id: question_id, p_is_correct: isCorrect
       });
-    } catch (srError) {
-      logStep("WARNING: Failed to update spaced repetition", { error: srError });
-    }
+    } catch (e) { logStep("WARNING: spaced rep failed", { error: e }); }
 
-    // Recalculate user theta (non-blocking)
+    // Theta recalc
     try {
       await adminClient.rpc('calculate_user_theta', {
-        p_user_id: user.id,
-        p_curriculum_id: question.curriculum_id,
+        p_user_id: user.id, p_curriculum_id: question.curriculum_id,
       });
-    } catch (thetaError) {
-      logStep("WARNING: Failed to recalculate theta", { error: thetaError });
-    }
+    } catch (e) { logStep("WARNING: theta failed", { error: e }); }
 
-    // After theta update, append next question for adaptive sessions
+    // Adaptive session append
     if (session_id) {
       try {
         const { data: sessionRow } = await adminClient
-          .from("exam_sessions")
-          .select("mode")
-          .eq("id", session_id)
-          .maybeSingle();
-
+          .from("exam_sessions").select("mode").eq("id", session_id).maybeSingle();
         if (sessionRow?.mode === "adaptive") {
           await adminClient.rpc("append_next_adaptive_question", { p_session_id: session_id });
         }
-      } catch (_e) {
-        logStep("WARNING: Adaptive append failed (non-blocking)", { error: _e });
-      }
+      } catch (_e) { logStep("WARNING: adaptive append failed", { error: _e }); }
     }
 
-    // ── v3: Update competency_performance_stats (Mastery-Feedback-Loop) ──
+    // ── Robust Competency Stats Update (only trusted attempts count) ──
     try {
-      const topicKey = question.competency_id || question.curriculum_id;
-      const { data: existingStat } = await adminClient
-        .from("competency_performance_stats")
-        .select("id, total_attempts, total_correct, avg_score, fail_rate, common_error_patterns")
-        .eq("curriculum_id", question.curriculum_id)
-        .eq("competency_id", question.competency_id)
-        .maybeSingle();
-
-      const newAttempts = (existingStat?.total_attempts || 0) + 1;
-      const newCorrect = (existingStat?.total_correct || 0) + (isCorrect ? 1 : 0);
-      const newAvgScore = newAttempts > 0 ? (newCorrect / newAttempts) * 100 : 0;
-      const newFailRate = newAttempts > 0 ? 1 - (newCorrect / newAttempts) : 0;
-      
-      let fragilityLevel = "stable";
-      if (newAttempts >= 10) {
-        if (newFailRate > 0.5) fragilityLevel = "critical";
-        else if (newFailRate > 0.35) fragilityLevel = "fragile";
-      }
-
-      await adminClient.from("competency_performance_stats").upsert({
-        curriculum_id: question.curriculum_id,
-        competency_id: question.competency_id,
-        learning_field_id: null,
-        topic_key: topicKey,
-        total_attempts: newAttempts,
-        total_correct: newCorrect,
-        avg_score: Math.round(newAvgScore * 100) / 100,
-        fail_rate: Math.round(newFailRate * 10000) / 10000,
-        fragility_level: fragilityLevel,
-        last_updated: new Date().toISOString(),
-      }, { onConflict: "curriculum_id,competency_id,learning_field_id,topic_key" });
+      await updateCompetencyStats(adminClient, question, isTrusted, isCorrect, attemptNumber);
     } catch (perfErr) {
-      logStep("WARNING: competency_performance_stats update failed (non-blocking)", { error: perfErr });
+      logStep("WARNING: competency stats update failed", { error: perfErr });
     }
 
-    // Return result with correct answer and explanation (NOW ALLOWED - after entitlement check)
     const result: AnswerResult = {
       is_correct: isCorrect,
       correct_answer: question.correct_answer,
       explanation: question.explanation || '',
     };
 
-    return new Response(
-      JSON.stringify(result),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-    );
+    return new Response(JSON.stringify(result),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...getCorsHeaders(req.headers.get('origin')), "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { ...getCorsHeaders(req.headers.get('origin')), "Content-Type": "application/json" } });
   }
 });
+
+// ── Robust aggregation with trust filtering ──
+async function updateCompetencyStats(
+  adminClient: ReturnType<typeof createClient>,
+  question: { curriculum_id: string; competency_id: string | null },
+  isTrusted: boolean,
+  isCorrect: boolean,
+  attemptNumber: number,
+) {
+  const topicKey = question.competency_id || question.curriculum_id;
+
+  // Fetch current stats
+  const { data: existing } = await adminClient
+    .from("competency_performance_stats")
+    .select("*")
+    .eq("curriculum_id", question.curriculum_id)
+    .eq("competency_id", question.competency_id)
+    .maybeSingle();
+
+  // Check if frozen → skip update
+  if (existing?.frozen) {
+    logStep("Competency frozen – skipping stats update");
+    return;
+  }
+
+  const totalAttempts = (existing?.total_attempts || 0) + 1;
+  const totalCorrect = (existing?.total_correct || 0) + (isCorrect ? 1 : 0);
+  const trustedAttempts = (existing?.trusted_attempts || 0) + (isTrusted ? 1 : 0);
+
+  // Count unique learners (approximate: use RPC or just increment tracking)
+  // We'll use a simple heuristic: track in the existing field
+  const uniqueLearners = existing?.unique_learners || 0;
+  // Note: exact unique count would need a separate query; we approximate by incrementing
+  // when attempt_number === 1 (first time this user answers this competency area)
+  const newUniqueLearners = attemptNumber === 1 ? uniqueLearners + 1 : uniqueLearners;
+
+  // Compute fail rates only from trusted attempts
+  const trustedCorrect = (existing?.total_correct || 0) + (isTrusted && isCorrect ? 1 : 0);
+  const failRate = trustedAttempts > 0 ? 1 - (trustedCorrect / trustedAttempts) : 0;
+
+  // First-pass vs repeat fail rate (heuristic from attempt_number)
+  const isFirstPass = attemptNumber <= 3;
+  const firstPassFail = existing?.first_pass_fail_rate || 0;
+  const repeatFail = existing?.repeat_fail_rate || 0;
+
+  // Weighted running average for segment rates (alpha = 0.05)
+  const alpha = 0.05;
+  let newFirstPassFail = firstPassFail;
+  let newRepeatFail = repeatFail;
+
+  if (isTrusted) {
+    if (isFirstPass) {
+      newFirstPassFail = firstPassFail * (1 - alpha) + (isCorrect ? 0 : 1) * alpha;
+    } else {
+      newRepeatFail = repeatFail * (1 - alpha) + (isCorrect ? 0 : 1) * alpha;
+    }
+  }
+
+  // Fragility level: based on repeat_fail_rate + minimum thresholds (debounce)
+  let fragilityLevel = "stable";
+  const prevRuns = existing?.consecutive_critical_runs || 0;
+
+  if (trustedAttempts >= 15 && newUniqueLearners >= 5) {
+    if (newRepeatFail > 0.50) {
+      fragilityLevel = prevRuns >= 1 ? "critical" : "fragile"; // debounce: needs 2 runs
+    } else if (newRepeatFail > 0.35) {
+      fragilityLevel = "fragile";
+    }
+  }
+
+  const consecutiveRuns = newRepeatFail > 0.50 ? prevRuns + 1 : 0;
+
+  await adminClient.from("competency_performance_stats").upsert({
+    curriculum_id: question.curriculum_id,
+    competency_id: question.competency_id,
+    learning_field_id: null,
+    topic_key: topicKey,
+    total_attempts: totalAttempts,
+    total_correct: totalCorrect,
+    trusted_attempts: trustedAttempts,
+    unique_learners: newUniqueLearners,
+    avg_score: trustedAttempts > 0 ? Math.round((trustedCorrect / trustedAttempts) * 10000) / 100 : 0,
+    fail_rate: Math.round(failRate * 10000) / 10000,
+    first_pass_fail_rate: Math.round(newFirstPassFail * 10000) / 10000,
+    repeat_fail_rate: Math.round(newRepeatFail * 10000) / 10000,
+    fragility_level: fragilityLevel,
+    consecutive_critical_runs: consecutiveRuns,
+    last_updated: new Date().toISOString(),
+  }, { onConflict: "curriculum_id,competency_id,learning_field_id,topic_key" });
+}

@@ -2749,17 +2749,25 @@ export type Database = {
           avg_score: number
           common_error_patterns: Json | null
           competency_id: string | null
+          consecutive_critical_runs: number | null
           created_at: string
           curriculum_id: string
           fail_rate: number
+          first_pass_fail_rate: number | null
           fragility_level: string
+          frozen: boolean | null
+          frozen_at: string | null
+          frozen_by: string | null
           id: string
           last_updated: string
           learning_field_id: string | null
           regeneration_count: number
+          repeat_fail_rate: number | null
           topic_key: string | null
           total_attempts: number
           total_correct: number
+          trusted_attempts: number | null
+          unique_learners: number | null
         }
         Insert: {
           avg_hallucination_risk?: number | null
@@ -2767,17 +2775,25 @@ export type Database = {
           avg_score?: number
           common_error_patterns?: Json | null
           competency_id?: string | null
+          consecutive_critical_runs?: number | null
           created_at?: string
           curriculum_id: string
           fail_rate?: number
+          first_pass_fail_rate?: number | null
           fragility_level?: string
+          frozen?: boolean | null
+          frozen_at?: string | null
+          frozen_by?: string | null
           id?: string
           last_updated?: string
           learning_field_id?: string | null
           regeneration_count?: number
+          repeat_fail_rate?: number | null
           topic_key?: string | null
           total_attempts?: number
           total_correct?: number
+          trusted_attempts?: number | null
+          unique_learners?: number | null
         }
         Update: {
           avg_hallucination_risk?: number | null
@@ -2785,17 +2801,25 @@ export type Database = {
           avg_score?: number
           common_error_patterns?: Json | null
           competency_id?: string | null
+          consecutive_critical_runs?: number | null
           created_at?: string
           curriculum_id?: string
           fail_rate?: number
+          first_pass_fail_rate?: number | null
           fragility_level?: string
+          frozen?: boolean | null
+          frozen_at?: string | null
+          frozen_by?: string | null
           id?: string
           last_updated?: string
           learning_field_id?: string | null
           regeneration_count?: number
+          repeat_fail_rate?: number | null
           topic_key?: string | null
           total_attempts?: number
           total_correct?: number
+          trusted_attempts?: number | null
+          unique_learners?: number | null
         }
         Relationships: []
       }
@@ -12950,32 +12974,41 @@ export type Database = {
       question_attempts: {
         Row: {
           answered_at: string
+          attempt_number: number | null
           created_at: string
           id: string
           is_correct: boolean
           question_id: string
           selected_answer: number
           session_id: string | null
+          time_spent_ms: number | null
+          trust_score: number | null
           user_id: string
         }
         Insert: {
           answered_at?: string
+          attempt_number?: number | null
           created_at?: string
           id?: string
           is_correct: boolean
           question_id: string
           selected_answer: number
           session_id?: string | null
+          time_spent_ms?: number | null
+          trust_score?: number | null
           user_id: string
         }
         Update: {
           answered_at?: string
+          attempt_number?: number | null
           created_at?: string
           id?: string
           is_correct?: boolean
           question_id?: string
           selected_answer?: number
           session_id?: string | null
+          time_spent_ms?: number | null
+          trust_score?: number | null
           user_id?: string
         }
         Relationships: [
