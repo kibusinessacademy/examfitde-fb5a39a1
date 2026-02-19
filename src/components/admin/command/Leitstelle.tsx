@@ -64,8 +64,6 @@ function PackageRow({ pkg }: { pkg: PipelinePackage }) {
           )}
         </div>
       </TableCell>
-      <TableCell className="text-right font-mono text-xs">{pkg.lessons}</TableCell>
-      <TableCell className="text-right font-mono text-xs">{pkg.q_total}</TableCell>
       <TableCell className="text-center"><ContentIcon ok={pkg.step_generate_oral === 'done' && pkg.step_validate_oral === 'done'} partial={pkg.step_generate_oral === 'done'} /></TableCell>
       <TableCell className="text-center"><ContentIcon ok={pkg.step_build_tutor === 'done' && pkg.step_validate_tutor === 'done'} partial={pkg.step_build_tutor === 'done'} /></TableCell>
       <TableCell className="text-center"><ContentIcon ok={pkg.step_generate_handbook === 'done' && pkg.step_validate_handbook === 'done'} partial={pkg.step_generate_handbook === 'done'} /></TableCell>
@@ -91,9 +89,7 @@ function PackageCard({ pkg }: { pkg: PipelinePackage }) {
         <span className="text-xs font-mono text-muted-foreground">{pkg.build_progress}%</span>
       </div>
       <Progress value={pkg.build_progress} className="h-1.5" />
-      <div className="grid grid-cols-5 gap-1 text-[10px] text-center text-muted-foreground">
-        <div><span className="font-mono font-bold text-foreground">{pkg.lessons}</span><br/>Lekt.</div>
-        <div><span className="font-mono font-bold text-foreground">{pkg.q_total}</span><br/>Fragen</div>
+      <div className="grid grid-cols-3 gap-1 text-[10px] text-center text-muted-foreground">
         <div><ContentIcon ok={pkg.step_generate_oral === 'done' && pkg.step_validate_oral === 'done'} partial={pkg.step_generate_oral === 'done'} /><br/>Oral</div>
         <div><ContentIcon ok={pkg.step_build_tutor === 'done' && pkg.step_validate_tutor === 'done'} partial={pkg.step_build_tutor === 'done'} /><br/>Tutor</div>
         <div><ContentIcon ok={pkg.step_generate_handbook === 'done' && pkg.step_validate_handbook === 'done'} partial={pkg.step_generate_handbook === 'done'} /><br/>Handb.</div>
@@ -209,29 +205,6 @@ export default function Leitstelle() {
         </CardContent>
       </Card>
 
-      {/* Content Metrics Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Metric
-          icon={<FileText className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="Lektionen (building)" value={kpis.total_lessons}
-        />
-        <Metric
-          icon={<BookOpen className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="Fragen gesamt" value={kpis.total_questions}
-          sub={`${kpis.total_approved} approved`}
-        />
-        <Metric
-          icon={<Mic className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="Oral-Exam Sets" value={packages.filter(p => p.oral_sets > 0).length}
-          sub={`von ${packages.length} Paketen`}
-        />
-        <Metric
-          icon={<Brain className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="AI-Tutor Indizes" value={packages.filter(p => p.tutor_index > 0).length}
-          sub={`von ${packages.length} Paketen`}
-        />
-      </div>
-
       {/* Building Packages Table */}
       <Card>
         <CardHeader className="pb-3">
@@ -248,8 +221,6 @@ export default function Leitstelle() {
                 <TableRow>
                   <TableHead className="pl-4">Paket</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Lekt.</TableHead>
-                  <TableHead className="text-right">Fragen</TableHead>
                   <TableHead className="text-center">Oral</TableHead>
                   <TableHead className="text-center">Tutor</TableHead>
                   <TableHead className="text-center">Handb.</TableHead>
