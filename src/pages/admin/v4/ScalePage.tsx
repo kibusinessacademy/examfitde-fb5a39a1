@@ -56,17 +56,17 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   failed: { label: 'Fehler', color: 'bg-destructive/20 text-destructive' },
 };
 
-function mapPackageStatus(pkg: any): string {
+function mapPackageStatus(pkg: any, stepsMap: Record<string, Record<string, string>>): string {
   if (pkg.status === 'published') return 'published';
   if (pkg.integrity_passed) return 'integrity_passed';
-  // Check build steps if available
-  const steps = pkg.build_steps_summary || {};
-  if (steps.generate_handbook === 'done') return 'handbook_done';
-  if (steps.build_ai_tutor_index === 'done') return 'tutor_done';
-  if (steps.generate_oral_exam === 'done') return 'oral_done';
-  if (steps.generate_exam_pool === 'done') return 'exam_done';
+  // Use real package_steps data
+  const steps = stepsMap[pkg.id] || {};
+  if (steps.validate_handbook === 'done' || steps.generate_handbook === 'done') return 'handbook_done';
+  if (steps.validate_tutor_index === 'done' || steps.build_ai_tutor_index === 'done') return 'tutor_done';
+  if (steps.validate_oral_exam === 'done' || steps.generate_oral_exam === 'done') return 'oral_done';
+  if (steps.validate_exam_pool === 'done' || steps.generate_exam_pool === 'done') return 'exam_done';
   if (steps.scaffold_learning_course === 'done') return 'scaffolded';
-  if (pkg.status === 'building') return 'scaffolded';
+  if (pkg.status === 'building' || pkg.status === 'queued') return 'scaffolded';
   return 'not_started';
 }
 
@@ -74,13 +74,14 @@ function mapPackageStatus(pkg: any): string {
 function BerufeStatus() {
   const [packages, setPackages] = useState<any[]>([]);
   const [berufe, setBerufe] = useState<any[]>([]);
+  const [stepsMap, setStepsMap] = useState<Record<string, Record<string, string>>>({});
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [trackFilter, setTrackFilter] = useState<string>('all');
   const [certTypeFilter, setCertTypeFilter] = useState<string>('all');
 
   const load = async () => {
-    const [pkgRes, berufRes] = await Promise.all([
+    const [pkgRes, berufRes, stepsRes] = await Promise.all([
       (supabase as any).from('course_packages')
         .select('id, title, status, integrity_passed, curriculum_id, certification_id, build_progress, created_at, track, certification_type, feature_flags')
         .order('title'),
@@ -88,9 +89,18 @@ function BerufeStatus() {
         .select('id, bezeichnung_kurz, ist_aktiv')
         .eq('ist_aktiv', true)
         .order('bezeichnung_kurz'),
+      (supabase as any).from('package_steps')
+        .select('package_id, step_key, status'),
     ]);
     setPackages(pkgRes.data || []);
     setBerufe(berufRes.data || []);
+    // Build stepsMap: { package_id: { step_key: status } }
+    const map: Record<string, Record<string, string>> = {};
+    for (const s of (stepsRes.data || [])) {
+      if (!map[s.package_id]) map[s.package_id] = {};
+      map[s.package_id][s.step_key] = s.status;
+    }
+    setStepsMap(map);
     setLoading(false);
   };
 
@@ -140,7 +150,7 @@ function BerufeStatus() {
   
   const berufList = berufe.map(b => {
     const pkg = berufMap.get(b.id);
-    const status = pkg ? mapPackageStatus(pkg) : 'not_started';
+    const status = pkg ? mapPackageStatus(pkg, stepsMap) : 'not_started';
     statusCounts[status] = (statusCounts[status] || 0) + 1;
     return { ...b, pkg, pipelineStatus: status };
   });
@@ -148,7 +158,7 @@ function BerufeStatus() {
   // Also count packages not linked to a beruf
   for (const pkg of packages) {
     if (!berufe.find(b => b.id === (pkg.curriculum_id || pkg.certification_id))) {
-      const status = mapPackageStatus(pkg);
+      const status = mapPackageStatus(pkg, stepsMap);
       statusCounts[status] = (statusCounts[status] || 0) + 1;
     }
   }
