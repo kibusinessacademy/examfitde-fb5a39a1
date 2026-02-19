@@ -2759,8 +2759,10 @@ export type Database = {
           frozen_at: string | null
           frozen_by: string | null
           id: string
+          last_regen_at: string | null
           last_updated: string
           learning_field_id: string | null
+          max_regen_reached: boolean | null
           regeneration_count: number
           repeat_fail_rate: number | null
           topic_key: string | null
@@ -2785,8 +2787,10 @@ export type Database = {
           frozen_at?: string | null
           frozen_by?: string | null
           id?: string
+          last_regen_at?: string | null
           last_updated?: string
           learning_field_id?: string | null
+          max_regen_reached?: boolean | null
           regeneration_count?: number
           repeat_fail_rate?: number | null
           topic_key?: string | null
@@ -2811,8 +2815,10 @@ export type Database = {
           frozen_at?: string | null
           frozen_by?: string | null
           id?: string
+          last_regen_at?: string | null
           last_updated?: string
           learning_field_id?: string | null
+          max_regen_reached?: boolean | null
           regeneration_count?: number
           repeat_fail_rate?: number | null
           topic_key?: string | null
@@ -17208,6 +17214,41 @@ export type Database = {
         }
         Relationships: []
       }
+      v_competency_heatmap: {
+        Row: {
+          avg_score_pct: number | null
+          competency_id: string | null
+          competency_name: string | null
+          curriculum_id: string | null
+          fail_rate_pct: number | null
+          fragility_level: string | null
+          frozen: boolean | null
+          last_updated: string | null
+          learning_field_name: string | null
+          regeneration_count: number | null
+          repeat_fail_rate_pct: number | null
+          total_attempts: number | null
+          trusted_attempts: number | null
+          unique_learners: number | null
+        }
+        Relationships: []
+      }
+      v_cost_per_package: {
+        Row: {
+          avg_latency_ms: number | null
+          certification_id: string | null
+          certification_name: string | null
+          first_cost_at: string | null
+          last_cost_at: string | null
+          package_id: string | null
+          package_status: string | null
+          total_cost_eur: number | null
+          total_jobs: number | null
+          total_tokens_in: number | null
+          total_tokens_out: number | null
+        }
+        Relationships: []
+      }
       v_cost_per_question: {
         Row: {
           certification_id: string | null
@@ -17216,6 +17257,20 @@ export type Database = {
           exam_pool_cost_eur: number | null
           package_id: string | null
           question_count: number | null
+        }
+        Relationships: []
+      }
+      v_early_warning: {
+        Row: {
+          curriculum_id: string | null
+          curriculum_name: string | null
+          last_activity_at: string | null
+          pass_probability: number | null
+          risk_level: string | null
+          risk_score: number | null
+          theta: number | null
+          total_items_seen: number | null
+          user_id: string | null
         }
         Relationships: []
       }
@@ -17446,6 +17501,19 @@ export type Database = {
           net_profit_30d: number | null
           package_id: string | null
           revenue_30d: number | null
+        }
+        Relationships: []
+      }
+      v_pruefungsreife_index: {
+        Row: {
+          curriculum_id: string | null
+          curriculum_name: string | null
+          pass_probability: number | null
+          pri_score: number | null
+          theta: number | null
+          total_items_seen: number | null
+          updated_at: string | null
+          user_id: string | null
         }
         Relationships: []
       }

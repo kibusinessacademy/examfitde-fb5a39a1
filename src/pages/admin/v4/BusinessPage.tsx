@@ -18,6 +18,7 @@ const EnterpriseSeatManagement = lazy(() => import('@/pages/admin/EnterpriseSeat
 const AuditExportsPage = lazy(() => import('@/pages/admin/AuditExportsPage'));
 const UnitEconomicsDashboard = lazy(() => import('@/components/admin/UnitEconomicsDashboard'));
 const MonetizationDashboard = lazy(() => import('@/components/admin/MonetizationDashboard'));
+const B2BReportingDashboard = lazy(() => import('@/components/admin/B2BReportingDashboard'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -28,6 +29,7 @@ const Loading = () => (
 const tabs = [
   { path: '/admin/business', label: 'LLM-Kosten' },
   { path: '/admin/business/unit-economics', label: 'Unit Economics' },
+  { path: '/admin/business/b2b', label: 'B2B Reporting' },
   { path: '/admin/business/monetization', label: 'Monetarisierung' },
   { path: '/admin/business/revenue', label: 'Umsatz' },
   { path: '/admin/business/licenses', label: 'Lizenzen' },
@@ -276,6 +278,7 @@ export default function BusinessPage() {
         <Routes>
           <Route index element={<LLMCostDashboard />} />
           <Route path="unit-economics" element={<UnitEconomicsDashboard />} />
+          <Route path="b2b" element={<B2BReportingDashboard />} />
           <Route path="monetization" element={<MonetizationDashboard />} />
           <Route path="revenue" element={<FinanceDashboard />} />
           <Route path="licenses" element={<EnterpriseSeatManagement />} />

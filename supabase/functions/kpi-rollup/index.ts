@@ -120,7 +120,20 @@ Deno.serve(async (req) => {
       .update({ spent_eur: Math.round(mtdSpent * 100) / 100, updated_at: new Date().toISOString() })
       .eq("month", currentMonth);
 
-    console.log(`[kpi-rollup] Day ${today}: ${jobsCompleted} completed, €${costTotal.toFixed(2)}, budget MTD €${mtdSpent.toFixed(2)}, ETA ${etaHours.toFixed(1)}h`);
+    // Avg cost per package (from v_cost_per_package or direct query)
+    const { data: pkgCosts } = await sb.from("job_costs")
+      .select("package_id, cost_eur")
+      .not("package_id", "is", null)
+      .gte("created_at", dayStart);
+    const pkgCostMap: Record<string, number> = {};
+    for (const jc of pkgCosts || []) {
+      pkgCostMap[jc.package_id] = (pkgCostMap[jc.package_id] || 0) + (jc.cost_eur || 0);
+    }
+    const pkgCostValues = Object.values(pkgCostMap);
+    const avgCostPerPkg = pkgCostValues.length > 0
+      ? pkgCostValues.reduce((a, b) => a + b, 0) / pkgCostValues.length : 0;
+
+    console.log(`[kpi-rollup] Day ${today}: ${jobsCompleted} completed, €${costTotal.toFixed(2)}, budget MTD €${mtdSpent.toFixed(2)}, ETA ${etaHours.toFixed(1)}h, avgCost/pkg €${avgCostPerPkg.toFixed(2)}`);
 
     return json({
       ok: true,
@@ -129,6 +142,8 @@ Deno.serve(async (req) => {
       cost_total_eur: costTotal,
       backlog: backlog,
       eta_hours: etaHours,
+      avg_cost_per_package: Math.round(avgCostPerPkg * 100) / 100,
+      active_packages_today: pkgCostValues.length,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
