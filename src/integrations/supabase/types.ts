@@ -11868,6 +11868,47 @@ export type Database = {
           },
         ]
       }
+      profession_glossaries: {
+        Row: {
+          beruf_id: string
+          created_at: string
+          glossary: Json
+          id: string
+          profession_name: string
+          token_count: number | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          beruf_id: string
+          created_at?: string
+          glossary?: Json
+          id?: string
+          profession_name: string
+          token_count?: number | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          beruf_id?: string
+          created_at?: string
+          glossary?: Json
+          id?: string
+          profession_name?: string
+          token_count?: number | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profession_glossaries_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "berufe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

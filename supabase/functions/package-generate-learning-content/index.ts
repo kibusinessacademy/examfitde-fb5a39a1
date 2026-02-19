@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
 
 /**
  * package-generate-learning-content — Pipeline Step
@@ -257,9 +258,22 @@ Deno.serve(async (req) => {
   }
 
   let professionName: string;
+  let glossaryContext = "";
   try {
     const prof = await resolveProfession(sb, { certificationId, curriculumId });
     professionName = prof.professionName;
+    // Load or generate profession glossary for depth injection
+    const berufId = await (async () => {
+      const { data: cu } = await sb.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
+      return cu?.beruf_id;
+    })();
+    if (berufId) {
+      try {
+        const glossary = await loadOrGenerateGlossary(sb, berufId, professionName, curriculumId);
+        glossaryContext = formatGlossaryForPrompt(glossary);
+        console.log(`[gen-content] Glossary loaded for "${professionName}" (${glossaryContext.length} chars)`);
+      } catch (e) { console.warn(`[gen-content] Glossary load failed: ${(e as Error).message}`); }
+    }
   } catch (e) {
     return json({ error: (e as Error).message }, 400);
   }
@@ -407,6 +421,7 @@ QUALITÄTSSTANDARD:
 - Bei Rechenthemen: IMMER vollständige Rechenwege mit realistischen (nicht-runden) Zahlen
 - Kombinationsaufgaben bevorzugen (mehrere Konzepte verknüpfen)
 - Markiere prüfungsrelevante Stellen mit ⭐
+${glossaryContext ? glossaryContext : ''}
 
 PRÜFUNGSDRUCK-ELEMENTE (PFLICHT in jedem Lernschritt):
 - Mindestens 1x "⭐ IHK-Prüfungstipp: ..." pro Lektion

@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -76,6 +77,7 @@ async function generateSectionContent(
   fieldDescription: string,
   subtopics: string[],
   wordTarget: number,
+  glossaryContext?: string,
 ): Promise<string> {
   const routed = getModel("handbook");
   const topicContext = subtopics.length > 0
@@ -99,6 +101,7 @@ ANFORDERUNGEN:
 5. Markdown-Format mit ## und ### Überschriften
 6. Umfang: ${minWords}–${maxWords} Wörter (Dieses Lernfeld hat eine hohe Prüfungsrelevanz und benötigt entsprechende Tiefe)
 7. KEINE Platzhalter wie "wird ergänzt" oder "TODO"
+${glossaryContext || ''}
 
 Antworte NUR mit dem Markdown-Inhalt, KEIN JSON-Wrapper.`;
 
@@ -155,9 +158,17 @@ Deno.serve(async (req) => {
   }
 
   let professionName = "Ausbildungsberuf";
+  let glossaryContext = "";
   try {
     const prof = await resolveProfession(sb, { certificationId, curriculumId });
     professionName = prof.professionName;
+    const { data: cu } = await sb.from("curricula").select("beruf_id").eq("id", curriculumId).maybeSingle();
+    if (cu?.beruf_id) {
+      try {
+        const glossary = await loadOrGenerateGlossary(sb, cu.beruf_id, professionName, curriculumId);
+        glossaryContext = formatGlossaryForPrompt(glossary);
+      } catch (e) { console.warn(`[handbook] Glossary: ${(e as Error).message}`); }
+    }
   } catch { /* fallback */ }
 
   // 1) Load learning fields
@@ -284,6 +295,7 @@ Deno.serve(async (req) => {
       lf.description || "",
       subtopics,
       wordTarget,
+      glossaryContext,
     );
 
     const hasRealContent = generatedContent.length >= 200;
