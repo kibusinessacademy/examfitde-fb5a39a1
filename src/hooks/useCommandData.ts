@@ -120,25 +120,33 @@ export function useCommandData() {
       const curriculumIds = buildPkgs.map((p: any) => p.curriculum_id).filter(Boolean);
       const packageIds = buildPkgs.map((p: any) => p.id);
 
-      const [lessonsRes, questionsRes, oralRes, handbookRes, tutorRes, stepsRes] = await Promise.all([
-        courseIds.length > 0
-          ? sb.from('modules').select('id, course_id').in('course_id', courseIds)
-              .then(async (modRes: any) => {
-                const moduleIds = (modRes.data || []).map((m: any) => m.id);
-                if (!moduleIds.length) return { data: [] };
-                // Count lessons per module
-                const { data } = await sb.from('lessons').select('id, module_id').in('module_id', moduleIds);
-                // Map back to course_id
-                const modToCourse: Record<string, string> = {};
-                (modRes.data || []).forEach((m: any) => { modToCourse[m.id] = m.course_id; });
-                return {
-                  data: (data || []).map((l: any) => ({ ...l, course_id: modToCourse[l.module_id] }))
-                };
-              })
-          : Promise.resolve({ data: [] }),
-        curriculumIds.length > 0
-          ? sb.from('exam_questions').select('id, curriculum_id, status').in('curriculum_id', curriculumIds)
-          : Promise.resolve({ data: [] }),
+      // Use per-curriculum count queries to avoid 1000-row limit
+      const questionCountsByCurriculum: Record<string, { total: number; approved: number }> = {};
+      const questionCountPromises = curriculumIds.map(async (cid: string) => {
+        const [totalRes, approvedRes] = await Promise.all([
+          sb.from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', cid),
+          sb.from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', cid).eq('status', 'approved'),
+        ]);
+        questionCountsByCurriculum[cid] = {
+          total: totalRes.count || 0,
+          approved: approvedRes.count || 0,
+        };
+      });
+
+      // Use per-course lesson counts to avoid 1000-row limit
+      const lessonCountsByCourse: Record<string, number> = {};
+      const lessonCountPromises = courseIds.map(async (courseId: string) => {
+        const { count } = await sb.from('lessons').select('id', { count: 'exact', head: true })
+          .eq('module_id', sb.from('modules').select('id').eq('course_id', courseId));
+        // Fallback: count via modules join
+        const modRes = await sb.from('modules').select('id').eq('course_id', courseId);
+        const moduleIds = (modRes.data || []).map((m: any) => m.id);
+        if (!moduleIds.length) { lessonCountsByCourse[courseId] = 0; return; }
+        const lessonRes = await sb.from('lessons').select('id', { count: 'exact', head: true }).in('module_id', moduleIds);
+        lessonCountsByCourse[courseId] = lessonRes.count || 0;
+      });
+
+      const [oralRes, handbookRes, tutorRes, stepsRes] = await Promise.all([
         packageIds.length > 0
           ? sb.from('oral_exam_sessionsets').select('id, package_id').in('package_id', packageIds)
           : Promise.resolve({ data: [] }),
@@ -151,10 +159,10 @@ export function useCommandData() {
         packageIds.length > 0
           ? sb.from('package_steps').select('package_id, step_key, status').in('package_id', packageIds)
           : Promise.resolve({ data: [] }),
+        ...questionCountPromises,
+        ...lessonCountPromises,
       ]);
 
-      const lessons = lessonsRes.data || [];
-      const questions = questionsRes.data || [];
       const orals = oralRes.data || [];
       const chapters = handbookRes.data || [];
       const tutors = tutorRes.data || [];
@@ -165,9 +173,10 @@ export function useCommandData() {
       let totalApproved = 0;
 
       for (const pkg of buildPkgs) {
-        const pkgLessons = lessons.filter((l: any) => l.course_id === pkg.course_id).length;
-        const pkgQAll = questions.filter((q: any) => q.curriculum_id === pkg.curriculum_id);
-        const pkgQApproved = pkgQAll.filter((q: any) => q.status === 'approved').length;
+        const pkgLessons = lessonCountsByCourse[pkg.course_id] || 0;
+        const qCounts = questionCountsByCurriculum[pkg.curriculum_id] || { total: 0, approved: 0 };
+        const pkgQTotal = qCounts.total;
+        const pkgQApproved = qCounts.approved;
         const pkgOral = orals.filter((o: any) => o.package_id === pkg.id).length;
         const pkgHb = chapters.filter((h: any) => h.curriculum_id === pkg.curriculum_id).length;
         const pkgTutor = tutors.filter((t: any) => t.package_id === pkg.id).length;
@@ -175,7 +184,7 @@ export function useCommandData() {
         const stepMap = Object.fromEntries(pkgSteps.map((s: any) => [s.step_key, s.status]));
 
         totalLessons += pkgLessons;
-        totalQuestions += pkgQAll.length;
+        totalQuestions += pkgQTotal;
         totalApproved += pkgQApproved;
 
         enrichedPackages.push({
@@ -189,7 +198,7 @@ export function useCommandData() {
           steps_failed: pkgSteps.filter((s: any) => s.status === 'failed').length,
           lessons: pkgLessons,
           q_approved: pkgQApproved,
-          q_total: pkgQAll.length,
+          q_total: pkgQTotal,
           oral_sets: pkgOral,
           hb_chapters: pkgHb,
           tutor_index: pkgTutor,
