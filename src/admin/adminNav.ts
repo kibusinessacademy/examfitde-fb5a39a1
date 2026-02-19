@@ -10,6 +10,8 @@ export interface AdminNavItem {
   label: string;
   icon: LucideIcon;
   group: 'navigation' | 'actions';
+  /** Key into NavBadges to show a count badge */
+  badgeKey?: 'failed_jobs_24h' | 'critical_competencies' | 'seo_errors' | 'open_alerts';
   children?: { path: string; label: string }[];
 }
 
@@ -18,6 +20,7 @@ export const adminNavModules: AdminNavItem[] = [
   { path: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard, group: 'navigation' },
   {
     path: '/admin/ops', label: 'Ops', icon: Activity, group: 'navigation',
+    badgeKey: 'failed_jobs_24h',
     children: [
       { path: '/admin/ops', label: 'Ampel & Alerts' },
       { path: '/admin/ops/queue', label: 'Queue' },
@@ -34,6 +37,7 @@ export const adminNavModules: AdminNavItem[] = [
   },
   {
     path: '/admin/quality', label: 'Qualität', icon: Shield, group: 'navigation',
+    badgeKey: 'critical_competencies',
     children: [
       { path: '/admin/quality', label: 'Übersicht' },
       { path: '/admin/quality/review', label: 'Review Inbox' },
@@ -41,6 +45,7 @@ export const adminNavModules: AdminNavItem[] = [
   },
   {
     path: '/admin/content', label: 'Content & SEO', icon: FileText, group: 'navigation',
+    badgeKey: 'seo_errors',
     children: [
       { path: '/admin/content', label: 'Seiten' },
       { path: '/admin/content/blog', label: 'Blog' },
@@ -79,7 +84,6 @@ export function adminNavFlat() {
     items.push({ label: mod.label, path: mod.path, icon: mod.icon, group: 'Navigation' });
     if (mod.children) {
       for (const child of mod.children) {
-        // Skip duplicates where child.path === parent.path
         if (child.path !== mod.path) {
           items.push({ label: `${mod.label} → ${child.label}`, path: child.path, icon: mod.icon, group: 'Navigation' });
         }
