@@ -362,11 +362,12 @@ Deno.serve(async (req) => {
 
     const fnName = JOB_TYPE_MAP[job.job_type];
     if (!fnName) {
-      console.warn(`[job-runner] Unknown job_type: ${job.job_type}, skipping`);
+      console.error(`[job-runner] ❌ Unknown job_type: ${job.job_type} — hard-failing (add to JOB_TYPE_MAP!)`);
       await sb.from("job_queue").update({
         status: "failed",
-        error: `Unknown job_type: ${job.job_type}`,
+        error: `Unknown job_type: ${job.job_type}. Add mapping to JOB_TYPE_MAP in job-runner.`,
         completed_at: tsNow,
+        max_attempts: 1,
         ...lockRelease(tsNow),
       }).eq("id", job.id);
       results.push({ id: job.id, status: "failed", reason: "unknown_type" });
