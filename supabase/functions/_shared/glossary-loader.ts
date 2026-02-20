@@ -146,10 +146,18 @@ export async function loadOrGenerateGlossary(
 
   let glossary: Omit<ProfessionGlossary, "professionName">;
   try {
-    const cleaned = aiResult.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    glossary = JSON.parse(cleaned);
-  } catch {
-    console.error("[glossary-loader] Failed to parse glossary JSON");
+    let raw = (aiResult.content || "").trim();
+    // Strip markdown fences
+    raw = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+    // If model wrapped in text, extract first JSON object
+    const jsonStart = raw.indexOf("{");
+    const jsonEnd = raw.lastIndexOf("}");
+    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+      raw = raw.slice(jsonStart, jsonEnd + 1);
+    }
+    glossary = JSON.parse(raw);
+  } catch (parseErr) {
+    console.error("[glossary-loader] Failed to parse glossary JSON. Raw (first 500):", (aiResult.content || "").slice(0, 500));
     throw new Error("GLOSSARY_PARSE_ERROR: Could not parse AI-generated glossary");
   }
 
