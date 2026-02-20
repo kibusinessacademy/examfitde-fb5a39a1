@@ -133,9 +133,9 @@ const JOB_TYPE_MAP: Record<string, string> = {
 };
 
 // ── Adaptive Concurrency Constants ──────────────────────────────────
-const BASE_CONCURRENCY = 12;
-const MIN_CONCURRENCY = 6;
-const MAX_CONCURRENCY = 18;
+const BASE_CONCURRENCY = 6;
+const MIN_CONCURRENCY = 4;
+const MAX_CONCURRENCY = 12;
 const JOB_TIMEOUT_MS = 140_000;
 const WORKER_ID = `job-runner-${crypto.randomUUID().slice(0, 8)}`;
 
