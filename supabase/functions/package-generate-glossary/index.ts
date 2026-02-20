@@ -1,16 +1,16 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { loadOrGenerateGlossary } from "../_shared/glossary-loader.ts";
-import { logLLMCostEvent } from "../_shared/ai-client.ts";
 
 /**
  * package-generate-glossary — Pipeline Step (pre-warm)
  *
  * Generates and caches the profession-specific glossary BEFORE
- * generate_learning_content runs. This ensures the content generator
- * only does a fast cache read instead of a slow LLM call.
+ * generate_learning_content runs.
  *
- * This step is idempotent: if glossary already cached, it returns immediately.
+ * FAIL-SOFT: If generation fails after max attempts, returns
+ * batch_complete: true so the pipeline continues without glossary.
+ * Glossary is optional enrichment, not a hard gate.
  */
 
 function json(body: unknown, status = 200) {
@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
 
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
-  const certificationId = p.certification_id || null;
+  const jobId = p.job_id;
 
   if (!packageId || !curriculumId) {
     return json({ error: "Missing package_id or curriculum_id" }, 400);
@@ -49,8 +49,8 @@ Deno.serve(async (req) => {
   const professionName = (cu as any)?.berufe?.bezeichnung_kurz || "Unbekannt";
 
   if (!berufId) {
-    console.log("[gen-glossary] No beruf_id found — skipping glossary generation");
-    return json({ ok: true, skipped: true, reason: "no_beruf_id" });
+    console.log("[gen-glossary] No beruf_id found — skipping (fail-soft)");
+    return json({ ok: true, batch_complete: true, skipped: true, reason: "no_beruf_id" });
   }
 
   // Check if already cached
@@ -63,10 +63,10 @@ Deno.serve(async (req) => {
 
   if (cached) {
     console.log(`[gen-glossary] Glossary already cached for "${professionName}" — skipping`);
-    return json({ ok: true, skipped: true, reason: "already_cached", version: cached.version });
+    return json({ ok: true, batch_complete: true, skipped: true, reason: "already_cached", version: cached.version });
   }
 
-  // Generate (this is the slow LLM call — we have full edge function runtime here)
+  // Generate (slow LLM call — we have full edge function runtime here)
   console.log(`[gen-glossary] Generating glossary for "${professionName}"...`);
   const startMs = Date.now();
 
@@ -90,6 +90,15 @@ Deno.serve(async (req) => {
   } catch (e) {
     const errMsg = (e as Error).message || String(e);
     console.error(`[gen-glossary] ❌ Failed: ${errMsg}`);
-    return json({ error: errMsg }, 500);
+
+    // FAIL-SOFT: Return batch_complete so pipeline continues without glossary.
+    // The content generator will just run without glossary enrichment.
+    console.warn(`[gen-glossary] ⚠️ Glossary is optional — marking batch_complete to unblock pipeline`);
+    return json({
+      ok: false,
+      batch_complete: true,
+      error: errMsg,
+      fail_soft: true,
+    });
   }
 });
