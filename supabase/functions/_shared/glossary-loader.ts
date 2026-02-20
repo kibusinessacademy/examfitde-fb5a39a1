@@ -2,10 +2,10 @@
  * Profession Glossary Loader — On-demand cache
  * 
  * Loads or generates a profession-specific glossary containing:
- * - 200-400 domain-specific technical terms (grouped by learning field)
- * - IHK exam-relevant formulas + calculation examples
- * - Typical exam traps & error patterns
- * - Industry-specific scenarios, actors, and settings
+ * - 50-80 domain-specific technical terms (grouped by learning field)
+ * - IHK exam-relevant formulas
+ * - Typical exam traps
+ * - Industry-specific context
  * 
  * The glossary is cached in `profession_glossaries` and injected
  * into ALL content generator prompts for maximum depth.
@@ -32,55 +32,21 @@ export interface ProfessionGlossary {
   };
 }
 
-const GLOSSARY_PROMPT = `Du bist ein IHK-Prüfungsexperte und Fachterminologie-Spezialist.
+// Lean prompt — optimized for speed (must complete in <60s on flash models)
+const GLOSSARY_PROMPT = `Du bist ein IHK-Prüfungsexperte. Erstelle ein kompaktes Fachglosssar für "{PROFESSION}".
 
-Erstelle ein UMFASSENDES Fachbegriff-Glossar für den Beruf "{PROFESSION}".
-
-ANFORDERUNGEN:
-1. FACHBEGRIFFE: 200-400 berufsspezifische Begriffe, GRUPPIERT nach Lernfeldern/Themenbereichen. NUR Begriffe die EXKLUSIV oder PRIMÄR in diesem Beruf vorkommen. KEINE generischen BWL-Begriffe die in jedem Beruf gleich sind.
-
-2. FORMELN: Alle prüfungsrelevanten Formeln mit:
-   - Name der Formel
-   - Mathematische Darstellung
-   - Konkretes Rechenbeispiel mit NICHT-RUNDEN Zahlen aus dem Berufsalltag
-
-3. PRÜFUNGSFALLEN: 15-25 typische IHK-Prüfungsfallen die Azubis in diesem Beruf regelmäßig falsch beantworten. Konkret und berufsspezifisch.
-
-4. SZENARIEN: 10-15 realistische Praxisszenarien aus dem Berufsalltag mit:
-   - Konkretem Titel
-   - Situationsbeschreibung
-   - Beteiligte Akteure (mit berufstypischen Rollen)
-
-5. RECHENBEISPIELE: 5-10 typische Prüfungsrechnungen mit Aufgabe, Lösung und verwendeter Formel.
-
-6. BRANCHENSPEZIFISCH:
-   - Typische Akteure/Rollen im Betrieb
-   - Arbeitsumgebungen (wo arbeitet man konkret?)
-   - Branchentypische Dokumente/Formulare
-   - Werkzeuge, Software, Maschinen
-
-WICHTIG: 
-- KEINE generischen Begriffe die in JEDEM Beruf identisch sind
-- Begriffe müssen den IHK-Prüfungsanforderungen entsprechen
-- Szenarien müssen REALISTISCH und KONKRET sein (keine KI-Floskeln)
-- Rechenbeispiele mit NICHT-RUNDEN Zahlen (z.B. 4.387,50€ statt 5.000€)
+ANFORDERUNGEN (halte dich an die Mengenangaben!):
+1. FACHBEGRIFFE: 50-80 berufsspezifische Begriffe, gruppiert nach max 6 Lernfeldern. NUR berufsspezifische Begriffe, KEINE generischen BWL-Begriffe.
+2. FORMELN: 5-8 prüfungsrelevante Formeln mit Name, Formel, kurzem Beispiel.
+3. PRÜFUNGSFALLEN: 8-12 typische IHK-Fehler.
+4. SZENARIEN: 5 kurze Praxisszenarien (Titel, 1 Satz Beschreibung, Akteure).
+5. RECHENBEISPIELE: 3 typische Aufgaben mit Lösung.
+6. BRANCHENSPEZIFISCH: Je 5-8 Einträge für Akteure, Umgebungen, Dokumente, Tools.
 
 {CURRICULUM_CONTEXT}
 
-Antworte AUSSCHLIESSLICH mit JSON:
-{
-  "fachbegriffe": {"Lernfeld 1 Titel": ["Begriff1", "Begriff2", ...], ...},
-  "formeln": [{"name": "...", "formel": "...", "beispiel": "..."}],
-  "pruefungsfallen": ["Falle 1...", "Falle 2..."],
-  "szenarien": [{"titel": "...", "beschreibung": "...", "akteure": ["..."]}],
-  "rechenbeispiele": [{"aufgabe": "...", "loesung": "...", "formel": "..."}],
-  "branchenspezifisch": {
-    "typische_akteure": ["..."],
-    "arbeitsumgebungen": ["..."],
-    "dokumente": ["..."],
-    "werkzeuge_software": ["..."]
-  }
-}`;
+Antworte NUR mit JSON:
+{"fachbegriffe":{"Lernfeld":["Begriff"]},"formeln":[{"name":"","formel":"","beispiel":""}],"pruefungsfallen":[""],"szenarien":[{"titel":"","beschreibung":"","akteure":[""]}],"rechenbeispiele":[{"aufgabe":"","loesung":"","formel":""}],"branchenspezifisch":{"typische_akteure":[""],"arbeitsumgebungen":[""],"dokumente":[""],"werkzeuge_software":[""]}}`;
 
 /**
  * Read glossary from cache ONLY (no generation). Returns null if not cached.
@@ -108,6 +74,7 @@ export async function loadCachedGlossary(
 
 /**
  * Load glossary from cache or generate on-demand.
+ * Has an explicit 80s timeout on the LLM call to stay within edge runtime limits.
  */
 export async function loadOrGenerateGlossary(
   sb: SB,
@@ -129,36 +96,53 @@ export async function loadOrGenerateGlossary(
     return { professionName, ...(cached.glossary as any) };
   }
 
-  // 2) Build curriculum context
+  // 2) Build curriculum context (compact)
   let curriculumContext = "";
   if (curriculumId) {
     const { data: lfs } = await sb
       .from("learning_fields")
       .select("code, title")
       .eq("curriculum_id", curriculumId)
-      .order("code");
+      .order("code")
+      .limit(10);
 
     if (lfs?.length) {
-      curriculumContext = `\nLERNFELDER des Berufs:\n${lfs.map(lf => `- ${lf.code}: ${lf.title}`).join("\n")}`;
+      curriculumContext = `\nLernfelder: ${lfs.map(lf => `${lf.code}: ${lf.title}`).join("; ")}`;
     }
   }
 
-  // 3) Generate glossary
+  // 3) Generate glossary with explicit timeout
   console.log(`[glossary-loader] Generating glossary for "${professionName}"...`);
-  const routed = getModel("learning_content"); // Fast model — glossary runs in its own step with full runtime
+  const routed = getModel("learning_content"); // Fast model
   const prompt = GLOSSARY_PROMPT
     .replace("{PROFESSION}", professionName)
     .replace("{CURRICULUM_CONTEXT}", curriculumContext);
 
-  const aiResult = await callAIJSON({
-    provider: routed.provider,
-    model: routed.model,
-    messages: [
-      { role: "system", content: prompt },
-      { role: "user", content: `Erstelle das Glossar für: ${professionName}` },
-    ],
-    max_tokens: 4096,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 80_000); // 80s hard limit
+
+  let aiResult: any;
+  try {
+    aiResult = await callAIJSON({
+      provider: routed.provider,
+      model: routed.model,
+      messages: [
+        { role: "system", content: prompt },
+        { role: "user", content: `Glossar für: ${professionName}` },
+      ],
+      max_tokens: 2048,
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(timeout);
+    const msg = (e as Error).message || String(e);
+    // If timeout or abort, throw a clear error
+    if (msg.includes("abort") || msg.includes("timeout")) {
+      throw new Error(`GLOSSARY_TIMEOUT: LLM call exceeded 80s for "${professionName}"`);
+    }
+    throw e;
+  }
+  clearTimeout(timeout);
 
   let glossary: Omit<ProfessionGlossary, "professionName">;
   try {
