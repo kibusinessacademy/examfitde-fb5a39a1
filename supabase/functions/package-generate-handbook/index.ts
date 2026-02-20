@@ -86,31 +86,36 @@ async function generateSectionContent(
 
   const minWords = Math.round(wordTarget * 0.8);
   const maxWords = Math.round(wordTarget * 1.2);
+  // Hard minimum: each section must reach this char count to pass QC
+  const MIN_SECTION_CHARS = 2000;
 
   const prompt = `Du bist ein IHK-Fachexperte für "${professionName}". 
-Erstelle einen prüfungsrelevanten Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}".
+Erstelle einen ausführlichen, prüfungsrelevanten Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}".
 
 ${fieldDescription ? `Beschreibung: ${fieldDescription}` : ""}
 ${topicContext}
 
 ANFORDERUNGEN:
 1. Fachlich korrekt, prüfungsrelevant für IHK-Abschlussprüfung
-2. Konkrete Definitionen, Formeln, Merksätze
-3. Mindestens 2 praxisnahe Beispiele
-4. Typische Prüfungsfallen
+2. Konkrete Definitionen, Formeln, Merksätze — AUSFÜHRLICH erklären
+3. Mindestens 3 praxisnahe Beispiele mit konkreten Zahlen/Szenarien
+4. Typische Prüfungsfallen mit Erklärung, warum sie Fallen sind
 5. Markdown mit ## und ### Überschriften
-6. Umfang: ${minWords}–${maxWords} Wörter
-7. KEINE Platzhalter
+6. WICHTIG: Mindestumfang ${minWords} Wörter, Zielumfang ${maxWords} Wörter. Schreibe NICHT kürzer!
+7. KEINE Platzhalter, KEINE Verweise auf externe Quellen
+8. Jedes Unterthema braucht mindestens 2-3 Absätze Erklärung
 
 Antworte NUR mit Markdown.`;
+
+  const maxTokens = Math.max(3200, Math.round(wordTarget * 4));
 
   try {
     const result = await callAIWithFailover(chain, {
       messages: [
-        { role: "system", content: "Du schreibst prüfungsrelevante IHK-Handbuch-Inhalte. Antworte nur mit Markdown. Sei prägnant." },
+        { role: "system", content: "Du schreibst ausführliche, prüfungsrelevante IHK-Handbuch-Inhalte. Antworte nur mit Markdown. Schreibe umfassend und detailliert – NICHT kurz oder stichwortartig." },
         { role: "user", content: prompt },
       ],
-      max_tokens: Math.min(2400, Math.round(wordTarget * 3)),
+      max_tokens: Math.min(4096, maxTokens),
     });
 
     // Log cost
@@ -135,15 +140,49 @@ Antworte NUR mit Markdown.`;
     }
     content = content.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
 
-    if (content.length < 200) {
-      console.warn(`[generate-handbook] Short content for ${fieldCode} via ${result.provider}/${result.model}: ${content.length} chars`);
+    // ── LENGTH ENFORCER: If content too short, do one expand retry ──
+    if (content.length > 200 && content.length < MIN_SECTION_CHARS) {
+      console.log(`[generate-handbook] Section ${fieldCode} too short (${content.length} chars < ${MIN_SECTION_CHARS}). Attempting expand...`);
+      try {
+        const expandResult = await callAIWithFailover(chain, {
+          messages: [
+            { role: "system", content: "Du erweiterst IHK-Handbuch-Inhalte. Antworte nur mit dem vollständigen, erweiterten Markdown-Text." },
+            { role: "user", content: `Der folgende Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" ist zu kurz. Erweitere ihn auf mindestens ${minWords} Wörter. Füge mehr Erklärungen, Beispiele, Definitionen und Prüfungstipps hinzu. Behalte die bestehende Struktur bei und ergänze sie.\n\n${content}` },
+          ],
+          max_tokens: Math.min(4096, maxTokens),
+        });
+        try {
+          await logLLMCostEvent(sb, {
+            job_type: "generate_handbook_expand",
+            provider: expandResult.provider,
+            model: expandResult.model,
+            tokens_in: expandResult.usage?.input_tokens || 0,
+            tokens_out: expandResult.usage?.output_tokens || 0,
+            package_id: packageId,
+            estimatedUsage: expandResult.estimatedUsage,
+          });
+        } catch { /* non-blocking */ }
+
+        let expanded = expandResult.content || "";
+        expanded = expanded.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
+        if (expanded.length > content.length) {
+          console.log(`[generate-handbook] Expand OK: ${content.length} → ${expanded.length} chars`);
+          content = expanded;
+        }
+      } catch (expandErr) {
+        console.warn(`[generate-handbook] Expand failed for ${fieldCode}: ${(expandErr as Error).message}`);
+      }
+    }
+
+    const hasRealContent = content.length >= MIN_SECTION_CHARS;
+    if (content.length > 0 && !hasRealContent) {
+      console.warn(`[generate-handbook] Below min for ${fieldCode} via ${result.provider}/${result.model}: ${content.length}/${MIN_SECTION_CHARS} chars`);
     }
     return { content, provider: result.provider, model: result.model };
   } catch (e) {
     const msg = (e as Error).message || String(e);
     console.error(`[generate-handbook] ALL PROVIDERS FAILED for ${fieldCode}: ${msg}`);
 
-    // Log failure cost event
     try {
       await logLLMCostEvent(sb, {
         job_type: "generate_handbook",
@@ -353,7 +392,8 @@ Deno.serve(async (req) => {
       packageId,
     );
 
-    const hasRealContent = generated.content.length >= 200;
+    const MIN_ACCEPT_CHARS = 2000;
+    const hasRealContent = generated.content.length >= MIN_ACCEPT_CHARS;
     if (hasRealContent) llmSuccessCount++;
     else llmFailCount++;
 
