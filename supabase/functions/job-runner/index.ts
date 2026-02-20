@@ -163,18 +163,13 @@ function json(body: unknown, status = 200) {
   });
 }
 
-/** Release lock fields — MUST be included in every terminal/requeue update */
-const LOCK_RELEASE = {
-  locked_at: null as string | null,
-  locked_by: null as string | null,
-  updated_at: new Date().toISOString(),
-};
-
-function lockRelease() {
+/** Release lock fields — MUST be included in every terminal/requeue update.
+ *  Accepts a pre-generated timestamp to ensure consistency within a single job transition. */
+function lockRelease(tsNow: string) {
   return {
     locked_at: null as string | null,
     locked_by: null as string | null,
-    updated_at: new Date().toISOString(),
+    updated_at: tsNow,
   };
 }
 
@@ -185,13 +180,14 @@ async function requeueWithBackoff(
   meta: Record<string, unknown> | null,
   delayMs: number,
   errorMsg: string,
+  tsNow: string,
 ) {
   await sb.from("job_queue").update({
     status: "pending",
     run_after: new Date(Date.now() + delayMs).toISOString(),
     error: errorMsg,
-    meta: { ...(meta || {}), last_retry: new Date().toISOString() },
-    ...lockRelease(),
+    meta: { ...(meta || {}), last_retry: tsNow },
+    ...lockRelease(tsNow),
   }).eq("id", jobId);
 }
 
@@ -360,14 +356,17 @@ Deno.serve(async (req) => {
   };
 
   for (const job of jobs) {
+    // ── Generate ONE timestamp per job transition ──────────────────
+    const tsNow = new Date().toISOString();
+
     const fnName = JOB_TYPE_MAP[job.job_type];
     if (!fnName) {
       console.warn(`[job-runner] Unknown job_type: ${job.job_type}, skipping`);
       await sb.from("job_queue").update({
         status: "failed",
         error: `Unknown job_type: ${job.job_type}`,
-        completed_at: new Date().toISOString(),
-        ...lockRelease(),
+        completed_at: tsNow,
+        ...lockRelease(tsNow),
       }).eq("id", job.id);
       results.push({ id: job.id, status: "failed", reason: "unknown_type" });
       continue;
@@ -388,8 +387,8 @@ Deno.serve(async (req) => {
         await sb.from("job_queue").update({
           status: "cancelled",
           error: `Prereq guard: ${prereqStep} not done (${prereqRow?.status ?? 'missing'})`,
-          completed_at: new Date().toISOString(),
-          ...lockRelease(),
+          completed_at: tsNow,
+          ...lockRelease(tsNow),
         }).eq("id", job.id);
         results.push({ id: job.id, status: "cancelled", reason: "prereq_not_done" });
         continue;
@@ -397,6 +396,16 @@ Deno.serve(async (req) => {
     }
 
     const startMs = Date.now();
+
+    // ── Single-exit state for guaranteed lock release ─────────────
+    type FinalState = {
+      status: "completed" | "pending" | "failed" | "cancelled";
+      patch: Record<string, unknown>;
+      metricsAction?: "completed" | "timeout" | "rateLimit" | "dlq";
+      requeue?: boolean;
+    };
+
+    let finalState: FinalState | null = null;
 
     // ── 2. Invoke target Edge Function ───────────────────────────────
     try {
@@ -434,92 +443,94 @@ Deno.serve(async (req) => {
           const isIdempotent = parsed?.skipped === true || parsed?.ok === true || parsed?.retry === false;
           if (isIdempotent) {
             console.log(`[job-runner] ${fnName} 409 idempotent → completed`);
-            await sb.from("job_queue").update({
+            finalState = {
               status: "completed",
-              result: { ...(typeof parsed === "object" ? parsed : {}), _409_idempotent: true },
-              completed_at: new Date().toISOString(),
-              ...lockRelease(),
-            }).eq("id", job.id);
-            tickMetrics.completed++;
-            tickMetrics.totalLatencyMs += elapsedMs;
-            results.push({ id: job.id, status: "completed", reason: "409_idempotent" });
-            continue;
+              patch: {
+                result: { ...(typeof parsed === "object" ? parsed : {}), _409_idempotent: true },
+                completed_at: tsNow,
+              },
+              metricsAction: "completed",
+            };
+          } else {
+            console.warn(`[job-runner] ${fnName} 409 retry → requeue +${BACKOFF_409_MS}ms`);
+            finalState = {
+              status: "pending",
+              patch: {
+                run_after: new Date(Date.now() + BACKOFF_409_MS).toISOString(),
+                error: "HTTP 409 — prereq not ready, will retry",
+                meta: { ...(job.meta || {}), last_retry: tsNow },
+              },
+            };
           }
-          console.warn(`[job-runner] ${fnName} 409 retry → requeue +${BACKOFF_409_MS}ms`);
-          await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_409_MS,
-            "HTTP 409 — prereq not ready, will retry");
-          results.push({ id: job.id, status: "requeued", httpStatus: 409 });
-          continue;
         }
-
         // ── Rate-limited / transient ─────────────────────────────────
-        if (res.status === 429 || res.status === 503) {
-          tickMetrics.rateLimits++;
+        else if (res.status === 429 || res.status === 503) {
           console.warn(`[job-runner] ${fnName} ${res.status} → requeue +${BACKOFF_429_MS}ms`);
-          await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_429_MS,
-            `HTTP ${res.status} — will retry`);
-          results.push({ id: job.id, status: "requeued", httpStatus: res.status });
-          continue;
+          finalState = {
+            status: "pending",
+            patch: {
+              run_after: new Date(Date.now() + BACKOFF_429_MS).toISOString(),
+              error: `HTTP ${res.status} — will retry`,
+              meta: { ...(job.meta || {}), last_retry: tsNow },
+            },
+            metricsAction: "rateLimit",
+          };
         }
-
         // ── Hard failure ─────────────────────────────────────────────
-        const maxAttempts = job.max_attempts || 3;
-        const errStr = typeof parsed === "string" ? parsed.slice(0, 500) : JSON.stringify(parsed).slice(0, 500);
-        if ((job.attempts || 0) >= maxAttempts) {
-          await sb.from("job_queue").update({
-            status: "failed",
-            error: `HTTP ${res.status}: ${errStr}`,
-            completed_at: new Date().toISOString(),
-            ...lockRelease(),
-          }).eq("id", job.id);
-
-          if (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") {
-            tickMetrics.dlqItems++;
-            await writeToDLQ(sb, job, `http_${res.status}`, errStr);
+        else {
+          const maxAttempts = job.max_attempts || 3;
+          const errStr = typeof parsed === "string" ? parsed.slice(0, 500) : JSON.stringify(parsed).slice(0, 500);
+          if ((job.attempts || 0) >= maxAttempts) {
+            finalState = {
+              status: "failed",
+              patch: { error: `HTTP ${res.status}: ${errStr}`, completed_at: tsNow },
+              metricsAction: (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") ? "dlq" : undefined,
+            };
+          } else {
+            finalState = {
+              status: "pending",
+              patch: {
+                run_after: new Date(Date.now() + BACKOFF_ERROR_MS).toISOString(),
+                error: `HTTP ${res.status} — attempt ${job.attempts || 1}`,
+                meta: { ...(job.meta || {}), last_retry: tsNow },
+              },
+            };
           }
-
-          results.push({ id: job.id, status: "failed", httpStatus: res.status });
-        } else {
-          await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_ERROR_MS,
-            `HTTP ${res.status} — attempt ${job.attempts || 1}`);
-          results.push({ id: job.id, status: "requeued", httpStatus: res.status });
         }
-        continue;
-      }
 
+        // Collect metrics
+        if (finalState?.metricsAction === "completed") {
+          tickMetrics.completed++;
+          tickMetrics.totalLatencyMs += elapsedMs;
+        } else if (finalState?.metricsAction === "rateLimit") {
+          tickMetrics.rateLimits++;
+        }
+      }
       // ── 3. Batch incomplete → requeue ──────────────────────────────
-      if (parsed && parsed.batch_complete === false) {
+      else if (parsed && parsed.batch_complete === false) {
         console.log(`[job-runner] ${fnName} batch incomplete → requeue +${BACKOFF_BATCH_MS}ms`);
-        await sb.from("job_queue").update({
+        finalState = {
           status: "pending",
-          run_after: new Date(Date.now() + BACKOFF_BATCH_MS).toISOString(),
-          batch_cursor: parsed.batch_cursor ?? null,
-          meta: { ...(job.meta || {}), last_batch: new Date().toISOString() },
-          ...lockRelease(),
-        }).eq("id", job.id);
-
-        // Update last_progress_at to prevent false stuck alerts
-        if (job.payload?.package_id) {
-          await sb.from("course_packages").update({
-            last_progress_at: new Date().toISOString(),
-          }).eq("id", job.payload.package_id).then(() => {}, () => {});
-        }
-
-        results.push({ id: job.id, status: "requeued", reason: "batch_incomplete" });
-        continue;
+          patch: {
+            run_after: new Date(Date.now() + BACKOFF_BATCH_MS).toISOString(),
+            batch_cursor: parsed.batch_cursor ?? null,
+            meta: { ...(job.meta || {}), last_batch: tsNow },
+          },
+        };
       }
-
       // ── 4. Completed ───────────────────────────────────────────────
-      await sb.from("job_queue").update({
-        status: "completed",
-        result: typeof parsed === "object" ? parsed : { raw: parsed },
-        completed_at: new Date().toISOString(),
-        ...lockRelease(),
-      }).eq("id", job.id);
-
-      tickMetrics.completed++;
-      tickMetrics.totalLatencyMs += elapsedMs;
-      results.push({ id: job.id, status: "completed", function: fnName });
+      else {
+        finalState = {
+          status: "completed",
+          patch: {
+            result: typeof parsed === "object" ? parsed : { raw: parsed },
+            completed_at: tsNow,
+          },
+          metricsAction: "completed",
+        };
+        tickMetrics.completed++;
+        tickMetrics.totalLatencyMs += elapsedMs;
+      }
 
     } catch (err: unknown) {
       const msg = (err as Error)?.message || String(err);
@@ -530,25 +541,53 @@ Deno.serve(async (req) => {
 
       const maxAttempts = job.max_attempts || 3;
       if ((job.attempts || 0) >= maxAttempts) {
-        await sb.from("job_queue").update({
+        finalState = {
           status: "failed",
-          error: isTimeout ? "Edge Function timeout" : msg.slice(0, 1000),
-          completed_at: new Date().toISOString(),
-          ...lockRelease(),
-        }).eq("id", job.id);
-
-        if (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") {
-          tickMetrics.dlqItems++;
-          await writeToDLQ(sb, job, isTimeout ? "timeout" : "hard_failure", msg.slice(0, 1000));
-        }
-
-        results.push({ id: job.id, status: "failed", reason: isTimeout ? "timeout" : "error" });
+          patch: {
+            error: isTimeout ? "Edge Function timeout" : msg.slice(0, 1000),
+            completed_at: tsNow,
+          },
+          metricsAction: (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") ? "dlq" : undefined,
+        };
       } else {
         const delay = isTimeout ? BACKOFF_429_MS : BACKOFF_ERROR_MS;
-        await requeueWithBackoff(sb, job.id, job.meta, delay,
-          `Attempt ${job.attempts || 1} failed: ${msg.slice(0, 500)}`);
-        results.push({ id: job.id, status: "requeued", reason: isTimeout ? "timeout" : "error" });
+        finalState = {
+          status: "pending",
+          patch: {
+            run_after: new Date(Date.now() + delay).toISOString(),
+            error: `Attempt ${job.attempts || 1} failed: ${msg.slice(0, 500)}`,
+            meta: { ...(job.meta || {}), last_retry: tsNow },
+          },
+        };
       }
+    }
+
+    // ── SINGLE EXIT: Guaranteed DB write with lock release ──────────
+    if (finalState) {
+      await sb.from("job_queue").update({
+        status: finalState.status,
+        ...finalState.patch,
+        ...lockRelease(tsNow),
+      }).eq("id", job.id);
+
+      // DLQ write for failed exam pool / question generation
+      if (finalState.metricsAction === "dlq") {
+        tickMetrics.dlqItems++;
+        await writeToDLQ(sb, job, "hard_failure", String(finalState.patch.error ?? "").slice(0, 1000));
+      }
+
+      // Update last_progress_at on batch_incomplete to prevent false stuck alerts
+      if (finalState.status === "pending" && finalState.patch.batch_cursor !== undefined && job.payload?.package_id) {
+        await sb.from("course_packages").update({
+          last_progress_at: tsNow,
+        }).eq("id", job.payload.package_id).then(() => {}, () => {});
+      }
+
+      results.push({
+        id: job.id,
+        status: finalState.status === "pending" ? "requeued" : finalState.status,
+        function: fnName,
+      });
     }
   }
 
