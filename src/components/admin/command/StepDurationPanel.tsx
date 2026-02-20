@@ -1,23 +1,27 @@
+import * as React from "react";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Timer } from "lucide-react";
 
 type StepRow = {
   step_key: string;
   job_type: string;
+
   completed: number;
   failed_or_cancelled: number;
   processing: number;
   pending: number;
+
   qwait_p50_ms: number | null;
   qwait_p95_ms: number | null;
   run_p50_ms: number | null;
   run_p95_ms: number | null;
+
   run_avg_ms: number | null;
   run_max_ms: number | null;
   attempts_avg: number | null;
@@ -36,12 +40,12 @@ type SlowJob = {
 
 function fmtMs(ms?: number | null) {
   if (ms == null) return "—";
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  const s = ms / 1000;
-  if (s < 60) return `${s.toFixed(1)}s`;
-  const m = s / 60;
-  if (m < 60) return `${m.toFixed(1)}m`;
-  return `${(m / 60).toFixed(1)}h`;
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  return `${h}h`;
 }
 
 function prettyStep(key: string) {
@@ -63,7 +67,7 @@ function Dot({ level }: { level: "red" | "amber" | "green" }) {
       : level === "amber"
         ? "bg-amber-500"
         : "bg-emerald-500";
-  return <span className={`inline-block h-2.5 w-2.5 rounded-full shrink-0 ${cls}`} />;
+  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${cls}`} />;
 }
 
 export default function StepDurationPanel() {
@@ -73,20 +77,21 @@ export default function StepDurationPanel() {
   const { data: rows, isLoading, error } = useQuery({
     queryKey: ["ops_step_duration_7d"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("ops_step_duration_7d")
-        .select("*");
+      const sb = supabase as any;
+      const { data, error } = await sb.from("ops_step_duration_7d").select("*");
       if (error) throw error;
       return (data ?? []) as StepRow[];
     },
     refetchInterval: 30_000,
+    staleTime: 10_000,
   });
 
   const { data: slowJobs } = useQuery({
     queryKey: ["ops_step_duration_slowest_7d", drillStep],
     queryFn: async () => {
       if (!drillStep) return [] as SlowJob[];
-      const { data, error } = await (supabase as any)
+      const sb = supabase as any;
+      const { data, error } = await sb
         .from("ops_step_duration_slowest_7d")
         .select("job_id,package_id,step_key,run_ms,queue_wait_ms,attempts,completed_at,error_snip")
         .eq("step_key", drillStep)
@@ -95,6 +100,7 @@ export default function StepDurationPanel() {
       return (data ?? []) as SlowJob[];
     },
     enabled: !!drillStep,
+    staleTime: 10_000,
   });
 
   const sorted = useMemo(() => {
@@ -108,7 +114,16 @@ export default function StepDurationPanel() {
     [sorted],
   );
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Step-Duration (7d)</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">Lade…</CardContent>
+      </Card>
+    );
+  }
 
   if (error) {
     return (
@@ -126,32 +141,39 @@ export default function StepDurationPanel() {
   return (
     <>
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Timer className="h-4 w-4 text-primary" />
-            Step-Duration (7d)
-            {!hasIssues ? (
-              <Badge variant="secondary" className="text-[10px]">Healthy</Badge>
-            ) : (
-              <Badge variant="destructive" className="text-[10px]">Bottleneck</Badge>
-            )}
-          </CardTitle>
-          <div className="text-[10px] text-muted-foreground">p95 = Worst-Case-Signal · Refresh 30s</div>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-sm flex items-center gap-2">
+              Step-Duration (7d)
+              {!hasIssues ? (
+                <Badge variant="secondary" className="text-[10px]">
+                  Healthy
+                </Badge>
+              ) : (
+                <Badge variant="destructive" className="text-[10px]">
+                  Bottleneck
+                </Badge>
+              )}
+            </CardTitle>
+            <div className="text-[10px] text-muted-foreground">
+              p95 = Worst-Case-Signal · Refresh 30s
+            </div>
+          </div>
         </CardHeader>
 
-        <CardContent className="p-0 sm:p-0">
+        <CardContent>
           {/* Desktop table */}
-          <div className="hidden sm:block overflow-x-auto">
+          <div className="hidden md:block overflow-auto rounded-lg border">
             <table className="w-full text-sm">
-              <thead className="text-xs text-muted-foreground border-b">
-                <tr>
-                  <th className="text-left p-2 pl-4">Step</th>
+              <thead className="text-xs text-muted-foreground">
+                <tr className="border-b">
+                  <th className="text-left p-2">Step</th>
                   <th className="text-right p-2">Done</th>
                   <th className="text-right p-2">Fail</th>
                   <th className="text-right p-2">Run p50</th>
                   <th className="text-right p-2">Run p95</th>
                   <th className="text-right p-2">Queue p95</th>
-                  <th className="text-right p-2 pr-4">Retries</th>
+                  <th className="text-right p-2">Retries</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -160,31 +182,36 @@ export default function StepDurationPanel() {
                   return (
                     <tr
                       key={r.step_key}
-                      className={`cursor-pointer hover:bg-muted/50 ${
-                        sev === "red" ? "bg-destructive/5" : sev === "amber" ? "bg-amber-500/5" : ""
-                      }`}
-                      onClick={() => { setDrillStep(r.step_key); setOpen(true); }}
+                      className="hover:bg-muted/40 cursor-pointer"
+                      onClick={() => {
+                        setDrillStep(r.step_key);
+                        setOpen(true);
+                      }}
                     >
-                      <td className="p-2 pl-4">
-                        <div className="flex items-center gap-1.5">
+                      <td className="p-2">
+                        <div className="flex items-center gap-2">
                           <Dot level={sev} />
-                          <span className="font-medium">{prettyStep(r.step_key)}</span>
+                          <div className="font-medium">{prettyStep(r.step_key)}</div>
                         </div>
                         <div className="text-[10px] text-muted-foreground">{r.job_type}</div>
                       </td>
-                      <td className="text-right p-2 font-mono">{r.completed}</td>
-                      <td className="text-right p-2 font-mono">
-                        <span className={r.failed_or_cancelled > 0 ? "text-destructive font-semibold" : ""}>
-                          {r.failed_or_cancelled}
-                        </span>
+                      <td className="text-right p-2">{r.completed}</td>
+                      <td
+                        className={`text-right p-2 ${
+                          r.failed_or_cancelled > 0 ? "text-destructive font-semibold" : ""
+                        }`}
+                      >
+                        {r.failed_or_cancelled}
                       </td>
-                      <td className="text-right p-2 font-mono">{fmtMs(r.run_p50_ms)}</td>
-                      <td className="text-right p-2 font-mono font-bold">{fmtMs(r.run_p95_ms)}</td>
-                      <td className="text-right p-2 font-mono">{fmtMs(r.qwait_p95_ms)}</td>
-                      <td className="text-right p-2 pr-4 font-mono">
-                        <span className={(r.attempts_avg ?? 1) > 2 ? "text-destructive font-bold" : ""}>
-                          {(r.attempts_avg ?? 1).toFixed(1)}×
-                        </span>
+                      <td className="text-right p-2">{fmtMs(r.run_p50_ms)}</td>
+                      <td className="text-right p-2 font-semibold">{fmtMs(r.run_p95_ms)}</td>
+                      <td className="text-right p-2">{fmtMs(r.qwait_p95_ms)}</td>
+                      <td
+                        className={`text-right p-2 ${
+                          (r.attempts_avg ?? 1) >= 2 ? "text-destructive font-semibold" : ""
+                        }`}
+                      >
+                        {(r.attempts_avg ?? 1).toFixed(1)}×
                       </td>
                     </tr>
                   );
@@ -194,82 +221,105 @@ export default function StepDurationPanel() {
           </div>
 
           {/* Mobile cards */}
-          <div className="sm:hidden space-y-2 p-3">
+          <div className="md:hidden space-y-2">
             {sorted.map((r) => {
               const sev = severity(r.run_p95_ms, r.qwait_p95_ms);
               return (
                 <button
                   key={r.step_key}
-                  className={`w-full text-left border rounded-lg p-3 space-y-1 cursor-pointer ${
-                    sev === "red" ? "border-destructive/30 bg-destructive/5" :
-                    sev === "amber" ? "border-amber-500/30 bg-amber-500/5" : ""
-                  }`}
-                  onClick={() => { setDrillStep(r.step_key); setOpen(true); }}
+                  className="w-full text-left rounded-lg border p-3 hover:bg-muted/40"
+                  onClick={() => {
+                    setDrillStep(r.step_key);
+                    setOpen(true);
+                  }}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                       <Dot level={sev} />
-                      <span className="font-medium text-sm">{prettyStep(r.step_key)}</span>
+                      <div className="font-semibold text-sm">{prettyStep(r.step_key)}</div>
                     </div>
-                    <span className="text-xs font-mono text-muted-foreground">{r.completed} done</span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {r.completed} done
+                    </Badge>
                   </div>
-                  <div className="grid grid-cols-3 text-[10px] text-muted-foreground gap-1">
-                    <div>p95: {fmtMs(r.run_p95_ms)}</div>
-                    <div>Wait: {fmtMs(r.qwait_p95_ms)}</div>
-                    <div>{(r.attempts_avg ?? 1).toFixed(1)}×</div>
+                  <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                    <div>
+                      Run p95:{" "}
+                      <span className="font-semibold text-foreground">{fmtMs(r.run_p95_ms)}</span>
+                    </div>
+                    <div>
+                      Queue p95: {fmtMs(r.qwait_p95_ms)} · Retries:{" "}
+                      {(r.attempts_avg ?? 1).toFixed(1)}×
+                    </div>
                   </div>
                 </button>
               );
             })}
           </div>
 
-          <div className="text-[10px] text-muted-foreground px-4 py-2 border-t">
+          <div className="mt-3 text-[10px] text-muted-foreground">
             Queue-p95 hoch = Capacity/WIP/Rate-Limit · Run-p95 hoch = Step teuer (LLM/IO/Validator)
           </div>
         </CardContent>
       </Card>
 
       {/* Drilldown Sheet */}
-      <Sheet open={open} onOpenChange={(v) => { setOpen(v); if (!v) setDrillStep(null); }}>
-        <SheetContent side="right" className="w-[96vw] sm:w-[520px] overflow-y-auto">
+      <Sheet
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) setDrillStep(null);
+        }}
+      >
+        <SheetContent side="right" className="w-[96vw] sm:w-[560px] overflow-y-auto">
           <SheetHeader>
-            <SheetTitle className="text-sm flex items-center gap-2">
-              <Timer className="h-5 w-5 text-primary" />
-              {drillStep ? `${prettyStep(drillStep)} – Slowest Runs (7d)` : ""}
+            <SheetTitle className="text-sm">
+              {drillStep ? `${prettyStep(drillStep)} – Slowest Runs (7d)` : "Slowest Runs"}
             </SheetTitle>
             <div className="text-xs text-muted-foreground">
-              Top 20 langsamste <b>completed</b> Jobs für diesen Step.
+              Top 20 langsamste completed Jobs für diesen Step.
             </div>
           </SheetHeader>
+
           <div className="mt-4 space-y-2">
-            {(!slowJobs || slowJobs.length === 0) ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Keine Daten</p>
+            {!slowJobs || slowJobs.length === 0 ? (
+              <div className="text-sm text-muted-foreground">Keine Daten</div>
             ) : (
               <div className="divide-y rounded-lg border">
                 {slowJobs.map((j) => (
-                  <div key={j.job_id} className="p-3 space-y-1">
+                  <div key={j.job_id} className="p-3">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs text-muted-foreground">{j.job_id.slice(0, 12)}…</span>
-                      <Badge variant="outline" className="text-[10px] font-mono">{fmtMs(j.run_ms)}</Badge>
+                      <div className="font-medium text-sm">
+                        {j.job_id.slice(0, 12)}…
+                        {j.package_id ? (
+                          <span className="ml-2 text-[10px] text-muted-foreground">
+                            pkg {j.package_id.slice(0, 8)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {fmtMs(j.run_ms)}
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                      <span>Wait: {fmtMs(j.queue_wait_ms)}</span>
-                      <span>Attempts: {j.attempts}</span>
-                      {j.package_id && <span>pkg {j.package_id.slice(0, 8)}</span>}
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Wait: {fmtMs(j.queue_wait_ms)} · Attempts: {j.attempts}
                     </div>
-                    {j.completed_at && (
-                      <div className="text-[10px] text-muted-foreground">
+                    {j.completed_at ? (
+                      <div className="mt-1 text-[10px] text-muted-foreground">
                         {new Date(j.completed_at).toLocaleString("de-DE")}
                       </div>
-                    )}
-                    {j.error_snip && (
-                      <div className="text-[10px] text-muted-foreground whitespace-pre-wrap mt-1">{j.error_snip}</div>
-                    )}
+                    ) : null}
+                    {j.error_snip ? (
+                      <div className="mt-2 text-[11px] text-muted-foreground whitespace-pre-wrap">
+                        {j.error_snip}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
             )}
-            <Button variant="outline" className="w-full" onClick={() => { setOpen(false); setDrillStep(null); }}>
+
+            <Button variant="outline" className="w-full" onClick={() => setOpen(false)}>
               Schließen
             </Button>
           </div>
