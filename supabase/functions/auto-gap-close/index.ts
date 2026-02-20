@@ -209,6 +209,7 @@ Deno.serve(async (req) => {
         await sb.from("job_queue").insert({
           job_type: "package_auto_publish",
           status: "pending",
+          package_id: packageId,
           payload: { package_id: packageId, course_id: courseId, curriculum_id: curriculumId, job_version: "auto_gap_close" },
           max_attempts: 3,
         });
@@ -262,6 +263,7 @@ Deno.serve(async (req) => {
         await sb.from("job_queue").insert({
           job_type: action.job_type,
           status: "pending",
+          package_id: packageId,
           payload: {
             package_id: packageId,
             course_id: courseId,
@@ -281,6 +283,7 @@ Deno.serve(async (req) => {
     await sb.from("job_queue").insert({
       job_type: "auto_gap_close",
       status: "pending",
+      package_id: packageId,
       run_after: recheckAfter,
       payload: {
         package_id: packageId,

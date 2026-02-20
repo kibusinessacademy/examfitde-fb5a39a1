@@ -197,6 +197,7 @@ Deno.serve(async (req) => {
         await sb.from("job_queue").insert({
           job_type: "package_quality_council",
           status: "pending",
+          package_id: qaPkg.id,
           attempts: 0,
           max_attempts: 3,
           payload: { package_id: qaPkg.id, course_id: qaPkg.course_id, retry_from: "guardian_qa_retry" },
@@ -212,6 +213,7 @@ Deno.serve(async (req) => {
         await sb.from("job_queue").insert({
           job_type: "package_quality_council",
           status: "pending",
+          package_id: qaPkg.id,
           attempts: 0,
           max_attempts: 3,
           payload: { package_id: qaPkg.id, course_id: qaPkg.course_id, retry_from: "guardian_qa_retry" },
