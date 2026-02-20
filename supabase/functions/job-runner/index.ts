@@ -483,6 +483,14 @@ Deno.serve(async (req) => {
           batch_cursor: parsed.batch_cursor ?? null,
           meta: { ...(job.meta || {}), last_batch: new Date().toISOString() },
         }).eq("id", job.id);
+
+        // FIX: Update last_progress_at to prevent false stuck alerts during long batch jobs
+        if (job.payload?.package_id) {
+          await sb.from("course_packages").update({
+            last_progress_at: new Date().toISOString(),
+          }).eq("id", job.payload.package_id).then(() => {}, () => {});
+        }
+
         results.push({ id: job.id, status: "requeued", reason: "batch_incomplete" });
         continue;
       }
