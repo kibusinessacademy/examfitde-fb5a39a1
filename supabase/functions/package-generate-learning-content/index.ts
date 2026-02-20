@@ -308,7 +308,11 @@ Deno.serve(async (req) => {
     if (!l.content) return true;
     const c = l.content as Record<string, unknown>;
     if (c._placeholder === true || c._placeholder === "true") return true;
-    if (typeof c.html === "string" && (c.html.includes("Platzhalter") || c.html.length < 100)) return true;
+    // Lessons stuck in _regenerating state without html need regeneration
+    if (c._regenerating === true || c._regenerating === "true") return true;
+    // Lessons without an html field (e.g. mini_check stubs) need full content
+    if (typeof c.html !== "string") return true;
+    if (c.html.includes("Platzhalter") || (c.html as string).length < 100) return true;
     return false;
   });
 
@@ -338,7 +342,12 @@ Deno.serve(async (req) => {
         .select("id", { count: "exact", head: true })
         .in("module_id", moduleIds)
         .contains("content", { _placeholder: true });
-      truePlaceholders = (nullCount ?? 0) + (phCount ?? 0);
+      const { count: regenCount } = await sb
+        .from("lessons")
+        .select("id", { count: "exact", head: true })
+        .in("module_id", moduleIds)
+        .contains("content", { _regenerating: true });
+      truePlaceholders = (nullCount ?? 0) + (phCount ?? 0) + (regenCount ?? 0);
     }
 
     if (truePlaceholders > 0) {
