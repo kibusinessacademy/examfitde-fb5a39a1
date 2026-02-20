@@ -1,136 +1,256 @@
+import * as React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { AlertTriangle, CheckCircle2, Clock, Layers, Link2Off } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { ShieldAlert, Lock, Clock, Unplug, AlertTriangle } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
-interface MissingJobRow {
+type BatchStuckRow = {
+  job_type: string;
+  batch_cursor: string | number | null;
+  requeues_last_2h: number;
+};
+
+type MissingJobRow = {
   package_id: string;
-  title: string;
+  title: string | null;
   step_key: string;
   step_status: string;
   step_updated_at: string;
+};
+
+type ForensikData = {
+  unlocked: number;
+  stale: number;
+  batchStuck: BatchStuckRow[];
+  missingJobs: MissingJobRow[];
+};
+
+function formatTs(ts: string) {
+  try {
+    return new Intl.DateTimeFormat('de-DE', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(ts));
+  } catch {
+    return ts;
+  }
 }
 
-interface BatchStuckRow {
-  job_type: string;
-  batch_cursor: unknown;
-  requeues_last_2h: number;
+function Stat({
+  icon,
+  label,
+  value,
+  alert,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  alert?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-3">
+      <div className="flex items-center gap-2">
+        <div className={alert ? 'text-destructive' : 'text-muted-foreground'}>{icon}</div>
+        <div className="text-sm text-muted-foreground">{label}</div>
+      </div>
+      <div className={alert ? 'text-destructive text-2xl font-bold' : 'text-2xl font-bold'}>
+        {value}
+      </div>
+    </div>
+  );
 }
 
 function useForensikData() {
-  return useQuery({
-    queryKey: ['forensik-panel'],
+  return useQuery<ForensikData>({
+    queryKey: ['admin', 'forensik-views'],
     queryFn: async () => {
       const sb = supabase as any;
+
       const [unlockedRes, staleRes, batchRes, missingRes] = await Promise.all([
         sb.from('ops_processing_unlocked').select('processing_unlocked').single(),
         sb.from('ops_processing_stale').select('processing_stale').single(),
-        sb.from('ops_batch_cursor_stuck').select('*'),
-        sb.from('ops_queued_steps_missing_job').select('*'),
+        sb
+          .from('ops_batch_cursor_stuck')
+          .select('job_type,batch_cursor,requeues_last_2h')
+          .order('requeues_last_2h', { ascending: false })
+          .limit(50),
+        sb
+          .from('ops_queued_steps_missing_job')
+          .select('package_id,title,step_key,step_status,step_updated_at')
+          .order('step_updated_at', { ascending: false })
+          .limit(50),
       ]);
+
+      for (const r of [unlockedRes, staleRes, batchRes, missingRes]) {
+        if (r?.error) throw new Error(r.error.message);
+      }
+
       return {
-        unlocked: (unlockedRes.data?.processing_unlocked ?? 0) as number,
-        stale: (staleRes.data?.processing_stale ?? 0) as number,
+        unlocked: Number(unlockedRes.data?.processing_unlocked ?? 0),
+        stale: Number(staleRes.data?.processing_stale ?? 0),
         batchStuck: (batchRes.data ?? []) as BatchStuckRow[],
         missingJobs: (missingRes.data ?? []) as MissingJobRow[],
       };
     },
     refetchInterval: 30_000,
+    staleTime: 10_000,
   });
 }
 
-function Stat({ icon, label, value, alert }: {
-  icon: React.ReactNode; label: string; value: number; alert?: boolean;
-}) {
-  return (
-    <div className={cn(
-      "rounded-lg border p-3",
-      alert ? 'border-destructive/40 bg-destructive/5' : 'border-border',
-    )}>
-      <div className="flex items-center gap-1.5 mb-1">
-        {icon}
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</span>
-      </div>
-      <p className={cn("text-xl font-bold font-mono", alert && 'text-destructive')}>{value}</p>
-    </div>
-  );
-}
-
 export default function ForensikPanel() {
-  const { data, isLoading } = useForensikData();
+  const { data, isLoading, error, refetch, isFetching } = useForensikData();
 
-  if (isLoading) return <Skeleton className="h-32" />;
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Forensik (Live)</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">Lade Monitoring-Views…</CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-destructive">
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            Forensik (Live) – Fehler
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="text-sm text-destructive">{String((error as Error).message || error)}</div>
+          <button
+            className="text-sm underline text-muted-foreground hover:text-foreground"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            Erneut laden
+          </button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!data) return null;
 
-  const hasIssues = data.unlocked > 0 || data.stale > 0 || data.batchStuck.length > 0 || data.missingJobs.length > 0;
+  const hasIssues =
+    data.unlocked > 0 ||
+    data.stale > 0 ||
+    data.batchStuck.length > 0 ||
+    data.missingJobs.length > 0;
 
   return (
-    <Card className={cn(hasIssues && 'border-destructive/30')}>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4 text-primary" />
-          Forensik (Live)
-          {!hasIssues && <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-200 bg-emerald-50">Sauber</Badge>}
-          {hasIssues && <Badge variant="destructive" className="text-[10px]">Aktion nötig</Badge>}
-        </CardTitle>
+    <Card>
+      <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
+        <div className="space-y-0.5">
+          <CardTitle className="text-sm flex items-center gap-2">
+            Forensik (Live)
+            {!hasIssues ? (
+              <Badge variant="secondary" className="text-[10px] flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Sauber
+              </Badge>
+            ) : (
+              <Badge variant="destructive" className="text-[10px] flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Aktion nötig
+              </Badge>
+            )}
+          </CardTitle>
+          <div className="text-[10px] text-muted-foreground">
+            Refresh 30s · {isFetching ? 'aktualisiere…' : 'live'}
+          </div>
+        </div>
       </CardHeader>
-      <CardContent>
+
+      <CardContent className="space-y-4">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           <Stat
-            icon={<Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+            icon={<Link2Off className="h-4 w-4" />}
             label="Processing unlocked"
             value={data.unlocked}
             alert={data.unlocked > 0}
           />
           <Stat
-            icon={<Clock className="h-3.5 w-3.5 text-muted-foreground" />}
+            icon={<Clock className="h-4 w-4" />}
             label="Processing stale"
             value={data.stale}
             alert={data.stale > 0}
           />
           <Stat
-            icon={<AlertTriangle className="h-3.5 w-3.5 text-muted-foreground" />}
+            icon={<Layers className="h-4 w-4" />}
             label="Batch-Cursor stuck"
             value={data.batchStuck.length}
             alert={data.batchStuck.length > 0}
           />
           <Stat
-            icon={<Unplug className="h-3.5 w-3.5 text-muted-foreground" />}
+            icon={<AlertTriangle className="h-4 w-4" />}
             label="Queued ohne Job"
             value={data.missingJobs.length}
             alert={data.missingJobs.length > 0}
           />
         </div>
 
-        {/* Detail rows for missing jobs */}
         {data.missingJobs.length > 0 && (
-          <div className="mt-3 space-y-1">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Verwaiste Steps</p>
-            {data.missingJobs.map((m) => (
-              <div key={`${m.package_id}-${m.step_key}`} className="flex items-center justify-between text-xs border-b border-border/50 py-1">
-                <span className="truncate max-w-[200px] font-medium">{m.title}</span>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px]">{m.step_key}</Badge>
-                  <Badge variant="destructive" className="text-[10px]">{m.step_status}</Badge>
-                </div>
+          <div className="space-y-2">
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">Verwaiste Steps</div>
+              <div className="text-[10px] text-muted-foreground">
+                {data.missingJobs.length} Treffer
               </div>
-            ))}
+            </div>
+            <div className="divide-y rounded-lg border">
+              {data.missingJobs.map((m) => (
+                <div key={`${m.package_id}-${m.step_key}`} className="p-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="font-medium text-sm">
+                      {m.title ?? 'Unbenannt'}{' '}
+                      <span className="text-[10px] text-muted-foreground">
+                        ({m.package_id.slice(0, 8)})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className="text-[10px]">{m.step_key}</Badge>
+                      <Badge variant="secondary" className="text-[10px]">{m.step_status}</Badge>
+                    </div>
+                  </div>
+                  <div className="mt-1 text-[10px] text-muted-foreground">
+                    step_updated_at: {formatTs(m.step_updated_at)}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Detail rows for batch stuck */}
         {data.batchStuck.length > 0 && (
-          <div className="mt-3 space-y-1">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Batch-Loops</p>
-            {data.batchStuck.map((b, i) => (
-              <div key={i} className="flex items-center justify-between text-xs border-b border-border/50 py-1">
-                <span className="font-medium">{b.job_type}</span>
-                <Badge variant="destructive" className="text-[10px]">{b.requeues_last_2h}× in 2h</Badge>
+          <div className="space-y-2">
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">Batch-Loops</div>
+              <div className="text-[10px] text-muted-foreground">
+                {data.batchStuck.length} Treffer
               </div>
-            ))}
+            </div>
+            <div className="divide-y rounded-lg border">
+              {data.batchStuck.map((b, i) => (
+                <div key={`${b.job_type}-${String(b.batch_cursor)}-${i}`} className="p-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="font-medium text-sm">{b.job_type}</div>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className="text-[10px]">
+                        cursor: {b.batch_cursor ?? 'null'}
+                      </Badge>
+                      <Badge variant="destructive" className="text-[10px]">{b.requeues_last_2h}× / 2h</Badge>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
