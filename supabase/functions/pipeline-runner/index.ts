@@ -855,6 +855,7 @@ async function processPackage(
       id: jobId,
       job_type: jobType,
       status: "pending",
+      package_id: packageId,
       payload,
       priority: 10,
       max_attempts: stepMaxAttempts,

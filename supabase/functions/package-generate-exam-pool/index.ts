@@ -749,6 +749,7 @@ async function enqueueLearningFieldJobs(
     jobs.push({
       job_type: "package_generate_exam_pool",
       status: "pending",
+      package_id: packageId,
       attempts: 0,
       max_attempts: 100,
       run_after: priority === 0 ? nowIso : new Date(Date.now() + 30_000).toISOString(),
@@ -756,7 +757,7 @@ async function enqueueLearningFieldJobs(
         package_id: packageId,
         curriculum_id: curriculumId,
         learning_field_filter: lfId,
-        lf_target: gap, // Only generate what's missing
+        lf_target: gap,
         lf_proportional_target: proportionalTarget,
         lf_existing: existing,
         blueprint_ids: lfBps.map(b => b.id),

@@ -417,6 +417,7 @@ async function executeHealAction(
         await sb.from("job_queue").insert({
           job_type: "auto_gap_close",
           status: "pending",
+          package_id: pkgId,
           payload: {
             package_id: pkgId,
             course_id: pkg.course_id,
