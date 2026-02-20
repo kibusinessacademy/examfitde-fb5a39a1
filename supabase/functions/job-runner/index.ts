@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
  * (FOR UPDATE SKIP LOCKED), dispatches to Edge Functions, writes back
  * completed / failed / pending+run_after (backoff).
  *
- * v4: Adaptive Concurrency Controller + Dead-Letter Queue
+ * v5: Proper Lock Management — locked_at/locked_by set on claim, nulled on release
  *
  * SSOT Status values: pending | processing | completed | failed | cancelled
  * Requeue = pending + run_after (backoff), NOT custom status values.
@@ -137,6 +137,7 @@ const BASE_CONCURRENCY = 12;
 const MIN_CONCURRENCY = 6;
 const MAX_CONCURRENCY = 18;
 const JOB_TIMEOUT_MS = 140_000;
+const WORKER_ID = `job-runner-${crypto.randomUUID().slice(0, 8)}`;
 
 // Backoff delays (ms) for requeue scenarios
 const BACKOFF_409_MS = 30_000;
@@ -162,6 +163,21 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** Release lock fields — MUST be included in every terminal/requeue update */
+const LOCK_RELEASE = {
+  locked_at: null as string | null,
+  locked_by: null as string | null,
+  updated_at: new Date().toISOString(),
+};
+
+function lockRelease() {
+  return {
+    locked_at: null as string | null,
+    locked_by: null as string | null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
 /** Requeue a job as pending with a run_after backoff */
 async function requeueWithBackoff(
   sb: ReturnType<typeof createClient>,
@@ -175,6 +191,7 @@ async function requeueWithBackoff(
     run_after: new Date(Date.now() + delayMs).toISOString(),
     error: errorMsg,
     meta: { ...(meta || {}), last_retry: new Date().toISOString() },
+    ...lockRelease(),
   }).eq("id", jobId);
 }
 
@@ -192,7 +209,6 @@ interface TickMetrics {
 async function getAdaptiveConcurrency(
   sb: ReturnType<typeof createClient>,
 ): Promise<number> {
-  // Read last snapshot to get current concurrency level
   const { data: lastSnapshot } = await sb.from("concurrency_snapshots")
     .select("active_concurrency, snapshot_at, action_taken")
     .order("snapshot_at", { ascending: false })
@@ -203,7 +219,6 @@ async function getAdaptiveConcurrency(
 
   const current = lastSnapshot.active_concurrency ?? BASE_CONCURRENCY;
 
-  // Read rolling 5-min failure metrics from job_queue
   const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
 
   const { count: recentTimeouts } = await sb.from("job_queue")
@@ -221,15 +236,12 @@ async function getAdaptiveConcurrency(
   const timeouts = recentTimeouts ?? 0;
   const rateLimits = recentRateLimits ?? 0;
 
-  // Decision logic
   if (timeouts >= THROTTLE_TIMEOUT_THRESHOLD || rateLimits >= THROTTLE_RATELIMIT_THRESHOLD) {
-    // Throttle down
     const newConcurrency = Math.max(MIN_CONCURRENCY, current - 3);
     console.log(`[Adaptive] THROTTLE: timeouts=${timeouts} rateLimits=${rateLimits} → ${current}→${newConcurrency}`);
     return newConcurrency;
   }
 
-  // Check if stable for ramp-up (last N snapshots all "stable")
   if (lastSnapshot.action_taken === "stable") {
     const tenMinAgo = new Date(Date.now() - STABLE_MINUTES_TO_RAMP * 60_000).toISOString();
     const { data: recentSnapshots } = await sb.from("concurrency_snapshots")
@@ -264,11 +276,11 @@ async function writeSnapshot(
     rate_limits_5min: metrics.rateLimits,
     escalations_5min: metrics.escalations,
     dlq_count_5min: metrics.dlqItems,
-    jobs_per_min: metrics.completed, // approximation per tick
+    jobs_per_min: metrics.completed,
     median_latency_ms: medianLatency,
     active_concurrency: activeConcurrency,
     action_taken: action,
-  }).then(() => {}, () => {}); // fire-and-forget
+  }).then(() => {}, () => {});
 }
 
 /** Write failed job to Dead-Letter Queue */
@@ -305,12 +317,14 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  // ── 0. Adaptive Concurrency: determine current tick size ──────────
+  // ── 0. Adaptive Concurrency ──────────────────────────────────────
   const adaptiveConcurrency = await getAdaptiveConcurrency(sb).catch(() => BASE_CONCURRENCY);
 
-  // ── 1. Atomically claim pending jobs (SKIP LOCKED + run_after) ──
+  // ── 1. Claim jobs with proper locking (worker_id + lock timeout) ──
   const { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs", {
     p_limit: adaptiveConcurrency,
+    p_worker_id: WORKER_ID,
+    p_lock_timeout_minutes: 10,
   });
 
   if (claimErr) {
@@ -319,10 +333,10 @@ Deno.serve(async (req) => {
   }
 
   if (!jobs || jobs.length === 0) {
-    return json({ ok: true, processed: 0, concurrency: adaptiveConcurrency, message: "No pending jobs" });
+    return json({ ok: true, processed: 0, concurrency: adaptiveConcurrency, worker: WORKER_ID, message: "No pending jobs" });
   }
 
-  console.log(`[job-runner] Claimed ${jobs.length} job(s) [concurrency=${adaptiveConcurrency}]`);
+  console.log(`[job-runner] Claimed ${jobs.length} job(s) [concurrency=${adaptiveConcurrency}, worker=${WORKER_ID}]`);
 
   const results: Record<string, unknown>[] = [];
   const tickMetrics: TickMetrics = {
@@ -330,7 +344,7 @@ Deno.serve(async (req) => {
     completed: 0, totalLatencyMs: 0,
   };
 
-  // ── Pipeline prerequisite map: step → required predecessor step ──
+  // ── Pipeline prerequisite map ──────────────────────────────────────
   const PIPELINE_PREREQS: Record<string, string> = {
     package_generate_exam_pool: "auto_seed_exam_blueprints",
     package_validate_exam_pool: "generate_exam_pool",
@@ -353,12 +367,13 @@ Deno.serve(async (req) => {
         status: "failed",
         error: `Unknown job_type: ${job.job_type}`,
         completed_at: new Date().toISOString(),
+        ...lockRelease(),
       }).eq("id", job.id);
       results.push({ id: job.id, status: "failed", reason: "unknown_type" });
       continue;
     }
 
-    // ── Prereq guard: cancel orphan pipeline jobs whose predecessor isn't done ──
+    // ── Prereq guard ─────────────────────────────────────────────────
     const prereqStep = PIPELINE_PREREQS[job.job_type];
     if (prereqStep && job.payload?.package_id) {
       const { data: prereqRow } = await sb
@@ -374,6 +389,7 @@ Deno.serve(async (req) => {
           status: "cancelled",
           error: `Prereq guard: ${prereqStep} not done (${prereqRow?.status ?? 'missing'})`,
           completed_at: new Date().toISOString(),
+          ...lockRelease(),
         }).eq("id", job.id);
         results.push({ id: job.id, status: "cancelled", reason: "prereq_not_done" });
         continue;
@@ -382,7 +398,7 @@ Deno.serve(async (req) => {
 
     const startMs = Date.now();
 
-    // ── 2. Invoke the target Edge Function ───────────────────────────
+    // ── 2. Invoke target Edge Function ───────────────────────────────
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), JOB_TIMEOUT_MS);
@@ -415,31 +431,28 @@ Deno.serve(async (req) => {
       if (!res.ok) {
         // ── 409 Conflict ─────────────────────────────────────────────
         if (res.status === 409) {
-          // CRITICAL FIX: Only treat 409 as idempotent-completed if EXPLICITLY marked as such.
-          // Previously, ANY 409 without retry:true was auto-completed — even ok:false responses.
-          // This caused validate_learning_content (which returned 409 + ok:false) to be marked
-          // as "completed", allowing the pipeline to skip content validation entirely.
           const isIdempotent = parsed?.skipped === true || parsed?.ok === true || parsed?.retry === false;
           if (isIdempotent) {
-            console.log(`[job-runner] ${fnName} 409 idempotent (ok=${parsed?.ok} skipped=${parsed?.skipped}) → completed`);
+            console.log(`[job-runner] ${fnName} 409 idempotent → completed`);
             await sb.from("job_queue").update({
               status: "completed",
               result: { ...(typeof parsed === "object" ? parsed : {}), _409_idempotent: true },
               completed_at: new Date().toISOString(),
+              ...lockRelease(),
             }).eq("id", job.id);
             tickMetrics.completed++;
             tickMetrics.totalLatencyMs += elapsedMs;
             results.push({ id: job.id, status: "completed", reason: "409_idempotent" });
             continue;
           }
-          console.warn(`[job-runner] ${fnName} 409 retry=true → requeue +${BACKOFF_409_MS}ms`);
+          console.warn(`[job-runner] ${fnName} 409 retry → requeue +${BACKOFF_409_MS}ms`);
           await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_409_MS,
             "HTTP 409 — prereq not ready, will retry");
           results.push({ id: job.id, status: "requeued", httpStatus: 409 });
           continue;
         }
 
-        // ── Rate-limited or transient → requeue with delay ───────────
+        // ── Rate-limited / transient ─────────────────────────────────
         if (res.status === 429 || res.status === 503) {
           tickMetrics.rateLimits++;
           console.warn(`[job-runner] ${fnName} ${res.status} → requeue +${BACKOFF_429_MS}ms`);
@@ -457,9 +470,9 @@ Deno.serve(async (req) => {
             status: "failed",
             error: `HTTP ${res.status}: ${errStr}`,
             completed_at: new Date().toISOString(),
+            ...lockRelease(),
           }).eq("id", job.id);
 
-          // DLQ for exam-pool jobs
           if (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") {
             tickMetrics.dlqItems++;
             await writeToDLQ(sb, job, `http_${res.status}`, errStr);
@@ -474,7 +487,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // ── 3. Handle batch_complete protocol ──────────────────────────
+      // ── 3. Batch incomplete → requeue ──────────────────────────────
       if (parsed && parsed.batch_complete === false) {
         console.log(`[job-runner] ${fnName} batch incomplete → requeue +${BACKOFF_BATCH_MS}ms`);
         await sb.from("job_queue").update({
@@ -482,9 +495,10 @@ Deno.serve(async (req) => {
           run_after: new Date(Date.now() + BACKOFF_BATCH_MS).toISOString(),
           batch_cursor: parsed.batch_cursor ?? null,
           meta: { ...(job.meta || {}), last_batch: new Date().toISOString() },
+          ...lockRelease(),
         }).eq("id", job.id);
 
-        // FIX: Update last_progress_at to prevent false stuck alerts during long batch jobs
+        // Update last_progress_at to prevent false stuck alerts
         if (job.payload?.package_id) {
           await sb.from("course_packages").update({
             last_progress_at: new Date().toISOString(),
@@ -500,6 +514,7 @@ Deno.serve(async (req) => {
         status: "completed",
         result: typeof parsed === "object" ? parsed : { raw: parsed },
         completed_at: new Date().toISOString(),
+        ...lockRelease(),
       }).eq("id", job.id);
 
       tickMetrics.completed++;
@@ -509,7 +524,6 @@ Deno.serve(async (req) => {
     } catch (err: unknown) {
       const msg = (err as Error)?.message || String(err);
       const isTimeout = msg.includes("abort");
-      const elapsedMs = Date.now() - startMs;
       console.error(`[job-runner] ${fnName} error: ${msg}`);
 
       if (isTimeout) tickMetrics.timeouts++;
@@ -520,9 +534,9 @@ Deno.serve(async (req) => {
           status: "failed",
           error: isTimeout ? "Edge Function timeout" : msg.slice(0, 1000),
           completed_at: new Date().toISOString(),
+          ...lockRelease(),
         }).eq("id", job.id);
 
-        // DLQ for exam-pool jobs
         if (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") {
           tickMetrics.dlqItems++;
           await writeToDLQ(sb, job, isTimeout ? "timeout" : "hard_failure", msg.slice(0, 1000));
@@ -545,11 +559,12 @@ Deno.serve(async (req) => {
 
   await writeSnapshot(sb, tickMetrics, adaptiveConcurrency, action);
 
-  console.log(`[job-runner] Tick done [c=${adaptiveConcurrency}]: ${JSON.stringify(results)}`);
+  console.log(`[job-runner] Tick done [w=${WORKER_ID} c=${adaptiveConcurrency}]: ${JSON.stringify(results)}`);
   return json({
     ok: true,
     processed: results.length,
     concurrency: adaptiveConcurrency,
+    worker: WORKER_ID,
     metrics: {
       completed: tickMetrics.completed,
       timeouts: tickMetrics.timeouts,
