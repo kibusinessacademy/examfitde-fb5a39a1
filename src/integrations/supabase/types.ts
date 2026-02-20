@@ -19046,11 +19046,7 @@ export type Database = {
       }
       claim_pending_jobs:
         | {
-            Args: {
-              p_limit?: number
-              p_lock_timeout_minutes?: number
-              p_worker_id?: string
-            }
+            Args: { p_limit?: number }
             Returns: {
               attempts: number
               batch_cursor: Json | null
@@ -19092,7 +19088,11 @@ export type Database = {
             }
           }
         | {
-            Args: { p_limit?: number }
+            Args: {
+              p_limit?: number
+              p_lock_timeout_minutes?: number
+              p_worker_id?: string
+            }
             Returns: {
               attempts: number
               batch_cursor: Json | null
