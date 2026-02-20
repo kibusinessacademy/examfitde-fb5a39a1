@@ -422,8 +422,12 @@ Deno.serve(async (req) => {
   }
 
   if (sectionRows.length > 0) {
-    const { error: secErr } = await sb.from("handbook_sections").insert(sectionRows);
-    if (secErr) throw new Error(`Section insert: ${secErr.message}`);
+    // Use upsert to handle retries/re-runs without duplicate key errors
+    const { error: secErr } = await sb.from("handbook_sections").upsert(sectionRows, {
+      onConflict: "chapter_id,section_key",
+      ignoreDuplicates: false,
+    });
+    if (secErr) throw new Error(`Section upsert: ${secErr.message}`);
   }
 
   const isComplete = batchEnd >= fields.length;

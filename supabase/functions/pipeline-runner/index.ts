@@ -775,6 +775,25 @@ async function processPackage(
     };
     if (batchCursor) payload.batch_cursor = batchCursor;
 
+    // Sane max_attempts: expensive steps get 5, validation 3, default 10
+    const STEP_MAX_ATTEMPTS: Partial<Record<StepKey, number>> = {
+      generate_handbook: 5,
+      generate_exam_pool: 5,
+      generate_oral_exam: 5,
+      generate_learning_content: 5,
+      scaffold_learning_course: 3,
+      validate_blueprints: 3,
+      validate_exam_pool: 3,
+      validate_oral_exam: 3,
+      validate_handbook: 3,
+      validate_tutor_index: 3,
+      validate_learning_content: 3,
+      run_integrity_check: 3,
+      quality_council: 3,
+      auto_publish: 3,
+    };
+    const stepMaxAttempts = STEP_MAX_ATTEMPTS[stepKey] ?? 10;
+
     const jobId = crypto.randomUUID();
     const { error: insertErr } = await sb.from("job_queue").insert({
       id: jobId,
@@ -782,7 +801,7 @@ async function processPackage(
       status: "pending",
       payload,
       priority: 10,
-      max_attempts: 100,
+      max_attempts: stepMaxAttempts,
       batch_cursor: batchCursor,
     });
 
