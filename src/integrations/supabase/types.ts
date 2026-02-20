@@ -17745,6 +17745,7 @@ export type Database = {
       ops_step_job_drift: {
         Row: {
           drift_type: string | null
+          job_error: string | null
           job_id: string | null
           job_status: string | null
           job_updated_at: string | null
