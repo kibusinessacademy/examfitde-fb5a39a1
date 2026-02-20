@@ -18417,6 +18417,23 @@ export type Database = {
         }
         Relationships: []
       }
+      v_course_content_integrity: {
+        Row: {
+          course_id: string | null
+          placeholder_lessons: number | null
+          too_short_lessons: number | null
+          total_lessons: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_early_warning: {
         Row: {
           curriculum_id: string | null
@@ -19001,6 +19018,10 @@ export type Database = {
       calibrate_item_difficulty:
         | { Args: { p_min_responses?: number }; Returns: number }
         | { Args: { p_question_id: string }; Returns: undefined }
+      can_generate_exam_pool: {
+        Args: { p_course_id: string }
+        Returns: boolean
+      }
       can_run_llm_job: { Args: { p_provider: string }; Returns: boolean }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
       cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
@@ -20031,6 +20052,10 @@ export type Database = {
           p_runner_id: string
         }
         Returns: undefined
+      }
+      repair_placeholder_lessons: {
+        Args: { p_course_id: string }
+        Returns: Json
       }
       report_audit_log: {
         Args: { p_limit?: number }
