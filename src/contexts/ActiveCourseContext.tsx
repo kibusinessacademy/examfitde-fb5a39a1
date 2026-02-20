@@ -40,19 +40,27 @@ export function ActiveCourseProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const sb = supabase as any;
-      const pkgRes = await sb.from('course_packages').select('id, title, status, build_progress, integrity_passed, council_approved, updated_at').eq('id', courseId).single();
-      const questionsRes = await sb.from('exam_questions').select('id', { count: 'exact', head: true }).eq('course_id', courseId);
-      const tutorRes = await sb.from('ai_tutor_context_index').select('index_version').eq('package_id', courseId).order('created_at', { ascending: false }).limit(1);
-      const lockRes = await sb.from('course_package_locks').select('locked_at').eq('package_id', courseId).eq('released', false).limit(1);
-      const stepsRes = await sb.from('course_package_build_steps').select('status').eq('package_id', courseId);
-
+      const pkgRes = await sb.from('course_packages').select('id, title, status, build_progress, integrity_passed, council_approved, updated_at, curriculum_id, current_step').eq('id', courseId).single();
       const pkg = pkgRes.data;
-      if (!pkg) { setCourse(null); return; }
+      if (!pkg) { setCourse(null); setLoading(false); return; }
+
+      // Use curriculum_id for question count (exam_questions has curriculum_id, NOT course_id/package_id)
+      const curriculumId = pkg.curriculum_id;
+      const [questionsRes, tutorRes, lockRes, stepsRes] = await Promise.all([
+        curriculumId
+          ? sb.from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId)
+          : Promise.resolve({ count: 0 }),
+        sb.from('ai_tutor_context_index').select('index_version').eq('package_id', courseId).order('created_at', { ascending: false }).limit(1),
+        sb.from('course_package_locks').select('locked_at').eq('package_id', courseId).eq('released', false).limit(1),
+        sb.from('course_package_build_steps').select('status, meta').eq('package_id', courseId),
+      ]);
 
       const steps = stepsRes.data || [];
-      const doneSteps = steps.filter(s => s.status === 'done').length;
+      // Count steps as done if status=done OR meta.ok=true (reset by sequence guard)
+      const isStepDone = (s: any) => s.status === 'done' || (s.meta && (s.meta as any)?.ok === true);
+      const doneSteps = steps.filter(isStepDone).length;
       const totalSteps = steps.length || 1;
-      const failedSteps = steps.filter(s => s.status === 'failed').length;
+      const failedSteps = steps.filter((s: any) => s.status === 'failed').length;
       const healthScore = Math.max(0, Math.round(
         (pkg.integrity_passed ? 30 : 0) +
         (pkg.council_approved ? 10 : 0) +
