@@ -17827,6 +17827,13 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_jobtype_step_map: {
+        Row: {
+          job_type: string | null
+          step_key: string | null
+        }
+        Relationships: []
+      }
       ops_next_step_queued_no_job: {
         Row: {
           package_id: string | null
@@ -18146,6 +18153,62 @@ export type Database = {
           seeding_completed_at: string | null
           seeding_version: string | null
           version_status: string | null
+        }
+        Relationships: []
+      }
+      ops_step_duration_7d: {
+        Row: {
+          attempts_avg: number | null
+          completed: number | null
+          failed_or_cancelled: number | null
+          job_type: string | null
+          pending: number | null
+          processing: number | null
+          qwait_p50_ms: number | null
+          qwait_p90_ms: number | null
+          qwait_p95_ms: number | null
+          run_avg_ms: number | null
+          run_max_ms: number | null
+          run_p50_ms: number | null
+          run_p90_ms: number | null
+          run_p95_ms: number | null
+          step_key: string | null
+        }
+        Relationships: []
+      }
+      ops_step_duration_events: {
+        Row: {
+          attempts: number | null
+          completed_at: string | null
+          created_at: string | null
+          error_snip: string | null
+          job_id: string | null
+          job_type: string | null
+          package_id: string | null
+          queue_wait_ms: number | null
+          run_ms: number | null
+          started_at: string | null
+          status: string | null
+          step_key: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      ops_step_duration_slowest_7d: {
+        Row: {
+          attempts: number | null
+          completed_at: string | null
+          created_at: string | null
+          error_snip: string | null
+          job_id: string | null
+          job_type: string | null
+          package_id: string | null
+          queue_wait_ms: number | null
+          run_ms: number | null
+          started_at: string | null
+          status: string | null
+          step_key: string | null
+          updated_at: string | null
         }
         Relationships: []
       }
