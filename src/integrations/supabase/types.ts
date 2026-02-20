@@ -18165,12 +18165,10 @@ export type Database = {
           pending: number | null
           processing: number | null
           qwait_p50_ms: number | null
-          qwait_p90_ms: number | null
           qwait_p95_ms: number | null
           run_avg_ms: number | null
           run_max_ms: number | null
           run_p50_ms: number | null
-          run_p90_ms: number | null
           run_p95_ms: number | null
           step_key: string | null
         }
@@ -18184,9 +18182,11 @@ export type Database = {
           error_snip: string | null
           job_id: string | null
           job_type: string | null
+          locked_at: string | null
           package_id: string | null
           queue_wait_ms: number | null
           run_ms: number | null
+          start_ts: string | null
           started_at: string | null
           status: string | null
           step_key: string | null
@@ -18202,9 +18202,11 @@ export type Database = {
           error_snip: string | null
           job_id: string | null
           job_type: string | null
+          locked_at: string | null
           package_id: string | null
           queue_wait_ms: number | null
           run_ms: number | null
+          start_ts: string | null
           started_at: string | null
           status: string | null
           step_key: string | null
