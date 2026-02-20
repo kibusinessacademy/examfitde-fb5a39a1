@@ -187,40 +187,17 @@ Deno.serve(async (req) => {
       actions.push(`Zombie sweep: failed ${zombieRows?.length ?? 0} unlocked + ${staleLockRows?.length ?? 0} stale-locked jobs`);
     }
 
-    // ── 3) Auto-heal: building without lease or jobs → reset to queued ──
-    const ZOMBIE_BUILDING_AGE_MINUTES = 30;
-    const zombieBuildingCutoff = new Date(Date.now() - ZOMBIE_BUILDING_AGE_MINUTES * 60 * 1000).toISOString();
-
-    const { data: zombieBuilding, error: zombieBuildErr } = await sb
-      .from("ops_building_without_job_or_lease")
-      .select("package_id, title")
-      .or(`last_progress_at.lt.${zombieBuildingCutoff},last_progress_at.is.null`)
-      .filter("updated_at", "lt", zombieBuildingCutoff);
-
-    if (zombieBuildErr) {
-      console.error("[watchdog] zombie building check error:", zombieBuildErr.message);
+    // ── 3) Auto-heal: building without lease or jobs → reset to queued (via RPC) ──
+    const { data: zombieCount, error: zombieHealErr } = await sb.rpc(
+      "auto_heal_building_zombies",
+      { zombie_minutes: 30 },
+    );
+    if (zombieHealErr) {
+      console.error("[watchdog] auto_heal_building_zombies error:", zombieHealErr.message);
     }
-
-    const zombiePkgs = zombieBuilding ?? [];
-    if (zombiePkgs.length > 0) {
-      const ids = zombiePkgs.map((z: any) => z.package_id);
-      const { error: resetErr } = await sb
-        .from("course_packages")
-        .update({
-          status: "queued",
-          build_progress: 0,
-          last_progress_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          last_error: `Watchdog: building without lease/job for >${ZOMBIE_BUILDING_AGE_MINUTES}min — auto-reset`,
-        })
-        .in("id", ids)
-        .eq("status", "building");
-
-      if (resetErr) {
-        console.error("[watchdog] zombie building reset error:", resetErr.message);
-      } else {
-        actions.push(`Zombie building reset: ${zombiePkgs.length} packages (${ids.map((id: string) => id.slice(0, 8)).join(", ")})`);
-      }
+    const healedZombies = zombieCount ?? 0;
+    if (healedZombies > 0) {
+      actions.push(`Zombie building reset: ${healedZombies} packages via RPC`);
     }
 
     // ── 4) Count active state ──
@@ -304,7 +281,7 @@ Deno.serve(async (req) => {
             stale_steps: staleSteps.length,
             stale_leases: staleLeases.length,
             zombie_jobs: zombieCount,
-            zombie_building: zombiePkgs.length,
+            zombie_building: healedZombies,
           },
         });
     } catch (_) { /* non-critical */ }
