@@ -83,6 +83,30 @@ Antworte AUSSCHLIESSLICH mit JSON:
 }`;
 
 /**
+ * Read glossary from cache ONLY (no generation). Returns null if not cached.
+ * Use this in time-critical functions like content generation.
+ */
+export async function loadCachedGlossary(
+  sb: SB,
+  berufId: string,
+  professionName: string,
+): Promise<ProfessionGlossary | null> {
+  const { data: cached } = await sb
+    .from("profession_glossaries")
+    .select("glossary, version")
+    .eq("beruf_id", berufId)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (cached?.glossary) {
+    console.log(`[glossary-loader] Cache hit for "${professionName}" v${cached.version}`);
+    return { professionName, ...(cached.glossary as any) };
+  }
+  return null;
+}
+
+/**
  * Load glossary from cache or generate on-demand.
  */
 export async function loadOrGenerateGlossary(
