@@ -145,7 +145,7 @@ export async function loadOrGenerateGlossary(
 
   // 3) Generate glossary
   console.log(`[glossary-loader] Generating glossary for "${professionName}"...`);
-  const routed = getModel("quality_audit"); // Use high-quality model for glossary
+  const routed = getModel("learning_content"); // Fast model — glossary runs in its own step with full runtime
   const prompt = GLOSSARY_PROMPT
     .replace("{PROFESSION}", professionName)
     .replace("{CURRICULUM_CONTEXT}", curriculumContext);
@@ -157,7 +157,7 @@ export async function loadOrGenerateGlossary(
       { role: "system", content: prompt },
       { role: "user", content: `Erstelle das Glossar für: ${professionName}` },
     ],
-    max_tokens: 8192,
+    max_tokens: 4096,
   });
 
   let glossary: Omit<ProfessionGlossary, "professionName">;
