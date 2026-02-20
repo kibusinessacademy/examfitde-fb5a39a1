@@ -8396,6 +8396,7 @@ export type Database = {
           max_attempts: number
           meta: Json
           original_provider: string | null
+          package_id: string | null
           parent_job_id: string | null
           payload: Json
           priority: number
@@ -8429,6 +8430,7 @@ export type Database = {
           max_attempts?: number
           meta?: Json
           original_provider?: string | null
+          package_id?: string | null
           parent_job_id?: string | null
           payload: Json
           priority?: number
@@ -8462,6 +8464,7 @@ export type Database = {
           max_attempts?: number
           meta?: Json
           original_provider?: string | null
+          package_id?: string | null
           parent_job_id?: string | null
           payload?: Json
           priority?: number
@@ -19068,6 +19071,7 @@ export type Database = {
               max_attempts: number
               meta: Json
               original_provider: string | null
+              package_id: string | null
               parent_job_id: string | null
               payload: Json
               priority: number
@@ -19114,6 +19118,7 @@ export type Database = {
               max_attempts: number
               meta: Json
               original_provider: string | null
+              package_id: string | null
               parent_job_id: string | null
               payload: Json
               priority: number

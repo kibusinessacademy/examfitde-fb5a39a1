@@ -395,6 +395,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Pre-execution lease guard ──────────────────────────────────
+    const jobPackageId = job.package_id ?? job.payload?.package_id;
+    if (jobPackageId) {
+      const { data: leaseRow } = await sb
+        .from("package_leases")
+        .select("lease_until")
+        .eq("package_id", jobPackageId)
+        .gt("lease_until", new Date().toISOString())
+        .maybeSingle();
+
+      if (!leaseRow) {
+        console.warn(`[job-runner] Lease expired before execution for job ${job.id} (pkg ${String(jobPackageId).slice(0, 8)})`);
+        await requeueWithBackoff(sb, job.id, job.meta, 60_000, "Lease expired pre-execution", tsNow);
+        results.push({ id: job.id, status: "requeued", reason: "lease_expired" });
+        continue;
+      }
+    }
+
     const startMs = Date.now();
 
     // ── Single-exit state for guaranteed lock release ─────────────
