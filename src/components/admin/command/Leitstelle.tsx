@@ -10,6 +10,7 @@ import {
   Activity, CheckCircle2, Clock, DollarSign, Loader2, RefreshCw, XCircle,
   AlertTriangle, BookOpen, FileText, Brain, Mic, Package, TrendingUp, Zap,
 } from 'lucide-react';
+import ForensikPanel from './ForensikPanel';
 
 const fmtEur = (v: number) => `€${v.toFixed(2)}`;
 
@@ -204,6 +205,9 @@ export default function Leitstelle() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Forensik */}
+      <ForensikPanel />
 
       {/* Building Packages Table */}
       <Card>
