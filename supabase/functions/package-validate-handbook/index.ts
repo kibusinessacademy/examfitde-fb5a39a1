@@ -127,6 +127,13 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
+  // ── INCOMPLETE GUARD: Check if handbook generation is still in progress ──
+  // Count expected sections from learning_fields (SSOT for "how many sections should exist")
+  const { count: expectedSections } = await sb
+    .from("learning_fields")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", curriculumId);
+
   // Load chapters
   const { data: chapters, error: chErr } = await sb
     .from("handbook_chapters")
@@ -153,6 +160,24 @@ Deno.serve(async (req) => {
   if (secErr) return json({ error: secErr.message }, 500);
   if (!sections || sections.length === 0) {
     return json({ ok: false, message: "❌ Handbook QC: Keine Sektionen gefunden." });
+  }
+
+  // ── INCOMPLETE GUARD: If sections << expected, handbook is still being generated ──
+  // Return 409 so job-runner requeues without critical alert spam
+  const actualSections = sections.length;
+  const expected = expectedSections || 0;
+  const INCOMPLETE_THRESHOLD = 0.8; // need at least 80% of expected sections
+  if (expected > 0 && actualSections < Math.ceil(expected * INCOMPLETE_THRESHOLD)) {
+    console.log(`[validate-handbook] INCOMPLETE: ${actualSections}/${expected} sections (need ${Math.ceil(expected * INCOMPLETE_THRESHOLD)}). Requeue without alert.`);
+    return json({
+      ok: false,
+      retry: true,
+      batch_complete: false,
+      incomplete: true,
+      actual_sections: actualSections,
+      expected_sections: expected,
+      message: `⏳ Handbook incomplete: ${actualSections}/${expected} sections. Waiting for generator.`,
+    }, 409);
   }
 
   console.log(`[validate-handbook] Validating ${chapters.length} chapters, ${sections.length} sections for ${professionName} (pkg ${packageId.slice(0, 8)})`);
