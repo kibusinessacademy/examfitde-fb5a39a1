@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
-import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
+import { loadCachedGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES, buildMiniCheckPrompt, measureDepth, depthMeetsMinimum, mapToDifficultyLevel, getRequiredDepth, runV2QualityGate, loadMasteryContext, buildMasteryFeedbackSuffix, adjustDifficultyByMastery } from "../_shared/prompt-kit.ts";
 import type { DifficultyLevel, MasteryContext } from "../_shared/prompt-kit.ts";
 
@@ -282,15 +282,15 @@ Deno.serve(async (req) => {
     })();
     if (berufId) {
       try {
-        // Glossary generation can be slow (LLM call) — cap at 15s to preserve runtime for lessons
-        const glossaryPromise = loadOrGenerateGlossary(sb, berufId, professionName, curriculumId);
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Glossary timeout (15s)")), 15000)
-        );
-        const glossary = await Promise.race([glossaryPromise, timeoutPromise]);
-        glossaryContext = formatGlossaryForPrompt(glossary);
-        console.log(`[gen-content] Glossary loaded for "${professionName}" (${glossaryContext.length} chars)`);
-      } catch (e) { console.warn(`[gen-content] Glossary load failed: ${(e as Error).message}`); }
+        // Read-only: only use cached glossary (generation happens in separate pipeline step)
+        const glossary = await loadCachedGlossary(sb, berufId, professionName);
+        if (glossary) {
+          glossaryContext = formatGlossaryForPrompt(glossary);
+          console.log(`[gen-content] Glossary loaded for "${professionName}" (${glossaryContext.length} chars)`);
+        } else {
+          console.log(`[gen-content] No cached glossary for "${professionName}" — proceeding without`);
+        }
+      } catch (e) { console.warn(`[gen-content] Glossary read failed: ${(e as Error).message}`); }
     }
   } catch (e) {
     return json({ error: (e as Error).message }, 400);

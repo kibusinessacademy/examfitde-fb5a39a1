@@ -22,6 +22,7 @@ const corsHeaders = {
 // ── Step ordering ──
 type StepKey =
   | "scaffold_learning_course"
+  | "generate_glossary"
   | "generate_learning_content"
   | "validate_learning_content"
   | "auto_seed_exam_blueprints"
@@ -40,6 +41,7 @@ type StepKey =
 
 const STEP_ORDER: StepKey[] = [
   "scaffold_learning_course",
+  "generate_glossary",
   "generate_learning_content",
   "validate_learning_content",
   "auto_seed_exam_blueprints",
@@ -60,6 +62,7 @@ const STEP_ORDER: StepKey[] = [
 /** Maps step_key → job_type in job_queue */
 const STEP_TO_JOB_TYPE: Record<StepKey, string> = {
   scaffold_learning_course: "package_scaffold_learning_course",
+  generate_glossary: "package_generate_glossary",
   generate_learning_content: "package_generate_learning_content",
   validate_learning_content: "package_validate_learning_content",
   auto_seed_exam_blueprints: "package_auto_seed_exam_blueprints",
