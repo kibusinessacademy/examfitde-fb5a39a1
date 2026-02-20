@@ -63,13 +63,40 @@ function diagnoseError(errorMessage: string | null): { cause: string; fix: strin
 }
 
 /* ───── integrity report display ───── */
-function IntegrityReportCard({ report }: { report: any }) {
+function IntegrityReportCard({ report, curriculumId }: { report: any; curriculumId?: string }) {
+  // Live question counts from DB (instead of stale snapshot)
+  const [liveQCounts, setLiveQCounts] = useState<{ total: number; approved: number; draft: number } | null>(null);
+  useEffect(() => {
+    if (!curriculumId) return;
+    const fetchLive = async () => {
+      const { data } = await (supabase as any)
+        .from('exam_questions')
+        .select('status')
+        .eq('curriculum_id', curriculumId);
+      if (data) {
+        setLiveQCounts({
+          total: data.length,
+          approved: data.filter((r: any) => r.status === 'approved').length,
+          draft: data.filter((r: any) => r.status === 'draft').length,
+        });
+      }
+    };
+    fetchLive();
+    const iv = setInterval(fetchLive, 15000);
+    return () => clearInterval(iv);
+  }, [curriculumId]);
+
   if (!report || typeof report !== 'object') return null;
   const score = report.score ?? 0;
   const passed = report.passed ?? (score >= 80);
 
   // Support both legacy format (report.lessons.actual) and v3 format (report.v3.stats)
   const v3 = report.v3?.stats;
+  
+  // Use live counts when available, fallback to snapshot
+  const examTotal = liveQCounts?.total ?? report.exam?.total ?? v3?.questionCount ?? null;
+  const examApproved = liveQCounts?.approved ?? 0;
+  
   const sections = [
     { label: 'Lektionen',
       actual: report.lessons?.actual ?? v3?.lessonCount ?? null,
@@ -77,10 +104,12 @@ function IntegrityReportCard({ report }: { report: any }) {
       icon: BookOpen,
       detail: report.lessons?.duplicates > 0 ? `${report.lessons.duplicates} Duplikate` : null },
     { label: 'Prüfungsfragen',
-      actual: report.exam?.total ?? v3?.questionCount ?? null,
-      expected: report.exam?.target ?? v3?.questionTarget ?? 850,
+      actual: examTotal,
+      expected: report.exam?.target ?? v3?.questionTarget ?? 1000,
       icon: ClipboardCheck,
-      detail: report.exam?.approved ? `${report.exam.approved} freigegeben` : null },
+      detail: examApproved > 0 
+        ? `${examApproved} approved` 
+        : liveQCounts ? `${liveQCounts.draft} draft, 0 approved` : null },
     { label: 'Mündliche Szenarien',
       actual: report.oral?.total ?? v3?.oralCount ?? null,
       expected: report.oral?.target ?? v3?.oralTarget ?? null,
@@ -95,17 +124,28 @@ function IntegrityReportCard({ report }: { report: any }) {
       expected: 1, icon: Bot },
   ];
 
+  // Show staleness warning
+  const snapshotAge = report.checked_at 
+    ? Math.round((Date.now() - new Date(report.checked_at).getTime()) / 3600000)
+    : null;
+
   return (
     <Card className={cn("border", passed ? "border-success/30" : "border-destructive/30")}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center justify-between">
           <span className="flex items-center gap-2">
             <Shield className="h-4 w-4" /> Qualitätsbericht
+            {liveQCounts && (
+              <Badge variant="outline" className="text-[9px] text-primary">LIVE</Badge>
+            )}
           </span>
           <span className={cn("text-lg font-bold", score >= 80 ? "text-success" : score >= 60 ? "text-warning" : "text-destructive")}>
             {score}/100
           </span>
         </CardTitle>
+        {snapshotAge != null && snapshotAge > 1 && (
+          <p className="text-[10px] text-warning">⚠ Snapshot {snapshotAge}h alt – Fragen-Counts sind live</p>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         {sections.map(s => {
@@ -546,7 +586,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const stepMap = new Map<string, any>();
   for (const s of buildSteps) stepMap.set(s.step_key, s);
 
-  const doneCount = buildSteps.filter((s: any) => s.status === 'done').length;
+  const doneCount = buildSteps.filter((s: any) => s.status === 'done' || (s.status === 'queued' && s.meta?.ok === true)).length;
   const totalCount = buildSteps.length || PIPELINE_STEPS.length;
   const failedSteps = buildSteps.filter((s: any) => s.status === 'failed');
   const runningStep = buildSteps.find((s: any) => s.status === 'running');
@@ -672,7 +712,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
             <div className="flex items-center gap-0 overflow-x-auto pb-3">
               {PIPELINE_STEPS.map((step, i) => {
                 const buildStep = stepMap.get(step.key);
-                const status = buildStep?.status || 'pending';
+                const rawStatus = buildStep?.status || 'pending';
+                // If step is "queued" but meta.ok === true, it was previously completed
+                // (reset by sequence guard). Show as "done" with indicator
+                const hasCompletedMeta = rawStatus === 'queued' && buildStep?.meta && (buildStep.meta as any)?.ok === true;
+                const status = hasCompletedMeta ? 'done' : rawStatus;
                 const Icon = step.icon;
                 const isDone = status === 'done';
                 const isFailed = status === 'failed';
@@ -757,7 +801,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
 
       {/* ── Integrity Report ── */}
       {pkg.integrity_report && typeof pkg.integrity_report === 'object' && (
-        <IntegrityReportCard report={pkg.integrity_report} />
+        <IntegrityReportCard report={pkg.integrity_report} curriculumId={(pkg as any)?.curriculum_id} />
       )}
 
       {/* ── Error Diagnostics ── */}
@@ -819,7 +863,9 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
             <div className="space-y-1">
               {PIPELINE_STEPS.map((stepDef, idx) => {
                 const step = stepMap.get(stepDef.key);
-                const status = step?.status || 'queued';
+                const rawStatus = step?.status || 'queued';
+                const hasCompletedMeta = rawStatus === 'queued' && step?.meta && (step.meta as any)?.ok === true;
+                const status = hasCompletedMeta ? 'done' : rawStatus;
                 const isDone = status === 'done';
                 const isFailed = status === 'failed';
                 const isRunning = status === 'running';
@@ -863,7 +909,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                           isFailed ? 'bg-destructive/10 text-destructive' :
                           isRunning ? 'bg-primary/10 text-primary' : ''
                         )}>
-                          {status}
+                          {hasCompletedMeta ? 'done ↻' : status}
                         </Badge>
                         {hasDetails && (isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />)}
                       </div>
