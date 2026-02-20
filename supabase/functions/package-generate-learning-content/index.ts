@@ -282,7 +282,12 @@ Deno.serve(async (req) => {
     })();
     if (berufId) {
       try {
-        const glossary = await loadOrGenerateGlossary(sb, berufId, professionName, curriculumId);
+        // Glossary generation can be slow (LLM call) — cap at 15s to preserve runtime for lessons
+        const glossaryPromise = loadOrGenerateGlossary(sb, berufId, professionName, curriculumId);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Glossary timeout (15s)")), 15000)
+        );
+        const glossary = await Promise.race([glossaryPromise, timeoutPromise]);
         glossaryContext = formatGlossaryForPrompt(glossary);
         console.log(`[gen-content] Glossary loaded for "${professionName}" (${glossaryContext.length} chars)`);
       } catch (e) { console.warn(`[gen-content] Glossary load failed: ${(e as Error).message}`); }
