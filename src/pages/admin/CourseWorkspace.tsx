@@ -842,7 +842,10 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                          isRunning ? <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" /> :
                          <Clock className="h-4 w-4 text-muted-foreground shrink-0" />}
                         <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-sm truncate">{stepDef.label}</span>
+                        <div className="min-w-0">
+                          <span className="text-sm truncate block">{stepDef.label}</span>
+                          <span className="text-[9px] text-muted-foreground/60 font-mono block">{stepKey}</span>
+                        </div>
                         {step?.duration_ms && (
                           <span className="text-[10px] text-muted-foreground">({(step.duration_ms / 1000).toFixed(1)}s)</span>
                         )}
