@@ -568,17 +568,16 @@ function PipelineControllingTab() {
     },
   });
 
-  const { data: buildingSlotCount } = useQuery({
-    queryKey: ['pipeline-building-count'],
+  const { data: buildingMetrics } = useQuery({
+    queryKey: ['building-metrics'],
     queryFn: async () => {
-      const { count } = await supabase
-        .from('course_packages')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'building');
-      return count || 0;
+      const { data, error } = await supabase.rpc('get_building_metrics');
+      if (error) throw error;
+      return data as { active_by_jobs: number; active_by_leases: number; status_building: number; zombies: number };
     },
     refetchInterval: 30000,
   });
+  const buildingSlotCount = buildingMetrics?.active_by_leases ?? 0;
 
   // Analysis
   const analysis = useMemo(() => {
