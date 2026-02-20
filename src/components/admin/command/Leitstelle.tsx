@@ -16,6 +16,7 @@ import {
   ShieldAlert, Wrench, Server,
 } from 'lucide-react';
 import ForensikPanel from './ForensikPanel';
+import StepDurationPanel from './StepDurationPanel';
 
 const fmtEur = (v: number) => `€${v.toFixed(2)}`;
 
@@ -260,6 +261,9 @@ export default function Leitstelle() {
 
       {/* Forensik */}
       <ForensikPanel />
+
+      {/* Step Duration / Bottleneck Analysis */}
+      <StepDurationPanel />
 
       {/* Building Packages Table */}
       <Card>
