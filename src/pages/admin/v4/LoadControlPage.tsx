@@ -72,7 +72,15 @@ export default function LoadControlPage() {
         .eq("month", month)
         .maybeSingle();
       if (error) throw error;
-      return data as Budget | null;
+      if (!data) return null;
+      // Get REAL spent from llm_cost_events (llm_budget.spent_eur is stale)
+      const monthStart = `${month}-01T00:00:00Z`;
+      const { data: costRows } = await (supabase as any)
+        .from("llm_cost_events")
+        .select("cost_eur")
+        .gte("ts", monthStart);
+      const realSpent = (costRows ?? []).reduce((sum: number, r: { cost_eur: number }) => sum + (r.cost_eur ?? 0), 0);
+      return { ...data, spent_eur: realSpent } as Budget;
     },
     refetchInterval: 10000,
   });
@@ -92,17 +100,12 @@ export default function LoadControlPage() {
   const { data: runningLLM } = useQuery({
     queryKey: ["running-llm-jobs"],
     queryFn: async () => {
-      const { data } = await supabase
+      // Count ALL processing jobs - provider column is often null
+      const { count } = await supabase
         .from("job_queue")
-        .select("provider")
-        .eq("status", "processing")
-        .not("provider", "is", null);
-      if (!data) return {};
-      const counts: Record<string, number> = {};
-      data.forEach((r: { provider: string | null }) => {
-        if (r.provider) counts[r.provider] = (counts[r.provider] || 0) + 1;
-      });
-      return counts;
+        .select("id", { count: "exact", head: true })
+        .eq("status", "processing");
+      return { _total: count ?? 0 } as Record<string, number>;
     },
     refetchInterval: 3000,
   });
@@ -223,7 +226,7 @@ export default function LoadControlPage() {
   });
 
   const spentPct = budget ? Math.round((budget.spent_eur / budget.budget_eur) * 100) : 0;
-  const totalRunning = Object.values(runningLLM ?? {}).reduce((a, b) => a + b, 0);
+  const totalRunning = runningLLM?._total ?? 0;
   const maxActive = budget?.max_active_packages ?? 4;
 
   return (
@@ -281,8 +284,8 @@ export default function LoadControlPage() {
           <Loader2 className="animate-spin" />
         ) : (
           rateLimits?.map((rl) => {
-            const running = (runningLLM ?? {})[rl.provider] ?? 0;
-            const pct = Math.min(100, (running / rl.max_concurrent) * 100);
+            const running = totalRunning;
+            const pct = rl.max_concurrent > 0 ? Math.min(100, (running / rl.max_concurrent) * 100) : 0;
             const isHot = pct >= 80;
             return (
               <Card key={rl.id} className={rl.is_paused ? "border-destructive/50" : isHot ? "border-yellow-500/50" : ""}>
