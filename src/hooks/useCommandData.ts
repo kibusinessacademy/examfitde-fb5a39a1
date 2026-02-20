@@ -29,6 +29,13 @@ export interface PipelinePackage {
   step_validate_exam_pool: string;
 }
 
+export interface BuildingMetrics {
+  active_by_jobs: number;
+  active_by_leases: number;
+  status_building: number;
+  zombies: number;
+}
+
 export interface CommandKPIs {
   total_packages: number;
   building: number;
@@ -45,6 +52,7 @@ export interface CommandKPIs {
   total_lessons: number;
   total_questions: number;
   total_approved: number;
+  building_metrics: BuildingMetrics;
 }
 
 export function useCommandData() {
@@ -71,6 +79,7 @@ export function useCommandData() {
         costTodayRes,
         costMtdRes,
         budgetRes,
+        buildingMetricsRes,
       ] = await Promise.all([
         sb.from('course_packages').select('status').then((r: any) => {
           const data = r.data || [];
@@ -96,6 +105,7 @@ export function useCommandData() {
         sb.from('llm_cost_events').select('cost_eur').gte('ts', todayStart.toISOString()),
         sb.from('llm_cost_events').select('cost_eur').gte('ts', monthStart.toISOString()),
         sb.from('ai_cost_budgets').select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1),
+        sb.rpc('get_building_metrics'),
       ]);
 
       const statuses = await statusRes;
@@ -214,6 +224,7 @@ export function useCommandData() {
       }
 
       setPackages(enrichedPackages);
+      const bm = buildingMetricsRes?.data as BuildingMetrics | null;
       setKpis({
         total_packages: statuses.total,
         building: statuses.building,
@@ -230,6 +241,7 @@ export function useCommandData() {
         total_lessons: totalLessons,
         total_questions: totalQuestions,
         total_approved: totalApproved,
+        building_metrics: bm ?? { active_by_jobs: 0, active_by_leases: 0, status_building: 0, zombies: 0 },
       });
       setLastRefresh(new Date());
     } catch (e) {
