@@ -106,6 +106,7 @@ const JOB_TYPE_MAP: Record<string, string> = {
   security_botnet_gate: "security-botnet-gate",
   package_queue_next: "package-queue-next",
   package_scaffold_learning_course: "package-scaffold-learning-course",
+  package_generate_glossary: "package-generate-glossary",
   package_generate_learning_content: "package-generate-learning-content",
   package_auto_seed_exam_blueprints: "package-auto-seed-exam-blueprints",
   package_validate_blueprints: "package-validate-blueprints",
