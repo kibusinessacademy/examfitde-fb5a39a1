@@ -182,20 +182,20 @@ Deno.serve(async (req) => {
       console.error("[watchdog] stale lock sweep error:", staleLockErr.message);
     }
 
-    const zombieCount = (zombieRows?.length ?? 0) + (staleLockRows?.length ?? 0);
-    if (zombieCount > 0) {
+    const zombieJobCount = (zombieRows?.length ?? 0) + (staleLockRows?.length ?? 0);
+    if (zombieJobCount > 0) {
       actions.push(`Zombie sweep: failed ${zombieRows?.length ?? 0} unlocked + ${staleLockRows?.length ?? 0} stale-locked jobs`);
     }
 
     // ── 3) Auto-heal: building without lease or jobs → reset to queued (via RPC) ──
-    const { data: zombieCount, error: zombieHealErr } = await sb.rpc(
+    const { data: healedCount, error: zombieHealErr } = await sb.rpc(
       "auto_heal_building_zombies",
       { zombie_minutes: 30 },
     );
     if (zombieHealErr) {
       console.error("[watchdog] auto_heal_building_zombies error:", zombieHealErr.message);
     }
-    const healedZombies = zombieCount ?? 0;
+    const healedZombies = healedCount ?? 0;
     if (healedZombies > 0) {
       actions.push(`Zombie building reset: ${healedZombies} packages via RPC`);
     }
@@ -280,7 +280,7 @@ Deno.serve(async (req) => {
             activeLeases,
             stale_steps: staleSteps.length,
             stale_leases: staleLeases.length,
-            zombie_jobs: zombieCount,
+            zombie_jobs: zombieJobCount,
             zombie_building: healedZombies,
           },
         });
