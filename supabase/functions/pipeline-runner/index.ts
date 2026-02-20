@@ -763,6 +763,62 @@ async function processPackage(
       );
     }
 
+    // ── INTEGRITY GATE: block exam_pool if content not ready ──
+    if (stepKey === "generate_exam_pool" && pkg.course_id) {
+      const { data: canProceed } = await sb.rpc("can_generate_exam_pool", {
+        p_course_id: pkg.course_id,
+      });
+      if (!canProceed) {
+        console.warn(`[runner] ⛔ Content integrity gate BLOCKED generate_exam_pool for ${shortId} — resetting generate_learning_content`);
+
+        // First try auto-repair (clear flags on lessons that actually have content)
+        const { data: repairResult } = await sb.rpc("repair_placeholder_lessons", {
+          p_course_id: pkg.course_id,
+        });
+        const repaired = repairResult as { fixed_flags: number; still_empty: number; ready: boolean } | null;
+
+        if (repaired?.ready) {
+          console.log(`[runner] ✅ Auto-repair fixed ${repaired.fixed_flags} flags — content now ready, proceeding`);
+        } else {
+          // Still not ready — reset generate_learning_content to re-generate missing content
+          await safeQuery(
+            sb.from("package_steps").update({
+              status: "queued",
+              job_id: null,
+              runner_id: null,
+              started_at: null,
+              last_error: `Integrity gate: ${repaired?.still_empty ?? '?'} lessons still empty — re-generating content`,
+            }).eq("package_id", packageId).eq("step_key", "generate_learning_content"),
+            "integrity_gate_reset_content",
+          );
+          // Reset this step too so it re-checks after content is done
+          await safeQuery(
+            sb.from("package_steps").update({
+              status: "queued",
+              job_id: null,
+              runner_id: null,
+              started_at: null,
+              last_error: `Waiting for content integrity (${repaired?.still_empty ?? '?'} lessons empty)`,
+            }).eq("package_id", packageId).eq("step_key", stepKey),
+            "integrity_gate_reset_exam",
+          );
+          await safeQuery(
+            sb.from("auto_heal_log").insert({
+              action_type: "integrity_gate_block",
+              trigger_source: "pipeline_runner",
+              target_type: "package",
+              target_id: packageId,
+              result_status: "healed",
+              result_detail: `Blocked exam_pool, reset generate_learning_content (${repaired?.still_empty} empty lessons, ${repaired?.fixed_flags} flags fixed)`,
+            }),
+            "log_integrity_gate",
+          );
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return { packageId, stepKey, integrity_gate_blocked: true, still_empty: repaired?.still_empty };
+        }
+      }
+    }
+
     console.log(`[runner] Enqueuing ${jobType} for step ${stepKey} (pkg ${shortId})`);
 
     const payload: Record<string, unknown> = {
