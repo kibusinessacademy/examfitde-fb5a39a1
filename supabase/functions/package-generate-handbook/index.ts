@@ -1,9 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { callAIJSON } from "../_shared/ai-client.ts";
-import { getModel } from "../_shared/model-routing.ts";
+import { callAIWithFailover, logLLMCostEvent } from "../_shared/ai-client.ts";
+import { getModelChain } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
-import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -24,7 +23,7 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
 }
 
 /**
- * Load curriculum_topics depth for a learning field to enrich handbook sections.
+ * Load curriculum_topics depth for a learning field.
  */
 async function loadFieldTopicDepth(
   sb: ReturnType<typeof createClient>,
@@ -67,19 +66,20 @@ async function loadFieldTopicDepth(
 }
 
 /**
- * Generate real handbook section content via LLM.
- * wordTarget controls section length based on exam weighting.
+ * Generate real handbook section content via LLM with failover chain.
+ * Returns { content, provider, model } or empty content on total failure.
  */
 async function generateSectionContent(
+  sb: ReturnType<typeof createClient>,
   professionName: string,
   fieldCode: string,
   fieldTitle: string,
   fieldDescription: string,
   subtopics: string[],
   wordTarget: number,
-  glossaryContext?: string,
-): Promise<string> {
-  const routed = getModel("handbook");
+  packageId: string | null,
+): Promise<{ content: string; provider: string; model: string }> {
+  const chain = getModelChain("handbook");
   const topicContext = subtopics.length > 0
     ? `\nKernthemen aus dem Rahmenplan:\n${subtopics.map(t => `- ${t}`).join("\n")}`
     : "";
@@ -101,20 +101,30 @@ ANFORDERUNGEN:
 5. Markdown mit ## und ### Überschriften
 6. Umfang: ${minWords}–${maxWords} Wörter
 7. KEINE Platzhalter
-${glossaryContext || ''}
 
 Antworte NUR mit Markdown.`;
 
   try {
-    const result = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
+    const result = await callAIWithFailover(chain, {
       messages: [
         { role: "system", content: "Du schreibst prüfungsrelevante IHK-Handbuch-Inhalte. Antworte nur mit Markdown. Sei prägnant." },
         { role: "user", content: prompt },
       ],
-      max_tokens: Math.min(1800, Math.round(wordTarget * 2.5)),
+      max_tokens: Math.min(2400, Math.round(wordTarget * 3)),
     });
+
+    // Log cost
+    try {
+      await logLLMCostEvent(sb, {
+        job_type: "generate_handbook",
+        provider: result.provider,
+        model: result.model,
+        tokens_in: result.usage?.input_tokens || 0,
+        tokens_out: result.usage?.output_tokens || 0,
+        package_id: packageId,
+        estimatedUsage: result.estimatedUsage,
+      });
+    } catch { /* non-blocking */ }
 
     let content = result.content || "";
     if (content.startsWith("{") || content.startsWith('"')) {
@@ -126,13 +136,28 @@ Antworte NUR mit Markdown.`;
     content = content.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
 
     if (content.length < 200) {
-      console.warn(`[generate-handbook] Short content for ${fieldCode}: ${content.length} chars`);
+      console.warn(`[generate-handbook] Short content for ${fieldCode} via ${result.provider}/${result.model}: ${content.length} chars`);
     }
-    return content;
+    return { content, provider: result.provider, model: result.model };
   } catch (e) {
     const msg = (e as Error).message || String(e);
-    console.error(`[generate-handbook] LLM failed for ${fieldCode}: ${msg}`);
-    return "";
+    console.error(`[generate-handbook] ALL PROVIDERS FAILED for ${fieldCode}: ${msg}`);
+
+    // Log failure cost event
+    try {
+      await logLLMCostEvent(sb, {
+        job_type: "generate_handbook",
+        provider: "unknown",
+        model: "unknown",
+        tokens_in: 0,
+        tokens_out: 0,
+        package_id: packageId,
+        status: "fail",
+        error_message: msg.slice(0, 500),
+      });
+    } catch { /* non-blocking */ }
+
+    return { content: "", provider: "none", model: "none" };
   }
 }
 
@@ -159,13 +184,9 @@ Deno.serve(async (req) => {
   }
 
   let professionName = "Ausbildungsberuf";
-  let glossaryContext = "";
   try {
     const prof = await resolveProfession(sb, { certificationId, curriculumId });
     professionName = prof.professionName;
-    // SKIP glossary generation — it was causing 30-60s LLM timeouts that ate
-    // into the section generation time budget, leading to job-runner aborts.
-    // Glossary context is nice-to-have, not critical for handbook quality.
   } catch { /* fallback */ }
 
   // 1) Load learning fields
@@ -178,7 +199,7 @@ Deno.serve(async (req) => {
   if (lfErr) throw new Error(`LF query: ${lfErr.message}`);
   if (!fields || fields.length === 0) throw new Error(`No learning_fields for curriculum ${curriculumId}`);
 
-  // ═══ NEW: Load exam blueprint weights for proportional section lengths ═══
+  // Load exam blueprint weights
   const { data: blueprintWeights } = await sb
     .from("exam_blueprints")
     .select("learning_field_id, weight_pct")
@@ -192,21 +213,19 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Calculate per-LF word targets based on exam weighting
   const BASE_WORDS = 400;
   const MAX_WORDS = 800;
   const totalWeight = Array.from(weightByLf.values()).reduce((s, v) => s + v, 0) || fields.length;
-  
+
   const lfWordTargets = new Map<string, number>();
   for (const lf of fields) {
     const w = weightByLf.get(lf.id) || (100 / fields.length);
     const normalizedWeight = w / totalWeight;
-    // Higher-weighted LFs get more words (400-800 range)
     const wordTarget = Math.round(BASE_WORDS + (MAX_WORDS - BASE_WORDS) * Math.min(1, normalizedWeight * fields.length));
     lfWordTargets.set(lf.id, Math.max(BASE_WORDS, Math.min(MAX_WORDS, wordTarget)));
   }
 
-  // ═══ NEW: Load competencies per LF for handbook section linkage ═══
+  // Load competencies per LF
   const lfIds = fields.map((f: any) => f.id);
   const { data: allComps } = await sb
     .from("competencies")
@@ -214,7 +233,6 @@ Deno.serve(async (req) => {
     .in("learning_field_id", lfIds)
     .limit(500);
 
-  // Map LF -> first competency (primary link for handbook section)
   const primaryCompByLf = new Map<string, string>();
   if (allComps?.length) {
     for (const comp of allComps) {
@@ -225,61 +243,84 @@ Deno.serve(async (req) => {
 
   console.log(`[generate-handbook] Generating for ${professionName}: ${fields.length} LFs, weighted word targets (pkg ${packageId.slice(0, 8)})`);
 
-  // 2) Delete existing handbook (idempotent rebuild)
-  const { data: existingChapters } = await sb
-    .from("handbook_chapters").select("id").eq("curriculum_id", curriculumId);
+  // 2) Delete existing handbook (idempotent rebuild) — only on first batch
+  const batchCursor = p.batch_cursor ?? 0;
 
-  if (existingChapters?.length) {
-    const chapterIds = existingChapters.map((x: { id: string }) => x.id);
-    try { await sb.from("handbook_sections").delete().in("chapter_id", chapterIds); } catch (_) { /* ignore */ }
-    try { await sb.from("handbook_chapters").delete().eq("curriculum_id", curriculumId); } catch (_) { /* ignore */ }
+  if (batchCursor === 0) {
+    const { data: existingChapters } = await sb
+      .from("handbook_chapters").select("id").eq("curriculum_id", curriculumId);
+
+    if (existingChapters?.length) {
+      const chapterIds = existingChapters.map((x: { id: string }) => x.id);
+      try { await sb.from("handbook_sections").delete().in("chapter_id", chapterIds); } catch (_) { /* ignore */ }
+      try { await sb.from("handbook_chapters").delete().eq("curriculum_id", curriculumId); } catch (_) { /* ignore */ }
+    }
   }
 
-  // 3) Create chapters (target 5)
+  // 3) Create chapters (target 5) — only on first batch
+  let chapters: Array<{ id: string; sort_order: number }>;
   const TARGET_CHAPTERS = 5;
-  const chapterSize = Math.max(1, Math.floor(fields.length / TARGET_CHAPTERS)) || 1;
 
+  if (batchCursor === 0) {
+    const chapterSize = Math.max(1, Math.floor(fields.length / TARGET_CHAPTERS)) || 1;
+    const rawChunks: typeof fields[] = [];
+    for (let i = 0; i < fields.length; i += chapterSize) rawChunks.push(fields.slice(i, i + chapterSize));
+    while (rawChunks.length > TARGET_CHAPTERS && rawChunks.length > 1) {
+      const last = rawChunks.pop()!;
+      rawChunks[rawChunks.length - 1] = [...rawChunks[rawChunks.length - 1], ...last];
+    }
+    while (rawChunks.length < TARGET_CHAPTERS) rawChunks.push([]);
+
+    const chaptersToCreate = rawChunks.map((chunk, idx) => {
+      const chapterNum = idx + 1;
+      const firstCode = chunk.length ? (chunk[0] as any).code : `X${chapterNum}`;
+      const lastCode = chunk.length ? (chunk[chunk.length - 1] as any).code : `X${chapterNum}`;
+      const titleSuffix = chunk.length ? `${firstCode}–${lastCode} Prüfungsrelevante Themen` : "Ergänzende Prüfungsthemen";
+      return {
+        curriculum_id: curriculumId,
+        chapter_key: `handbuch-${curriculumId.slice(0, 8)}-kap${chapterNum}`,
+        title: `Kapitel ${chapterNum}: ${titleSuffix}`,
+        sort_order: chapterNum,
+      };
+    });
+
+    const { data: newChapters, error: chErr } = await sb
+      .from("handbook_chapters").insert(chaptersToCreate).select("id, sort_order");
+    if (chErr) throw new Error(`Chapter insert: ${chErr.message}`);
+    if (!newChapters?.length) throw new Error("handbook_chapters: 0 rows inserted");
+    chapters = newChapters;
+  } else {
+    // Resume: load existing chapters
+    const { data: existingCh } = await sb
+      .from("handbook_chapters")
+      .select("id, sort_order")
+      .eq("curriculum_id", curriculumId)
+      .order("sort_order", { ascending: true });
+    chapters = existingCh || [];
+    if (!chapters.length) throw new Error("No chapters found for resume batch");
+  }
+
+  // Build field→chapter mapping
+  const chapterSize = Math.max(1, Math.floor(fields.length / TARGET_CHAPTERS)) || 1;
   const rawChunks: typeof fields[] = [];
   for (let i = 0; i < fields.length; i += chapterSize) rawChunks.push(fields.slice(i, i + chapterSize));
   while (rawChunks.length > TARGET_CHAPTERS && rawChunks.length > 1) {
     const last = rawChunks.pop()!;
     rawChunks[rawChunks.length - 1] = [...rawChunks[rawChunks.length - 1], ...last];
   }
-  while (rawChunks.length < TARGET_CHAPTERS) rawChunks.push([]);
-
-  const chaptersToCreate = rawChunks.map((chunk, idx) => {
-    const chapterNum = idx + 1;
-    const firstCode = chunk.length ? (chunk[0] as any).code : `X${chapterNum}`;
-    const lastCode = chunk.length ? (chunk[chunk.length - 1] as any).code : `X${chapterNum}`;
-    const titleSuffix = chunk.length ? `${firstCode}–${lastCode} Prüfungsrelevante Themen` : "Ergänzende Prüfungsthemen";
-    return {
-      curriculum_id: curriculumId,
-      chapter_key: `handbuch-${curriculumId.slice(0, 8)}-kap${chapterNum}`,
-      title: `Kapitel ${chapterNum}: ${titleSuffix}`,
-      sort_order: chapterNum,
-    };
-  });
-
-  const { data: chapters, error: chErr } = await sb
-    .from("handbook_chapters").insert(chaptersToCreate).select("id, sort_order");
-  if (chErr) throw new Error(`Chapter insert: ${chErr.message}`);
-  if (!chapters?.length) throw new Error("handbook_chapters: 0 rows inserted");
 
   const fieldToChapter: number[] = [];
   for (let ci = 0; ci < rawChunks.length; ci++) {
     for (let fi = 0; fi < rawChunks[ci].length; fi++) fieldToChapter.push(ci + 1);
   }
 
-  // 4) Generate sections ONE AT A TIME to stay within job-runner 140s timeout
-  // Each LLM call can take 30-60s; batch of 3 caused 180s+ timeouts
+  // 4) Generate sections ONE AT A TIME
   const BATCH_SIZE = 1;
-  const batchCursor = p.batch_cursor ?? 0;
   const sectionRows: Array<Record<string, unknown>> = [];
   let sectionOrder = batchCursor + 1;
   let llmSuccessCount = 0;
   let llmFailCount = 0;
 
-  // If resuming, reload existing sections count
   if (batchCursor > 0) {
     const { data: existingSections } = await sb
       .from("handbook_sections")
@@ -301,22 +342,23 @@ Deno.serve(async (req) => {
     const subtopics = await loadFieldTopicDepth(sb, curriculumId, lf.title);
     const wordTarget = lfWordTargets.get(lf.id) || BASE_WORDS;
 
-    const generatedContent = await generateSectionContent(
+    const generated = await generateSectionContent(
+      sb,
       professionName,
       lf.code,
       lf.title,
       lf.description || "",
       subtopics,
       wordTarget,
-      glossaryContext,
+      packageId,
     );
 
-    const hasRealContent = generatedContent.length >= 200;
+    const hasRealContent = generated.content.length >= 200;
     if (hasRealContent) llmSuccessCount++;
     else llmFailCount++;
 
     const contentMarkdown = hasRealContent
-      ? generatedContent
+      ? generated.content
       : buildFallbackContent(lf, subtopics);
 
     sectionRows.push({
@@ -331,12 +373,12 @@ Deno.serve(async (req) => {
       metadata: {
         depth_enriched: subtopics.length > 0,
         llm_generated: hasRealContent,
+        llm_provider: generated.provider,
+        llm_model: generated.model,
         word_target: wordTarget,
         exam_weight_pct: weightByLf.get(lf.id) || null,
       },
     });
-
-    // No inter-field delay needed with batch_size=1
   }
 
   if (sectionRows.length > 0) {
@@ -350,7 +392,6 @@ Deno.serve(async (req) => {
   console.log(`[generate-handbook] Batch ${batchCursor}-${batchEnd}/${fields.length}: ${sectionRows.length} sections, ${llmSuccessCount} LLM, ${llmFailCount} fallback${isComplete ? ' — COMPLETE' : ''}`);
 
   if (!isComplete) {
-    // Signal runner to re-invoke with next batch
     return json({
       ok: true,
       batch_complete: false,

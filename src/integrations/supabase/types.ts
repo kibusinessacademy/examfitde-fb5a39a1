@@ -17372,6 +17372,14 @@ export type Database = {
           },
         ]
       }
+      ops_batch_cursor_stuck: {
+        Row: {
+          batch_cursor: Json | null
+          job_type: string | null
+          requeues_last_2h: number | null
+        }
+        Relationships: []
+      }
       ops_blocked_packages: {
         Row: {
           autofix_last_score: number | null
@@ -17481,6 +17489,18 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_processing_stale: {
+        Row: {
+          processing_stale: number | null
+        }
+        Relationships: []
+      }
+      ops_processing_unlocked: {
+        Row: {
+          processing_unlocked: number | null
+        }
+        Relationships: []
+      }
       ops_seeding_summary: {
         Row: {
           avg_competencies_per_lf: number | null
@@ -17504,6 +17524,76 @@ export type Database = {
           version_status: string | null
         }
         Relationships: []
+      }
+      ops_step_job_drift: {
+        Row: {
+          drift_type: string | null
+          job_id: string | null
+          job_status: string | null
+          job_updated_at: string | null
+          package_id: string | null
+          step_key: string | null
+          step_status: string | null
+          step_updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
+        ]
       }
       package_economics: {
         Row: {
