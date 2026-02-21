@@ -132,7 +132,14 @@ const JOB_TYPE_MAP: Record<string, string> = {
   ingest_curriculum_document: "ingest-curriculum-document",
   generate_handbook: "package-generate-handbook",
   heal_poison_lessons: "heal-poison-lessons",
+  rework_trap_retrofit: "pool-rework-trap-retrofit",
 };
+
+// Functions that require x-rework-secret instead of Bearer auth
+const REWORK_SECRET_FUNCTIONS = new Set([
+  "pool-rework",
+  "pool-rework-trap-retrofit",
+]);
 
 // ── Adaptive Concurrency Constants ──────────────────────────────────
 const BASE_CONCURRENCY = 6;
@@ -457,13 +464,22 @@ Deno.serve(async (req) => {
         _job_type: job.job_type,
       };
 
+      // Rework functions use dedicated cron secret, not Bearer service key
+      const isReworkFn = REWORK_SECRET_FUNCTIONS.has(fnName);
+      const reworkSecret = isReworkFn ? Deno.env.get("REWORK_CRON_SECRET") : undefined;
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+        apikey: SERVICE_ROLE_KEY,
+      };
+      if (isReworkFn && reworkSecret) {
+        headers["x-rework-secret"] = reworkSecret;
+      } else {
+        headers["authorization"] = `Bearer ${SERVICE_ROLE_KEY}`;
+      }
+
       const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          apikey: SERVICE_ROLE_KEY,
-          authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-        },
+        headers,
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
