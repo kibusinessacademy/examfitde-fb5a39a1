@@ -35,12 +35,15 @@ type TestResult = {
 };
 
 /**
- * Pipeline Logic Sandbox — v3 with Auto-Heal
+ * Pipeline Logic Sandbox — v4 with Extended Stress Tests
  *
- * 19 invariant checks with automatic healing for fixable issues.
- * Heals: T03 zombies, T04 orphaned steps, T05 missing finished_at,
- *        T07 stranded leases, T11 stuck building, T12 stale heartbeats,
- *        T16 job-step sync mismatches, T17 ghost steps
+ * 24 invariant checks with automatic healing for fixable issues.
+ * v3 heals: T03 zombies, T04 orphaned steps, T05 missing finished_at,
+ *           T07 stranded leases, T11 stuck building, T12 stale heartbeats,
+ *           T16 job-step sync mismatches, T17 ghost steps
+ * v4 adds:  T20 build_progress drift, T21 failed-without-execution,
+ *           T22 step count validation, T23 error pattern analysis,
+ *           T24 lease churn / thrashing detection
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -713,6 +716,231 @@ Deno.serve(async (req) => {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // T20: build_progress Drift — AUTO-HEAL: sync to actual step %
+  // Detects: build_progress column doesn't match actual done/total ratio
+  // Root cause: build_progress set once at bootstrap, never updated
+  // ═══════════════════════════════════════════════════════════════
+  {
+    const { data: buildingPkgs } = await sb
+      .from("course_packages" as any)
+      .select("id, build_progress")
+      .eq("status", "building");
+
+    let drifted: any[] = [];
+    let healed = 0;
+    for (const pkg of buildingPkgs || []) {
+      const { data: steps } = await sb
+        .from("package_steps" as any)
+        .select("status")
+        .eq("package_id", pkg.id);
+      if (!steps || steps.length === 0) continue;
+
+      const doneCount = steps.filter((s: any) => s.status === "done").length;
+      const actualPct = Math.round((doneCount / steps.length) * 100);
+      const drift = Math.abs((pkg.build_progress || 0) - actualPct);
+
+      if (drift > 15) {
+        drifted.push({
+          package_id: pkg.id,
+          stored_progress: pkg.build_progress,
+          actual_pct: actualPct,
+          done: doneCount,
+          total: steps.length,
+          drift,
+        });
+        // Auto-heal: sync build_progress to actual
+        const { error } = await sb.from("course_packages" as any)
+          .update({ build_progress: actualPct, updated_at: new Date().toISOString() })
+          .eq("id", pkg.id);
+        if (!error) { healed++; totalHealed++; }
+      }
+    }
+    results["T20_build_progress_drift"] = {
+      pass: drifted.length === 0,
+      severity: "warning",
+      detail: drifted.length === 0
+        ? "All build_progress values match actual step completion"
+        : `${drifted.length} package(s) with >15% progress drift`,
+      healed,
+      heal_detail: healed > 0 ? `Synced build_progress for ${healed} package(s)` : undefined,
+      data: drifted.slice(0, 5),
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // T21: Failed-Without-Execution — AUTO-HEAL: re-queue if attempts < max
+  // Detects: Jobs killed by watchdog (stale-lock) that never started
+  // Root cause: Watchdog stale-lock sweep kills jobs with attempts=0
+  // ═══════════════════════════════════════════════════════════════
+  {
+    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+    const { data: neverRan } = await sb
+      .from("job_queue" as any)
+      .select("id, job_type, package_id, attempts, max_attempts, last_error")
+      .eq("status", "failed")
+      .eq("attempts", 0)
+      .gte("updated_at", sixHoursAgo)
+      .limit(30);
+
+    let healed = 0;
+    const requeued: any[] = [];
+    for (const j of neverRan || []) {
+      // Only re-queue if the package is still building and the step needs work
+      const { data: pkg } = await sb
+        .from("course_packages" as any)
+        .select("status")
+        .eq("id", j.package_id)
+        .maybeSingle();
+
+      if (pkg?.status === "building") {
+        const { error } = await sb.from("job_queue" as any)
+          .update({
+            status: "pending",
+            locked_at: null,
+            locked_by: null,
+            started_at: null,
+            last_error: `Auto-healed: re-queued (was killed with 0 attempts: ${(j.last_error || '').slice(0, 80)})`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", j.id);
+        if (!error) {
+          healed++;
+          totalHealed++;
+          requeued.push({ id: j.id, job_type: j.job_type, package_id: j.package_id?.slice(0, 8) });
+        }
+      }
+    }
+    results["T21_failed_without_execution"] = {
+      pass: (neverRan?.length || 0) === 0,
+      severity: "warning",
+      detail: (neverRan?.length || 0) === 0
+        ? "No jobs failed without execution in last 6h"
+        : `${neverRan!.length} job(s) failed with 0 attempts`,
+      healed,
+      heal_detail: healed > 0 ? `Re-queued ${healed} job(s) for retry` : undefined,
+      data: (neverRan || []).slice(0, 5).map((j: any) => ({
+        id: j.id?.slice(0, 8),
+        job_type: j.job_type,
+        last_error: j.last_error?.slice(0, 60),
+      })),
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // T22: Step Count Validation
+  // Detects: Packages with fewer steps than expected (missing init)
+  // Root cause: init_course_package_steps may have partially failed
+  // ═══════════════════════════════════════════════════════════════
+  {
+    const { data: buildingPkgs } = await sb
+      .from("course_packages" as any)
+      .select("id")
+      .eq("status", "building");
+
+    const missingSteps: any[] = [];
+    for (const pkg of (buildingPkgs || []).slice(0, 20)) {
+      const { count } = await sb
+        .from("package_steps" as any)
+        .select("step_key", { count: "exact", head: true })
+        .eq("package_id", pkg.id);
+
+      // Expect at least 14 steps (minimum pipeline config)
+      if ((count ?? 0) < 14) {
+        missingSteps.push({ package_id: pkg.id, step_count: count });
+      }
+    }
+    results["T22_step_count_validation"] = {
+      pass: missingSteps.length === 0,
+      severity: "critical",
+      detail: missingSteps.length === 0
+        ? "All building packages have ≥14 steps"
+        : `${missingSteps.length} package(s) with incomplete step initialization`,
+      data: missingSteps.slice(0, 5),
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // T23: Content Generation Error Patterns
+  // Detects: Recurring AI errors (parse failures, timeouts, model errors)
+  // Purpose: Surface systemic content generation issues
+  // ═══════════════════════════════════════════════════════════════
+  {
+    const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const { data: recentFails } = await sb
+      .from("job_queue" as any)
+      .select("job_type, last_error, last_error_code")
+      .eq("status", "failed")
+      .gte("updated_at", threeHoursAgo)
+      .not("last_error", "is", null)
+      .limit(100);
+
+    // Group errors by pattern
+    const errorPatterns = new Map<string, number>();
+    for (const j of recentFails || []) {
+      const errKey = j.last_error_code || 
+        (j.last_error?.includes("No parseable") ? "AI_PARSE_ERROR" :
+         j.last_error?.includes("timeout") ? "TIMEOUT" :
+         j.last_error?.includes("stale lock") ? "STALE_LOCK" :
+         j.last_error?.includes("rate limit") ? "RATE_LIMIT" :
+         j.last_error?.includes("500") ? "PROVIDER_ERROR" :
+         "OTHER");
+      errorPatterns.set(errKey, (errorPatterns.get(errKey) || 0) + 1);
+    }
+
+    const topErrors = [...errorPatterns.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([pattern, count]) => ({ pattern, count }));
+
+    const totalErrors = recentFails?.length || 0;
+    const hasSystemicIssue = topErrors.some(e => e.count >= 5 && e.pattern !== "STALE_LOCK");
+
+    results["T23_content_error_patterns"] = {
+      pass: !hasSystemicIssue,
+      severity: hasSystemicIssue ? "warning" : "info",
+      detail: totalErrors === 0
+        ? "No errors in last 3h"
+        : `${totalErrors} error(s): ${topErrors.map(e => `${e.pattern}(${e.count})`).join(", ")}`,
+      data: { total: totalErrors, patterns: topErrors },
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // T24: Lease Churn Analysis
+  // Detects: Packages being repeatedly leased+released (thrashing)
+  // Root cause: Step keeps failing, causing lease→release→re-lease loop
+  // ═══════════════════════════════════════════════════════════════
+  {
+    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+    const { data: recentJobs } = await sb
+      .from("job_queue" as any)
+      .select("package_id, status")
+      .gte("created_at", sixHoursAgo)
+      .not("package_id", "is", null);
+
+    const pkgJobCounts = new Map<string, { total: number; failed: number }>();
+    for (const j of recentJobs || []) {
+      if (!pkgJobCounts.has(j.package_id)) pkgJobCounts.set(j.package_id, { total: 0, failed: 0 });
+      const entry = pkgJobCounts.get(j.package_id)!;
+      entry.total++;
+      if (j.status === "failed") entry.failed++;
+    }
+
+    const thrashing = [...pkgJobCounts.entries()]
+      .filter(([, v]) => v.total >= 8 && v.failed / v.total > 0.5)
+      .map(([pkgId, v]) => ({ package_id: pkgId.slice(0, 8), total_jobs: v.total, failed: v.failed, fail_rate: Math.round(v.failed / v.total * 100) }));
+
+    results["T24_lease_churn"] = {
+      pass: thrashing.length === 0,
+      severity: thrashing.length > 0 ? "warning" : "info",
+      detail: thrashing.length === 0
+        ? "No package thrashing detected"
+        : `${thrashing.length} package(s) thrashing (>50% fail rate, ≥8 jobs)`,
+      data: thrashing.slice(0, 5),
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // SUMMARY + LOG
   // ═══════════════════════════════════════════════════════════════
   const totalTests = Object.keys(results).length;
@@ -724,7 +952,7 @@ Deno.serve(async (req) => {
 
   // Log results + healing to auto_heal_log
   await sb.from("auto_heal_log" as any).insert({
-    action_type: "pipeline_logic_test_v3",
+    action_type: "pipeline_logic_test_v4",
     trigger_source: "cron",
     result_status: totalHealed > 0 ? "healed" : (health === "HEALTHY" ? "ok" : "degraded"),
     result_detail: `${passed}/${totalTests} passed, ${totalHealed} auto-healed`,
