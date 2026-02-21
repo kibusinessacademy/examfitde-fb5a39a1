@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Pause, Play, RotateCcw, Trash2, Zap, ShieldAlert, DollarSign, Activity, Shield, Settings2, AlertTriangle } from "lucide-react";
+import { Loader2, Pause, Play, RotateCcw, Trash2, Zap, ShieldAlert, Euro, Activity, Shield, Settings2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -356,7 +356,7 @@ export default function LoadControlPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
+              <Euro className="h-4 w-4" />
               Budget ({budget?.month ?? "—"})
             </CardTitle>
           </CardHeader>

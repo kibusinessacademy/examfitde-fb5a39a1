@@ -22,9 +22,8 @@ const ALL_FEATURES = [
   { icon: Mic, label: 'Mündliche Prüfung üben' },
 ];
 
-function formatPrice(cents: number): string {
-  return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
-}
+import { formatEur } from '@/lib/timezone';
+const formatPrice = formatEur;
 
 export function ProductCards({ curriculumId }: ProductCardProps) {
   const { data: products, isLoading } = useShopProducts();

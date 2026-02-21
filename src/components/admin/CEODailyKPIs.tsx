@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { formatEurAmount } from '@/lib/timezone';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  TrendingUp, TrendingDown, DollarSign, Users, Target,
+  TrendingUp, TrendingDown, Euro, Users, Target,
   Brain, AlertTriangle, Activity, RefreshCw, Loader2,
   BarChart3, Zap, Shield, Sparkles
 } from 'lucide-react';
@@ -134,16 +135,16 @@ export default function CEODailyKPIs() {
           color={today.avg_score && today.avg_score >= 60 ? 'text-success' : 'text-warning'}
         />
         <KPICard
-          icon={<DollarSign className="h-3.5 w-3.5" />}
+          icon={<Euro className="h-3.5 w-3.5" />}
           label="LLM-Kosten"
-          value={`${today.llm_cost_eur.toFixed(2)}€`}
+          value={formatEurAmount(today.llm_cost_eur)}
           sub="Heute"
           color={today.llm_cost_eur > 50 ? 'text-destructive' : 'text-foreground'}
         />
         <KPICard
           icon={<Zap className="h-3.5 w-3.5" />}
           label="Kosten/Pass"
-          value={today.cost_per_pass_eur ? `${today.cost_per_pass_eur.toFixed(2)}€` : '—'}
+          value={today.cost_per_pass_eur ? formatEurAmount(today.cost_per_pass_eur) : '—'}
           sub="pro bestandener Prüfung"
         />
       </div>

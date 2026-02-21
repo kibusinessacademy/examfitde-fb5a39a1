@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  CheckCircle2, Clock, XCircle, Activity, DollarSign, RefreshCw, Loader2,
+  CheckCircle2, Clock, XCircle, Activity, Euro, RefreshCw, Loader2,
   FileText, Headphones, Users, AlertTriangle, TrendingUp,
   Pause, ShieldAlert, Brain, Zap, Bot,
 } from 'lucide-react';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PackageInfo, QueueHealth, BudgetInfo, AIDiagnose, PlatformKPIs } from './types';
 import { ProductGroup } from './ProductGroup';
+import { formatEurAmount } from '@/lib/timezone';
 
 const REFRESH_INTERVAL = 30_000;
 const fmtEur = (cents: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(cents / 100);
@@ -175,13 +176,13 @@ export default function HealthTab() {
         <Card>
           <CardContent className="py-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2"><DollarSign className="h-4 w-4 text-muted-foreground" /><span className="text-sm font-medium">KI-Kosten heute</span></div>
-              <span className="text-lg font-bold">€{budget.dailyCost.toFixed(2)}</span>
+              <div className="flex items-center gap-2"><Euro className="h-4 w-4 text-muted-foreground" /><span className="text-sm font-medium">KI-Kosten heute</span></div>
+              <span className="text-lg font-bold">{formatEurAmount(budget.dailyCost)}</span>
             </div>
             {budget.monthBudget > 0 && (
               <>
                 <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                  <span>Monatsbudget: €{budget.monthSpent.toFixed(0)} / €{budget.monthBudget.toFixed(0)}</span>
+                  <span>Monatsbudget: {formatEurAmount(budget.monthSpent, 0)} / {formatEurAmount(budget.monthBudget, 0)}</span>
                   <span className={cn(budgetPct > 80 && 'text-destructive font-semibold')}>{budgetPct}%</span>
                 </div>
                 <Progress value={budgetPct} className={cn("h-2", budgetPct > 80 && "[&>div]:bg-destructive")} />
@@ -223,7 +224,7 @@ export default function HealthTab() {
                 <StatBox label="Failed Jobs" value={aiDiagnose.systemHealth.failedJobs} alert={aiDiagnose.systemHealth.failedJobs > 0} />
                 <StatBox label="Pending Jobs" value={aiDiagnose.systemHealth.pendingJobs} />
                 <StatBox label="Gate Pass %" value={`${aiDiagnose.systemHealth.gatePassRate}%`} alert={aiDiagnose.systemHealth.gatePassRate < 80} />
-                <StatBox label="AI Cost MTD" value={`€${aiDiagnose.systemHealth.aiCostMtd.toFixed(2)}`} />
+                <StatBox label="AI Cost MTD" value={formatEurAmount(aiDiagnose.systemHealth.aiCostMtd)} />
                 <StatBox label="Budget %" value={`${aiDiagnose.systemHealth.budgetPct}%`} alert={aiDiagnose.systemHealth.budgetPct > 80} />
               </div>
             )}
@@ -253,8 +254,8 @@ export default function HealthTab() {
         <Link to="/admin/content"><PlatformCard icon={<FileText className="h-4 w-4" />} label="SEO-Seiten" value={kpis.seoPages} /></Link>
         <Link to="/admin/crm"><PlatformCard icon={<Users className="h-4 w-4" />} label="Nutzer" value={kpis.usersTotal} /></Link>
         <Link to="/admin/support"><PlatformCard icon={<Headphones className="h-4 w-4" />} label="Tickets" value={kpis.ticketsOpen} sublabel={`${kpis.ticketsTotal} ges.`} alert={kpis.ticketsOpen > 0} /></Link>
-        <Link to="/admin/business"><PlatformCard icon={<DollarSign className="h-4 w-4" />} label="Umsatz" value={fmtEur(kpis.revenueCents)} sublabel={`${kpis.ordersPaid} Best.`} /></Link>
-        <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten" value={`€${budget.monthSpent.toFixed(2)}`} sublabel={budget.monthBudget > 0 ? `${budgetPct}% von €${budget.monthBudget}` : `heute: €${budget.dailyCost.toFixed(2)}`} />
+        <Link to="/admin/business"><PlatformCard icon={<Euro className="h-4 w-4" />} label="Umsatz" value={fmtEur(kpis.revenueCents)} sublabel={`${kpis.ordersPaid} Best.`} /></Link>
+        <PlatformCard icon={<Activity className="h-4 w-4" />} label="KI-Kosten" value={formatEurAmount(budget.monthSpent)} sublabel={budget.monthBudget > 0 ? `${budgetPct}% von ${formatEurAmount(budget.monthBudget, 0)}` : `heute: ${formatEurAmount(budget.dailyCost)}`} />
       </div>
     </div>
   );
