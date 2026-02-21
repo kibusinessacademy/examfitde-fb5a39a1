@@ -3,7 +3,7 @@
  * Used by pool-rework and package-generate-exam-pool.
  */
 
-const DEFAULT_MATH_RATIO = 0.20;
+export const DEFAULT_MATH_RATIO = 0.20;
 
 export async function loadMathRatio(
   sb: any,

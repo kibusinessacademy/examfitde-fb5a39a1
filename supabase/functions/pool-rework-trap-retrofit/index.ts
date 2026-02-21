@@ -25,21 +25,14 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Auth: cron secret or job-runner key
+  // Auth: cron secret only
   const cronSecret = Deno.env.get("REWORK_CRON_SECRET");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const headerSecret = req.headers.get("x-rework-secret");
-  const jobRunnerKey = req.headers.get("x-job-runner-key");
-
-  const isAuthorized =
-    (cronSecret && headerSecret && headerSecret === cronSecret) ||
-    (jobRunnerKey && jobRunnerKey === serviceKey); // job-runner still uses service key internally
-
-  if (!isAuthorized) {
-    return json({ error: "Unauthorized" }, 401);
+  if (!cronSecret || !headerSecret || headerSecret !== cronSecret) {
+    return json({ error: "Unauthorized — x-rework-secret required" }, 401);
   }
 
-  const sb = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   const body = await req.json().catch(() => ({}));
   const questionIds: string[] = body.question_ids || [];

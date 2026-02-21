@@ -42,33 +42,24 @@ interface ReworkReport {
 // ── Auth Guard ────────────────────────────────────────────────────────────────
 
 function authenticateRequest(req: Request): { ok: boolean; needsJwtCheck: boolean; error?: string } {
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-  // Path 1: Dedicated cron secret (preferred for external triggers)
+  // Path 1: Dedicated cron secret (cron/runner)
   const cronSecret = Deno.env.get("REWORK_CRON_SECRET");
   const headerSecret = req.headers.get("x-rework-secret");
   if (cronSecret && headerSecret && headerSecret === cronSecret) {
     return { ok: true, needsJwtCheck: false };
   }
 
-  // Path 2: Internal job-runner / pg_cron via x-job-runner-key
-  // pg_net can construct this from service_role_key at DB level
-  const jobRunnerKey = req.headers.get("x-job-runner-key");
-  if (jobRunnerKey && jobRunnerKey === serviceKey) {
-    return { ok: true, needsJwtCheck: false };
-  }
-
-  // Path 3: Admin JWT (manual trigger from UI)
+  // Path 2: Admin JWT (manual trigger from UI)
   const authHeader = req.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.replace("Bearer ", "");
-    if (token === serviceKey) {
+    if (token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) {
       return { ok: false, needsJwtCheck: false, error: "Service role key cannot be used as Bearer token" };
     }
     return { ok: true, needsJwtCheck: true };
   }
 
-  return { ok: false, needsJwtCheck: false, error: "Missing authorization. Requires x-rework-secret, x-job-runner-key, or Admin JWT." };
+  return { ok: false, needsJwtCheck: false, error: "Missing authorization. Requires x-rework-secret or Admin JWT." };
 }
 
 Deno.serve(async (req) => {
@@ -230,17 +221,20 @@ Deno.serve(async (req) => {
           const surplus = current - targetCount;
 
           if (surplus > 10 && totalDeleted < MAX_DIFFICULTY_DELETE) {
-            const candidates = (counts[diff] || [])
-              // Prefer deleting: non-approved first, then newest
-              .sort((a, b) => {
-                const aApproved = a.qc_status === "approved" ? 1 : 0;
-                const bApproved = b.qc_status === "approved" ? 1 : 0;
-                if (aApproved !== bApproved) return aApproved - bApproved; // non-approved first
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // newest first
-              });
+            const bucket = (counts[diff] || []);
+            const nonApproved = bucket.filter((x) => x.qc_status !== "approved");
+            const approved = bucket.filter((x) => x.qc_status === "approved");
+
+            // newest first within each group
+            nonApproved.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            approved.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
             const toDelete = Math.min(surplus, MAX_DIFFICULTY_DELETE - totalDeleted);
-            const ids = candidates.slice(0, toDelete).map((q) => q.id);
+            // prefer non-approved; only delete approved if absolutely necessary (cap 10)
+            const ids = [
+              ...nonApproved.map((x) => x.id),
+              ...approved.map((x) => x.id).slice(0, 10),
+            ].slice(0, toDelete);
 
             for (let i = 0; i < ids.length; i += 50) {
               await sb.from("exam_questions").delete().in("id", ids.slice(i, i + 50));
