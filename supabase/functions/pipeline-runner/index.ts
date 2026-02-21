@@ -788,8 +788,8 @@ async function processPackage(
     // ── INTEGRITY GATE: block exam_pool if content not ready ──
     // Only applies to FULL track packages that have learning content steps.
     // Exam-First packages skip this check entirely (no lessons to validate).
-    const hasLearningContent = (steps ?? []).some((s: StepRow) => s.step_key === "generate_learning_content");
-    if (stepKey === "generate_exam_pool" && pkg.course_id && hasLearningContent) {
+    const hasActiveLearningContent = (steps ?? []).some((s: StepRow) => s.step_key === "generate_learning_content" && s.status !== "skipped");
+    if (stepKey === "generate_exam_pool" && pkg.course_id && hasActiveLearningContent) {
       const { data: canProceed } = await sb.rpc("can_generate_exam_pool", {
         p_course_id: pkg.course_id,
       });
