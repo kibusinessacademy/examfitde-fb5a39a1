@@ -6,8 +6,10 @@ import { cn } from '@/lib/utils';
 import NotificationBell from '@/components/admin/NotificationBell';
 import {
   LogOut, ChevronLeft, ChevronDown, Search, Brain, Pin, Clock, X,
+  Sparkles,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEffect } from 'react';
 
 interface Props {
@@ -56,11 +58,16 @@ export default function AdminSidebar({ collapsed, mobileOpen, onCollapse, onMobi
         "hidden lg:flex items-center gap-2 h-14 px-4 border-b border-border shrink-0",
         collapsed && "justify-center px-2"
       )}>
-        <div className="p-1.5 rounded-lg bg-primary shrink-0">
-          <Brain className="h-4 w-4 text-primary-foreground" />
+        <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary to-primary/70 shadow-sm shrink-0">
+          <Sparkles className="h-4 w-4 text-primary-foreground" />
         </div>
-        {!collapsed && <span className="font-bold text-sm text-foreground truncate flex-1">ExamFit Admin</span>}
-        {!collapsed && <NotificationBell />}
+        {!collapsed && (
+          <>
+            <span className="font-bold text-sm text-foreground truncate flex-1">ExamFit</span>
+            <Badge variant="outline" className="text-[9px] h-4 px-1 font-mono text-muted-foreground border-border/60">Admin</Badge>
+            <NotificationBell />
+          </>
+        )}
       </div>
 
       {/* Search trigger */}
@@ -125,6 +132,7 @@ export default function AdminSidebar({ collapsed, mobileOpen, onCollapse, onMobi
         )}
 
         {/* Main Nav */}
+        <TooltipProvider delayDuration={300}>
         {adminNavModules.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path
@@ -133,29 +141,44 @@ export default function AdminSidebar({ collapsed, mobileOpen, onCollapse, onMobi
           const hasChildren = item.children && item.children.length > 0;
           const badgeCount = getBadgeCount(item.badgeKey);
 
+          const linkEl = (
+            <Link
+              to={hasChildren ? item.children![0].path : item.path}
+              className={cn(
+                "flex items-center gap-3 px-3 py-3 lg:py-2.5 rounded-lg text-sm transition-all duration-150 min-h-[44px] group",
+                isActive
+                  ? "bg-primary/10 text-primary font-medium shadow-sm shadow-primary/5"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                collapsed && "lg:justify-center lg:px-2"
+              )}
+            >
+              <Icon className={cn("h-4.5 w-4.5 shrink-0 transition-transform", isActive && "scale-110")} />
+              <span className={cn("flex-1", collapsed && "lg:hidden")}>{item.label}</span>
+              {badgeCount > 0 && !collapsed && (
+                <Badge variant="destructive" className="text-[10px] h-5 min-w-[20px] px-1 justify-center animate-pulse">
+                  {badgeCount}
+                </Badge>
+              )}
+              {badgeCount > 0 && collapsed && (
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive hidden lg:block" />
+              )}
+              {hasChildren && <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", collapsed && "lg:hidden", isActive && "rotate-180")} />}
+            </Link>
+          );
+
           return (
-            <div key={item.path}>
-              <Link
-                to={hasChildren ? item.children![0].path : item.path}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-3 lg:py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
-                  isActive
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                  collapsed && "lg:justify-center lg:px-2"
-                )}
-              >
-                <Icon className="h-4.5 w-4.5 shrink-0" />
-                <span className={cn("flex-1", collapsed && "lg:hidden")}>{item.label}</span>
-                {badgeCount > 0 && !collapsed && (
-                  <Badge variant="destructive" className="text-[10px] h-5 min-w-[20px] px-1 justify-center">
-                    {badgeCount}
-                  </Badge>
-                )}
-                {hasChildren && <ChevronDown className={cn("h-3 w-3 transition-transform", collapsed && "lg:hidden", isActive && "rotate-180")} />}
-              </Link>
+            <div key={item.path} className="relative">
+              {collapsed ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>{linkEl}</TooltipTrigger>
+                  <TooltipContent side="right" className="hidden lg:block">
+                    <span>{item.label}</span>
+                    {badgeCount > 0 && <Badge variant="destructive" className="ml-2 text-[10px] h-4 px-1">{badgeCount}</Badge>}
+                  </TooltipContent>
+                </Tooltip>
+              ) : linkEl}
               {hasChildren && isActive && (
-                <div className={cn("ml-7 mt-0.5 space-y-0.5", collapsed && "lg:hidden")}>
+                <div className={cn("ml-7 mt-0.5 space-y-0.5 border-l-2 border-primary/20 pl-2", collapsed && "lg:hidden")}>
                   {item.children!.map(child => {
                     const childActive = location.pathname === child.path;
                     return (
@@ -178,6 +201,7 @@ export default function AdminSidebar({ collapsed, mobileOpen, onCollapse, onMobi
             </div>
           );
         })}
+        </TooltipProvider>
       </nav>
 
       {/* Bottom */}

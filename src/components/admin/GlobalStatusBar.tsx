@@ -36,7 +36,7 @@ export default function GlobalStatusBar() {
   const lightPulse = light !== 'green' ? 'animate-pulse' : '';
 
   return (
-    <div className="h-10 bg-card/80 backdrop-blur-sm border-b border-border flex items-center gap-3 px-4 text-xs overflow-x-auto shrink-0">
+    <div className="h-10 bg-card/90 backdrop-blur-md border-b border-border/60 flex items-center gap-3 px-4 text-xs overflow-x-auto shrink-0 shadow-sm">
       {/* Traffic Light */}
       <div className="flex items-center gap-1.5 shrink-0">
         <div className={cn("w-2.5 h-2.5 rounded-full", lightColor, lightPulse)} />

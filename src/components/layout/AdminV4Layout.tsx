@@ -117,14 +117,14 @@ export default function AdminV4Layout() {
         <ActiveCourseProvider>
           <ActiveCourseBar />
           {/* Breadcrumbs */}
-          <div className="px-4 lg:px-6 pt-4 lg:pt-5">
-            <nav className="flex items-center gap-1 text-xs text-muted-foreground mb-4">
-              <Link to="/admin/command" className="hover:text-foreground transition-colors">Admin</Link>
+           <div className="px-4 lg:px-6 pt-4 lg:pt-5">
+            <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
+              <Link to="/admin/command" className="hover:text-foreground transition-colors font-medium">Admin</Link>
               {pathParts.map((part, i) => (
-                <span key={i} className="flex items-center gap-1">
-                  <span>/</span>
+                <span key={i} className="flex items-center gap-1.5">
+                  <span className="text-border">/</span>
                   {i === pathParts.length - 1 ? (
-                    <span className="text-foreground font-medium">{breadcrumbLabels[part] || part}</span>
+                    <span className="text-foreground font-semibold bg-primary/5 px-2 py-0.5 rounded-md">{breadcrumbLabels[part] || part}</span>
                   ) : (
                     <Link
                       to={`/admin/${pathParts.slice(0, i + 1).join('/')}`}
