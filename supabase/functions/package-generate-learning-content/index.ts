@@ -563,15 +563,42 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         },
       );
 
-      // Parse tool call from failover result
+      // Parse tool call from failover result — with robust fallback
       let content: any;
       if (result.toolCalls && result.toolCalls.length > 0) {
-        content = JSON.parse(result.toolCalls[0].function.arguments);
-      } else if (result.content) {
-        try { content = JSON.parse(result.content); } catch { /* fallthrough */ }
+        try {
+          content = JSON.parse(result.toolCalls[0].function.arguments);
+        } catch (parseErr) {
+          console.warn(`[gen-content] Tool call JSON parse failed for ${lesson.id}: ${(parseErr as Error).message}`);
+        }
+      }
+      // Fallback 1: Try parsing result.content as JSON directly
+      if (!content && result.content) {
+        const raw = result.content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        try { content = JSON.parse(raw); } catch { /* fallthrough to extraction */ }
+      }
+      // Fallback 2: Extract JSON object from free-text response
+      if (!content && result.content) {
+        const firstBrace = result.content.indexOf("{");
+        const lastBrace = result.content.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          try {
+            content = JSON.parse(result.content.slice(firstBrace, lastBrace + 1));
+          } catch {
+            console.warn(`[gen-content] JSON extraction failed for ${lesson.id}`);
+          }
+        }
+      }
+      // Fallback 3: For non-minicheck, wrap raw HTML content
+      if (!content && !isMiniCheck && result.content && result.content.length > 200) {
+        const htmlContent = result.content.trim();
+        if (htmlContent.includes("<h3") || htmlContent.includes("<p") || htmlContent.includes("<strong")) {
+          content = { html: htmlContent, objectives: [] };
+          console.warn(`[gen-content] Used raw HTML fallback for ${lesson.id}`);
+        }
       }
       if (!content || (!content.html && !content.questions)) {
-        throw new Error("No parseable tool response from AI");
+        throw new Error(`No parseable tool response from AI (provider=${result.provider}, model=${result.model}, contentLength=${result.content?.length || 0})`);
       }
 
       if (!isMiniCheck) {
