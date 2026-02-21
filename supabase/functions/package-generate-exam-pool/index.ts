@@ -8,6 +8,7 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
 import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD, computeHallucinationRisk, computeVariationScore, loadMasteryContext, buildMasteryFeedbackSuffix } from "../_shared/prompt-kit.ts";
+import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
@@ -373,20 +374,9 @@ interface BlueprintInfo {
   typical_exam_trap?: string | null;
 }
 
-// ─── Error Tag Vocabulary (fixed, SSOT) ──────────────────────────────────────
-
-const ERROR_TAG_VOCABULARY = [
-  // Calculation-specific
-  "netto_brutto", "percent_base", "skonto_rabatt_order", "rounding_units",
-  "calculation_error", "unit_conversion_error", "omission_error",
-  "sign_error", "order_of_operations", "base_value_error",
-  // Knowledge / conceptual
-  "definition_confusion", "recht_frist", "prozess_schritt", "zustaendigkeit_rolle",
-  "dateninterpretation", "typical_distractor_plausible_wrong",
-  // Additional common model outputs
-  "missing_step", "wrong_formula", "verwechslung", "zeitraum_fehler",
-  "falsche_bezugsgroesse", "grenzwert_fehler",
-] as const;
+// ─── Error Tag Vocabulary — imported from SSOT shared module ─────────────────
+// Re-exported for backward compat within this file
+// Source: supabase/functions/_shared/error-tag-vocabulary.ts
 
 function buildTurboPrompt(
   bp: BlueprintInfo,

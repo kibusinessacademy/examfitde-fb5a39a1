@@ -299,3 +299,6 @@ verify_jwt = false
 
 [functions.pool-rework]
 verify_jwt = false
+
+[functions.pool-rework-trap-retrofit]
+verify_jwt = false
