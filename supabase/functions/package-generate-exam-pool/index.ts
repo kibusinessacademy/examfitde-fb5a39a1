@@ -585,21 +585,22 @@ async function generateTurboQuestions(
         continue;
       }
       console.log(`[ExamPool-v5] AI error (${provider}/${model}): ${errMsg}`);
-      return { saved: 0, training: 0 };
+      return { saved: 0, training: 0, gateFailed: 0 };
     }
   }
 
-  if (!result?.content) return { saved: 0, training: 0 };
+  if (!result?.content) return { saved: 0, training: 0, gateFailed: 0 };
 
   const parsed = repairJSON(result.content);
   if (!parsed) {
     console.log(`[ExamPool-v5] JSON repair failed for BP ${bp.id.slice(0, 8)}`);
-    return { saved: 0, training: 0 };
+    return { saved: 0, training: 0, gateFailed: 0 };
   }
 
   const questions = Array.isArray(parsed) ? parsed : [parsed];
   let saved = 0;
   let training = 0;
+  let gateFailed = 0;
 
   for (const q of questions) {
     if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
@@ -758,11 +759,11 @@ async function generateTurboQuestions(
         trap_tags: rawTrapTags,
         distractor_meta: auditedMeta,
         ai_generated: true,
-        status,
+        status: "training",  // gate-failed → always training status
         qc_status: "tier1_failed",
       });
       if (error && error.code !== "23505") console.log(`[ExamPool-v5] Insert error: ${error.message}`);
-      if (!error) training++;
+      if (!error) gateFailed++;
       continue;
     }
 
@@ -786,7 +787,13 @@ async function generateTurboQuestions(
         : questionType, // calculation, case_study pass through
       // Hebel 3: Trap tags + distractor metadata
       trap_tags: rawTrapTags,
-      distractor_meta: rawDistractorMeta,
+      distractor_meta: {
+        raw: rawDistractorMeta,
+        gate_fail: false,
+        qc_reason: null,
+        required: requiredMeta,
+        actual: rawDistractorMeta.length,
+      },
       ai_generated: true,
       status,
       qc_status: assignedPool === "exam" ? "approved" : "pending",
@@ -800,7 +807,7 @@ async function generateTurboQuestions(
       else training++;
     }
   }
-  return { saved, training };
+  return { saved, training, gateFailed };
 }
 
 function simpleHash(text: string): string {
@@ -1115,11 +1122,11 @@ Deno.serve(async (req) => {
         const cognitiveLevel = cogEntries[cogIdx][0];
 
         try {
-          const { saved, training } = await generateTurboQuestions(
+          const genResult = await generateTurboQuestions(
             sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, cognitiveLevel, existingHashes, existingNgramSets, professionName, glossaryContext
           );
-          questionsThisChunk += saved;
-          trainingThisChunk += training;
+          questionsThisChunk += genResult.saved;
+          trainingThisChunk += genResult.training;
         } catch (e: unknown) {
           console.log(`[ExamPool-v5] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
         }
