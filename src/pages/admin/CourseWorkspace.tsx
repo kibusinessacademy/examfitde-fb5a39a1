@@ -27,15 +27,23 @@ import { useTrackConfig, type FeatureFlags } from '@/hooks/useTrackConfig';
 
 /* ───── stepper config ───── */
 const ALL_PIPELINE_STEPS = [
-  { key: 'scaffold_learning_course', label: 'Lernkurs',         icon: BookOpen,       shortLabel: 'Kurs',  flag: 'has_learning_course' },
-  { key: 'generate_exam_pool',      label: 'Prüfungsfragen',    icon: ClipboardCheck, shortLabel: 'Exam',  flag: 'has_exam_trainer' },
-  { key: 'validate_blueprints',     label: 'QG Blueprints',     icon: Shield,         shortLabel: 'QG BP', flag: 'has_exam_trainer' },
-  { key: 'generate_oral_exam',      label: 'Mündliche',         icon: MessageSquare,  shortLabel: 'Oral',  flag: 'has_oral_exam_trainer' },
-  { key: 'build_ai_tutor_index',    label: 'AI Tutor',          icon: Bot,            shortLabel: 'Tutor', flag: 'has_ai_tutor' },
-  { key: 'validate_tutor_index',    label: 'QG Tutor',          icon: Shield,         shortLabel: 'QG T',  flag: 'has_ai_tutor' },
-  { key: 'generate_handbook',       label: 'Handbuch',          icon: FileText,       shortLabel: 'Buch',  flag: 'has_handbook' },
-  { key: 'run_integrity_check',     label: 'Qualitätsprüfung',  icon: Shield,         shortLabel: 'QA',    flag: null },
-  { key: 'auto_publish',            label: 'Veröffentlichen',   icon: Rocket,         shortLabel: 'Pub',   flag: null },
+  { key: 'scaffold_learning_course',  label: 'Lernkurs Scaffold',   icon: BookOpen,       shortLabel: 'Scaffold', flag: 'has_learning_course' },
+  { key: 'generate_glossary',         label: 'Glossar',             icon: FileText,       shortLabel: 'Glossar',  flag: 'has_learning_course' },
+  { key: 'generate_learning_content', label: 'Lerninhalte',         icon: BookOpen,       shortLabel: 'Inhalt',   flag: 'has_learning_course' },
+  { key: 'validate_learning_content', label: 'QG Lerninhalte',      icon: Shield,         shortLabel: 'QG Lern',  flag: 'has_learning_course' },
+  { key: 'auto_seed_exam_blueprints', label: 'Exam Blueprints',     icon: ClipboardCheck, shortLabel: 'BP Seed',  flag: 'has_exam_trainer' },
+  { key: 'validate_blueprints',       label: 'QG Blueprints',       icon: Shield,         shortLabel: 'QG BP',    flag: 'has_exam_trainer' },
+  { key: 'generate_exam_pool',        label: 'Prüfungsfragen',      icon: ClipboardCheck, shortLabel: 'Exam',     flag: 'has_exam_trainer' },
+  { key: 'validate_exam_pool',        label: 'QG Exam Pool',        icon: Shield,         shortLabel: 'QG Exam',  flag: 'has_exam_trainer' },
+  { key: 'generate_oral_exam',        label: 'Mündliche',           icon: MessageSquare,  shortLabel: 'Oral',     flag: 'has_oral_exam_trainer' },
+  { key: 'validate_oral_exam',        label: 'QG Mündliche',        icon: Shield,         shortLabel: 'QG Oral',  flag: 'has_oral_exam_trainer' },
+  { key: 'build_ai_tutor_index',      label: 'AI Tutor',            icon: Bot,            shortLabel: 'Tutor',    flag: 'has_ai_tutor' },
+  { key: 'validate_tutor_index',      label: 'QG Tutor',            icon: Shield,         shortLabel: 'QG Tut',   flag: 'has_ai_tutor' },
+  { key: 'generate_handbook',         label: 'Handbuch',            icon: FileText,       shortLabel: 'Buch',     flag: 'has_handbook' },
+  { key: 'validate_handbook',         label: 'QG Handbuch',         icon: Shield,         shortLabel: 'QG Buch',  flag: 'has_handbook' },
+  { key: 'run_integrity_check',       label: 'Qualitätsprüfung',    icon: Shield,         shortLabel: 'QA',       flag: null },
+  { key: 'quality_council',           label: 'QA Council',          icon: Brain,          shortLabel: 'Council',  flag: null },
+  { key: 'auto_publish',              label: 'Veröffentlichen',     icon: Rocket,         shortLabel: 'Pub',      flag: null },
 ];
 
 /* ───── error diagnosis ───── */
@@ -489,8 +497,8 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
     setRebuildingStep(stepKey);
     try {
       // Reset the step to pending, then re-enqueue
-      await (supabase as any).from('course_package_build_steps')
-        .update({ status: 'pending', error_message: null, log: null, started_at: null, finished_at: null, duration_ms: null })
+      await (supabase as any).from('package_steps')
+        .update({ status: 'queued', last_error: null, meta: null, started_at: null, finished_at: null, attempts: 0 })
         .eq('package_id', packageId).eq('step_key', stepKey);
 
       const jobPayload = {
@@ -629,7 +637,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
 
   const canPublish = pkg.integrity_passed && pkg.council_approved && buildSteps.every((s: any) => s.status === 'done');
   const isBuilding = pkg.status === 'building';
-  const progressPct = pkg.build_progress || Math.round((doneCount / Math.max(totalCount, 1)) * 100);
+  const progressPct = buildSteps.length > 0 ? Math.round((doneCount / Math.max(totalCount, 1)) * 100) : (pkg.build_progress || 0);
 
   return (
     <div className="space-y-6">
@@ -642,17 +650,17 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
 
       <PageExplainer
         title="Wie funktioniert der Course Workspace?"
-        description="Der zentrale Arbeitsplatz für ein einzelnes Kurspaket. Hier steuerst du den gesamten Produktions-Workflow: Von der Council-Freigabe über den 7-Step-Build bis zur Veröffentlichung. Drei Tabs geben dir verschiedene Perspektiven."
+        description="Der zentrale Arbeitsplatz für ein einzelnes Kurspaket. Hier steuerst du den gesamten Produktions-Workflow: Von der Council-Freigabe über den 17-Step-Build bis zur Veröffentlichung. Drei Tabs geben dir verschiedene Perspektiven."
         workflow={[
           { label: 'Curriculum' },
           { label: 'Council' },
-          { label: '7-Step Build', active: true },
+          { label: '17-Step Build', active: true },
           { label: 'Integrity' },
           { label: 'Publish' },
         ]}
         actions={[
-          '"Pipeline starten" – Ein Klick startet: Council → Build (7 Steps) → Quality Gate → Auto-Publish',
-          '"Build Pipeline" Tab – Visueller 7-Schritte-Stepper: Lernkurs, Exam, Oral, Tutor, Handbuch, QA, Publish',
+          '"Pipeline starten" – Ein Klick startet: Council → Build (17 Steps) → Quality Gate → Auto-Publish',
+          '"Build Pipeline" Tab – Visueller 17-Schritte-Stepper mit allen Generierungs- und Validierungsschritten',
           '"Produktmodule" Tab – Status aller 6 Module (Learning, Exam, Oral, Tutor, Handbook) mit Counts und Health',
           '"Council" Tab – Council-Diskussionen, Votes, Empfehlungen. Admin kann Approve/Reject überschreiben',
           'Einzelne Steps können per "Retry" erneut ausgeführt werden bei Fehlern',
@@ -837,7 +845,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
           </CardHeader>
           <CardContent className="space-y-2">
             {failedSteps.map((step: any) => {
-              const diagnosis = diagnoseError(step.error_message);
+              const diagnosis = diagnoseError(step.last_error || step.error_message);
               const stepDef = PIPELINE_STEPS.find(s => s.key === (step.step_key || step.step_name));
               return (
                 <div key={step.id || step.step_key} className="bg-destructive/5 border border-destructive/20 rounded-lg p-3">
@@ -852,8 +860,8 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                       Retry
                     </Button>
                   </div>
-                  {step.error_message && (
-                    <p className="text-xs text-destructive mt-1 font-mono truncate max-w-full">{step.error_message}</p>
+                  {(step.last_error || step.error_message) && (
+                    <p className="text-xs text-destructive mt-1 font-mono truncate max-w-full">{step.last_error || step.error_message}</p>
                   )}
                   {diagnosis && (
                     <div className="mt-2 flex items-start gap-2 bg-warning/5 border border-warning/20 rounded p-2">
@@ -894,7 +902,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                 const isRunning = status === 'running';
                 const stepKey = stepDef.key;
                 const isExpanded = expandedStep === stepKey;
-                const hasDetails = step?.log || step?.error_message;
+                const hasDetails = step?.meta || step?.log || step?.last_error || step?.error_message;
                 const Icon = stepDef.icon;
 
                 return (
@@ -915,9 +923,13 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                           <span className="text-sm truncate block">{stepDef.label}</span>
                           <span className="text-[9px] text-muted-foreground/60 font-mono block">{stepKey}</span>
                         </div>
-                        {step?.duration_ms && (
+                        {step?.duration_ms ? (
                           <span className="text-[10px] text-muted-foreground">({(step.duration_ms / 1000).toFixed(1)}s)</span>
-                        )}
+                        ) : step?.started_at && step?.finished_at ? (
+                          <span className="text-[10px] text-muted-foreground">
+                            ({((new Date(step.finished_at).getTime() - new Date(step.started_at).getTime()) / 1000).toFixed(1)}s)
+                          </span>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {(isDone || isFailed) && !isBuilding && (
@@ -939,31 +951,35 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                     </button>
                     {isExpanded && hasDetails && (
                       <div className="px-3 pb-3 pt-0 space-y-2">
-                        {step?.error_message && (
-                          <p className="text-xs text-destructive bg-destructive/5 p-2 rounded font-mono break-all">{step.error_message}</p>
+                        {(step?.last_error || step?.error_message) && (
+                          <p className="text-xs text-destructive bg-destructive/5 p-2 rounded font-mono break-all">{step.last_error || step.error_message}</p>
                         )}
-                        {step?.log && Object.keys(step.log).length > 0 && (
-                          <div className="bg-muted/30 p-2 rounded space-y-1">
-                            {Object.entries(step.log as Record<string, unknown>)
-                              .filter(([k]) => k !== 'ok' && k !== 'note')
-                              .map(([key, val]) => (
-                                <div key={key} className="flex items-center justify-between text-[11px]">
-                                  <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</span>
-                                  <span className="font-mono text-foreground">
-                                    {typeof val === 'boolean' ? (val ? '✅' : '❌') :
-                                     typeof val === 'number' ? val.toLocaleString('de-DE') :
-                                     typeof val === 'string' ? val :
-                                     JSON.stringify(val)}
-                                  </span>
-                                </div>
-                              ))}
-                            {(step.log as any)?.note && (
-                              <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-border/20">
-                                {(step.log as any).note}
-                              </p>
-                            )}
-                          </div>
-                        )}
+                        {(() => {
+                          const logData = step?.meta || step?.log;
+                          if (!logData || Object.keys(logData).length === 0) return null;
+                          return (
+                            <div className="bg-muted/30 p-2 rounded space-y-1">
+                              {Object.entries(logData as Record<string, unknown>)
+                                .filter(([k]) => k !== 'ok' && k !== 'note' && k !== 'batch_complete')
+                                .map(([key, val]) => (
+                                  <div key={key} className="flex items-center justify-between text-[11px]">
+                                    <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</span>
+                                    <span className="font-mono text-foreground">
+                                      {typeof val === 'boolean' ? (val ? '✅' : '❌') :
+                                       typeof val === 'number' ? val.toLocaleString('de-DE') :
+                                       typeof val === 'string' ? val :
+                                       JSON.stringify(val)}
+                                    </span>
+                                  </div>
+                                ))}
+                              {(logData as any)?.note && (
+                                <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-border/20">
+                                  {(logData as any).note}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {step?.started_at && (
                           <p className="text-[10px] text-muted-foreground">
                             Gestartet: {new Date(step.started_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}

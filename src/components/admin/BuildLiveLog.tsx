@@ -49,36 +49,38 @@ function formatLogMessage(step: any): LogEntry {
   const stepLabel = STEP_LABELS[step.step_key] || step.step_key;
   let message = '';
   let detail = '';
+  // package_steps uses 'meta' instead of 'log', and 'last_error' instead of 'error_message'
+  const log = step.meta || step.log;
+  const errorMessage = step.last_error || step.error_message;
 
   if (step.status === 'running') {
     message = `⏳ ${stepLabel} wird ausgeführt…`;
   } else if (step.status === 'done') {
     message = `✅ ${stepLabel} abgeschlossen`;
-    if (step.log) {
-      const log = typeof step.log === 'string' ? JSON.parse(step.log) : step.log;
-      if (log.target && log.blueprints) {
-        detail = `${log.blueprints} Blueprints → Ziel ${log.target} Fragen`;
-      } else if (log.lessons_created) {
-        detail = `${log.lessons_created} Lektionen erstellt`;
-      } else if (log.score !== undefined) {
-        detail = `Score: ${log.score}/100 · ${log.issues || 0} Issues · ${log.warnings || 0} Warnungen`;
-      } else if (log.scenarios_generated) {
-        detail = `${log.scenarios_generated} Szenarien generiert`;
-      } else if (log.chapters_generated) {
-        detail = `${log.chapters_generated} Kapitel generiert`;
-      } else if (log.note) {
-        detail = log.note;
+    if (log) {
+      const parsed = typeof log === 'string' ? JSON.parse(log) : log;
+      if (parsed.target && parsed.blueprints) {
+        detail = `${parsed.blueprints} Blueprints → Ziel ${parsed.target} Fragen`;
+      } else if (parsed.lessons_created) {
+        detail = `${parsed.lessons_created} Lektionen erstellt`;
+      } else if (parsed.score !== undefined) {
+        detail = `Score: ${parsed.score}/100 · ${parsed.issues || 0} Issues · ${parsed.warnings || 0} Warnungen`;
+      } else if (parsed.scenarios_generated) {
+        detail = `${parsed.scenarios_generated} Szenarien generiert`;
+      } else if (parsed.chapters_generated) {
+        detail = `${parsed.chapters_generated} Kapitel generiert`;
+      } else if (parsed.note) {
+        detail = parsed.note;
       } else {
-        // Generic: show key stats
-        const keys = Object.keys(log).filter(k => k !== 'ok' && k !== 'note');
+        const keys = Object.keys(parsed).filter(k => k !== 'ok' && k !== 'note' && k !== 'batch_complete');
         if (keys.length > 0 && keys.length <= 4) {
-          detail = keys.map(k => `${k}: ${JSON.stringify(log[k])}`).join(' · ');
+          detail = keys.map(k => `${k}: ${JSON.stringify(parsed[k])}`).join(' · ');
         }
       }
     }
   } else if (step.status === 'failed') {
     message = `❌ ${stepLabel} fehlgeschlagen`;
-    detail = step.error_message || '';
+    detail = errorMessage || '';
   } else {
     message = `⏸ ${stepLabel} wartet`;
   }
@@ -105,7 +107,7 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
   const fetchLogs = async () => {
     if (paused) return;
     const { data, error } = await (supabase as any)
-      .from('course_package_build_steps')
+      .from('package_steps')
       .select('*')
       .eq('package_id', packageId)
       .order('started_at', { ascending: true, nullsFirst: false });

@@ -143,11 +143,11 @@ export function useCoursePackageDetail(packageId: string | undefined) {
     queryKey: ['course-package-steps', packageId],
     queryFn: async () => {
       if (!packageId) return [];
-      const { data, error } = await supabase
-        .from('course_package_build_steps')
+      const { data, error } = await (supabase as any)
+        .from('package_steps')
         .select('*')
         .eq('package_id', packageId)
-        .order('sort_order');
+        .order('created_at');
       if (error) throw error;
       return (data || []) as BuildStep[];
     },

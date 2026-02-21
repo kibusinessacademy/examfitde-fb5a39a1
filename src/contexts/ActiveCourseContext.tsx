@@ -52,7 +52,7 @@ export function ActiveCourseProvider({ children }: { children: ReactNode }) {
           : Promise.resolve({ count: 0 }),
         sb.from('ai_tutor_context_index').select('index_version').eq('package_id', courseId).order('created_at', { ascending: false }).limit(1),
         sb.from('course_package_locks').select('locked_at').eq('package_id', courseId).eq('released', false).limit(1),
-        sb.from('course_package_build_steps').select('status, meta').eq('package_id', courseId),
+        sb.from('package_steps').select('status, meta').eq('package_id', courseId),
       ]);
 
       const steps = stepsRes.data || [];
