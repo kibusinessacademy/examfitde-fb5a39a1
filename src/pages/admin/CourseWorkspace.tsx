@@ -610,17 +610,17 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
     return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
-  // Compute step states - use meta.ok as primary signal for reset steps
+  // Compute step states - use actual DB status as single source of truth
   const stepMap = new Map<string, any>();
   for (const s of buildSteps) stepMap.set(s.step_key, s);
 
-  const isStepEffectivelyDone = (s: any) => 
-    s?.status === 'done' || (s?.meta && (s.meta as any)?.ok === true);
+  const isStepCompleted = (s: any) => 
+    s?.status === 'done' || s?.status === 'skipped';
 
-  const doneCount = buildSteps.filter(isStepEffectivelyDone).length;
+  const doneCount = buildSteps.filter(isStepCompleted).length;
   const totalCount = buildSteps.length || PIPELINE_STEPS.length;
-  const failedSteps = buildSteps.filter((s: any) => s.status === 'failed' && !(s.meta as any)?.ok);
-  const runningStep = buildSteps.find((s: any) => s.status === 'running' && !(s.meta as any)?.batch_complete);
+  const failedSteps = buildSteps.filter((s: any) => s.status === 'failed');
+  const runningStep = buildSteps.find((s: any) => s.status === 'running');
 
   // Find current step index for "Step X von 7"
   const currentStepIdx = runningStep
@@ -743,13 +743,10 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
             <div className="flex items-center gap-0 overflow-x-auto pb-3">
               {PIPELINE_STEPS.map((step, i) => {
                 const buildStep = stepMap.get(step.key);
-                const rawStatus = buildStep?.status || 'pending';
-                // If step is "queued" but meta.ok === true, it was previously completed
-                // (reset by sequence guard). Show as "done" with indicator
-                const hasCompletedMeta = isStepEffectivelyDone(buildStep) && rawStatus !== 'done';
-                const status = (rawStatus === 'done' || hasCompletedMeta) ? 'done' : rawStatus;
+                const status = buildStep?.status || 'pending';
                 const Icon = step.icon;
                 const isDone = status === 'done';
+                const isSkipped = status === 'skipped';
                 const isFailed = status === 'failed';
                 const isRunning = status === 'running';
 
@@ -759,17 +756,20 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                       <div className={cn(
                         "w-7 h-7 rounded-full flex items-center justify-center transition-colors",
                         isDone ? 'bg-success text-success-foreground' :
+                        isSkipped ? 'bg-muted-foreground/30 text-muted-foreground' :
                         isRunning ? 'bg-primary text-primary-foreground' :
                         isFailed ? 'bg-destructive text-destructive-foreground' :
                         'bg-muted text-muted-foreground'
                       )}>
                         {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> :
+                         isSkipped ? <CheckCircle2 className="h-3.5 w-3.5 opacity-50" /> :
                          isFailed ? <XCircle className="h-3.5 w-3.5" /> :
                          isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
                          <Icon className="h-3.5 w-3.5" />}
                       </div>
                       <span className={cn("text-[9px] text-center leading-tight",
                         isDone ? 'text-success font-medium' :
+                        isSkipped ? 'text-muted-foreground' :
                         isRunning ? 'text-primary font-medium' :
                         isFailed ? 'text-destructive font-medium' :
                         'text-muted-foreground'
@@ -778,7 +778,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                       </span>
                     </div>
                     {i < PIPELINE_STEPS.length - 1 && (
-                      <div className={cn("w-4 h-0.5 shrink-0", isDone ? 'bg-success' : 'bg-border')} />
+                      <div className={cn("w-4 h-0.5 shrink-0", (isDone || isSkipped) ? 'bg-success' : 'bg-border')} />
                     )}
                   </div>
                 );
@@ -894,10 +894,9 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
             <div className="space-y-1">
               {PIPELINE_STEPS.map((stepDef, idx) => {
                 const step = stepMap.get(stepDef.key);
-                const rawStatus = step?.status || 'queued';
-                const hasCompletedMeta = isStepEffectivelyDone(step) && rawStatus !== 'done';
-                const status = (rawStatus === 'done' || hasCompletedMeta) ? 'done' : rawStatus;
+                const status = step?.status || 'queued';
                 const isDone = status === 'done';
+                const isSkipped = status === 'skipped';
                 const isFailed = status === 'failed';
                 const isRunning = status === 'running';
                 const stepKey = stepDef.key;
@@ -941,10 +940,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                         )}
                         <Badge variant="outline" className={cn("text-[10px]",
                           isDone ? 'bg-success/10 text-success' :
+                          isSkipped ? 'bg-muted text-muted-foreground' :
                           isFailed ? 'bg-destructive/10 text-destructive' :
                           isRunning ? 'bg-primary/10 text-primary' : ''
                         )}>
-                          {hasCompletedMeta ? 'done ↻' : status}
+                          {status}
                         </Badge>
                         {hasDetails && (isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />)}
                       </div>
