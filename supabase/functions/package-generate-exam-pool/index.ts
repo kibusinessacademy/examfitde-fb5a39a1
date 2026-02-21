@@ -1139,6 +1139,8 @@ Deno.serve(async (req) => {
     const lfProportionalTarget = p.lf_proportional_target ?? lfTarget;
     const effectiveTarget = isFanOut ? lfTarget : examTarget;
     const perBlueprint = Math.max(3, Math.ceil(effectiveTarget / bps.length));
+    const chunkStartedAt = new Date().toISOString(); // SSOT timestamp for this chunk
+    const chunkPlanned = Math.min(effectiveTarget - (preTotal > 0 ? 0 : 0), Math.max(effectiveTarget - preTotal, 0), HARD_CAP_QUESTIONS - preTotal);
     let questionsThisChunk = 0;
     let trainingThisChunk = 0;
     let currentBpIndex = bpIndex;
@@ -1189,30 +1191,31 @@ Deno.serve(async (req) => {
     }
 
     // ═══ DETERMINISTIC CALC QUOTA BACKFILL ═══
-    // After main loop, check if calculation questions are under-represented due to
-    // disproportionate rejection rates. If so, do targeted calc-only generation.
+    // Target based on planned chunk size (stable, not affected by backfill itself)
     const calcRatio = QUESTION_TYPE_MIX.calculation ?? 0.20;
-    const calcTarget = Math.ceil(questionsThisChunk * calcRatio);
-    // Count how many calc questions were actually inserted this chunk
+    const calcTarget = Math.max(1, Math.ceil(chunkPlanned * calcRatio));
+    // Count calc questions inserted ONLY during this chunk (SSOT timestamp)
     const { count: calcInsertedCount } = await sb.from("exam_questions")
       .select("id", { count: "exact", head: true })
       .eq("curriculum_id", curriculumId)
       .eq("question_type", "calculation")
-      .gte("created_at", new Date(Date.now() - 10 * 60 * 1000).toISOString()); // last 10 min proxy for "this chunk"
+      .gte("created_at", chunkStartedAt);
     const calcInserted = calcInsertedCount ?? 0;
     const calcDeficit = calcTarget - calcInserted;
 
     if (calcDeficit > 0 && bps.length > 0 && (preTotal + questionsThisChunk) < HARD_CAP_QUESTIONS) {
-      const maxCalcAttempts = calcDeficit * 4 + 10; // generous retry budget
-      let calcBackfilled = 0;
+      const maxCalcAttempts = calcDeficit * 4 + 10;
+      let calcBackfillSaved = 0;
       let calcAttempts = 0;
-      // Pick random blueprints for backfill variety
-      const shuffledBps = [...bps].sort(() => Math.random() - 0.5);
+      // Filter to calc-capable blueprints (trap_spec present = has calculation structure)
+      const calcBps = bps.filter((b: any) => b.trap_spec != null);
+      const backfillBps = calcBps.length > 0 ? calcBps : bps; // fallback to all if none have trap_spec
+      const shuffledBps = [...backfillBps].sort(() => Math.random() - 0.5);
       const calcDiffs: string[] = ["medium", "hard", "easy", "very_hard"];
 
-      console.log(`[ExamPool-v5] CALC_BACKFILL: deficit=${calcDeficit}, target=${calcTarget}, inserted=${calcInserted}, maxAttempts=${maxCalcAttempts}`);
+      console.log(`[ExamPool-v5] CALC_BACKFILL: deficit=${calcDeficit}, target=${calcTarget}, inserted=${calcInserted}, calcBps=${calcBps.length}/${bps.length}, maxAttempts=${maxCalcAttempts}`);
 
-      for (let i = 0; calcBackfilled < calcDeficit && calcAttempts < maxCalcAttempts; i++) {
+      for (let i = 0; calcBackfillSaved < calcDeficit && calcAttempts < maxCalcAttempts; i++) {
         const bp = shuffledBps[i % shuffledBps.length] as BlueprintInfo & { max_variations: number | null };
         const diff = calcDiffs[calcAttempts % calcDiffs.length];
         const cog = cogEntries[calcAttempts % cogEntries.length][0];
@@ -1222,25 +1225,26 @@ Deno.serve(async (req) => {
             sb, bp, AI_QUESTIONS_PER_CALL, diff, "calculation", cog,
             existingHashes, existingNgramSets, professionName, glossaryContext
           );
-          calcBackfilled += genResult.saved;
-          questionsThisChunk += genResult.saved;
+          calcBackfillSaved += genResult.saved;
           trainingThisChunk += genResult.training;
         } catch (e: unknown) {
           console.log(`[ExamPool-v5] CALC_BACKFILL attempt ${calcAttempts} FAIL: ${(e as Error)?.message}`);
         }
         calcAttempts++;
 
-        // Hard cap safety
-        if ((preTotal + questionsThisChunk) >= HARD_CAP_QUESTIONS) break;
+        if ((preTotal + questionsThisChunk + calcBackfillSaved) >= HARD_CAP_QUESTIONS) break;
       }
 
-      if (calcBackfilled < calcDeficit) {
-        console.log(`[ExamPool-v5] CALC_QUOTA_NOT_REACHED: wanted=${calcDeficit}, got=${calcBackfilled} after ${calcAttempts} attempts`);
+      // Apply backfill total to chunk counter ONCE at the end
+      questionsThisChunk += calcBackfillSaved;
+
+      if (calcBackfillSaved < calcDeficit) {
+        console.log(`[ExamPool-v5] CALC_QUOTA_NOT_REACHED: wanted=${calcDeficit}, got=${calcBackfillSaved} after ${calcAttempts} attempts`);
       } else {
-        console.log(`[ExamPool-v5] CALC_BACKFILL complete: +${calcBackfilled} calc questions in ${calcAttempts} attempts`);
+        console.log(`[ExamPool-v5] CALC_BACKFILL complete: +${calcBackfillSaved} calc in ${calcAttempts} attempts`);
       }
     } else if (calcDeficit <= 0) {
-      console.log(`[ExamPool-v5] CALC_QUOTA OK: target=${calcTarget}, inserted=${calcInserted} — no backfill needed`);
+      console.log(`[ExamPool-v5] CALC_QUOTA OK: target=${calcTarget}, inserted=${calcInserted}, chunkPlanned=${chunkPlanned} — no backfill needed`);
     }
 
     // Count actual total
