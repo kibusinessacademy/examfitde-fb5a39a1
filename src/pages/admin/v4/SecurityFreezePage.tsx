@@ -159,7 +159,7 @@ export default function SecurityFreezePage() {
             Letzter Security Audit
             {audit && (
               <Badge variant="outline" className="text-[10px] ml-2">
-                {new Date(audit.created_at).toLocaleString('de-DE')}
+                {new Date(audit.created_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}
               </Badge>
             )}
           </CardTitle>

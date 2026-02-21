@@ -266,8 +266,8 @@ export default function ReviewInboxPage() {
             </div>
           </div>
           <CardDescription className="text-xs">
-            Erstellt: {new Date(r.created_at).toLocaleString('de-DE')}
-            {r.reviewed_at && ` • Reviewed: ${new Date(r.reviewed_at).toLocaleString('de-DE')}`}
+            Erstellt: {new Date(r.created_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}
+            {r.reviewed_at && ` • Reviewed: ${new Date(r.reviewed_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

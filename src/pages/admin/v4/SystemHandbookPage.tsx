@@ -358,7 +358,7 @@ const HANDBOOK_SECTIONS: Section[] = [
 function generatePlainText(sections: Section[]): string {
   let out = '═══════════════════════════════════════════\n';
   out += '  ExamFit System-Handbuch\n';
-  out += '  Exportiert: ' + new Date().toLocaleString('de-DE') + '\n';
+  out += '  Exportiert: ' + new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }) + '\n';
   out += '═══════════════════════════════════════════\n\n';
 
   for (const s of sections) {
@@ -410,7 +410,7 @@ code{background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px}
 @media print{body{padding:20px}h2{break-before:auto}}
 </style></head><body>
 <h1>ExamFit System-Handbuch</h1>
-<p class="meta">Exportiert: ${new Date().toLocaleString('de-DE')}</p>`;
+<p class="meta">Exportiert: ${new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}</p>`;
 
   for (const s of sections) {
     html += `<h2>${s.title}</h2>`;

@@ -184,7 +184,7 @@ function OpsOverview() {
                   {checks.passed}/{checks.total} Checks bestanden · {snapshot.duration_ms}ms
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Letzter Scan: {new Date(snapshot.snapshot_at).toLocaleString('de-DE')}
+                  Letzter Scan: {new Date(snapshot.snapshot_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}
                 </p>
               </div>
             </div>
@@ -793,7 +793,7 @@ function DeadLetterCenter() {
                 <span className="text-xs text-muted-foreground">{j.attempts}/{j.max_attempts} Versuche</span>
               </div>
               {j.last_error && <p className="text-xs text-destructive mt-1 truncate">{j.last_error}</p>}
-              <p className="text-[10px] text-muted-foreground mt-1">{new Date(j.created_at).toLocaleString('de-DE')}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{new Date(j.created_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}</p>
             </CardContent>
           </Card>
         ))}

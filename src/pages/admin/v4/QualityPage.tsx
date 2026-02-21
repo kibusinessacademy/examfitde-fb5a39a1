@@ -143,7 +143,7 @@ function SecurityHealthCard() {
           </div>
         </div>
         <p className="text-[10px] text-muted-foreground mt-2">
-          Geprüft: {new Date(health.checked_at).toLocaleString('de-DE')}
+          Geprüft: {new Date(health.checked_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}
         </p>
       </CardContent>
     </Card>
