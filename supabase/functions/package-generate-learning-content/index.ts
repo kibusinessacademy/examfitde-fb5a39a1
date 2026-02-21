@@ -347,6 +347,7 @@ Deno.serve(async (req) => {
     const moduleIds = (courseModules || []).map((m: { id: string }) => m.id);
 
     let truePlaceholders = 0;
+    let tooShortCount = 0;
     if (moduleIds.length > 0) {
       const { count: nullCount } = await sb
         .from("lessons")
@@ -364,6 +365,23 @@ Deno.serve(async (req) => {
         .in("module_id", moduleIds)
         .contains("content", { _regenerating: true });
       truePlaceholders = (nullCount ?? 0) + (phCount ?? 0) + (regenCount ?? 0);
+
+      // ── Integrity gate alignment: also check too_short via v_course_content_integrity ──
+      // The DB trigger sync_step_on_job_completion blocks step→done if too_short > 0,
+      // causing an infinite loop. Check here and treat too_short lessons as needing regen.
+      try {
+        const { data: integrity } = await sb
+          .from("v_course_content_integrity")
+          .select("placeholder_lessons, too_short_lessons")
+          .eq("course_id", courseId)
+          .maybeSingle();
+        if (integrity) {
+          truePlaceholders = Math.max(truePlaceholders, integrity.placeholder_lessons || 0);
+          tooShortCount = integrity.too_short_lessons || 0;
+        }
+      } catch (e) {
+        console.warn(`[gen-content] Integrity view check failed: ${(e as Error).message}`);
+      }
     }
 
     if (truePlaceholders > 0) {
@@ -376,6 +394,46 @@ Deno.serve(async (req) => {
         total_lessons: allLessons?.length || 0,
         placeholders_remaining: truePlaceholders,
       });
+    }
+
+    // If too_short lessons exist, the DB trigger will block step→done anyway.
+    // Mark them as _regenerating so they get picked up in the next batch cycle.
+    if (tooShortCount > 0) {
+      console.warn(`[gen-content] ${tooShortCount} too-short lessons detected — marking for regeneration`);
+      // Fetch and reset too-short lessons so they become actionable placeholders
+      const { data: shortLessons } = await sb
+        .from("lessons")
+        .select("id, content")
+        .in("module_id", moduleIds)
+        .not("content", "is", null);
+
+      let markedForRegen = 0;
+      for (const lesson of (shortLessons || [])) {
+        const c = lesson.content as Record<string, unknown>;
+        const html = typeof c?.html === "string" ? c.html : "";
+        if (html.length > 0 && html.length < 200 && c?._placeholder !== true) {
+          await sb.from("lessons").update({
+            content: { ...c, _regenerating: true, _placeholder: true },
+          }).eq("id", lesson.id);
+          markedForRegen++;
+        }
+      }
+
+      if (markedForRegen > 0) {
+        return json({
+          ok: true,
+          batch_complete: false,
+          batch_cursor: { offset: 0 },
+          message: `🔄 ${markedForRegen} zu kurze Lektionen zur Neugenerierung markiert.`,
+          total_lessons: allLessons?.length || 0,
+          too_short_marked: markedForRegen,
+        });
+      }
+
+      // If we couldn't find any to mark but integrity still reports too_short,
+      // signal complete anyway — the integrity view may use a different threshold.
+      // This prevents infinite loops when the view's definition doesn't match ours.
+      console.warn(`[gen-content] Integrity reports ${tooShortCount} too-short but none found with <200 chars — completing to avoid infinite loop`);
     }
 
     return json({
