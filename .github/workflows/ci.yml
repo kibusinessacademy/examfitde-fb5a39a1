@@ -21,17 +21,119 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-
       - name: Install dependencies
         run: npm ci
-
       - name: TypeScript check
         run: npx tsc --noEmit
-
       - name: Production build
         run: npm run build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 1
+
+  unit-tests:
+    name: Vitest Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Run tests
+        run: npx vitest run --reporter=verbose
+
+  bundle-size:
+    name: Bundle Size Monitor
+    needs: typecheck-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Analyse bundle size
+        id: size
+        run: |
+          TOTAL=$(du -sb dist | awk '{print $1}')
+          TOTAL_KB=$((TOTAL / 1024))
+          JS_SIZE=$(find dist -name '*.js' -exec du -cb {} + | tail -1 | awk '{print $1}')
+          JS_KB=$((JS_SIZE / 1024))
+          CSS_SIZE=$(find dist -name '*.css' -exec du -cb {} + | tail -1 | awk '{print $1}')
+          CSS_KB=$((CSS_SIZE / 1024))
+          echo "total_kb=$TOTAL_KB" >> $GITHUB_OUTPUT
+          echo "js_kb=$JS_KB" >> $GITHUB_OUTPUT
+          echo "css_kb=$CSS_KB" >> $GITHUB_OUTPUT
+          echo "## 📦 Bundle Size Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Asset | Size |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Total | ${TOTAL_KB} KB |" >> $GITHUB_STEP_SUMMARY
+          echo "| JS | ${JS_KB} KB |" >> $GITHUB_STEP_SUMMARY
+          echo "| CSS | ${CSS_KB} KB |" >> $GITHUB_STEP_SUMMARY
+      - name: Comment PR with size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const totalKb = '${{ steps.size.outputs.total_kb }}';
+            const jsKb = '${{ steps.size.outputs.js_kb }}';
+            const cssKb = '${{ steps.size.outputs.css_kb }}';
+            const body = `## 📦 Bundle Size Report\n| Asset | Size |\n|-------|------|\n| **Total** | ${totalKb} KB |\n| JS | ${jsKb} KB |\n| CSS | ${cssKb} KB |`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+  lighthouse:
+    name: Lighthouse CI
+    needs: typecheck-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Run Lighthouse
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          uploadArtifacts: true
+          configPath: .github/lighthouse/lighthouserc.json
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: npm audit (critical + high)
+        run: npm audit --audit-level=high || true
+      - name: Report summary
+        run: |
+          echo "## 🔒 Security Audit" >> $GITHUB_STEP_SUMMARY
+          npm audit --json 2>/dev/null | node -e "
+            const data = require('fs').readFileSync('/dev/stdin','utf8');
+            try {
+              const r = JSON.parse(data);
+              const v = r.metadata?.vulnerabilities || {};
+              console.log('| Severity | Count |');
+              console.log('|----------|-------|');
+              for (const [k,c] of Object.entries(v)) console.log('| ' + k + ' | ' + c + ' |');
+            } catch { console.log('No vulnerabilities found.'); }
+          " >> $GITHUB_STEP_SUMMARY
