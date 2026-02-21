@@ -296,3 +296,6 @@ verify_jwt = false
 
 [functions.pipeline-forensic-test]
 verify_jwt = false
+
+[functions.pool-rework]
+verify_jwt = false
