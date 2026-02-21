@@ -53,9 +53,15 @@ let QUESTION_TYPE_MIX: Record<string, number> = {
  * Redistributes non-calculation types proportionally to hit the target ratio.
  */
 function applyMathRatio(mathRatio: number): void {
-  if (mathRatio <= 0 || mathRatio > 0.50) return; // safety bounds
+  if (mathRatio <= 0 || mathRatio > 0.50) {
+    console.log(`[ExamPool-v5] mathRatio out of bounds (${mathRatio}) — ignored`);
+    return;
+  }
   const currentCalc = QUESTION_TYPE_MIX.calculation ?? 0.20;
-  if (Math.abs(currentCalc - mathRatio) < 0.01) return; // already correct
+  if (Math.abs(currentCalc - mathRatio) < 0.01) {
+    console.log(`[ExamPool-v5] mathRatio already at ${(mathRatio * 100).toFixed(0)}% — no change needed`);
+    return;
+  }
   
   const remaining = 1 - mathRatio;
   const otherTotal = Object.entries(QUESTION_TYPE_MIX)
@@ -370,9 +376,16 @@ interface BlueprintInfo {
 // ─── Error Tag Vocabulary (fixed, SSOT) ──────────────────────────────────────
 
 const ERROR_TAG_VOCABULARY = [
+  // Calculation-specific
   "netto_brutto", "percent_base", "skonto_rabatt_order", "rounding_units",
+  "calculation_error", "unit_conversion_error", "omission_error",
+  "sign_error", "order_of_operations", "base_value_error",
+  // Knowledge / conceptual
   "definition_confusion", "recht_frist", "prozess_schritt", "zustaendigkeit_rolle",
   "dateninterpretation", "typical_distractor_plausible_wrong",
+  // Additional common model outputs
+  "missing_step", "wrong_formula", "verwechslung", "zeitraum_fehler",
+  "falsche_bezugsgroesse", "grenzwert_fehler",
 ] as const;
 
 function buildTurboPrompt(
@@ -707,8 +720,11 @@ async function generateTurboQuestions(
     const mappedCogLevel = cogLevelMap[forcedCogLevel] || forcedCogLevel;
 
     // ── Hebel 3: Extract and validate distractor metadata ──
+    // Normalize trap_tags: lowercase, replace spaces/hyphens with underscore, then match vocabulary
     const rawTrapTags: string[] = Array.isArray(q.trap_tags) 
-      ? q.trap_tags.filter((t: string) => ERROR_TAG_VOCABULARY.includes(t as any))
+      ? q.trap_tags
+          .map((t: string) => String(t).toLowerCase().replace(/[\s-]+/g, "_").trim())
+          .filter((t: string) => ERROR_TAG_VOCABULARY.includes(t as any))
       : [];
     // correctIdx already declared above (line ~609)
     const rawDistractorMeta: Array<{option_index: number; error_tag: string; why_wrong: string}> = 
