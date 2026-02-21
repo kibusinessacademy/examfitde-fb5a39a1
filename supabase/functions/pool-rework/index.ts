@@ -2,20 +2,14 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
+import { loadMathRatio } from "../_shared/math-ratio.ts";
 
 /**
- * pool-rework — Scheduled Batch Job: Incremental Quality Upgrades
+ * pool-rework — Scheduled Batch Job: Incremental Quality Upgrades (PLANNER)
  *
- * PLANNER ONLY — this function checks KPIs and enqueues worker jobs.
- * It does NOT run LLM calls or long operations inline.
- *
- * Four rework dimensions:
- *   1. CALC_QUOTA  — Backfill calculation questions to hit math_ratio target
- *   2. DIFFICULTY  — Delete surplus-difficulty questions + enqueue regen (no blind relabel)
- *   3. QC_REPLACE  — Snapshot + delete tier1_failed/needs_revision, trigger regen
- *   4. TRAP_TAGS   — Enqueue retrofit jobs (no inline LLM)
- *
- * Auth: Requires Admin JWT OR x-job-runner-key matching SERVICE_ROLE_KEY.
+ * Auth: REWORK_CRON_SECRET via x-rework-secret header (cron/runner)
+ *       OR Admin JWT (manual trigger).
+ *       Service Role Key is NEVER used as auth factor.
  */
 
 const MAX_PACKAGES_PER_RUN = 5;
@@ -47,28 +41,34 @@ interface ReworkReport {
 
 // ── Auth Guard ────────────────────────────────────────────────────────────────
 
-function authenticateRequest(req: Request): { ok: boolean; error?: string } {
+function authenticateRequest(req: Request): { ok: boolean; needsJwtCheck: boolean; error?: string } {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // Path 1: Internal cron / job-runner with shared secret
-  const jobRunnerKey = req.headers.get("x-job-runner-key");
-  if (jobRunnerKey && jobRunnerKey === serviceKey) {
-    return { ok: true };
+  // Path 1: Dedicated cron secret (preferred for external triggers)
+  const cronSecret = Deno.env.get("REWORK_CRON_SECRET");
+  const headerSecret = req.headers.get("x-rework-secret");
+  if (cronSecret && headerSecret && headerSecret === cronSecret) {
+    return { ok: true, needsJwtCheck: false };
   }
 
-  // Path 2: Admin JWT (validated downstream via validateAuth)
+  // Path 2: Internal job-runner / pg_cron via x-job-runner-key
+  // pg_net can construct this from service_role_key at DB level
+  const jobRunnerKey = req.headers.get("x-job-runner-key");
+  if (jobRunnerKey && jobRunnerKey === serviceKey) {
+    return { ok: true, needsJwtCheck: false };
+  }
+
+  // Path 3: Admin JWT (manual trigger from UI)
   const authHeader = req.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.replace("Bearer ", "");
-    // Block service role key used as Bearer token
     if (token === serviceKey) {
-      return { ok: false, error: "Service role key cannot be used as Bearer token" };
+      return { ok: false, needsJwtCheck: false, error: "Service role key cannot be used as Bearer token" };
     }
-    // Token will be validated below in the handler
-    return { ok: true };
+    return { ok: true, needsJwtCheck: true };
   }
 
-  return { ok: false, error: "Missing authorization. Requires Admin JWT or x-job-runner-key." };
+  return { ok: false, needsJwtCheck: false, error: "Missing authorization. Requires x-rework-secret, x-job-runner-key, or Admin JWT." };
 }
 
 Deno.serve(async (req) => {
@@ -76,26 +76,22 @@ Deno.serve(async (req) => {
     return new Response(null, {
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-job-runner-key",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-rework-secret",
       },
     });
   }
 
-  // ── Auth check ──
+  // ── Auth ──
   const auth = authenticateRequest(req);
-  if (!auth.ok) {
-    return json({ error: auth.error }, 401);
-  }
+  if (!auth.ok) return json({ error: auth.error }, 401);
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // If Bearer token (not job-runner), validate admin role
-  const jobRunnerKey = req.headers.get("x-job-runner-key");
-  const isJobRunner = jobRunnerKey && jobRunnerKey === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  if (!isJobRunner) {
+  // If JWT path, validate admin role
+  if (auth.needsJwtCheck) {
     const authHeader = req.headers.get("Authorization")!;
     const token = authHeader.replace("Bearer ", "");
     const anonClient = createClient(
@@ -104,18 +100,12 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
     const { data: { user }, error: userErr } = await anonClient.auth.getUser(token);
-    if (userErr || !user) {
-      return json({ error: "Invalid or expired token" }, 401);
-    }
+    if (userErr || !user) return json({ error: "Invalid or expired token" }, 401);
     const { data: roleRow } = await sb
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
+      .from("user_roles").select("role")
+      .eq("user_id", user.id).eq("role", "admin")
       .maybeSingle();
-    if (!roleRow) {
-      return json({ error: "Admin access required" }, 403);
-    }
+    if (!roleRow) return json({ error: "Admin access required" }, 403);
   }
 
   const body = await req.json().catch(() => ({}));
@@ -142,7 +132,6 @@ Deno.serve(async (req) => {
   if (!packages?.length) return json({ ok: true, message: "No packages to rework" });
 
   console.log(`[pool-rework] Starting rework for ${packages.length} package(s)`);
-
   const reports: ReworkReport[] = [];
 
   for (const pkg of packages) {
@@ -169,25 +158,9 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // ── Load math_ratio from certification_catalog (SSOT) ──
-    let calcRatio = 0.20; // fallback
-    try {
-      const searchName = professionName.split("/")[0].trim();
-      const { data: catRow } = await sb
-        .from("certification_catalog")
-        .select("math_ratio")
-        .ilike("title", `%${searchName}%`)
-        .limit(1)
-        .maybeSingle();
-      if (catRow?.math_ratio && catRow.math_ratio > 0) {
-        calcRatio = catRow.math_ratio;
-        console.log(`[pool-rework] math_ratio from catalog: ${calcRatio} for "${searchName}"`);
-      } else {
-        console.log(`[pool-rework] No catalog match for "${searchName}", using default ${calcRatio}`);
-      }
-    } catch (e) {
-      console.log(`[pool-rework] catalog lookup error: ${(e as Error).message}`);
-    }
+    // ── Load math_ratio from SSOT shared module ──
+    const calcRatio = await loadMathRatio(sb, professionName);
+    console.log(`[pool-rework] math_ratio=${calcRatio} for "${professionName}"`);
 
     // ════════════════════════════════════════════════════════════════
     // DIMENSION 1: CALC QUOTA BACKFILL
@@ -197,7 +170,6 @@ Deno.serve(async (req) => {
         .from("exam_questions")
         .select("id", { count: "exact", head: true })
         .eq("curriculum_id", pkg.curriculum_id);
-
       const { count: calcCount } = await sb
         .from("exam_questions")
         .select("id", { count: "exact", head: true })
@@ -206,113 +178,100 @@ Deno.serve(async (req) => {
 
       const total = totalCount ?? 0;
       const calc = calcCount ?? 0;
-      const calcTarget = Math.ceil(total * calcRatio);
-      const deficit = calcTarget - calc;
-
+      const deficit = Math.ceil(total * calcRatio) - calc;
       report.calcBackfill.deficit = deficit;
 
       if (deficit > 0) {
-        const cappedDeficit = Math.min(deficit, MAX_CALC_BACKFILL);
+        const capped = Math.min(deficit, MAX_CALC_BACKFILL);
         const { error: jobErr } = await sb.from("job_queue").insert({
           function_name: "package-generate-exam-pool",
           payload: {
-            package_id: pkg.id,
-            curriculum_id: pkg.curriculum_id,
+            package_id: pkg.id, curriculum_id: pkg.curriculum_id,
             certification_id: pkg.certification_id,
-            rework_mode: "calc_backfill_only",
-            calc_deficit: cappedDeficit,
+            rework_mode: "calc_backfill_only", calc_deficit: capped,
           },
-          status: "pending",
-          job_type: "generate_exam_pool",
-          curriculum_id: pkg.curriculum_id,
-          package_id: pkg.id,
+          status: "pending", job_type: "generate_exam_pool",
+          curriculum_id: pkg.curriculum_id, package_id: pkg.id,
         });
-
         if (jobErr && !jobErr.message?.includes("duplicate")) {
-          console.log(`[pool-rework] Calc backfill job enqueue failed: ${jobErr.message}`);
+          console.log(`[pool-rework] Calc backfill enqueue failed: ${jobErr.message}`);
         } else {
           report.calcBackfill.triggered = true;
-          console.log(`[pool-rework] CALC_BACKFILL queued: deficit=${cappedDeficit}/${deficit}`);
+          console.log(`[pool-rework] CALC_BACKFILL queued: deficit=${capped}/${deficit}`);
         }
       } else {
         console.log(`[pool-rework] CALC_OK: ${calc}/${total} = ${(100 * calc / Math.max(total, 1)).toFixed(1)}%`);
       }
-    } catch (e) {
-      console.log(`[pool-rework] Calc check error: ${(e as Error).message}`);
-    }
+    } catch (e) { console.log(`[pool-rework] Calc error: ${(e as Error).message}`); }
 
     // ════════════════════════════════════════════════════════════════
-    // DIMENSION 2: DIFFICULTY RE-BALANCING (Delete + Regen, NOT relabel)
+    // DIMENSION 2: DIFFICULTY RE-BALANCING (Delete surplus + Regen)
     // ════════════════════════════════════════════════════════════════
     try {
+      // Load with quality-relevant fields for smart deletion
       const { data: diffDist } = await sb
         .from("exam_questions")
-        .select("difficulty, id")
+        .select("difficulty, id, qc_status, question_type, created_at")
         .eq("curriculum_id", pkg.curriculum_id);
 
       if (diffDist && diffDist.length > 0) {
         const total = diffDist.length;
-        const counts: Record<string, string[]> = {};
+        const counts: Record<string, typeof diffDist> = {};
         for (const q of diffDist) {
           const d = q.difficulty || "medium";
           if (!counts[d]) counts[d] = [];
-          counts[d].push(q.id);
+          counts[d].push(q);
         }
 
         let totalDeleted = 0;
-
         for (const [diff, targetRatio] of Object.entries(TARGET_DIFFICULTY)) {
           const targetCount = Math.round(total * targetRatio);
           const current = counts[diff]?.length ?? 0;
           const surplus = current - targetCount;
 
           if (surplus > 10 && totalDeleted < MAX_DIFFICULTY_DELETE) {
+            const candidates = (counts[diff] || [])
+              // Prefer deleting: non-approved first, then newest
+              .sort((a, b) => {
+                const aApproved = a.qc_status === "approved" ? 1 : 0;
+                const bApproved = b.qc_status === "approved" ? 1 : 0;
+                if (aApproved !== bApproved) return aApproved - bApproved; // non-approved first
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // newest first
+              });
+
             const toDelete = Math.min(surplus, MAX_DIFFICULTY_DELETE - totalDeleted);
-            // Delete surplus questions (from the end of the list, least recently created)
-            const ids = counts[diff]!.slice(-toDelete);
+            const ids = candidates.slice(0, toDelete).map((q) => q.id);
 
             for (let i = 0; i < ids.length; i += 50) {
-              const chunk = ids.slice(i, i + 50);
-              await sb.from("exam_questions").delete().in("id", chunk);
+              await sb.from("exam_questions").delete().in("id", ids.slice(i, i + 50));
             }
-
             totalDeleted += toDelete;
-            console.log(`[pool-rework] DIFF_DELETE: ${toDelete} surplus "${diff}" questions removed`);
+            console.log(`[pool-rework] DIFF_DELETE: ${toDelete} surplus "${diff}" removed (non-approved first)`);
           }
         }
 
         report.difficultyRebalance.deleted = totalDeleted;
-
         if (totalDeleted > 0) {
-          // Enqueue regen to fill the gap with correct difficulty distribution
           const { error: jobErr } = await sb.from("job_queue").insert({
             function_name: "package-generate-exam-pool",
             payload: {
-              package_id: pkg.id,
-              curriculum_id: pkg.curriculum_id,
+              package_id: pkg.id, curriculum_id: pkg.curriculum_id,
               certification_id: pkg.certification_id,
-              rework_mode: "difficulty_rebalance",
-              replacement_count: totalDeleted,
+              rework_mode: "difficulty_rebalance", replacement_count: totalDeleted,
             },
-            status: "pending",
-            job_type: "generate_exam_pool",
-            curriculum_id: pkg.curriculum_id,
-            package_id: pkg.id,
+            status: "pending", job_type: "generate_exam_pool",
+            curriculum_id: pkg.curriculum_id, package_id: pkg.id,
           });
-          if (!jobErr || jobErr.message?.includes("duplicate")) {
-            report.difficultyRebalance.regenTriggered = true;
-          }
-          console.log(`[pool-rework] DIFF_REGEN queued: ${totalDeleted} replacements needed`);
+          if (!jobErr || jobErr.message?.includes("duplicate")) report.difficultyRebalance.regenTriggered = true;
+          console.log(`[pool-rework] DIFF_REGEN queued: ${totalDeleted} replacements`);
         } else {
-          console.log(`[pool-rework] DIFF_OK: distribution within tolerance`);
+          console.log(`[pool-rework] DIFF_OK: within tolerance`);
         }
       }
-    } catch (e) {
-      console.log(`[pool-rework] Difficulty rebalance error: ${(e as Error).message}`);
-    }
+    } catch (e) { console.log(`[pool-rework] Difficulty error: ${(e as Error).message}`); }
 
     // ════════════════════════════════════════════════════════════════
-    // DIMENSION 3: QC-FAILED REPLACEMENT (with snapshot)
+    // DIMENSION 3: QC-FAILED REPLACEMENT (snapshot before delete)
     // ════════════════════════════════════════════════════════════════
     try {
       const { data: failedQs } = await sb
@@ -324,64 +283,46 @@ Deno.serve(async (req) => {
 
       if (failedQs && failedQs.length > 0) {
         const ids = failedQs.map((q) => q.id);
-
-        // Snapshot before delete for auditability
         report.qcReplace.deletedIds = ids;
+
+        // Snapshot before delete
         await sb.from("ops_alerts").insert({
-          source: "pool-rework",
-          severity: "info",
-          message: `QC_SNAPSHOT: ${ids.length} questions to be deleted from pkg ${pkg.id.slice(0, 8)}`,
+          source: "pool-rework", severity: "info",
+          message: `QC_SNAPSHOT: ${ids.length} questions to delete from pkg ${pkg.id.slice(0, 8)}`,
           payload: {
-            action: "qc_delete_snapshot",
-            package_id: pkg.id,
+            action: "qc_delete_snapshot", package_id: pkg.id,
             questions: failedQs.map((q) => ({
-              id: q.id,
-              qc_status: q.qc_status,
-              difficulty: q.difficulty,
-              question_type: q.question_type,
-              text_preview: q.question_text?.slice(0, 100),
+              id: q.id, qc_status: q.qc_status, difficulty: q.difficulty,
+              question_type: q.question_type, text_preview: q.question_text?.slice(0, 100),
             })),
           },
         }).then(() => {}).catch(() => {});
 
-        // Delete in chunks
         for (let i = 0; i < ids.length; i += 50) {
-          const chunk = ids.slice(i, i + 50);
-          await sb.from("exam_questions").delete().in("id", chunk);
+          await sb.from("exam_questions").delete().in("id", ids.slice(i, i + 50));
         }
         report.qcReplace.deleted = ids.length;
 
-        // Trigger regen with min_needed
         const { error: jobErr } = await sb.from("job_queue").insert({
           function_name: "package-generate-exam-pool",
           payload: {
-            package_id: pkg.id,
-            curriculum_id: pkg.curriculum_id,
+            package_id: pkg.id, curriculum_id: pkg.curriculum_id,
             certification_id: pkg.certification_id,
-            rework_mode: "qc_replacement",
-            replacement_count: ids.length,
-            min_needed: ids.length, // regen must produce at least this many
+            rework_mode: "qc_replacement", replacement_count: ids.length, min_needed: ids.length,
           },
-          status: "pending",
-          job_type: "generate_exam_pool",
-          curriculum_id: pkg.curriculum_id,
-          package_id: pkg.id,
+          status: "pending", job_type: "generate_exam_pool",
+          curriculum_id: pkg.curriculum_id, package_id: pkg.id,
         });
-
-        if (!jobErr || jobErr.message?.includes("duplicate")) {
-          report.qcReplace.regenTriggered = true;
-        }
-
+        if (!jobErr || jobErr.message?.includes("duplicate")) report.qcReplace.regenTriggered = true;
         console.log(`[pool-rework] QC_REPLACE: deleted ${ids.length}, regen queued`);
       } else {
         console.log(`[pool-rework] QC_OK: no failed questions`);
       }
-    } catch (e) {
-      console.log(`[pool-rework] QC replace error: ${(e as Error).message}`);
-    }
+    } catch (e) { console.log(`[pool-rework] QC error: ${(e as Error).message}`); }
 
     // ════════════════════════════════════════════════════════════════
-    // DIMENSION 4: TRAP-TAGS RETROFIT (Job Queue, NO inline LLM)
+    // DIMENSION 4: TRAP-TAGS RETROFIT (enqueue only, NO inline LLM)
+    // Vocabulary comes from shared module, NOT from payload.
     // ════════════════════════════════════════════════════════════════
     try {
       const { data: untagged } = await sb
@@ -393,7 +334,6 @@ Deno.serve(async (req) => {
         .limit(MAX_TRAP_RETROFIT);
 
       if (untagged && untagged.length > 0) {
-        // Enqueue a single job for batch trap-tag retrofit
         const { error: jobErr } = await sb.from("job_queue").insert({
           function_name: "pool-rework-trap-retrofit",
           payload: {
@@ -401,17 +341,14 @@ Deno.serve(async (req) => {
             curriculum_id: pkg.curriculum_id,
             certification_id: pkg.certification_id,
             question_ids: untagged.map((q) => q.id),
-            error_tag_vocabulary: [...ERROR_TAG_VOCABULARY], // SSOT vocabulary
             profession_name: professionName,
+            // NO vocabulary in payload — worker imports from SSOT module
           },
-          status: "pending",
-          job_type: "rework_trap_retrofit",
-          curriculum_id: pkg.curriculum_id,
-          package_id: pkg.id,
+          status: "pending", job_type: "rework_trap_retrofit",
+          curriculum_id: pkg.curriculum_id, package_id: pkg.id,
         });
-
         if (jobErr && !jobErr.message?.includes("duplicate")) {
-          console.log(`[pool-rework] Trap retrofit job enqueue failed: ${jobErr.message}`);
+          console.log(`[pool-rework] Trap enqueue failed: ${jobErr.message}`);
         } else {
           report.trapRetrofit.enqueued = untagged.length;
           console.log(`[pool-rework] TRAP_RETROFIT queued: ${untagged.length} questions`);
@@ -419,14 +356,11 @@ Deno.serve(async (req) => {
       } else {
         console.log(`[pool-rework] TRAP_OK: all calc questions have trap_tags`);
       }
-    } catch (e) {
-      console.log(`[pool-rework] Trap retrofit error: ${(e as Error).message}`);
-    }
+    } catch (e) { console.log(`[pool-rework] Trap error: ${(e as Error).message}`); }
 
     reports.push(report);
   }
 
-  // ── Summary ──
   const summary = {
     packagesProcessed: reports.length,
     totalCalcBackfills: reports.filter((r) => r.calcBackfill.triggered).length,
@@ -434,13 +368,11 @@ Deno.serve(async (req) => {
     totalQcDeleted: reports.reduce((s, r) => s + r.qcReplace.deleted, 0),
     totalTrapEnqueued: reports.reduce((s, r) => s + r.trapRetrofit.enqueued, 0),
   };
-
   console.log(`[pool-rework] DONE: ${JSON.stringify(summary)}`);
 
   await sb.from("ops_alerts").insert({
-    source: "pool-rework",
-    severity: "info",
-    message: `Rework: ${summary.packagesProcessed} pkgs, +${summary.totalCalcBackfills} calc-jobs, ${summary.totalDiffDeleted} diff-deleted, ${summary.totalQcDeleted} qc-deleted, ${summary.totalTrapEnqueued} trap-queued`,
+    source: "pool-rework", severity: "info",
+    message: `Rework: ${summary.packagesProcessed} pkgs, +${summary.totalCalcBackfills} calc, ${summary.totalDiffDeleted} diff-del, ${summary.totalQcDeleted} qc-del, ${summary.totalTrapEnqueued} trap-q`,
     payload: { summary, reports },
   }).then(() => {}).catch(() => {});
 
