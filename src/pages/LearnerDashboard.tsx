@@ -155,26 +155,26 @@ export default function LearnerDashboard() {
     <div className="py-4 sm:py-8 px-3 sm:px-4">
       <div className="container mx-auto max-w-6xl">
         {/* Header */}
-        <div className="mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-1">
+        <div className="mb-5 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-1 leading-tight">
             Willkommen zurück,{' '}
             <span className="text-gradient">
               {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
             </span>
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground mb-4">
             Dein Prüfungscockpit – du weißt genau, wo du stehst.
           </p>
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex flex-wrap items-center gap-2">
             <Link to="/exam-simulation">
-              <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow font-bold">
+              <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow font-bold h-12 sm:h-14 px-6 sm:px-8 touch-manipulation">
                 <Target className="h-5 w-5 mr-2" />
                 Prüfung starten
               </Button>
             </Link>
             {isAdmin && (
               <Link to="/admin/command">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="h-10 touch-manipulation">
                   <Sparkles className="h-4 w-4 mr-2" />
                   Admin
                 </Button>
@@ -383,15 +383,15 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
       {actions.map((action) => {
         const content = (
           <Card className={cn(
-            'glass-card transition-all h-full',
-            action.blocked ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/30'
+            'glass-card transition-all h-full touch-manipulation',
+            action.blocked ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/30 active:scale-[0.97]'
           )}>
-            <CardContent className="p-3 sm:p-4 text-center">
-              <div className={`p-2.5 sm:p-3 rounded-xl ${action.gradient} ${action.glow} inline-flex mb-2 ${action.blocked ? 'grayscale' : ''}`}>
-                <action.icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+            <CardContent className="p-4 sm:p-5 text-center">
+              <div className={`p-3 rounded-xl ${action.gradient} ${action.glow} inline-flex mb-3 ${action.blocked ? 'grayscale' : ''}`}>
+                <action.icon className="h-5 w-5 text-white" />
               </div>
-              <h3 className="font-display font-bold text-xs sm:text-sm">{action.label}</h3>
-              <p className="text-xs text-muted-foreground hidden sm:block">{action.desc}</p>
+              <h3 className="font-display font-bold text-sm">{action.label}</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">{action.desc}</p>
             </CardContent>
           </Card>
         );

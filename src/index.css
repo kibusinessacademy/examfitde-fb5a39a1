@@ -256,6 +256,24 @@
     @apply bg-accent;
   }
 
+  /* Glass morphism cards */
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-md border border-border/50 shadow-sm;
+  }
+
+  .glass-subtle {
+    @apply bg-card/50 backdrop-blur-sm border border-border/30;
+  }
+
+  .glass-strong {
+    @apply bg-card/90 backdrop-blur-xl border border-border/60 shadow-lg;
+  }
+
+  /* Text glow effect */
+  .text-glow {
+    text-shadow: 0 0 20px hsl(168 64% 50% / 0.4);
+  }
+
   /* Petrol button glow on hover */
   .btn-glow:hover {
     box-shadow: 0 0 20px hsl(168 64% 50% / 0.3);
