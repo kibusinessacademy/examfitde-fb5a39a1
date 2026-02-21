@@ -112,12 +112,22 @@ Deno.serve(async (req) => {
           status: "planning",
           queue_position: nextPosition,
           council_approved: true,
+          track: "EXAM_FIRST",
+          feature_flags: {
+            has_learning_course: false,
+            has_practice_course_h5p: false,
+            has_minichecks: false,
+            has_exam_trainer: true,
+            has_exam_simulation: true,
+            has_oral_exam_trainer: true,
+            has_ai_tutor: true,
+            has_handbook: false,
+            ai_tutor_mode: "limited_exam",
+          },
           components: {
-            learning_course: true,
             exam_pool: true,
             oral_exam: true,
             ai_tutor: true,
-            handbook: true,
           },
         })
         .select("id")
