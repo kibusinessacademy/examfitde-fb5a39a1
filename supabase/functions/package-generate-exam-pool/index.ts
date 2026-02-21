@@ -721,11 +721,22 @@ async function generateTurboQuestions(
 
     // ── Hebel 3: Extract and validate distractor metadata ──
     // Normalize trap_tags: lowercase, replace spaces/hyphens with underscore, then match vocabulary
-    const rawTrapTags: string[] = Array.isArray(q.trap_tags) 
-      ? q.trap_tags
-          .map((t: string) => String(t).toLowerCase().replace(/[\s-]+/g, "_").trim())
-          .filter((t: string) => ERROR_TAG_VOCABULARY.includes(t as any))
+    const normalizedTags: string[] = Array.isArray(q.trap_tags) 
+      ? q.trap_tags.map((t: string) => String(t).toLowerCase().replace(/[\s-]+/g, "_").trim())
       : [];
+    const rawTrapTags: string[] = normalizedTags.filter((t: string) => ERROR_TAG_VOCABULARY.includes(t as any));
+    // Debug: log filtered-out tags (max 5 unique per run to avoid spam)
+    const filteredOut = normalizedTags.filter(t => !ERROR_TAG_VOCABULARY.includes(t as any));
+    if (filteredOut.length > 0) {
+      if (!((globalThis as any).__filteredTagsLogged)) (globalThis as any).__filteredTagsLogged = new Set();
+      const logSet = (globalThis as any).__filteredTagsLogged as Set<string>;
+      for (const t of filteredOut) {
+        if (logSet.size < 10 && !logSet.has(t)) {
+          logSet.add(t);
+          console.log(`[ExamPool-v5] FILTERED_TAG: "${t}" not in vocabulary`);
+        }
+      }
+    }
     // correctIdx already declared above (line ~609)
     const rawDistractorMeta: Array<{option_index: number; error_tag: string; why_wrong: string}> = 
       Array.isArray(q.distractor_meta) ? q.distractor_meta.filter((d: any) => 
@@ -765,6 +776,8 @@ async function generateTurboQuestions(
         qc_reason: qcReason,
         required: requiredMeta,
         actual: rawDistractorMeta.length,
+        source_type: questionType,
+        final_type: finalQuestionType,
       };
 
       const { error } = await sb.from("exam_questions").insert({
@@ -812,6 +825,8 @@ async function generateTurboQuestions(
         qc_reason: null,
         required: requiredMeta,
         actual: rawDistractorMeta.length,
+        source_type: questionType,
+        final_type: finalQuestionType,
       },
       ai_generated: true,
       status,
@@ -1047,21 +1062,25 @@ Deno.serve(async (req) => {
     } catch (e) { console.warn(`[ExamPool-v5] Glossary load failed: ${(e as Error).message}`); }
 
     // ── Hebel 2: Load math_ratio from certification_catalog via profession name ──
+    console.log(`[ExamPool-v5] BREADCRUMB-1: ENTER mathRatio loader, professionName="${professionName}", curriculumId="${curriculumId}", currentMix=${JSON.stringify(QUESTION_TYPE_MIX)}`);
     let mathRatioApplied = false;
     try {
       const searchName = professionName.split("/")[0].trim();
+      console.log(`[ExamPool-v5] BREADCRUMB-2: catalog lookup with searchName="${searchName}"`);
       const { data: certCatalog } = await sb.from("certification_catalog").select("math_ratio")
         .ilike("title", `%${searchName}%`).limit(1).maybeSingle();
+      console.log(`[ExamPool-v5] BREADCRUMB-3: catalog result=${JSON.stringify(certCatalog)}`);
       if (certCatalog?.math_ratio && certCatalog.math_ratio > 0) {
         applyMathRatio(certCatalog.math_ratio);
         mathRatioApplied = true;
       }
-    } catch { /* non-blocking */ }
+    } catch (e) { console.log(`[ExamPool-v5] BREADCRUMB-ERR: catalog lookup failed: ${(e as Error).message}`); }
     // Fallback: ensure calculation has at least default 0.20 share
     if (!mathRatioApplied) {
       console.log(`[ExamPool-v5] No certification_catalog match for "${professionName}" — using default math_ratio=0.20`);
       applyMathRatio(0.20);
     }
+    console.log(`[ExamPool-v5] BREADCRUMB-4: AFTER mathRatio, finalMix=${JSON.stringify(QUESTION_TYPE_MIX)}`);
 
     if (generatedSoFar === 0 && !isFanOut) {
       console.log(`[ExamPool-v5] Start "${professionName}": target=${examTarget}, engine=v5-ihk-quality`);
