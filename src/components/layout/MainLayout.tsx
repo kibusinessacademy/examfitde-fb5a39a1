@@ -8,6 +8,14 @@ import { useState } from 'react';
 import { NativeTabBar } from '@/components/native/NativeTabBar';
 import { useNativeApp } from '@/hooks/useNativeApp';
 
+const NAV_ITEMS = [
+  { to: '/berufe', label: 'Berufe' },
+  { to: '/lernkurse', label: 'Lernkurse' },
+  { to: '/pruefungstrainer', label: 'Prüfungstrainer' },
+  { to: '/wissen', label: 'Wissen' },
+  { to: '/preise', label: 'Preise' },
+] as const;
+
 export default function MainLayout() {
   const { user, signOut, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -35,21 +43,11 @@ export default function MainLayout() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            <Link to="/berufe" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
-              Berufe
-            </Link>
-            <Link to="/lernkurse" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
-              Lernkurse
-            </Link>
-            <Link to="/pruefungstrainer" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
-              Prüfungstrainer
-            </Link>
-            <Link to="/wissen" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
-              Wissen
-            </Link>
-            <Link to="/preise" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
-              Preise
-            </Link>
+            {NAV_ITEMS.map(({ to, label }) => (
+              <Link key={to} to={to} className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
+                {label}
+              </Link>
+            ))}
             {user && (
               <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
                 Dashboard
@@ -109,41 +107,16 @@ export default function MainLayout() {
         {mobileMenuOpen && (
           <div className="md:hidden bg-background border-t border-border">
             <nav className="container mx-auto px-4 py-4 flex flex-col gap-1">
-              <Link 
-                to="/berufe" 
-                className="text-foreground py-3 px-2 rounded-lg hover:bg-muted transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Berufe
-              </Link>
-              <Link 
-                to="/lernkurse" 
-                className="text-foreground py-3 px-2 rounded-lg hover:bg-muted transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Lernkurse
-              </Link>
-              <Link 
-                to="/pruefungstrainer" 
-                className="text-foreground py-3 px-2 rounded-lg hover:bg-muted transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Prüfungstrainer
-              </Link>
-              <Link 
-                to="/wissen" 
-                className="text-foreground py-3 px-2 rounded-lg hover:bg-muted transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Wissen
-              </Link>
-              <Link 
-                to="/preise" 
-                className="text-foreground py-3 px-2 rounded-lg hover:bg-muted transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Preise
-              </Link>
+              {NAV_ITEMS.map(({ to, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="text-foreground py-3 px-2 rounded-lg hover:bg-muted transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {label}
+                </Link>
+              ))}
               {user && (
                 <Link 
                   to="/dashboard" 
