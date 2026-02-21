@@ -57,6 +57,38 @@ Deno.serve(async (req) => {
   const actions: string[] = [];
 
   try {
+    // ── 0) Ghost-state healing: steps stuck in 'running' whose job is already done ──
+    const { data: ghostHealed, error: ghostErr } = await sb.rpc(
+      "heal_ghost_running_steps",
+    );
+    if (ghostErr) {
+      console.error("[watchdog] heal_ghost_running_steps error:", ghostErr.message);
+    }
+    const ghosts = (ghostHealed as Array<{
+      package_id: string;
+      step_key: string;
+      job_status: string;
+    }>) ?? [];
+    if (ghosts.length > 0) {
+      actions.push(`Ghost-state healed: ${ghosts.map(g => `${g.step_key}→${g.job_status}`).join(", ")}`);
+      for (const g of ghosts) {
+        console.log(`[watchdog] Ghost healed: step ${g.step_key} on pkg ${g.package_id.slice(0, 8)} → ${g.job_status}`);
+      }
+    }
+
+    // ── 0b) Prune expired leases (belt-and-suspenders) ──
+    const { data: prunedLeases, error: pruneErr } = await sb
+      .from("package_leases")
+      .delete()
+      .lt("lease_until", new Date().toISOString())
+      .select("package_id");
+    if (pruneErr) {
+      console.error("[watchdog] lease prune error:", pruneErr.message);
+    }
+    if (prunedLeases && prunedLeases.length > 0) {
+      actions.push(`Pruned ${prunedLeases.length} expired leases`);
+    }
+
     // ── 1) Expire stale steps (heartbeat-based timeout) ──
     // SAFETY: Before expiring, verify the linked job isn't still active.
     // The RPC only expires steps in 'running' status with stale heartbeats.
@@ -98,9 +130,7 @@ Deno.serve(async (req) => {
         `Step timeout: ${s.step_key} on pkg ${s.package_id.slice(0, 8)}`,
       );
 
-      // FIX: Reset the timed-out step to 'queued' so the runner can re-enqueue it.
-      // Previously, the step stayed in 'timeout' status and the package stayed in 'queued',
-      // causing the package to be permanently stuck.
+      // Reset the timed-out step to 'queued' so the runner can re-enqueue it.
       await sb
         .from("package_steps")
         .update({
@@ -140,9 +170,6 @@ Deno.serve(async (req) => {
     }
 
     // ── 2b) Zombie job sweep: fail jobs stuck in 'processing' with no lock ──
-    // Tightened to 5min — edge functions timeout at 55s,
-    // so anything unlocked for 5min is definitively dead.
-    // ALSO catch jobs where locked_at is stale (>10min old) even if non-null.
     const ZOMBIE_AGE_MINUTES = 5;
     const STALE_LOCK_MINUTES = 10;
     const zombieCutoff = new Date(Date.now() - ZOMBIE_AGE_MINUTES * 60 * 1000).toISOString();
@@ -251,7 +278,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 5) Auto-resolve stall alerts when healthy ──
+    // ── 6) Auto-resolve stall alerts when healthy ──
     const isHealthy = (activeLeases ?? 0) > 0;
     if (isHealthy) {
       try {
@@ -282,12 +309,14 @@ Deno.serve(async (req) => {
             stale_leases: staleLeases.length,
             zombie_jobs: zombieJobCount,
             zombie_building: healedZombies,
+            ghost_healed: ghosts.length,
+            pruned_leases: prunedLeases?.length ?? 0,
           },
         });
     } catch (_) { /* non-critical */ }
 
     console.log(
-      `[watchdog] Cycle done: ${actions.length} actions, queued=${queuedCount} building=${buildingCount} leases=${activeLeases}`,
+      `[watchdog] Cycle done: ${actions.length} actions, queued=${queuedCount} building=${buildingCount} leases=${activeLeases} ghosts=${ghosts.length}`,
     );
 
     return json({
