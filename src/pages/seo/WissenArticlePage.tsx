@@ -65,15 +65,20 @@ export default function WissenArticlePage() {
     );
   }
 
+  const wordCount = article.content.split(/\s+/).length;
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: article.title,
     description: article.excerpt,
-    author: { '@type': 'Person', name: article.author },
+    author: { '@type': 'Organization', name: article.author || 'ExamFit', url: SITE_URL },
     datePublished: article.publishedAt,
+    dateModified: article.publishedAt,
+    wordCount,
     publisher: generateOrganizationSchema(),
     mainEntityOfPage: { '@type': 'WebPage', '@id': `${SITE_URL}/wissen/${slug}` },
+    image: `${SITE_URL}/og-image.png`,
+    inLanguage: 'de-DE',
   };
 
   return (
@@ -84,6 +89,9 @@ export default function WissenArticlePage() {
         canonical={`${SITE_URL}/wissen/${slug}`}
         structuredData={structuredData}
         type="article"
+        publishedTime={article.publishedAt}
+        modifiedTime={article.publishedAt}
+        author="ExamFit"
       />
 
       <article className="min-h-screen">
