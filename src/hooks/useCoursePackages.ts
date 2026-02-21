@@ -60,17 +60,9 @@ const COUNCIL_TYPES = [
   'didactic', 'exam', 'question_quality', 'oral', 'tutor', 'handbook', 'seo_commercial'
 ] as const;
 
-const BUILD_STEPS = [
-  { key: 'scaffold_learning_course', label: 'Lernkurs Scaffold', order: 1 },
-  { key: 'generate_minichecks', label: 'MiniChecks generieren', order: 2 },
-  { key: 'generate_exam_pool', label: 'Prüfungsfragen-Pool (1000+)', order: 3 },
-  { key: 'build_exam_simulation', label: 'Simulation Presets', order: 4 },
-  { key: 'generate_oral_exam', label: 'Mündliche Prüfung', order: 5 },
-  { key: 'build_ai_tutor_index', label: 'AI Tutor Index', order: 6 },
-  { key: 'generate_handbook', label: 'Handbuch', order: 7 },
-  { key: 'run_integrity_check', label: 'Integritätsprüfung', order: 8 },
-  { key: 'auto_publish', label: 'Auto-Publish', order: 9 },
-] as const;
+// Re-exported from useTrackConfig for backward compat
+import { ALL_PIPELINE_STEPS as TRACK_PIPELINE_STEPS } from '@/hooks/useTrackConfig';
+const BUILD_STEPS = TRACK_PIPELINE_STEPS;
 
 export function useCoursePackages() {
   const { toast } = useToast();
