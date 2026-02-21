@@ -528,13 +528,17 @@ Deno.serve(async (req) => {
       }
       // ── 3. Batch incomplete → requeue ──────────────────────────────
       else if (parsed && parsed.batch_complete === false) {
-        console.log(`[job-runner] ${fnName} batch incomplete → requeue +${BACKOFF_BATCH_MS}ms`);
+        console.log(`[job-runner] ${fnName} batch incomplete → requeue +${BACKOFF_BATCH_MS}ms (remaining=${parsed.actionable_remaining ?? parsed.remaining ?? '?'})`);
+        // Preserve poison_pills across requeue cycles so content generator can skip persistently-failing lessons
+        const poisonPills = parsed._poison_pills || {};
         finalState = {
           status: "pending",
           patch: {
             run_after: new Date(Date.now() + BACKOFF_BATCH_MS).toISOString(),
             batch_cursor: parsed.batch_cursor ?? null,
-            meta: { ...(job.meta || {}), last_batch: tsNow },
+            meta: { ...(job.meta || {}), last_batch: tsNow, poison_pills_count: Object.keys(poisonPills).length },
+            // Merge poison pills into payload for next invocation
+            payload: { ...(job.payload || {}), _poison_pills: poisonPills },
           },
         };
       }
