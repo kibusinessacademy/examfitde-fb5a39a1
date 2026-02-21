@@ -169,6 +169,13 @@ Deno.serve(async (req) => {
 
     // ── Promote draft exam questions → approved when council passes ──
     if (status !== "fail") {
+      // Count draft candidates BEFORE promotion
+      const { count: draftBefore } = await sb
+        .from("exam_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId)
+        .eq("status", "draft");
+
       // Use atomic RPC to promote draft→approved on the real status enum
       const { data: promoResult, error: promoErr } = await sb.rpc(
         "promote_exam_questions_from_council",
@@ -179,9 +186,22 @@ Deno.serve(async (req) => {
       } else {
         const r = promoResult as { promoted: number; total_approved: number; draft_remaining: number };
         console.log(`[QualityCouncil] Promoted ${r.promoted} draft→approved, total=${r.total_approved}, remaining_draft=${r.draft_remaining} for ${packageId.slice(0,8)}`);
+
+        // ── Guard A: No-op Council Detection ──
+        if ((draftBefore ?? 0) > 0 && r.promoted === 0) {
+          console.error(`[QualityCouncil] NO-OP DETECTED: ${draftBefore} draft candidates but 0 promoted for ${packageId.slice(0,8)}`);
+          await sb.from("admin_notifications").insert({
+            title: `⚠️ Quality Council: No-op detected`,
+            body: `${draftBefore} draft candidates existed but 0 were promoted. RPC may have failed silently. Package: ${packageId.slice(0,8)}`,
+            category: "quality",
+            severity: "warn",
+            entity_type: "course_package",
+            entity_id: packageId,
+          });
+        }
       }
 
-      // Legacy: also promote any tier1_passed qc_status
+      // Legacy: also promote any tier1_passed qc_status (telemetry only)
       const { count: legacyPromoted } = await sb
         .from("exam_questions")
         .update({ qc_status: "approved" })
