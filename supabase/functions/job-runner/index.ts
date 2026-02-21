@@ -398,7 +398,8 @@ Deno.serve(async (req) => {
 
       if (prereqStep) {
         const prereqStatus = stepMap.get(prereqStep);
-        if (prereqStatus !== "done") {
+        // "skipped" counts as fulfilled — the step was intentionally bypassed by track logic
+        if (prereqStatus !== "done" && prereqStatus !== "skipped") {
           console.warn(`[job-runner] Prereq guard: ${job.job_type} cancelled — ${prereqStep} is '${prereqStatus ?? 'missing'}' (pkg ${(job.payload.package_id as string).slice(0, 8)})`);
           await sb.from("job_queue").update({
             status: "cancelled",
