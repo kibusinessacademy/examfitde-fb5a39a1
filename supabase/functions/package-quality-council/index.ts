@@ -167,15 +167,30 @@ Deno.serve(async (req) => {
       },
     }).eq("id", packageId);
 
-    // ── Promote tier1_passed exam questions → approved when council passes ──
+    // ── Promote draft exam questions → approved when council passes ──
     if (status !== "fail") {
-      const { count: promoted } = await sb
+      // Use atomic RPC to promote draft→approved on the real status enum
+      const { data: promoResult, error: promoErr } = await sb.rpc(
+        "promote_exam_questions_from_council",
+        { p_curriculum_id: curriculumId, p_limit: 2000 }
+      );
+      if (promoErr) {
+        console.error(`[QualityCouncil] Promotion RPC failed: ${promoErr.message}`);
+      } else {
+        const r = promoResult as { promoted: number; total_approved: number; draft_remaining: number };
+        console.log(`[QualityCouncil] Promoted ${r.promoted} draft→approved, total=${r.total_approved}, remaining_draft=${r.draft_remaining} for ${packageId.slice(0,8)}`);
+      }
+
+      // Legacy: also promote any tier1_passed qc_status
+      const { count: legacyPromoted } = await sb
         .from("exam_questions")
         .update({ qc_status: "approved" })
         .eq("curriculum_id", curriculumId)
         .eq("qc_status", "tier1_passed")
         .select("id", { count: "exact", head: true });
-      console.log(`[QualityCouncil] Promoted ${promoted ?? 0} questions tier1_passed → approved for ${packageId.slice(0,8)}`);
+      if ((legacyPromoted ?? 0) > 0) {
+        console.log(`[QualityCouncil] Legacy: ${legacyPromoted} tier1_passed→approved qc_status`);
+      }
     }
 
     // Update review status based on quality

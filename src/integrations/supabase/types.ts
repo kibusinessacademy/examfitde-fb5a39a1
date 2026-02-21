@@ -20319,6 +20319,10 @@ export type Database = {
         Returns: undefined
       }
       populate_admin_search_index: { Args: never; Returns: undefined }
+      promote_exam_questions_from_council: {
+        Args: { p_curriculum_id: string; p_limit?: number }
+        Returns: Json
+      }
       promote_to_authority: {
         Args: { p_admin_id?: string; p_portfolio_id: string }
         Returns: Json
