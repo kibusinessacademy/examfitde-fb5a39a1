@@ -39,7 +39,7 @@ const COGNITIVE_LEVEL_DISTRIBUTION: Record<string, number> = {
 
 // ─── Question Types (semantic variety) ────────────────────────────────────────
 
-const QUESTION_TYPE_MIX: Record<string, number> = {
+let QUESTION_TYPE_MIX: Record<string, number> = {
   best_option: 0.20,       // Beste Option aus mehreren Maßnahmen
   error_detection: 0.15,   // Fehlerdiagnose
   calculation: 0.20,       // Rechenaufgabe mit konkreten Zahlen
@@ -47,6 +47,30 @@ const QUESTION_TYPE_MIX: Record<string, number> = {
   risk_assessment: 0.10,   // Risikoabwägung
   compliance_check: 0.15,  // Compliance/Norm-Check
 };
+
+/**
+ * Apply math_ratio from certification_catalog to QUESTION_TYPE_MIX.
+ * Redistributes non-calculation types proportionally to hit the target ratio.
+ */
+function applyMathRatio(mathRatio: number): void {
+  if (mathRatio <= 0 || mathRatio > 0.50) return; // safety bounds
+  const currentCalc = QUESTION_TYPE_MIX.calculation ?? 0.20;
+  if (Math.abs(currentCalc - mathRatio) < 0.01) return; // already correct
+  
+  const remaining = 1 - mathRatio;
+  const otherTotal = Object.entries(QUESTION_TYPE_MIX)
+    .filter(([k]) => k !== "calculation")
+    .reduce((s, [, v]) => s + v, 0);
+  
+  for (const key of Object.keys(QUESTION_TYPE_MIX)) {
+    if (key === "calculation") {
+      QUESTION_TYPE_MIX[key] = mathRatio;
+    } else {
+      QUESTION_TYPE_MIX[key] = (QUESTION_TYPE_MIX[key] / otherTotal) * remaining;
+    }
+  }
+  console.log(`[ExamPool-v5] mathRatio applied: calculation=${(mathRatio * 100).toFixed(0)}%, mix=${JSON.stringify(QUESTION_TYPE_MIX)}`);
+}
 
 // ─── Difficulty Distribution (IHK-realistic for exam simulation) ──────────────
 
@@ -657,9 +681,14 @@ async function generateTurboQuestions(
       correct_answer: Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0),
       explanation: q.explanation || "",
       // FIX: Force the REQUESTED difficulty from distribution, not AI's self-report.
-      // Same pattern as cognitive_level fix on line 640.
       difficulty: difficulty,
       cognitive_level: mappedCogLevel,
+      // Hebel 2: Track question_type from distribution quota
+      question_type: questionType === "best_option" ? "transfer"
+        : questionType === "error_detection" ? "transfer"
+        : questionType === "risk_assessment" ? "case_study"
+        : questionType === "compliance_check" ? "concept"
+        : questionType, // calculation, case_study pass through
       ai_generated: true,
       status,
       qc_status: assignedPool === "exam" ? "approved" : "pending",
@@ -892,6 +921,15 @@ Deno.serve(async (req) => {
         console.log(`[ExamPool-v5] Glossary loaded for "${professionName}" (${glossaryContext.length} chars)`);
       }
     } catch (e) { console.warn(`[ExamPool-v5] Glossary load failed: ${(e as Error).message}`); }
+
+    // ── Hebel 2: Load math_ratio from certification_catalog via profession name ──
+    try {
+      const { data: certCatalog } = await sb.from("certification_catalog").select("math_ratio")
+        .ilike("title", `%${professionName.split("/")[0].trim()}%`).limit(1).maybeSingle();
+      if (certCatalog?.math_ratio && certCatalog.math_ratio > 0) {
+        applyMathRatio(certCatalog.math_ratio);
+      }
+    } catch { /* non-blocking */ }
 
     if (generatedSoFar === 0 && !isFanOut) {
       console.log(`[ExamPool-v5] Start "${professionName}": target=${examTarget}, engine=v5-ihk-quality`);
