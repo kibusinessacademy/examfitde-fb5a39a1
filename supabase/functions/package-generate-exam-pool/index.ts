@@ -441,7 +441,9 @@ DISTRAKTOREN (IHK-QUALITÄT — STRUKTURIERT):
 - ALLE Distraktoren müssen plausibel klingen — NICHT offensichtlich falsch
 - KEINE "Nonsens-Optionen" die sofort ausgeschlossen werden können
 - Erlaubte error_tags: ${ERROR_TAG_VOCABULARY.join(", ")}
-- Bei Rechenaufgaben: Falsche Optionen MÜSSEN numerisch nahe am korrekten Ergebnis liegen (typische Rechenfehler, nicht zufällige Zahlen)
+- Bei Rechenaufgaben: Falsche Optionen MÜSSEN numerisch nahe am korrekten Ergebnis liegen (±5–25% oder exakter Rechenfehler wie falsche Prozentbasis, Skonto/Rabatt vertauscht, Netto statt Brutto). KEINE zufälligen Zahlen!
+- JEDE falsche Option braucht einen distractor_meta-Eintrag mit option_index, error_tag und why_wrong (MINDESTENS 20 Zeichen, KEIN generisches "weil falsch")
+- option_index im distractor_meta darf NICHT der correct_answer Index sein
 
 PRAXISBEZUG (PFLICHT):
 - Jede Frage enthält eine konkrete Berufsrolle aus dem Alltag von ${professionName} (Auszubildende, Fachkraft, Meister, Vorgesetzte, Kunde etc.)
@@ -707,18 +709,40 @@ async function generateTurboQuestions(
     const rawTrapTags: string[] = Array.isArray(q.trap_tags) 
       ? q.trap_tags.filter((t: string) => ERROR_TAG_VOCABULARY.includes(t as any))
       : [];
+    const correctIdx = Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0);
     const rawDistractorMeta: Array<{option_index: number; error_tag: string; why_wrong: string}> = 
       Array.isArray(q.distractor_meta) ? q.distractor_meta.filter((d: any) => 
-        typeof d.option_index === "number" && typeof d.error_tag === "string"
+        typeof d.option_index === "number" 
+        && typeof d.error_tag === "string"
+        && d.option_index !== correctIdx               // must not tag the correct answer
+        && typeof d.why_wrong === "string"
+        && d.why_wrong.length >= 20                    // min explanation depth
       ) : [];
 
-    // Distractor Quality Gate: for calculation questions, require structured distractor info
-    if (questionType === "calculation" && rawDistractorMeta.length < 2) {
-      console.log(`[ExamPool-v5] WEAK_DISTRACTORS: calculation question missing distractor_meta (${rawDistractorMeta.length}/3)`);
-      // Soft gate: downgrade to training pool instead of rejecting
-      const forceTrainingDistractor = true;
-      const assignedPoolFinal = forceTrainingDistractor ? "training" : assignedPool;
+    // ── Distractor Quality Gate (hard for calculation, soft for others) ──
+    const isCalculation = questionType === "calculation";
+    const requiredMeta = isCalculation ? 3 : 2; // 3 wrong options need meta for calc
+    const distractorGateFailed = rawDistractorMeta.length < requiredMeta;
+    
+    let qcReason: string | null = null;
+    if (distractorGateFailed) {
+      if (rawDistractorMeta.length === 0) qcReason = "missing_distractor_meta";
+      else if (isCalculation && rawDistractorMeta.length < 3) qcReason = "weak_distractors_calc";
+      else qcReason = "weak_distractors";
+    }
+
+    if (distractorGateFailed) {
+      console.log(`[ExamPool-v5] ${qcReason}: ${questionType} question has ${rawDistractorMeta.length}/${requiredMeta} valid distractor_meta`);
       
+      // Store gate failure info in distractor_meta for auditability
+      const auditedMeta = {
+        raw: rawDistractorMeta,
+        gate_fail: true,
+        qc_reason: qcReason,
+        required: requiredMeta,
+        actual: rawDistractorMeta.length,
+      };
+
       const { error } = await sb.from("exam_questions").insert({
         curriculum_id: bp.curriculum_id,
         learning_field_id: bp.learning_field_id,
@@ -726,16 +750,16 @@ async function generateTurboQuestions(
         blueprint_id: bp.id,
         question_text: q.question_text,
         options: q.options,
-        correct_answer: Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0),
+        correct_answer: correctIdx,
         explanation: q.explanation || "",
         difficulty: difficulty,
         cognitive_level: mappedCogLevel,
         question_type: questionType,
         trap_tags: rawTrapTags,
-        distractor_meta: rawDistractorMeta,
+        distractor_meta: auditedMeta,
         ai_generated: true,
         status,
-        qc_status: "pending", // weak distractors → training
+        qc_status: "tier1_failed",
       });
       if (error && error.code !== "23505") console.log(`[ExamPool-v5] Insert error: ${error.message}`);
       if (!error) training++;
@@ -749,7 +773,7 @@ async function generateTurboQuestions(
       blueprint_id: bp.id,
       question_text: q.question_text,
       options: q.options,
-      correct_answer: Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0),
+      correct_answer: correctIdx,
       explanation: q.explanation || "",
       // FIX: Force the REQUESTED difficulty from distribution, not AI's self-report.
       difficulty: difficulty,
