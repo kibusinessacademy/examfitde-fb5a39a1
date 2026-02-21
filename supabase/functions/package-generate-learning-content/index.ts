@@ -19,9 +19,10 @@ import type { DifficultyLevel, MasteryContext } from "../_shared/prompt-kit.ts";
  *   - Robust idempotency with ON CONFLICT handling
  */
 
-const BATCH_SIZE = 3;          // Reduced from 8 — prevents concurrent timeout storms
+const BATCH_SIZE = 5;          // Balanced: faster throughput without timeout storms
 const BASE_DELAY_MS = 1500;    // 1.5s between calls
 const MAX_DELAY_MS = 10000;    // Max backoff
+const MAX_LESSON_RETRIES = 3;  // Poison-pill guard: skip lessons after N failures
 
 const STEP_PROMPTS: Record<string, { system: string; minChars: number; minWords: number }> = {
   einstieg: {
@@ -304,6 +305,9 @@ Deno.serve(async (req) => {
 
   if (fetchErr) return json({ error: fetchErr.message }, 500);
 
+  // ── Load poison-pill registry from job meta ──
+  const poisonPills: Record<string, number> = p._poison_pills || {};
+
   const placeholderLessons = (allLessons || []).filter((l: any) => {
     if (!l.content) return true;
     const c = l.content as Record<string, unknown>;
@@ -316,10 +320,22 @@ Deno.serve(async (req) => {
     return false;
   });
 
+  // ── Poison-pill guard: skip lessons that have failed too many times ──
+  const skippableLessons = new Set<string>();
+  for (const l of placeholderLessons) {
+    if ((poisonPills[l.id] || 0) >= MAX_LESSON_RETRIES) {
+      skippableLessons.add(l.id);
+    }
+  }
+  if (skippableLessons.size > 0) {
+    console.warn(`[gen-content] Skipping ${skippableLessons.size} poison-pill lessons: ${[...skippableLessons].map(id => id.slice(0, 8)).join(", ")}`);
+  }
+  const actionablePlaceholders = placeholderLessons.filter(l => !skippableLessons.has(l.id));
+
   // NOTE: Don't use offset-based cursors — placeholder list shifts as content is generated.
-  // Instead, always take the first BATCH_SIZE placeholders (idempotent via existingVersion check).
-  const batch = placeholderLessons.slice(0, BATCH_SIZE);
-  const remaining = placeholderLessons.length - batch.length;
+  // Instead, always take the first BATCH_SIZE actionable placeholders (idempotent via existingVersion check).
+  const batch = actionablePlaceholders.slice(0, BATCH_SIZE);
+  const remaining = actionablePlaceholders.length - batch.length;
 
   if (batch.length === 0) {
     // HARD GUARD: Re-query DB to confirm zero placeholders (don't trust in-memory filter alone)
@@ -584,6 +600,12 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
       console.error(`[gen-content] Failed lesson ${lesson.id}: ${errMsg}`);
       details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "failed", error: errMsg });
 
+      // ── Poison-pill tracking: increment per-lesson failure counter ──
+      poisonPills[lesson.id] = (poisonPills[lesson.id] || 0) + 1;
+      if (poisonPills[lesson.id] >= MAX_LESSON_RETRIES) {
+        console.warn(`[gen-content] Lesson ${lesson.id.slice(0, 8)} is now a POISON PILL (${poisonPills[lesson.id]} failures) — will be skipped in future batches`);
+      }
+
       // Rate limit → exponential backoff
       if (e instanceof RateLimitError || errMsg.includes("Rate limit") || errMsg.includes("429")) {
         currentDelay = Math.min(currentDelay * 2, MAX_DELAY_MS);
@@ -595,22 +617,32 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     await new Promise(r => setTimeout(r, currentDelay));
   }
 
-  // NEVER mark batch_complete unless ALL placeholders are resolved
+  // ── batch_complete logic v2: Complete when no actionable placeholders remain ──
+  // Poison-pill lessons are excluded from the "remaining" count — they won't resolve
+  // without manual intervention, so they must NOT block pipeline progress.
   const batchComplete = remaining <= 0 && failed === 0;
+  // ALSO complete if the only remaining items are all poison pills
+  const allRemainingArePoisonPills = remaining <= 0 && failed > 0 &&
+    placeholderLessons.every(l => skippableLessons.has(l.id) || !placeholderLessons.filter(pl => !skippableLessons.has(pl.id)).some(al => al.id === l.id));
+  const effectiveComplete = batchComplete || (actionablePlaceholders.length === 0 && skippableLessons.size > 0);
 
   return json({
     ok: true,
-    batch_complete: batchComplete,
-    // Always re-queue if there are remaining OR if any failed (retry next cycle)
-    ...(!batchComplete ? { batch_cursor: { offset: 0 } } : {}),
+    batch_complete: effectiveComplete,
+    ...(!effectiveComplete ? {
+      batch_cursor: { offset: 0 },
+      _poison_pills: poisonPills,
+    } : {}),
     generated,
     skipped_write_back: skippedWriteBack,
     failed,
+    poison_pills_skipped: skippableLessons.size,
     total_placeholders: placeholderLessons.length,
+    actionable_remaining: actionablePlaceholders.length - batch.length,
     remaining,
     details,
-    message: batchComplete
-      ? `✅ Alle Placeholder ersetzt. ${generated} generiert, ${skippedWriteBack} write-back.`
+    message: effectiveComplete
+      ? `✅ Lerninhalt-Generierung abgeschlossen. ${generated} generiert, ${skippedWriteBack} write-back, ${skippableLessons.size} Poison-Pills übersprungen.`
       : `🔄 ${generated} generiert, ${skippedWriteBack} write-back, ${remaining} verbleibend.`,
   });
 });
