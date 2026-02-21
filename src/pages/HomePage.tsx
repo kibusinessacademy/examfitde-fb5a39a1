@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useState } from 'react';
+import { SEOHead } from '@/components/seo/SEOHead';
+import { generateFAQSchema, generateCourseListSchema, SITE_URL } from '@/lib/seo';
 import {
   ArrowRight,
   CheckCircle,
@@ -45,7 +47,25 @@ export default function HomePage() {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen">
+    <>
+      <SEOHead
+        title="IHK-Prüfung bestehen – Prüfungstraining für Azubis | ExamFit"
+        description="Bereite dich optimal auf deine IHK-Prüfung vor. Prüfungssimulation, KI-Prüfungscoach & mündliche Prüfung trainieren. 98 % Bestehensquote. Einmalig 39 €."
+        canonical={`${SITE_URL}/`}
+        type="website"
+        structuredData={[
+          generateFAQSchema([
+            { question: 'Was kostet ExamFit?', answer: 'ExamFit kostet einmalig 39 € für 12 Monate Zugang. Kein Abo, keine versteckten Kosten.' },
+            { question: 'Für welche IHK-Prüfungen gibt es Prüfungstraining?', answer: 'ExamFit bietet Prüfungstraining für über 50 IHK-Ausbildungsberufe, darunter Kaufleute für Büromanagement, Industriekaufleute, Fachinformatiker und viele mehr.' },
+            { question: 'Wie hoch ist die Bestehensquote?', answer: '98 % unserer Nutzer bestehen ihre IHK-Prüfung beim ersten Versuch.' },
+            { question: 'Gibt es eine mündliche Prüfungssimulation?', answer: 'Ja, ExamFit bietet eine KI-gestützte mündliche Prüfungssimulation mit Echtzeit-Feedback zu deinen Antworten.' },
+          ]),
+          generateCourseListSchema([
+            { name: 'IHK-Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für über 50 IHK-Ausbildungsberufe', price: 39 },
+          ]),
+        ]}
+      />
+      <div className="min-h-screen">
       {/* Hero Section */}
       <section className="py-16 sm:py-20 md:py-28 px-3 sm:px-4 relative overflow-hidden">
         {/* Ambient glow */}
@@ -287,5 +307,6 @@ export default function HomePage() {
         </div>
       </section>
     </div>
+    </>
   );
 }
