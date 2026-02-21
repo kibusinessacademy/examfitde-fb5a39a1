@@ -18938,6 +18938,10 @@ export type Database = {
         Returns: Json
       }
       auto_escalation_cycle: { Args: never; Returns: Json }
+      auto_heal_building_zombies: {
+        Args: { zombie_minutes?: number }
+        Returns: number
+      }
       auto_heal_prereq_retry_cap_failures: {
         Args: { p_limit?: number }
         Returns: number
@@ -19801,6 +19805,14 @@ export type Database = {
         Returns: boolean
       }
       hash_email: { Args: { p_email: string }; Returns: string }
+      heal_ghost_running_steps: {
+        Args: never
+        Returns: {
+          job_status: string
+          package_id: string
+          step_key: string
+        }[]
+      }
       heartbeat_pipeline_lock: {
         Args: { p_package_id: string }
         Returns: undefined
