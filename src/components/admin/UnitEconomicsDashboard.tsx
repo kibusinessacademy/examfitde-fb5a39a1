@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
-  Loader2, DollarSign, TrendingUp, BarChart3, PieChart,
+  Loader2, Euro, TrendingUp, BarChart3, PieChart,
   Calculator, Target, ArrowUpRight
 } from 'lucide-react';
 
@@ -162,7 +162,7 @@ export default function UnitEconomicsDashboard() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
-            <DollarSign className="h-4 w-4" /> Kosten pro Zertifizierung
+            <Euro className="h-4 w-4" /> Kosten pro Zertifizierung
           </CardTitle>
         </CardHeader>
         <CardContent>

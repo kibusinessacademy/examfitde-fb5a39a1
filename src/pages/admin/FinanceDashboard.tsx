@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import {
-  DollarSign, TrendingUp, Receipt, Download, FileText, RefreshCw,
+  Euro, TrendingUp, Receipt, Download, FileText, RefreshCw,
   AlertTriangle, BarChart3, Landmark, ArrowUpDown, CreditCard, Scale,
   Factory, Clock, CheckCircle2, Loader2, Target
 } from 'lucide-react';
@@ -70,7 +70,7 @@ function RevenueTab({ from, to }: { from: string; to: string }) {
         <Card className="glass-card border-green-500/20 bg-green-500/5">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <DollarSign className="h-5 w-5 text-green-500" />
+              <Euro className="h-5 w-5 text-green-500" />
               <div>
                 <div className="text-2xl font-bold">{fmtEur(totalGross)}</div>
                 <div className="text-sm text-muted-foreground">Brutto-Umsatz</div>
@@ -868,7 +868,7 @@ function PipelineControllingTab() {
       <Card className="glass-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <DollarSign className="h-4 w-4" /> KI-Budget Soll-Ist
+            <Euro className="h-4 w-4" /> KI-Budget Soll-Ist
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -903,7 +903,7 @@ export default function FinanceDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold flex items-center gap-3">
-            <DollarSign className="h-7 w-7 text-primary" />
+            <Euro className="h-7 w-7 text-primary" />
             Finance & Controlling
           </h1>
           <p className="text-muted-foreground">Umsatz · USt · Pipeline-Controlling · Exporte</p>

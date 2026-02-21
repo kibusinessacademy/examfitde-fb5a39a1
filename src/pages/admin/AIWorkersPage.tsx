@@ -20,7 +20,7 @@ import {
   Bot, 
   Activity, 
   AlertTriangle, 
-  DollarSign, 
+  Euro,
   Zap, 
   Clock, 
   RefreshCw,
@@ -65,7 +65,7 @@ interface WorkerPolicy {
 const statusConfig = {
   active: { label: 'Aktiv', variant: 'default' as const, icon: Play, color: 'text-green-500' },
   disabled: { label: 'Deaktiviert', variant: 'secondary' as const, icon: Pause, color: 'text-muted-foreground' },
-  paused_budget: { label: 'Budget erschöpft', variant: 'destructive' as const, icon: DollarSign, color: 'text-destructive' },
+  paused_budget: { label: 'Budget erschöpft', variant: 'destructive' as const, icon: Euro, color: 'text-destructive' },
   paused_error_rate: { label: 'Fehlerrate zu hoch', variant: 'destructive' as const, icon: AlertTriangle, color: 'text-destructive' },
 };
 
@@ -249,12 +249,12 @@ export default function AIWorkersPage() {
         <Card className="glass-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Kosten heute</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <Euro className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">€{totals.cost.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{totals.cost.toFixed(2)} €</div>
             <p className="text-xs text-muted-foreground">
-              ~€{(totals.cost / totals.runs || 0).toFixed(3)} pro Run
+              ~{(totals.cost / totals.runs || 0).toFixed(3)} € pro Run
             </p>
           </CardContent>
         </Card>
@@ -377,7 +377,7 @@ export default function AIWorkersPage() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="flex items-start gap-2">
-            <DollarSign className="h-4 w-4 text-muted-foreground mt-0.5" />
+            <Euro className="h-4 w-4 text-muted-foreground mt-0.5" />
             <div>
               <strong>Budget-Stop:</strong> Worker pausiert automatisch bei Erreichen des Tageslimits
             </div>

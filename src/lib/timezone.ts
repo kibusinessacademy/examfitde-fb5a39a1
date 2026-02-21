@@ -48,3 +48,13 @@ export function formatTime(ts: string | Date | null | undefined, opts?: Intl.Dat
 export function nowBerlin(): string {
   return new Date().toLocaleString(APP_LOCALE, { timeZone: APP_TIMEZONE });
 }
+
+/** Format cents as EUR currency string (e.g. "39,00 €") */
+export function formatEur(cents: number): string {
+  return (cents / 100).toLocaleString(APP_LOCALE, { style: 'currency', currency: 'EUR' });
+}
+
+/** Format a EUR amount (already in euros, not cents) */
+export function formatEurAmount(eur: number, decimals = 2): string {
+  return eur.toLocaleString(APP_LOCALE, { style: 'currency', currency: 'EUR', minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
