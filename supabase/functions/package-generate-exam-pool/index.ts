@@ -1245,8 +1245,69 @@ Deno.serve(async (req) => {
       } else {
         console.log(`[ExamPool-v5] CALC_BACKFILL complete: +${calcBackfillSaved} calc in ${calcAttempts} attempts`);
       }
-    } else if (calcDeficit <= 0) {
+    } else if (calcDeficit <= 0 && chunkPlanned > 0) {
       console.log(`[ExamPool-v5] CALC_QUOTA OK: target=${calcTarget}, inserted=${calcInserted}, chunkPlanned=${chunkPlanned} — no backfill needed`);
+    } else if (chunkPlanned === 0) {
+      console.log(`[ExamPool-v5] CALC_BACKFILL_SKIP_CHUNK: chunkPlanned=0, checking global deficit instead`);
+    }
+
+    // ═══ GLOBAL CALC DEFICIT CHECK (for pools already at/over effectiveTarget) ═══
+    {
+      const { count: globalTotal } = await sb.from("exam_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId);
+      const { count: globalCalc } = await sb.from("exam_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId)
+        .eq("question_type", "calculation");
+
+      const gTotal = globalTotal ?? 0;
+      const gCalc = globalCalc ?? 0;
+      const globalCalcTarget = Math.ceil(gTotal * calcRatio);
+      const globalDeficit = globalCalcTarget - gCalc;
+      const MAX_GLOBAL_BACKFILL = 50;
+
+      if (globalDeficit <= 0) {
+        console.log(`[ExamPool-v5] CALC_GLOBAL_QUOTA_OK: ${gCalc}/${gTotal} = ${(100*gCalc/Math.max(gTotal,1)).toFixed(1)}% (target ${(calcRatio*100).toFixed(0)}%)`);
+      } else if (gTotal >= HARD_CAP_QUESTIONS) {
+        console.log(`[ExamPool-v5] CALC_GLOBAL_SKIP: pool at hard cap ${gTotal}, deficit=${globalDeficit}`);
+      } else {
+        const cappedDeficit = Math.min(globalDeficit, MAX_GLOBAL_BACKFILL);
+        const calcBps = bps.filter((b: any) => b.trap_spec != null);
+        const backfillBps = calcBps.length > 0 ? calcBps : bps;
+        const shuffledBps = [...backfillBps].sort(() => Math.random() - 0.5);
+        const maxAttempts = cappedDeficit * 4 + 10;
+        let globalSaved = 0;
+        let globalAttempts = 0;
+        const calcDiffs: string[] = ["medium", "hard", "easy", "very_hard"];
+
+        console.log(`[ExamPool-v5] CALC_GLOBAL_BACKFILL_START: globalDeficit=${globalDeficit}, capped=${cappedDeficit}, pool=${gCalc}/${gTotal}, calcBps=${calcBps.length}/${bps.length}`);
+
+        for (let i = 0; globalSaved < cappedDeficit && globalAttempts < maxAttempts; i++) {
+          const bp = shuffledBps[i % shuffledBps.length] as BlueprintInfo & { max_variations: number | null };
+          const diff = calcDiffs[globalAttempts % calcDiffs.length];
+          const cog = cogEntries[globalAttempts % cogEntries.length][0];
+          try {
+            const genResult = await generateTurboQuestions(
+              sb, bp, AI_QUESTIONS_PER_CALL, diff, "calculation", cog,
+              existingHashes, existingNgramSets, professionName, glossaryContext
+            );
+            globalSaved += genResult.saved;
+            trainingThisChunk += genResult.training;
+          } catch (e: unknown) {
+            console.log(`[ExamPool-v5] CALC_GLOBAL attempt ${globalAttempts} FAIL: ${(e as Error)?.message}`);
+          }
+          globalAttempts++;
+        }
+
+        questionsThisChunk += globalSaved;
+
+        if (globalSaved < cappedDeficit) {
+          console.log(`[ExamPool-v5] CALC_GLOBAL_NOT_REACHED: wanted=${cappedDeficit}, got=${globalSaved} after ${globalAttempts} attempts`);
+        } else {
+          console.log(`[ExamPool-v5] CALC_GLOBAL_BACKFILL complete: +${globalSaved} calc in ${globalAttempts} attempts`);
+        }
+      }
     }
 
     // Count actual total
