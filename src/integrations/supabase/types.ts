@@ -7201,6 +7201,7 @@ export type Database = {
           created_at: string
           curriculum_id: string
           difficulty: Database["public"]["Enums"]["question_difficulty"] | null
+          distractor_meta: Json | null
           explanation: string | null
           id: string
           item_calibrated_at: string | null
@@ -7217,6 +7218,7 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["question_status"] | null
+          trap_tags: string[] | null
           variant_group: string | null
           variant_label: string | null
         }
@@ -7230,6 +7232,7 @@ export type Database = {
           created_at?: string
           curriculum_id: string
           difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
+          distractor_meta?: Json | null
           explanation?: string | null
           id?: string
           item_calibrated_at?: string | null
@@ -7246,6 +7249,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
+          trap_tags?: string[] | null
           variant_group?: string | null
           variant_label?: string | null
         }
@@ -7259,6 +7263,7 @@ export type Database = {
           created_at?: string
           curriculum_id?: string
           difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
+          distractor_meta?: Json | null
           explanation?: string | null
           id?: string
           item_calibrated_at?: string | null
@@ -7275,6 +7280,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
+          trap_tags?: string[] | null
           variant_group?: string | null
           variant_label?: string | null
         }
@@ -13841,6 +13847,7 @@ export type Database = {
           question_template: string
           real_world_context: boolean
           status: Database["public"]["Enums"]["blueprint_status"]
+          trap_spec: Json | null
           typical_exam_trap: string | null
           updated_at: string
           variation_modes:
@@ -13875,6 +13882,7 @@ export type Database = {
           question_template: string
           real_world_context?: boolean
           status?: Database["public"]["Enums"]["blueprint_status"]
+          trap_spec?: Json | null
           typical_exam_trap?: string | null
           updated_at?: string
           variation_modes?:
@@ -13909,6 +13917,7 @@ export type Database = {
           question_template?: string
           real_world_context?: boolean
           status?: Database["public"]["Enums"]["blueprint_status"]
+          trap_spec?: Json | null
           typical_exam_trap?: string | null
           updated_at?: string
           variation_modes?:

@@ -348,6 +348,12 @@ function repairJSON(raw: string): unknown | null {
 
 // ─── Turbo Prompt v4 (cognitive level + question type + IHK distractor rules) ─
 
+interface TrapSpec {
+  trap_tags: string[];
+  common_misconceptions: string[];
+  distractor_rules: string[];
+}
+
 interface BlueprintInfo {
   id: string;
   curriculum_id: string;
@@ -357,7 +363,17 @@ interface BlueprintInfo {
   canonical_statement: string;
   cognitive_level: string;
   question_template: string;
+  trap_spec?: TrapSpec | null;
+  typical_exam_trap?: string | null;
 }
+
+// ─── Error Tag Vocabulary (fixed, SSOT) ──────────────────────────────────────
+
+const ERROR_TAG_VOCABULARY = [
+  "netto_brutto", "percent_base", "skonto_rabatt_order", "rounding_units",
+  "definition_confusion", "recht_frist", "prozess_schritt", "zustaendigkeit_rolle",
+  "dateninterpretation", "typical_distractor_plausible_wrong",
+] as const;
 
 function buildTurboPrompt(
   bp: BlueprintInfo,
@@ -418,12 +434,14 @@ SPRACHE & STIL:
 - Verwende diverse Personennamen: ${namePool}
 - Verwende REALISTISCHE Zahlen (nicht 1.000, 10.000 — sondern z.B. 12.450, 3.875, 47.320)
 
-DISTRAKTOREN (IHK-QUALITÄT):
-- Distraktor 1: Korrekt klingend, aber falsche Norm/Paragraph/Frist
-- Distraktor 2: Häufige Praxisverwechslung (was Azubis oft falsch machen)
-- Distraktor 3: Typischer Rechenfehler oder Denkfehler
+DISTRAKTOREN (IHK-QUALITÄT — STRUKTURIERT):
+- Distraktor 1: Korrekt klingend, aber falsche Norm/Paragraph/Frist → error_tag zuweisen
+- Distraktor 2: Häufige Praxisverwechslung (was Azubis oft falsch machen) → error_tag zuweisen
+- Distraktor 3: Typischer Rechenfehler oder Denkfehler → error_tag zuweisen
 - ALLE Distraktoren müssen plausibel klingen — NICHT offensichtlich falsch
 - KEINE "Nonsens-Optionen" die sofort ausgeschlossen werden können
+- Erlaubte error_tags: ${ERROR_TAG_VOCABULARY.join(", ")}
+- Bei Rechenaufgaben: Falsche Optionen MÜSSEN numerisch nahe am korrekten Ergebnis liegen (typische Rechenfehler, nicht zufällige Zahlen)
 
 PRAXISBEZUG (PFLICHT):
 - Jede Frage enthält eine konkrete Berufsrolle aus dem Alltag von ${professionName} (Auszubildende, Fachkraft, Meister, Vorgesetzte, Kunde etc.)
@@ -461,12 +479,26 @@ Regeneriere intern, bis alle Punkte erfüllt sind.
 ${glossaryContext || ''}
 
 Antworte NUR mit JSON-Array (keine Extra-Keys, options exakt 4, correct_answer 0..3):
-[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","cognitive_level":"${cognitiveLevel}","explanation":"Richtig: ... Falsch A: ... Falsch B: ... Falsch C: ... Prüfungsanker: ... Merke: ...","tags":["tag1"]}]`;
+[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","cognitive_level":"${cognitiveLevel}","explanation":"Richtig: ... Falsch A: ... Falsch B: ... Falsch C: ... Prüfungsanker: ... Merke: ...","tags":["tag1"],"trap_tags":["error_type1"],"distractor_meta":[{"option_index":1,"error_tag":"percent_base","why_wrong":"..."},{"option_index":2,"error_tag":"skonto_rabatt_order","why_wrong":"..."},{"option_index":3,"error_tag":"definition_confusion","why_wrong":"..."}]}]`;
+
+  // ── Inject TrapSpec from blueprint (if available) ──
+  let trapSpecBlock = "";
+  if (bp.trap_spec) {
+    const ts = bp.trap_spec;
+    trapSpecBlock = `\n\n═══ BLUEPRINT TRAP-SPEC (PFLICHT für Distraktoren) ═══
+Typische Prüfungsfallen für dieses Thema:
+- Trap-Tags: ${ts.trap_tags?.join(", ") || "keine"}
+- Häufige Denkfehler: ${ts.common_misconceptions?.join("; ") || "keine"}
+- Distraktor-Regeln: ${ts.distractor_rules?.join("; ") || "keine"}
+Nutze diese Fallen gezielt für die 3 Distraktoren!`;
+  } else if (bp.typical_exam_trap) {
+    trapSpecBlock = `\n\nTypische Prüfungsfalle: ${bp.typical_exam_trap}`;
+  }
 
   const user = `${count} Frage(n) für "${professionName}".
 Lernfeld: ${lfTitle}
 Thema: ${compTitle} — ${compDesc}
-Blueprint: ${bp.canonical_statement}${depthBlock}
+Blueprint: ${bp.canonical_statement}${depthBlock}${trapSpecBlock}
 
 Kognitive Stufe: ${cognitiveLevel}
 Fragetyp: ${questionType}
@@ -671,6 +703,45 @@ async function generateTurboQuestions(
     const forcedCogLevel = (cognitiveLevel || "understand").toLowerCase();
     const mappedCogLevel = cogLevelMap[forcedCogLevel] || forcedCogLevel;
 
+    // ── Hebel 3: Extract and validate distractor metadata ──
+    const rawTrapTags: string[] = Array.isArray(q.trap_tags) 
+      ? q.trap_tags.filter((t: string) => ERROR_TAG_VOCABULARY.includes(t as any))
+      : [];
+    const rawDistractorMeta: Array<{option_index: number; error_tag: string; why_wrong: string}> = 
+      Array.isArray(q.distractor_meta) ? q.distractor_meta.filter((d: any) => 
+        typeof d.option_index === "number" && typeof d.error_tag === "string"
+      ) : [];
+
+    // Distractor Quality Gate: for calculation questions, require structured distractor info
+    if (questionType === "calculation" && rawDistractorMeta.length < 2) {
+      console.log(`[ExamPool-v5] WEAK_DISTRACTORS: calculation question missing distractor_meta (${rawDistractorMeta.length}/3)`);
+      // Soft gate: downgrade to training pool instead of rejecting
+      const forceTrainingDistractor = true;
+      const assignedPoolFinal = forceTrainingDistractor ? "training" : assignedPool;
+      
+      const { error } = await sb.from("exam_questions").insert({
+        curriculum_id: bp.curriculum_id,
+        learning_field_id: bp.learning_field_id,
+        competency_id: bp.competency_id,
+        blueprint_id: bp.id,
+        question_text: q.question_text,
+        options: q.options,
+        correct_answer: Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0),
+        explanation: q.explanation || "",
+        difficulty: difficulty,
+        cognitive_level: mappedCogLevel,
+        question_type: questionType,
+        trap_tags: rawTrapTags,
+        distractor_meta: rawDistractorMeta,
+        ai_generated: true,
+        status,
+        qc_status: "pending", // weak distractors → training
+      });
+      if (error && error.code !== "23505") console.log(`[ExamPool-v5] Insert error: ${error.message}`);
+      if (!error) training++;
+      continue;
+    }
+
     const { error } = await sb.from("exam_questions").insert({
       curriculum_id: bp.curriculum_id,
       learning_field_id: bp.learning_field_id,
@@ -689,6 +760,9 @@ async function generateTurboQuestions(
         : questionType === "risk_assessment" ? "case_study"
         : questionType === "compliance_check" ? "concept"
         : questionType, // calculation, case_study pass through
+      // Hebel 3: Trap tags + distractor metadata
+      trap_tags: rawTrapTags,
+      distractor_meta: rawDistractorMeta,
       ai_generated: true,
       status,
       qc_status: assignedPool === "exam" ? "approved" : "pending",
@@ -937,7 +1011,7 @@ Deno.serve(async (req) => {
 
     // Get blueprints
     let bpQuery = sb.from("question_blueprints")
-      .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template")
+      .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template, trap_spec, typical_exam_trap")
       .eq("curriculum_id", curriculumId).eq("status", "approved").order("created_at", { ascending: true });
 
     if (blueprintIds?.length) bpQuery = bpQuery.in("id", blueprintIds);
