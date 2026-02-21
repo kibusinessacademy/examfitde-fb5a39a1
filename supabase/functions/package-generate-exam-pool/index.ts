@@ -1188,6 +1188,61 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ═══ DETERMINISTIC CALC QUOTA BACKFILL ═══
+    // After main loop, check if calculation questions are under-represented due to
+    // disproportionate rejection rates. If so, do targeted calc-only generation.
+    const calcRatio = QUESTION_TYPE_MIX.calculation ?? 0.20;
+    const calcTarget = Math.ceil(questionsThisChunk * calcRatio);
+    // Count how many calc questions were actually inserted this chunk
+    const { count: calcInsertedCount } = await sb.from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .eq("question_type", "calculation")
+      .gte("created_at", new Date(Date.now() - 10 * 60 * 1000).toISOString()); // last 10 min proxy for "this chunk"
+    const calcInserted = calcInsertedCount ?? 0;
+    const calcDeficit = calcTarget - calcInserted;
+
+    if (calcDeficit > 0 && bps.length > 0 && (preTotal + questionsThisChunk) < HARD_CAP_QUESTIONS) {
+      const maxCalcAttempts = calcDeficit * 4 + 10; // generous retry budget
+      let calcBackfilled = 0;
+      let calcAttempts = 0;
+      // Pick random blueprints for backfill variety
+      const shuffledBps = [...bps].sort(() => Math.random() - 0.5);
+      const calcDiffs: string[] = ["medium", "hard", "easy", "very_hard"];
+
+      console.log(`[ExamPool-v5] CALC_BACKFILL: deficit=${calcDeficit}, target=${calcTarget}, inserted=${calcInserted}, maxAttempts=${maxCalcAttempts}`);
+
+      for (let i = 0; calcBackfilled < calcDeficit && calcAttempts < maxCalcAttempts; i++) {
+        const bp = shuffledBps[i % shuffledBps.length] as BlueprintInfo & { max_variations: number | null };
+        const diff = calcDiffs[calcAttempts % calcDiffs.length];
+        const cog = cogEntries[calcAttempts % cogEntries.length][0];
+
+        try {
+          const genResult = await generateTurboQuestions(
+            sb, bp, AI_QUESTIONS_PER_CALL, diff, "calculation", cog,
+            existingHashes, existingNgramSets, professionName, glossaryContext
+          );
+          calcBackfilled += genResult.saved;
+          questionsThisChunk += genResult.saved;
+          trainingThisChunk += genResult.training;
+        } catch (e: unknown) {
+          console.log(`[ExamPool-v5] CALC_BACKFILL attempt ${calcAttempts} FAIL: ${(e as Error)?.message}`);
+        }
+        calcAttempts++;
+
+        // Hard cap safety
+        if ((preTotal + questionsThisChunk) >= HARD_CAP_QUESTIONS) break;
+      }
+
+      if (calcBackfilled < calcDeficit) {
+        console.log(`[ExamPool-v5] CALC_QUOTA_NOT_REACHED: wanted=${calcDeficit}, got=${calcBackfilled} after ${calcAttempts} attempts`);
+      } else {
+        console.log(`[ExamPool-v5] CALC_BACKFILL complete: +${calcBackfilled} calc questions in ${calcAttempts} attempts`);
+      }
+    } else if (calcDeficit <= 0) {
+      console.log(`[ExamPool-v5] CALC_QUOTA OK: target=${calcTarget}, inserted=${calcInserted} — no backfill needed`);
+    }
+
     // Count actual total
     const { count: totalQuestions } = await sb.from("exam_questions")
       .select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
