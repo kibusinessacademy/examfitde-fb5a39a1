@@ -16,11 +16,13 @@ function json(body: unknown, status = 200) {
 
 // ── Shared Constants ──
 const STEP_ORDER = [
-  'scaffold_learning_course','generate_glossary','auto_seed_exam_blueprints',
-  'validate_blueprints','generate_learning_content','validate_learning_content',
-  'generate_exam_pool','validate_exam_pool','generate_oral_exam','validate_oral_exam',
-  'build_ai_tutor_index','validate_tutor_index','generate_handbook','validate_handbook',
-  'quality_council','run_integrity_check','auto_publish'
+  'scaffold_learning_course','generate_glossary','generate_learning_content','validate_learning_content',
+  'auto_seed_exam_blueprints','validate_blueprints',
+  'generate_exam_pool','validate_exam_pool',
+  'build_ai_tutor_index','validate_tutor_index',
+  'generate_oral_exam','validate_oral_exam',
+  'generate_handbook','validate_handbook',
+  'run_integrity_check','quality_council','auto_publish'
 ] as const;
 
 const STEP_RANK = new Map(STEP_ORDER.map((s, i) => [s, i + 1]));

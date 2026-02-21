@@ -39,8 +39,9 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id as string;
   const certificationId = p.certification_id || curriculumId;
 
-  if (!(await prereqDone(sb, packageId, "generate_exam_pool"))) {
-    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_exam_pool" }, 409);
+  // Oral exam runs AFTER tutor index (Exam → Tutor → Oral sequence)
+  if (!(await prereqDone(sb, packageId, "validate_tutor_index"))) {
+    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: validate_tutor_index" }, 409);
   }
 
   try {

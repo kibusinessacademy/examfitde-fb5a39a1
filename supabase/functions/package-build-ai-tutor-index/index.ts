@@ -40,9 +40,9 @@ Deno.serve(async (req) => {
   // NOT the certification_id from course_packages. Always use curriculum_id for lookups.
   const topicLookupId = curriculumId;
 
-  // Runner SSOT: prerequisites via view (mapped to package_steps)
-  if (!(await prereqDone(sb, packageId, "generate_oral_exam"))) {
-    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_oral_exam" }, 409);
+  // Runner SSOT: prerequisites — Tutor now runs AFTER exam pool, BEFORE oral exam
+  if (!(await prereqDone(sb, packageId, "validate_exam_pool"))) {
+    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: validate_exam_pool" }, 409);
   }
 
   // Idempotent: check if already done for this package

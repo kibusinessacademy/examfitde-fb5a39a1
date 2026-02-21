@@ -19629,6 +19629,7 @@ export type Database = {
         }
         Returns: Json
       }
+      derive_pipeline_steps: { Args: { p_flags: Json }; Returns: Json }
       detect_device_burst: {
         Args: { p_minutes?: number; p_user_threshold?: number }
         Returns: Json
