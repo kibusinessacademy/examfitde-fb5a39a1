@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
   if (newSlots !== currentSlots) {
     await sb
       .from("ops_pipeline_config")
-      .update({ value: String(newSlots), updated_at: new Date().toISOString(), updated_by: "autoscaler" })
+      .update({ value: newSlots, updated_at: new Date().toISOString(), updated_by: "autoscaler" })
       .eq("key", "max_concurrent_packages");
 
     // Log the scaling event as admin notification
