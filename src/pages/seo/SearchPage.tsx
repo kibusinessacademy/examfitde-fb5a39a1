@@ -126,9 +126,16 @@ export default function SearchPage() {
                   {r.subtitle && (
                     <p className="text-sm text-muted-foreground line-clamp-2">{r.subtitle}</p>
                   )}
-                  <span className="text-xs text-muted-foreground/60 mt-1 inline-block">
-                    {r.match_reason === "fts" ? "Volltexttreffer" : r.match_reason === "fuzzy" ? "Ähnlicher Treffer" : "Schwacher Treffer"}
-                  </span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-muted-foreground/60">
+                        {r.match_reason === "fts" ? "Volltexttreffer" : r.match_reason === "fuzzy" ? "Ähnlicher Treffer" : "Schwacher Treffer"}
+                      </span>
+                      {r.score > 0 && (
+                        <span className="text-[10px] text-muted-foreground/40">
+                          Relevanz {Math.round(r.score * 100)}%
+                        </span>
+                      )}
+                    </div>
                 </div>
               </div>
             </Link>

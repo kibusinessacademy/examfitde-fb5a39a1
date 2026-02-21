@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,7 +10,7 @@ import {
   ChevronDown, ChevronRight, Settings, Workflow, Shield,
   Brain, Activity, Layers, Factory, Zap, Clock, Target,
   AlertTriangle, CheckCircle2, ArrowRight, Database,
-  Users, TrendingUp, Lock, Eye
+  Users, TrendingUp, Lock, Eye, Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PageExplainer from '@/components/admin/PageExplainer';
@@ -456,7 +457,28 @@ function downloadBlob(content: string, filename: string, mime: string) {
 
 export default function SystemHandbookPage() {
   const [activeSection, setActiveSection] = useState('overview');
+  const [searchQuery, setSearchQuery] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Filter sections by search query
+  const filteredSections = useMemo(() => {
+    if (!searchQuery || searchQuery.length < 2) return HANDBOOK_SECTIONS;
+    const q = searchQuery.toLowerCase();
+    return HANDBOOK_SECTIONS.map(s => ({
+      ...s,
+      content: s.content.filter(b =>
+        (b.heading?.toLowerCase().includes(q)) ||
+        (b.text?.toLowerCase().includes(q)) ||
+        (b.list?.some(li => li.toLowerCase().includes(q))) ||
+        (b.table?.rows.some(row => row.some(cell => cell.toLowerCase().includes(q)))) ||
+        (b.note?.toLowerCase().includes(q))
+      ),
+    })).filter(s => s.content.length > 0);
+  }, [searchQuery]);
+
+  const matchCount = searchQuery.length >= 2
+    ? filteredSections.reduce((sum, s) => sum + s.content.length, 0)
+    : 0;
 
   const exportJSX = () => {
     const text = generatePlainText(HANDBOOK_SECTIONS);
@@ -483,7 +505,9 @@ export default function SystemHandbookPage() {
     }
   };
 
-  const currentSection = HANDBOOK_SECTIONS.find(s => s.id === activeSection) || HANDBOOK_SECTIONS[0];
+  const currentSection = searchQuery.length >= 2
+    ? null // show all filtered sections
+    : (HANDBOOK_SECTIONS.find(s => s.id === activeSection) || HANDBOOK_SECTIONS[0]);
 
   return (
     <div className="space-y-6">
@@ -520,104 +544,160 @@ export default function SystemHandbookPage() {
         ]}
       />
 
+      {/* Search bar */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Handbuch durchsuchen…"
+          className="pl-9"
+        />
+        {searchQuery.length >= 2 && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+            {matchCount} Treffer
+          </span>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
         {/* TOC sidebar */}
-        <Card className="lg:sticky lg:top-4 h-fit">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground">Kapitel</CardTitle>
-          </CardHeader>
-          <CardContent className="p-2">
-            <nav className="space-y-0.5">
-              {HANDBOOK_SECTIONS.map(s => {
-                const Icon = s.icon;
-                const isActive = s.id === activeSection;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setActiveSection(s.id)}
-                    className={cn(
-                      "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors",
-                      isActive
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{s.title}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </CardContent>
-        </Card>
-
-        {/* Content area */}
-        <div ref={printRef} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {(() => { const Icon = currentSection.icon; return <Icon className="h-5 w-5 text-primary" />; })()}
-                {currentSection.title}
-              </CardTitle>
+        {!searchQuery && (
+          <Card className="lg:sticky lg:top-4 h-fit">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground">Kapitel</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {currentSection.content.map((block, i) => (
-                <div key={i} className="space-y-2">
-                  {block.heading && (
-                    <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                      <ChevronRight className="h-4 w-4 text-primary" />
-                      {block.heading}
-                    </h3>
-                  )}
-                  {block.text && (
-                    <p className="text-sm text-muted-foreground leading-relaxed pl-6">{block.text}</p>
-                  )}
-                  {block.list && (
-                    <ul className="space-y-1.5 pl-6">
-                      {block.list.map((li, j) => (
-                        <li key={j} className="text-sm text-foreground flex items-start gap-2">
-                          <span className="text-primary mt-1 shrink-0">•</span>
-                          <span>{li}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {block.table && (
-                    <div className="pl-6 overflow-x-auto">
-                      <table className="w-full text-sm border border-border rounded-lg overflow-hidden">
-                        <thead>
-                          <tr className="bg-muted/50">
-                            {block.table.headers.map((h, j) => (
-                              <th key={j} className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground border-b border-border">{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {block.table.rows.map((row, j) => (
-                            <tr key={j} className="border-b border-border/50 last:border-0">
-                              {row.map((cell, k) => (
-                                <td key={k} className="px-3 py-2 text-foreground">{cell}</td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                  {block.note && (
-                    <div className="pl-6">
-                      <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
-                        <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-                        <p className="text-xs text-foreground">{block.note}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+            <CardContent className="p-2">
+              <nav className="space-y-0.5">
+                {HANDBOOK_SECTIONS.map(s => {
+                  const Icon = s.icon;
+                  const isActive = s.id === activeSection;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setActiveSection(s.id)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors",
+                        isActive
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{s.title}</span>
+                    </button>
+                  );
+                })}
+              </nav>
             </CardContent>
           </Card>
+        )}
+
+        {/* Content area */}
+        <div ref={printRef} className={cn("space-y-6", searchQuery && "lg:col-span-2")}>
+          {/* Search results: show all matching sections */}
+          {searchQuery.length >= 2 ? (
+            filteredSections.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  Keine Treffer für „{searchQuery}".
+                </CardContent>
+              </Card>
+            ) : (
+              filteredSections.map(section => (
+                <Card key={section.id}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      {(() => { const Icon = section.icon; return <Icon className="h-5 w-5 text-primary" />; })()}
+                      {section.title}
+                      <Badge className="ml-auto text-xs" variant="secondary">{section.content.length}</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {section.content.map((block, i) => (
+                      <SectionBlockRenderer key={i} block={block} />
+                    ))}
+                  </CardContent>
+                </Card>
+              ))
+            )
+          ) : (
+            /* Normal mode: show active section */
+            currentSection && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    {(() => { const Icon = currentSection.icon; return <Icon className="h-5 w-5 text-primary" />; })()}
+                    {currentSection.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {currentSection.content.map((block, i) => (
+                    <SectionBlockRenderer key={i} block={block} />
+                  ))}
+                </CardContent>
+              </Card>
+            )
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ── Block renderer (extracted to avoid duplication) ── */
+function SectionBlockRenderer({ block }: { block: SectionBlock }) {
+  return (
+    <div className="space-y-2">
+      {block.heading && (
+        <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+          <ChevronRight className="h-4 w-4 text-primary" />
+          {block.heading}
+        </h3>
+      )}
+      {block.text && (
+        <p className="text-sm text-muted-foreground leading-relaxed pl-6">{block.text}</p>
+      )}
+      {block.list && (
+        <ul className="space-y-1.5 pl-6">
+          {block.list.map((li, j) => (
+            <li key={j} className="text-sm text-foreground flex items-start gap-2">
+              <span className="text-primary mt-1 shrink-0">•</span>
+              <span>{li}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {block.table && (
+        <div className="pl-6 overflow-x-auto">
+          <table className="w-full text-sm border border-border rounded-lg overflow-hidden">
+            <thead>
+              <tr className="bg-muted/50">
+                {block.table.headers.map((h, j) => (
+                  <th key={j} className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground border-b border-border">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.table.rows.map((row, j) => (
+                <tr key={j} className="border-b border-border/50 last:border-0">
+                  {row.map((cell, k) => (
+                    <td key={k} className="px-3 py-2 text-foreground">{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {block.note && (
+        <div className="pl-6">
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
+            <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+            <p className="text-xs text-foreground">{block.note}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
