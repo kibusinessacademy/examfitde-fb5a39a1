@@ -96,6 +96,7 @@ export default function PipelineTimeline({ packageId, packageTitle }: Props) {
                 )}
                 <span className="text-[10px] text-muted-foreground">
                   {new Date(ev.created_at).toLocaleString('de-DE', {
+                    timeZone: 'Europe/Berlin',
                     hour: '2-digit', minute: '2-digit', second: '2-digit',
                     day: '2-digit', month: '2-digit',
                   })}

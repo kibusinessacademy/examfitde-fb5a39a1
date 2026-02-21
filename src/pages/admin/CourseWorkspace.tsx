@@ -966,8 +966,8 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                         )}
                         {step?.started_at && (
                           <p className="text-[10px] text-muted-foreground">
-                            Gestartet: {new Date(step.started_at).toLocaleString('de-DE')}
-                            {step?.finished_at && ` · Fertig: ${new Date(step.finished_at).toLocaleString('de-DE')}`}
+                            Gestartet: {new Date(step.started_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}
+                            {step?.finished_at && ` · Fertig: ${new Date(step.finished_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}`}
                           </p>
                         )}
                       </div>
