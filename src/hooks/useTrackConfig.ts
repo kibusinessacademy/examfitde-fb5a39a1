@@ -63,17 +63,25 @@ export const DEFAULT_FLAGS: Record<ProductTrack, FeatureFlags> = {
   },
 };
 
-// Pipeline steps filtered by feature_flags
+// Pipeline steps filtered by feature_flags — full 17-step pipeline matching DB
 export const ALL_PIPELINE_STEPS = [
-  { key: 'scaffold_learning_course', label: 'Lernkurs', flag: 'has_learning_course' },
-  { key: 'generate_exam_pool', label: 'Prüfungsfragen', flag: 'has_exam_trainer' },
-  { key: 'validate_blueprints', label: 'QG Blueprints', flag: 'has_exam_trainer' },
-  { key: 'generate_oral_exam', label: 'Mündliche', flag: 'has_oral_exam_trainer' },
-  { key: 'build_ai_tutor_index', label: 'AI Tutor', flag: 'has_ai_tutor' },
-  { key: 'validate_tutor_index', label: 'QG Tutor', flag: 'has_ai_tutor' },
-  { key: 'generate_handbook', label: 'Handbuch', flag: 'has_handbook' },
-  { key: 'run_integrity_check', label: 'Qualitätsprüfung', flag: null },
-  { key: 'auto_publish', label: 'Veröffentlichen', flag: null },
+  { key: 'scaffold_learning_course', label: 'Lernkurs Scaffold', shortLabel: 'Scaffold', flag: 'has_learning_course' },
+  { key: 'generate_glossary',        label: 'Glossar',           shortLabel: 'Glossar',  flag: 'has_learning_course' },
+  { key: 'generate_learning_content',label: 'Lerninhalte',       shortLabel: 'Inhalt',   flag: 'has_learning_course' },
+  { key: 'validate_learning_content',label: 'QG Lerninhalte',    shortLabel: 'QG Lern',  flag: 'has_learning_course' },
+  { key: 'auto_seed_exam_blueprints',label: 'Exam Blueprints',   shortLabel: 'BP Seed',  flag: 'has_exam_trainer' },
+  { key: 'validate_blueprints',      label: 'QG Blueprints',     shortLabel: 'QG BP',    flag: 'has_exam_trainer' },
+  { key: 'generate_exam_pool',       label: 'Prüfungsfragen',    shortLabel: 'Exam',     flag: 'has_exam_trainer' },
+  { key: 'validate_exam_pool',       label: 'QG Exam Pool',      shortLabel: 'QG Exam',  flag: 'has_exam_trainer' },
+  { key: 'generate_oral_exam',       label: 'Mündliche',         shortLabel: 'Oral',     flag: 'has_oral_exam_trainer' },
+  { key: 'validate_oral_exam',       label: 'QG Mündliche',      shortLabel: 'QG Oral',  flag: 'has_oral_exam_trainer' },
+  { key: 'build_ai_tutor_index',     label: 'AI Tutor',          shortLabel: 'Tutor',    flag: 'has_ai_tutor' },
+  { key: 'validate_tutor_index',     label: 'QG Tutor',          shortLabel: 'QG Tut',   flag: 'has_ai_tutor' },
+  { key: 'generate_handbook',        label: 'Handbuch',          shortLabel: 'Buch',     flag: 'has_handbook' },
+  { key: 'validate_handbook',        label: 'QG Handbuch',       shortLabel: 'QG Buch',  flag: 'has_handbook' },
+  { key: 'run_integrity_check',      label: 'Qualitätsprüfung',  shortLabel: 'QA',       flag: null },
+  { key: 'quality_council',          label: 'QA Council',        shortLabel: 'Council',  flag: null },
+  { key: 'auto_publish',             label: 'Veröffentlichen',   shortLabel: 'Pub',      flag: null },
 ] as const;
 
 export function getActiveSteps(flags: FeatureFlags | null | undefined) {

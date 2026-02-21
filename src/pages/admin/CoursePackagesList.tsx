@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useCoursePackages } from '@/hooks/useCoursePackages';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PageExplainer from '@/components/admin/PageExplainer';
+import { supabase } from '@/integrations/supabase/client';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   all: { label: 'Alle', color: 'bg-muted text-muted-foreground', icon: Filter },
@@ -44,6 +46,29 @@ export default function CoursePackagesList() {
   const { data: packages, isLoading } = useCoursePackages();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Load real step-based progress for all packages (SSOT from package_steps)
+  const { data: stepProgress } = useQuery({
+    queryKey: ['package-step-progress'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('package_steps')
+        .select('package_id, status, meta');
+      if (error) throw error;
+      const map: Record<string, { total: number; done: number; running: number; failed: number }> = {};
+      for (const row of (data || [])) {
+        if (!map[row.package_id]) map[row.package_id] = { total: 0, done: 0, running: 0, failed: 0 };
+        const entry = map[row.package_id];
+        entry.total++;
+        const metaOk = row.meta && typeof row.meta === 'object' && (row.meta as any).ok === true;
+        if (row.status === 'done' || metaOk) entry.done++;
+        else if (row.status === 'running') entry.running++;
+        else if (row.status === 'failed') entry.failed++;
+      }
+      return map;
+    },
+    refetchInterval: 15000,
+  });
 
   const stuckIds = useMemo(() => {
     const ids = new Set<string>();
@@ -285,12 +310,19 @@ export default function CoursePackagesList() {
                             </Badge>
                           )}
                         </div>
-                        {pkg.build_progress > 0 && pkg.build_progress < 100 && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <Progress value={pkg.build_progress} className="h-1.5 flex-1 max-w-48" />
-                            <span className="text-xs text-muted-foreground">{pkg.build_progress}%</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const sp = stepProgress?.[pkg.id];
+                          const pct = sp ? Math.round((sp.done / Math.max(sp.total, 1)) * 100) : pkg.build_progress;
+                          if (pct <= 0 || pct >= 100) return null;
+                          return (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Progress value={pct} className="h-1.5 flex-1 max-w-48" />
+                              <span className="text-xs text-muted-foreground font-mono">
+                                {sp ? `${sp.done}/${sp.total}` : `${pct}%`}
+                              </span>
+                            </div>
+                          );
+                        })()}
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                           {pkg.council_approved && (
                             <span className="flex items-center gap-1">
