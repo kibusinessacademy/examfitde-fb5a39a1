@@ -56,9 +56,9 @@ export function ActiveCourseProvider({ children }: { children: ReactNode }) {
       ]);
 
       const steps = stepsRes.data || [];
-      // Count steps as done if status=done OR meta.ok=true (reset by sequence guard)
-      const isStepDone = (s: any) => s.status === 'done' || (s.meta && (s.meta as any)?.ok === true);
-      const doneSteps = steps.filter(isStepDone).length;
+      // SSOT: Only actual DB status counts
+      const isStepCompleted = (s: any) => s.status === 'done' || s.status === 'skipped';
+      const doneSteps = steps.filter(isStepCompleted).length;
       const totalSteps = steps.length || 1;
       const failedSteps = steps.filter((s: any) => s.status === 'failed').length;
       const healthScore = Math.max(0, Math.round(
