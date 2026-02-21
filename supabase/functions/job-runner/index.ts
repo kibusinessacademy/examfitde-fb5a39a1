@@ -146,6 +146,11 @@ const BACKOFF_409_MS = 30_000;
 const BACKOFF_429_MS = 60_000;
 const BACKOFF_BATCH_MS = 3_000;
 const BACKOFF_ERROR_MS = 30_000;
+const BACKOFF_PREREQ_MS = 20_000;
+
+// ── Function versioning (for deployment forensics) ──────────────────
+const FUNCTION_VERSION = "v5.2";
+const DEPLOYED_AT = "2026-02-21T16:00:00Z";
 
 // Adaptive thresholds (rolling 5-min window)
 const THROTTLE_TIMEOUT_THRESHOLD = 10;
@@ -334,7 +339,7 @@ Deno.serve(async (req) => {
     return json({ ok: true, processed: 0, concurrency: adaptiveConcurrency, worker: WORKER_ID, message: "No pending jobs" });
   }
 
-  console.log(`[job-runner] Claimed ${jobs.length} job(s) [concurrency=${adaptiveConcurrency}, worker=${WORKER_ID}]`);
+  console.log(`[job-runner] Claimed ${jobs.length} job(s) [concurrency=${adaptiveConcurrency}, worker=${WORKER_ID}, version=${FUNCTION_VERSION}]`);
 
   const results: Record<string, unknown>[] = [];
   const tickMetrics: TickMetrics = {
@@ -400,14 +405,11 @@ Deno.serve(async (req) => {
         const prereqStatus = stepMap.get(prereqStep);
         // "skipped" counts as fulfilled — the step was intentionally bypassed by track logic
         if (prereqStatus !== "done" && prereqStatus !== "skipped") {
-          console.warn(`[job-runner] Prereq guard: ${job.job_type} cancelled — ${prereqStep} is '${prereqStatus ?? 'missing'}' (pkg ${(job.payload.package_id as string).slice(0, 8)})`);
-          await sb.from("job_queue").update({
-            status: "cancelled",
-            error: `Prereq guard: ${prereqStep} not done (${prereqStatus ?? 'missing'})`,
-            completed_at: tsNow,
-            ...lockRelease(tsNow),
-          }).eq("id", job.id);
-          results.push({ id: job.id, status: "cancelled", reason: "prereq_not_done" });
+          // FIX v5.2: Requeue instead of cancel — prereq may finish soon, cancelling causes zombie steps
+          console.warn(`[job-runner] Prereq guard: ${job.job_type} requeued — ${prereqStep} is '${prereqStatus ?? 'missing'}' (pkg ${(job.payload.package_id as string).slice(0, 8)})`);
+          await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_PREREQ_MS,
+            `Prereq guard: ${prereqStep} not done (${prereqStatus ?? 'missing'})`, tsNow);
+          results.push({ id: job.id, status: "requeued", reason: "prereq_not_done" });
           continue;
         }
       }
