@@ -64,18 +64,18 @@ serve(async (req) => {
     let seoTitle = `${curriculum.title} ${product.name} | ExamFit`;
     let seoDescription = curriculum.description || `${product.name} für ${curriculum.title}. Bereite dich optimal auf deine IHK-Prüfung vor.`;
 
-    // Use AI to generate better SEO content if available
-    const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
-    if (deepseekApiKey) {
+    // Use Lovable AI Gateway to generate better SEO content
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (lovableApiKey) {
       try {
-        const aiResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${deepseekApiKey}`,
+            Authorization: `Bearer ${lovableApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'deepseek-chat',
+            model: 'google/gemini-2.5-flash',
             messages: [
               {
                 role: 'system',

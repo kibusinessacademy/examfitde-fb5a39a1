@@ -37,7 +37,7 @@ export default function AssetsTab() {
         ))}
       </div>
 
-      <p className="text-muted-foreground">Content-Assets (DeepSeek → Claude Validation)</p>
+      <p className="text-muted-foreground">Content-Assets (Gemini → Claude Validation)</p>
 
       <Table>
         <TableHeader>

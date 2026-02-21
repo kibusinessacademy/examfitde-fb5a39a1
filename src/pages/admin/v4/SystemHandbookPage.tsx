@@ -50,7 +50,7 @@ const HANDBOOK_SECTIONS: Section[] = [
             ['Frontend', 'React 18 + Vite + Tailwind CSS + TypeScript'],
             ['Backend', 'Lovable Cloud (Supabase Edge Functions, Deno)'],
             ['Datenbank', 'PostgreSQL mit RLS-Policies'],
-            ['KI-Provider', 'GPT-5.2 (Generator) + Claude Opus (Validator) + DeepSeek (Producer)'],
+            ['KI-Provider', 'GPT-5.2 (Generator) + Claude Opus (Validator) + Gemini 2.5 (Producer)'],
             ['Orchestrierung', 'pg_cron + job_queue + pipeline-runner'],
             ['Echtzeit', 'Supabase Realtime (Postgres Changes)'],
           ],
@@ -194,7 +194,7 @@ const HANDBOOK_SECTIONS: Section[] = [
           rows: [
             ['Generator', 'GPT-5.2', 'Erstellt Inhalte und Vorschläge'],
             ['Validator', 'Claude Opus', 'Prüft, bewertet, gibt Feedback'],
-            ['Producer', 'DeepSeek', 'Setzt Beschlüsse um, formatiert Output'],
+            ['Producer', 'Gemini 2.5 Flash', 'Setzt Beschlüsse um, formatiert Output'],
           ],
         },
       },
