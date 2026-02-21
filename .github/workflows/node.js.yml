@@ -1,24 +1,119 @@
-name: ExamFit CI
+#!/usr/bin/env node
+import fs from "fs";
+import path from "path";
 
-on:
-  push:
-    branches: ["main"]
-  pull_request:
+const ROOT = process.cwd();
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+const SKIP_DIRS = new Set([
+  ".git",
+  ".github",
+  "node_modules",
+  "dist",
+  "build",
+  ".next",
+  ".vercel",
+  ".turbo",
+  "coverage",
+  ".cache",
+]);
 
-    steps:
-      - uses: actions/checkout@v4
+const TEXT_EXT = new Set([
+  ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+  ".json", ".md", ".yml", ".yaml", ".sql", ".txt"
+]);
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
+function isTextFile(file) {
+  const ext = path.extname(file);
+  if (TEXT_EXT.has(ext)) return true;
+  const base = path.basename(file);
+  if (base.startsWith(".env")) return true;
+  return false;
+}
 
-      - name: Install dependencies
-        run: npm install
+function walk(dir, files = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, entry.name);
+    const rel = path.relative(ROOT, p);
 
-      - name: Build
-        run: npm run build --if-present
+    const first = rel.split(path.sep)[0];
+    if (SKIP_DIRS.has(first)) continue;
+
+    if (entry.isDirectory()) walk(p, files);
+    else if (isTextFile(p)) files.push(p);
+  }
+  return files;
+}
+
+function add(findings, file, lineNo, rule, snippet) {
+  findings.push({ file: path.relative(ROOT, file).replaceAll("\\", "/"), lineNo, rule, snippet });
+}
+
+function scan(file, content, findings) {
+  const rel = path.relative(ROOT, file).replaceAll("\\", "/");
+  const lines = content.split(/\r?\n/);
+
+  const isClient = rel.startsWith("src/");
+  const isEdgeFn = rel.startsWith("supabase/functions/");
+
+  // Block committed .env
+  if (path.basename(rel) === ".env") {
+    add(findings, file, 1, "NO_COMMITTED_DOTENV", ".env file is committed");
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const snippet = line.trim().slice(0, 240);
+
+    // 1) SSOT: No direct Supabase table reads in client
+    if (isClient && /\bfrom\s*\(\s*['"`][a-zA-Z0-9_]+['"`]\s*\)/.test(line)) {
+      add(findings, file, i + 1, "NO_DIRECT_SUPABASE_FROM_IN_CLIENT", snippet);
+    }
+
+    // 2) Frontend: block placeholder/mock/lorem (strict)
+    if (isClient && /\b(mock\s*data|placeholder|lorem\s*ipsum|FAKE[_\s-]?DATA)\b/i.test(line)) {
+      add(findings, file, i + 1, "NO_PLACEHOLDER_MOCK_IN_CLIENT", snippet);
+    }
+
+    // 3) Edge functions: only block *actionable* placeholder markers (not every mention)
+    // This avoids blocking prompt text/comments that happen to include "placeholder"
+    if (isEdgeFn && /\b(TODO:\s*replace|FIXME|mock\s*data|lorem\s*ipsum|FAKE[_\s-]?DATA)\b/i.test(line)) {
+      add(findings, file, i + 1, "NO_TODO_MOCK_MARKERS_IN_EDGE", snippet);
+    }
+
+    // 4) No localhost hardcoding anywhere
+    if (/\bhttps?:\/\/localhost\b|\b127\.0\.0\.1\b/.test(line)) {
+      add(findings, file, i + 1, "NO_LOCALHOST_HARDCODE", snippet);
+    }
+
+    // 5) Very basic key leak detection
+    if (/\bsk-(?:proj-|live-|test-)?[A-Za-z0-9]{10,}\b/.test(line)) {
+      add(findings, file, i + 1, "POTENTIAL_OPENAI_KEY", snippet);
+    }
+    if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(line)) {
+      add(findings, file, i + 1, "PRIVATE_KEY_BLOCK", "Private key block detected");
+    }
+  }
+}
+
+function main() {
+  const files = walk(ROOT);
+  const findings = [];
+
+  for (const f of files) {
+    const content = fs.readFileSync(f, "utf8");
+    scan(f, content, findings);
+  }
+
+  if (findings.length) {
+    console.error("\n❌ SSOT Guard failed. Findings:\n");
+    for (const it of findings.slice(0, 200)) {
+      console.error(`- ${it.rule}  ${it.file}:${it.lineNo}\n  ${it.snippet}\n`);
+    }
+    if (findings.length > 200) console.error(`... plus ${findings.length - 200} more findings`);
+    process.exit(1);
+  }
+
+  console.log("✅ SSOT Guard passed");
+}
+
+main();
