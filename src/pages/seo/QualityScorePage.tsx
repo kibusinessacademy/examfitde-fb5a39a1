@@ -20,22 +20,11 @@ function useQualityPublicData(certSlug: string) {
   return useQuery({
     queryKey: ['quality-public', certSlug],
     queryFn: async () => {
-      // First resolve slug → certification_catalog_id
-      const { data: seoPage } = await supabase
-        .from('certification_seo_pages')
-        .select('certification_catalog_id, title')
-        .eq('slug', certSlug.replace('-qualitaet', '-pruefung'))
-        .eq('is_published', true)
-        .maybeSingle();
-
-      if (!seoPage?.certification_catalog_id) return null;
-
-      // Then get quality summary via RPC
-      const { data } = await (supabase as any).rpc('get_quality_public_summary', {
-        p_certification_id: seoPage.certification_catalog_id,
+      const { data, error } = await supabase.functions.invoke('seo-quality-score', {
+        body: { slug: certSlug },
       });
-
-      return data ? { ...data, title: seoPage.title } : null;
+      if (error) throw error;
+      return data?.data ?? null;
     },
     enabled: !!certSlug,
   });
@@ -79,7 +68,6 @@ const QualityScorePage = () => {
       </Helmet>
 
       <article className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Hero */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2">
             <ShieldCheck className="h-6 w-6 text-primary" />
@@ -91,11 +79,9 @@ const QualityScorePage = () => {
           </p>
         </div>
 
-        {/* Score + Badge Hero */}
         <Card className="border-2">
           <CardContent className="py-8">
             <div className="flex flex-col md:flex-row items-center justify-center gap-8">
-              {/* Score Circle */}
               <div className="relative w-32 h-32 flex items-center justify-center">
                 <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
                   <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" className="text-muted/20" strokeWidth="8" />
@@ -106,7 +92,6 @@ const QualityScorePage = () => {
                 <span className="text-3xl font-bold">{score}</span>
               </div>
 
-              {/* Badge */}
               <div className="text-center md:text-left space-y-2">
                 <div className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-full border text-lg font-semibold", badgeCfg.color)}>
                   <span className="text-2xl">{badgeCfg.emoji}</span>
@@ -120,7 +105,6 @@ const QualityScorePage = () => {
           </CardContent>
         </Card>
 
-        {/* Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MetricCard
             icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />}
@@ -152,7 +136,6 @@ const QualityScorePage = () => {
           />
         </div>
 
-        {/* Rules Summary */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -178,7 +161,6 @@ const QualityScorePage = () => {
           </CardContent>
         </Card>
 
-        {/* Transparency Section */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Wie wird bewertet?</CardTitle>
