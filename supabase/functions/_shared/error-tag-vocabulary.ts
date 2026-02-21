@@ -1,7 +1,9 @@
 /**
- * SSOT Error Tag Vocabulary — used by both question generation and trap-tag retrofit.
- * Any additions must happen HERE, not in individual functions.
+ * SSOT Error Tag Vocabulary + helpers.
+ * Single source for Generator, Rework, and Trap-Retrofit.
+ * To add new tags: ONLY edit this file.
  */
+
 export const ERROR_TAG_VOCABULARY = [
   // Calculation-specific
   "netto_brutto", "percent_base", "skonto_rabatt_order", "rounding_units",
@@ -16,3 +18,22 @@ export const ERROR_TAG_VOCABULARY = [
 ] as const;
 
 export type ErrorTag = typeof ERROR_TAG_VOCABULARY[number];
+
+/** Normalize a raw tag string to SSOT format */
+export function normalizeTag(t: unknown): string {
+  return String(t ?? "")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+    .trim();
+}
+
+/** Normalize + filter tags against SSOT vocabulary. Returns deduplicated valid tags only. */
+export function filterTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) return [];
+  const set = new Set<string>();
+  for (const raw of tags) {
+    const norm = normalizeTag(raw);
+    if ((ERROR_TAG_VOCABULARY as readonly string[]).includes(norm)) set.add(norm);
+  }
+  return [...set];
+}

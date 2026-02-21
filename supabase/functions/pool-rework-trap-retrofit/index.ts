@@ -2,17 +2,16 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
+import { ERROR_TAG_VOCABULARY, filterTags } from "../_shared/error-tag-vocabulary.ts";
 
 /**
  * pool-rework-trap-retrofit — Worker for batch trap-tag retrofit.
- * Called via job_queue by pool-rework planner.
- * Processes question IDs with LLM to assign SSOT-compliant trap_tags.
+ * Vocabulary comes from SSOT shared module, NOT from job payload.
  */
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
+    status, headers: { "content-type": "application/json" },
   });
 }
 
@@ -21,45 +20,39 @@ Deno.serve(async (req) => {
     return new Response(null, {
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-job-runner-key",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-rework-secret",
       },
     });
   }
 
-  // Auth: only job-runner or service role
+  // Auth: cron secret or job-runner key
+  const cronSecret = Deno.env.get("REWORK_CRON_SECRET");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const headerSecret = req.headers.get("x-rework-secret");
   const jobRunnerKey = req.headers.get("x-job-runner-key");
-  if (!jobRunnerKey || jobRunnerKey !== serviceKey) {
-    return json({ error: "Unauthorized — job-runner key required" }, 401);
+
+  const isAuthorized =
+    (cronSecret && headerSecret && headerSecret === cronSecret) ||
+    (jobRunnerKey && jobRunnerKey === serviceKey); // job-runner still uses service key internally
+
+  if (!isAuthorized) {
+    return json({ error: "Unauthorized" }, 401);
   }
 
-  const sb = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    serviceKey,
-  );
+  const sb = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
 
   const body = await req.json().catch(() => ({}));
   const questionIds: string[] = body.question_ids || [];
-  const vocabulary: string[] = body.error_tag_vocabulary || [];
   const professionName: string = body.profession_name || "Fachkraft";
 
-  if (!questionIds.length) {
-    return json({ ok: true, message: "No questions to retrofit" });
-  }
+  if (!questionIds.length) return json({ ok: true, message: "No questions to retrofit" });
 
-  if (!vocabulary.length) {
-    return json({ error: "Missing error_tag_vocabulary in payload" }, 400);
-  }
-
-  // Load questions
   const { data: questions, error: qErr } = await sb
     .from("exam_questions")
     .select("id, question_text, options, correct_answer, explanation")
     .in("id", questionIds);
 
-  if (qErr || !questions?.length) {
-    return json({ error: qErr?.message || "No questions found" }, 500);
-  }
+  if (qErr || !questions?.length) return json({ error: qErr?.message || "No questions found" }, 500);
 
   const routed = getModel("quality_audit");
   let retrofitted = 0;
@@ -77,7 +70,7 @@ Deno.serve(async (req) => {
 
 Antworte NUR mit JSON: {"trap_tags": ["tag1", "tag2"], "distractor_analysis": [{"option_index": 0, "error_tag": "tag", "why_wrong": "..."}]}
 
-Verwende NUR Tags aus diesem Vokabular: ${vocabulary.join(", ")}`,
+Verwende NUR Tags aus diesem Vokabular: ${ERROR_TAG_VOCABULARY.join(", ")}`,
           },
           {
             role: "user",
@@ -89,24 +82,15 @@ Verwende NUR Tags aus diesem Vokabular: ${vocabulary.join(", ")}`,
 
       const clean = result.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const parsed = JSON.parse(clean);
-      const tags = Array.isArray(parsed.trap_tags) ? parsed.trap_tags : [];
 
-      if (tags.length > 0) {
-        // Normalize and filter against SSOT vocabulary
-        const normalizedTags = tags
-          .map((t: string) => String(t).toLowerCase().replace(/[\s-]+/g, "_").trim())
-          .filter((t: string) => vocabulary.includes(t));
+      // Use SSOT filterTags — only valid tags pass
+      const validTags = filterTags(parsed.trap_tags);
 
-        if (normalizedTags.length > 0) {
-          const updateData: Record<string, unknown> = { trap_tags: normalizedTags };
-          if (parsed.distractor_analysis) {
-            updateData.distractor_meta = parsed.distractor_analysis;
-          }
-          await sb.from("exam_questions").update(updateData).eq("id", q.id);
-          retrofitted++;
-        } else {
-          failed++;
-        }
+      if (validTags.length > 0) {
+        const updateData: Record<string, unknown> = { trap_tags: validTags };
+        if (parsed.distractor_analysis) updateData.distractor_meta = parsed.distractor_analysis;
+        await sb.from("exam_questions").update(updateData).eq("id", q.id);
+        retrofitted++;
       } else {
         failed++;
       }
@@ -114,18 +98,15 @@ Verwende NUR Tags aus diesem Vokabular: ${vocabulary.join(", ")}`,
       failed++;
     }
 
-    // Rate limit protection
     await new Promise((r) => setTimeout(r, 1500));
   }
 
-  console.log(`[trap-retrofit] Done: ${retrofitted} tagged, ${failed} failed out of ${questions.length}`);
+  console.log(`[trap-retrofit] Done: ${retrofitted} tagged, ${failed} failed / ${questions.length}`);
 
-  // Alert if significant failures
   if (failed > questions.length * 0.5) {
     await sb.from("ops_alerts").insert({
-      source: "pool-rework-trap-retrofit",
-      severity: "warn",
-      message: `Trap retrofit: ${failed}/${questions.length} failed — check LLM responses`,
+      source: "pool-rework-trap-retrofit", severity: "warn",
+      message: `Trap retrofit: ${failed}/${questions.length} failed`,
       payload: { retrofitted, failed, total: questions.length },
     }).then(() => {}).catch(() => {});
   }
