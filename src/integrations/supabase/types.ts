@@ -20744,6 +20744,7 @@ export type Database = {
         Returns: Json
       }
       table_exists: { Args: { p_table: string }; Returns: boolean }
+      trigger_pool_rework: { Args: never; Returns: undefined }
       try_claim_pipeline_lock: {
         Args: { p_locked_by: string; p_package_id: string }
         Returns: boolean
