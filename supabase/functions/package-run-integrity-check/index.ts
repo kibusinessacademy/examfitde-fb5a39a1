@@ -48,12 +48,18 @@ async function runCourseReadyGate(
 
   // ═══════════════════════════════════════════════
   // GATE 1: Placeholder-Check (Lessons)
+  // EXAM_FIRST has no learning content, so skip
   // ═══════════════════════════════════════════════
+  // Determine track early for gate skipping
+  const { data: pkgTrackEarly } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
+  const trackEarly = (pkgTrackEarly as any)?.track ?? "AUSBILDUNG_VOLL";
+  const isExamFirstEarly = trackEarly === "EXAM_FIRST";
+
   let totalLessons = 0;
   let placeholderCount = 0;
   let regeneratingCount = 0;
   let tier1FailedCount = 0;
-  if (moduleIds.length > 0) {
+  if (moduleIds.length > 0 && !isExamFirstEarly) {
     const { data: allLessons } = await sb.from("lessons").select("id, content, qc_status").in("module_id", moduleIds);
     totalLessons = allLessons?.length ?? 0;
     for (const l of allLessons ?? []) {
@@ -67,12 +73,14 @@ async function runCourseReadyGate(
       if (obj?._regenerating) regeneratingCount++;
     }
   }
-  const phPassed = placeholderCount === 0 && regeneratingCount === 0 && tier1FailedCount === 0;
+  const phPassed = isExamFirstEarly ? true : (placeholderCount === 0 && regeneratingCount === 0 && tier1FailedCount === 0);
   results.push({
     gate: "placeholder_check",
     passed: phPassed,
     severity: "blocker",
-    detail: `${placeholderCount} placeholder, ${regeneratingCount} regenerating, ${tier1FailedCount} tier1_failed of ${totalLessons} lessons`,
+    detail: isExamFirstEarly
+      ? "Skipped (EXAM_FIRST track — no learning content)"
+      : `${placeholderCount} placeholder, ${regeneratingCount} regenerating, ${tier1FailedCount} tier1_failed of ${totalLessons} lessons`,
     value: placeholderCount + regeneratingCount + tier1FailedCount,
   });
   if (!phPassed) hardFails.push(`LESSON_QUALITY: ${placeholderCount} placeholder, ${regeneratingCount} regenerating, ${tier1FailedCount} tier1_failed`);
@@ -205,10 +213,10 @@ async function runCourseReadyGate(
   if (!lfCoveragePassed) hardFails.push(`LF_COVERAGE: Only ${uniqueLFs.size}/${moduleIds.length} learning fields have exam questions`);
 
   // ═══════════════════════════════════════════════
-  // GATE 5: MiniCheck pro Lernfeld
-  // FIX: lessons table uses 'step' column, NOT 'lesson_type'
+  // GATE 5: MiniCheck pro Lernfeld (Full track only)
+  // EXAM_FIRST has no learning content, so no MiniChecks
   // ═══════════════════════════════════════════════
-  if (moduleIds.length > 0) {
+  if (moduleIds.length > 0 && !isExamFirstEarly) {
     const { data: miniCheckLessons } = await sb
       .from("lessons")
       .select("module_id, step")
@@ -225,6 +233,13 @@ async function runCourseReadyGate(
       detail: `${modulesWithMiniCheck.size}/${moduleIds.length} modules have MiniChecks. Missing: ${modulesWithout.length}`,
     });
     if (!miniCheckPassed) hardFails.push(`MINICHECK_MISSING: ${modulesWithout.length}/${moduleIds.length} modules without MiniCheck`);
+  } else if (isExamFirstEarly) {
+    results.push({
+      gate: "minicheck_coverage",
+      passed: true,
+      severity: "blocker",
+      detail: "Skipped (EXAM_FIRST track — no learning content)",
+    });
   }
 
   // ═══════════════════════════════════════════════
@@ -242,27 +257,39 @@ async function runCourseReadyGate(
   // GATE 7: Handbuch-Mindesttiefe
   // FIX: handbook_sections has NO curriculum_id — must JOIN through handbook_chapters
   // ═══════════════════════════════════════════════
-  const { data: hbSections } = await sb
-    .from("handbook_chapters")
-    .select("id, handbook_sections(content_markdown)")
-    .eq("curriculum_id", curriculumId ?? courseId);
+  // Reuse track detected at top of function
+  const isExamFirst = isExamFirstEarly;
 
-  let handbookTotalChars = 0;
-  for (const chapter of hbSections ?? []) {
-    const sections = (chapter as any).handbook_sections || [];
-    for (const s of sections) {
-      if (typeof s.content_markdown === "string") handbookTotalChars += s.content_markdown.length;
+  if (!isExamFirst) {
+    const { data: hbSections } = await sb
+      .from("handbook_chapters")
+      .select("id, handbook_sections(content_markdown)")
+      .eq("curriculum_id", curriculumId ?? courseId);
+
+    let handbookTotalChars = 0;
+    for (const chapter of hbSections ?? []) {
+      const sections = (chapter as any).handbook_sections || [];
+      for (const s of sections) {
+        if (typeof s.content_markdown === "string") handbookTotalChars += s.content_markdown.length;
+      }
     }
+    const handbookPassed = handbookTotalChars >= 25000;
+    results.push({
+      gate: "handbook_depth",
+      passed: handbookPassed,
+      severity: "blocker",
+      detail: `${handbookTotalChars} chars (min 25,000)`,
+      value: handbookTotalChars,
+    });
+    if (!handbookPassed) hardFails.push(`HANDBOOK_TOO_THIN: ${handbookTotalChars} chars (min 25,000)`);
+  } else {
+    results.push({
+      gate: "handbook_depth",
+      passed: true,
+      severity: "blocker",
+      detail: "Skipped (EXAM_FIRST track — no handbook required)",
+    });
   }
-  const handbookPassed = handbookTotalChars >= 25000;
-  results.push({
-    gate: "handbook_depth",
-    passed: handbookPassed,
-    severity: "blocker",
-    detail: `${handbookTotalChars} chars (min 25,000)`,
-    value: handbookTotalChars,
-  });
-  if (!handbookPassed) hardFails.push(`HANDBOOK_TOO_THIN: ${handbookTotalChars} chars (min 25,000)`);
 
   // ═══════════════════════════════════════════════
   // WARNINGS
@@ -274,7 +301,10 @@ async function runCourseReadyGate(
   // ═══════════════════════════════════════════════
   if (hardPct >= 15 && hardPct <= 20) excellence.push(`HARD_EXCELLENT: ${hardPct.toFixed(1)}%`);
   if (totalApproved >= 850) excellence.push(`EXAM_POOL_DOMINANT: ${totalApproved} approved`);
-  if (handbookTotalChars >= 50000) excellence.push(`HANDBOOK_DEEP: ${handbookTotalChars} chars`);
+  if (!isExamFirst) {
+    const hbGate = results.find(r => r.gate === "handbook_depth");
+    if (hbGate && (hbGate.value ?? 0) >= 50000) excellence.push(`HANDBOOK_DEEP: ${hbGate.value} chars`);
+  }
 
   // ── Calculate composite score ──
   const totalGates = results.filter(r => r.severity === "blocker").length;
@@ -304,8 +334,14 @@ Deno.serve(async (req) => {
   const packageId = p.package_id as string;
   const courseId = p.course_id as string;
 
-  if (!(await prereqDone(sb, packageId, "generate_handbook"))) {
-    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: generate_handbook" }, 409);
+  // Track-aware prerequisite: EXAM_FIRST requires validate_oral_exam,
+  // AUSBILDUNG_VOLL (full track) requires generate_handbook
+  const { data: pkgTrack } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
+  const track = (pkgTrack as any)?.track ?? "AUSBILDUNG_VOLL";
+  
+  const prereqStep = track === "EXAM_FIRST" ? "validate_oral_exam" : "generate_handbook";
+  if (!(await prereqDone(sb, packageId, prereqStep))) {
+    return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${prereqStep}` }, 409);
   }
 
   // Get curriculum_id from course
