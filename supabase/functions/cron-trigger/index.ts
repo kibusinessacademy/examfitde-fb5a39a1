@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     }
 
     // Determine which functions to trigger (default: both pipeline-runner + job-runner)
-    let targetFns: string[] = ["pipeline-runner", "job-runner"];
+    let targetFns: string[] = ["pipeline-runner", "job-runner", "pipeline-forensic-test"];
     try {
       const body = await req.json();
       if (body?.function) targetFns = [String(body.function)];

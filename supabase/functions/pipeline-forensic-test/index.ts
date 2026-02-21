@@ -670,22 +670,30 @@ Deno.serve(async (req) => {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // T17: claim_pending_jobs RPC safety
+  // T17: acquire_next_package_lease RPC safety (core pipeline RPC)
   // ═══════════════════════════════════════════════════════════════
   {
     let passed = true;
     let detail = "";
     try {
-      const { data, error } = await sb.rpc("claim_pending_jobs", {
-        p_limit: 0,
-        p_worker_id: "forensic_test",
-        p_lock_timeout_seconds: 1,
+      const { data, error } = await sb.rpc("acquire_next_package_lease", {
+        p_runner_id: "forensic_test_noop",
+        p_lease_seconds: 1,
       });
       if (error) {
-        passed = false;
-        detail = `RPC error: ${error.message}`;
+        // "no rows" is acceptable — means no queued packages
+        if (error.message?.includes("no rows") || error.message?.includes("No package")) {
+          detail = "RPC callable, no packages available (OK)";
+        } else {
+          passed = false;
+          detail = `RPC error: ${error.message}`;
+        }
       } else {
-        detail = `RPC returned ${(data as unknown[])?.length ?? 0} jobs (expected 0 for limit=0)`;
+        detail = `RPC returned package_id=${data ?? "null"} (OK)`;
+        // Release the lease we just took (cleanup)
+        if (data) {
+          await sb.from("package_leases").delete().eq("package_id", data).eq("runner_id", "forensic_test_noop");
+        }
       }
     } catch (e) {
       passed = false;
@@ -694,7 +702,7 @@ Deno.serve(async (req) => {
 
     results.push({
       id: "T17",
-      name: "claim_pending_jobs RPC safety",
+      name: "acquire_next_package_lease RPC safety",
       passed,
       severity: "critical",
       detail,
