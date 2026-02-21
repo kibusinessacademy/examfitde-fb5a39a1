@@ -343,18 +343,25 @@ Deno.serve(async (req) => {
   };
 
   // ── Pipeline prerequisite map ──────────────────────────────────────
-  const PIPELINE_PREREQS: Record<string, string> = {
-    package_generate_exam_pool: "auto_seed_exam_blueprints",
-    package_validate_exam_pool: "generate_exam_pool",
-    package_build_ai_tutor_index: "validate_exam_pool",
-    package_validate_tutor_index: "build_ai_tutor_index",
-    package_generate_oral_exam: "validate_tutor_index",
-    package_validate_oral_exam: "generate_oral_exam",
-    package_generate_handbook: "validate_oral_exam",
-    package_validate_handbook: "generate_handbook",
-    package_run_integrity_check: "validate_handbook",
-    package_quality_council: "run_integrity_check",
-    package_auto_publish: "quality_council",
+  // Each entry lists prerequisite(s) in priority order.
+  // The guard checks the FIRST prereq that actually exists as a step
+  // in the package — this makes the chain track-aware so EXAM_FIRST
+  // packages don't deadlock on missing handbook/learning steps.
+  const PIPELINE_PREREQS: Record<string, string[]> = {
+    package_generate_exam_pool: ["validate_blueprints"],
+    package_validate_exam_pool: ["generate_exam_pool"],
+    package_build_ai_tutor_index: ["validate_exam_pool"],
+    package_validate_tutor_index: ["build_ai_tutor_index"],
+    package_generate_oral_exam: ["validate_tutor_index"],
+    package_validate_oral_exam: ["generate_oral_exam"],
+    package_generate_handbook: ["validate_oral_exam"],
+    package_validate_handbook: ["generate_handbook"],
+    // Track-aware: integrity_check needs the LAST validation step that exists.
+    // For EXAM_FIRST (no handbook): validate_oral_exam.
+    // For AUSBILDUNG_VOLL: validate_handbook.
+    package_run_integrity_check: ["validate_handbook", "validate_oral_exam", "validate_tutor_index"],
+    package_quality_council: ["run_integrity_check"],
+    package_auto_publish: ["quality_council"],
   };
 
   for (const job of jobs) {
@@ -375,26 +382,33 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // ── Prereq guard ─────────────────────────────────────────────────
-    const prereqStep = PIPELINE_PREREQS[job.job_type];
-    if (prereqStep && job.payload?.package_id) {
-      const { data: prereqRow } = await sb
+    // ── Prereq guard (track-aware) ─────────────────────────────────────
+    const prereqCandidates = PIPELINE_PREREQS[job.job_type];
+    if (prereqCandidates && job.payload?.package_id) {
+      // Load all steps for this package to find which prereq actually exists
+      const { data: allSteps } = await sb
         .from("package_steps")
-        .select("status")
-        .eq("package_id", job.payload.package_id)
-        .eq("step_key", prereqStep)
-        .maybeSingle();
+        .select("step_key, status")
+        .eq("package_id", job.payload.package_id);
 
-      if (!prereqRow || prereqRow.status !== "done") {
-        console.warn(`[job-runner] Prereq guard: ${job.job_type} cancelled — ${prereqStep} is '${prereqRow?.status ?? 'missing'}' (pkg ${(job.payload.package_id as string).slice(0, 8)})`);
-        await sb.from("job_queue").update({
-          status: "cancelled",
-          error: `Prereq guard: ${prereqStep} not done (${prereqRow?.status ?? 'missing'})`,
-          completed_at: tsNow,
-          ...lockRelease(tsNow),
-        }).eq("id", job.id);
-        results.push({ id: job.id, status: "cancelled", reason: "prereq_not_done" });
-        continue;
+      const stepMap = new Map((allSteps || []).map((s: any) => [s.step_key, s.status]));
+
+      // Find the first prereq that actually exists as a step in this package
+      const prereqStep = prereqCandidates.find(p => stepMap.has(p));
+
+      if (prereqStep) {
+        const prereqStatus = stepMap.get(prereqStep);
+        if (prereqStatus !== "done") {
+          console.warn(`[job-runner] Prereq guard: ${job.job_type} cancelled — ${prereqStep} is '${prereqStatus ?? 'missing'}' (pkg ${(job.payload.package_id as string).slice(0, 8)})`);
+          await sb.from("job_queue").update({
+            status: "cancelled",
+            error: `Prereq guard: ${prereqStep} not done (${prereqStatus ?? 'missing'})`,
+            completed_at: tsNow,
+            ...lockRelease(tsNow),
+          }).eq("id", job.id);
+          results.push({ id: job.id, status: "cancelled", reason: "prereq_not_done" });
+          continue;
+        }
       }
     }
 

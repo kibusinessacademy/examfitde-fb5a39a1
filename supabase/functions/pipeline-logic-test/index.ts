@@ -15,7 +15,7 @@ function json(body: unknown, status = 200) {
 }
 
 // ── Shared Constants ──
-const STEP_ORDER = [
+const FULL_STEP_ORDER = [
   'scaffold_learning_course','generate_glossary','generate_learning_content','validate_learning_content',
   'auto_seed_exam_blueprints','validate_blueprints',
   'generate_exam_pool','validate_exam_pool',
@@ -25,7 +25,16 @@ const STEP_ORDER = [
   'run_integrity_check','quality_council','auto_publish'
 ] as const;
 
-const STEP_RANK = new Map(STEP_ORDER.map((s, i) => [s, i + 1]));
+// EXAM_FIRST track only has these steps
+const EXAM_FIRST_STEPS = new Set([
+  'auto_seed_exam_blueprints','validate_blueprints',
+  'generate_exam_pool','validate_exam_pool',
+  'build_ai_tutor_index','validate_tutor_index',
+  'generate_oral_exam','validate_oral_exam',
+  'run_integrity_check','quality_council','auto_publish'
+]);
+
+const STEP_RANK = new Map(FULL_STEP_ORDER.map((s, i) => [s, i + 1]));
 
 type TestResult = {
   pass: boolean;
@@ -61,7 +70,7 @@ Deno.serve(async (req) => {
     const { data: unknownSteps } = await sb
       .from("package_steps" as any)
       .select("step_key")
-      .not("step_key", "in", `(${STEP_ORDER.join(",")})`)
+      .not("step_key", "in", `(${FULL_STEP_ORDER.join(",")})`)
       .limit(10);
     const unknown = [...new Set((unknownSteps || []).map((r: any) => r.step_key))];
     results["T01_step_rank_completeness"] = {
@@ -836,7 +845,7 @@ Deno.serve(async (req) => {
   {
     const { data: buildingPkgs } = await sb
       .from("course_packages" as any)
-      .select("id")
+      .select("id, track")
       .eq("status", "building");
 
     const missingSteps: any[] = [];
@@ -846,16 +855,17 @@ Deno.serve(async (req) => {
         .select("step_key", { count: "exact", head: true })
         .eq("package_id", pkg.id);
 
-      // Expect at least 14 steps (minimum pipeline config)
-      if ((count ?? 0) < 14) {
-        missingSteps.push({ package_id: pkg.id, step_count: count });
+      // EXAM_FIRST = 11 steps, AUSBILDUNG_VOLL = 17 steps
+      const expectedMin = pkg.track === 'EXAM_FIRST' ? 11 : 14;
+      if ((count ?? 0) < expectedMin) {
+        missingSteps.push({ package_id: pkg.id, step_count: count, track: pkg.track, expected_min: expectedMin });
       }
     }
     results["T22_step_count_validation"] = {
       pass: missingSteps.length === 0,
       severity: "critical",
       detail: missingSteps.length === 0
-        ? "All building packages have ≥14 steps"
+        ? `All building packages have correct step count for their track`
         : `${missingSteps.length} package(s) with incomplete step initialization`,
       data: missingSteps.slice(0, 5),
     };

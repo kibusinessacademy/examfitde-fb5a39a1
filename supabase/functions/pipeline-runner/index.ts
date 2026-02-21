@@ -20,6 +20,10 @@ const corsHeaders = {
 };
 
 // ── Step ordering ──
+// FULL superset of all possible steps — used for type-checking and mapping.
+// The ACTUAL ordering for a given package is determined dynamically by
+// filtering this list against the steps that actually exist in the DB
+// (see buildStepOrder below).
 type StepKey =
   | "scaffold_learning_course"
   | "generate_glossary"
@@ -29,17 +33,19 @@ type StepKey =
   | "validate_blueprints"
   | "generate_exam_pool"
   | "validate_exam_pool"
-  | "generate_oral_exam"
-  | "validate_oral_exam"
   | "build_ai_tutor_index"
   | "validate_tutor_index"
+  | "generate_oral_exam"
+  | "validate_oral_exam"
   | "generate_handbook"
   | "validate_handbook"
   | "run_integrity_check"
   | "quality_council"
   | "auto_publish";
 
-const STEP_ORDER: StepKey[] = [
+// Canonical ordering — superset. Steps not present in the package DB rows
+// are simply skipped by buildStepOrder().
+const FULL_STEP_ORDER: StepKey[] = [
   "scaffold_learning_course",
   "generate_glossary",
   "generate_learning_content",
@@ -58,6 +64,17 @@ const STEP_ORDER: StepKey[] = [
   "quality_council",
   "auto_publish",
 ];
+
+/**
+ * Build a track-aware step order by filtering FULL_STEP_ORDER
+ * to only include steps that actually exist in the package's DB rows.
+ * This prevents the sequence guard from blocking on steps
+ * that don't belong to the package's track (e.g. EXAM_FIRST has no handbook).
+ */
+function buildStepOrder(steps: { step_key: string }[]): StepKey[] {
+  const existing = new Set(steps.map(s => s.step_key));
+  return FULL_STEP_ORDER.filter(k => existing.has(k));
+}
 
 /** Maps step_key → job_type in job_queue */
 const STEP_TO_JOB_TYPE: Record<StepKey, string> = {
@@ -132,11 +149,11 @@ type StepAction =
   | { action: "timed_out"; stepKey: StepKey }
   | null;
 
-function pickNextAction(steps: StepRow[]): StepAction {
+function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepAction {
   const byKey = new Map<string, StepRow>();
   for (const s of steps) byKey.set(s.step_key, s);
 
-  for (const k of STEP_ORDER) {
+  for (const k of stepOrder) {
     const s = byKey.get(k);
     if (!s) continue;
 
@@ -300,7 +317,8 @@ async function processPackage(
   }
 
   // ── Sequence integrity guard: reset out-of-order "done" steps ──
-  // If a later step is "done" but an earlier step is NOT done, reset the later one.
+  // Uses track-aware step order (only steps that exist for this package)
+  const STEP_ORDER = buildStepOrder((steps ?? []) as { step_key: string }[]);
   {
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
@@ -327,7 +345,7 @@ async function processPackage(
     }
   }
 
-  const nextAction = pickNextAction((steps ?? []) as StepRow[]);
+  const nextAction = pickNextAction((steps ?? []) as StepRow[], STEP_ORDER);
 
   // ── All steps done / no actionable step ──
   if (!nextAction) {
@@ -637,8 +655,9 @@ async function processPackage(
         .select("step_key", { count: "exact", head: true })
         .eq("package_id", packageId)
         .in("status", ["done", "skipped"]);
-      const progress = Math.round(((doneCount ?? 0) / STEP_ORDER.length) * 100);
-      const stepIndex = STEP_ORDER.indexOf(stepKey);
+      const totalSteps = STEP_ORDER.length;
+      const progress = Math.round(((doneCount ?? 0) / totalSteps) * 100);
+      const stepIndex = STEP_ORDER.indexOf(stepKey as StepKey);
       await safeQuery(
         sb.from("course_packages").update({
           build_progress: progress,
