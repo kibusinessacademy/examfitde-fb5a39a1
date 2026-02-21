@@ -1,0 +1,15 @@
+ALTER FUNCTION public.append_next_adaptive_question(uuid) SET search_path = public;
+ALTER FUNCTION public.auto_heal_shallow_content() SET search_path = public;
+ALTER FUNCTION public.auto_ops_cycle() SET search_path = public;
+ALTER FUNCTION public.calibrate_item_difficulty(uuid) SET search_path = public;
+ALTER FUNCTION public.claim_pending_jobs(integer) SET search_path = public;
+ALTER FUNCTION public.claim_pending_jobs(integer,text,integer) SET search_path = public;
+ALTER FUNCTION public.derive_pipeline_steps(jsonb) SET search_path = public;
+ALTER FUNCTION public.get_building_metrics() SET search_path = public;
+ALTER FUNCTION public.get_effective_price(text,integer) SET search_path = public;
+ALTER FUNCTION public.get_step_prerequisite(text) SET search_path = public;
+ALTER FUNCTION public.guard_locked_at_on_processing() SET search_path = public;
+ALTER FUNCTION public.pick_next_adaptive_question(uuid) SET search_path = public;
+ALTER FUNCTION public.start_exam_session(uuid,text) SET search_path = public;
+ALTER FUNCTION public.sync_step_on_job_completion() SET search_path = public;
+ALTER FUNCTION public.validate_job_queue_package_id() SET search_path = public;
