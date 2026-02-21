@@ -629,12 +629,16 @@ async function generateTurboQuestions(
     const status = "draft"; // all go as draft, qc_status differentiates
 
     // Map generator cognitive levels to DB enum values
+    // FIX: FORCE the requested cognitive level from distribution instead of
+    // trusting the AI response. The AI almost always returns "understand"
+    // regardless of what was requested, causing a Bloom monoculture.
     const cogLevelMap: Record<string, string> = {
       recall: "remember", apply: "apply", analyze: "analyze", decide: "evaluate",
       remember: "remember", understand: "understand", evaluate: "evaluate", create: "create",
     };
-    const aiCogLevel = (q.cognitive_level || cognitiveLevel || "understand").toLowerCase();
-    const mappedCogLevel = cogLevelMap[aiCogLevel] || aiCogLevel;
+    // Use the REQUESTED level (from distribution), not AI's self-report
+    const forcedCogLevel = (cognitiveLevel || "understand").toLowerCase();
+    const mappedCogLevel = cogLevelMap[forcedCogLevel] || forcedCogLevel;
 
     const { error } = await sb.from("exam_questions").insert({
       curriculum_id: bp.curriculum_id,
