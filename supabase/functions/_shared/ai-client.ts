@@ -1,10 +1,10 @@
 /**
- * Multi-LLM AI Client – Direct Provider APIs (Bypass Lovable Credits)
+ * Multi-LLM AI Client – Direct Provider APIs
  *
  * Strategy:
  *   - OpenAI GPT-5.2:  Complex reasoning, course generation, tutoring
  *   - Anthropic Claude: Quality validation, post-hoc checks
- *   - DeepSeek:         Cost-efficient extraction, SEO, marketing, support
+ *   - Lovable Gateway:  Cost-efficient routing (Gemini, GPT-5)
  *
  * All calls go directly to provider APIs using stored API keys.
  */
@@ -65,12 +65,6 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
     model: "claude-sonnet-4-20250514",
     keyEnv: "ANTHROPIC_API_KEY",
     format: "anthropic",
-  },
-  deepseek: {
-    url: "https://api.deepseek.com/v1/chat/completions",
-    model: "deepseek-chat",
-    keyEnv: "DEEPSEEK_API_KEY",
-    format: "openai",
   },
   google: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -173,7 +167,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       signal: AbortSignal.timeout(fetchTimeout),
     });
   } else {
-    // OpenAI-compatible (OpenAI, DeepSeek, Lovable)
+    // OpenAI-compatible (OpenAI, Lovable)
     const body: Record<string, unknown> = {
       model,
       messages: opts.messages,
@@ -193,8 +187,6 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     if (opts.max_tokens !== undefined) {
       if (gpt5Mode) {
         body.max_completion_tokens = opts.max_tokens;
-      } else if (opts.provider === "deepseek") {
-        body.max_tokens = Math.min(opts.max_tokens, 8192);
       } else {
         body.max_tokens = opts.max_tokens;
       }
@@ -383,13 +375,12 @@ export async function callAIWithFailover(
   const PROVIDER_KEYS: Record<string, string> = {
     openai: "OPENAI_API_KEY",
     anthropic: "ANTHROPIC_API_KEY",
-    deepseek: "DEEPSEEK_API_KEY",
     google: "GOOGLE_AI_API_KEY",
     lovable: "LOVABLE_API_KEY",
   };
 
   const keyAvailability: Record<string, boolean> = {};
-  for (const p of ["openai", "anthropic", "deepseek", "google", "lovable"]) {
+  for (const p of ["openai", "anthropic", "google", "lovable"]) {
     keyAvailability[p] = !!Deno.env.get(PROVIDER_KEYS[p]);
   }
 

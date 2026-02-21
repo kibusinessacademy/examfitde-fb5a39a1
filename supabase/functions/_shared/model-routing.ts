@@ -7,7 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-export type AIProvider = "openai" | "anthropic" | "google" | "deepseek" | "lovable";
+export type AIProvider = "openai" | "anthropic" | "google" | "lovable";
 
 export type PipelineIntent =
   | "learning_course"
