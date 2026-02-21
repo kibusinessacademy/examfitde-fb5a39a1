@@ -4990,10 +4990,12 @@ export type Database = {
         Row: {
           blocked_reason: string | null
           build_progress: number
+          category_id: string | null
           certification_id: string | null
           certification_type:
             | Database["public"]["Enums"]["certification_type"]
             | null
+          chamber_type: string | null
           components: Json
           council_approved: boolean
           council_approved_at: string | null
@@ -5003,6 +5005,7 @@ export type Database = {
           created_by: string | null
           current_step: number | null
           curriculum_id: string | null
+          exam_structure: string | null
           feature_flags: Json | null
           id: string
           integrity_passed: boolean
@@ -5020,6 +5023,7 @@ export type Database = {
           status: string
           step_status_json: Json | null
           stuck_reason: string | null
+          subcategory_id: string | null
           title: string
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
@@ -5028,10 +5032,12 @@ export type Database = {
         Insert: {
           blocked_reason?: string | null
           build_progress?: number
+          category_id?: string | null
           certification_id?: string | null
           certification_type?:
             | Database["public"]["Enums"]["certification_type"]
             | null
+          chamber_type?: string | null
           components?: Json
           council_approved?: boolean
           council_approved_at?: string | null
@@ -5041,6 +5047,7 @@ export type Database = {
           created_by?: string | null
           current_step?: number | null
           curriculum_id?: string | null
+          exam_structure?: string | null
           feature_flags?: Json | null
           id?: string
           integrity_passed?: boolean
@@ -5058,6 +5065,7 @@ export type Database = {
           status?: string
           step_status_json?: Json | null
           stuck_reason?: string | null
+          subcategory_id?: string | null
           title?: string
           track?: Database["public"]["Enums"]["product_track"] | null
           track_subtype?: string | null
@@ -5066,10 +5074,12 @@ export type Database = {
         Update: {
           blocked_reason?: string | null
           build_progress?: number
+          category_id?: string | null
           certification_id?: string | null
           certification_type?:
             | Database["public"]["Enums"]["certification_type"]
             | null
+          chamber_type?: string | null
           components?: Json
           council_approved?: boolean
           council_approved_at?: string | null
@@ -5079,6 +5089,7 @@ export type Database = {
           created_by?: string | null
           current_step?: number | null
           curriculum_id?: string | null
+          exam_structure?: string | null
           feature_flags?: Json | null
           id?: string
           integrity_passed?: boolean
@@ -5096,12 +5107,20 @@ export type Database = {
           status?: string
           step_status_json?: Json | null
           stuck_reason?: string | null
+          subcategory_id?: string | null
           title?: string
           track?: Database["public"]["Enums"]["product_track"] | null
           track_subtype?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "course_packages_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
@@ -5114,6 +5133,13 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_subcategory_id_fkey"
+            columns: ["subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "product_subcategories"
             referencedColumns: ["id"]
           },
         ]
@@ -11470,6 +11496,106 @@ export type Database = {
           },
         ]
       }
+      package_tags: {
+        Row: {
+          package_id: string
+          tag_id: string
+        }
+        Insert: {
+          package_id: string
+          tag_id: string
+        }
+        Update: {
+          package_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_building_without_job_or_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_recent_building_without_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "product_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patch_proposals: {
         Row: {
           after: Json
@@ -12234,6 +12360,42 @@ export type Database = {
           },
         ]
       }
+      product_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          label: string
+          seo_path: string
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          seo_path: string
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          seo_path?: string
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       product_factory_specs: {
         Row: {
           certification_id: string
@@ -12318,6 +12480,85 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_level_pricing"
             referencedColumns: ["product_id"]
+          },
+        ]
+      }
+      product_subcategories: {
+        Row: {
+          category_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          label: string
+          seo_path: string
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          seo_path: string
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          seo_path?: string
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_tags: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          label: string
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          label: string
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          label?: string
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_tags_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "tag_groups"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -16162,6 +16403,30 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+        }
+        Relationships: []
+      }
+      tag_groups: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          slug?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -20270,10 +20535,12 @@ export type Database = {
         Returns: {
           blocked_reason: string | null
           build_progress: number
+          category_id: string | null
           certification_id: string | null
           certification_type:
             | Database["public"]["Enums"]["certification_type"]
             | null
+          chamber_type: string | null
           components: Json
           council_approved: boolean
           council_approved_at: string | null
@@ -20283,6 +20550,7 @@ export type Database = {
           created_by: string | null
           current_step: number | null
           curriculum_id: string | null
+          exam_structure: string | null
           feature_flags: Json | null
           id: string
           integrity_passed: boolean
@@ -20300,6 +20568,7 @@ export type Database = {
           status: string
           step_status_json: Json | null
           stuck_reason: string | null
+          subcategory_id: string | null
           title: string
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
@@ -20488,10 +20757,12 @@ export type Database = {
         Returns: {
           blocked_reason: string | null
           build_progress: number
+          category_id: string | null
           certification_id: string | null
           certification_type:
             | Database["public"]["Enums"]["certification_type"]
             | null
+          chamber_type: string | null
           components: Json
           council_approved: boolean
           council_approved_at: string | null
@@ -20501,6 +20772,7 @@ export type Database = {
           created_by: string | null
           current_step: number | null
           curriculum_id: string | null
+          exam_structure: string | null
           feature_flags: Json | null
           id: string
           integrity_passed: boolean
@@ -20518,6 +20790,7 @@ export type Database = {
           status: string
           step_status_json: Json | null
           stuck_reason: string | null
+          subcategory_id: string | null
           title: string
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
@@ -20578,6 +20851,8 @@ export type Database = {
         | "sachkunde"
         | "branchenzertifikat"
         | "projektmanagement"
+        | "aufstiegsfortbildung"
+        | "sonstige"
       cognitive_level: "remember" | "understand" | "apply" | "analyze"
       compliance_severity: "low" | "medium" | "high" | "critical"
       compliance_status: "open" | "in_progress" | "resolved" | "accepted_risk"
@@ -20658,7 +20933,11 @@ export type Database = {
         | "wiederholen"
         | "mini_check"
       pipeline_mode: "factory" | "production"
-      product_track: "AUSBILDUNG_VOLL" | "EXAM_FIRST"
+      product_track:
+        | "AUSBILDUNG_VOLL"
+        | "EXAM_FIRST"
+        | "FORTBILDUNG"
+        | "ZERTIFIKAT"
       qa_severity: "low" | "medium" | "high" | "critical"
       qa_status: "open" | "resolved" | "accepted_risk"
       question_difficulty: "easy" | "medium" | "hard" | "very_hard"
@@ -20835,6 +21114,8 @@ export const Constants = {
         "sachkunde",
         "branchenzertifikat",
         "projektmanagement",
+        "aufstiegsfortbildung",
+        "sonstige",
       ],
       cognitive_level: ["remember", "understand", "apply", "analyze"],
       compliance_severity: ["low", "medium", "high", "critical"],
@@ -20925,7 +21206,12 @@ export const Constants = {
         "mini_check",
       ],
       pipeline_mode: ["factory", "production"],
-      product_track: ["AUSBILDUNG_VOLL", "EXAM_FIRST"],
+      product_track: [
+        "AUSBILDUNG_VOLL",
+        "EXAM_FIRST",
+        "FORTBILDUNG",
+        "ZERTIFIKAT",
+      ],
       qa_severity: ["low", "medium", "high", "critical"],
       qa_status: ["open", "resolved", "accepted_risk"],
       question_difficulty: ["easy", "medium", "hard", "very_hard"],
