@@ -1,0 +1,137 @@
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { CheckCircle2, XCircle, AlertTriangle, Shield, BookOpen, ClipboardCheck, MessageSquare, FileText, Bot } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+
+export default function IntegrityReportCard({ report, curriculumId, packageId }: { report: any; curriculumId?: string; packageId?: string }) {
+  const [liveCounts, setLiveCounts] = useState<{
+    questions: number; questionsApproved: number; questionsDraft: number;
+    oralBlueprints: number; handbookChapters: number; tutorIndex: number; lessons: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!curriculumId && !packageId) return;
+    const fetchLive = async () => {
+      const sb = supabase as any;
+      const [qRes, oralRes, hbRes, tutorRes] = await Promise.all([
+        curriculumId
+          ? sb.from('exam_questions').select('id, status', { count: 'exact' }).eq('curriculum_id', curriculumId)
+          : Promise.resolve({ data: [], count: 0 }),
+        curriculumId
+          ? sb.from('oral_exam_blueprints').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId)
+          : Promise.resolve({ count: 0 }),
+        curriculumId
+          ? sb.from('handbook_chapters').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId)
+          : Promise.resolve({ count: 0 }),
+        packageId
+          ? sb.from('ai_tutor_context_index').select('id', { count: 'exact', head: true }).eq('package_id', packageId)
+          : Promise.resolve({ count: 0 }),
+      ]);
+      const qData = qRes.data || [];
+      setLiveCounts({
+        questions: qRes.count ?? qData.length,
+        questionsApproved: qData.filter?.((r: any) => r.status === 'approved').length ?? 0,
+        questionsDraft: qData.filter?.((r: any) => r.status === 'draft').length ?? 0,
+        oralBlueprints: oralRes.count ?? 0,
+        handbookChapters: hbRes.count ?? 0,
+        tutorIndex: tutorRes.count ?? 0,
+        lessons: 0,
+      });
+    };
+    fetchLive();
+    const iv = setInterval(fetchLive, 15000);
+    return () => clearInterval(iv);
+  }, [curriculumId, packageId]);
+
+  if (!report || typeof report !== 'object') return null;
+  const score = report.score ?? 0;
+  const passed = report.passed ?? (score >= 80);
+
+  const v3 = report.v3?.stats;
+  const examTotal = liveCounts?.questions ?? report.exam?.total ?? v3?.questionCount ?? null;
+  const examApproved = liveCounts?.questionsApproved ?? 0;
+  
+  const sections = [
+    { label: 'Lektionen', actual: report.lessons?.actual ?? v3?.lessonCount ?? null, expected: report.lessons?.expected ?? v3?.lessonTarget ?? null, icon: BookOpen, detail: report.lessons?.duplicates > 0 ? `${report.lessons.duplicates} Duplikate` : null },
+    { label: 'Prüfungsfragen', actual: examTotal, expected: report.exam?.target ?? v3?.questionTarget ?? 1000, icon: ClipboardCheck, detail: examApproved > 0 ? `${examApproved} approved` : liveCounts ? `${liveCounts.questionsDraft} draft, 0 approved` : null },
+    { label: 'Mündliche Szenarien', actual: liveCounts?.oralBlueprints ?? report.oral?.total ?? v3?.oralCount ?? null, expected: report.oral?.target ?? v3?.oralTarget ?? null, icon: MessageSquare },
+    { label: 'Handbuch-Kapitel', actual: liveCounts?.handbookChapters ?? report.handbook?.chapters ?? v3?.handbookChapters ?? null, expected: report.handbook?.target ?? v3?.handbookTarget ?? null, icon: FileText, detail: report.handbook?.sections ? `${report.handbook.sections} Abschnitte` : null },
+    { label: 'AI Tutor Index', actual: liveCounts?.tutorIndex ?? ((report.tutor_index === true || report.tutor_index === 1 || v3?.tutorIndex === true || v3?.tutorIndex === 1 || (typeof report.tutor_index === 'object' && report.tutor_index !== null)) ? 1 : 0), expected: 1, icon: Bot },
+  ];
+
+  const snapshotAge = report.checked_at ? Math.round((Date.now() - new Date(report.checked_at).getTime()) / 3600000) : null;
+
+  return (
+    <Card className={cn("border", passed ? "border-success/30" : "border-destructive/30")}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Shield className="h-4 w-4" /> Qualitätsbericht
+            {liveCounts && <Badge variant="outline" className="text-[9px] text-primary">LIVE</Badge>}
+          </span>
+          <span className={cn("text-lg font-bold", score >= 80 ? "text-success" : score >= 60 ? "text-warning" : "text-destructive")}>{score}/100</span>
+        </CardTitle>
+        {snapshotAge != null && snapshotAge > 1 && (
+          <p className="text-[10px] text-warning">⚠ Snapshot {snapshotAge}h alt – Fragen-Counts sind live</p>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {sections.map(s => {
+          const pct = s.expected > 0 ? Math.min(100, Math.round((s.actual / s.expected) * 100)) : 0;
+          const ok = s.actual >= s.expected;
+          const Icon = s.icon;
+          if (s.actual == null && s.expected == null) return null;
+          return (
+            <div key={s.label} className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5"><Icon className="h-3 w-3 text-muted-foreground" /> {s.label}</span>
+                <span className={cn("font-mono", ok ? "text-success" : "text-warning")}>
+                  {s.actual ?? 0}{s.expected != null ? `/${s.expected}` : ''}
+                  {s.detail && <span className="text-muted-foreground ml-1">({s.detail})</span>}
+                </span>
+              </div>
+              {s.expected != null && <Progress value={pct} className="h-1" />}
+            </div>
+          );
+        })}
+        {report.exam?.difficulty && Object.keys(report.exam.difficulty).length > 0 && (
+          <div className="mt-3 pt-2 border-t border-border/30">
+            <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wider">Schwierigkeitsverteilung</p>
+            <div className="flex gap-1.5 flex-wrap">
+              {Object.entries(report.exam.difficulty).map(([level, count]) => (
+                <Badge key={level} variant="outline" className="text-[10px]">{level}: {String(count)}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+        {report.exam?.lf_coverage && report.exam.lf_coverage.total > 0 && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Lernfeld-Abdeckung:</span>
+            <span className={cn("font-mono", report.exam.lf_coverage.covered >= report.exam.lf_coverage.total ? "text-success" : "text-warning")}>
+              {report.exam.lf_coverage.covered}/{report.exam.lf_coverage.total}
+            </span>
+          </div>
+        )}
+        {((report.issues?.length || 0) + (report.warnings?.length || 0)) > 0 && (
+          <div className="mt-3 pt-2 border-t border-border/30 space-y-1">
+            {(report.issues || []).map((issue: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 text-xs text-destructive">
+                <XCircle className="h-3 w-3 shrink-0" />
+                <span>{issue.type?.replace(/_/g, ' ')}: {JSON.stringify(issue).slice(0, 80)}</span>
+              </div>
+            ))}
+            {(report.warnings || []).map((w: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 text-xs text-warning">
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                <span>{w.type?.replace(/_/g, ' ')}: {JSON.stringify(w).slice(0, 80)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
