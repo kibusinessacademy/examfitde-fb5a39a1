@@ -710,7 +710,7 @@ async function generateTurboQuestions(
     const rawTrapTags: string[] = Array.isArray(q.trap_tags) 
       ? q.trap_tags.filter((t: string) => ERROR_TAG_VOCABULARY.includes(t as any))
       : [];
-    const correctIdx = Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0);
+    // correctIdx already declared above (line ~609)
     const rawDistractorMeta: Array<{option_index: number; error_tag: string; why_wrong: string}> = 
       Array.isArray(q.distractor_meta) ? q.distractor_meta.filter((d: any) => 
         typeof d.option_index === "number" 
