@@ -1139,12 +1139,14 @@ Deno.serve(async (req) => {
     const lfProportionalTarget = p.lf_proportional_target ?? lfTarget;
     const effectiveTarget = isFanOut ? lfTarget : examTarget;
     const perBlueprint = Math.max(3, Math.ceil(effectiveTarget / bps.length));
-    const chunkStartedAt = new Date().toISOString(); // SSOT timestamp for this chunk
-    const chunkPlanned = Math.min(effectiveTarget - (preTotal > 0 ? 0 : 0), Math.max(effectiveTarget - preTotal, 0), HARD_CAP_QUESTIONS - preTotal);
+    const chunkStartedAt = new Date().toISOString(); // SSOT timestamp for this chunk (set once, before any inserts)
+    const chunkPlanned = Math.min(Math.max(effectiveTarget - preTotal, 0), HARD_CAP_QUESTIONS - preTotal);
     let questionsThisChunk = 0;
     let trainingThisChunk = 0;
     let currentBpIndex = bpIndex;
     let bpsProcessed = 0;
+
+    console.log(`[ExamPool-v5] CHUNK_SANITY: preTotal=${preTotal}, effectiveTarget=${effectiveTarget}, chunkPlanned=${chunkPlanned}, chunkStartedAt=${chunkStartedAt}`);
 
     if (isFanOut) {
       console.log(`[ExamPool-v5] LF sub-job: existing=${lfExisting}, proportional_target=${lfProportionalTarget}, gap=${effectiveTarget}, bps=${bps.length}`);
