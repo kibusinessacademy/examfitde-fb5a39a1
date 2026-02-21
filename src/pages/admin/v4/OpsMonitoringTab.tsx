@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -294,25 +295,37 @@ export default function OpsMonitoringTab() {
 
       {/* KPI Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Stuck Packages</div>
-          <div className={`text-2xl font-black ${stuckCount > 0 ? "text-destructive" : "text-accent"}`}>
+        <Card className={cn("p-3 border-l-4 transition-colors", stuckCount > 0 ? "border-l-destructive bg-destructive/5" : "border-l-emerald-500")}>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+            <AlertTriangle className={cn("h-3.5 w-3.5", stuckCount > 0 ? "text-destructive" : "text-emerald-500")} />
+            Stuck Packages
+          </div>
+          <div className={cn("text-2xl font-black", stuckCount > 0 ? "text-destructive" : "text-emerald-500")}>
             {stuckCount}
           </div>
         </Card>
-        <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Step↔Job Drift</div>
-          <div className={`text-2xl font-black ${driftCount > 0 ? "text-warning" : "text-accent"}`}>
+        <Card className={cn("p-3 border-l-4 transition-colors", driftCount > 0 ? "border-l-yellow-500 bg-yellow-500/5" : "border-l-emerald-500")}>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+            <Activity className={cn("h-3.5 w-3.5", driftCount > 0 ? "text-yellow-500" : "text-emerald-500")} />
+            Step↔Job Drift
+          </div>
+          <div className={cn("text-2xl font-black", driftCount > 0 ? "text-yellow-600" : "text-emerald-500")}>
             {driftCount}
           </div>
         </Card>
-        <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Batch Requeues (6h)</div>
+        <Card className="p-3 border-l-4 border-l-primary">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+            <RefreshCw className="h-3.5 w-3.5 text-primary" />
+            Batch Requeues (6h)
+          </div>
           <div className="text-2xl font-black">{batchCount}</div>
         </Card>
-        <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Prereq Cancelled</div>
-          <div className={`text-2xl font-black ${prereqRows.length > 0 ? "text-warning" : "text-accent"}`}>
+        <Card className={cn("p-3 border-l-4 transition-colors", prereqRows.length > 0 ? "border-l-yellow-500 bg-yellow-500/5" : "border-l-emerald-500")}>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+            <CheckCircle2 className={cn("h-3.5 w-3.5", prereqRows.length > 0 ? "text-yellow-500" : "text-emerald-500")} />
+            Prereq Cancelled
+          </div>
+          <div className={cn("text-2xl font-black", prereqRows.length > 0 ? "text-yellow-600" : "text-emerald-500")}>
             {prereqRows.reduce((s, r) => s + Number(r.cancelled ?? 0), 0)}
           </div>
         </Card>
