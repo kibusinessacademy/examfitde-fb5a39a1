@@ -7213,6 +7213,7 @@ export type Database = {
           options: Json
           qc_status: string | null
           question_text: string
+          question_type: string
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["question_status"] | null
@@ -7241,6 +7242,7 @@ export type Database = {
           options: Json
           qc_status?: string | null
           question_text: string
+          question_type?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
@@ -7269,6 +7271,7 @@ export type Database = {
           options?: Json
           qc_status?: string | null
           question_text?: string
+          question_type?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
