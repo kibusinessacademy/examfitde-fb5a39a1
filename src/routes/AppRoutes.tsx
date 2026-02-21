@@ -66,6 +66,7 @@ const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
 const CRMPage = lazy(() => import('@/pages/admin/v4/CRMPage'));
 const SupportPage = lazy(() => import('@/pages/admin/v4/SupportPage'));
 const SystemHandbookPage = lazy(() => import('@/pages/admin/v4/SystemHandbookPage'));
+const QueueManagerPage = lazy(() => import('@/pages/admin/QueueManagerPage'));
 
 // Content nested routes
 const ContentLayout = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentLayout })));
@@ -211,6 +212,7 @@ const AppRoutes = () => {
           <Route path="crm/*" element={<CRMPage />} />
           <Route path="support/*" element={<SupportPage />} />
           <Route path="handbook" element={<SystemHandbookPage />} />
+          <Route path="queue" element={<QueueManagerPage />} />
         </Route>
 
         {/* Legacy redirects */}
