@@ -12,6 +12,7 @@ import PageExplainer from '@/components/admin/PageExplainer';
 
 const ComplianceDashboardPage = lazy(() => import('@/pages/admin/ComplianceDashboardPage'));
 const AZAVCompliancePage = lazy(() => import('@/pages/admin/AZAVCompliancePage'));
+const ManualLessonEditor = lazy(() => import('@/components/admin/ManualLessonEditor'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -25,6 +26,7 @@ const tabs = [
   { path: '/admin/quality', label: 'Übersicht' },
   { path: '/admin/quality/shield', label: 'Quality Shield' },
   { path: '/admin/quality/integrity', label: 'Integrität' },
+  { path: '/admin/quality/repair', label: 'Nachbearbeitung' },
   { path: '/admin/quality/compliance', label: 'Compliance' },
   { path: '/admin/quality/azav', label: 'AZAV/ISO' },
 ];
@@ -269,6 +271,7 @@ export default function QualityPage() {
           <Route index element={<QualityOverview />} />
           <Route path="shield" element={<QualityShieldDashboard />} />
           <Route path="integrity" element={<IntegrityOverview />} />
+          <Route path="repair" element={<ManualLessonEditor />} />
           <Route path="compliance" element={<ComplianceDashboardPage />} />
           <Route path="azav" element={<AZAVCompliancePage />} />
         </Routes>

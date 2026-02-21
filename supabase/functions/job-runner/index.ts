@@ -131,6 +131,7 @@ const JOB_TYPE_MAP: Record<string, string> = {
   package_curriculum_ingest: "package-curriculum-ingest",
   ingest_curriculum_document: "ingest-curriculum-document",
   generate_handbook: "package-generate-handbook",
+  heal_poison_lessons: "heal-poison-lessons",
 };
 
 // ── Adaptive Concurrency Constants ──────────────────────────────────
@@ -544,6 +545,30 @@ Deno.serve(async (req) => {
       }
       // ── 4. Completed ───────────────────────────────────────────────
       else {
+        // ── Auto-heal trigger: if content generation completed with poison pills, enqueue heal job ──
+        if (job.job_type === "package_generate_learning_content" && parsed?.poison_pills_skipped > 0) {
+          const poisonIds = Object.keys(parsed._poison_pills || {});
+          if (poisonIds.length > 0) {
+            console.log(`[job-runner] Content gen completed with ${poisonIds.length} poison pills → enqueueing heal job`);
+            try {
+              await sb.from("job_queue").insert({
+                job_type: "heal_poison_lessons",
+                status: "pending",
+                payload: {
+                  package_id: job.payload?.package_id || job.package_id,
+                  course_id: job.payload?.course_id,
+                  curriculum_id: job.payload?.curriculum_id || job.payload?.certification_id,
+                  poison_lesson_ids: poisonIds,
+                },
+                package_id: job.payload?.package_id || job.package_id,
+                max_attempts: 2,
+              });
+            } catch (healErr) {
+              console.warn(`[job-runner] Failed to enqueue heal job:`, healErr);
+            }
+          }
+        }
+
         finalState = {
           status: "completed",
           patch: {
