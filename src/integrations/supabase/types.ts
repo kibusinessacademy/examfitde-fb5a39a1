@@ -11690,6 +11690,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_type: string
+          created_at: string
+          detail: Json | null
+          id: string
+          severity: string
+          title: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type: string
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          severity?: string
+          title: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type?: string
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          severity?: string
+          title?: string
+        }
+        Relationships: []
+      }
       pipeline_capacity: {
         Row: {
           id: boolean
@@ -18015,6 +18048,15 @@ export type Database = {
           },
         ]
       }
+      ops_pipeline_velocity: {
+        Row: {
+          avg_duration_seconds: number | null
+          completed_count: number | null
+          day: string | null
+          step_key: string | null
+        }
+        Relationships: []
+      }
       ops_prereq_guard_cancelled: {
         Row: {
           cancelled: number | null
@@ -18308,6 +18350,14 @@ export type Database = {
             referencedColumns: ["package_id"]
           },
         ]
+      }
+      ops_throughput_hourly: {
+        Row: {
+          hour: string | null
+          job_count: number | null
+          status: string | null
+        }
+        Relationships: []
       }
       package_economics: {
         Row: {
@@ -19037,6 +19087,7 @@ export type Database = {
         Args: { p_course_id: string }
         Returns: boolean
       }
+      check_pipeline_health_alerts: { Args: never; Returns: Json }
       check_production_quality: {
         Args: { p_curriculum_id: string; p_package_id: string }
         Returns: Json
@@ -19954,6 +20005,10 @@ export type Database = {
       publish_tutor_asset: {
         Args: { p_asset_id: string; p_version_id: string }
         Returns: undefined
+      }
+      purge_old_jobs: {
+        Args: { p_older_than_days?: number; p_statuses?: string[] }
+        Returns: Json
       }
       qa_severity_rank: {
         Args: { p: Database["public"]["Enums"]["qa_severity"] }
