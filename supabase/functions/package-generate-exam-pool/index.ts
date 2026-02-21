@@ -720,8 +720,15 @@ async function generateTurboQuestions(
         && d.why_wrong.length >= 20                    // min explanation depth
       ) : [];
 
+    // ── Resolve final question_type BEFORE gate (so gate uses correct type) ──
+    const finalQuestionType = questionType === "best_option" ? "transfer"
+      : questionType === "error_detection" ? "transfer"
+      : questionType === "risk_assessment" ? "case_study"
+      : questionType === "compliance_check" ? "concept"
+      : questionType; // calculation, case_study pass through
+
     // ── Distractor Quality Gate (hard for calculation, soft for others) ──
-    const isCalculation = questionType === "calculation";
+    const isCalculation = finalQuestionType === "calculation";
     const requiredMeta = isCalculation ? 3 : 2; // 3 wrong options need meta for calc
     const distractorGateFailed = rawDistractorMeta.length < requiredMeta;
     
@@ -733,7 +740,7 @@ async function generateTurboQuestions(
     }
 
     if (distractorGateFailed) {
-      console.log(`[ExamPool-v5] ${qcReason}: ${questionType} question has ${rawDistractorMeta.length}/${requiredMeta} valid distractor_meta`);
+      console.log(`[ExamPool-v5] ${qcReason}: ${finalQuestionType} question has ${rawDistractorMeta.length}/${requiredMeta} valid distractor_meta`);
       
       // Store gate failure info in distractor_meta for auditability
       const auditedMeta = {
@@ -755,7 +762,7 @@ async function generateTurboQuestions(
         explanation: q.explanation || "",
         difficulty: difficulty,
         cognitive_level: mappedCogLevel,
-        question_type: questionType,
+        question_type: finalQuestionType,
         trap_tags: rawTrapTags,
         distractor_meta: auditedMeta,
         ai_generated: true,
@@ -779,12 +786,8 @@ async function generateTurboQuestions(
       // FIX: Force the REQUESTED difficulty from distribution, not AI's self-report.
       difficulty: difficulty,
       cognitive_level: mappedCogLevel,
-      // Hebel 2: Track question_type from distribution quota
-      question_type: questionType === "best_option" ? "transfer"
-        : questionType === "error_detection" ? "transfer"
-        : questionType === "risk_assessment" ? "case_study"
-        : questionType === "compliance_check" ? "concept"
-        : questionType, // calculation, case_study pass through
+      // Hebel 2: Use finalQuestionType (resolved before gate)
+      question_type: finalQuestionType,
       // Hebel 3: Trap tags + distractor metadata
       trap_tags: rawTrapTags,
       distractor_meta: {
@@ -1028,13 +1031,21 @@ Deno.serve(async (req) => {
     } catch (e) { console.warn(`[ExamPool-v5] Glossary load failed: ${(e as Error).message}`); }
 
     // ── Hebel 2: Load math_ratio from certification_catalog via profession name ──
+    let mathRatioApplied = false;
     try {
+      const searchName = professionName.split("/")[0].trim();
       const { data: certCatalog } = await sb.from("certification_catalog").select("math_ratio")
-        .ilike("title", `%${professionName.split("/")[0].trim()}%`).limit(1).maybeSingle();
+        .ilike("title", `%${searchName}%`).limit(1).maybeSingle();
       if (certCatalog?.math_ratio && certCatalog.math_ratio > 0) {
         applyMathRatio(certCatalog.math_ratio);
+        mathRatioApplied = true;
       }
     } catch { /* non-blocking */ }
+    // Fallback: ensure calculation has at least default 0.20 share
+    if (!mathRatioApplied) {
+      console.log(`[ExamPool-v5] No certification_catalog match for "${professionName}" — using default math_ratio=0.20`);
+      applyMathRatio(0.20);
+    }
 
     if (generatedSoFar === 0 && !isFanOut) {
       console.log(`[ExamPool-v5] Start "${professionName}": target=${examTarget}, engine=v5-ihk-quality`);
