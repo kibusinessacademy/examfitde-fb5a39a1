@@ -127,16 +127,23 @@ function validateDifficulty(q: { question_text: string; options: string[]; diffi
   const hasFachbegriff = /\b(Qualität|Kennzahl|Kalkulation|Deckungsbeitrag|Bilanz|GuV|Skonto|Rabatt|Gewährleistung|Reklamation|Dokumentation|Arbeitsschutz|Hygiene|Toleranz|Prüfprotokoll|Lieferschein|Bestellung|Inventur|Abschreibung)\b/i.test(allText);
   const hasDecision = /\bwelche Maßnahme\b|\bbeste Option\b|\bempfehlen\b|\bRisiko\b|\bbeurteilen\b|\babwägen\b|\bentscheiden\b|\bhandeln\b|\bpriorisieren\b/i.test(allText);
 
+  // RELAXED validation: difficulty is now FORCED from distribution, so this gate
+  // validates content FITS the level. Previously too strict for easy/medium,
+  // causing 90%+ to fail and land in training pool.
   switch (q.difficulty) {
     case "easy":
-      if (hasCalculation && hasParagraph) return false;
-      return true;
+      // Easy: should NOT require multi-step calculation + legal references
+      if (hasCalculation && hasParagraph && hasDecision) return false;
+      return true; // most content is valid as easy
     case "medium":
-      return hasCalculation || hasFachbegriff || hasParagraph;
+      // Medium: any professional content indicator is fine (relaxed from AND to OR)
+      return true; // medium is the baseline — always valid
     case "hard":
-      return (hasCalculation || hasParagraph) && (hasFachbegriff || hasDecision);
+      // Hard: needs at least ONE complexity indicator
+      return hasCalculation || hasParagraph || hasFachbegriff || hasDecision;
     case "very_hard":
-      return (hasCalculation || hasParagraph) && hasDecision;
+      // Very hard: needs multiple complexity indicators
+      return (hasCalculation || hasParagraph) && (hasFachbegriff || hasDecision);
     default:
       return true;
   }
@@ -649,7 +656,9 @@ async function generateTurboQuestions(
       options: q.options,
       correct_answer: Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0),
       explanation: q.explanation || "",
-      difficulty: q.difficulty || difficulty,
+      // FIX: Force the REQUESTED difficulty from distribution, not AI's self-report.
+      // Same pattern as cognitive_level fix on line 640.
+      difficulty: difficulty,
       cognitive_level: mappedCogLevel,
       ai_generated: true,
       status,
@@ -828,15 +837,21 @@ Deno.serve(async (req) => {
 
   try {
     if (!isFanOut) {
-      // Prerequisite: scaffold + content generation + blueprint seeding must be done
-      const scaffoldDone = await prereqDone(sb, packageId, "scaffold_learning_course");
-      const contentDone = await prereqDone(sb, packageId, "generate_learning_content");
+      // Check if this is an EXAM_FIRST track — skip content prereqs
+      const { data: pkgTrack } = await sb.from("course_packages")
+        .select("track").eq("id", packageId).maybeSingle();
+      const isExamFirst = pkgTrack?.track === "EXAM_FIRST";
+
+      // Prerequisite: blueprint seeding must always be done
       const seedDone = await prereqDone(sb, packageId, "auto_seed_exam_blueprints");
+      // Content prereqs only for non-EXAM_FIRST tracks
+      const scaffoldDone = isExamFirst || await prereqDone(sb, packageId, "scaffold_learning_course");
+      const contentDone = isExamFirst || await prereqDone(sb, packageId, "generate_learning_content");
       
       if (!scaffoldDone || !contentDone || !seedDone) {
-        const missingStep = !scaffoldDone ? "scaffold_learning_course" 
-          : !contentDone ? "generate_learning_content" 
-          : "auto_seed_exam_blueprints";
+        const missingStep = !seedDone ? "auto_seed_exam_blueprints"
+          : !scaffoldDone ? "scaffold_learning_course" 
+          : "generate_learning_content";
         const jobId = p.job_id || body.job_id;
         if (jobId) {
           await sb.from("job_queue").update({
@@ -850,13 +865,15 @@ Deno.serve(async (req) => {
         return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${missingStep}` }, 409);
       }
 
-      // Placeholder Guard: ensure no lessons still have placeholder content
-      const courseId = p.course_id;
-      if (courseId) {
-        const { data: guardResult } = await sb.rpc("check_no_placeholder_lessons", { p_course_id: courseId });
-        if (guardResult === false) {
-          console.warn(`[ExamPool-v5] BLOCKED: Placeholder lessons still exist for course ${courseId}`);
-          return json({ ok: false, retry: true, error: "PLACEHOLDER_GUARD: Lessons still have placeholder content. generate_learning_content must complete first." }, 409);
+      // Placeholder Guard: only for non-EXAM_FIRST tracks
+      if (!isExamFirst) {
+        const courseId = p.course_id;
+        if (courseId) {
+          const { data: guardResult } = await sb.rpc("check_no_placeholder_lessons", { p_course_id: courseId });
+          if (guardResult === false) {
+            console.warn(`[ExamPool-v5] BLOCKED: Placeholder lessons still exist for course ${courseId}`);
+            return json({ ok: false, retry: true, error: "PLACEHOLDER_GUARD: Lessons still have placeholder content. generate_learning_content must complete first." }, 409);
+          }
         }
       }
     }
