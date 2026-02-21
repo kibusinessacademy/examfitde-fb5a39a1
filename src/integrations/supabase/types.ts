@@ -2810,6 +2810,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       competencies: {
@@ -9443,6 +9450,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "license_packages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "license_packages_curriculum_id_fkey"
             columns: ["curriculum_id"]
             isOneToOne: false
@@ -12787,6 +12801,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -17349,6 +17370,33 @@ export type Database = {
         }
         Relationships: []
       }
+      companies_safe: {
+        Row: {
+          admin_user_id: string | null
+          created_at: string | null
+          id: string | null
+          max_seats: number | null
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_user_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          max_seats?: number | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_user_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          max_seats?: number | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       corporate_seat_utilization: {
         Row: {
           buyer_user_id: string | null
@@ -17368,6 +17416,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "license_packages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
           {
