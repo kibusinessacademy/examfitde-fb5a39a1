@@ -7,7 +7,7 @@ import {
 import { adminNavFlat } from '@/admin/adminNav';
 import { useAdminSearch } from '@/hooks/useAdminSearch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Clock, X } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -23,7 +23,7 @@ const entityTypeLabels: Record<string, string> = {
 export default function CommandPalette({ open, onOpenChange }: Props) {
   const navigate = useNavigate();
   const items = adminNavFlat();
-  const { results, loading, search } = useAdminSearch();
+  const { results, loading, search, recentSearches, trackSearch, refreshRecent } = useAdminSearch();
   const [query, setQuery] = useState('');
 
   const navItems = items.filter(i => i.group === 'Navigation');
@@ -36,7 +36,11 @@ export default function CommandPalette({ open, onOpenChange }: Props) {
     return () => clearTimeout(timer);
   }, [query, open, search]);
 
+  // Refresh recent on open
+  useEffect(() => { if (open) refreshRecent(); }, [open, refreshRecent]);
+
   const handleSelect = (path: string) => {
+    if (query.length >= 2) trackSearch(query);
     navigate(path);
     onOpenChange(false);
     setQuery('');
@@ -68,6 +72,18 @@ export default function CommandPalette({ open, onOpenChange }: Props) {
           )}
         </CommandEmpty>
 
+        {/* Recent searches when no query */}
+        {!q && recentSearches.length > 0 && (
+          <CommandGroup heading="Letzte Suchen">
+            {recentSearches.map(term => (
+              <CommandItem key={term} onSelect={() => { setQuery(term); search(term); }}>
+                <Clock className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                <span className="text-sm">{term}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
         {/* Entity results from DB */}
         {results.length > 0 && (
           <>
@@ -77,7 +93,11 @@ export default function CommandPalette({ open, onOpenChange }: Props) {
                   <Badge variant="outline" className="text-[10px] mr-2 shrink-0">
                     {entityTypeLabels[r.entity_type] || r.entity_type}
                   </Badge>
-                  <span className="truncate">{r.title}</span>
+                  {r.titleHtml ? (
+                    <span className="truncate" dangerouslySetInnerHTML={{ __html: r.titleHtml }} />
+                  ) : (
+                    <span className="truncate">{r.title}</span>
+                  )}
                   {r.subtitle && (
                     <span className="text-xs text-muted-foreground ml-2 truncate">{r.subtitle}</span>
                   )}
