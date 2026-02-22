@@ -11,8 +11,8 @@ import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
  * 3. Output: content_version → Council review → publish
  */
 
-const GENERATOR_PROVIDER: AIProvider = "lovable";
-const VALIDATOR_PROVIDER: AIProvider = "anthropic";
+const GENERATOR_PROVIDER: AIProvider = "google";
+const VALIDATOR_PROVIDER: AIProvider = "google";
 
 const MINICHECK_TOOL = {
   type: "function" as const,

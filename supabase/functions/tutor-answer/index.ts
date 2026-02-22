@@ -14,7 +14,7 @@ const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
  */
 
 const GENERATOR_MODEL = "openai/gpt-4.1";
-const VALIDATOR_MODEL = "anthropic/claude-sonnet-4-20250514";
+const VALIDATOR_MODEL = "google/gemini-2.5-flash";
 
 type SB = ReturnType<typeof createClient>;
 type Role = "explainer" | "coach" | "examiner" | "feedback";
@@ -185,7 +185,7 @@ function buildTutorUserPrompt(p: TutorAnswerPayload, assets: Record<string, unkn
 async function callLLM(opts: { model: string; system: string; user: string }): Promise<Record<string, unknown>> {
   try {
     const result = await callAI({
-      provider: opts.model.startsWith("anthropic") ? "anthropic" : "openai",
+      provider: opts.model.startsWith("google") ? "google" : "openai",
       messages: [
         { role: "system", content: opts.system },
         { role: "user", content: opts.user },
@@ -195,9 +195,7 @@ async function callLLM(opts: { model: string; system: string; user: string }): P
 
     if (result.ok) {
       const data = await result.raw.json();
-      const content = opts.model.startsWith("anthropic")
-        ? data.content?.[0]?.text ?? ""
-        : data.choices?.[0]?.message?.content ?? "";
+      const content = data.choices?.[0]?.message?.content ?? "";
       const clean = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       return JSON.parse(clean);
     }
@@ -210,7 +208,7 @@ async function callLLM(opts: { model: string; system: string; user: string }): P
 async function validateDraft(input: { ssot: Record<string, unknown>; role: Role; draft: Record<string, unknown> }) {
   try {
     const result = await callAI({
-      provider: "anthropic",
+      provider: "google",
       messages: [
         { role: "system", content: `Du bist Validator für Tutor-Antworten. Output STRICT JSON:\n{ "decision":"approved"|"rejected", "issues":[], "rationale":"..." }\nReject wenn: keine source_refs, falsche Fakten, erfundene Normen/Paragraphen.` },
         { role: "user", content: JSON.stringify(input).slice(0, 12000) },

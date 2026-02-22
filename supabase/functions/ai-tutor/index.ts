@@ -455,6 +455,6 @@ async function logInteraction(
     tokens_used: tokensUsed,
     was_blocked: wasBlocked,
     block_reason: blockReason,
-    metadata: { conversation_length: conversationLength, generator: "openai/gpt-4.1", validation: "async_anthropic" },
+    metadata: { conversation_length: conversationLength, generator: "openai/gpt-4.1", validation: "async_google" },
   });
 }
