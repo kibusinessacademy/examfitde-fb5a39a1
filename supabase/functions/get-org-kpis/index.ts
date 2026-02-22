@@ -1,13 +1,17 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { handleCorsPreflightRequest, json } from "../_shared/cors.ts";
+import {
+  type ReportScope,
+  clampScope,
+  isUuid,
+  parseRangeParams,
+  fiscalYearRange,
+  isoDate,
+  addDays,
+} from "../_shared/org_privacy.ts";
 
-function json(status: number, data: unknown, origin: string | null) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...getCorsHeaders(origin), "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
-  });
-}
+type SeatCounts = Record<string, number>;
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -22,96 +26,224 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
+    // Auth
     const authHeader = req.headers.get("Authorization") ?? "";
-    const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (!jwt) return json(401, { error: "Missing Bearer token" }, origin);
+    const jwtToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!jwtToken) return json(401, { error: "Missing Bearer token" }, origin);
 
-    const { data: u } = await supabase.auth.getUser(jwt);
+    const { data: u } = await supabase.auth.getUser(jwtToken);
     const userId = u?.user?.id;
     if (!userId) return json(401, { error: "Invalid token" }, origin);
 
     const url = new URL(req.url);
     const orgId = url.searchParams.get("organization_id");
-    if (!orgId) return json(400, { error: "Missing organization_id" }, origin);
+    if (!isUuid(orgId)) return json(400, { error: "Missing/invalid organization_id" }, origin);
 
-    // Verify membership
-    const { data: membership } = await supabase
+    // 1) Membership check
+    const { data: mem, error: memErr } = await supabase
       .from("organization_members")
       .select("role")
-      .eq("user_id", userId)
       .eq("organization_id", orgId)
+      .eq("user_id", userId)
       .maybeSingle();
 
-    if (!membership) return json(403, { error: "Not a member of this organization" }, origin);
+    if (memErr) return json(500, { error: "membership_failed", details: memErr.message }, origin);
+    if (!mem?.role) return json(403, { error: "Not a member of organization" }, origin);
 
-    // Check privacy gate
+    // 2) Org settings
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("id, fiscal_year_start_month, default_report_scope")
+      .eq("id", orgId)
+      .maybeSingle();
+
+    if (!org?.id) return json(404, { error: "Organization not found" }, origin);
+
+    // 3) Privacy gate
     const { data: privacy } = await supabase
       .from("org_privacy_access")
       .select("status, scope, approved_until")
       .eq("organization_id", orgId)
       .maybeSingle();
 
-    const now = new Date().toISOString();
-    const accessApproved = privacy?.status === "APPROVED" && (!privacy.approved_until || privacy.approved_until > now);
-    const scope = accessApproved ? (privacy?.scope ?? "ANONYMIZED") : "ANONYMIZED";
+    const now = new Date();
+    const approvedUntil = privacy?.approved_until ? new Date(privacy.approved_until) : null;
+    const isIdentApproved =
+      privacy?.status === "APPROVED" && approvedUntil && approvedUntil.getTime() > now.getTime();
 
-    // Seat KPIs
-    const { data: seats } = await supabase
-      .from("organization_seats")
-      .select("seat_status, entity_id, learner_user_id")
-      .eq("organization_id", orgId);
+    const orgDefaultScope = (org.default_report_scope ?? "ANONYMIZED") as ReportScope;
+    const requestedScope = clampScope(url.searchParams.get("scope"), orgDefaultScope);
 
-    const totalSeats = seats?.length ?? 0;
-    const activeSeats = seats?.filter((s: any) => s.seat_status === "ACTIVE").length ?? 0;
-    const invitedSeats = seats?.filter((s: any) => s.seat_status === "INVITED").length ?? 0;
-    const suspendedSeats = seats?.filter((s: any) => s.seat_status === "SUSPENDED").length ?? 0;
-    const expiredSeats = seats?.filter((s: any) => s.seat_status === "EXPIRED").length ?? 0;
+    // Effective scope: IDENTIFIED requires approval, otherwise downgrade
+    const effectiveScope: ReportScope =
+      requestedScope === "IDENTIFIED"
+        ? (isIdentApproved ? "IDENTIFIED" : "PSEUDONYMIZED")
+        : requestedScope;
 
-    // Entity breakdown
-    const entityBreakdown: Record<string, { total: number; active: number }> = {};
-    for (const s of (seats ?? [])) {
-      const eid = s.entity_id ?? "__none__";
-      if (!entityBreakdown[eid]) entityBreakdown[eid] = { total: 0, active: 0 };
-      entityBreakdown[eid].total++;
-      if (s.seat_status === "ACTIVE") entityBreakdown[eid].active++;
+    // 4) Time range
+    const mode = (url.searchParams.get("mode") ?? "fiscal_year").toLowerCase();
+    let start: Date;
+    let end: Date;
+
+    if (mode === "range") {
+      const { start_date, end_date } = parseRangeParams(url);
+      if (!start_date || !end_date) {
+        return json(400, { error: "range mode requires start_date and end_date (YYYY-MM-DD)" }, origin);
+      }
+      start = new Date(`${start_date}T00:00:00.000Z`);
+      end = addDays(new Date(`${end_date}T00:00:00.000Z`), 1);
+    } else if (mode === "calendar_year") {
+      const y = parseInt(url.searchParams.get("year") ?? `${now.getUTCFullYear()}`, 10);
+      start = new Date(Date.UTC(y, 0, 1, 0, 0, 0));
+      end = new Date(Date.UTC(y + 1, 0, 1, 0, 0, 0));
+    } else {
+      const fy = fiscalYearRange(now, org.fiscal_year_start_month ?? 1);
+      start = fy.start;
+      end = fy.end;
     }
 
-    // Learner count
-    const { count: learnerCount } = await supabase
-      .from("organization_learners")
-      .select("id", { count: "exact", head: true })
-      .eq("organization_id", orgId)
-      .is("left_at", null);
-
-    // Invoice coding count
-    const { count: codingCount } = await supabase
-      .from("org_invoice_coding")
-      .select("id", { count: "exact", head: true })
+    // 5) Billing accounts (SSOT anchor)
+    const { data: bas, error: baErr } = await supabase
+      .from("billing_accounts")
+      .select("id, entity_id, is_default")
       .eq("organization_id", orgId);
 
-    // Audit: log this KPI run
+    if (baErr) return json(500, { error: "billing_accounts_failed", details: baErr.message }, origin);
+
+    const baIds = (bas ?? []).map((b: any) => b.id);
+
+    // Optional entity filter
+    const entityId = url.searchParams.get("entity_id");
+    const baIdsFiltered = isUuid(entityId)
+      ? (bas ?? []).filter((b: any) => b.entity_id === entityId).map((b: any) => b.id)
+      : baIds;
+
+    // 6) Seat KPIs
+    const { data: seats, error: seatErr } = await supabase
+      .from("organization_seats")
+      .select("id, seat_status, end_at, start_at, entity_id")
+      .eq("organization_id", orgId);
+
+    if (seatErr) return json(500, { error: "seats_failed", details: seatErr.message }, origin);
+
+    const seatCounts: SeatCounts = {};
+    let expiring30 = 0;
+    let expired = 0;
+    const cutoff30 = addDays(now, 30);
+    const todayStr = isoDate(now);
+
+    for (const s of (seats ?? [])) {
+      const st = s.seat_status ?? "UNKNOWN";
+      seatCounts[st] = (seatCounts[st] || 0) + 1;
+
+      if (s.end_at) {
+        if (s.end_at < todayStr) expired++;
+        const endDate = new Date(`${s.end_at}T00:00:00.000Z`);
+        if (endDate.getTime() >= now.getTime() && endDate.getTime() <= cutoff30.getTime()) expiring30++;
+      }
+    }
+
+    // 7) Financial KPIs (leak-safe via billing_account_id)
+    let ordersCount = 0;
+    let ordersGrossCents = 0;
+    let invoicesCount = 0;
+    let invoicesGrossCents = 0;
+    let invoicesOpenCount = 0;
+    let paymentsPaidCents = 0;
+
+    if (baIdsFiltered.length > 0) {
+      const [ordersRes, invoicesRes] = await Promise.all([
+        supabase
+          .from("orders")
+          .select("id, total_cents, created_at, status, billing_account_id")
+          .in("billing_account_id", baIdsFiltered)
+          .gte("created_at", start.toISOString())
+          .lt("created_at", end.toISOString()),
+        supabase
+          .from("invoices")
+          .select("id, status, total_gross_cents, issue_date, billing_account_id")
+          .in("billing_account_id", baIdsFiltered)
+          .gte("issue_date", isoDate(start))
+          .lt("issue_date", isoDate(end)),
+      ]);
+
+      if (ordersRes.error) return json(500, { error: "orders_failed", details: ordersRes.error.message }, origin);
+      if (invoicesRes.error) return json(500, { error: "invoices_failed", details: invoicesRes.error.message }, origin);
+
+      for (const o of (ordersRes.data ?? [])) {
+        ordersCount++;
+        ordersGrossCents += (o.total_cents ?? 0);
+      }
+
+      const orderIds = (ordersRes.data ?? []).map((o: any) => o.id);
+
+      for (const i of (invoicesRes.data ?? [])) {
+        invoicesCount++;
+        invoicesGrossCents += (i.total_gross_cents ?? 0);
+        if (String(i.status ?? "").toUpperCase() !== "PAID") invoicesOpenCount++;
+      }
+
+      // Payments for bounded orderIds
+      if (orderIds.length > 0) {
+        const { data: pays, error: pErr } = await supabase
+          .from("payments")
+          .select("id, amount_cents, paid_at, payment_status, order_id")
+          .in("order_id", orderIds);
+
+        if (pErr) return json(500, { error: "payments_failed", details: pErr.message }, origin);
+
+        for (const p of (pays ?? [])) {
+          if (String(p.payment_status ?? "").toUpperCase() === "PAID") {
+            paymentsPaidCents += (p.amount_cents ?? 0);
+          }
+        }
+      }
+    }
+
+    // 8) Report audit
     await supabase.from("org_report_runs").insert({
       organization_id: orgId,
       run_by: userId,
-      report_key: "kpi_dashboard",
-      scope,
-      params: { entity_breakdown: Object.keys(entityBreakdown).length },
+      report_key: "ORG_KPIS",
+      scope: effectiveScope,
+      params: {
+        mode,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        requested_scope: requestedScope,
+        entity_id: isUuid(entityId) ? entityId : null,
+      },
     });
 
+    // 9) Response (no individual learner data)
     return json(200, {
       organization_id: orgId,
-      scope,
-      privacy_access: privacy ?? { status: "NONE", scope: "ANONYMIZED" },
-      kpis: {
-        total_seats: totalSeats,
-        active_seats: activeSeats,
-        invited_seats: invitedSeats,
-        suspended_seats: suspendedSeats,
-        expired_seats: expiredSeats,
-        utilization_pct: totalSeats > 0 ? Math.round((activeSeats / totalSeats) * 100) : 0,
-        learner_count: learnerCount ?? 0,
-        invoice_coding_count: codingCount ?? 0,
-        entity_breakdown: entityBreakdown,
+      my_role: mem.role,
+      privacy: {
+        requested_scope: requestedScope,
+        effective_scope: effectiveScope,
+        ident_approved: !!isIdentApproved,
+        approved_until: privacy?.approved_until ?? null,
+        status: privacy?.status ?? "NONE",
+      },
+      period: {
+        mode,
+        start_date: isoDate(start),
+        end_date_exclusive: isoDate(end),
+      },
+      seats: {
+        counts: seatCounts,
+        expiring_within_30_days: expiring30,
+        expired,
+      },
+      billing: {
+        billing_accounts_count: baIdsFiltered.length,
+        orders_count: ordersCount,
+        orders_gross_cents: ordersGrossCents,
+        invoices_count: invoicesCount,
+        invoices_gross_cents: invoicesGrossCents,
+        invoices_open_count: invoicesOpenCount,
+        payments_paid_cents: paymentsPaidCents,
       },
     }, origin);
   } catch (e) {
