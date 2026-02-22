@@ -159,32 +159,37 @@ async function runCourseReadyGate(
   const totalApproved = approvedQs?.length ?? 0;
   const easyCount = approvedQs?.filter((q: any) => q.difficulty === "easy").length ?? 0;
   const mediumCount = approvedQs?.filter((q: any) => q.difficulty === "medium").length ?? 0;
-  const hardCount = approvedQs?.filter((q: any) => q.difficulty === "hard" || q.difficulty === "very_hard").length ?? 0;
+  const hardOnlyCount = approvedQs?.filter((q: any) => q.difficulty === "hard").length ?? 0;
+  const veryHardCount = approvedQs?.filter((q: any) => q.difficulty === "very_hard").length ?? 0;
+  // "hardish" = hard + very_hard (SSOT target: 35% + 10% = 45%)
+  const hardishCount = hardOnlyCount + veryHardCount;
 
   const easyPct = totalApproved > 0 ? (easyCount / totalApproved) * 100 : 0;
   const mediumPct = totalApproved > 0 ? (mediumCount / totalApproved) * 100 : 0;
-  const hardPct = totalApproved > 0 ? (hardCount / totalApproved) * 100 : 0;
+  const hardOnlyPct = totalApproved > 0 ? (hardOnlyCount / totalApproved) * 100 : 0;
+  const veryHardPct = totalApproved > 0 ? (veryHardCount / totalApproved) * 100 : 0;
+  const hardishPct = totalApproved > 0 ? (hardishCount / totalApproved) * 100 : 0;
 
-  // Hard fail: total < 500, hard+very_hard < 30%, easy > 20%
-  const poolPassed = totalApproved >= 500 && hardPct >= 30 && easyPct <= 20;
+  // Hard fail: total < 500, hard+very_hard < 40% (SSOT target 45%, gate allows 5% tolerance), easy > 15%
+  const poolPassed = totalApproved >= 500 && hardishPct >= 40 && easyPct <= 15;
   results.push({
     gate: "exam_pool_distribution",
     passed: poolPassed,
     severity: "blocker",
-    detail: `${totalApproved} approved | easy=${easyPct.toFixed(1)}% medium=${mediumPct.toFixed(1)}% hard=${hardPct.toFixed(1)}%`,
+    detail: `${totalApproved} approved | easy=${easyPct.toFixed(1)}% medium=${mediumPct.toFixed(1)}% hard=${hardOnlyPct.toFixed(1)}% very_hard=${veryHardPct.toFixed(1)}% (hardish=${hardishPct.toFixed(1)}%)`,
   });
   if (!poolPassed) {
     const reasons: string[] = [];
     if (totalApproved < 500) reasons.push(`TOO_FEW_APPROVED(${totalApproved}/500)`);
-    if (hardPct < 30) reasons.push(`HARD_TOO_LOW(${hardPct.toFixed(1)}%<30%)`);
-    if (easyPct > 20) reasons.push(`EASY_TOO_HIGH(${easyPct.toFixed(1)}%>20%)`);
+    if (hardishPct < 40) reasons.push(`HARDISH_TOO_LOW(${hardishPct.toFixed(1)}%<40%)`);
+    if (easyPct > 15) reasons.push(`EASY_TOO_HIGH(${easyPct.toFixed(1)}%>15%)`);
     hardFails.push(`EXAM_POOL: ${reasons.join(", ")}`);
   }
 
-  // Warning: hard+very_hard < 35%
-  if (hardPct < 35 && hardPct >= 30) {
-    warnings.push(`HARD_BELOW_TARGET: ${hardPct.toFixed(1)}% (target ≥35%)`);
-    results.push({ gate: "exam_hard_target", passed: false, severity: "warning", detail: `hard=${hardPct.toFixed(1)}% (target ≥35%)` });
+  // Warning: hardish < 45% but >= 40% (approaching but not at SSOT target)
+  if (hardishPct < 45 && hardishPct >= 40) {
+    warnings.push(`HARDISH_BELOW_TARGET: ${hardishPct.toFixed(1)}% (SSOT target ≥45%)`);
+    results.push({ gate: "exam_hardish_target", passed: false, severity: "warning", detail: `hardish=${hardishPct.toFixed(1)}% (SSOT target ≥45%)` });
   }
 
   // ═══════════════════════════════════════════════
@@ -323,12 +328,12 @@ async function runCourseReadyGate(
   // ═══════════════════════════════════════════════
   // WARNINGS
   // ═══════════════════════════════════════════════
-  if (hardPct >= 5 && hardPct < 13) warnings.push(`HARD_BELOW_EXCELLENCE: ${hardPct.toFixed(1)}% (excellence ≥15%)`);
+  if (hardishPct >= 30 && hardishPct < 40) warnings.push(`HARDISH_BELOW_EXCELLENCE: ${hardishPct.toFixed(1)}% (excellence ≥45%)`);
 
   // ═══════════════════════════════════════════════
   // EXCELLENCE checks
   // ═══════════════════════════════════════════════
-  if (hardPct >= 15 && hardPct <= 20) excellence.push(`HARD_EXCELLENT: ${hardPct.toFixed(1)}%`);
+  if (hardishPct >= 45) excellence.push(`HARDISH_EXCELLENT: ${hardishPct.toFixed(1)}% (hard=${hardOnlyPct.toFixed(1)}% very_hard=${veryHardPct.toFixed(1)}%)`);
   if (totalApproved >= 850) excellence.push(`EXAM_POOL_DOMINANT: ${totalApproved} approved`);
   if (!isExamFirst) {
     const hbGate = results.find(r => r.gate === "handbook_depth");
