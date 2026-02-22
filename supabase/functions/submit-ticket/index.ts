@@ -36,6 +36,16 @@ async function fingerprint(input: string) {
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
+const VALID_TYPES = [
+  "CONTENT_ISSUE", "FEATURE_REQUEST", "BILLING_QUESTION",
+  "LICENSE_QUESTION", "LEARNER_ACCOUNT_ISSUE", "DATA_CORRECTION", "TECHNICAL_ISSUE",
+] as const;
+
+const VALID_LINK_TYPES = [
+  "INVOICE", "PAYMENT", "ORDER", "BILLING_ACCOUNT", "LEARNER",
+  "LICENSE", "COMPANY", "CERTIFICATION", "LESSON", "QUESTION", "BLUEPRINT", "SEAT",
+] as const;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
@@ -57,7 +67,7 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
 
-    const type = safeEnum(body.type, ["CONTENT_ISSUE", "FEATURE_REQUEST"] as const, "CONTENT_ISSUE");
+    const type = safeEnum(body.type, VALID_TYPES, "CONTENT_ISSUE");
 
     const title = clampStr(body.title, 4, 120);
     const message = clampStr(body.message, 10, 2000);
@@ -77,6 +87,22 @@ serve(async (req) => {
     const attachment_urls = Array.isArray(body.attachment_urls)
       ? body.attachment_urls.filter((x: unknown) => typeof x === "string").slice(0, 5).map((x: string) => x.slice(0, 800))
       : [];
+
+    // Parse ticket_links from body
+    const rawLinks = Array.isArray(body.ticket_links) ? body.ticket_links.slice(0, 10) : [];
+    const validLinks = rawLinks.filter((link: any) =>
+      isUuid(link?.entity_id) &&
+      typeof link?.entity_type === "string" &&
+      (VALID_LINK_TYPES as readonly string[]).includes(link.entity_type)
+    ).map((link: any) => ({
+      entity_type: link.entity_type,
+      entity_id: link.entity_id,
+      label: typeof link.label === "string" ? link.label.slice(0, 200) : null,
+      meta: link.meta && typeof link.meta === "object" ? link.meta : {},
+    }));
+
+    // Sub-category (template selection)
+    const sub_category = typeof body.sub_category === "string" ? body.sub_category.slice(0, 60) : null;
 
     const fpBase = [type, certification_id ?? "", lesson_id ?? "", question_id ?? "", title.toLowerCase(), message.toLowerCase().slice(0, 300)].join("|");
     const fp = await fingerprint(fpBase);
@@ -120,7 +146,20 @@ serve(async (req) => {
 
     if (error) return json(500, { error: "insert_failed", details: error.message });
 
-    return json(200, { ok: true, ticket: inserted });
+    // Insert ticket_links
+    if (inserted && validLinks.length > 0) {
+      const linksToInsert = validLinks.map((link: any) => ({
+        ticket_id: inserted.id,
+        entity_type: link.entity_type,
+        entity_id: link.entity_id,
+        label: link.label,
+        meta: link.meta,
+      }));
+
+      await supabase.from("ticket_links").insert(linksToInsert);
+    }
+
+    return json(200, { ok: true, ticket: inserted, links_count: validLinks.length });
   } catch (e) {
     return json(500, { error: "unexpected_error", details: String((e as Error)?.message ?? e) });
   }
