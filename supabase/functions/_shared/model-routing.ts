@@ -56,7 +56,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "google/gemini-2.5-pro", is_fallback: true },
   ],
   oral_exam: [
-    { provider: "lovable", model: "openai/gpt-5-mini" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "lovable", model: "openai/gpt-5" },
   ],
   handbook: [
@@ -68,7 +68,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "openai/gpt-5-mini" },
   ],
   seo_content: [
-    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },  // v5.3: downgraded from pro
     { provider: "lovable", model: "google/gemini-2.5-pro" },
   ],
   council_review: [
@@ -84,8 +84,8 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "openai/gpt-5" },
   ],
   quality_audit: [
+    { provider: "lovable", model: "google/gemini-2.5-pro" },  // v5.3: swapped from gpt-5
     { provider: "lovable", model: "openai/gpt-5" },
-    { provider: "lovable", model: "google/gemini-2.5-pro" },
   ],
   embeddings: [
     { provider: "openai", model: "text-embedding-3-large" },
@@ -102,7 +102,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "openai/gpt-5-mini" },
   ],
   repair: [
-    { provider: "lovable", model: "openai/gpt-5-mini" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },  // v5.3: replaced unreliable gpt-5-mini
     { provider: "lovable", model: "google/gemini-2.5-flash" },
   ],
   repair_content: [
@@ -110,7 +110,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "openai/gpt-5" },
   ],
   blooms_classify: [
-    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "google/gemini-2.5-flash-lite" },  // v5.3: cheapest for simple classification
     { provider: "lovable", model: "openai/gpt-5-mini" },
   ],
   curriculum_import: [

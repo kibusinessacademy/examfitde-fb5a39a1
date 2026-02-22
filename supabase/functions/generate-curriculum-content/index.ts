@@ -133,9 +133,9 @@ Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
       model,
       tokens_in: aiResult.usage?.input_tokens ?? 0,
       tokens_out: aiResult.usage?.output_tokens ?? 0,
-      cost_usd: ((aiResult.usage?.input_tokens ?? 0) * 0.000002 + (aiResult.usage?.output_tokens ?? 0) * 0.000008),
       certification_id: curr.beruf_id,
       status: "success",
+      estimatedUsage: aiResult.estimatedUsage,
     });
 
     // 4) Parse
