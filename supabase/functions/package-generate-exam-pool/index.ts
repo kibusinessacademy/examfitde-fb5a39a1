@@ -1180,6 +1180,16 @@ Deno.serve(async (req) => {
         console.log(`[ExamPool-v5] Mid-loop HARD CAP: ~${preTotal + questionsThisChunk} questions`);
         break;
       }
+
+      // ── Mid-loop LF cap check (fan-out sub-jobs only) ──
+      if (isFanOut && p.learning_field_filter && questionsThisChunk > 0) {
+        const lfPropTarget = p.lf_proportional_target ?? lfTarget;
+        const lfExistNow = (p.lf_existing ?? 0) + questionsThisChunk;
+        if (lfExistNow >= lfPropTarget) {
+          console.log(`[ExamPool-v5] Mid-loop LF CAP: lf=${p.learning_field_filter.slice(0,8)}, generated=${questionsThisChunk}, lfTarget=${lfPropTarget}`);
+          break;
+        }
+      }
     }
 
     // ═══ DETERMINISTIC CALC QUOTA BACKFILL ═══
@@ -1306,7 +1316,23 @@ Deno.serve(async (req) => {
 
     const actualTotal = totalQuestions ?? 0;
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
-    const targetReached = actualTotal >= shipTarget || actualTotal >= HARD_CAP_QUESTIONS;
+
+    // ── FIX: Fan-out sub-jobs must check LF-specific target, NOT global ──
+    // Previously, LF01 consumed the entire global quota because targetReached
+    // compared actualTotal (all LFs) against shipTarget (global).
+    let targetReached = false;
+    if (isFanOut && p.learning_field_filter) {
+      const { count: lfTotal } = await sb.from("exam_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId)
+        .eq("learning_field_id", p.learning_field_filter);
+      const lfActual = lfTotal ?? 0;
+      const lfPropTarget = p.lf_proportional_target ?? lfTarget;
+      targetReached = lfActual >= lfPropTarget;
+      console.log(`[ExamPool-v5] LF-TARGET-CHECK: lf=${p.learning_field_filter.slice(0,8)}, actual=${lfActual}, target=${lfPropTarget}, reached=${targetReached}`);
+    } else {
+      targetReached = actualTotal >= shipTarget || actualTotal >= HARD_CAP_QUESTIONS;
+    }
 
     console.log(`[ExamPool-v5] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}`);
 
