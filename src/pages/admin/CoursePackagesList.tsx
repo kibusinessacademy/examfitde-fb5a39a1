@@ -60,8 +60,8 @@ export default function CoursePackagesList() {
         if (!map[row.package_id]) map[row.package_id] = { total: 0, done: 0, running: 0, failed: 0 };
         const entry = map[row.package_id];
         entry.total++;
-        const metaOk = row.meta && typeof row.meta === 'object' && (row.meta as any).ok === true;
-        if (row.status === 'done' || metaOk) entry.done++;
+        // SSOT: Only use status field, never meta.ok (Forensic Rigor Policy)
+        if (row.status === 'done' || row.status === 'skipped') entry.done++;
         else if (row.status === 'running') entry.running++;
         else if (row.status === 'failed') entry.failed++;
       }
@@ -324,6 +324,9 @@ export default function CoursePackagesList() {
                           );
                         })()}
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span className="font-mono text-[10px] opacity-60" title={pkg.id}>
+                            {pkg.id.substring(0, 8)}
+                          </span>
                           {pkg.council_approved && (
                             <span className="flex items-center gap-1">
                               <CheckCircle2 className="h-3 w-3 text-success" /> Council OK
