@@ -33,14 +33,22 @@ serve(async (req) => {
     const url = new URL(req.url);
     const orgIdParam = url.searchParams.get("organization_id");
 
-    // Get user's memberships
+    // Get user's memberships WITH org details in one query (no N+1)
     const { data: memberships, error: mErr } = await supabase
       .from("organization_members")
-      .select("organization_id, role")
+      .select("organization_id, role, organizations:organization_id(id, name, org_type, fiscal_year_start_month, default_report_scope)")
       .eq("user_id", userId);
 
     if (mErr) return json(500, { error: "memberships_failed", details: mErr.message }, origin);
     if (!memberships || memberships.length === 0) return json(200, { orgs: [], selected: null }, origin);
+
+    // Build org list from joined data (no N+1 loop)
+    const orgList = memberships.map((m: any) => ({
+      id: m.organizations?.id,
+      name: m.organizations?.name,
+      org_type: m.organizations?.org_type,
+      my_role: m.role,
+    })).filter((o: any) => o.id);
 
     // Determine selected org
     const orgId = orgIdParam && memberships.some((m: any) => m.organization_id === orgIdParam)
@@ -48,66 +56,45 @@ serve(async (req) => {
       : memberships[0].organization_id;
 
     const myRole = memberships.find((m: any) => m.organization_id === orgId)?.role ?? null;
+    const org = memberships.find((m: any) => m.organization_id === orgId)?.organizations ?? null;
 
-    // Load org details
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("id, name, org_type, fiscal_year_start_month, default_report_scope")
-      .eq("id", orgId)
-      .maybeSingle();
+    // Parallel loads for selected org
+    const [entitiesRes, membersRes, learnersRes, seatsRes, privacyRes] = await Promise.all([
+      supabase
+        .from("organization_entities")
+        .select("id, entity_code, legal_name, display_name, vat_id, billing_email, is_default")
+        .eq("organization_id", orgId)
+        .order("entity_code"),
+      supabase
+        .from("organization_members")
+        .select("id, user_id, role, created_at")
+        .eq("organization_id", orgId),
+      supabase
+        .from("organization_learners")
+        .select("id, learner_user_id, entity_id, joined_at, left_at")
+        .eq("organization_id", orgId)
+        .is("left_at", null)
+        .order("joined_at", { ascending: false })
+        .limit(200),
+      supabase
+        .from("organization_seats")
+        .select("id, entity_id, learner_user_id, product_id, certification_id, seat_status, start_at, end_at, auto_renew, notes")
+        .eq("organization_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(500),
+      supabase
+        .from("org_privacy_access")
+        .select("status, scope, approved_until, requested_at")
+        .eq("organization_id", orgId)
+        .maybeSingle(),
+    ]);
 
-    // Load entities
-    const { data: entities } = await supabase
-      .from("organization_entities")
-      .select("id, entity_code, legal_name, display_name, vat_id, billing_email, is_default")
-      .eq("organization_id", orgId)
-      .order("entity_code");
-
-    // Load members
-    const { data: members } = await supabase
-      .from("organization_members")
-      .select("id, user_id, role, created_at")
-      .eq("organization_id", orgId);
-
-    // Load learners with entity info
-    const { data: learners } = await supabase
-      .from("organization_learners")
-      .select("id, learner_user_id, entity_id, joined_at, left_at")
-      .eq("organization_id", orgId)
-      .is("left_at", null)
-      .order("joined_at", { ascending: false })
-      .limit(200);
-
-    // Load seats
-    const { data: seats } = await supabase
-      .from("organization_seats")
-      .select("id, entity_id, learner_user_id, product_id, certification_id, seat_status, start_at, end_at, auto_renew, notes")
-      .eq("organization_id", orgId)
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    // Load privacy access
-    const { data: privacyAccess } = await supabase
-      .from("org_privacy_access")
-      .select("status, scope, approved_until, requested_at")
-      .eq("organization_id", orgId)
-      .maybeSingle();
+    const seats = seatsRes.data ?? [];
 
     // Seat summary KPIs
     const seatCounts: Record<string, number> = {};
-    for (const s of (seats ?? [])) {
+    for (const s of seats) {
       seatCounts[s.seat_status] = (seatCounts[s.seat_status] || 0) + 1;
-    }
-
-    // All orgs for switcher
-    const orgList = [];
-    for (const m of memberships) {
-      const { data: o } = await supabase
-        .from("organizations")
-        .select("id, name, org_type")
-        .eq("id", m.organization_id)
-        .maybeSingle();
-      if (o) orgList.push({ ...o, my_role: m.role });
     }
 
     return json(200, {
@@ -115,12 +102,12 @@ serve(async (req) => {
       selected: {
         org,
         my_role: myRole,
-        entities: entities ?? [],
-        members: members ?? [],
-        learners: learners ?? [],
-        seats: seats ?? [],
+        entities: entitiesRes.data ?? [],
+        members: membersRes.data ?? [],
+        learners: learnersRes.data ?? [],
+        seats,
         seat_summary: seatCounts,
-        privacy_access: privacyAccess ?? { status: "NONE", scope: "ANONYMIZED" },
+        privacy_access: privacyRes.data ?? { status: "NONE", scope: "ANONYMIZED" },
       },
     }, origin);
   } catch (e) {
