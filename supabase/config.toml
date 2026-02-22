@@ -308,3 +308,6 @@ verify_jwt = false
 
 [functions.set-humor-preferences]
 verify_jwt = false
+
+[functions.submit-ticket]
+verify_jwt = false

@@ -17273,6 +17273,81 @@ export type Database = {
           },
         ]
       }
+      user_tickets: {
+        Row: {
+          admin_notes: string | null
+          assigned_to: string | null
+          attachment_urls: string[]
+          blueprint_id: string | null
+          certification_id: string | null
+          competence_id: string | null
+          created_at: string
+          created_by: string
+          curriculum_id: string | null
+          fingerprint: string | null
+          id: string
+          lesson_id: string | null
+          message: string
+          package_id: string | null
+          page_path: string | null
+          priority: Database["public"]["Enums"]["user_ticket_priority"]
+          question_id: string | null
+          source: string
+          status: Database["public"]["Enums"]["user_ticket_status"]
+          title: string
+          type: Database["public"]["Enums"]["user_ticket_type"]
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          assigned_to?: string | null
+          attachment_urls?: string[]
+          blueprint_id?: string | null
+          certification_id?: string | null
+          competence_id?: string | null
+          created_at?: string
+          created_by: string
+          curriculum_id?: string | null
+          fingerprint?: string | null
+          id?: string
+          lesson_id?: string | null
+          message: string
+          package_id?: string | null
+          page_path?: string | null
+          priority?: Database["public"]["Enums"]["user_ticket_priority"]
+          question_id?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["user_ticket_status"]
+          title: string
+          type: Database["public"]["Enums"]["user_ticket_type"]
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          assigned_to?: string | null
+          attachment_urls?: string[]
+          blueprint_id?: string | null
+          certification_id?: string | null
+          competence_id?: string | null
+          created_at?: string
+          created_by?: string
+          curriculum_id?: string | null
+          fingerprint?: string | null
+          id?: string
+          lesson_id?: string | null
+          message?: string
+          package_id?: string | null
+          page_path?: string | null
+          priority?: Database["public"]["Enums"]["user_ticket_priority"]
+          question_id?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["user_ticket_status"]
+          title?: string
+          type?: Database["public"]["Enums"]["user_ticket_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       vark_assessments: {
         Row: {
           auditory_score: number
@@ -21219,6 +21294,15 @@ export type Database = {
         | "blocked"
         | "timeout"
         | "skipped"
+      user_ticket_priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+      user_ticket_status:
+        | "OPEN"
+        | "TRIAGE"
+        | "IN_PROGRESS"
+        | "RESOLVED"
+        | "REJECTED"
+        | "DUPLICATE"
+      user_ticket_type: "CONTENT_ISSUE" | "FEATURE_REQUEST"
       variation_mode:
         | "lexical"
         | "numerical"
@@ -21503,6 +21587,16 @@ export const Constants = {
         "timeout",
         "skipped",
       ],
+      user_ticket_priority: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+      user_ticket_status: [
+        "OPEN",
+        "TRIAGE",
+        "IN_PROGRESS",
+        "RESOLVED",
+        "REJECTED",
+        "DUPLICATE",
+      ],
+      user_ticket_type: ["CONTENT_ISSUE", "FEATURE_REQUEST"],
       variation_mode: [
         "lexical",
         "numerical",
