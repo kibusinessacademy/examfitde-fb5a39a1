@@ -1,0 +1,89 @@
+import { supabase } from "@/integrations/supabase/client";
+
+async function getJwt() {
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.access_token ?? null;
+}
+
+function apiBase() {
+  return `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+}
+
+async function fetchJson(path: string, init?: RequestInit) {
+  const jwt = await getJwt();
+  const res = await fetch(`${apiBase()}${path}`, {
+    ...init,
+    headers: {
+      ...(init?.headers ?? {}),
+      ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      "Content-Type": "application/json",
+    },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
+  return json;
+}
+
+export async function getOrgConsoleContext(organization_id?: string) {
+  const q = organization_id ? `?organization_id=${encodeURIComponent(organization_id)}` : "";
+  return fetchJson(`/get-org-console-context${q}`, { method: "GET" });
+}
+
+export async function getOrgKpis(params: {
+  organization_id: string;
+  mode?: "fiscal_year" | "calendar_year" | "range";
+  year?: number;
+  start_date?: string;
+  end_date?: string;
+  scope?: "ANONYMIZED" | "PSEUDONYMIZED" | "IDENTIFIED";
+  entity_id?: string;
+}) {
+  const sp = new URLSearchParams({ organization_id: params.organization_id });
+  if (params.mode) sp.set("mode", params.mode);
+  if (params.year) sp.set("year", String(params.year));
+  if (params.start_date) sp.set("start_date", params.start_date);
+  if (params.end_date) sp.set("end_date", params.end_date);
+  if (params.scope) sp.set("scope", params.scope);
+  if (params.entity_id) sp.set("entity_id", params.entity_id);
+  return fetchJson(`/get-org-kpis?${sp.toString()}`, { method: "GET" });
+}
+
+export async function getOrgBillingContext(params: {
+  organization_id: string;
+  page?: number;
+  page_size?: number;
+  invoice_status?: string;
+  entity_id?: string;
+  billing_account_id?: string;
+}) {
+  const sp = new URLSearchParams({ organization_id: params.organization_id });
+  if (params.page) sp.set("page", String(params.page));
+  if (params.page_size) sp.set("page_size", String(params.page_size));
+  if (params.invoice_status) sp.set("invoice_status", params.invoice_status);
+  if (params.entity_id) sp.set("entity_id", params.entity_id);
+  if (params.billing_account_id) sp.set("billing_account_id", params.billing_account_id);
+  return fetchJson(`/get-org-billing-context?${sp.toString()}`, { method: "GET" });
+}
+
+export async function setOrgInvoiceCoding(payload: {
+  organization_id: string;
+  invoice_id: string;
+  entity_id?: string | null;
+  cost_center?: string | null;
+  cost_object?: string | null;
+  gl_account?: string | null;
+  project_code?: string | null;
+  internal_ref?: string | null;
+  notes?: string | null;
+}) {
+  return fetchJson(`/set-org-invoice-coding`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function requestIdentifiedAccess(payload: {
+  organization_id: string;
+  scope: "IDENTIFIED";
+  reason?: string;
+}) {
+  return fetchJson(`/request-identified-access`, { method: "POST", body: JSON.stringify(payload) });
+}
