@@ -1149,11 +1149,23 @@ Deno.serve(async (req) => {
     // ═══ DIFFICULTY QUOTA ENGINE (replaces round-robin) ═══
     // Ensures hard/very_hard minimums per scope (LF fan-out or root)
     const scopeTarget = Math.max(effectiveTarget, 20); // minimum 20 to avoid degenerate quotas
+    let qHard = Math.max(10, Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.hard ?? 0.25)));
+    let qVeryHard = Math.max(5, Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.very_hard ?? 0.15)));
+    let qMedium = Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.medium ?? 0.35));
+    let qEasy = Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.easy ?? 0.25));
+
+    // ── Normalize: prevent quota sum > scopeTarget (caused by ceil + minimums) ──
+    let totalQ = qHard + qVeryHard + qMedium + qEasy;
+    if (totalQ > scopeTarget) {
+      const over = totalQ - scopeTarget;
+      const decEasy = Math.min(qEasy, over);
+      qEasy -= decEasy;
+      const rest = over - decEasy;
+      if (rest > 0) qMedium = Math.max(0, qMedium - rest);
+    }
+
     const diffQuota: Record<string, number> = {
-      hard: Math.max(10, Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.hard ?? 0.25))),
-      very_hard: Math.max(5, Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.very_hard ?? 0.15))),
-      medium: Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.medium ?? 0.35)),
-      easy: Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.easy ?? 0.25)),
+      hard: qHard, very_hard: qVeryHard, medium: qMedium, easy: qEasy,
     };
     const diffMade: Record<string, number> = { easy: 0, medium: 0, hard: 0, very_hard: 0 };
 
