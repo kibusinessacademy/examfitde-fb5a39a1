@@ -11242,6 +11242,418 @@ export type Database = {
           },
         ]
       }
+      org_entity_accounting_defaults: {
+        Row: {
+          created_at: string
+          default_cost_center: string | null
+          default_cost_object: string | null
+          default_gl_account: string | null
+          default_project_code: string | null
+          entity_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_cost_center?: string | null
+          default_cost_object?: string | null
+          default_gl_account?: string | null
+          default_project_code?: string | null
+          entity_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_cost_center?: string | null
+          default_cost_object?: string | null
+          default_gl_account?: string | null
+          default_project_code?: string | null
+          entity_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_entity_accounting_defaults_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: true
+            referencedRelation: "organization_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_invoice_coding: {
+        Row: {
+          cost_center: string | null
+          cost_object: string | null
+          created_at: string
+          created_by: string
+          entity_id: string | null
+          gl_account: string | null
+          id: string
+          internal_ref: string | null
+          invoice_id: string
+          notes: string | null
+          organization_id: string
+          project_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          cost_center?: string | null
+          cost_object?: string | null
+          created_at?: string
+          created_by: string
+          entity_id?: string | null
+          gl_account?: string | null
+          id?: string
+          internal_ref?: string | null
+          invoice_id: string
+          notes?: string | null
+          organization_id: string
+          project_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cost_center?: string | null
+          cost_object?: string | null
+          created_at?: string
+          created_by?: string
+          entity_id?: string | null
+          gl_account?: string | null
+          id?: string
+          internal_ref?: string | null
+          invoice_id?: string
+          notes?: string | null
+          organization_id?: string
+          project_code?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_invoice_coding_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "organization_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_invoice_coding_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_privacy_access: {
+        Row: {
+          admin_notes: string | null
+          approved_at: string | null
+          approved_by: string | null
+          approved_until: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          requested_at: string | null
+          requested_by: string | null
+          scope: Database["public"]["Enums"]["report_scope"]
+          status: Database["public"]["Enums"]["org_access_status"]
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_until?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          requested_at?: string | null
+          requested_by?: string | null
+          scope?: Database["public"]["Enums"]["report_scope"]
+          status?: Database["public"]["Enums"]["org_access_status"]
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_until?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          requested_at?: string | null
+          requested_by?: string | null
+          scope?: Database["public"]["Enums"]["report_scope"]
+          status?: Database["public"]["Enums"]["org_access_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_privacy_access_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_report_runs: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          params: Json
+          report_key: string
+          run_by: string
+          scope: Database["public"]["Enums"]["report_scope"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          params?: Json
+          report_key: string
+          run_by: string
+          scope: Database["public"]["Enums"]["report_scope"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          params?: Json
+          report_key?: string
+          run_by?: string
+          scope?: Database["public"]["Enums"]["report_scope"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_report_runs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_entities: {
+        Row: {
+          billing_email: string | null
+          created_at: string
+          display_name: string
+          entity_code: string
+          id: string
+          is_default: boolean
+          legal_name: string
+          organization_id: string
+          updated_at: string
+          vat_id: string | null
+        }
+        Insert: {
+          billing_email?: string | null
+          created_at?: string
+          display_name: string
+          entity_code: string
+          id?: string
+          is_default?: boolean
+          legal_name: string
+          organization_id: string
+          updated_at?: string
+          vat_id?: string | null
+        }
+        Update: {
+          billing_email?: string | null
+          created_at?: string
+          display_name?: string
+          entity_code?: string
+          id?: string
+          is_default?: boolean
+          legal_name?: string
+          organization_id?: string
+          updated_at?: string
+          vat_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_entities_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_learners: {
+        Row: {
+          entity_id: string | null
+          id: string
+          joined_at: string
+          learner_user_id: string
+          left_at: string | null
+          organization_id: string
+        }
+        Insert: {
+          entity_id?: string | null
+          id?: string
+          joined_at?: string
+          learner_user_id: string
+          left_at?: string | null
+          organization_id: string
+        }
+        Update: {
+          entity_id?: string | null
+          id?: string
+          joined_at?: string
+          learner_user_id?: string
+          left_at?: string | null
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_learners_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "organization_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_learners_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_members: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role: Database["public"]["Enums"]["org_member_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role: Database["public"]["Enums"]["org_member_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["org_member_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_seats: {
+        Row: {
+          auto_renew: boolean
+          certification_id: string | null
+          created_at: string
+          end_at: string | null
+          entity_id: string | null
+          id: string
+          learner_user_id: string
+          notes: string | null
+          organization_id: string
+          product_id: string | null
+          seat_status: Database["public"]["Enums"]["seat_status"]
+          source_order_id: string | null
+          start_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_renew?: boolean
+          certification_id?: string | null
+          created_at?: string
+          end_at?: string | null
+          entity_id?: string | null
+          id?: string
+          learner_user_id: string
+          notes?: string | null
+          organization_id: string
+          product_id?: string | null
+          seat_status?: Database["public"]["Enums"]["seat_status"]
+          source_order_id?: string | null
+          start_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_renew?: boolean
+          certification_id?: string | null
+          created_at?: string
+          end_at?: string | null
+          entity_id?: string | null
+          id?: string
+          learner_user_id?: string
+          notes?: string | null
+          organization_id?: string
+          product_id?: string | null
+          seat_status?: Database["public"]["Enums"]["seat_status"]
+          source_order_id?: string | null
+          start_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_seats_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "organization_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_seats_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          default_report_scope: Database["public"]["Enums"]["report_scope"]
+          fiscal_year_start_month: number
+          id: string
+          name: string
+          org_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_report_scope?: Database["public"]["Enums"]["report_scope"]
+          fiscal_year_start_month?: number
+          id?: string
+          name: string
+          org_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_report_scope?: Database["public"]["Enums"]["report_scope"]
+          fiscal_year_start_month?: number
+          id?: string
+          name?: string
+          org_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       outcome_tracking: {
         Row: {
           attempts_total: number | null
@@ -20500,6 +20912,14 @@ export type Database = {
       is_admin: { Args: { p_uid: string }; Returns: boolean }
       is_admin_user: { Args: { check_uid: string }; Returns: boolean }
       is_code_locked: { Args: { p_code: string }; Returns: Json }
+      is_org_member: {
+        Args: { p_org: string; p_user: string }
+        Returns: boolean
+      }
+      is_org_member_with_role: {
+        Args: { p_org: string; p_roles: string[]; p_user: string }
+        Returns: boolean
+      }
       is_user_blocked: { Args: { p_user: string }; Returns: boolean }
       job_maintenance: { Args: never; Returns: Json }
       job_recovery_worker: { Args: never; Returns: Json }
@@ -21300,6 +21720,13 @@ export type Database = {
         | "anwenden"
         | "wiederholen"
         | "mini_check"
+      org_access_status:
+        | "NONE"
+        | "REQUESTED"
+        | "APPROVED"
+        | "DENIED"
+        | "EXPIRED"
+      org_member_role: "OWNER" | "BILLING" | "MANAGER" | "REPORT_VIEWER"
       pipeline_mode: "factory" | "production"
       product_track:
         | "AUSBILDUNG_VOLL"
@@ -21310,6 +21737,8 @@ export type Database = {
       qa_status: "open" | "resolved" | "accepted_risk"
       question_difficulty: "easy" | "medium" | "hard" | "very_hard"
       question_status: "draft" | "review" | "approved" | "rejected"
+      report_scope: "ANONYMIZED" | "PSEUDONYMIZED" | "IDENTIFIED"
+      seat_status: "INVITED" | "ACTIVE" | "SUSPENDED" | "EXPIRED" | "REVOKED"
       security_decision: "allow" | "review" | "block"
       security_event_type:
         | "claim_attempt"
@@ -21597,6 +22026,8 @@ export const Constants = {
         "wiederholen",
         "mini_check",
       ],
+      org_access_status: ["NONE", "REQUESTED", "APPROVED", "DENIED", "EXPIRED"],
+      org_member_role: ["OWNER", "BILLING", "MANAGER", "REPORT_VIEWER"],
       pipeline_mode: ["factory", "production"],
       product_track: [
         "AUSBILDUNG_VOLL",
@@ -21608,6 +22039,8 @@ export const Constants = {
       qa_status: ["open", "resolved", "accepted_risk"],
       question_difficulty: ["easy", "medium", "hard", "very_hard"],
       question_status: ["draft", "review", "approved", "rejected"],
+      report_scope: ["ANONYMIZED", "PSEUDONYMIZED", "IDENTIFIED"],
+      seat_status: ["INVITED", "ACTIVE", "SUSPENDED", "EXPIRED", "REVOKED"],
       security_decision: ["allow", "review", "block"],
       security_event_type: [
         "claim_attempt",
