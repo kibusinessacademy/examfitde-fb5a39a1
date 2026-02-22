@@ -16695,6 +16695,44 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_links: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          label: string | null
+          meta: Json | null
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          label?: string | null
+          meta?: Json | null
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          label?: string | null
+          meta?: Json | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_links_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "user_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_messages: {
         Row: {
           attachments: Json | null
@@ -21302,7 +21340,14 @@ export type Database = {
         | "RESOLVED"
         | "REJECTED"
         | "DUPLICATE"
-      user_ticket_type: "CONTENT_ISSUE" | "FEATURE_REQUEST"
+      user_ticket_type:
+        | "CONTENT_ISSUE"
+        | "FEATURE_REQUEST"
+        | "BILLING_QUESTION"
+        | "LICENSE_QUESTION"
+        | "LEARNER_ACCOUNT_ISSUE"
+        | "DATA_CORRECTION"
+        | "TECHNICAL_ISSUE"
       variation_mode:
         | "lexical"
         | "numerical"
@@ -21596,7 +21641,15 @@ export const Constants = {
         "REJECTED",
         "DUPLICATE",
       ],
-      user_ticket_type: ["CONTENT_ISSUE", "FEATURE_REQUEST"],
+      user_ticket_type: [
+        "CONTENT_ISSUE",
+        "FEATURE_REQUEST",
+        "BILLING_QUESTION",
+        "LICENSE_QUESTION",
+        "LEARNER_ACCOUNT_ISSUE",
+        "DATA_CORRECTION",
+        "TECHNICAL_ISSUE",
+      ],
       variation_mode: [
         "lexical",
         "numerical",

@@ -1,131 +1,245 @@
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  HelpCircle, AlertTriangle, HeartCrack, Lightbulb, CreditCard,
-  BookOpen, ArrowRight, CheckCircle, Loader2, Bot, ThumbsUp, ThumbsDown
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  HelpCircle, AlertTriangle, CreditCard, Users, FileEdit,
+  Bug, Lightbulb, ArrowRight, Loader2, CheckCircle, FileText,
+  Receipt, User
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+// ── Ticket type definitions ──
 const TICKET_TYPES = [
-  { id: 'verstaendnisfrage', label: 'Verständnisfrage', icon: HelpCircle, description: 'Ich verstehe etwas nicht', color: 'text-blue-500' },
-  { id: 'technisch', label: 'Technisches Problem', icon: AlertTriangle, description: 'Etwas funktioniert nicht', color: 'text-orange-500' },
-  { id: 'pruefungsangst', label: 'Prüfungsangst / Unsicherheit', icon: HeartCrack, description: 'Ich bin unsicher oder gestresst', color: 'text-pink-500' },
-  { id: 'lernstrategie', label: 'Lernstrategie', icon: Lightbulb, description: 'Wie lerne ich am besten?', color: 'text-yellow-500' },
-  { id: 'abrechnung', label: 'Abrechnung / Zugang', icon: CreditCard, description: 'Bezahlung, Zugang, Abo', color: 'text-green-500' },
+  { id: 'BILLING_QUESTION', label: 'Rechnung / Zahlung', icon: CreditCard, description: 'Rechnungen, Zahlungen, MwSt', color: 'text-green-500' },
+  { id: 'LICENSE_QUESTION', label: 'Lizenz / Seats', icon: Users, description: 'Laufzeit, Upgrade, Zuweisung', color: 'text-blue-500' },
+  { id: 'LEARNER_ACCOUNT_ISSUE', label: 'Learner-Account', icon: User, description: 'Login, Zuordnung, Zugang', color: 'text-purple-500' },
+  { id: 'DATA_CORRECTION', label: 'Daten korrigieren', icon: FileEdit, description: 'Firma, Adresse, USt-IdNr', color: 'text-orange-500' },
+  { id: 'TECHNICAL_ISSUE', label: 'Technisches Problem', icon: Bug, description: 'Bug, Fehler, Performance', color: 'text-red-500' },
+  { id: 'CONTENT_ISSUE', label: 'Inhalt melden', icon: AlertTriangle, description: 'Falsch, unklar, veraltet', color: 'text-yellow-500' },
+  { id: 'FEATURE_REQUEST', label: 'Feature vorschlagen', icon: Lightbulb, description: 'Neue Funktion, Verbesserung', color: 'text-cyan-500' },
 ] as const;
+
+type TicketContext = {
+  profile: { full_name: string; company_id: string | null } | null;
+  company: { id: string; name: string } | null;
+  orders: { id: string; created_at: string; status: string; total_cents: number; currency: string; billing_name: string; billing_company: string }[];
+  invoices: { id: string; order_id: string; invoice_number: string; issue_date: string; status: string; total_gross_cents: number }[];
+  payments: { id: string; order_id: string; amount_cents: number; currency: string; payment_status: string; paid_at: string }[];
+  managed_learners: { user_id: string; full_name: string; login_username: string; personnel_number: string }[];
+  certifications: { course_id: string; title: string; certification_id: string }[];
+  templates: Record<string, { id: string; label: string; default_priority: string }[]>;
+};
+
+type TicketLink = {
+  entity_type: string;
+  entity_id: string;
+  label: string | null;
+  meta: Record<string, unknown>;
+};
 
 interface SmartTicketCreateProps {
   onCreated?: () => void;
+  preselectedType?: string;
   contextCourseId?: string;
   contextLessonId?: string;
+  contextQuestionId?: string;
+  contextBlueprintId?: string;
 }
 
-export default function SmartTicketCreate({ onCreated, contextCourseId, contextLessonId }: SmartTicketCreateProps) {
+export default function SmartTicketCreate({
+  onCreated,
+  preselectedType,
+  contextCourseId,
+  contextLessonId,
+  contextQuestionId,
+  contextBlueprintId,
+}: SmartTicketCreateProps) {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [description, setDescription] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [aiAnswer, setAiAnswer] = useState<string | null>(null);
-  const [aiAnswerId, setAiAnswerId] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(preselectedType ?? null);
+  const [subCategory, setSubCategory] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
 
-  // Auto-detect context: current enrollments
-  const { data: context } = useQuery({
-    queryKey: ['support-context', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data: enrollments } = await supabase
-        .from('course_enrollments')
-        .select('course_id, courses(title)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-      
-      const { data: recentOutcomes } = await supabase
-        .from('lesson_outcomes')
-        .select('lesson_id, passed, lessons(title, competency_id)')
-        .eq('user_id', user.id)
-        .order('completed_at', { ascending: false })
-        .limit(3);
+  // Context data from edge function
+  const [context, setContext] = useState<TicketContext | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
 
-      return { enrollments, recentOutcomes };
-    },
-    enabled: !!user?.id,
-  });
+  // Selected linked entities
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  // Fetch relevant FAQ suggestions when type is selected
-  const { data: suggestions, isLoading: suggestionsLoading } = useQuery({
-    queryKey: ['support-suggestions', selectedType, contextCourseId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('support_faq')
-        .select('*')
-        .eq('is_published', true)
-        .eq('ticket_type', selectedType!)
-        .order('usage_count', { ascending: false })
-        .limit(3);
-      return data;
-    },
-    enabled: !!selectedType && showSuggestions,
-  });
+  // Load context when component mounts
+  useEffect(() => {
+    if (!user?.id) return;
+    let alive = true;
 
-  const createTicket = useMutation({
-    mutationFn: async () => {
-      if (!user?.id || !selectedType) throw new Error('Missing data');
-      
-      const ticketData: Record<string, unknown> = {
-        user_id: user.id,
-        subject: `${TICKET_TYPES.find(t => t.id === selectedType)?.label}: ${description.slice(0, 80)}`,
-        description,
-        category: selectedType,
-        ticket_type: selectedType,
-        priority: selectedType === 'technisch' ? 'high' : 'medium',
-        status: 'open',
-        context_course_id: contextCourseId || null,
-        context_lesson_id: contextLessonId || null,
-        context_url: window.location.pathname,
+    (async () => {
+      setContextLoading(true);
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const token = session?.session?.access_token;
+        if (!token) return;
+
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-ticket-context`,
+          { headers: { Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
+        );
+        if (res.ok && alive) {
+          setContext(await res.json());
+        }
+      } catch {
+        // silent - context is optional
+      } finally {
+        if (alive) setContextLoading(false);
+      }
+    })();
+
+    return () => { alive = false; };
+  }, [user?.id]);
+
+  // Templates for selected type
+  const templates = useMemo(() => {
+    if (!selectedType || !context?.templates) return [];
+    const t = context.templates;
+    return Array.isArray(t) ? [] : (t[selectedType] ?? []);
+  }, [selectedType, context?.templates]);
+
+  // Show context selectors based on type
+  const showInvoiceSelector = ['BILLING_QUESTION'].includes(selectedType ?? '');
+  const showLearnerSelector = ['LEARNER_ACCOUNT_ISSUE', 'LICENSE_QUESTION'].includes(selectedType ?? '');
+  const showOrderSelector = ['BILLING_QUESTION', 'LICENSE_QUESTION'].includes(selectedType ?? '');
+
+  // Build ticket_links from selections
+  function buildLinks(): TicketLink[] {
+    const links: TicketLink[] = [];
+    if (selectedInvoiceId) {
+      const inv = context?.invoices.find(i => i.id === selectedInvoiceId);
+      links.push({
+        entity_type: 'INVOICE',
+        entity_id: selectedInvoiceId,
+        label: inv?.invoice_number ?? null,
+        meta: { status: inv?.status, total_gross_cents: inv?.total_gross_cents },
+      });
+    }
+    if (selectedOrderId) {
+      const ord = context?.orders.find(o => o.id === selectedOrderId);
+      links.push({
+        entity_type: 'ORDER',
+        entity_id: selectedOrderId,
+        label: ord?.billing_company ?? ord?.billing_name ?? null,
+        meta: { status: ord?.status, total_cents: ord?.total_cents },
+      });
+    }
+    if (selectedLearnerId) {
+      const lr = context?.managed_learners.find(l => l.user_id === selectedLearnerId);
+      links.push({
+        entity_type: 'LEARNER',
+        entity_id: selectedLearnerId,
+        label: lr?.full_name ?? null,
+        meta: { login_username: lr?.login_username },
+      });
+    }
+    if (context?.company) {
+      links.push({
+        entity_type: 'COMPANY',
+        entity_id: context.company.id,
+        label: context.company.name,
+        meta: {},
+      });
+    }
+    return links;
+  }
+
+  async function submit() {
+    if (sending || !selectedType || !title.trim() || !message.trim()) return;
+    setSending(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+
+      const payload: Record<string, unknown> = {
+        type: selectedType,
+        title: title.trim(),
+        message: message.trim(),
+        priority: subCategory
+          ? templates.find(t => t.id === subCategory)?.default_priority ?? 'MEDIUM'
+          : 'MEDIUM',
+        sub_category: subCategory,
+        page_path: window.location.pathname,
+        ticket_links: buildLinks(),
       };
 
-      // Detect sentiment from description
-      const frustWords = ['frustri', 'nerv', 'geht nicht', 'funktioniert nicht', 'kaputt', 'schlecht'];
-      const anxWords = ['angst', 'unsicher', 'sorge', 'panik', 'stress', 'überfordert'];
-      const lower = description.toLowerCase();
-      
-      if (anxWords.some(w => lower.includes(w))) {
-        ticketData.sentiment = 'anxious';
-      } else if (frustWords.some(w => lower.includes(w))) {
-        ticketData.sentiment = 'frustrated';
+      // Pass content context IDs if available
+      if (contextCourseId) payload.certification_id = contextCourseId;
+      if (contextLessonId) payload.lesson_id = contextLessonId;
+      if (contextQuestionId) payload.question_id = contextQuestionId;
+      if (contextBlueprintId) payload.blueprint_id = contextBlueprintId;
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-ticket`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? 'submit failed');
+
+      if (data.duplicate) {
+        toast.info('Dieses Ticket wurde bereits eingereicht.');
+      } else {
+        toast.success('Ticket erstellt! Wir kümmern uns darum.');
       }
 
-      const { error } = await supabase.from('support_tickets').insert(ticketData as never);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success('Deine Anfrage wurde eingereicht. Wir melden uns!');
-      queryClient.invalidateQueries({ queryKey: ['support-tickets'] });
+      // Reset
       setSelectedType(null);
-      setDescription('');
+      setSubCategory(null);
+      setTitle('');
+      setMessage('');
+      setSelectedInvoiceId(null);
+      setSelectedLearnerId(null);
+      setSelectedOrderId(null);
       onCreated?.();
-    },
-    onError: () => toast.error('Fehler beim Erstellen des Tickets'),
-  });
+    } catch {
+      toast.error('Fehler beim Erstellen des Tickets.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const formatCents = (cents: number, currency = 'EUR') =>
+    new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(cents / 100);
 
   return (
     <div className="space-y-6">
-      {/* Context hint */}
-      {context?.enrollments && context.enrollments.length > 0 && (
+      {/* Company context */}
+      {context?.company && (
         <Card className="glass-card border-primary/20 bg-primary/5">
           <CardContent className="py-3 px-4 flex items-center gap-3">
-            <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
+            <Users className="h-4 w-4 text-primary flex-shrink-0" />
             <span className="text-sm text-muted-foreground">
-              Aktueller Kurs: <strong className="text-foreground">{(context.enrollments[0] as any).courses?.title}</strong>
+              Firma: <strong className="text-foreground">{context.company.name}</strong>
             </span>
           </CardContent>
         </Card>
@@ -145,7 +259,10 @@ export default function SmartTicketCreate({ onCreated, contextCourseId, contextL
                 key={type.id}
                 onClick={() => {
                   setSelectedType(type.id);
-                  setShowSuggestions(true);
+                  setSubCategory(null);
+                  setSelectedInvoiceId(null);
+                  setSelectedLearnerId(null);
+                  setSelectedOrderId(null);
                 }}
                 className={`glass-card p-4 rounded-xl text-left transition-all hover:scale-[1.02] ${
                   isSelected ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-muted/30'
@@ -164,138 +281,179 @@ export default function SmartTicketCreate({ onCreated, contextCourseId, contextL
         </div>
       </div>
 
-      {/* Step 2: Show auto-suggestions */}
-      {selectedType && showSuggestions && (
+      {/* Step 2: Sub-category templates */}
+      {selectedType && templates.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
-            Hilft dir das weiter?
+            Genauer?
           </h3>
-          {suggestionsLoading ? (
-            <Skeleton className="h-24 w-full" />
-          ) : suggestions && suggestions.length > 0 ? (
-            <div className="space-y-2">
-              {suggestions.map((faq) => (
-                <Card key={faq.id} className="glass-card hover:bg-primary/5 transition-colors cursor-pointer">
-                  <CardContent className="py-3 px-4">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-sm">{faq.question}</div>
-                        <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{faq.answer}</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              <p className="text-xs text-muted-foreground mt-2">
-                Problem gelöst? Wenn nicht, beschreibe dein Anliegen unten.
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Noch keine passenden Hilfen – beschreibe dein Anliegen:
-            </p>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {templates.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setSubCategory(subCategory === t.id ? null : t.id)}
+                className={`px-3 py-1.5 rounded-full text-sm border transition-all ${
+                  subCategory === t.id
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background hover:bg-muted/50 border-border'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Step 3: Description + Submit */}
+      {/* Step 3: Context selectors */}
       {selectedType && (
         <div className="space-y-4">
-          <Textarea
-            placeholder="Beschreibe dein Anliegen so genau wie möglich..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            className="resize-none"
-          />
-          
-          {/* Emotional detection hint */}
-          {description.length > 20 && (
-            (() => {
-              const lower = description.toLowerCase();
-              const isAnxious = ['angst', 'unsicher', 'panik', 'überfordert', 'stress'].some(w => lower.includes(w));
-              if (isAnxious) {
-                return (
-                  <Card className="border-pink-500/20 bg-pink-500/5">
-                    <CardContent className="py-3 px-4 flex items-center gap-3">
-                      <HeartCrack className="h-4 w-4 text-pink-500 flex-shrink-0" />
-                      <span className="text-sm">
-                        Du bist nicht allein. Prüfungsangst ist völlig normal – wir helfen dir.
-                      </span>
-                    </CardContent>
-                  </Card>
-                );
-              }
-              return null;
-            })()
+          {/* Invoice selector */}
+          {showInvoiceSelector && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Betroffene Rechnung</label>
+              {contextLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (context?.invoices?.length ?? 0) > 0 ? (
+                <Select value={selectedInvoiceId ?? ''} onValueChange={(v) => setSelectedInvoiceId(v || null)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Rechnung auswählen (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {context!.invoices.map((inv) => (
+                      <SelectItem key={inv.id} value={inv.id}>
+                        <div className="flex items-center gap-2">
+                          <Receipt className="h-3 w-3" />
+                          <span>{inv.invoice_number}</span>
+                          <span className="text-muted-foreground">– {inv.issue_date}</span>
+                          <span className="text-muted-foreground">({formatCents(inv.total_gross_cents)})</span>
+                          <Badge variant="outline" className="text-xs">{inv.status}</Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">Keine Rechnungen gefunden.</p>
+              )}
+            </div>
           )}
 
-          {/* AI First Responder */}
-          {description.trim().length > 15 && !aiAnswer && (
+          {/* Order selector */}
+          {showOrderSelector && !showInvoiceSelector && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Betroffene Bestellung</label>
+              {contextLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (context?.orders?.length ?? 0) > 0 ? (
+                <Select value={selectedOrderId ?? ''} onValueChange={(v) => setSelectedOrderId(v || null)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Bestellung auswählen (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {context!.orders.map((ord) => (
+                      <SelectItem key={ord.id} value={ord.id}>
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-3 w-3" />
+                          <span>{ord.billing_company || ord.billing_name}</span>
+                          <span className="text-muted-foreground">– {formatCents(ord.total_cents, ord.currency)}</span>
+                          <Badge variant="outline" className="text-xs">{ord.status}</Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">Keine Bestellungen gefunden.</p>
+              )}
+            </div>
+          )}
+
+          {/* Learner selector */}
+          {showLearnerSelector && (context?.managed_learners?.length ?? 0) > 0 && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Betroffener Learner</label>
+              <Select value={selectedLearnerId ?? ''} onValueChange={(v) => setSelectedLearnerId(v || null)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Learner auswählen (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {context!.managed_learners.map((lr) => (
+                    <SelectItem key={lr.user_id} value={lr.user_id}>
+                      <div className="flex items-center gap-2">
+                        <User className="h-3 w-3" />
+                        <span>{lr.full_name || lr.login_username}</span>
+                        {lr.personnel_number && (
+                          <span className="text-muted-foreground">#{lr.personnel_number}</span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Title */}
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Betreff</label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Kurzer Betreff (z.B. 'Rechnung RE-2025-042 fehlt')"
+              maxLength={120}
+            />
+          </div>
+
+          {/* Message */}
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Beschreibung</label>
+            <Textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Beschreibe dein Anliegen so genau wie möglich..."
+              rows={4}
+              className="resize-none"
+            />
+          </div>
+
+          {/* Linked entities preview */}
+          {buildLinks().length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {buildLinks().map((link, i) => (
+                <Badge key={i} variant="secondary" className="text-xs">
+                  {link.entity_type}: {link.label ?? link.entity_id.slice(0, 8)}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3">
             <Button
               variant="outline"
-              className="w-full gap-2"
-              onClick={async () => {
-                try {
-                  const { data, error } = await supabase.functions.invoke('support-ai', {
-                    body: {
-                      question: description,
-                      ticketType: selectedType,
-                      contextCourseId: contextCourseId || null,
-                      contextLessonId: contextLessonId || null,
-                      userId: user?.id,
-                    },
-                  });
-                  if (error) throw error;
-                  setAiAnswer(data.answer);
-                } catch {
-                  toast.error('KI-Assistent nicht verfügbar');
-                }
+              onClick={() => {
+                setSelectedType(null);
+                setSubCategory(null);
+                setTitle('');
+                setMessage('');
+                setSelectedInvoiceId(null);
+                setSelectedLearnerId(null);
+                setSelectedOrderId(null);
               }}
             >
-              <Bot className="h-4 w-4" />
-              KI-Assistent fragen (bevor du ein Ticket erstellst)
-            </Button>
-          )}
-
-          {aiAnswer && (
-            <Card className="border-primary/20 bg-primary/5">
-              <CardContent className="py-4 px-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <Bot className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium mb-1">KI-Prüfungsassistent</div>
-                    <div className="text-sm text-muted-foreground whitespace-pre-line">{aiAnswer}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 pl-8">
-                  <span className="text-xs text-muted-foreground">Hat das geholfen?</span>
-                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { toast.success('Danke für dein Feedback!'); setAiAnswer(null); setDescription(''); setSelectedType(null); }}>
-                    <ThumbsUp className="h-3 w-3 mr-1" /> Ja
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => toast.info('Erstelle ein Ticket für persönliche Hilfe.')}>
-                    <ThumbsDown className="h-3 w-3 mr-1" /> Nein
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => { setSelectedType(null); setDescription(''); setAiAnswer(null); }}>
               Abbrechen
             </Button>
-            <Button 
-              onClick={() => createTicket.mutate()} 
-              disabled={!description.trim() || createTicket.isPending}
+            <Button
+              onClick={submit}
+              disabled={!title.trim() || title.trim().length < 4 || !message.trim() || message.trim().length < 10 || sending}
             >
-              {createTicket.isPending ? (
+              {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
                 <ArrowRight className="h-4 w-4 mr-2" />
               )}
-              Anfrage senden
+              Ticket senden
             </Button>
           </div>
         </div>

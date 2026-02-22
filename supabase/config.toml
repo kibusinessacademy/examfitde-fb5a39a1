@@ -311,3 +311,6 @@ verify_jwt = false
 
 [functions.submit-ticket]
 verify_jwt = false
+
+[functions.get-ticket-context]
+verify_jwt = false
