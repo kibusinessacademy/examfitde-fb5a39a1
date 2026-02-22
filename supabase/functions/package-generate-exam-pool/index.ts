@@ -1146,6 +1146,32 @@ Deno.serve(async (req) => {
     const diffEntries = Object.entries(DIFFICULTY_DISTRIBUTION) as [DifficultyKey, number][];
     const cogEntries = Object.entries(COGNITIVE_LEVEL_DISTRIBUTION) as [CognitiveLevelKey, number][];
 
+    // ═══ DIFFICULTY QUOTA ENGINE (replaces round-robin) ═══
+    // Ensures hard/very_hard minimums per scope (LF fan-out or root)
+    const scopeTarget = Math.max(effectiveTarget, 20); // minimum 20 to avoid degenerate quotas
+    const diffQuota: Record<string, number> = {
+      hard: Math.max(10, Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.hard ?? 0.25))),
+      very_hard: Math.max(5, Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.very_hard ?? 0.15))),
+      medium: Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.medium ?? 0.35)),
+      easy: Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.easy ?? 0.25)),
+    };
+    const diffMade: Record<string, number> = { easy: 0, medium: 0, hard: 0, very_hard: 0 };
+
+    function pickDifficulty(): DifficultyKey {
+      // Priority order: hard first, then very_hard, then medium, then easy
+      // This ensures hard questions are generated BEFORE the budget runs out
+      const order: DifficultyKey[] = ["hard", "very_hard", "medium", "easy"];
+      for (const d of order) {
+        if ((diffMade[d] ?? 0) < (diffQuota[d] ?? 0)) return d;
+      }
+      // All quotas met — cycle through proportionally
+      const totalMade = Object.values(diffMade).reduce((s, v) => s + v, 0);
+      const diffIdx = totalMade % diffEntries.length;
+      return diffEntries[diffIdx][0];
+    }
+
+    console.log(`[ExamPool-v5] DIFF_QUOTA: scopeTarget=${scopeTarget}, quotas=${JSON.stringify(diffQuota)}`);
+
     while (bpsProcessed < AI_CHUNK_SIZE && currentBpIndex < bps.length) {
       const bp = bps[currentBpIndex] as BlueprintInfo & { max_variations: number | null };
 
@@ -1155,10 +1181,9 @@ Deno.serve(async (req) => {
       for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx++) {
         const globalIdx = (currentBpIndex * maxCallsPerBp + callIdx);
         const typeIdx = globalIdx % typeEntries.length;
-        const diffIdx = Math.floor(globalIdx / typeEntries.length) % diffEntries.length;
-        const cogIdx = Math.floor(globalIdx / (typeEntries.length * diffEntries.length)) % cogEntries.length;
+        const cogIdx = Math.floor(globalIdx / typeEntries.length) % cogEntries.length;
         const questionType = typeEntries[typeIdx][0];
-        const difficulty = diffEntries[diffIdx][0];
+        const difficulty = pickDifficulty();
         const cognitiveLevel = cogEntries[cogIdx][0];
 
         try {
@@ -1167,6 +1192,7 @@ Deno.serve(async (req) => {
           );
           questionsThisChunk += genResult.saved;
           trainingThisChunk += genResult.training;
+          diffMade[difficulty] = (diffMade[difficulty] ?? 0) + genResult.saved;
         } catch (e: unknown) {
           console.log(`[ExamPool-v5] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
         }
@@ -1191,6 +1217,8 @@ Deno.serve(async (req) => {
         }
       }
     }
+
+    console.log(`[ExamPool-v5] DIFF_QUOTA_RESULT: made=${JSON.stringify(diffMade)}, quotas=${JSON.stringify(diffQuota)}`);
 
     // ═══ DETERMINISTIC CALC QUOTA BACKFILL ═══
     // Target based on planned chunk size (stable, not affected by backfill itself)
