@@ -673,10 +673,10 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         model: result.model,
         tokens_in: result.usage?.input_tokens || 0,
         tokens_out: result.usage?.output_tokens || 0,
-        cost_usd: ((result.usage?.input_tokens || 0) * 0.000003 + (result.usage?.output_tokens || 0) * 0.000015),
         package_id: packageId,
         certification_id: certificationId,
         course_id: courseId,
+        estimatedUsage: result.estimatedUsage,
       });
 
       generated++;
