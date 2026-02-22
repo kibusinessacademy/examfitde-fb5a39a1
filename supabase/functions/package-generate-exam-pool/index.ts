@@ -1116,7 +1116,11 @@ Deno.serve(async (req) => {
         const { enqueued, learningFields } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
         console.log(`[ExamPool-v5] GUARD: Multi-LF detected (${uniqueLFs.size} LFs) → Fan-Out ONLY. Enqueued=${enqueued}`);
         // IMMER returnen bei Multi-LF, auch wenn enqueued=0 (= alle LFs covered)
-        return json({ ok: true, batch_complete: enqueued === 0, fan_out: true, sub_jobs: enqueued, learningFields });
+        const alreadyCovered = enqueued === 0;
+        if (alreadyCovered) {
+          console.log(`[ExamPool-v5] GUARD: fan_out_skipped=true, already_covered=true — alle LFs haben Target erreicht`);
+        }
+        return json({ ok: true, batch_complete: alreadyCovered, fan_out: true, fan_out_skipped: alreadyCovered, sub_jobs: enqueued, learningFields });
       }
     }
 
@@ -1144,39 +1148,58 @@ Deno.serve(async (req) => {
       return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
     }
 
-    // ── LF-aware target: lf_target_total ist das ABSOLUTE Ziel pro LF ──
-    const lfExisting = p.lf_existing ?? 0;
-    const lfProportionalTarget = p.lf_target_total ?? lfTarget;
-    const effectiveTarget = isFanOut ? lfProportionalTarget : examTarget;
-    // effectiveTarget ist jetzt IMMER ein absoluter Zielwert (nicht Gap)
-    // chunkPlanned = effectiveTarget - preTotal(LF-specific) ergibt korrekten Gap
+    // ══════════════════════════════════════════════════════════════════
+    // ── SSOT: Explizite targetMode vs gapMode Logik ──
+    // targetMode: lf_target_total vorhanden → absolute Zielzahl, Gap = target - lfCount
+    // gapMode (legacy): nur lf_target (=Gap) vorhanden → Gap direkt verwenden, KEIN erneutes - preTotal
+    // ══════════════════════════════════════════════════════════════════
+    const hasTargetTotal = p.lf_target_total != null;
+    const legacyGap = p.lf_gap ?? p.lf_target;  // lf_gap ist SSOT, lf_target ist legacy-Gap
 
-    // ── FIX: For fan-out sub-jobs, use LF-specific count instead of global ──
-    // This prevents chunkPlanned=0 when global count exceeds LF target
-    let preTotal: number;
+    // LF-specific count for fan-out
+    let lfCount = 0;
     if (isFanOut && p.learning_field_filter) {
-      const { count: lfCount } = await sb.from("exam_questions")
+      const { count: c } = await sb.from("exam_questions")
         .select("id", { count: "exact", head: true })
         .eq("curriculum_id", curriculumId)
         .eq("learning_field_id", p.learning_field_filter);
-      preTotal = lfCount ?? 0;
-      console.log(`[ExamPool-v5] LF-SCOPE preTotal: lf=${p.learning_field_filter.slice(0,8)}, lfCount=${preTotal}, globalTotal=${globalTotal}`);
-    } else {
-      preTotal = globalTotal;
+      lfCount = c ?? 0;
+      console.log(`[ExamPool-v5] LF-SCOPE: lf=${p.learning_field_filter.slice(0,8)}, lfCount=${lfCount}, globalTotal=${globalTotal}`);
     }
 
+    let chunkPlanned: number;
+    let effectiveTarget: number;
+    if (isFanOut && hasTargetTotal) {
+      // ── targetMode: absolute Zielzahl pro LF ──
+      effectiveTarget = p.lf_target_total;
+      chunkPlanned = Math.max(effectiveTarget - lfCount, 0);
+      console.log(`[ExamPool-v5] MODE=target: lf_target_total=${effectiveTarget}, lfCount=${lfCount}, chunkPlanned=${chunkPlanned}`);
+    } else if (isFanOut && legacyGap != null) {
+      // ── gapMode (legacy): Gap direkt verwenden, KEIN erneutes - preTotal ──
+      effectiveTarget = legacyGap;
+      chunkPlanned = Math.max(legacyGap - lfCount, 0);  // lfCount statt 0, da seit Enqueue neue Fragen dazugekommen sein können
+      console.log(`[ExamPool-v5] MODE=gap_legacy: lf_gap=${legacyGap}, lfCount=${lfCount}, chunkPlanned=${chunkPlanned}`);
+    } else {
+      // ── Root-Job (single LF or global) ──
+      effectiveTarget = examTarget;
+      chunkPlanned = Math.max(effectiveTarget - globalTotal, 0);
+      console.log(`[ExamPool-v5] MODE=root: examTarget=${effectiveTarget}, globalTotal=${globalTotal}, chunkPlanned=${chunkPlanned}`);
+    }
+
+    // Global hard-cap constraint
+    chunkPlanned = Math.min(chunkPlanned, HARD_CAP_QUESTIONS - globalTotal);
+
     const perBlueprint = Math.max(3, Math.ceil(effectiveTarget / bps.length));
-    const chunkStartedAt = new Date().toISOString(); // SSOT timestamp for this chunk (set once, before any inserts)
-    const chunkPlanned = Math.min(Math.max(effectiveTarget - preTotal, 0), HARD_CAP_QUESTIONS - globalTotal);
+    const chunkStartedAt = new Date().toISOString();
     let questionsThisChunk = 0;
     let trainingThisChunk = 0;
     let currentBpIndex = bpIndex;
     let bpsProcessed = 0;
 
-    console.log(`[ExamPool-v5] CHUNK_SANITY: preTotal=${preTotal}, globalTotal=${globalTotal}, effectiveTarget=${effectiveTarget}, chunkPlanned=${chunkPlanned}, chunkStartedAt=${chunkStartedAt}`);
+    console.log(`[ExamPool-v5] CHUNK_SANITY: chunkPlanned=${chunkPlanned}, globalTotal=${globalTotal}, effectiveTarget=${effectiveTarget}, chunkStartedAt=${chunkStartedAt}`);
 
     if (isFanOut) {
-      console.log(`[ExamPool-v5] LF sub-job: lfExisting=${preTotal}, proportional_target=${lfProportionalTarget}, gap=${effectiveTarget}, bps=${bps.length}`);
+      console.log(`[ExamPool-v5] LF sub-job: lfCount=${lfCount}, effectiveTarget=${effectiveTarget}, hasTargetTotal=${hasTargetTotal}, bps=${bps.length}`);
     }
 
     const typeEntries = Object.entries(QUESTION_TYPE_MIX) as [QuestionTypeKey, number][];
