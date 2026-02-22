@@ -17073,6 +17073,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_humor_preferences: {
+        Row: {
+          created_at: string
+          humor_enabled: boolean
+          humor_push_enabled: boolean
+          modernity_range: string
+          tone_preference: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          humor_enabled?: boolean
+          humor_push_enabled?: boolean
+          modernity_range?: string
+          tone_preference?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          humor_enabled?: boolean
+          humor_push_enabled?: boolean
+          modernity_range?: string
+          tone_preference?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_learning_streaks: {
         Row: {
           current_streak: number

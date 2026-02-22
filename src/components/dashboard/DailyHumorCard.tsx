@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Smile, ThumbsUp, ThumbsDown, RefreshCw } from "lucide-react";
+import { Smile, ThumbsUp, ThumbsDown, RefreshCw, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Humor = {
@@ -13,13 +13,26 @@ type Humor = {
   modernity_level: number;
 };
 
+type HumorPrefs = {
+  humor_enabled: boolean;
+  humor_push_enabled: boolean;
+  tone_preference: string;
+  modernity_range: string;
+};
+
+type HumorResponse = {
+  disabled?: boolean;
+  humor?: Humor | null;
+  fallback?: { text: string } | null;
+  prefs?: HumorPrefs;
+};
+
 interface DailyHumorCardProps {
   certificationId: string;
 }
 
 export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
-  const [humor, setHumor] = useState<Humor | null>(null);
-  const [fallbackText, setFallbackText] = useState<string | null>(null);
+  const [data, setData] = useState<HumorResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [vote, setVote] = useState<-1 | 1 | null>(null);
   const [voteSaving, setVoteSaving] = useState(false);
@@ -35,8 +48,6 @@ export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
 
         const params = new URLSearchParams({
           certification_id: certificationId,
-          tone: "auto",
-          modernity: "40-80",
           mode: "daily",
         });
 
@@ -52,9 +63,7 @@ export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
 
         const json = await res.json();
         if (!alive) return;
-
-        setHumor(json?.humor ?? null);
-        setFallbackText(json?.fallback?.text ?? null);
+        setData(json);
       } catch (err) {
         console.error("[DailyHumorCard] fetch error", err);
       } finally {
@@ -67,7 +76,7 @@ export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
   }, [certificationId]);
 
   const handleVote = async (v: -1 | 1) => {
-    if (!humor || voteSaving) return;
+    if (!data?.humor || voteSaving) return;
     setVoteSaving(true);
     setVote(v);
 
@@ -76,7 +85,7 @@ export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
       if (!user) return;
 
       await supabase.from("humor_feedback" as any).upsert(
-        { humor_id: humor.id, user_id: user.id, vote: v },
+        { humor_id: data.humor.id, user_id: user.id, vote: v },
         { onConflict: "humor_id,user_id" }
       );
     } catch (err) {
@@ -86,10 +95,27 @@ export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
     }
   };
 
-  const displayText = humor?.text ?? fallbackText;
+  // Opt-out: show minimal disabled state
+  if (!loading && data?.disabled) {
+    return (
+      <Card className="glass-card border-muted/20 overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2">
+            <EyeOff className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Tageswitz deaktiviert</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 opacity-60">
+            Du kannst ihn in den Einstellungen wieder aktivieren.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const displayText = data?.humor?.text ?? data?.fallback?.text;
   if (!displayText && !loading) return null;
 
-  const toneLabel = humor?.tone === "casual" ? "locker" : humor?.tone === "business" ? "business" : "";
+  const toneLabel = data?.humor?.tone === "casual" ? "locker" : data?.humor?.tone === "business" ? "business" : "";
 
   return (
     <Card className="glass-card border-primary/10 overflow-hidden">
@@ -115,7 +141,7 @@ export function DailyHumorCard({ certificationId }: DailyHumorCardProps) {
           <>
             <p className="text-sm leading-relaxed">{displayText}</p>
 
-            {humor && (
+            {data?.humor && (
               <div className="flex items-center gap-2 mt-3">
                 <Button
                   variant="ghost"
