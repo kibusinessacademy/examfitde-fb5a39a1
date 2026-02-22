@@ -1741,6 +1741,66 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_accounts: {
+        Row: {
+          billing_email: string | null
+          billing_name: string | null
+          created_at: string
+          currency: string
+          entity_id: string | null
+          id: string
+          is_default: boolean
+          label: string
+          organization_id: string
+          stripe_customer_id: string | null
+          updated_at: string
+          vat_id: string | null
+        }
+        Insert: {
+          billing_email?: string | null
+          billing_name?: string | null
+          created_at?: string
+          currency?: string
+          entity_id?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string
+          organization_id: string
+          stripe_customer_id?: string | null
+          updated_at?: string
+          vat_id?: string | null
+        }
+        Update: {
+          billing_email?: string | null
+          billing_name?: string | null
+          created_at?: string
+          currency?: string
+          entity_id?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string
+          organization_id?: string
+          stripe_customer_id?: string | null
+          updated_at?: string
+          vat_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_accounts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "organization_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_posts: {
         Row: {
           author_name: string | null
@@ -8456,6 +8516,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          billing_account_id: string | null
           created_at: string
           due_date: string | null
           id: string
@@ -8472,6 +8533,7 @@ export type Database = {
           total_tax_cents: number
         }
         Insert: {
+          billing_account_id?: string | null
           created_at?: string
           due_date?: string | null
           id?: string
@@ -8488,6 +8550,7 @@ export type Database = {
           total_tax_cents?: number
         }
         Update: {
+          billing_account_id?: string | null
           created_at?: string
           due_date?: string | null
           id?: string
@@ -8504,6 +8567,13 @@ export type Database = {
           total_tax_cents?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_billing_account_id_fkey"
+            columns: ["billing_account_id"]
+            isOneToOne: false
+            referencedRelation: "billing_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoices_order_id_fkey"
             columns: ["order_id"]
@@ -11145,6 +11215,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          billing_account_id: string | null
           billing_address: Json | null
           billing_company: string | null
           billing_email: string | null
@@ -11172,6 +11243,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billing_account_id?: string | null
           billing_address?: Json | null
           billing_company?: string | null
           billing_email?: string | null
@@ -11199,6 +11271,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billing_account_id?: string | null
           billing_address?: Json | null
           billing_company?: string | null
           billing_email?: string | null
@@ -11226,6 +11299,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_billing_account_id_fkey"
+            columns: ["billing_account_id"]
+            isOneToOne: false
+            referencedRelation: "billing_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_license_package_id_fkey"
             columns: ["license_package_id"]
