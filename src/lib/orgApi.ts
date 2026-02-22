@@ -87,3 +87,47 @@ export async function requestIdentifiedAccess(payload: {
 }) {
   return fetchJson(`/request-identified-access`, { method: "POST", body: JSON.stringify(payload) });
 }
+
+export async function getOrgEntities(params: { organization_id: string }) {
+  const sp = new URLSearchParams({ organization_id: params.organization_id });
+  return fetchJson(`/get-org-entities?${sp.toString()}`, { method: "GET" });
+}
+
+export async function upsertOrgEntity(payload: {
+  organization_id: string;
+  id?: string;
+  entity_code: string;
+  legal_name: string;
+  display_name: string;
+  vat_id?: string | null;
+  billing_email?: string | null;
+  is_default?: boolean;
+}) {
+  return fetchJson(`/upsert-org-entity`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function upsertOrgEntityDefaults(payload: {
+  entity_id: string;
+  default_cost_center?: string | null;
+  default_cost_object?: string | null;
+  default_gl_account?: string | null;
+  default_project_code?: string | null;
+}) {
+  return fetchJson(`/upsert-org-entity-defaults`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function adminListPrivacyRequests(params?: { status?: string }) {
+  const sp = new URLSearchParams();
+  if (params?.status) sp.set("status", params.status);
+  const q = sp.toString() ? `?${sp.toString()}` : "";
+  return fetchJson(`/admin-list-privacy-requests${q}`, { method: "GET" });
+}
+
+export async function adminPrivacyDecision(payload: {
+  organization_id: string;
+  decision: "APPROVE" | "DENY" | "REVOKE";
+  days?: number;
+  admin_notes?: string;
+}) {
+  return fetchJson(`/admin-org-privacy-decision`, { method: "POST", body: JSON.stringify(payload) });
+}

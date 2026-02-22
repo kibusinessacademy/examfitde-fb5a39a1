@@ -8,6 +8,8 @@ import OrgKpiPanel from "@/pages/org/panels/OrgKpiPanel";
 import OrgBillingPanel from "@/pages/org/panels/OrgBillingPanel";
 import OrgSeatsPanel from "@/pages/org/panels/OrgSeatsPanel";
 import OrgPrivacyPanel from "@/pages/org/panels/OrgPrivacyPanel";
+import OrgEntityManagerPanel from "@/pages/org/panels/OrgEntityManagerPanel";
+import AdminPrivacyQueuePanel from "@/pages/org/panels/AdminPrivacyQueuePanel";
 
 type OrgListItem = { id: string; name: string; org_type: string; my_role: string };
 
@@ -91,7 +93,11 @@ export default function OrgConsolePage() {
             <TabsTrigger value="kpis">KPIs</TabsTrigger>
             <TabsTrigger value="billing">Rechnungen</TabsTrigger>
             <TabsTrigger value="seats">Learner & Lizenzen</TabsTrigger>
+            <TabsTrigger value="entities">Einheiten</TabsTrigger>
             <TabsTrigger value="privacy">Datenschutz</TabsTrigger>
+            {selected?.my_role === "OWNER" && (
+              <TabsTrigger value="admin_privacy">Admin Queue</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="kpis" className="mt-4">
@@ -121,6 +127,13 @@ export default function OrgConsolePage() {
             />
           </TabsContent>
 
+          <TabsContent value="entities" className="mt-4">
+            <OrgEntityManagerPanel
+              organizationId={selected.org.id}
+              myRole={selected.my_role}
+            />
+          </TabsContent>
+
           <TabsContent value="privacy" className="mt-4">
             <OrgPrivacyPanel
               organizationId={selected.org.id}
@@ -128,6 +141,12 @@ export default function OrgConsolePage() {
               myRole={selected.my_role}
             />
           </TabsContent>
+
+          {selected?.my_role === "OWNER" && (
+            <TabsContent value="admin_privacy" className="mt-4">
+              <AdminPrivacyQueuePanel />
+            </TabsContent>
+          )}
         </Tabs>
       )}
     </div>
