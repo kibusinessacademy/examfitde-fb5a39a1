@@ -1274,8 +1274,8 @@ Deno.serve(async (req) => {
       bpsProcessed++;
 
       // ── Mid-loop hard cap check ──
-      if (questionsThisChunk > 0 && (preTotal + questionsThisChunk) >= HARD_CAP_QUESTIONS) {
-        console.log(`[ExamPool-v5] Mid-loop HARD CAP: ~${preTotal + questionsThisChunk} questions`);
+      if (questionsThisChunk > 0 && (globalTotal + questionsThisChunk) >= HARD_CAP_QUESTIONS) {
+        console.log(`[ExamPool-v5] Mid-loop HARD CAP: ~${globalTotal + questionsThisChunk} questions`);
         break;
       }
 
@@ -1305,7 +1305,7 @@ Deno.serve(async (req) => {
     const calcInserted = calcInsertedCount ?? 0;
     const calcDeficit = calcTarget - calcInserted;
 
-    if (calcDeficit > 0 && bps.length > 0 && (preTotal + questionsThisChunk) < HARD_CAP_QUESTIONS) {
+    if (calcDeficit > 0 && bps.length > 0 && (globalTotal + questionsThisChunk) < HARD_CAP_QUESTIONS) {
       const maxCalcAttempts = calcDeficit * 4 + 10;
       let calcBackfillSaved = 0;
       let calcAttempts = 0;
@@ -1334,7 +1334,7 @@ Deno.serve(async (req) => {
         }
         calcAttempts++;
 
-        if ((preTotal + questionsThisChunk + calcBackfillSaved) >= HARD_CAP_QUESTIONS) break;
+        if ((globalTotal + questionsThisChunk + calcBackfillSaved) >= HARD_CAP_QUESTIONS) break;
       }
 
       // Apply backfill total to chunk counter ONCE at the end

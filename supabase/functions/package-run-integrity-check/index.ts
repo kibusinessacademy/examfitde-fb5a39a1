@@ -251,7 +251,7 @@ async function runCourseReadyGate(
   // Verhindert, dass LF01 "alles frisst" — ein Kernfehler der Fan-Out-Logik
   // ═══════════════════════════════════════════════
   const MAX_LF_DOMINANCE = 0.50;
-  const totalApproved = (approvedQs ?? []).length;
+  // totalApproved already declared above (line 159) — reuse it
   if (totalApproved > 0 && uniqueLFs.size > 1) {
     const lfCounts = new Map<string, number>();
     for (const q of (approvedQs ?? [])) {
