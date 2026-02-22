@@ -302,3 +302,6 @@ verify_jwt = false
 
 [functions.pool-rework-trap-retrofit]
 verify_jwt = false
+
+[functions.get-daily-humor]
+verify_jwt = false
