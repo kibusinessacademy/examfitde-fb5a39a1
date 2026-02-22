@@ -56,3 +56,17 @@ export function handleCorsPreflightRequest(req: Request): Response | null {
 
 // Legacy corsHeaders with wildcard origin has been REMOVED for production security.
 // All functions must use getCorsHeaders(origin) instead.
+
+/**
+ * Convenience: return a JSON Response with CORS headers.
+ */
+export function json(status: number, data: unknown, origin: string | null): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      ...getCorsHeaders(origin),
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
+}
