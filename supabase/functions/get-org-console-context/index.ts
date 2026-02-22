@@ -1,13 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-
-function json(status: number, data: unknown, origin: string | null) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...getCorsHeaders(origin), "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
-  });
-}
+import { handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
