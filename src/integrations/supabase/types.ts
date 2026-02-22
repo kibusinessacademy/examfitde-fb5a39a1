@@ -8309,6 +8309,151 @@ export type Database = {
           },
         ]
       }
+      humor_daily_pick: {
+        Row: {
+          created_at: string
+          day: string
+          humor_id: string
+          id: string
+          pick_key: string
+        }
+        Insert: {
+          created_at?: string
+          day: string
+          humor_id: string
+          id?: string
+          pick_key: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          humor_id?: string
+          id?: string
+          pick_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "humor_daily_pick_humor_id_fkey"
+            columns: ["humor_id"]
+            isOneToOne: false
+            referencedRelation: "humor_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      humor_feedback: {
+        Row: {
+          created_at: string
+          humor_id: string
+          id: string
+          user_id: string
+          vote: number
+        }
+        Insert: {
+          created_at?: string
+          humor_id: string
+          id?: string
+          user_id: string
+          vote: number
+        }
+        Update: {
+          created_at?: string
+          humor_id?: string
+          id?: string
+          user_id?: string
+          vote?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "humor_feedback_humor_id_fkey"
+            columns: ["humor_id"]
+            isOneToOne: false
+            referencedRelation: "humor_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      humor_items: {
+        Row: {
+          certification_id: string
+          competence_id: string | null
+          created_at: string
+          created_by: string | null
+          created_via: string
+          humor_type: Database["public"]["Enums"]["humor_type"]
+          id: string
+          language: string
+          last_shown_at: string | null
+          lesson_id: string | null
+          modernity_level: number
+          quality_score: number
+          review_after: string | null
+          safety_flags: string[]
+          safety_score: number
+          shown_count: number
+          source_prompt_hash: string | null
+          status: Database["public"]["Enums"]["humor_status"]
+          style_tags: string[]
+          text: string
+          tone: string
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          certification_id: string
+          competence_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_via?: string
+          humor_type?: Database["public"]["Enums"]["humor_type"]
+          id?: string
+          language?: string
+          last_shown_at?: string | null
+          lesson_id?: string | null
+          modernity_level?: number
+          quality_score?: number
+          review_after?: string | null
+          safety_flags?: string[]
+          safety_score?: number
+          shown_count?: number
+          source_prompt_hash?: string | null
+          status?: Database["public"]["Enums"]["humor_status"]
+          style_tags?: string[]
+          text: string
+          tone?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          certification_id?: string
+          competence_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_via?: string
+          humor_type?: Database["public"]["Enums"]["humor_type"]
+          id?: string
+          language?: string
+          last_shown_at?: string | null
+          lesson_id?: string | null
+          modernity_level?: number
+          quality_score?: number
+          review_after?: string | null
+          safety_flags?: string[]
+          safety_score?: number
+          shown_count?: number
+          source_prompt_hash?: string | null
+          status?: Database["public"]["Enums"]["humor_status"]
+          style_tags?: string[]
+          text?: string
+          tone?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           created_at: string
@@ -20998,6 +21143,13 @@ export type Database = {
         | "winback"
         | "upsell"
         | "adoption_tip"
+      humor_status: "draft" | "review" | "approved" | "frozen" | "rejected"
+      humor_type:
+        | "wordplay"
+        | "everyday_situation"
+        | "exam_stress"
+        | "self_irony"
+        | "micro_tip"
       knowledge_type: "concept" | "procedure" | "calculation" | "regulation"
       lesson_step:
         | "einstieg"
@@ -21269,6 +21421,14 @@ export const Constants = {
         "winback",
         "upsell",
         "adoption_tip",
+      ],
+      humor_status: ["draft", "review", "approved", "frozen", "rejected"],
+      humor_type: [
+        "wordplay",
+        "everyday_situation",
+        "exam_stress",
+        "self_irony",
+        "micro_tip",
       ],
       knowledge_type: ["concept", "procedure", "calculation", "regulation"],
       lesson_step: [
