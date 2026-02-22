@@ -80,9 +80,10 @@ function applyMathRatio(mathRatio: number): void {
 }
 
 // ─── Difficulty Distribution (IHK-realistic for exam simulation) ──────────────
+// SSOT: easy=10%, medium=45%, hard=35%, very_hard=10%
 
 let DIFFICULTY_DISTRIBUTION: Record<string, number> = {
-  easy: 0.25, medium: 0.35, hard: 0.25, very_hard: 0.15,
+  easy: 0.10, medium: 0.45, hard: 0.35, very_hard: 0.10,
 };
 
 type DifficultyKey = string;
@@ -1149,10 +1150,10 @@ Deno.serve(async (req) => {
     // ═══ DIFFICULTY QUOTA ENGINE (replaces round-robin) ═══
     // Ensures hard/very_hard minimums per scope (LF fan-out or root)
     const scopeTarget = Math.max(effectiveTarget, 20); // minimum 20 to avoid degenerate quotas
-    let qHard = Math.max(10, Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.hard ?? 0.25)));
-    let qVeryHard = Math.max(5, Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.very_hard ?? 0.15)));
-    let qMedium = Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.medium ?? 0.35));
-    let qEasy = Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.easy ?? 0.25));
+    let qHard = Math.max(10, Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.hard ?? 0.35)));
+    let qVeryHard = Math.max(5, Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.very_hard ?? 0.10)));
+    let qMedium = Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.medium ?? 0.45));
+    let qEasy = Math.ceil(scopeTarget * (DIFFICULTY_DISTRIBUTION.easy ?? 0.10));
 
     // ── Normalize: prevent quota sum > scopeTarget (caused by ceil + minimums) ──
     let totalQ = qHard + qVeryHard + qMedium + qEasy;

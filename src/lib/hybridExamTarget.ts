@@ -94,17 +94,11 @@ function getCertificationMultiplier(level: string): number {
 }
 
 /**
- * Dynamische Schwierigkeitsverteilung basierend auf Target-Größe
- * Je höher das Target, desto mehr schwere Fragen
+ * Einheitliche Schwierigkeitsverteilung für alle Kurse
+ * SSOT: easy=10%, medium=45%, hard=35%, very_hard=10%
  */
-function getDynamicDifficulty(target: number): HybridTargetResult['difficultyDistribution'] {
-  if (target >= 1500) {
-    return { easy: 0.03, medium: 0.27, hard: 0.50, very_hard: 0.20 };
-  }
-  if (target >= 1000) {
-    return { easy: 0.05, medium: 0.35, hard: 0.45, very_hard: 0.15 };
-  }
-  return { easy: 0.08, medium: 0.40, hard: 0.42, very_hard: 0.10 };
+function getDynamicDifficulty(_target: number): HybridTargetResult['difficultyDistribution'] {
+  return { easy: 0.10, medium: 0.45, hard: 0.35, very_hard: 0.10 };
 }
 
 /**

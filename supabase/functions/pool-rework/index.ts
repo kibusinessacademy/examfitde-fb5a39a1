@@ -19,7 +19,7 @@ const MAX_QC_DELETE = 100;
 const MAX_TRAP_RETROFIT = 30;
 
 const TARGET_DIFFICULTY: Record<string, number> = {
-  easy: 0.25, medium: 0.35, hard: 0.25, very_hard: 0.15,
+  easy: 0.10, medium: 0.45, hard: 0.35, very_hard: 0.10,
 };
 
 function json(body: unknown, status = 200) {

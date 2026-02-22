@@ -165,8 +165,8 @@ async function runCourseReadyGate(
   const mediumPct = totalApproved > 0 ? (mediumCount / totalApproved) * 100 : 0;
   const hardPct = totalApproved > 0 ? (hardCount / totalApproved) * 100 : 0;
 
-  // Hard fail: total < 500, hard < 5%, easy > 50%
-  const poolPassed = totalApproved >= 500 && hardPct >= 5 && easyPct <= 50;
+  // Hard fail: total < 500, hard+very_hard < 30%, easy > 20%
+  const poolPassed = totalApproved >= 500 && hardPct >= 30 && easyPct <= 20;
   results.push({
     gate: "exam_pool_distribution",
     passed: poolPassed,
@@ -176,15 +176,15 @@ async function runCourseReadyGate(
   if (!poolPassed) {
     const reasons: string[] = [];
     if (totalApproved < 500) reasons.push(`TOO_FEW_APPROVED(${totalApproved}/500)`);
-    if (hardPct < 5) reasons.push(`HARD_TOO_LOW(${hardPct.toFixed(1)}%<5%)`);
-    if (easyPct > 50) reasons.push(`EASY_TOO_HIGH(${easyPct.toFixed(1)}%>50%)`);
+    if (hardPct < 30) reasons.push(`HARD_TOO_LOW(${hardPct.toFixed(1)}%<30%)`);
+    if (easyPct > 20) reasons.push(`EASY_TOO_HIGH(${easyPct.toFixed(1)}%>20%)`);
     hardFails.push(`EXAM_POOL: ${reasons.join(", ")}`);
   }
 
-  // Warning: hard < 10%
-  if (hardPct < 10 && hardPct >= 5) {
-    warnings.push(`HARD_BELOW_TARGET: ${hardPct.toFixed(1)}% (target ≥13%)`);
-    results.push({ gate: "exam_hard_target", passed: false, severity: "warning", detail: `hard=${hardPct.toFixed(1)}% (target ≥13%)` });
+  // Warning: hard+very_hard < 35%
+  if (hardPct < 35 && hardPct >= 30) {
+    warnings.push(`HARD_BELOW_TARGET: ${hardPct.toFixed(1)}% (target ≥35%)`);
+    results.push({ gate: "exam_hard_target", passed: false, severity: "warning", detail: `hard=${hardPct.toFixed(1)}% (target ≥35%)` });
   }
 
   // ═══════════════════════════════════════════════
