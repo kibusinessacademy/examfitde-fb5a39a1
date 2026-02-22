@@ -314,3 +314,15 @@ verify_jwt = false
 
 [functions.get-ticket-context]
 verify_jwt = false
+
+[functions.get-org-console-context]
+verify_jwt = false
+
+[functions.get-org-kpis]
+verify_jwt = false
+
+[functions.upsert-invoice-coding]
+verify_jwt = false
+
+[functions.org-create-learner]
+verify_jwt = false
