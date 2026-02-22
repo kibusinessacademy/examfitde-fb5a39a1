@@ -68,14 +68,9 @@ function getCertificationMultiplier(level: string): number {
   }
 }
 
-function getDynamicDifficulty(target: number): HybridTargetResult['difficultyDistribution'] {
-  if (target >= 1500) {
-    return { easy: 0.03, medium: 0.27, hard: 0.50, very_hard: 0.20 };
-  }
-  if (target >= 1000) {
-    return { easy: 0.05, medium: 0.35, hard: 0.45, very_hard: 0.15 };
-  }
-  return { easy: 0.08, medium: 0.40, hard: 0.42, very_hard: 0.10 };
+function getDynamicDifficulty(_target: number): HybridTargetResult['difficultyDistribution'] {
+  // SSOT: Einheitliche Verteilung für alle Kurse unabhängig von Target-Größe
+  return { easy: 0.10, medium: 0.45, hard: 0.35, very_hard: 0.10 };
 }
 
 function getDynamicQuestionTypeMix(mathRatio: number): HybridTargetResult['questionTypeMix'] {

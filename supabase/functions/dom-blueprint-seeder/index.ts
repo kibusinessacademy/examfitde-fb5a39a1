@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
         .filter((t: any) => t.domain_id === domain.id)
         .map((t: any) => t.topic_name);
 
-      const diffMix = bp.difficulty_mix || { easy: 0.05, medium: 0.55, hard: 0.40 };
+      const diffMix = bp.difficulty_mix || { easy: 0.10, medium: 0.45, hard: 0.35, very_hard: 0.10 };
 
       // 6) Build the prompt
       const systemPrompt = `Du bist ein Experte für die IHK-Prüfung "${certName}".
