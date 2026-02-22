@@ -943,8 +943,8 @@ async function enqueueLearningFieldJobs(
         package_id: packageId,
         curriculum_id: curriculumId,
         learning_field_filter: lfId,
-        lf_target: gap,
-        lf_proportional_target: proportionalTarget,
+        lf_target_total: proportionalTarget,  // SSOT: absolute Zielzahl (NICHT Gap!)
+        lf_gap: gap,                           // Informativer Gap-Wert für Logs
         lf_existing: existing,
         blueprint_ids: lfBps.map(b => b.id),
         options: { exam_target: examTarget },
@@ -995,7 +995,9 @@ Deno.serve(async (req) => {
 
   (globalThis as any).__examPoolSb = sb;
   console.log(`[ExamPool-v5] Using DB-routed provider chain for exam_questions`);
-  const lfTarget = p.lf_target || examTarget;
+  // SSOT: lf_target_total = absolute Zielzahl pro LF (nie Gap!)
+  // Fallback: legacy lf_target (könnte Gap sein) oder examTarget
+  const lfTarget = p.lf_target_total || p.lf_target || examTarget;
 
   // Apply dynamic distributions
   if (p.options?.difficulty_distribution) {
@@ -1106,12 +1108,15 @@ Deno.serve(async (req) => {
       return json({ ok: false, retry: true, error: "NO_BLUEPRINTS: auto_seed_exam_blueprints must complete first." }, 409);
     }
 
-    // Fan-out for large sets
-    if (!isFanOut && bpIndex === 0 && bps.length > 10) {
-      const { enqueued, learningFields } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
-      if (enqueued > 0) {
-        console.log(`[ExamPool-v5] Fan-out: ${enqueued} sub-jobs for ${learningFields} LFs`);
-        return json({ ok: true, batch_complete: true, fan_out: true, sub_jobs: enqueued });
+    // ── GUARD: Root-Job MUSS Fan-Out verwenden bei Multi-LF ──
+    // Root darf NIE selbst generieren wenn Fan-Out möglich ist
+    if (!isFanOut && bpIndex === 0) {
+      const uniqueLFs = new Set(bps.map(b => (b as BlueprintInfo).learning_field_id).filter(Boolean));
+      if (uniqueLFs.size > 1) {
+        const { enqueued, learningFields } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
+        console.log(`[ExamPool-v5] GUARD: Multi-LF detected (${uniqueLFs.size} LFs) → Fan-Out ONLY. Enqueued=${enqueued}`);
+        // IMMER returnen bei Multi-LF, auch wenn enqueued=0 (= alle LFs covered)
+        return json({ ok: true, batch_complete: enqueued === 0, fan_out: true, sub_jobs: enqueued, learningFields });
       }
     }
 
@@ -1139,10 +1144,12 @@ Deno.serve(async (req) => {
       return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
     }
 
-    // ── LF-aware target: use gap-based lf_target for fan-out sub-jobs ──
+    // ── LF-aware target: lf_target_total ist das ABSOLUTE Ziel pro LF ──
     const lfExisting = p.lf_existing ?? 0;
-    const lfProportionalTarget = p.lf_proportional_target ?? lfTarget;
-    const effectiveTarget = isFanOut ? lfTarget : examTarget;
+    const lfProportionalTarget = p.lf_target_total ?? lfTarget;
+    const effectiveTarget = isFanOut ? lfProportionalTarget : examTarget;
+    // effectiveTarget ist jetzt IMMER ein absoluter Zielwert (nicht Gap)
+    // chunkPlanned = effectiveTarget - preTotal(LF-specific) ergibt korrekten Gap
 
     // ── FIX: For fan-out sub-jobs, use LF-specific count instead of global ──
     // This prevents chunkPlanned=0 when global count exceeds LF target
@@ -1251,7 +1258,7 @@ Deno.serve(async (req) => {
 
       // ── Mid-loop LF cap check (fan-out sub-jobs only) ──
       if (isFanOut && p.learning_field_filter && questionsThisChunk > 0) {
-        const lfPropTarget = p.lf_proportional_target ?? lfTarget;
+        const lfPropTarget = p.lf_target_total ?? lfTarget;
         const lfExistNow = (p.lf_existing ?? 0) + questionsThisChunk;
         if (lfExistNow >= lfPropTarget) {
           console.log(`[ExamPool-v5] Mid-loop LF CAP: lf=${p.learning_field_filter.slice(0,8)}, generated=${questionsThisChunk}, lfTarget=${lfPropTarget}`);
@@ -1400,7 +1407,7 @@ Deno.serve(async (req) => {
         .eq("curriculum_id", curriculumId)
         .eq("learning_field_id", p.learning_field_filter);
       const lfActual = lfTotal ?? 0;
-      const lfPropTarget = p.lf_proportional_target ?? lfTarget;
+      const lfPropTarget = p.lf_target_total ?? lfTarget;
       targetReached = lfActual >= lfPropTarget;
       console.log(`[ExamPool-v5] LF-TARGET-CHECK: lf=${p.learning_field_filter.slice(0,8)}, actual=${lfActual}, target=${lfPropTarget}, reached=${targetReached}`);
     } else {
