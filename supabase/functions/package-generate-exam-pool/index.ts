@@ -4,6 +4,8 @@ import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.t
 import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
+import type { ModelChoice } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
@@ -293,16 +295,27 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-// ─── Provider Routing: Turbo Chain ────────────────────────────────────────────
+// ─── Provider Routing: DB-first via model-routing.ts ─────────────────────────
 
-const EXAM_PROVIDER_CHAIN: { provider: AIProvider; model: string }[] = [
-  { provider: "lovable", model: "google/gemini-2.5-flash" },
-  { provider: "openai", model: "gpt-4o-mini" },
-  { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-];
+let _examProviderChain: ModelChoice[] | null = null;
 
-function pickProvider(exclude: string[] = []): { provider: AIProvider; model: string } {
-  for (const entry of EXAM_PROVIDER_CHAIN) {
+async function loadExamProviderChain(): Promise<ModelChoice[]> {
+  if (_examProviderChain) return _examProviderChain;
+  try {
+    _examProviderChain = await getModelChainAsync("exam_questions");
+    console.log(`[ExamPool-v5] Provider chain: ${_examProviderChain.map(m => m.model).join(" → ")}`);
+  } catch (e) {
+    console.warn(`[ExamPool-v5] DB routing failed, using hardcoded fallback: ${e}`);
+    _examProviderChain = [
+      { provider: "lovable" as AIProvider, model: "google/gemini-2.5-flash" },
+      { provider: "lovable" as AIProvider, model: "google/gemini-2.5-pro" },
+    ];
+  }
+  return _examProviderChain;
+}
+
+function pickProvider(chain: ModelChoice[], exclude: string[] = []): { provider: AIProvider; model: string } {
+  for (const entry of chain) {
     if (exclude.includes(`${entry.provider}:${entry.model}`)) continue;
     const keyMap: Record<string, string> = {
       openai: "OPENAI_API_KEY",
@@ -314,7 +327,7 @@ function pickProvider(exclude: string[] = []): { provider: AIProvider; model: st
     if (keyEnv && !Deno.env.get(keyEnv)) continue;
     return entry;
   }
-  return EXAM_PROVIDER_CHAIN[0];
+  return chain[0];
 }
 
 async function markRateLimited(sb: ReturnType<typeof createClient>, provider: string, err: string) {
@@ -566,9 +579,10 @@ async function generateTurboQuestions(
 
   let exclude: string[] = [];
   let result: { content: string } | undefined;
+  const chain = await loadExamProviderChain();
 
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const { provider, model } = pickProvider(exclude);
+    const { provider, model } = pickProvider(chain, exclude);
     try {
       result = await callAIJSON({
         provider, model,
