@@ -247,6 +247,34 @@ async function runCourseReadyGate(
   if (!lfCoveragePassed) hardFails.push(`LF_COVERAGE: Only ${uniqueLFs.size}/${moduleIds.length} learning fields have exam questions`);
 
   // ═══════════════════════════════════════════════
+  // GATE 4c: Anti-Dominance (kein einzelnes LF > 50%)
+  // Verhindert, dass LF01 "alles frisst" — ein Kernfehler der Fan-Out-Logik
+  // ═══════════════════════════════════════════════
+  const MAX_LF_DOMINANCE = 0.50;
+  const totalApproved = (approvedQs ?? []).length;
+  if (totalApproved > 0 && uniqueLFs.size > 1) {
+    const lfCounts = new Map<string, number>();
+    for (const q of (approvedQs ?? [])) {
+      const lfId = (q as any).learning_field_id;
+      if (lfId) lfCounts.set(lfId, (lfCounts.get(lfId) ?? 0) + 1);
+    }
+    let dominantLf = "";
+    let dominantPct = 0;
+    for (const [lfId, cnt] of lfCounts) {
+      const pct = cnt / totalApproved;
+      if (pct > dominantPct) { dominantPct = pct; dominantLf = lfId; }
+    }
+    const dominancePassed = dominantPct <= MAX_LF_DOMINANCE;
+    results.push({
+      gate: "lf_anti_dominance",
+      passed: dominancePassed,
+      severity: "warning",
+      detail: `Largest LF share: ${(dominantPct * 100).toFixed(1)}% (LF ${dominantLf.slice(0, 8)}), max allowed: ${MAX_LF_DOMINANCE * 100}%`,
+    });
+    if (!dominancePassed) warnings.push(`LF_DOMINANCE: LF ${dominantLf.slice(0, 8)} has ${(dominantPct * 100).toFixed(1)}% of all questions (>${MAX_LF_DOMINANCE * 100}%)`);
+  }
+
+  // ═══════════════════════════════════════════════
   // GATE 5: MiniCheck pro Lernfeld (Full track only)
   // EXAM_FIRST has no learning content, so no MiniChecks
   // ═══════════════════════════════════════════════
