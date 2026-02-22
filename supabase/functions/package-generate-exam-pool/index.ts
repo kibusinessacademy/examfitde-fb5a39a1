@@ -1317,9 +1317,12 @@ Deno.serve(async (req) => {
     const actualTotal = totalQuestions ?? 0;
     const allBlueprintsProcessed = currentBpIndex >= bps.length;
 
+    // ── Guard: Fan-out jobs MUST have learning_field_filter ──
+    if (isFanOut && !p.learning_field_filter) {
+      throw new Error("[ExamPool-v5] Fan-out job missing learning_field_filter — payload corrupt");
+    }
+
     // ── FIX: Fan-out sub-jobs must check LF-specific target, NOT global ──
-    // Previously, LF01 consumed the entire global quota because targetReached
-    // compared actualTotal (all LFs) against shipTarget (global).
     let targetReached = false;
     if (isFanOut && p.learning_field_filter) {
       const { count: lfTotal } = await sb.from("exam_questions")
