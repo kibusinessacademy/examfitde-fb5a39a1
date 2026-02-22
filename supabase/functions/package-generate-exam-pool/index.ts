@@ -994,7 +994,7 @@ Deno.serve(async (req) => {
   const blueprintIds: string[] | null = p.blueprint_ids || null;
 
   (globalThis as any).__examPoolSb = sb;
-  console.log(`[ExamPool-v5] Provider chain: gpt-4o-mini → gpt-4.1 → claude-sonnet-4`);
+  console.log(`[ExamPool-v5] Using DB-routed provider chain for exam_questions`);
   const lfTarget = p.lf_target || examTarget;
 
   // Apply dynamic distributions
