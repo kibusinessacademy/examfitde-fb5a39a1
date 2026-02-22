@@ -326,3 +326,27 @@ verify_jwt = false
 
 [functions.org-create-learner]
 verify_jwt = false
+
+[functions.get-org-entities]
+verify_jwt = false
+
+[functions.upsert-org-entity]
+verify_jwt = false
+
+[functions.upsert-org-entity-defaults]
+verify_jwt = false
+
+[functions.admin-list-privacy-requests]
+verify_jwt = false
+
+[functions.get-org-billing-context]
+verify_jwt = false
+
+[functions.set-org-invoice-coding]
+verify_jwt = false
+
+[functions.request-identified-access]
+verify_jwt = false
+
+[functions.admin-org-privacy-decision]
+verify_jwt = false
