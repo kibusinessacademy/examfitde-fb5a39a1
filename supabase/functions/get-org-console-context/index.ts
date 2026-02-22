@@ -89,6 +89,9 @@ serve(async (req) => {
         .maybeSingle(),
     ]);
 
+    // Guard: if selected org not found in join
+    if (!org?.id) return json(200, { orgs: orgList, selected: null }, origin);
+
     const seats = seatsRes.data ?? [];
 
     // Seat summary KPIs
