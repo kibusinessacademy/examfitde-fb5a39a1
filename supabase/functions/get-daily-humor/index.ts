@@ -36,13 +36,9 @@ serve(async (req) => {
     const url = new URL(req.url);
     const certification_id = url.searchParams.get("certification_id");
     const mode = (url.searchParams.get("mode") ?? "daily").toLowerCase();
-    const tone = (url.searchParams.get("tone") ?? "auto").toLowerCase();
-    const modernity = url.searchParams.get("modernity");
-    const { min: modernityMin, max: modernityMax } = parseRange(modernity, 40, 80);
 
     if (!certification_id) return json(400, { error: "Missing certification_id" });
     if (!["daily", "random"].includes(mode)) return json(400, { error: "Invalid mode" });
-    if (!["business", "casual", "auto"].includes(tone)) return json(400, { error: "Invalid tone" });
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -50,8 +46,55 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
+    // Identify user for opt-out + personalization
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    let userId: string | null = null;
+    if (jwt) {
+      const { data: u } = await supabase.auth.getUser(jwt);
+      userId = u?.user?.id ?? null;
+    }
+
+    // Load user humor preferences (defaults: enabled, auto, 45-80)
+    let humorEnabled = true;
+    let tonePref: "auto" | "business" | "casual" = "auto";
+    let modernityRange = "45-80";
+    let humorPushEnabled = false;
+
+    if (userId) {
+      const { data: prefs } = await supabase
+        .from("user_humor_preferences")
+        .select("humor_enabled, humor_push_enabled, tone_preference, modernity_range")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (prefs) {
+        humorEnabled = prefs.humor_enabled ?? true;
+        humorPushEnabled = prefs.humor_push_enabled ?? false;
+        tonePref = (prefs.tone_preference ?? "auto") as any;
+        modernityRange = prefs.modernity_range ?? "45-80";
+      }
+    }
+
+    // Opt-out respected
+    if (!humorEnabled) {
+      return json(200, {
+        disabled: true,
+        reason: "user_opt_out",
+        prefs: { humor_enabled: false, humor_push_enabled: humorPushEnabled, tone_preference: tonePref, modernity_range: modernityRange },
+        humor: null,
+      });
+    }
+
+    // Use user prefs for tone + modernity
+    const tone = tonePref;
+    const { min: modernityMin, max: modernityMax } = parseRange(modernityRange, 45, 80);
+
     const day = todayBerlin();
     const pick_key = `${certification_id}:${tone}:${modernityMin}-${modernityMax}`;
+
+    const prefsPayload = { humor_enabled: true, humor_push_enabled: humorPushEnabled, tone_preference: tonePref, modernity_range: modernityRange };
 
     const isValidToday = (row: any) => {
       if (row.valid_from && row.valid_from > day) return false;
@@ -86,7 +129,7 @@ serve(async (req) => {
         const pool = (candidates ?? []).filter(isValidToday);
 
         if (pool.length === 0) {
-          return json(200, { humor: null, fallback: { text: "Heute kein Witz im Pool – aber du bist auf Kurs. ✅", humor_type: "micro_tip", tone } });
+          return json(200, { disabled: false, humor: null, fallback: { text: "Heute kein Witz im Pool – aber du bist auf Kurs. ✅", humor_type: "micro_tip", tone }, prefs: prefsPayload });
         }
 
         pool.sort((a: any, b: any) => {
@@ -113,12 +156,12 @@ serve(async (req) => {
         .maybeSingle();
 
       if (!humor || !isValidToday(humor)) {
-        return json(200, { humor: null, fallback: { text: "Heute bleibt's ruhig – morgen wieder 😄", humor_type: "micro_tip", tone } });
+        return json(200, { disabled: false, humor: null, fallback: { text: "Heute bleibt's ruhig – morgen wieder 😄", humor_type: "micro_tip", tone }, prefs: prefsPayload });
       }
 
       await supabase.from("humor_items").update({ last_shown_at: new Date().toISOString(), shown_count: ((humor as any).shown_count ?? 0) + 1 }).eq("id", humor.id);
 
-      return json(200, { day, certification_id, tone, modernity: `${modernityMin}-${modernityMax}`, humor });
+      return json(200, { disabled: false, day, certification_id, humor, prefs: prefsPayload });
     }
 
     // RANDOM
@@ -126,13 +169,13 @@ serve(async (req) => {
     const pool = (candidates ?? []).filter(isValidToday);
 
     if (pool.length === 0) {
-      return json(200, { humor: null, fallback: { text: "Heute kein Humor im Pool – aber du ziehst durch. 💪", humor_type: "micro_tip", tone } });
+      return json(200, { disabled: false, humor: null, fallback: { text: "Heute kein Humor im Pool – aber du ziehst durch. 💪", humor_type: "micro_tip", tone }, prefs: prefsPayload });
     }
 
     const chosen = pool[Math.floor(Math.random() * pool.length)];
     await supabase.from("humor_items").update({ last_shown_at: new Date().toISOString(), shown_count: ((chosen as any).shown_count ?? 0) + 1 }).eq("id", chosen.id);
 
-    return json(200, { day, certification_id, tone, modernity: `${modernityMin}-${modernityMax}`, humor: chosen });
+    return json(200, { disabled: false, day, certification_id, humor: chosen, prefs: prefsPayload });
   } catch (e) {
     return json(500, { error: "unexpected_error", details: String((e as any)?.message ?? e) });
   }

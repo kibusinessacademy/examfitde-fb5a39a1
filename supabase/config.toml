@@ -305,3 +305,6 @@ verify_jwt = false
 
 [functions.get-daily-humor]
 verify_jwt = false
+
+[functions.set-humor-preferences]
+verify_jwt = false
