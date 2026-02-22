@@ -54,7 +54,7 @@ serve(async (req) => {
       return json({ ok: true, versionId: ver!.id, phase: "proposed" });
     }
 
-    // ── CRITIQUE (Anthropic via Gateway) ──
+    // ── CRITIQUE (Google Gemini) ──
     if (action === "marketing_critique") {
       if (!assetId) throw new Error("assetId required");
       const versionId = body.versionId || body.version_id;
@@ -112,7 +112,7 @@ serve(async (req) => {
 // ── Critique + Verdict Pipeline ──
 async function runCritique(sb: ReturnType<typeof createClient>, asset: Record<string, unknown>, ssot: Record<string, unknown>, proposal: unknown, versionId: string, round: number, maxRounds: number) {
   const critiqueResult = await callAIJSON({
-    provider: "anthropic",
+    provider: "google",
     messages: [
       { role: "system", content: buildCriticSystem() },
       { role: "user", content: buildCriticUser(asset, ssot, proposal) },
@@ -123,13 +123,13 @@ async function runCritique(sb: ReturnType<typeof createClient>, asset: Record<st
   let critique: Record<string, unknown> = {};
   try { const m = critiqueResult.content.match(/\{[\s\S]*\}/); critique = JSON.parse(m?.[0] || critiqueResult.content); } catch { critique = { raw: critiqueResult.content }; }
 
-  await sb.from("council_messages").insert({ content_version_id: versionId, agent_name: "anthropic-critic", message_type: "critique", message_json: critique });
+  await sb.from("council_messages").insert({ content_version_id: versionId, agent_name: "google-critic", message_type: "critique", message_json: critique });
 
   const decision = computeDecision(critique);
 
   await sb.from("council_votes").insert([
     { content_version_id: versionId, agent_name: "openai-proposer", vote: decision.finalDecision === "rejected" ? "revise" : decision.finalDecision, confidence: 0.7, rationale: "proposer self-check" },
-    { content_version_id: versionId, agent_name: "anthropic-critic", vote: decision.validatorVote, confidence: decision.consensusScore, rationale: decision.rationale || "validator assessment" },
+    { content_version_id: versionId, agent_name: "google-critic", vote: decision.validatorVote, confidence: decision.consensusScore, rationale: decision.rationale || "validator assessment" },
   ]);
 
   await sb.from("council_verdicts").insert({ content_version_id: versionId, final_decision: decision.finalDecision, consensus_score: decision.consensusScore, required_fixes: decision.requiredFixes, decided_by: "marketing_council" });

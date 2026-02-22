@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const curriculumId = body.curriculum_id || body.curriculumId;
-  const providerOverride = body.provider as "openai" | "anthropic" | undefined;
+  const providerOverride = body.provider as "openai" | "google" | undefined;
 
   if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
 
@@ -106,7 +106,7 @@ Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
     let provider = providerOverride || "";
     let model = "";
     if (provider) {
-      model = provider === "anthropic" ? "claude-sonnet-4-20250514" : provider === "google" ? "gemini-2.5-flash" : "gpt-4.1";
+      model = provider === "google" ? "gemini-2.5-flash" : "gpt-4.1";
     } else {
       const { getModelAsync } = await import("../_shared/model-routing.ts");
       const routed = await getModelAsync("curriculum_import");
