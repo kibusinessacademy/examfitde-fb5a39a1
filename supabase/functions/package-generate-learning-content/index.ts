@@ -598,7 +598,13 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         }
       }
       if (!content || (!content.html && !content.questions)) {
-        throw new Error(`No parseable tool response from AI (provider=${result.provider}, model=${result.model}, contentLength=${result.content?.length || 0})`);
+        // v5.3: Distinguish empty AI response (contentLength=0) from parse failures
+        // to enable targeted retry logic and clearer error attribution.
+        const cLen = result.content?.length || 0;
+        if (cLen === 0) {
+          throw new Error(`AI returned empty response (provider=${result.provider}, model=${result.model}) — likely provider outage, will retry with failover`);
+        }
+        throw new Error(`No parseable tool response from AI (provider=${result.provider}, model=${result.model}, contentLength=${cLen})`);
       }
 
       if (!isMiniCheck) {

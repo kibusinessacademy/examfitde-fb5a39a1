@@ -331,10 +331,12 @@ Deno.serve(async (req) => {
   const adaptiveConcurrency = await getAdaptiveConcurrency(sb).catch(() => BASE_CONCURRENCY);
 
   // ── 1. Claim jobs with proper locking (worker_id + lock timeout) ──
+  // v5.3: Increased lock timeout from 10→20min to prevent STALE_LOCK kills
+  // on long-running AI jobs (exam-pool with 58+ questions, glossary gen).
   const { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs", {
     p_limit: adaptiveConcurrency,
     p_worker_id: WORKER_ID,
-    p_lock_timeout_minutes: 10,
+    p_lock_timeout_minutes: 20,
   });
 
   if (claimErr) {

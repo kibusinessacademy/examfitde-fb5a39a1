@@ -142,9 +142,11 @@ Deno.serve(async (req) => {
     // ── 2b) Zombie job sweep: fail jobs stuck in 'processing' with no lock ──
     // Tightened to 5min — edge functions timeout at 55s,
     // so anything unlocked for 5min is definitively dead.
-    // ALSO catch jobs where locked_at is stale (>10min old) even if non-null.
+    // ALSO catch jobs where locked_at is stale (>20min old) even if non-null.
+    // v5.3: Raised from 10→20min to match job-runner lock timeout and prevent
+    // premature STALE_LOCK kills on long-running AI jobs (exam-pool, glossary).
     const ZOMBIE_AGE_MINUTES = 5;
-    const STALE_LOCK_MINUTES = 10;
+    const STALE_LOCK_MINUTES = 20;
     const zombieCutoff = new Date(Date.now() - ZOMBIE_AGE_MINUTES * 60 * 1000).toISOString();
     const staleLockCutoff = new Date(Date.now() - STALE_LOCK_MINUTES * 60 * 1000).toISOString();
 

@@ -147,9 +147,12 @@ export async function loadOrGenerateGlossary(
   let glossary: Omit<ProfessionGlossary, "professionName">;
   try {
     let raw = (aiResult.content || "").trim();
-    // Strip markdown fences
+    // v5.3: Robust markdown fence stripping — handles ```json\n...\n``` with newlines,
+    // triple-backtick variants, and leading/trailing whitespace that caused GLOSSARY_PARSE_ERROR.
+    raw = raw.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/g, "").trim();
+    // Fallback: strip any remaining fences mid-text
     raw = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-    // If model wrapped in text, extract first JSON object
+    // Extract first JSON object if model wrapped in text
     const jsonStart = raw.indexOf("{");
     const jsonEnd = raw.lastIndexOf("}");
     if (jsonStart >= 0 && jsonEnd > jsonStart) {
