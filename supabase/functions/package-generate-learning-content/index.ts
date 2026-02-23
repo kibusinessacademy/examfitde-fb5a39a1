@@ -166,12 +166,13 @@ const CONTENT_TOOL = {
       type: "object",
       properties: {
         html: { type: "string", description: "HTML-Inhalt der Lektion" },
-        objectives: { type: "array", items: { type: "string" }, description: "2-4 Lernziele" },
-        key_terms: { type: "array", items: { type: "object", properties: { term: { type: "string" }, definition: { type: "string" } }, required: ["term", "definition"] }, description: "3-6 Schlüsselbegriffe mit 1-Satz-Definition" },
-        common_mistakes: { type: "array", items: { type: "string" }, description: "2-3 typische Azubi-Fehler" },
+        objectives: { type: "array", items: { type: "string" }, description: "2-4 messbare Lernziele im Format: 'Der Lernende kann [Handlung] unter Berücksichtigung von [Rahmenbedingung] fachgerecht [durchführen/berechnen/bewerten]'" },
+        key_terms: { type: "array", items: { type: "object", properties: { term: { type: "string" }, definition: { type: "string" }, exam_relevance: { type: "string", description: "Warum prüfungsrelevant (1 Satz)" } }, required: ["term", "definition", "exam_relevance"] }, description: "3-6 Schlüsselbegriffe mit Definition UND Prüfungsrelevanz" },
+        common_mistakes: { type: "array", items: { type: "object", properties: { mistake: { type: "string" }, correction: { type: "string" }, trap_type: { type: "string", description: "Fehlertyp: rechenfehler|normverwechslung|begriffsverwechslung|denkfehler|praxisfehler" } }, required: ["mistake", "correction", "trap_type"] }, description: "3-5 typische Azubi-Fehler mit Korrektur und Fehlertyp-Klassifikation" },
         exam_triggers: { type: "array", items: { type: "string" }, description: "2-3 typische IHK-Fragestellungen ('So fragt die IHK')" },
+        transfer_questions: { type: "array", items: { type: "string" }, description: "1-2 Transfer-/Szenariofragen: 'Was passiert wenn...?' oder 'Wie würde sich ändern, wenn...?'" },
       },
-      required: ["html", "objectives"],
+      required: ["html", "objectives", "key_terms", "common_mistakes", "exam_triggers"],
       additionalProperties: false,
     },
   },
@@ -629,8 +630,21 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
       }
 
       const finalContent = isMiniCheck
-        ? { type: "mini_check", questions: content.questions, objectives: content.objectives, generated_at: new Date().toISOString(), version: 3 }
-        : { type: "text", html: content.html, objectives: content.objectives, generated_at: new Date().toISOString(), version: 3 };
+        ? { type: "mini_check", questions: content.questions, objectives: content.objectives, generated_at: new Date().toISOString(), version: 4 }
+        : {
+            type: "text",
+            html: content.html,
+            objectives: content.objectives,
+            key_terms: content.key_terms || [],
+            common_mistakes: content.common_mistakes || [],
+            exam_triggers: content.exam_triggers || [],
+            transfer_questions: content.transfer_questions || [],
+            step: lesson.step,
+            competency_id: (lesson as any).competency_id || null,
+            learning_field_id: lfId || null,
+            generated_at: new Date().toISOString(),
+            version: 4,
+          };
 
       // Write to content_versions with upsert-like behavior
       const { data: newVersion, error: vErr } = await sb.from("content_versions").insert({

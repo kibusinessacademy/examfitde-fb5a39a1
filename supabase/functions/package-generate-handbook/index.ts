@@ -89,8 +89,8 @@ async function generateSectionContent(
   // Hard minimum: each section must reach this char count to pass QC
   const MIN_SECTION_CHARS = 2000;
 
-  const prompt = `Du bist ein IHK-Fachexperte für "${professionName}". 
-Erstelle einen ausführlichen, prüfungsrelevanten Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}".
+  const prompt = `Du bist ein IHK-Fachexperte und Prüfungscoach für "${professionName}". 
+Erstelle einen ausführlichen, prüfungsstrategischen Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}".
 
 ${fieldDescription ? `Beschreibung: ${fieldDescription}` : ""}
 ${topicContext}
@@ -105,6 +105,30 @@ ANFORDERUNGEN:
 7. KEINE Platzhalter, KEINE Verweise auf externe Quellen
 8. Jedes Unterthema braucht mindestens 2-3 Absätze Erklärung
 
+PRÜFUNGSSTRATEGISCHE PFLICHT-SEKTIONEN:
+### 🎯 So denkt der Prüfer
+- Was erwartet der IHK-Prüfer bei diesem Thema? Welche Formulierungen bewertet er positiv?
+- Welche typischen Fehler führen zu Punktabzug?
+- Worauf achtet der Prüfer bei der Bewertung besonders?
+
+### ⚠️ Typische Prüfungsfallen (mindestens 3)
+- Für jede Falle: Was ist der Fehler? → Warum machen Prüflinge ihn? → Was ist die korrekte Antwort?
+- Konkrete Beispiele mit Zahlen/§§ wo relevant
+
+### 📋 Merkschemata & Checklisten
+- Prüfungstaugliche Merksätze und Eselsbrücken
+- Schritt-für-Schritt-Checklisten für typische Aufgabentypen
+- Formelsammlungen mit Erklärung (bei quantitativen Themen)
+
+### 📝 Musteraufgabe mit Musterlösung
+- 1 realistische IHK-Prüfungsaufgabe (Fallstudie/Berechnung) mit vollständiger Musterlösung
+- Bewertungshinweise: Was bringt volle Punktzahl? Was führt zu Abzug?
+- Lösungsstrategie: In welcher Reihenfolge sollte man vorgehen?
+
+### 🔄 Transferübungen
+- 2 Variationsaufgaben: "Was ändert sich, wenn...?"
+- Verbindung zu anderen Lernfeldern aufzeigen
+
 Antworte NUR mit Markdown.`;
 
   const maxTokens = Math.max(3200, Math.round(wordTarget * 4));
@@ -112,7 +136,7 @@ Antworte NUR mit Markdown.`;
   try {
     const result = await callAIWithFailover(chain, {
       messages: [
-        { role: "system", content: "Du schreibst ausführliche, prüfungsrelevante IHK-Handbuch-Inhalte. Antworte nur mit Markdown. Schreibe umfassend und detailliert – NICHT kurz oder stichwortartig." },
+        { role: "system", content: "Du schreibst ausführliche, prüfungsstrategische IHK-Handbuch-Inhalte auf Experten-Niveau. Antworte nur mit Markdown. Schreibe umfassend und detailliert — NICHT kurz oder stichwortartig. Jeder Abschnitt muss Fallbeispiele, Prüfungsfallen und Merkschemata enthalten. Denke wie ein erfahrener IHK-Prüfer, der sein Wissen an Prüflinge weitergibt." },
         { role: "user", content: prompt },
       ],
       max_tokens: Math.min(4096, maxTokens),

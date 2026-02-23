@@ -173,19 +173,73 @@ Deno.serve(async (req) => {
           ],
           followups: [
             "Wie würden Sie in einer alternativen Situation vorgehen? Begründen Sie Ihre Entscheidung fachlich.",
-            "Welche rechtlichen Grundlagen und Vorschriften sind hier relevant?",
+            "Welche rechtlichen Grundlagen und Vorschriften sind hier relevant? Nennen Sie konkrete Paragraphen.",
             "Wie bewerten Sie das Ergebnis Ihres Vorgehens? Welche Alternativen hätten Sie?",
             topicsForScenario.length > 2 ? `Wie hängt ${topicsForScenario[2]} mit Ihrer beschriebenen Situation zusammen?` : "Welche wirtschaftlichen Auswirkungen hat Ihre Entscheidung?",
+            "Was wären die Konsequenzen, wenn Sie einen Fehler in diesem Bereich machen würden?",
+            "Erklären Sie einem neuen Kollegen diesen Sachverhalt — wie gehen Sie vor?",
           ],
           rubric: {
             criteria: [
-              { name: "Fachkompetenz", weight: 40, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
-              { name: "Problemlösekompetenz", weight: 30, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
-              { name: "Kommunikation", weight: 30, levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"] },
+              {
+                name: "Fachlichkeit",
+                weight: 40,
+                levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
+                expectation_horizon: {
+                  sehr_gut: "Alle Fachbegriffe korrekt verwendet, tiefes Verständnis der Zusammenhänge, eigenständige Querverweise zu verwandten Themen, korrekte §§-/Normenreferenzen",
+                  gut: "Fachbegriffe überwiegend korrekt, gutes Verständnis, vereinzelte Querverweise",
+                  ausreichend: "Grundlegende Fachbegriffe bekannt, Zusammenhänge in Ansätzen erkannt",
+                  mangelhaft: "Fachbegriffe lückenhaft oder falsch, oberflächliches Verständnis",
+                },
+              },
+              {
+                name: "Struktur",
+                weight: 25,
+                levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
+                expectation_horizon: {
+                  sehr_gut: "Klare Gliederung (Einleitung-Hauptteil-Schluss), logischer Argumentationsaufbau, souveräne Überleitung zwischen Aspekten",
+                  gut: "Erkennbare Gliederung, weitgehend logischer Aufbau",
+                  ausreichend: "Grundstruktur erkennbar, teilweise sprunghaft",
+                  mangelhaft: "Keine erkennbare Struktur, unzusammenhängend",
+                },
+              },
+              {
+                name: "Begriffssicherheit",
+                weight: 20,
+                levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
+                expectation_horizon: {
+                  sehr_gut: "Fachterminologie durchgehend korrekt und präzise eingesetzt, Abgrenzung ähnlicher Begriffe sicher",
+                  gut: "Fachterminologie überwiegend korrekt, vereinzelte Unschärfen",
+                  ausreichend: "Grundbegriffe bekannt, häufiger Umgangssprache statt Fachsprache",
+                  mangelhaft: "Fachbegriffe falsch oder unbekannt, überwiegend Alltagssprache",
+                },
+              },
+              {
+                name: "Praxisbezug",
+                weight: 15,
+                levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
+                expectation_horizon: {
+                  sehr_gut: "Konkrete Praxisbeispiele aus dem eigenen Betrieb, eigenständige Transferleistung auf neue Situationen",
+                  gut: "Praxisbeispiele vorhanden, teilweise Transferleistung",
+                  ausreichend: "Allgemeine Praxisbezüge, kein eigenständiger Transfer",
+                  mangelhaft: "Kein erkennbarer Praxisbezug, rein theoretisch",
+                },
+              },
             ],
+            scoring_guide: {
+              points_per_criterion: "0-2 Punkte (0=ungenügend/mangelhaft, 1=ausreichend/befriedigend, 2=gut/sehr gut)",
+              max_total: 10,
+              pass_threshold: 5,
+              excellence_threshold: 8,
+            },
           },
           status: "approved",
-          metadata: { depth_enriched: topicsForScenario.length > 0, topic_count: topicsForScenario.length, learning_field_id: lfId },
+          metadata: {
+            depth_enriched: topicsForScenario.length > 0,
+            topic_count: topicsForScenario.length,
+            learning_field_id: lfId,
+            nachhak_categories: ["Begründung", "Alternative", "Konsequenz", "Normbezug", "Transfer"],
+          },
         });
         globalIdx++;
       }
