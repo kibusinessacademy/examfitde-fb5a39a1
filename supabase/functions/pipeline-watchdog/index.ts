@@ -210,16 +210,24 @@ Deno.serve(async (req) => {
 
     const { data: qgFailedPkgs } = await sb
       .from("course_packages")
-      .select("id, title, integrity_report, updated_at")
+      .select("id, title, integrity_report, updated_at, curriculum_id")
       .eq("status", "quality_gate_failed")
       .lt("updated_at", qgCooldownCutoff) // Only packages that have been stuck for > cooldown
       .limit(5); // Process max 5 per cycle to avoid overload
 
+    let qgHealedCount = 0;
+    let qgSeenCount = 0;
+    let qgSkippedCount = 0;
+
     for (const pkg of (qgFailedPkgs || [])) {
+      qgSeenCount++;
       const report = pkg.integrity_report as any;
       const hardFails: string[] = report?.v3?.hard_fail_reasons || [];
 
-      if (hardFails.length === 0) continue; // No known failures, skip
+      if (hardFails.length === 0) {
+        qgSkippedCount++;
+        continue; // No known failures, skip
+      }
 
       // Determine which steps need re-queuing based on failure type
       const stepsToReset: string[] = [];
@@ -243,9 +251,10 @@ Deno.serve(async (req) => {
         healReason = "GENERIC_QG_RETRY";
       }
 
-      // Reset the steps to queued
+      // Reset the steps to queued — track actual updates
+      let stepsResetCount = 0;
       for (const stepKey of stepsToReset) {
-        await sb
+        const { data: updatedRows } = await sb
           .from("package_steps")
           .update({
             status: "queued",
@@ -256,7 +265,15 @@ Deno.serve(async (req) => {
             last_error: `Watchdog QG-heal: reset for ${healReason}`,
           })
           .eq("package_id", pkg.id)
-          .eq("step_key", stepKey);
+          .eq("step_key", stepKey)
+          .select("step_key");
+        stepsResetCount += updatedRows?.length ?? 0;
+      }
+
+      if (stepsResetCount === 0) {
+        console.warn(`[watchdog] QG-heal PARTIAL: pkg=${(pkg.id as string).slice(0, 8)} — 0 steps actually reset`);
+        qgSkippedCount++;
+        continue;
       }
 
       // Reset package to building
@@ -264,24 +281,60 @@ Deno.serve(async (req) => {
         .from("course_packages")
         .update({
           status: "building",
-          last_error: `Watchdog QG-heal: ${healReason} — ${hardFails.length} blocker(s) → retry`,
+          last_error: `Watchdog QG-heal: ${healReason} — ${hardFails.length} blocker(s), ${stepsResetCount} steps reset → retry`,
         })
         .eq("id", pkg.id);
 
-      // Cancel any lingering cancelled/failed jobs for this package
-      // so the runner can create fresh ones
+      // Archive failed jobs (preserve forensics), delete only cancelled
+      await sb
+        .from("job_queue")
+        .update({ status: "archived", last_error: `Watchdog QG-heal archived` })
+        .eq("package_id", pkg.id)
+        .eq("status", "failed");
+
       await sb
         .from("job_queue")
         .delete()
         .eq("package_id", pkg.id)
-        .in("status", ["cancelled", "failed"]);
+        .eq("status", "cancelled");
 
+      // ── Targeted LF gap-fill: enqueue specific job if LF_COVERAGE ──
+      if (hasLfCoverage && pkg.curriculum_id) {
+        // Extract missing LF info from gates
+        const gates = report?.v3?.gates || [];
+        const lfGate = gates.find((g: any) => g.gate === "learning_field_coverage");
+        // Parse "5 LFs covered in exam pool, 15 modules in course" pattern
+        const lfDetail = lfGate?.detail || "";
+        const lfMatch = lfDetail.match(/(\d+) LFs covered.*?(\d+) modules/);
+        const coveredCount = lfMatch ? parseInt(lfMatch[1]) : 0;
+        const totalCount = lfMatch ? parseInt(lfMatch[2]) : 0;
+
+        await sb.from("job_queue").insert({
+          job_type: "pool_fill_lf_gaps",
+          payload: {
+            package_id: pkg.id,
+            curriculum_id: pkg.curriculum_id,
+            covered_lf_count: coveredCount,
+            total_lf_count: totalCount,
+            heal_reason: healReason,
+          },
+          status: "pending",
+          priority: 15,
+          package_id: pkg.id,
+        });
+
+        console.log(
+          `[watchdog] QG-heal: enqueued pool_fill_lf_gaps for pkg=${(pkg.id as string).slice(0, 8)} (${coveredCount}/${totalCount} LFs)`,
+        );
+      }
+
+      qgHealedCount++;
       actions.push(
-        `QG-heal: ${(pkg.title as string).slice(0, 30)} (${healReason}, reset ${stepsToReset.length} steps)`,
+        `QG-heal: ${(pkg.title as string).slice(0, 30)} (${healReason}, ${stepsResetCount}/${stepsToReset.length} steps reset)`,
       );
 
       console.log(
-        `[watchdog] QG-heal: pkg=${(pkg.id as string).slice(0, 8)} "${pkg.title}" reason=${healReason} fails=${hardFails.join("; ")}`,
+        `[watchdog] QG-heal: pkg=${(pkg.id as string).slice(0, 8)} "${pkg.title}" reason=${healReason} fails=${hardFails.join("; ")} steps_reset=${stepsResetCount}`,
       );
     }
 
@@ -349,7 +402,7 @@ Deno.serve(async (req) => {
       } catch (_) { /* non-critical */ }
     }
     // ── Log cycle ──
-    const qgHealedCount = (qgFailedPkgs || []).length;
+    const qgStats = { seen: qgSeenCount, healed: qgHealedCount, skipped: qgSkippedCount };
     try {
       await sb
         .from("auto_heal_log")
@@ -367,7 +420,7 @@ Deno.serve(async (req) => {
             stale_leases: staleLeases.length,
             zombie_jobs: zombieJobCount,
             zombie_building: healedZombies,
-            qg_healed: qgHealedCount,
+            qg_healed: qgStats,
           },
         });
     } catch (_) { /* non-critical */ }
