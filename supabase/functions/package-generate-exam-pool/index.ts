@@ -459,7 +459,10 @@ DISTRAKTOREN (IHK-QUALITÄT — STRUKTURIERT):
 - KEINE "Nonsens-Optionen" die sofort ausgeschlossen werden können
 - Erlaubte error_tags: ${ERROR_TAG_VOCABULARY.join(", ")}
 - Bei Rechenaufgaben: Falsche Optionen MÜSSEN numerisch nahe am korrekten Ergebnis liegen (±5–25% oder exakter Rechenfehler wie falsche Prozentbasis, Skonto/Rabatt vertauscht, Netto statt Brutto). KEINE zufälligen Zahlen!
-- JEDE falsche Option braucht einen distractor_meta-Eintrag mit option_index, error_tag und why_wrong (MINDESTENS 20 Zeichen, KEIN generisches "weil falsch")
+- JEDE falsche Option braucht einen distractor_meta-Eintrag mit option_index, error_tag, why_wrong, why_tempting und examiner_intention
+  - why_wrong: Warum ist diese Option fachlich falsch? (MINDESTENS 20 Zeichen, KEIN generisches "weil falsch")
+  - why_tempting: Warum wählen Prüflinge diese Option trotzdem? Welcher Denkfehler steckt dahinter? (MINDESTENS 15 Zeichen)
+  - examiner_intention: Was prüft der IHK-Prüfer mit diesem Distraktor? Welche Kompetenz soll abgegrenzt werden? (MINDESTENS 15 Zeichen)
 - option_index im distractor_meta darf NICHT der correct_answer Index sein
 
 PRAXISBEZUG (PFLICHT):
@@ -498,7 +501,7 @@ Regeneriere intern, bis alle Punkte erfüllt sind.
 ${glossaryContext || ''}
 
 Antworte NUR mit JSON-Array (keine Extra-Keys, options exakt 4, correct_answer 0..3):
-[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","cognitive_level":"${cognitiveLevel}","explanation":"Richtig: ... Falsch A: ... Falsch B: ... Falsch C: ... Prüfungsanker: ... Merke: ...","tags":["tag1"],"trap_tags":["error_type1"],"distractor_meta":[{"option_index":1,"error_tag":"percent_base","why_wrong":"..."},{"option_index":2,"error_tag":"skonto_rabatt_order","why_wrong":"..."},{"option_index":3,"error_tag":"definition_confusion","why_wrong":"..."}]}]`;
+[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"difficulty":"${difficulty}","question_type":"${questionType}","cognitive_level":"${cognitiveLevel}","explanation":"Richtig: ... Falsch A: ... Falsch B: ... Falsch C: ... Prüfungsanker: ... Merke: ...","tags":["tag1"],"trap_tags":["error_type1"],"distractor_meta":[{"option_index":1,"error_tag":"percent_base","why_wrong":"Hier wird die falsche Prozentbasis verwendet...","why_tempting":"Viele Prüflinge verwechseln Brutto und Netto als Basis","examiner_intention":"Prüft ob der Prüfling die korrekte Bezugsgröße kennt"},{"option_index":2,"error_tag":"skonto_rabatt_order","why_wrong":"Skonto wird vor Rabatt abgezogen...","why_tempting":"Im Alltag wird die Reihenfolge oft ignoriert","examiner_intention":"Testet kalkulatorisches Verständnis der Abzugsreihenfolge"},{"option_index":3,"error_tag":"definition_confusion","why_wrong":"Der Begriff wird hier falsch definiert...","why_tempting":"Die Begriffe klingen ähnlich und werden oft verwechselt","examiner_intention":"Prüft begriffliche Trennschärfe"}]}]`;
 
   // ── Inject TrapSpec from blueprint (if available) ──
   let trapSpecBlock = "";

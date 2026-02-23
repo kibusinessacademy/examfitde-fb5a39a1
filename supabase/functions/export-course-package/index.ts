@@ -288,29 +288,37 @@ Deno.serve(async (req) => {
               break;
             }
             if (!batch || batch.length === 0) break;
-            for (const l of batch as Record<string, unknown>[]) {
-              allLessons.push({
-                module: mod.title,
-                module_id: mod.id,
-                learning_field_id: mod.learning_field_id,
-                learning_field_code: mod.learning_field_code,
-                lesson_id: l.id,
-                title: l.title,
-                step: l.step,
-                status: l.status,
-                content: l.content,
-                minicheck_parsed: l.minicheck_parsed,
-                sort_order: l.sort_order,
-                qc_status: l.qc_status,
-                duration_minutes: l.duration_minutes,
-                competency_id: l.competency_id,
-                exam_block: l.exam_block,
-                weight_tag: l.weight_tag,
-                exam_relevance_score: l.exam_relevance_score,
-                mastery_weight: l.mastery_weight,
-                quality_gate_status: l.quality_gate_status,
-                quality_flags: l.quality_flags,
-              });
+              for (const l of batch as Record<string, unknown>[]) {
+                // Derive bloom_level from step or content
+                const contentObj = l.content as Record<string, unknown> | null;
+                const bloomFromContent = contentObj?.bloom_level as string | null;
+                const stepBloomMap: Record<string, string> = { einstieg: "remember", verstehen: "understand", anwenden: "apply", wiederholen: "analyze", mini_check: "apply" };
+                const bloomLevel = bloomFromContent || stepBloomMap[(l.step as string) || ""] || "understand";
+                const examRelScore = (contentObj?.exam_relevance_score as number) || null;
+                
+                allLessons.push({
+                  module: mod.title,
+                  module_id: mod.id,
+                  learning_field_id: mod.learning_field_id,
+                  learning_field_code: mod.learning_field_code,
+                  lesson_id: l.id,
+                  title: l.title,
+                  step: l.step,
+                  status: l.status,
+                  bloom_level: bloomLevel,
+                  exam_relevance_score: examRelScore || l.exam_relevance_score,
+                  content: l.content,
+                  minicheck_parsed: l.minicheck_parsed,
+                  sort_order: l.sort_order,
+                  qc_status: l.qc_status,
+                  duration_minutes: l.duration_minutes,
+                  competency_id: l.competency_id,
+                  exam_block: l.exam_block,
+                  weight_tag: l.weight_tag,
+                  mastery_weight: (contentObj?.mastery_weight as string) || l.mastery_weight,
+                  quality_gate_status: l.quality_gate_status,
+                  quality_flags: l.quality_flags,
+                });
             }
             if (batch.length < pageSize) break;
             offset += pageSize;
@@ -716,13 +724,18 @@ Deno.serve(async (req) => {
       }
       const totalQ = questionSamples.length;
 
-      // Didactic step coverage
+      // Didactic step coverage + Bloom distribution
       const stepDist: Record<string, number> = {};
+      const bloomDist: Record<string, number> = {};
       let withMinicheck = 0;
+      let withBloomTag = 0;
       for (const l of allLessons as Record<string, unknown>[]) {
         const step = (l.step as string) || "unknown";
         stepDist[step] = (stepDist[step] || 0) + 1;
         if (l.minicheck_parsed) withMinicheck++;
+        const bloom = (l.bloom_level as string) || "unknown";
+        bloomDist[bloom] = (bloomDist[bloom] || 0) + 1;
+        if (bloom !== "unknown") withBloomTag++;
       }
 
       // Blueprint coverage
@@ -734,7 +747,14 @@ Deno.serve(async (req) => {
       ).length;
 
       return {
-        export_version: "3.0-premium",
+        export_version: "4.0-premium",
+        // ── Bloom Taxonomy Coverage ──
+        bloom_taxonomy: {
+          distribution: bloomDist,
+          percentages: Object.fromEntries(Object.entries(bloomDist).map(([k, v]) => [k, allLessons.length > 0 ? Math.round((v / allLessons.length) * 1000) / 10 : 0])),
+          tagged_count: withBloomTag,
+          coverage_percent: allLessons.length > 0 ? Math.round((withBloomTag / allLessons.length) * 1000) / 10 : 0,
+        },
         difficulty_distribution: diffDist,
         difficulty_percentages: Object.fromEntries(Object.entries(diffDist).map(([k, v]) => [k, totalQ > 0 ? Math.round((v / totalQ) * 1000) / 10 : 0])),
         cognitive_distribution: cognDist,
@@ -763,7 +783,7 @@ Deno.serve(async (req) => {
     // Export manifest with counts for quick verification
     const manifest = {
       exported_at: new Date().toISOString(),
-      export_version: "3.0-premium",
+      export_version: "4.0-premium",
       package_id: packageId,
       course_id: cid,
       curriculum_id: curriculumId,
