@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON, type AIProvider } from "../_shared/ai-client.ts";
+import { canonicalStepKey } from "../_shared/step-keys.ts";
 
 /**
  * Course Upgrade to IHK Exam Level — 4-Phase Pipeline
@@ -185,9 +186,32 @@ serve(async (req) => {
           const args = extractToolArgs(res);
           if (!args) { results.errors.push(`Exam ${comp.code}: No output`); continue; }
 
-          const updatedContent = { ...(typeof content === "object" && content ? content : {}), exam_block: { situation: args.situation, sub_questions: args.sub_questions, typical_traps: args.typical_traps, grading_criteria: args.grading_criteria }, consolidation_block: args.consolidation_block, upgraded_at: new Date().toISOString(), upgrade_version: "ihk-v2", _placeholder: true };
-          const { error: rpcErr } = await supabase.rpc("pipeline_write_lesson_content", { p_lesson_id: lesson.id, p_content: updatedContent });
-          if (rpcErr) throw new Error(`RPC write failed: ${rpcErr.message}`);
+          const upgradedContent = { ...(typeof content === "object" && content ? content : {}), exam_block: { situation: args.situation, sub_questions: args.sub_questions, typical_traps: args.typical_traps, grading_criteria: args.grading_criteria }, consolidation_block: args.consolidation_block, upgraded_at: new Date().toISOString(), upgrade_version: "ihk-v2" };
+
+          // SSOT: Insert into content_versions as approved, then publish
+          const stepKey = canonicalStepKey(lesson.step || "wiederholen");
+          const { data: ver, error: insErr } = await supabase
+            .from("content_versions")
+            .insert({
+              course_id: courseId,
+              lesson_id: lesson.id,
+              step_key: stepKey,
+              entity_type: "lesson_step",
+              status: "approved" as const,
+              content_json: upgradedContent,
+              created_by_agent: "admin_tool:course-upgrade-ihk",
+              council_round: 0,
+            })
+            .select("id")
+            .single();
+          if (insErr) throw new Error(`content_versions insert failed: ${insErr.message}`);
+
+          const { error: pubErr } = await supabase.rpc("publish_approved_version", {
+            p_lesson_id: lesson.id,
+            p_step_key: stepKey,
+            p_version_id: ver.id,
+          });
+          if (pubErr) throw new Error(`publish failed: ${pubErr.message}`);
           upgraded++;
         } catch (e) { results.errors.push(`Exam ${comp.code}: ${e instanceof Error ? e.message : "unknown"}`); }
       }

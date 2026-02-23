@@ -21904,6 +21904,7 @@ export type Database = {
         | "revise"
         | "rejected"
         | "approved"
+        | "published"
       council_decision: "approved" | "revise" | "rejected"
       council_message_type:
         | "proposal"
@@ -22225,6 +22226,7 @@ export const Constants = {
         "revise",
         "rejected",
         "approved",
+        "published",
       ],
       council_decision: ["approved", "revise", "rejected"],
       council_message_type: [
