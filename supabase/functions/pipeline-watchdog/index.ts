@@ -202,7 +202,90 @@ Deno.serve(async (req) => {
       actions.push(`Zombie building reset: ${healedZombies} packages via RPC`);
     }
 
-    // ── 4) Count active state ──
+    // ── 4) QG-Failed Auto-Heal ──
+    // Detect quality_gate_failed packages and reset them to building
+    // with re-queued steps so the pipeline can retry after gap-closing.
+    const QG_COOLDOWN_MINUTES = 60; // Don't re-heal within 60 min
+    const qgCooldownCutoff = new Date(Date.now() - QG_COOLDOWN_MINUTES * 60 * 1000).toISOString();
+
+    const { data: qgFailedPkgs } = await sb
+      .from("course_packages")
+      .select("id, title, integrity_report, updated_at")
+      .eq("status", "quality_gate_failed")
+      .lt("updated_at", qgCooldownCutoff) // Only packages that have been stuck for > cooldown
+      .limit(5); // Process max 5 per cycle to avoid overload
+
+    for (const pkg of (qgFailedPkgs || [])) {
+      const report = pkg.integrity_report as any;
+      const hardFails: string[] = report?.v3?.hard_fail_reasons || [];
+
+      if (hardFails.length === 0) continue; // No known failures, skip
+
+      // Determine which steps need re-queuing based on failure type
+      const stepsToReset: string[] = [];
+      let healReason = "";
+
+      const hasLfCoverage = hardFails.some((f: string) => f.includes("LF_COVERAGE"));
+      const hasPoolIssue = hardFails.some((f: string) => f.includes("EXAM_POOL") || f.includes("TOO_FEW"));
+
+      if (hasLfCoverage || hasPoolIssue) {
+        // Need more exam questions → re-queue exam pool generation + downstream
+        stepsToReset.push(
+          "generate_exam_pool", "validate_exam_pool",
+          "build_ai_tutor_index", "validate_tutor_index",
+          "generate_oral_exam", "validate_oral_exam",
+          "run_integrity_check", "quality_council", "auto_publish",
+        );
+        healReason = hasLfCoverage ? "LF_COVERAGE_GAP" : "EXAM_POOL_INSUFFICIENT";
+      } else {
+        // Generic: re-queue from integrity check onwards
+        stepsToReset.push("run_integrity_check", "quality_council", "auto_publish");
+        healReason = "GENERIC_QG_RETRY";
+      }
+
+      // Reset the steps to queued
+      for (const stepKey of stepsToReset) {
+        await sb
+          .from("package_steps")
+          .update({
+            status: "queued",
+            attempts: 0,
+            job_id: null,
+            runner_id: null,
+            started_at: null,
+            last_error: `Watchdog QG-heal: reset for ${healReason}`,
+          })
+          .eq("package_id", pkg.id)
+          .eq("step_key", stepKey);
+      }
+
+      // Reset package to building
+      await sb
+        .from("course_packages")
+        .update({
+          status: "building",
+          last_error: `Watchdog QG-heal: ${healReason} — ${hardFails.length} blocker(s) → retry`,
+        })
+        .eq("id", pkg.id);
+
+      // Cancel any lingering cancelled/failed jobs for this package
+      // so the runner can create fresh ones
+      await sb
+        .from("job_queue")
+        .delete()
+        .eq("package_id", pkg.id)
+        .in("status", ["cancelled", "failed"]);
+
+      actions.push(
+        `QG-heal: ${(pkg.title as string).slice(0, 30)} (${healReason}, reset ${stepsToReset.length} steps)`,
+      );
+
+      console.log(
+        `[watchdog] QG-heal: pkg=${(pkg.id as string).slice(0, 8)} "${pkg.title}" reason=${healReason} fails=${hardFails.join("; ")}`,
+      );
+    }
+
+    // ── 5) Count active state ──
     const { count: activeLeases } = await sb
       .from("package_leases")
       .select("package_id", { count: "exact", head: true })
@@ -218,7 +301,7 @@ Deno.serve(async (req) => {
       .select("id", { count: "exact", head: true })
       .eq("status", "building");
 
-    // ── 5) Stall detection ──
+    // ── 6) Stall detection ──
     const isStalled =
       (queuedCount ?? 0) > 0 &&
       (buildingCount ?? 0) === 0 &&
@@ -253,7 +336,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 5) Auto-resolve stall alerts when healthy ──
+    // ── 7) Auto-resolve stall alerts when healthy ──
     const isHealthy = (activeLeases ?? 0) > 0;
     if (isHealthy) {
       try {
@@ -265,8 +348,8 @@ Deno.serve(async (req) => {
           .ilike("message", "%PIPELINE_STALLED%");
       } catch (_) { /* non-critical */ }
     }
-
     // ── Log cycle ──
+    const qgHealedCount = (qgFailedPkgs || []).length;
     try {
       await sb
         .from("auto_heal_log")
@@ -284,6 +367,7 @@ Deno.serve(async (req) => {
             stale_leases: staleLeases.length,
             zombie_jobs: zombieJobCount,
             zombie_building: healedZombies,
+            qg_healed: qgHealedCount,
           },
         });
     } catch (_) { /* non-critical */ }
