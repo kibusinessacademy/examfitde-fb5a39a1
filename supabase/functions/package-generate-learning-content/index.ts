@@ -6,6 +6,7 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { loadCachedGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES, buildMiniCheckPrompt, measureDepth, depthMeetsMinimum, mapToDifficultyLevel, getRequiredDepth, runV2QualityGate, loadMasteryContext, buildMasteryFeedbackSuffix, adjustDifficultyByMastery } from "../_shared/prompt-kit.ts";
 import type { DifficultyLevel, MasteryContext } from "../_shared/prompt-kit.ts";
+import { canonicalStepKey, STEP_KEY_MAP } from "../_shared/step-keys.ts";
 
 /**
  * package-generate-learning-content — Pipeline Step
@@ -222,22 +223,15 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done";
 }
 
-// ── SSOT Step-Key Mapping: German → English DB standard ──
-const STEP_KEY_MAP: Record<string, string> = {
-  einstieg: "step_1_introduction",
-  verstehen: "step_2_understanding",
-  anwenden: "step_3_application",
-  wiederholen: "step_4_repetition",
-  mini_check: "step_5_minicheck",
-};
+// STEP_KEY_MAP + canonicalStepKey imported from _shared/step-keys.ts (SSOT)
 
 async function existingVersion(sb: ReturnType<typeof createClient>, lessonId: string, step: string) {
-  const canonicalKey = STEP_KEY_MAP[step] ?? `step_${step}`;
+  const canonKey = canonicalStepKey(step);
   const { data } = await sb
     .from("content_versions")
     .select("id, content_json")
     .eq("lesson_id", lessonId)
-    .eq("step_key", canonicalKey)
+    .eq("step_key", canonKey)
     .eq("entity_type", step === "mini_check" ? "minicheck" : "lesson_step")
     .neq("status", "rejected")
     .limit(1)
@@ -245,21 +239,9 @@ async function existingVersion(sb: ReturnType<typeof createClient>, lessonId: st
   return data;
 }
 
-async function writeBackToLesson(
-  sb: ReturnType<typeof createClient>,
-  lessonId: string,
-  contentJson: Record<string, unknown>,
-) {
-  const { error } = await sb.rpc("pipeline_write_lesson_content", {
-    p_lesson_id: lessonId,
-    p_content: { ...contentJson, _placeholder: false },
-  });
-  if (error) {
-    console.error(`[gen-content] Lesson write-back failed for ${lessonId}: ${error.message}`);
-    return false;
-  }
-  return true;
-}
+// writeBackToLesson removed — Council-first enforcement.
+// Content reaches lessons.content ONLY via publish_approved_version().
+// Placeholder writes use pipeline_write_lesson_content with _placeholder: true.
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -685,21 +667,13 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
             version: 5,
           };
 
-      // Write to content_versions with upsert-like behavior
-      // ── SSOT Step-Key Mapping: German → English DB standard ──
-      const STEP_KEY_MAP: Record<string, string> = {
-        einstieg: "step_1_introduction",
-        verstehen: "step_2_understanding",
-        anwenden: "step_3_application",
-        wiederholen: "step_4_repetition",
-        mini_check: "step_5_minicheck",
-      };
-      const canonicalStepKey = STEP_KEY_MAP[lesson.step] ?? `step_${lesson.step}`;
+      // Write to content_versions (Council write path — NO direct lesson write)
+      const stepKeyCanonical = canonicalStepKey(lesson.step);
 
       const { data: newVersion, error: vErr } = await sb.from("content_versions").insert({
         course_id: courseId,
         lesson_id: lesson.id,
-        step_key: canonicalStepKey,
+        step_key: stepKeyCanonical,
         content_json: finalContent,
         created_by_agent: "generate-learning-content",
         status: "under_review",
@@ -712,7 +686,6 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         if (vErr.message?.includes("idx_cv_idempotency") || vErr.code === "23505") {
           const existing2 = await existingVersion(sb, lesson.id, lesson.step);
           if (existing2) {
-            await writeBackToLesson(sb, lesson.id, existing2.content_json as Record<string, unknown>);
             skippedWriteBack++;
             details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "deduped", versionId: existing2.id });
             continue;
@@ -721,7 +694,7 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         throw vErr;
       }
 
-      await writeBackToLesson(sb, lesson.id, finalContent);
+      // NO writeBackToLesson — content reaches lessons.content ONLY via publish_approved_version()
 
       await sb.from("council_messages").insert({
         content_version_id: newVersion!.id,

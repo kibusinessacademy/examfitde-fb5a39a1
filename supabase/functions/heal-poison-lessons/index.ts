@@ -5,6 +5,7 @@ import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, runV2QualityGate, getRequiredDepth, mapToDifficultyLevel } from "../_shared/prompt-kit.ts";
 import type { DifficultyLevel } from "../_shared/prompt-kit.ts";
+import { canonicalStepKey } from "../_shared/step-keys.ts";
 
 /**
  * heal-poison-lessons — Auto-Heal for persistently failing lessons
@@ -18,18 +19,6 @@ import type { DifficultyLevel } from "../_shared/prompt-kit.ts";
 
 const BATCH_SIZE = 3;
 const DELAY_MS = 2000;
-
-// ── SSOT Step-Key Mapping: German → English DB standard ──
-const STEP_KEY_MAP: Record<string, string> = {
-  einstieg: "step_1_introduction",
-  verstehen: "step_2_understanding",
-  anwenden: "step_3_application",
-  wiederholen: "step_4_repetition",
-  mini_check: "step_5_minicheck",
-};
-function canonicalStepKey(step: string): string {
-  return STEP_KEY_MAP[step] ?? `step_${step}`;
-}
 
 const CONTENT_TOOL = {
   type: "function" as const,
@@ -182,10 +171,14 @@ Deno.serve(async (req) => {
 
         if (vErr) throw vErr;
 
-        // Direct write-back to lesson
-        await sb.from("lessons").update({
-          content: finalContent,
-        }).eq("id", lesson.id);
+        // NO direct lesson write — content reaches lessons.content ONLY via publish_approved_version()
+        // Council proposal message
+        await sb.from("council_messages").insert({
+          content_version_id: newVersion!.id,
+          agent_name: "heal-poison-lessons",
+          message_type: "proposal",
+          message_json: { source: "heal-poison", reason: "poison_pill_repair" },
+        }).catch(() => {});
 
         await logLLMCostEvent(sb, {
           job_type: "heal_poison_lesson",
