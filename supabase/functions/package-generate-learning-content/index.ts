@@ -629,8 +629,34 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         }
       }
 
+      // ── Bloom-Level mapping from lesson step ──
+      const STEP_BLOOM_MAP: Record<string, string> = {
+        einstieg: "remember",
+        verstehen: "understand",
+        anwenden: "apply",
+        wiederholen: "analyze",
+        mini_check: "apply",
+      };
+      const bloomLevel = STEP_BLOOM_MAP[lesson.step] || "understand";
+      
+      // ── Exam relevance score (1-5 based on LF weight + difficulty) ──
+      const lfWeightPct = lfData?.weight_percent || 0;
+      const examRelevanceScore = Math.min(5, Math.max(1,
+        Math.round((lfWeightPct > 15 ? 4 : lfWeightPct > 10 ? 3 : 2) + (difficultyLevel === "hard" ? 1 : 0))
+      ));
+
       const finalContent = isMiniCheck
-        ? { type: "mini_check", questions: content.questions, objectives: content.objectives, generated_at: new Date().toISOString(), version: 4 }
+        ? {
+            type: "mini_check",
+            questions: content.questions,
+            objectives: content.objectives,
+            bloom_level: "apply",
+            exam_relevance_score: examRelevanceScore,
+            competency_id: (lesson as any).competency_id || null,
+            learning_field_id: lfId || null,
+            generated_at: new Date().toISOString(),
+            version: 5,
+          }
         : {
             type: "text",
             html: content.html,
@@ -639,11 +665,14 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
             common_mistakes: content.common_mistakes || [],
             exam_triggers: content.exam_triggers || [],
             transfer_questions: content.transfer_questions || [],
+            bloom_level: bloomLevel,
+            exam_relevance_score: examRelevanceScore,
             step: lesson.step,
             competency_id: (lesson as any).competency_id || null,
             learning_field_id: lfId || null,
+            mastery_weight: lfWeightPct > 15 ? "high" : lfWeightPct > 10 ? "medium" : "low",
             generated_at: new Date().toISOString(),
-            version: 4,
+            version: 5,
           };
 
       // Write to content_versions with upsert-like behavior
