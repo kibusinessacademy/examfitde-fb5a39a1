@@ -208,11 +208,13 @@ Deno.serve(async (req) => {
     if (stillFailed > 0) {
       console.warn(`[heal-poison] ${stillFailed}/${lessons.length} lessons still failing → flagging for manual review`);
 
-      // Mark failed lessons with _needs_manual_review
+      // Mark failed lessons with _needs_manual_review (via RPC — guard-safe)
       for (const d of details.filter(d => d.status === "failed")) {
-        await sb.from("lessons").update({
-          content: { _placeholder: true, _needs_manual_review: true, _heal_failed_at: new Date().toISOString() },
-        }).eq("id", d.id);
+        const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content", {
+          p_lesson_id: d.id,
+          p_content: { _placeholder: true, _needs_manual_review: true, _heal_failed_at: new Date().toISOString() },
+        });
+        if (rpcErr) console.error(`[heal-poison] RPC write failed for ${d.id}: ${rpcErr.message}`);
       }
 
       // Create admin notification

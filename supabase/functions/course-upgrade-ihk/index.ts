@@ -185,8 +185,9 @@ serve(async (req) => {
           const args = extractToolArgs(res);
           if (!args) { results.errors.push(`Exam ${comp.code}: No output`); continue; }
 
-          const updatedContent = { ...(typeof content === "object" && content ? content : {}), exam_block: { situation: args.situation, sub_questions: args.sub_questions, typical_traps: args.typical_traps, grading_criteria: args.grading_criteria }, consolidation_block: args.consolidation_block, upgraded_at: new Date().toISOString(), upgrade_version: "ihk-v2" };
-          await supabase.from("lessons").update({ content: updatedContent }).eq("id", lesson.id);
+          const updatedContent = { ...(typeof content === "object" && content ? content : {}), exam_block: { situation: args.situation, sub_questions: args.sub_questions, typical_traps: args.typical_traps, grading_criteria: args.grading_criteria }, consolidation_block: args.consolidation_block, upgraded_at: new Date().toISOString(), upgrade_version: "ihk-v2", _placeholder: true };
+          const { error: rpcErr } = await supabase.rpc("pipeline_write_lesson_content", { p_lesson_id: lesson.id, p_content: updatedContent });
+          if (rpcErr) throw new Error(`RPC write failed: ${rpcErr.message}`);
           upgraded++;
         } catch (e) { results.errors.push(`Exam ${comp.code}: ${e instanceof Error ? e.message : "unknown"}`); }
       }
