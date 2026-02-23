@@ -272,14 +272,14 @@ Deno.serve(async (req) => {
     if (cid && moduleIds.length > 0) {
       console.log(`[export] Collecting ALL lessons from ${moduleIds.length} modules`);
       try {
-        const { data: modules } = await sb.from("modules").select("id, title, sort_order").eq("course_id", cid).order("sort_order");
+        const { data: modules } = await sb.from("modules").select("id, title, sort_order, learning_field_id, learning_field_code").eq("course_id", cid).order("sort_order");
         for (const mod of (modules || []) as Record<string, unknown>[]) {
           const pageSize = 500;
           let offset = 0;
           while (true) {
             const { data: batch, error: lErr } = await sb
               .from("lessons")
-              .select("id, title, content, minicheck_parsed, sort_order, qc_status")
+              .select("id, title, content, minicheck_parsed, sort_order, qc_status, step, status, duration_minutes, competency_id, exam_block, weight_tag, exam_relevance_score, mastery_weight, quality_gate_status, quality_flags")
               .eq("module_id", mod.id as string)
               .order("sort_order")
               .range(offset, offset + pageSize - 1);
@@ -292,12 +292,24 @@ Deno.serve(async (req) => {
               allLessons.push({
                 module: mod.title,
                 module_id: mod.id,
+                learning_field_id: mod.learning_field_id,
+                learning_field_code: mod.learning_field_code,
                 lesson_id: l.id,
                 title: l.title,
+                step: l.step,
+                status: l.status,
                 content: l.content,
                 minicheck_parsed: l.minicheck_parsed,
                 sort_order: l.sort_order,
                 qc_status: l.qc_status,
+                duration_minutes: l.duration_minutes,
+                competency_id: l.competency_id,
+                exam_block: l.exam_block,
+                weight_tag: l.weight_tag,
+                exam_relevance_score: l.exam_relevance_score,
+                mastery_weight: l.mastery_weight,
+                quality_gate_status: l.quality_gate_status,
+                quality_flags: l.quality_flags,
               });
             }
             if (batch.length < pageSize) break;
@@ -320,7 +332,7 @@ Deno.serve(async (req) => {
         while (true) {
           const { data: batch, error: qErr } = await sb
             .from("exam_questions")
-            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id")
+            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id, question_type, trap_tags, distractor_meta, variant_group, variant_label, item_difficulty, item_discrimination")
             .eq("curriculum_id", curriculumId)
             .in("qc_status", ["approved", "draft"])
             .range(offset, offset + pageSize - 1);
@@ -342,6 +354,13 @@ Deno.serve(async (req) => {
               qc_status: q.qc_status,
               blueprint_id: q.blueprint_id,
               competency_id: q.competency_id,
+              question_type: q.question_type,
+              trap_tags: q.trap_tags,
+              distractor_meta: q.distractor_meta,
+              variant_group: q.variant_group,
+              variant_label: q.variant_label,
+              item_difficulty: q.item_difficulty,
+              item_discrimination: q.item_discrimination,
             });
           }
           if (batch.length < pageSize) break;
@@ -542,29 +561,72 @@ Deno.serve(async (req) => {
     } catch (_e) { /* best-effort */ }
     console.log(`[export] AI cost summary: ${JSON.stringify(aiCostSummary).length} bytes`);
 
-    // ── 10. LF Distribution Analysis ──
+    // ── 10. LF Distribution Analysis (enriched with lesson/minicheck/competency counts) ──
     let lfDistribution: unknown[] = [];
     if (curriculumId && learningFields.length > 0) {
       try {
+        // Pre-compute lesson counts per LF from allLessons
+        const lessonsByLF: Record<string, { total: number; minichecks: number; steps: Record<string, number> }> = {};
+        for (const l of allLessons as Record<string, unknown>[]) {
+          const lfId = l.learning_field_id as string;
+          if (!lfId) continue;
+          if (!lessonsByLF[lfId]) lessonsByLF[lfId] = { total: 0, minichecks: 0, steps: {} };
+          lessonsByLF[lfId].total++;
+          const step = (l.step as string) || "unknown";
+          lessonsByLF[lfId].steps[step] = (lessonsByLF[lfId].steps[step] || 0) + 1;
+          if (step === "mini_check") lessonsByLF[lfId].minichecks++;
+        }
+
         for (const lf of learningFields as Record<string, unknown>[]) {
+          const lfId = lf.id as string;
           const { count: totalQ } = await sb.from("exam_questions").select("id", { count: "exact", head: true })
-            .eq("curriculum_id", curriculumId).eq("learning_field_id", lf.id as string);
+            .eq("curriculum_id", curriculumId).eq("learning_field_id", lfId);
           const { count: approvedQ } = await sb.from("exam_questions").select("id", { count: "exact", head: true })
-            .eq("curriculum_id", curriculumId).eq("learning_field_id", lf.id as string).eq("qc_status", "approved");
+            .eq("curriculum_id", curriculumId).eq("learning_field_id", lfId).eq("qc_status", "approved");
           const { count: bpCount } = await sb.from("question_blueprints").select("id", { count: "exact", head: true })
-            .eq("curriculum_id", curriculumId).eq("learning_field_id", lf.id as string);
+            .eq("curriculum_id", curriculumId).eq("learning_field_id", lfId);
+          const { count: compCount } = await sb.from("competencies").select("id", { count: "exact", head: true })
+            .eq("learning_field_id", lfId);
+          const lfLessons = lessonsByLF[lfId] || { total: 0, minichecks: 0, steps: {} };
           lfDistribution.push({
-            learning_field_id: lf.id,
+            learning_field_id: lfId,
             title: lf.title,
             sort_order: lf.sort_order,
             questions_total: totalQ ?? 0,
             questions_approved: approvedQ ?? 0,
             blueprints: bpCount ?? 0,
+            competencies: compCount ?? 0,
+            lessons_total: lfLessons.total,
+            minichecks: lfLessons.minichecks,
+            didactic_steps: lfLessons.steps,
+            weight_percent: 0, // computed below
           });
+        }
+        // Compute weight percentages
+        const totalAllQ = lfDistribution.reduce((s: number, d: any) => s + d.questions_total, 0);
+        for (const d of lfDistribution as Record<string, unknown>[]) {
+          (d as any).weight_percent = totalAllQ > 0 ? Math.round(((d as any).questions_total / totalAllQ) * 1000) / 10 : 0;
         }
       } catch (_e) { /* best-effort */ }
     }
     console.log(`[export] LF distribution: ${lfDistribution.length} fields analyzed`);
+
+    // ── 10b. Competencies Export (full graph with mastery thresholds) ──
+    let competencies: unknown[] = [];
+    if (curriculumId && learningFields.length > 0) {
+      try {
+        const lfIds = (learningFields as Record<string, unknown>[]).map(lf => lf.id as string);
+        const { data: comps } = await sb.from("competencies")
+          .select("id, learning_field_id, code, title, description, taxonomy_level, sort_order")
+          .in("learning_field_id", lfIds)
+          .order("sort_order");
+        competencies = (comps || []).map((c: any) => ({
+          ...c,
+          mastery_thresholds: { not_mastered: 0.6, partial: 0.8, mastered: 1.0 },
+        }));
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${competencies.length} competencies exported`);
 
     // ── 11. Autofix Runs ──
     let autofixRuns: unknown[] = [];
@@ -616,6 +678,7 @@ Deno.serve(async (req) => {
     // Content (full course data for audit)
     zip.file("content/lessons_all.json", JSON.stringify(allLessons, null, 2));
     zip.file("content/exam_questions_approved.json", JSON.stringify(questionSamples, null, 2));
+    zip.file("content/competencies.json", JSON.stringify(competencies, null, 2));
 
     // ── META / AUDIT DATA ──
     zip.file("meta/curriculum.json", JSON.stringify(curriculumFull || {}, null, 2));
@@ -634,15 +697,79 @@ Deno.serve(async (req) => {
     zip.file("meta/ai_budgets.json", JSON.stringify(aiBudgets, null, 2));
     zip.file("meta/worker_policies.json", JSON.stringify(workerPolicies, null, 2));
 
+    // ── QUALITY ANALYSIS (computed from export data) ──
+    const qualityAnalysis = (() => {
+      // Difficulty distribution
+      const diffDist: Record<string, number> = {};
+      const cognDist: Record<string, number> = {};
+      const typeDist: Record<string, number> = {};
+      let withTraps = 0, withDistractorMeta = 0;
+      for (const q of questionSamples as Record<string, unknown>[]) {
+        const diff = (q.difficulty as string) || "unknown";
+        diffDist[diff] = (diffDist[diff] || 0) + 1;
+        const cogn = (q.cognitive_level as string) || "unknown";
+        cognDist[cogn] = (cognDist[cogn] || 0) + 1;
+        const qtype = (q.question_type as string) || "unknown";
+        typeDist[qtype] = (typeDist[qtype] || 0) + 1;
+        if (q.trap_tags && Array.isArray(q.trap_tags) && (q.trap_tags as unknown[]).length > 0) withTraps++;
+        if (q.distractor_meta) withDistractorMeta++;
+      }
+      const totalQ = questionSamples.length;
+
+      // Didactic step coverage
+      const stepDist: Record<string, number> = {};
+      let withMinicheck = 0;
+      for (const l of allLessons as Record<string, unknown>[]) {
+        const step = (l.step as string) || "unknown";
+        stepDist[step] = (stepDist[step] || 0) + 1;
+        if (l.minicheck_parsed) withMinicheck++;
+      }
+
+      // Blueprint coverage
+      const bpsWithTraps = (questionBlueprints as Record<string, unknown>[]).filter(
+        b => b.typical_errors && Array.isArray(b.typical_errors) && (b.typical_errors as unknown[]).length > 0
+      ).length;
+      const bpsWithContext = (questionBlueprints as Record<string, unknown>[]).filter(
+        b => b.exam_context_type
+      ).length;
+
+      return {
+        export_version: "3.0-premium",
+        difficulty_distribution: diffDist,
+        difficulty_percentages: Object.fromEntries(Object.entries(diffDist).map(([k, v]) => [k, totalQ > 0 ? Math.round((v / totalQ) * 1000) / 10 : 0])),
+        cognitive_distribution: cognDist,
+        cognitive_percentages: Object.fromEntries(Object.entries(cognDist).map(([k, v]) => [k, totalQ > 0 ? Math.round((v / totalQ) * 1000) / 10 : 0])),
+        question_type_distribution: typeDist,
+        trap_coverage: { with_trap_tags: withTraps, without: totalQ - withTraps, percent: totalQ > 0 ? Math.round((withTraps / totalQ) * 1000) / 10 : 0 },
+        distractor_meta_coverage: { with_meta: withDistractorMeta, without: totalQ - withDistractorMeta, percent: totalQ > 0 ? Math.round((withDistractorMeta / totalQ) * 1000) / 10 : 0 },
+        didactic_step_distribution: stepDist,
+        minicheck_coverage: { with_minicheck: withMinicheck, total_lessons: allLessons.length, percent: allLessons.length > 0 ? Math.round((withMinicheck / allLessons.length) * 1000) / 10 : 0 },
+        blueprint_quality: {
+          total: questionBlueprints.length,
+          with_typical_errors: bpsWithTraps,
+          with_exam_context_type: bpsWithContext,
+          trap_coverage_percent: questionBlueprints.length > 0 ? Math.round((bpsWithTraps / questionBlueprints.length) * 1000) / 10 : 0,
+        },
+        competency_graph: {
+          total_competencies: competencies.length,
+          mastery_model: "three_tier",
+          thresholds: { not_mastered: "<60%", partial: "60-80%", mastered: ">80%" },
+        },
+        lf_weight_distribution: lfDistribution,
+      };
+    })();
+    zip.file("meta/quality_analysis.json", JSON.stringify(qualityAnalysis, null, 2));
+
     // Export manifest with counts for quick verification
     const manifest = {
       exported_at: new Date().toISOString(),
-      export_version: "2.0-audit",
+      export_version: "3.0-premium",
       package_id: packageId,
       course_id: cid,
       curriculum_id: curriculumId,
       content_counts: {
         lessons_total: allLessons.length,
+        competencies_total: competencies.length,
         questions_approved: questionSamples.length,
         oral_exam_sessionsets: (oralSessionsets || []).length,
         oral_exam_blueprints: oralBlueprints.length,
