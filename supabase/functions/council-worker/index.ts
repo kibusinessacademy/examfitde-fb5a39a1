@@ -5,12 +5,19 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModelAsync } from "../_shared/model-routing.ts";
 
 /**
- * Council Worker v2 – Deliberative Architecture
+ * Council Worker v3 – Consolidated Governance Layer
+ *
+ * IMPORTANT: This worker is a DELEGATE for council-run-step.
+ * It handles individual council actions but does NOT bypass the
+ * governance pipeline. All content must flow through Council approval.
+ *
+ * SSOT Step-Key Standard: step_1_introduction ... step_5_minicheck
+ * Agent names: resolved dynamically via model-routing (never hardcoded)
  *
  * Handles job_types:
- *   council_propose_step   → GPT-5.2 generates content proposal
- *   council_critique_step  → Claude critiques/validates
- *   council_revise_step    → GPT-5.2 revises based on critique
+ *   council_propose_step   → Proposer model generates content proposal
+ *   council_critique_step  → Validator model critiques/validates
+ *   council_revise_step    → Proposer model revises based on critique
  *   council_vote_and_verdict → Both agents vote, verdict is written
  *   council_publish_step   → Publishes approved version to lesson
  *   council_recompute_course_ready → Recomputes publish gate
@@ -85,7 +92,7 @@ async function dispatch(
   }
 }
 
-// ─── 1. Propose Step (GPT-5.2) ──────────────────────────────────────────────
+// ─── 1. Propose Step (dynamic proposer model) ───────────────────────────────
 
 async function proposeStep(
   db: ReturnType<typeof createClient>,
@@ -102,7 +109,6 @@ async function proposeStep(
     throw new Error("Missing lesson_id, step_key, or course_id");
   }
 
-  // Fetch lesson context
   const { data: lesson } = await db
     .from("lessons")
     .select("title, content, step")
@@ -112,6 +118,8 @@ async function proposeStep(
   if (!lesson) throw new Error(`Lesson ${lesson_id} not found`);
 
   const proposerModel = await getModelAsync("council_proposer");
+  const agentName = `${proposerModel.provider}/${proposerModel.model}`;
+
   const { content: aiContent } = await callAIJSON({
     provider: proposerModel.provider,
     model: proposerModel.model,
@@ -145,7 +153,7 @@ Antworte als JSON mit: { "html": "...", "objectives": [...], "key_concepts": [..
       lesson_id,
       step_key,
       content_json: contentJson,
-      created_by_agent: proposerModel.model,
+      created_by_agent: agentName,
       created_by_job_id: jobId || null,
       status: "proposed",
       council_round: 1,
@@ -155,10 +163,9 @@ Antworte als JSON mit: { "html": "...", "objectives": [...], "key_concepts": [..
 
   if (error) throw error;
 
-  // Log proposal message
   await db.from("council_messages").insert({
     content_version_id: version.id,
-    agent_name: proposerModel.model,
+    agent_name: agentName,
     message_type: "proposal",
     message_json: {
       summary: `Proposal for ${step_key} of lesson "${lesson.title}"`,
@@ -170,7 +177,7 @@ Antworte als JSON mit: { "html": "...", "objectives": [...], "key_concepts": [..
   return { version_id: version.id, step_key };
 }
 
-// ─── 2. Critique Step (Claude) ──────────────────────────────────────────────
+// ─── 2. Critique Step (dynamic validator model) ─────────────────────────────
 
 async function critiqueStep(
   db: ReturnType<typeof createClient>,
@@ -187,7 +194,6 @@ async function critiqueStep(
 
   if (!version) throw new Error(`Version ${version_id} not found`);
 
-  // Update status
   await db
     .from("content_versions")
     .update({ status: "under_review" })
@@ -196,6 +202,8 @@ async function critiqueStep(
   const contentStr = JSON.stringify(version.content_json);
 
   const validatorModel = await getModelAsync("council_validator");
+  const agentName = `${validatorModel.provider}/${validatorModel.model}`;
+
   const { content: critiqueContent } = await callAIJSON({
     provider: validatorModel.provider,
     model: validatorModel.model,
@@ -234,15 +242,13 @@ Antworte als JSON:
     critiqueJson = { overall_score: 0, issues: [], verdict_recommendation: "revise" };
   }
 
-  // Store critique as council message
   await db.from("council_messages").insert({
     content_version_id: version_id,
-    agent_name: validatorModel.model,
+    agent_name: agentName,
     message_type: "critique",
     message_json: critiqueJson,
   });
 
-  // Update quality score
   const score = Number(critiqueJson.overall_score) || 0;
   await db
     .from("content_versions")
@@ -252,7 +258,7 @@ Antworte als JSON:
   return { version_id, critique: critiqueJson };
 }
 
-// ─── 3. Revise Step (GPT-5.2 revises based on critique) ────────────────────
+// ─── 3. Revise Step (dynamic proposer model) ────────────────────────────────
 
 async function reviseStep(
   db: ReturnType<typeof createClient>,
@@ -270,7 +276,6 @@ async function reviseStep(
 
   if (!version) throw new Error(`Version ${version_id} not found`);
 
-  // Get critique messages
   const { data: critiques } = await db
     .from("council_messages")
     .select("message_json")
@@ -282,6 +287,8 @@ async function reviseStep(
   const latestCritique = critiques?.[0]?.message_json || {};
 
   const reviserModel = await getModelAsync("council_proposer");
+  const agentName = `${reviserModel.provider}/${reviserModel.model}`;
+
   const { content: revisedContent } = await callAIJSON({
     provider: reviserModel.provider,
     model: reviserModel.model,
@@ -308,7 +315,6 @@ Antworte als JSON: { "html": "...", "objectives": [...], "key_concepts": [...], 
     revisedJson = { html: revisedContent };
   }
 
-  // Create new version as revision
   const { data: newVersion, error } = await db
     .from("content_versions")
     .insert({
@@ -316,7 +322,7 @@ Antworte als JSON: { "html": "...", "objectives": [...], "key_concepts": [...], 
       lesson_id: version.lesson_id,
       step_key: version.step_key,
       content_json: revisedJson,
-      created_by_agent: "gpt-4.1",
+      created_by_agent: agentName,
       created_by_job_id: jobId || null,
       status: "proposed",
       council_round: (version.council_round || 1) + 1,
@@ -327,16 +333,14 @@ Antworte als JSON: { "html": "...", "objectives": [...], "key_concepts": [...], 
 
   if (error) throw error;
 
-  // Mark old version as "revise"
   await db
     .from("content_versions")
     .update({ status: "revise" })
     .eq("id", version_id);
 
-  // Log revision
   await db.from("council_messages").insert({
     content_version_id: newVersion.id,
-    agent_name: "gpt-4.1",
+    agent_name: agentName,
     message_type: "revision",
     message_json: {
       parent_version: version_id,
@@ -348,7 +352,7 @@ Antworte als JSON: { "html": "...", "objectives": [...], "key_concepts": [...], 
   return { new_version_id: newVersion.id, parent_version_id: version_id };
 }
 
-// ─── 4. Vote & Verdict ─────────────────────────────────────────────────────
+// ─── 4. Vote & Verdict (dynamic models) ────────────────────────────────────
 
 async function voteAndVerdict(
   db: ReturnType<typeof createClient>,
@@ -357,7 +361,6 @@ async function voteAndVerdict(
   const { version_id } = payload as { version_id: string };
   if (!version_id) throw new Error("Missing version_id");
 
-  // Get all critiques for this version
   const { data: messages } = await db
     .from("council_messages")
     .select("agent_name, message_type, message_json")
@@ -371,24 +374,29 @@ async function voteAndVerdict(
   const score = Number(critiqueData.overall_score) || 0;
   const recommendation = String(critiqueData.verdict_recommendation || "revise");
 
-  // GPT-5.2 vote (generator – tends to approve)
+  // Resolve model names dynamically
+  const proposerModel = await getModelAsync("council_proposer");
+  const validatorModel = await getModelAsync("council_validator");
+  const proposerAgent = `${proposerModel.provider}/${proposerModel.model}`;
+  const validatorAgent = `${validatorModel.provider}/${validatorModel.model}`;
+
+  // Generator vote (tends to approve)
   const generatorVote = score >= 75 ? "approved" : score >= 50 ? "revise" : "rejected";
-  // Claude vote (validator – stricter)
+  // Validator vote (stricter, from critique)
   const validatorVote = recommendation as "approved" | "revise" | "rejected";
 
-  // Insert votes (upsert)
   await db.from("council_votes").upsert(
     [
       {
         content_version_id: version_id,
-        agent_name: "gpt-4.1",
+        agent_name: proposerAgent,
         vote: generatorVote,
         confidence: Math.min(1, score / 100),
         rationale: `Score ${score}, generator assessment`,
       },
       {
         content_version_id: version_id,
-        agent_name: "claude-sonnet-4",
+        agent_name: validatorAgent,
         vote: validatorVote,
         confidence: Math.min(1, score / 100),
         rationale: `Validator recommendation: ${recommendation}`,
@@ -397,7 +405,7 @@ async function voteAndVerdict(
     { onConflict: "content_version_id,agent_name" }
   );
 
-  // Determine final decision (validator has veto power)
+  // Validator has HARD VETO power
   let finalDecision: "approved" | "revise" | "rejected";
   if (validatorVote === "rejected") {
     finalDecision = "rejected";
@@ -407,10 +415,8 @@ async function voteAndVerdict(
     finalDecision = "revise";
   }
 
-  const consensusScore =
-    generatorVote === validatorVote ? 1.0 : 0.5;
+  const consensusScore = generatorVote === validatorVote ? 1.0 : 0.5;
 
-  // Write verdict
   await db.from("council_verdicts").upsert(
     {
       content_version_id: version_id,
@@ -425,13 +431,11 @@ async function voteAndVerdict(
     { onConflict: "content_version_id" }
   );
 
-  // Update version status
   await db
     .from("content_versions")
     .update({ status: finalDecision === "approved" ? "approved" : finalDecision })
     .eq("id", version_id);
 
-  // Log verdict
   await db.from("council_messages").insert({
     content_version_id: version_id,
     agent_name: "council",
@@ -439,7 +443,9 @@ async function voteAndVerdict(
     message_json: {
       decision: finalDecision,
       generator_vote: generatorVote,
+      generator_agent: proposerAgent,
       validator_vote: validatorVote,
+      validator_agent: validatorAgent,
       consensus_score: consensusScore,
       score,
     },
@@ -470,7 +476,6 @@ async function publishStep(
     );
   }
 
-  // Use the DB function for hard gate
   const { error } = await db.rpc("publish_approved_version", {
     p_lesson_id: version.lesson_id,
     p_step_key: version.step_key,
@@ -497,7 +502,6 @@ async function recomputeReady(
 
   if (error) throw error;
 
-  // Read back status
   const { data: course } = await db
     .from("courses")
     .select("is_ready_for_publish")
