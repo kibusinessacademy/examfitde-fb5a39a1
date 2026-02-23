@@ -206,10 +206,11 @@ serve(async (req) => {
             .single();
           if (insErr) throw new Error(`content_versions insert failed: ${insErr.message}`);
 
-          const { error: pubErr } = await supabase.rpc("publish_approved_version", {
+          const { error: pubErr } = await supabase.rpc("publish_admin_version", {
             p_lesson_id: lesson.id,
             p_step_key: stepKey,
             p_version_id: ver.id,
+            p_admin_agent: "admin_tool:course-upgrade-ihk",
           });
           if (pubErr) throw new Error(`publish failed: ${pubErr.message}`);
           upgraded++;
