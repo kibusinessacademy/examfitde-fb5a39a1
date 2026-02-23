@@ -14,51 +14,55 @@ function assertUuid(name: string, v: unknown) {
     throw new Error(`INVALID_${name.toUpperCase()}`);
 }
 
+// ── Elite 2.0: Typed Cognitive Levels ───────────────────────────────
+type Cognitive = "remember" | "understand" | "apply" | "analyze" | "evaluate";
+
 // ── Elite 2.0: Context-Type Assignment ──────────────────────────────
-// Hard/analyze → complex types; easy/remember → simpler types
-const CONTEXT_TYPE_BY_COGNITIVE: Record<string, string[]> = {
-  remember: ["isolated_knowledge", "isolated_knowledge", "applied_case"],
-  understand: ["applied_case", "applied_case", "error_detection", "isolated_knowledge"],
+const CONTEXT_TYPE_BY_COGNITIVE: Record<Cognitive, string[]> = {
+  remember: ["isolated_knowledge", "applied_case"],
+  understand: ["applied_case", "error_detection", "isolated_knowledge"],
   apply: ["applied_case", "multi_step_case", "documentation_analysis", "prioritization"],
   analyze: ["multi_step_case", "error_detection", "legal_evaluation", "prioritization", "communication_scenario"],
+  evaluate: ["legal_evaluation", "prioritization", "multi_step_case", "communication_scenario"],
 };
 
-function pickExamContext(cognitive: string, index: number): string {
+function pickExamContext(cognitive: Cognitive, index: number): string {
   const pool = CONTEXT_TYPE_BY_COGNITIVE[cognitive] || CONTEXT_TYPE_BY_COGNITIVE["understand"];
   return pool[index % pool.length];
 }
 
-// ── Elite 2.0: Decision Structure Assignment ────────────────────────
-const DECISION_BY_COGNITIVE: Record<string, string | null> = {
-  remember: null,
-  understand: null,
-  apply: "single_best_answer",
-  analyze: "risk_assessment",
-};
-
-function pickDecisionStructure(cognitive: string): string | null {
-  return DECISION_BY_COGNITIVE[cognitive] ?? null;
+// ── Elite 2.0: Decision Structure Rotation ──────────────────────────
+function pickDecisionStructure(cognitive: Cognitive, index: number): string | null {
+  const map: Record<Cognitive, (string | null)[]> = {
+    remember: [null],
+    understand: [null],
+    apply: ["single_best_answer", "multiple_valid_options"],
+    analyze: ["error_detection", "documentation_duty", "risk_assessment"],
+    evaluate: ["prioritization", "legal_evaluation", "tradeoff_evaluation"],
+  };
+  const pool = map[cognitive] || map.understand;
+  return pool[index % pool.length];
 }
 
 // ── Elite 2.0: Exam Relevance Score ─────────────────────────────────
-function calcRelevanceScore(cognitive: string): number {
+function calcRelevanceScore(cognitive: Cognitive): number {
   switch (cognitive) {
+    case "evaluate": return 5;
     case "analyze": return 5;
     case "apply": return 4;
     case "understand": return 3;
     case "remember": return 2;
-    default: return 3;
   }
 }
 
 // ── Elite 2.0: Estimated Time ───────────────────────────────────────
-function calcEstimatedTime(cognitive: string): number {
+function calcEstimatedTime(cognitive: Cognitive): number {
   switch (cognitive) {
+    case "evaluate": return 200;
     case "analyze": return 180;
     case "apply": return 150;
     case "understand": return 90;
     case "remember": return 60;
-    default: return 120;
   }
 }
 
@@ -89,15 +93,16 @@ Deno.serve(async (req) => {
   }
 });
 
-const TAXONOMY_MAP: Record<string, string> = {
+const TAXONOMY_MAP: Record<string, Cognitive> = {
   "erinnern": "remember", "wissen": "remember", "kennen": "remember",
   "verstehen": "understand", "begreifen": "understand",
   "anwenden": "apply", "durchführen": "apply",
-  "analysieren": "analyze", "bewerten": "analyze", "beurteilen": "analyze",
-  "remember": "remember", "understand": "understand", "apply": "apply", "analyze": "analyze",
+  "analysieren": "analyze",
+  "bewerten": "evaluate", "beurteilen": "evaluate", "entscheiden": "evaluate",
+  "remember": "remember", "understand": "understand", "apply": "apply", "analyze": "analyze", "evaluate": "evaluate",
 };
 
-function normCognitive(raw: string | null | undefined): string {
+function normCognitive(raw: string | null | undefined): Cognitive {
   if (!raw) return "understand";
   const key = raw.trim().toLowerCase();
   return TAXONOMY_MAP[key] ?? "understand";
@@ -169,7 +174,7 @@ async function seedFromFields(
     const seedRows = lfs
       .filter((lf) => !existingLfIds.has(lf.id))
       .map((lf, i) => {
-        const cognitive = "understand";
+        const cognitive: Cognitive = "understand";
         return {
           curriculum_id: curriculumId,
           learning_field_id: lf.id,
@@ -179,10 +184,10 @@ async function seedFromFields(
           question_template: "",
           status: "approved",
           version: 1,
-          // ── Elite 2.0 fields ──
+          // ── Elite 2.0 fields (jsonb = raw array, not stringify) ──
           exam_context_type: pickExamContext(cognitive, i),
-          typical_errors: JSON.stringify([]),
-          decision_structure: pickDecisionStructure(cognitive),
+          typical_errors: [],
+          decision_structure: pickDecisionStructure(cognitive, i),
           exam_relevance_score: calcRelevanceScore(cognitive),
           estimated_time_seconds: calcEstimatedTime(cognitive),
         };
@@ -215,10 +220,10 @@ async function seedFromFields(
         question_template: "",
         status: "approved",
         version: 1,
-        // ── Elite 2.0 fields ──
+        // ── Elite 2.0 fields (jsonb = raw array, not stringify) ──
         exam_context_type: pickExamContext(cognitive, i),
-        typical_errors: JSON.stringify([]),
-        decision_structure: pickDecisionStructure(cognitive),
+        typical_errors: [],
+        decision_structure: pickDecisionStructure(cognitive, i),
         exam_relevance_score: calcRelevanceScore(cognitive),
         estimated_time_seconds: calcEstimatedTime(cognitive),
       };

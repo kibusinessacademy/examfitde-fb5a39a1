@@ -14,6 +14,13 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
+// ── Elite 2.0: Ensure minimum 2 typical errors ─────────────────────
+function ensureTypicalErrors(arr: unknown): string[] {
+  const a = Array.isArray(arr) ? arr.filter(Boolean).map(String) : [];
+  if (a.length >= 2) return a.slice(0, 6);
+  return ["falsche Priorisierung", "unvollständige Begründung"];
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
@@ -99,6 +106,7 @@ Deno.serve(async (req) => {
       // ── Elite 2.0: Enhanced prompt with exam context types ────────
       const contextTypeList = ELITE_CONTEXT_TYPES.join(", ");
 
+      // ── Fixed: JSON contract requires object wrapper, not array ──
       const systemPrompt = `Du bist ein Experte für die IHK-Prüfung "${certName}".
 Du erstellst prüfungsrealistische Fragen für den Bereich "${domain.domain_name}" (${domain.part?.part_name}).
 
@@ -119,25 +127,29 @@ ELITE-ANFORDERUNGEN (Prüfungsnähe 2.0):
 - Jede schwere Frage MUSS einen exam_context_type ≠ "isolated_knowledge" haben
 - Jede Frage braucht mindestens 2 typische Fehler (typical_errors)
 - Erlaubte exam_context_type: ${contextTypeList}
-- Bloom-Level muss korrekt zugeordnet werden (remember, understand, apply, analyze)
+- Bloom-Level muss korrekt zugeordnet werden (remember, understand, apply, analyze, evaluate)
 
 THEMENABDECKUNG (aus Rahmenplan):
 ${domainTopics.length > 0 ? domainTopics.map((t: string) => `- ${t}`).join("\n") : "Alle Kernthemen des Bereichs"}
 
-Antworte NUR mit einem JSON-Array:
-[{
-  "question_text": "...",
-  "options": ["A","B","C","D"],
-  "correct_answer": 0,
-  "explanation": "...",
-  "difficulty": "easy|medium|hard",
-  "topic": "...",
-  "question_type": "mc_single|calculation|case_study|scenario|transfer",
-  "exam_context_type": "isolated_knowledge|applied_case|multi_step_case|prioritization|error_detection|documentation_analysis|legal_evaluation|communication_scenario",
-  "bloom_level": "remember|understand|apply|analyze",
-  "typical_errors": ["Fehler 1", "Fehler 2"],
-  "exam_relevance_score": 1-5
-}]`;
+Antworte NUR als JSON-Objekt:
+{
+  "questions": [
+    {
+      "question_text": "...",
+      "options": ["A","B","C","D"],
+      "correct_answer": 0,
+      "explanation": "...",
+      "difficulty": "easy|medium|hard",
+      "topic": "...",
+      "question_type": "mc_single|calculation|case_study|scenario|transfer",
+      "exam_context_type": "isolated_knowledge|applied_case|multi_step_case|prioritization|error_detection|documentation_analysis|legal_evaluation|communication_scenario",
+      "bloom_level": "remember|understand|apply|analyze|evaluate",
+      "typical_errors": ["Fehler 1", "Fehler 2"],
+      "exam_relevance_score": 1-5
+    }
+  ]
+}`;
 
       const userPrompt = `Erstelle exakt ${batchCount} hochwertige Prüfungsfragen für "${domain.domain_name}".
 Beachte die Schwierigkeitsverteilung und den Fragetyp-Mix.
@@ -176,13 +188,13 @@ WICHTIG: Maximal 1 von ${batchCount} Fragen darf "isolated_knowledge" sein. Der 
       let questions: any[];
       try {
         const parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
-        questions = Array.isArray(parsed) ? parsed : parsed.questions || [];
+        questions = Array.isArray(parsed) ? parsed : (parsed.questions || []);
       } catch {
         results.push({ domain: domain.domain_key, status: "parse_error", raw: content.slice(0, 200) });
         continue;
       }
 
-      // 8) Store questions with Elite 2.0 metadata
+      // 8) Store questions with Elite 2.0 metadata + actual DB insert
       const inserts = questions.map((q: any) => ({
         question_text: q.question_text,
         options: q.options,
@@ -191,6 +203,8 @@ WICHTIG: Maximal 1 von ${batchCount} Fragen darf "isolated_knowledge" sein. Der 
         difficulty: q.difficulty || "medium",
         ai_generated: true,
         status: "draft",
+        // ── Elite 2.0: Set cognitive_level as real column ──
+        cognitive_level: q.bloom_level || "understand",
         metadata: {
           dom_blueprint_id: blueprintId,
           domain_key: domain.domain_key,
@@ -200,14 +214,21 @@ WICHTIG: Maximal 1 von ${batchCount} Fragen darf "isolated_knowledge" sein. Der 
           // ── Elite 2.0 metadata ──
           exam_context_type: q.exam_context_type || "applied_case",
           bloom_level: q.bloom_level || "understand",
-          typical_errors: q.typical_errors || [],
+          typical_errors: ensureTypicalErrors(q.typical_errors),
           exam_relevance_score: q.exam_relevance_score || 3,
         },
       }));
 
+      // ── CRITICAL: Actually insert questions into DB ──
+      const { error: insErr } = await sb.from("exam_questions").insert(inserts);
+      if (insErr) {
+        results.push({ domain: domain.domain_key, status: "db_insert_error", error: insErr.message });
+        continue;
+      }
+
       totalGenerated += inserts.length;
 
-      // 9) Update coverage
+      // 9) Update coverage AFTER successful insert
       await sb
         .from("dom_blueprint_coverage")
         .update({ questions_actual: actual + inserts.length, updated_at: new Date().toISOString() })
@@ -215,7 +236,7 @@ WICHTIG: Maximal 1 von ${batchCount} Fragen darf "isolated_knowledge" sein. Der 
         .eq("domain_id", domain.id);
 
       // Elite stats for this domain
-      const eliteCount = inserts.filter(q => q.metadata.exam_context_type !== "isolated_knowledge").length;
+      const eliteCount = inserts.filter((q: any) => q.metadata.exam_context_type !== "isolated_knowledge").length;
 
       results.push({
         domain: domain.domain_key,
