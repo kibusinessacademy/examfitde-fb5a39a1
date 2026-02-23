@@ -404,6 +404,18 @@ export async function callAIWithFailover(
         provider: candidate.provider,
         model: candidate.model,
       });
+
+      // v5.4: Detect empty AI responses (HTTP 200 but no usable content)
+      // and fall through to the next provider instead of returning garbage.
+      const hasToolCalls = result.toolCalls && result.toolCalls.length > 0;
+      const hasContent = result.content && result.content.trim().length > 0;
+      if (!hasToolCalls && !hasContent) {
+        const msg = `Empty response from ${candidate.provider}/${candidate.model} — falling through to next provider`;
+        console.warn(`[AI-CLIENT] ${msg}`);
+        errors.push(msg);
+        continue;
+      }
+
       return {
         content: result.content,
         toolCalls: result.toolCalls,
