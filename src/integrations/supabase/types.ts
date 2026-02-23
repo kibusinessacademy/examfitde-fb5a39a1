@@ -14469,9 +14469,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           curriculum_id: string
+          decision_structure:
+            | Database["public"]["Enums"]["decision_structure_type"]
+            | null
           deprecated_at: string | null
           didactic_intent: Database["public"]["Enums"]["didactic_intent"]
+          estimated_time_seconds: number | null
+          exam_context_type: Database["public"]["Enums"]["exam_context_type"]
           exam_relevance: Database["public"]["Enums"]["exam_relevance"]
+          exam_relevance_score: number
           explanation_template: string | null
           id: string
           knowledge_type: Database["public"]["Enums"]["knowledge_type"]
@@ -14481,10 +14487,13 @@ export type Database = {
           max_variations: number | null
           min_variation_distance: number | null
           name: string
+          oral_extension: Json | null
           question_template: string
           real_world_context: boolean
+          remediation_triggers: Json | null
           status: Database["public"]["Enums"]["blueprint_status"]
           trap_spec: Json | null
+          typical_errors: Json | null
           typical_exam_trap: string | null
           updated_at: string
           variation_modes:
@@ -14504,9 +14513,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           curriculum_id: string
+          decision_structure?:
+            | Database["public"]["Enums"]["decision_structure_type"]
+            | null
           deprecated_at?: string | null
           didactic_intent?: Database["public"]["Enums"]["didactic_intent"]
+          estimated_time_seconds?: number | null
+          exam_context_type?: Database["public"]["Enums"]["exam_context_type"]
           exam_relevance?: Database["public"]["Enums"]["exam_relevance"]
+          exam_relevance_score?: number
           explanation_template?: string | null
           id?: string
           knowledge_type?: Database["public"]["Enums"]["knowledge_type"]
@@ -14516,10 +14531,13 @@ export type Database = {
           max_variations?: number | null
           min_variation_distance?: number | null
           name: string
+          oral_extension?: Json | null
           question_template: string
           real_world_context?: boolean
+          remediation_triggers?: Json | null
           status?: Database["public"]["Enums"]["blueprint_status"]
           trap_spec?: Json | null
+          typical_errors?: Json | null
           typical_exam_trap?: string | null
           updated_at?: string
           variation_modes?:
@@ -14539,9 +14557,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           curriculum_id?: string
+          decision_structure?:
+            | Database["public"]["Enums"]["decision_structure_type"]
+            | null
           deprecated_at?: string | null
           didactic_intent?: Database["public"]["Enums"]["didactic_intent"]
+          estimated_time_seconds?: number | null
+          exam_context_type?: Database["public"]["Enums"]["exam_context_type"]
           exam_relevance?: Database["public"]["Enums"]["exam_relevance"]
+          exam_relevance_score?: number
           explanation_template?: string | null
           id?: string
           knowledge_type?: Database["public"]["Enums"]["knowledge_type"]
@@ -14551,10 +14575,13 @@ export type Database = {
           max_variations?: number | null
           min_variation_distance?: number | null
           name?: string
+          oral_extension?: Json | null
           question_template?: string
           real_world_context?: boolean
+          remediation_triggers?: Json | null
           status?: Database["public"]["Enums"]["blueprint_status"]
           trap_spec?: Json | null
+          typical_errors?: Json | null
           typical_exam_trap?: string | null
           updated_at?: string
           variation_modes?:
@@ -20138,6 +20165,10 @@ export type Database = {
         }
         Returns: number
       }
+      calculate_blueprint_exam_proximity: {
+        Args: { p_blueprint_id: string }
+        Returns: Json
+      }
       calculate_daily_kpis: { Args: never; Returns: Json }
       calculate_exam_readiness: {
         Args: { p_curriculum_id: string; p_user_id: string }
@@ -21735,6 +21766,14 @@ export type Database = {
       course_status: "draft" | "generating" | "published" | "archived"
       coverage_tier: "BLOCK" | "PASS" | "STRONG" | "DOMINANT"
       curriculum_status: "draft" | "extracting" | "normalizing" | "frozen"
+      decision_structure_type:
+        | "single_best_answer"
+        | "multiple_valid_options"
+        | "sequence_ordering"
+        | "risk_assessment"
+        | "legal_evaluation"
+        | "documentation_duty"
+        | "prioritization"
       didactic_intent:
         | "transfer"
         | "recognition"
@@ -21761,6 +21800,15 @@ export type Database = {
         | "transfer"
         | "oral_prompt"
         | "oral_question"
+      exam_context_type:
+        | "isolated_knowledge"
+        | "applied_case"
+        | "multi_step_case"
+        | "prioritization"
+        | "error_detection"
+        | "documentation_analysis"
+        | "legal_evaluation"
+        | "communication_scenario"
       exam_mode: "simulation" | "practice" | "timed_exam"
       exam_relevance: "low" | "medium" | "high"
       finance_event_type:
@@ -22033,6 +22081,15 @@ export const Constants = {
       course_status: ["draft", "generating", "published", "archived"],
       coverage_tier: ["BLOCK", "PASS", "STRONG", "DOMINANT"],
       curriculum_status: ["draft", "extracting", "normalizing", "frozen"],
+      decision_structure_type: [
+        "single_best_answer",
+        "multiple_valid_options",
+        "sequence_ordering",
+        "risk_assessment",
+        "legal_evaluation",
+        "documentation_duty",
+        "prioritization",
+      ],
       didactic_intent: [
         "transfer",
         "recognition",
@@ -22061,6 +22118,16 @@ export const Constants = {
         "transfer",
         "oral_prompt",
         "oral_question",
+      ],
+      exam_context_type: [
+        "isolated_knowledge",
+        "applied_case",
+        "multi_step_case",
+        "prioritization",
+        "error_detection",
+        "documentation_analysis",
+        "legal_evaluation",
+        "communication_scenario",
       ],
       exam_mode: ["simulation", "practice", "timed_exam"],
       exam_relevance: ["low", "medium", "high"],
