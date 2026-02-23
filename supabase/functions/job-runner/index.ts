@@ -447,6 +447,13 @@ Deno.serve(async (req) => {
 
     const startMs = Date.now();
 
+    // ── Progress heartbeat: update last_progress_at so UI doesn't show "stuck" ──
+    if (jobPackageId) {
+      await sb.from("course_packages")
+        .update({ last_progress_at: new Date().toISOString() })
+        .eq("id", jobPackageId);
+    }
+
     // ── Single-exit state for guaranteed lock release ─────────────
     type FinalState = {
       status: "completed" | "pending" | "failed" | "cancelled";

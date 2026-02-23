@@ -175,43 +175,82 @@ Deno.serve(async (req) => {
     const zombieCutoff = new Date(Date.now() - ZOMBIE_AGE_MINUTES * 60 * 1000).toISOString();
     const staleLockCutoff = new Date(Date.now() - STALE_LOCK_MINUTES * 60 * 1000).toISOString();
 
-    // Type 1: Processing with NO lock at all
-    const { data: zombieRows, error: zombieErr } = await sb
+    // Type 1: Processing with NO lock at all — fetch first, then update with attempts
+    const { data: zombieJobs } = await sb
       .from("job_queue")
-      .update({
-        status: "failed",
-        last_error: `Watchdog zombie sweep: processing with no lock for >${ZOMBIE_AGE_MINUTES}min`,
-        updated_at: new Date().toISOString(),
-      })
+      .select("id, attempts, max_attempts")
       .eq("status", "processing")
       .is("locked_at", null)
-      .lt("updated_at", zombieCutoff)
-      .select("id");
+      .lt("updated_at", zombieCutoff);
 
-    if (zombieErr) {
-      console.error("[watchdog] zombie sweep error:", zombieErr.message);
+    let zombieCount = 0;
+    for (const zj of zombieJobs || []) {
+      const newAttempts = (zj.attempts || 0) + 1;
+      const maxAttempts = zj.max_attempts || 3;
+      if (newAttempts >= maxAttempts) {
+        await sb.from("job_queue").update({
+          status: "failed",
+          last_error: `Watchdog zombie: no lock >${ZOMBIE_AGE_MINUTES}min — max attempts (${maxAttempts}) reached`,
+          last_error_code: "ZOMBIE_EXHAUSTED",
+          attempts: newAttempts,
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq("id", zj.id).eq("status", "processing");
+      } else {
+        await sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          scheduled_at: new Date(Date.now() + 30_000).toISOString(),
+          last_error: `Watchdog zombie: no lock >${ZOMBIE_AGE_MINUTES}min — attempt ${newAttempts}/${maxAttempts}`,
+          last_error_code: "ZOMBIE_RETRY",
+          attempts: newAttempts,
+          updated_at: new Date().toISOString(),
+        }).eq("id", zj.id).eq("status", "processing");
+      }
+      zombieCount++;
     }
 
-    // Type 2: Processing with STALE lock (locked_at too old)
-    const { data: staleLockRows, error: staleLockErr } = await sb
+    // Type 2: Processing with STALE lock (locked_at too old) — fetch first, then update with attempts
+    const { data: staleJobs } = await sb
       .from("job_queue")
-      .update({
-        status: "failed",
-        last_error: `Watchdog: stale lock >${STALE_LOCK_MINUTES}min`,
-        locked_at: null,
-        updated_at: new Date().toISOString(),
-      })
+      .select("id, attempts, max_attempts")
       .eq("status", "processing")
-      .lt("locked_at", staleLockCutoff)
-      .select("id");
+      .lt("locked_at", staleLockCutoff);
 
-    if (staleLockErr) {
-      console.error("[watchdog] stale lock sweep error:", staleLockErr.message);
+    let staleLockCount = 0;
+    for (const sj of staleJobs || []) {
+      const newAttempts = (sj.attempts || 0) + 1;
+      const maxAttempts = sj.max_attempts || 3;
+      if (newAttempts >= maxAttempts) {
+        await sb.from("job_queue").update({
+          status: "failed",
+          last_error: `Watchdog: stale lock >${STALE_LOCK_MINUTES}min — max attempts (${maxAttempts}) reached`,
+          last_error_code: "STALE_LOCK_EXHAUSTED",
+          attempts: newAttempts,
+          locked_at: null,
+          locked_by: null,
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq("id", sj.id).eq("status", "processing");
+      } else {
+        await sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          scheduled_at: new Date(Date.now() + 30_000).toISOString(),
+          last_error: `Watchdog: stale lock >${STALE_LOCK_MINUTES}min — attempt ${newAttempts}/${maxAttempts}`,
+          last_error_code: "STALE_LOCK",
+          attempts: newAttempts,
+          updated_at: new Date().toISOString(),
+        }).eq("id", sj.id).eq("status", "processing");
+      }
+      staleLockCount++;
     }
 
-    const zombieJobCount = (zombieRows?.length ?? 0) + (staleLockRows?.length ?? 0);
+    const zombieJobCount = zombieCount + staleLockCount;
     if (zombieJobCount > 0) {
-      actions.push(`Zombie sweep: failed ${zombieRows?.length ?? 0} unlocked + ${staleLockRows?.length ?? 0} stale-locked jobs`);
+      actions.push(`Zombie sweep: ${zombieCount} unlocked + ${staleLockCount} stale-locked jobs (with attempts increment)`);
     }
 
     // ── 3) Auto-heal: building without lease or jobs → reset to queued (via RPC) ──
