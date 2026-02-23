@@ -308,10 +308,10 @@ async function runCourseReadyGate(
       results.push({
         gate: "elite_context_distribution",
         passed: ctxPassed,
-        severity: "warning",
+        severity: "blocker",
         detail: `isolated_knowledge=${isolatedPct.toFixed(1)}% (max 30%), ${Object.entries(ctxCounts).map(([k, v]) => `${k}=${v}`).join(", ")}`,
       });
-      if (!ctxPassed) warnings.push(`ELITE_CONTEXT: ${isolatedPct.toFixed(1)}% isolated_knowledge (max 30%)`);
+      if (!ctxPassed) hardFails.push(`ELITE_CONTEXT: ${isolatedPct.toFixed(1)}% isolated_knowledge (max 30%)`);
 
       // Excellence: > 40% multi_step or applied_case
       const complexCount = (ctxCounts["multi_step_case"] || 0) + (ctxCounts["applied_case"] || 0);
