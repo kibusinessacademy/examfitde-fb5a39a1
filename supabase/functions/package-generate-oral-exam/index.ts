@@ -208,15 +208,46 @@ Deno.serve(async (req) => {
       );
     if (upErr) throw new Error(`oral_exam_sessionsets upsert: ${upErr.message}`);
 
-    // NOTE: oral_exam_sessions are user-specific (require user_id). 
-    // They are created at runtime when a learner starts a session, not during pipeline.
-    // The pipeline delivers blueprints + sessionsets; the frontend creates sessions on-demand.
+    // ═══ STEP 9: Generate session templates from blueprints ═══
+    await sb.from("oral_exam_session_templates").delete().eq("package_id", packageId);
+
+    const sessionTemplates = inserted.map((ins: { id: string }, idx: number) => {
+      const bp = blueprintRows[idx];
+      return {
+        package_id: packageId,
+        curriculum_id: curriculumId,
+        blueprint_id: ins.id,
+        title: bp.title,
+        mode: idx < 10 ? "practice" : idx < 20 ? "exam_simulation" : "deep_dive",
+        scenario: bp.scenario,
+        lead_questions: bp.lead_questions,
+        followup_questions: bp.followups,
+        rubric: bp.rubric,
+        time_limit_minutes: idx < 10 ? 15 : 20,
+        difficulty: idx % 3 === 0 ? "easy" : idx % 3 === 1 ? "medium" : "hard",
+        learning_field_id: bp.metadata?.learning_field_id || null,
+        competency_id: bp.competency_id || null,
+        sort_order: idx,
+        metadata: {
+          depth_enriched: bp.metadata?.depth_enriched || false,
+          topic_count: bp.metadata?.topic_count || 0,
+          generated_at: new Date().toISOString(),
+        },
+      };
+    });
+
+    const { data: sessInserted, error: sessErr } = await sb
+      .from("oral_exam_session_templates")
+      .insert(sessionTemplates)
+      .select("id");
+    if (sessErr) throw new Error(`session_templates insert: ${sessErr.message}`);
 
     const depthCount = blueprintRows.filter((b: any) => b.metadata?.depth_enriched).length;
     const lfCoverage = lfTargets.length;
-    console.log(`[OralExam] Done: ${inserted.length} blueprints across ${lfCoverage} LFs, ${depthCount} depth-enriched`);
+    const sessCount = sessInserted?.length || 0;
+    console.log(`[OralExam] Done: ${inserted.length} blueprints, ${sessCount} session templates across ${lfCoverage} LFs, ${depthCount} depth-enriched`);
 
-    return json({ ok: true, batch_complete: true, blueprints_created: inserted.length, lf_coverage: lfCoverage, depth_enriched: depthCount });
+    return json({ ok: true, batch_complete: true, blueprints_created: inserted.length, sessions_created: sessCount, lf_coverage: lfCoverage, depth_enriched: depthCount });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error(`[OralExam] Error: ${msg}`);

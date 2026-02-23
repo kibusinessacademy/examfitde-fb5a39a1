@@ -10942,6 +10942,151 @@ export type Database = {
           },
         ]
       }
+      oral_exam_session_templates: {
+        Row: {
+          blueprint_id: string
+          competency_id: string | null
+          created_at: string
+          curriculum_id: string
+          difficulty: string
+          followup_questions: Json
+          id: string
+          lead_questions: Json
+          learning_field_id: string | null
+          metadata: Json | null
+          mode: string
+          package_id: string
+          rubric: Json
+          scenario: string
+          sort_order: number
+          time_limit_minutes: number
+          title: string
+        }
+        Insert: {
+          blueprint_id: string
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id: string
+          difficulty?: string
+          followup_questions?: Json
+          id?: string
+          lead_questions?: Json
+          learning_field_id?: string | null
+          metadata?: Json | null
+          mode?: string
+          package_id: string
+          rubric?: Json
+          scenario: string
+          sort_order?: number
+          time_limit_minutes?: number
+          title: string
+        }
+        Update: {
+          blueprint_id?: string
+          competency_id?: string | null
+          created_at?: string
+          curriculum_id?: string
+          difficulty?: string
+          followup_questions?: Json
+          id?: string
+          lead_questions?: Json
+          learning_field_id?: string | null
+          metadata?: Json | null
+          mode?: string
+          package_id?: string
+          rubric?: Json
+          scenario?: string
+          sort_order?: number
+          time_limit_minutes?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oral_exam_session_templates_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "oral_exam_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_building_without_job_or_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_recent_building_without_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
       oral_exam_sessions: {
         Row: {
           begriffssicherheit_score: number | null
