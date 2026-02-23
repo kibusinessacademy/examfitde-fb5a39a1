@@ -167,6 +167,22 @@ Deno.serve(async (req) => {
       },
     }).eq("id", packageId);
 
+    // ── Fix cognitive_level misclassification BEFORE promotion ──
+    // case_study/transfer tagged as 'remember' → reclassify to 'apply'/'analyze'
+    const RECLASSIFY_MAP: Record<string, string> = { case_study: "apply", transfer: "analyze" };
+    for (const [qType, newLevel] of Object.entries(RECLASSIFY_MAP)) {
+      const { count: fixCount } = await sb
+        .from("exam_questions")
+        .update({ cognitive_level: newLevel })
+        .eq("curriculum_id", curriculumId)
+        .eq("question_type", qType)
+        .eq("cognitive_level", "remember")
+        .select("id", { count: "exact", head: true });
+      if ((fixCount ?? 0) > 0) {
+        console.log(`[QualityCouncil] Reclassified ${fixCount} ${qType} questions: remember→${newLevel}`);
+      }
+    }
+
     // ── Promote draft exam questions → approved when council passes ──
     if (status !== "fail") {
       // Count draft candidates BEFORE promotion
