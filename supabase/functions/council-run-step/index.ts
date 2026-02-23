@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
+import { canonicalStepKey } from "../_shared/step-keys.ts";
 
 /**
  * council-run-step – Full Deliberative Loop (single invocation)
@@ -37,10 +38,11 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+    const rawStepKey = body.step_key || body.stepKey || "";
     const p: StepPayload = {
       course_id: body.course_id || body.courseId,
       lesson_id: body.lesson_id || body.lessonId,
-      step_key: body.step_key || body.stepKey,
+      step_key: canonicalStepKey(rawStepKey),
       curriculum_id: body.curriculum_id || body.curriculumId,
       max_rounds: body.max_rounds ?? body.maxRounds ?? MAX_ROUNDS_DEFAULT,
       _job_id: body._job_id,
