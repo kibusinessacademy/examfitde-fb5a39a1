@@ -57,6 +57,47 @@ async function computeMissingLfIds(
   return lfIds.filter((id: string) => !covered.has(id));
 }
 
+// Job type → step key mapping (inverse of pipeline-runner's STEP_TO_JOB_TYPE)
+const JOB_TYPE_TO_STEP: Record<string, string> = {
+  package_scaffold_learning_course: "scaffold_learning_course",
+  package_generate_glossary: "generate_glossary",
+  package_generate_learning_content: "generate_learning_content",
+  package_validate_learning_content: "validate_learning_content",
+  package_auto_seed_exam_blueprints: "auto_seed_exam_blueprints",
+  package_validate_blueprints: "validate_blueprints",
+  package_generate_exam_pool: "generate_exam_pool",
+  package_validate_exam_pool: "validate_exam_pool",
+  package_build_ai_tutor_index: "build_ai_tutor_index",
+  package_validate_tutor_index: "validate_tutor_index",
+  package_generate_oral_exam: "generate_oral_exam",
+  package_validate_oral_exam: "validate_oral_exam",
+  package_generate_handbook: "generate_handbook",
+  package_validate_handbook: "validate_handbook",
+  package_run_integrity_check: "run_integrity_check",
+  package_quality_council: "quality_council",
+  package_auto_publish: "auto_publish",
+};
+
+/** When watchdog exhausts a job → also fail the linked step (SSOT sync).
+ *  This prevents the runner from spawning new jobs for a terminally-failed step. */
+async function syncStepOnJobExhaustion(
+  sb: ReturnType<typeof createClient>,
+  packageId: string,
+  jobType: string,
+  jobId: string,
+  reason: string,
+) {
+  const stepKey = JOB_TYPE_TO_STEP[jobType];
+  if (!stepKey) return;
+
+  await sb.from("package_steps").update({
+    status: "failed",
+    last_error: `Watchdog: job ${jobId.slice(0, 8)} exhausted (${reason}) — step synced to failed`,
+  }).eq("package_id", packageId).eq("step_key", stepKey).eq("job_id", jobId);
+
+  console.log(`[watchdog] SSOT sync: step ${stepKey} on pkg ${packageId.slice(0, 8)} → failed (${reason})`);
+}
+
 /**
  * pipeline-watchdog — Safety-net fallback (runs every 5 minutes via cron)
  *
@@ -175,10 +216,10 @@ Deno.serve(async (req) => {
     const zombieCutoff = new Date(Date.now() - ZOMBIE_AGE_MINUTES * 60 * 1000).toISOString();
     const staleLockCutoff = new Date(Date.now() - STALE_LOCK_MINUTES * 60 * 1000).toISOString();
 
-    // Type 1: Processing with NO lock at all — fetch first, then update with attempts
+    // Type 1: Processing with NO lock at all — fetch first, then update with RACE-GUARD
     const { data: zombieJobs } = await sb
       .from("job_queue")
-      .select("id, attempts, max_attempts")
+      .select("id, attempts, max_attempts, package_id, job_type")
       .eq("status", "processing")
       .is("locked_at", null)
       .lt("updated_at", zombieCutoff);
@@ -188,14 +229,20 @@ Deno.serve(async (req) => {
       const newAttempts = (zj.attempts || 0) + 1;
       const maxAttempts = zj.max_attempts || 3;
       if (newAttempts >= maxAttempts) {
-        await sb.from("job_queue").update({
+        // RACE-GUARD: repeat original filter conditions in UPDATE to prevent overwriting freshly-claimed jobs
+        const { count } = await sb.from("job_queue").update({
           status: "failed",
           last_error: `Watchdog zombie: no lock >${ZOMBIE_AGE_MINUTES}min — max attempts (${maxAttempts}) reached`,
           last_error_code: "ZOMBIE_EXHAUSTED",
           attempts: newAttempts,
           completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }).eq("id", zj.id).eq("status", "processing");
+        }).eq("id", zj.id).eq("status", "processing").is("locked_at", null);
+
+        // SSOT: sync step status so runner doesn't spawn new jobs for this exhausted step
+        if (count && count > 0 && zj.package_id) {
+          await syncStepOnJobExhaustion(sb, zj.package_id, zj.job_type, zj.id, "ZOMBIE_EXHAUSTED");
+        }
       } else {
         await sb.from("job_queue").update({
           status: "pending",
@@ -206,15 +253,15 @@ Deno.serve(async (req) => {
           last_error_code: "ZOMBIE_RETRY",
           attempts: newAttempts,
           updated_at: new Date().toISOString(),
-        }).eq("id", zj.id).eq("status", "processing");
+        }).eq("id", zj.id).eq("status", "processing").is("locked_at", null);
       }
       zombieCount++;
     }
 
-    // Type 2: Processing with STALE lock (locked_at too old) — fetch first, then update with attempts
+    // Type 2: Processing with STALE lock (locked_at too old) — fetch first, then update with RACE-GUARD
     const { data: staleJobs } = await sb
       .from("job_queue")
-      .select("id, attempts, max_attempts")
+      .select("id, attempts, max_attempts, package_id, job_type")
       .eq("status", "processing")
       .lt("locked_at", staleLockCutoff);
 
@@ -223,7 +270,8 @@ Deno.serve(async (req) => {
       const newAttempts = (sj.attempts || 0) + 1;
       const maxAttempts = sj.max_attempts || 3;
       if (newAttempts >= maxAttempts) {
-        await sb.from("job_queue").update({
+        // RACE-GUARD: repeat stale-lock cutoff in UPDATE
+        const { count } = await sb.from("job_queue").update({
           status: "failed",
           last_error: `Watchdog: stale lock >${STALE_LOCK_MINUTES}min — max attempts (${maxAttempts}) reached`,
           last_error_code: "STALE_LOCK_EXHAUSTED",
@@ -232,8 +280,13 @@ Deno.serve(async (req) => {
           locked_by: null,
           completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }).eq("id", sj.id).eq("status", "processing");
+        }).eq("id", sj.id).eq("status", "processing").lt("locked_at", staleLockCutoff);
+
+        if (count && count > 0 && sj.package_id) {
+          await syncStepOnJobExhaustion(sb, sj.package_id, sj.job_type, sj.id, "STALE_LOCK_EXHAUSTED");
+        }
       } else {
+        // RACE-GUARD: repeat stale-lock cutoff
         await sb.from("job_queue").update({
           status: "pending",
           locked_at: null,
@@ -243,7 +296,7 @@ Deno.serve(async (req) => {
           last_error_code: "STALE_LOCK",
           attempts: newAttempts,
           updated_at: new Date().toISOString(),
-        }).eq("id", sj.id).eq("status", "processing");
+        }).eq("id", sj.id).eq("status", "processing").lt("locked_at", staleLockCutoff);
       }
       staleLockCount++;
     }
@@ -251,6 +304,69 @@ Deno.serve(async (req) => {
     const zombieJobCount = zombieCount + staleLockCount;
     if (zombieJobCount > 0) {
       actions.push(`Zombie sweep: ${zombieCount} unlocked + ${staleLockCount} stale-locked jobs (with attempts increment)`);
+    }
+
+    // ── 2c) Ghost-Running-Step Guard ──
+    // Detect steps stuck in 'running' that have NO active job (processing|pending) in job_queue.
+    // This prevents the runner from endlessly re-creating jobs for orphaned steps.
+    const GHOST_AGE_MINUTES = 10;
+    const ghostCutoff = new Date(Date.now() - GHOST_AGE_MINUTES * 60 * 1000).toISOString();
+
+    const { data: ghostSteps } = await sb
+      .from("package_steps")
+      .select("package_id, step_key, job_id, attempts, max_attempts")
+      .eq("status", "running")
+      .lt("last_heartbeat_at", ghostCutoff);
+
+    let ghostCount = 0;
+    for (const gs of ghostSteps || []) {
+      // Check if there's still an active job for this step
+      let hasActiveJob = false;
+      if (gs.job_id) {
+        const { data: activeJob } = await sb
+          .from("job_queue")
+          .select("id")
+          .eq("id", gs.job_id)
+          .in("status", ["processing", "pending"])
+          .maybeSingle();
+        hasActiveJob = !!activeJob;
+      }
+
+      if (!hasActiveJob) {
+        const stepAttempts = (gs.attempts || 0) + 1;
+        const stepMax = gs.max_attempts || 5;
+        if (stepAttempts >= stepMax) {
+          // Exhausted → fail the step and package
+          await sb.from("package_steps").update({
+            status: "failed",
+            job_id: null,
+            runner_id: null,
+            last_error: `Watchdog ghost-guard: running without active job, attempts exhausted (${stepAttempts}/${stepMax})`,
+            attempts: stepAttempts,
+          }).eq("package_id", gs.package_id).eq("step_key", gs.step_key).eq("status", "running");
+
+          await sb.from("course_packages").update({
+            status: "failed",
+            last_error: `Step ${gs.step_key} exhausted after ghost-guard recovery`,
+          }).eq("id", gs.package_id);
+        } else {
+          // Reset to queued for re-enqueue
+          await sb.from("package_steps").update({
+            status: "queued",
+            job_id: null,
+            runner_id: null,
+            started_at: null,
+            attempts: stepAttempts,
+            last_error: `Watchdog ghost-guard: running without active job — reset (attempt ${stepAttempts}/${stepMax})`,
+          }).eq("package_id", gs.package_id).eq("step_key", gs.step_key).eq("status", "running");
+        }
+
+        ghostCount++;
+        actions.push(`Ghost-step: ${gs.step_key} on pkg ${(gs.package_id as string).slice(0, 8)} (attempt ${stepAttempts}/${stepMax})`);
+      }
+    }
+    if (ghostCount > 0) {
+      console.log(`[watchdog] Ghost-running guard: healed ${ghostCount} orphaned steps`);
     }
 
     // ── 3) Auto-heal: building without lease or jobs → reset to queued (via RPC) ──
@@ -492,6 +608,7 @@ Deno.serve(async (req) => {
             stale_leases: staleLeases.length,
             zombie_jobs: zombieJobCount,
             zombie_building: healedZombies,
+            ghost_steps: ghostCount,
             qg_healed: qgStats,
           },
         });
