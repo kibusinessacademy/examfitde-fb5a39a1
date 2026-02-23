@@ -146,7 +146,9 @@ const REWORK_SECRET_FUNCTIONS = new Set([
 const BASE_CONCURRENCY = 6;
 const MIN_CONCURRENCY = 4;
 const MAX_CONCURRENCY = 12;
-const JOB_TIMEOUT_MS = 140_000;
+// v5.3: Increased from 140s→180s to reduce "signal aborted" on heavy AI jobs
+// (exam-pool generation with 58+ questions, learning content with glossary injection)
+const JOB_TIMEOUT_MS = 180_000;
 const WORKER_ID = `job-runner-${crypto.randomUUID().slice(0, 8)}`;
 
 // Backoff delays (ms) for requeue scenarios

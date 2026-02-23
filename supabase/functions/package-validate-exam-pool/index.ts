@@ -186,8 +186,19 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
       max_tokens: 1500,
     });
 
-    const clean = aiResult.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(clean);
+    let raw = (aiResult.content || "").trim();
+    // Robust fence stripping + JSON extraction
+    raw = raw.replace(/```(?:json)?[\s]*/gi, "").trim();
+    // Extract the JSON object
+    const jsonStart = raw.indexOf("{");
+    const jsonEnd = raw.lastIndexOf("}");
+    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+      raw = raw.slice(jsonStart, jsonEnd + 1);
+    }
+    // Fix trailing commas and unescaped newlines
+    raw = raw.replace(/,\s*([\]}])/g, "$1");
+    raw = raw.replace(/(?<=":[\s]*"[^"]*)\n(?=[^"]*")/g, "\\n");
+    const parsed = JSON.parse(raw);
     return {
       questionId: q.id,
       score: parsed.overall_score ?? 0,

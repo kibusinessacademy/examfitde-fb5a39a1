@@ -147,21 +147,39 @@ export async function loadOrGenerateGlossary(
   let glossary: Omit<ProfessionGlossary, "professionName">;
   try {
     let raw = (aiResult.content || "").trim();
-    // v5.3: Robust markdown fence stripping — handles ```json\n...\n``` with newlines,
-    // triple-backtick variants, and leading/trailing whitespace that caused GLOSSARY_PARSE_ERROR.
-    raw = raw.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/g, "").trim();
-    // Fallback: strip any remaining fences mid-text
-    raw = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-    // Extract first JSON object if model wrapped in text
+    // v5.4: Multi-layer fence stripping — handles ```json\n...\n```, nested fences,
+    // and partial fences that caused persistent GLOSSARY_PARSE_ERROR.
+    // Layer 1: Strip opening/closing fences with any whitespace/newline combo
+    raw = raw.replace(/^[\s]*```(?:json)?[\s]*\n?/gi, "").replace(/\n?[\s]*```[\s]*$/g, "").trim();
+    // Layer 2: Strip ALL remaining fence markers (handles mid-text fences from streaming)
+    raw = raw.replace(/```(?:json)?[\s]*/gi, "").trim();
+    // Layer 3: Extract the outermost JSON object
     const jsonStart = raw.indexOf("{");
     const jsonEnd = raw.lastIndexOf("}");
     if (jsonStart >= 0 && jsonEnd > jsonStart) {
       raw = raw.slice(jsonStart, jsonEnd + 1);
     }
+    // Layer 4: Fix trailing commas before closing brackets (common AI output error)
+    raw = raw.replace(/,\s*([\]}])/g, "$1");
+    // Layer 5: Fix unescaped newlines inside JSON string values
+    raw = raw.replace(/(?<=":[\s]*"[^"]*)\n(?=[^"]*")/g, "\\n");
     glossary = JSON.parse(raw);
   } catch (parseErr) {
-    console.error("[glossary-loader] Failed to parse glossary JSON. Raw (first 500):", (aiResult.content || "").slice(0, 500));
-    throw new Error("GLOSSARY_PARSE_ERROR: Could not parse AI-generated glossary");
+    // Layer 6: Last resort — try to extract any valid JSON object
+    const rawContent = (aiResult.content || "").trim();
+    const fallbackMatch = rawContent.match(/\{[\s\S]*"fachbegriffe"[\s\S]*\}/);
+    if (fallbackMatch) {
+      try {
+        const cleaned = fallbackMatch[0].replace(/,\s*([\]}])/g, "$1");
+        glossary = JSON.parse(cleaned);
+      } catch {
+        console.error("[glossary-loader] All parse attempts failed. Raw (first 500):", rawContent.slice(0, 500));
+        throw new Error("GLOSSARY_PARSE_ERROR: Could not parse AI-generated glossary");
+      }
+    } else {
+      console.error("[glossary-loader] No JSON structure found. Raw (first 500):", rawContent.slice(0, 500));
+      throw new Error("GLOSSARY_PARSE_ERROR: No valid JSON in AI response");
+    }
   }
 
   // 4) Cache it
