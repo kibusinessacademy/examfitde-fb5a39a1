@@ -3416,6 +3416,8 @@ export type Database = {
           id: string
           lesson_id: string
           parent_version_id: string | null
+          published_at: string | null
+          published_by: string | null
           quality_score: number | null
           status: Database["public"]["Enums"]["content_version_status"]
           step_key: string
@@ -3433,6 +3435,8 @@ export type Database = {
           id?: string
           lesson_id: string
           parent_version_id?: string | null
+          published_at?: string | null
+          published_by?: string | null
           quality_score?: number | null
           status?: Database["public"]["Enums"]["content_version_status"]
           step_key: string
@@ -3450,6 +3454,8 @@ export type Database = {
           id?: string
           lesson_id?: string
           parent_version_id?: string | null
+          published_at?: string | null
+          published_by?: string | null
           quality_score?: number | null
           status?: Database["public"]["Enums"]["content_version_status"]
           step_key?: string
@@ -21290,6 +21296,15 @@ export type Database = {
       promote_to_authority: {
         Args: { p_admin_id?: string; p_portfolio_id: string }
         Returns: Json
+      }
+      publish_admin_version: {
+        Args: {
+          p_admin_agent?: string
+          p_lesson_id: string
+          p_step_key: string
+          p_version_id: string
+        }
+        Returns: undefined
       }
       publish_approved_blueprint_version: {
         Args: { p_blueprint_id: string; p_version_id: string }
