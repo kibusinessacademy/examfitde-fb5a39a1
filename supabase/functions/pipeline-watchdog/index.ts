@@ -46,10 +46,11 @@ async function computeMissingLfIds(
   const lfIds = (lfs || []).map((x: { id: string }) => x.id);
   if (lfIds.length === 0) return [];
 
+  // exam_questions links via curriculum_id (no package_id column)
   const { data: rows } = await sb
     .from("exam_questions")
     .select("learning_field_id")
-    .eq("package_id", packageId)
+    .eq("curriculum_id", curriculumId)
     .in("qc_status", ["approved", "tier1_passed"]);
 
   const covered = new Set((rows || []).map((x: { learning_field_id: string }) => x.learning_field_id));
