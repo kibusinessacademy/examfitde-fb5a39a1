@@ -4,6 +4,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 import { measureDepth } from "../_shared/prompt-kit.ts";
+import { canonicalStepKey } from "../_shared/step-keys.ts";
 
 /**
  * AI Lesson Improvement Agent (Council-Compliant, Profession-Aware)
@@ -62,16 +63,7 @@ const IMPROVE_MINICHECK_TOOL = {
 };
 
 // ── SSOT Step-Key Mapping: German → English DB standard ──
-const STEP_KEY_MAP: Record<string, string> = {
-  einstieg: "step_1_introduction",
-  verstehen: "step_2_understanding",
-  anwenden: "step_3_application",
-  wiederholen: "step_4_repetition",
-  mini_check: "step_5_minicheck",
-};
-function canonicalStepKey(step: string): string {
-  return STEP_KEY_MAP[step] ?? `step_${step}`;
-}
+// canonicalStepKey imported from _shared/step-keys.ts (SSOT)
 
 function getImprovementInstructions(professionName: string): Record<string, string> {
   return {
