@@ -332,11 +332,13 @@ Deno.serve(async (req) => {
 
     // ── ALL approved Exam Questions (paginated, no limit) ──
     const questionSamples: unknown[] = [];
+    const seenQuestionIds = new Set<string>();
     if (curriculumId) {
       console.log(`[export] Collecting ALL approved exam questions for curriculum ${curriculumId}`);
       try {
         const pageSize = 500;
         let offset = 0;
+        let duplicatesSkipped = 0;
         while (true) {
           const { data: batch, error: qErr } = await sb
             .from("exam_questions")
@@ -350,6 +352,12 @@ Deno.serve(async (req) => {
           }
           if (!batch || batch.length === 0) break;
           for (const q of batch as Record<string, unknown>[]) {
+            const qId = q.id as string;
+            if (seenQuestionIds.has(qId)) {
+              duplicatesSkipped++;
+              continue;
+            }
+            seenQuestionIds.add(qId);
             questionSamples.push({
               id: q.id,
               question_text: q.question_text,
@@ -374,11 +382,14 @@ Deno.serve(async (req) => {
           if (batch.length < pageSize) break;
           offset += pageSize;
         }
+        if (duplicatesSkipped > 0) {
+          console.log(`[export] ⚠️ Deduplicated: ${duplicatesSkipped} duplicate question IDs removed`);
+        }
       } catch (e) {
         console.log(`[export] Question export error: ${(e as Error).message}`);
       }
     }
-    console.log(`[export] Collected ${questionSamples.length} approved questions`);
+    console.log(`[export] Collected ${questionSamples.length} unique approved questions`);
 
     // ── ALL AI Tutor Logs (paginated) ──
     const allTutorLogs: unknown[] = [];

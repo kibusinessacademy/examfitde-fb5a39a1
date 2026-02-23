@@ -347,6 +347,62 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
+  // GATE 4f: Competency Binding — no approved question without competency_id
+  // ═══════════════════════════════════════════════
+  if (totalApproved > 0) {
+    const unboundCount = (approvedQs ?? []).filter((q: any) => !q.competency_id).length;
+    const unboundPct = (unboundCount / totalApproved) * 100;
+    const bindingPassed = unboundPct <= 5; // max 5% unbound
+    results.push({
+      gate: "competency_binding",
+      passed: bindingPassed,
+      severity: "warning",
+      detail: `${unboundCount}/${totalApproved} questions without competency_id (${unboundPct.toFixed(1)}%, max 5%)`,
+      value: unboundCount,
+    });
+    if (!bindingPassed) warnings.push(`COMPETENCY_BINDING: ${unboundCount} questions (${unboundPct.toFixed(1)}%) have no competency_id`);
+
+    // Competency coverage: how many of the total competencies have questions?
+    const { count: totalCompetencies } = await sb
+      .from("competencies")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId ?? courseId);
+    const coveredCompetencies = new Set((approvedQs ?? []).map((q: any) => q.competency_id).filter(Boolean));
+    const compCoveragePct = (totalCompetencies ?? 0) > 0
+      ? (coveredCompetencies.size / (totalCompetencies ?? 1)) * 100
+      : 100;
+    const compCoveragePassed = compCoveragePct >= 60; // min 60% competency coverage
+    results.push({
+      gate: "competency_coverage",
+      passed: compCoveragePassed,
+      severity: "warning",
+      detail: `${coveredCompetencies.size}/${totalCompetencies ?? 0} competencies covered (${compCoveragePct.toFixed(1)}%, min 60%)`,
+    });
+    if (!compCoveragePassed) warnings.push(`COMPETENCY_COVERAGE: Only ${coveredCompetencies.size}/${totalCompetencies ?? 0} competencies have questions (${compCoveragePct.toFixed(1)}%<60%)`);
+    if (compCoveragePct >= 90) excellence.push(`COMPETENCY_COVERAGE_EXCELLENT: ${compCoveragePct.toFixed(0)}%`);
+  }
+
+  // ═══════════════════════════════════════════════
+  // GATE 4g: Cognitive Level Consistency — case_study/transfer must NOT be "remember"
+  // ═══════════════════════════════════════════════
+  if (totalApproved > 0) {
+    const misclassified = (approvedQs ?? []).filter((q: any) => {
+      const cl = (q.cognitive_level || "").toLowerCase();
+      const qt = (q.question_type || "").toLowerCase();
+      return cl === "remember" && (qt === "case_study" || qt === "transfer");
+    }).length;
+    const misclassifiedPct = (misclassified / totalApproved) * 100;
+    const clConsistencyPassed = misclassifiedPct <= 5;
+    results.push({
+      gate: "cognitive_level_consistency",
+      passed: clConsistencyPassed,
+      severity: "warning",
+      detail: `${misclassified} case_study/transfer questions labeled 'remember' (${misclassifiedPct.toFixed(1)}%, max 5%)`,
+    });
+    if (!clConsistencyPassed) warnings.push(`COGNITIVE_MISCLASS: ${misclassified} case_study/transfer questions incorrectly labeled 'remember'`);
+  }
+
+  // ═══════════════════════════════════════════════
   // GATE 5: MiniCheck pro Lernfeld (Full track only)
   // EXAM_FIRST has no learning content, so no MiniChecks
   // ═══════════════════════════════════════════════
@@ -493,7 +549,7 @@ Deno.serve(async (req) => {
   const report = {
     score: gate.score,
     generated_at: new Date().toISOString(),
-    gate_version: "COURSE_READY_v1.1",
+    gate_version: "COURSE_READY_v1.2",
     v3: {
       hard_fail_reasons: gate.hardFails,
       warnings: gate.warnings,
