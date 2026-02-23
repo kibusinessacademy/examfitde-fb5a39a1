@@ -320,9 +320,9 @@ Deno.serve(async (req) => {
         while (true) {
           const { data: batch, error: qErr } = await sb
             .from("exam_questions")
-            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status")
+            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id")
             .eq("curriculum_id", curriculumId)
-            .eq("qc_status", "approved")
+            .in("qc_status", ["approved", "draft"])
             .range(offset, offset + pageSize - 1);
           if (qErr) {
             console.log(`[export] Question query error at offset ${offset}: ${qErr.message}`);
@@ -340,6 +340,8 @@ Deno.serve(async (req) => {
               cognitive_level: q.cognitive_level,
               learning_field_id: q.learning_field_id,
               qc_status: q.qc_status,
+              blueprint_id: q.blueprint_id,
+              competency_id: q.competency_id,
             });
           }
           if (batch.length < pageSize) break;
@@ -389,7 +391,7 @@ Deno.serve(async (req) => {
       try {
         const { data: cur } = await sb.from("curricula").select("*").eq("id", curriculumId).maybeSingle();
         curriculumFull = cur;
-        const { data: lfs } = await sb.from("learning_fields").select("*").eq("curriculum_id", curriculumId).order("position");
+        const { data: lfs } = await sb.from("learning_fields").select("*").eq("curriculum_id", curriculumId).order("sort_order");
         learningFields = lfs || [];
       } catch (_e) { /* best-effort */ }
     }
@@ -554,7 +556,7 @@ Deno.serve(async (req) => {
           lfDistribution.push({
             learning_field_id: lf.id,
             title: lf.title,
-            position: lf.position,
+            sort_order: lf.sort_order,
             questions_total: totalQ ?? 0,
             questions_approved: approvedQ ?? 0,
             blueprints: bpCount ?? 0,
