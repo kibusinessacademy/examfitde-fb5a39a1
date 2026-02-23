@@ -19,6 +19,18 @@ import type { DifficultyLevel } from "../_shared/prompt-kit.ts";
 const BATCH_SIZE = 3;
 const DELAY_MS = 2000;
 
+// ── SSOT Step-Key Mapping: German → English DB standard ──
+const STEP_KEY_MAP: Record<string, string> = {
+  einstieg: "step_1_introduction",
+  verstehen: "step_2_understanding",
+  anwenden: "step_3_application",
+  wiederholen: "step_4_repetition",
+  mini_check: "step_5_minicheck",
+};
+function canonicalStepKey(step: string): string {
+  return STEP_KEY_MAP[step] ?? `step_${step}`;
+}
+
 const CONTENT_TOOL = {
   type: "function" as const,
   function: {
@@ -160,7 +172,7 @@ Deno.serve(async (req) => {
         const { data: newVersion, error: vErr } = await sb.from("content_versions").insert({
           course_id: courseId,
           lesson_id: lesson.id,
-          step_key: `step_${lesson.step}`,
+          step_key: canonicalStepKey(lesson.step),
           content_json: finalContent,
           created_by_agent: "heal-poison-lessons",
           status: "under_review",
