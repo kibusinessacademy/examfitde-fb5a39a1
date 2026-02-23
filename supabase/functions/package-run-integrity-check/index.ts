@@ -275,6 +275,78 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
+  // GATE 4d: Elite 2.0 — Exam Context Type Distribution
+  // Ensures pool is not dominated by isolated_knowledge
+  // ═══════════════════════════════════════════════
+  if (totalApproved > 0) {
+    // Load blueprint exam_context_type for approved questions
+    const qBpIds = [...new Set((approvedQs ?? []).filter((q: any) => q.blueprint_id).map((q: any) => q.blueprint_id))];
+    const ctxMap = new Map<string, string>();
+    for (let i = 0; i < qBpIds.length; i += 200) {
+      const chunk = qBpIds.slice(i, i + 200);
+      const { data: bps } = await sb.from("question_blueprints").select("id, exam_context_type").in("id", chunk);
+      for (const bp of (bps || []) as any[]) {
+        ctxMap.set(bp.id, bp.exam_context_type || "isolated_knowledge");
+      }
+    }
+
+    let isolatedCount = 0;
+    let mappedCount = 0;
+    const ctxCounts: Record<string, number> = {};
+    for (const q of (approvedQs ?? []) as any[]) {
+      const ctx = q.blueprint_id ? (ctxMap.get(q.blueprint_id) || "isolated_knowledge") : "unmapped";
+      if (ctx !== "unmapped") {
+        mappedCount++;
+        ctxCounts[ctx] = (ctxCounts[ctx] || 0) + 1;
+        if (ctx === "isolated_knowledge") isolatedCount++;
+      }
+    }
+
+    if (mappedCount > 0) {
+      const isolatedPct = (isolatedCount / mappedCount) * 100;
+      const ctxPassed = isolatedPct <= 30;
+      results.push({
+        gate: "elite_context_distribution",
+        passed: ctxPassed,
+        severity: "warning",
+        detail: `isolated_knowledge=${isolatedPct.toFixed(1)}% (max 30%), ${Object.entries(ctxCounts).map(([k, v]) => `${k}=${v}`).join(", ")}`,
+      });
+      if (!ctxPassed) warnings.push(`ELITE_CONTEXT: ${isolatedPct.toFixed(1)}% isolated_knowledge (max 30%)`);
+
+      // Excellence: > 40% multi_step or applied_case
+      const complexCount = (ctxCounts["multi_step_case"] || 0) + (ctxCounts["applied_case"] || 0);
+      const complexPct = (complexCount / mappedCount) * 100;
+      if (complexPct >= 40) excellence.push(`ELITE_COMPLEX_RICH: ${complexPct.toFixed(0)}% multi_step+applied_case`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════
+  // GATE 4e: Elite 2.0 — Bloom Distribution (verschärft)
+  // Target: max 20% remember, min 30% apply+analyze
+  // ═══════════════════════════════════════════════
+  if (totalApproved > 0) {
+    const rememberCount = (approvedQs ?? []).filter((q: any) => ["remember","erinnern","wissen","kennen"].includes((q as any).cognitive_level?.toLowerCase?.() || "")).length;
+    const applyAnalyzeCount = (approvedQs ?? []).filter((q: any) => ["apply","anwenden","analyze","analysieren","bewerten","beurteilen"].includes((q as any).cognitive_level?.toLowerCase?.() || "")).length;
+    const rememberPctElite = (rememberCount / totalApproved) * 100;
+    const applyAnalyzePctElite = (applyAnalyzeCount / totalApproved) * 100;
+
+    const eliteBloomPassed = rememberPctElite <= 25 && applyAnalyzePctElite >= 25;
+    results.push({
+      gate: "elite_bloom_distribution",
+      passed: eliteBloomPassed,
+      severity: "warning",
+      detail: `remember=${rememberPctElite.toFixed(1)}% (max 25%), apply+analyze=${applyAnalyzePctElite.toFixed(1)}% (min 25%)`,
+    });
+    if (!eliteBloomPassed) {
+      const reasons: string[] = [];
+      if (rememberPctElite > 25) reasons.push(`REMEMBER_TOO_HIGH(${rememberPctElite.toFixed(1)}%>25%)`);
+      if (applyAnalyzePctElite < 25) reasons.push(`APPLY_ANALYZE_TOO_LOW(${applyAnalyzePctElite.toFixed(1)}%<25%)`);
+      warnings.push(`ELITE_BLOOM: ${reasons.join(", ")}`);
+    }
+    if (applyAnalyzePctElite >= 40) excellence.push(`ELITE_BLOOM_EXCELLENT: ${applyAnalyzePctElite.toFixed(0)}% apply+analyze`);
+  }
+
+  // ═══════════════════════════════════════════════
   // GATE 5: MiniCheck pro Lernfeld (Full track only)
   // EXAM_FIRST has no learning content, so no MiniChecks
   // ═══════════════════════════════════════════════

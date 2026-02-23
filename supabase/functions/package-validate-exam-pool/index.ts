@@ -355,6 +355,77 @@ Deno.serve(async (req) => {
     }).in("id", chunk);
   }
 
+  // ═══ GATE 3: Bloom Distribution (Elite 2.0) ═══
+  // Reads cognitive_level from linked blueprints to assess pool distribution
+  const bloomCounts: Record<string, number> = { remember: 0, understand: 0, apply: 0, analyze: 0 };
+  const contextCounts: Record<string, number> = {};
+  let blueprintsMapped = 0;
+
+  // Load blueprint cognitive levels for all questions
+  const bpIds = [...new Set(questions.filter((q: any) => q.blueprint_id).map((q: any) => q.blueprint_id))];
+  const bpCogMap = new Map<string, { cognitive: string; context: string }>();
+  if (bpIds.length > 0) {
+    for (let i = 0; i < bpIds.length; i += 200) {
+      const chunk = bpIds.slice(i, i + 200);
+      const { data: bps } = await sb
+        .from("question_blueprints")
+        .select("id, cognitive_level, exam_context_type")
+        .in("id", chunk);
+      for (const bp of (bps || []) as any[]) {
+        bpCogMap.set(bp.id, { cognitive: bp.cognitive_level || "understand", context: bp.exam_context_type || "isolated_knowledge" });
+      }
+    }
+  }
+
+  for (const q of questions as any[]) {
+    const bpInfo = q.blueprint_id ? bpCogMap.get(q.blueprint_id) : null;
+    if (bpInfo) {
+      bloomCounts[bpInfo.cognitive] = (bloomCounts[bpInfo.cognitive] || 0) + 1;
+      contextCounts[bpInfo.context] = (contextCounts[bpInfo.context] || 0) + 1;
+      blueprintsMapped++;
+    }
+  }
+
+  const bloomTotal = Object.values(bloomCounts).reduce((s, v) => s + v, 0);
+  let bloomGatePass = true;
+  let contextGatePass = true;
+  const bloomWarnings: string[] = [];
+
+  if (bloomTotal > 0) {
+    const rememberRatio = bloomCounts.remember / bloomTotal;
+    const applyRatio = bloomCounts.apply / bloomTotal;
+    const analyzeRatio = bloomCounts.analyze / bloomTotal;
+    const applyPlusAnalyze = applyRatio + analyzeRatio;
+
+    // Bloom Gate: max 20% remember, min 30% apply+analyze
+    if (rememberRatio > 0.25) {
+      bloomWarnings.push(`BLOOM_TOO_MUCH_REMEMBER: ${(rememberRatio * 100).toFixed(1)}% (max 25%)`);
+      bloomGatePass = false;
+    }
+    if (applyPlusAnalyze < 0.25) {
+      bloomWarnings.push(`BLOOM_TOO_LOW_APPLY_ANALYZE: ${(applyPlusAnalyze * 100).toFixed(1)}% (min 25%)`);
+      bloomGatePass = false;
+    }
+
+    // Context Gate: max 30% isolated_knowledge
+    const isolatedCount = contextCounts["isolated_knowledge"] || 0;
+    const isolatedRatio = isolatedCount / bloomTotal;
+    if (isolatedRatio > 0.30) {
+      bloomWarnings.push(`CONTEXT_TOO_MUCH_ISOLATED: ${(isolatedRatio * 100).toFixed(1)}% (max 30%)`);
+      contextGatePass = false;
+    }
+  } else {
+    // No blueprint mapping — skip as warning, don't block
+    bloomWarnings.push("BLOOM_NO_BLUEPRINT_DATA: Could not map questions to blueprints for Bloom analysis");
+  }
+
+  if (bloomWarnings.length > 0) {
+    console.log(`[validate-exam] Bloom/Context Gate: ${bloomWarnings.join("; ")}`);
+  }
+
+  // ═══ Final verdict ═══
+  // Bloom/Context gates are warnings for now (soft gate) — they don't block the pipeline
+  // but are reported so the integrity check can enforce them
   const overallPass = avgScore >= SAMPLE_PASS_THRESHOLD && t1PassRate >= 70;
 
   await sb.from("course_packages").update({
@@ -375,8 +446,19 @@ Deno.serve(async (req) => {
     batch_complete: overallPass,
     tier1: { total: t1Results.length, passed: t1Results.length - t1Failed.length, failed: t1Failed.length, pass_rate: t1PassRate },
     tier2: { sample_size: t2Results.length, avg_score: avgScore, flagged: rejected.length, skipped: skippedCount, results: t2Results },
+    bloom_gate: {
+      mapped: blueprintsMapped,
+      distribution: bloomTotal > 0 ? Object.fromEntries(Object.entries(bloomCounts).map(([k, v]) => [k, Math.round((v / bloomTotal) * 100)])) : null,
+      passed: bloomGatePass,
+      warnings: bloomWarnings,
+    },
+    context_gate: {
+      distribution: bloomTotal > 0 ? contextCounts : null,
+      passed: contextGatePass,
+      isolated_pct: bloomTotal > 0 ? Math.round(((contextCounts["isolated_knowledge"] || 0) / bloomTotal) * 100) : null,
+    },
     message: overallPass
-      ? `✅ Exam QC bestanden: ${t1PassRate.toFixed(0)}% Tier 1, avg ${avgScore.toFixed(0)}/100 Tier 2`
+      ? `✅ Exam QC bestanden: ${t1PassRate.toFixed(0)}% Tier 1, avg ${avgScore.toFixed(0)}/100 Tier 2${!bloomGatePass ? " ⚠️ Bloom-Warnung" : ""}${!contextGatePass ? " ⚠️ Context-Warnung" : ""}`
       : `❌ Exam QC fehlgeschlagen: ${t1PassRate.toFixed(0)}% Tier 1, avg ${avgScore.toFixed(0)}/100 Tier 2`,
   });
 });
