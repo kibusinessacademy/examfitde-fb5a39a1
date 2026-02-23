@@ -21745,7 +21745,12 @@ export type Database = {
         | "projektmanagement"
         | "aufstiegsfortbildung"
         | "sonstige"
-      cognitive_level: "remember" | "understand" | "apply" | "analyze"
+      cognitive_level:
+        | "remember"
+        | "understand"
+        | "apply"
+        | "analyze"
+        | "evaluate"
       compliance_severity: "low" | "medium" | "high" | "critical"
       compliance_status: "open" | "in_progress" | "resolved" | "accepted_risk"
       content_version_status:
@@ -21774,6 +21779,8 @@ export type Database = {
         | "legal_evaluation"
         | "documentation_duty"
         | "prioritization"
+        | "tradeoff_evaluation"
+        | "error_detection"
       didactic_intent:
         | "transfer"
         | "recognition"
@@ -22058,7 +22065,13 @@ export const Constants = {
         "aufstiegsfortbildung",
         "sonstige",
       ],
-      cognitive_level: ["remember", "understand", "apply", "analyze"],
+      cognitive_level: [
+        "remember",
+        "understand",
+        "apply",
+        "analyze",
+        "evaluate",
+      ],
       compliance_severity: ["low", "medium", "high", "critical"],
       compliance_status: ["open", "in_progress", "resolved", "accepted_risk"],
       content_version_status: [
@@ -22089,6 +22102,8 @@ export const Constants = {
         "legal_evaluation",
         "documentation_duty",
         "prioritization",
+        "tradeoff_evaluation",
+        "error_detection",
       ],
       didactic_intent: [
         "transfer",
