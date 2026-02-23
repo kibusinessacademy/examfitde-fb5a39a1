@@ -1248,19 +1248,57 @@ Deno.serve(async (req) => {
     const diffQuota: Record<string, number> = {
       hard: qHard, very_hard: qVeryHard, medium: qMedium, easy: qEasy,
     };
+    // FIX: Track ALL inserted questions (saved + training + gateFailed), not just saved.
+    // Previously only saved was counted, so hard quota never depleted → 92% hard skew.
     const diffMade: Record<string, number> = { easy: 0, medium: 0, hard: 0, very_hard: 0 };
 
     function pickDifficulty(): DifficultyKey {
-      // Priority order: hard first, then very_hard, then medium, then easy
-      // This ensures hard questions are generated BEFORE the budget runs out
-      const order: DifficultyKey[] = ["hard", "very_hard", "medium", "easy"];
-      for (const d of order) {
-        if ((diffMade[d] ?? 0) < (diffQuota[d] ?? 0)) return d;
-      }
-      // All quotas met — cycle through proportionally
+      // Interleaved picking: rotate through difficulties proportionally
+      // instead of exhausting hard first (which caused massive skew when
+      // many questions went to training pool).
       const totalMade = Object.values(diffMade).reduce((s, v) => s + v, 0);
-      const diffIdx = totalMade % diffEntries.length;
-      return diffEntries[diffIdx][0];
+      const totalQuota = Object.values(diffQuota).reduce((s, v) => s + v, 0);
+      
+      // Find the difficulty with the largest deficit (quota% - made%)
+      let bestDiff: DifficultyKey = "medium";
+      let bestDeficit = -Infinity;
+      for (const [d, quota] of Object.entries(diffQuota)) {
+        const targetPct = totalQuota > 0 ? quota / totalQuota : 0.25;
+        const actualPct = totalMade > 0 ? (diffMade[d] ?? 0) / totalMade : 0;
+        const deficit = targetPct - actualPct;
+        if (deficit > bestDeficit) {
+          bestDeficit = deficit;
+          bestDiff = d;
+        }
+      }
+      return bestDiff;
+    }
+
+    // ═══ COGNITIVE LEVEL QUOTA ENGINE (replaces fragile round-robin) ═══
+    // Previously cogIdx was derived from globalIdx which reset per LF sub-job,
+    // causing small sub-jobs to only ever reach recall/apply → 79% remember skew.
+    const cogQuota: Record<string, number> = {};
+    for (const [level, weight] of cogEntries) {
+      cogQuota[level] = Math.max(2, Math.ceil(scopeTarget * weight));
+    }
+    const cogMade: Record<string, number> = {};
+    for (const [level] of cogEntries) cogMade[level] = 0;
+
+    function pickCognitiveLevel(): CognitiveLevelKey {
+      const totalMade = Object.values(cogMade).reduce((s, v) => s + v, 0);
+      const totalQuota = Object.values(cogQuota).reduce((s, v) => s + v, 0);
+      let bestLevel: CognitiveLevelKey = "apply";
+      let bestDeficit = -Infinity;
+      for (const [level, quota] of Object.entries(cogQuota)) {
+        const targetPct = totalQuota > 0 ? quota / totalQuota : 0.25;
+        const actualPct = totalMade > 0 ? (cogMade[level] ?? 0) / totalMade : 0;
+        const deficit = targetPct - actualPct;
+        if (deficit > bestDeficit) {
+          bestDeficit = deficit;
+          bestLevel = level;
+        }
+      }
+      return bestLevel;
     }
 
     console.log(`[ExamPool-v5] DIFF_QUOTA: scopeTarget=${scopeTarget}, quotas=${JSON.stringify(diffQuota)}`);
@@ -1274,10 +1312,9 @@ Deno.serve(async (req) => {
       for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx++) {
         const globalIdx = (currentBpIndex * maxCallsPerBp + callIdx);
         const typeIdx = globalIdx % typeEntries.length;
-        const cogIdx = Math.floor(globalIdx / typeEntries.length) % cogEntries.length;
         const questionType = typeEntries[typeIdx][0];
         const difficulty = pickDifficulty();
-        const cognitiveLevel = cogEntries[cogIdx][0];
+        const cognitiveLevel = pickCognitiveLevel();
 
         try {
           const genResult = await generateTurboQuestions(
@@ -1285,7 +1322,10 @@ Deno.serve(async (req) => {
           );
           questionsThisChunk += genResult.saved;
           trainingThisChunk += genResult.training;
-          diffMade[difficulty] = (diffMade[difficulty] ?? 0) + genResult.saved;
+          // FIX: Count ALL inserted questions for quota tracking
+          const totalInserted = genResult.saved + genResult.training + genResult.gateFailed;
+          diffMade[difficulty] = (diffMade[difficulty] ?? 0) + totalInserted;
+          cogMade[cognitiveLevel] = (cogMade[cognitiveLevel] ?? 0) + totalInserted;
         } catch (e: unknown) {
           console.log(`[ExamPool-v5] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
         }
@@ -1312,6 +1352,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[ExamPool-v5] DIFF_QUOTA_RESULT: made=${JSON.stringify(diffMade)}, quotas=${JSON.stringify(diffQuota)}`);
+    console.log(`[ExamPool-v5] COG_QUOTA_RESULT: made=${JSON.stringify(cogMade)}, quotas=${JSON.stringify(cogQuota)}`);
 
     // ═══ DETERMINISTIC CALC QUOTA BACKFILL ═══
     // Target based on planned chunk size (stable, not affected by backfill itself)
