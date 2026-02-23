@@ -222,12 +222,22 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done";
 }
 
+// ── SSOT Step-Key Mapping: German → English DB standard ──
+const STEP_KEY_MAP: Record<string, string> = {
+  einstieg: "step_1_introduction",
+  verstehen: "step_2_understanding",
+  anwenden: "step_3_application",
+  wiederholen: "step_4_repetition",
+  mini_check: "step_5_minicheck",
+};
+
 async function existingVersion(sb: ReturnType<typeof createClient>, lessonId: string, step: string) {
+  const canonicalKey = STEP_KEY_MAP[step] ?? `step_${step}`;
   const { data } = await sb
     .from("content_versions")
     .select("id, content_json")
     .eq("lesson_id", lessonId)
-    .eq("step_key", `step_${step}`)
+    .eq("step_key", canonicalKey)
     .eq("entity_type", step === "mini_check" ? "minicheck" : "lesson_step")
     .neq("status", "rejected")
     .limit(1)
@@ -676,10 +686,20 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
           };
 
       // Write to content_versions with upsert-like behavior
+      // ── SSOT Step-Key Mapping: German → English DB standard ──
+      const STEP_KEY_MAP: Record<string, string> = {
+        einstieg: "step_1_introduction",
+        verstehen: "step_2_understanding",
+        anwenden: "step_3_application",
+        wiederholen: "step_4_repetition",
+        mini_check: "step_5_minicheck",
+      };
+      const canonicalStepKey = STEP_KEY_MAP[lesson.step] ?? `step_${lesson.step}`;
+
       const { data: newVersion, error: vErr } = await sb.from("content_versions").insert({
         course_id: courseId,
         lesson_id: lesson.id,
-        step_key: `step_${lesson.step}`,
+        step_key: canonicalStepKey,
         content_json: finalContent,
         created_by_agent: "generate-learning-content",
         status: "under_review",
