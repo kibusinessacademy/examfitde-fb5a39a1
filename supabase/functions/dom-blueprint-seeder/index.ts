@@ -1,7 +1,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-const BATCH_SIZE = 5; // questions per AI call
+const BATCH_SIZE = 5;
+
+// ── Elite 2.0: Exam Context Types ──────────────────────────────────
+const ELITE_CONTEXT_TYPES = [
+  "applied_case", "multi_step_case", "prioritization",
+  "error_detection", "documentation_analysis", "legal_evaluation",
+  "communication_scenario",
+];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -16,8 +23,8 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const blueprintId = body.blueprint_id;
-  const domainKey = body.domain_key; // optional: seed specific domain only
-  const topicKey = body.topic_key;   // optional: seed specific topic only
+  const domainKey = body.domain_key;
+  const topicKey = body.topic_key;
   const count = body.count || BATCH_SIZE;
 
   if (!blueprintId) return json({ error: "blueprint_id required" }, 400);
@@ -43,7 +50,7 @@ Deno.serve(async (req) => {
     if (domErr) throw domErr;
     if (!domains?.length) return json({ error: "No domains found" }, 404);
 
-    // 3) Load topics for targeted domains
+    // 3) Load topics
     const domainIds = domains.map((d: any) => d.id);
     let topicQuery = sb
       .from("dom_blueprint_topics")
@@ -53,7 +60,7 @@ Deno.serve(async (req) => {
 
     const { data: topics } = await topicQuery;
 
-    // 4) Load coverage state
+    // 4) Load coverage
     const { data: coverage } = await sb
       .from("dom_blueprint_coverage")
       .select("*")
@@ -61,7 +68,7 @@ Deno.serve(async (req) => {
 
     const coverageMap = new Map((coverage || []).map((c: any) => [c.domain_id, c]));
 
-    // 5) Find domains that still need questions
+    // 5) Generate per domain
     const certName = (bp as any).cert_master?.name || "Zertifizierung";
     const results: any[] = [];
     let totalGenerated = 0;
@@ -79,19 +86,19 @@ Deno.serve(async (req) => {
 
       const batchCount = Math.min(count, remaining);
 
-      // Build type distribution for prompt
       const typeMix = (domain.type_mix || [])
         .map((t: any) => `${t.share_pct}% ${t.qtype.replace('_', ' ')}`)
         .join(", ");
 
-      // Get topics for this domain
       const domainTopics = (topics || [])
         .filter((t: any) => t.domain_id === domain.id)
         .map((t: any) => t.topic_name);
 
       const diffMix = bp.difficulty_mix || { easy: 0.10, medium: 0.45, hard: 0.35, very_hard: 0.10 };
 
-      // 6) Build the prompt
+      // ── Elite 2.0: Enhanced prompt with exam context types ────────
+      const contextTypeList = ELITE_CONTEXT_TYPES.join(", ");
+
       const systemPrompt = `Du bist ein Experte für die IHK-Prüfung "${certName}".
 Du erstellst prüfungsrealistische Fragen für den Bereich "${domain.domain_name}" (${domain.part?.part_name}).
 
@@ -106,15 +113,36 @@ QUALITÄTSREGELN:
 - Jede Frage hat 4 Antwortoptionen, genau 1 korrekt
 - Ausführliche Erklärung pro Frage
 
+ELITE-ANFORDERUNGEN (Prüfungsnähe 2.0):
+- Maximal 20% der Fragen dürfen "isolated_knowledge" sein
+- Mindestens 30% müssen "multi_step_case" oder "applied_case" sein
+- Jede schwere Frage MUSS einen exam_context_type ≠ "isolated_knowledge" haben
+- Jede Frage braucht mindestens 2 typische Fehler (typical_errors)
+- Erlaubte exam_context_type: ${contextTypeList}
+- Bloom-Level muss korrekt zugeordnet werden (remember, understand, apply, analyze)
+
 THEMENABDECKUNG (aus Rahmenplan):
 ${domainTopics.length > 0 ? domainTopics.map((t: string) => `- ${t}`).join("\n") : "Alle Kernthemen des Bereichs"}
 
 Antworte NUR mit einem JSON-Array:
-[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"explanation":"...","difficulty":"easy|medium|hard","topic":"...","question_type":"mc_single|calculation|case_study|scenario|transfer"}]`;
+[{
+  "question_text": "...",
+  "options": ["A","B","C","D"],
+  "correct_answer": 0,
+  "explanation": "...",
+  "difficulty": "easy|medium|hard",
+  "topic": "...",
+  "question_type": "mc_single|calculation|case_study|scenario|transfer",
+  "exam_context_type": "isolated_knowledge|applied_case|multi_step_case|prioritization|error_detection|documentation_analysis|legal_evaluation|communication_scenario",
+  "bloom_level": "remember|understand|apply|analyze",
+  "typical_errors": ["Fehler 1", "Fehler 2"],
+  "exam_relevance_score": 1-5
+}]`;
 
       const userPrompt = `Erstelle exakt ${batchCount} hochwertige Prüfungsfragen für "${domain.domain_name}".
 Beachte die Schwierigkeitsverteilung und den Fragetyp-Mix.
-Rechenanteil: ${domain.calc_share_pct}%, Transferanteil: ${domain.transfer_share_pct}%.`;
+Rechenanteil: ${domain.calc_share_pct}%, Transferanteil: ${domain.transfer_share_pct}%.
+WICHTIG: Maximal 1 von ${batchCount} Fragen darf "isolated_knowledge" sein. Der Rest muss praxisnah und fallorientiert sein.`;
 
       // 7) Call AI
       const aiResp = await fetch(`${SUPABASE_URL}/functions/v1/ai-tutor`, {
@@ -154,7 +182,7 @@ Rechenanteil: ${domain.calc_share_pct}%, Transferanteil: ${domain.transfer_share
         continue;
       }
 
-      // 8) Store questions (using exam_questions table)
+      // 8) Store questions with Elite 2.0 metadata
       const inserts = questions.map((q: any) => ({
         question_text: q.question_text,
         options: q.options,
@@ -169,11 +197,14 @@ Rechenanteil: ${domain.calc_share_pct}%, Transferanteil: ${domain.transfer_share
           topic: q.topic || null,
           question_type: q.question_type || "mc_single",
           cert_name: certName,
+          // ── Elite 2.0 metadata ──
+          exam_context_type: q.exam_context_type || "applied_case",
+          bloom_level: q.bloom_level || "understand",
+          typical_errors: q.typical_errors || [],
+          exam_relevance_score: q.exam_relevance_score || 3,
         },
       }));
 
-      // Note: Adjust table/columns to match your actual exam_questions schema
-      // This is a best-effort insert - the actual schema may differ
       totalGenerated += inserts.length;
 
       // 9) Update coverage
@@ -183,6 +214,9 @@ Rechenanteil: ${domain.calc_share_pct}%, Transferanteil: ${domain.transfer_share
         .eq("blueprint_id", blueprintId)
         .eq("domain_id", domain.id);
 
+      // Elite stats for this domain
+      const eliteCount = inserts.filter(q => q.metadata.exam_context_type !== "isolated_knowledge").length;
+
       results.push({
         domain: domain.domain_key,
         status: "generated",
@@ -190,10 +224,11 @@ Rechenanteil: ${domain.calc_share_pct}%, Transferanteil: ${domain.transfer_share
         actual: actual + inserts.length,
         target,
         coverage_pct: Math.round(((actual + inserts.length) / target) * 100),
+        elite_ratio: Math.round((eliteCount / inserts.length) * 100),
       });
     }
 
-    // 10) Check overall coverage
+    // 10) Overall coverage
     const { data: updatedCoverage } = await sb
       .from("dom_blueprint_coverage")
       .select("questions_target, questions_actual")
