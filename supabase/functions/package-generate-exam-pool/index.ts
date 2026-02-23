@@ -350,20 +350,49 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
 // ─── JSON Auto-Repair ─────────────────────────────────────────────────────────
 
 function repairJSON(raw: string): unknown | null {
-  let clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  // Layer 1: Strip all markdown fences (opening and closing, with optional language tag)
+  let clean = raw.replace(/```(?:json)?[\s]*/gi, "").trim();
   try { return JSON.parse(clean); } catch { /* continue */ }
+
+  // Layer 2: Fix trailing commas
   clean = clean.replace(/,\s*([\]}])/g, "$1");
   try { return JSON.parse(clean); } catch { /* continue */ }
+
+  // Layer 3: Fix unescaped control characters inside string values
+  clean = clean.replace(/(?<=":[\s]*"[^"]*)\n(?=[^"]*")/g, "\\n");
+  clean = clean.replace(/(?<=":[\s]*"[^"]*)\t(?=[^"]*")/g, "\\t");
+  try { return JSON.parse(clean); } catch { /* continue */ }
+
+  // Layer 4: Extract array
   const arrMatch = clean.match(/\[[\s\S]*\]/);
   if (arrMatch) {
-    try { return JSON.parse(arrMatch[0]); } catch { /* continue */ }
-    const fixed = arrMatch[0].replace(/,\s*([\]}])/g, "$1");
-    try { return JSON.parse(fixed); } catch { /* continue */ }
+    const arrClean = arrMatch[0].replace(/,\s*([\]}])/g, "$1");
+    try { return JSON.parse(arrClean); } catch { /* continue */ }
+    // Try fixing truncated last element by removing it
+    const truncFixed = arrClean.replace(/,\s*\{[^}]*$/, "]");
+    try { return JSON.parse(truncFixed); } catch { /* continue */ }
   }
+
+  // Layer 5: Extract individual objects and collect into array
+  const objMatches = [...clean.matchAll(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g)];
+  if (objMatches.length > 0) {
+    const parsed = [];
+    for (const m of objMatches) {
+      try {
+        const fixed = m[0].replace(/,\s*([\]}])/g, "$1");
+        parsed.push(JSON.parse(fixed));
+      } catch { /* skip malformed object */ }
+    }
+    if (parsed.length > 0) return parsed;
+  }
+
+  // Layer 6: Single object extraction
   const objMatch = clean.match(/\{[\s\S]*\}/);
   if (objMatch) {
-    try { return [JSON.parse(objMatch[0])]; } catch { /* continue */ }
+    const fixed = objMatch[0].replace(/,\s*([\]}])/g, "$1");
+    try { return [JSON.parse(fixed)]; } catch { /* continue */ }
   }
+
   return null;
 }
 

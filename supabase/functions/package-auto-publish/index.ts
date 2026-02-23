@@ -160,6 +160,36 @@ Deno.serve(async (req) => {
     estimatedDuration = (lessonCount || 0) * 10;
   }
 
+  // ── Difficulty Distribution Gate (SSOT: easy≤15%, hardish≥40%) ──
+  const { data: courseData2 } = await sb.from("courses").select("curriculum_id").eq("id", courseId).maybeSingle();
+  const publishCurrId = (courseData2 as any)?.curriculum_id;
+  if (publishCurrId) {
+    const { data: diffStats } = await sb.rpc("get_difficulty_distribution", { p_curriculum_id: publishCurrId }).catch(() => ({ data: null }));
+    if (diffStats && Array.isArray(diffStats)) {
+      const totalQ = diffStats.reduce((s: number, d: any) => s + (d.count || 0), 0);
+      if (totalQ > 0) {
+        const easyCount = diffStats.find((d: any) => d.difficulty === "easy")?.count || 0;
+        const hardCount = diffStats.find((d: any) => d.difficulty === "hard")?.count || 0;
+        const vhCount = diffStats.find((d: any) => d.difficulty === "very_hard")?.count || 0;
+        const easyPct = (easyCount / totalQ) * 100;
+        const hardishPct = ((hardCount + vhCount) / totalQ) * 100;
+        if (easyPct > 20 || hardishPct < 35) {
+          console.log(`[auto-publish] ⚠️ Difficulty skew: easy=${easyPct.toFixed(1)}% hardish=${hardishPct.toFixed(1)}%`);
+          if (!isFactoryMode) {
+            try {
+              await sb.from("admin_notifications").insert({
+                title: "⚠️ Difficulty Distribution Warning",
+                body: `easy=${easyPct.toFixed(0)}% (max 15%), hardish=${hardishPct.toFixed(0)}% (min 40%)`,
+                category: "quality", severity: "warning",
+                entity_type: "course_package", entity_id: packageId,
+              });
+            } catch (_) { /* non-critical */ }
+          }
+        }
+      }
+    }
+  }
+
   // ── Publish ──
   const { error: cErr } = await sb
     .from("courses")
