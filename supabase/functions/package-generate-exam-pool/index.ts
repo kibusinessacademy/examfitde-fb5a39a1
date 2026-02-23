@@ -880,17 +880,22 @@ async function enqueueLearningFieldJobs(
   if (lfCount === 0) return { enqueued: 0, learningFields: 0 };
 
   // ── Step 1: Proportional weighting by blueprint count per LF ──
+  // Anti-Dominanz: No single LF may exceed MAX_LF_SHARE of the total target.
+  // This prevents massive imbalances (e.g. one LF having 60%+ of all questions).
   const totalBps = bps.length;
   const MIN_LF_SHARE = 0.06; // Every LF gets at least 6% of target
+  const MAX_LF_SHARE = Math.min(0.20, 2.0 / lfCount); // Cap: max 20% or 2/lfCount (whichever is smaller)
 
   const lfWeights = new Map<string, number>();
   for (const [lfId, lfBps] of lfGroups) {
     const naturalWeight = totalBps > 0 ? lfBps.length / totalBps : 1 / lfCount;
-    lfWeights.set(lfId, Math.max(MIN_LF_SHARE, naturalWeight));
+    // Clamp between MIN and MAX share
+    lfWeights.set(lfId, Math.min(MAX_LF_SHARE, Math.max(MIN_LF_SHARE, naturalWeight)));
   }
   // Normalize weights to sum to 1
   const totalWeight = Array.from(lfWeights.values()).reduce((s, w) => s + w, 0);
   for (const [lfId, w] of lfWeights) lfWeights.set(lfId, w / totalWeight);
+  console.log(`[ExamPool-v5] Anti-Dominanz: lfCount=${lfCount}, MAX_LF_SHARE=${(MAX_LF_SHARE * 100).toFixed(1)}%, weights=[${Array.from(lfWeights.entries()).map(([id, w]) => `${id.slice(0, 8)}:${(w * 100).toFixed(1)}%`).join(', ')}]`);
 
   // ── Step 2: Query existing questions per LF (gap detection) ──
   const lfIds = Array.from(lfGroups.keys());
@@ -1146,6 +1151,22 @@ Deno.serve(async (req) => {
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
       return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: globalTotal, hard_cap: true, cap: HARD_CAP_QUESTIONS });
+    }
+
+    // ─── ANTI-DOMINANZ CAP (per-LF runtime guard) ──────
+    // Prevents a single LF from exceeding 25% of total questions at runtime,
+    // even if the fan-out target was set higher due to legacy/race conditions.
+    if (isFanOut && p.learning_field_filter && globalTotal > 0) {
+      const { count: lfCurrentCount } = await sb.from("exam_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("curriculum_id", curriculumId)
+        .eq("learning_field_id", p.learning_field_filter);
+      const lfCurrent = lfCurrentCount ?? 0;
+      const maxPerLf = Math.ceil(Math.max(globalTotal, examTarget) * 0.25);
+      if (lfCurrent >= maxPerLf) {
+        console.log(`[ExamPool-v5] ANTI-DOMINANZ CAP: LF ${p.learning_field_filter.slice(0,8)} has ${lfCurrent}/${globalTotal} (${((lfCurrent/globalTotal)*100).toFixed(1)}%) >= 25% cap (${maxPerLf}). Stopping.`);
+        return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", anti_dominanz_cap: true, lf_count: lfCurrent, max_per_lf: maxPerLf });
+      }
     }
 
     // ══════════════════════════════════════════════════════════════════
