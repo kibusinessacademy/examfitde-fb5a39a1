@@ -248,7 +248,7 @@ Antworte NUR als JSON-Objekt:
       "cognitive_level": "remember|understand|apply|analyze|evaluate",
       "exam_context_type": "...",
       "typical_errors": ["Fehler 1", "Fehler 2"],
-      "question_type": "single_choice"
+      "question_type": "concept|procedure|calculation|case_study|transfer"
     }
   ]
 }`;
@@ -325,7 +325,7 @@ Antworte NUR als JSON-Objekt:
           explanation: q.explanation || "",
           difficulty: q.difficulty || spec.difficulty,
           cognitive_level: q.cognitive_level || spec.cognitive_level,
-          question_type: q.question_type || "single_choice",
+          question_type: ["concept","procedure","calculation","case_study","transfer"].includes(q.question_type) ? q.question_type : "concept",
           qc_status: "pending",
           ai_generated: true,
           trap_tags: typicalErrors,
