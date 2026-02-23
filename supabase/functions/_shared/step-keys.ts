@@ -13,6 +13,27 @@ export const STEP_KEY_MAP: Record<string, string> = {
   mini_check: "step_5_minicheck",
 };
 
+/** Legacy keys written before canonical mapping was enforced */
+const LEGACY_MAP: Record<string, string> = {
+  step_einstieg: "step_1_introduction",
+  step_verstehen: "step_2_understanding",
+  step_anwenden: "step_3_application",
+  step_wiederholen: "step_4_repetition",
+  step_mini_check: "step_5_minicheck",
+};
+
+const CANONICAL_VALUES = new Set(Object.values(STEP_KEY_MAP));
+
 export function canonicalStepKey(step: string): string {
-  return STEP_KEY_MAP[step] ?? `step_${step}`;
+  if (!step) return "";
+  // Already canonical → return as-is
+  if (CANONICAL_VALUES.has(step)) return step;
+  // Legacy step_<german> → canonical
+  if (LEGACY_MAP[step]) return LEGACY_MAP[step];
+  // German short name → canonical
+  if (STEP_KEY_MAP[step]) return STEP_KEY_MAP[step];
+  // Unknown step_ prefix → pass through (don't double-prefix)
+  if (step.startsWith("step_")) return step;
+  // True short token fallback
+  return `step_${step}`;
 }
