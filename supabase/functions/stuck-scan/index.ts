@@ -43,19 +43,44 @@ Deno.serve(async (req) => {
 
     // 1) Clean stale processing jobs (no heartbeat)
     const staleJobThreshold = new Date(Date.now() - heartbeatTimeout * 1000).toISOString();
-    const { count: staleCount } = await sb
+    // FIX: First fetch stale jobs so we can increment attempts properly
+    const { data: staleJobs } = await sb
       .from("job_queue")
-      .update({
-        status: "pending",
-        locked_at: null,
-        locked_by: null,
-        scheduled_at: new Date(Date.now() + 30_000).toISOString(),
-        last_error: `Stale lock detected (>${heartbeatTimeout}s)`,
-        last_error_code: "STALE_LOCK",
-      })
+      .select("id, attempts, max_attempts")
       .eq("status", "processing")
-      .lt("locked_at", staleJobThreshold)
-      .select("id", { count: "exact", head: true });
+      .lt("locked_at", staleJobThreshold);
+
+    let staleCount = 0;
+    let failedFromStale = 0;
+    for (const sj of staleJobs || []) {
+      const newAttempts = (sj.attempts || 0) + 1;
+      const maxAttempts = sj.max_attempts || 3;
+
+      if (newAttempts >= maxAttempts) {
+        // Exceeded max attempts → fail permanently instead of eternal retry loop
+        await sb.from("job_queue").update({
+          status: "failed",
+          locked_at: null,
+          locked_by: null,
+          last_error: `Stale lock detected (>${heartbeatTimeout}s) — max attempts (${maxAttempts}) reached`,
+          last_error_code: "STALE_LOCK_EXHAUSTED",
+          attempts: newAttempts,
+          completed_at: new Date().toISOString(),
+        }).eq("id", sj.id);
+        failedFromStale++;
+      } else {
+        await sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          scheduled_at: new Date(Date.now() + 30_000).toISOString(),
+          last_error: `Stale lock detected (>${heartbeatTimeout}s) — attempt ${newAttempts}/${maxAttempts}`,
+          last_error_code: "STALE_LOCK",
+          attempts: newAttempts,
+        }).eq("id", sj.id);
+      }
+      staleCount++;
+    }
 
     // 2) Find building packages with no progress
     const stuckSince = new Date(Date.now() - packageTimeout * 60_000).toISOString();
@@ -251,14 +276,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount ?? 0} stale jobs reset`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed)`);
 
     return json({
       ok: true,
       config: { heartbeat_timeout_s: heartbeatTimeout, package_timeout_min: packageTimeout },
       stuck_packages: results,
       orphan_packages: orphanResults,
-      stale_jobs_reset: staleCount ?? 0,
+      stale_jobs_reset: staleCount,
+      stale_jobs_permanently_failed: failedFromStale,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
