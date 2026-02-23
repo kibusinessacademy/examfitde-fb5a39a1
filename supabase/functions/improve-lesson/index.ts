@@ -61,6 +61,18 @@ const IMPROVE_MINICHECK_TOOL = {
   }
 };
 
+// ── SSOT Step-Key Mapping: German → English DB standard ──
+const STEP_KEY_MAP: Record<string, string> = {
+  einstieg: "step_1_introduction",
+  verstehen: "step_2_understanding",
+  anwenden: "step_3_application",
+  wiederholen: "step_4_repetition",
+  mini_check: "step_5_minicheck",
+};
+function canonicalStepKey(step: string): string {
+  return STEP_KEY_MAP[step] ?? `step_${step}`;
+}
+
 function getImprovementInstructions(professionName: string): Record<string, string> {
   return {
     pruefungsbezug_ergaenzen: `FÜGE am Ende des Inhalts einen klar sichtbaren IHK-Prüfungsbezug-Block für ${professionName} hinzu:
@@ -219,7 +231,7 @@ serve(async (req) => {
         : { ...content, html: improved.html, objectives: improved.objectives, improved_at: new Date().toISOString(), improvements_applied: improved.improvements_applied };
 
       const entityType = isMC ? 'minicheck' : 'lesson_step';
-      const stepKey = `step_${lesson.step}`;
+      const stepKey = canonicalStepKey(lesson.step);
 
       const { data: existingVersions } = await supabase
         .from('content_versions')

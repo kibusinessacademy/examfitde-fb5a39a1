@@ -4,6 +4,18 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 
+// ── SSOT Step-Key Mapping: German → English DB standard ──
+const STEP_KEY_MAP: Record<string, string> = {
+  einstieg: "step_1_introduction",
+  verstehen: "step_2_understanding",
+  anwenden: "step_3_application",
+  wiederholen: "step_4_repetition",
+  mini_check: "step_5_minicheck",
+};
+function canonicalStepKey(step: string): string {
+  return STEP_KEY_MAP[step] ?? `step_${step}`;
+}
+
 const STEP_PROMPTS: Record<string, string> = {
   einstieg: `Erstelle eine **aktivierende Einstiegsaktivität** (ca. 800–1200 Zeichen HTML).
 Struktur:
@@ -143,7 +155,7 @@ serve(async (req) => {
           : { type: 'text', html: content.html, objectives: content.objectives, generated_at: new Date().toISOString(), version: 3 };
 
         const { data: newVersion, error: vErr } = await supabase.from('content_versions').insert({
-          course_id: courseId || lesson.course_id, lesson_id: lesson.id, step_key: `step_${lesson.step}`,
+          course_id: courseId || lesson.course_id, lesson_id: lesson.id, step_key: canonicalStepKey(lesson.step),
           content_json: finalContent, created_by_agent: 'repair-lessons', status: 'under_review', council_round: 1, entity_type: isMiniCheck ? 'minicheck' : 'lesson_step'
         }).select('id').single();
 
