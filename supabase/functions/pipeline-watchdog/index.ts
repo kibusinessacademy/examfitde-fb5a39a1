@@ -32,6 +32,30 @@ async function hasRecentOpenAlert(
   return !!(data && data.length > 0);
 }
 
+/** Compute LF IDs that have 0 approved/tier1_passed questions in the exam pool */
+async function computeMissingLfIds(
+  sb: ReturnType<typeof createClient>,
+  curriculumId: string,
+  packageId: string,
+): Promise<string[]> {
+  const { data: lfs } = await sb
+    .from("learning_fields")
+    .select("id")
+    .eq("curriculum_id", curriculumId);
+
+  const lfIds = (lfs || []).map((x: { id: string }) => x.id);
+  if (lfIds.length === 0) return [];
+
+  const { data: rows } = await sb
+    .from("exam_questions")
+    .select("learning_field_id")
+    .eq("package_id", packageId)
+    .in("qc_status", ["approved", "tier1_passed"]);
+
+  const covered = new Set((rows || []).map((x: { learning_field_id: string }) => x.learning_field_id));
+  return lfIds.filter((id: string) => !covered.has(id));
+}
+
 /**
  * pipeline-watchdog — Safety-net fallback (runs every 5 minutes via cron)
  *
@@ -236,15 +260,25 @@ Deno.serve(async (req) => {
       const hasLfCoverage = hardFails.some((f: string) => f.includes("LF_COVERAGE"));
       const hasPoolIssue = hardFails.some((f: string) => f.includes("EXAM_POOL") || f.includes("TOO_FEW"));
 
-      if (hasLfCoverage || hasPoolIssue) {
-        // Need more exam questions → re-queue exam pool generation + downstream
+      if (hasLfCoverage) {
+        // LF_COVERAGE: DON'T re-queue generate_exam_pool (pool_fill_lf_gaps handles it)
+        // This prevents race conditions between the two generators
+        stepsToReset.push(
+          "validate_exam_pool",
+          "build_ai_tutor_index", "validate_tutor_index",
+          "generate_oral_exam", "validate_oral_exam",
+          "run_integrity_check", "quality_council", "auto_publish",
+        );
+        healReason = "LF_COVERAGE_GAP";
+      } else if (hasPoolIssue) {
+        // Full pool regen needed
         stepsToReset.push(
           "generate_exam_pool", "validate_exam_pool",
           "build_ai_tutor_index", "validate_tutor_index",
           "generate_oral_exam", "validate_oral_exam",
           "run_integrity_check", "quality_council", "auto_publish",
         );
-        healReason = hasLfCoverage ? "LF_COVERAGE_GAP" : "EXAM_POOL_INSUFFICIENT";
+        healReason = "EXAM_POOL_INSUFFICIENT";
       } else {
         // Generic: re-queue from integrity check onwards
         stepsToReset.push("run_integrity_check", "quality_council", "auto_publish");
@@ -298,24 +332,22 @@ Deno.serve(async (req) => {
         .eq("package_id", pkg.id)
         .eq("status", "cancelled");
 
-      // ── Targeted LF gap-fill: enqueue specific job if LF_COVERAGE ──
+      // ── Targeted LF gap-fill: compute real missing IDs + enqueue ──
       if (hasLfCoverage && pkg.curriculum_id) {
-        // Extract missing LF info from gates
-        const gates = report?.v3?.gates || [];
-        const lfGate = gates.find((g: any) => g.gate === "learning_field_coverage");
-        // Parse "5 LFs covered in exam pool, 15 modules in course" pattern
-        const lfDetail = lfGate?.detail || "";
-        const lfMatch = lfDetail.match(/(\d+) LFs covered.*?(\d+) modules/);
-        const coveredCount = lfMatch ? parseInt(lfMatch[1]) : 0;
-        const totalCount = lfMatch ? parseInt(lfMatch[2]) : 0;
+        let missingLfIds: string[] = [];
+        try {
+          missingLfIds = await computeMissingLfIds(sb, pkg.curriculum_id as string, pkg.id as string);
+        } catch (e) {
+          console.error(`[watchdog] computeMissingLfIds error for pkg=${(pkg.id as string).slice(0, 8)}:`, (e as Error).message);
+        }
 
         await sb.from("job_queue").insert({
           job_type: "pool_fill_lf_gaps",
           payload: {
             package_id: pkg.id,
             curriculum_id: pkg.curriculum_id,
-            covered_lf_count: coveredCount,
-            total_lf_count: totalCount,
+            missing_learning_field_ids: missingLfIds,
+            missing_count: missingLfIds.length,
             heal_reason: healReason,
           },
           status: "pending",
@@ -324,7 +356,7 @@ Deno.serve(async (req) => {
         });
 
         console.log(
-          `[watchdog] QG-heal: enqueued pool_fill_lf_gaps for pkg=${(pkg.id as string).slice(0, 8)} (${coveredCount}/${totalCount} LFs)`,
+          `[watchdog] QG-heal: enqueued pool_fill_lf_gaps for pkg=${(pkg.id as string).slice(0, 8)} (${missingLfIds.length} missing LFs: ${missingLfIds.map((id: string) => id.slice(0, 8)).join(", ")})`,
         );
       }
 
