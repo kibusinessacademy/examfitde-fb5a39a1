@@ -66,6 +66,37 @@ function calcEstimatedTime(cognitive: Cognitive): number {
   }
 }
 
+// ── Elite 2.0: Generate placeholder typical errors based on cognitive level ──
+function generateTypicalErrors(cognitive: Cognitive, topicHint: string): string[] {
+  const base: Record<Cognitive, string[]> = {
+    remember: [
+      "Verwechslung ähnlicher Fachbegriffe",
+      "Falsche Zuordnung von Definitionen",
+    ],
+    understand: [
+      "Oberflächliches Verständnis ohne Zusammenhänge",
+      "Verwechslung von Ursache und Wirkung",
+      "Fehlinterpretation von Fachbegriffen im Kontext",
+    ],
+    apply: [
+      "Falscher Rechenweg oder falsche Formel gewählt",
+      "Verwechslung von Brutto und Netto / Prozentbasis",
+      "Fehlende Berücksichtigung von Rahmenbedingungen",
+    ],
+    analyze: [
+      "Unvollständige Analyse — relevante Faktoren übersehen",
+      "Falsche Priorisierung der Handlungsschritte",
+      "Verwechslung von Symptom und Ursache",
+    ],
+    evaluate: [
+      "Einseitige Bewertung ohne Abwägung",
+      "Fehlende Berücksichtigung rechtlicher Vorgaben",
+      "Falsche Risikoeinschätzung",
+    ],
+  };
+  return base[cognitive] || base.understand;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
@@ -184,10 +215,10 @@ async function seedFromFields(
           question_template: "",
           status: "approved",
           version: 1,
-          // ── Elite 2.0 fields (jsonb = raw array, not stringify) ──
-          exam_context_type: pickExamContext(cognitive, i),
-          typical_errors: [],
-          decision_structure: pickDecisionStructure(cognitive, i),
+        // ── Elite 2.0 fields (jsonb = raw array, not stringify) ──
+        exam_context_type: pickExamContext(cognitive, i),
+        typical_errors: generateTypicalErrors(cognitive, lf.title || ""),
+        decision_structure: pickDecisionStructure(cognitive, i),
           exam_relevance_score: calcRelevanceScore(cognitive),
           estimated_time_seconds: calcEstimatedTime(cognitive),
         };
@@ -222,7 +253,7 @@ async function seedFromFields(
         version: 1,
         // ── Elite 2.0 fields (jsonb = raw array, not stringify) ──
         exam_context_type: pickExamContext(cognitive, i),
-        typical_errors: [],
+        typical_errors: generateTypicalErrors(cognitive, c.title || c.code || ""),
         decision_structure: pickDecisionStructure(cognitive, i),
         exam_relevance_score: calcRelevanceScore(cognitive),
         estimated_time_seconds: calcEstimatedTime(cognitive),
