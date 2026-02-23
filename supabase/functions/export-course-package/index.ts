@@ -368,6 +368,222 @@ Deno.serve(async (req) => {
     }
     console.log(`[export] Collected ${allTutorLogs.length} tutor logs`);
 
+    // ══════════════════════════════════════════════════════
+    // ── META-DATEN für tiefgreifendes Kurs-Audit ──
+    // ══════════════════════════════════════════════════════
+
+    // ── 1. Curriculum + Learning Fields ──
+    let curriculumFull: unknown = null;
+    let learningFields: unknown[] = [];
+    if (curriculumId) {
+      try {
+        const { data: cur } = await sb.from("curricula").select("*").eq("id", curriculumId).maybeSingle();
+        curriculumFull = cur;
+        const { data: lfs } = await sb.from("learning_fields").select("*").eq("curriculum_id", curriculumId).order("position");
+        learningFields = lfs || [];
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] Curriculum loaded, ${learningFields.length} learning fields`);
+
+    // ── 2. Question Blueprints + Constraints ──
+    let questionBlueprints: unknown[] = [];
+    let blueprintConstraints: unknown[] = [];
+    if (curriculumId) {
+      try {
+        const { data: bps } = await sb.from("question_blueprints").select("*").eq("curriculum_id", curriculumId).order("created_at");
+        questionBlueprints = bps || [];
+        if (questionBlueprints.length > 0) {
+          const bpIds = (questionBlueprints as Record<string, unknown>[]).map(b => b.id as string);
+          // Paginate constraints
+          const pageSize = 500;
+          let offset = 0;
+          while (true) {
+            const { data: batch } = await sb.from("blueprint_constraints").select("*").in("blueprint_id", bpIds).range(offset, offset + pageSize - 1);
+            if (!batch || batch.length === 0) break;
+            blueprintConstraints.push(...batch);
+            if (batch.length < pageSize) break;
+            offset += pageSize;
+          }
+        }
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${questionBlueprints.length} blueprints, ${blueprintConstraints.length} constraints`);
+
+    // ── 3. AI Generations (for this package/curriculum) ──
+    let aiGenerations: unknown[] = [];
+    if (curriculumId) {
+      try {
+        const pageSize = 500;
+        let offset = 0;
+        while (true) {
+          const { data: batch } = await sb.from("ai_generations")
+            .select("id, entity_type, entity_id, generator_model, status, validation_score, validation_decision, input_tokens, output_tokens, cost_eur, latency_ms, created_at")
+            .eq("entity_id", curriculumId)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + pageSize - 1);
+          if (!batch || batch.length === 0) break;
+          aiGenerations.push(...batch);
+          if (batch.length < pageSize) break;
+          offset += pageSize;
+        }
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${aiGenerations.length} AI generations`);
+
+    // ── 4. AI Validations (linked to generations) ──
+    let aiValidations: unknown[] = [];
+    if (aiGenerations.length > 0) {
+      try {
+        const genIds = (aiGenerations as Record<string, unknown>[]).map(g => g.id as string);
+        const pageSize = 500;
+        let offset = 0;
+        while (true) {
+          const { data: batch } = await sb.from("ai_validations")
+            .select("id, generation_id, validator_model, validation_mode, overall_score, decision, dimension_scores, critical_issues, improvements, cost_eur, validated_at")
+            .in("generation_id", genIds.slice(0, 200)) // limit to avoid query size issues
+            .range(offset, offset + pageSize - 1);
+          if (!batch || batch.length === 0) break;
+          aiValidations.push(...batch);
+          if (batch.length < pageSize) break;
+          offset += pageSize;
+        }
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${aiValidations.length} AI validations`);
+
+    // ── 5. Quality Gates ──
+    let qualityGates: unknown[] = [];
+    if (aiGenerations.length > 0) {
+      try {
+        const genIds = (aiGenerations as Record<string, unknown>[]).map(g => g.id as string);
+        const { data } = await sb.from("ai_quality_gates")
+          .select("*")
+          .in("generation_id", genIds.slice(0, 200))
+          .order("created_at", { ascending: false });
+        qualityGates = data || [];
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${qualityGates.length} quality gates`);
+
+    // ── 6. Tech Council findings ──
+    let councilFindings: unknown[] = [];
+    if (curriculumId) {
+      try {
+        const { data } = await sb.from("tech_council_findings")
+          .select("*")
+          .or(`affected_entity.eq.${curriculumId},affected_entity.eq.${cid},affected_entity.eq.${packageId}`)
+          .order("created_at", { ascending: false });
+        councilFindings = data || [];
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${councilFindings.length} council findings`);
+
+    // ── 7. Patch Plans ──
+    let patchPlans: unknown[] = [];
+    if (councilFindings.length > 0) {
+      try {
+        const findingIds = (councilFindings as Record<string, unknown>[]).map(f => f.id as string);
+        const { data } = await sb.from("admin_patch_plans")
+          .select("*")
+          .in("finding_id", findingIds)
+          .order("created_at", { ascending: false });
+        patchPlans = data || [];
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${patchPlans.length} patch plans`);
+
+    // ── 8. Auto-Heal Log ──
+    let autoHealLog: unknown[] = [];
+    if (curriculumId || cid || packageId) {
+      try {
+        const targets = [curriculumId, cid, packageId].filter(Boolean);
+        const { data } = await sb.from("auto_heal_log")
+          .select("*")
+          .in("target_id", targets)
+          .order("created_at", { ascending: false })
+          .limit(500);
+        autoHealLog = data || [];
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${autoHealLog.length} auto-heal entries`);
+
+    // ── 9. AI Cost Summary (usage log) ──
+    let aiCostSummary: Record<string, unknown> = {};
+    try {
+      const { data: usageLogs } = await sb.from("ai_usage_log")
+        .select("job_type, cost_eur, input_tokens, output_tokens, total_tokens, success, model")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (usageLogs?.length) {
+        const totalCost = usageLogs.reduce((s: number, l: any) => s + (l.cost_eur || 0), 0);
+        const totalTokens = usageLogs.reduce((s: number, l: any) => s + (l.total_tokens || 0), 0);
+        const byJobType: Record<string, { count: number; cost: number; tokens: number }> = {};
+        for (const l of usageLogs as Record<string, unknown>[]) {
+          const jt = (l.job_type as string) || "unknown";
+          if (!byJobType[jt]) byJobType[jt] = { count: 0, cost: 0, tokens: 0 };
+          byJobType[jt].count++;
+          byJobType[jt].cost += (l.cost_eur as number) || 0;
+          byJobType[jt].tokens += (l.total_tokens as number) || 0;
+        }
+        aiCostSummary = { total_cost_eur: totalCost, total_tokens: totalTokens, entries: usageLogs.length, by_job_type: byJobType };
+      }
+    } catch (_e) { /* best-effort */ }
+    console.log(`[export] AI cost summary: ${JSON.stringify(aiCostSummary).length} bytes`);
+
+    // ── 10. LF Distribution Analysis ──
+    let lfDistribution: unknown[] = [];
+    if (curriculumId && learningFields.length > 0) {
+      try {
+        for (const lf of learningFields as Record<string, unknown>[]) {
+          const { count: totalQ } = await sb.from("exam_questions").select("id", { count: "exact", head: true })
+            .eq("curriculum_id", curriculumId).eq("learning_field_id", lf.id as string);
+          const { count: approvedQ } = await sb.from("exam_questions").select("id", { count: "exact", head: true })
+            .eq("curriculum_id", curriculumId).eq("learning_field_id", lf.id as string).eq("qc_status", "approved");
+          const { count: bpCount } = await sb.from("question_blueprints").select("id", { count: "exact", head: true })
+            .eq("curriculum_id", curriculumId).eq("learning_field_id", lf.id as string);
+          lfDistribution.push({
+            learning_field_id: lf.id,
+            title: lf.title,
+            position: lf.position,
+            questions_total: totalQ ?? 0,
+            questions_approved: approvedQ ?? 0,
+            blueprints: bpCount ?? 0,
+          });
+        }
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] LF distribution: ${lfDistribution.length} fields analyzed`);
+
+    // ── 11. Autofix Runs ──
+    let autofixRuns: unknown[] = [];
+    if (curriculumId) {
+      try {
+        const { data } = await sb.from("autofix_runs")
+          .select("*")
+          .eq("curriculum_id", curriculumId)
+          .order("created_at", { ascending: false });
+        autofixRuns = data || [];
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${autofixRuns.length} autofix runs`);
+
+    // ── 12. AI Budget Info ──
+    let aiBudgets: unknown[] = [];
+    try {
+      const { data } = await sb.from("ai_cost_budgets")
+        .select("*")
+        .order("month", { ascending: false })
+        .limit(6);
+      aiBudgets = data || [];
+    } catch (_e) { /* best-effort */ }
+
+    // ── 13. Worker Policies ──
+    let workerPolicies: unknown[] = [];
+    try {
+      const { data } = await sb.from("ai_worker_policies").select("*");
+      workerPolicies = data || [];
+    } catch (_e) { /* best-effort */ }
+
     // ── Build ZIP ──
     const zip = new JSZip();
     zip.file("package.json", JSON.stringify(pkg, null, 2));
@@ -388,9 +604,27 @@ Deno.serve(async (req) => {
     zip.file("content/lessons_all.json", JSON.stringify(allLessons, null, 2));
     zip.file("content/exam_questions_approved.json", JSON.stringify(questionSamples, null, 2));
 
+    // ── META / AUDIT DATA ──
+    zip.file("meta/curriculum.json", JSON.stringify(curriculumFull || {}, null, 2));
+    zip.file("meta/learning_fields.json", JSON.stringify(learningFields, null, 2));
+    zip.file("meta/lf_distribution.json", JSON.stringify(lfDistribution, null, 2));
+    zip.file("meta/question_blueprints.json", JSON.stringify(questionBlueprints, null, 2));
+    zip.file("meta/blueprint_constraints.json", JSON.stringify(blueprintConstraints, null, 2));
+    zip.file("meta/ai_generations.json", JSON.stringify(aiGenerations, null, 2));
+    zip.file("meta/ai_validations.json", JSON.stringify(aiValidations, null, 2));
+    zip.file("meta/quality_gates.json", JSON.stringify(qualityGates, null, 2));
+    zip.file("meta/council_findings.json", JSON.stringify(councilFindings, null, 2));
+    zip.file("meta/patch_plans.json", JSON.stringify(patchPlans, null, 2));
+    zip.file("meta/auto_heal_log.json", JSON.stringify(autoHealLog, null, 2));
+    zip.file("meta/autofix_runs.json", JSON.stringify(autofixRuns, null, 2));
+    zip.file("meta/ai_cost_summary.json", JSON.stringify(aiCostSummary, null, 2));
+    zip.file("meta/ai_budgets.json", JSON.stringify(aiBudgets, null, 2));
+    zip.file("meta/worker_policies.json", JSON.stringify(workerPolicies, null, 2));
+
     // Export manifest with counts for quick verification
     const manifest = {
       exported_at: new Date().toISOString(),
+      export_version: "2.0-audit",
       package_id: packageId,
       course_id: cid,
       curriculum_id: curriculumId,
@@ -407,6 +641,21 @@ Deno.serve(async (req) => {
         handbook_length_chars: handbookMd.length,
         handbook_is_placeholder: handbookMd.length < 500,
       },
+      meta_counts: {
+        learning_fields: learningFields.length,
+        question_blueprints: questionBlueprints.length,
+        blueprint_constraints: blueprintConstraints.length,
+        ai_generations: aiGenerations.length,
+        ai_validations: aiValidations.length,
+        quality_gates: qualityGates.length,
+        council_findings: councilFindings.length,
+        patch_plans: patchPlans.length,
+        auto_heal_entries: autoHealLog.length,
+        autofix_runs: autofixRuns.length,
+        worker_policies: workerPolicies.length,
+      },
+      lf_distribution: lfDistribution,
+      ai_cost_summary: aiCostSummary,
       questions_summary: questionsSummary,
     };
     zip.file("manifest.json", JSON.stringify(manifest, null, 2));
@@ -449,6 +698,16 @@ Deno.serve(async (req) => {
             tutorPolicies: tutorPolicies.length,
             handbookChapters: handbookStructured.length,
           },
+          meta: {
+            learningFields: learningFields.length,
+            blueprints: questionBlueprints.length,
+            aiGenerations: aiGenerations.length,
+            aiValidations: aiValidations.length,
+            qualityGates: qualityGates.length,
+            councilFindings: councilFindings.length,
+            autoHealEntries: autoHealLog.length,
+            autofixRuns: autofixRuns.length,
+          },
         },
       },
       { onConflict: "package_id,output_key" }
@@ -466,6 +725,16 @@ Deno.serve(async (req) => {
         tutorLogs: allTutorLogs.length,
         tutorPolicies: tutorPolicies.length,
         handbookChapters: handbookStructured.length,
+      },
+      meta: {
+        learningFields: learningFields.length,
+        blueprints: questionBlueprints.length,
+        aiGenerations: aiGenerations.length,
+        aiValidations: aiValidations.length,
+        qualityGates: qualityGates.length,
+        councilFindings: councilFindings.length,
+        autoHealEntries: autoHealLog.length,
+        autofixRuns: autofixRuns.length,
       },
       manifest,
     });
