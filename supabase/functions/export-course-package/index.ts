@@ -162,7 +162,17 @@ Deno.serve(async (req) => {
       oralBlueprints = data || [];
     }
 
-    // ── Oral Exam: ALL sessions (paginated) ──
+    // ── Oral Exam: Session Templates (pipeline-generated, not user-specific) ──
+    let oralSessionTemplates: unknown[] = [];
+    try {
+      const { data } = await sb.from("oral_exam_session_templates")
+        .select("*")
+        .eq("package_id", packageId)
+        .order("sort_order");
+      oralSessionTemplates = data || [];
+    } catch (_e) { /* best-effort */ }
+
+    // ── Oral Exam: ALL user sessions (paginated, may be empty for fresh packages) ──
     const allOralSessions: unknown[] = [];
     if (oralSessionsets?.length) {
       const setIds = (oralSessionsets as Record<string, unknown>[]).map(s => s.id as string);
@@ -182,7 +192,7 @@ Deno.serve(async (req) => {
         offset += pageSize;
       }
     }
-    console.log(`[export] Oral exam: ${(oralSessionsets || []).length} sets, ${oralBlueprints.length} blueprints, ${allOralSessions.length} sessions`);
+    console.log(`[export] Oral exam: ${(oralSessionsets || []).length} sets, ${oralBlueprints.length} blueprints, ${oralSessionTemplates.length} templates, ${allOralSessions.length} user sessions`);
 
     // ── Tutor: ALL context indices for this package ──
     const { data: tutorIndices } = await sb
@@ -593,6 +603,7 @@ Deno.serve(async (req) => {
     zip.file("handbook_structured.json", JSON.stringify(handbookStructured, null, 2));
     zip.file("oral_exam/sessionsets.json", JSON.stringify(oralSessionsets || [], null, 2));
     zip.file("oral_exam/blueprints.json", JSON.stringify(oralBlueprints, null, 2));
+    zip.file("oral_exam/session_templates.json", JSON.stringify(oralSessionTemplates, null, 2));
     zip.file("oral_exam/sessions_all.json", JSON.stringify(allOralSessions, null, 2));
     zip.file("tutor/context_indices.json", JSON.stringify(tutorIndices || [], null, 2));
     zip.file("tutor/policies.json", JSON.stringify(tutorPolicies, null, 2));
