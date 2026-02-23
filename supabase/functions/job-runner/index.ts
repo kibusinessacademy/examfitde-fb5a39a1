@@ -538,11 +538,12 @@ Deno.serve(async (req) => {
         // ── Hard failure ─────────────────────────────────────────────
         else {
           const maxAttempts = job.max_attempts || 3;
+          const newAttempts = (job.attempts || 0) + 1;
           const errStr = typeof parsed === "string" ? parsed.slice(0, 500) : JSON.stringify(parsed).slice(0, 500);
-          if ((job.attempts || 0) >= maxAttempts) {
+          if (newAttempts >= maxAttempts) {
             finalState = {
               status: "failed",
-              patch: { error: `HTTP ${res.status}: ${errStr}`, completed_at: tsNow },
+              patch: { error: `HTTP ${res.status}: ${errStr}`, completed_at: tsNow, attempts: newAttempts },
               metricsAction: (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") ? "dlq" : undefined,
             };
           } else {
@@ -550,7 +551,8 @@ Deno.serve(async (req) => {
               status: "pending",
               patch: {
                 run_after: new Date(Date.now() + BACKOFF_ERROR_MS).toISOString(),
-                error: `HTTP ${res.status} — attempt ${job.attempts || 1}`,
+                error: `HTTP ${res.status} — attempt ${newAttempts}/${maxAttempts}`,
+                attempts: newAttempts,
                 meta: { ...(job.meta || {}), last_retry: tsNow },
               },
             };
@@ -627,12 +629,14 @@ Deno.serve(async (req) => {
       if (isTimeout) tickMetrics.timeouts++;
 
       const maxAttempts = job.max_attempts || 3;
-      if ((job.attempts || 0) >= maxAttempts) {
+      const newAttempts = (job.attempts || 0) + 1;
+      if (newAttempts >= maxAttempts) {
         finalState = {
           status: "failed",
           patch: {
-            error: isTimeout ? "Edge Function timeout" : msg.slice(0, 1000),
+            error: isTimeout ? `Edge Function timeout (attempt ${newAttempts}/${maxAttempts})` : msg.slice(0, 1000),
             completed_at: tsNow,
+            attempts: newAttempts,
           },
           metricsAction: (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") ? "dlq" : undefined,
         };
@@ -642,7 +646,8 @@ Deno.serve(async (req) => {
           status: "pending",
           patch: {
             run_after: new Date(Date.now() + delay).toISOString(),
-            error: `Attempt ${job.attempts || 1} failed: ${msg.slice(0, 500)}`,
+            error: `Attempt ${newAttempts}/${maxAttempts} failed: ${msg.slice(0, 500)}`,
+            attempts: newAttempts,
             meta: { ...(job.meta || {}), last_retry: tsNow },
           },
         };

@@ -49,6 +49,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "lovable", model: "google/gemini-2.5-pro" },
     { provider: "lovable", model: "openai/gpt-5" },
+    { provider: "lovable", model: "openai/gpt-5-mini", is_fallback: true },
   ],
   exam_questions: [
     { provider: "lovable", model: "openai/gpt-5-mini" },
@@ -102,8 +103,8 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "openai/gpt-5-mini" },
   ],
   repair: [
-    { provider: "lovable", model: "google/gemini-2.5-flash" },  // v5.3: replaced unreliable gpt-5-mini
     { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "openai/gpt-5-mini", is_fallback: true },
   ],
   repair_content: [
     { provider: "lovable", model: "google/gemini-2.5-pro" },
