@@ -1633,6 +1633,13 @@ export type Database = {
             referencedRelation: "berufe"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "beruf_aliases_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["beruf_id"]
+          },
         ]
       }
       beruf_dokumente: {
@@ -1673,6 +1680,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "berufe"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beruf_dokumente_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["beruf_id"]
           },
         ]
       }
@@ -2933,10 +2947,13 @@ export type Database = {
           action_verb: string | null
           bloom_inferred: boolean | null
           bloom_level: string | null
+          bloom_source: string | null
           code: string
           context_conditions: string | null
           created_at: string
           description: string | null
+          enriched_at: string | null
+          enrichment_version: number | null
           exam_relevance_tier: string | null
           id: string
           learning_field_id: string
@@ -2950,10 +2967,13 @@ export type Database = {
           action_verb?: string | null
           bloom_inferred?: boolean | null
           bloom_level?: string | null
+          bloom_source?: string | null
           code: string
           context_conditions?: string | null
           created_at?: string
           description?: string | null
+          enriched_at?: string | null
+          enrichment_version?: number | null
           exam_relevance_tier?: string | null
           id?: string
           learning_field_id: string
@@ -2967,10 +2987,13 @@ export type Database = {
           action_verb?: string | null
           bloom_inferred?: boolean | null
           bloom_level?: string | null
+          bloom_source?: string | null
           code?: string
           context_conditions?: string | null
           created_at?: string
           description?: string | null
+          enriched_at?: string | null
+          enrichment_version?: number | null
           exam_relevance_tier?: string | null
           id?: string
           learning_field_id?: string
@@ -5753,6 +5776,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "berufe"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["beruf_id"]
           },
         ]
       }
@@ -13245,6 +13275,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "portfolio_priority_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: true
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["beruf_id"]
+          },
+          {
             foreignKeyName: "portfolio_priority_cluster_id_fkey"
             columns: ["cluster_id"]
             isOneToOne: false
@@ -13771,6 +13808,13 @@ export type Database = {
             referencedRelation: "berufe"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profession_glossaries_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["beruf_id"]
+          },
         ]
       }
       profession_profiles: {
@@ -13808,6 +13852,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "berufe"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profession_profiles_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["beruf_id"]
           },
         ]
       }
@@ -16302,6 +16353,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "berufe"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_documents_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["beruf_id"]
           },
           {
             foreignKeyName: "seo_documents_competency_id_fkey"
@@ -19319,19 +19377,25 @@ export type Database = {
           curricula_with_glossary: number | null
           curricula_with_profile: number | null
           elite_ready_curricula: number | null
+          misconception_coverage_pct: number | null
           phase1_complete: number | null
           total_curricula: number | null
+          total_exam_relevant: number | null
+          total_with_misconceptions: number | null
         }
         Relationships: []
       }
       elite_readiness_per_curriculum: {
         Row: {
           action_verb_pct: number | null
+          beruf_id: string | null
           bloom_pct: number | null
           curriculum_id: string | null
           curriculum_title: string | null
           elite_ready: number | null
           elite_ready_pct: number | null
+          exam_relevant_count: number | null
+          exam_relevant_with_misconceptions: number | null
           exam_tier_pct: number | null
           has_action_verb: number | null
           has_bloom: number | null
@@ -21836,6 +21900,37 @@ export type Database = {
           approved: number
           curriculum_id: string
           total: number
+        }[]
+      }
+      get_phase1_candidates: {
+        Args: { p_curriculum_id?: string; p_field?: string; p_limit?: number }
+        Returns: {
+          bloom_level: string
+          description: string
+          exam_part: string
+          id: string
+          learning_field_id: string
+          taxonomy_level: string
+          title: string
+          weight_percent: number
+        }[]
+      }
+      get_phase2_candidates: {
+        Args: { p_curriculum_id?: string; p_limit?: number }
+        Returns: {
+          action_verb: string
+          bloom_level: string
+          curriculum_title: string
+          description: string
+          exam_part: string
+          exam_relevance_tier: string
+          id: string
+          learning_field_id: string
+          lf_title: string
+          needs_misconceptions: boolean
+          needs_transfer: boolean
+          profession_name: string
+          title: string
         }[]
       }
       get_placeholder_lessons: {
