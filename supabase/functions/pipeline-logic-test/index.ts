@@ -249,7 +249,7 @@ Deno.serve(async (req) => {
       .in("status", ["pending", "processing"]);
 
     // Fan-out job types: these legitimately have multiple jobs per (package_id, job_type)
-    // distinguished by learning_field_id in payload. Dedupe key must include LF scope.
+    // distinguished by learning_field_filter in payload. Dedupe key must include LF scope.
     const FAN_OUT_JOB_TYPES = new Set([
       "package_generate_exam_pool",
       "package_generate_oral_exam",
@@ -260,10 +260,11 @@ Deno.serve(async (req) => {
     const dupes: any[] = [];
     let healed = 0;
     for (const j of allActive || []) {
-      // For fan-out jobs, include learning_field_id in dedupe key
+      // For fan-out jobs, include learning_field_filter in dedupe key
       // so parallel LF sub-jobs are NOT treated as duplicates
+      const pl = j.payload as Record<string, unknown>;
       const lfScope = FAN_OUT_JOB_TYPES.has(j.job_type)
-        ? `::lf=${(j.payload as Record<string, unknown>)?.learning_field_id ?? '__root__'}`
+        ? `::lf=${pl?.learning_field_filter ?? pl?.learning_field_id ?? '__root__'}`
         : "";
       const key = `${j.package_id}::${j.job_type}${lfScope}`;
       if (seen.has(key)) {
