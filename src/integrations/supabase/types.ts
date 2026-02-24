@@ -17454,6 +17454,119 @@ export type Database = {
         }
         Relationships: []
       }
+      test_results: {
+        Row: {
+          artifact_url: string | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          error_snippet: string | null
+          id: string
+          is_flaky: boolean | null
+          metadata: Json | null
+          retry_count: number | null
+          run_id: string
+          status: string
+          test_group: string | null
+          test_name: string
+        }
+        Insert: {
+          artifact_url?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          error_snippet?: string | null
+          id?: string
+          is_flaky?: boolean | null
+          metadata?: Json | null
+          retry_count?: number | null
+          run_id: string
+          status: string
+          test_group?: string | null
+          test_name: string
+        }
+        Update: {
+          artifact_url?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          error_snippet?: string | null
+          id?: string
+          is_flaky?: boolean | null
+          metadata?: Json | null
+          retry_count?: number | null
+          run_id?: string
+          status?: string
+          test_group?: string | null
+          test_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "test_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          env: string
+          failed_tests: number | null
+          finished_at: string | null
+          git_sha: string | null
+          id: string
+          metadata: Json | null
+          passed_tests: number | null
+          skipped_tests: number | null
+          started_at: string
+          status: string
+          suite: string
+          suite_file: string | null
+          total_tests: number | null
+          trigger_source: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          env: string
+          failed_tests?: number | null
+          finished_at?: string | null
+          git_sha?: string | null
+          id?: string
+          metadata?: Json | null
+          passed_tests?: number | null
+          skipped_tests?: number | null
+          started_at?: string
+          status?: string
+          suite: string
+          suite_file?: string | null
+          total_tests?: number | null
+          trigger_source?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          env?: string
+          failed_tests?: number | null
+          finished_at?: string | null
+          git_sha?: string | null
+          id?: string
+          metadata?: Json | null
+          passed_tests?: number | null
+          skipped_tests?: number | null
+          started_at?: string
+          status?: string
+          suite?: string
+          suite_file?: string | null
+          total_tests?: number | null
+          trigger_source?: string | null
+        }
+        Relationships: []
+      }
       ticket_links: {
         Row: {
           created_at: string
@@ -19990,6 +20103,17 @@ export type Database = {
           first_seen: string | null
           job_type: string | null
           last_seen: string | null
+        }
+        Relationships: []
+      }
+      v_flaky_tests: {
+        Row: {
+          fail_count: number | null
+          fail_rate_pct: number | null
+          last_seen: string | null
+          pass_count: number | null
+          test_name: string | null
+          total_runs: number | null
         }
         Relationships: []
       }
