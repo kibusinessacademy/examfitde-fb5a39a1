@@ -34,6 +34,9 @@ export default function ManualLessonEditor() {
     setLoading(true);
     try {
       // Find all placeholder/failed lessons across all packages
+      // Find placeholder/failed lessons, then filter client-side to only show
+      // packages that are actively building or beyond (not queued/draft)
+      const RELEVANT_STATUSES = ['building', 'quality_gate_failed', 'done', 'published'];
       const { data, error } = await (supabase as any)
         .from('lessons')
         .select(`
@@ -42,21 +45,26 @@ export default function ManualLessonEditor() {
         `)
         .or('content.is.null,content->_placeholder.eq.true,content->_needs_manual_review.eq.true')
         .order('created_at', { ascending: true })
-        .limit(100);
+        .limit(500);
 
       if (error) throw error;
 
-      const mapped: FailedLesson[] = (data || []).map((l: any) => ({
-        id: l.id,
-        title: l.title,
-        step: l.step,
-        module_title: l.modules?.title || '?',
-        package_title: l.modules?.courses?.course_packages?.[0]?.title || '?',
-        package_id: l.modules?.courses?.course_packages?.[0]?.id || '',
-        course_id: l.modules?.course_id || '',
-        content: l.content,
-        needs_manual_review: l.content?._needs_manual_review === true,
-      }));
+      const mapped: FailedLesson[] = (data || [])
+        .filter((l: any) => {
+          const pkgStatus = l.modules?.courses?.course_packages?.[0]?.status;
+          return pkgStatus && RELEVANT_STATUSES.includes(pkgStatus);
+        })
+        .map((l: any) => ({
+          id: l.id,
+          title: l.title,
+          step: l.step,
+          module_title: l.modules?.title || '?',
+          package_title: l.modules?.courses?.course_packages?.[0]?.title || '?',
+          package_id: l.modules?.courses?.course_packages?.[0]?.id || '',
+          course_id: l.modules?.course_id || '',
+          content: l.content,
+          needs_manual_review: l.content?._needs_manual_review === true,
+        }));
 
       setLessons(mapped);
     } catch (e) {
