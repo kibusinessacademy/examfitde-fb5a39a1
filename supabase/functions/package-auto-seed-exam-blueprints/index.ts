@@ -626,10 +626,10 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
   // If AI was called but nothing persisted → hard fail so Runner marks
   // step as failed instead of silently completing with 0 output.
   const totalExisting = (existingBps || []).length;
-  if (aiCallCount > 0 && insertedCount === 0 && upgradedCount === 0 && totalExisting === 0) {
-    const msg = `SEED_ZERO_WRITE: ${aiCallCount} AI calls but 0 blueprints persisted. Likely schema mismatch or constraint violation.`;
+  if (aiCallCount > 0 && insertedCount === 0 && upgradedCount === 0) {
+    const msg = `SEED_ZERO_WRITE: ${aiCallCount} AI calls but 0 blueprints persisted/updated. Likely schema mismatch, RLS, or constraint violation. existing=${totalExisting}`;
     console.error(`[SeedV4] ${msg}`);
-    return json({ ok: false, error: msg, ai_calls: aiCallCount, batch_complete: false }, 500);
+    return json({ ok: false, error: msg, ai_calls: aiCallCount, existing: totalExisting, batch_complete: false }, 500);
   }
 
   return json({
