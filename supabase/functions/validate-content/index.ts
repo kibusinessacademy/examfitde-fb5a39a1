@@ -7,6 +7,7 @@ import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { measureDepth, runV2QualityGate, mapToDifficultyLevel, buildImpactScorePrompt } from "../_shared/prompt-kit.ts";
+import { validateLessonStep } from "../_shared/content-validators.ts";
 
 interface ValidationRequest {
   mode: "lesson" | "course" | "question" | "tutor_response" | "blog_article";
@@ -186,6 +187,20 @@ serve(async (req) => {
       }
     }
 
+    // ═══ STRUCTURAL HARD VALIDATION (pre-LLM) ═══
+    let structuralReject = false;
+    let structuralFailures: string[] = [];
+    if (mode === "lesson" && context?.lessonStep && typeof content === "object" && content !== null) {
+      const structResult = validateLessonStep(context.lessonStep, content);
+      if (!structResult.passes) {
+        structuralReject = true;
+        structuralFailures = structResult.failures
+          .filter(f => f.severity === "hard_fail")
+          .map(f => `[${f.rule}] ${f.message}`);
+        console.warn(`[validate-content] STRUCTURAL HARD FAIL: ${structuralFailures.join("; ")}`);
+      }
+    }
+
     // v2: Combined quality gate (depth + hallucination + variation)
     let v2Warnings: string[] = [];
     let v2Verdict = "pass";
@@ -206,6 +221,25 @@ serve(async (req) => {
           v2Warnings.push(`Formelhaftigkeit: Score ${v2Result.variationScore.score} — ${v2Result.variationScore.repetitiveOpeners.join(", ")}`);
         }
       }
+    }
+
+    // If structural validation hard-failed, auto-reject without LLM call
+    if (structuralReject) {
+      const rejectResult: ValidationResult = {
+        overall_score: 35,
+        decision: "reject",
+        dimension_scores: { struktur: 0, fachlichkeit: 50, didaktik: 30, pruefungsrelevanz: 30, klarheit: 50, vollstaendigkeit: 30 },
+        critical_issues: structuralFailures.map(f => ({ severity: "critical" as const, category: "structural_fail", message: f })),
+        suggested_fixes: [{ type: "replace_section", reason: "Strukturelle Mindestanforderungen nicht erfüllt — Regenerierung nötig" }],
+        improvements: structuralFailures,
+      };
+
+      if (generationId) {
+        const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        await supabase.from("ai_generations").update({ validation_decision: "reject", validation_score: 35, status: "rejected" }).eq("id", generationId);
+      }
+
+      return new Response(JSON.stringify(rejectResult), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (professionName) {

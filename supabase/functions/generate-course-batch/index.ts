@@ -6,6 +6,7 @@ import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES } from "../_shared/prompt-kit.ts";
+import { validateLessonStep, getVariationSeed } from "../_shared/content-validators.ts";
 
 const LESSON_STEPS = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"] as const;
 type LessonStep = (typeof LESSON_STEPS)[number];
@@ -283,6 +284,9 @@ INTERNE SELBSTPRÜFUNG (vor Ausgabe intern prüfen — nicht ausgeben):
 ☐ Kein Satz über 30 Wörter?
 Falls eine Pflicht fehlt: Ergänze intern vor der Ausgabe.`;
 
+    // ═══ VARIATION SEED: Prevent template leakage / prompt drift ═══
+    const variationSeed = getVariationSeed(competency.code || competency.title, step);
+
     const stepPrompt = getStepPrompt(step, professionName);
     const userPrompt = `Erstelle Lerninhalt für den Beruf "${professionName}":
 Kompetenz: ${competency.title}
@@ -291,7 +295,8 @@ Taxonomie: ${competency.taxonomy_level}
 Lernschritt: ${step}
 
 AUFGABE:
-${stepPrompt}${topicDepth}`;
+${stepPrompt}${topicDepth}
+${variationSeed.promptSuffix}`;
 
     let result;
     if (step === "mini_check") {
@@ -324,11 +329,25 @@ ${stepPrompt}${topicDepth}`;
       } catch { throw new Error("Failed to parse AI response"); }
     }
 
+    // ═══ STRUCTURAL HARD VALIDATION (pre-LLM gate) ═══
+    const structuralCheck = validateLessonStep(step, result);
+    if (!structuralCheck.passes) {
+      console.warn(`[generate-course-batch] STRUCTURAL FAIL for step="${step}":`, structuralCheck.failures.map(f => f.message));
+      // Attach validation metadata but don't block — let validate-content handle regeneration
+      result._structural_validation = {
+        passed: false,
+        failures: structuralCheck.failures,
+        metrics: structuralCheck.metrics,
+      };
+    } else {
+      result._structural_validation = { passed: true, metrics: structuralCheck.metrics };
+    }
+
     // Track generation
     const { data: genRec } = await supabase.from("ai_generations").insert({
       entity_type: "lesson", generator_model: routed.model,
-      input_context: { competency: competency.title, step, taxonomy: competency.taxonomy_level, courseId, depth_enriched: !!topicDepth, profession: professionName },
-      output_content: result, status: "generated", metadata: { provider: routed.provider, competencyCode: competency.code }
+      input_context: { competency: competency.title, step, taxonomy: competency.taxonomy_level, courseId, depth_enriched: !!topicDepth, profession: professionName, structural_passed: structuralCheck.passes },
+      output_content: result, status: structuralCheck.passes ? "generated" : "structural_fail", metadata: { provider: routed.provider, competencyCode: competency.code, structural_failures: structuralCheck.failures }
     }).select("id").single();
 
     // Trigger validation with full SSOT context
