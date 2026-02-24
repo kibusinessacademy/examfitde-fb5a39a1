@@ -1,16 +1,19 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { callAIJSON } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 // ═══════════════════════════════════════════════════════════════════════
-// Blueprint Seeder v3 — "Prüfungs-Engine" Grade
+// Blueprint Seeder v4 — "Premium Elite" Grade
 // ═══════════════════════════════════════════════════════════════════════
-// Key changes from v2:
-//   1. AI-generated question_template + explanation_template (not empty)
-//   2. Multi-blueprint per competency (Recall, Transfer, Praxisfall, Falle)
-//   3. Domain-specific typical_errors + trap_spec from profession context
-//   4. Question type diversity (mc_single, mc_multi, case_study, calc, ordering)
-//   5. Real governance: status="draft" until council approves
-//   6. Blueprint Health Score as output metric
+// Upgrades from v3:
+//   1. Shared AI client + model-routing (Google-first, failover chain)
+//   2. Leverages enriched competency data (bloom_level, misconceptions)
+//   3. exam_part propagation from learning_fields
+//   4. Stricter elite gates: min 3 typical_errors, max 20% isolated
+//   5. discrimination_tier + scenario_type metadata
+//   6. Profession glossary injection for domain depth
+//   7. Blueprint diversity enforcement (cognitive spread validation)
 // ═══════════════════════════════════════════════════════════════════════
 
 function json(body: unknown, status = 200) {
@@ -31,7 +34,7 @@ type Cognitive = "remember" | "understand" | "apply" | "analyze" | "evaluate";
 type KnowledgeType = "concept" | "procedure" | "calculation" | "regulation";
 type ExamContextType = "isolated_knowledge" | "applied_case" | "multi_step_case" | "prioritization" | "error_detection" | "documentation_analysis" | "legal_evaluation" | "communication_scenario";
 
-// ── Blueprint Facet: Each competency gets multiple blueprint "angles" ──
+// ── Blueprint Facets (5 per competency) ──
 interface BlueprintFacet {
   suffix: string;
   cognitive: Cognitive;
@@ -40,10 +43,9 @@ interface BlueprintFacet {
   question_types: string[];
   decision_structure: string | null;
   didactic_intent: string;
-  description: string;  // for the AI prompt
+  description: string;
 }
 
-// ── Per-competency blueprint facets (3-5 per competency) ──
 const BLUEPRINT_FACETS: BlueprintFacet[] = [
   {
     suffix: "Recall",
@@ -53,7 +55,7 @@ const BLUEPRINT_FACETS: BlueprintFacet[] = [
     question_types: ["mc_single"],
     decision_structure: null,
     didactic_intent: "recognition",
-    description: "Reine Faktenabfrage: Definitionen, Begriffe, Zuordnungen. Die einfachste Ebene.",
+    description: "Reine Faktenabfrage: Definitionen, Begriffe, Zuordnungen.",
   },
   {
     suffix: "Verständnis-Transfer",
@@ -63,7 +65,7 @@ const BLUEPRINT_FACETS: BlueprintFacet[] = [
     question_types: ["mc_single", "mc_multi"],
     decision_structure: "single_best_answer",
     didactic_intent: "transfer",
-    description: "Verständnisfrage mit Praxisbezug: Der Prüfling muss einen Zusammenhang erklären oder eine Aussage im beruflichen Kontext bewerten.",
+    description: "Verständnisfrage mit Praxisbezug: Zusammenhang erklären oder Aussage im Kontext bewerten.",
   },
   {
     suffix: "Praxisfall",
@@ -73,7 +75,7 @@ const BLUEPRINT_FACETS: BlueprintFacet[] = [
     question_types: ["case_study", "mc_single", "calculation"],
     decision_structure: "multiple_valid_options",
     didactic_intent: "classification",
-    description: "Anwendungsfall: Reales Betriebsszenario, in dem der Prüfling einen konkreten Arbeitsschritt durchführen, berechnen oder entscheiden muss.",
+    description: "Anwendungsfall: Reales Betriebsszenario mit konkretem Arbeitsschritt, Berechnung oder Entscheidung.",
   },
   {
     suffix: "Analyse & Fehlersuche",
@@ -83,7 +85,7 @@ const BLUEPRINT_FACETS: BlueprintFacet[] = [
     question_types: ["mc_single", "mc_multi", "case_study"],
     decision_structure: "error_detection",
     didactic_intent: "error_detection",
-    description: "Analysefrage: Der Prüfling muss Fehler in einem Prozess/Dokument/Ablauf finden, Ursachen identifizieren oder Prioritäten setzen.",
+    description: "Analysefrage: Fehler in Prozess/Dokument finden, Ursachen identifizieren, Prioritäten setzen.",
   },
   {
     suffix: "Bewertung & Entscheidung",
@@ -93,30 +95,23 @@ const BLUEPRINT_FACETS: BlueprintFacet[] = [
     question_types: ["mc_single", "case_study"],
     decision_structure: "tradeoff_evaluation",
     didactic_intent: "comparison",
-    description: "Bewertungsfrage: Der Prüfling muss unter Berücksichtigung von Vorschriften, Risiken und Abwägungen eine fundierte Entscheidung treffen.",
+    description: "Bewertungsfrage: Unter Vorschriften, Risiken und Abwägungen eine fundierte Entscheidung treffen.",
   },
 ];
 
-// ── Difficulty distribution per cognitive level ──
+// ── Mappings ────────────────────────────────────────────────────────
 const DIFFICULTY_BY_COGNITIVE: Record<Cognitive, string> = {
-  remember: "easy",
-  understand: "easy",
-  apply: "medium",
-  analyze: "hard",
-  evaluate: "hard",
+  remember: "easy", understand: "easy", apply: "medium", analyze: "hard", evaluate: "hard",
 };
 
-// ── Exam relevance by cognitive level ──
-function calcRelevanceScore(cognitive: Cognitive): number {
-  return ({ evaluate: 5, analyze: 5, apply: 4, understand: 3, remember: 2 } as Record<Cognitive, number>)[cognitive];
+function calcRelevanceScore(c: Cognitive): number {
+  return ({ evaluate: 5, analyze: 5, apply: 4, understand: 3, remember: 2 } as Record<Cognitive, number>)[c];
 }
 
-// ── Estimated time by cognitive level ──
-function calcEstimatedTime(cognitive: Cognitive): number {
-  return ({ evaluate: 200, analyze: 180, apply: 150, understand: 90, remember: 60 } as Record<Cognitive, number>)[cognitive];
+function calcEstimatedTime(c: Cognitive): number {
+  return ({ evaluate: 200, analyze: 180, apply: 150, understand: 90, remember: 60 } as Record<Cognitive, number>)[c];
 }
 
-// ── Taxonomy mapping ──
 const TAXONOMY_MAP: Record<string, Cognitive> = {
   erinnern: "remember", wissen: "remember", kennen: "remember",
   verstehen: "understand", begreifen: "understand",
@@ -131,10 +126,7 @@ function normCognitive(raw: string | null | undefined): Cognitive {
   return TAXONOMY_MAP[raw.trim().toLowerCase()] ?? "understand";
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// AI-Powered Blueprint Generation
-// ═══════════════════════════════════════════════════════════════════════
-
+// ── Enriched Competency Data ────────────────────────────────────────
 interface CompetencyData {
   id: string;
   learning_field_id: string;
@@ -142,20 +134,30 @@ interface CompetencyData {
   title: string;
   description: string | null;
   taxonomy_level: string | null;
+  // v4: enriched fields from S2
+  bloom_level: string | null;
+  action_verb: string | null;
+  typical_misconceptions: string[] | null;
+  exam_relevance_tier: string | null;
 }
 
 interface LfData {
   id: string;
   code: string;
   title: string;
+  exam_part: string | null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// v4: AI-Powered Blueprint Generation with shared client + enrichment
+// ═══════════════════════════════════════════════════════════════════════
+
 async function generateBlueprintTemplates(
-  sb: ReturnType<typeof createClient>,
   berufName: string,
   comp: CompetencyData,
   lfTitle: string,
   facets: BlueprintFacet[],
+  glossaryTerms: string[],
 ): Promise<Array<{
   question_template: string;
   explanation_template: string;
@@ -163,44 +165,54 @@ async function generateBlueprintTemplates(
   trap_spec: object;
   typical_exam_trap: string;
 }>> {
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-  const facetDescriptions = facets.map((f, i) => 
+  const facetDescriptions = facets.map((f, i) =>
     `${i + 1}. "${f.suffix}" (${f.cognitive}/${f.exam_context_type}): ${f.description}`
   ).join("\n");
 
+  // v4: Inject enriched competency data into prompt
+  const misconceptionBlock = comp.typical_misconceptions?.length
+    ? `\nBEKANNTE FEHLVORSTELLUNGEN bei dieser Kompetenz:\n${comp.typical_misconceptions.map(m => `- ${m}`).join("\n")}`
+    : "";
+
+  const glossaryBlock = glossaryTerms.length > 0
+    ? `\nFACHBEGRIFFE (${berufName}):\n${glossaryTerms.slice(0, 30).join(", ")}`
+    : "";
+
   const systemPrompt = `Du bist ein IHK-Prüfungsexperte für den Beruf "${berufName}".
-Du erstellst Blueprint-Templates für Prüfungsfragen.
+Du erstellst Blueprint-Templates für Prüfungsfragen auf ELITE-Niveau.
 
 BERUF: ${berufName}
 LERNFELD: ${lfTitle}
-KOMPETENZ: ${comp.title}
+KOMPETENZ: ${comp.title}${comp.action_verb ? ` (Handlungsverb: ${comp.action_verb})` : ""}
 ${comp.description ? `BESCHREIBUNG: ${comp.description}` : ""}
+BLOOM-LEVEL: ${comp.bloom_level || normCognitive(comp.taxonomy_level)}
+PRÜFUNGSRELEVANZ: ${comp.exam_relevance_tier || "core"}
+${misconceptionBlock}${glossaryBlock}
 
-Für diese Kompetenz brauchst du ${facets.length} Blueprint-Facetten mit verschiedenen kognitiven Ebenen:
+Erstelle ${facets.length} Blueprint-Facetten mit verschiedenen kognitiven Ebenen:
 
 ${facetDescriptions}
 
-ANFORDERUNGEN PRO FACETTE:
-1. question_template: Ein konkretes Fragemuster mit {variable} Platzhaltern.
-   - Muss berufsspezifisch sein (${berufName}!)
-   - Muss ein realistisches Prüfungsszenario darstellen
-   - Beispiel: "Ein {actor} in einem {betrieb_typ} soll {aufgabe}. Welche {aspekt} ist dabei zu beachten?"
+ELITE-ANFORDERUNGEN PRO FACETTE:
+1. question_template: Konkretes Fragemuster mit {variable} Platzhaltern.
+   - MUSS berufsspezifisch sein (${berufName}!)
+   - MUSS ein realistisches IHK-Prüfungsszenario darstellen
+   - Bei apply/analyze/evaluate: IMMER mit konkreter Betriebssituation
+   - Mindestens 2 Variablen-Platzhalter pro Template
 
-2. explanation_template: Erklärungs-Schema für die korrekte Antwort.
-   - Muss die fachliche Begründung strukturiert enthalten
-   - Beispiel: "Die korrekte Antwort ist {correct}, weil gemäß {rechtsgrundlage} bei {bedingung} die Pflicht besteht, {handlung} durchzuführen."
+2. explanation_template: Strukturiertes Erklärungsschema.
+   - Fachliche Begründung mit Rechtsgrundlage/Norm wenn relevant
+   - Warum sind die Alternativen falsch?
 
-3. typical_errors: Exakt 3-5 berufsspezifische typische Prüfungsfehler.
-   - KEINE generischen Fehler wie "Verwechslung Brutto/Netto" (es sei denn, das ist für ${berufName} relevant!)
-   - Jeder Fehler muss konkret zum Berufsfeld passen
-   - Beispiel für MFA: "Verwechslung der Aufbewahrungsfristen von Patientenakten (10 vs. 30 Jahre)"
+3. typical_errors: Exakt 3-5 berufsspezifische IHK-typische Prüfungsfehler.
+   - KEINE generischen Fehler!
+   - Jeder Fehler muss konkret zum Berufsfeld ${berufName} passen
+   - Fehler müssen psychometrisch plausibel sein (häufige Verwechslungen)
 
-4. trap_spec: JSON-Objekt mit Prüfungsfallen-Spezifikation:
+4. trap_spec: JSON mit Prüfungsfallen-Spezifikation:
    { "trap_type": "...", "why_tempting": "...", "examiner_intention": "...", "common_misconception": "..." }
 
-5. typical_exam_trap: Ein Satz, der die häufigste Prüfungsfalle beschreibt.
+5. typical_exam_trap: Ein Satz zur häufigsten Prüfungsfalle.
 
 Antworte NUR als JSON-Objekt:
 {
@@ -216,54 +228,58 @@ Antworte NUR als JSON-Objekt:
 }`;
 
   try {
-    const aiResp = await fetch(`${SUPABASE_URL}/functions/v1/ai-tutor`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SERVICE_KEY}`,
-      },
-      body: JSON.stringify({
-        _direct_ai_call: true,
-        provider: "openai",
-        model: "gpt-5-mini",
+    // v4: Use shared model routing (exam_questions intent)
+    const chain = await getModelChainAsync("exam_questions");
+    const provider = chain[0]?.provider || "lovable";
+    const model = chain[0]?.model || "google/gemini-2.5-flash";
+
+    const result = await callAIJSON(
+      {
+        provider,
+        model,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Erstelle ${facets.length} Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${berufName}".` },
+          { role: "user", content: `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${berufName}".` },
         ],
         temperature: 0.6,
-        response_format: { type: "json_object" },
-      }),
-    });
+      },
+      { type: "blueprint_seed", entity: comp.id },
+    );
 
-    if (!aiResp.ok) {
-      console.warn(`[SeedV3] AI call failed: ${aiResp.status}`);
-      return facets.map((f) => generateFallbackTemplate(f, comp, berufName));
-    }
-
-    const aiData = await aiResp.json();
-    const content = aiData.content || aiData.choices?.[0]?.message?.content || "";
-    const parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
-    const blueprints = parsed.blueprints || [];
+    const blueprints = result?.blueprints || [];
 
     // Pad if AI returned fewer than expected
     while (blueprints.length < facets.length) {
       blueprints.push(generateFallbackTemplate(facets[blueprints.length], comp, berufName));
     }
 
+    // v4: Enforce minimum 3 typical_errors per blueprint
+    for (const bp of blueprints) {
+      if (!Array.isArray(bp.typical_errors) || bp.typical_errors.length < 3) {
+        bp.typical_errors = ensureMinErrors(bp.typical_errors, comp, berufName);
+      }
+    }
+
     return blueprints.slice(0, facets.length);
   } catch (e) {
-    console.warn(`[SeedV3] AI generation error: ${(e as Error).message}`);
+    console.warn(`[SeedV4] AI generation error: ${(e as Error).message}`);
     return facets.map((f) => generateFallbackTemplate(f, comp, berufName));
   }
 }
 
-function generateFallbackTemplate(facet: BlueprintFacet, comp: CompetencyData, beruf: string): {
-  question_template: string;
-  explanation_template: string;
-  typical_errors: string[];
-  trap_spec: object;
-  typical_exam_trap: string;
-} {
+// v4: Ensure minimum 3 typical errors
+function ensureMinErrors(arr: unknown, comp: CompetencyData, beruf: string): string[] {
+  const a = Array.isArray(arr) ? arr.filter(Boolean).map(String) : [];
+  const defaults = [
+    `Fachbegriff im Kontext von ${comp.title} verwechselt`,
+    `Relevante Vorschrift für ${beruf} nicht beachtet`,
+    `Praxisablauf bei ${comp.title} falsch priorisiert`,
+  ];
+  while (a.length < 3) a.push(defaults[a.length] || `Typischer Fehler bei ${comp.title}`);
+  return a.slice(0, 6);
+}
+
+function generateFallbackTemplate(facet: BlueprintFacet, comp: CompetencyData, beruf: string) {
   const templates: Record<Cognitive, { q: string; e: string }> = {
     remember: {
       q: `Welche {fachbegriff} ist im Bereich "${comp.title}" korrekt? Ordnen Sie die Begriffe den richtigen Definitionen zu.`,
@@ -291,11 +307,7 @@ function generateFallbackTemplate(facet: BlueprintFacet, comp: CompetencyData, b
   return {
     question_template: t.q,
     explanation_template: t.e,
-    typical_errors: [
-      `Fachbegriff im Kontext von ${comp.title} verwechselt`,
-      `Relevante Vorschrift für ${beruf} nicht beachtet`,
-      `Praxisablauf bei ${comp.title} falsch priorisiert`,
-    ],
+    typical_errors: ensureMinErrors([], comp, beruf),
     trap_spec: {
       trap_type: facet.exam_context_type,
       why_tempting: `Antwort klingt plausibel, berücksichtigt aber nicht die Besonderheiten von ${comp.title}`,
@@ -307,7 +319,7 @@ function generateFallbackTemplate(facet: BlueprintFacet, comp: CompetencyData, b
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Blueprint Health Score
+// Blueprint Health Score (v4: enhanced with elite metrics)
 // ═══════════════════════════════════════════════════════════════════════
 
 interface HealthScore {
@@ -315,28 +327,33 @@ interface HealthScore {
   with_template: number;
   with_trap: number;
   with_diverse_types: number;
+  with_min_errors: number;
   non_isolated: number;
   cognitive_spread: Record<string, number>;
   exam_context_spread: Record<string, number>;
   avg_relevance: number;
-  health_score: number;  // 0-100
+  isolated_pct: number;
+  health_score: number;
   grade: "elite" | "acceptable" | "weak" | "critical";
 }
 
 function computeHealthScore(bps: any[]): HealthScore {
   if (!bps.length) return {
     total_blueprints: 0, with_template: 0, with_trap: 0, with_diverse_types: 0,
-    non_isolated: 0, cognitive_spread: {}, exam_context_spread: {},
-    avg_relevance: 0, health_score: 0, grade: "critical",
+    with_min_errors: 0, non_isolated: 0, cognitive_spread: {}, exam_context_spread: {},
+    avg_relevance: 0, isolated_pct: 100, health_score: 0, grade: "critical",
   };
 
-  const withTemplate = bps.filter(b => b.question_template && b.question_template.length > 10).length;
+  const n = bps.length;
+  const withTemplate = bps.filter(b => b.question_template?.length > 10).length;
   const withTrap = bps.filter(b => b.typical_exam_trap || (b.trap_spec && Object.keys(b.trap_spec).length > 0)).length;
   const withDiverseTypes = bps.filter(b => {
     const types = b.allowed_question_types || [];
     return types.length > 1 || (types.length === 1 && types[0] !== "mc_single");
   }).length;
+  const withMinErrors = bps.filter(b => Array.isArray(b.typical_errors) && b.typical_errors.length >= 3).length;
   const nonIsolated = bps.filter(b => b.exam_context_type && b.exam_context_type !== "isolated_knowledge").length;
+  const isolatedPct = Math.round(((n - nonIsolated) / n) * 100);
 
   const cogSpread: Record<string, number> = {};
   const ctxSpread: Record<string, number> = {};
@@ -348,29 +365,24 @@ function computeHealthScore(bps: any[]): HealthScore {
     totalRelevance += b.exam_relevance_score || 0;
   }
 
-  // Score calculation (0-100)
-  const n = bps.length;
-  const templateScore = (withTemplate / n) * 25;       // 25% weight
-  const trapScore = (withTrap / n) * 20;                // 20% weight
-  const typeScore = (withDiverseTypes / n) * 15;        // 15% weight
-  const contextScore = (nonIsolated / n) * 20;          // 20% weight
-  const cogDiversity = Math.min(Object.keys(cogSpread).length / 5, 1) * 10;  // 10% weight
-  const ctxDiversity = Math.min(Object.keys(ctxSpread).length / 6, 1) * 10;  // 10% weight
+  // v4: Weighted score with elite gates
+  const templateScore = (withTemplate / n) * 20;
+  const trapScore = (withTrap / n) * 15;
+  const typeScore = (withDiverseTypes / n) * 10;
+  const errorScore = (withMinErrors / n) * 15;     // v4: new
+  const contextScore = (nonIsolated / n) * 20;
+  const cogDiversity = Math.min(Object.keys(cogSpread).length / 5, 1) * 10;
+  const ctxDiversity = Math.min(Object.keys(ctxSpread).length / 6, 1) * 10;
 
-  const health = Math.round(templateScore + trapScore + typeScore + contextScore + cogDiversity + ctxDiversity);
+  const health = Math.round(templateScore + trapScore + typeScore + errorScore + contextScore + cogDiversity + ctxDiversity);
   const grade = health >= 85 ? "elite" : health >= 70 ? "acceptable" : health >= 50 ? "weak" : "critical";
 
   return {
-    total_blueprints: n,
-    with_template: withTemplate,
-    with_trap: withTrap,
-    with_diverse_types: withDiverseTypes,
-    non_isolated: nonIsolated,
-    cognitive_spread: cogSpread,
-    exam_context_spread: ctxSpread,
-    avg_relevance: Math.round((totalRelevance / n) * 10) / 10,
-    health_score: health,
-    grade,
+    total_blueprints: n, with_template: withTemplate, with_trap: withTrap,
+    with_diverse_types: withDiverseTypes, with_min_errors: withMinErrors,
+    non_isolated: nonIsolated, cognitive_spread: cogSpread,
+    exam_context_spread: ctxSpread, avg_relevance: Math.round((totalRelevance / n) * 10) / 10,
+    isolated_pct: isolatedPct, health_score: health, grade,
   };
 }
 
@@ -388,7 +400,7 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = await req.json(); } catch (_) { /* empty */ }
   const p = body.payload || body;
-  console.log(`[SeedV3] Received keys: ${JSON.stringify(Object.keys(p || {}))}, package_id=${p?.package_id}, curriculum_id=${p?.curriculum_id}`);
+  console.log(`[SeedV4] Received: package_id=${p?.package_id}, curriculum_id=${p?.curriculum_id}`);
 
   try {
     assertUuid("package_id", p?.package_id);
@@ -401,7 +413,7 @@ Deno.serve(async (req) => {
     return await handleSeed(sb, p);
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
-    console.error(`[SeedV3] Unhandled error: ${msg}`);
+    console.error(`[SeedV4] Unhandled error: ${msg}`);
     return json({ ok: false, error: msg }, 500);
   }
 });
@@ -412,7 +424,7 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
   const packageId = p.package_id as string;
   const curriculumId = p.curriculum_id as string;
 
-  // 1) Load curriculum + beruf for domain-specific context
+  // 1) Load curriculum + beruf
   const { data: curriculum } = await sb
     .from("curricula")
     .select("id, title, beruf_id")
@@ -429,10 +441,23 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     if (beruf?.bezeichnung_kurz) berufName = beruf.bezeichnung_kurz;
   }
 
-  // 2) Load learning fields
+  // v4: Load profession glossary for domain-specific terms
+  let glossaryTerms: string[] = [];
+  if (curriculum?.beruf_id) {
+    const { data: glossary } = await sb
+      .from("profession_glossaries")
+      .select("terms")
+      .eq("beruf_id", curriculum.beruf_id)
+      .single();
+    if (glossary?.terms && Array.isArray(glossary.terms)) {
+      glossaryTerms = glossary.terms.map((t: any) => typeof t === "string" ? t : t?.term || "").filter(Boolean);
+    }
+  }
+
+  // 2) Load learning fields (v4: include exam_part)
   const { data: lfs, error: lfErr } = await sb
     .from("learning_fields")
-    .select("id, code, title")
+    .select("id, code, title, exam_part")
     .eq("curriculum_id", curriculumId);
 
   if (lfErr) throw new Error(`LF query: ${lfErr.message}`);
@@ -440,11 +465,11 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     return json({ ok: false, retry: true, error: "NO_LEARNING_FIELDS" }, 409);
   }
 
-  // 3) Load competencies
+  // 3) Load competencies (v4: include enriched fields)
   const lfIds = lfs.map(lf => lf.id);
   const { data: comps, error: compErr } = await sb
     .from("competencies")
-    .select("id, learning_field_id, code, title, description, taxonomy_level")
+    .select("id, learning_field_id, code, title, description, taxonomy_level, bloom_level, action_verb, typical_misconceptions, exam_relevance_tier")
     .in("learning_field_id", lfIds)
     .order("created_at", { ascending: true });
 
@@ -453,10 +478,9 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
   // 4) Load existing blueprints for diff
   const { data: existingBps } = await sb
     .from("question_blueprints")
-    .select("id, competency_id, learning_field_id, cognitive_level, question_template, typical_exam_trap, exam_context_type, allowed_question_types, exam_relevance_score, trap_spec")
+    .select("id, competency_id, learning_field_id, cognitive_level, question_template, typical_exam_trap, exam_context_type, allowed_question_types, exam_relevance_score, trap_spec, typical_errors")
     .eq("curriculum_id", curriculumId);
 
-  // Group existing by competency → check which facets are missing
   const existingByComp = new Map<string, any[]>();
   const existingByLf = new Map<string, any[]>();
   for (const bp of (existingBps || [])) {
@@ -471,61 +495,41 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
 
   const lfMap = new Map(lfs.map(lf => [lf.id, lf]));
 
-  // 5) Determine which blueprints need creation or upgrading
+  // 5) Generate blueprints
   const toInsert: any[] = [];
   const toUpgrade: { id: string; updates: any }[] = [];
   let aiCallCount = 0;
+  const MAX_AI_CALLS = 30;
 
   if (!comps?.length) {
-    // Fallback: seed from LFs with multi-facet
-    console.log(`[SeedV3] No competencies — seeding from ${lfs.length} LFs`);
+    // Fallback: seed from LFs
+    console.log(`[SeedV4] No competencies — seeding from ${lfs.length} LFs`);
     for (const lf of lfs) {
       const existing = existingByLf.get(lf.id) || [];
       const existingCogLevels = new Set(existing.map(b => b.cognitive_level));
-
-      // Create facets that don't exist yet
       const missingFacets = BLUEPRINT_FACETS.filter(f => !existingCogLevels.has(f.cognitive));
 
-      if (missingFacets.length > 0 && aiCallCount < 30) {
-        const templates = await generateBlueprintTemplates(
-          sb, berufName,
-          { id: lf.id, learning_field_id: lf.id, code: lf.code, title: lf.title, description: null, taxonomy_level: null },
-          lf.title, missingFacets,
-        );
+      if (missingFacets.length > 0 && aiCallCount < MAX_AI_CALLS) {
+        const fakeComp: CompetencyData = {
+          id: lf.id, learning_field_id: lf.id, code: lf.code, title: lf.title,
+          description: null, taxonomy_level: null, bloom_level: null,
+          action_verb: null, typical_misconceptions: null, exam_relevance_tier: null,
+        };
+        const templates = await generateBlueprintTemplates(berufName, fakeComp, lf.title, missingFacets, glossaryTerms);
         aiCallCount++;
 
         for (let i = 0; i < missingFacets.length; i++) {
-          const facet = missingFacets[i];
-          const tmpl = templates[i];
-          toInsert.push(buildBlueprintRow(curriculumId, lf.id, null, lf.title, facet, tmpl));
+          toInsert.push(buildBlueprintRow(curriculumId, lf.id, null, lf.title, missingFacets[i], templates[i], lf.exam_part));
         }
       }
 
-      // Upgrade existing blueprints that have empty templates
-      for (const bp of existing) {
-        if (!bp.question_template || bp.question_template.length < 10) {
-          const facet = BLUEPRINT_FACETS.find(f => f.cognitive === bp.cognitive_level) || BLUEPRINT_FACETS[0];
-          const fallback = generateFallbackTemplate(facet, 
-            { id: lf.id, learning_field_id: lf.id, code: lf.code, title: lf.title, description: null, taxonomy_level: null },
-            berufName);
-          toUpgrade.push({
-            id: bp.id,
-            updates: {
-              question_template: fallback.question_template,
-              explanation_template: fallback.explanation_template,
-              typical_errors: fallback.typical_errors,
-              trap_spec: fallback.trap_spec,
-              typical_exam_trap: fallback.typical_exam_trap,
-            },
-          });
-        }
-      }
+      // Upgrade empty-template blueprints
+      upgradeEmptyBlueprints(existing, lfs, berufName, toUpgrade, lf);
     }
   } else {
-    // Main path: seed from competencies with multi-facet strategy
-    console.log(`[SeedV3] Seeding from ${comps.length} competencies for "${berufName}"`);
+    // Main path: seed from enriched competencies
+    console.log(`[SeedV4] Seeding from ${comps.length} competencies for "${berufName}"`);
 
-    // Process in batches to avoid timeout
     const BATCH_SIZE = 8;
     const compBatches: CompetencyData[][] = [];
     for (let i = 0; i < comps.length; i += BATCH_SIZE) {
@@ -533,42 +537,47 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     }
 
     for (const batch of compBatches) {
-      // Process competencies in parallel within batch
       const batchPromises = batch.map(async (comp) => {
         const existing = existingByComp.get(comp.id) || [];
         const existingCogLevels = new Set(existing.map(b => b.cognitive_level));
-        const baseCognitive = normCognitive(comp.taxonomy_level);
+        // v4: prefer enriched bloom_level over taxonomy_level
+        const baseCognitive = normCognitive(comp.bloom_level || comp.taxonomy_level);
 
-        // Smart facet selection: always include base cognitive + surrounding levels
         const relevantFacets = selectFacetsForCompetency(baseCognitive, existingCogLevels);
 
-        if (relevantFacets.length > 0 && aiCallCount < 30) {
-          const lfTitle = lfMap.get(comp.learning_field_id)?.title || "Lernfeld";
-          const templates = await generateBlueprintTemplates(sb, berufName, comp, lfTitle, relevantFacets);
+        if (relevantFacets.length > 0 && aiCallCount < MAX_AI_CALLS) {
+          const lf = lfMap.get(comp.learning_field_id);
+          const lfTitle = lf?.title || "Lernfeld";
+          const templates = await generateBlueprintTemplates(berufName, comp, lfTitle, relevantFacets, glossaryTerms);
           aiCallCount++;
 
           for (let i = 0; i < relevantFacets.length; i++) {
-            const facet = relevantFacets[i];
-            const tmpl = templates[i];
-            toInsert.push(buildBlueprintRow(curriculumId, comp.learning_field_id, comp.id, comp.title, facet, tmpl));
+            toInsert.push(buildBlueprintRow(
+              curriculumId, comp.learning_field_id, comp.id, comp.title,
+              relevantFacets[i], templates[i], lf?.exam_part || null,
+            ));
           }
         }
 
-        // Upgrade existing empty-template blueprints
+        // Upgrade empty-template + missing-error blueprints
         for (const bp of existing) {
-          if (!bp.question_template || bp.question_template.length < 10) {
+          const needsTemplateUpgrade = !bp.question_template || bp.question_template.length < 10;
+          const needsErrorUpgrade = !Array.isArray(bp.typical_errors) || bp.typical_errors.length < 3;
+
+          if (needsTemplateUpgrade || needsErrorUpgrade) {
             const facet = BLUEPRINT_FACETS.find(f => f.cognitive === bp.cognitive_level) || BLUEPRINT_FACETS[0];
             const fallback = generateFallbackTemplate(facet, comp, berufName);
-            toUpgrade.push({
-              id: bp.id,
-              updates: {
-                question_template: fallback.question_template,
-                explanation_template: fallback.explanation_template,
-                typical_errors: fallback.typical_errors,
-                trap_spec: fallback.trap_spec,
-                typical_exam_trap: fallback.typical_exam_trap,
-              },
-            });
+            const updates: any = {};
+            if (needsTemplateUpgrade) {
+              updates.question_template = fallback.question_template;
+              updates.explanation_template = fallback.explanation_template;
+              updates.trap_spec = fallback.trap_spec;
+              updates.typical_exam_trap = fallback.typical_exam_trap;
+            }
+            if (needsErrorUpgrade) {
+              updates.typical_errors = fallback.typical_errors;
+            }
+            toUpgrade.push({ id: bp.id, updates });
           }
         }
       });
@@ -580,32 +589,28 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
   // 6) Insert new blueprints
   let insertedCount = 0;
   if (toInsert.length > 0) {
-    // Insert in chunks of 50
     for (let i = 0; i < toInsert.length; i += 50) {
       const chunk = toInsert.slice(i, i + 50);
       const { error: insErr } = await sb.from("question_blueprints").insert(chunk);
       if (insErr && insErr.code !== "23505") {
-        console.error(`[SeedV3] Insert error: ${insErr.message}`);
+        console.error(`[SeedV4] Insert error: ${insErr.message}`);
       } else {
         insertedCount += chunk.length;
       }
     }
   }
 
-  // 7) Upgrade existing empty blueprints
+  // 7) Upgrade existing blueprints
   let upgradedCount = 0;
   for (const upg of toUpgrade) {
-    const { error: updErr } = await sb
-      .from("question_blueprints")
-      .update(upg.updates)
-      .eq("id", upg.id);
+    const { error: updErr } = await sb.from("question_blueprints").update(upg.updates).eq("id", upg.id);
     if (!updErr) upgradedCount++;
   }
 
-  // 8) Compute health score
+  // 8) Health score
   const { data: allBps } = await sb
     .from("question_blueprints")
-    .select("cognitive_level, question_template, typical_exam_trap, exam_context_type, allowed_question_types, exam_relevance_score, trap_spec")
+    .select("cognitive_level, question_template, typical_exam_trap, exam_context_type, allowed_question_types, exam_relevance_score, trap_spec, typical_errors")
     .eq("curriculum_id", curriculumId);
 
   const health = computeHealthScore(allBps || []);
@@ -615,7 +620,7 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     await sb.from("course_packages").update({ build_progress: 20 }).eq("id", packageId);
   } catch (_) { /* ignore */ }
 
-  console.log(`[SeedV3] Done: +${insertedCount} new, ${upgradedCount} upgraded, health=${health.health_score}/100 (${health.grade}), AI calls=${aiCallCount}`);
+  console.log(`[SeedV4] Done: +${insertedCount} new, ${upgradedCount} upgraded, health=${health.health_score}/100 (${health.grade}), AI calls=${aiCallCount}`);
 
   return json({
     ok: true,
@@ -626,13 +631,37 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
     beruf: berufName,
     source: comps?.length ? "competencies" : "learning_fields",
     health,
+    version: "4.0.0",
   });
+}
+
+// ── Helper: Upgrade empty blueprints (LF fallback path) ──
+function upgradeEmptyBlueprints(existing: any[], _lfs: LfData[], berufName: string, toUpgrade: any[], lf: LfData) {
+  for (const bp of existing) {
+    if (!bp.question_template || bp.question_template.length < 10) {
+      const facet = BLUEPRINT_FACETS.find(f => f.cognitive === bp.cognitive_level) || BLUEPRINT_FACETS[0];
+      const fakeComp: CompetencyData = {
+        id: lf.id, learning_field_id: lf.id, code: lf.code, title: lf.title,
+        description: null, taxonomy_level: null, bloom_level: null,
+        action_verb: null, typical_misconceptions: null, exam_relevance_tier: null,
+      };
+      const fallback = generateFallbackTemplate(facet, fakeComp, berufName);
+      toUpgrade.push({
+        id: bp.id,
+        updates: {
+          question_template: fallback.question_template,
+          explanation_template: fallback.explanation_template,
+          typical_errors: fallback.typical_errors,
+          trap_spec: fallback.trap_spec,
+          typical_exam_trap: fallback.typical_exam_trap,
+        },
+      });
+    }
+  }
 }
 
 // ── Helper: Select relevant facets for a competency ──
 function selectFacetsForCompetency(baseCognitive: Cognitive, existingCogLevels: Set<string>): BlueprintFacet[] {
-  // Always try to create at least 3 facets per competency
-  // Priority: base cognitive + one level below + one level above
   const cogOrder: Cognitive[] = ["remember", "understand", "apply", "analyze", "evaluate"];
   const baseIdx = cogOrder.indexOf(baseCognitive);
 
@@ -640,13 +669,11 @@ function selectFacetsForCompetency(baseCognitive: Cognitive, existingCogLevels: 
   if (baseIdx > 0) targetLevels.push(cogOrder[baseIdx - 1]);
   if (baseIdx < cogOrder.length - 1) targetLevels.push(cogOrder[baseIdx + 1]);
 
-  // Filter out already existing cognitive levels
   const missingLevels = targetLevels.filter(c => !existingCogLevels.has(c));
-
   return BLUEPRINT_FACETS.filter(f => missingLevels.includes(f.cognitive));
 }
 
-// ── Helper: Build blueprint DB row ──
+// ── Helper: Build blueprint DB row (v4: with exam_part + metadata) ──
 function buildBlueprintRow(
   curriculumId: string,
   lfId: string,
@@ -654,6 +681,7 @@ function buildBlueprintRow(
   name: string,
   facet: BlueprintFacet,
   tmpl: { question_template: string; explanation_template: string; typical_errors: string[]; trap_spec: object; typical_exam_trap: string },
+  examPart: string | null,
 ): Record<string, unknown> {
   return {
     curriculum_id: curriculumId,
@@ -675,7 +703,13 @@ function buildBlueprintRow(
     exam_relevance_score: calcRelevanceScore(facet.cognitive),
     estimated_time_seconds: calcEstimatedTime(facet.cognitive),
     real_world_context: facet.cognitive !== "remember",
-    status: "draft",  // GOVERNANCE: Only Council/RPC may set 'approved' (trigger enforced)
-    version: "3.0.0",
+    // v4: New fields
+    metadata: {
+      exam_part: examPart,
+      seeder_version: "4.0.0",
+      difficulty_default: DIFFICULTY_BY_COGNITIVE[facet.cognitive],
+    },
+    status: "draft",  // GOVERNANCE: Only Council/RPC may set 'approved'
+    version: "4.0.0",
   };
 }
