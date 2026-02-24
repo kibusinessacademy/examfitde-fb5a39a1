@@ -13,7 +13,8 @@
 // Patienten etc. in a COMMERCIAL/LOGISTICS context — these are NOT clinical terms for them.
 const INDUSTRY_KEYWORDS: Record<string, RegExp> = {
   automobil: /\b(autohaus|werkstatt|fahrzeug|probefahrt|karosserie|kfz|automobil|lackier|inspektion|hauptuntersuchung|hebebühne|ölwechsel|bremsbelag|radwechsel|autohändler|gebrauchtwagen|neuwagen|fahrzeugbrief|fahrzeugschein|tüv|dekra|motoröl|reifen|achsvermessung)\b/i,
-  gastronomie: /\b(küche|koch|speisekarte|menü|rezept|gastronomie|restaurant|mise en place|haccp|lebensmittelhygiene|servieren|kellner|gastgeber|hotellerie)\b/i,
+  // "rezept" removed — ambiguous (Kochrezept vs Arzneimittelrezept). Use "kochrezept" for gastro.
+  gastronomie: /\b(küche|koch|speisekarte|menü|kochrezept|gastronomie|restaurant|mise en place|haccp|lebensmittelhygiene|servieren|kellner|gastgeber|hotellerie)\b/i,
   medizin: /\b(diagnose|therapie|krankenhaus|arztpraxis|anamnese|blutdruck|infusion|op\b|chirurg|pflege|klinik|visite|stationsarzt|oberarzt|chefarzt|krankenschwester|intensivstation|notaufnahme)\b/i,
   pharmazie: /\b(apotheke|pharmazie|pka|pta|pharmazeutisch|arzneimittel|medikament|rezeptur|defektur|btmvv|betäubungsmittel|pharmazentralnummer|pzn|apothekenverkaufspreis|gkv|kassenrezept|privatrezept|e-rezept|arzneimittelgesetz|amg|apothekengesetz|apothekenbetriebsordnung|kühlkette|chargenrückruf|retaxation|rabattvertrag|hilfsmittel|rezept)\b/i,
   it: /\b(programmier|software|datenbank|server|netzwerk|firewall|api|frontend|backend|deployment|debugging|repository|compiler)\b/i,
