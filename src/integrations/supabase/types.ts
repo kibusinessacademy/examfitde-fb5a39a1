@@ -20977,6 +20977,7 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: string
       }
+      apply_phase2_enrichment: { Args: { p_updates: Json }; Returns: Json }
       approve_blueprint_version: {
         Args: { p_blueprint_id: string; p_version_id: string }
         Returns: undefined
@@ -21917,6 +21918,10 @@ export type Database = {
           title: string
           weight_percent: number
         }[]
+      }
+      get_phase1_remaining_counts: {
+        Args: { p_curriculum_id?: string }
+        Returns: Json
       }
       get_phase2_candidates: {
         Args: { p_curriculum_id?: string; p_limit?: number }

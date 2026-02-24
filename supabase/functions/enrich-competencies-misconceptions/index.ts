@@ -4,17 +4,16 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 
 /**
  * Phase 2: AI-powered misconceptions + transfer_markers enrichment
- * 
- * Uses RPC get_phase2_candidates for proper filtering (JSONB length checks).
- * Per-competency tier targeting (not batch[0]).
- * Schema validation before writes.
+ * v2: write-if-empty via RPC, tolerant JSON parsing, ai_validations persist,
+ *     CORS with x-examfit-job-key, truncated payloads.
  */
 
 const BATCH_SIZE = 10;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-examfit-job-key",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function json(body: unknown, status = 200) {
@@ -51,7 +50,7 @@ function validateMisconception(m: unknown): m is Misconception {
     typeof obj.why_wrong === "string" && obj.why_wrong.length >= 10 &&
     typeof obj.correct_principle === "string" && obj.correct_principle.length >= 10 &&
     typeof obj.quick_fix === "string" && obj.quick_fix.length >= 5 &&
-    typeof obj.example_trap === "string" && obj.example_trap.length >= 20 // IHK trap must be specific
+    typeof obj.example_trap === "string" && obj.example_trap.length >= 20
   );
 }
 
@@ -65,6 +64,21 @@ function validateTransferMarker(t: unknown): t is TransferMarker {
     Array.isArray(obj.cue_words) && obj.cue_words.length >= 2 && obj.cue_words.length <= 6 &&
     obj.cue_words.every((w: unknown) => typeof w === "string" && w.length >= 3 && w.length <= 20)
   );
+}
+
+// Patch 7: Tolerant JSON parser
+function safeJsonParse(raw: string): unknown | null {
+  const cleaned = raw
+    .replace(/```json\s*/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  try { return JSON.parse(cleaned); } catch { /* noop */ }
+
+  const m = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (!m) return null;
+  try { return JSON.parse(m[1]); } catch { /* noop */ }
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -89,7 +103,7 @@ Deno.serve(async (req) => {
   const maxBatches = body.max_batches || 3;
 
   try {
-    // ❌ Bug 1 Fix: Use RPC with proper JSONB length checks + curriculum filter
+    // Patch 5: RPC with proper JSONB length checks
     const { data: candidates, error: rpcErr } = await sb.rpc("get_phase2_candidates", {
       p_curriculum_id: curriculumId,
       p_limit: batchSize * maxBatches,
@@ -99,7 +113,6 @@ Deno.serve(async (req) => {
       return json({ ok: true, enriched: 0, message: "All exam-relevant competencies enriched", batch_complete: true });
     }
 
-    // Process in batches
     let totalEnriched = 0;
     let totalSkipped = 0;
     const results: any[] = [];
@@ -107,19 +120,18 @@ Deno.serve(async (req) => {
     for (let i = 0; i < candidates.length; i += batchSize) {
       const batch = candidates.slice(i, i + batchSize);
 
-      // ❌ Bug 2 Fix: Per-competency target counts instead of batch[0]
+      // Patch 9: Truncated payloads to reduce token cost
       const compList = batch.map((c: any) => ({
         id: c.id,
-        title: c.title,
-        description: (c.description || "").slice(0, 300),
+        title: (c.title || "").slice(0, 80),
+        description: (c.description || "").slice(0, 200),
         bloom_level: c.bloom_level || "understand",
         action_verb: c.action_verb || "",
         tier: c.exam_relevance_tier,
         target_misconceptions: c.exam_relevance_tier === "core" ? "3-5" : "2-3",
         target_transfer: c.exam_relevance_tier === "core" ? "2-3" : "1-2",
-        lf_title: c.lf_title || "",
-        exam_part: c.exam_part || "",
-        profession: c.profession_name || "Unbekannt",
+        lf_title: (c.lf_title || "").slice(0, 80),
+        profession: (c.profession_name || "Unbekannt").slice(0, 40),
         needs_misconceptions: c.needs_misconceptions,
         needs_transfer: c.needs_transfer,
       }));
@@ -128,28 +140,27 @@ Deno.serve(async (req) => {
 
 Für JEDE Kompetenz liefere:
 1. "id": UUID (unverändert!)
-2. "misconceptions": Array von Objekten (Anzahl: siehe target_misconceptions pro Kompetenz):
+2. "misconceptions": Array von Objekten (Anzahl: siehe target_misconceptions):
    {
      "claim": "Was der Prüfling fälschlicherweise glaubt (min 10 Zeichen)",
      "why_wrong": "Warum es falsch ist, fachlich präzise (min 10 Zeichen)",
      "correct_principle": "Das korrekte Prinzip/Konzept (min 10 Zeichen)",
      "quick_fix": "Merkspruch oder Eselsbrücke (min 5 Zeichen)",
-     "example_trap": "Typische IHK-Prüfungsfrage, die auf diesen Fehler abzielt (min 10 Zeichen)"
+     "example_trap": "Typische IHK-Prüfungsfrage, die auf diesen Fehler abzielt (min 20 Zeichen)"
    }
-3. "transfer_markers": Array von Objekten (Anzahl: siehe target_transfer pro Kompetenz):
+3. "transfer_markers": Array von Objekten (Anzahl: siehe target_transfer):
    {
      "context": "Konkreter beruflicher Anwendungskontext (min 10 Zeichen)",
      "what_changes": "Was sich ändert bei Transfer (min 5 Zeichen)",
      "what_stays": "Was gleich bleibt / das Prinzip (min 5 Zeichen)",
-     "cue_words": ["Signalwörter", "2-6 Stück"] 
+     "cue_words": ["Signalwörter", "2-6 Stück, je 3-20 Zeichen"]
    }
 
 REGELN:
 - Misconceptions müssen REALISTISCHE IHK-Prüfungsfehler sein
-- Keine generischen Fehler ("vergisst den Kontext")
+- Keine generischen Fehler
 - Transfer-Marker müssen zum Bloom-Level passen
-- Alles berufsspezifisch für den genannten Beruf
-- Beachte target_misconceptions und target_transfer pro Kompetenz
+- Max 1200 Zeichen pro Kompetenz insgesamt
 
 Antworte NUR als JSON: {"enrichments": [{...}]}`;
 
@@ -159,59 +170,79 @@ Antworte NUR als JSON: {"enrichments": [{...}]}`;
           model: "google/gemini-2.5-flash",
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: `Enriche diese ${batch.length} Kompetenzen:\n${JSON.stringify(compList, null, 2)}` },
+            { role: "user", content: `Enriche diese ${batch.length} Kompetenzen:\n${JSON.stringify(compList)}` },
           ],
           max_tokens: 4096,
         });
 
-        let enrichments: any[];
-        try {
-          const raw = aiResp.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-          const parsed = JSON.parse(raw);
-          enrichments = Array.isArray(parsed) ? parsed : (parsed.enrichments || []);
-        } catch {
+        // Patch 7: Tolerant JSON parsing
+        const parsed = safeJsonParse(aiResp.content);
+        if (!parsed) {
+          // Patch 10: Persist parse errors to ai_validations
+          await sb.from("ai_validations").insert({
+            generation_id: crypto.randomUUID(),
+            validation_mode: "elite_enrichment_phase2",
+            decision: "fail",
+            overall_score: 0,
+            dimension_scores: {},
+            critical_issues: [{ type: "parse_error", sample: aiResp.content.slice(0, 300) }],
+            validator_model: "system",
+            validated_at: new Date().toISOString(),
+          }).catch(() => { /* best-effort persist */ });
+
           results.push({ batch: i / batchSize + 1, status: "parse_error", raw: aiResp.content.slice(0, 200) });
           continue;
         }
 
-        // ❌ Bug 3 Fix: Schema validation before writes
-        let batchUpdated = 0;
+        const enrichments: any[] = Array.isArray(parsed) ? parsed : ((parsed as any).enrichments || []);
+
+        // Patch 6: Validate before building update payload; only write valid fields
+        const rpcUpdates: any[] = [];
         let batchSkipped = 0;
+
         for (const e of enrichments) {
           if (!e.id) continue;
-          const updateData: Record<string, any> = {};
-          const validationErrors: string[] = [];
+          const item: Record<string, any> = { id: e.id };
+          let ok = false;
 
-          // Validate misconceptions
           if (Array.isArray(e.misconceptions)) {
-            const validMisconceptions = e.misconceptions.filter(validateMisconception);
-            if (validMisconceptions.length >= 2) {
-              updateData.typical_misconceptions = validMisconceptions;
-            } else {
-              validationErrors.push(`misconceptions: ${validMisconceptions.length}/${e.misconceptions.length} valid (need ≥2)`);
-            }
+            const good = e.misconceptions.filter(validateMisconception);
+            if (good.length >= 2) { item.typical_misconceptions = good; ok = true; }
           }
 
-          // Validate transfer markers
           if (Array.isArray(e.transfer_markers)) {
-            const validTransfer = e.transfer_markers.filter(validateTransferMarker);
-            if (validTransfer.length >= 1) {
-              updateData.transfer_markers = validTransfer;
-            } else {
-              validationErrors.push(`transfer: ${validTransfer.length}/${e.transfer_markers.length} valid (need ≥1)`);
-            }
+            const good = e.transfer_markers.filter(validateTransferMarker);
+            if (good.length >= 1) { item.transfer_markers = good; ok = true; }
           }
 
-          if (Object.keys(updateData).length > 0) {
-            updateData.enrichment_version = 2;
-            updateData.enriched_at = new Date().toISOString();
-            const { error } = await sb.from("competencies").update(updateData).eq("id", e.id);
-            if (!error) batchUpdated++;
+          if (ok) {
+            rpcUpdates.push(item);
           } else {
             batchSkipped++;
-            if (validationErrors.length) {
-              console.warn(`[Phase2] Skipped ${e.id}: ${validationErrors.join("; ")}`);
+            console.warn(`[Phase2] Skipped ${e.id}: validation failed`);
+          }
+        }
+
+        // Patch 8: Write-if-empty via server-side RPC (race-safe)
+        let batchUpdated = 0;
+        if (rpcUpdates.length) {
+          const { data: rpcResult, error: rpcErr } = await sb.rpc("apply_phase2_enrichment", {
+            p_updates: rpcUpdates,
+          });
+          if (rpcErr) {
+            console.error(`[Phase2] RPC apply error: ${rpcErr.message}`);
+            // Fallback: individual updates (non-race-safe but functional)
+            for (const item of rpcUpdates) {
+              const updateData: Record<string, any> = {};
+              if (item.typical_misconceptions) updateData.typical_misconceptions = item.typical_misconceptions;
+              if (item.transfer_markers) updateData.transfer_markers = item.transfer_markers;
+              updateData.enrichment_version = 2;
+              updateData.enriched_at = new Date().toISOString();
+              const { error } = await sb.from("competencies").update(updateData).eq("id", item.id);
+              if (!error) batchUpdated++;
             }
+          } else {
+            batchUpdated = rpcResult?.updated ?? rpcUpdates.length;
           }
         }
 
@@ -223,7 +254,7 @@ Antworte NUR als JSON: {"enrichments": [{...}]}`;
       }
     }
 
-    // Count remaining using proper JSONB checks
+    // Remaining counts (JSONB-aware)
     const { count: remainingMisc } = await sb
       .from("competencies")
       .select("id", { count: "exact", head: true })
