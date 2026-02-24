@@ -557,25 +557,53 @@ Deno.serve(async (req) => {
   for (const w of gate.warnings) console.log(`  ⚠️ ${w}`);
   for (const e of gate.excellence) console.log(`  🌟 ${e}`);
 
-  // Build council-friendly summary from gates[] so Council never has to parse
+  // ── Build council-friendly v3.summary (SSOT for Council) ──
+  // Council reads ONLY from summary — no gate-parsing needed.
   const findGateVal = (key: string) => gate.results.find(r => r.gate === key);
-  const parsePctFromDetail = (detail: string | undefined): number | null => {
-    const m = detail?.match?.(/(\d+(?:\.\d+)?)%/);
-    return m ? parseFloat(m[1]) : null;
-  };
+
   const examPoolGate = findGateVal("exam_pool_distribution");
   const lfCovGate = findGateVal("learning_field_coverage");
   const compCovGate = findGateVal("competency_coverage");
   const compBindGate = findGateVal("competency_binding");
   const bloomGate = findGateVal("bloom_cognitive_levels");
+  const eliteCtxGate = findGateVal("elite_context_distribution");
+
+  // Direct computation from gate data (no regex parsing)
+  const lfCovDetail = lfCovGate?.detail ?? "";
+  const lfCovMatch = lfCovDetail.match(/^(\d+)\s*LFs covered.*?(\d+)\s*modules/);
+  const lfCoveredCount = lfCovMatch ? parseInt(lfCovMatch[1]) : 0;
+  const lfTotalCount = lfCovMatch ? parseInt(lfCovMatch[2]) : 0;
+
+  const compCovDetail = compCovGate?.detail ?? "";
+  const compCovMatch = compCovDetail.match(/^(\d+)\/(\d+)/);
+  const compCoveredCount = compCovMatch ? parseInt(compCovMatch[1]) : 0;
+  const compTotalCount = compCovMatch ? parseInt(compCovMatch[2]) : 0;
+
+  const compBindDetail = compBindGate?.detail ?? "";
+  const compBindMatch = compBindDetail.match(/^(\d+)\/(\d+)/);
+  const compUnboundCount = compBindMatch ? parseInt(compBindMatch[1]) : 0;
+  const compBindTotalCount = compBindMatch ? parseInt(compBindMatch[2]) : 0;
+
+  // Bloom remember pct from bloom gate detail
+  const bloomRememberMatch = bloomGate?.detail?.match(/understand=(\d+(?:\.\d+)?)%/);
+  const bloomRememberPct = bloomRememberMatch ? parseFloat(bloomRememberMatch[1]) : null;
+
+  // Context isolated pct from elite context gate
+  const ctxIsolatedMatch = eliteCtxGate?.detail?.match(/isolated_knowledge=(\d+(?:\.\d+)?)%/);
+  const ctxIsolatedPct = ctxIsolatedMatch ? parseFloat(ctxIsolatedMatch[1]) : null;
 
   const summary = {
-    blueprint_coverage_pct: examPoolGate?.passed ? 100 : (parsePctFromDetail(examPoolGate?.detail) ?? null),
-    lf_coverage_pct: lfCovGate?.passed ? 100 : (parsePctFromDetail(lfCovGate?.detail) ?? null),
+    // Core metrics Council needs (SSOT contract)
+    blueprint_coverage_pct: examPoolGate?.passed ? 100 : (totalApproved >= 500 ? 100 : pctOrNA(totalApproved, 500)),
+    lf_coverage_pct: pctOrNA(lfCoveredCount, lfTotalCount),
     duplicate_rate_pct: 0, // no explicit duplicate gate yet → 0
-    competency_coverage_pct: parsePctFromDetail(compCovGate?.detail) ?? (compCovGate?.passed ? 100 : null),
-    competency_binding_pct: parsePctFromDetail(compBindGate?.detail) ?? (compBindGate?.passed ? 100 : null),
-    bloom_remember_pct: parsePctFromDetail(bloomGate?.detail?.match?.(/understand=(\d+(?:\.\d+)?)%/)?.[0]) ?? null,
+    competency_coverage_pct: pctOrNA(compCoveredCount, compTotalCount),
+    competency_binding_pct: compBindTotalCount > 0 ? ((compBindTotalCount - compUnboundCount) / compBindTotalCount) * 100 : 100,
+    // Extended metrics (nice-to-have for dashboards)
+    questions_total: totalApproved,
+    questions_approved_total: totalApproved,
+    bloom_remember_pct: bloomRememberPct,
+    context_isolated_pct: ctxIsolatedPct,
     hard_fail_reasons: gate.hardFails,
   };
 

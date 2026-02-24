@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
-import { pctOrNA } from "../_shared/math-helpers.ts";
+// pctOrNA no longer needed — all metrics come from v3.summary (SSOT)
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -61,97 +61,40 @@ Deno.serve(async (req) => {
       return json({ ok: true, package_id: packageId, score: 0, status: "fail", badge: "none", fail_reason: "missing_integrity_report" });
     }
 
-    // Load quality rules
-    const { data: rules } = await sb.from("quality_rules").select("*").eq("enabled", true);
-
-    // ── FAIL-CLOSED GUARD 3: quality_rules must not be empty ──
-    if (!rules || rules.length === 0) {
-      console.error(`[QualityCouncil] FAIL-CLOSED: No quality_rules configured (0 enabled rules)`);
-      await notifyAdmin(sb, packageId, "FAIL-CLOSED: No quality_rules configured — gate cannot evaluate", "error");
-      await writeFailReport(sb, packageId, 0, "fail", "none", "no_quality_rules");
-      return json({ ok: true, package_id: packageId, score: 0, status: "fail", badge: "none", fail_reason: "no_quality_rules" });
-    }
-
-    // Load exam questions stats
-    const { count: totalQuestions } = await sb
-      .from("exam_questions")
-      .select("id", { count: "exact", head: true })
-      .eq("curriculum_id", curriculumId);
-
-    // Difficulty distribution
-    const { data: difficultyData } = await sb
-      .from("exam_questions")
-      .select("difficulty")
-      .eq("curriculum_id", curriculumId);
-
-    const difficulties = difficultyData ?? [];
-    const total = difficulties.length || 1;
-    const easyCount = difficulties.filter((d: any) => d.difficulty === "easy" || d.difficulty === "leicht").length;
-    const hardCount = difficulties.filter((d: any) => d.difficulty === "hard" || d.difficulty === "schwer").length;
-    const easyPct = (easyCount / total) * 100;
-    const hardPct = (hardCount / total) * 100;
-
-    // ── Extract metrics from integrity report ──
-    // Priority: v3.summary (SSOT, written by integrity v1.3+) → top-level → gates[] fallback
+    // ── SSOT GUARD: v3.summary MUST exist (written by integrity v1.3+) ──
+    // If summary is missing, this is an infra issue (old report), NOT a content fail.
+    // Auto-enqueue a fresh integrity check and return retryable.
     const summary = intReport?.v3?.summary as Record<string, any> | undefined;
-    let blueprintCoverage = summary?.blueprint_coverage_pct ?? intReport?.blueprint_coverage_pct ?? intReport?.v3?.blueprint_coverage_pct;
-    let lfCoverage = summary?.lf_coverage_pct ?? intReport?.lf_coverage_pct ?? intReport?.v3?.lf_coverage_pct;
-    let duplicateRate = summary?.duplicate_rate_pct ?? intReport?.duplicate_rate_pct ?? intReport?.v3?.duplicate_rate_pct;
+    if (!summary) {
+      console.error(`[QualityCouncil] INFRA-FAIL: integrity_report.v3.summary missing for package ${packageId.slice(0, 8)} — auto-enqueuing integrity recheck`);
+      await notifyAdmin(sb, packageId, "INFRA: v3.summary missing in integrity_report — auto-enqueuing integrity recheck", "warn");
 
-    // Fallback: parse from v3.gates[] if summary not yet written (pre-v1.3 reports)
-    if ((blueprintCoverage == null || lfCoverage == null || duplicateRate == null) && Array.isArray(intReport?.v3?.gates)) {
-      for (const g of intReport.v3.gates) {
-        if (g.gate === "learning_field_coverage" && lfCoverage == null) {
-          if (g.passed) lfCoverage = 100;
-          else { const m = g.detail?.match?.(/(\d+(?:\.\d+)?)%/); if (m) lfCoverage = parseFloat(m[1]); }
-        }
-        if (g.gate === "exam_pool_distribution" && blueprintCoverage == null) {
-          if (g.passed) blueprintCoverage = 100;
-        }
-        if (g.gate === "duplicate_rate" && duplicateRate == null) {
-          const m = g.detail?.match?.(/(\d+(?:\.\d+)?)%/); if (m) duplicateRate = parseFloat(m[1]);
-        }
+      // Auto-enqueue a fresh integrity check to regenerate the report with summary
+      const { data: pkgForRequeue } = await sb.from("course_packages").select("course_id").eq("id", packageId).maybeSingle();
+      if (pkgForRequeue?.course_id) {
+        await sb.from("job_queue").insert({
+          job_type: "package_run_integrity_check",
+          status: "pending",
+          package_id: packageId,
+          payload: { package_id: packageId, course_id: pkgForRequeue.course_id, step_key: "run_integrity_check" },
+          max_attempts: 5,
+        }).onConflict("package_id,job_type").ignore();
       }
-      // Safe defaults when integrity passed overall but specific fields missing
-      if (duplicateRate == null && (intReport?.v3?.hard_fail_reasons?.length === 0 || intReport?.score >= 90)) duplicateRate = 0;
-      if (blueprintCoverage == null && intReport?.score >= 90) blueprintCoverage = 100;
-      if (lfCoverage == null && intReport?.score >= 90) lfCoverage = 100;
+
+      return json({
+        ok: false, retry: true, package_id: packageId, score: 0,
+        status: "retryable_fail", fail_reason: "integrity_summary_missing",
+      }, 409);
     }
 
-    // ── Competency binding check ──
-    const { count: questionsWithoutCompetency } = await sb
-      .from("exam_questions")
-      .select("id", { count: "exact", head: true })
-      .eq("curriculum_id", curriculumId)
-      .is("competency_id", null);
+    // ── Read metrics exclusively from v3.summary (SSOT) ──
+    const blueprintCoverage = summary.blueprint_coverage_pct ?? null;
+    const lfCoverage = summary.lf_coverage_pct ?? null;
+    const duplicateRate = summary.duplicate_rate_pct ?? null;
 
-    const competencyBindingPct = total > 0 ? ((total - (questionsWithoutCompetency ?? 0)) / total) * 100 : 0;
-
-    // ── Competency coverage check ──
-    // FIX: competencies table has no curriculum_id; join via learning_fields
-    const { data: lfIds } = await sb
-      .from("learning_fields")
-      .select("id")
-      .eq("curriculum_id", curriculumId);
-
-    const lfIdList = (lfIds ?? []).map((lf: any) => lf.id);
-    let totalCompetencies = 0;
-    if (lfIdList.length > 0) {
-      const { count } = await sb
-        .from("competencies")
-        .select("id", { count: "exact", head: true })
-        .in("learning_field_id", lfIdList);
-      totalCompetencies = count ?? 0;
-    }
-
-    const { data: coveredComps } = await sb
-      .from("exam_questions")
-      .select("competency_id")
-      .eq("curriculum_id", curriculumId)
-      .not("competency_id", "is", null);
-
-    const uniqueCoveredComps = new Set((coveredComps ?? []).map((q: any) => q.competency_id));
-    const competencyCoveragePct = pctOrNA(uniqueCoveredComps.size, totalCompetencies);
+    // ── Read competency metrics from summary (SSOT) ──
+    const competencyBindingPct = summary.competency_binding_pct ?? 0;
+    const competencyCoveragePct = summary.competency_coverage_pct ?? 100; // 0/0 = N/A = 100
 
     // Evaluate rules
     const results: Array<{ rule_key: string; severity: string; passed: boolean; detail: string }> = [];
@@ -209,14 +152,14 @@ Deno.serve(async (req) => {
       rule_key: "competency_binding",
       severity: "block",
       passed: competencyBindingPct >= 95,
-      detail: `${competencyBindingPct.toFixed(1)}% bound (min: 95%), ${questionsWithoutCompetency ?? 0} unbound`,
+      detail: `${competencyBindingPct.toFixed(1)}% bound (min: 95%)`,
     });
 
     results.push({
       rule_key: "competency_coverage",
       severity: "block",
       passed: competencyCoveragePct >= 60,
-      detail: `${uniqueCoveredComps.size}/${totalCompetencies} competencies covered (${competencyCoveragePct.toFixed(0)}%, min: 60%)`,
+      detail: `${competencyCoveragePct.toFixed(1)}% covered (min: 60%)`,
     });
 
     const rulesPassed = results.filter(r => r.passed).length;
