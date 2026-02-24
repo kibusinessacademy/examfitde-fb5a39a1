@@ -391,7 +391,30 @@ Deno.serve(async (req) => {
     package_auto_publish: ["quality_council"],
   };
 
-  for (const job of jobs) {
+  const runnerStart = Date.now();
+  const RUNNER_TIME_BUDGET_MS = 150_000; // 150s — leave 30s headroom before 180s Edge limit
+
+  for (let jobIdx = 0; jobIdx < jobs.length; jobIdx++) {
+    const job = jobs[jobIdx];
+
+    // ── Ghost-lock guard: release remaining jobs if time is running out ──
+    const elapsedRunner = Date.now() - runnerStart;
+    if (jobIdx > 0 && elapsedRunner > RUNNER_TIME_BUDGET_MS) {
+      const remainingJobs = jobs.slice(jobIdx);
+      console.log(`[job-runner] TIME_GUARD: ${elapsedRunner}ms elapsed, releasing ${remainingJobs.length} remaining claimed jobs back to pending`);
+      for (const rj of remainingJobs) {
+        await sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          run_after: new Date(Date.now() + 5_000).toISOString(), // 5s delay to avoid immediate re-claim
+          updated_at: new Date().toISOString(),
+        }).eq("id", rj.id);
+      }
+      results.push(...remainingJobs.map(rj => ({ id: rj.id, status: "released", reason: "runner_time_guard" })));
+      break;
+    }
+
     // ── Generate ONE timestamp per job transition ──────────────────
     const tsNow = new Date().toISOString();
 
