@@ -675,7 +675,7 @@ function buildBlueprintRow(
     exam_relevance_score: calcRelevanceScore(facet.cognitive),
     estimated_time_seconds: calcEstimatedTime(facet.cognitive),
     real_world_context: facet.cognitive !== "remember",
-    status: "approved",  // Auto-approve for pipeline continuity; council validates later
+    status: "draft",  // GOVERNANCE: Only Council/RPC may set 'approved' (trigger enforced)
     version: "3.0.0",
   };
 }
