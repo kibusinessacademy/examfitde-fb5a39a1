@@ -315,6 +315,11 @@ Antworte NUR als JSON-Objekt:
         }
         typicalErrors = typicalErrors.slice(0, 6);
 
+        // Resolve blueprint for this specific question (bp was out of scope before)
+        const matchedBlueprint = blueprints && blueprints.length > 0 
+          ? blueprints[i % blueprints.length] 
+          : null;
+
         return {
           curriculum_id: curriculumId,
           learning_field_id: lfId,
@@ -330,10 +335,9 @@ Antworte NUR als JSON-Objekt:
           ai_generated: true,
           trap_tags: typicalErrors,
           status: "draft",
-          // S4: Propagate exam_part from LF + scenario_type from blueprint context
           exam_part: lf.exam_part || null,
           scenario_type: spec.exam_context_type || null,
-          time_estimate_seconds: bp?.estimated_time_seconds || null,
+          time_estimate_seconds: matchedBlueprint?.estimated_time_seconds || null,
           typical_errors: typicalErrors.length > 0 ? typicalErrors : null,
         };
       });
