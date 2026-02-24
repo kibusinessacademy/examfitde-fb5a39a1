@@ -112,8 +112,10 @@ async function runCourseReadyGate(
     // If learning_field_id is mostly NULL, count unique title prefixes as proxy for LF coverage
     const hasLfIds = uniqueOralLFs.size > 0;
     let oralCoveragePct: number;
+    // FIX: 0/0 must be treated as N/A → 100% (no LFs to measure against)
+    // This occurs in EXAM_FIRST tracks where moduleIds is empty.
     if (hasLfIds) {
-      oralCoveragePct = moduleIds.length > 0 ? (uniqueOralLFs.size / moduleIds.length) * 100 : 0;
+      oralCoveragePct = moduleIds.length > 0 ? (uniqueOralLFs.size / moduleIds.length) * 100 : 100;
     } else {
       // Fallback: if we have >= 10 blueprints and they cover diverse topics, consider coverage met
       // Use distinct title patterns as proxy (each LF typically has 2 blueprints)
@@ -121,7 +123,7 @@ async function runCourseReadyGate(
         const t = (b.title || "").replace(/^Mündliche Prüfung:\s*/i, "").trim();
         return t.split(/\s+/).slice(0, 3).join(" ").toLowerCase();
       }).filter(Boolean));
-      oralCoveragePct = moduleIds.length > 0 ? (distinctTitles.size / moduleIds.length) * 100 : 0;
+      oralCoveragePct = moduleIds.length > 0 ? (distinctTitles.size / moduleIds.length) * 100 : 100;
     }
 
     const oralPassed = (bpCount ?? 0) >= 10 && (ssCount ?? 0) >= 1 && oralCoveragePct >= 90;
