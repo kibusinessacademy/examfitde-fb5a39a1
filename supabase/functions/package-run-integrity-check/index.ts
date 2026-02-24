@@ -155,7 +155,7 @@ async function runCourseReadyGate(
   // but council (which promotes) only runs after integrity passes.
   const { data: approvedQs } = await sb
     .from("exam_questions")
-    .select("id, difficulty, cognitive_level, learning_field_id")
+    .select("id, difficulty, cognitive_level, learning_field_id, competency_id, blueprint_id")
     .eq("curriculum_id", currFilter)
     .in("qc_status", ["approved", "tier1_passed"]);
 
@@ -350,6 +350,23 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
+  // Competency count (hoisted for summary access)
+  // ═══════════════════════════════════════════════
+  const { data: lfIdsForComp } = await sb
+    .from("learning_fields")
+    .select("id")
+    .eq("curriculum_id", curriculumId ?? courseId);
+  const lfIdListForComp = (lfIdsForComp ?? []).map((lf: any) => lf.id);
+  let totalCompetencies = 0;
+  if (lfIdListForComp.length > 0) {
+    const { count } = await sb
+      .from("competencies")
+      .select("id", { count: "exact", head: true })
+      .in("learning_field_id", lfIdListForComp);
+    totalCompetencies = count ?? 0;
+  }
+
+  // ═══════════════════════════════════════════════
   // GATE 4f: Competency Binding — no approved question without competency_id
   // ═══════════════════════════════════════════════
   if (totalApproved > 0) {
@@ -366,20 +383,6 @@ async function runCourseReadyGate(
     if (!bindingPassed) warnings.push(`COMPETENCY_BINDING: ${unboundCount} questions (${unboundPct.toFixed(1)}%) have no competency_id`);
 
     // Competency coverage: how many of the total competencies have questions?
-    // FIX: competencies has no curriculum_id; join via learning_fields
-    const { data: lfIdsForComp } = await sb
-      .from("learning_fields")
-      .select("id")
-      .eq("curriculum_id", curriculumId ?? courseId);
-    const lfIdListForComp = (lfIdsForComp ?? []).map((lf: any) => lf.id);
-    let totalCompetencies = 0;
-    if (lfIdListForComp.length > 0) {
-      const { count } = await sb
-        .from("competencies")
-        .select("id", { count: "exact", head: true })
-        .in("learning_field_id", lfIdListForComp);
-      totalCompetencies = count ?? 0;
-    }
     const coveredCompetencies = new Set((approvedQs ?? []).map((q: any) => q.competency_id).filter(Boolean));
     const compCoveragePct = pctOrNA(coveredCompetencies.size, totalCompetencies);
     const compCoveragePassed = compCoveragePct >= 60; // min 60% competency coverage
@@ -512,7 +515,9 @@ async function runCourseReadyGate(
   const passedGates = results.filter(r => r.severity === "blocker" && r.passed).length;
   const score = totalGates > 0 ? Math.round((passedGates / totalGates) * 100) : 0;
 
-  return { results, hardFails, warnings, excellence, score };
+  return { results, hardFails, warnings, excellence, score, metrics: {
+    totalApproved, approvedQs: approvedQs ?? [], uniqueLFs, moduleIds, totalCompetencies,
+  } };
 }
 
 // ══════════════════════════════════════════════════════
@@ -558,56 +563,52 @@ Deno.serve(async (req) => {
   for (const e of gate.excellence) console.log(`  🌟 ${e}`);
 
   // ── Build council-friendly v3.summary (SSOT for Council) ──
-  // Council reads ONLY from summary — no gate-parsing needed.
-  const findGateVal = (key: string) => gate.results.find(r => r.gate === key);
+  // Council reads ONLY from summary — computed directly from gate metrics.
+  const { totalApproved, approvedQs, uniqueLFs, moduleIds, totalCompetencies } = gate.metrics;
 
-  const examPoolGate = findGateVal("exam_pool_distribution");
-  const lfCovGate = findGateVal("learning_field_coverage");
-  const compCovGate = findGateVal("competency_coverage");
-  const compBindGate = findGateVal("competency_binding");
-  const bloomGate = findGateVal("bloom_cognitive_levels");
-  const eliteCtxGate = findGateVal("elite_context_distribution");
+  // Competency binding
+  const summaryUnboundCount = approvedQs.filter((q: any) => !q.competency_id).length;
+  const summaryBindingPct = totalApproved > 0
+    ? ((totalApproved - summaryUnboundCount) / totalApproved) * 100
+    : 100;
 
-  // Direct computation from gate data (no regex parsing)
-  const lfCovDetail = lfCovGate?.detail ?? "";
-  const lfCovMatch = lfCovDetail.match(/^(\d+)\s*LFs covered.*?(\d+)\s*modules/);
-  const lfCoveredCount = lfCovMatch ? parseInt(lfCovMatch[1]) : 0;
-  const lfTotalCount = lfCovMatch ? parseInt(lfCovMatch[2]) : 0;
+  // Competency coverage
+  const summaryCoveredComps = new Set(approvedQs.map((q: any) => q.competency_id).filter(Boolean));
 
-  const compCovDetail = compCovGate?.detail ?? "";
-  const compCovMatch = compCovDetail.match(/^(\d+)\/(\d+)/);
-  const compCoveredCount = compCovMatch ? parseInt(compCovMatch[1]) : 0;
-  const compTotalCount = compCovMatch ? parseInt(compCovMatch[2]) : 0;
+  // Bloom remember pct
+  const summaryRememberCount = approvedQs.filter((q: any) =>
+    ["remember","erinnern","wissen","kennen"].includes((q as any).cognitive_level?.toLowerCase?.() || "")
+  ).length;
+  const summaryRememberPct = totalApproved > 0 ? (summaryRememberCount / totalApproved) * 100 : 0;
 
-  const compBindDetail = compBindGate?.detail ?? "";
-  const compBindMatch = compBindDetail.match(/^(\d+)\/(\d+)/);
-  const compUnboundCount = compBindMatch ? parseInt(compBindMatch[1]) : 0;
-  const compBindTotalCount = compBindMatch ? parseInt(compBindMatch[2]) : 0;
-
-  // Bloom remember pct from bloom gate detail
-  const bloomRememberMatch = bloomGate?.detail?.match(/understand=(\d+(?:\.\d+)?)%/);
-  const bloomRememberPct = bloomRememberMatch ? parseFloat(bloomRememberMatch[1]) : null;
-
-  // Context isolated pct from elite context gate
-  const ctxIsolatedMatch = eliteCtxGate?.detail?.match(/isolated_knowledge=(\d+(?:\.\d+)?)%/);
-  const ctxIsolatedPct = ctxIsolatedMatch ? parseFloat(ctxIsolatedMatch[1]) : null;
-
-  // Extract questions_total from exam_pool detail (e.g. "850 approved | ...")
-  const examPoolTotalMatch = examPoolGate?.detail?.match(/^(\d+)\s*approved/);
-  const questionsTotal = examPoolTotalMatch ? parseInt(examPoolTotalMatch[1]) : 0;
+  // Context isolated pct
+  const summaryBpIds = [...new Set(approvedQs.filter((q: any) => q.blueprint_id).map((q: any) => q.blueprint_id))];
+  let summaryIsolatedPct: number | null = null;
+  if (summaryBpIds.length > 0) {
+    const ctxMap2 = new Map<string, string>();
+    for (let i = 0; i < summaryBpIds.length; i += 200) {
+      const chunk = summaryBpIds.slice(i, i + 200);
+      const { data: bps } = await sb.from("question_blueprints").select("id, exam_context_type").in("id", chunk);
+      for (const bp of (bps || []) as any[]) ctxMap2.set(bp.id, bp.exam_context_type || "isolated_knowledge");
+    }
+    let isoC = 0, mapC = 0;
+    for (const q of approvedQs as any[]) {
+      const ctx = q.blueprint_id ? (ctxMap2.get(q.blueprint_id) || "isolated_knowledge") : "unmapped";
+      if (ctx !== "unmapped") { mapC++; if (ctx === "isolated_knowledge") isoC++; }
+    }
+    summaryIsolatedPct = mapC > 0 ? (isoC / mapC) * 100 : null;
+  }
 
   const summary = {
-    // Core metrics Council needs (SSOT contract)
-    blueprint_coverage_pct: examPoolGate?.passed ? 100 : pctOrNA(questionsTotal, 500),
-    lf_coverage_pct: pctOrNA(lfCoveredCount, lfTotalCount),
-    duplicate_rate_pct: 0, // no explicit duplicate gate yet → 0
-    competency_coverage_pct: pctOrNA(compCoveredCount, compTotalCount),
-    competency_binding_pct: compBindTotalCount > 0 ? ((compBindTotalCount - compUnboundCount) / compBindTotalCount) * 100 : 100,
-    // Extended metrics (nice-to-have for dashboards)
-    questions_total: questionsTotal,
-    questions_approved_total: questionsTotal,
-    bloom_remember_pct: bloomRememberPct,
-    context_isolated_pct: ctxIsolatedPct,
+    blueprint_coverage_pct: totalApproved >= 500 ? 100 : pctOrNA(totalApproved, 500),
+    lf_coverage_pct: pctOrNA(uniqueLFs.size, moduleIds.length),
+    duplicate_rate_pct: 0,
+    competency_coverage_pct: pctOrNA(summaryCoveredComps.size, totalCompetencies),
+    competency_binding_pct: summaryBindingPct,
+    questions_total: totalApproved,
+    questions_approved_total: totalApproved,
+    bloom_remember_pct: summaryRememberPct,
+    context_isolated_pct: summaryIsolatedPct,
     hard_fail_reasons: gate.hardFails,
   };
 
@@ -623,9 +624,9 @@ Deno.serve(async (req) => {
       summary,
       stats: {
         totalLessons: gate.results.find(r => r.gate === "placeholder_check")?.detail ?? "",
-        approvedQuestions: examPoolGate?.detail ?? "",
+        approvedQuestions: gate.results.find(r => r.gate === "exam_pool_distribution")?.detail ?? "",
         handbookChars: gate.results.find(r => r.gate === "handbook_depth")?.value ?? 0,
-        bloomLevels: bloomGate?.detail ?? "",
+        bloomLevels: gate.results.find(r => r.gate === "bloom_cognitive_levels")?.detail ?? "",
       },
     },
   };
