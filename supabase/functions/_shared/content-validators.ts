@@ -1,5 +1,5 @@
 /**
- * content-validators.ts — Structural Hard Validators v1
+ * content-validators.ts — Structural Hard Validators v2
  * 
  * Programmatic validators that HARD FAIL content that doesn't meet
  * elite quality standards. No LLM needed — pure structural checks.
@@ -31,12 +31,25 @@ function countPattern(text: string, pattern: RegExp): number {
   return (text.match(pattern) || []).length;
 }
 
+/**
+ * Score-based scenario detection (v2) — avoids false-fails.
+ * Score ≥ 3 = valid scenario. Possible points:
+ *   +1 any 2+ digit number
+ *   +2 number with unit (€, %, Stk, kg, …)
+ *   +1 role/actor mention
+ *   +1 decision/action verb
+ */
+function scenarioScore(text: string): number {
+  let score = 0;
+  if (/\b\d{2,}\b/.test(text)) score += 1;
+  if (/\d+[.,]?\d*\s*(€|%|Stk|kg|g|ml|l|Std|Min|mm|cm|m²|m³|Wochen|Monate|Tage)\b/i.test(text)) score += 2;
+  if (/(Kunde|Kundin|Patient|Kolleg|Vorgesetzt|Ausbilder|Geschäftsführ|Lieferant|Mitarbeiter|Azubi|Filialleiter|Abteilungsleiter|Sachbearbeiter|Teamleitung|Teamleiter|Meister|Dozent|Betreuer)/i.test(text)) score += 1;
+  if (/(Option|Alternative|Variante|entscheid|abwäg|begründ|empfehl|prüf|berechne|wähl|beurteilen)/i.test(text)) score += 1;
+  return score;
+}
+
 function hasScenarioMarkers(text: string): boolean {
-  // Scenario = contains numbers + roles/actors + decision context
-  const hasNumbers = /\d+[\.,]?\d*\s*[€%km²³]/.test(text) || /\b\d{2,}\b/.test(text);
-  const hasRoles = /Kunde|Kolleg|Vorgesetzt|Ausbilder|Geschäftsführ|Lieferant|Mitarbeiter|Azubi|Filialleiter|Abteilungsleiter|Sachbearbeiter/i.test(text);
-  const hasDecision = /entscheid|wähl|beurteilen|begründ|abwäg|empfehl|prüf|berechne/i.test(text);
-  return hasNumbers && (hasRoles || hasDecision);
+  return scenarioScore(text) >= 3;
 }
 
 function hasRetrievalMechanics(text: string): boolean {
@@ -72,7 +85,7 @@ export function validateEinstieg(html: string): StructuralValidationResult {
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { hasScenario: hasScenarioMarkers(text), questionCount, wordCount: text.split(/\s+/).length },
+    metrics: { hasScenario: hasScenarioMarkers(text), scenarioScore: scenarioScore(text), questionCount, wordCount: text.split(/\s+/).length },
   };
 }
 
@@ -97,14 +110,16 @@ export function validateVerstehen(html: string): StructuralValidationResult {
   }
 
   const wordCount = text.split(/\s+/).length;
-  if (wordCount < 300) {
-    failures.push({ rule: "VERSTEHEN_TOO_SHORT", message: `Nur ${wordCount} Wörter — mind. 300 nötig`, severity: "hard_fail" });
+  const charCount = text.length;
+  // Use both word AND char count to avoid false-fails on structured HTML
+  if (wordCount < 300 && charCount < 1500) {
+    failures.push({ rule: "VERSTEHEN_TOO_SHORT", message: `Nur ${wordCount} Wörter / ${charCount} Zeichen — mind. 300 Wörter oder 1500 Zeichen nötig`, severity: "hard_fail" });
   }
 
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { starCount, warnCount, hasFallvignette, wordCount },
+    metrics: { starCount, warnCount, hasFallvignette, wordCount, charCount },
   };
 }
 
@@ -129,7 +144,7 @@ export function validateAnwenden(html: string): StructuralValidationResult {
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
-    metrics: { hasScenario: hasScenarioMarkers(text), hasDecision, warnCount },
+    metrics: { hasScenario: hasScenarioMarkers(text), scenarioScore: scenarioScore(text), hasDecision, warnCount },
   };
 }
 
@@ -145,7 +160,8 @@ export function validateWiederholen(html: string): StructuralValidationResult {
     failures.push({ rule: "WIEDERHOLEN_NO_RETRIEVAL", message: "Keine Retrieval-Mechanik (Leitfragen + Abgrenzung/Verknüpfung) gefunden", severity: "hard_fail" });
   }
 
-  const hasTable = /<table/i.test(html);
+  // Table detection on raw HTML (not stripped text) — Bug A fix
+  const hasTable = /<table[\s>]/i.test(html);
   if (!hasTable) {
     failures.push({ rule: "WIEDERHOLEN_NO_TABLE", message: "Keine Abgrenzungstabelle gefunden", severity: "soft_warn" });
   }
@@ -171,13 +187,16 @@ export interface MiniCheckQuestion {
 
 export function validateMiniCheck(questions: MiniCheckQuestion[]): StructuralValidationResult {
   const failures: ValidationFailure[] = [];
+  const n = questions.length;
 
-  // 1. Item count
-  if (questions.length < 6 || questions.length > 9) {
-    failures.push({ rule: "MC_ITEM_COUNT", message: `${questions.length} Items — muss 6-8 sein`, severity: "hard_fail" });
+  // 1. Item count — hard: 7-8, soft_warn: 6 or 9, hard_fail: <=5 or >=10
+  if (n < 6 || n > 9) {
+    failures.push({ rule: "MC_ITEM_COUNT", message: `${n} Items — muss 7–8 sein (6/9 toleriert)`, severity: "hard_fail" });
+  } else if (n !== 7 && n !== 8) {
+    failures.push({ rule: "MC_ITEM_COUNT_SOFT", message: `${n} Items — Ziel ist 7–8`, severity: "soft_warn" });
   }
 
-  // 2. Difficulty distribution
+  // 2. Difficulty distribution — deterministic quotas
   const leicht = questions.filter(q => q.difficulty === "leicht").length;
   const mittel = questions.filter(q => q.difficulty === "mittel").length;
   const anspruchsvoll = questions.filter(q => q.difficulty === "anspruchsvoll").length;
@@ -187,23 +206,43 @@ export function validateMiniCheck(questions: MiniCheckQuestion[]): StructuralVal
     failures.push({ rule: "MC_MISSING_DIFFICULTY", message: `${untagged} Items ohne difficulty-Tag`, severity: "hard_fail" });
   }
 
-  if (leicht < 1 || leicht > 3) {
-    failures.push({ rule: "MC_LEICHT_QUOTA", message: `${leicht} leichte Items — soll 2 sein (±1)`, severity: leicht === 0 ? "hard_fail" : "soft_warn" });
-  }
-  if (mittel < 2) {
-    failures.push({ rule: "MC_MITTEL_QUOTA", message: `${mittel} mittlere Items — mind. 2 nötig`, severity: "hard_fail" });
-  }
-  if (anspruchsvoll < 2) {
-    failures.push({ rule: "MC_ANSPRUCHSVOLL_QUOTA", message: `${anspruchsvoll} anspruchsvolle Items — mind. 2 nötig`, severity: "hard_fail" });
+  // Deterministic quotas based on item count
+  if (n >= 7 && n <= 8) {
+    const expectedLeicht = 2;
+    const expectedMittel = 3;
+    const expectedAnspruchsvoll = n - expectedLeicht - expectedMittel; // 2 or 3
+
+    if (leicht !== expectedLeicht) {
+      failures.push({ rule: "MC_LEICHT_QUOTA", message: `${leicht} leichte Items — exakt ${expectedLeicht} nötig`, severity: leicht === 0 ? "hard_fail" : "soft_warn" });
+    }
+    if (mittel !== expectedMittel) {
+      failures.push({ rule: "MC_MITTEL_QUOTA", message: `${mittel} mittlere Items — exakt ${expectedMittel} nötig`, severity: mittel < 2 ? "hard_fail" : "soft_warn" });
+    }
+    if (anspruchsvoll !== expectedAnspruchsvoll) {
+      failures.push({ rule: "MC_ANSPRUCHSVOLL_QUOTA", message: `${anspruchsvoll} anspruchsvolle Items — exakt ${expectedAnspruchsvoll} nötig`, severity: anspruchsvoll < 2 ? "hard_fail" : "soft_warn" });
+    }
+  } else {
+    // Fallback for 6/9 items — looser but still enforced
+    if (leicht < 1) failures.push({ rule: "MC_LEICHT_QUOTA", message: `${leicht} leichte Items — mind. 1 nötig`, severity: "hard_fail" });
+    if (mittel < 2) failures.push({ rule: "MC_MITTEL_QUOTA", message: `${mittel} mittlere Items — mind. 2 nötig`, severity: "hard_fail" });
+    if (anspruchsvoll < 2) failures.push({ rule: "MC_ANSPRUCHSVOLL_QUOTA", message: `${anspruchsvoll} anspruchsvolle Items — mind. 2 nötig`, severity: "hard_fail" });
   }
 
   // 3. Bloom level distribution
-  const transfer = questions.filter(q => q.bloom_level === "transfer").length;
+  const transfer = questions.filter(q =>
+    q.bloom_level === "transfer" || q.bloom_level === "analyze" ||
+    q.bloom_level === "evaluate" || q.bloom_level === "create"
+  ).length;
   if (transfer < 2) {
-    failures.push({ rule: "MC_TRANSFER_QUOTA", message: `Nur ${transfer} Transfer-Items — mind. 2 nötig (30% Ziel)`, severity: "hard_fail" });
+    failures.push({ rule: "MC_TRANSFER_QUOTA", message: `Nur ${transfer} Transfer/Analyse-Items — mind. 2 nötig (30% Ziel)`, severity: "hard_fail" });
   }
 
-  // 4. Scenario items (questions containing numbers + roles)
+  const untaggedBloom = questions.filter(q => !q.bloom_level).length;
+  if (untaggedBloom > 0) {
+    failures.push({ rule: "MC_MISSING_BLOOM", message: `${untaggedBloom} Items ohne bloom_level-Tag`, severity: "hard_fail" });
+  }
+
+  // 4. Scenario items — score-based detection
   const scenarioItems = questions.filter(q => hasScenarioMarkers(q.question)).length;
   if (scenarioItems < 3) {
     failures.push({ rule: "MC_SCENARIO_QUOTA", message: `Nur ${scenarioItems} Szenario-Items — mind. 3 nötig`, severity: "hard_fail" });
@@ -215,35 +254,50 @@ export function validateMiniCheck(questions: MiniCheckQuestion[]): StructuralVal
     failures.push({ rule: "MC_NO_TRAP", message: "Kein Prüfungsfallen-Item (trap_type) vorhanden", severity: "hard_fail" });
   }
 
-  // 6. Explanation quality — must explain WHY each wrong answer is tempting
+  // 6. Per-question validation
   for (let i = 0; i < questions.length; i++) {
     const q = questions[i];
+
+    // 6a. Explanation length
     if (!q.explanation || q.explanation.length < 80) {
       failures.push({ rule: "MC_WEAK_EXPLANATION", message: `Frage ${i + 1}: Erklärung zu kurz (${q.explanation?.length || 0} Zeichen — min 80)`, severity: "hard_fail" });
     }
 
-    // Check option count
+    // 6b. Explanation structure — must contain "why tempting" AND "why wrong"
+    if (q.explanation && q.explanation.length >= 80) {
+      const hasTempting = /verlockend|klingt richtig|typischer fehler|fangfrage|häufiger irrtum|scheint korrekt|naheliegend/i.test(q.explanation);
+      const hasWhyWrong = /falsch weil|korrekt ist|richtig ist|tatsächlich|in wirklichkeit|der fehler liegt|nicht zutreffend/i.test(q.explanation);
+      if (!hasTempting || !hasWhyWrong) {
+        failures.push({ rule: "MC_EXPLANATION_STRUCTURE", message: `Frage ${i + 1}: Erklärung muss "verlockend/warum falsch"-Struktur enthalten`, severity: "hard_fail" });
+      }
+    }
+
+    // 6c. Option count
     if (!q.options || q.options.length !== 4) {
       failures.push({ rule: "MC_OPTION_COUNT", message: `Frage ${i + 1}: ${q.options?.length || 0} Optionen — muss exakt 4 sein`, severity: "hard_fail" });
     }
 
-    // Check correct_answer range
+    // 6d. correct_answer range
     if (q.correct_answer < 0 || q.correct_answer > 3) {
       failures.push({ rule: "MC_CORRECT_RANGE", message: `Frage ${i + 1}: correct_answer=${q.correct_answer} außerhalb 0-3`, severity: "hard_fail" });
     }
   }
 
-  // 7. No pure definition questions without context (detect "Was ist...?" pattern)
-  const pureDefinition = questions.filter(q => /^was (ist|sind|bedeutet|versteht man)/i.test(q.question.trim())).length;
+  // 7. Pure definition check — only flag if NO scenario context
+  const pureDefinition = questions.filter(q => {
+    const stem = q.question.trim();
+    const defStart = /^was (ist|sind|bedeutet|versteht man)/i.test(stem);
+    return defStart && scenarioScore(stem) < 2;
+  }).length;
   if (pureDefinition > 2) {
-    failures.push({ rule: "MC_TOO_MANY_DEFINITIONS", message: `${pureDefinition} reine "Was ist...?"-Fragen — max 2 erlaubt`, severity: "hard_fail" });
+    failures.push({ rule: "MC_TOO_MANY_DEFINITIONS", message: `${pureDefinition} reine "Was ist...?"-Fragen ohne Kontext — max 2 erlaubt`, severity: "hard_fail" });
   }
 
   return {
     passes: !failures.some(f => f.severity === "hard_fail"),
     failures,
     metrics: {
-      itemCount: questions.length,
+      itemCount: n,
       leicht, mittel, anspruchsvoll, untagged,
       transferItems: transfer,
       scenarioItems,
@@ -312,7 +366,6 @@ export function getVariationSeed(competencyCode: string, step: string): {
   requiredTrapTypes: string[];
   promptSuffix: string;
 } {
-  // Deterministic hash from competency code
   let hash = 0;
   const key = `${competencyCode}:${step}`;
   for (let i = 0; i < key.length; i++) {
@@ -336,3 +389,6 @@ VARIATIONS-KONTEXT (für diesen spezifischen Inhalt):
 - Jede ⚠️-Markierung MUSS erklären: 1) Was ist der Fehler? 2) Warum passiert er? 3) Wie vermeidet man ihn?`,
   };
 }
+
+// ─── Exported helper for external use ───────────────────────────────────────
+export { scenarioScore, hasScenarioMarkers as checkScenarioMarkers };
