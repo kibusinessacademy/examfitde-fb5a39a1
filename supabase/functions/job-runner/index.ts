@@ -352,6 +352,7 @@ Deno.serve(async (req) => {
     p_worker_id: WORKER_ID,
     p_lock_timeout_minutes: 20,
   });
+  jobs = (jobs ?? []) as any[];
 
   if (claimErr) {
     console.error("[job-runner] claim_pending_jobs_v2 error:", claimErr.message);
