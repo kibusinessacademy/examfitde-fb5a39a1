@@ -340,7 +340,7 @@ export function validateLessonStep(step: string, content: any): StructuralValida
 
 // ─── Prompt-Drift Protection: Variation Seed & Trap Types ───────────────────
 
-const SCENARIO_SETTINGS = [
+const SCENARIO_SETTINGS_DEFAULT = [
   "Wareneingang", "Reklamationsbearbeitung", "Inventur", "Kassensturz",
   "Lieferantenbewertung", "Preiskalkulation", "Qualitätsprüfung",
   "Bestellabwicklung", "Kundengespräch", "Jahresabschluss",
@@ -350,7 +350,7 @@ const SCENARIO_SETTINGS = [
   "Beschwerdemanagement",
 ] as const;
 
-const TRAP_TYPES = [
+const TRAP_TYPES_DEFAULT = [
   "Normverwechslung (falscher §, falsche Rechtsgrundlage)",
   "Fristverwechslung (falsche Frist, falscher Zeitraum)",
   "Rechenfehler (falscher Faktor, vergessener Schritt)",
@@ -363,11 +363,109 @@ const TRAP_TYPES = [
   "Kontextfehler (richtige Regel, falscher Anwendungsfall)",
 ] as const;
 
+// ─── Profession-specific overrides ──────────────────────────────────────────
+
+interface ProfessionProfile {
+  scenarios: readonly string[];
+  traps: readonly string[];
+}
+
+const PROFESSION_PROFILES: Record<string, ProfessionProfile> = {
+  pka: {
+    scenarios: [
+      "Wareneingang Apotheke", "Rezeptbearbeitung", "Retourenmanagement",
+      "Rabattvertrags-Prüfung", "Mindestbestandskontrolle", "Lieferantenvergleich Pharma",
+      "Inventur Apotheke", "Reklamation Arzneimittel", "Kassensturz Offizin",
+      "Preiskalkulation Freiwahlbereich", "Bestellung beim Großhandel",
+      "Verfallsdaten-Kontrolle", "Kühlketten-Dokumentation", "Kundengespräch OTC",
+      "Rechnungsprüfung Großhandel", "Skontoberechnung Pharma",
+      "BtM-Dokumentation", "Lageroptimierung Saisonware",
+      "Datenschutz Patientendaten", "QMS-Dokumentation Apotheke",
+    ],
+    traps: [
+      "Brutto/Netto-Verwechslung (EK netto vs. VK brutto, Spannenberechnung)",
+      "Falscher Zuschlagsfaktor (Aufschlag vs. Abschlag, Kassenrabatt vergessen)",
+      "ApBetrO-Zuständigkeit falsch (Apotheker vs. PKA vs. PTA Befugnisse)",
+      "Datenschutz: Einwilligung vs. Informationspflicht verwechselt",
+      "Soll/Haben-Vertauschung (Buchungssätze Wareneinkauf/-verkauf)",
+      "Mindestbestand falsch berechnet (Verbrauch × Lieferzeit + Sicherheit)",
+      "Rabattvertrag: Austauschpflicht vs. Aut-idem-Kreuz verwechselt",
+      "Verfallsdatum: MHD vs. Verwendbar bis vs. Anbruchsdatum",
+      "Retaxation: Formfehler Rezept vs. pharmazeutischer Fehler",
+      "BtM-Dokumentation: Karteikarte vs. digitale Erfassung Pflichtfelder",
+    ],
+  },
+  industriekaufmann: {
+    scenarios: [
+      "Angebotskalkulation", "Lieferantenauswahl", "Beschaffungslogistik",
+      "Personalbedarfsplanung", "Deckungsbeitragsrechnung", "Vertriebssteuerung",
+      "Reklamationsmanagement", "Investitionsrechnung", "Außenhandel Zoll",
+      "Budgetplanung Abteilung", "Kosten- und Leistungsrechnung",
+      "Vertragsgestaltung", "Projektcontrolling", "Marketing-Mix Analyse",
+      "Jahresabschluss Bilanzanalyse", "Qualitätsmanagement Audit",
+      "Arbeitszeitmodelle", "Finanzierungsvergleich",
+      "Supply-Chain-Optimierung", "Betriebsrat-Anhörung",
+    ],
+    traps: [
+      "Skonto auf Brutto statt Netto berechnet",
+      "Bezugskalkulation: Transportkosten vergessen",
+      "BAB: Gemeinkosten falsch zugeordnet (Material vs. Verwaltung)",
+      "Deckungsbeitrag vs. Gewinn verwechselt",
+      "Lieferbedingungen: FOB vs. CIF Risikoübergang",
+      "Kündigungsfristen: gesetzlich vs. tariflich vs. vertraglich",
+      "Bilanz: Aktiva/Passiva-Zuordnung bei Rückstellungen",
+      "Zuschlagskalkulation: Reihenfolge der Zuschläge vertauscht",
+      "Umsatzsteuer: Vorsteuerabzug bei nicht abzugsfähigen Ausgaben",
+      "Personalkosten: Arbeitgeber-Brutto vs. Arbeitnehmer-Brutto",
+    ],
+  },
+  bueromanagement: {
+    scenarios: [
+      "Terminkoordination Geschäftsleitung", "Reisekostenabrechnung",
+      "Protokollführung Betriebsversammlung", "Posteingang Priorisierung",
+      "Veranstaltungsorganisation", "Beschaffung Büromaterial",
+      "Kundenkorrespondenz Beschwerdebrief", "Rechnungseingang Kontierung",
+      "Personalakte Führung", "Datenschutz Bewerbungsunterlagen",
+      "Archivierung Aufbewahrungsfristen", "Präsentationserstellung",
+      "Zahlungsverkehr Mahnwesen", "Bestellwesen Angebotsvergleich",
+      "Kassenführung Handvorschuss", "Meeting-Vorbereitung international",
+      "Telefonnotiz Eskalationsmanagement", "Inventarverwaltung",
+      "Urlaubsplanung Vertretungsregelung", "QM-Dokumentation Prozesse",
+    ],
+    traps: [
+      "Aufbewahrungsfristen: 6 Jahre vs. 10 Jahre verwechselt",
+      "Mahnverfahren: gerichtlich vs. außergerichtlich Reihenfolge",
+      "Buchungssatz: Aufwand vs. Bestandskonto verwechselt",
+      "Datenschutz: Löschfrist Bewerbungsunterlagen (6 Monate)",
+      "Vollmacht: Prokura vs. Handlungsvollmacht Umfang",
+      "Reisekosten: Verpflegungsmehraufwand Stundengrenzen",
+      "Protokoll: Ergebnis- vs. Verlaufsprotokoll Pflichtinhalte",
+      "Zahlungsbedingungen: Skonto-Frist vs. Zahlungsziel",
+      "Personalakte: was rein darf vs. was verboten ist",
+      "Schriftformerfordernis: wann nötig vs. formfrei",
+    ],
+  },
+};
+
+/**
+ * Resolve profession key from curriculum/course metadata.
+ * Falls back to default lists if no match.
+ */
+function resolveProfessionKey(professionHint?: string): string | null {
+  if (!professionHint) return null;
+  const hint = professionHint.toLowerCase();
+  if (hint.includes("pka") || hint.includes("pharma")) return "pka";
+  if (hint.includes("industriekauf")) return "industriekaufmann";
+  if (hint.includes("büromanagement") || hint.includes("bueromanagement") || hint.includes("bürokauf")) return "bueromanagement";
+  return null;
+}
+
 /**
  * Generate a deterministic variation seed for a lesson to prevent template leakage.
  * Uses competency code + step to select scenario settings and trap types.
+ * Supports profession-specific scenarios and traps when professionHint is provided.
  */
-export function getVariationSeed(competencyCode: string, step: string): {
+export function getVariationSeed(competencyCode: string, step: string, professionHint?: string): {
   scenarioSetting: string;
   requiredTrapTypes: string[];
   promptSuffix: string;
@@ -380,9 +478,14 @@ export function getVariationSeed(competencyCode: string, step: string): {
   }
   const idx = Math.abs(hash);
 
-  const scenarioSetting = SCENARIO_SETTINGS[idx % SCENARIO_SETTINGS.length];
-  const trap1 = TRAP_TYPES[idx % TRAP_TYPES.length];
-  const trap2 = TRAP_TYPES[(idx + 3) % TRAP_TYPES.length];
+  const profKey = resolveProfessionKey(professionHint);
+  const profile = profKey ? PROFESSION_PROFILES[profKey] : null;
+  const scenarios = profile?.scenarios ?? SCENARIO_SETTINGS_DEFAULT;
+  const traps = profile?.traps ?? TRAP_TYPES_DEFAULT;
+
+  const scenarioSetting = scenarios[idx % scenarios.length];
+  const trap1 = traps[idx % traps.length];
+  const trap2 = traps[(idx + 3) % traps.length];
 
   return {
     scenarioSetting,
