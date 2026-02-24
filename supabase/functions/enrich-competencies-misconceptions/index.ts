@@ -51,7 +51,7 @@ function validateMisconception(m: unknown): m is Misconception {
     typeof obj.why_wrong === "string" && obj.why_wrong.length >= 10 &&
     typeof obj.correct_principle === "string" && obj.correct_principle.length >= 10 &&
     typeof obj.quick_fix === "string" && obj.quick_fix.length >= 5 &&
-    typeof obj.example_trap === "string" && obj.example_trap.length >= 10
+    typeof obj.example_trap === "string" && obj.example_trap.length >= 20 // IHK trap must be specific
   );
 }
 
@@ -63,13 +63,20 @@ function validateTransferMarker(t: unknown): t is TransferMarker {
     typeof obj.what_changes === "string" && obj.what_changes.length >= 5 &&
     typeof obj.what_stays === "string" && obj.what_stays.length >= 5 &&
     Array.isArray(obj.cue_words) && obj.cue_words.length >= 2 && obj.cue_words.length <= 6 &&
-    obj.cue_words.every((w: unknown) => typeof w === "string")
+    obj.cue_words.every((w: unknown) => typeof w === "string" && w.length >= 3 && w.length <= 20)
   );
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
+
+  // Security gate
+  const jobKey = req.headers.get("x-examfit-job-key");
+  const expectedKey = Deno.env.get("CRON_SECRET");
+  if (!expectedKey || jobKey !== expectedKey) {
+    return json({ error: "Unauthorized" }, 401);
+  }
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,

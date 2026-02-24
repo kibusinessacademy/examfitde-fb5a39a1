@@ -2945,6 +2945,7 @@ export type Database = {
       competencies: {
         Row: {
           action_verb: string | null
+          action_verb_source: string | null
           bloom_inferred: boolean | null
           bloom_level: string | null
           bloom_source: string | null
@@ -2965,6 +2966,7 @@ export type Database = {
         }
         Insert: {
           action_verb?: string | null
+          action_verb_source?: string | null
           bloom_inferred?: boolean | null
           bloom_level?: string | null
           bloom_source?: string | null
@@ -2985,6 +2987,7 @@ export type Database = {
         }
         Update: {
           action_verb?: string | null
+          action_verb_source?: string | null
           bloom_inferred?: boolean | null
           bloom_level?: string | null
           bloom_source?: string | null

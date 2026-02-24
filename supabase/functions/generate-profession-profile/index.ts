@@ -29,6 +29,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
+  // Security gate
+  const jobKey = req.headers.get("x-examfit-job-key");
+  const expectedKey = Deno.env.get("CRON_SECRET");
+  if (!expectedKey || jobKey !== expectedKey) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
