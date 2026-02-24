@@ -191,7 +191,7 @@ export function validateMiniCheck(questions: MiniCheckQuestion[]): StructuralVal
 
   // 1. Item count — hard: 7-8, soft_warn: 6 or 9, hard_fail: <=5 or >=10
   if (n < 6 || n > 9) {
-    failures.push({ rule: "MC_ITEM_COUNT", message: `${n} Items — muss 7–8 sein (6/9 toleriert)`, severity: "hard_fail" });
+    failures.push({ rule: "MC_ITEM_COUNT", message: `${n} Items — muss 7–8 sein (6/9 = Warnung, ≤5/≥10 = Fail)`, severity: "hard_fail" });
   } else if (n !== 7 && n !== 8) {
     failures.push({ rule: "MC_ITEM_COUNT_SOFT", message: `${n} Items — Ziel ist 7–8`, severity: "soft_warn" });
   }
@@ -242,16 +242,22 @@ export function validateMiniCheck(questions: MiniCheckQuestion[]): StructuralVal
     failures.push({ rule: "MC_MISSING_BLOOM", message: `${untaggedBloom} Items ohne bloom_level-Tag`, severity: "hard_fail" });
   }
 
-  // 4. Scenario items — score-based detection
-  const scenarioItems = questions.filter(q => hasScenarioMarkers(q.question)).length;
+  // 4. Scenario items — score-based, check question stem + options
+  const scenarioItems = questions.filter(q =>
+    hasScenarioMarkers(q.question) || (q.options?.some(o => hasScenarioMarkers(o)) && scenarioScore(q.question) >= 1)
+  ).length;
   if (scenarioItems < 3) {
     failures.push({ rule: "MC_SCENARIO_QUOTA", message: `Nur ${scenarioItems} Szenario-Items — mind. 3 nötig`, severity: "hard_fail" });
   }
 
-  // 5. Trap items
-  const trapItems = questions.filter(q => q.trap_type && q.trap_type.length > 0).length;
+  // 5. Trap items — must exist AND have substance (anti-cheating: no generic stubs)
+  const trapItems = questions.filter(q => q.trap_type && q.trap_type.length >= 8).length;
+  const genericTraps = questions.filter(q => q.trap_type && q.trap_type.length > 0 && q.trap_type.length < 8).length;
   if (trapItems < 1) {
-    failures.push({ rule: "MC_NO_TRAP", message: "Kein Prüfungsfallen-Item (trap_type) vorhanden", severity: "hard_fail" });
+    failures.push({ rule: "MC_NO_TRAP", message: "Kein Prüfungsfallen-Item (trap_type mit ≥8 Zeichen) vorhanden", severity: "hard_fail" });
+  }
+  if (genericTraps > 0) {
+    failures.push({ rule: "MC_GENERIC_TRAP", message: `${genericTraps} Items mit zu kurzem trap_type (<8 Zeichen) — Substanz nötig`, severity: "hard_fail" });
   }
 
   // 6. Per-question validation
