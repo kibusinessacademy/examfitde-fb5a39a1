@@ -7,13 +7,14 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
   RefreshCw, Loader2, FlaskConical, CheckCircle2, XCircle,
-  AlertTriangle, Play, Clock, TrendingUp
+  AlertTriangle, Play, Clock, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function TestDashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [runningSuite, setRunningSuite] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -33,15 +34,25 @@ export default function TestDashboard() {
 
   useEffect(() => { load(); }, [load]);
 
-  const triggerSuite = async (suite: string) => {
+  const runSuite = async (suite: string) => {
+    setRunningSuite(suite);
+    const toastId = toast.loading(`${suite.toUpperCase()} Tests laufen…`);
     try {
-      const { data: d, error } = await supabase.functions.invoke('test-orchestrator', {
-        body: { action: `trigger_${suite}` },
+      const { data: d, error } = await supabase.functions.invoke('run-tests', {
+        body: { suite, env: 'staging', trigger_source: 'dashboard' },
       });
       if (error) throw error;
-      toast.info(d?.message || `${suite} triggered`);
+      if (d?.ok) {
+        const emoji = d.status === 'passed' ? '✅' : '❌';
+        toast.success(`${emoji} ${suite}: ${d.passed}/${d.total} passed (${(d.duration_ms / 1000).toFixed(1)}s)`, { id: toastId });
+        load(); // Refresh dashboard
+      } else {
+        toast.error(d?.error || 'Test-Run fehlgeschlagen', { id: toastId });
+      }
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(e.message, { id: toastId });
+    } finally {
+      setRunningSuite(null);
     }
   };
 
@@ -59,13 +70,30 @@ export default function TestDashboard() {
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <FlaskConical className="h-4 w-4" /> Test Infrastructure – Smoke / Sanity / UAT
         </h3>
-        <Button variant="ghost" size="sm" onClick={load}><RefreshCw className="h-3.5 w-3.5" /></Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            className="h-7 text-xs"
+            disabled={!!runningSuite}
+            onClick={() => runSuite('all')}
+          >
+            {runningSuite === 'all' ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Zap className="h-3 w-3 mr-1" />}
+            Alle Tests
+          </Button>
+          <Button variant="ghost" size="sm" onClick={load}><RefreshCw className="h-3.5 w-3.5" /></Button>
+        </div>
       </div>
 
       {/* Suite Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {summary.map((s: any) => (
-          <SuiteCard key={s.suite} suite={s} onTrigger={() => triggerSuite(s.suite)} />
+          <SuiteCard
+            key={s.suite}
+            suite={s}
+            running={runningSuite === s.suite}
+            onTrigger={() => runSuite(s.suite)}
+          />
         ))}
       </div>
 
@@ -151,9 +179,9 @@ export default function TestDashboard() {
                   <th className="text-left py-1.5 px-2">Suite</th>
                   <th className="text-left py-1.5 px-2">Env</th>
                   <th className="text-left py-1.5 px-2">Status</th>
+                  <th className="text-left py-1.5 px-2">Trigger</th>
                   <th className="text-right py-1.5 px-2">Tests</th>
                   <th className="text-right py-1.5 px-2">Dauer</th>
-                  <th className="text-left py-1.5 px-2">SHA</th>
                   <th className="text-right py-1.5 px-2">Gestartet</th>
                 </tr>
               </thead>
@@ -167,6 +195,9 @@ export default function TestDashboard() {
                     <td className="py-1.5 px-2">
                       <StatusBadge status={r.status} />
                     </td>
+                    <td className="py-1.5 px-2">
+                      <Badge variant="secondary" className="text-[9px]">{r.trigger_source || '–'}</Badge>
+                    </td>
                     <td className="py-1.5 px-2 text-right font-mono">
                       <span className="text-emerald-600">{r.passed_tests}</span>
                       {r.failed_tests > 0 && <> / <span className="text-destructive">{r.failed_tests}</span></>}
@@ -175,7 +206,6 @@ export default function TestDashboard() {
                     <td className="py-1.5 px-2 text-right text-muted-foreground">
                       {r.duration_ms ? `${(r.duration_ms / 1000).toFixed(1)}s` : '–'}
                     </td>
-                    <td className="py-1.5 px-2 font-mono text-muted-foreground">{r.git_sha?.slice(0, 7) || '–'}</td>
                     <td className="py-1.5 px-2 text-right text-muted-foreground">
                       {r.started_at ? new Date(r.started_at).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '–'}
                     </td>
@@ -193,7 +223,7 @@ export default function TestDashboard() {
   );
 }
 
-function SuiteCard({ suite, onTrigger }: { suite: any; onTrigger: () => void }) {
+function SuiteCard({ suite, running, onTrigger }: { suite: any; running: boolean; onTrigger: () => void }) {
   const icon = suite.last_status === 'passed' ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> :
     suite.last_status === 'failed' ? <XCircle className="h-5 w-5 text-destructive" /> :
     <FlaskConical className="h-5 w-5 text-muted-foreground" />;
@@ -208,8 +238,15 @@ function SuiteCard({ suite, onTrigger }: { suite: any; onTrigger: () => void }) 
             {icon}
             <span className="font-semibold text-sm">{label}</span>
           </div>
-          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onTrigger}>
-            <Play className="h-3 w-3 mr-1" /> Run
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={running}
+            onClick={onTrigger}
+          >
+            {running ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Play className="h-3 w-3 mr-1" />}
+            Run
           </Button>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
