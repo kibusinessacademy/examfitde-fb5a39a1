@@ -28,9 +28,11 @@ import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
  */
 
 const AI_CHUNK_SIZE = 20;
+const AI_CHUNK_SIZE_FANOUT = 4;       // Fan-out: max 4 BPs per invocation (~24 LLM calls → <90s)
 const AI_QUESTIONS_PER_CALL = 5;
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
 const HARD_CAP_QUESTIONS = 1700;
+const TIME_BUDGET_MS = 90_000;        // Hard time budget: 90s (edge limit=180s, leave margin)
 
 // ─── Cognitive Level Distribution (IHK-realistic) ─────────────────────────────
 
@@ -1384,13 +1386,29 @@ Deno.serve(async (req) => {
 
     console.log(`[ExamPool-v5] DIFF_QUOTA: scopeTarget=${scopeTarget}, quotas=${JSON.stringify(diffQuota)}`);
 
-    while (bpsProcessed < AI_CHUNK_SIZE && currentBpIndex < bps.length) {
+    const effectiveChunkSize = isFanOut ? AI_CHUNK_SIZE_FANOUT : AI_CHUNK_SIZE;
+    const invocationStart = Date.now();
+
+    while (bpsProcessed < effectiveChunkSize && currentBpIndex < bps.length) {
+      // ── TIME BUDGET: break before edge function timeout ──
+      const elapsed = Date.now() - invocationStart;
+      if (elapsed > TIME_BUDGET_MS) {
+        console.log(`[ExamPool-v5] TIME_BUDGET: ${elapsed}ms > ${TIME_BUDGET_MS}ms — breaking for requeue`);
+        break;
+      }
+
       const bp = bps[currentBpIndex] as BlueprintInfo & { max_variations: number | null };
 
       const callsPerBp = Math.ceil(perBlueprint / AI_QUESTIONS_PER_CALL);
       const maxCallsPerBp = Math.min(callsPerBp, 6);
 
       for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx++) {
+        // Time check inside inner loop too
+        if (Date.now() - invocationStart > TIME_BUDGET_MS) {
+          console.log(`[ExamPool-v5] TIME_BUDGET inner: breaking mid-blueprint`);
+          break;
+        }
+
         const globalIdx = (currentBpIndex * maxCallsPerBp + callIdx);
         const typeIdx = globalIdx % typeEntries.length;
         const questionType = typeEntries[typeIdx][0];
@@ -1448,7 +1466,7 @@ Deno.serve(async (req) => {
     const calcInserted = calcInsertedCount ?? 0;
     const calcDeficit = calcTarget - calcInserted;
 
-    if (calcDeficit > 0 && bps.length > 0 && (globalTotal + questionsThisChunk) < HARD_CAP_QUESTIONS) {
+    if (calcDeficit > 0 && bps.length > 0 && (globalTotal + questionsThisChunk) < HARD_CAP_QUESTIONS && (Date.now() - invocationStart) < TIME_BUDGET_MS) {
       const maxCalcAttempts = calcDeficit * 4 + 10;
       let calcBackfillSaved = 0;
       let calcAttempts = 0;
@@ -1460,7 +1478,7 @@ Deno.serve(async (req) => {
 
       console.log(`[ExamPool-v5] CALC_BACKFILL: deficit=${calcDeficit}, target=${calcTarget}, inserted=${calcInserted}, calcBps=${calcBps.length}/${bps.length}, maxAttempts=${maxCalcAttempts}`);
 
-      for (let i = 0; calcBackfillSaved < calcDeficit && calcAttempts < maxCalcAttempts; i++) {
+      for (let i = 0; calcBackfillSaved < calcDeficit && calcAttempts < maxCalcAttempts && (Date.now() - invocationStart) < TIME_BUDGET_MS; i++) {
         const bp = shuffledBps[i % shuffledBps.length] as BlueprintInfo & { max_variations: number | null };
         const diff = calcDiffs[calcAttempts % calcDiffs.length];
         const cog = cogEntries[calcAttempts % cogEntries.length][0];
@@ -1526,7 +1544,7 @@ Deno.serve(async (req) => {
 
         console.log(`[ExamPool-v5] CALC_GLOBAL_BACKFILL_START: globalDeficit=${globalDeficit}, capped=${cappedDeficit}, pool=${gCalc}/${gTotal}, calcBps=${calcBps.length}/${bps.length}`);
 
-        for (let i = 0; globalSaved < cappedDeficit && globalAttempts < maxAttempts; i++) {
+        for (let i = 0; globalSaved < cappedDeficit && globalAttempts < maxAttempts && (Date.now() - invocationStart) < TIME_BUDGET_MS; i++) {
           const bp = shuffledBps[i % shuffledBps.length] as BlueprintInfo & { max_variations: number | null };
           const diff = calcDiffs[globalAttempts % calcDiffs.length];
           const cog = cogEntries[globalAttempts % cogEntries.length][0];
@@ -1580,7 +1598,8 @@ Deno.serve(async (req) => {
       targetReached = actualTotal >= shipTarget || actualTotal >= HARD_CAP_QUESTIONS;
     }
 
-    console.log(`[ExamPool-v5] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}`);
+    const elapsedS = ((Date.now() - invocationStart) / 1000).toFixed(1);
+    console.log(`[ExamPool-v5] +${questionsThisChunk} exam, +${trainingThisChunk} training, total=${actualTotal}/${examTarget} (cap=${HARD_CAP_QUESTIONS}), BPs ${currentBpIndex}/${bps.length}, elapsed=${elapsedS}s`);
 
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
