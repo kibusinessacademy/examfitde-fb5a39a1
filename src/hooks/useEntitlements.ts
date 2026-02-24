@@ -8,6 +8,7 @@ export interface UserEntitlement {
   has_exam_trainer: boolean;
   has_ai_tutor: boolean;
   has_oral_trainer: boolean;
+  has_handbook?: boolean;
   valid_until: string;
 }
 
@@ -21,8 +22,9 @@ export function useUserEntitlements(curriculumId?: string) {
     queryFn: async () => {
       if (!user) return [];
 
+      // v2: adds has_handbook column
       const { data, error } = await supabase
-        .rpc('get_user_entitlements', {
+        .rpc('get_user_entitlements_v2' as any, {
           p_user_id: user.id,
           p_curriculum_id: curriculumId || null,
         });

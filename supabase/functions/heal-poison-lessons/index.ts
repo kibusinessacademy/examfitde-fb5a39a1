@@ -210,9 +210,10 @@ Deno.serve(async (req) => {
 
       // Mark failed lessons with _needs_manual_review (via RPC — guard-safe)
       for (const d of details.filter(d => d.status === "failed")) {
-        const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content", {
+        const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content_v2" as any, {
           p_lesson_id: d.id,
           p_content: { _placeholder: true, _needs_manual_review: true, _heal_failed_at: new Date().toISOString() },
+          p_source: 'heal-poison-lessons',
         });
         if (rpcErr) console.error(`[heal-poison] RPC write failed for ${d.id}: ${rpcErr.message}`);
       }

@@ -15535,6 +15535,42 @@ export type Database = {
         }
         Relationships: []
       }
+      rpc_version_registry: {
+        Row: {
+          breaking_change_reason: string | null
+          created_at: string
+          deprecated_at: string | null
+          id: string
+          is_current: boolean
+          rpc_name: string
+          signature_hash: string | null
+          successor_rpc: string | null
+          version: number
+        }
+        Insert: {
+          breaking_change_reason?: string | null
+          created_at?: string
+          deprecated_at?: string | null
+          id?: string
+          is_current?: boolean
+          rpc_name: string
+          signature_hash?: string | null
+          successor_rpc?: string | null
+          version?: number
+        }
+        Update: {
+          breaking_change_reason?: string | null
+          created_at?: string
+          deprecated_at?: string | null
+          id?: string
+          is_current?: boolean
+          rpc_name?: string
+          signature_hash?: string | null
+          successor_rpc?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       runbook_entries: {
         Row: {
           auto_actions: Json | null
@@ -20679,6 +20715,19 @@ export type Database = {
           weak_areas: Json
         }[]
       }
+      calculate_readiness_score_v2: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: {
+          confidence_level: string
+          days_until_ready: number
+          overall_readiness: number
+          predicted_exam_score: number
+          recommendation: string
+          strong_areas: Json
+          trend: string
+          weak_areas: Json
+        }[]
+      }
       calculate_sm2_next_review: {
         Args: {
           p_bloom_level: string
@@ -20844,6 +20893,53 @@ export type Database = {
               isSetofReturn: true
             }
           }
+      claim_pending_jobs_v2: {
+        Args: {
+          p_limit?: number
+          p_lock_timeout_minutes?: number
+          p_worker_id?: string
+        }
+        Returns: {
+          attempts: number
+          batch_cursor: Json | null
+          completed_at: string | null
+          cost_estimate_eur: number | null
+          created_at: string
+          error: string | null
+          estimated_tokens: number | null
+          fallback_count: number | null
+          id: string
+          job_type: string
+          last_error: string | null
+          last_error_code: string | null
+          last_error_hint: string | null
+          last_error_severity: string | null
+          last_http_status: number | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          meta: Json
+          original_provider: string | null
+          package_id: string | null
+          parent_job_id: string | null
+          payload: Json
+          priority: number
+          provider: string | null
+          rate_limited_until: string | null
+          result: Json | null
+          run_after: string | null
+          scheduled_at: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "job_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_pipeline_slot: { Args: { p_package_id: string }; Returns: boolean }
       claim_provider_slot: { Args: { p_provider: string }; Returns: boolean }
       claim_referral_code: {
@@ -21182,6 +21278,7 @@ export type Database = {
       }
       get_course_progress: { Args: { p_course_id: string }; Returns: Json }
       get_coverage_stats: { Args: never; Returns: Json }
+      get_current_rpc_version: { Args: { p_rpc_name: string }; Returns: number }
       get_curriculum_competency_counts: {
         Args: never
         Returns: {
@@ -21465,6 +21562,18 @@ export type Database = {
           valid_until: string
         }[]
       }
+      get_user_entitlements_v2: {
+        Args: { p_curriculum_id?: string; p_user_id: string }
+        Returns: {
+          curriculum_id: string
+          has_ai_tutor: boolean
+          has_exam_trainer: boolean
+          has_handbook: boolean
+          has_learning_course: boolean
+          has_oral_trainer: boolean
+          valid_until: string
+        }[]
+      }
       growth_user_candidates: {
         Args: { p_cutoff: string; p_limit?: number }
         Returns: {
@@ -21622,6 +21731,10 @@ export type Database = {
       }
       pipeline_write_lesson_content: {
         Args: { p_content: Json; p_lesson_id: string }
+        Returns: undefined
+      }
+      pipeline_write_lesson_content_v2: {
+        Args: { p_content: Json; p_lesson_id: string; p_source?: string }
         Returns: undefined
       }
       populate_admin_search_index: { Args: never; Returns: undefined }
@@ -22197,6 +22310,18 @@ export type Database = {
           p_area: string
           p_description: string
           p_evidence: Json
+          p_qa_run_id?: string
+          p_severity: Database["public"]["Enums"]["qa_severity"]
+          p_title: string
+        }
+        Returns: string
+      }
+      upsert_qa_finding_v2: {
+        Args: {
+          p_area: string
+          p_auto_resolve_key?: string
+          p_description: string
+          p_evidence?: Json
           p_qa_run_id?: string
           p_severity: Database["public"]["Enums"]["qa_severity"]
           p_title: string

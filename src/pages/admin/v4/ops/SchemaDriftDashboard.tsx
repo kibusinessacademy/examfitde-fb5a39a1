@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, ShieldAlert, ShieldCheck, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Database, TrendingUp } from 'lucide-react';
+import { Shield, ShieldAlert, ShieldCheck, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Database, TrendingUp, GitBranch } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface DriftResult {
@@ -34,6 +34,15 @@ interface LedgerEntry {
   last_verified_at: string | null;
 }
 
+interface RpcVersion {
+  rpc_name: string;
+  version: number;
+  is_current: boolean;
+  deprecated_at: string | null;
+  successor_rpc: string | null;
+  breaking_change_reason: string | null;
+}
+
 interface DriftAnalytics {
   entity_name: string;
   drift_type: string;
@@ -51,6 +60,7 @@ export default function SchemaDriftDashboard() {
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [recentDrifts, setRecentDrifts] = useState<any[]>([]);
   const [topDrifts, setTopDrifts] = useState<DriftAnalytics[]>([]);
+  const [rpcVersions, setRpcVersions] = useState<RpcVersion[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -58,13 +68,14 @@ export default function SchemaDriftDashboard() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [contractRes, ledgerRes, driftLogRes, analyticsRes] = await Promise.all([
+      const [contractRes, ledgerRes, driftLogRes, analyticsRes, rpcRes] = await Promise.all([
         supabase.from('schema_contracts').select('contract_type, deprecated_at'),
         supabase.from('schema_version_ledger')
           .select('function_name, required_migration, verified_ok, last_verified_at')
           .order('function_name'),
         supabase.from('schema_drift_log').select('*').order('detected_at', { ascending: false }).limit(20),
         supabase.from('v_drift_analytics' as any).select('*').limit(15),
+        supabase.from('rpc_version_registry' as any).select('*').order('rpc_name, version'),
       ]);
 
       if (contractRes.data) {
@@ -79,6 +90,7 @@ export default function SchemaDriftDashboard() {
       if (ledgerRes.data) setLedger(ledgerRes.data as unknown as LedgerEntry[]);
       if (driftLogRes.data) setRecentDrifts(driftLogRes.data);
       if (analyticsRes.data) setTopDrifts(analyticsRes.data as unknown as DriftAnalytics[]);
+      if (rpcRes.data) setRpcVersions(rpcRes.data as unknown as RpcVersion[]);
     } catch (e) {
       console.error('Failed to load schema data', e);
     }
@@ -294,6 +306,49 @@ export default function SchemaDriftDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* RPC Version Registry */}
+      {rpcVersions.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <GitBranch className="h-4 w-4" />
+              RPC-Versionierung ({rpcVersions.filter(r => r.is_current).length} aktiv, {rpcVersions.filter(r => r.deprecated_at).length} deprecated)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {rpcVersions.map((r, i) => (
+                <div key={i} className="flex items-center justify-between text-sm py-1.5 border-b border-border last:border-0">
+                  <div className="flex items-center gap-2">
+                    {r.is_current ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    )}
+                    <span className="font-mono text-xs">{r.rpc_name}</span>
+                    <Badge variant={r.is_current ? 'default' : 'secondary'} className="text-[10px]">
+                      v{r.version}
+                    </Badge>
+                    {r.deprecated_at && (
+                      <Badge variant="outline" className="text-[10px] text-yellow-600">deprecated</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    {r.successor_rpc && <span>→ {r.successor_rpc}</span>}
+                    {r.breaking_change_reason && (
+                      <span className="max-w-[250px] truncate" title={r.breaking_change_reason}>
+                        {r.breaking_change_reason}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Ledger */}
       {ledger.length > 0 && (

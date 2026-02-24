@@ -345,14 +345,15 @@ Deno.serve(async (req) => {
   // ── 1. Claim jobs with proper locking (worker_id + lock timeout) ──
   // v5.3: Increased lock timeout from 10→20min to prevent STALE_LOCK kills
   // on long-running AI jobs (exam-pool with 58+ questions, glossary gen).
-  const { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs", {
+  // v6: Use versioned RPC to prevent signature-cache drift
+  const { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v2" as any, {
     p_limit: adaptiveConcurrency,
     p_worker_id: WORKER_ID,
     p_lock_timeout_minutes: 20,
   });
 
   if (claimErr) {
-    console.error("[job-runner] claim_pending_jobs error:", claimErr.message);
+    console.error("[job-runner] claim_pending_jobs_v2 error:", claimErr.message);
     return json({ ok: false, error: claimErr.message }, 500);
   }
 

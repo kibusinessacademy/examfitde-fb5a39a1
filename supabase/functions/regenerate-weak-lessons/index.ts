@@ -65,9 +65,10 @@ Deno.serve(async (req) => {
       const chunk = lessonIds.slice(i, i + 100);
       for (const lid of chunk) {
         try {
-          await sb.rpc("pipeline_write_lesson_content", {
+          await sb.rpc("pipeline_write_lesson_content_v2" as any, {
             p_lesson_id: lid,
             p_content: { _placeholder: true, _regenerating: true, reset_at: new Date().toISOString() },
+            p_source: 'regenerate-weak-lessons',
           });
           reset++;
         } catch (e: any) {
