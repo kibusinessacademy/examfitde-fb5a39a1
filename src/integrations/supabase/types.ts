@@ -2071,6 +2071,41 @@ export type Database = {
           },
         ]
       }
+      blueprint_quality_constraints: {
+        Row: {
+          constraint_config: Json
+          constraint_key: string
+          created_at: string | null
+          curriculum_id: string | null
+          id: string
+          is_active: boolean | null
+        }
+        Insert: {
+          constraint_config: Json
+          constraint_key: string
+          created_at?: string | null
+          curriculum_id?: string | null
+          id?: string
+          is_active?: boolean | null
+        }
+        Update: {
+          constraint_config?: Json
+          constraint_key?: string
+          created_at?: string | null
+          curriculum_id?: string | null
+          id?: string
+          is_active?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_quality_constraints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blueprint_variables: {
         Row: {
           allowed_values: string[] | null
@@ -2881,34 +2916,52 @@ export type Database = {
       }
       competencies: {
         Row: {
+          action_verb: string | null
+          bloom_level: string | null
           code: string
+          context_conditions: string | null
           created_at: string
           description: string | null
+          exam_relevance_tier: string | null
           id: string
           learning_field_id: string
           sort_order: number | null
           taxonomy_level: string | null
           title: string
+          transfer_markers: Json | null
+          typical_misconceptions: Json | null
         }
         Insert: {
+          action_verb?: string | null
+          bloom_level?: string | null
           code: string
+          context_conditions?: string | null
           created_at?: string
           description?: string | null
+          exam_relevance_tier?: string | null
           id?: string
           learning_field_id: string
           sort_order?: number | null
           taxonomy_level?: string | null
           title: string
+          transfer_markers?: Json | null
+          typical_misconceptions?: Json | null
         }
         Update: {
+          action_verb?: string | null
+          bloom_level?: string | null
           code?: string
+          context_conditions?: string | null
           created_at?: string
           description?: string | null
+          exam_relevance_tier?: string | null
           id?: string
           learning_field_id?: string
           sort_order?: number | null
           taxonomy_level?: string | null
           title?: string
+          transfer_markers?: Json | null
+          typical_misconceptions?: Json | null
         }
         Relationships: [
           {
@@ -5578,6 +5631,7 @@ export type Database = {
           created_by: string | null
           curriculum_typ: string | null
           description: string | null
+          exam_structure: Json | null
           extracted_data: Json | null
           frozen_at: string | null
           id: string
@@ -5585,6 +5639,7 @@ export type Database = {
           import_source: string | null
           kmk_version: string | null
           normalized_data: Json | null
+          passing_rules: Json | null
           seeding_completed_at: string | null
           seeding_version: string | null
           source_file_name: string | null
@@ -5605,6 +5660,7 @@ export type Database = {
           created_by?: string | null
           curriculum_typ?: string | null
           description?: string | null
+          exam_structure?: Json | null
           extracted_data?: Json | null
           frozen_at?: string | null
           id?: string
@@ -5612,6 +5668,7 @@ export type Database = {
           import_source?: string | null
           kmk_version?: string | null
           normalized_data?: Json | null
+          passing_rules?: Json | null
           seeding_completed_at?: string | null
           seeding_version?: string | null
           source_file_name?: string | null
@@ -5632,6 +5689,7 @@ export type Database = {
           created_by?: string | null
           curriculum_typ?: string | null
           description?: string | null
+          exam_structure?: Json | null
           extracted_data?: Json | null
           frozen_at?: string | null
           id?: string
@@ -5639,6 +5697,7 @@ export type Database = {
           import_source?: string | null
           kmk_version?: string | null
           normalized_data?: Json | null
+          passing_rules?: Json | null
           seeding_completed_at?: string | null
           seeding_version?: string | null
           source_file_name?: string | null
@@ -7260,6 +7319,7 @@ export type Database = {
         Row: {
           ai_generated: boolean | null
           approved_version_id: string | null
+          bloom_level_validated: string | null
           blueprint_id: string | null
           cognitive_level: string | null
           competency_id: string | null
@@ -7267,7 +7327,9 @@ export type Database = {
           created_at: string
           curriculum_id: string
           difficulty: Database["public"]["Enums"]["question_difficulty"] | null
+          discrimination_tier: string | null
           distractor_meta: Json | null
+          exam_part: string | null
           explanation: string | null
           id: string
           item_calibrated_at: string | null
@@ -7283,14 +7345,18 @@ export type Database = {
           question_type: string
           reviewed_at: string | null
           reviewed_by: string | null
+          scenario_type: string | null
           status: Database["public"]["Enums"]["question_status"] | null
+          time_estimate_seconds: number | null
           trap_tags: string[] | null
+          typical_errors: Json | null
           variant_group: string | null
           variant_label: string | null
         }
         Insert: {
           ai_generated?: boolean | null
           approved_version_id?: string | null
+          bloom_level_validated?: string | null
           blueprint_id?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
@@ -7298,7 +7364,9 @@ export type Database = {
           created_at?: string
           curriculum_id: string
           difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
+          discrimination_tier?: string | null
           distractor_meta?: Json | null
+          exam_part?: string | null
           explanation?: string | null
           id?: string
           item_calibrated_at?: string | null
@@ -7314,14 +7382,18 @@ export type Database = {
           question_type?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          scenario_type?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
+          time_estimate_seconds?: number | null
           trap_tags?: string[] | null
+          typical_errors?: Json | null
           variant_group?: string | null
           variant_label?: string | null
         }
         Update: {
           ai_generated?: boolean | null
           approved_version_id?: string | null
+          bloom_level_validated?: string | null
           blueprint_id?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
@@ -7329,7 +7401,9 @@ export type Database = {
           created_at?: string
           curriculum_id?: string
           difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
+          discrimination_tier?: string | null
           distractor_meta?: Json | null
+          exam_part?: string | null
           explanation?: string | null
           id?: string
           item_calibrated_at?: string | null
@@ -7345,8 +7419,11 @@ export type Database = {
           question_type?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          scenario_type?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
+          time_estimate_seconds?: number | null
           trap_tags?: string[] | null
+          typical_errors?: Json | null
           variant_group?: string | null
           variant_label?: string | null
         }
@@ -9117,43 +9194,55 @@ export type Database = {
       }
       learning_fields: {
         Row: {
+          bloom_distribution_target: Json | null
           code: string
           created_at: string
           curriculum_id: string
           description: string | null
           difficulty_tier: string | null
           exam_part: string | null
+          exam_time_minutes: number | null
           hours: number | null
           id: string
           ihk_focus_areas: Json | null
+          min_mastery_pct: number | null
+          question_target: number | null
           sort_order: number | null
           title: string
           weight_percent: number | null
         }
         Insert: {
+          bloom_distribution_target?: Json | null
           code: string
           created_at?: string
           curriculum_id: string
           description?: string | null
           difficulty_tier?: string | null
           exam_part?: string | null
+          exam_time_minutes?: number | null
           hours?: number | null
           id?: string
           ihk_focus_areas?: Json | null
+          min_mastery_pct?: number | null
+          question_target?: number | null
           sort_order?: number | null
           title: string
           weight_percent?: number | null
         }
         Update: {
+          bloom_distribution_target?: Json | null
           code?: string
           created_at?: string
           curriculum_id?: string
           description?: string | null
           difficulty_tier?: string | null
           exam_part?: string | null
+          exam_time_minutes?: number | null
           hours?: number | null
           id?: string
           ihk_focus_areas?: Json | null
+          min_mastery_pct?: number | null
+          question_target?: number | null
           sort_order?: number | null
           title?: string
           weight_percent?: number | null
