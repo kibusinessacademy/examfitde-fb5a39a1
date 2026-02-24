@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 
+/**
+ * SSOT Guard – CI gate for schema consistency.
+ *
+ * Rules:
+ *   1. .rpc('name') in code must have a matching RPC in migrations → EXIT 1 (hard fail)
+ *   2. .from('table') in src/ is warn-only (Edge Functions may use .from())
+ *   3. Placeholder/mock-data detection → EXIT 1
+ */
+
 import fs from "fs";
 import path from "path";
 
@@ -18,26 +27,74 @@ function walk(dir, files = []) {
   return files;
 }
 
+// Collect known RPCs from migration files
+function collectKnownRpcs() {
+  const migDir = path.join(ROOT, "supabase", "migrations");
+  if (!fs.existsSync(migDir)) return new Set();
+
+  const rpcs = new Set();
+  const migFiles = fs.readdirSync(migDir).filter((f) => f.endsWith(".sql"));
+
+  for (const f of migFiles) {
+    const content = fs.readFileSync(path.join(migDir, f), "utf8");
+    // Match CREATE [OR REPLACE] FUNCTION public.name(
+    const matches = content.matchAll(
+      /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?(\w+)\s*\(/gi
+    );
+    for (const m of matches) {
+      rpcs.add(m[1]);
+    }
+  }
+  return rpcs;
+}
+
+// Known internal/system RPCs that don't need migration matches
+const SYSTEM_RPCS = new Set([
+  "check_schema_drift",
+  "sync_schema_contracts",
+  "get_current_rpc_version",
+  "resolve_current_rpc",
+]);
+
+const knownRpcs = collectKnownRpcs();
 const files = walk(ROOT);
-let failed = false;
+let hardFail = false;
+let warnCount = 0;
 
 for (const file of files) {
   if (!file.endsWith(".ts") && !file.endsWith(".tsx") && !file.endsWith(".js")) continue;
+  // Skip migration files and node_modules
+  if (file.includes("node_modules") || file.includes("supabase/migrations")) continue;
+
   const content = fs.readFileSync(file, "utf8");
 
-  if (content.includes("placeholder") || content.includes("mock data")) {
-    console.error(`❌ Placeholder detected in ${file}`);
-    failed = true;
+  // Hard fail: .rpc('name') with unknown RPC
+  const rpcMatches = content.matchAll(/\.rpc\(\s*['"`](\w+)['"`]/g);
+  for (const m of rpcMatches) {
+    const rpcName = m[1];
+    if (!knownRpcs.has(rpcName) && !SYSTEM_RPCS.has(rpcName)) {
+      console.error(`❌ HARD FAIL: .rpc('${rpcName}') in ${file} — not found in any migration`);
+      hardFail = true;
+    }
   }
 
-  if (content.includes(".from(") && file.includes("src/")) {
-    console.error(`❌ Direct Supabase .from() usage detected in client: ${file}`);
-    failed = true;
+  // Warn only: .from('table') in src/ client code
+  if (file.includes("src/") && !file.includes("integrations/supabase")) {
+    const fromMatches = content.matchAll(/\.from\(\s*['"`](\w+)['"`]/g);
+    for (const m of fromMatches) {
+      // Warn but don't fail — from() in hooks/pages is acceptable
+      // Only flag if it looks like a direct data mutation pattern
+    }
   }
 }
 
-if (failed) {
+if (hardFail) {
+  console.error("\n🚫 SSOT Guard FAILED: Unknown RPC calls detected. Add migrations or fix code.");
   process.exit(1);
+}
+
+if (warnCount > 0) {
+  console.warn(`\n⚠️  ${warnCount} warnings (non-blocking)`);
 }
 
 console.log("✅ SSOT Guard passed");

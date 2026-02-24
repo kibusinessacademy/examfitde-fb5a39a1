@@ -36,19 +36,23 @@ export async function assertSchemaReady(
 ): Promise<void> {
   const { data, error } = await sb
     .from("schema_version_ledger")
-    .select("required_migration, verified_ok, last_verified_at, verified_cycle")
+    .select("required_migration, verified_ok, last_verified_at, verified_cycle, sync_cycle")
     .eq("function_name", functionName)
     .maybeSingle();
 
   // No ledger entry → function has no schema requirement (OK)
   if (!data || error) return;
 
-  // Skip re-verification if verified recently (within 15 min) AND same cycle
-  const FRESHNESS_MS = 15 * 60 * 1000; // 15 minutes
+  // Skip re-verification only if:
+  // 1. verified_ok is true
+  // 2. verified within last 15 min
+  // 3. verified_cycle matches current sync_cycle (sync hasn't bumped)
+  const FRESHNESS_MS = 15 * 60 * 1000;
   const isFresh =
     data.verified_ok &&
     data.last_verified_at &&
-    new Date(data.last_verified_at).getTime() > Date.now() - FRESHNESS_MS;
+    new Date(data.last_verified_at).getTime() > Date.now() - FRESHNESS_MS &&
+    (!data.sync_cycle || data.verified_cycle === data.sync_cycle);
 
   if (isFresh) return;
 

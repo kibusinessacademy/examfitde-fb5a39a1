@@ -15627,6 +15627,7 @@ export type Database = {
           expected_spec: Json
           id: string
           is_critical: boolean
+          missing_since: string | null
           updated_at: string
         }
         Insert: {
@@ -15639,6 +15640,7 @@ export type Database = {
           expected_spec?: Json
           id?: string
           is_critical?: boolean
+          missing_since?: string | null
           updated_at?: string
         }
         Update: {
@@ -15651,6 +15653,7 @@ export type Database = {
           expected_spec?: Json
           id?: string
           is_critical?: boolean
+          missing_since?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -15698,6 +15701,7 @@ export type Database = {
           id: string
           last_verified_at: string | null
           required_migration: string
+          sync_cycle: string | null
           updated_at: string
           verified_cycle: string | null
           verified_ok: boolean | null
@@ -15708,6 +15712,7 @@ export type Database = {
           id?: string
           last_verified_at?: string | null
           required_migration: string
+          sync_cycle?: string | null
           updated_at?: string
           verified_cycle?: string | null
           verified_ok?: boolean | null
@@ -15718,6 +15723,7 @@ export type Database = {
           id?: string
           last_verified_at?: string | null
           required_migration?: string
+          sync_cycle?: string | null
           updated_at?: string
           verified_cycle?: string | null
           verified_ok?: boolean | null
@@ -20721,6 +20727,19 @@ export type Database = {
           weak_areas: Json
         }[]
       }
+      calculate_readiness_score_current: {
+        Args: { p_curriculum_id: string; p_user_id: string }
+        Returns: {
+          confidence_level: string
+          days_until_ready: number
+          overall_readiness: number
+          predicted_exam_score: number
+          recommendation: string
+          strong_areas: Json
+          trend: string
+          weak_areas: Json
+        }[]
+      }
       calculate_readiness_score_v2: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: {
@@ -20899,6 +20918,53 @@ export type Database = {
               isSetofReturn: true
             }
           }
+      claim_pending_jobs_current: {
+        Args: {
+          p_limit?: number
+          p_lock_timeout_minutes?: number
+          p_worker_id?: string
+        }
+        Returns: {
+          attempts: number
+          batch_cursor: Json | null
+          completed_at: string | null
+          cost_estimate_eur: number | null
+          created_at: string
+          error: string | null
+          estimated_tokens: number | null
+          fallback_count: number | null
+          id: string
+          job_type: string
+          last_error: string | null
+          last_error_code: string | null
+          last_error_hint: string | null
+          last_error_severity: string | null
+          last_http_status: number | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          meta: Json
+          original_provider: string | null
+          package_id: string | null
+          parent_job_id: string | null
+          payload: Json
+          priority: number
+          provider: string | null
+          rate_limited_until: string | null
+          result: Json | null
+          run_after: string | null
+          scheduled_at: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "job_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_pending_jobs_v2: {
         Args: {
           p_limit?: number
@@ -21568,6 +21634,18 @@ export type Database = {
           valid_until: string
         }[]
       }
+      get_user_entitlements_current: {
+        Args: { p_curriculum_id?: string; p_user_id: string }
+        Returns: {
+          curriculum_id: string
+          has_ai_tutor: boolean
+          has_exam_trainer: boolean
+          has_handbook: boolean
+          has_learning_course: boolean
+          has_oral_trainer: boolean
+          valid_until: string
+        }[]
+      }
       get_user_entitlements_v2: {
         Args: { p_curriculum_id?: string; p_user_id: string }
         Returns: {
@@ -21747,6 +21825,17 @@ export type Database = {
             }
             Returns: undefined
           }
+      pipeline_write_lesson_content_current: {
+        Args: {
+          p_lesson_id: string
+          p_metadata?: Json
+          p_practice_md?: string
+          p_source?: string
+          p_theory_md: string
+          p_title: string
+        }
+        Returns: undefined
+      }
       pipeline_write_lesson_content_v2: {
         Args: { p_content: Json; p_lesson_id: string; p_source?: string }
         Returns: undefined
@@ -21974,6 +22063,7 @@ export type Database = {
         }[]
       }
       requeue_failed_jobs: { Args: never; Returns: number }
+      resolve_current_rpc: { Args: { p_base_name: string }; Returns: string }
       resolve_qa_finding_if_exists: {
         Args: { p_area: string; p_title: string }
         Returns: undefined
@@ -22322,6 +22412,18 @@ export type Database = {
       upsert_qa_finding: {
         Args: {
           p_area: string
+          p_description: string
+          p_evidence?: Json
+          p_qa_run_id?: string
+          p_severity: Database["public"]["Enums"]["qa_severity"]
+          p_title: string
+        }
+        Returns: string
+      }
+      upsert_qa_finding_current: {
+        Args: {
+          p_area: string
+          p_auto_resolve_key?: string
           p_description: string
           p_evidence?: Json
           p_qa_run_id?: string
