@@ -703,12 +703,12 @@ function buildBlueprintRow(
     exam_relevance_score: calcRelevanceScore(facet.cognitive),
     estimated_time_seconds: calcEstimatedTime(facet.cognitive),
     real_world_context: facet.cognitive !== "remember",
-    // v4: New fields
-    metadata: {
-      exam_part: examPart,
-      seeder_version: "4.0.0",
+    // v4: exam_part + difficulty stored in existing JSONB columns (no 'metadata' column)
+    trap_spec: {
+      ...tmpl.trap_spec,
       difficulty_default: DIFFICULTY_BY_COGNITIVE[facet.cognitive],
     },
+    oral_extension: examPart ? { exam_part: examPart } : null,
     status: "draft",  // GOVERNANCE: Only Council/RPC may set 'approved'
     version: "4.0.0",
   };

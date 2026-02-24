@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import PipelineLockPanel from '@/components/admin/PipelineLockPanel';
 import OpsAlertsWidget from './OpsAlertsWidget';
 import ContentFactoryStatus from './ContentFactoryStatus';
+import BenchmarkMonitor from './BenchmarkMonitor';
 import { Loading, MiniKPI } from './OpsShared';
 
 export default function OpsOverview() {
@@ -166,6 +167,8 @@ export default function OpsOverview() {
           </div>
         </CardContent>
       </Card>
+
+      <BenchmarkMonitor />
 
       <ContentFactoryStatus />
 
