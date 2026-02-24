@@ -1,4 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient as createSbClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { assertSchemaReady } from "../_shared/schema-gate.ts";
 
 /**
  * cron-trigger — Secure proxy for pg_cron → pipeline-runner
@@ -29,6 +31,10 @@ Deno.serve(async (req) => {
     const CRON_SECRET = Deno.env.get("CRON_SECRET");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Schema-Version Handshake
+    const sbGate = createSbClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    await assertSchemaReady("cron-trigger", sbGate);
 
     if (!CRON_SECRET) {
       return json({ ok: false, error: "CRON_SECRET not configured" }, 500);

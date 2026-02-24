@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { assertSchemaReady } from "../_shared/schema-gate.ts";
 
 /**
  * job-runner — Atomically claims pending jobs via claim_pending_jobs RPC
@@ -329,6 +330,14 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  // Schema-Version Handshake — block if DB is behind required migration
+  try {
+    await assertSchemaReady("job-runner", sb);
+  } catch (e) {
+    console.error("[job-runner] SCHEMA_DRIFT:", (e as Error).message);
+    return json({ ok: false, error: (e as Error).message, blocked: "schema_drift" }, 503);
+  }
 
   // ── 0. Adaptive Concurrency ──────────────────────────────────────
   const adaptiveConcurrency = await getAdaptiveConcurrency(sb).catch(() => BASE_CONCURRENCY);
