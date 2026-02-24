@@ -112,6 +112,20 @@ jobs:
           uploadArtifacts: true
           configPath: .github/lighthouse/lighthouserc.json
 
+  schema-drift:
+    name: Schema Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check schema drift
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/schema-drift-check.mjs
+
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest
