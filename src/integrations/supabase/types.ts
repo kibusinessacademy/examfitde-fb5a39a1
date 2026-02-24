@@ -22040,6 +22040,7 @@ export type Database = {
         }
         Returns: Json
       }
+      sync_schema_contracts: { Args: never; Returns: Json }
       table_exists: { Args: { p_table: string }; Returns: boolean }
       trigger_pool_rework: { Args: never; Returns: undefined }
       try_claim_pipeline_lock: {
