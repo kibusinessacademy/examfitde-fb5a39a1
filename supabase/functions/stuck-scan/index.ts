@@ -73,14 +73,14 @@ Deno.serve(async (req) => {
     for (const sj of staleJobs || []) {
       const newAttempts = (sj.attempts || 0) + 1;
       const maxAttempts = sj.max_attempts || 3;
+      const effectiveThreshold = JOB_TYPE_STALE_OVERRIDES[sj.job_type] ?? heartbeatTimeout;
 
       if (newAttempts >= maxAttempts) {
-        // Exceeded max attempts → fail permanently instead of eternal retry loop
         await sb.from("job_queue").update({
           status: "failed",
           locked_at: null,
           locked_by: null,
-          last_error: `Stale lock detected (>${heartbeatTimeout}s) — max attempts (${maxAttempts}) reached`,
+          last_error: `Stale lock (>${effectiveThreshold}s, type=${sj.job_type}) — max attempts (${maxAttempts}) reached`,
           last_error_code: "STALE_LOCK_EXHAUSTED",
           attempts: newAttempts,
           completed_at: new Date().toISOString(),
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
           locked_at: null,
           locked_by: null,
           scheduled_at: new Date(Date.now() + 30_000).toISOString(),
-          last_error: `Stale lock detected (>${heartbeatTimeout}s) — attempt ${newAttempts}/${maxAttempts}`,
+          last_error: `Stale lock (>${effectiveThreshold}s, type=${sj.job_type}) — attempt ${newAttempts}/${maxAttempts}`,
           last_error_code: "STALE_LOCK",
           attempts: newAttempts,
         }).eq("id", sj.id);
