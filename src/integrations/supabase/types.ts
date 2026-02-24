@@ -15579,31 +15579,40 @@ export type Database = {
       }
       schema_contracts: {
         Row: {
+          contract_hash: string | null
           contract_type: string
           created_at: string
+          deprecated_at: string | null
           description: string | null
           entity_name: string
           expected_spec: Json
           id: string
           is_critical: boolean
+          updated_at: string
         }
         Insert: {
+          contract_hash?: string | null
           contract_type: string
           created_at?: string
+          deprecated_at?: string | null
           description?: string | null
           entity_name: string
           expected_spec?: Json
           id?: string
           is_critical?: boolean
+          updated_at?: string
         }
         Update: {
+          contract_hash?: string | null
           contract_type?: string
           created_at?: string
+          deprecated_at?: string | null
           description?: string | null
           entity_name?: string
           expected_spec?: Json
           id?: string
           is_critical?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
@@ -20071,6 +20080,19 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_drift_analytics: {
+        Row: {
+          drift_type: string | null
+          entity_name: string | null
+          first_seen_at: string | null
+          is_critical: boolean | null
+          last_resolved_at: string | null
+          last_seen_at: string | null
+          occurrence_count: number | null
+          unresolved_count: number | null
+        }
+        Relationships: []
       }
       v_early_warning: {
         Row: {
