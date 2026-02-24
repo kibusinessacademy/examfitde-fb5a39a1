@@ -245,14 +245,27 @@ Deno.serve(async (req) => {
   {
     const { data: allActive } = await sb
       .from("job_queue" as any)
-      .select("id, package_id, job_type, status, created_at")
+      .select("id, package_id, job_type, status, created_at, payload")
       .in("status", ["pending", "processing"]);
+
+    // Fan-out job types: these legitimately have multiple jobs per (package_id, job_type)
+    // distinguished by learning_field_id in payload. Dedupe key must include LF scope.
+    const FAN_OUT_JOB_TYPES = new Set([
+      "package_generate_exam_pool",
+      "package_generate_oral_exam",
+      "package_build_ai_tutor_index",
+    ]);
 
     const seen = new Map<string, { id: string; created_at: string }>();
     const dupes: any[] = [];
     let healed = 0;
     for (const j of allActive || []) {
-      const key = `${j.package_id}::${j.job_type}`;
+      // For fan-out jobs, include learning_field_id in dedupe key
+      // so parallel LF sub-jobs are NOT treated as duplicates
+      const lfScope = FAN_OUT_JOB_TYPES.has(j.job_type)
+        ? `::lf=${(j.payload as Record<string, unknown>)?.learning_field_id ?? '__root__'}`
+        : "";
+      const key = `${j.package_id}::${j.job_type}${lfScope}`;
       if (seen.has(key)) {
         dupes.push({ package_id: j.package_id, job_type: j.job_type });
         // Cancel the older duplicate

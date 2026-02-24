@@ -514,14 +514,26 @@ Deno.serve(async (req) => {
     // Can't use raw SQL, use alternative approach
     const { data: activeJobs } = await sb
       .from("job_queue")
-      .select("id, job_type, package_id, status")
+      .select("id, job_type, package_id, status, payload")
       .in("status", ["pending", "processing"])
       .limit(500);
+
+    // Fan-out job types: multiple jobs per (package_id, job_type) are legitimate
+    // when they target different learning_field_ids
+    const FAN_OUT_JOB_TYPES = new Set([
+      "package_generate_exam_pool",
+      "package_generate_oral_exam",
+      "package_build_ai_tutor_index",
+    ]);
 
     const seen = new Map<string, string[]>();
     for (const j of activeJobs || []) {
       if (!j.package_id) continue;
-      const key = `${j.package_id}::${j.job_type}`;
+      // For fan-out jobs, include learning_field_id in dedupe key
+      const lfScope = FAN_OUT_JOB_TYPES.has(j.job_type)
+        ? `::lf=${(j.payload as Record<string, unknown>)?.learning_field_id ?? '__root__'}`
+        : "";
+      const key = `${j.package_id}::${j.job_type}${lfScope}`;
       if (!seen.has(key)) seen.set(key, []);
       seen.get(key)!.push(j.id);
     }
