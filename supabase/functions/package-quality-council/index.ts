@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
+import { pctOrNA } from "../_shared/math-helpers.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -90,41 +91,31 @@ Deno.serve(async (req) => {
     const easyPct = (easyCount / total) * 100;
     const hardPct = (hardCount / total) * 100;
 
-    // Extract from integrity report (NEVER default to 100 — use real values only)
-    // FIX: Top-level fields may not exist; also parse from v3.gates[] array
-    let blueprintCoverage = intReport?.blueprint_coverage_pct ?? intReport?.v3?.blueprint_coverage_pct;
-    let lfCoverage = intReport?.lf_coverage_pct ?? intReport?.v3?.lf_coverage_pct;
-    let duplicateRate = intReport?.duplicate_rate_pct ?? intReport?.v3?.duplicate_rate_pct;
+    // ── Extract metrics from integrity report ──
+    // Priority: v3.summary (SSOT, written by integrity v1.3+) → top-level → gates[] fallback
+    const summary = intReport?.v3?.summary as Record<string, any> | undefined;
+    let blueprintCoverage = summary?.blueprint_coverage_pct ?? intReport?.blueprint_coverage_pct ?? intReport?.v3?.blueprint_coverage_pct;
+    let lfCoverage = summary?.lf_coverage_pct ?? intReport?.lf_coverage_pct ?? intReport?.v3?.lf_coverage_pct;
+    let duplicateRate = summary?.duplicate_rate_pct ?? intReport?.duplicate_rate_pct ?? intReport?.v3?.duplicate_rate_pct;
 
-    // Fallback: extract from v3.gates[] array if top-level fields missing
+    // Fallback: parse from v3.gates[] if summary not yet written (pre-v1.3 reports)
     if ((blueprintCoverage == null || lfCoverage == null || duplicateRate == null) && Array.isArray(intReport?.v3?.gates)) {
       for (const g of intReport.v3.gates) {
         if (g.gate === "learning_field_coverage" && lfCoverage == null) {
-          // Parse "11 LFs covered in exam pool, 0 modules in course" or percentage from detail
-          const pctMatch = g.detail?.match?.(/(\d+(?:\.\d+)?)%/);
-          if (pctMatch) lfCoverage = parseFloat(pctMatch[1]);
-          else if (g.passed) lfCoverage = 100; // gate passed → treat as 100%
+          if (g.passed) lfCoverage = 100;
+          else { const m = g.detail?.match?.(/(\d+(?:\.\d+)?)%/); if (m) lfCoverage = parseFloat(m[1]); }
         }
         if (g.gate === "exam_pool_distribution" && blueprintCoverage == null) {
-          // Exam pool gate passed with approved questions → blueprint is covered
           if (g.passed) blueprintCoverage = 100;
         }
         if (g.gate === "duplicate_rate" && duplicateRate == null) {
-          const pctMatch = g.detail?.match?.(/(\d+(?:\.\d+)?)%/);
-          if (pctMatch) duplicateRate = parseFloat(pctMatch[1]);
+          const m = g.detail?.match?.(/(\d+(?:\.\d+)?)%/); if (m) duplicateRate = parseFloat(m[1]);
         }
       }
-      // For EXAM_FIRST tracks: if no explicit duplicate_rate gate exists, check if integrity passed overall
-      if (duplicateRate == null && (intReport?.v3?.hard_fail_reasons?.length === 0 || intReport?.score >= 90)) {
-        duplicateRate = 0; // No duplicate issues detected
-      }
-      // If blueprint_coverage still null but integrity score is high, derive from gate pass
-      if (blueprintCoverage == null && intReport?.score >= 90) {
-        blueprintCoverage = 100;
-      }
-      if (lfCoverage == null && intReport?.score >= 90) {
-        lfCoverage = 100;
-      }
+      // Safe defaults when integrity passed overall but specific fields missing
+      if (duplicateRate == null && (intReport?.v3?.hard_fail_reasons?.length === 0 || intReport?.score >= 90)) duplicateRate = 0;
+      if (blueprintCoverage == null && intReport?.score >= 90) blueprintCoverage = 100;
+      if (lfCoverage == null && intReport?.score >= 90) lfCoverage = 100;
     }
 
     // ── Competency binding check ──
@@ -160,9 +151,7 @@ Deno.serve(async (req) => {
       .not("competency_id", "is", null);
 
     const uniqueCoveredComps = new Set((coveredComps ?? []).map((q: any) => q.competency_id));
-    // FIX: 0/0 → 100% (N/A), not 0% fail
-    const competencyCoveragePct = totalCompetencies > 0
-      ? (uniqueCoveredComps.size / totalCompetencies) * 100 : 100;
+    const competencyCoveragePct = pctOrNA(uniqueCoveredComps.size, totalCompetencies);
 
     // Evaluate rules
     const results: Array<{ rule_key: string; severity: string; passed: boolean; detail: string }> = [];
