@@ -660,6 +660,9 @@ async function generateTurboQuestions(
   let saved = 0;
   let training = 0;
   let gateFailed = 0;
+  let rejectedContamination = 0;
+  let rejectedOther = 0;
+  const generatedTotal = questions.length;
 
   for (const q of questions) {
     if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
@@ -668,6 +671,7 @@ async function generateTurboQuestions(
     const correctIdx = Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0);
     if (typeof correctIdx !== 'number' || correctIdx < 0 || correctIdx >= q.options.length) {
       console.log(`[ExamPool-v5] REJECTED INVALID_INDEX: correct_answer=${q.correct_answer} for ${q.options.length} options`);
+      rejectedOther++;
       continue;
     }
 
@@ -686,6 +690,7 @@ async function generateTurboQuestions(
     }
     if (hasMetaText) {
       console.log(`[ExamPool-v5] REJECTED META_TEXT: "${explanationText.slice(0, 60)}…"`);
+      rejectedOther++;
       continue;
     }
 
@@ -695,6 +700,7 @@ async function generateTurboQuestions(
     const contam = checkContamination(q.question_text + " " + (q.explanation || ""), professionName);
     if (contam.isContaminated) {
       console.log(`[ExamPool-v5] CONTAMINATION: ${contam.detectedIndustry} in "${q.question_text.slice(0, 50)}"`);
+      rejectedContamination++;
       continue;
     }
 
@@ -917,7 +923,10 @@ async function generateTurboQuestions(
       else training++;
     }
   }
-  return { saved, training, gateFailed };
+  const acceptedTotal = saved + training + gateFailed;
+  const acceptRate = generatedTotal > 0 ? ((acceptedTotal / generatedTotal) * 100).toFixed(1) : "0.0";
+  console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, accepted=${acceptedTotal}, saved=${saved}, training=${training}, gateFailed=${gateFailed}, rejectedContamination=${rejectedContamination}, rejectedOther=${rejectedOther}, acceptRate=${acceptRate}%`);
+  return { saved, training, gateFailed, generatedTotal, rejectedContamination, rejectedOther, acceptRate: parseFloat(acceptRate) };
 }
 
 function simpleHash(text: string): string {

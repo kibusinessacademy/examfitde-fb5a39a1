@@ -8,10 +8,14 @@
  */
 
 // Industry-specific keyword sets (lowercase)
+// IMPORTANT: "pharmazie" is a SEPARATE industry from "medizin".
+// PKA (Pharmazeutisch-kaufmännische Angestellte) work with Rezepte, Medikamente,
+// Patienten etc. in a COMMERCIAL/LOGISTICS context — these are NOT clinical terms for them.
 const INDUSTRY_KEYWORDS: Record<string, RegExp> = {
   automobil: /\b(autohaus|werkstatt|fahrzeug|probefahrt|karosserie|kfz|automobil|lackier|inspektion|hauptuntersuchung|hebebühne|ölwechsel|bremsbelag|radwechsel|autohändler|gebrauchtwagen|neuwagen|fahrzeugbrief|fahrzeugschein|tüv|dekra|motoröl|reifen|achsvermessung)\b/i,
   gastronomie: /\b(küche|koch|speisekarte|menü|rezept|gastronomie|restaurant|mise en place|haccp|lebensmittelhygiene|servieren|kellner|gastgeber|hotellerie)\b/i,
-  medizin: /\b(patient|diagnose|therapie|krankenhaus|arztpraxis|medikament|rezept|anamnese|blutdruck|infusion|op|chirurg|pflege|klinik)\b/i,
+  medizin: /\b(diagnose|therapie|krankenhaus|arztpraxis|anamnese|blutdruck|infusion|op\b|chirurg|pflege|klinik|visite|stationsarzt|oberarzt|chefarzt|krankenschwester|intensivstation|notaufnahme)\b/i,
+  pharmazie: /\b(apotheke|pharmazie|pka|pta|pharmazeutisch|arzneimittel|medikament|rezeptur|defektur|btmvv|betäubungsmittel|pharmazentralnummer|pzn|apothekenverkaufspreis|gkv|kassenrezept|privatrezept|e-rezept|arzneimittelgesetz|amg|apothekengesetz|apothekenbetriebsordnung|kühlkette|chargenrückruf|retaxation|rabattvertrag|hilfsmittel|rezept)\b/i,
   it: /\b(programmier|software|datenbank|server|netzwerk|firewall|api|frontend|backend|deployment|debugging|repository|compiler)\b/i,
   bau: /\b(baustelle|maurer|beton|estrich|gerüst|rohbau|fundament|schalung|trockenbau|putz|fliesen|sanitär|heizung|dachstuhl)\b/i,
 };
@@ -19,9 +23,12 @@ const INDUSTRY_KEYWORDS: Record<string, RegExp> = {
 // Map profession names to their industry (so we know WHICH keywords are ALLOWED)
 function detectProfessionIndustry(professionName: string): string | null {
   const lower = professionName.toLowerCase();
+  // IMPORTANT: pharmazie MUST be checked BEFORE medizin, because PKA contains
+  // "pharmazeutisch" which should map to pharmazie, not medizin.
   if (/auto|kfz|fahrzeug|kraftfahrzeug|automobil/i.test(lower)) return "automobil";
   if (/koch|küche|gastro|hotel|restaurant/i.test(lower)) return "gastronomie";
-  if (/medizin|arzt|pflege|gesundheit|kranken/i.test(lower)) return "medizin";
+  if (/pharma|pka|pta|apothek/i.test(lower)) return "pharmazie";
+  if (/medizin|arzt|pflege|gesundheit|kranken|mfa|medizinisch/i.test(lower)) return "medizin";
   if (/informatik|fachinformatik|software|it-/i.test(lower)) return "it";
   if (/bau|maurer|zimmerer|dachdecker|anlagenmechaniker/i.test(lower)) return "bau";
   return null;
