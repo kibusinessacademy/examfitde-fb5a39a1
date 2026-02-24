@@ -434,27 +434,163 @@ Deno.serve(async (req) => {
     console.log(`[validate-exam] Bloom/Context Gate: ${bloomWarnings.join("; ")}`);
   }
 
-  // ═══ Final verdict ═══
-  // Bloom/Context gates are warnings for now (soft gate) — they don't block the pipeline
-  // but are reported so the integrity check can enforce them
-  const overallPass = avgScore >= SAMPLE_PASS_THRESHOLD && t1PassRate >= 70;
+  // ═══ GATE 4: Distractor Quality Gate (HARD) ═══
+  // Check that questions have distractor_meta with why_wrong + why_tempting
+  let distractorMetaMissing = 0;
+  let distractorMetaWeak = 0;
+  const distractorSampleSize = Math.min(100, questions.length);
+  const distractorSample = questions.slice(0, distractorSampleSize);
+
+  // Load distractor_meta for sample
+  const sampleQIds = distractorSample.map((q: any) => q.id);
+  const { data: qWithMeta } = await sb
+    .from("exam_questions")
+    .select("id, distractor_meta, typical_errors, time_estimate_seconds, item_discrimination")
+    .in("id", sampleQIds);
+
+  const metaMap = new Map((qWithMeta || []).map((q: any) => [q.id, q]));
+
+  for (const q of distractorSample as any[]) {
+    const meta = metaMap.get(q.id);
+    if (!meta?.distractor_meta) {
+      distractorMetaMissing++;
+      continue;
+    }
+    const dm = Array.isArray(meta.distractor_meta) ? meta.distractor_meta : [];
+    // Check for why_wrong + why_tempting on at least 2 distractors
+    const withQuality = dm.filter((d: any) => d?.why_wrong && d?.why_tempting);
+    if (withQuality.length < 2) {
+      distractorMetaWeak++;
+    }
+  }
+
+  const distractorGatePass = (distractorMetaMissing + distractorMetaWeak) / distractorSampleSize < 0.4;
+  const distractorWarnings: string[] = [];
+  if (distractorMetaMissing > 0) {
+    distractorWarnings.push(`DISTRACTOR_META_MISSING: ${distractorMetaMissing}/${distractorSampleSize} ohne Metadaten`);
+  }
+  if (distractorMetaWeak > 0) {
+    distractorWarnings.push(`DISTRACTOR_META_WEAK: ${distractorMetaWeak}/${distractorSampleSize} ohne why_wrong/why_tempting`);
+  }
+
+  // ═══ GATE 5: Time Budget Gate (HARD) ═══
+  // Sum estimated_time_seconds per LF and compare against exam_time_minutes
+  let timeGatePass = true;
+  const timeWarnings: string[] = [];
+
+  // Group questions by LF via blueprint
+  const qByLf = new Map<string, number[]>();
+  for (const q of questions as any[]) {
+    const bpInfo = q.blueprint_id ? bpCogMap.get(q.blueprint_id) : null;
+    // We need LF mapping — get it from blueprints
+    if (q.blueprint_id) {
+      const meta = metaMap.get(q.id);
+      const timeEst = meta?.time_estimate_seconds || 120; // default 2min
+      // We'll use a simpler approach: aggregate time estimates across all questions
+      // and compare against total exam time from curriculum
+    }
+  }
+
+  // Aggregate total time vs curriculum exam time
+  let totalTimeSeconds = 0;
+  let questionsWithTime = 0;
+  for (const q of (qWithMeta || []) as any[]) {
+    if (q.time_estimate_seconds) {
+      totalTimeSeconds += q.time_estimate_seconds;
+      questionsWithTime++;
+    }
+  }
+
+  // Load curriculum exam_structure for time budget
+  const { data: curricData } = await sb
+    .from("curricula")
+    .select("exam_structure")
+    .eq("id", curriculumId)
+    .single();
+
+  if (curricData?.exam_structure && questionsWithTime > 0) {
+    const examStruct = curricData.exam_structure as any;
+    const parts = examStruct?.parts || [];
+    const totalExamMinutes = parts.reduce((s: number, p: any) => s + (p.duration_min || 0), 0);
+    if (totalExamMinutes > 0) {
+      const avgTimePerQ = totalTimeSeconds / questionsWithTime;
+      const estimatedExamMinutes = (avgTimePerQ * questions.length) / 60;
+      // If estimated time exceeds 150% of available time, flag
+      if (estimatedExamMinutes > totalExamMinutes * 1.5) {
+        timeWarnings.push(`TIME_BUDGET_EXCEEDED: geschätzt ${estimatedExamMinutes.toFixed(0)}min für ${questions.length} Fragen, verfügbar ${totalExamMinutes}min`);
+        timeGatePass = false;
+      }
+    }
+  }
+
+  // ═══ GATE 6: Discrimination Gate ═══
+  // Questions with item_discrimination < 0.20 should be training-only
+  let lowDiscriminationCount = 0;
+  let discriminationChecked = 0;
+  for (const q of (qWithMeta || []) as any[]) {
+    if (q.item_discrimination !== null && q.item_discrimination !== undefined) {
+      discriminationChecked++;
+      if (q.item_discrimination < 0.20) {
+        lowDiscriminationCount++;
+      }
+    }
+  }
+
+  const discriminationWarnings: string[] = [];
+  let discriminationGatePass = true;
+  if (discriminationChecked > 10) {
+    const lowPct = (lowDiscriminationCount / discriminationChecked) * 100;
+    if (lowPct > 30) {
+      discriminationWarnings.push(`LOW_DISCRIMINATION: ${lowDiscriminationCount}/${discriminationChecked} (${lowPct.toFixed(0)}%) mit Index < 0.20 — zu viele schwache Items`);
+      discriminationGatePass = false;
+    }
+  }
+  if (lowDiscriminationCount > 0) {
+    discriminationWarnings.push(`DISCRIMINATION_WEAK_ITEMS: ${lowDiscriminationCount} Fragen mit Index < 0.20 → training-only empfohlen`);
+    // Auto-tag weak discrimination items
+    const weakIds = (qWithMeta || [])
+      .filter((q: any) => q.item_discrimination !== null && q.item_discrimination < 0.20)
+      .map((q: any) => q.id);
+    if (weakIds.length > 0) {
+      for (let i = 0; i < weakIds.length; i += 50) {
+        const chunk = weakIds.slice(i, i + 50);
+        await sb.from("exam_questions").update({
+          discrimination_tier: "weak",
+        }).in("id", chunk);
+      }
+    }
+  }
+
+  if (distractorWarnings.length > 0) console.log(`[validate-exam] Distractor Gate: ${distractorWarnings.join("; ")}`);
+  if (timeWarnings.length > 0) console.log(`[validate-exam] Time Gate: ${timeWarnings.join("; ")}`);
+  if (discriminationWarnings.length > 0) console.log(`[validate-exam] Discrimination Gate: ${discriminationWarnings.join("; ")}`);
+  if (bloomWarnings.length > 0) console.log(`[validate-exam] Bloom/Context Gate: ${bloomWarnings.join("; ")}`);
+
+  // ═══ Final verdict v2 ═══
+  // Bloom + Context + Distractor are now HARD gates (block pipeline)
+  // Time + Discrimination are SOFT gates (warn but don't block)
+  const overallPass = avgScore >= SAMPLE_PASS_THRESHOLD
+    && t1PassRate >= 70
+    && bloomGatePass
+    && contextGatePass
+    && distractorGatePass;
 
   await sb.from("course_packages").update({
-    last_error: overallPass ? null : `Exam QC: avg=${avgScore.toFixed(0)}, t1=${t1PassRate.toFixed(0)}%`,
+    last_error: overallPass ? null : `Exam QC v2: avg=${avgScore.toFixed(0)}, t1=${t1PassRate.toFixed(0)}%, bloom=${bloomGatePass}, ctx=${contextGatePass}, dist=${distractorGatePass}`,
   }).eq("id", packageId);
 
   if (!overallPass) {
     await sb.from("ops_alerts").insert({
-      source: "validate-exam-pool",
+      source: "validate-exam-pool-v2",
       severity: "warning",
-      message: `Exam QC failed for pkg ${packageId.slice(0, 8)}: avg=${avgScore.toFixed(0)}, t1=${t1PassRate.toFixed(0)}%`,
-      payload: { packageId, tier1_pass_rate: t1PassRate, tier2_avg_score: avgScore, tier2_flagged: rejected.length },
+      message: `Exam QC v2 failed for pkg ${packageId.slice(0, 8)}: avg=${avgScore.toFixed(0)}, bloom=${bloomGatePass}, ctx=${contextGatePass}, dist=${distractorGatePass}`,
+      payload: { packageId, tier1_pass_rate: t1PassRate, tier2_avg_score: avgScore, bloom: bloomGatePass, context: contextGatePass, distractor: distractorGatePass },
     }).then(() => {}).catch(() => {});
   }
 
   return json({
     ok: overallPass,
-    batch_complete: overallPass,
+    batch_complete: true,
     tier1: { total: t1Results.length, passed: t1Results.length - t1Failed.length, failed: t1Failed.length, pass_rate: t1PassRate },
     tier2: { sample_size: t2Results.length, avg_score: avgScore, flagged: rejected.length, skipped: skippedCount, results: t2Results },
     bloom_gate: {
@@ -468,8 +604,33 @@ Deno.serve(async (req) => {
       passed: contextGatePass,
       isolated_pct: bloomTotal > 0 ? Math.round(((contextCounts["isolated_knowledge"] || 0) / bloomTotal) * 100) : null,
     },
+    distractor_gate: {
+      sample_size: distractorSampleSize,
+      missing: distractorMetaMissing,
+      weak: distractorMetaWeak,
+      passed: distractorGatePass,
+      warnings: distractorWarnings,
+    },
+    time_gate: {
+      passed: timeGatePass,
+      warnings: timeWarnings,
+    },
+    discrimination_gate: {
+      checked: discriminationChecked,
+      low_discrimination: lowDiscriminationCount,
+      passed: discriminationGatePass,
+      warnings: discriminationWarnings,
+    },
     message: overallPass
-      ? `✅ Exam QC bestanden: ${t1PassRate.toFixed(0)}% Tier 1, avg ${avgScore.toFixed(0)}/100 Tier 2${!bloomGatePass ? " ⚠️ Bloom-Warnung" : ""}${!contextGatePass ? " ⚠️ Context-Warnung" : ""}`
-      : `❌ Exam QC fehlgeschlagen: ${t1PassRate.toFixed(0)}% Tier 1, avg ${avgScore.toFixed(0)}/100 Tier 2`,
+      ? `✅ Exam QC v2 bestanden: ${t1PassRate.toFixed(0)}% T1, avg ${avgScore.toFixed(0)}/100 T2, Bloom ✓, Context ✓, Distraktoren ✓`
+      : `❌ Exam QC v2 fehlgeschlagen: ${[
+          t1PassRate < 70 ? `T1 ${t1PassRate.toFixed(0)}%` : null,
+          avgScore < SAMPLE_PASS_THRESHOLD ? `T2 avg ${avgScore.toFixed(0)}` : null,
+          !bloomGatePass ? "Bloom ✗" : null,
+          !contextGatePass ? "Context ✗" : null,
+          !distractorGatePass ? "Distraktoren ✗" : null,
+          !timeGatePass ? "Zeit ⚠" : null,
+          !discriminationGatePass ? "Discrimination ⚠" : null,
+        ].filter(Boolean).join(", ")}`,
   });
 });

@@ -3,27 +3,25 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 
 /**
- * package-validate-blueprints — Pipeline Step (after auto_seed_exam_blueprints)
+ * package-validate-blueprints v2 — Pipeline Step (after auto_seed_exam_blueprints)
  *
- * Validates that the seeded blueprints provide complete, well-distributed,
- * schema-valid coverage before expensive exam-question generation begins.
+ * Validates seeded blueprints for complete, well-distributed, schema-valid coverage.
  *
- * Hard-Fail Gates (block pipeline):
- *  1. COVERAGE: Every learning-field has at least 1 blueprint
+ * Hard-Fail Gates:
+ *  1. COVERAGE: Every LF has at least 1 blueprint
  *  2. SCHEMA: Required fields present
- *  3. PLAUSIBILITY: No generic/empty learning_objectives
+ *  3. PLAUSIBILITY: No generic/empty statements
  *  4. MIN TOTAL: At least 10 blueprints
- *  5. HIGH DUPLICATE RATE: >15% near-duplicates
- *  6. DIFFICULTY DISTRIBUTION: Not >60% easy, at least 5% hard
- *  7. BLOOM COVERAGE: At least Apply+Analyze per LF
- *  8. MIN PER LF: At least 3 blueprints per learning field
+ *  5. HIGH DUPLICATE RATE: >50% near-duplicates
+ *  6. DIFFICULTY DISTRIBUTION: Not >60% easy
+ *  7. BLOOM DISTRIBUTION TARGET: Per-LF bloom vs target (from learning_fields.bloom_distribution_target)
+ *  8. MIN PER LF: At least 2 blueprints per LF
+ *  9. SCENARIO GATE: min 30% case-based (not isolated_knowledge)
  *
  * Warnings (logged, don't block):
  *  - Weight drift >15pp
  *  - Near-duplicates (individual)
- *  - Max per LF exceeded (>80)
- *
- * On failure: returns ok=false + batch_complete=true
+ *  - Max per LF exceeded (>40)
  */
 
 function json(body: unknown, status = 200) {
@@ -48,15 +46,27 @@ function jaccardSim(a: Set<string>, b: Set<string>): number {
   return union === 0 ? 1 : inter / union;
 }
 
-const JACCARD_THRESHOLD = 0.92; // Raised: competency-derived blueprints share 85%+ domain vocab naturally
+const JACCARD_THRESHOLD = 0.92;
 const MIN_BLUEPRINTS_TOTAL = 10;
 const MIN_BLUEPRINTS_PER_LF = 2;
 const MAX_BLUEPRINTS_PER_LF = 40;
 const WEIGHT_TOLERANCE_PP = 15;
 const MAX_EASY_PCT = 60;
-const MIN_HARD_PCT = 0;
-const REQUIRED_BLOOM_LEVELS: string[] = [];
-const MAX_DUPLICATE_PCT = 50; // Competency-pair seeding produces ~46% Jaccard overlap at 0.85 — this is expected
+const MAX_DUPLICATE_PCT = 50;
+// Scenario gate: min 30% must be case-based (not isolated_knowledge)
+const MIN_CASE_BASED_PCT = 30;
+// Bloom distribution tolerance (percentage points)
+const BLOOM_TOLERANCE_PP = 15;
+
+const BLOOM_TO_DIFFICULTY: Record<string, string> = {
+  remember: "easy", understand: "easy",
+  apply: "medium",
+  analyze: "hard", evaluate: "hard", create: "hard",
+};
+
+const DEFAULT_BLOOM_TARGET: Record<string, number> = {
+  remember: 0.15, understand: 0.25, apply: 0.30, analyze: 0.20, evaluate: 0.10,
+};
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -84,29 +94,27 @@ Deno.serve(async (req) => {
     professionName = prof.professionName;
   } catch { /* continue */ }
 
-  console.log(`[validate-blueprints] Starting for ${professionName} (pkg ${packageId.slice(0, 8)})`);
+  console.log(`[validate-blueprints] v2 Starting for ${professionName} (pkg ${packageId.slice(0, 8)})`);
 
   // ── Load blueprints ──
   const { data: blueprints, error: bpErr } = await sb
     .from("question_blueprints")
-    .select("id, curriculum_id, learning_field_id, competency_id, canonical_statement, knowledge_type, cognitive_level, question_template, max_variations")
+    .select("id, curriculum_id, learning_field_id, competency_id, canonical_statement, knowledge_type, cognitive_level, question_template, max_variations, exam_context_type, typical_errors, estimated_time_seconds")
     .eq("curriculum_id", curriculumId);
 
   if (bpErr) return json({ error: bpErr.message }, 500);
   if (!blueprints || blueprints.length === 0) {
     return json({
-      ok: false,
-      batch_complete: true,
+      ok: false, batch_complete: true,
       message: "❌ Keine Blueprints gefunden — Seeding hat nichts erzeugt.",
       issues: ["NO_BLUEPRINTS"],
     });
   }
 
-  // ── Load learning fields ──
-  // FIX: Column is 'title', NOT 'name' — this mismatch caused silent crashes
+  // ── Load learning fields (with bloom_distribution_target) ──
   const { data: learningFields } = await sb
     .from("learning_fields")
-    .select("id, title, weight_percent")
+    .select("id, title, weight_percent, bloom_distribution_target, exam_time_minutes")
     .eq("curriculum_id", curriculumId);
 
   const lfMap = new Map((learningFields || []).map((lf: any) => [lf.id, lf]));
@@ -149,12 +157,12 @@ Deno.serve(async (req) => {
   if (learningFields && learningFields.length > 0 && blueprints.length >= MIN_BLUEPRINTS_TOTAL) {
     for (const [lfId, bps] of bpByLf) {
       const lf = lfMap.get(lfId) as any;
-      if (!(lf as any)?.weight_percent) continue;
-      const expectedPct = (lf as any).weight_percent;
+      if (!lf?.weight_percent) continue;
+      const expectedPct = lf.weight_percent;
       const actualPct = (bps.length / blueprints.length) * 100;
       const diff = Math.abs(actualPct - expectedPct);
       if (diff > WEIGHT_TOLERANCE_PP) {
-        warnings.push(`WEIGHT_DRIFT: ${(lf as any).title}: erwartet ~${expectedPct.toFixed(0)}%, tatsächlich ${actualPct.toFixed(0)}% (Δ${diff.toFixed(0)}pp)`);
+        warnings.push(`WEIGHT_DRIFT: ${lf.title}: erwartet ~${expectedPct.toFixed(0)}%, tatsächlich ${actualPct.toFixed(0)}% (Δ${diff.toFixed(0)}pp)`);
       }
     }
   }
@@ -176,12 +184,7 @@ Deno.serve(async (req) => {
     issues.push(`SCHEMA_MISSING: …und ${schemaErrors - 5} weitere Schema-Fehler`);
   }
 
-  // ═══ CHECK 5: Difficulty Distribution (derived from cognitive_level) ═══
-  const BLOOM_TO_DIFFICULTY: Record<string, string> = {
-    remember: "easy", understand: "easy",
-    apply: "medium",
-    analyze: "hard", evaluate: "hard", create: "hard",
-  };
+  // ═══ CHECK 5: Difficulty Distribution ═══
   const difficultyCount: Record<string, number> = {};
   for (const bp of blueprints) {
     const cl = (bp.cognitive_level || "apply").toString().toLowerCase();
@@ -190,37 +193,58 @@ Deno.serve(async (req) => {
   }
   const total = blueprints.length;
   const easyPct = ((difficultyCount["easy"] || 0) / total) * 100;
-  const hardPct = ((difficultyCount["hard"] || 0) / total) * 100;
 
   if (easyPct > MAX_EASY_PCT) {
     issues.push(`EASY_OVERLOAD: ${easyPct.toFixed(0)}% leicht (Max ${MAX_EASY_PCT}%) — Exam-Pool wird zu einfach`);
   }
-  if (total >= MIN_BLUEPRINTS_TOTAL && hardPct < MIN_HARD_PCT) {
-    issues.push(`TOO_FEW_HARD: nur ${hardPct.toFixed(0)}% schwer (Min ${MIN_HARD_PCT}%) — keine Prüfungstiefe`);
-  }
 
-  // ═══ CHECK 6: Bloom/Cognitive Level Coverage per LF (HARD FAIL) ═══
-  const bloomByLf = new Map<string, Set<string>>();
+  // ═══ CHECK 6: Bloom Distribution Target per LF (HARD FAIL) ═══
+  const bloomByLf = new Map<string, Record<string, number>>();
   for (const bp of blueprints) {
     if (!bp.learning_field_id || !bp.cognitive_level) continue;
-    if (!bloomByLf.has(bp.learning_field_id)) bloomByLf.set(bp.learning_field_id, new Set());
-    bloomByLf.get(bp.learning_field_id)!.add(bp.cognitive_level.toLowerCase());
+    const cl = bp.cognitive_level.toLowerCase();
+    if (!bloomByLf.has(bp.learning_field_id)) bloomByLf.set(bp.learning_field_id, {});
+    const counts = bloomByLf.get(bp.learning_field_id)!;
+    counts[cl] = (counts[cl] || 0) + 1;
   }
 
-  const bloomMissingLfs: string[] = [];
-  for (const [lfId, levels] of bloomByLf) {
-    const missing = REQUIRED_BLOOM_LEVELS.filter(l => !levels.has(l));
-    if (missing.length > 0) {
-      const lfName = (lfMap.get(lfId) as any)?.title || lfId.slice(0, 8);
-      bloomMissingLfs.push(`${lfName} fehlt: ${missing.join(", ")}`);
+  const bloomDriftIssues: string[] = [];
+  for (const [lfId, counts] of bloomByLf) {
+    const lf = lfMap.get(lfId) as any;
+    if (!lf) continue;
+    const target = lf.bloom_distribution_target || DEFAULT_BLOOM_TARGET;
+    const lfTotal = Object.values(counts).reduce((s: number, v: number) => s + v, 0);
+    if (lfTotal < 5) continue; // Too few to judge
+
+    for (const [level, targetPct] of Object.entries(target) as [string, number][]) {
+      const actualPct = ((counts[level] || 0) / lfTotal);
+      const driftPP = Math.abs(actualPct - targetPct) * 100;
+      if (driftPP > BLOOM_TOLERANCE_PP) {
+        const lfName = lf.title || lfId.slice(0, 8);
+        bloomDriftIssues.push(`${lfName}: ${level} ist ${(actualPct * 100).toFixed(0)}%, Ziel ${(targetPct * 100).toFixed(0)}% (Δ${driftPP.toFixed(0)}pp)`);
+      }
     }
   }
-  if (bloomMissingLfs.length > 0) {
-    // Hard-fail: EVERY LF must have Apply+Analyze
-    issues.push(`BLOOM_GAPS: ${bloomMissingLfs.length}/${bloomByLf.size} Lernfelder ohne Apply/Analyze: ${bloomMissingLfs.slice(0, 5).join("; ")}${bloomMissingLfs.length > 5 ? "…" : ""}`);
+  if (bloomDriftIssues.length > 0) {
+    // Hard fail: bloom distribution drifts too far from target
+    issues.push(`BLOOM_DISTRIBUTION_DRIFT: ${bloomDriftIssues.length} Abweichungen: ${bloomDriftIssues.slice(0, 5).join("; ")}${bloomDriftIssues.length > 5 ? "…" : ""}`);
   }
 
-  // ═══ CHECK 7: Near-duplicates ═══
+  // ═══ CHECK 7: Scenario Gate — min 30% case-based ═══
+  const contextCounts: Record<string, number> = {};
+  for (const bp of blueprints) {
+    const ctx = (bp as any).exam_context_type || "isolated_knowledge";
+    contextCounts[ctx] = (contextCounts[ctx] || 0) + 1;
+  }
+  const isolatedCount = contextCounts["isolated_knowledge"] || 0;
+  const caseBased = total - isolatedCount;
+  const caseBasedPct = total > 0 ? (caseBased / total) * 100 : 0;
+
+  if (caseBasedPct < MIN_CASE_BASED_PCT) {
+    issues.push(`SCENARIO_TOO_FEW_CASE_BASED: nur ${caseBasedPct.toFixed(0)}% case-based (Min ${MIN_CASE_BASED_PCT}%) — zu viel isolated_knowledge`);
+  }
+
+  // ═══ CHECK 8: Near-duplicates ═══
   const recentNgrams: Array<{ id: string; ngrams: Set<string>; text: string }> = [];
   let dupCount = 0;
   for (const bp of blueprints) {
@@ -247,7 +271,7 @@ Deno.serve(async (req) => {
     issues.push(`HIGH_DUPLICATE_RATE: ${dupCount}/${blueprints.length} (${((dupCount / blueprints.length) * 100).toFixed(0)}%) Beinahe-Duplikate`);
   }
 
-  // ═══ CHECK 8: Plausibility — no empty/generic statements ═══
+  // ═══ CHECK 9: Plausibility — no generic statements ═══
   let genericCount = 0;
   for (const bp of blueprints) {
     const stmt = (bp.canonical_statement || "").trim();
@@ -266,11 +290,9 @@ Deno.serve(async (req) => {
 
   // ── Decision ──
   const passed = issues.length === 0;
-  const coveragePct = lfMap.size > 0
-    ? ((bpByLf.size / lfMap.size) * 100)
-    : 100;
+  const coveragePct = lfMap.size > 0 ? ((bpByLf.size / lfMap.size) * 100) : 100;
 
-  // ── Compute quality sub-score (0-100) ──
+  // ── Quality sub-score (0-100) ──
   let score = 100;
   if (issues.length > 0) score -= issues.length * 12;
   if (warnings.length > 0) score -= warnings.length * 3;
@@ -287,14 +309,17 @@ Deno.serve(async (req) => {
     duplicates: dupCount,
     generic: genericCount,
     difficulty_distribution: difficultyCount,
-    bloom_coverage: Object.fromEntries([...bloomByLf].map(([k, v]) => [k, [...v]])),
+    bloom_distribution: Object.fromEntries([...bloomByLf].map(([k, v]) => [k, v])),
+    bloom_drift_issues: bloomDriftIssues.length,
+    scenario_distribution: contextCounts,
+    case_based_pct: caseBasedPct,
     quality_score: score,
   };
 
-  console.log(`[validate-blueprints] Result: ${passed ? "PASS" : "FAIL"} | score=${score} | ${blueprints.length} blueprints, ${coveragePct.toFixed(0)}% LF, ${issues.length} issues, ${warnings.length} warnings`);
+  console.log(`[validate-blueprints] Result: ${passed ? "PASS" : "FAIL"} | score=${score} | ${blueprints.length} bps, ${coveragePct.toFixed(0)}% LF, ${caseBasedPct.toFixed(0)}% case-based, ${issues.length} issues, ${warnings.length} warnings`);
 
   await sb.from("course_packages").update({
-    last_error: passed ? null : `Blueprint QC: ${issues.length} Fehler`,
+    last_error: passed ? null : `Blueprint QC v2: ${issues.length} Fehler`,
   }).eq("id", packageId);
 
   return json({
@@ -304,7 +329,7 @@ Deno.serve(async (req) => {
     issues,
     warnings,
     message: passed
-      ? `✅ Blueprint-Validierung bestanden: ${blueprints.length} Blueprints, ${coveragePct.toFixed(0)}% Coverage, Score ${score}`
-      : `❌ Blueprint-Validierung fehlgeschlagen: ${issues.join("; ")}`,
+      ? `✅ Blueprint-Validierung v2 bestanden: ${blueprints.length} Blueprints, ${coveragePct.toFixed(0)}% Coverage, ${caseBasedPct.toFixed(0)}% case-based, Score ${score}`
+      : `❌ Blueprint-Validierung v2 fehlgeschlagen: ${issues.join("; ")}`,
   });
 });
