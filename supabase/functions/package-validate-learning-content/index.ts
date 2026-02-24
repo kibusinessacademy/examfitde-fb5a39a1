@@ -260,9 +260,10 @@ Deno.serve(async (req) => {
     const criticalIds = criticalFails.map(f => f.lessonId);
     // Batch reset critical failures
     for (const lessonId of criticalIds) {
-      const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content", {
+      const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content_v2" as any, {
         p_lesson_id: lessonId,
         p_content: { _placeholder: true, _regeneration_reason: "tier1_critical_fail" },
+        p_source: 'validate-learning-content',
       });
       if (rpcErr) console.error(`[validate] RPC placeholder reset failed for ${lessonId}: ${rpcErr.message}`);
     }
@@ -345,9 +346,10 @@ Deno.serve(async (req) => {
 
       // Mark rejected lessons for re-generation
       if (result.score < INDIVIDUAL_REJECT_THRESHOLD) {
-        const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content", {
+        const { error: rpcErr } = await sb.rpc("pipeline_write_lesson_content_v2" as any, {
           p_lesson_id: lesson.id,
           p_content: { _placeholder: true, _regeneration_reason: `LLM score ${result.score}/100` },
+          p_source: 'validate-learning-content',
         });
         if (rpcErr) console.error(`[validate] RPC reject-reset failed for ${lesson.id}: ${rpcErr.message}`);
       }

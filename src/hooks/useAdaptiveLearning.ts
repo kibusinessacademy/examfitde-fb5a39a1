@@ -146,8 +146,9 @@ export function useReadinessScore(curriculumId?: string) {
     queryFn: async (): Promise<ReadinessScore | null> => {
       if (!user || !curriculumId) return null;
       
+      // v2: adds confidence_level + recommendation
       const { data, error } = await supabase
-        .rpc('calculate_readiness_score', {
+        .rpc('calculate_readiness_score_v2' as any, {
           p_user_id: user.id,
           p_curriculum_id: curriculumId,
         });

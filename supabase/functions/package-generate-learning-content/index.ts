@@ -407,9 +407,10 @@ Deno.serve(async (req) => {
         const c = lesson.content as Record<string, unknown>;
         const html = typeof c?.html === "string" ? c.html : "";
         if (html.length > 0 && html.length < 200 && c?._placeholder !== true) {
-          await sb.rpc("pipeline_write_lesson_content", {
+          await sb.rpc("pipeline_write_lesson_content_v2" as any, {
             p_lesson_id: lesson.id,
             p_content: { ...c, _regenerating: true, _placeholder: true },
+            p_source: 'generate-learning-content',
           });
           markedForRegen++;
         }
