@@ -1402,10 +1402,12 @@ Deno.serve(async (req) => {
       const callsPerBp = Math.ceil(perBlueprint / AI_QUESTIONS_PER_CALL);
       const maxCallsPerBp = Math.min(callsPerBp, 6);
 
+      let brokeMidBp = false;
       for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx++) {
         // Time check inside inner loop too
         if (Date.now() - invocationStart > TIME_BUDGET_MS) {
           console.log(`[ExamPool-v5] TIME_BUDGET inner: breaking mid-blueprint`);
+          brokeMidBp = true;
           break;
         }
 
@@ -1428,6 +1430,12 @@ Deno.serve(async (req) => {
         } catch (e: unknown) {
           console.log(`[ExamPool-v5] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
         }
+      }
+
+      if (brokeMidBp) {
+        // Don't advance blueprint_index — resume this BP next invocation
+        console.log(`[ExamPool-v5] Budget break mid-BP ${bp.id.slice(0, 8)} — cursor stays at ${currentBpIndex}`);
+        break;
       }
 
       currentBpIndex++;
