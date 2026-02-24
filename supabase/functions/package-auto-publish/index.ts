@@ -164,7 +164,11 @@ Deno.serve(async (req) => {
   const { data: courseData2 } = await sb.from("courses").select("curriculum_id").eq("id", courseId).maybeSingle();
   const publishCurrId = (courseData2 as any)?.curriculum_id;
   if (publishCurrId) {
-    const { data: diffStats } = await sb.rpc("get_difficulty_distribution", { p_curriculum_id: publishCurrId }).catch(() => ({ data: null }));
+    let diffStats: any = null;
+    try {
+      const res = await sb.rpc("get_difficulty_distribution", { p_curriculum_id: publishCurrId });
+      diffStats = res.data;
+    } catch (_) { /* non-critical */ }
     if (diffStats && Array.isArray(diffStats)) {
       const totalQ = diffStats.reduce((s: number, d: any) => s + (d.count || 0), 0);
       if (totalQ > 0) {
