@@ -7,6 +7,7 @@ import { loadCachedGlossary, formatGlossaryForPrompt } from "../_shared/glossary
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES, buildMiniCheckPrompt, measureDepth, depthMeetsMinimum, mapToDifficultyLevel, getRequiredDepth, runV2QualityGate, loadMasteryContext, buildMasteryFeedbackSuffix, adjustDifficultyByMastery } from "../_shared/prompt-kit.ts";
 import type { DifficultyLevel, MasteryContext } from "../_shared/prompt-kit.ts";
 import { canonicalStepKey, STEP_KEY_MAP } from "../_shared/step-keys.ts";
+import { assertSchemaReady } from "../_shared/schema-gate.ts";
 
 /**
  * package-generate-learning-content — Pipeline Step
@@ -247,6 +248,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  await assertSchemaReady("package-generate-learning-content", sb);
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
 

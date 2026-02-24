@@ -22,6 +22,7 @@ const AutoHealCenter = lazy(() => import('./ops/AutoHealCenter'));
 const LiveLogs = lazy(() => import('./ops/LiveLogs'));
 const DeadLetterCenter = lazy(() => import('./ops/DeadLetterCenter'));
 const TestDashboard = lazy(() => import('./ops/TestDashboard'));
+const SchemaDriftDashboard = lazy(() => import('./ops/SchemaDriftDashboard'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -47,6 +48,7 @@ const tabs = [
   { path: '/admin/ops/ai-workers', label: 'AI Workers' },
   { path: '/admin/ops/security', label: '🔐 Security' },
   { path: '/admin/ops/tests', label: '🧪 Tests' },
+  { path: '/admin/ops/schema', label: '🛡️ Schema SSOT' },
 ];
 
 export default function OpsPage() {
@@ -123,6 +125,7 @@ export default function OpsPage() {
           <Route path="ai-workers" element={<AIWorkersPage />} />
           <Route path="security" element={<SecurityFreezePage />} />
           <Route path="tests" element={<TestDashboard />} />
+          <Route path="schema" element={<SchemaDriftDashboard />} />
         </Routes>
       </Suspense>
     </div>
