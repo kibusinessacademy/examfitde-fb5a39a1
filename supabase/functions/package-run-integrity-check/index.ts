@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { pctOrNA } from "../_shared/math-helpers.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 function json(body: unknown, status = 200) {
@@ -115,7 +116,7 @@ async function runCourseReadyGate(
     // FIX: 0/0 must be treated as N/A → 100% (no LFs to measure against)
     // This occurs in EXAM_FIRST tracks where moduleIds is empty.
     if (hasLfIds) {
-      oralCoveragePct = moduleIds.length > 0 ? (uniqueOralLFs.size / moduleIds.length) * 100 : 100;
+      oralCoveragePct = pctOrNA(uniqueOralLFs.size, moduleIds.length);
     } else {
       // Fallback: if we have >= 10 blueprints and they cover diverse topics, consider coverage met
       // Use distinct title patterns as proxy (each LF typically has 2 blueprints)
@@ -123,7 +124,7 @@ async function runCourseReadyGate(
         const t = (b.title || "").replace(/^Mündliche Prüfung:\s*/i, "").trim();
         return t.split(/\s+/).slice(0, 3).join(" ").toLowerCase();
       }).filter(Boolean));
-      oralCoveragePct = moduleIds.length > 0 ? (distinctTitles.size / moduleIds.length) * 100 : 100;
+      oralCoveragePct = pctOrNA(distinctTitles.size, moduleIds.length);
     }
 
     const oralPassed = (bpCount ?? 0) >= 10 && (ssCount ?? 0) >= 1 && oralCoveragePct >= 90;
@@ -365,22 +366,30 @@ async function runCourseReadyGate(
     if (!bindingPassed) warnings.push(`COMPETENCY_BINDING: ${unboundCount} questions (${unboundPct.toFixed(1)}%) have no competency_id`);
 
     // Competency coverage: how many of the total competencies have questions?
-    const { count: totalCompetencies } = await sb
-      .from("competencies")
-      .select("id", { count: "exact", head: true })
+    // FIX: competencies has no curriculum_id; join via learning_fields
+    const { data: lfIdsForComp } = await sb
+      .from("learning_fields")
+      .select("id")
       .eq("curriculum_id", curriculumId ?? courseId);
+    const lfIdListForComp = (lfIdsForComp ?? []).map((lf: any) => lf.id);
+    let totalCompetencies = 0;
+    if (lfIdListForComp.length > 0) {
+      const { count } = await sb
+        .from("competencies")
+        .select("id", { count: "exact", head: true })
+        .in("learning_field_id", lfIdListForComp);
+      totalCompetencies = count ?? 0;
+    }
     const coveredCompetencies = new Set((approvedQs ?? []).map((q: any) => q.competency_id).filter(Boolean));
-    const compCoveragePct = (totalCompetencies ?? 0) > 0
-      ? (coveredCompetencies.size / (totalCompetencies ?? 1)) * 100
-      : 100;
+    const compCoveragePct = pctOrNA(coveredCompetencies.size, totalCompetencies);
     const compCoveragePassed = compCoveragePct >= 60; // min 60% competency coverage
     results.push({
       gate: "competency_coverage",
       passed: compCoveragePassed,
       severity: "warning",
-      detail: `${coveredCompetencies.size}/${totalCompetencies ?? 0} competencies covered (${compCoveragePct.toFixed(1)}%, min 60%)`,
+      detail: `${coveredCompetencies.size}/${totalCompetencies} competencies covered (${compCoveragePct.toFixed(1)}%, min 60%)`,
     });
-    if (!compCoveragePassed) warnings.push(`COMPETENCY_COVERAGE: Only ${coveredCompetencies.size}/${totalCompetencies ?? 0} competencies have questions (${compCoveragePct.toFixed(1)}%<60%)`);
+    if (!compCoveragePassed) warnings.push(`COMPETENCY_COVERAGE: Only ${coveredCompetencies.size}/${totalCompetencies} competencies have questions (${compCoveragePct.toFixed(1)}%<60%)`);
     if (compCoveragePct >= 90) excellence.push(`COMPETENCY_COVERAGE_EXCELLENT: ${compCoveragePct.toFixed(0)}%`);
   }
 
@@ -548,20 +557,43 @@ Deno.serve(async (req) => {
   for (const w of gate.warnings) console.log(`  ⚠️ ${w}`);
   for (const e of gate.excellence) console.log(`  🌟 ${e}`);
 
+  // Build council-friendly summary from gates[] so Council never has to parse
+  const findGateVal = (key: string) => gate.results.find(r => r.gate === key);
+  const parsePctFromDetail = (detail: string | undefined): number | null => {
+    const m = detail?.match?.(/(\d+(?:\.\d+)?)%/);
+    return m ? parseFloat(m[1]) : null;
+  };
+  const examPoolGate = findGateVal("exam_pool_distribution");
+  const lfCovGate = findGateVal("learning_field_coverage");
+  const compCovGate = findGateVal("competency_coverage");
+  const compBindGate = findGateVal("competency_binding");
+  const bloomGate = findGateVal("bloom_cognitive_levels");
+
+  const summary = {
+    blueprint_coverage_pct: examPoolGate?.passed ? 100 : (parsePctFromDetail(examPoolGate?.detail) ?? null),
+    lf_coverage_pct: lfCovGate?.passed ? 100 : (parsePctFromDetail(lfCovGate?.detail) ?? null),
+    duplicate_rate_pct: 0, // no explicit duplicate gate yet → 0
+    competency_coverage_pct: parsePctFromDetail(compCovGate?.detail) ?? (compCovGate?.passed ? 100 : null),
+    competency_binding_pct: parsePctFromDetail(compBindGate?.detail) ?? (compBindGate?.passed ? 100 : null),
+    bloom_remember_pct: parsePctFromDetail(bloomGate?.detail?.match?.(/understand=(\d+(?:\.\d+)?)%/)?.[0]) ?? null,
+    hard_fail_reasons: gate.hardFails,
+  };
+
   const report = {
     score: gate.score,
     generated_at: new Date().toISOString(),
-    gate_version: "COURSE_READY_v1.2",
+    gate_version: "COURSE_READY_v1.3",
     v3: {
       hard_fail_reasons: gate.hardFails,
       warnings: gate.warnings,
       excellence: gate.excellence,
       gates: gate.results,
+      summary,
       stats: {
         totalLessons: gate.results.find(r => r.gate === "placeholder_check")?.detail ?? "",
-        approvedQuestions: gate.results.find(r => r.gate === "exam_pool_distribution")?.detail ?? "",
+        approvedQuestions: examPoolGate?.detail ?? "",
         handbookChars: gate.results.find(r => r.gate === "handbook_depth")?.value ?? 0,
-        bloomLevels: gate.results.find(r => r.gate === "bloom_cognitive_levels")?.detail ?? "",
+        bloomLevels: bloomGate?.detail ?? "",
       },
     },
   };
