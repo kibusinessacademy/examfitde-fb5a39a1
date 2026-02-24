@@ -139,22 +139,19 @@ CREATE TABLE blueprint_quality_constraints (
 
 ---
 
-## Phase 3: Retroaktives Content-Upgrade
+## Phase 3: Retroaktives Content-Upgrade ✅ DONE
 
 ### 3.1 Kompetenz-Formulierung
-**Vorher:** "Netzwerkkomponenten konfigurieren"
-**Nachher:** "Konfiguriert unter Berücksichtigung von Sicherheitsrichtlinien und typischen Fehlkonfigurationen (VLAN-Zuweisung, DHCP-Konflikte) Clients in ein bestehendes Unternehmensnetzwerk."
+- [x] `enrich-competencies` Edge Function deployed (batch AI enrichment)
+- [x] `retroactive-content-upgrade` Status-Runner deployed
+- Status: 2/14.182 enriched (ongoing via batch calls)
 
-### 3.2 Fragen-Retrofit (SQL)
-```sql
--- exam_part aus LF ableiten
-UPDATE exam_questions eq SET exam_part = lf.exam_part
-FROM learning_fields lf WHERE eq.learning_field_id = lf.id AND eq.exam_part IS NULL;
-
--- scenario_type aus Blueprint propagieren
-UPDATE exam_questions eq SET scenario_type = bp.exam_context_type::text
-FROM question_blueprints bp WHERE eq.blueprint_id = bp.id AND eq.scenario_type IS NULL;
-```
+### 3.2 Fragen-Retrofit (SQL) ✅ DONE
+- [x] `exam_part` aus LF propagiert → 18.162/18.184 ✓
+- [x] `scenario_type` aus Blueprint propagiert → 7.290 ✓
+- [x] `time_estimate_seconds` aus Blueprint propagiert → 7.290 ✓
+- [x] `typical_errors` aus Blueprint propagiert → 1.532 ✓
+- [x] `bloom_level_validated` aus Blueprint propagiert → 7.290 ✓
 
 ---
 
