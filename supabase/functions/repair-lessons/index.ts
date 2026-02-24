@@ -6,58 +6,72 @@ import { getModel } from "../_shared/model-routing.ts";
 import { canonicalStepKey } from "../_shared/step-keys.ts";
 
 const STEP_PROMPTS: Record<string, string> = {
-  einstieg: `Erstelle eine **aktivierende Einstiegsaktivität** (ca. 800–1200 Zeichen HTML).
+  einstieg: `Erstelle eine **aktivierende Einstiegsaktivität** (ca. 1000–1500 Zeichen HTML).
 Struktur:
 - <h3>Motivierender Titel</h3>
-- Kurze Problemstellung oder Alltagsszenario das neugierig macht
-- 2-3 Reflexionsfragen als <ul><li>
-- Bezug zum Vorwissen der Azubis`,
+- Konkretes Praxisszenario mit realistischen Zahlen, Rollen und Entscheidungsparametern (KEIN generisches "Ein Kunde kommt...")
+- 2-3 Reflexionsfragen, davon mind. 1 Hypothesen-Frage ("Was glaubst du, warum...?")
+- Bezug zum Vorwissen der Azubis
+- Kognitive Aktivierung: Problem muss zum Nachdenken zwingen, nicht nur zum Lesen
+VERBOTEN: Passive Einstiege ("Heute lernen wir..."), reine Definitionseinstiege`,
 
-  verstehen: `Erstelle **ausführliches Lernmaterial** (ca. 1500–2500 Zeichen HTML).
+  verstehen: `Erstelle **ausführliches Lernmaterial** (ca. 2000–3000 Zeichen HTML).
+Bloom-Verteilung: 30% Reproduktion, 40% Anwendung, 30% Analyse/Transfer
 Struktur:
 - <h3>Konzept-Titel</h3>
-- Klare Definition und Erklärung der Kernkonzepte
-- Mindestens 2 praxisnahe Beispiele
+- Klare Definition UND Gegenbeispiel (was es NICHT ist)
+- Mindestens 1 mehrstufige Fallvignette mit mehreren Variablen
+- Mindestens 2 praxisnahe Beispiele mit konkreten Zahlen aus dem Berufsalltag
 - Wichtige Fachbegriffe als <strong>
-- Optionale Merksätze als <blockquote>
-- Tabelle oder Liste zur Übersicht wenn sinnvoll`,
+- ⭐ IHK-Prüfungstipp + ⚠️ 2 typische Prüfungsfallen mit Erklärung WARUM der Denkfehler entsteht
+- Abgrenzungstabelle bei vergleichbaren Begriffen
+VERBOTEN: Reine Definitionslisten, Aufzählungsdidaktik ohne Kontext`,
 
-  anwenden: `Erstelle **praktische Übungsaufgaben** (ca. 1200–2000 Zeichen HTML).
+  anwenden: `Erstelle **praktische Übungsaufgaben** (ca. 1500–2500 Zeichen HTML).
 Struktur:
 - <h3>Praxis-Titel</h3>
-- Realistische Arbeitssituation als Szenario
+- Realistische Arbeitssituation als Szenario mit konkreten Zahlen, Rollen und Entscheidungsparametern
 - 2-3 konkrete Aufgaben mit steigendem Schwierigkeitsgrad
-- Hinweise zur Lösung (ohne Lösung zu verraten)
-- Bezug zur beruflichen Praxis (IHK-relevant)`,
+- Mindestens 1 Entscheidungssituation mit Begründungspflicht
+- Mindestens 1 Aufgabe mit Mehrschritt-Denken (mind. 2 Denkschritte)
+- ⚠️ Typische Prüfungsfallen markiert
+- Bezug zur beruflichen Praxis (IHK-relevant)
+VERBOTEN: Generische Szenarien, Aufgaben die mit 1 Faktenkenntnis lösbar sind`,
 
-  wiederholen: `Erstelle **Wiederholungsaktivitäten** (ca. 1000–1500 Zeichen HTML).
+  wiederholen: `Erstelle **Retrieval-basierte Wiederholungsaktivitäten** (ca. 1200–1800 Zeichen HTML).
+KEINE bloße Zusammenfassung — aktives Erinnern erzwingen!
 Struktur:
-- <h3>Zusammenfassung & Wiederholung</h3>
-- Die 5 wichtigsten Punkte als nummerierte Liste
-- Lückentext oder Zuordnungsübung
-- Eselsbrücken oder Merkhilfen
-- Kurze Checkliste: "Ich kann jetzt..."`,
+- <h3>Prüfungsverdichtung & aktive Wiederholung</h3>
+- 3 strukturierte Leitfragen (Azubi muss selbst antworten bevor Lösung sichtbar)
+- Die 5 wichtigsten Punkte als nummerierte Merksätze
+- 1 Abgrenzungstabelle (ähnliche Begriffe/Konzepte)
+- 1 Verknüpfung zu anderer Kompetenz ("Hängt zusammen mit...")
+- 1 typische Verwechslungsgefahr mit Erklärung
+- Checkliste: "Ich kann jetzt..."
+VERBOTEN: Passive Zusammenfassungen ("Wir haben gelernt..."), Wiederholung ohne Retrieval-Mechanik`,
 };
 
 const MINICHECK_TOOL = {
   type: "function" as const,
   function: {
     name: "create_mini_check",
-    description: "Erstelle 4 Multiple-Choice-Fragen zur Wissensüberprüfung.",
+    description: "Erstelle 7-8 situative Multiple-Choice-Fragen auf IHK-Prüfungsniveau mit Schwierigkeitsspreizung.",
     parameters: {
       type: "object",
       properties: {
         questions: {
-          type: "array", minItems: 4, maxItems: 4,
+          type: "array", minItems: 6, maxItems: 8,
           items: {
             type: "object",
             properties: {
               question: { type: "string" },
               options: { type: "array", minItems: 4, maxItems: 4, items: { type: "string" } },
               correct_answer: { type: "integer", minimum: 0, maximum: 3 },
-              explanation: { type: "string" }
+              explanation: { type: "string" },
+              difficulty: { type: "string", enum: ["leicht", "mittel", "anspruchsvoll"] },
+              bloom_level: { type: "string", enum: ["reproduktion", "anwendung", "transfer"] }
             },
-            required: ["question", "options", "correct_answer", "explanation"]
+            required: ["question", "options", "correct_answer", "explanation", "difficulty", "bloom_level"]
           }
         },
         objectives: { type: "array", items: { type: "string" } }
@@ -118,7 +132,7 @@ serve(async (req) => {
     for (const lesson of toFix) {
       const isMiniCheck = lesson.step === 'mini_check';
       const prompt = isMiniCheck
-        ? `Erstelle 4 IHK-Prüfungsfragen für:\n${lesson.competency_title}\n${lesson.competency_description}\n\nExakt 4 Fragen, je 4 Optionen, plausible Distraktoren, didaktische Erklärungen.`
+        ? `Erstelle 7-8 IHK-Prüfungsfragen für:\n${lesson.competency_title}\n${lesson.competency_description}\n\nSchwierigkeitsverteilung: 2 leicht (Reproduktion), 3 mittel (Anwendung), 2-3 anspruchsvoll (Transfer/Analyse).\nMindestens 3 Szenariofragen, 1 Prüfungsfalle, 1 Transferfrage.\nDistraktoren: plausible Denkfehler, nicht offensichtlich falsch. Jeder Distraktor mit Fehlertyp-Erklärung.\nVERBOTEN: Reine "Was ist...?"-Fragen ohne Kontext.`
         : `${STEP_PROMPTS[lesson.step]}\n\nKompetenz: ${lesson.competency_title}\n${lesson.competency_description}\nTaxonomie: ${lesson.competency_taxonomy_level || 'anwenden'}`;
 
       try {
@@ -127,7 +141,11 @@ serve(async (req) => {
           provider: routed.provider,
           model: routed.model,
           messages: [
-            { role: "system", content: "Du bist IHK-Ausbildungsexperte. Erstelle prüfungsrelevante Inhalte auf Deutsch. Nutze IMMER die Funktion." },
+            { role: "system", content: `Du agierst als IHK-Prüfer, Ausbildungsleiter und Fachdidaktiker.
+Ziel ist MAXIMALE PRÜFUNGSREIFE — nicht reine Wissensvermittlung. Inhalte müssen prüfungsnah, transferorientiert und fehleranalytisch sein.
+Bloom-Verteilung: 30% Reproduktion, 40% Anwendung, 30% Transfer.
+VERBOTEN: Reine Definitionslisten, Aufzählungsdidaktik ohne Kontext, passive Zusammenfassungen, KI-Floskeln, generische Beispiele.
+Nutze IMMER die Funktion.` },
             { role: "user", content: prompt }
           ],
           tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,

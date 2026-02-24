@@ -19,41 +19,93 @@ function getStepPrompt(step: string, professionName: string): string {
     einstieg: `Erstelle eine aktivierende Einstiegsaktivität, die das Vorwissen der Lernenden anspricht und Neugier für das Thema weckt.
 PFLICHT: Nutze ein konkretes Praxisszenario aus dem typischen Arbeitsalltag von ${professionName}.
 Das Szenario muss eine realistische berufliche Situation beschreiben, die ${professionName} tatsächlich so erleben — mit konkreten Akteuren (Kunden, Vorgesetzte, Kollegen), Zahlen und branchenüblichen Fachbegriffen.
-VERBOTEN: Generische Szenarien wie "in einem Unternehmen" oder "ein Mitarbeiter" ohne Berufsbezug.`,
+
+KOGNITIVE AKTIVIERUNG (PFLICHT):
+- Das Szenario muss eine offene Problemstellung enthalten, die zum Nachdenken zwingt (nicht nur Lesen)
+- 2–3 Reflexionsfragen, die Vorwissen aktivieren UND auf das Kernproblem der Lektion hinführen
+- Mindestens 1 Frage muss eine Hypothese provozieren ("Was glaubst du, warum...?")
+
+VERBOTEN: Generische Szenarien wie "in einem Unternehmen" oder "ein Mitarbeiter" ohne Berufsbezug. Keine passiven Einstiege ("Heute lernen wir über..."). Keine reinen Definitionseinstiege.`,
 
     verstehen: `Erstelle Lernmaterial zum Verstehen der Konzepte mit klaren Erklärungen, die direkt auf den Berufsalltag von ${professionName} bezogen sind.
+
+BLOOM-VERTEILUNG (PFLICHT):
+- 30 % Reproduktion: Definitionen und Kernbegriffe im Berufskontext von ${professionName}
+- 40 % Anwendung: Konkrete Berechnungen, Zuordnungen oder Prozessschritte mit realistischen Zahlen
+- 30 % Analyse/Transfer: Vergleiche, Abgrenzungen, "Was wäre wenn...?"-Szenarien
+
 PFLICHT-ELEMENTE:
 1. Fachliche Erklärung mit berufsspezifischen Beispielen aus dem Arbeitsalltag von ${professionName}
 2. Nach JEDER Erklärung ein Gegenbeispiel, das typische Fehlannahmen von ${professionName} verdeutlicht
 3. IHK-Prüfungsbezüge: Markiere prüfungsrelevante Inhalte mit ⭐ und formuliere, wie die IHK dieses Thema typischerweise abfragt
 4. Fachbegriffe müssen so erklärt werden, wie sie im Berufsfeld ${professionName} tatsächlich verwendet werden
-VERBOTEN: Akademische Definitionen ohne Praxisbezug. Jeder Absatz muss den Bezug zu ${professionName} herstellen.`,
+5. Mindestens 1 mehrstufige Fallvignette mit mehreren Variablen (konkretes Szenario, nicht abstrakt)
+6. Mindestens 2 typische IHK-Prüfungsfallen mit ⚠️ markiert — inkl. Erklärung, WARUM der Denkfehler entsteht
+
+TRANSFER-ZWANG: Mindestens 1 Aufgabe, bei der Wissen aus mindestens zwei Kompetenzbereichen kombiniert wird.
+
+VERBOTEN: Akademische Definitionen ohne Praxisbezug. Reine Definitionslisten. Aufzählungsdidaktik ohne Kontext. Jeder Absatz muss den Bezug zu ${professionName} herstellen.`,
 
     anwenden: `Erstelle ein Entscheidungsszenario (KEINE reine Beschreibung) aus dem Berufsalltag von ${professionName}.
+
+SZENARIO-ANFORDERUNGEN (PFLICHT):
+- Mindestens 1 komplexes Szenario mit mehreren Variablen (konkrete Zahlen, Namen, Kontexte)
+- Das Szenario muss eine realistische betriebliche Situation abbilden mit konkreten Entscheidungsparametern
+- Szenarien dürfen NICHT generisch sein ("Ein Kunde kommt…") — sie müssen enthalten: konkrete Zahlen, konkrete Rollen, konkrete Entscheidungsparameter
+
 PFLICHT-ELEMENTE:
 1. Konkretes Fallbeispiel: Ein/e ${professionName} steht vor einer beruflichen Entscheidung mit realistischen Zahlen, Namen und Kontexten
 2. Mindestens 2 Entscheidungsoptionen mit fachlicher Abwägung der Vor- und Nachteile
-3. Typische Prüfungsfallen mit ⚠️ markiert — Fehler, die ${professionName} in der IHK-Prüfung häufig machen
+3. Typische Prüfungsfallen mit ⚠️ markiert — Fehler, die ${professionName} in der IHK-Prüfung häufig machen, inkl. Erklärung WARUM der Denkfehler entsteht
 4. Der Lernende muss die Entscheidung treffen UND fachlich begründen
-VERBOTEN: Reine Beschreibungen ("So funktioniert X"). Der Lernende muss HANDELN und ENTSCHEIDEN.`,
+5. Mindestens 1 Entscheidungssituation mit Begründungspflicht (nicht nur "wähle richtig" sondern "begründe warum")
 
-    wiederholen: `Erstelle KEINE erneute Erklärung. Erstelle stattdessen eine PRÜFUNGSVERDICHTUNG für ${professionName}:
+MEHRSCHRITT-DENKEN: Die Aufgabe muss mindestens 2 Denkschritte erfordern. Keine Aufgaben, die mit einer einzigen Faktenkenntnis lösbar sind.
+
+VERBOTEN: Reine Beschreibungen ("So funktioniert X"). Generische Beispiele ohne Praxisbezug. Aufgaben ohne echte Entscheidungstiefe. Der Lernende muss HANDELN und ENTSCHEIDEN.`,
+
+    wiederholen: `Erstelle KEINE erneute Erklärung. Erstelle stattdessen eine PRÜFUNGSVERDICHTUNG mit RETRIEVAL-MECHANIK für ${professionName}:
+
+RETRIEVAL-DESIGN (PFLICHT — keine bloße Zusammenfassung!):
+Die Wiederholungsphase muss aktives Erinnern erzwingen, nicht passives Lesen.
+
 PFLICHT-ELEMENTE:
-1. 3-5 kompakte Merksätze mit den Fachbegriffen, wie sie in der IHK-Prüfung für ${professionName} erwartet werden
-2. Typische IHK-Prüfungsfallen: 3 häufige Fehler, die ${professionName} in der Prüfung machen, mit Erklärung warum sie falsch sind
-3. Abgrenzungstabelle: Vergleich ähnlicher Begriffe/Konzepte, die ${professionName} verwechseln
-4. 2 Formulierungsübungen: Sätze in IHK-Prüfungssprache umformulieren (vorher/nachher)
-5. Prüfer-Hinweis: Was IHK-Prüfer bei ${professionName} besonders gern nachfragen
-VERBOTEN: Erneute Erklärung des Stoffes. NUR Verdichtung und Prüfungsvorbereitung.`,
+1. 3 strukturierte Leitfragen (der Lernende muss selbst antworten, bevor er die Lösung sieht)
+2. 3-5 kompakte Merksätze mit den Fachbegriffen, wie sie in der IHK-Prüfung für ${professionName} erwartet werden
+3. 1 Verknüpfung zu einer anderen Kompetenz ("Dieses Thema hängt zusammen mit...")
+4. 1 typische Verwechslungsgefahr mit Abgrenzungstabelle (ähnliche Begriffe/Konzepte, die ${professionName} verwechseln)
+5. Typische IHK-Prüfungsfallen: 3 häufige Fehler, die ${professionName} in der Prüfung machen, mit Erklärung warum sie falsch sind
+6. 2 Formulierungsübungen: Sätze in IHK-Prüfungssprache umformulieren (vorher/nachher)
+7. Prüfer-Hinweis: Was IHK-Prüfer bei ${professionName} besonders gern nachfragen
 
-    mini_check: `Erstelle 4 situative Multiple-Choice-Fragen auf IHK-Prüfungsniveau für ${professionName}.
-QUALITÄTSSTANDARD:
-1. Mindestens 2 Fragen MÜSSEN ein konkretes Fallbeispiel/Szenario aus dem Berufsalltag von ${professionName} enthalten
-2. Distraktoren müssen PLAUSIBEL sein — sie bilden typische Denkfehler von ${professionName} ab, nicht offensichtlichen Unsinn
-3. Jede Frage muss berufsspezifisch formuliert sein (nicht generisch übertragbar auf andere Berufe)
-4. Erklärungen müssen den KONKRETEN Denkfehler hinter jedem falschen Distraktor benennen
-5. Mix: 1x leicht (Grundwissen), 2x mittel (Anwendung), 1x schwer (Transfer/Analyse)
-VERBOTEN: Reine Wissensfragen wie "Was ist...?" ohne beruflichen Kontext.`,
+VERBOTEN: Erneute Erklärung des Stoffes. Passive Zusammenfassungen ("In dieser Lektion haben wir gelernt..."). Wiederholung ohne Retrieval-Mechanik. NUR Verdichtung und aktive Prüfungsvorbereitung.`,
+
+    mini_check: `Erstelle 7–8 situative Multiple-Choice-Fragen auf IHK-Prüfungsniveau für ${professionName}.
+
+SCHWIERIGKEITSVERTEILUNG (PFLICHT — exakt einhalten):
+- 2 Items: LEICHT (Reproduktion/Grundwissen — Bloom 1-2)
+- 3 Items: MITTEL (Anwendung — Bloom 3)
+- 2–3 Items: ANSPRUCHSVOLL (Transfer/Analyse — Bloom 4-5)
+
+ANSPRUCHSVOLLE ITEMS MÜSSEN:
+- Mehrschritt-Denken erfordern (mind. 2 Denkschritte)
+- Mindestens 1 implizite Information enthalten (nicht alles steht direkt im Text)
+- Keine direkte Textübernahme aus der Lektion ermöglichen
+
+PFLICHT-ELEMENTE:
+1. Mindestens 3 Fragen MÜSSEN ein konkretes Fallbeispiel/Szenario aus dem Berufsalltag von ${professionName} enthalten
+2. Mindestens 1 Transferfrage ("Was wäre wenn...?" / Wissen auf neue Situation übertragen)
+3. Mindestens 1 typische Prüfungsfalle (häufiger Denkfehler von ${professionName})
+4. Mindestens 1 Szenarioaufgabe mit Entscheidung und Begründung
+5. Distraktoren müssen PLAUSIBEL sein — sie bilden typische Denkfehler von ${professionName} ab, nicht offensichtlichen Unsinn
+6. Jede Frage muss berufsspezifisch formuliert sein (nicht generisch übertragbar auf andere Berufe)
+7. Erklärungen müssen den KONKRETEN Denkfehler hinter jedem falschen Distraktor benennen
+
+DISTRAKTOR-QUALITÄT (PFLICHT für jeden Distraktor):
+- Warum ist diese Option verlockend? (psychologischer Fang-Aspekt)
+- Warum ist sie fachlich falsch? (konkreter Fehlertyp)
+
+VERBOTEN: Reine Wissensfragen wie "Was ist...?" ohne beruflichen Kontext. Offensichtlich falsche Distraktoren. Definitionsabfragen ohne Kontextualisierung. Mehr als 2 reine Reproduktionsfragen.`,
   };
   return prompts[step] || prompts.einstieg;
 }
@@ -62,18 +114,24 @@ const MINI_CHECK_TOOL: AITool = {
   type: "function",
   function: {
     name: "create_mini_check",
-    description: "Erstelle 4 Multiple-Choice-Fragen zur Wissensüberprüfung.",
+    description: "Erstelle 7-8 situative Multiple-Choice-Fragen auf IHK-Prüfungsniveau mit Schwierigkeitsspreizung.",
     parameters: {
       type: "object",
       properties: {
         questions: {
-          type: "array", minItems: 4, maxItems: 5,
+          type: "array", minItems: 6, maxItems: 8,
           items: {
             type: "object",
             properties: {
-              question: { type: "string" }, options: { type: "array", items: { type: "string" } }, correct_answer: { type: "number" }, explanation: { type: "string" }
+              question: { type: "string" },
+              options: { type: "array", items: { type: "string" } },
+              correct_answer: { type: "number" },
+              explanation: { type: "string" },
+              difficulty: { type: "string", enum: ["leicht", "mittel", "anspruchsvoll"] },
+              bloom_level: { type: "string", enum: ["reproduktion", "anwendung", "transfer"] },
+              trap_type: { type: "string", description: "Art der Prüfungsfalle, falls vorhanden (z.B. Normverwechslung, Rechenfehler, Prozessfehler)" }
             },
-            required: ["question", "options", "correct_answer", "explanation"]
+            required: ["question", "options", "correct_answer", "explanation", "difficulty", "bloom_level"]
           }
         },
         objectives: { type: "array", items: { type: "string" } }
@@ -168,23 +226,30 @@ serve(async (req) => {
 
     const routed = step === "mini_check" ? getModel("minicheck") : getModel("learning_course");
 
-    const systemPrompt = `Du bist ein erfahrener IHK-Fachexperte für den Beruf "${professionName}". Du erstellst Lerninhalte, die sich anfühlen, als wären sie von einem Fachlehrer mit 20 Jahren Berufserfahrung als ${professionName} geschrieben.
+    const systemPrompt = `Du agierst als IHK-Prüfer, Ausbildungsleiter und Fachdidaktiker für den Beruf "${professionName}".
+Ziel ist MAXIMALE PRÜFUNGSREIFE gemäß Ausbildungsrahmenplan — nicht reine Wissensvermittlung.
+Inhalte müssen prüfungsnah, transferorientiert und fehleranalytisch aufgebaut sein.
 
-IDENTITÄT: Du denkst, sprichst und erklärst wie jemand, der den Beruf ${professionName} von Grund auf kennt. Deine Beispiele stammen aus echten Arbeitssituationen, deine Fachbegriffe sind die, die ${professionName} täglich verwenden.
+IDENTITÄT: Du denkst, sprichst und erklärst wie jemand, der den Beruf ${professionName} von Grund auf kennt UND gleichzeitig IHK-Prüfungen konzipiert. Deine Beispiele stammen aus echten Arbeitssituationen, deine Fachbegriffe sind die, die ${professionName} täglich verwenden.
 
-QUALITÄTSSTANDARD:
+QUALITÄTSSTANDARD (9.5/10 — Elite-Niveau):
 - Jeder Lernschritt MUSS die fachliche Tiefe des offiziellen Rahmenplans für ${professionName} abbilden
 - Verwende die konkreten Fachbegriffe und berufsspezifischen Unterthemen aus dem Curriculum
 - Praxisbeispiele MÜSSEN aus dem typischen Arbeitsalltag von ${professionName} stammen — mit realistischen Kunden, Produkten, Zahlen und Situationen
 - Oberflächliche Erklärungen ohne Fachtiefe und konkreten Berufsbezug zu ${professionName} sind NICHT akzeptabel
 - Beziehe dich auf spezifische Unterthemen des Rahmenplans, nicht nur auf das übergeordnete Lernfeld
-- Der Inhalt darf NICHT nach KI klingen — keine generischen Floskeln, keine akademische Überfrachtung
+
+KOGNITIVE TIEFE (PFLICHT für jede Lesson):
+- Bloom-Verteilung: 30% Reproduktion, 40% Anwendung, 30% Analyse/Transfer
+- Mindestens 40% der Anwendungs- und Transferaufgaben in realistischen betrieblichen Szenarien
+- Jede Lesson muss mindestens 1 mehrstufige Fallvignette enthalten
+- Jede Lesson muss mindestens 1 Entscheidungssituation mit Begründungspflicht enthalten
+- Identifiziere mindestens 2 typische Prüfungsfehler und integriere sie in Distraktoren, Szenarien oder Transferfragen
+- Erkläre im Feedback, WARUM der typische Denkfehler entsteht
 
 REGULATORISCHE TIEFE (bei rechtlichen/regulatorischen Themen):
 - Nenne §§, Fristen und Normen NUR, wenn sie dir aus dem SSOT-Kontext oder allgemeinem Fachwissen sicher bekannt sind
 - Bei Unsicherheit: "Die genaue Rechtsgrundlage ist im Betrieb/IHK-Merkblatt nachzuprüfen"
-- Exakte Fristen, Schwellenwerte, Meldepflichten — NUR wenn für ${professionName} relevant
-- Zuständige Behörden und Institutionen des konkreten Berufsfelds
 - NIEMALS §§ halluzinieren
 
 RECHENAUFGABEN-TIEFE (bei quantitativen Themen):
@@ -194,8 +259,29 @@ RECHENAUFGABEN-TIEFE (bei quantitativen Themen):
 - Kombinationsaufgaben: mehrere Konzepte in einer Aufgabe verknüpfen
 
 ${ANTI_KI_RULES}
+
+NEGATIV-CONSTRAINTS (VERBOTEN):
+- Reine Definitionslisten ohne Kontextualisierung
+- Aufzählungsdidaktik ohne Szenario-Einbettung
+- Wiederholung ohne Retrieval-Mechanik (passives "Zusammenfassung lesen")
+- Generische Beispiele ohne konkreten Berufsbezug zu ${professionName}
+- Isolierte Wissensfragen ohne Situationsrahmen
+- Mehr als 30 Wörter pro Satz
+- KI-Floskeln ("In der heutigen Geschäftswelt...", "Es ist wichtig zu verstehen, dass...")
+
 - Markiere prüfungsrelevante Stellen mit ⭐
-${DEPTH_SELF_CHECK}`;
+
+INTERNE SELBSTPRÜFUNG (vor Ausgabe intern prüfen — nicht ausgeben):
+☐ Sind mind. 30% Transfer/Analyse enthalten?
+☐ Ist mindestens 1 Prüfungsfalle integriert?
+☐ Enthält die Lesson eine mehrstufige Fallvignette?
+☐ Ist die Wiederholungsphase retrieval-basiert (aktiv, nicht passiv)?
+☐ Enthält mind. 1 ⭐ IHK-Prüfungstipp?
+☐ Enthält mind. 1 ⚠️ Typische Prüfungsfalle mit Erklärung?
+☐ Enthält mind. 1 echtes Zahlenbeispiel mit realistischen, nicht-runden Zahlen?
+☐ Sind Distraktoren plausibel (typische Denkfehler, nicht offensichtlicher Unsinn)?
+☐ Kein Satz über 30 Wörter?
+Falls eine Pflicht fehlt: Ergänze intern vor der Ausgabe.`;
 
     const stepPrompt = getStepPrompt(step, professionName);
     const userPrompt = `Erstelle Lerninhalt für den Beruf "${professionName}":

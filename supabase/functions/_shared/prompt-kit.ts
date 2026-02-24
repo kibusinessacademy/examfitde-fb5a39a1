@@ -17,12 +17,19 @@
 
 export const DEPTH_SELF_CHECK = `
 INTERNE SELBSTPRÜFUNG (nicht sichtbar ausgeben — intern prüfen, ggf. intern regenerieren):
-☐ Enthält mind. 1 ⭐ IHK-Prüfungstipp
-☐ Enthält mind. 1 ⚠️ Typische Prüfungsfalle
-☐ Enthält mind. 1 Transferfrage ("Was wäre wenn...?")
-☐ Enthält mind. 1 echtes Zahlenbeispiel mit realistischen, nicht-runden Zahlen
-☐ Bei Vergleichsthemen: Abgrenzungstabelle vorhanden
-☐ Fachbegriffe werden erklärt UND im Berufskontext eingeordnet
+☐ Sind mind. 30% Transfer/Analyse-Anteile enthalten?
+☐ Ist mindestens 1 mehrstufige Fallvignette integriert?
+☐ Ist mindestens 1 Prüfungsfalle (⚠️) mit Erklärung des Denkfehlers enthalten?
+☐ Enthält mind. 1 ⭐ IHK-Prüfungstipp?
+☐ Enthält mind. 1 echtes Zahlenbeispiel mit realistischen, nicht-runden Zahlen?
+☐ Ist die Wiederholungsphase retrieval-basiert (aktiv, nicht passives Lesen)?
+☐ Enthält mind. 1 Entscheidungssituation mit Begründungspflicht?
+☐ Enthält mind. 1 Transferfrage ("Was wäre wenn...?")?
+☐ Bei Vergleichsthemen: Abgrenzungstabelle vorhanden?
+☐ Fachbegriffe werden erklärt UND im Berufskontext eingeordnet?
+☐ Kein Satz über 30 Wörter? Keine KI-Floskeln?
+☐ Keine reinen Definitionslisten ohne Kontextualisierung?
+☐ Mindestens 40% der Aufgaben in realistischen betrieblichen Szenarien eingebettet?
 Falls eine Pflicht fehlt: Ergänze intern vor der Ausgabe.`;
 
 // ─── Regulatory Hallucination Guard ──────────────────────────────────────────
@@ -36,14 +43,25 @@ REGULATORIK-REGEL (KRITISCH):
 // ─── MiniCheck Taxonomy Template ─────────────────────────────────────────────
 
 export function buildMiniCheckPrompt(professionName: string, context: string): string {
-  return `Erstelle exakt 4 IHK-Prüfungsfragen für ${professionName}.
+  return `Erstelle 7-8 IHK-Prüfungsfragen für ${professionName}.
 
 ${context}
 
-TAXONOMIE-MIX (PFLICHT):
-- 1× Recall: Definition/Begriff im konkreten Berufskontext von ${professionName}
-- 2× Apply: Rechnung/Zuordnung mit Zahlen, Dokumenten oder Prozessschritten aus dem Berufsalltag
-- 1× Analyze/Decide: Fehlerdiagnose oder beste Maßnahme in einer realistischen Berufssituation
+SCHWIERIGKEITSVERTEILUNG (PFLICHT):
+- 2× LEICHT (Reproduktion): Definition/Begriff im konkreten Berufskontext von ${professionName}
+- 3× MITTEL (Anwendung): Rechnung/Zuordnung mit Zahlen, Dokumenten oder Prozessschritten aus dem Berufsalltag
+- 2-3× ANSPRUCHSVOLL (Transfer/Analyse): Fehlerdiagnose, beste Maßnahme in komplexer Situation, Mehrschritt-Denken
+
+ANSPRUCHSVOLLE ITEMS MÜSSEN:
+- Mindestens 2 Denkschritte erfordern
+- Mindestens 1 implizite Information enthalten
+- Keine direkte Textübernahme ermöglichen
+
+PFLICHT-ELEMENTE:
+- Mindestens 3 Fragen mit konkretem Szenario aus dem Berufsalltag von ${professionName}
+- Mindestens 1 Transferfrage ("Was wäre wenn...?")
+- Mindestens 1 typische Prüfungsfalle (häufiger Denkfehler)
+- Mindestens 1 Szenarioaufgabe mit Entscheidung
 
 DISTRAKTOR-TYPEN (jeder Distraktor = genau ein Fehlertyp):
 - Typ A: Norm/Frist-Verwechslung (falscher §, falsche Frist)
@@ -53,12 +71,12 @@ DISTRAKTOR-TYPEN (jeder Distraktor = genau ein Fehlertyp):
 
 ERKLÄRUNGEN (PFLICHT für jede Frage):
 - Warum ist die richtige Antwort korrekt? (1-2 Sätze)
-- Warum ist Option A falsch? (konkreter Fehlertyp benennen)
+- Warum ist Option A falsch? (konkreter Fehlertyp + WARUM der Denkfehler entsteht)
 - Warum ist Option B falsch?
 - Warum ist Option C falsch?
 - Abschluss: "Merke: ..." oder "Tipp: ..." (1 Satz Prüfungstipp)
 
-VERBOTEN: Reine Wissensfragen ohne Berufsbezug. Offensichtlich falsche Distraktoren.`;
+VERBOTEN: Reine "Was ist...?"-Fragen ohne Berufsbezug. Offensichtlich falsche Distraktoren. Mehr als 2 reine Reproduktionsfragen. Definitionsabfragen ohne Kontextualisierung.`;
 }
 
 // ─── Anti-KI Style Rules ─────────────────────────────────────────────────────
