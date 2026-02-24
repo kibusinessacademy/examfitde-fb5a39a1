@@ -1024,7 +1024,7 @@ async function enqueueLearningFieldJobs(
       status: "pending",
       package_id: packageId,
       attempts: 0,
-      max_attempts: 5,
+      max_attempts: 20, // Chunked jobs need high runway — planned requeue doesn't increment attempts
       run_after: priority === 0 ? nowIso : new Date(Date.now() + 30_000).toISOString(),
       payload: {
         package_id: packageId,
