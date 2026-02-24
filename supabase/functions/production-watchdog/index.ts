@@ -263,9 +263,29 @@ Deno.serve(async (req) => {
         failedCount = failedBySK ?? 0;
       }
 
+      // Also count cancelled jobs — cancelled fan-out sub-jobs are NOT "done successfully"
+      let cancelledCount = 0;
+      if (jobType) {
+        const { count: cancelledByType } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "cancelled")
+          .eq("job_type", jobType)
+          .filter("payload->>package_id", "eq", step.package_id);
+        cancelledCount = cancelledByType ?? 0;
+      } else {
+        const { count: cancelledBySK } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "cancelled")
+          .filter("payload->>package_id", "eq", step.package_id)
+          .filter("payload->>step_key", "eq", step.step_key);
+        cancelledCount = cancelledBySK ?? 0;
+      }
+
       if (activeCount === 0) {
-        if (failedCount === 0) {
-          // All done successfully
+        if (failedCount === 0 && cancelledCount === 0) {
+          // All done successfully — no failed, no cancelled
           await sb.rpc("update_course_package_step", {
             p_package_id: step.package_id,
             p_step_key: step.step_key,
@@ -275,15 +295,15 @@ Deno.serve(async (req) => {
           fanOutSynced++;
           console.log(`[Watchdog] FAN_OUT_SYNC: ${step.step_key} for ${step.package_id.slice(0, 8)} → done`);
         } else {
-          // Some failed — mark step as failed
+          // Some failed or cancelled — mark step as failed (cancelled sub-jobs = incomplete fan-out)
           await sb.rpc("update_course_package_step", {
             p_package_id: step.package_id,
             p_step_key: step.step_key,
             p_status: "failed",
-            p_log: { synced_by: "production-watchdog", failed_jobs: failedCount },
+            p_log: { synced_by: "production-watchdog", failed_jobs: failedCount, cancelled_jobs: cancelledCount },
           });
           fanOutSynced++;
-          console.log(`[Watchdog] FAN_OUT_SYNC: ${step.step_key} for ${step.package_id.slice(0, 8)} → failed (${failedCount} jobs)`);
+          console.log(`[Watchdog] FAN_OUT_SYNC: ${step.step_key} for ${step.package_id.slice(0, 8)} → failed (${failedCount} failed, ${cancelledCount} cancelled)`);
         }
       }
     }
