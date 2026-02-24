@@ -1,224 +1,190 @@
+# Premium Upgrade Plan – Systemweit (v1.0)
+## Status: AKTIV | Erstellt: 2026-02-24
 
-# Lernsystem Komplettierung - Priorisierter Umsetzungsplan
-
-## Aktueller Stand (Analyse abgeschlossen)
-
-### Was bereits funktioniert
-- Dashboard Stats RPC (`get_user_dashboard_stats`) ist in Migration vorhanden und deployed
-- Index.tsx nutzt `useDashboardStats` Hook korrekt 
-- H5P Player nutzt Storage-first Ansatz (h5p-content Bucket) - Assets werden dynamisch geladen
-- Lesson Outcomes und Progress Tracking RPCs sind implementiert
-- Exam-Lesson Feedback Loop (P0.3) ist implementiert
-- Prueefungstrainer mit Erklärungen (P0.4) ist implementiert
-
-### Offene Blocker identifiziert
-
-| Prioritaet | Problem | Status |
-|------------|---------|--------|
-| P0-A | H5P Runtime Assets fehlen | ✅ DONE (CDN) |
-| P0-B | Mini-Check Step ist nur Platzhalter | ✅ DONE (MiniCheckPlayer) |
-| P1-A | Kurs-Navigation: Lessons nicht anklickbar | ✅ DONE (ModuleLessonList) |
-| P1-B | Progress-Komponenten nicht integriert | ✅ DONE (vollständig) |
-
-### Phase 3 & 4 - Implementierungsdetails
-
-**Phase 3 (Kurs-Navigation):**
-- `ModuleLessonList.tsx`: `handleLessonClick()` navigiert zu `/lesson/${lessonId}`
-- Klickbare Lektionen mit `cursor-pointer` und `hover:scale-[1.01]`
-- Lock-Status für nicht-eingeschriebene Nutzer
-
-**Phase 4 (Progress-Komponenten):**
-- `CourseDetailPage.tsx`: `SegmentedProgressBar`, `CompetencyProgressGrid`, `ContinueLearningCard`
-- `LessonPlayer.tsx`: `LearningGoalFeedback` nach Mini-Check Abschluss
-- `ModuleLessonList.tsx`: `LessonStatusBadge` bei jeder Lektion
-- Review-Filter für Wiederholungsempfehlungen
+### Ziel: Von 7,5 → 9,5 / 10 (Elite-IHK-Trainingsniveau)
 
 ---
 
-## Phase 1: H5P Runtime Fix (P0-A)
+## Gap-Analyse (Ist → Soll)
 
-### Problem
-`H5PPlayer.tsx` erwartet H5P-Runtime-Assets unter:
-```
-/h5p/frame.bundle.js
-/h5p/styles/h5p.css
-```
-Aber `public/` enthaelt nur: `favicon.ico`, `placeholder.svg`, `robots.txt`
-
-### Loesung: Storage-First komplett umsetzen
-Da die H5P-Inhalte bereits aus dem Storage-Bucket (`h5p-content`) kommen, sollten auch die Runtime-Assets aus einer CDN/Storage-Quelle kommen.
-
-### Umsetzung
-1. Verzeichnis `public/h5p/` erstellen
-2. H5P-Standalone Runtime-Assets hinzufuegen:
-   - `frame.bundle.js` (aus h5p-standalone npm package)
-   - `styles/h5p.css`
-3. Alternative: Assets aus CDN laden (z.B. unpkg.com/h5p-standalone)
-
-### Technische Details
-```text
-public/
-  h5p/
-    frame.bundle.js     <- von node_modules/h5p-standalone/dist/
-    styles/
-      h5p.css           <- von node_modules/h5p-standalone/dist/
-```
-
-Oder H5PPlayer.tsx anpassen fuer CDN-Pfade:
-```typescript
-const h5pInstance = new H5P(containerRef.current, {
-  h5pJsonPath: contentUrl,
-  frameJs: 'https://unpkg.com/h5p-standalone@3.8.0/dist/frame.bundle.js',
-  frameCss: 'https://unpkg.com/h5p-standalone@3.8.0/dist/styles/h5p.css',
-});
-```
+| # | Gap | Ist-Score | Ziel | Status |
+|---|-----|-----------|------|--------|
+| 1 | Bloom-Härtung (Kompetenzen + Blueprints) | 7,5 | 9,5 | 🔴 TODO |
+| 2 | Fehler-Ökosystem (Misconceptions, Traps) | 7,0 | 9,5 | 🔴 TODO |
+| 3 | Situative Szenarien (30%+ case-based) | 7,0 | 9,5 | 🔴 TODO |
+| 4 | Prüfungsmodell (Teil 1/2, Zeit, Mastery) | 6,5 | 9,5 | 🟡 TEILWEISE |
+| 5 | Psychometrische Optimierung | 7,0 | 9,5 | 🟡 TEILWEISE |
 
 ---
 
-## Phase 2: Mini-Check Implementierung (P0-B)
+## Bestandsaufnahme (Was existiert bereits)
 
-### Aktueller Stand
-`LessonContent.tsx` zeigt nur einen Platzhalter:
-```typescript
-if (contentData.type === 'quiz') {
-  return (
-    <div className="p-6 bg-muted/30 rounded-xl text-center">
-      <ClipboardCheck className="..." />
-      <p>Quiz-Komponente wird geladen...</p>
-    </div>
-  );
-}
+### ✅ Bereits vorhanden
+- `learning_fields.exam_part` – AP1/AP2 Zuordnung
+- `learning_fields.weight_percent` – LF-Gewichtung
+- `learning_fields.ihk_focus_areas` – IHK-Schwerpunkte
+- `exam_questions.item_difficulty/discrimination/guessing` – IRT-Felder
+- `exam_questions.cognitive_level` – Bloom als Text
+- `exam_questions.distractor_meta` – Distraktor-Metadaten
+- `exam_questions.trap_tags` – Fallen-Tags
+- `question_blueprints.exam_context_type` – Szenario-Typ
+- `question_blueprints.typical_errors` – Fehlerbilder (JSONB)
+- `question_blueprints.trap_spec` – Fallen-Spezifikation
+- `question_blueprints.decision_structure` – Entscheidungsstruktur
+- `question_blueprints.estimated_time_seconds` – Zeitschätzung
+- `golden_exam_sets` – Benchmark-Prüfungen
+
+### ❌ Fehlend
+- Competencies: Kein Bloom-Level, keine Fehlerbilder, kein Kontext
+- Curricula: Kein Prüfungsstruktur-Modell (Teile, Gewichtung, Bestehensregeln)
+- Learning Fields: Kein Zeitbudget, kein Mastery-Minimum, kein Bloom-Target
+- Exam Questions: Kein exam_part, kein scenario_type, keine time_estimate
+- Quality Constraints: Keine tabellarische Prüfungslogik-Härtung
+
+---
+
+## Phase 1: Schema-Erweiterungen (DB-Migration)
+
+### 1.1 Competencies – Bloom & Fehler-Härtung
+```sql
+ALTER TABLE competencies ADD COLUMN bloom_level TEXT 
+  CHECK (bloom_level IN ('remember','understand','apply','analyze','evaluate'));
+ALTER TABLE competencies ADD COLUMN action_verb TEXT;
+ALTER TABLE competencies ADD COLUMN context_conditions TEXT;
+ALTER TABLE competencies ADD COLUMN typical_misconceptions JSONB DEFAULT '[]';
+ALTER TABLE competencies ADD COLUMN exam_relevance_tier TEXT 
+  CHECK (exam_relevance_tier IN ('core','important','supplementary'));
+ALTER TABLE competencies ADD COLUMN transfer_markers JSONB DEFAULT '[]';
 ```
 
-### Benoetigte Komponenten
-
-1. **MiniCheckPlayer.tsx** - Hauptkomponente
-   - Fragen aus `content.questions[]` laden
-   - Single/Multiple Choice UI
-   - Antwort-Validierung
-   - Feedback mit Erklaerungen
-
-2. **Datenformat fuer Lesson Content**
-```typescript
-interface MiniCheckContent {
-  type: 'mini_check';
-  questions: Array<{
-    id: string;
-    text: string;
-    options: Array<{
-      id: string;
-      text: string;
-      is_correct: boolean;
-    }>;
-    explanation_correct?: string;
-    explanation_wrong?: string;
-  }>;
-  passing_score: number; // z.B. 70
-}
+### 1.2 Learning Fields – Zeitmodell + Mastery
+```sql
+ALTER TABLE learning_fields ADD COLUMN exam_time_minutes INTEGER;
+ALTER TABLE learning_fields ADD COLUMN min_mastery_pct INTEGER DEFAULT 60;
+ALTER TABLE learning_fields ADD COLUMN question_target INTEGER;
+ALTER TABLE learning_fields ADD COLUMN bloom_distribution_target JSONB 
+  DEFAULT '{"remember":0.15,"understand":0.25,"apply":0.30,"analyze":0.20,"evaluate":0.10}';
 ```
 
-3. **Persistenz**
-   - Beim Abschluss: `update_lesson_outcome(lesson_id, score_percent)` aufrufen
-   - Nutzt die bereits erstellte RPC
+### 1.3 Curricula – Prüfungsstruktur
+```sql
+ALTER TABLE curricula ADD COLUMN exam_structure JSONB DEFAULT '{}';
+-- {"parts":[{"key":"AP1","name":"Teil 1","weight_pct":20,"duration_min":90,"count":25},
+--           {"key":"AP2_S","name":"Teil 2 Schriftlich","weight_pct":50,"duration_min":150,"count":40}]}
+ALTER TABLE curricula ADD COLUMN passing_rules JSONB DEFAULT '{}';
+-- {"overall_min_pct":50,"per_part_min_pct":30,"sperrfach_rule":true}
+```
 
-4. **UI-Flow**
-```text
-Frage 1/5
-[Frage-Text]
+### 1.4 Exam Questions – Prüfungsmodell-Mapping
+```sql
+ALTER TABLE exam_questions ADD COLUMN exam_part TEXT;
+ALTER TABLE exam_questions ADD COLUMN scenario_type TEXT CHECK (scenario_type IN (
+  'isolated_knowledge','applied_case','multi_step_case','prioritization',
+  'error_detection','documentation_analysis','legal_evaluation','communication_scenario'));
+ALTER TABLE exam_questions ADD COLUMN bloom_level_validated TEXT;
+ALTER TABLE exam_questions ADD COLUMN time_estimate_seconds INTEGER;
+ALTER TABLE exam_questions ADD COLUMN typical_errors JSONB DEFAULT '[]';
+ALTER TABLE exam_questions ADD COLUMN discrimination_tier TEXT 
+  CHECK (discrimination_tier IN ('elite','acceptable','weak','reject'));
+```
 
-[ ] Option A
-[x] Option B  <- ausgewaehlt
-[ ] Option C
-
-[Antwort pruefen]
-
---- nach Antwort ---
-
-[Richtig/Falsch Badge]
-[Erklaerung]
-
-[Naechste Frage] / [Ergebnis anzeigen]
+### 1.5 Quality Constraints (Neue Tabelle)
+```sql
+CREATE TABLE blueprint_quality_constraints (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  curriculum_id UUID REFERENCES curricula(id),
+  constraint_key TEXT NOT NULL,
+  constraint_config JSONB NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
 ```
 
 ---
 
-## Phase 3: Kurs-Navigation (P1-A)
+## Phase 2: Pipeline-Härtung (Edge Functions)
 
-### Problem
-In `CourseDetailPage.tsx` (Zeile 383-421) sind Lessons aufgelistet aber nicht anklickbar.
+### 2.1 Kompetenz-Enrichment (Neuer Step)
+- [ ] Bestehende Kompetenzen mit Bloom-Level anreichern
+- [ ] `action_verb` aus Beschreibung extrahieren
+- [ ] `context_conditions` generieren
+- [ ] `typical_misconceptions` (min. 3 pro Kompetenz) generieren
+- [ ] Formulierung auf Handlungskompetenz umschreiben
+- [ ] `exam_relevance_tier` setzen
 
-### Loesung
-Lesson-Cards klickbar machen mit Navigation zu `/lesson/:id`:
+### 2.2 Blueprint-Seeder v4
+- [ ] `question_template` mit situativen Szenarien generieren
+- [ ] `typical_errors` (min. 3) pro Blueprint erzwingen
+- [ ] `exam_context_type` diversifizieren (max 20% `isolated_knowledge`)
+- [ ] `bloom_level` aus Kompetenz→Blueprint propagieren
+- [ ] `exam_part` aus LF→exam_part ableiten
 
-```typescript
-<div 
-  key={lesson.id}
-  onClick={() => !locked && navigate(`/lesson/${lesson.id}`)}
-  className={`... ${!locked ? 'cursor-pointer' : ''}`}
->
-```
+### 2.3 Exam-Pool Generator Upgrade
+- [ ] `scenario_type` aus Blueprint propagieren
+- [ ] `exam_part` aus LF setzen
+- [ ] `typical_errors` propagieren
+- [ ] `time_estimate_seconds` übernehmen
+- [ ] Distraktoren mit `why_wrong` + `why_tempting` + `examiner_intention`
 
-Zusaetzlich: "Fortsetzen" Button mit naechster unvollstaendiger Lesson verknuepfen.
-
----
-
-## Phase 4: Progress-Komponenten Integration (P1-B)
-
-### Bereits erstellte Komponenten
-- `CourseProgressBar.tsx`
-- `LessonStatusBadge.tsx`
-- `ContinueLearningCard.tsx`
-- `LearningGoalFeedback.tsx`
-
-### Integration in CourseDetailPage
-- `CourseProgressBar` statt einfacher Progress-Anzeige
-- `LessonStatusBadge` bei jeder Lesson
-- `ContinueLearningCard` als Hero-Element fuer eingeschriebene Nutzer
-
-### Integration in LessonPlayer
-- `LearningGoalFeedback` nach Mini-Check Abschluss zeigen
-- Kompetenz-Status visualisieren
+### 2.4 Validation Gates v2
+- [ ] **Bloom-Gate:** Verteilung pro LF gegen `bloom_distribution_target`
+- [ ] **Scenario-Gate:** min 30% case-based
+- [ ] **Distractor-Quality-Gate:** `distractor_meta` pflichtprüfen
+- [ ] **Time-Gate:** Zeitbudget gegen Prüfungszeit
+- [ ] **Discrimination-Gate:** `item_discrimination < 0.20` → training-only
 
 ---
 
-## Umsetzungsreihenfolge
+## Phase 3: Retroaktives Content-Upgrade
 
-```text
-Schritt 1: H5P Assets (CDN-Ansatz)
-   |
-   v
-Schritt 2: MiniCheckPlayer Komponente
-   |
-   v
-Schritt 3: CourseDetail Navigation
-   |
-   v
-Schritt 4: Progress-Komponenten einbauen
-   |
-   v
-Schritt 5: End-to-End Test
+### 3.1 Kompetenz-Formulierung
+**Vorher:** "Netzwerkkomponenten konfigurieren"
+**Nachher:** "Konfiguriert unter Berücksichtigung von Sicherheitsrichtlinien und typischen Fehlkonfigurationen (VLAN-Zuweisung, DHCP-Konflikte) Clients in ein bestehendes Unternehmensnetzwerk."
+
+### 3.2 Fragen-Retrofit (SQL)
+```sql
+-- exam_part aus LF ableiten
+UPDATE exam_questions eq SET exam_part = lf.exam_part
+FROM learning_fields lf WHERE eq.learning_field_id = lf.id AND eq.exam_part IS NULL;
+
+-- scenario_type aus Blueprint propagieren
+UPDATE exam_questions eq SET scenario_type = bp.exam_context_type::text
+FROM question_blueprints bp WHERE eq.blueprint_id = bp.id AND eq.scenario_type IS NULL;
 ```
 
 ---
 
-## Dateiaenderungen
+## Phase 4: Quality Reports v2
 
-| Datei | Aenderung |
-|-------|-----------|
-| `src/components/lesson/H5PPlayer.tsx` | CDN-Pfade fuer Runtime-Assets |
-| `src/components/lesson/MiniCheckPlayer.tsx` | Neue Komponente |
-| `src/components/lesson/LessonContent.tsx` | MiniCheckPlayer einbinden |
-| `src/pages/CourseDetailPage.tsx` | Lesson-Klicks + Progress-Komponenten |
-| `src/pages/LessonPlayer.tsx` | LearningGoalFeedback einbinden |
+- [ ] **Bloom-Score:** Ist vs. Soll Verteilung pro LF
+- [ ] **Transfer-Score:** % case-based Fragen
+- [ ] **Fehlerdichte:** Ø typical_errors pro Blueprint
+- [ ] **Redundanz-Score:** normalized_hash Clustering
+- [ ] **Difficulty-Drift:** Ist vs. Soll Schwierigkeitsverteilung
+- [ ] **Discrimination-Index:** Ø item_discrimination pro Pool
+- [ ] **Exam-Part-Balance:** Fragen pro AP1/AP2
 
 ---
 
-## Schaetzung
+## Implementierungsreihenfolge
 
-| Phase | Aufwand |
-|-------|---------|
-| H5P CDN Fix | 1 Nachricht |
-| MiniCheck Player | 2-3 Nachrichten |
-| Kurs-Navigation | 1 Nachricht |
-| Progress-Integration | 1 Nachricht |
-| **Gesamt** | **5-6 Nachrichten** |
+| Schritt | Beschreibung | Abhängigkeiten |
+|---------|-------------|---------------|
+| **S1** | DB-Migration (Phase 1) | Keine |
+| **S2** | Kompetenz-Enrichment Pipeline | S1 |
+| **S3** | Blueprint-Seeder v4 | S1, S2 |
+| **S4** | Exam-Pool Generator Upgrade | S1, S3 |
+| **S5** | Validation Gates v2 | S1 |
+| **S6** | Retroaktives Content-Upgrade | S1, S2, S3 |
+| **S7** | Quality Reports v2 + Dashboard | S1 |
+
+---
+
+## Risiken & Mitigationen
+
+| Risiko | Mitigation |
+|--------|-----------|
+| Bestehende Fragen inkompatibel | Alle neuen Felder nullable + Retrofit-SQL |
+| Pipeline-Bruch durch neue Gates | Gates als `warn` starten, nach Validierung → `block` |
+| KI-Kosten Retroactive-Upgrade | Batch-Processing, nur Drafts aufwerten |
+| Laufende Pakete stören | Neue Felder nullable, Pipeline abwärtskompatibel |
