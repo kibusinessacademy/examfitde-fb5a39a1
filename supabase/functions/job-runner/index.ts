@@ -393,14 +393,32 @@ Deno.serve(async (req) => {
   };
 
   const runnerStart = Date.now();
-  const RUNNER_TIME_BUDGET_MS = 150_000; // 150s — leave 30s headroom before 180s Edge limit
+  const RUNNER_TIME_BUDGET_MS = 110_000; // 110s — leave 70s headroom before 180s Edge limit
+
+  // ── Fix 2: Pre-release excess ExamPool jobs (keep max 1) ──────────
+  const HEAVY_JOB_TYPES = new Set(["package_generate_exam_pool", "package_generate_learning_content", "package_generate_handbook"]);
+  const heavyJobs = jobs.filter((j: any) => HEAVY_JOB_TYPES.has(j.job_type));
+  if (heavyJobs.length > 1) {
+    const releaseHeavy = heavyJobs.slice(1);
+    console.log(`[job-runner] PRE_RELEASE: releasing ${releaseHeavy.length} excess heavy jobs (${releaseHeavy.map((j: any) => j.job_type + '/' + (j.payload?.learning_field_filter?.slice(0,8) ?? '__root__')).join(', ')})`);
+    for (const rj of releaseHeavy) {
+      await sb.from("job_queue").update({
+        status: "pending",
+        locked_at: null,
+        locked_by: null,
+        run_after: new Date(Date.now() + 5_000).toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", rj.id);
+      jobs.splice(jobs.indexOf(rj), 1);
+    }
+  }
 
   for (let jobIdx = 0; jobIdx < jobs.length; jobIdx++) {
     const job = jobs[jobIdx];
 
     // ── Ghost-lock guard: release remaining jobs if time is running out ──
     const elapsedRunner = Date.now() - runnerStart;
-    if (jobIdx > 0 && elapsedRunner > RUNNER_TIME_BUDGET_MS) {
+    if (elapsedRunner > RUNNER_TIME_BUDGET_MS) {
       const remainingJobs = jobs.slice(jobIdx);
       console.log(`[job-runner] TIME_GUARD: ${elapsedRunner}ms elapsed, releasing ${remainingJobs.length} remaining claimed jobs back to pending`);
       for (const rj of remainingJobs) {
