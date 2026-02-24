@@ -519,7 +519,7 @@ Deno.serve(async (req) => {
       .limit(500);
 
     // Fan-out job types: multiple jobs per (package_id, job_type) are legitimate
-    // when they target different learning_field_ids
+    // when they target different learning_field_filter values
     const FAN_OUT_JOB_TYPES = new Set([
       "package_generate_exam_pool",
       "package_generate_oral_exam",
@@ -529,9 +529,10 @@ Deno.serve(async (req) => {
     const seen = new Map<string, string[]>();
     for (const j of activeJobs || []) {
       if (!j.package_id) continue;
-      // For fan-out jobs, include learning_field_id in dedupe key
+      // For fan-out jobs, include learning_field_filter in dedupe key
+      const pl = j.payload as Record<string, unknown>;
       const lfScope = FAN_OUT_JOB_TYPES.has(j.job_type)
-        ? `::lf=${(j.payload as Record<string, unknown>)?.learning_field_id ?? '__root__'}`
+        ? `::lf=${pl?.learning_field_filter ?? pl?.learning_field_id ?? '__root__'}`
         : "";
       const key = `${j.package_id}::${j.job_type}${lfScope}`;
       if (!seen.has(key)) seen.set(key, []);
