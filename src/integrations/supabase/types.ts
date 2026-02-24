@@ -20242,6 +20242,10 @@ export type Database = {
         Args: { p_blueprint_id: string; p_version_id: string }
         Returns: undefined
       }
+      approve_blueprints_from_council: {
+        Args: { p_approved_by?: string; p_blueprint_ids: string[] }
+        Returns: number
+      }
       approve_minicheck_set_version: {
         Args: {
           p_min_questions?: number
