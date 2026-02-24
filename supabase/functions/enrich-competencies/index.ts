@@ -2,11 +2,17 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAI } from "../_shared/ai-client.ts";
 
+/**
+ * Legacy enrichment function (Phase 0 / general enrichment).
+ * v2: CORS with x-examfit-job-key, tolerant JSON parsing, truncated payloads.
+ */
+
 const BATCH_SIZE = 15;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-examfit-job-key",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function json(body: unknown, status = 200) {
@@ -14,6 +20,21 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "content-type": "application/json" },
   });
+}
+
+// Patch 7: Tolerant JSON parser
+function safeJsonParse(raw: string): unknown | null {
+  const cleaned = raw
+    .replace(/```json\s*/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  try { return JSON.parse(cleaned); } catch { /* noop */ }
+
+  const m = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (!m) return null;
+  try { return JSON.parse(m[1]); } catch { /* noop */ }
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -79,12 +100,12 @@ Deno.serve(async (req) => {
         const curTitle = lf ? curMap.get(lf.curriculum_id) : "Unbekannt";
         return {
           id: c.id,
-          title: c.title,
-          description: c.description,
+          title: (c.title || "").slice(0, 80),
+          description: (c.description || "").slice(0, 200),
           bloom_level: c.bloom_level || "understand",
-          lf_title: lf?.title || "",
+          lf_title: (lf?.title || "").slice(0, 80),
           exam_part: lf?.exam_part || "",
-          curriculum: curTitle,
+          curriculum: (curTitle || "").slice(0, 40),
         };
       });
 
@@ -94,21 +115,21 @@ Deine Aufgabe: Bestehende Kompetenzbeschreibungen auf Elite-Prüfungsniveau anhe
 Für JEDE Kompetenz lieferst du ein Objekt mit:
 1. "id": Die übergebene UUID (unverändert!)
 2. "action_verb": Das zentrale Handlungsverb (z.B. "konfiguriert", "berechnet", "bewertet")
-3. "context_conditions": Rahmenbedingungen/Kontext (z.B. "unter Berücksichtigung von Datenschutzrichtlinien und typischen Sicherheitslücken")
-4. "typical_misconceptions": Array mit 3-5 typischen Denkfehlern/Irrtümern bei dieser Kompetenz
+3. "context_conditions": Rahmenbedingungen/Kontext
+4. "typical_misconceptions": Array mit 3-5 typischen Denkfehlern
 5. "exam_relevance_tier": "core" | "important" | "supplementary"
-6. "transfer_markers": Array mit Transferbezügen (z.B. ["Praxisfall", "Fehleranalyse", "Wirtschaftlichkeit"])
-7. "enhanced_description": Verbesserte Beschreibung: "[Person] [Handlungsverb] [Objekt] unter Berücksichtigung von [Rahmenbedingungen] und typischen Fehlerquellen [Beispiele]."
+6. "transfer_markers": Array mit Transferbezügen
+7. "enhanced_description": Verbesserte Beschreibung
 
 REGELN:
-- Formulierung MUSS handlungsorientiert sein
-- Misconceptions müssen REALISTISCH sein (echte IHK-Prüfungsfehler)
-- Kontext muss BERUFSSPEZIFISCH sein
-- Transfer-Marker müssen zur Bloom-Stufe passen
+- Handlungsorientiert formulieren
+- Misconceptions müssen REALISTISCH sein
+- Kontext BERUFSSPEZIFISCH
+- Max 1200 Zeichen pro Kompetenz insgesamt
 
 Antworte NUR als JSON: {"enrichments": [{...}, ...]}`;
 
-      const userPrompt = `Enriche diese ${batch.length} Kompetenzen:\n${JSON.stringify(compList, null, 2)}`;
+      const userPrompt = `Enriche diese ${batch.length} Kompetenzen:\n${JSON.stringify(compList)}`;
 
       try {
         const aiResp = await callAI({
@@ -130,29 +151,36 @@ Antworte NUR als JSON: {"enrichments": [{...}, ...]}`;
         const aiData = await aiResp.raw.json();
         const content = aiData.choices?.[0]?.message?.content || aiData.content?.[0]?.text || "";
 
+        // Patch 7: Tolerant JSON parser
+        const parsed = safeJsonParse(content);
         let enrichments: any[];
-        try {
-          const parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
-          enrichments = Array.isArray(parsed) ? parsed : (parsed.enrichments || []);
-        } catch {
+        if (!parsed) {
           results.push({ batch: i / batchSize + 1, status: "parse_error", raw: content.slice(0, 200) });
           continue;
         }
+        enrichments = Array.isArray(parsed) ? parsed : ((parsed as any).enrichments || []);
 
-        // 4) Update each competency
+        // 4) Update each competency with guards
         let batchUpdated = 0;
         for (const e of enrichments) {
           if (!e.id) continue;
 
           const updateData: Record<string, any> = {};
-          if (e.action_verb) updateData.action_verb = e.action_verb;
-          if (e.context_conditions) updateData.context_conditions = e.context_conditions;
-          if (Array.isArray(e.typical_misconceptions) && e.typical_misconceptions.length)
+          // Patch 3+4: action_verb_source + guard
+          if (e.action_verb && typeof e.action_verb === "string" && e.action_verb.length >= 4) {
+            updateData.action_verb = e.action_verb;
+            updateData.action_verb_source = "ai_legacy";
+          }
+          if (e.context_conditions && typeof e.context_conditions === "string")
+            updateData.context_conditions = e.context_conditions;
+          if (Array.isArray(e.typical_misconceptions) && e.typical_misconceptions.length >= 2)
             updateData.typical_misconceptions = e.typical_misconceptions;
-          if (e.exam_relevance_tier) updateData.exam_relevance_tier = e.exam_relevance_tier;
-          if (Array.isArray(e.transfer_markers) && e.transfer_markers.length)
+          if (e.exam_relevance_tier && ["core", "important", "supplementary"].includes(e.exam_relevance_tier))
+            updateData.exam_relevance_tier = e.exam_relevance_tier;
+          if (Array.isArray(e.transfer_markers) && e.transfer_markers.length >= 1)
             updateData.transfer_markers = e.transfer_markers;
-          if (e.enhanced_description) updateData.description = e.enhanced_description;
+          if (e.enhanced_description && typeof e.enhanced_description === "string" && e.enhanced_description.length >= 20)
+            updateData.description = e.enhanced_description;
 
           if (Object.keys(updateData).length > 0) {
             const { error: upErr } = await sb.from("competencies").update(updateData).eq("id", e.id);
@@ -168,11 +196,18 @@ Antworte NUR als JSON: {"enrichments": [{...}, ...]}`;
       }
     }
 
-    // 5) Count remaining
-    const { count: remaining } = await sb
-      .from("competencies")
-      .select("id", { count: "exact", head: true })
-      .is("action_verb", null);
+    // 5) Count remaining (curriculum-scoped if applicable)
+    let remaining: number | null = 0;
+    if (curriculumId) {
+      const { data: r } = await sb.rpc("get_phase1_remaining_counts", { p_curriculum_id: curriculumId });
+      remaining = r?.missing_verb ?? 0;
+    } else {
+      const { count } = await sb
+        .from("competencies")
+        .select("id", { count: "exact", head: true })
+        .is("action_verb", null);
+      remaining = count;
+    }
 
     console.log(`[CompEnrich] +${totalEnriched} enriched, ${remaining} remaining`);
 

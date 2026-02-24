@@ -4,10 +4,8 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 
 /**
  * Phase 1: Deterministic + AI-assisted coverage enrichment
- * 
- * Uses RPC get_phase1_candidates for proper curriculum filtering.
- * Batch upserts instead of N+1 updates.
- * No fake bloom defaults — null + flagged if not inferrable.
+ * v2: action_verb_source for all verbs, proper remaining counts via RPC,
+ *     guards against null/empty writes, tolerant JSON parsing.
  */
 
 const BATCH_SIZE = 50;
@@ -15,7 +13,8 @@ const AI_BATCH = 20;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-examfit-job-key",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function json(body: unknown, status = 200) {
@@ -49,7 +48,6 @@ const VERB_BLOOM_MAP: Record<string, string> = {
   "gestaltet": "create", "optimiert": "create",
 };
 
-// ❌ Bug 3 Fix: Stop verbs that are NOT action verbs
 const STOP_VERBS = new Set([
   "ist", "wird", "hat", "kann", "soll", "muss", "darf",
   "enthält", "umfasst", "gibt", "macht", "geht", "steht",
@@ -59,7 +57,6 @@ const STOP_VERBS = new Set([
   "zeigt", "bedeutet", "scheint", "liest", "schreibt",
 ]);
 
-// Whitelist of strong action verbs
 const ACTION_VERB_WHITELIST = new Set([
   "berechnet", "konfiguriert", "analysiert", "bewertet", "plant",
   "erstellt", "prüft", "ermittelt", "entwickelt", "gestaltet",
@@ -82,7 +79,6 @@ function inferBloomFromText(title: string, desc: string): { bloom: string | null
     if (text.includes(verb)) return { bloom, source: "text_heuristic" };
   }
   
-  // Regex fallbacks
   if (text.match(/kennt|weiß|nennt|gibt an|zählt auf/)) return { bloom: "remember", source: "text_heuristic" };
   if (text.match(/versteht|beschreibt|erläutert|erklärt/)) return { bloom: "understand", source: "text_heuristic" };
   if (text.match(/wendet|berechnet|plant|erstellt|führt|konfiguriert/)) return { bloom: "apply", source: "text_heuristic" };
@@ -90,22 +86,34 @@ function inferBloomFromText(title: string, desc: string): { bloom: string | null
   if (text.match(/bewertet|beurteilt|entscheidet/)) return { bloom: "evaluate", source: "text_heuristic" };
   if (text.match(/entwickelt|entwirft|gestaltet|konstruiert/)) return { bloom: "create", source: "text_heuristic" };
   
-  // ❌ Bug 3 Fix: NO fake default — return null
   return { bloom: null, source: "unknown" };
 }
 
 function extractActionVerb(title: string, desc: string): string | null {
   const text = `${title} ${desc}`.toLowerCase();
   
-  // ❌ Bug 2 Fix: Check whitelist FIRST (highest quality)
   for (const verb of ACTION_VERB_WHITELIST) {
     if (text.includes(verb)) return verb;
   }
   
-  // Pattern: conjugated verbs ending in -iert, -elt, -ert, -etzt
   const m = text.match(/\b([\wäöüß]+(?:iert|elt|ert|etzt))\b/);
-  if (m && !STOP_VERBS.has(m[1])) return m[1];
+  if (m && !STOP_VERBS.has(m[1]) && m[1].length >= 4) return m[1];
   
+  return null;
+}
+
+// Patch 7: Tolerant JSON parser
+function safeJsonParse(raw: string): unknown | null {
+  const cleaned = raw
+    .replace(/```json\s*/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  try { return JSON.parse(cleaned); } catch { /* noop */ }
+
+  const m = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (!m) return null;
+  try { return JSON.parse(m[1]); } catch { /* noop */ }
   return null;
 }
 
@@ -113,7 +121,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
-  // Security gate: require job key
+  // Security gate
   const jobKey = req.headers.get("x-examfit-job-key");
   const expectedKey = Deno.env.get("CRON_SECRET");
   if (!expectedKey || jobKey !== expectedKey) {
@@ -132,7 +140,6 @@ Deno.serve(async (req) => {
   try {
     // ═══════════════════════════════════════
     // STEP 1: Bloom-Level Coverage
-    // ❌ Bug 1 Fix: Uses RPC with curriculum filter
     // ═══════════════════════════════════════
     let bloomFilled = 0;
     const bloomUpdates: Array<{ id: string; bloom_level: string; bloom_inferred: boolean; bloom_source: string }> = [];
@@ -148,20 +155,19 @@ Deno.serve(async (req) => {
         let bloom: string | null = null;
         let source = "unknown";
 
-        // Try taxonomy_level mapping first
         if (comp.taxonomy_level) {
           const key = comp.taxonomy_level.toLowerCase().trim();
           bloom = TAXONOMY_TO_BLOOM[key] || null;
           if (bloom) source = "taxonomy";
         }
 
-        // Fallback: infer from text
         if (!bloom) {
           const result = inferBloomFromText(comp.title || "", comp.description || "");
           bloom = result.bloom;
           source = result.source;
         }
 
+        // Patch 4: Guard — never write null bloom
         if (bloom) {
           bloomUpdates.push({
             id: comp.id,
@@ -170,10 +176,8 @@ Deno.serve(async (req) => {
             bloom_source: source,
           });
         }
-        // ❌ Bug 3 Fix: if bloom is null, we DON'T write — it stays null
       }
 
-      // ⚠️ Performance Fix: batch upsert instead of N+1
       if (bloomUpdates.length) {
         const { error } = await sb
           .from("competencies")
@@ -197,19 +201,13 @@ Deno.serve(async (req) => {
 
     if (noTier?.length) {
       for (const comp of noTier) {
-        let tier = "important"; // default for unknown
+        let tier = "important";
 
         if (comp.weight_percent !== null && comp.weight_percent !== undefined) {
-          if (comp.weight_percent >= 15 || comp.exam_part === "AP1") {
-            tier = "core";
-          }
-          if (comp.weight_percent < 5) {
-            tier = "supplementary";
-          }
+          if (comp.weight_percent >= 15 || comp.exam_part === "AP1") tier = "core";
+          if (comp.weight_percent < 5) tier = "supplementary";
           if (comp.bloom_level && ["analyze", "evaluate", "create"].includes(comp.bloom_level)
-            && comp.weight_percent >= 10) {
-            tier = "core";
-          }
+            && comp.weight_percent >= 10) tier = "core";
         }
 
         tierUpdates.push({ id: comp.id, exam_relevance_tier: tier });
@@ -226,6 +224,7 @@ Deno.serve(async (req) => {
 
     // ═══════════════════════════════════════
     // STEP 3: action_verb extraction
+    // Patch 3: action_verb_source for ALL verbs (not just AI)
     // ═══════════════════════════════════════
     let verbFilled = 0;
 
@@ -236,20 +235,21 @@ Deno.serve(async (req) => {
     });
 
     if (noVerb?.length) {
-      // First pass: deterministic extraction
-      const deterministicUpdates: Array<{ id: string; action_verb: string }> = [];
+      const deterministicUpdates: Array<{ id: string; action_verb: string; action_verb_source: string }> = [];
       const needsAI: typeof noVerb = [];
 
       for (const comp of noVerb) {
         const verb = extractActionVerb(comp.title || "", comp.description || "");
-        if (verb) {
-          deterministicUpdates.push({ id: comp.id, action_verb: verb });
+        // Patch 4: Guard — verb must be ≥4 chars
+        if (verb && verb.length >= 4) {
+          // Patch 3: Set action_verb_source for deterministic verbs too
+          const src = ACTION_VERB_WHITELIST.has(verb) ? "whitelist_text" : "heuristic";
+          deterministicUpdates.push({ id: comp.id, action_verb: verb, action_verb_source: src });
         } else {
           needsAI.push(comp);
         }
       }
 
-      // Batch upsert deterministic
       if (deterministicUpdates.length) {
         const { error } = await sb
           .from("competencies")
@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
         if (!error) verbFilled += deterministicUpdates.length;
       }
 
-      // Second pass: AI extraction for remaining (in batches)
+      // AI extraction for remaining
       for (let i = 0; i < needsAI.length && i < AI_BATCH * 3; i += AI_BATCH) {
         const batch = needsAI.slice(i, i + AI_BATCH);
         try {
@@ -274,16 +274,24 @@ NICHT verwenden: ist, wird, hat, kann, soll, muss, darf, enthält, umfasst.`,
               },
               {
                 role: "user",
-                content: JSON.stringify(batch.map(c => ({ id: c.id, title: c.title, desc: (c.description || "").slice(0, 100) }))),
+                // Patch 9: Truncate to reduce token cost
+                content: JSON.stringify(batch.map(c => ({
+                  id: c.id,
+                  title: (c.title || "").slice(0, 80),
+                  desc: (c.description || "").slice(0, 160),
+                }))),
               },
             ],
             max_tokens: 1024,
           });
 
-          const parsed = JSON.parse(
-            aiResp.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim()
-          );
-          const verbs = Array.isArray(parsed) ? parsed : (parsed.verbs || []);
+          // Patch 7: Tolerant JSON parser
+          const parsed = safeJsonParse(aiResp.content);
+          if (!parsed) {
+            console.warn(`[Phase1] AI verb parse failed: ${aiResp.content.slice(0, 100)}`);
+            continue;
+          }
+          const verbs = Array.isArray(parsed) ? parsed : ((parsed as any).verbs || []);
 
           const aiUpdates: Array<{ id: string; action_verb: string; action_verb_source: string }> = [];
           const VERB_RE = /^[a-zäöüß]+$/;
@@ -291,6 +299,7 @@ NICHT verwenden: ist, wird, hat, kann, soll, muss, darf, enthält, umfasst.`,
             const verb = (v.verb || "").toLowerCase().trim();
             if (!v.id || !verb) continue;
             if (STOP_VERBS.has(verb)) continue;
+            // Patch 4: Guard
             if (verb.length < 4 || verb.length > 30) continue;
             if (!VERB_RE.test(verb)) continue;
             const source = ACTION_VERB_WHITELIST.has(verb) ? "ai_verified" : "ai_unverified";
@@ -310,31 +319,15 @@ NICHT verwenden: ist, wird, hat, kann, soll, muss, darf, enthält, umfasst.`,
     }
 
     // ═══════════════════════════════════════
-    // SUMMARY — curriculum-scoped remaining counts
+    // Patch 2: Proper remaining counts via dedicated RPC
     // ═══════════════════════════════════════
-    let missingBloom: number | null = 0;
-    let missingTier: number | null = 0;
-    let missingVerb: number | null = 0;
+    const { data: remaining } = await sb.rpc("get_phase1_remaining_counts", {
+      p_curriculum_id: curriculumId,
+    });
 
-    if (curriculumId) {
-      // Scoped counts via RPC (returns 0 candidates = 0 remaining)
-      const { data: rb } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "bloom_level", p_limit: 1 });
-      const { data: rt } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "exam_relevance_tier", p_limit: 1 });
-      const { data: rv } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "action_verb", p_limit: 1 });
-      // Use RPC with limit 10000 for accurate count when scoped
-      const { data: rbAll } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "bloom_level", p_limit: 10000 });
-      const { data: rtAll } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "exam_relevance_tier", p_limit: 10000 });
-      const { data: rvAll } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "action_verb", p_limit: 10000 });
-      missingBloom = rbAll?.length ?? 0;
-      missingTier = rtAll?.length ?? 0;
-      missingVerb = rvAll?.length ?? 0;
-    } else {
-      // Global counts
-      const { count: mb } = await sb.from("competencies").select("id", { count: "exact", head: true }).is("bloom_level", null);
-      const { count: mt } = await sb.from("competencies").select("id", { count: "exact", head: true }).is("exam_relevance_tier", null);
-      const { count: mv } = await sb.from("competencies").select("id", { count: "exact", head: true }).is("action_verb", null);
-      missingBloom = mb; missingTier = mt; missingVerb = mv;
-    }
+    const missingBloom = remaining?.missing_bloom ?? 0;
+    const missingTier = remaining?.missing_tier ?? 0;
+    const missingVerb = remaining?.missing_verb ?? 0;
 
     const summary = {
       ok: true,
@@ -343,11 +336,11 @@ NICHT verwenden: ist, wird, hat, kann, soll, muss, darf, enthält, umfasst.`,
       tier_filled: tierFilled,
       verb_filled: verbFilled,
       remaining: {
-        bloom: missingBloom || 0,
-        exam_tier: missingTier || 0,
-        action_verb: missingVerb || 0,
+        bloom: missingBloom,
+        exam_tier: missingTier,
+        action_verb: missingVerb,
       },
-      batch_complete: (missingBloom || 0) === 0 && (missingTier || 0) === 0 && (missingVerb || 0) <= 500,
+      batch_complete: missingBloom === 0 && missingTier === 0 && missingVerb <= 500,
     };
 
     console.log(`[Phase1] bloom+${bloomFilled} tier+${tierFilled} verb+${verbFilled} | remaining: bloom=${missingBloom} tier=${missingTier} verb=${missingVerb}`);
