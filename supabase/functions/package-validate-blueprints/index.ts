@@ -300,6 +300,23 @@ Deno.serve(async (req) => {
   if (dupCount > 0) score -= dupCount * 2;
   score = Math.max(0, Math.min(100, Math.round(score)));
 
+  // ── Approve blueprints if validation passed ──
+  if (passed) {
+    const draftIds = blueprints.filter(bp => (bp as any).status === 'draft').map(bp => bp.id);
+    if (draftIds.length > 0) {
+      const { error: approveErr, count: approvedCount } = await sb
+        .from("question_blueprints")
+        .update({ status: "approved" } as any)
+        .eq("curriculum_id", curriculumId)
+        .eq("status" as any, "draft");
+      if (approveErr) {
+        console.error(`[validate-blueprints] Failed to approve blueprints: ${approveErr.message}`);
+      } else {
+        console.log(`[validate-blueprints] ✅ Approved ${approvedCount ?? draftIds.length} blueprints`);
+      }
+    }
+  }
+
   const summary = {
     total_blueprints: blueprints.length,
     learning_fields_total: lfMap.size,
