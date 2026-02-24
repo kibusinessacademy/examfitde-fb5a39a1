@@ -699,6 +699,39 @@ Deno.serve(async (req) => {
     zip.file("content/exam_questions_approved.json", JSON.stringify(questionSamples, null, 2));
     zip.file("content/competencies.json", JSON.stringify(competencies, null, 2));
 
+    // ── BLUEPRINTS (top-level, per learning field) ──
+    zip.file("blueprints/all_blueprints.json", JSON.stringify(questionBlueprints, null, 2));
+    zip.file("blueprints/constraints.json", JSON.stringify(blueprintConstraints, null, 2));
+    // Group blueprints by learning field for auditor convenience
+    const bpsByLf: Record<string, unknown[]> = {};
+    for (const bp of questionBlueprints as Record<string, unknown>[]) {
+      const lfId = (bp.learning_field_id as string) || "_unassigned";
+      if (!bpsByLf[lfId]) bpsByLf[lfId] = [];
+      bpsByLf[lfId].push(bp);
+    }
+    for (const [lfId, bps] of Object.entries(bpsByLf)) {
+      const lfObj = (learningFields as Record<string, unknown>[]).find(lf => lf.id === lfId);
+      const lfName = safeFilename((lfObj as any)?.title || lfId.slice(0, 8));
+      zip.file(`blueprints/by_lf/${lfName}.json`, JSON.stringify({
+        learning_field_id: lfId,
+        learning_field_title: (lfObj as any)?.title || "Unbekannt",
+        blueprint_count: bps.length,
+        blueprints: bps,
+      }, null, 2));
+    }
+    // Blueprint quality summary
+    const bpQuality = {
+      total: questionBlueprints.length,
+      with_typical_errors: (questionBlueprints as Record<string, unknown>[]).filter(b => Array.isArray(b.typical_errors) && (b.typical_errors as unknown[]).length > 0).length,
+      with_exam_context: (questionBlueprints as Record<string, unknown>[]).filter(b => b.exam_context_type && b.exam_context_type !== "isolated_knowledge").length,
+      with_decision_structure: (questionBlueprints as Record<string, unknown>[]).filter(b => b.decision_structure).length,
+      by_cognitive_level: (() => { const m: Record<string, number> = {}; for (const b of questionBlueprints as Record<string, unknown>[]) { const cl = (b.cognitive_level as string) || "unknown"; m[cl] = (m[cl] || 0) + 1; } return m; })(),
+      by_exam_context_type: (() => { const m: Record<string, number> = {}; for (const b of questionBlueprints as Record<string, unknown>[]) { const t = (b.exam_context_type as string) || "none"; m[t] = (m[t] || 0) + 1; } return m; })(),
+      avg_exam_relevance_score: questionBlueprints.length > 0 ? Math.round((questionBlueprints as Record<string, unknown>[]).reduce((s, b) => s + ((b.exam_relevance_score as number) || 0), 0) / questionBlueprints.length * 10) / 10 : 0,
+    };
+    zip.file("blueprints/quality_summary.json", JSON.stringify(bpQuality, null, 2));
+    console.log(`[export] Blueprint export: ${questionBlueprints.length} total, ${Object.keys(bpsByLf).length} LFs, quality: ${JSON.stringify(bpQuality)}`);
+
     // ── META / AUDIT DATA ──
     zip.file("meta/curriculum.json", JSON.stringify(curriculumFull || {}, null, 2));
     zip.file("meta/learning_fields.json", JSON.stringify(learningFields, null, 2));
