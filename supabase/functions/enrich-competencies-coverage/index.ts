@@ -113,6 +113,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
+  // Security gate: require job key
+  const jobKey = req.headers.get("x-examfit-job-key");
+  const expectedKey = Deno.env.get("CRON_SECRET");
+  if (!expectedKey || jobKey !== expectedKey) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -278,11 +285,16 @@ NICHT verwenden: ist, wird, hat, kann, soll, muss, darf, enthält, umfasst.`,
           );
           const verbs = Array.isArray(parsed) ? parsed : (parsed.verbs || []);
 
-          const aiUpdates: Array<{ id: string; action_verb: string }> = [];
+          const aiUpdates: Array<{ id: string; action_verb: string; action_verb_source: string }> = [];
+          const VERB_RE = /^[a-zäöüß]+$/;
           for (const v of verbs) {
-            if (v.id && v.verb && !STOP_VERBS.has(v.verb.toLowerCase())) {
-              aiUpdates.push({ id: v.id, action_verb: v.verb.toLowerCase() });
-            }
+            const verb = (v.verb || "").toLowerCase().trim();
+            if (!v.id || !verb) continue;
+            if (STOP_VERBS.has(verb)) continue;
+            if (verb.length < 4 || verb.length > 30) continue;
+            if (!VERB_RE.test(verb)) continue;
+            const source = ACTION_VERB_WHITELIST.has(verb) ? "ai_verified" : "ai_unverified";
+            aiUpdates.push({ id: v.id, action_verb: verb, action_verb_source: source });
           }
 
           if (aiUpdates.length) {
@@ -298,14 +310,31 @@ NICHT verwenden: ist, wird, hat, kann, soll, muss, darf, enthält, umfasst.`,
     }
 
     // ═══════════════════════════════════════
-    // SUMMARY — ❌ Bug 4 Fix: no empty RPC call
+    // SUMMARY — curriculum-scoped remaining counts
     // ═══════════════════════════════════════
-    const { count: missingBloom } = await sb
-      .from("competencies").select("id", { count: "exact", head: true }).is("bloom_level", null);
-    const { count: missingTier } = await sb
-      .from("competencies").select("id", { count: "exact", head: true }).is("exam_relevance_tier", null);
-    const { count: missingVerb } = await sb
-      .from("competencies").select("id", { count: "exact", head: true }).is("action_verb", null);
+    let missingBloom: number | null = 0;
+    let missingTier: number | null = 0;
+    let missingVerb: number | null = 0;
+
+    if (curriculumId) {
+      // Scoped counts via RPC (returns 0 candidates = 0 remaining)
+      const { data: rb } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "bloom_level", p_limit: 1 });
+      const { data: rt } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "exam_relevance_tier", p_limit: 1 });
+      const { data: rv } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "action_verb", p_limit: 1 });
+      // Use RPC with limit 10000 for accurate count when scoped
+      const { data: rbAll } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "bloom_level", p_limit: 10000 });
+      const { data: rtAll } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "exam_relevance_tier", p_limit: 10000 });
+      const { data: rvAll } = await sb.rpc("get_phase1_candidates", { p_curriculum_id: curriculumId, p_field: "action_verb", p_limit: 10000 });
+      missingBloom = rbAll?.length ?? 0;
+      missingTier = rtAll?.length ?? 0;
+      missingVerb = rvAll?.length ?? 0;
+    } else {
+      // Global counts
+      const { count: mb } = await sb.from("competencies").select("id", { count: "exact", head: true }).is("bloom_level", null);
+      const { count: mt } = await sb.from("competencies").select("id", { count: "exact", head: true }).is("exam_relevance_tier", null);
+      const { count: mv } = await sb.from("competencies").select("id", { count: "exact", head: true }).is("action_verb", null);
+      missingBloom = mb; missingTier = mt; missingVerb = mv;
+    }
 
     const summary = {
       ok: true,
