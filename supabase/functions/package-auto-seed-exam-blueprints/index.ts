@@ -622,16 +622,26 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
 
   console.log(`[SeedV4] Done: +${insertedCount} new, ${upgradedCount} upgraded, health=${health.health_score}/100 (${health.grade}), AI calls=${aiCallCount}`);
 
+  // ── ZERO-WRITE GUARD ──────────────────────────────────────────────
+  // If AI was called but nothing persisted → hard fail so Runner marks
+  // step as failed instead of silently completing with 0 output.
+  const totalExisting = (existingBps || []).length;
+  if (aiCallCount > 0 && insertedCount === 0 && upgradedCount === 0 && totalExisting === 0) {
+    const msg = `SEED_ZERO_WRITE: ${aiCallCount} AI calls but 0 blueprints persisted. Likely schema mismatch or constraint violation.`;
+    console.error(`[SeedV4] ${msg}`);
+    return json({ ok: false, error: msg, ai_calls: aiCallCount, batch_complete: false }, 500);
+  }
+
   return json({
     ok: true,
     seeded: insertedCount,
     upgraded: upgradedCount,
-    existing: (existingBps || []).length,
+    existing: totalExisting,
     ai_calls: aiCallCount,
     beruf: berufName,
     source: comps?.length ? "competencies" : "learning_fields",
     health,
-    version: "4.0.0",
+    version: "4.0.1",
   });
 }
 
@@ -695,19 +705,14 @@ function buildBlueprintRow(
     didactic_intent: facet.didactic_intent,
     allowed_question_types: facet.question_types,
     decision_structure: facet.decision_structure,
-    question_template: tmpl.question_template,
-    explanation_template: tmpl.explanation_template,
-    typical_errors: tmpl.typical_errors,
-    trap_spec: tmpl.trap_spec,
+    trap_spec: {
+      ...(typeof tmpl.trap_spec === "object" && tmpl.trap_spec ? tmpl.trap_spec : {}),
+      difficulty_default: DIFFICULTY_BY_COGNITIVE[facet.cognitive],
+    },
     typical_exam_trap: tmpl.typical_exam_trap,
     exam_relevance_score: calcRelevanceScore(facet.cognitive),
     estimated_time_seconds: calcEstimatedTime(facet.cognitive),
     real_world_context: facet.cognitive !== "remember",
-    // v4: exam_part + difficulty stored in existing JSONB columns (no 'metadata' column)
-    trap_spec: {
-      ...tmpl.trap_spec,
-      difficulty_default: DIFFICULTY_BY_COGNITIVE[facet.cognitive],
-    },
     oral_extension: examPart ? { exam_part: examPart } : null,
     status: "draft",  // GOVERNANCE: Only Council/RPC may set 'approved'
     version: "4.0.0",
