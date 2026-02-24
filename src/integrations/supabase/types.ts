@@ -15545,6 +15545,7 @@ export type Database = {
           rpc_name: string
           signature_hash: string | null
           successor_rpc: string | null
+          updated_at: string
           version: number
         }
         Insert: {
@@ -15556,6 +15557,7 @@ export type Database = {
           rpc_name: string
           signature_hash?: string | null
           successor_rpc?: string | null
+          updated_at?: string
           version?: number
         }
         Update: {
@@ -15567,6 +15569,7 @@ export type Database = {
           rpc_name?: string
           signature_hash?: string | null
           successor_rpc?: string | null
+          updated_at?: string
           version?: number
         }
         Relationships: []
@@ -15696,6 +15699,7 @@ export type Database = {
           last_verified_at: string | null
           required_migration: string
           updated_at: string
+          verified_cycle: string | null
           verified_ok: boolean | null
         }
         Insert: {
@@ -15705,6 +15709,7 @@ export type Database = {
           last_verified_at?: string | null
           required_migration: string
           updated_at?: string
+          verified_cycle?: string | null
           verified_ok?: boolean | null
         }
         Update: {
@@ -15714,6 +15719,7 @@ export type Database = {
           last_verified_at?: string | null
           required_migration?: string
           updated_at?: string
+          verified_cycle?: string | null
           verified_ok?: boolean | null
         }
         Relationships: []
@@ -21729,10 +21735,18 @@ export type Database = {
         Args: { max_active?: number }
         Returns: string
       }
-      pipeline_write_lesson_content: {
-        Args: { p_content: Json; p_lesson_id: string }
-        Returns: undefined
-      }
+      pipeline_write_lesson_content:
+        | { Args: { p_content: Json; p_lesson_id: string }; Returns: undefined }
+        | {
+            Args: {
+              p_lesson_id: string
+              p_metadata?: Json
+              p_practice_md?: string
+              p_theory_md: string
+              p_title: string
+            }
+            Returns: undefined
+          }
       pipeline_write_lesson_content_v2: {
         Args: { p_content: Json; p_lesson_id: string; p_source?: string }
         Returns: undefined
@@ -22309,7 +22323,7 @@ export type Database = {
         Args: {
           p_area: string
           p_description: string
-          p_evidence: Json
+          p_evidence?: Json
           p_qa_run_id?: string
           p_severity: Database["public"]["Enums"]["qa_severity"]
           p_title: string
