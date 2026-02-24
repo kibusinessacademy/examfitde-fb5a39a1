@@ -15577,6 +15577,102 @@ export type Database = {
         }
         Relationships: []
       }
+      schema_contracts: {
+        Row: {
+          contract_type: string
+          created_at: string
+          description: string | null
+          entity_name: string
+          expected_spec: Json
+          id: string
+          is_critical: boolean
+        }
+        Insert: {
+          contract_type: string
+          created_at?: string
+          description?: string | null
+          entity_name: string
+          expected_spec?: Json
+          id?: string
+          is_critical?: boolean
+        }
+        Update: {
+          contract_type?: string
+          created_at?: string
+          description?: string | null
+          entity_name?: string
+          expected_spec?: Json
+          id?: string
+          is_critical?: boolean
+        }
+        Relationships: []
+      }
+      schema_drift_log: {
+        Row: {
+          actual: string | null
+          check_source: string
+          detected_at: string
+          drift_type: string
+          entity_name: string
+          expected: string | null
+          id: string
+          is_critical: boolean
+          resolved_at: string | null
+        }
+        Insert: {
+          actual?: string | null
+          check_source?: string
+          detected_at?: string
+          drift_type: string
+          entity_name: string
+          expected?: string | null
+          id?: string
+          is_critical?: boolean
+          resolved_at?: string | null
+        }
+        Update: {
+          actual?: string | null
+          check_source?: string
+          detected_at?: string
+          drift_type?: string
+          entity_name?: string
+          expected?: string | null
+          id?: string
+          is_critical?: boolean
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
+      schema_version_ledger: {
+        Row: {
+          created_at: string
+          function_name: string
+          id: string
+          last_verified_at: string | null
+          required_migration: string
+          updated_at: string
+          verified_ok: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          function_name: string
+          id?: string
+          last_verified_at?: string | null
+          required_migration: string
+          updated_at?: string
+          verified_ok?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          function_name?: string
+          id?: string
+          last_verified_at?: string | null
+          required_migration?: string
+          updated_at?: string
+          verified_ok?: boolean | null
+        }
+        Relationships: []
+      }
       seat_device_log: {
         Row: {
           created_at: string
@@ -20603,6 +20699,7 @@ export type Database = {
         Args: { p_curriculum_id: string; p_package_id: string }
         Returns: Json
       }
+      check_schema_drift: { Args: never; Returns: Json }
       check_simulation_gate: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json

@@ -186,6 +186,51 @@ async function uatTests(_supabaseUrl: string, _anonKey: string, serviceKey: stri
   return results;
 }
 
+// ─── SCHEMA CONTRACT TESTS ───
+async function schemaContractTests(serviceKey: string): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const sb = createClient(supabaseUrl, serviceKey);
+
+  results.push(await runTest("Schema drift check RPC callable", "schema.contracts", async () => {
+    const { data, error } = await sb.rpc("check_schema_drift");
+    assert(!error, `RPC error: ${error?.message}`);
+    assert(data !== null && data !== undefined, "RPC returned null");
+    assert(typeof data.drift_count === "number", "drift_count missing");
+  }));
+
+  results.push(await runTest("No critical schema drifts", "schema.contracts", async () => {
+    const { data, error } = await sb.rpc("check_schema_drift");
+    assert(!error, `RPC error: ${error?.message}`);
+    const criticals = data?.critical_count ?? 0;
+    assert(criticals === 0, `${criticals} critical drift(s): ${JSON.stringify(data?.drifts?.filter((d: any) => d.critical))}`);
+  }));
+
+  results.push(await runTest("Schema contracts seeded", "schema.contracts", async () => {
+    const { count, error } = await sb.from("schema_contracts").select("id", { count: "exact", head: true });
+    assert(!error, `Query failed: ${error?.message}`);
+    assert((count || 0) >= 10, `Only ${count} contracts – expected ≥10 critical contracts`);
+  }));
+
+  results.push(await runTest("Content governance columns exist", "schema.contracts", async () => {
+    const { data } = await sb.rpc("check_schema_drift");
+    const drifts = data?.drifts ?? [];
+    const contentDrifts = drifts.filter((d: any) => 
+      d.entity?.startsWith("content_versions.") && d.critical
+    );
+    assert(contentDrifts.length === 0, `Content governance drift: ${JSON.stringify(contentDrifts)}`);
+  }));
+
+  results.push(await runTest("Critical RPCs available", "schema.contracts", async () => {
+    const { data } = await sb.rpc("check_schema_drift");
+    const drifts = data?.drifts ?? [];
+    const rpcDrifts = drifts.filter((d: any) => d.type === "missing_rpc" && d.critical);
+    assert(rpcDrifts.length === 0, `Missing RPCs: ${rpcDrifts.map((d: any) => d.entity).join(", ")}`);
+  }));
+
+  return results;
+}
+
 // ─── Main Handler ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -224,6 +269,7 @@ Deno.serve(async (req) => {
     if (suite === "smoke" || suite === "all") results.push(...await smokeTests(supabaseUrl, anonKey, serviceKey));
     if (suite === "sanity" || suite === "all") results.push(...await sanityTests(supabaseUrl, anonKey, serviceKey));
     if (suite === "uat" || suite === "all") results.push(...await uatTests(supabaseUrl, anonKey, serviceKey));
+    if (suite === "schema" || suite === "all") results.push(...await schemaContractTests(serviceKey));
 
     const totalMs = Date.now() - startTime;
     const passed = results.filter(r => r.status === "passed").length;
