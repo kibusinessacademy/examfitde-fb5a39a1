@@ -1,0 +1,190 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { callAI } from "../_shared/ai-client.ts";
+
+const BATCH_SIZE = 15;
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+
+  const body = await req.json().catch(() => ({}));
+  const curriculumId = body.curriculum_id;
+  const batchSize = body.batch_size || BATCH_SIZE;
+  const maxBatches = body.max_batches || 5;
+
+  try {
+    // 1) Load unenriched competencies
+    let query = sb
+      .from("competencies")
+      .select("id, title, description, taxonomy_level, bloom_level, code, learning_field_id")
+      .is("action_verb", null)
+      .order("created_at")
+      .limit(batchSize * maxBatches);
+
+    if (curriculumId) {
+      const { data: lfIds } = await sb
+        .from("learning_fields")
+        .select("id")
+        .eq("curriculum_id", curriculumId);
+      if (lfIds?.length) {
+        query = query.in("learning_field_id", lfIds.map((lf: any) => lf.id));
+      }
+    }
+
+    const { data: competencies, error: compErr } = await query;
+    if (compErr) throw compErr;
+    if (!competencies?.length) return json({ ok: true, enriched: 0, message: "All competencies already enriched" });
+
+    // 2) Load LF + curriculum context
+    const lfIds = [...new Set(competencies.map((c: any) => c.learning_field_id))];
+    const { data: lfs } = await sb
+      .from("learning_fields")
+      .select("id, title, exam_part, curriculum_id")
+      .in("id", lfIds);
+    const lfMap = new Map((lfs || []).map((lf: any) => [lf.id, lf]));
+
+    const curIds = [...new Set((lfs || []).map((lf: any) => lf.curriculum_id))];
+    const { data: curricula } = await sb
+      .from("curricula")
+      .select("id, title")
+      .in("id", curIds);
+    const curMap = new Map((curricula || []).map((c: any) => [c.id, c.title]));
+
+    // 3) Process in batches
+    let totalEnriched = 0;
+    const results: any[] = [];
+
+    for (let i = 0; i < competencies.length; i += batchSize) {
+      const batch = competencies.slice(i, i + batchSize);
+
+      const compList = batch.map((c: any) => {
+        const lf = lfMap.get(c.learning_field_id);
+        const curTitle = lf ? curMap.get(lf.curriculum_id) : "Unbekannt";
+        return {
+          id: c.id,
+          title: c.title,
+          description: c.description,
+          bloom_level: c.bloom_level || "understand",
+          lf_title: lf?.title || "",
+          exam_part: lf?.exam_part || "",
+          curriculum: curTitle,
+        };
+      });
+
+      const systemPrompt = `Du bist ein IHK-Prüfungsexperte und Didaktik-Spezialist.
+Deine Aufgabe: Bestehende Kompetenzbeschreibungen auf Elite-Prüfungsniveau anheben.
+
+Für JEDE Kompetenz lieferst du ein Objekt mit:
+1. "id": Die übergebene UUID (unverändert!)
+2. "action_verb": Das zentrale Handlungsverb (z.B. "konfiguriert", "berechnet", "bewertet")
+3. "context_conditions": Rahmenbedingungen/Kontext (z.B. "unter Berücksichtigung von Datenschutzrichtlinien und typischen Sicherheitslücken")
+4. "typical_misconceptions": Array mit 3-5 typischen Denkfehlern/Irrtümern bei dieser Kompetenz
+5. "exam_relevance_tier": "core" | "important" | "supplementary"
+6. "transfer_markers": Array mit Transferbezügen (z.B. ["Praxisfall", "Fehleranalyse", "Wirtschaftlichkeit"])
+7. "enhanced_description": Verbesserte Beschreibung: "[Person] [Handlungsverb] [Objekt] unter Berücksichtigung von [Rahmenbedingungen] und typischen Fehlerquellen [Beispiele]."
+
+REGELN:
+- Formulierung MUSS handlungsorientiert sein
+- Misconceptions müssen REALISTISCH sein (echte IHK-Prüfungsfehler)
+- Kontext muss BERUFSSPEZIFISCH sein
+- Transfer-Marker müssen zur Bloom-Stufe passen
+
+Antworte NUR als JSON: {"enrichments": [{...}, ...]}`;
+
+      const userPrompt = `Enriche diese ${batch.length} Kompetenzen:\n${JSON.stringify(compList, null, 2)}`;
+
+      try {
+        const aiResp = await callAI({
+          provider: "lovable",
+          model: "openai/gpt-5-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.5,
+        });
+
+        if (!aiResp.ok) {
+          const errText = await aiResp.raw.text();
+          results.push({ batch: i / batchSize + 1, status: "ai_error", error: errText.slice(0, 200) });
+          continue;
+        }
+
+        const aiData = await aiResp.raw.json();
+        const content = aiData.choices?.[0]?.message?.content || aiData.content?.[0]?.text || "";
+
+        let enrichments: any[];
+        try {
+          const parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+          enrichments = Array.isArray(parsed) ? parsed : (parsed.enrichments || []);
+        } catch {
+          results.push({ batch: i / batchSize + 1, status: "parse_error", raw: content.slice(0, 200) });
+          continue;
+        }
+
+        // 4) Update each competency
+        let batchUpdated = 0;
+        for (const e of enrichments) {
+          if (!e.id) continue;
+
+          const updateData: Record<string, any> = {};
+          if (e.action_verb) updateData.action_verb = e.action_verb;
+          if (e.context_conditions) updateData.context_conditions = e.context_conditions;
+          if (Array.isArray(e.typical_misconceptions) && e.typical_misconceptions.length)
+            updateData.typical_misconceptions = e.typical_misconceptions;
+          if (e.exam_relevance_tier) updateData.exam_relevance_tier = e.exam_relevance_tier;
+          if (Array.isArray(e.transfer_markers) && e.transfer_markers.length)
+            updateData.transfer_markers = e.transfer_markers;
+          if (e.enhanced_description) updateData.description = e.enhanced_description;
+
+          if (Object.keys(updateData).length > 0) {
+            const { error: upErr } = await sb.from("competencies").update(updateData).eq("id", e.id);
+            if (!upErr) batchUpdated++;
+          }
+        }
+
+        totalEnriched += batchUpdated;
+        results.push({ batch: i / batchSize + 1, status: "ok", enriched: batchUpdated, total: batch.length });
+      } catch (aiErr: unknown) {
+        results.push({ batch: i / batchSize + 1, status: "error", error: (aiErr as Error)?.message?.slice(0, 200) });
+        continue;
+      }
+    }
+
+    // 5) Count remaining
+    const { count: remaining } = await sb
+      .from("competencies")
+      .select("id", { count: "exact", head: true })
+      .is("action_verb", null);
+
+    console.log(`[CompEnrich] +${totalEnriched} enriched, ${remaining} remaining`);
+
+    return json({
+      ok: true,
+      enriched: totalEnriched,
+      total_processed: competencies.length,
+      remaining: remaining || 0,
+      batches: results,
+    });
+  } catch (e: unknown) {
+    console.error(`[CompEnrich] Error: ${(e as Error)?.message}`);
+    return json({ ok: false, error: (e as Error)?.message || String(e) }, 500);
+  }
+});
