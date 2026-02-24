@@ -173,12 +173,42 @@ export async function loadOrGenerateGlossary(
         const cleaned = fallbackMatch[0].replace(/,\s*([\]}])/g, "$1");
         glossary = JSON.parse(cleaned);
       } catch {
-        console.error("[glossary-loader] All parse attempts failed. Raw (first 500):", rawContent.slice(0, 500));
-        throw new Error("GLOSSARY_PARSE_ERROR: Could not parse AI-generated glossary");
+        // Layer 7: RAW TEXT FALLBACK — use unparsed content as free-text glossary
+        // instead of returning empty context (which causes LLM drift into generic/medical terms)
+        console.warn("[glossary-loader] All JSON parse attempts failed — using raw text fallback. Raw (first 500):", rawContent.slice(0, 500));
+        const rawFallback: Omit<ProfessionGlossary, "professionName"> = {
+          fachbegriffe: { "Rohtext": rawContent.slice(0, 2000).split(/[,\n]/).map(s => s.trim()).filter(s => s.length > 2 && s.length < 80).slice(0, 50) },
+          formeln: [],
+          pruefungsfallen: [],
+          szenarien: [],
+          rechenbeispiele: [],
+          branchenspezifisch: { typische_akteure: [], arbeitsumgebungen: [], dokumente: [], werkzeuge_software: [] },
+        };
+        // Cache the raw fallback so we don't keep retrying
+        const tokenCount = (aiResult.usage?.input_tokens || 0) + (aiResult.usage?.output_tokens || 0);
+        await sb.from("profession_glossaries").insert({
+          beruf_id: berufId, profession_name: professionName,
+          glossary: rawFallback, token_count: tokenCount,
+        });
+        return { professionName, ...rawFallback };
       }
     } else {
-      console.error("[glossary-loader] No JSON structure found. Raw (first 500):", rawContent.slice(0, 500));
-      throw new Error("GLOSSARY_PARSE_ERROR: No valid JSON in AI response");
+      // No JSON structure at all — build minimal fallback from raw text
+      console.warn("[glossary-loader] No JSON structure found — raw text fallback. Raw (first 500):", rawContent.slice(0, 500));
+      const rawFallback: Omit<ProfessionGlossary, "professionName"> = {
+        fachbegriffe: { "Rohtext": rawContent.slice(0, 2000).split(/[,\n]/).map(s => s.trim()).filter(s => s.length > 2 && s.length < 80).slice(0, 50) },
+        formeln: [],
+        pruefungsfallen: [],
+        szenarien: [],
+        rechenbeispiele: [],
+        branchenspezifisch: { typische_akteure: [], arbeitsumgebungen: [], dokumente: [], werkzeuge_software: [] },
+      };
+      const tokenCount = (aiResult.usage?.input_tokens || 0) + (aiResult.usage?.output_tokens || 0);
+      await sb.from("profession_glossaries").insert({
+        beruf_id: berufId, profession_name: professionName,
+        glossary: rawFallback, token_count: tokenCount,
+      });
+      return { professionName, ...rawFallback };
     }
   }
 
