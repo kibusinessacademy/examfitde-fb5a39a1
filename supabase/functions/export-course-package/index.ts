@@ -408,7 +408,7 @@ Deno.serve(async (req) => {
         while (true) {
           const { data: batch } = await sb
             .from("exam_sessions")
-            .select("id, user_id, curriculum_id, mode, total_questions, score_percentage, passed, started_at, finished_at, learning_field_weights, difficulty_distribution, created_at")
+            .select("id, curriculum_id, mode, total_questions, score_percentage, passed, started_at, finished_at, learning_field_weights, difficulty_distribution, created_at")
             .eq("curriculum_id", curriculumId)
             .order("created_at", { ascending: false })
             .range(offset, offset + pageSize - 1);
@@ -515,17 +515,21 @@ Deno.serve(async (req) => {
     if (aiGenerations.length > 0) {
       try {
         const genIds = (aiGenerations as Record<string, unknown>[]).map(g => g.id as string);
-        const pageSize = 500;
-        let offset = 0;
-        while (true) {
-          const { data: batch } = await sb.from("ai_validations")
-            .select("id, generation_id, validator_model, validation_mode, overall_score, decision, dimension_scores, critical_issues, improvements, cost_eur, validated_at")
-            .in("generation_id", genIds.slice(0, 200)) // limit to avoid query size issues
-            .range(offset, offset + pageSize - 1);
-          if (!batch || batch.length === 0) break;
-          aiValidations.push(...batch);
-          if (batch.length < pageSize) break;
-          offset += pageSize;
+        const chunkSize = 200;
+        for (let ci = 0; ci < genIds.length; ci += chunkSize) {
+          const chunk = genIds.slice(ci, ci + chunkSize);
+          const pageSize = 500;
+          let offset = 0;
+          while (true) {
+            const { data: batch } = await sb.from("ai_validations")
+              .select("id, generation_id, validator_model, validation_mode, overall_score, decision, dimension_scores, critical_issues, improvements, cost_eur, validated_at")
+              .in("generation_id", chunk)
+              .range(offset, offset + pageSize - 1);
+            if (!batch || batch.length === 0) break;
+            aiValidations.push(...batch);
+            if (batch.length < pageSize) break;
+            offset += pageSize;
+          }
         }
       } catch (_e) { /* best-effort */ }
     }
@@ -536,11 +540,15 @@ Deno.serve(async (req) => {
     if (aiGenerations.length > 0) {
       try {
         const genIds = (aiGenerations as Record<string, unknown>[]).map(g => g.id as string);
-        const { data } = await sb.from("ai_quality_gates")
-          .select("*")
-          .in("generation_id", genIds.slice(0, 200))
-          .order("created_at", { ascending: false });
-        qualityGates = data || [];
+        const chunkSize = 200;
+        for (let ci = 0; ci < genIds.length; ci += chunkSize) {
+          const chunk = genIds.slice(ci, ci + chunkSize);
+          const { data } = await sb.from("ai_quality_gates")
+            .select("*")
+            .in("generation_id", chunk)
+            .order("created_at", { ascending: false });
+          if (data) qualityGates.push(...data);
+        }
       } catch (_e) { /* best-effort */ }
     }
     console.log(`[export] ${qualityGates.length} quality gates`);
@@ -716,18 +724,22 @@ Deno.serve(async (req) => {
         const { data: lessonIds } = await sb.from("lessons").select("id").in("module_id", moduleIds);
         if (lessonIds?.length) {
           const ids = lessonIds.map((l: any) => l.id as string);
-          const pageSize = 500;
-          let offset = 0;
-          while (true) {
-            const { data: batch } = await sb.from("content_versions")
-              .select("id, lesson_id, version_number, status, published_at, published_by, verdict, created_at, agent")
-              .in("lesson_id", ids.slice(0, 200))
-              .order("created_at", { ascending: false })
-              .range(offset, offset + pageSize - 1);
-            if (!batch || batch.length === 0) break;
-            contentVersions.push(...batch);
-            if (batch.length < pageSize) break;
-            offset += pageSize;
+          const chunkSize = 200;
+          for (let ci = 0; ci < ids.length; ci += chunkSize) {
+            const chunk = ids.slice(ci, ci + chunkSize);
+            const pageSize = 500;
+            let offset = 0;
+            while (true) {
+              const { data: batch } = await sb.from("content_versions")
+                .select("id, lesson_id, version_number, status, published_at, published_by, verdict, created_at, agent")
+                .in("lesson_id", chunk)
+                .order("created_at", { ascending: false })
+                .range(offset, offset + pageSize - 1);
+              if (!batch || batch.length === 0) break;
+              contentVersions.push(...batch);
+              if (batch.length < pageSize) break;
+              offset += pageSize;
+            }
           }
         }
       } catch (_e) { /* best-effort */ }
@@ -762,14 +774,20 @@ Deno.serve(async (req) => {
       const bp = bpMap.get(q.blueprint_id as string);
       const comp = compMap.get(q.competency_id as string);
       const compLfId = comp ? (comp as Record<string, unknown>).learning_field_id as string : null;
-      const lf = lfMap.get((q.learning_field_id as string) || compLfId || "");
+      const qLfId = q.learning_field_id as string | null;
+      const resolvedLfId = qLfId || compLfId || null;
+      const lfMismatch = !!(qLfId && compLfId && qLfId !== compLfId);
+      const lf = lfMap.get(resolvedLfId || "");
       traceProtocol.push({
         question_id: q.id,
         blueprint_id: q.blueprint_id || null,
         blueprint_name: bp ? (bp as Record<string, unknown>).name : null,
         competency_id: q.competency_id || null,
         competency_title: comp ? (comp as Record<string, unknown>).title : null,
-        learning_field_id: q.learning_field_id || compLfId || null,
+        learning_field_id: resolvedLfId,
+        lf_from_question: qLfId || null,
+        lf_from_competency: compLfId || null,
+        lf_mismatch: lfMismatch,
         learning_field_title: lf ? (lf as Record<string, unknown>).title : null,
         variant_group: q.variant_group || null,
         variant_label: q.variant_label || null,
@@ -778,7 +796,7 @@ Deno.serve(async (req) => {
         cognitive_level: q.cognitive_level,
         has_blueprint: !!q.blueprint_id,
         has_competency: !!q.competency_id,
-        has_learning_field: !!(q.learning_field_id || compLfId),
+        has_learning_field: !!resolvedLfId,
       });
     }
     console.log(`[export] Trace protocol: ${traceProtocol.length} entries`);
@@ -802,18 +820,28 @@ Deno.serve(async (req) => {
       const compsWithoutQ = (competencies as Record<string, unknown>[]).filter(c => !compIdsWithQ.has(c.id as string));
       if (compsWithoutQ.length > 0) flags.push({ severity: "high", category: "coverage_gap", message: "Kompetenzen ohne Fragen", count: compsWithoutQ.length, details: compsWithoutQ.map(c => ({ id: c.id, title: c.title })) });
 
-      // 4. LFs with undercoverage (< 5% of total questions)
+      // 4. LFs with undercoverage (against LF weight targets, not flat 5%)
       const totalQ = allQuestions.length;
       const qByLf: Record<string, number> = {};
       for (const q of allQuestions as Record<string, unknown>[]) {
         const lfId = (q.learning_field_id as string) || "_none";
         qByLf[lfId] = (qByLf[lfId] || 0) + 1;
       }
+      // Use LF weight_percentage as target share; fallback to even distribution
+      const totalWeight = (learningFields as Record<string, unknown>[]).reduce((s, lf) => s + ((lf as any).weight_percentage || (lf as any).weight || 0), 0);
       const underCoveredLFs = (learningFields as Record<string, unknown>[]).filter(lf => {
         const count = qByLf[lf.id as string] || 0;
-        return totalQ > 0 && (count / totalQ) < 0.05;
+        const actualShare = totalQ > 0 ? count / totalQ : 0;
+        const lfWeight = ((lf as any).weight_percentage || (lf as any).weight || 0) as number;
+        const targetShare = totalWeight > 0 ? lfWeight / totalWeight : (1 / Math.max(learningFields.length, 1));
+        return totalQ > 0 && actualShare < targetShare * 0.6; // undercovered if actual < 60% of target
       });
-      if (underCoveredLFs.length > 0) flags.push({ severity: "high", category: "lf_undercoverage", message: "Lernfelder mit < 5% Fragenanteil", count: underCoveredLFs.length, details: underCoveredLFs.map(lf => ({ id: lf.id, title: lf.title, questions: qByLf[lf.id as string] || 0, percent: totalQ > 0 ? Math.round(((qByLf[lf.id as string] || 0) / totalQ) * 1000) / 10 : 0 })) });
+      if (underCoveredLFs.length > 0) flags.push({ severity: "high", category: "lf_undercoverage", message: "Lernfelder mit Unterdeckung (< 60% des Ziel-Anteils laut LF-Gewichtung)", count: underCoveredLFs.length, details: underCoveredLFs.map(lf => {
+        const count = qByLf[lf.id as string] || 0;
+        const lfWeight = ((lf as any).weight_percentage || (lf as any).weight || 0) as number;
+        const targetShare = totalWeight > 0 ? lfWeight / totalWeight : (1 / Math.max(learningFields.length, 1));
+        return { id: lf.id, title: lf.title, questions: count, actual_percent: totalQ > 0 ? Math.round((count / totalQ) * 1000) / 10 : 0, target_percent: Math.round(targetShare * 1000) / 10, gap_percent: Math.round((targetShare - (totalQ > 0 ? count / totalQ : 0)) * 1000) / 10 };
+      }) });
 
       // 5. Questions without blueprint_id
       const qNoBp = (allQuestions as Record<string, unknown>[]).filter(q => !q.blueprint_id).length;
@@ -824,9 +852,6 @@ Deno.serve(async (req) => {
       if (qNoComp > 0) flags.push({ severity: "medium", category: "traceability", message: "Fragen ohne competency_id", count: qNoComp, details: { percent: totalQ > 0 ? Math.round((qNoComp / totalQ) * 1000) / 10 : 0 } });
 
       // 7. Difficulty bias (> 60% same difficulty)
-      for (const [diff, count] of Object.entries(qByLf)) {
-        // already computed above, reuse diffDist below
-      }
       const diffDist: Record<string, number> = {};
       for (const q of allQuestions as Record<string, unknown>[]) {
         const d = (q.difficulty as string) || "unknown";
@@ -867,12 +892,13 @@ Deno.serve(async (req) => {
     // ── DIFFICULTY + LF DISTRIBUTION (separate files) ──
     // ══════════════════════════════════════════════════════
     const difficultyDistribution = (() => {
+      const isApproved = (q: Record<string, unknown>) => q.qc_status === "approved" || q.status === "approved";
       const dist: Record<string, { total: number; approved: number; draft: number }> = {};
       for (const q of allQuestions as Record<string, unknown>[]) {
         const d = (q.difficulty as string) || "unknown";
         if (!dist[d]) dist[d] = { total: 0, approved: 0, draft: 0 };
         dist[d].total++;
-        if (q.qc_status === "approved") dist[d].approved++;
+        if (isApproved(q)) dist[d].approved++;
         else dist[d].draft++;
       }
       const total = allQuestions.length;
@@ -887,6 +913,7 @@ Deno.serve(async (req) => {
     // ── Mastery Model ──
     const masteryModel = {
       model_type: "three_tier_competency",
+      has_runtime_mastery_data: false, // No user_progress/competency_mastery tables queried – static spec only
       thresholds: { not_mastered: { max_score: 0.6, label: "Nicht beherrscht" }, partial: { min_score: 0.6, max_score: 0.8, label: "Teilweise beherrscht" }, mastered: { min_score: 0.8, label: "Beherrscht" } },
       progression_rules: {
         lesson_completion: "All 5 didactic steps (einstieg → mini_check) completed",
