@@ -330,11 +330,12 @@ Deno.serve(async (req) => {
     }
     console.log(`[export] Collected ${allLessons.length} lessons (full content)`);
 
-    // ── ALL approved Exam Questions (paginated, no limit) ──
-    const questionSamples: unknown[] = [];
+    // ── ALL Exam Questions (paginated, no limit) ──
+    const allQuestions: unknown[] = [];
+    const approvedQuestions: unknown[] = [];
     const seenQuestionIds = new Set<string>();
     if (curriculumId) {
-      console.log(`[export] Collecting ALL approved exam questions for curriculum ${curriculumId}`);
+      console.log(`[export] Collecting ALL exam questions for curriculum ${curriculumId}`);
       try {
         const pageSize = 500;
         let offset = 0;
@@ -342,9 +343,8 @@ Deno.serve(async (req) => {
         while (true) {
           const { data: batch, error: qErr } = await sb
             .from("exam_questions")
-            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id, question_type, trap_tags, distractor_meta, variant_group, variant_label, item_difficulty, item_discrimination")
+            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id, question_type, trap_tags, distractor_meta, variant_group, variant_label, item_difficulty, item_discrimination, status, created_at, updated_at, metadata")
             .eq("curriculum_id", curriculumId)
-            .in("qc_status", ["approved", "draft"])
             .range(offset, offset + pageSize - 1);
           if (qErr) {
             console.log(`[export] Question query error at offset ${offset}: ${qErr.message}`);
@@ -358,7 +358,7 @@ Deno.serve(async (req) => {
               continue;
             }
             seenQuestionIds.add(qId);
-            questionSamples.push({
+            const qObj = {
               id: q.id,
               question_text: q.question_text,
               options: q.options,
@@ -368,6 +368,7 @@ Deno.serve(async (req) => {
               cognitive_level: q.cognitive_level,
               learning_field_id: q.learning_field_id,
               qc_status: q.qc_status,
+              status: q.status,
               blueprint_id: q.blueprint_id,
               competency_id: q.competency_id,
               question_type: q.question_type,
@@ -377,7 +378,14 @@ Deno.serve(async (req) => {
               variant_label: q.variant_label,
               item_difficulty: q.item_difficulty,
               item_discrimination: q.item_discrimination,
-            });
+              created_at: q.created_at,
+              updated_at: q.updated_at,
+              metadata: q.metadata,
+            };
+            allQuestions.push(qObj);
+            if (q.qc_status === "approved" || q.status === "approved") {
+              approvedQuestions.push(qObj);
+            }
           }
           if (batch.length < pageSize) break;
           offset += pageSize;
@@ -389,7 +397,29 @@ Deno.serve(async (req) => {
         console.log(`[export] Question export error: ${(e as Error).message}`);
       }
     }
-    console.log(`[export] Collected ${questionSamples.length} unique approved questions`);
+    console.log(`[export] Collected ${allQuestions.length} total questions, ${approvedQuestions.length} approved`);
+
+    // ── Exam Sessions (all simulation data) ──
+    const allExamSessions: unknown[] = [];
+    if (curriculumId) {
+      try {
+        const pageSize = 500;
+        let offset = 0;
+        while (true) {
+          const { data: batch } = await sb
+            .from("exam_sessions")
+            .select("id, user_id, curriculum_id, mode, total_questions, score_percentage, passed, started_at, finished_at, learning_field_weights, difficulty_distribution, created_at")
+            .eq("curriculum_id", curriculumId)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + pageSize - 1);
+          if (!batch || batch.length === 0) break;
+          allExamSessions.push(...batch);
+          if (batch.length < pageSize) break;
+          offset += pageSize;
+        }
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${allExamSessions.length} exam sessions`);
 
     // ── ALL AI Tutor Logs (paginated) ──
     const allTutorLogs: unknown[] = [];
@@ -677,32 +707,228 @@ Deno.serve(async (req) => {
       workerPolicies = data || [];
     } catch (_e) { /* best-effort */ }
 
-    // ── Build ZIP ──
+    // ══════════════════════════════════════════════════════
+    // ── 14. Content Versions / Publish Log ──
+    // ══════════════════════════════════════════════════════
+    let contentVersions: unknown[] = [];
+    if (cid && moduleIds.length > 0) {
+      try {
+        const { data: lessonIds } = await sb.from("lessons").select("id").in("module_id", moduleIds);
+        if (lessonIds?.length) {
+          const ids = lessonIds.map((l: any) => l.id as string);
+          const pageSize = 500;
+          let offset = 0;
+          while (true) {
+            const { data: batch } = await sb.from("content_versions")
+              .select("id, lesson_id, version_number, status, published_at, published_by, verdict, created_at, agent")
+              .in("lesson_id", ids.slice(0, 200))
+              .order("created_at", { ascending: false })
+              .range(offset, offset + pageSize - 1);
+            if (!batch || batch.length === 0) break;
+            contentVersions.push(...batch);
+            if (batch.length < pageSize) break;
+            offset += pageSize;
+          }
+        }
+      } catch (_e) { /* best-effort */ }
+    }
+    console.log(`[export] ${contentVersions.length} content versions`);
+
+    // ── 15. MiniChecks (extracted from lessons) ──
+    const minichecks: unknown[] = [];
+    for (const l of allLessons as Record<string, unknown>[]) {
+      if (l.minicheck_parsed || l.step === "mini_check") {
+        minichecks.push({
+          lesson_id: l.lesson_id,
+          lesson_title: l.title,
+          module_id: l.module_id,
+          learning_field_id: l.learning_field_id,
+          competency_id: l.competency_id,
+          minicheck_data: l.minicheck_parsed,
+          mastery_weight: l.mastery_weight,
+        });
+      }
+    }
+    console.log(`[export] ${minichecks.length} minichecks extracted`);
+
+    // ══════════════════════════════════════════════════════
+    // ── TRACEABILITY PROTOCOL (question → blueprint → competency → LF) ──
+    // ══════════════════════════════════════════════════════
+    const traceProtocol: unknown[] = [];
+    const bpMap = new Map((questionBlueprints as Record<string, unknown>[]).map(b => [b.id as string, b]));
+    const compMap = new Map((competencies as Record<string, unknown>[]).map(c => [c.id as string, c]));
+    const lfMap = new Map((learningFields as Record<string, unknown>[]).map(lf => [lf.id as string, lf]));
+    for (const q of allQuestions as Record<string, unknown>[]) {
+      const bp = bpMap.get(q.blueprint_id as string);
+      const comp = compMap.get(q.competency_id as string);
+      const compLfId = comp ? (comp as Record<string, unknown>).learning_field_id as string : null;
+      const lf = lfMap.get((q.learning_field_id as string) || compLfId || "");
+      traceProtocol.push({
+        question_id: q.id,
+        blueprint_id: q.blueprint_id || null,
+        blueprint_name: bp ? (bp as Record<string, unknown>).name : null,
+        competency_id: q.competency_id || null,
+        competency_title: comp ? (comp as Record<string, unknown>).title : null,
+        learning_field_id: q.learning_field_id || compLfId || null,
+        learning_field_title: lf ? (lf as Record<string, unknown>).title : null,
+        variant_group: q.variant_group || null,
+        variant_label: q.variant_label || null,
+        qc_status: q.qc_status,
+        difficulty: q.difficulty,
+        cognitive_level: q.cognitive_level,
+        has_blueprint: !!q.blueprint_id,
+        has_competency: !!q.competency_id,
+        has_learning_field: !!(q.learning_field_id || compLfId),
+      });
+    }
+    console.log(`[export] Trace protocol: ${traceProtocol.length} entries`);
+
+    // ══════════════════════════════════════════════════════
+    // ── RED-FLAG REPORT ──
+    // ══════════════════════════════════════════════════════
+    const redFlags: Record<string, unknown> = (() => {
+      const flags: { severity: string; category: string; message: string; count: number; details?: unknown }[] = [];
+
+      // 1. Blueprints without templates
+      const bpsNoTemplate = (questionBlueprints as Record<string, unknown>[]).filter(b => !b.question_template || (b.question_template as string).trim() === "");
+      if (bpsNoTemplate.length > 0) flags.push({ severity: "critical", category: "blueprint_quality", message: "Blueprints ohne question_template", count: bpsNoTemplate.length, details: bpsNoTemplate.map(b => ({ id: b.id, name: b.name })) });
+
+      // 2. Blueprints without traps
+      const bpsNoTraps = (questionBlueprints as Record<string, unknown>[]).filter(b => !b.typical_exam_trap && (!b.typical_errors || !Array.isArray(b.typical_errors) || (b.typical_errors as unknown[]).length === 0));
+      if (bpsNoTraps.length > 0) flags.push({ severity: "critical", category: "blueprint_quality", message: "Blueprints ohne Traps/typical_errors", count: bpsNoTraps.length });
+
+      // 3. Competencies without questions
+      const compIdsWithQ = new Set((allQuestions as Record<string, unknown>[]).map(q => q.competency_id as string).filter(Boolean));
+      const compsWithoutQ = (competencies as Record<string, unknown>[]).filter(c => !compIdsWithQ.has(c.id as string));
+      if (compsWithoutQ.length > 0) flags.push({ severity: "high", category: "coverage_gap", message: "Kompetenzen ohne Fragen", count: compsWithoutQ.length, details: compsWithoutQ.map(c => ({ id: c.id, title: c.title })) });
+
+      // 4. LFs with undercoverage (< 5% of total questions)
+      const totalQ = allQuestions.length;
+      const qByLf: Record<string, number> = {};
+      for (const q of allQuestions as Record<string, unknown>[]) {
+        const lfId = (q.learning_field_id as string) || "_none";
+        qByLf[lfId] = (qByLf[lfId] || 0) + 1;
+      }
+      const underCoveredLFs = (learningFields as Record<string, unknown>[]).filter(lf => {
+        const count = qByLf[lf.id as string] || 0;
+        return totalQ > 0 && (count / totalQ) < 0.05;
+      });
+      if (underCoveredLFs.length > 0) flags.push({ severity: "high", category: "lf_undercoverage", message: "Lernfelder mit < 5% Fragenanteil", count: underCoveredLFs.length, details: underCoveredLFs.map(lf => ({ id: lf.id, title: lf.title, questions: qByLf[lf.id as string] || 0, percent: totalQ > 0 ? Math.round(((qByLf[lf.id as string] || 0) / totalQ) * 1000) / 10 : 0 })) });
+
+      // 5. Questions without blueprint_id
+      const qNoBp = (allQuestions as Record<string, unknown>[]).filter(q => !q.blueprint_id).length;
+      if (qNoBp > 0) flags.push({ severity: "medium", category: "traceability", message: "Fragen ohne blueprint_id (nicht rückverfolgbar)", count: qNoBp, details: { percent: totalQ > 0 ? Math.round((qNoBp / totalQ) * 1000) / 10 : 0 } });
+
+      // 6. Questions without competency_id
+      const qNoComp = (allQuestions as Record<string, unknown>[]).filter(q => !q.competency_id).length;
+      if (qNoComp > 0) flags.push({ severity: "medium", category: "traceability", message: "Fragen ohne competency_id", count: qNoComp, details: { percent: totalQ > 0 ? Math.round((qNoComp / totalQ) * 1000) / 10 : 0 } });
+
+      // 7. Difficulty bias (> 60% same difficulty)
+      for (const [diff, count] of Object.entries(qByLf)) {
+        // already computed above, reuse diffDist below
+      }
+      const diffDist: Record<string, number> = {};
+      for (const q of allQuestions as Record<string, unknown>[]) {
+        const d = (q.difficulty as string) || "unknown";
+        diffDist[d] = (diffDist[d] || 0) + 1;
+      }
+      for (const [diff, count] of Object.entries(diffDist)) {
+        if (totalQ > 20 && (count / totalQ) > 0.6) {
+          flags.push({ severity: "high", category: "difficulty_bias", message: `Difficulty-Bias: > 60% der Fragen sind '${diff}'`, count, details: { percent: Math.round((count / totalQ) * 1000) / 10 } });
+        }
+      }
+
+      // 8. "Fake approved" (approved but no approved_at on blueprint)
+      const approvedBpsNoAudit = (questionBlueprints as Record<string, unknown>[]).filter(b => b.status === "approved" && !b.approved_at);
+      if (approvedBpsNoAudit.length > 0) flags.push({ severity: "critical", category: "governance", message: "Blueprints 'approved' ohne approved_at (Fake-Approval)", count: approvedBpsNoAudit.length });
+
+      // 9. Similarity clusters (variant_group with > 10 questions)
+      const variantGroups: Record<string, number> = {};
+      for (const q of allQuestions as Record<string, unknown>[]) {
+        const vg = q.variant_group as string;
+        if (vg) variantGroups[vg] = (variantGroups[vg] || 0) + 1;
+      }
+      const largeGroups = Object.entries(variantGroups).filter(([_, c]) => c > 10);
+      if (largeGroups.length > 0) flags.push({ severity: "low", category: "similarity", message: "Varianten-Cluster mit > 10 Fragen (Duplikat-Risiko)", count: largeGroups.length, details: largeGroups.map(([g, c]) => ({ variant_group: g, count: c })) });
+
+      return {
+        generated_at: new Date().toISOString(),
+        total_flags: flags.length,
+        critical: flags.filter(f => f.severity === "critical").length,
+        high: flags.filter(f => f.severity === "high").length,
+        medium: flags.filter(f => f.severity === "medium").length,
+        low: flags.filter(f => f.severity === "low").length,
+        flags,
+      };
+    })();
+    console.log(`[export] Red flags: ${(redFlags as any).total_flags} (${(redFlags as any).critical} critical)`);
+
+    // ══════════════════════════════════════════════════════
+    // ── DIFFICULTY + LF DISTRIBUTION (separate files) ──
+    // ══════════════════════════════════════════════════════
+    const difficultyDistribution = (() => {
+      const dist: Record<string, { total: number; approved: number; draft: number }> = {};
+      for (const q of allQuestions as Record<string, unknown>[]) {
+        const d = (q.difficulty as string) || "unknown";
+        if (!dist[d]) dist[d] = { total: 0, approved: 0, draft: 0 };
+        dist[d].total++;
+        if (q.qc_status === "approved") dist[d].approved++;
+        else dist[d].draft++;
+      }
+      const total = allQuestions.length;
+      return {
+        total_questions: total,
+        distribution: dist,
+        percentages: Object.fromEntries(Object.entries(dist).map(([k, v]) => [k, { percent: total > 0 ? Math.round((v.total / total) * 1000) / 10 : 0, ...v }])),
+        target: { easy: "10-20%", medium: "40-60%", hard: "25-40%" },
+      };
+    })();
+
+    // ── Mastery Model ──
+    const masteryModel = {
+      model_type: "three_tier_competency",
+      thresholds: { not_mastered: { max_score: 0.6, label: "Nicht beherrscht" }, partial: { min_score: 0.6, max_score: 0.8, label: "Teilweise beherrscht" }, mastered: { min_score: 0.8, label: "Beherrscht" } },
+      progression_rules: {
+        lesson_completion: "All 5 didactic steps (einstieg → mini_check) completed",
+        minicheck_threshold: "Score >= 70% to advance",
+        mastery_update: "Weighted average of minicheck scores + exam performance",
+      },
+      didactic_steps: ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"],
+      competencies_total: competencies.length,
+    };
+
+    // ══════════════════════════════════════════════════════
+    // ── BUILD ZIP (v5.0 Critical Audit) ──
+    // ══════════════════════════════════════════════════════
     const zip = new JSZip();
-    zip.file("package.json", JSON.stringify(pkg, null, 2));
-    zip.file("plan.json", JSON.stringify(plan || {}, null, 2));
-    zip.file("steps.json", JSON.stringify(steps || [], null, 2));
-    zip.file("handbook.md", handbookMd);
-    zip.file("handbook_structured.json", JSON.stringify(handbookStructured, null, 2));
-    zip.file("oral_exam/sessionsets.json", JSON.stringify(oralSessionsets || [], null, 2));
-    zip.file("oral_exam/blueprints.json", JSON.stringify(oralBlueprints, null, 2));
-    zip.file("oral_exam/session_templates.json", JSON.stringify(oralSessionTemplates, null, 2));
-    zip.file("oral_exam/sessions_all.json", JSON.stringify(allOralSessions, null, 2));
-    zip.file("tutor/context_indices.json", JSON.stringify(tutorIndices || [], null, 2));
-    zip.file("tutor/policies.json", JSON.stringify(tutorPolicies, null, 2));
-    zip.file("tutor/logs_all.json", JSON.stringify(allTutorLogs, null, 2));
-    zip.file("questions_summary.json", JSON.stringify(questionsSummary, null, 2));
-    zip.file("course_snapshot.json", JSON.stringify(courseSnapshot || {}, null, 2));
 
-    // Content (full course data for audit)
-    zip.file("content/lessons_all.json", JSON.stringify(allLessons, null, 2));
-    zip.file("content/exam_questions_approved.json", JSON.stringify(questionSamples, null, 2));
-    zip.file("content/competencies.json", JSON.stringify(competencies, null, 2));
+    // ── Block 1: Curriculum SSOT ──
+    zip.file("1_curriculum/curriculum.json", JSON.stringify(curriculumFull || {}, null, 2));
+    zip.file("1_curriculum/learning_fields.json", JSON.stringify(learningFields, null, 2));
+    zip.file("1_curriculum/competencies.json", JSON.stringify(competencies, null, 2));
+    zip.file("1_curriculum/lf_distribution.json", JSON.stringify(lfDistribution, null, 2));
 
-    // ── BLUEPRINTS (top-level, per learning field) ──
-    zip.file("blueprints/all_blueprints.json", JSON.stringify(questionBlueprints, null, 2));
-    zip.file("blueprints/constraints.json", JSON.stringify(blueprintConstraints, null, 2));
-    // Group blueprints by learning field for auditor convenience
+    // ── Block 2: Blueprints SSOT ──
+    zip.file("2_blueprints/question_blueprints.json", JSON.stringify(questionBlueprints, null, 2));
+    zip.file("2_blueprints/constraints.json", JSON.stringify(blueprintConstraints, null, 2));
+    zip.file("2_blueprints/quality_summary.json", JSON.stringify((() => {
+      const bpsWithTraps = (questionBlueprints as Record<string, unknown>[]).filter(b => Array.isArray(b.typical_errors) && (b.typical_errors as unknown[]).length > 0).length;
+      const bpsWithContext = (questionBlueprints as Record<string, unknown>[]).filter(b => b.exam_context_type && b.exam_context_type !== "isolated_knowledge").length;
+      const bpsWithTemplate = (questionBlueprints as Record<string, unknown>[]).filter(b => b.question_template && (b.question_template as string).trim() !== "").length;
+      return {
+        total: questionBlueprints.length,
+        with_question_template: bpsWithTemplate,
+        with_typical_errors: bpsWithTraps,
+        with_exam_context: bpsWithContext,
+        with_decision_structure: (questionBlueprints as Record<string, unknown>[]).filter(b => b.decision_structure).length,
+        with_trap_spec: (questionBlueprints as Record<string, unknown>[]).filter(b => b.typical_exam_trap).length,
+        by_status: (() => { const m: Record<string, number> = {}; for (const b of questionBlueprints as Record<string, unknown>[]) { const s = (b.status as string) || "unknown"; m[s] = (m[s] || 0) + 1; } return m; })(),
+        by_cognitive_level: (() => { const m: Record<string, number> = {}; for (const b of questionBlueprints as Record<string, unknown>[]) { const cl = (b.cognitive_level as string) || "unknown"; m[cl] = (m[cl] || 0) + 1; } return m; })(),
+        by_exam_context_type: (() => { const m: Record<string, number> = {}; for (const b of questionBlueprints as Record<string, unknown>[]) { const t = (b.exam_context_type as string) || "none"; m[t] = (m[t] || 0) + 1; } return m; })(),
+        avg_exam_relevance_score: questionBlueprints.length > 0 ? Math.round((questionBlueprints as Record<string, unknown>[]).reduce((s, b) => s + ((b.exam_relevance_score as number) || 0), 0) / questionBlueprints.length * 10) / 10 : 0,
+      };
+    })(), null, 2));
+    // Group by LF
     const bpsByLf: Record<string, unknown[]> = {};
     for (const bp of questionBlueprints as Record<string, unknown>[]) {
       const lfId = (bp.learning_field_id as string) || "_unassigned";
@@ -712,51 +938,65 @@ Deno.serve(async (req) => {
     for (const [lfId, bps] of Object.entries(bpsByLf)) {
       const lfObj = (learningFields as Record<string, unknown>[]).find(lf => lf.id === lfId);
       const lfName = safeFilename((lfObj as any)?.title || lfId.slice(0, 8));
-      zip.file(`blueprints/by_lf/${lfName}.json`, JSON.stringify({
-        learning_field_id: lfId,
-        learning_field_title: (lfObj as any)?.title || "Unbekannt",
-        blueprint_count: bps.length,
-        blueprints: bps,
-      }, null, 2));
+      zip.file(`2_blueprints/by_lf/${lfName}.json`, JSON.stringify({ learning_field_id: lfId, learning_field_title: (lfObj as any)?.title || "Unbekannt", blueprint_count: bps.length, blueprints: bps }, null, 2));
     }
-    // Blueprint quality summary
-    const bpQuality = {
-      total: questionBlueprints.length,
-      with_typical_errors: (questionBlueprints as Record<string, unknown>[]).filter(b => Array.isArray(b.typical_errors) && (b.typical_errors as unknown[]).length > 0).length,
-      with_exam_context: (questionBlueprints as Record<string, unknown>[]).filter(b => b.exam_context_type && b.exam_context_type !== "isolated_knowledge").length,
-      with_decision_structure: (questionBlueprints as Record<string, unknown>[]).filter(b => b.decision_structure).length,
-      by_cognitive_level: (() => { const m: Record<string, number> = {}; for (const b of questionBlueprints as Record<string, unknown>[]) { const cl = (b.cognitive_level as string) || "unknown"; m[cl] = (m[cl] || 0) + 1; } return m; })(),
-      by_exam_context_type: (() => { const m: Record<string, number> = {}; for (const b of questionBlueprints as Record<string, unknown>[]) { const t = (b.exam_context_type as string) || "none"; m[t] = (m[t] || 0) + 1; } return m; })(),
-      avg_exam_relevance_score: questionBlueprints.length > 0 ? Math.round((questionBlueprints as Record<string, unknown>[]).reduce((s, b) => s + ((b.exam_relevance_score as number) || 0), 0) / questionBlueprints.length * 10) / 10 : 0,
-    };
-    zip.file("blueprints/quality_summary.json", JSON.stringify(bpQuality, null, 2));
-    console.log(`[export] Blueprint export: ${questionBlueprints.length} total, ${Object.keys(bpsByLf).length} LFs, quality: ${JSON.stringify(bpQuality)}`);
 
-    // ── META / AUDIT DATA ──
-    zip.file("meta/curriculum.json", JSON.stringify(curriculumFull || {}, null, 2));
-    zip.file("meta/learning_fields.json", JSON.stringify(learningFields, null, 2));
-    zip.file("meta/lf_distribution.json", JSON.stringify(lfDistribution, null, 2));
-    zip.file("meta/question_blueprints.json", JSON.stringify(questionBlueprints, null, 2));
-    zip.file("meta/blueprint_constraints.json", JSON.stringify(blueprintConstraints, null, 2));
-    zip.file("meta/ai_generations.json", JSON.stringify(aiGenerations, null, 2));
-    zip.file("meta/ai_validations.json", JSON.stringify(aiValidations, null, 2));
-    zip.file("meta/quality_gates.json", JSON.stringify(qualityGates, null, 2));
-    zip.file("meta/council_findings.json", JSON.stringify(councilFindings, null, 2));
-    zip.file("meta/patch_plans.json", JSON.stringify(patchPlans, null, 2));
-    zip.file("meta/auto_heal_log.json", JSON.stringify(autoHealLog, null, 2));
-    zip.file("meta/autofix_runs.json", JSON.stringify(autofixRuns, null, 2));
-    zip.file("meta/ai_cost_summary.json", JSON.stringify(aiCostSummary, null, 2));
-    zip.file("meta/ai_budgets.json", JSON.stringify(aiBudgets, null, 2));
-    zip.file("meta/worker_policies.json", JSON.stringify(workerPolicies, null, 2));
+    // ── Block 3: Questions + Exam Pool ──
+    zip.file("3_exam_pool/exam_questions_all.json", JSON.stringify(allQuestions, null, 2));
+    zip.file("3_exam_pool/exam_questions_approved.json", JSON.stringify(approvedQuestions, null, 2));
+    zip.file("3_exam_pool/difficulty_distribution.json", JSON.stringify(difficultyDistribution, null, 2));
+    zip.file("3_exam_pool/lf_distribution.json", JSON.stringify(lfDistribution, null, 2));
+    zip.file("3_exam_pool/exam_sessions_all.json", JSON.stringify(allExamSessions, null, 2));
+    zip.file("3_exam_pool/trace.json", JSON.stringify(traceProtocol, null, 2));
 
-    // ── QUALITY ANALYSIS (computed from export data) ──
+    // ── Block 4: Didaktik (Lessons, MiniChecks, Mastery) ──
+    zip.file("4_didaktik/lessons_all.json", JSON.stringify(allLessons, null, 2));
+    zip.file("4_didaktik/minichecks.json", JSON.stringify(minichecks, null, 2));
+    zip.file("4_didaktik/mastery_model.json", JSON.stringify(masteryModel, null, 2));
+    zip.file("4_didaktik/course_snapshot.json", JSON.stringify(courseSnapshot || {}, null, 2));
+    zip.file("4_didaktik/handbook.md", handbookMd);
+    zip.file("4_didaktik/handbook_structured.json", JSON.stringify(handbookStructured, null, 2));
+
+    // ── Block 5: Governance & Quality Gates ──
+    zip.file("5_governance/quality_gates.json", JSON.stringify(qualityGates, null, 2));
+    zip.file("5_governance/ai_validations.json", JSON.stringify(aiValidations, null, 2));
+    zip.file("5_governance/council_findings.json", JSON.stringify(councilFindings, null, 2));
+    zip.file("5_governance/content_versions.json", JSON.stringify(contentVersions, null, 2));
+    zip.file("5_governance/auto_heal_log.json", JSON.stringify(autoHealLog, null, 2));
+    zip.file("5_governance/patch_plans.json", JSON.stringify(patchPlans, null, 2));
+    zip.file("5_governance/autofix_runs.json", JSON.stringify(autofixRuns, null, 2));
+    zip.file("5_governance/ai_generations.json", JSON.stringify(aiGenerations, null, 2));
+    zip.file("5_governance/ai_cost_summary.json", JSON.stringify(aiCostSummary, null, 2));
+    zip.file("5_governance/ai_budgets.json", JSON.stringify(aiBudgets, null, 2));
+    zip.file("5_governance/worker_policies.json", JSON.stringify(workerPolicies, null, 2));
+
+    // ── Red-Flag Report (top-level) ──
+    zip.file("red_flags.json", JSON.stringify(redFlags, null, 2));
+
+    // ── Oral Exam ──
+    zip.file("oral_exam/sessionsets.json", JSON.stringify(oralSessionsets || [], null, 2));
+    zip.file("oral_exam/blueprints.json", JSON.stringify(oralBlueprints, null, 2));
+    zip.file("oral_exam/session_templates.json", JSON.stringify(oralSessionTemplates, null, 2));
+    zip.file("oral_exam/sessions_all.json", JSON.stringify(allOralSessions, null, 2));
+
+    // ── Tutor ──
+    zip.file("tutor/context_indices.json", JSON.stringify(tutorIndices || [], null, 2));
+    zip.file("tutor/policies.json", JSON.stringify(tutorPolicies, null, 2));
+    zip.file("tutor/logs_all.json", JSON.stringify(allTutorLogs, null, 2));
+
+    // ── Legacy compat files ──
+    zip.file("package.json", JSON.stringify(pkg, null, 2));
+    zip.file("plan.json", JSON.stringify(plan || {}, null, 2));
+    zip.file("steps.json", JSON.stringify(steps || [], null, 2));
+    zip.file("questions_summary.json", JSON.stringify(questionsSummary, null, 2));
+
+    // ── QUALITY ANALYSIS (computed from all data) ──
     const qualityAnalysis = (() => {
-      // Difficulty distribution
       const diffDist: Record<string, number> = {};
       const cognDist: Record<string, number> = {};
       const typeDist: Record<string, number> = {};
       let withTraps = 0, withDistractorMeta = 0;
-      for (const q of questionSamples as Record<string, unknown>[]) {
+      for (const q of allQuestions as Record<string, unknown>[]) {
         const diff = (q.difficulty as string) || "unknown";
         diffDist[diff] = (diffDist[diff] || 0) + 1;
         const cogn = (q.cognitive_level as string) || "unknown";
@@ -766,13 +1006,10 @@ Deno.serve(async (req) => {
         if (q.trap_tags && Array.isArray(q.trap_tags) && (q.trap_tags as unknown[]).length > 0) withTraps++;
         if (q.distractor_meta) withDistractorMeta++;
       }
-      const totalQ = questionSamples.length;
-
-      // Didactic step coverage + Bloom distribution
+      const totalQ = allQuestions.length;
       const stepDist: Record<string, number> = {};
       const bloomDist: Record<string, number> = {};
-      let withMinicheck = 0;
-      let withBloomTag = 0;
+      let withMinicheck = 0, withBloomTag = 0;
       for (const l of allLessons as Record<string, unknown>[]) {
         const step = (l.step as string) || "unknown";
         stepDist[step] = (stepDist[step] || 0) + 1;
@@ -781,24 +1018,11 @@ Deno.serve(async (req) => {
         bloomDist[bloom] = (bloomDist[bloom] || 0) + 1;
         if (bloom !== "unknown") withBloomTag++;
       }
-
-      // Blueprint coverage
-      const bpsWithTraps = (questionBlueprints as Record<string, unknown>[]).filter(
-        b => b.typical_errors && Array.isArray(b.typical_errors) && (b.typical_errors as unknown[]).length > 0
-      ).length;
-      const bpsWithContext = (questionBlueprints as Record<string, unknown>[]).filter(
-        b => b.exam_context_type
-      ).length;
-
+      const bpsWithTraps = (questionBlueprints as Record<string, unknown>[]).filter(b => b.typical_errors && Array.isArray(b.typical_errors) && (b.typical_errors as unknown[]).length > 0).length;
+      const bpsWithContext = (questionBlueprints as Record<string, unknown>[]).filter(b => b.exam_context_type).length;
       return {
-        export_version: "4.0-premium",
-        // ── Bloom Taxonomy Coverage ──
-        bloom_taxonomy: {
-          distribution: bloomDist,
-          percentages: Object.fromEntries(Object.entries(bloomDist).map(([k, v]) => [k, allLessons.length > 0 ? Math.round((v / allLessons.length) * 1000) / 10 : 0])),
-          tagged_count: withBloomTag,
-          coverage_percent: allLessons.length > 0 ? Math.round((withBloomTag / allLessons.length) * 1000) / 10 : 0,
-        },
+        export_version: "5.0-critical-audit",
+        bloom_taxonomy: { distribution: bloomDist, percentages: Object.fromEntries(Object.entries(bloomDist).map(([k, v]) => [k, allLessons.length > 0 ? Math.round((v / allLessons.length) * 1000) / 10 : 0])), tagged_count: withBloomTag, coverage_percent: allLessons.length > 0 ? Math.round((withBloomTag / allLessons.length) * 1000) / 10 : 0 },
         difficulty_distribution: diffDist,
         difficulty_percentages: Object.fromEntries(Object.entries(diffDist).map(([k, v]) => [k, totalQ > 0 ? Math.round((v / totalQ) * 1000) / 10 : 0])),
         cognitive_distribution: cognDist,
@@ -808,59 +1032,33 @@ Deno.serve(async (req) => {
         distractor_meta_coverage: { with_meta: withDistractorMeta, without: totalQ - withDistractorMeta, percent: totalQ > 0 ? Math.round((withDistractorMeta / totalQ) * 1000) / 10 : 0 },
         didactic_step_distribution: stepDist,
         minicheck_coverage: { with_minicheck: withMinicheck, total_lessons: allLessons.length, percent: allLessons.length > 0 ? Math.round((withMinicheck / allLessons.length) * 1000) / 10 : 0 },
-        blueprint_quality: {
-          total: questionBlueprints.length,
-          with_typical_errors: bpsWithTraps,
-          with_exam_context_type: bpsWithContext,
-          trap_coverage_percent: questionBlueprints.length > 0 ? Math.round((bpsWithTraps / questionBlueprints.length) * 1000) / 10 : 0,
-        },
-        competency_graph: {
-          total_competencies: competencies.length,
-          mastery_model: "three_tier",
-          thresholds: { not_mastered: "<60%", partial: "60-80%", mastered: ">80%" },
-        },
+        blueprint_quality: { total: questionBlueprints.length, with_typical_errors: bpsWithTraps, with_exam_context_type: bpsWithContext, trap_coverage_percent: questionBlueprints.length > 0 ? Math.round((bpsWithTraps / questionBlueprints.length) * 1000) / 10 : 0 },
+        competency_graph: { total_competencies: competencies.length, mastery_model: "three_tier", thresholds: { not_mastered: "<60%", partial: "60-80%", mastered: ">80%" } },
         lf_weight_distribution: lfDistribution,
+        red_flags_summary: { total: (redFlags as any).total_flags, critical: (redFlags as any).critical, high: (redFlags as any).high },
       };
     })();
-    zip.file("meta/quality_analysis.json", JSON.stringify(qualityAnalysis, null, 2));
+    zip.file("quality_analysis.json", JSON.stringify(qualityAnalysis, null, 2));
 
-    // Export manifest with counts for quick verification
+    // ── Export Manifest ──
     const manifest = {
       exported_at: new Date().toISOString(),
-      export_version: "4.0-premium",
+      export_version: "5.0-critical-audit",
       package_id: packageId,
       course_id: cid,
       curriculum_id: curriculumId,
-      content_counts: {
-        lessons_total: allLessons.length,
-        competencies_total: competencies.length,
-        questions_approved: questionSamples.length,
-        oral_exam_sessionsets: (oralSessionsets || []).length,
-        oral_exam_blueprints: oralBlueprints.length,
-        oral_exam_sessions: allOralSessions.length,
-        tutor_logs: allTutorLogs.length,
-        tutor_policy_versions: tutorPolicies.length,
-        tutor_context_indices: (tutorIndices || []).length,
-        handbook_chapters: handbookStructured.length,
-        handbook_length_chars: handbookMd.length,
-        handbook_is_placeholder: handbookMd.length < 500,
+      blocks: {
+        "1_curriculum": { curriculum: 1, learning_fields: learningFields.length, competencies: competencies.length },
+        "2_blueprints": { total: questionBlueprints.length, constraints: blueprintConstraints.length, by_lf: Object.keys(bpsByLf).length },
+        "3_exam_pool": { questions_all: allQuestions.length, questions_approved: approvedQuestions.length, exam_sessions: allExamSessions.length, trace_entries: traceProtocol.length },
+        "4_didaktik": { lessons: allLessons.length, minichecks: minichecks.length, handbook_chapters: handbookStructured.length },
+        "5_governance": { quality_gates: qualityGates.length, ai_validations: aiValidations.length, council_findings: councilFindings.length, content_versions: contentVersions.length, auto_heal: autoHealLog.length, patch_plans: patchPlans.length },
+        "oral_exam": { sessionsets: (oralSessionsets || []).length, blueprints: oralBlueprints.length, sessions: allOralSessions.length },
+        "tutor": { logs: allTutorLogs.length, policies: tutorPolicies.length, indices: (tutorIndices || []).length },
       },
-      meta_counts: {
-        learning_fields: learningFields.length,
-        question_blueprints: questionBlueprints.length,
-        blueprint_constraints: blueprintConstraints.length,
-        ai_generations: aiGenerations.length,
-        ai_validations: aiValidations.length,
-        quality_gates: qualityGates.length,
-        council_findings: councilFindings.length,
-        patch_plans: patchPlans.length,
-        auto_heal_entries: autoHealLog.length,
-        autofix_runs: autofixRuns.length,
-        worker_policies: workerPolicies.length,
-      },
-      lf_distribution: lfDistribution,
-      ai_cost_summary: aiCostSummary,
+      red_flags: redFlags,
       questions_summary: questionsSummary,
+      ai_cost_summary: aiCostSummary,
     };
     zip.file("manifest.json", JSON.stringify(manifest, null, 2));
 
@@ -877,13 +1075,11 @@ Deno.serve(async (req) => {
       .upload(path, bytes, { contentType: "application/zip", upsert: true });
     if (uploadErr) return json({ error: `Upload failed: ${uploadErr.message}` }, 500);
 
-    // ── Signed URL (1h) ──
     const { data: signed, error: signErr } = await sb.storage
       .from(bucket)
       .createSignedUrl(path, 3600);
     if (signErr) return json({ error: signErr.message }, 500);
 
-    // ── Persist output link ──
     await sb.from("course_package_outputs").upsert(
       {
         package_id: packageId,
@@ -894,24 +1090,8 @@ Deno.serve(async (req) => {
           path,
           fileSize: bytes.length,
           created_at: new Date().toISOString(),
-          content: {
-            lessons: allLessons.length,
-            questions: questionSamples.length,
-            oralExamSessions: allOralSessions.length,
-            tutorLogs: allTutorLogs.length,
-            tutorPolicies: tutorPolicies.length,
-            handbookChapters: handbookStructured.length,
-          },
-          meta: {
-            learningFields: learningFields.length,
-            blueprints: questionBlueprints.length,
-            aiGenerations: aiGenerations.length,
-            aiValidations: aiValidations.length,
-            qualityGates: qualityGates.length,
-            councilFindings: councilFindings.length,
-            autoHealEntries: autoHealLog.length,
-            autofixRuns: autofixRuns.length,
-          },
+          blocks: manifest.blocks,
+          red_flags_summary: { total: (redFlags as any).total_flags, critical: (redFlags as any).critical },
         },
       },
       { onConflict: "package_id,output_key" }
@@ -922,24 +1102,9 @@ Deno.serve(async (req) => {
       downloadUrl: signed.signedUrl,
       fileName: path,
       fileSize: bytes.length,
-      content: {
-        lessons: allLessons.length,
-        questions: questionSamples.length,
-        oralExamSessions: allOralSessions.length,
-        tutorLogs: allTutorLogs.length,
-        tutorPolicies: tutorPolicies.length,
-        handbookChapters: handbookStructured.length,
-      },
-      meta: {
-        learningFields: learningFields.length,
-        blueprints: questionBlueprints.length,
-        aiGenerations: aiGenerations.length,
-        aiValidations: aiValidations.length,
-        qualityGates: qualityGates.length,
-        councilFindings: councilFindings.length,
-        autoHealEntries: autoHealLog.length,
-        autofixRuns: autofixRuns.length,
-      },
+      export_version: "5.0-critical-audit",
+      blocks: manifest.blocks,
+      red_flags: { total: (redFlags as any).total_flags, critical: (redFlags as any).critical, high: (redFlags as any).high },
       manifest,
     });
   } catch (e: unknown) {
