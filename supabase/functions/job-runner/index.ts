@@ -419,10 +419,12 @@ Deno.serve(async (req) => {
           }
         }
       }
-      // Sort: 0-question LFs first, then lowest count, then oldest created_at
+      // Sort: 0-question LFs first, then lowest count; non-exam_pool heavy jobs go last
       heavyJobs.sort((a: any, b: any) => {
-        const aQ = qByLf.get(a.payload?.learning_field_filter) ?? 0;
-        const bQ = qByLf.get(b.payload?.learning_field_filter) ?? 0;
+        const aLf = a.payload?.learning_field_filter;
+        const bLf = b.payload?.learning_field_filter;
+        const aQ = aLf ? (qByLf.get(aLf) ?? 0) : Number.MAX_SAFE_INTEGER;
+        const bQ = bLf ? (qByLf.get(bLf) ?? 0) : Number.MAX_SAFE_INTEGER;
         if (aQ === 0 && bQ !== 0) return -1;
         if (bQ === 0 && aQ !== 0) return 1;
         return aQ - bQ || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
