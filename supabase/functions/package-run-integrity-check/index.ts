@@ -592,16 +592,20 @@ Deno.serve(async (req) => {
   const ctxIsolatedMatch = eliteCtxGate?.detail?.match(/isolated_knowledge=(\d+(?:\.\d+)?)%/);
   const ctxIsolatedPct = ctxIsolatedMatch ? parseFloat(ctxIsolatedMatch[1]) : null;
 
+  // Extract questions_total from exam_pool detail (e.g. "850 approved | ...")
+  const examPoolTotalMatch = examPoolGate?.detail?.match(/^(\d+)\s*approved/);
+  const questionsTotal = examPoolTotalMatch ? parseInt(examPoolTotalMatch[1]) : 0;
+
   const summary = {
     // Core metrics Council needs (SSOT contract)
-    blueprint_coverage_pct: examPoolGate?.passed ? 100 : (totalApproved >= 500 ? 100 : pctOrNA(totalApproved, 500)),
+    blueprint_coverage_pct: examPoolGate?.passed ? 100 : pctOrNA(questionsTotal, 500),
     lf_coverage_pct: pctOrNA(lfCoveredCount, lfTotalCount),
     duplicate_rate_pct: 0, // no explicit duplicate gate yet → 0
     competency_coverage_pct: pctOrNA(compCoveredCount, compTotalCount),
     competency_binding_pct: compBindTotalCount > 0 ? ((compBindTotalCount - compUnboundCount) / compBindTotalCount) * 100 : 100,
     // Extended metrics (nice-to-have for dashboards)
-    questions_total: totalApproved,
-    questions_approved_total: totalApproved,
+    questions_total: questionsTotal,
+    questions_approved_total: questionsTotal,
     bloom_remember_pct: bloomRememberPct,
     context_isolated_pct: ctxIsolatedPct,
     hard_fail_reasons: gate.hardFails,

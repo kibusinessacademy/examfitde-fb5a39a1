@@ -70,15 +70,28 @@ Deno.serve(async (req) => {
       await notifyAdmin(sb, packageId, "INFRA: v3.summary missing in integrity_report — auto-enqueuing integrity recheck", "warn");
 
       // Auto-enqueue a fresh integrity check to regenerate the report with summary
+      // Dedupe: real unique index is on (payload->>'package_id', job_type, scope) WHERE status IN ('pending','processing')
+      // So we check first, then insert only if no active job exists.
       const { data: pkgForRequeue } = await sb.from("course_packages").select("course_id").eq("id", packageId).maybeSingle();
       if (pkgForRequeue?.course_id) {
-        await sb.from("job_queue").insert({
-          job_type: "package_run_integrity_check",
-          status: "pending",
-          package_id: packageId,
-          payload: { package_id: packageId, course_id: pkgForRequeue.course_id, step_key: "run_integrity_check" },
-          max_attempts: 5,
-        }).onConflict("package_id,job_type").ignore();
+        const { count: existingJobs } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("job_type", "package_run_integrity_check")
+          .in("status", ["pending", "processing"])
+          .eq("payload->>package_id", packageId);
+
+        if ((existingJobs ?? 0) === 0) {
+          await sb.from("job_queue").insert({
+            job_type: "package_run_integrity_check",
+            status: "pending",
+            package_id: packageId,
+            payload: { package_id: packageId, course_id: pkgForRequeue.course_id, step_key: "run_integrity_check" },
+            max_attempts: 5,
+          });
+        } else {
+          console.log(`[QualityCouncil] Integrity recheck already pending/processing for ${packageId.slice(0, 8)}, skipping enqueue`);
+        }
       }
 
       return json({
