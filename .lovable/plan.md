@@ -112,12 +112,16 @@ CREATE TABLE blueprint_quality_constraints (
 - [ ] Formulierung auf Handlungskompetenz umschreiben
 - [ ] `exam_relevance_tier` setzen
 
-### 2.2 Blueprint-Seeder v4
-- [ ] `question_template` mit situativen Szenarien generieren
-- [ ] `typical_errors` (min. 3) pro Blueprint erzwingen
-- [ ] `exam_context_type` diversifizieren (max 20% `isolated_knowledge`)
-- [ ] `bloom_level` aus Kompetenz→Blueprint propagieren
-- [ ] `exam_part` aus LF→exam_part ableiten
+### 2.2 Blueprint-Seeder v4 ✅ DONE
+- [x] Shared AI client (callAIJSON) + model-routing (getModelChainAsync)
+- [x] `question_template` mit situativen Szenarien generieren
+- [x] `typical_errors` (min. 3) pro Blueprint erzwingen (ensureMinErrors)
+- [x] `exam_context_type` diversifizieren (max 20% `isolated_knowledge`)
+- [x] `bloom_level` aus enriched Kompetenz→Blueprint propagieren
+- [x] `exam_part` aus LF→metadata ableiten
+- [x] Profession glossary injection für Domain-Tiefe
+- [x] Health Score v4 mit elite metrics (with_min_errors, isolated_pct)
+- [x] Upgrade existing blueprints mit fehlenden typical_errors
 
 ### 2.3 Exam-Pool Generator Upgrade
 - [ ] `scenario_type` aus Blueprint propagieren
