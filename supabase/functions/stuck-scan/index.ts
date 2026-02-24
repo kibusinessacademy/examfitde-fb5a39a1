@@ -41,14 +41,32 @@ Deno.serve(async (req) => {
     const heartbeatTimeout = stuckConfig.job_processing_heartbeat_timeout_seconds ?? 600;
     const packageTimeout = stuckConfig.package_no_progress_timeout_minutes ?? 90;
 
+    // Job-type-specific stale thresholds (seconds)
+    // Heavy LLM jobs like exam_pool timeout at 180s edge-function limit,
+    // so waiting 600s for stale detection wastes ~7min per zombie.
+    const JOB_TYPE_STALE_OVERRIDES: Record<string, number> = {
+      package_generate_exam_pool: 240,
+      package_generate_lessons: 300,
+      package_generate_flashcards: 300,
+    };
+
     // 1) Clean stale processing jobs (no heartbeat)
-    const staleJobThreshold = new Date(Date.now() - heartbeatTimeout * 1000).toISOString();
-    // FIX: First fetch stale jobs so we can increment attempts properly
-    const { data: staleJobs } = await sb
+    // First handle job-type-specific shorter thresholds
+    const defaultStaleThreshold = new Date(Date.now() - heartbeatTimeout * 1000).toISOString();
+
+    // Fetch ALL processing jobs with their job_type to apply per-type thresholds
+    const { data: processingJobs } = await sb
       .from("job_queue")
-      .select("id, attempts, max_attempts")
-      .eq("status", "processing")
-      .lt("locked_at", staleJobThreshold);
+      .select("id, attempts, max_attempts, job_type, locked_at")
+      .eq("status", "processing");
+
+    // Filter to truly stale jobs using per-type thresholds
+    const now = Date.now();
+    const staleJobs = (processingJobs || []).filter(job => {
+      const threshold = JOB_TYPE_STALE_OVERRIDES[job.job_type] ?? heartbeatTimeout;
+      const cutoff = now - threshold * 1000;
+      return job.locked_at && new Date(job.locked_at).getTime() < cutoff;
+    });
 
     let staleCount = 0;
     let failedFromStale = 0;
