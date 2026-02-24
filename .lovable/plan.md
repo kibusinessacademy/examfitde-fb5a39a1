@@ -155,15 +155,17 @@ CREATE TABLE blueprint_quality_constraints (
 
 ---
 
-## Phase 4: Quality Reports v2
+## Phase 4: Quality Reports v2 ✅ DONE
 
-- [ ] **Bloom-Score:** Ist vs. Soll Verteilung pro LF
-- [ ] **Transfer-Score:** % case-based Fragen
-- [ ] **Fehlerdichte:** Ø typical_errors pro Blueprint
-- [ ] **Redundanz-Score:** normalized_hash Clustering
-- [ ] **Difficulty-Drift:** Ist vs. Soll Schwierigkeitsverteilung
-- [ ] **Discrimination-Index:** Ø item_discrimination pro Pool
-- [ ] **Exam-Part-Balance:** Fragen pro AP1/AP2
+- [x] **Bloom-Score:** Ist vs. Soll Verteilung pro LF (gewichteter Drift)
+- [x] **Transfer-Score:** % case-based Fragen (Ziel: 30%+)
+- [x] **Fehlerdichte:** Ø typical_errors pro Blueprint (Coverage + Avg)
+- [x] **Redundanz-Score:** normalized_hash Clustering (Duplikaterkennung)
+- [x] **Difficulty-Drift:** Ist vs. Soll Schwierigkeitsverteilung (4-Bucket)
+- [x] **Discrimination-Index:** Ø item_discrimination pro Pool (Weak/Elite Tiers)
+- [x] **Exam-Part-Balance:** Fragen pro AP1/AP2 vs. exam_structure
+- [x] **Edge Function:** `quality-report-v2` deployed (per package_id/curriculum_id)
+- [x] **Dashboard:** QualityCouncilDashboard upgraded mit 7-Metrik-Karten, per-LF Breakdown, Bloom-Bars
 
 ---
 
