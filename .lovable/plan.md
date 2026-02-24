@@ -123,12 +123,12 @@ CREATE TABLE blueprint_quality_constraints (
 - [x] Health Score v4 mit elite metrics (with_min_errors, isolated_pct)
 - [x] Upgrade existing blueprints mit fehlenden typical_errors
 
-### 2.3 Exam-Pool Generator Upgrade
-- [ ] `scenario_type` aus Blueprint propagieren
-- [ ] `exam_part` aus LF setzen
-- [ ] `typical_errors` propagieren
-- [ ] `time_estimate_seconds` übernehmen
-- [ ] Distraktoren mit `why_wrong` + `why_tempting` + `examiner_intention`
+### 2.3 Exam-Pool Generator Upgrade ✅ DONE
+- [x] `scenario_type` aus Blueprint `exam_context_type` propagieren
+- [x] `exam_part` aus LF setzen
+- [x] `typical_errors` propagieren
+- [x] `time_estimate_seconds` übernehmen
+- [x] Distraktoren mit `why_wrong` + `why_tempting` + `examiner_intention`
 
 ### 2.4 Validation Gates v2
 - [ ] **Bloom-Gate:** Verteilung pro LF gegen `bloom_distribution_target`

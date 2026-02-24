@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
       // Load LF details
       const { data: lf } = await sb
         .from("learning_fields")
-        .select("id, code, title, description")
+        .select("id, code, title, description, exam_part")
         .eq("id", lfId)
         .maybeSingle();
 
@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
       // Load blueprints for this LF
       const { data: blueprints } = await sb
         .from("question_blueprints")
-        .select("id, cognitive_level, exam_context_type, decision_structure, exam_relevance_score, typical_errors")
+        .select("id, cognitive_level, exam_context_type, decision_structure, exam_relevance_score, typical_errors, estimated_time_seconds")
         .eq("learning_field_id", lfId)
         .eq("curriculum_id", curriculumId)
         .limit(20);
@@ -330,6 +330,11 @@ Antworte NUR als JSON-Objekt:
           ai_generated: true,
           trap_tags: typicalErrors,
           status: "draft",
+          // S4: Propagate exam_part from LF + scenario_type from blueprint context
+          exam_part: lf.exam_part || null,
+          scenario_type: spec.exam_context_type || null,
+          time_estimate_seconds: bp?.estimated_time_seconds || null,
+          typical_errors: typicalErrors.length > 0 ? typicalErrors : null,
         };
       });
 

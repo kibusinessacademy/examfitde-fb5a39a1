@@ -415,6 +415,12 @@ interface BlueprintInfo {
   question_template: string;
   trap_spec?: TrapSpec | null;
   typical_exam_trap?: string | null;
+  // S4 additions
+  exam_context_type?: string | null;
+  typical_errors?: string[] | null;
+  estimated_time_seconds?: number | null;
+  decision_structure?: string | null;
+  exam_relevance_score?: number | null;
 }
 
 // ─── Error Tag Vocabulary — imported from SSOT shared module ─────────────────
@@ -577,13 +583,15 @@ async function generateTurboQuestions(
   let compDesc = bp.canonical_statement;
   let lfTitle = "";
   let depthTopics: string[] = [];
+  let lfData: { title?: string; exam_part?: string } | null = null;
 
   if (bp.competency_id) {
     const { data: comp } = await sb.from("competencies").select("title, description").eq("id", bp.competency_id).maybeSingle();
     if (comp) { compTitle = comp.title || compTitle; compDesc = comp.description || compDesc; }
   }
   if (bp.learning_field_id) {
-    const { data: lf } = await sb.from("learning_fields").select("title").eq("id", bp.learning_field_id).maybeSingle();
+    const { data: lf } = await sb.from("learning_fields").select("title, exam_part").eq("id", bp.learning_field_id).maybeSingle();
+    lfData = lf;
     if (lf) lfTitle = lf.title || "";
 
     try {
@@ -756,7 +764,24 @@ async function generateTurboQuestions(
     const forcedCogLevel = (cognitiveLevel || "understand").toLowerCase();
     const mappedCogLevel = cogLevelMap[forcedCogLevel] || forcedCogLevel;
 
-    // ── Hebel 3: Extract and validate distractor metadata ──
+    // ── S4: Resolve propagated fields from blueprint + LF ──
+    const SCENARIO_TYPE_MAP: Record<string, string> = {
+      isolated_knowledge: "isolated_knowledge",
+      applied_case: "applied_case",
+      multi_step_case: "multi_step_case",
+      prioritization: "prioritization",
+      error_detection: "error_detection",
+      documentation_analysis: "documentation_analysis",
+      legal_evaluation: "legal_evaluation",
+      communication_scenario: "communication_scenario",
+    };
+    const resolvedScenarioType = bp.exam_context_type && SCENARIO_TYPE_MAP[bp.exam_context_type]
+      ? SCENARIO_TYPE_MAP[bp.exam_context_type] : null;
+    const resolvedExamPart = lfData?.exam_part || null;
+    const resolvedTimeEstimate = bp.estimated_time_seconds || null;
+    const resolvedTypicalErrors = Array.isArray(bp.typical_errors) && bp.typical_errors.length > 0
+      ? bp.typical_errors : (Array.isArray(q.typical_errors) ? q.typical_errors.filter(Boolean).map(String) : []);
+
     // Normalize trap_tags: lowercase, replace spaces/hyphens with underscore, then match vocabulary
     const normalizedTags: string[] = Array.isArray(q.trap_tags) 
       ? q.trap_tags.map((t: string) => String(t).toLowerCase().replace(/[\s-]+/g, "_").trim())
@@ -775,14 +800,20 @@ async function generateTurboQuestions(
       }
     }
     // correctIdx already declared above (line ~609)
-    const rawDistractorMeta: Array<{option_index: number; error_tag: string; why_wrong: string}> = 
+    const rawDistractorMeta: Array<{option_index: number; error_tag: string; why_wrong: string; why_tempting?: string; examiner_intention?: string}> = 
       Array.isArray(q.distractor_meta) ? q.distractor_meta.filter((d: any) => 
         typeof d.option_index === "number" 
         && typeof d.error_tag === "string"
         && d.option_index !== correctIdx               // must not tag the correct answer
         && typeof d.why_wrong === "string"
         && d.why_wrong.length >= 20                    // min explanation depth
-      ) : [];
+      ).map((d: any) => ({
+        option_index: d.option_index,
+        error_tag: d.error_tag,
+        why_wrong: d.why_wrong,
+        why_tempting: typeof d.why_tempting === "string" && d.why_tempting.length >= 15 ? d.why_tempting : null,
+        examiner_intention: typeof d.examiner_intention === "string" && d.examiner_intention.length >= 15 ? d.examiner_intention : null,
+      })) : [];
 
     // ── Resolve final question_type BEFORE gate (so gate uses correct type) ──
     const finalQuestionType = questionType === "best_option" ? "transfer"
@@ -832,8 +863,13 @@ async function generateTurboQuestions(
         trap_tags: rawTrapTags,
         distractor_meta: auditedMeta,
         ai_generated: true,
-        status: "training",  // gate-failed → always training status
+        status: "training",
         qc_status: "tier1_failed",
+        // S4: Blueprint propagation
+        exam_part: resolvedExamPart,
+        scenario_type: resolvedScenarioType,
+        time_estimate_seconds: resolvedTimeEstimate,
+        typical_errors: resolvedTypicalErrors.length > 0 ? resolvedTypicalErrors : null,
       });
       if (error && error.code !== "23505") console.log(`[ExamPool-v5] Insert error: ${error.message}`);
       if (!error) gateFailed++;
@@ -849,12 +885,9 @@ async function generateTurboQuestions(
       options: q.options,
       correct_answer: correctIdx,
       explanation: q.explanation || "",
-      // FIX: Force the REQUESTED difficulty from distribution, not AI's self-report.
       difficulty: difficulty,
       cognitive_level: mappedCogLevel,
-      // Hebel 2: Use finalQuestionType (resolved before gate)
       question_type: finalQuestionType,
-      // Hebel 3: Trap tags + distractor metadata
       trap_tags: rawTrapTags,
       distractor_meta: {
         raw: rawDistractorMeta,
@@ -868,6 +901,11 @@ async function generateTurboQuestions(
       ai_generated: true,
       status,
       qc_status: assignedPool === "exam" ? "approved" : "pending",
+      // S4: Blueprint propagation
+      exam_part: resolvedExamPart,
+      scenario_type: resolvedScenarioType,
+      time_estimate_seconds: resolvedTimeEstimate,
+      typical_errors: resolvedTypicalErrors.length > 0 ? resolvedTypicalErrors : null,
     });
 
     if (error) {
@@ -1132,7 +1170,7 @@ Deno.serve(async (req) => {
 
     // Get blueprints
     let bpQuery = sb.from("question_blueprints")
-      .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template, trap_spec, typical_exam_trap")
+      .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template, trap_spec, typical_exam_trap, exam_context_type, typical_errors, estimated_time_seconds, decision_structure, exam_relevance_score")
       .eq("curriculum_id", curriculumId).eq("status", "approved").order("created_at", { ascending: true });
 
     if (blueprintIds?.length) bpQuery = bpQuery.in("id", blueprintIds);
