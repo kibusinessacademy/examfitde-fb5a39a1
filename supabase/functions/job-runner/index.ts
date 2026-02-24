@@ -272,7 +272,8 @@ async function getAdaptiveConcurrency(
     }
   }
 
-  return current;
+  // Hard cap — DB snapshot may exceed MAX_CONCURRENCY from legacy data
+  return Math.min(MAX_CONCURRENCY, current);
 }
 
 async function writeSnapshot(
@@ -498,6 +499,7 @@ Deno.serve(async (req) => {
     let finalState: FinalState | null = null;
 
     // ── 2. Invoke target Edge Function ───────────────────────────────
+    console.log(`[job-runner] DISPATCH job=${job.id.slice(0,8)} type=${job.job_type} lf=${job.payload?.learning_field_filter?.slice(0,8) ?? '__root__'}`);
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), JOB_TIMEOUT_MS);
