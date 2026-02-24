@@ -395,10 +395,40 @@ Deno.serve(async (req) => {
   const runnerStart = Date.now();
   const RUNNER_TIME_BUDGET_MS = 110_000; // 110s — leave 70s headroom before 180s Edge limit
 
-  // ── Fix 2: Pre-release excess heavy jobs (keep max 1) ──────────
+  // ── Fix 2: Pre-release excess heavy jobs (keep max 1, prioritize 0-question LFs) ──
   const HEAVY_JOB_TYPES = new Set(["package_generate_exam_pool", "package_generate_learning_content", "package_generate_handbook"]);
   const heavyJobs = jobs.filter((j: any) => HEAVY_JOB_TYPES.has(j.job_type));
   if (heavyJobs.length > 1) {
+    // Sort: prioritize LF-scoped exam_pool jobs with fewest existing questions
+    const examPoolHeavy = heavyJobs.filter((j: any) => j.job_type === "package_generate_exam_pool" && j.payload?.learning_field_filter);
+    if (examPoolHeavy.length > 0) {
+      // Fetch question counts for all candidate LFs in one query
+      const lfIds = examPoolHeavy.map((j: any) => j.payload.learning_field_filter);
+      const curriculumId = examPoolHeavy[0].payload?.curriculum_id;
+      let qByLf = new Map<string, number>();
+      if (curriculumId) {
+        const { data: counts } = await sb
+          .from("exam_questions")
+          .select("learning_field_id")
+          .eq("curriculum_id", curriculumId)
+          .in("learning_field_id", lfIds);
+        // Count per LF
+        if (counts) {
+          for (const row of counts) {
+            qByLf.set(row.learning_field_id, (qByLf.get(row.learning_field_id) ?? 0) + 1);
+          }
+        }
+      }
+      // Sort: 0-question LFs first, then lowest count, then oldest created_at
+      heavyJobs.sort((a: any, b: any) => {
+        const aQ = qByLf.get(a.payload?.learning_field_filter) ?? 0;
+        const bQ = qByLf.get(b.payload?.learning_field_filter) ?? 0;
+        if (aQ === 0 && bQ !== 0) return -1;
+        if (bQ === 0 && aQ !== 0) return 1;
+        return aQ - bQ || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
+      console.log(`[job-runner] PRE_RELEASE_PRIORITY: keeping lf=${heavyJobs[0].payload?.learning_field_filter?.slice(0,8)} (q=${qByLf.get(heavyJobs[0].payload?.learning_field_filter) ?? 0})`);
+    }
     const keepId = heavyJobs[0].id;
     const releaseHeavy = heavyJobs.slice(1);
     console.log(`[job-runner] PRE_RELEASE: releasing ${releaseHeavy.length} excess heavy jobs (${releaseHeavy.map((j: any) => j.job_type + '/' + (j.payload?.learning_field_filter?.slice(0,8) ?? '__root__')).join(', ')})`);
