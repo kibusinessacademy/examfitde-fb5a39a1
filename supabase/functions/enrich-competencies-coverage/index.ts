@@ -97,7 +97,7 @@ function extractActionVerb(title: string, desc: string): string | null {
   }
   
   const m = text.match(/\b([\wäöüß]+(?:iert|elt|ert|etzt))\b/);
-  if (m && !STOP_VERBS.has(m[1]) && m[1].length >= 4) return m[1];
+  if (m && !STOP_VERBS.has(m[1]) && m[1].length >= 4) return m[1].toLowerCase().trim();
   
   return null;
 }

@@ -223,7 +223,7 @@ Antworte NUR als JSON: {"enrichments": [{...}]}`;
           }
         }
 
-        // Patch 8: Write-if-empty via server-side RPC (race-safe)
+        // Patch 8: Write-if-empty via server-side RPC (race-safe, no fallback)
         let batchUpdated = 0;
         if (rpcUpdates.length) {
           const { data: rpcResult, error: rpcErr } = await sb.rpc("apply_phase2_enrichment", {
@@ -231,19 +231,10 @@ Antworte NUR als JSON: {"enrichments": [{...}]}`;
           });
           if (rpcErr) {
             console.error(`[Phase2] RPC apply error: ${rpcErr.message}`);
-            // Fallback: individual updates (non-race-safe but functional)
-            for (const item of rpcUpdates) {
-              const updateData: Record<string, any> = {};
-              if (item.typical_misconceptions) updateData.typical_misconceptions = item.typical_misconceptions;
-              if (item.transfer_markers) updateData.transfer_markers = item.transfer_markers;
-              updateData.enrichment_version = 2;
-              updateData.enriched_at = new Date().toISOString();
-              const { error } = await sb.from("competencies").update(updateData).eq("id", item.id);
-              if (!error) batchUpdated++;
-            }
-          } else {
-            batchUpdated = rpcResult?.updated ?? rpcUpdates.length;
+            results.push({ batch: i / batchSize + 1, status: "rpc_error", error: rpcErr.message.slice(0, 200) });
+            continue;
           }
+          batchUpdated = rpcResult?.updated ?? 0;
         }
 
         totalEnriched += batchUpdated;
