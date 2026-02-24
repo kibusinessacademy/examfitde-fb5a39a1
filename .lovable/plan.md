@@ -130,12 +130,12 @@ CREATE TABLE blueprint_quality_constraints (
 - [x] `time_estimate_seconds` übernehmen
 - [x] Distraktoren mit `why_wrong` + `why_tempting` + `examiner_intention`
 
-### 2.4 Validation Gates v2
-- [ ] **Bloom-Gate:** Verteilung pro LF gegen `bloom_distribution_target`
-- [ ] **Scenario-Gate:** min 30% case-based
-- [ ] **Distractor-Quality-Gate:** `distractor_meta` pflichtprüfen
-- [ ] **Time-Gate:** Zeitbudget gegen Prüfungszeit
-- [ ] **Discrimination-Gate:** `item_discrimination < 0.20` → training-only
+### 2.4 Validation Gates v2 ✅ DONE
+- [x] **Bloom-Gate:** Verteilung pro LF gegen `bloom_distribution_target` (hard fail, 15pp Toleranz)
+- [x] **Scenario-Gate:** min 30% case-based (hard fail in Blueprint-Validator)
+- [x] **Distractor-Quality-Gate:** `distractor_meta` mit why_wrong/why_tempting pflichtprüfen (hard fail)
+- [x] **Time-Gate:** Zeitbudget gegen Prüfungszeit aus exam_structure (soft warning)
+- [x] **Discrimination-Gate:** `item_discrimination < 0.20` → auto-tag "weak" + training-only (soft warning)
 
 ---
 
