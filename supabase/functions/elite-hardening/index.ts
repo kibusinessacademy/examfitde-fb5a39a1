@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { callAIJSON } from "../_shared/ai-client.ts";
+import type { AIProvider } from "../_shared/ai-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,35 +10,26 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const AI_GATEWAY =
-  Deno.env.get("AI_GATEWAY_URL") || `${SUPABASE_URL}/functions/v1/ai-gateway`;
 
-// --- AI Helper ---
+// --- AI Helper using shared ai-client ---
 async function callAI(
-  supabase: any,
+  _supabase: any,
   systemPrompt: string,
   userPrompt: string,
   model = "google/gemini-2.5-flash"
 ): Promise<string> {
-  const res = await fetch(AI_GATEWAY, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.4,
-      max_tokens: 4096,
-    }),
+  const provider: AIProvider = model.startsWith("google/") ? "lovable" : "lovable";
+  const result = await callAIJSON({
+    provider,
+    model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0.4,
+    max_tokens: 4096,
   });
-  if (!res.ok) throw new Error(`AI call failed: ${res.status}`);
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || data.content || "";
+  return result.content || "";
 }
 
 function parseJSON(text: string): any {
@@ -83,14 +76,18 @@ async function analyzeExamPool(
     const operatorMatch = (q.question_text || "").match(/^(Welche|Was|Wie|Wann|Warum|Nennen|Berechnen|Erklären|Beschreiben|Beurteilen|Analysieren|Ordnen|Prüfen)/i);
     if (operatorMatch) operators.add(operatorMatch[1].toLowerCase());
 
-    // Weak criteria: no scenario, no trap tags, short explanation
-    const isWeak =
-      !isScenario &&
-      (!q.trap_tags || q.trap_tags.length === 0) &&
-      expl.length < 150 &&
-      q.cognitive_level !== "analyze" &&
-      q.cognitive_level !== "evaluate";
+    // Weak criteria (broader): catches questions lacking elite characteristics
+    // A question is weak if it has 2+ of these deficiencies:
+    let deficiencyCount = 0;
+    if (!isScenario) deficiencyCount++;
+    if (!isMultistep) deficiencyCount++;
+    if (!q.trap_tags || q.trap_tags.length === 0) deficiencyCount++;
+    if (expl.length < 200) deficiencyCount++;
+    if (!q.distractor_meta || (typeof q.distractor_meta === 'object' && Object.keys(q.distractor_meta).length === 0)) deficiencyCount++;
+    if (q.cognitive_level === "remember" || q.cognitive_level === "understand") deficiencyCount++;
+    if (!operatorMatch) deficiencyCount++;
 
+    const isWeak = deficiencyCount >= 4;
     if (isWeak) weak.push(q.id);
   }
 
@@ -115,10 +112,12 @@ async function hardenExamQuestions(
   supabase: any,
   runId: string,
   weakIds: string[],
-  curriculumId: string
-): Promise<{ upgraded: number; failed: number }> {
+  curriculumId: string,
+  startTime: number = Date.now()
+): Promise<{ upgraded: number; failed: number; remaining: number }> {
   let upgraded = 0;
   let failed = 0;
+  const TIME_BUDGET_MS = 110_000; // 110s budget (Edge Function timeout = 180s)
 
   // Get curriculum context
   const { data: curriculum } = await supabase
@@ -129,9 +128,13 @@ async function hardenExamQuestions(
 
   const berufName = curriculum?.title || "Ausbildungsberuf";
 
-  // Process in batches of 5
-  for (let i = 0; i < weakIds.length; i += 5) {
-    const batch = weakIds.slice(i, i + 5);
+  // Process one at a time with time budget
+  for (let i = 0; i < weakIds.length; i++) {
+    if (Date.now() - startTime > TIME_BUDGET_MS) {
+      console.log(`[elite-hardening] Time budget exhausted after ${upgraded} upgrades, ${weakIds.length - i} remaining`);
+      return { upgraded, failed, remaining: weakIds.length - i };
+    }
+    const batch = [weakIds[i]];
     const { data: questions } = await supabase
       .from("exam_questions")
       .select("id, question_text, options, explanation, correct_answer, cognitive_level, difficulty, competency_id")
@@ -491,6 +494,8 @@ Deno.serve(async (req) => {
 
     const runId = run!.id;
 
+    const invocationStart = Date.now();
+
     try {
       const results: any = { exam: null, minicheck: null, oral: null };
 
@@ -511,7 +516,7 @@ Deno.serve(async (req) => {
           .eq("id", runId);
 
         if (analysis.weak_ids.length > 0) {
-          results.exam = await hardenExamQuestions(supabase, runId, analysis.weak_ids, pkg.curriculum_id);
+          results.exam = await hardenExamQuestions(supabase, runId, analysis.weak_ids, pkg.curriculum_id, invocationStart);
         }
       }
 
