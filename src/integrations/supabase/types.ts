@@ -11229,6 +11229,7 @@ export type Database = {
           lead_questions: string[]
           learning_field_id: string | null
           metadata: Json | null
+          premium_upgraded_at: string | null
           rubric: Json
           scenario: string
           scoring_weights: Json | null
@@ -11250,6 +11251,7 @@ export type Database = {
           lead_questions?: string[]
           learning_field_id?: string | null
           metadata?: Json | null
+          premium_upgraded_at?: string | null
           rubric?: Json
           scenario: string
           scoring_weights?: Json | null
@@ -11271,6 +11273,7 @@ export type Database = {
           lead_questions?: string[]
           learning_field_id?: string | null
           metadata?: Json | null
+          premium_upgraded_at?: string | null
           rubric?: Json
           scenario?: string
           scoring_weights?: Json | null
@@ -15295,6 +15298,7 @@ export type Database = {
           min_variation_distance: number | null
           name: string
           oral_extension: Json | null
+          premium_upgraded_at: string | null
           question_template: string
           real_world_context: boolean
           remediation_triggers: Json | null
@@ -15345,6 +15349,7 @@ export type Database = {
           min_variation_distance?: number | null
           name: string
           oral_extension?: Json | null
+          premium_upgraded_at?: string | null
           question_template: string
           real_world_context?: boolean
           remediation_triggers?: Json | null
@@ -15395,6 +15400,7 @@ export type Database = {
           min_variation_distance?: number | null
           name?: string
           oral_extension?: Json | null
+          premium_upgraded_at?: string | null
           question_template?: string
           real_world_context?: boolean
           remediation_triggers?: Json | null

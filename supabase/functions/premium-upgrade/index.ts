@@ -193,6 +193,7 @@ ${JSON.stringify(otherLfs.map(lf => ({ id: lf.id, name: `LF${lf.field_number}: $
             question_template: upg.upgraded_question_template || undefined,
             typical_exam_trap: upg.upgraded_typical_exam_trap || undefined,
             last_premium_upgrade_run_id: runId,
+            premium_upgraded_at: nowIso(),
           })
           .eq("id", upg.blueprint_id)
           .eq("scenario_type", "single_competency"); // CAS guard
@@ -261,6 +262,7 @@ Antworte NUR als JSON-Array:
           .update({
             very_hard_criteria: upg.very_hard_criteria,
             last_premium_upgrade_run_id: runId,
+            premium_upgraded_at: nowIso(),
           })
           .eq("id", upg.blueprint_id)
           .is("very_hard_criteria", null); // CAS guard
@@ -332,6 +334,7 @@ Antworte NUR als JSON-Array. blueprint_id MUSS exakt die übergebene ID sein.`;
             followup_depth: 4,
             followup_chains: upg.followup_chains || null,
             last_premium_upgrade_run_id: runId,
+            premium_upgraded_at: nowIso(),
           })
           .eq("id", upg.blueprint_id)
           .is("stress_config", null); // CAS guard
@@ -413,6 +416,7 @@ Antworte NUR als JSON-Array:
         const updateData: Record<string, unknown> = {
           economic_scenario_type: upg.economic_scenario_type,
           last_premium_upgrade_run_id: runId,
+          premium_upgraded_at: nowIso(),
         };
         if (upg.upgraded_question_template) {
           updateData.question_template = upg.upgraded_question_template;
