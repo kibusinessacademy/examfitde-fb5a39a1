@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
   // ── Load blueprints ──
   const { data: blueprints, error: bpErr } = await sb
     .from("question_blueprints")
-    .select("id, curriculum_id, learning_field_id, competency_id, canonical_statement, knowledge_type, cognitive_level, question_template, max_variations, exam_context_type, typical_errors, estimated_time_seconds")
+    .select("id, status, curriculum_id, learning_field_id, competency_id, canonical_statement, knowledge_type, cognitive_level, question_template, max_variations, exam_context_type, typical_errors, estimated_time_seconds")
     .eq("curriculum_id", curriculumId);
 
   if (bpErr) return json({ error: bpErr.message }, 500);
@@ -303,17 +303,36 @@ Deno.serve(async (req) => {
 
   // ── Approve blueprints if validation passed ──
   if (passed) {
-    const draftIds = blueprints.filter(bp => (bp as any).status === 'draft').map(bp => bp.id);
-    if (draftIds.length > 0) {
+    // Governance trigger requires approved_at + approved_by (UUID FK to auth.users)
+    // Look up any admin user, or use the package creator
+    let approverUuid: string | null = null;
+    try {
+      // Try to find the package creator
+      const { data: pkg } = await sb.from("course_packages").select("created_by").eq("id", packageId).single();
+      approverUuid = pkg?.created_by || null;
+      // Fallback: first admin user
+      if (!approverUuid) {
+        const { data: users } = await sb.from("profiles").select("id").limit(1);
+        approverUuid = users?.[0]?.id || null;
+      }
+    } catch { /* use null fallback below */ }
+
+    if (!approverUuid) {
+      console.error(`[validate-blueprints] No approver UUID found — cannot approve blueprints`);
+    } else {
       const { error: approveErr, count: approvedCount } = await sb
         .from("question_blueprints")
-        .update({ status: "approved" } as any)
+        .update({
+          status: "approved",
+          approved_at: new Date().toISOString(),
+          approved_by: approverUuid,
+        } as any)
         .eq("curriculum_id", curriculumId)
         .eq("status" as any, "draft");
       if (approveErr) {
         console.error(`[validate-blueprints] Failed to approve blueprints: ${approveErr.message}`);
       } else {
-        console.log(`[validate-blueprints] ✅ Approved ${approvedCount ?? draftIds.length} blueprints`);
+        console.log(`[validate-blueprints] ✅ Approved ${approvedCount ?? '?'} blueprints for curriculum ${curriculumId.slice(0, 8)}`);
       }
     }
   }
