@@ -163,8 +163,8 @@ const BACKOFF_ERROR_MS = 30_000;
 const BACKOFF_PREREQ_MS = 20_000;
 
 // ── Function versioning (for deployment forensics) ──────────────────
-const FUNCTION_VERSION = "v5.2";
-const DEPLOYED_AT = "2026-02-21T16:00:00Z";
+const FUNCTION_VERSION = "v5.4-fair-share";
+const DEPLOYED_AT = "2026-02-25T12:00:00Z";
 
 // Adaptive thresholds (rolling 5-min window)
 const THROTTLE_TIMEOUT_THRESHOLD = 10;
@@ -404,58 +404,84 @@ Deno.serve(async (req) => {
   const runnerStart = Date.now();
   const RUNNER_TIME_BUDGET_MS = 110_000; // 110s — leave 70s headroom before 180s Edge limit
 
-  // ── Fix 2: Pre-release excess heavy jobs (keep max 1, prioritize 0-question LFs) ──
+  // ── Fix 2: Package-Fair-Share — max 1 heavy job per package, max GLOBAL_HEAVY_LIMIT globally ──
+  // This prevents a single package with many fan-out sub-jobs from starving other packages.
   const HEAVY_JOB_TYPES = new Set(["package_generate_exam_pool", "package_generate_learning_content", "package_generate_handbook"]);
+  const GLOBAL_HEAVY_LIMIT = 3; // Max heavy jobs dispatched per tick across all packages
   const heavyJobs = jobs.filter((j: any) => HEAVY_JOB_TYPES.has(j.job_type));
   if (heavyJobs.length > 1) {
-    // Sort: prioritize LF-scoped exam_pool jobs with fewest existing questions
-    const examPoolHeavy = heavyJobs.filter((j: any) => j.job_type === "package_generate_exam_pool" && j.payload?.learning_field_filter);
-    if (examPoolHeavy.length > 0) {
-      // Fetch question counts for all candidate LFs in one query
-      const lfIds = examPoolHeavy.map((j: any) => j.payload.learning_field_filter);
-      const curriculumId = examPoolHeavy[0].payload?.curriculum_id;
-      let qByLf = new Map<string, number>();
-      if (curriculumId) {
-        const { data: counts } = await sb
-          .from("exam_questions")
-          .select("learning_field_id")
-          .eq("curriculum_id", curriculumId)
-          .in("learning_field_id", lfIds);
-        // Count per LF
-        if (counts) {
-          for (const row of counts) {
-            qByLf.set(row.learning_field_id, (qByLf.get(row.learning_field_id) ?? 0) + 1);
+    // Group by package_id
+    const byPackage = new Map<string, any[]>();
+    for (const hj of heavyJobs) {
+      const pkgId = hj.payload?.package_id ?? hj.package_id ?? "__unknown__";
+      if (!byPackage.has(pkgId)) byPackage.set(pkgId, []);
+      byPackage.get(pkgId)!.push(hj);
+    }
+
+    // Per package: pick the best candidate (prioritize 0-question LFs, then oldest)
+    const winners: any[] = [];
+    for (const [pkgId, pkgHeavy] of byPackage) {
+      // Sort within package: LF-scoped exam_pool with fewest questions first
+      const examPoolInPkg = pkgHeavy.filter((j: any) => j.job_type === "package_generate_exam_pool" && j.payload?.learning_field_filter);
+      if (examPoolInPkg.length > 0) {
+        // Fetch question counts for candidate LFs
+        const lfIds = examPoolInPkg.map((j: any) => j.payload.learning_field_filter);
+        const curriculumId = examPoolInPkg[0].payload?.curriculum_id;
+        const qByLf = new Map<string, number>();
+        if (curriculumId) {
+          const { data: counts } = await sb
+            .from("exam_questions")
+            .select("learning_field_id")
+            .eq("curriculum_id", curriculumId)
+            .in("learning_field_id", lfIds);
+          if (counts) {
+            for (const row of counts) {
+              qByLf.set(row.learning_field_id, (qByLf.get(row.learning_field_id) ?? 0) + 1);
+            }
           }
         }
+        pkgHeavy.sort((a: any, b: any) => {
+          const aLf = a.payload?.learning_field_filter;
+          const bLf = b.payload?.learning_field_filter;
+          const aQ = aLf ? (qByLf.get(aLf) ?? 0) : Number.MAX_SAFE_INTEGER;
+          const bQ = bLf ? (qByLf.get(bLf) ?? 0) : Number.MAX_SAFE_INTEGER;
+          if (aQ === 0 && bQ !== 0) return -1;
+          if (bQ === 0 && aQ !== 0) return 1;
+          return aQ - bQ || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+      } else {
+        // Non-exam-pool: oldest first
+        pkgHeavy.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       }
-      // Sort: 0-question LFs first, then lowest count; non-exam_pool heavy jobs go last
-      heavyJobs.sort((a: any, b: any) => {
-        const aLf = a.payload?.learning_field_filter;
-        const bLf = b.payload?.learning_field_filter;
-        const aQ = aLf ? (qByLf.get(aLf) ?? 0) : Number.MAX_SAFE_INTEGER;
-        const bQ = bLf ? (qByLf.get(bLf) ?? 0) : Number.MAX_SAFE_INTEGER;
-        if (aQ === 0 && bQ !== 0) return -1;
-        if (bQ === 0 && aQ !== 0) return 1;
-        return aQ - bQ || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      });
-      console.log(`[job-runner] PRE_RELEASE_PRIORITY: keeping lf=${heavyJobs[0].payload?.learning_field_filter?.slice(0,8)} (q=${qByLf.get(heavyJobs[0].payload?.learning_field_filter) ?? 0})`);
+      // Pick exactly 1 winner per package
+      winners.push(pkgHeavy[0]);
+      console.log(`[job-runner] FAIR_SHARE: pkg ${pkgId.slice(0,8)} → winner ${pkgHeavy[0].job_type}/${(pkgHeavy[0].payload?.learning_field_filter?.slice(0,8) ?? '__root__')}`);
     }
-    const keepId = heavyJobs[0].id;
-    const releaseHeavy = heavyJobs.slice(1);
-    console.log(`[job-runner] PRE_RELEASE: releasing ${releaseHeavy.length} excess heavy jobs (${releaseHeavy.map((j: any) => j.job_type + '/' + (j.payload?.learning_field_filter?.slice(0,8) ?? '__root__')).join(', ')})`);
-    for (const rj of releaseHeavy) {
-      const ts = new Date(Date.now() + 5_000).toISOString();
-      await sb.from("job_queue").update({
-        status: "pending",
-        locked_at: null,
-        locked_by: null,
-        scheduled_at: ts,
-        run_after: ts,
-        updated_at: new Date().toISOString(),
-      }).eq("id", rj.id);
+
+    // Global cap: sort winners by created_at (oldest package gets priority), then take GLOBAL_HEAVY_LIMIT
+    winners.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const globalWinners = winners.slice(0, GLOBAL_HEAVY_LIMIT);
+    const keepIds = new Set(globalWinners.map((w: any) => w.id));
+
+    // Release all non-winners
+    const releaseHeavy = heavyJobs.filter((j: any) => !keepIds.has(j.id));
+    if (releaseHeavy.length > 0) {
+      console.log(`[job-runner] FAIR_SHARE: keeping ${globalWinners.length} heavy jobs across ${byPackage.size} packages, releasing ${releaseHeavy.length}`);
+      for (const rj of releaseHeavy) {
+        const ts = new Date(Date.now() + 5_000).toISOString();
+        await sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          scheduled_at: ts,
+          run_after: ts,
+          updated_at: new Date().toISOString(),
+        }).eq("id", rj.id);
+      }
     }
-    // Stable filter — no splice, rebuild array
-    jobs = jobs.filter((j: any) => !HEAVY_JOB_TYPES.has(j.job_type) || j.id === keepId);
+
+    // Stable filter — keep non-heavy + winners
+    jobs = jobs.filter((j: any) => !HEAVY_JOB_TYPES.has(j.job_type) || keepIds.has(j.id));
   }
 
   for (let jobIdx = 0; jobIdx < jobs.length; jobIdx++) {
