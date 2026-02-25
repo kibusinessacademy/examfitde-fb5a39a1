@@ -594,10 +594,25 @@ async function processPackage(
         if (attempts < MAX_HEAL_RETRIES) {
           console.warn(`[runner] 🔄 Auto-heal: ${stepKey} failed validation (attempt ${attempts + 1}/${MAX_HEAL_RETRIES}) — resetting predecessor ${predecessorStep}`);
 
+          // ── Targeted re-seed: if validate_blueprints reports missing LF IDs,
+          // pass them to the seeder so it only generates for those LFs (budget-efficient)
+          const targetLfIds: string[] | undefined = result.missing_lf_ids;
+          const hasTargetedLfs = stepKey === "validate_blueprints" && Array.isArray(targetLfIds) && targetLfIds.length > 0;
+
+          if (hasTargetedLfs) {
+            console.log(`[runner] 🎯 Targeted re-seed: ${targetLfIds!.length} missing LFs → passing target_lf_ids to seeder`);
+          }
+
           // Reset predecessor to queued so it regenerates
+          const predecessorUpdate: any = { status: "queued", job_id: null, runner_id: null, started_at: null, attempts: 0 };
+          // Store target_lf_ids in the step metadata so the job-runner can pass them to the seeder
+          if (hasTargetedLfs) {
+            predecessorUpdate.last_error = `Auto-heal: targeted re-seed for ${targetLfIds!.length} missing LFs`;
+            predecessorUpdate.meta = { target_lf_ids: targetLfIds };
+          }
           await safeQuery(
             sb.from("package_steps")
-              .update({ status: "queued", job_id: null, runner_id: null, started_at: null, attempts: 0 })
+              .update(predecessorUpdate)
               .eq("package_id", packageId)
               .eq("step_key", predecessorStep),
             "auto_heal_reset_predecessor",
@@ -611,7 +626,7 @@ async function processPackage(
                 job_id: null,
                 runner_id: null,
                 started_at: null,
-                last_error: `Auto-heal: validation failed, regenerating ${predecessorStep} (attempt ${attempts + 1})`,
+                last_error: `Auto-heal: validation failed, regenerating ${predecessorStep} (attempt ${attempts + 1})${hasTargetedLfs ? ` [targeted: ${targetLfIds!.length} LFs]` : ""}`,
               })
               .eq("package_id", packageId)
               .eq("step_key", stepKey),
@@ -625,13 +640,13 @@ async function processPackage(
               target_type: "package_step",
               target_id: packageId,
               result_status: "ok",
-              result_detail: `${stepKey} failed → reset ${predecessorStep} (attempt ${attempts + 1}/${MAX_HEAL_RETRIES})`,
-              metadata: { step: stepKey, predecessor: predecessorStep, attempt: attempts + 1, issues: result.issues },
+              result_detail: `${stepKey} failed → reset ${predecessorStep} (attempt ${attempts + 1}/${MAX_HEAL_RETRIES})${hasTargetedLfs ? ` [targeted: ${targetLfIds!.length} LFs]` : ""}`,
+              metadata: { step: stepKey, predecessor: predecessorStep, attempt: attempts + 1, issues: result.issues, target_lf_ids: targetLfIds },
             }),
           );
 
           await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-          return { packageId, stepKey, auto_heal: true, predecessor: predecessorStep, attempt: attempts + 1 };
+          return { packageId, stepKey, auto_heal: true, predecessor: predecessorStep, attempt: attempts + 1, targeted_lf_count: targetLfIds?.length };
         } else {
           // Max retries exhausted — fail the package
           console.error(`[runner] ❌ Auto-heal exhausted for ${stepKey} after ${MAX_HEAL_RETRIES} retries`);
@@ -858,6 +873,11 @@ async function processPackage(
       feature_flags: pkg.feature_flags ?? {},
     };
     if (batchCursor) payload.batch_cursor = batchCursor;
+    // v4.1: Pass target_lf_ids from step meta (set by auto-heal for targeted re-seed)
+    if (currentStep?.meta?.target_lf_ids && Array.isArray(currentStep.meta.target_lf_ids)) {
+      payload.target_lf_ids = currentStep.meta.target_lf_ids;
+      console.log(`[runner] 🎯 Injecting target_lf_ids (${currentStep.meta.target_lf_ids.length} LFs) into ${jobType} payload`);
+    }
 
     // Sane max_attempts: expensive steps get 5, validation 3, default 10
     const STEP_MAX_ATTEMPTS: Partial<Record<StepKey, number>> = {

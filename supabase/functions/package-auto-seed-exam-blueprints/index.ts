@@ -423,6 +423,11 @@ Deno.serve(async (req) => {
 async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
   const packageId = p.package_id as string;
   const curriculumId = p.curriculum_id as string;
+  // v4.1: Support targeted re-seed for specific LFs (from pipeline auto-heal)
+  const targetLfIds: string[] | undefined = Array.isArray(p.target_lf_ids) ? p.target_lf_ids : undefined;
+  if (targetLfIds?.length) {
+    console.log(`[SeedV4] 🎯 Targeted mode: seeding only ${targetLfIds.length} LFs`);
+  }
 
   // 1) Load curriculum + beruf
   const { data: curriculum } = await sb
@@ -467,10 +472,12 @@ async function handleSeed(sb: ReturnType<typeof createClient>, p: any) {
 
   // 3) Load competencies (v4: include enriched fields)
   const lfIds = lfs.map(lf => lf.id);
+  // v4.1: If targeted mode, only load competencies for the target LFs
+  const compLfIds = targetLfIds?.length ? targetLfIds : lfIds;
   const { data: comps, error: compErr } = await sb
     .from("competencies")
     .select("id, learning_field_id, code, title, description, taxonomy_level, bloom_level, action_verb, typical_misconceptions, exam_relevance_tier")
-    .in("learning_field_id", lfIds)
+    .in("learning_field_id", compLfIds)
     .order("created_at", { ascending: true });
 
   if (compErr) throw new Error(`Competencies query: ${compErr.message}`);
