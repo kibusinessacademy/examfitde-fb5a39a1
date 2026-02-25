@@ -37,6 +37,8 @@ type StepKey =
   | "validate_tutor_index"
   | "generate_oral_exam"
   | "validate_oral_exam"
+  | "generate_lesson_minichecks"
+  | "validate_lesson_minichecks"
   | "elite_harden"
   | "generate_handbook"
   | "validate_handbook"
@@ -59,6 +61,8 @@ const FULL_STEP_ORDER: StepKey[] = [
   "validate_tutor_index",
   "generate_oral_exam",
   "validate_oral_exam",
+  "generate_lesson_minichecks",
+  "validate_lesson_minichecks",
   "elite_harden",
   "generate_handbook",
   "validate_handbook",
@@ -90,6 +94,8 @@ const STEP_TO_JOB_TYPE: Record<StepKey, string> = {
   validate_exam_pool: "package_validate_exam_pool",
   generate_oral_exam: "package_generate_oral_exam",
   validate_oral_exam: "package_validate_oral_exam",
+  generate_lesson_minichecks: "package_generate_lesson_minichecks",
+  validate_lesson_minichecks: "package_validate_lesson_minichecks",
   elite_harden: "package_elite_harden",
   build_ai_tutor_index: "package_build_ai_tutor_index",
   validate_tutor_index: "package_validate_tutor_index",
@@ -1105,6 +1111,7 @@ async function processPackage(
       generate_exam_pool: 5,
       generate_oral_exam: 5,
       generate_learning_content: 5,
+      generate_lesson_minichecks: 5,
       scaffold_learning_course: 3,
       validate_blueprints: 3,
       validate_exam_pool: 3,
@@ -1112,6 +1119,8 @@ async function processPackage(
       validate_handbook: 3,
       validate_tutor_index: 3,
       validate_learning_content: 3,
+      validate_lesson_minichecks: 3,
+      elite_harden: 5,
       run_integrity_check: 3,
       quality_council: 3,
       auto_publish: 3,
