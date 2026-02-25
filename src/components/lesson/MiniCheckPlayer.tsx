@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -12,9 +12,9 @@ export interface MiniCheckQuestion {
   id: string;
   text: string;
   options: Array<{
-    id: string;
+    id: number | string;
     text: string;
-    is_correct: boolean;
+    is_correct?: boolean; // only present for inline JSON fallback, never from DB
   }>;
   explanation_correct?: string;
   explanation_wrong?: string;
@@ -34,8 +34,10 @@ interface MiniCheckPlayerProps {
 
 interface QuestionResult {
   questionId: string;
-  selectedOptionId: string | null;
+  selectedIndex: number;
   isCorrect: boolean;
+  correctIndex: number;
+  explanation: string;
 }
 
 export default function MiniCheckPlayer({ 
@@ -44,74 +46,98 @@ export default function MiniCheckPlayer({
   onCompleted 
 }: MiniCheckPlayerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [results, setResults] = useState<QuestionResult[]>([]);
   const [isFinished, setIsFinished] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [consecutiveFails, setConsecutiveFails] = useState(0);
   const [sessionId] = useState(() => crypto.randomUUID());
+
+  // Server response for current question (after answer check)
+  const [answerResult, setAnswerResult] = useState<{
+    is_correct: boolean;
+    correct_index: number;
+    explanation: string;
+  } | null>(null);
 
   const questions = content.questions || [];
   const passingScore = content.passing_score ?? 70;
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
 
-  const isCorrectAnswer = useCallback(() => {
-    if (!selectedOption || !currentQuestion) return false;
-    const selected = currentQuestion.options.find(o => o.id === selectedOption);
-    return selected?.is_correct ?? false;
-  }, [selectedOption, currentQuestion]);
-
-  const handleSelectOption = (optionId: string) => {
+  const handleSelectOption = (index: number) => {
     if (hasAnswered) return;
-    setSelectedOption(optionId);
+    setSelectedIndex(index);
   };
 
-  const handleCheckAnswer = () => {
-    if (!selectedOption) return;
+  const handleCheckAnswer = async () => {
+    if (selectedIndex === null) return;
     
-    const correct = isCorrectAnswer();
+    setChecking(true);
+
+    try {
+      // Server-side answer check via RPC
+      const { data, error } = await supabase.rpc('submit_minicheck_attempt', {
+        p_question_id: currentQuestion.id,
+        p_chosen_index: selectedIndex,
+        p_session_id: sessionId,
+        p_lesson_id: lessonId,
+      });
+
+      if (error) {
+        // Fallback: check locally if is_correct is available (inline JSON)
+        console.error('Server check failed, using fallback:', error);
+        const fallbackCorrect = currentQuestion.options[selectedIndex]?.is_correct ?? false;
+        const result = { is_correct: fallbackCorrect, correct_index: -1, explanation: '' };
+        setAnswerResult(result);
+        finishAnswer(result);
+        return;
+      }
+
+      const serverResult = data as unknown as { is_correct: boolean; correct_index: number; explanation: string };
+      setAnswerResult(serverResult);
+      finishAnswer(serverResult);
+    } catch (err) {
+      console.error('Answer check error:', err);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const finishAnswer = (result: { is_correct: boolean; correct_index: number; explanation: string }) => {
     setHasAnswered(true);
-    
+
     setResults(prev => [...prev, {
       questionId: currentQuestion.id,
-      selectedOptionId: selectedOption,
-      isCorrect: correct
+      selectedIndex: selectedIndex!,
+      isCorrect: result.is_correct,
+      correctIndex: result.correct_index,
+      explanation: result.explanation,
     }]);
 
-    if (!correct) {
+    if (!result.is_correct) {
       setConsecutiveFails(prev => prev + 1);
     } else {
       setConsecutiveFails(0);
     }
-
-    // Persist attempt via RPC (fire-and-forget, non-blocking)
-    const selectedIdx = currentQuestion.options.findIndex(o => o.id === selectedOption);
-    supabase.rpc('submit_minicheck_attempt', {
-      p_question_id: currentQuestion.id,
-      p_chosen_index: selectedIdx,
-      p_session_id: sessionId,
-      p_lesson_id: lessonId,
-    }).then(({ error }) => {
-      if (error) console.error('Failed to persist minicheck attempt:', error);
-    });
   };
 
   const handleNextQuestion = async () => {
     if (currentIndex < totalQuestions - 1) {
       setCurrentIndex(prev => prev + 1);
-      setSelectedOption(null);
+      setSelectedIndex(null);
       setHasAnswered(false);
+      setAnswerResult(null);
     } else {
-      // Quiz finished
       setIsFinished(true);
       await saveResult();
     }
   };
 
   const saveResult = async () => {
-    const correctCount = results.filter(r => r.isCorrect).length + (isCorrectAnswer() ? 1 : 0);
+    const correctCount = results.filter(r => r.isCorrect).length;
     const scorePercent = Math.round((correctCount / totalQuestions) * 100);
     
     setSaving(true);
@@ -140,10 +166,11 @@ export default function MiniCheckPlayer({
 
   const handleRetry = () => {
     setCurrentIndex(0);
-    setSelectedOption(null);
+    setSelectedIndex(null);
     setHasAnswered(false);
     setResults([]);
     setIsFinished(false);
+    setAnswerResult(null);
   };
 
   const getScore = () => {
@@ -248,17 +275,18 @@ export default function MiniCheckPlayer({
 
           {/* Options */}
           <div className="space-y-3">
-            {currentQuestion.options.map((option) => {
-              const isSelected = selectedOption === option.id;
-              const showResult = hasAnswered;
-              const isCorrect = option.is_correct;
+            {currentQuestion.options.map((option, idx) => {
+              const isSelected = selectedIndex === idx;
+              const showResult = hasAnswered && answerResult;
+              const isCorrectOption = showResult && answerResult.correct_index === idx;
+              const isWrongSelected = showResult && isSelected && !answerResult.is_correct;
               
               let optionClass = "border-border hover:border-primary/50 hover:bg-muted/30";
               
               if (showResult) {
-                if (isCorrect) {
+                if (isCorrectOption) {
                   optionClass = "border-green-500 bg-green-500/10";
-                } else if (isSelected && !isCorrect) {
+                } else if (isWrongSelected) {
                   optionClass = "border-red-500 bg-red-500/10";
                 } else {
                   optionClass = "border-border opacity-50";
@@ -269,24 +297,24 @@ export default function MiniCheckPlayer({
 
               return (
                 <button
-                  key={option.id}
-                  onClick={() => handleSelectOption(option.id)}
-                  disabled={hasAnswered}
+                  key={idx}
+                  onClick={() => handleSelectOption(idx)}
+                  disabled={hasAnswered || checking}
                   className={cn(
                     "w-full p-4 rounded-xl border-2 text-left transition-all",
                     "flex items-center gap-3",
                     optionClass,
-                    !hasAnswered && "cursor-pointer"
+                    !hasAnswered && !checking && "cursor-pointer"
                   )}
                 >
                   <div className={cn(
                     "w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0",
                     isSelected ? "border-primary" : "border-muted-foreground/30"
                   )}>
-                    {showResult && isCorrect && (
+                    {showResult && isCorrectOption && (
                       <CheckCircle2 className="h-5 w-5 text-green-500" />
                     )}
-                    {showResult && isSelected && !isCorrect && (
+                    {isWrongSelected && (
                       <XCircle className="h-5 w-5 text-red-500" />
                     )}
                     {!showResult && isSelected && (
@@ -300,26 +328,31 @@ export default function MiniCheckPlayer({
           </div>
 
           {/* Feedback */}
-          {hasAnswered && (
+          {hasAnswered && answerResult && (
             <div className={cn(
               "p-4 rounded-xl",
-              isCorrectAnswer() ? "bg-green-500/10 border border-green-500/30" : "bg-red-500/10 border border-red-500/30"
+              answerResult.is_correct ? "bg-green-500/10 border border-green-500/30" : "bg-red-500/10 border border-red-500/30"
             )}>
               <div className="flex items-start gap-3">
-                {isCorrectAnswer() ? (
+                {answerResult.is_correct ? (
                   <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
                 ) : (
                   <XCircle className="h-5 w-5 text-red-500 mt-0.5" />
                 )}
                 <div>
                   <p className="font-medium">
-                    {isCorrectAnswer() ? 'Richtig!' : 'Leider falsch'}
+                    {answerResult.is_correct ? 'Richtig!' : 'Leider falsch'}
                   </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {isCorrectAnswer() 
-                      ? currentQuestion.explanation_correct || 'Gut gemacht!'
-                      : currentQuestion.explanation_wrong || 'Versuche es beim nächsten Mal besser.'}
-                  </p>
+                  {answerResult.explanation && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {answerResult.explanation}
+                    </p>
+                  )}
+                  {!answerResult.explanation && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {answerResult.is_correct ? 'Gut gemacht!' : 'Versuche es beim nächsten Mal besser.'}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -330,8 +363,10 @@ export default function MiniCheckPlayer({
             {!hasAnswered ? (
               <Button 
                 onClick={handleCheckAnswer}
-                disabled={!selectedOption}
+                disabled={selectedIndex === null || checking}
+                className="gap-2"
               >
+                {checking && <Loader2 className="h-4 w-4 animate-spin" />}
                 Antwort prüfen
               </Button>
             ) : (

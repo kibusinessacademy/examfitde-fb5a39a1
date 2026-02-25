@@ -88,6 +88,7 @@ const SpacedRepetitionSession = lazy(() => import('@/pages/SpacedRepetitionSessi
 const ExamAnxietyManager = lazy(() => import('@/pages/ExamAnxietyManager'));
 const VARKLerntypTest = lazy(() => import('@/pages/VARKLerntypTest'));
 const DiagnosticTest = lazy(() => import('@/pages/DiagnosticTest'));
+const DrillSession = lazy(() => import('@/pages/DrillSession'));
 
 // Shop Pages
 const ShopPage = lazy(() => import('@/pages/ShopPage'));
@@ -180,6 +181,7 @@ const AppRoutes = () => {
             <Route path="/exam-results/:sessionId" element={<ExamResultsPage />} />
             <Route path="/lesson/:lessonId" element={<LessonPlayer />} />
             <Route path="/spaced-repetition" element={<SpacedRepetitionSession />} />
+            <Route path="/drill" element={<DrillSession />} />
             <Route path="/exam-anxiety" element={<ExamAnxietyManager />} />
             <Route path="/vark-test" element={<VARKLerntypTest />} />
             <Route path="/diagnostic/:curriculumId" element={<DiagnosticTest />} />

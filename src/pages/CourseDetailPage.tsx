@@ -11,7 +11,7 @@ import { CompetencyProgressGrid, type CompetencyProgress } from "@/components/co
 import { ModuleLessonList } from "@/components/course/ModuleLessonList";
 import { ContinueLearningCard } from "@/components/course/ContinueLearningCard";
 import { Paywall } from "@/components/shop/Paywall";
-import { Loader2, Clock, BookOpen, ArrowLeft, PlayCircle } from "lucide-react";
+import { Loader2, Clock, BookOpen, ArrowLeft, PlayCircle, Zap } from "lucide-react";
 import PageExplainer from "@/components/admin/PageExplainer";
 
 interface Course {
@@ -302,10 +302,22 @@ export default function CourseDetailPage() {
                     </div>
                   ) : null}
                 </div>
-                <Button onClick={handleContinue} className="gradient-primary text-primary-foreground shadow-glow-sm">
-                  <PlayCircle className="h-4 w-4 mr-2" />
-                  {progressPercent > 0 ? "Fortsetzen" : "Training starten"}
-                </Button>
+                <div className="flex gap-3">
+                  <Button onClick={handleContinue} className="gradient-primary text-primary-foreground shadow-glow-sm">
+                    <PlayCircle className="h-4 w-4 mr-2" />
+                    {progressPercent > 0 ? "Fortsetzen" : "Training starten"}
+                  </Button>
+                  {course.curriculum_id && (
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate(`/drill?curriculum=${course.curriculum_id}`)}
+                      className="gap-2"
+                    >
+                      <Zap className="h-4 w-4" />
+                      5-Min-Training
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : user && hasLearningAccess === false && !entitlementLoading ? (
               // User logged in but no license
