@@ -138,64 +138,30 @@ Deno.serve(async (req) => {
       const buildAge = Date.now() - new Date(bPkg.updated_at).getTime();
       if (buildAge < 20 * 60_000) continue; // give 20 min grace
 
-      // Check for active lease
-      const { count: leaseCount } = await sb
-        .from("package_leases")
-        .select("*", { count: "exact", head: true })
-        .eq("package_id", bPkg.id)
-        .gt("lease_until", new Date().toISOString());
-
-      if ((leaseCount ?? 0) > 0) continue; // has active lease — fine
-
-      // Check for active jobs (via RPC — deterministic JSONB extract, no JS query-builder edge cases)
-      const { data: activeJobs } = await sb.rpc("count_active_jobs_for_package", {
+      // Centralized SSOT RPC: checks lease/jobs/steps guards atomically in SQL
+      const { data: failResult } = await sb.rpc("guardian_fail_package_if_stale", {
         p_package_id: bPkg.id,
+        p_min_age_minutes: 20,
       });
-      if ((activeJobs ?? 0) > 0) continue; // has active jobs — fine
 
-      // Check for any running/enqueued steps
-      const { count: activeStepCount } = await sb
-        .from("package_steps")
-        .select("*", { count: "exact", head: true })
-        .eq("package_id", bPkg.id)
-        .in("status", ["running", "enqueued"]);
+      const fr = failResult as Record<string, unknown> | null;
+      const applied = fr?.applied === true;
 
-      if ((activeStepCount ?? 0) > 0) continue; // has active steps — fine
-
-      // Genuinely stuck: no lease, no jobs, no active steps for 20+ min
-      const ageMin = Math.round(buildAge / 60_000);
-      const staleDetails = {
-        pkg_id: bPkg.id,
-        age_min: ageMin,
-        active_leases: leaseCount ?? 0,
-        active_jobs: activeJobs ?? 0,
-        active_steps: activeStepCount ?? 0,
-        reason: "stale_build_no_lease_jobs_steps",
-      };
-
-      const { data: updatedRows, error: updErr } = await sb.from("course_packages")
-        .update({ status: "failed", updated_at: new Date().toISOString() })
-        .eq("id", bPkg.id)
-        .eq("status", "building")
-        .select("id");
-
-      const applied = !!(updatedRows && updatedRows.length > 0);
-
-      // Structured log for forensics — always log, mark applied vs skipped
+      // Structured log for forensics — always log
       await sb.from("auto_heal_log").insert({
         action_type: "guardian_stale_fail",
         target_type: "course_package",
         target_id: bPkg.id,
         trigger_source: "production-guardian",
         result_status: applied ? "applied" : "skipped",
-        result_detail: JSON.stringify({ ...staleDetails, applied, error: updErr?.message ?? null }),
-        metadata: { ...staleDetails, applied, error: updErr?.message ?? null },
+        result_detail: JSON.stringify(fr),
+        metadata: fr,
       }).catch(() => {/* non-critical */});
 
       if (applied) {
-        actions.push(`fail pkg ${bPkg.id.slice(0, 8)}: age=${ageMin}m lease=${staleDetails.active_leases} jobs=${staleDetails.active_jobs} steps=${staleDetails.active_steps}`);
+        actions.push(`fail pkg ${bPkg.id.slice(0, 8)}: age=${fr?.age_min}m lease=${fr?.active_leases} jobs=${fr?.active_jobs} steps=${fr?.active_steps}`);
       } else {
-        actions.push(`skip-fail pkg ${bPkg.id.slice(0, 8)}: status already changed (race)`);
+        actions.push(`skip-fail pkg ${bPkg.id.slice(0, 8)}: guarded (lease=${fr?.active_leases} jobs=${fr?.active_jobs} steps=${fr?.active_steps})`);
       }
     }
 
@@ -640,11 +606,15 @@ Deno.serve(async (req) => {
         if (buildAge > 10 * 60_000) {
           // If still at step 0, fail it outright (init never happened)
           if (((bPkg as any).current_step ?? 0) === 0) {
-            await sb.from("course_packages")
-              .update({ status: "failed", updated_at: new Date().toISOString() })
-              .eq("id", bPkg.id)
-              .eq("status", "building");
-            actions.push(`🔧 Failed orphaned step-0 pkg ${bPkg.id.slice(0, 8)} (no slot, never initialized)`);
+            // Use centralized SSOT RPC — never fail without checking guards
+            const { data: failRes } = await sb.rpc("guardian_fail_package_if_stale", {
+              p_package_id: bPkg.id,
+              p_min_age_minutes: 10,
+            });
+            const orphanApplied = (failRes as any)?.applied === true;
+            actions.push(orphanApplied
+              ? `🔧 Failed orphaned step-0 pkg ${bPkg.id.slice(0, 8)} (no slot, never initialized)`
+              : `⏭️ Skip orphan-fail pkg ${bPkg.id.slice(0, 8)}: guarded (lease=${(failRes as any)?.active_leases} jobs=${(failRes as any)?.active_jobs} steps=${(failRes as any)?.active_steps})`);
           } else {
             // Has progress → reclaim slot
             try {

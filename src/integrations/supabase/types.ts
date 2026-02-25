@@ -22266,6 +22266,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      guardian_fail_package_if_stale: {
+        Args: { p_min_age_minutes?: number; p_package_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
