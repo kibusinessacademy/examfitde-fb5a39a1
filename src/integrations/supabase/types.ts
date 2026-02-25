@@ -21645,6 +21645,13 @@ export type Database = {
           status: string
         }[]
       }
+      count_questions_by_lf: {
+        Args: { p_curriculum_id: string; p_lf_ids: string[] }
+        Returns: {
+          learning_field_id: string
+          q_count: number
+        }[]
+      }
       course_pack_fingerprint: {
         Args: { p_course_id: string }
         Returns: string
@@ -22297,6 +22304,13 @@ export type Database = {
       heartbeat_pipeline_slot: {
         Args: { p_package_id: string }
         Returns: undefined
+      }
+      heavy_processing_per_package: {
+        Args: { p_heavy_types: string[] }
+        Returns: {
+          package_id: string
+          processing_count: number
+        }[]
       }
       init_course_package_steps: {
         Args: { p_package_id: string; p_steps: string[] }
