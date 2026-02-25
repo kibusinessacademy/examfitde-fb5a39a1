@@ -163,8 +163,8 @@ const BACKOFF_ERROR_MS = 30_000;
 const BACKOFF_PREREQ_MS = 20_000;
 
 // ── Function versioning (for deployment forensics) ──────────────────
-const FUNCTION_VERSION = "v5.5-fair-share-hardened";
-const DEPLOYED_AT = "2026-02-25T13:22:00Z";
+const FUNCTION_VERSION = "v5.6-fair-share-final";
+const DEPLOYED_AT = "2026-02-25T13:30:00Z";
 
 // Adaptive thresholds (rolling 5-min window)
 const THROTTLE_TIMEOUT_THRESHOLD = 10;
@@ -404,16 +404,22 @@ Deno.serve(async (req) => {
   const runnerStart = Date.now();
   const RUNNER_TIME_BUDGET_MS = 110_000; // 110s — leave 70s headroom before 180s Edge limit
 
-  // ── v5.5 Package-Fair-Share (hardened) ───────────────────────────────
-  // Max 1 heavy job per package per tick, max GLOBAL_HEAVY_LIMIT globally.
-  // Uses RPCs for efficient aggregation; skips unknown-package jobs.
+  // ── v5.6 Package-Fair-Share (final) ──────────────────────────────────
+  // Max 1 heavy LF-job per package per tick, max GLOBAL_HEAVY_LIMIT globally.
+  // Root orchestrator jobs (no learning_field_filter) are treated as non-heavy
+  // since they only fan-out and complete fast.
   const HEAVY_JOB_TYPES_ARR = ["package_generate_exam_pool", "package_generate_learning_content", "package_generate_handbook"];
   const HEAVY_JOB_TYPES = new Set(HEAVY_JOB_TYPES_ARR);
   const GLOBAL_HEAVY_LIMIT = 3;
-  const heavyJobs = jobs.filter((j: any) => HEAVY_JOB_TYPES.has(j.job_type));
+
+  // Fix #6: Root orchestrator jobs (no learning_field_filter) bypass heavy gating
+  const isHeavyLfJob = (j: any) =>
+    HEAVY_JOB_TYPES.has(j.job_type) && !!j.payload?.learning_field_filter;
+
+  const heavyJobs = jobs.filter(isHeavyLfJob);
   if (heavyJobs.length > 1) {
-    // ── Concurrency guard: packages already processing heavy jobs get skipped ──
-    let alreadyProcessing = new Set<string>();
+    // ── Concurrency guard: packages already processing heavy LF jobs get skipped ──
+    const alreadyProcessing = new Set<string>();
     try {
       const { data: procRows } = await sb.rpc("heavy_processing_per_package", {
         p_heavy_types: HEAVY_JOB_TYPES_ARR,
@@ -431,16 +437,14 @@ Deno.serve(async (req) => {
     const byPackage = new Map<string, any[]>();
     for (const hj of heavyJobs) {
       const pkgId = hj.payload?.package_id;
-      if (!pkgId) continue; // skip jobs without package_id (no slot steal)
+      if (!pkgId) continue; // Fix #3: skip jobs without package_id
       if (alreadyProcessing.has(pkgId)) continue; // already has heavy processing
       if (!byPackage.has(pkgId)) byPackage.set(pkgId, []);
       byPackage.get(pkgId)!.push(hj);
     }
 
-    // ── Per package: pick 1 winner. Use RPC for LF question counts (single-pass) ──
-    // Collect all (curriculum_id → lf_ids) across packages for a batched RPC call
-    const currLfMap = new Map<string, Set<string>>(); // curriculum_id → Set<lf_id>
-    const jobCurr = new Map<string, string>(); // job.id → curriculum_id
+    // ── Batch LF question counts via RPC (single-pass across all packages) ──
+    const currLfMap = new Map<string, Set<string>>();
     for (const [, pkgHeavy] of byPackage) {
       for (const hj of pkgHeavy) {
         const cid = hj.payload?.curriculum_id;
@@ -448,13 +452,11 @@ Deno.serve(async (req) => {
         if (cid && lf) {
           if (!currLfMap.has(cid)) currLfMap.set(cid, new Set());
           currLfMap.get(cid)!.add(lf);
-          jobCurr.set(hj.id, cid);
         }
       }
     }
 
-    // Single-pass: one RPC call per curriculum (typically 1-3, not per package)
-    const qByLfGlobal = new Map<string, number>(); // lf_id → count
+    const qByLfGlobal = new Map<string, number>();
     const rpcPromises = [...currLfMap.entries()].map(async ([cid, lfSet]) => {
       try {
         const { data } = await sb.rpc("count_questions_by_lf", {
@@ -472,21 +474,18 @@ Deno.serve(async (req) => {
     });
     await Promise.all(rpcPromises);
 
-    // ── Select 1 winner per package ──
+    // ── Select 1 winner per package (0-question LFs first, then fewest, then oldest) ──
     const winners: any[] = [];
     for (const [pkgId, pkgHeavy] of byPackage) {
-      // Sort: 0-question LFs first, then fewest questions, then oldest
       pkgHeavy.sort((a: any, b: any) => {
-        const aLf = a.payload?.learning_field_filter;
-        const bLf = b.payload?.learning_field_filter;
-        const aQ = aLf ? (qByLfGlobal.get(aLf) ?? 0) : Number.MAX_SAFE_INTEGER;
-        const bQ = bLf ? (qByLfGlobal.get(bLf) ?? 0) : Number.MAX_SAFE_INTEGER;
+        const aQ = qByLfGlobal.get(a.payload?.learning_field_filter) ?? 0;
+        const bQ = qByLfGlobal.get(b.payload?.learning_field_filter) ?? 0;
         if (aQ === 0 && bQ !== 0) return -1;
         if (bQ === 0 && aQ !== 0) return 1;
         return aQ - bQ || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       });
       winners.push(pkgHeavy[0]);
-      console.log(`[job-runner] FAIR_SHARE: pkg ${pkgId.slice(0,8)} → winner ${pkgHeavy[0].job_type}/${(pkgHeavy[0].payload?.learning_field_filter?.slice(0,8) ?? '__root__')}`);
+      console.log(`[job-runner] FAIR_SHARE: pkg ${pkgId.slice(0,8)} → winner ${pkgHeavy[0].job_type}/${pkgHeavy[0].payload?.learning_field_filter?.slice(0,8) ?? '__root__'} (qCount=${qByLfGlobal.get(pkgHeavy[0].payload?.learning_field_filter) ?? 0})`);
     }
 
     // Global cap: oldest package wins
@@ -494,10 +493,12 @@ Deno.serve(async (req) => {
     const globalWinners = winners.slice(0, GLOBAL_HEAVY_LIMIT);
     const keepIds = new Set(globalWinners.map((w: any) => w.id));
 
-    // Release non-winners — only those that were claimed (locked_by matches)
+    // Fix #3: Log capacity underuse for monitoring
+    console.log(`[job-runner] FAIR_SHARE: winners=${globalWinners.length}/${GLOBAL_HEAVY_LIMIT}, skippedBusyPkgs=${alreadyProcessing.size}, eligiblePkgs=${byPackage.size}`);
+
+    // Fix #4: Release non-winners — only locked jobs we own, status=processing
     const releaseHeavy = heavyJobs.filter((j: any) => !keepIds.has(j.id));
     if (releaseHeavy.length > 0) {
-      console.log(`[job-runner] FAIR_SHARE: keeping ${globalWinners.length} heavy across ${byPackage.size} pkgs, releasing ${releaseHeavy.length} (${alreadyProcessing.size} pkgs skipped: already processing)`);
       for (const rj of releaseHeavy) {
         const ts = new Date(Date.now() + 5_000).toISOString();
         await sb.from("job_queue").update({
@@ -506,12 +507,13 @@ Deno.serve(async (req) => {
           locked_by: null,
           run_after: ts,
           updated_at: new Date().toISOString(),
-        }).eq("id", rj.id).eq("locked_by", WORKER_ID); // safety: only release our own locks
+        }).eq("id", rj.id).eq("locked_by", WORKER_ID).neq("status", "completed"); // safety: own locks only, never touch completed
       }
+      console.log(`[job-runner] FAIR_SHARE: released ${releaseHeavy.length} non-winner heavy jobs`);
     }
 
-    // Filter jobs list to non-heavy + winners
-    jobs = jobs.filter((j: any) => !HEAVY_JOB_TYPES.has(j.job_type) || keepIds.has(j.id));
+    // Filter jobs list: keep non-heavy + root orchestrators + winners
+    jobs = jobs.filter((j: any) => !isHeavyLfJob(j) || keepIds.has(j.id));
   }
 
   for (let jobIdx = 0; jobIdx < jobs.length; jobIdx++) {
