@@ -348,6 +348,101 @@ async function processPackage(
     }
   }
 
+  // ── FINALIZATION GUARD: auto-close steps that met their target ──
+  // Runs BEFORE pickNextAction so the state machine sees corrected states.
+  {
+    const byKey = new Map<string, StepRow>();
+    for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
+
+    // --- generate_exam_pool ---
+    const genStep = byKey.get("generate_exam_pool");
+    if (genStep && ["queued", "running", "enqueued"].includes(genStep.status)) {
+      const meta = (genStep.meta ?? {}) as Record<string, unknown>;
+      const totalQ = (typeof meta.total_questions === "number" ? meta.total_questions : 0);
+      const target = (typeof meta.exam_target === "number" ? meta.exam_target : 1700);
+
+      if (totalQ >= target) {
+        const { data: activeCnt } = await safeRpc(sb, "count_active_jobs", {
+          p_package_id: packageId,
+          p_job_type: "package_generate_exam_pool",
+        });
+
+        if ((activeCnt ?? 1) === 0) {
+          console.log(`[runner] 🏁 Finalizing generate_exam_pool for ${shortId}: ${totalQ}>=${target}, 0 active jobs`);
+          await safeQuery(
+            sb.from("package_steps").update({
+              status: "done", last_error: null,
+              finished_at: new Date().toISOString(),
+            }).eq("package_id", packageId).eq("step_key", "generate_exam_pool")
+              .in("status", ["queued", "running", "enqueued"]),
+            "finalize_gen_exam",
+          );
+          await safeRpc(sb, "cancel_jobs_for_package", {
+            p_package_id: packageId,
+            p_job_type: "package_generate_exam_pool",
+            p_statuses: ["pending", "failed"],
+          });
+          await safeQuery(
+            sb.from("auto_heal_log").insert({
+              action_type: "finalize_generate_exam_pool",
+              trigger_source: "pipeline-runner",
+              target_type: "course_package",
+              target_id: packageId,
+              result_status: "applied",
+              metadata: { total_questions: totalQ, target_questions: target },
+            }),
+            "finalize_audit_log",
+          );
+          // Update in-memory so pickNextAction sees 'done'
+          genStep.status = "done";
+        }
+      }
+    }
+
+    // --- validate_exam_pool ---
+    const valStep = byKey.get("validate_exam_pool");
+    if (valStep && ["queued", "running", "enqueued"].includes(valStep.status)) {
+      const valMeta = (valStep.meta ?? {}) as Record<string, unknown>;
+      const valOk = valMeta.ok === true || valMeta.validation_passed === true;
+
+      if (valOk) {
+        const { data: valActiveCnt } = await safeRpc(sb, "count_active_jobs", {
+          p_package_id: packageId,
+          p_job_type: "package_validate_exam_pool",
+        });
+
+        if ((valActiveCnt ?? 1) === 0) {
+          console.log(`[runner] 🏁 Finalizing validate_exam_pool for ${shortId}: validation passed, 0 active jobs`);
+          await safeQuery(
+            sb.from("package_steps").update({
+              status: "done", last_error: null,
+              finished_at: new Date().toISOString(),
+            }).eq("package_id", packageId).eq("step_key", "validate_exam_pool")
+              .in("status", ["queued", "running", "enqueued"]),
+            "finalize_val_exam",
+          );
+          await safeRpc(sb, "cancel_jobs_for_package", {
+            p_package_id: packageId,
+            p_job_type: "package_validate_exam_pool",
+            p_statuses: ["pending", "failed"],
+          });
+          await safeQuery(
+            sb.from("auto_heal_log").insert({
+              action_type: "finalize_validate_exam_pool",
+              trigger_source: "pipeline-runner",
+              target_type: "course_package",
+              target_id: packageId,
+              result_status: "applied",
+              metadata: { validation_ok: true },
+            }),
+            "finalize_val_audit_log",
+          );
+          valStep.status = "done";
+        }
+      }
+    }
+  }
+
   const nextAction = pickNextAction((steps ?? []) as StepRow[], STEP_ORDER);
 
   // ── All steps done / no actionable step ──

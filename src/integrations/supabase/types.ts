@@ -21331,6 +21331,10 @@ export type Database = {
       }
       can_run_llm_job: { Args: { p_provider: string }; Returns: boolean }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
+      cancel_jobs_for_package: {
+        Args: { p_job_type: string; p_package_id: string; p_statuses: string[] }
+        Returns: number
+      }
       cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
       check_lesson_progression: {
         Args: { p_lesson_id: string; p_user_id: string }
@@ -21626,6 +21630,10 @@ export type Database = {
       convert_referral_on_purchase: {
         Args: { p_buyer_user_id: string; p_order_id: string }
         Returns: Json
+      }
+      count_active_jobs: {
+        Args: { p_job_type: string; p_package_id: string }
+        Returns: number
       }
       count_active_jobs_for_package: {
         Args: { p_package_id: string }
