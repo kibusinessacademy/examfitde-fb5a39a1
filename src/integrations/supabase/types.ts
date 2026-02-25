@@ -6895,6 +6895,110 @@ export type Database = {
           },
         ]
       }
+      elite_hardening_items: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          original_data: Json | null
+          reason: string | null
+          run_id: string
+          upgraded_data: Json | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          original_data?: Json | null
+          reason?: string | null
+          run_id: string
+          upgraded_data?: Json | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          original_data?: Json | null
+          reason?: string | null
+          run_id?: string
+          upgraded_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elite_hardening_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "elite_hardening_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elite_hardening_runs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          exam_questions_total: number | null
+          exam_questions_upgraded: number | null
+          finished_at: string | null
+          id: string
+          minichecks_total: number | null
+          minichecks_upgraded: number | null
+          oral_blueprints_total: number | null
+          oral_blueprints_upgraded: number | null
+          package_id: string
+          post_scores: Json | null
+          pre_scores: Json | null
+          scope: string
+          started_at: string | null
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          exam_questions_total?: number | null
+          exam_questions_upgraded?: number | null
+          finished_at?: string | null
+          id?: string
+          minichecks_total?: number | null
+          minichecks_upgraded?: number | null
+          oral_blueprints_total?: number | null
+          oral_blueprints_upgraded?: number | null
+          package_id: string
+          post_scores?: Json | null
+          pre_scores?: Json | null
+          scope?: string
+          started_at?: string | null
+          status?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          exam_questions_total?: number | null
+          exam_questions_upgraded?: number | null
+          finished_at?: string | null
+          id?: string
+          minichecks_total?: number | null
+          minichecks_upgraded?: number | null
+          oral_blueprints_total?: number | null
+          oral_blueprints_upgraded?: number | null
+          package_id?: string
+          post_scores?: Json | null
+          pre_scores?: Json | null
+          scope?: string
+          started_at?: string | null
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       email_campaigns: {
         Row: {
           content: string
