@@ -784,6 +784,40 @@ async function processPackage(
         }
       }
 
+      // ── FAN-OUT COMPLETION GUARD ──
+      // Root orchestrator jobs (e.g. generate_exam_pool) may complete with
+      // fan_out_skipped=true when sub-jobs already exist. But if those sub-jobs
+      // are still pending, marking the step "done" would orphan them permanently.
+      // Check for pending sub-jobs before finalizing fan-out steps.
+      const FAN_OUT_STEPS: Set<string> = new Set([
+        "generate_exam_pool",
+        "auto_seed_exam_blueprints",
+        "generate_learning_content",
+        "generate_oral_exam",
+      ]);
+      if (FAN_OUT_STEPS.has(stepKey) && result.fan_out_skipped === true) {
+        const jobType = STEP_TO_JOB_TYPE[stepKey as StepKey];
+        const { data: pendingSubJobs } = await safeRpc(sb, "count_active_jobs", {
+          p_package_id: packageId,
+          p_job_type: jobType,
+        });
+        if ((pendingSubJobs ?? 0) > 0) {
+          console.warn(`[runner] ⚠️ Fan-out guard: ${stepKey} root completed with fan_out_skipped but ${pendingSubJobs} sub-jobs still active — NOT marking done`);
+          // Reset step to queued so the runner picks up the sub-jobs on next tick
+          await safeQuery(
+            sb.from("package_steps").update({
+              status: "enqueued",
+              job_id: null,
+              runner_id: null,
+              last_error: `Fan-out guard: ${pendingSubJobs} sub-jobs still active`,
+            }).eq("package_id", packageId).eq("step_key", stepKey),
+            "fan_out_guard_reset",
+          );
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return { packageId, stepKey, fan_out_guard: true, pending_sub_jobs: pendingSubJobs };
+        }
+      }
+
       await sb.rpc("step_done", {
         p_package_id: packageId,
         p_step_key: stepKey,
