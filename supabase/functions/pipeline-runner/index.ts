@@ -381,7 +381,12 @@ async function processPackage(
         cancelStatuses: ["pending", "failed"],
         shouldFinalize: (meta) => {
           const ok = meta?.ok === true || meta?.validation_passed === true;
-          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+          const reason = meta?.ok === true
+            ? "meta.ok=true"
+            : meta?.validation_passed === true
+              ? "meta.validation_passed=true"
+              : "meta.ok!=true";
+          return { ok, reason, snapshot: { ok: !!ok, ok_flag: meta?.ok === true, validation_passed: meta?.validation_passed === true } };
         },
       },
       {
@@ -447,7 +452,10 @@ async function processPackage(
         console.log(`[runner] FINALIZE_SKIP ${shortId}/${rule.stepKey}: rpc_error=${(activeErr as any).message}`);
         continue;
       }
-      if ((activeCnt ?? 1) !== 0) continue;
+      if ((activeCnt ?? 1) !== 0) {
+        console.log(`[runner] FINALIZE_WAIT ${shortId}/${rule.stepKey}: ${activeCnt} active jobs remaining`);
+        continue;
+      }
 
       // Compare-and-set: only finalize if status still matches (race-safe)
       const { data: updatedRows, error: updErr } = await sb
