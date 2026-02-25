@@ -211,6 +211,7 @@ Deno.serve(async (req) => {
     }
     if (opts.include_exam_pool) {
       contentSteps.push({ step_key: "auto_seed_exam_blueprints", job_type: "package_auto_seed_exam_blueprints" });
+      contentSteps.push({ step_key: "validate_blueprints", job_type: "package_validate_blueprints" });
       contentSteps.push({ step_key: "generate_exam_pool", job_type: "package_generate_exam_pool" });
       contentSteps.push({ step_key: "validate_exam_pool", job_type: "package_validate_exam_pool" });
     }
