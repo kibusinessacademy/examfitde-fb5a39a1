@@ -11221,9 +11221,11 @@ export type Database = {
           created_at: string
           curriculum_id: string
           dual_examiner_roles: Json | null
+          followup_chains: Json | null
           followup_depth: number
           followups: string[]
           id: string
+          last_premium_upgrade_run_id: string | null
           lead_questions: string[]
           learning_field_id: string | null
           metadata: Json | null
@@ -11240,9 +11242,11 @@ export type Database = {
           created_at?: string
           curriculum_id: string
           dual_examiner_roles?: Json | null
+          followup_chains?: Json | null
           followup_depth?: number
           followups?: string[]
           id?: string
+          last_premium_upgrade_run_id?: string | null
           lead_questions?: string[]
           learning_field_id?: string | null
           metadata?: Json | null
@@ -11259,9 +11263,11 @@ export type Database = {
           created_at?: string
           curriculum_id?: string
           dual_examiner_roles?: Json | null
+          followup_chains?: Json | null
           followup_depth?: number
           followups?: string[]
           id?: string
+          last_premium_upgrade_run_id?: string | null
           lead_questions?: string[]
           learning_field_id?: string | null
           metadata?: Json | null
@@ -13554,6 +13560,7 @@ export type Database = {
         Row: {
           created_at: string
           curriculum_id: string
+          error: string | null
           finished_at: string | null
           id: string
           layer: string
@@ -13567,6 +13574,7 @@ export type Database = {
         Insert: {
           created_at?: string
           curriculum_id: string
+          error?: string | null
           finished_at?: string | null
           id?: string
           layer: string
@@ -13580,6 +13588,7 @@ export type Database = {
         Update: {
           created_at?: string
           curriculum_id?: string
+          error?: string | null
           finished_at?: string | null
           id?: string
           layer?: string
@@ -15278,6 +15287,7 @@ export type Database = {
           id: string
           knowledge_type: Database["public"]["Enums"]["knowledge_type"]
           language_level: string | null
+          last_premium_upgrade_run_id: string | null
           learning_field_id: string | null
           linked_competency_ids: string[] | null
           max_similarity_score: number | null
@@ -15327,6 +15337,7 @@ export type Database = {
           id?: string
           knowledge_type?: Database["public"]["Enums"]["knowledge_type"]
           language_level?: string | null
+          last_premium_upgrade_run_id?: string | null
           learning_field_id?: string | null
           linked_competency_ids?: string[] | null
           max_similarity_score?: number | null
@@ -15376,6 +15387,7 @@ export type Database = {
           id?: string
           knowledge_type?: Database["public"]["Enums"]["knowledge_type"]
           language_level?: string | null
+          last_premium_upgrade_run_id?: string | null
           learning_field_id?: string | null
           linked_competency_ids?: string[] | null
           max_similarity_score?: number | null

@@ -1,28 +1,31 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
 
 /**
- * premium-upgrade — 4-Layer Quality Densification Engine
+ * premium-upgrade — 4-Layer Quality Densification Engine (v2 hardened)
  *
  * Layers:
  *   1. transfer_overlay     – Add cross-LF scenarios to blueprints
  *   2. very_hard_recal      – Sharpen very_hard criteria (conflict, multi-competency)
- *   3. oral_depth            – Stress config, dual-examiner, followup chains
+ *   3. oral_depth            – Stress config, dual-examiner, followup chains (SSOT in blueprint)
  *   4. economic_boost        – Calculation chains, margin decisions
  *
  * SSOT Rules:
  *   - Never deletes existing content
  *   - Only enriches fields that are null/default
- *   - Tracks every change in premium_upgrade_runs
- *   - Budget-capped (110s) with graceful exit
- *   - Idempotent per layer+package
+ *   - Tracks every change in premium_upgrade_runs + last_premium_upgrade_run_id
+ *   - Budget-capped with graceful exit
+ *   - Idempotent per layer+package (CAS guards)
  */
 
-const TIME_BUDGET_MS = 110_000;
+const TIME_BUDGET_MS = 90_000;  // 90s hard budget (leaves 30s for writes + response)
+const SAFE_BUFFER_MS = 5_000;
 const BATCH_SIZE = 3;
 
+type SB = SupabaseClient;
 type Layer = "transfer_overlay" | "very_hard_recal" | "oral_depth" | "economic_boost";
 
 function json(body: unknown, status = 200) {
@@ -35,7 +38,7 @@ function assertUuid(name: string, v: unknown) {
 }
 
 function timeLeft(start: number): boolean {
-  return (Date.now() - start) < TIME_BUDGET_MS;
+  return (Date.now() - start) < (TIME_BUDGET_MS - SAFE_BUFFER_MS);
 }
 
 async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 4096): Promise<string> {
@@ -52,37 +55,49 @@ async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 4096
   return result.content || "";
 }
 
-function parseJSON(text: string): any {
-  let cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-  // Fix truncated JSON: try to close arrays/objects
-  if (!cleaned.endsWith("]") && !cleaned.endsWith("}")) {
-    // Find last complete object
-    const lastClose = Math.max(cleaned.lastIndexOf("}"), cleaned.lastIndexOf("]"));
-    if (lastClose > 0) {
-      cleaned = cleaned.slice(0, lastClose + 1);
-      if (!cleaned.endsWith("]")) cleaned += "]";
-    }
+/** Tolerant JSON extraction — handles markdown fences, leading text, truncated output */
+function parseJSON(text: string): unknown {
+  const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+  // Try array first, then object
+  const arrFirst = cleaned.indexOf("[");
+  const arrLast = cleaned.lastIndexOf("]");
+  const objFirst = cleaned.indexOf("{");
+  const objLast = cleaned.lastIndexOf("}");
+
+  let slice: string;
+  if (arrFirst !== -1 && arrLast > arrFirst) {
+    slice = cleaned.slice(arrFirst, arrLast + 1);
+  } else if (objFirst !== -1 && objLast > objFirst) {
+    slice = cleaned.slice(objFirst, objLast + 1);
+  } else {
+    slice = cleaned;
   }
-  return JSON.parse(cleaned);
+
+  try {
+    return JSON.parse(slice);
+  } catch {
+    // Last resort: fix trailing commas
+    const fixed = slice.replace(/,\s*([\]}])/g, "$1");
+    return JSON.parse(fixed);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
 // LAYER 1: Transfer-Overlay
 // ═══════════════════════════════════════════════════════════════
 async function upgradeTransferOverlay(
-  sb: ReturnType<typeof createClient>,
+  sb: SB,
   curriculumId: string,
   berufName: string,
+  runId: string,
   start: number,
 ): Promise<{ upgraded: number; failed: number; total: number }> {
-  // Get learning fields for cross-references
   const { data: lfs } = await sb
     .from("learning_fields")
     .select("id, title, field_number")
     .eq("curriculum_id", curriculumId)
     .order("field_number");
 
-  // Get blueprints still at single_competency
   const { data: blueprints } = await sb
     .from("question_blueprints")
     .select("id, name, canonical_statement, cognitive_level, learning_field_id, competency_id, question_template, knowledge_type, typical_exam_trap")
@@ -96,7 +111,6 @@ async function upgradeTransferOverlay(
   const total = blueprints.length;
   let upgraded = 0, failed = 0;
 
-  // Group by LF, pick top candidates per LF for combined scenarios
   const byLf = new Map<string, typeof blueprints>();
   for (const bp of blueprints) {
     const lfId = bp.learning_field_id || "none";
@@ -109,61 +123,62 @@ async function upgradeTransferOverlay(
   for (const [lfId, bps] of byLf) {
     if (!timeLeft(start)) break;
 
-    // Pick up to 5 per LF for combined-decision upgrade
     const candidates = bps.slice(0, BATCH_SIZE);
     const otherLfs = (lfs || []).filter(lf => lf.id !== lfId).slice(0, 3);
 
-    const systemPrompt = `Du bist ein IHK-Prüfungsexperte für ${berufName}. Deine Aufgabe: Transformiere Single-Competency-Blueprints in Cross-LF Transfer-Szenarien.
+    const systemPrompt = `Du bist ein IHK-Prüfungsexperte für ${berufName}. Transformiere Single-Competency-Blueprints in Cross-LF Transfer-Szenarien.
 
 Regeln:
 - Jedes Szenario muss mindestens 2 Lernfelder verknüpfen
 - Praxisnaher Kontext mit konkreten Zahlen, Rollen und Entscheidungsdruck
 - scenario_type: "combined_decision" oder "conflict_resolution" oder "calculation_chain"
-- linked_competency_ids: UUIDs der verknüpften Kompetenzen (aus anderen LFs)
-- cross_lf_references: UUIDs der verknüpften Lernfelder
+- cross_lf_ids: die UUIDs der verknüpften Lernfelder (NUR die exakten UUIDs aus der Liste unten!)
+- linked_competency_ids: leeres Array [] (wird später befüllt)
 
-Antworte als JSON-Array. Für jedes Blueprint:
-{
-  "blueprint_id": "...",
-  "scenario_type": "combined_decision|conflict_resolution|calculation_chain",
-  "cross_lf_ids": ["lf-uuid-1", "lf-uuid-2"],
-  "upgraded_question_template": "Neuer, verknüpfter Fragentext mit Szenario...",
+Antworte NUR als JSON-Array, KEINE Erklärungen. Für jedes Blueprint:
+[{
+  "blueprint_id": "exakte-uuid",
+  "scenario_type": "combined_decision",
+  "cross_lf_ids": ["lf-uuid-1"],
+  "upgraded_question_template": "Neuer Fragentext...",
   "upgraded_typical_exam_trap": "Typischer Transfer-Fehler..."
-}`;
+}]`;
 
     const userPrompt = `Blueprints (${lfNames.get(lfId) || "Unbekannt"}):
 ${JSON.stringify(candidates.map(c => ({
-  id: c.id,
-  name: c.name,
-  statement: c.canonical_statement,
-  level: c.cognitive_level,
-  template: c.question_template,
-  trap: c.typical_exam_trap,
+  id: c.id, name: c.name, statement: c.canonical_statement,
+  level: c.cognitive_level, template: c.question_template, trap: c.typical_exam_trap,
 })), null, 2)}
 
-Verfügbare andere Lernfelder für Verknüpfung:
+Verfügbare Lernfelder für Verknüpfung (NUR diese UUIDs verwenden!):
 ${JSON.stringify(otherLfs.map(lf => ({ id: lf.id, name: `LF${lf.field_number}: ${lf.title}` })), null, 2)}`;
 
     try {
       const raw = await callAI(systemPrompt, userPrompt, 6000);
-      const upgrades = parseJSON(raw);
+      const upgrades = parseJSON(raw) as Array<Record<string, unknown>>;
       if (!Array.isArray(upgrades)) throw new Error("Not an array");
 
       for (const upg of upgrades) {
         if (!upg.blueprint_id) continue;
+        // Validate cross_lf_ids are real UUIDs from our LF set
+        const validLfIds = new Set((lfs || []).map(lf => lf.id));
+        const crossLfIds = (Array.isArray(upg.cross_lf_ids) ? upg.cross_lf_ids : [])
+          .filter((id: unknown) => typeof id === "string" && validLfIds.has(id as string));
+
         const { error } = await sb
           .from("question_blueprints")
           .update({
             scenario_type: upg.scenario_type || "combined_decision",
-            cross_lf_references: upg.cross_lf_ids || [],
+            cross_lf_references: crossLfIds.length > 0 ? crossLfIds : undefined,
             question_template: upg.upgraded_question_template || undefined,
             typical_exam_trap: upg.upgraded_typical_exam_trap || undefined,
+            last_premium_upgrade_run_id: runId,
           })
           .eq("id", upg.blueprint_id)
           .eq("scenario_type", "single_competency"); // CAS guard
 
         if (!error) upgraded++;
-        else failed++;
+        else { console.error(`[PremiumUpgrade] Transfer update failed: ${error.message}`); failed++; }
       }
     } catch (err) {
       console.error(`[PremiumUpgrade] Transfer LF ${lfId}: ${(err as Error).message}`);
@@ -178,9 +193,10 @@ ${JSON.stringify(otherLfs.map(lf => ({ id: lf.id, name: `LF${lf.field_number}: $
 // LAYER 2: Very-Hard Rekalibrierung
 // ═══════════════════════════════════════════════════════════════
 async function upgradeVeryHardRecal(
-  sb: ReturnType<typeof createClient>,
+  sb: SB,
   curriculumId: string,
   berufName: string,
+  runId: string,
   start: number,
 ): Promise<{ upgraded: number; failed: number; total: number }> {
   const { data: blueprints } = await sb
@@ -199,47 +215,41 @@ async function upgradeVeryHardRecal(
   for (let i = 0; i < blueprints.length && timeLeft(start); i += BATCH_SIZE) {
     const batch = blueprints.slice(i, i + BATCH_SIZE);
 
-    const systemPrompt = `Du bist ein IHK-Prüfungsexperte für ${berufName}. Definiere "very_hard" Kriterien für Blueprints.
+    const systemPrompt = `Du bist ein IHK-Prüfungsexperte für ${berufName}. Definiere "very_hard" Kriterien.
 
 Jedes very_hard Blueprint muss enthalten:
 - conflict_type: "legal_vs_economic" | "risk_vs_efficiency" | "compliance_vs_practice" | "quality_vs_cost"
 - min_competency_areas: mindestens 2
 - requires_decision_justification: true
-- incomplete_information: true (Prüfling muss mit unvollständigen Daten entscheiden)
+- incomplete_information: true
 - trade_off_dimensions: Array von mind. 2 Abwägungsdimensionen
 
-Antworte als JSON-Array:
-[{
-  "blueprint_id": "...",
-  "very_hard_criteria": {
-    "conflict_type": "...",
-    "min_competency_areas": 2,
-    "requires_decision_justification": true,
-    "incomplete_information": true,
-    "trade_off_dimensions": ["...", "..."]
-  }
-}]`;
+Antworte NUR als JSON-Array, KEINE Erklärungen:
+[{"blueprint_id": "...", "very_hard_criteria": {...}}]`;
 
     const userPrompt = `Blueprints:\n${JSON.stringify(batch.map(b => ({
       id: b.id, name: b.name, statement: b.canonical_statement,
-      level: b.cognitive_level, type: b.knowledge_type,
-      trap: b.typical_exam_trap,
+      level: b.cognitive_level, type: b.knowledge_type, trap: b.typical_exam_trap,
     })), null, 2)}`;
 
     try {
       const raw = await callAI(systemPrompt, userPrompt, 4000);
-      const upgrades = parseJSON(raw);
+      const upgrades = parseJSON(raw) as Array<Record<string, unknown>>;
+      if (!Array.isArray(upgrades)) throw new Error("Not an array");
 
       for (const upg of upgrades) {
         if (!upg.blueprint_id || !upg.very_hard_criteria) continue;
         const { error } = await sb
           .from("question_blueprints")
-          .update({ very_hard_criteria: upg.very_hard_criteria })
+          .update({
+            very_hard_criteria: upg.very_hard_criteria,
+            last_premium_upgrade_run_id: runId,
+          })
           .eq("id", upg.blueprint_id)
           .is("very_hard_criteria", null); // CAS guard
 
         if (!error) upgraded++;
-        else failed++;
+        else { console.error(`[PremiumUpgrade] VeryHard update failed: ${error.message}`); failed++; }
       }
     } catch (err) {
       console.error(`[PremiumUpgrade] VeryHard batch ${i}: ${(err as Error).message}`);
@@ -251,12 +261,13 @@ Antworte als JSON-Array:
 }
 
 // ═══════════════════════════════════════════════════════════════
-// LAYER 3: Oral-Trainer Depth
+// LAYER 3: Oral-Trainer Depth (SSOT: followup_chains in Blueprint)
 // ═══════════════════════════════════════════════════════════════
 async function upgradeOralDepth(
-  sb: ReturnType<typeof createClient>,
+  sb: SB,
   curriculumId: string,
   berufName: string,
+  runId: string,
   start: number,
 ): Promise<{ upgraded: number; failed: number; total: number }> {
   const { data: blueprints } = await sb
@@ -274,55 +285,60 @@ async function upgradeOralDepth(
   for (let i = 0; i < blueprints.length && timeLeft(start); i += BATCH_SIZE) {
     const batch = blueprints.slice(i, i + BATCH_SIZE);
 
-    const systemPrompt = `Du bist ein IHK-Prüfungsexperte für ${berufName}. Erweitere Oral-Exam-Blueprints. Halte die Antworten KOMPAKT (kurze Fragen, keine langen Erklärungen).
+    const systemPrompt = `Du bist ein IHK-Prüfungsexperte für ${berufName}. Erweitere Oral-Exam-Blueprints. KOMPAKT antworten.
 
 Für jeden Blueprint generiere:
 1. stress_config: {level: 1-5, time_pressure: bool, ambiguous_question: bool, pushback_intensity: "mild"|"moderate"|"strong"}
 2. dual_examiner_roles: {examiner_a: {role: "Fachprüfer", focus_area: "kurz"}, examiner_b: {role: "Betriebspraxis-Prüfer", focus_area: "kurz"}}
 3. scoring_weights: {fachlichkeit: 0.3, struktur: 0.25, begriffssicherheit: 0.25, praxisbezug: 0.2}
-4. followup_chains: GENAU 4 Nachfragen (nicht mehr!), je max 2 Sätze:
-   {trigger: "wenn_oberflächlich|wenn_falsch|wenn_korrekt", question: "...", expected_depth: "Nennung|Begründung|Transfer", scoring_dimension: "fachlichkeit|struktur|begriffssicherheit|praxisbezug"}
+4. followup_chains: GENAU 4 Nachfragen, je max 25 Wörter:
+   [{trigger: "wenn_oberflächlich", question: "...", expected_depth: "Begründung", scoring_dimension: "fachlichkeit"}]
 
-Antworte NUR als JSON-Array, KEINE Erklärungen. Halte followup_chains Fragen unter 30 Wörter.`;
+Antworte NUR als JSON-Array. blueprint_id MUSS exakt die übergebene ID sein.
+[{"blueprint_id": "...", "stress_config": {...}, "dual_examiner_roles": {...}, "scoring_weights": {...}, "followup_chains": [...]}]`;
 
     const userPrompt = `Blueprints:\n${JSON.stringify(batch.map(b => ({
       id: b.id, title: b.title, scenario: (b.scenario || "").slice(0, 200),
     })), null, 2)}`;
 
     try {
-      const raw = await callAI(systemPrompt, userPrompt, 8000);
-      const upgrades = parseJSON(raw);
+      const raw = await callAI(systemPrompt, userPrompt, 6000);
+      const upgrades = parseJSON(raw) as Array<Record<string, unknown>>;
+      if (!Array.isArray(upgrades)) throw new Error("Not an array");
 
       for (const upg of upgrades) {
         if (!upg.blueprint_id) continue;
+
+        // Update Blueprint (SSOT: followup_chains lives here)
         const { error } = await sb
           .from("oral_exam_blueprints")
           .update({
             stress_config: upg.stress_config,
             dual_examiner_roles: upg.dual_examiner_roles,
             scoring_weights: upg.scoring_weights,
-            followup_depth: upg.followup_depth || 4,
+            followup_depth: 4,
+            followup_chains: upg.followup_chains || null,
+            last_premium_upgrade_run_id: runId,
           })
           .eq("id", upg.blueprint_id)
           .is("stress_config", null); // CAS guard
 
         if (!error) upgraded++;
-        else failed++;
-      }
+        else { console.error(`[PremiumUpgrade] OralDepth update failed: ${error.message}`); failed++; }
 
-      // Also upgrade session templates for these blueprints
-      for (const upg of upgrades) {
-        if (!upg.blueprint_id || !upg.followup_chains) continue;
-        await sb
-          .from("oral_exam_session_templates")
-          .update({
-            stress_level: upg.stress_config?.level || 3,
-            examiner_mode: upg.dual_examiner_roles ? "dual_cooperative" : "single",
-            followup_chains: upg.followup_chains,
-            scoring_rubric_detailed: upg.scoring_weights,
-          })
-          .eq("blueprint_id", upg.blueprint_id)
-          .eq("stress_level", 1); // only default
+        // Cascade to session templates (only if followup_chains is null — safe guard)
+        if (upg.followup_chains) {
+          await sb
+            .from("oral_exam_session_templates")
+            .update({
+              stress_level: (upg.stress_config as Record<string, unknown>)?.level || 3,
+              examiner_mode: upg.dual_examiner_roles ? "dual_cooperative" : "single",
+              followup_chains: upg.followup_chains,
+              scoring_rubric_detailed: upg.scoring_weights,
+            })
+            .eq("blueprint_id", upg.blueprint_id)
+            .is("followup_chains", null); // Only update templates that haven't been upgraded
+        }
       }
     } catch (err) {
       console.error(`[PremiumUpgrade] OralDepth batch ${i}: ${(err as Error).message}`);
@@ -337,9 +353,10 @@ Antworte NUR als JSON-Array, KEINE Erklärungen. Halte followup_chains Fragen un
 // LAYER 4: Economic Boost
 // ═══════════════════════════════════════════════════════════════
 async function upgradeEconomicBoost(
-  sb: ReturnType<typeof createClient>,
+  sb: SB,
   curriculumId: string,
   berufName: string,
+  runId: string,
   start: number,
 ): Promise<{ upgraded: number; failed: number; total: number }> {
   const { data: blueprints } = await sb
@@ -358,22 +375,18 @@ async function upgradeEconomicBoost(
   for (let i = 0; i < blueprints.length && timeLeft(start); i += BATCH_SIZE) {
     const batch = blueprints.slice(i, i + BATCH_SIZE);
 
-    const systemPrompt = `Du bist ein IHK-Prüfungsexperte für ${berufName} mit Schwerpunkt Wirtschaftlichkeit. Erweitere Blueprints mit wirtschaftlichen Szenarien.
+    const systemPrompt = `Du bist ein IHK-Prüfungsexperte für ${berufName} (Wirtschaftlichkeit). Erweitere Blueprints.
 
 Für jeden Blueprint bestimme:
 1. economic_scenario_type: "calculation_chain" | "margin_decision" | "contribution_margin" | "assortment_strategy" | "cost_comparison"
-2. Ein verbessertes question_template mit:
-   - Mehrstufiger Kalkulationskette (mindestens 2 Rechenschritte)
+2. upgraded_question_template mit:
+   - Mehrstufiger Kalkulationskette (mind. 2 Rechenschritte)
    - Konkreten Zahlen (EK, VK, Spannen, Mengen)
-   - Entscheidungsdruck (z.B. "Welche Option ist wirtschaftlich vorteilhafter?")
-   - Apothekenspezifischem Kontext (Rabattverträge, Retaxation, Warengruppen)
+   - Entscheidungsdruck
+   - Apothekenspezifischem Kontext
 
-Antworte als JSON-Array:
-[{
-  "blueprint_id": "...",
-  "economic_scenario_type": "...",
-  "upgraded_question_template": "..."
-}]`;
+Antworte NUR als JSON-Array:
+[{"blueprint_id": "...", "economic_scenario_type": "...", "upgraded_question_template": "..."}]`;
 
     const userPrompt = `Blueprints:\n${JSON.stringify(batch.map(b => ({
       id: b.id, name: b.name, statement: b.canonical_statement,
@@ -382,12 +395,14 @@ Antworte als JSON-Array:
 
     try {
       const raw = await callAI(systemPrompt, userPrompt, 5000);
-      const upgrades = parseJSON(raw);
+      const upgrades = parseJSON(raw) as Array<Record<string, unknown>>;
+      if (!Array.isArray(upgrades)) throw new Error("Not an array");
 
       for (const upg of upgrades) {
         if (!upg.blueprint_id) continue;
         const updateData: Record<string, unknown> = {
           economic_scenario_type: upg.economic_scenario_type,
+          last_premium_upgrade_run_id: runId,
         };
         if (upg.upgraded_question_template) {
           updateData.question_template = upg.upgraded_question_template;
@@ -400,7 +415,7 @@ Antworte als JSON-Array:
           .is("economic_scenario_type", null); // CAS guard
 
         if (!error) upgraded++;
-        else failed++;
+        else { console.error(`[PremiumUpgrade] Economic update failed: ${error.message}`); failed++; }
       }
     } catch (err) {
       console.error(`[PremiumUpgrade] Economic batch ${i}: ${(err as Error).message}`);
@@ -432,14 +447,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Get beruf name for context
+    // Get beruf name
     const { data: pkg } = await sb
       .from("course_packages")
       .select("course_id, courses(title, curriculum_id, curricula(berufe(bezeichnung_kurz)))")
       .eq("id", package_id)
       .single();
 
-    const berufName = (pkg as any)?.courses?.curricula?.berufe?.bezeichnung_kurz || "Ausbildungsberuf";
+    const berufName = (pkg as Record<string, unknown> & { courses?: { curricula?: { berufe?: { bezeichnung_kurz?: string } } } })
+      ?.courses?.curricula?.berufe?.bezeichnung_kurz || "Ausbildungsberuf";
 
     // Upsert upgrade run (idempotent)
     const { data: existing } = await sb
@@ -460,6 +476,7 @@ Deno.serve(async (req) => {
       await sb.from("premium_upgrade_runs").update({
         status: "running",
         started_at: new Date().toISOString(),
+        error: null,
       }).eq("id", runId);
     } else {
       const { data: newRun } = await sb.from("premium_upgrade_runs").insert({
@@ -474,33 +491,33 @@ Deno.serve(async (req) => {
 
     console.log(`[PremiumUpgrade] Starting ${layer} for ${package_id.slice(0, 8)} (${berufName})`);
 
-    // Dispatch to layer handler
+    // Dispatch to layer
     let result: { upgraded: number; failed: number; total: number };
     switch (layer as Layer) {
       case "transfer_overlay":
-        result = await upgradeTransferOverlay(sb, curriculum_id, berufName, start);
+        result = await upgradeTransferOverlay(sb, curriculum_id, berufName, runId, start);
         break;
       case "very_hard_recal":
-        result = await upgradeVeryHardRecal(sb, curriculum_id, berufName, start);
+        result = await upgradeVeryHardRecal(sb, curriculum_id, berufName, runId, start);
         break;
       case "oral_depth":
-        result = await upgradeOralDepth(sb, curriculum_id, berufName, start);
+        result = await upgradeOralDepth(sb, curriculum_id, berufName, runId, start);
         break;
       case "economic_boost":
-        result = await upgradeEconomicBoost(sb, curriculum_id, berufName, start);
+        result = await upgradeEconomicBoost(sb, curriculum_id, berufName, runId, start);
         break;
     }
 
-    // Update run status
     const finalStatus = result.failed === 0 ? "done" : (result.upgraded > 0 ? "done" : "failed");
     await sb.from("premium_upgrade_runs").update({
       status: finalStatus,
       progress: { completed: result.upgraded, total: result.total, failed: result.failed },
       finished_at: new Date().toISOString(),
+      error: result.failed > 0 ? `${result.failed} items failed` : null,
     }).eq("id", runId);
 
-    // Audit log
-    await sb.from("auto_heal_log").insert({
+    // Audit log (fire-and-forget)
+    sb.from("auto_heal_log").insert({
       action_type: `premium_upgrade_${layer}`,
       trigger_source: "premium-upgrade",
       target_type: "course_package",
@@ -508,8 +525,7 @@ Deno.serve(async (req) => {
       result_status: finalStatus,
       result_detail: `Layer ${layer}: ${result.upgraded}/${result.total} upgraded, ${result.failed} failed`,
       metadata: { layer, run_id: runId, ...result },
-    });
-    // ignore audit log errors silently
+    }).then(() => {}, () => {});
 
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
     console.log(`[PremiumUpgrade] ✅ ${layer} done in ${elapsed}s — ${result.upgraded}/${result.total} upgraded`);
