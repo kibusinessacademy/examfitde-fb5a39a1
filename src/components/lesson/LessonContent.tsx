@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { Json } from '@/integrations/supabase/types';
 import MiniCheckPlayer, { type MiniCheckContent, type MiniCheckQuestion } from './MiniCheckPlayer';
+import { useLessonMiniChecks } from '@/hooks/useLessonMiniChecks';
 
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
@@ -114,6 +115,9 @@ export default function LessonContent({
   onH5PProgress,
   onMiniCheckCompleted
 }: LessonContentProps) {
+  // Fetch DB-backed MiniChecks for this lesson (pipeline SSOT)
+  const { data: dbMiniChecks, isLoading: dbMiniChecksLoading } = useLessonMiniChecks(lessonId);
+
   // If there's a direct h5p_content_id on the lesson, use that
   if (h5pContentId) {
     return (
@@ -133,6 +137,26 @@ export default function LessonContent({
 
   // Handle content JSON
   if (!content) {
+    // Even without inline content, check if DB has MiniChecks for this lesson
+    if (dbMiniChecksLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-[200px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
+    }
+    if (dbMiniChecks && lessonId) {
+      const validation = isMiniCheckValid(dbMiniChecks.questions);
+      if (validation.valid) {
+        return (
+          <MiniCheckPlayer
+            content={dbMiniChecks}
+            lessonId={lessonId}
+            onCompleted={onMiniCheckCompleted}
+          />
+        );
+      }
+    }
     return (
       <ContentPlaceholder
         icon={BookOpen}
@@ -179,12 +203,13 @@ export default function LessonContent({
     );
   }
 
-  // Quiz / Mini-Check content with Quality Gate
+  // Quiz / Mini-Check content — prefer DB-backed MiniChecks (SSOT) over inline JSON
   if (contentData.type === 'quiz' || contentData.type === 'mini_check') {
-    const miniCheckContent = contentData as unknown as MiniCheckContent;
+    // Use DB MiniChecks if available (pipeline SSOT), fallback to inline JSON
+    const source = dbMiniChecks ?? (contentData as unknown as MiniCheckContent);
     
     // Quality Gate Check
-    const validation = isMiniCheckValid(miniCheckContent.questions || []);
+    const validation = isMiniCheckValid(source.questions || []);
     
     if (!validation.valid || !lessonId) {
       return (
@@ -199,11 +224,38 @@ export default function LessonContent({
     
     return (
       <MiniCheckPlayer 
-        content={miniCheckContent}
+        content={source}
         lessonId={lessonId}
         onCompleted={onMiniCheckCompleted}
       />
     );
+  }
+
+  // No inline quiz type, but DB has MiniChecks for this lesson (text + minicheck combo)
+  if (dbMiniChecks && lessonId) {
+    const validation = isMiniCheckValid(dbMiniChecks.questions);
+    if (validation.valid) {
+      return (
+        <div className="space-y-8">
+          {/* Render text content first if present */}
+          {contentData.type === 'text' && contentData.html && (
+            <div 
+              className="prose prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(String(contentData.html), {
+                ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','br','strong','em','u','ul','ol','li','blockquote','code','pre','a','img','table','thead','tbody','tr','th','td','span','div','sub','sup','hr'],
+                ALLOWED_ATTR: ['href','src','alt','title','class','id','target','rel'],
+                ALLOW_DATA_ATTR: false,
+              }) }}
+            />
+          )}
+          <MiniCheckPlayer
+            content={dbMiniChecks}
+            lessonId={lessonId}
+            onCompleted={onMiniCheckCompleted}
+          />
+        </div>
+      );
+    }
   }
 
   // H5P placeholder (when type is h5p but no contentId yet)

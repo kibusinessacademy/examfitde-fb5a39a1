@@ -50,6 +50,7 @@ export default function MiniCheckPlayer({
   const [isFinished, setIsFinished] = useState(false);
   const [saving, setSaving] = useState(false);
   const [consecutiveFails, setConsecutiveFails] = useState(0);
+  const [sessionId] = useState(() => crypto.randomUUID());
 
   const questions = content.questions || [];
   const passingScore = content.passing_score ?? 70;
@@ -84,6 +85,17 @@ export default function MiniCheckPlayer({
     } else {
       setConsecutiveFails(0);
     }
+
+    // Persist attempt via RPC (fire-and-forget, non-blocking)
+    const selectedIdx = currentQuestion.options.findIndex(o => o.id === selectedOption);
+    supabase.rpc('submit_minicheck_attempt', {
+      p_question_id: currentQuestion.id,
+      p_chosen_index: selectedIdx,
+      p_session_id: sessionId,
+      p_lesson_id: lessonId,
+    }).then(({ error }) => {
+      if (error) console.error('Failed to persist minicheck attempt:', error);
+    });
   };
 
   const handleNextQuestion = async () => {
