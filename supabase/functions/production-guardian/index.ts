@@ -164,12 +164,32 @@ Deno.serve(async (req) => {
 
       // Genuinely stuck: no lease, no jobs, no active steps for 20+ min
       const ageMin = Math.round(buildAge / 60_000);
+      const staleDetails = {
+        pkg_id: bPkg.id,
+        age_min: ageMin,
+        active_leases: leaseCount ?? 0,
+        active_jobs: activeJobs ?? 0,
+        active_steps: activeStepCount ?? 0,
+        reason: "stale_build_no_lease_jobs_steps",
+      };
+
       await sb.from("course_packages")
         .update({ status: "failed", updated_at: new Date().toISOString() })
         .eq("id", bPkg.id)
         .eq("status", "building");
 
-      actions.push(`fail pkg ${bPkg.id.slice(0, 8)}: age=${ageMin}m lease=${leaseCount ?? 0} jobs=${activeJobs ?? 0} steps=${activeStepCount ?? 0}`);
+      // Structured log for forensics
+      await sb.from("auto_heal_log").insert({
+        action_type: "guardian_stale_fail",
+        target_type: "course_package",
+        target_id: bPkg.id,
+        trigger_source: "production-guardian",
+        result_status: "applied",
+        result_detail: JSON.stringify(staleDetails),
+        metadata: staleDetails,
+      }).catch(() => {/* non-critical */});
+
+      actions.push(`fail pkg ${bPkg.id.slice(0, 8)}: age=${ageMin}m lease=${staleDetails.active_leases} jobs=${staleDetails.active_jobs} steps=${staleDetails.active_steps}`);
     }
 
     // ═══════════════════════════════════════════════════════════════
