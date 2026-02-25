@@ -21934,6 +21934,14 @@ export type Database = {
         Args: { p_blueprint_id: string }
         Returns: Json
       }
+      get_drill_minichecks: {
+        Args: {
+          p_competency_id?: string
+          p_curriculum_id: string
+          p_limit?: number
+        }
+        Returns: Json
+      }
       get_due_cards: {
         Args: {
           p_curriculum_id?: string

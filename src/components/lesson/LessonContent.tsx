@@ -64,9 +64,10 @@ function isMiniCheckValid(questions: MiniCheckQuestion[]): { valid: boolean; rea
     if (!hasValidOptions) {
       return { valid: false, reason: 'Antwortoptionen werden noch erstellt' };
     }
-    // Ensure at least one correct answer
-    const hasCorrectAnswer = q.options.some(opt => opt.is_correct);
-    if (!hasCorrectAnswer) {
+    // Ensure at least one correct answer (only check for inline JSON that has is_correct)
+    // DB-backed questions don't expose is_correct — correctness is server-side only
+    const hasIsCorrectField = q.options.some(opt => 'is_correct' in opt);
+    if (hasIsCorrectField && !q.options.some(opt => opt.is_correct)) {
       return { valid: false, reason: 'Korrekte Antworten werden noch definiert' };
     }
   }
