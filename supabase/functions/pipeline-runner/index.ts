@@ -348,97 +348,152 @@ async function processPackage(
     }
   }
 
-  // ── FINALIZATION GUARD: auto-close steps that met their target ──
-  // Runs BEFORE pickNextAction so the state machine sees corrected states.
+  // ── FINALIZATION GUARD (Dictionary-based) ──
+  // Auto-close steps that met their target. Runs BEFORE pickNextAction
+  // so the state machine sees corrected states.
+  // Only covers steps with real job_queue entries — no heuristics for inline steps.
   {
+    type FinalizationRule = {
+      stepKey: string;
+      jobType: string;
+      actionType: string;
+      cancelStatuses: string[];
+      shouldFinalize: (meta: any) => { ok: boolean; reason: string; snapshot: Record<string, any> };
+    };
+
+    const FINALIZATION_RULES: FinalizationRule[] = [
+      {
+        stepKey: "generate_exam_pool",
+        jobType: "package_generate_exam_pool",
+        actionType: "finalize_generate_exam_pool",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const totalQ = typeof meta?.total_questions === "number" ? meta.total_questions : 0;
+          const target = typeof meta?.exam_target === "number" ? meta.exam_target : 1700;
+          const ok = totalQ >= target;
+          return { ok, reason: ok ? `${totalQ}>=${target}` : `${totalQ}<${target}`, snapshot: { total_questions: totalQ, exam_target: target } };
+        },
+      },
+      {
+        stepKey: "validate_exam_pool",
+        jobType: "package_validate_exam_pool",
+        actionType: "finalize_validate_exam_pool",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.validation_passed === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "auto_seed_exam_blueprints",
+        jobType: "package_auto_seed_exam_blueprints",
+        actionType: "finalize_auto_seed_exam_blueprints",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "validate_blueprints",
+        jobType: "package_validate_blueprints",
+        actionType: "finalize_validate_blueprints",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "generate_oral_exam",
+        jobType: "package_generate_oral_exam",
+        actionType: "finalize_generate_oral_exam",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "validate_oral_exam",
+        jobType: "package_validate_oral_exam",
+        actionType: "finalize_validate_oral_exam",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+    ];
+
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
 
-    // --- generate_exam_pool ---
-    const genStep = byKey.get("generate_exam_pool");
-    if (genStep && ["queued", "running", "enqueued"].includes(genStep.status)) {
-      const meta = (genStep.meta ?? {}) as Record<string, unknown>;
-      const totalQ = (typeof meta.total_questions === "number" ? meta.total_questions : 0);
-      const target = (typeof meta.exam_target === "number" ? meta.exam_target : 1700);
+    for (const rule of FINALIZATION_RULES) {
+      const step = byKey.get(rule.stepKey);
+      if (!step) continue;
+      if (!["queued", "running", "enqueued"].includes(step.status)) continue;
 
-      if (totalQ >= target) {
-        const { data: activeCnt } = await safeRpc(sb, "count_active_jobs", {
-          p_package_id: packageId,
-          p_job_type: "package_generate_exam_pool",
-        });
+      const meta = (step.meta ?? {}) as any;
+      const cond = rule.shouldFinalize(meta);
+      if (!cond.ok) continue;
 
-        if ((activeCnt ?? 1) === 0) {
-          console.log(`[runner] 🏁 Finalizing generate_exam_pool for ${shortId}: ${totalQ}>=${target}, 0 active jobs`);
-          await safeQuery(
-            sb.from("package_steps").update({
-              status: "done", last_error: null,
-              finished_at: new Date().toISOString(),
-            }).eq("package_id", packageId).eq("step_key", "generate_exam_pool")
-              .in("status", ["queued", "running", "enqueued"]),
-            "finalize_gen_exam",
-          );
-          await safeRpc(sb, "cancel_jobs_for_package", {
-            p_package_id: packageId,
-            p_job_type: "package_generate_exam_pool",
-            p_statuses: ["pending", "failed"],
-          });
-          await safeQuery(
-            sb.from("auto_heal_log").insert({
-              action_type: "finalize_generate_exam_pool",
-              trigger_source: "pipeline-runner",
-              target_type: "course_package",
-              target_id: packageId,
-              result_status: "applied",
-              metadata: { total_questions: totalQ, target_questions: target },
-            }),
-            "finalize_audit_log",
-          );
-          // Update in-memory so pickNextAction sees 'done'
-          genStep.status = "done";
-        }
+      // Fail-soft: if RPC errors, skip finalization (never finalize blind)
+      const { data: activeCnt, error: activeErr } = await safeRpc(sb, "count_active_jobs", {
+        p_package_id: packageId,
+        p_job_type: rule.jobType,
+      });
+      if (activeErr) {
+        console.log(`[runner] FINALIZE_SKIP ${shortId}/${rule.stepKey}: rpc_error=${(activeErr as any).message}`);
+        continue;
       }
-    }
+      if ((activeCnt ?? 1) !== 0) continue;
 
-    // --- validate_exam_pool ---
-    const valStep = byKey.get("validate_exam_pool");
-    if (valStep && ["queued", "running", "enqueued"].includes(valStep.status)) {
-      const valMeta = (valStep.meta ?? {}) as Record<string, unknown>;
-      const valOk = valMeta.ok === true || valMeta.validation_passed === true;
+      // Compare-and-set: only finalize if status still matches (race-safe)
+      const { data: updatedRows, error: updErr } = await sb
+        .from("package_steps")
+        .update({
+          status: "done",
+          last_error: null,
+          finished_at: new Date().toISOString(),
+        })
+        .eq("package_id", packageId)
+        .eq("step_key", rule.stepKey)
+        .in("status", ["queued", "running", "enqueued"])
+        .select("step_key");
 
-      if (valOk) {
-        const { data: valActiveCnt } = await safeRpc(sb, "count_active_jobs", {
+      const applied = !!(updatedRows && updatedRows.length > 0);
+
+      if (applied) {
+        // Cancel orphaned jobs only when we actually finalized
+        await safeRpc(sb, "cancel_jobs_for_package", {
           p_package_id: packageId,
-          p_job_type: "package_validate_exam_pool",
+          p_job_type: rule.jobType,
+          p_statuses: rule.cancelStatuses,
         });
-
-        if ((valActiveCnt ?? 1) === 0) {
-          console.log(`[runner] 🏁 Finalizing validate_exam_pool for ${shortId}: validation passed, 0 active jobs`);
-          await safeQuery(
-            sb.from("package_steps").update({
-              status: "done", last_error: null,
-              finished_at: new Date().toISOString(),
-            }).eq("package_id", packageId).eq("step_key", "validate_exam_pool")
-              .in("status", ["queued", "running", "enqueued"]),
-            "finalize_val_exam",
-          );
-          await safeRpc(sb, "cancel_jobs_for_package", {
-            p_package_id: packageId,
-            p_job_type: "package_validate_exam_pool",
-            p_statuses: ["pending", "failed"],
-          });
-          await safeQuery(
-            sb.from("auto_heal_log").insert({
-              action_type: "finalize_validate_exam_pool",
-              trigger_source: "pipeline-runner",
-              target_type: "course_package",
-              target_id: packageId,
-              result_status: "applied",
-              metadata: { validation_ok: true },
-            }),
-            "finalize_val_audit_log",
-          );
-          valStep.status = "done";
-        }
+        console.log(`[runner] 🏁 Finalized ${rule.stepKey} for ${shortId}: ${cond.reason}, 0 active jobs`);
+        await sb.from("auto_heal_log").insert({
+          action_type: rule.actionType,
+          trigger_source: "pipeline-runner",
+          target_type: "course_package",
+          target_id: packageId,
+          result_status: "applied",
+          result_detail: `Finalized ${rule.stepKey}: ${cond.reason}`,
+          metadata: { step_key: rule.stepKey, job_type: rule.jobType, condition: cond.snapshot, active_jobs: 0 },
+        }).catch(() => {});
+        // Update in-memory so pickNextAction sees 'done'
+        step.status = "done";
+      } else {
+        // Race: status changed between check and update — log as skipped
+        await sb.from("auto_heal_log").insert({
+          action_type: rule.actionType,
+          trigger_source: "pipeline-runner",
+          target_type: "course_package",
+          target_id: packageId,
+          result_status: "skipped",
+          result_detail: `Skipped ${rule.stepKey}: race (status changed)`,
+          metadata: { step_key: rule.stepKey, job_type: rule.jobType, condition: cond.snapshot, error: updErr?.message ?? null },
+        }).catch(() => {});
       }
     }
   }
