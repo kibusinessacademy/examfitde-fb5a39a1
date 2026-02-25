@@ -39,15 +39,16 @@ type StepKey =
   | "validate_oral_exam"
   | "generate_lesson_minichecks"
   | "validate_lesson_minichecks"
-  | "elite_harden"
   | "generate_handbook"
   | "validate_handbook"
+  | "elite_harden"
   | "run_integrity_check"
   | "quality_council"
   | "auto_publish";
 
 // Canonical ordering — superset. Steps not present in the package DB rows
 // are simply skipped by buildStepOrder().
+// SSOT order: MiniChecks → Handbook → elite_harden (matches UI + build-course-package)
 const FULL_STEP_ORDER: StepKey[] = [
   "scaffold_learning_course",
   "generate_glossary",
@@ -63,9 +64,9 @@ const FULL_STEP_ORDER: StepKey[] = [
   "validate_oral_exam",
   "generate_lesson_minichecks",
   "validate_lesson_minichecks",
-  "elite_harden",
   "generate_handbook",
   "validate_handbook",
+  "elite_harden",
   "run_integrity_check",
   "quality_council",
   "auto_publish",
@@ -92,15 +93,15 @@ const STEP_TO_JOB_TYPE: Record<StepKey, string> = {
   validate_blueprints: "package_validate_blueprints",
   generate_exam_pool: "package_generate_exam_pool",
   validate_exam_pool: "package_validate_exam_pool",
+  build_ai_tutor_index: "package_build_ai_tutor_index",
+  validate_tutor_index: "package_validate_tutor_index",
   generate_oral_exam: "package_generate_oral_exam",
   validate_oral_exam: "package_validate_oral_exam",
   generate_lesson_minichecks: "package_generate_lesson_minichecks",
   validate_lesson_minichecks: "package_validate_lesson_minichecks",
-  elite_harden: "package_elite_harden",
-  build_ai_tutor_index: "package_build_ai_tutor_index",
-  validate_tutor_index: "package_validate_tutor_index",
   generate_handbook: "package_generate_handbook",
   validate_handbook: "package_validate_handbook",
+  elite_harden: "package_elite_harden",
   run_integrity_check: "package_run_integrity_check",
   quality_council: "package_quality_council",
   auto_publish: "package_auto_publish",

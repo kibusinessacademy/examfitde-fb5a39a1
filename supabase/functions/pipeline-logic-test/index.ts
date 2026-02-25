@@ -21,7 +21,9 @@ const FULL_STEP_ORDER = [
   'generate_exam_pool','validate_exam_pool',
   'build_ai_tutor_index','validate_tutor_index',
   'generate_oral_exam','validate_oral_exam',
+  'generate_lesson_minichecks','validate_lesson_minichecks',
   'generate_handbook','validate_handbook',
+  'elite_harden',
   'run_integrity_check','quality_council','auto_publish'
 ] as const;
 

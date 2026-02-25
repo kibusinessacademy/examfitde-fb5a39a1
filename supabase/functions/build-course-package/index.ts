@@ -206,6 +206,7 @@ Deno.serve(async (req) => {
     const contentSteps: Array<{ step_key: string; job_type: string }> = [];
     if (opts.include_learning_course) {
       contentSteps.push({ step_key: "scaffold_learning_course", job_type: "package_scaffold_learning_course" });
+      contentSteps.push({ step_key: "generate_glossary", job_type: "package_generate_glossary" });
       contentSteps.push({ step_key: "generate_learning_content", job_type: "package_generate_learning_content" });
       contentSteps.push({ step_key: "validate_learning_content", job_type: "package_validate_learning_content" });
     }
@@ -223,20 +224,20 @@ Deno.serve(async (req) => {
       contentSteps.push({ step_key: "generate_oral_exam", job_type: "package_generate_oral_exam" });
       contentSteps.push({ step_key: "validate_oral_exam", job_type: "package_validate_oral_exam" });
     }
-    if (opts.include_handbook) {
-      contentSteps.push({ step_key: "generate_handbook", job_type: "package_generate_handbook" });
-      contentSteps.push({ step_key: "validate_handbook", job_type: "package_validate_handbook" });
-    }
 
-    // MiniChecks: BEFORE elite_harden so hardening can upgrade them too
-    // Position depends on mode: lesson-based needs learning content, drill-based needs exam pool
+    // MiniChecks: after oral exam, before handbook
     const includeMiniChecks = featureFlags.has_minichecks ?? (track === "AUSBILDUNG_VOLL");
     if (includeMiniChecks) {
       contentSteps.push({ step_key: "generate_lesson_minichecks", job_type: "package_generate_lesson_minichecks" });
       contentSteps.push({ step_key: "validate_lesson_minichecks", job_type: "package_validate_lesson_minichecks" });
     }
 
-    // Elite Hardening (after ALL generation including MiniChecks, before quality gates)
+    if (opts.include_handbook) {
+      contentSteps.push({ step_key: "generate_handbook", job_type: "package_generate_handbook" });
+      contentSteps.push({ step_key: "validate_handbook", job_type: "package_validate_handbook" });
+    }
+
+    // Elite Hardening: AFTER all content generation (incl. Handbook), before quality gates
     contentSteps.push({ step_key: "elite_harden", job_type: "package_elite_harden" });
 
     // Phase 2: Quality gates
