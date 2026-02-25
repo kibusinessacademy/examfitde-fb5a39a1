@@ -173,23 +173,30 @@ Deno.serve(async (req) => {
         reason: "stale_build_no_lease_jobs_steps",
       };
 
-      await sb.from("course_packages")
+      const { data: updatedRows, error: updErr } = await sb.from("course_packages")
         .update({ status: "failed", updated_at: new Date().toISOString() })
         .eq("id", bPkg.id)
-        .eq("status", "building");
+        .eq("status", "building")
+        .select("id");
 
-      // Structured log for forensics
+      const applied = !!(updatedRows && updatedRows.length > 0);
+
+      // Structured log for forensics — always log, mark applied vs skipped
       await sb.from("auto_heal_log").insert({
         action_type: "guardian_stale_fail",
         target_type: "course_package",
         target_id: bPkg.id,
         trigger_source: "production-guardian",
-        result_status: "applied",
-        result_detail: JSON.stringify(staleDetails),
-        metadata: staleDetails,
+        result_status: applied ? "applied" : "skipped",
+        result_detail: JSON.stringify({ ...staleDetails, applied, error: updErr?.message ?? null }),
+        metadata: { ...staleDetails, applied, error: updErr?.message ?? null },
       }).catch(() => {/* non-critical */});
 
-      actions.push(`fail pkg ${bPkg.id.slice(0, 8)}: age=${ageMin}m lease=${staleDetails.active_leases} jobs=${staleDetails.active_jobs} steps=${staleDetails.active_steps}`);
+      if (applied) {
+        actions.push(`fail pkg ${bPkg.id.slice(0, 8)}: age=${ageMin}m lease=${staleDetails.active_leases} jobs=${staleDetails.active_jobs} steps=${staleDetails.active_steps}`);
+      } else {
+        actions.push(`skip-fail pkg ${bPkg.id.slice(0, 8)}: status already changed (race)`);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
