@@ -147,12 +147,12 @@ Deno.serve(async (req) => {
 
       if ((leaseCount ?? 0) > 0) continue; // has active lease — fine
 
-      // Check for active jobs
+      // Check for active jobs (use RPC for reliable JSONB extraction)
       const { count: jobCount } = await sb
         .from("job_queue")
         .select("*", { count: "exact", head: true })
-        .containedBy("status", ["pending", "processing"] as any)
-        .contains("payload", { package_id: bPkg.id });
+        .in("status", ["pending", "processing"])
+        .eq("payload->>package_id", bPkg.id);
 
       if ((jobCount ?? 0) > 0) continue; // has active jobs — fine
 
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
             await sb.from("job_queue")
               .update({ status: "pending", attempts: 0, started_at: null })
               .eq("status", "failed")
-              .contains("payload", { package_id: pkg.id });
+              .eq("payload->>package_id", pkg.id);
 
             await sb.from("course_packages")
               .update({
@@ -602,12 +602,12 @@ Deno.serve(async (req) => {
     }
 
     // C) Building packages without active slots → reclaim or fail
-    const { data: buildingPkgs } = await sb
+    const { data: buildingPkgs2 } = await sb
       .from("course_packages")
       .select("id, course_id, current_step, updated_at")
       .eq("status", "building");
 
-    for (const bPkg of buildingPkgs ?? []) {
+    for (const bPkg of buildingPkgs2 ?? []) {
       const isInSlot = slotList.includes(bPkg.id);
       if (!isInSlot) {
         const buildAge = Date.now() - new Date(bPkg.updated_at).getTime();
@@ -632,7 +632,7 @@ Deno.serve(async (req) => {
                 .update({ status: "pending", attempts: 0, error: null, started_at: null })
                 .eq("status", "failed")
                 .in("job_type", ["package_run_integrity_check", "package_auto_publish"])
-                .contains("payload", { package_id: bPkg.id });
+                .eq("payload->>package_id", bPkg.id);
             } catch (e) {
               warnings.push(`Failed to reclaim slot for ${bPkg.id.slice(0, 8)}: ${(e as Error).message}`);
             }
