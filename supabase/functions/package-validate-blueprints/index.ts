@@ -132,9 +132,11 @@ Deno.serve(async (req) => {
 
   // ═══ CHECK 1: Coverage — every LF has blueprints ═══
   const missingLfs: string[] = [];
+  const missingLfIds: string[] = [];
   for (const [lfId, lf] of lfMap) {
     if (!bpByLf.has(lfId)) {
       missingLfs.push(`${(lf as any).title || lfId.slice(0, 8)}`);
+      missingLfIds.push(lfId);
     }
   }
   if (missingLfs.length > 0) {
@@ -366,6 +368,8 @@ Deno.serve(async (req) => {
     summary,
     issues,
     warnings,
+    // Pass missing LF IDs so pipeline-runner can target re-seed
+    missing_lf_ids: missingLfIds.length > 0 ? missingLfIds : undefined,
     message: passed
       ? `✅ Blueprint-Validierung v2 bestanden: ${blueprints.length} Blueprints, ${coveragePct.toFixed(0)}% Coverage, ${caseBasedPct.toFixed(0)}% case-based, Score ${score}`
       : `❌ Blueprint-Validierung v2 fehlgeschlagen: ${issues.join("; ")}`,
