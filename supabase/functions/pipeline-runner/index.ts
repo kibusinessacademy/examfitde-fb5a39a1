@@ -603,8 +603,36 @@ async function processPackage(
             console.log(`[runner] 🎯 Targeted re-seed: ${targetLfIds!.length} missing LFs → passing target_lf_ids to seeder`);
           }
 
-          // Reset predecessor to queued so it regenerates
-          const predecessorUpdate: any = { status: "queued", job_id: null, runner_id: null, started_at: null, attempts: 0 };
+          // Kill-switch: if targeted re-seed already failed before, don't loop — escalate
+          if (hasTargetedLfs && currentStep?.meta?.target_lf_ids?.length) {
+            console.error(`[runner] 🛑 Kill-switch: targeted re-seed already attempted for ${stepKey} but failed again — escalating to quality_gate_failed`);
+            await safeQuery(
+              sb.from("package_steps")
+                .update({
+                  status: "failed",
+                  last_error: `Targeted re-seed failed twice — manual intervention required. Missing LFs: ${targetLfIds!.length}`,
+                })
+                .eq("package_id", packageId)
+                .eq("step_key", stepKey),
+              "kill_switch_targeted_reseed",
+            );
+            await safeQuery(
+              sb.from("auto_heal_log").insert({
+                action_type: "targeted_reseed_kill_switch",
+                trigger_source: "pipeline_runner",
+                target_type: "package_step",
+                target_id: packageId,
+                result_status: "escalated",
+                result_detail: `targeted re-seed already ran but ${stepKey} still fails — stopping loop`,
+                metadata: { step: stepKey, missing_lf_ids: targetLfIds },
+              }),
+            );
+            await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+            return { packageId, stepKey, kill_switch: true, reason: "targeted_reseed_already_failed" };
+          }
+
+          // Reset predecessor to queued so it regenerates — preserve attempts for forensics
+          const predecessorUpdate: any = { status: "queued", job_id: null, runner_id: null, started_at: null };
           // Store target_lf_ids in the step metadata so the job-runner can pass them to the seeder
           if (hasTargetedLfs) {
             predecessorUpdate.last_error = `Auto-heal: targeted re-seed for ${targetLfIds!.length} missing LFs`;
