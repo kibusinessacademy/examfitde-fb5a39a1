@@ -11220,6 +11220,8 @@ export type Database = {
           competency_id: string | null
           created_at: string
           curriculum_id: string
+          dual_examiner_roles: Json | null
+          followup_depth: number
           followups: string[]
           id: string
           lead_questions: string[]
@@ -11227,7 +11229,9 @@ export type Database = {
           metadata: Json | null
           rubric: Json
           scenario: string
+          scoring_weights: Json | null
           status: string
+          stress_config: Json | null
           title: string
         }
         Insert: {
@@ -11235,6 +11239,8 @@ export type Database = {
           competency_id?: string | null
           created_at?: string
           curriculum_id: string
+          dual_examiner_roles?: Json | null
+          followup_depth?: number
           followups?: string[]
           id?: string
           lead_questions?: string[]
@@ -11242,7 +11248,9 @@ export type Database = {
           metadata?: Json | null
           rubric?: Json
           scenario: string
+          scoring_weights?: Json | null
           status?: string
+          stress_config?: Json | null
           title: string
         }
         Update: {
@@ -11250,6 +11258,8 @@ export type Database = {
           competency_id?: string | null
           created_at?: string
           curriculum_id?: string
+          dual_examiner_roles?: Json | null
+          followup_depth?: number
           followups?: string[]
           id?: string
           lead_questions?: string[]
@@ -11257,7 +11267,9 @@ export type Database = {
           metadata?: Json | null
           rubric?: Json
           scenario?: string
+          scoring_weights?: Json | null
           status?: string
+          stress_config?: Json | null
           title?: string
         }
         Relationships: [
@@ -11388,6 +11400,8 @@ export type Database = {
           created_at: string
           curriculum_id: string
           difficulty: string
+          examiner_mode: string
+          followup_chains: Json | null
           followup_questions: Json
           id: string
           lead_questions: Json
@@ -11397,7 +11411,9 @@ export type Database = {
           package_id: string
           rubric: Json
           scenario: string
+          scoring_rubric_detailed: Json | null
           sort_order: number
+          stress_level: number
           time_limit_minutes: number
           title: string
         }
@@ -11407,6 +11423,8 @@ export type Database = {
           created_at?: string
           curriculum_id: string
           difficulty?: string
+          examiner_mode?: string
+          followup_chains?: Json | null
           followup_questions?: Json
           id?: string
           lead_questions?: Json
@@ -11416,7 +11434,9 @@ export type Database = {
           package_id: string
           rubric?: Json
           scenario: string
+          scoring_rubric_detailed?: Json | null
           sort_order?: number
+          stress_level?: number
           time_limit_minutes?: number
           title: string
         }
@@ -11426,6 +11446,8 @@ export type Database = {
           created_at?: string
           curriculum_id?: string
           difficulty?: string
+          examiner_mode?: string
+          followup_chains?: Json | null
           followup_questions?: Json
           id?: string
           lead_questions?: Json
@@ -11435,7 +11457,9 @@ export type Database = {
           package_id?: string
           rubric?: Json
           scenario?: string
+          scoring_rubric_detailed?: Json | null
           sort_order?: number
+          stress_level?: number
           time_limit_minutes?: number
           title?: string
         }
@@ -13526,6 +13550,126 @@ export type Database = {
           },
         ]
       }
+      premium_upgrade_runs: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          finished_at: string | null
+          id: string
+          layer: string
+          package_id: string
+          progress: Json
+          started_at: string | null
+          status: string
+          target_config: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          finished_at?: string | null
+          id?: string
+          layer: string
+          package_id: string
+          progress?: Json
+          started_at?: string | null
+          status?: string
+          target_config?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          finished_at?: string | null
+          id?: string
+          layer?: string
+          package_id?: string
+          progress?: Json
+          started_at?: string | null
+          status?: string
+          target_config?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_building_without_job_or_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_recent_building_without_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
       process_documentation: {
         Row: {
           category: string
@@ -15118,12 +15262,14 @@ export type Database = {
           competency_id: string | null
           created_at: string
           created_by: string | null
+          cross_lf_references: string[] | null
           curriculum_id: string
           decision_structure:
             | Database["public"]["Enums"]["decision_structure_type"]
             | null
           deprecated_at: string | null
           didactic_intent: Database["public"]["Enums"]["didactic_intent"]
+          economic_scenario_type: string | null
           estimated_time_seconds: number | null
           exam_context_type: Database["public"]["Enums"]["exam_context_type"]
           exam_relevance: Database["public"]["Enums"]["exam_relevance"]
@@ -15133,6 +15279,7 @@ export type Database = {
           knowledge_type: Database["public"]["Enums"]["knowledge_type"]
           language_level: string | null
           learning_field_id: string | null
+          linked_competency_ids: string[] | null
           max_similarity_score: number | null
           max_variations: number | null
           min_variation_distance: number | null
@@ -15141,6 +15288,7 @@ export type Database = {
           question_template: string
           real_world_context: boolean
           remediation_triggers: Json | null
+          scenario_type: string
           status: Database["public"]["Enums"]["blueprint_status"]
           trap_spec: Json | null
           typical_errors: Json | null
@@ -15150,6 +15298,7 @@ export type Database = {
             | Database["public"]["Enums"]["variation_mode"][]
             | null
           version: string
+          very_hard_criteria: Json | null
         }
         Insert: {
           allowed_question_types?: string[]
@@ -15162,12 +15311,14 @@ export type Database = {
           competency_id?: string | null
           created_at?: string
           created_by?: string | null
+          cross_lf_references?: string[] | null
           curriculum_id: string
           decision_structure?:
             | Database["public"]["Enums"]["decision_structure_type"]
             | null
           deprecated_at?: string | null
           didactic_intent?: Database["public"]["Enums"]["didactic_intent"]
+          economic_scenario_type?: string | null
           estimated_time_seconds?: number | null
           exam_context_type?: Database["public"]["Enums"]["exam_context_type"]
           exam_relevance?: Database["public"]["Enums"]["exam_relevance"]
@@ -15177,6 +15328,7 @@ export type Database = {
           knowledge_type?: Database["public"]["Enums"]["knowledge_type"]
           language_level?: string | null
           learning_field_id?: string | null
+          linked_competency_ids?: string[] | null
           max_similarity_score?: number | null
           max_variations?: number | null
           min_variation_distance?: number | null
@@ -15185,6 +15337,7 @@ export type Database = {
           question_template: string
           real_world_context?: boolean
           remediation_triggers?: Json | null
+          scenario_type?: string
           status?: Database["public"]["Enums"]["blueprint_status"]
           trap_spec?: Json | null
           typical_errors?: Json | null
@@ -15194,6 +15347,7 @@ export type Database = {
             | Database["public"]["Enums"]["variation_mode"][]
             | null
           version?: string
+          very_hard_criteria?: Json | null
         }
         Update: {
           allowed_question_types?: string[]
@@ -15206,12 +15360,14 @@ export type Database = {
           competency_id?: string | null
           created_at?: string
           created_by?: string | null
+          cross_lf_references?: string[] | null
           curriculum_id?: string
           decision_structure?:
             | Database["public"]["Enums"]["decision_structure_type"]
             | null
           deprecated_at?: string | null
           didactic_intent?: Database["public"]["Enums"]["didactic_intent"]
+          economic_scenario_type?: string | null
           estimated_time_seconds?: number | null
           exam_context_type?: Database["public"]["Enums"]["exam_context_type"]
           exam_relevance?: Database["public"]["Enums"]["exam_relevance"]
@@ -15221,6 +15377,7 @@ export type Database = {
           knowledge_type?: Database["public"]["Enums"]["knowledge_type"]
           language_level?: string | null
           learning_field_id?: string | null
+          linked_competency_ids?: string[] | null
           max_similarity_score?: number | null
           max_variations?: number | null
           min_variation_distance?: number | null
@@ -15229,6 +15386,7 @@ export type Database = {
           question_template?: string
           real_world_context?: boolean
           remediation_triggers?: Json | null
+          scenario_type?: string
           status?: Database["public"]["Enums"]["blueprint_status"]
           trap_spec?: Json | null
           typical_errors?: Json | null
@@ -15238,6 +15396,7 @@ export type Database = {
             | Database["public"]["Enums"]["variation_mode"][]
             | null
           version?: string
+          very_hard_criteria?: Json | null
         }
         Relationships: [
           {
@@ -21659,6 +21818,10 @@ export type Database = {
           learning_field_id: string
           q_count: number
         }[]
+      }
+      count_upgrade_candidates: {
+        Args: { p_curriculum_id: string; p_layer: string }
+        Returns: Json
       }
       course_pack_fingerprint: {
         Args: { p_course_id: string }
