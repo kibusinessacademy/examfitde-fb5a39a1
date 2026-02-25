@@ -153,14 +153,39 @@ function tier1Check(
 // Global hint for tier1Check to skip expensive checks on large pools
 let questions_total_hint = 0;
 
+// ── Balanced JSON extractor (safe, handles nested strings/escapes) ──
+function extractFirstJsonObject(text: string): string | null {
+  const s = text.indexOf("{");
+  if (s < 0) return null;
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = s; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) { esc = false; continue; }
+      if (ch === "\\") { esc = true; continue; }
+      if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{") depth++;
+    if (ch === "}") { depth--; if (depth === 0) return text.slice(s, i + 1); }
+  }
+  return null; // truncated — no balanced closing brace found
+}
+
 // ── Tier 2 ──
+const TIER2_BASE_TOKENS = 2500;
+const TIER2_RETRY_TOKENS = 3500;
+
 async function tier2Validate(
   q: { id: string; question_text: string; options: any; correct_answer: number; explanation: string | null; difficulty: string | null; blueprint_name?: string },
   professionName: string,
 ): Promise<{ questionId: string; score: number; decision: string; issues: string[] }> {
   const routed = getModel("quality_audit");
 
-  const prompt = `Du bist ein IHK-Prüfungsexperte für ${professionName}. Validiere diese Prüfungsfrage.
+  const basePrompt = `Du bist ein IHK-Prüfungsexperte für ${professionName}. Validiere diese Prüfungsfrage.
 
 BEWERTUNGSDIMENSIONEN:
 1. EINDEUTIGKEIT (35%): Genau eine richtige Antwort? Keine Interpretationsspielräume?
@@ -172,71 +197,63 @@ AUTO-REJECT: Mehrere korrekte Antworten → reject. Offensichtlich falsche Distr
 
 Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {"eindeutigkeit": 0-100, "distraktoren": 0-100, "ihk_konformitaet": 0-100, "berufsbezug": 0-100}, "critical_issues": [{"severity": "critical|warning|info", "category": "string", "message": "string"}]}`;
 
-  try {
-    const aiResult = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        { role: "system", content: prompt },
-        {
-          role: "user",
-          content: `Beruf: ${professionName}\nBlueprint: ${q.blueprint_name || "unbekannt"}\nSchwierigkeit: ${q.difficulty}\n\nFRAGE: ${q.question_text}\n\nOPTIONEN:\n${(Array.isArray(q.options) ? q.options : []).map((o: string, i: number) => `${i === q.correct_answer ? "✓" : "✗"} ${i + 1}. ${o}`).join("\n")}\n\nERKLÄRUNG: ${q.explanation || "(keine)"}`,
-        },
-      ],
-      max_tokens: 2500, // increased from 1500 — German JSON responses were being truncated
-    });
+  const userContent = `Beruf: ${professionName}\nBlueprint: ${q.blueprint_name || "unbekannt"}\nSchwierigkeit: ${q.difficulty}\n\nFRAGE: ${q.question_text}\n\nOPTIONEN:\n${(Array.isArray(q.options) ? q.options : []).map((o: string, i: number) => `${i === q.correct_answer ? "✓" : "✗"} ${i + 1}. ${o}`).join("\n")}\n\nERKLÄRUNG: ${q.explanation || "(keine)"}`;
 
-    let raw = (aiResult.content || "").trim();
-    // Robust fence stripping + JSON extraction
-    raw = raw.replace(/```(?:json)?[\s]*/gi, "").trim();
-    // Extract the JSON object
-    const jsonStart = raw.indexOf("{");
-    const jsonEnd = raw.lastIndexOf("}");
-    if (jsonStart >= 0 && jsonEnd > jsonStart) {
-      raw = raw.slice(jsonStart, jsonEnd + 1);
-    }
-    // Fix trailing commas and unescaped newlines
-    raw = raw.replace(/,\s*([\]}])/g, "$1");
-    raw = raw.replace(/(?<=":[\s]*"[^"]*)\n(?=[^"]*")/g, "\\n");
-
-    // Truncation repair: if JSON.parse fails, try closing open strings/arrays/objects
-    let parsed: any;
+  // ── 3-stage: Extract → Parse → Retry → Skip ──
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      parsed = JSON.parse(raw);
-    } catch {
-      // Attempt truncation repair: close any unclosed strings, arrays, objects
-      let repaired = raw;
-      // Count unmatched braces/brackets
-      const opens = (repaired.match(/{/g) || []).length;
-      const closes = (repaired.match(/}/g) || []).length;
-      const openBrackets = (repaired.match(/\[/g) || []).length;
-      const closeBrackets = (repaired.match(/\]/g) || []).length;
-      // If inside an unterminated string, close it
-      const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
-      if (quoteCount % 2 !== 0) repaired += '"';
-      // Close arrays then objects
-      for (let i = 0; i < openBrackets - closeBrackets; i++) repaired += "]";
-      for (let i = 0; i < opens - closes; i++) repaired += "}";
-      try {
-        parsed = JSON.parse(repaired);
-        console.warn(`[validate-exam] JSON truncation repaired for ${q.id}`);
-      } catch (e2) {
-        throw new Error(`JSON parse failed even after repair: ${(e2 as Error).message}`);
-      }
-    }
+      const isRetry = attempt > 0;
+      const systemPrompt = isRetry
+        ? basePrompt + "\n\nWICHTIG: Antworte ausschließlich mit minifiziertem JSON. Kein Markdown, kein Prosa-Text."
+        : basePrompt;
 
-    return {
-      questionId: q.id,
-      score: parsed.overall_score ?? 0,
-      decision: parsed.decision ?? (parsed.overall_score >= 85 ? "approve" : parsed.overall_score >= 60 ? "revise" : "reject"),
-      issues: (parsed.critical_issues || []).map((i: any) => `${i.severity}: ${i.message}`),
-    };
-  } catch (e) {
-    const errMsg = (e as Error).message || "";
-    console.error(`[validate-exam] LLM failed for ${q.id}: ${errMsg}`);
-    // Return score=-1 (skip) — don't penalize average. Trust Tier 1 structural checks.
-    return { questionId: q.id, score: -1, decision: "skipped", issues: [`LLM_ERROR: ${errMsg}`] };
+      const aiResult = await callAIJSON({
+        provider: routed.provider,
+        model: routed.model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        max_tokens: isRetry ? TIER2_RETRY_TOKENS : TIER2_BASE_TOKENS,
+      });
+
+      // Stage A: fence-strip + balanced extraction
+      let raw = (aiResult.content || "").trim();
+      raw = raw.replace(/```(?:json)?[\s]*/gi, "").trim();
+      const extracted = extractFirstJsonObject(raw);
+
+      if (!extracted) {
+        if (!isRetry) {
+          console.warn(`[validate-exam] Truncated JSON for ${q.id} — retrying with higher budget`);
+          continue; // retry
+        }
+        throw new Error("TIER2_JSON_TRUNCATED: no balanced JSON object found after retry");
+      }
+
+      // Stage B: trailing-comma fix + parse
+      const cleaned = extracted.replace(/,\s*([\]}])/g, "$1");
+      const parsed = JSON.parse(cleaned);
+
+      // Schema gate: required keys must exist
+      if (typeof parsed.overall_score !== "number" || !parsed.decision) {
+        throw new Error("TIER2_SCHEMA_INVALID: missing overall_score or decision");
+      }
+
+      return {
+        questionId: q.id,
+        score: parsed.overall_score,
+        decision: parsed.decision,
+        issues: (parsed.critical_issues || []).map((i: any) => `${i.severity}: ${i.message}`),
+      };
+    } catch (e) {
+      if (attempt === 0 && (e as Error).message?.includes("TRUNCATED")) continue;
+      const errMsg = (e as Error).message || "";
+      console.error(`[validate-exam] LLM failed for ${q.id} (attempt ${attempt}): ${errMsg}`);
+      return { questionId: q.id, score: -1, decision: "skipped", issues: [`LLM_ERROR: ${errMsg}`] };
+    }
   }
+
+  return { questionId: q.id, score: -1, decision: "skipped", issues: ["LLM_ERROR: exhausted retries"] };
 }
 
 Deno.serve(async (req) => {
