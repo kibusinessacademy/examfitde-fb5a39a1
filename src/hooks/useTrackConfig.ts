@@ -79,6 +79,8 @@ export const ALL_PIPELINE_STEPS = [
   { key: 'validate_oral_exam',       label: 'QG Mündliche',      shortLabel: 'QG Oral',  flag: 'has_oral_exam_trainer' },
   { key: 'generate_handbook',        label: 'Handbuch',          shortLabel: 'Buch',     flag: 'has_handbook' },
   { key: 'validate_handbook',        label: 'QG Handbuch',       shortLabel: 'QG Buch',  flag: 'has_handbook' },
+  { key: 'generate_lesson_minichecks', label: 'MiniChecks',      shortLabel: 'Mini',     flag: 'has_minichecks' },
+  { key: 'validate_lesson_minichecks', label: 'QG MiniChecks',   shortLabel: 'QG Mini',  flag: 'has_minichecks' },
   { key: 'run_integrity_check',      label: 'Qualitätsprüfung',  shortLabel: 'QA',       flag: null },
   { key: 'quality_council',          label: 'QA Council',        shortLabel: 'Council',  flag: null },
   { key: 'auto_publish',             label: 'Veröffentlichen',   shortLabel: 'Pub',      flag: null },

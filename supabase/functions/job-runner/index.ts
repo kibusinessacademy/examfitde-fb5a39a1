@@ -120,6 +120,8 @@ const JOB_TYPE_MAP: Record<string, string> = {
   package_validate_tutor_index: "package-validate-tutor-index",
   package_generate_handbook: "package-generate-handbook",
   package_validate_handbook: "package-validate-handbook",
+  package_generate_lesson_minichecks: "package-generate-lesson-minichecks",
+  package_validate_lesson_minichecks: "package-validate-lesson-minichecks",
   package_run_integrity_check: "package-run-integrity-check",
   package_validate_learning_content: "package-validate-learning-content",
   package_auto_publish: "package-auto-publish",
@@ -387,10 +389,12 @@ Deno.serve(async (req) => {
     package_elite_harden: ["validate_oral_exam", "validate_tutor_index", "validate_exam_pool"],
     package_generate_handbook: ["elite_harden", "validate_oral_exam"],
     package_validate_handbook: ["generate_handbook"],
+    package_generate_lesson_minichecks: ["elite_harden", "validate_exam_pool"],
+    package_validate_lesson_minichecks: ["generate_lesson_minichecks"],
     // Track-aware: integrity_check needs the LAST validation step that exists.
-    // For EXAM_FIRST (no handbook): elite_harden (after validate_oral_exam).
-    // For AUSBILDUNG_VOLL: validate_handbook (after elite_harden).
-    package_run_integrity_check: ["validate_handbook", "elite_harden", "validate_oral_exam", "validate_tutor_index"],
+    // For EXAM_FIRST (no handbook): validate_lesson_minichecks or elite_harden.
+    // For AUSBILDUNG_VOLL: validate_lesson_minichecks (after handbook + minichecks).
+    package_run_integrity_check: ["validate_lesson_minichecks", "validate_handbook", "elite_harden", "validate_oral_exam", "validate_tutor_index"],
     package_quality_council: ["run_integrity_check"],
     package_auto_publish: ["quality_council"],
   };

@@ -227,6 +227,13 @@ Deno.serve(async (req) => {
       contentSteps.push({ step_key: "validate_handbook", job_type: "package_validate_handbook" });
     }
 
+    // MiniChecks: lesson-based (Learning-Track) or drill-based (ExamFirst)
+    const includeMiniChecks = featureFlags.has_minichecks ?? (track === "AUSBILDUNG_VOLL");
+    if (includeMiniChecks) {
+      contentSteps.push({ step_key: "generate_lesson_minichecks", job_type: "package_generate_lesson_minichecks" });
+      contentSteps.push({ step_key: "validate_lesson_minichecks", job_type: "package_validate_lesson_minichecks" });
+    }
+
     // Elite Hardening (auto, after all generation, before quality gates)
     contentSteps.push({ step_key: "elite_harden", job_type: "package_elite_harden" });
 

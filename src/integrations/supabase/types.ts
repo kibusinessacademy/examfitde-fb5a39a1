@@ -10748,40 +10748,64 @@ export type Database = {
       }
       minicheck_questions: {
         Row: {
+          cognitive_level: string | null
           competency_id: string | null
           correct_answer: number
           created_at: string
+          curriculum_id: string | null
           difficulty: string | null
+          distractor_meta: Json | null
           explanation: string | null
           id: string
-          lesson_id: string
+          lesson_id: string | null
+          mode: string
           options: Json
           question_text: string
           sort_order: number | null
+          source_blueprint_id: string | null
+          status: string
+          trap_tags: string[] | null
+          updated_at: string
         }
         Insert: {
+          cognitive_level?: string | null
           competency_id?: string | null
           correct_answer: number
           created_at?: string
+          curriculum_id?: string | null
           difficulty?: string | null
+          distractor_meta?: Json | null
           explanation?: string | null
           id?: string
-          lesson_id: string
+          lesson_id?: string | null
+          mode?: string
           options: Json
           question_text: string
           sort_order?: number | null
+          source_blueprint_id?: string | null
+          status?: string
+          trap_tags?: string[] | null
+          updated_at?: string
         }
         Update: {
+          cognitive_level?: string | null
           competency_id?: string | null
           correct_answer?: number
           created_at?: string
+          curriculum_id?: string | null
           difficulty?: string | null
+          distractor_meta?: Json | null
           explanation?: string | null
           id?: string
-          lesson_id?: string
+          lesson_id?: string | null
+          mode?: string
           options?: Json
           question_text?: string
           sort_order?: number | null
+          source_blueprint_id?: string | null
+          status?: string
+          trap_tags?: string[] | null
+          updated_at?: string
         }
         Relationships: [
           {
