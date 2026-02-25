@@ -87,12 +87,13 @@ export default function MiniCheckPlayer({
       });
 
       if (error) {
-        // Fallback: check locally if is_correct is available (inline JSON)
-        console.error('Server check failed, using fallback:', error);
-        const fallbackCorrect = currentQuestion.options[selectedIndex]?.is_correct ?? false;
-        const result = { is_correct: fallbackCorrect, correct_index: -1, explanation: '' };
-        setAnswerResult(result);
-        finishAnswer(result);
+        console.error('Server check failed:', error);
+        toast({
+          title: 'Fehler',
+          description: 'Antwortprüfung fehlgeschlagen. Bitte erneut versuchen.',
+          variant: 'destructive',
+        });
+        setChecking(false);
         return;
       }
 
@@ -101,6 +102,11 @@ export default function MiniCheckPlayer({
       finishAnswer(serverResult);
     } catch (err) {
       console.error('Answer check error:', err);
+      toast({
+        title: 'Fehler',
+        description: 'Antwortprüfung fehlgeschlagen. Bitte erneut versuchen.',
+        variant: 'destructive',
+      });
     } finally {
       setChecking(false);
     }

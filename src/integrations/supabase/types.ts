@@ -22330,6 +22330,13 @@ export type Database = {
           storage_path: string
         }[]
       }
+      list_curriculum_competencies: {
+        Args: { p_curriculum_id: string }
+        Returns: {
+          id: string
+          title: string
+        }[]
+      }
       list_latest_evidence_packs: {
         Args: { p_limit?: number }
         Returns: {
