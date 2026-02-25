@@ -707,12 +707,29 @@ Deno.serve(async (req) => {
           package_validate_oral_exam: "generate_oral_exam",
           package_validate_learning_content: "generate_learning_content",
         };
+        // FIX #1: SSOT step-key map — never derive via string replace
+        const VALIDATION_STEP_KEY: Record<string, string> = {
+          package_validate_blueprints: "validate_blueprints",
+          package_validate_exam_pool: "validate_exam_pool",
+          package_validate_oral_exam: "validate_oral_exam",
+          package_validate_learning_content: "validate_learning_content",
+        };
         const predecessorStep = VALIDATION_PREDECESSOR[job.job_type];
+        const validationStepKey = VALIDATION_STEP_KEY[job.job_type];
         const packageId = job.payload?.package_id as string | undefined;
-        const missingLfIds: string[] | undefined = Array.isArray(parsed.missing_lf_ids) ? parsed.missing_lf_ids : undefined;
+        // FIX #2: Robust missing_lf_ids extraction — check multiple field names
+        const missingLfIds: string[] | undefined =
+          Array.isArray((parsed as any).missing_lf_ids) ? (parsed as any).missing_lf_ids :
+          Array.isArray((parsed as any).missing_learning_field_ids) ? (parsed as any).missing_learning_field_ids :
+          undefined;
 
-        if (predecessorStep && packageId && newAttempts >= maxAttempts) {
-          // Terminal QG failure → trigger targeted re-seed via predecessor reset
+        // FIX #4: Detect MISSING_LF_COVERAGE immediately → reseed on first fail, not after max attempts
+        const hasMissingCoverage = Array.isArray(parsed.issues) &&
+          parsed.issues.some((i: string) => typeof i === "string" && i.includes("MISSING_LF_COVERAGE"));
+        const shouldHealNow = predecessorStep && packageId && (hasMissingCoverage || newAttempts >= maxAttempts);
+
+        if (shouldHealNow) {
+          // Trigger targeted re-seed via predecessor reset
           const MAX_HEAL_CYCLES = 7;
 
           // Check how many times we've already healed this step
@@ -727,14 +744,17 @@ Deno.serve(async (req) => {
 
           if (healCycles >= MAX_HEAL_CYCLES) {
             // Kill-switch: too many heal cycles — escalate
-            console.error(`[job-runner] 🛑 Kill-switch: ${predecessorStep} healed ${healCycles}x but ${fnName} still fails — escalating`);
-            await sb.from("package_steps")
-              .update({
-                status: "failed",
-                last_error: `Kill-switch: ${MAX_HEAL_CYCLES} heal cycles exhausted. ${issuesSummary}`,
-              })
-              .eq("package_id", packageId)
-              .eq("step_key", fnName.replace("package-", "").replace(/-/g, "_"));
+            console.error(`[job-runner] 🛑 Kill-switch: ${predecessorStep} healed ${healCycles}x but ${job.job_type} still fails — escalating`);
+            // FIX #3: Use SSOT step_key, not string-derived
+            if (validationStepKey) {
+              await sb.from("package_steps")
+                .update({
+                  status: "failed",
+                  last_error: `Kill-switch: ${MAX_HEAL_CYCLES} heal cycles exhausted. ${issuesSummary}`,
+                })
+                .eq("package_id", packageId)
+                .eq("step_key", validationStepKey);
+            }
 
             await sb.from("auto_heal_log").insert({
               action_type: "qg_heal_kill_switch",
@@ -742,8 +762,8 @@ Deno.serve(async (req) => {
               target_type: "package_step",
               target_id: packageId,
               result_status: "escalated",
-              result_detail: `${fnName} failed ${healCycles}x heal cycles — stopping`,
-              metadata: { step: fnName, predecessor: predecessorStep, heal_cycles: healCycles, missing_lf_ids: missingLfIds },
+              result_detail: `${job.job_type} failed ${healCycles}x heal cycles — stopping`,
+              metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles, missing_lf_ids: missingLfIds, issues: parsed.issues?.slice(0, 5) },
             }).catch(() => {});
 
             finalState = {
@@ -772,22 +792,28 @@ Deno.serve(async (req) => {
               },
             };
 
+            // FIX #5: Compare-and-set — only reset if not currently running
             await sb.from("package_steps")
               .update(predecessorUpdate)
               .eq("package_id", packageId)
-              .eq("step_key", predecessorStep);
+              .eq("step_key", predecessorStep)
+              .in("status", ["done", "failed", "queued"]);
 
             // Also reset the validation step itself to queued (will re-run after predecessor)
-            await sb.from("package_steps")
-              .update({
-                status: "queued",
-                job_id: null,
-                runner_id: null,
-                started_at: null,
-                last_error: `Waiting for ${predecessorStep} re-seed (cycle ${healCycles + 1})`,
-              })
-              .eq("package_id", packageId)
-              .eq("step_key", fnName.replace("package-", "").replace(/-/g, "_"));
+            // FIX #3: Use SSOT step_key
+            if (validationStepKey) {
+              await sb.from("package_steps")
+                .update({
+                  status: "queued",
+                  job_id: null,
+                  runner_id: null,
+                  started_at: null,
+                  last_error: `Waiting for ${predecessorStep} re-seed (cycle ${healCycles + 1})`,
+                })
+                .eq("package_id", packageId)
+                .eq("step_key", validationStepKey)
+                .in("status", ["done", "failed", "queued", "enqueued"]);
+            }
 
             await sb.from("auto_heal_log").insert({
               action_type: "qg_auto_heal_reseed",
@@ -795,8 +821,8 @@ Deno.serve(async (req) => {
               target_type: "package_step",
               target_id: packageId,
               result_status: "ok",
-              result_detail: `${fnName} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1})`,
-              metadata: { step: fnName, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds },
+              result_detail: `${job.job_type} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1})`,
+              metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds, trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : "max_attempts", issues: parsed.issues?.slice(0, 5) },
             }).catch(() => {});
 
             // Complete the job (not requeue) — the step system handles the rest
