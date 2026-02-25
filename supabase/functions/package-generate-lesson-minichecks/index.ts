@@ -9,16 +9,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
  * - ExamFirst (has_learning_course=false): competency/drill-based, 3-5 items per competency
  * 
  * SSOT: minicheck_questions table with mode='lesson' | 'drill'
- * 
- * FLAGS:
- * - has_minichecks: controls whether this step runs at all (skip if false)
- * - has_learning_course: controls lesson vs drill mode
  */
 
-const TIME_BUDGET_MS = 160_000;
+const TIME_BUDGET_MS = 50_000;
 const ITEMS_PER_LESSON = 7;
 const ITEMS_PER_DRILL = 5;
-const MAX_TARGETS_PER_RUN = 50;
+const MAX_TARGETS_PER_RUN = 40;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -109,7 +105,6 @@ function normalizeOptions(opts: unknown): Array<{ text: string }> {
   if (!Array.isArray(opts)) return [];
   return opts.map((o: unknown) => {
     if (typeof o === "string") {
-      // Strip "A) " prefix if present
       return { text: o.replace(/^[A-D]\)\s*/, "") };
     }
     if (o && typeof o === "object" && "text" in (o as any)) {
@@ -119,13 +114,33 @@ function normalizeOptions(opts: unknown): Array<{ text: string }> {
   });
 }
 
+/** Robust JSON array parser — handles markdown fences, wrapper objects, nested brackets */
 function parseJsonArray(raw: string): any[] {
   let cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+  // Try direct parse first
+  try {
+    const v = JSON.parse(cleaned);
+    if (Array.isArray(v)) return v;
+    if (v && Array.isArray((v as any).items)) return (v as any).items;
+  } catch { /* fallback below */ }
+
+  // Fallback: find first balanced array
   const start = cleaned.indexOf("[");
-  const end = cleaned.lastIndexOf("]");
-  if (start === -1 || end === -1) throw new Error("No JSON array found");
-  cleaned = cleaned.slice(start, end + 1);
-  return JSON.parse(cleaned);
+  if (start === -1) throw new Error("No JSON array found");
+
+  let depth = 0;
+  for (let i = start; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (ch === "[") depth++;
+    if (ch === "]") {
+      depth--;
+      if (depth === 0) {
+        return JSON.parse(cleaned.slice(start, i + 1));
+      }
+    }
+  }
+  throw new Error("Unclosed JSON array");
 }
 
 Deno.serve(async (req) => {
@@ -149,7 +164,6 @@ Deno.serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    // Determine mode from package feature_flags
     const { data: pkgRow } = await sb
       .from("course_packages")
       .select("track, feature_flags, course_id")
@@ -158,8 +172,7 @@ Deno.serve(async (req) => {
 
     const featureFlags = pkgRow?.feature_flags || {};
 
-    // ── Flag logic (Fix #2) ──
-    // has_minichecks → run/skip (already checked by pipeline, but double-guard)
+    // has_minichecks → run/skip
     const hasMiniChecks = featureFlags.has_minichecks ?? false;
     if (!hasMiniChecks) {
       return json({ ok: true, skipped: true, reason: "MINICHECKS_DISABLED" });
@@ -170,8 +183,7 @@ Deno.serve(async (req) => {
     const effectiveCourseId = courseId || pkgRow?.course_id;
     const mode: "lesson" | "drill" = hasLearningCourse ? "lesson" : "drill";
 
-    // ── Prereq check (Fix #6) ──
-    // Lesson-mode: needs learning content; Drill-mode: needs exam pool
+    // Prereq check (mode-specific)
     if (mode === "lesson") {
       if (!(await prereqDone(sb, packageId, "validate_learning_content"))) {
         return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: validate_learning_content" }, 409);
@@ -182,7 +194,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Get profession name for context
+    // Get profession name
     const { data: currRow } = await sb.from("curricula").select("beruf_id, title").eq("id", curriculumId).maybeSingle();
     let professionName = currRow?.title || "Fachberuf";
     if (currRow?.beruf_id) {
@@ -195,7 +207,6 @@ Deno.serve(async (req) => {
     let targets: Array<{ id: string; title: string; content: string; competencyTitle: string; competencyId: string | null; lessonId: string | null }> = [];
 
     if (mode === "lesson") {
-      // ═══ LESSON MODE: Generate per lesson ═══
       if (!effectiveCourseId) throw new Error("course_id required for lesson mode");
 
       const { data: lessons } = await sb
@@ -207,7 +218,6 @@ Deno.serve(async (req) => {
 
       if (!lessons?.length) throw new Error("No lessons found for course");
 
-      // Load competency titles
       const compIds = [...new Set(lessons.filter(l => l.competency_id).map(l => l.competency_id))];
       const compMap: Record<string, string> = {};
       if (compIds.length > 0) {
@@ -215,12 +225,13 @@ Deno.serve(async (req) => {
         for (const c of comps || []) compMap[c.id] = c.title;
       }
 
-      // Check which lessons already have MiniChecks (idempotency)
+      // Idempotency: curriculum-scoped (Fix #5)
       const lessonIds = lessons.map(l => l.id);
       const { data: existing } = await sb
         .from("minicheck_questions")
         .select("lesson_id")
         .in("lesson_id", lessonIds)
+        .eq("curriculum_id", curriculumId)
         .eq("mode", "lesson");
       const existingSet = new Set((existing || []).map(e => e.lesson_id));
 
@@ -241,8 +252,7 @@ Deno.serve(async (req) => {
         });
       }
     } else {
-      // ═══ DRILL MODE: Generate per competency (Fix #3) ═══
-      // Correct path: curriculum → learning_fields → competencies
+      // DRILL MODE: curriculum → learning_fields → competencies
       const { data: lfs } = await sb
         .from("learning_fields")
         .select("id")
@@ -259,12 +269,13 @@ Deno.serve(async (req) => {
 
       if (!allComps?.length) throw new Error("No competencies found");
 
-      // Check existing drills (idempotency)
+      // Idempotency: curriculum-scoped (Fix #5)
       const compIdsAll = allComps.map(c => c.id);
       const { data: existingDrills } = await sb
         .from("minicheck_questions")
         .select("competency_id")
         .in("competency_id", compIdsAll)
+        .eq("curriculum_id", curriculumId)
         .eq("mode", "drill");
       const existingDrillSet = new Set((existingDrills || []).map(e => e.competency_id));
 
@@ -281,7 +292,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Cap targets per run (Fix #8)
+    // Cap targets per run
     if (targets.length > MAX_TARGETS_PER_RUN) {
       console.log(`[MiniChecks] Capping targets from ${targets.length} to ${MAX_TARGETS_PER_RUN}`);
       targets = targets.slice(0, MAX_TARGETS_PER_RUN);
@@ -289,7 +300,6 @@ Deno.serve(async (req) => {
 
     console.log(`[MiniChecks] ${mode} mode: ${targets.length} targets to generate for ${packageId.slice(0, 8)}`);
 
-    // Process targets within time budget
     for (const target of targets) {
       if (Date.now() - startTime > TIME_BUDGET_MS) {
         console.log(`[MiniChecks] Time budget exceeded after ${totalGenerated} generated`);
@@ -320,7 +330,6 @@ Deno.serve(async (req) => {
           curriculum_id: curriculumId,
           competency_id: target.competencyId,
           question_text: q.question_text || q.text || "",
-          // Fix #7: Normalize options to {text}[] format consistently
           options: normalizeOptions(q.options),
           correct_answer: typeof q.correct_answer === "number" ? q.correct_answer : 0,
           explanation: q.explanation || "",
@@ -333,7 +342,6 @@ Deno.serve(async (req) => {
           sort_order: idx,
         }));
 
-        // Filter out invalid rows
         const validRows = rows.filter((r: any) =>
           r.question_text.length > 10 &&
           Array.isArray(r.options) && r.options.length === 4 &&
