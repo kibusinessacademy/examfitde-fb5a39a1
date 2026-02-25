@@ -90,8 +90,11 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 3. PIPELINE LOCK CLEANUP (stale > 15 min)
+    // 3. PIPELINE LOCK CLEANUP (legacy — lease-based now)
     // ═══════════════════════════════════════════════════════════════
+    // The pipeline now uses package_leases for concurrency control.
+    // Only clean the legacy lock if it's stale — but do NOT mark packages
+    // as failed based on lock alone (the runner uses leases, not locks).
     const { data: lock } = await sb
       .from("pipeline_lock")
       .select("id, active_package_id, locked_at, heartbeat_at")
@@ -106,22 +109,69 @@ Deno.serve(async (req) => {
         ? Date.now() - new Date(lock.heartbeat_at).getTime()
         : lockAge;
 
-      // Stale if no heartbeat for 15 min
+      // Stale if no heartbeat for 15 min — only release lock, do NOT mark package failed
+      // (the lease system handles package lifecycle now)
       if (heartbeatAge > 15 * 60_000) {
-        // Mark the package as failed
-        await sb.from("course_packages")
-          .update({ status: "failed", updated_at: new Date().toISOString() })
-          .eq("id", lock.active_package_id)
-          .eq("status", "building");
-
-        // Release the lock
+        // Release the stale lock only
         await sb.from("pipeline_lock")
           .update({ active_package_id: null, locked_at: null, heartbeat_at: null, locked_by: null })
           .eq("id", 1);
 
-        actions.push(`Cleared stale lock (${Math.round(heartbeatAge / 60_000)}min no heartbeat), failed pkg ${lock.active_package_id.slice(0, 8)}`);
+        actions.push(`Cleared stale legacy lock (${Math.round(heartbeatAge / 60_000)}min no heartbeat) — pkg ${lock.active_package_id.slice(0, 8)} NOT marked failed (lease-based now)`);
         pipelineIdle = true;
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 3b. LEASE-AWARE STALE PACKAGE DETECTION
+    // ═══════════════════════════════════════════════════════════════
+    // Packages in 'building' with no active lease AND no active jobs for > 20min
+    // are genuinely stuck — mark them as failed.
+    const { data: buildingPkgs } = await sb
+      .from("course_packages")
+      .select("id, title, updated_at")
+      .eq("status", "building")
+      .order("updated_at", { ascending: true })
+      .limit(20);
+
+    for (const bPkg of buildingPkgs ?? []) {
+      const buildAge = Date.now() - new Date(bPkg.updated_at).getTime();
+      if (buildAge < 20 * 60_000) continue; // give 20 min grace
+
+      // Check for active lease
+      const { count: leaseCount } = await sb
+        .from("package_leases")
+        .select("*", { count: "exact", head: true })
+        .eq("package_id", bPkg.id)
+        .gt("lease_until", new Date().toISOString());
+
+      if ((leaseCount ?? 0) > 0) continue; // has active lease — fine
+
+      // Check for active jobs
+      const { count: jobCount } = await sb
+        .from("job_queue")
+        .select("*", { count: "exact", head: true })
+        .containedBy("status", ["pending", "processing"] as any)
+        .contains("payload", { package_id: bPkg.id });
+
+      if ((jobCount ?? 0) > 0) continue; // has active jobs — fine
+
+      // Check for any running/enqueued steps
+      const { count: activeStepCount } = await sb
+        .from("package_steps")
+        .select("*", { count: "exact", head: true })
+        .eq("package_id", bPkg.id)
+        .in("status", ["running", "enqueued"]);
+
+      if ((activeStepCount ?? 0) > 0) continue; // has active steps — fine
+
+      // Genuinely stuck: no lease, no jobs, no active steps for 20+ min
+      await sb.from("course_packages")
+        .update({ status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", bPkg.id)
+        .eq("status", "building");
+
+      actions.push(`Stale build detected (${Math.round(buildAge / 60_000)}min, no lease/jobs/steps) — failed pkg ${bPkg.id.slice(0, 8)}`);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -145,29 +195,48 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (courseCheck?.curriculum_id) {
-          // Reset failed jobs for this package
-          await sb.from("job_queue")
-            .update({ status: "pending", attempts: 0, started_at: null, error: null })
-            .eq("status", "failed")
-            .contains("payload", { package_id: pkg.id });
+          // Check if there are queued steps — if so, just re-enable building
+          // Don't blindly reset all jobs (the steps may be partially done)
+          const { count: queuedSteps } = await sb
+            .from("package_steps")
+            .select("*", { count: "exact", head: true })
+            .eq("package_id", pkg.id)
+            .eq("status", "queued");
 
-          // Re-queue the package
-          await sb.from("course_packages")
-            .update({
-              status: "queued",
-              retry_count: retries + 1,
-              build_progress: 0,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", pkg.id);
+          if ((queuedSteps ?? 0) > 0) {
+            // Has queued steps — just flip back to building, pipeline-runner will pick up
+            await sb.from("course_packages")
+              .update({
+                status: "building",
+                retry_count: retries + 1,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", pkg.id);
 
-          actions.push(`Re-queued failed pkg "${pkg.title}" (retry ${retries + 1}/2)`);
+            actions.push(`Re-enabled building for failed pkg "${pkg.title}" (${queuedSteps} queued steps, retry ${retries + 1}/2)`);
+          } else {
+            // No queued steps — needs full re-queue via build-course-package
+            await sb.from("job_queue")
+              .update({ status: "pending", attempts: 0, started_at: null })
+              .eq("status", "failed")
+              .contains("payload", { package_id: pkg.id });
+
+            await sb.from("course_packages")
+              .update({
+                status: "queued",
+                retry_count: retries + 1,
+                build_progress: 0,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", pkg.id);
+
+            actions.push(`Re-queued failed pkg "${pkg.title}" (no queued steps, retry ${retries + 1}/2)`);
+          }
         } else {
           warnings.push(`Failed pkg "${pkg.title}" has no curriculum – skipping retry`);
         }
       }
     }
-
     // ═══════════════════════════════════════════════════════════════
     // 4b. RE-CHECK QA_FAILED PACKAGES (auto-retry quality council)
     // ═══════════════════════════════════════════════════════════════
