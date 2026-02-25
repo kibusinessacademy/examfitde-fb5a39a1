@@ -219,7 +219,7 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
 
       // Stage A: fence-strip + balanced extraction
       let raw = (aiResult.content || "").trim();
-      raw = raw.replace(/```(?:json)?[\s]*/gi, "").trim();
+      raw = raw.replace(/```(?:json)?|```/gi, "").trim();
       const extracted = extractFirstJsonObject(raw);
 
       if (!extracted) {
@@ -234,9 +234,13 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
       const cleaned = extracted.replace(/,\s*([\]}])/g, "$1");
       const parsed = JSON.parse(cleaned);
 
-      // Schema gate: required keys must exist
-      if (typeof parsed.overall_score !== "number" || !parsed.decision) {
-        throw new Error("TIER2_SCHEMA_INVALID: missing overall_score or decision");
+      // Schema gate: required keys + decision whitelist
+      const VALID_DECISIONS = ["approve", "revise", "reject"];
+      if (
+        typeof parsed.overall_score !== "number" ||
+        !VALID_DECISIONS.includes(parsed.decision)
+      ) {
+        throw new Error("TIER2_SCHEMA_INVALID: missing overall_score or invalid decision");
       }
 
       return {
@@ -246,10 +250,21 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
         issues: (parsed.critical_issues || []).map((i: any) => `${i.severity}: ${i.message}`),
       };
     } catch (e) {
-      if (attempt === 0 && (e as Error).message?.includes("TRUNCATED")) continue;
-      const errMsg = (e as Error).message || "";
-      console.error(`[validate-exam] LLM failed for ${q.id} (attempt ${attempt}): ${errMsg}`);
-      return { questionId: q.id, score: -1, decision: "skipped", issues: [`LLM_ERROR: ${errMsg}`] };
+      const msg = ((e as Error).message || "").toLowerCase();
+      const isTruncation =
+        msg.includes("truncated") ||
+        msg.includes("unexpected end") ||
+        msg.includes("unterminated") ||
+        msg.includes("end of json") ||
+        msg.includes("no balanced json") ||
+        msg.includes("schema_invalid");
+
+      if (attempt === 0 && isTruncation) {
+        console.warn(`[validate-exam] Parse error for ${q.id} (${msg.slice(0, 80)}) — retrying`);
+        continue;
+      }
+      console.error(`[validate-exam] LLM failed for ${q.id} (attempt ${attempt}): ${msg}`);
+      return { questionId: q.id, score: -1, decision: "skipped", issues: [`LLM_ERROR: ${msg}`] };
     }
   }
 
