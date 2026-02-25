@@ -493,10 +493,13 @@ Deno.serve(async (req) => {
     const globalWinners = winners.slice(0, GLOBAL_HEAVY_LIMIT);
     const keepIds = new Set(globalWinners.map((w: any) => w.id));
 
-    // Fix #3: Log capacity underuse for monitoring
+    // Fix #3: Log capacity underuse + "all busy" explicitly
     console.log(`[job-runner] FAIR_SHARE: winners=${globalWinners.length}/${GLOBAL_HEAVY_LIMIT}, skippedBusyPkgs=${alreadyProcessing.size}, eligiblePkgs=${byPackage.size}`);
+    if (globalWinners.length === 0 && byPackage.size > 0) {
+      console.log(`[job-runner] FAIR_SHARE: all eligible packages already have heavy processing — dispatching 0 heavy this tick`);
+    }
 
-    // Fix #4: Release non-winners — only locked jobs we own, status=processing
+    // Fix #4: Release non-winners — only locked jobs we own AND status=processing (exact match)
     const releaseHeavy = heavyJobs.filter((j: any) => !keepIds.has(j.id));
     if (releaseHeavy.length > 0) {
       for (const rj of releaseHeavy) {
@@ -507,7 +510,7 @@ Deno.serve(async (req) => {
           locked_by: null,
           run_after: ts,
           updated_at: new Date().toISOString(),
-        }).eq("id", rj.id).eq("locked_by", WORKER_ID).neq("status", "completed"); // safety: own locks only, never touch completed
+        }).eq("id", rj.id).eq("locked_by", WORKER_ID).eq("status", "processing"); // exact: only processing jobs we own
       }
       console.log(`[job-runner] FAIR_SHARE: released ${releaseHeavy.length} non-winner heavy jobs`);
     }
