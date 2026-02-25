@@ -500,6 +500,7 @@ Deno.serve(async (req) => {
   // Check that questions have distractor_meta with why_wrong + why_tempting
   let distractorMetaMissing = 0;
   let distractorMetaWeak = 0;
+  const formatCounts: Record<string, number> = {};
   const distractorSampleSize = Math.min(100, questions.length);
   const distractorSample = questions.slice(0, distractorSampleSize);
 
@@ -520,9 +521,17 @@ Deno.serve(async (req) => {
     }
     // Support both formats: array directly OR { raw: [...] } wrapper from generator
     const rawMeta = meta.distractor_meta;
-    const dm = Array.isArray(rawMeta) ? rawMeta 
-      : (rawMeta && Array.isArray(rawMeta.raw)) ? rawMeta.raw 
-      : [];
+    let dmFormat: 'array' | 'wrapper_raw' | 'unknown' = 'unknown';
+    let dm: any[] = [];
+    if (Array.isArray(rawMeta)) {
+      dm = rawMeta;
+      dmFormat = 'array';
+    } else if (rawMeta && Array.isArray(rawMeta.raw)) {
+      dm = rawMeta.raw;
+      dmFormat = 'wrapper_raw';
+    }
+    formatCounts[dmFormat] = (formatCounts[dmFormat] || 0) + 1;
+
     // Check for why_wrong + why_tempting on at least 2 distractors
     const withQuality = dm.filter((d: any) => d?.why_wrong && d?.why_tempting);
     if (withQuality.length < 2) {
@@ -676,6 +685,7 @@ Deno.serve(async (req) => {
       weak: distractorMetaWeak,
       passed: distractorGatePass,
       warnings: distractorWarnings,
+      format_distribution: formatCounts,
     },
     time_gate: {
       passed: timeGatePass,
