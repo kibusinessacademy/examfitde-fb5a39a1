@@ -147,14 +147,11 @@ Deno.serve(async (req) => {
 
       if ((leaseCount ?? 0) > 0) continue; // has active lease — fine
 
-      // Check for active jobs (use RPC for reliable JSONB extraction)
-      const { count: jobCount } = await sb
-        .from("job_queue")
-        .select("*", { count: "exact", head: true })
-        .in("status", ["pending", "processing"])
-        .eq("payload->>package_id", bPkg.id);
-
-      if ((jobCount ?? 0) > 0) continue; // has active jobs — fine
+      // Check for active jobs (via RPC — deterministic JSONB extract, no JS query-builder edge cases)
+      const { data: activeJobs } = await sb.rpc("count_active_jobs_for_package", {
+        p_package_id: bPkg.id,
+      });
+      if ((activeJobs ?? 0) > 0) continue; // has active jobs — fine
 
       // Check for any running/enqueued steps
       const { count: activeStepCount } = await sb
@@ -166,12 +163,13 @@ Deno.serve(async (req) => {
       if ((activeStepCount ?? 0) > 0) continue; // has active steps — fine
 
       // Genuinely stuck: no lease, no jobs, no active steps for 20+ min
+      const ageMin = Math.round(buildAge / 60_000);
       await sb.from("course_packages")
         .update({ status: "failed", updated_at: new Date().toISOString() })
         .eq("id", bPkg.id)
         .eq("status", "building");
 
-      actions.push(`Stale build detected (${Math.round(buildAge / 60_000)}min, no lease/jobs/steps) — failed pkg ${bPkg.id.slice(0, 8)}`);
+      actions.push(`fail pkg ${bPkg.id.slice(0, 8)}: age=${ageMin}m lease=${leaseCount ?? 0} jobs=${activeJobs ?? 0} steps=${activeStepCount ?? 0}`);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -216,10 +214,11 @@ Deno.serve(async (req) => {
             actions.push(`Re-enabled building for failed pkg "${pkg.title}" (${queuedSteps} queued steps, retry ${retries + 1}/2)`);
           } else {
             // No queued steps — needs full re-queue via build-course-package
-            await sb.from("job_queue")
-              .update({ status: "pending", attempts: 0, started_at: null })
-              .eq("status", "failed")
-              .eq("payload->>package_id", pkg.id);
+            // Reset failed jobs via RPC (deterministic JSONB extract)
+            const { data: resetCount } = await sb.rpc("reset_failed_jobs_for_package", {
+              p_package_id: pkg.id,
+              p_job_types: null,
+            });
 
             await sb.from("course_packages")
               .update({
@@ -628,11 +627,11 @@ Deno.serve(async (req) => {
               );
               actions.push(`🔧 Reclaimed slot for orphaned building pkg ${bPkg.id.slice(0, 8)}`);
 
-              await sb.from("job_queue")
-                .update({ status: "pending", attempts: 0, error: null, started_at: null })
-                .eq("status", "failed")
-                .in("job_type", ["package_run_integrity_check", "package_auto_publish"])
-                .eq("payload->>package_id", bPkg.id);
+              const { data: resetCount2 } = await sb.rpc("reset_failed_jobs_for_package", {
+                p_package_id: bPkg.id,
+                p_job_types: ["package_run_integrity_check", "package_auto_publish"],
+              });
+              actions.push(`Reset ${resetCount2 ?? 0} failed integrity/autopublish jobs for pkg ${bPkg.id.slice(0, 8)}`);
             } catch (e) {
               warnings.push(`Failed to reclaim slot for ${bPkg.id.slice(0, 8)}: ${(e as Error).message}`);
             }

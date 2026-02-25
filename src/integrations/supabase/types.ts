@@ -21627,6 +21627,10 @@ export type Database = {
         Args: { p_buyer_user_id: string; p_order_id: string }
         Returns: Json
       }
+      count_active_jobs_for_package: {
+        Args: { p_package_id: string }
+        Returns: number
+      }
       count_curricula_by_status: {
         Args: never
         Returns: {
@@ -22664,6 +22668,10 @@ export type Database = {
         }[]
       }
       requeue_failed_jobs: { Args: never; Returns: number }
+      reset_failed_jobs_for_package: {
+        Args: { p_job_types?: string[]; p_package_id: string }
+        Returns: number
+      }
       resolve_current_rpc: { Args: { p_base_name: string }; Returns: string }
       resolve_qa_finding_if_exists: {
         Args: { p_area: string; p_title: string }
