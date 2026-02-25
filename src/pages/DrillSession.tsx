@@ -33,29 +33,20 @@ export default function DrillSession() {
     started
   );
 
-  // Load competencies for selection
+  // Load competencies via SSOT RPC (no direct table reads)
   useEffect(() => {
     if (!curriculumId) return;
 
     async function loadCompetencies() {
-      const { data: lfs } = await supabase
-        .from('learning_fields')
-        .select('id')
-        .eq('curriculum_id', curriculumId!);
+      const { data: comps, error } = await supabase.rpc('list_curriculum_competencies', {
+        p_curriculum_id: curriculumId!,
+      });
 
-      if (!lfs?.length) {
-        setLoadingComps(false);
-        return;
+      if (error) {
+        console.error('Error loading competencies:', error);
       }
 
-      const lfIds = lfs.map(lf => lf.id);
-      const { data: comps } = await supabase
-        .from('competencies')
-        .select('id, title')
-        .in('learning_field_id', lfIds)
-        .order('title');
-
-      setCompetencies(comps || []);
+      setCompetencies((comps as Competency[]) || []);
       setLoadingComps(false);
     }
 
@@ -78,7 +69,7 @@ export default function DrillSession() {
 
   const handleNewDrill = () => {
     setStarted(false);
-    refetch();
+    setSelectedCompetency(null);
   };
 
   if (!curriculumId) {
