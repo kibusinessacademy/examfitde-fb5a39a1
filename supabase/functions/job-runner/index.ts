@@ -386,15 +386,17 @@ Deno.serve(async (req) => {
     package_validate_tutor_index: ["build_ai_tutor_index"],
     package_generate_oral_exam: ["validate_tutor_index"],
     package_validate_oral_exam: ["generate_oral_exam"],
-    package_elite_harden: ["validate_oral_exam", "validate_tutor_index", "validate_exam_pool"],
+    // MiniChecks run BEFORE elite_harden (so hardening can upgrade them)
+    // Lesson-mode prereq: validate_learning_content (needs lesson content)
+    // Drill-mode prereq: validate_exam_pool (needs blueprints/competencies)
+    package_generate_lesson_minichecks: ["validate_learning_content", "validate_exam_pool"],
+    package_validate_lesson_minichecks: ["generate_lesson_minichecks"],
+    // Elite hardening now comes AFTER minichecks
+    package_elite_harden: ["validate_lesson_minichecks", "validate_oral_exam", "validate_tutor_index", "validate_exam_pool"],
     package_generate_handbook: ["elite_harden", "validate_oral_exam"],
     package_validate_handbook: ["generate_handbook"],
-    package_generate_lesson_minichecks: ["elite_harden", "validate_exam_pool"],
-    package_validate_lesson_minichecks: ["generate_lesson_minichecks"],
     // Track-aware: integrity_check needs the LAST validation step that exists.
-    // For EXAM_FIRST (no handbook): validate_lesson_minichecks or elite_harden.
-    // For AUSBILDUNG_VOLL: validate_lesson_minichecks (after handbook + minichecks).
-    package_run_integrity_check: ["validate_lesson_minichecks", "validate_handbook", "elite_harden", "validate_oral_exam", "validate_tutor_index"],
+    package_run_integrity_check: ["validate_handbook", "elite_harden", "validate_lesson_minichecks", "validate_oral_exam", "validate_tutor_index"],
     package_quality_council: ["run_integrity_check"],
     package_auto_publish: ["quality_council"],
   };
