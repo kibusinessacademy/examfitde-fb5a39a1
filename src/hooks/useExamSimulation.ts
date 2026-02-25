@@ -243,6 +243,8 @@ export function useSubmitAnswer() {
         is_correct: !!data?.is_correct,
         correct_answer: Number(data?.correct_answer ?? -1),
         explanation: (data?.explanation ?? null) as string | null,
+        explanation_correct: (data?.explanation_correct ?? null) as string | null,
+        explanation_wrong: (data?.explanation_wrong ?? null) as string | null,
       } as AnswerResult;
     },
     onSuccess: (_, variables) => {

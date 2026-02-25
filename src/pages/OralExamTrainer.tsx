@@ -92,11 +92,17 @@ export default function OralExamTrainer() {
   const [timeRemaining, setTimeRemaining] = useState(180);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [showSampleAnswer, setShowSampleAnswer] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  // Keep ref in sync with state to avoid stale closures in callbacks
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -135,8 +141,8 @@ export default function OralExamTrainer() {
       };
 
       recognitionRef.current.onend = () => {
-        if (isRecording) {
-          // Auto-restart if still in recording mode
+        if (isRecordingRef.current) {
+          // Auto-restart if still in recording mode (uses ref to avoid stale closure)
           try {
             recognitionRef.current?.start();
           } catch (e) {

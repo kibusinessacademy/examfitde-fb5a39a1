@@ -252,7 +252,6 @@ export default function ExamTrainer() {
   const nextQuestion = () => {
     if (currentIndex + 1 >= questions.length) {
       setStep('results');
-      saveAttempt();
     } else {
       setCurrentIndex(prev => prev + 1);
       setSelectedAnswer(null);
@@ -261,25 +260,9 @@ export default function ExamTrainer() {
     }
   };
 
-  const saveAttempt = async () => {
-    if (!user) return;
-
-    try {
-      await supabase.from('exam_attempts').insert({
-        user_id: user.id,
-        curriculum_id: selectedCurriculumId,
-        score: stats.correct,
-        total_questions: questions.length,
-        completed_at: new Date().toISOString(),
-        answers: questions.map((q, i) => ({
-          question: q.question_text,
-          correct: i < stats.correct,
-        })),
-      });
-    } catch (error) {
-      console.error('Save attempt error:', error);
-    }
-  };
+  // saveAttempt removed: individual attempts are already persisted server-side
+  // via submit-exam-answer edge function (question_attempts table).
+  // No client-side direct write needed.
 
   const restartSession = () => {
     setStep('select');
