@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
     for (const [level, targetPct] of Object.entries(target) as [string, number][]) {
       const actualPct = ((counts[level] || 0) / lfTotal);
       const driftPP = Math.abs(actualPct - targetPct) * 100;
-      if (driftPP > BLOOM_TOLERANCE_PP) {
+      if (Math.round(driftPP) > BLOOM_TOLERANCE_PP) {
         const lfName = lf.title || lfId.slice(0, 8);
         bloomDriftIssues.push(`${lfName}: ${level} ist ${(actualPct * 100).toFixed(0)}%, Ziel ${(targetPct * 100).toFixed(0)}% (Δ${driftPP.toFixed(0)}pp)`);
       }
@@ -310,17 +310,17 @@ Deno.serve(async (req) => {
       // Try to find the package creator
       const { data: pkg } = await sb.from("course_packages").select("created_by").eq("id", packageId).single();
       approverUuid = pkg?.created_by || null;
-      // Fallback: first admin user
+      // Fallback: first auth.users user (profiles.user_id is the FK to auth.users)
       if (!approverUuid) {
-        const { data: users } = await sb.from("profiles").select("id").limit(1);
-        approverUuid = users?.[0]?.id || null;
+        const { data: users } = await sb.from("profiles").select("user_id").limit(1);
+        approverUuid = users?.[0]?.user_id || null;
       }
     } catch { /* use null fallback below */ }
 
     if (!approverUuid) {
       console.error(`[validate-blueprints] No approver UUID found — cannot approve blueprints`);
     } else {
-      const { error: approveErr, count: approvedCount } = await sb
+      const { data: approvedRows, error: approveErr } = await sb
         .from("question_blueprints")
         .update({
           status: "approved",
@@ -328,11 +328,12 @@ Deno.serve(async (req) => {
           approved_by: approverUuid,
         } as any)
         .eq("curriculum_id", curriculumId)
-        .eq("status" as any, "draft");
+        .eq("status" as any, "draft")
+        .select("id");
       if (approveErr) {
         console.error(`[validate-blueprints] Failed to approve blueprints: ${approveErr.message}`);
       } else {
-        console.log(`[validate-blueprints] ✅ Approved ${approvedCount ?? '?'} blueprints for curriculum ${curriculumId.slice(0, 8)}`);
+        console.log(`[validate-blueprints] ✅ Approved ${approvedRows?.length ?? 0} blueprints for curriculum ${curriculumId.slice(0, 8)}`);
       }
     }
   }
