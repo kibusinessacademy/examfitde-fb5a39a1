@@ -115,6 +115,7 @@ const JOB_TYPE_MAP: Record<string, string> = {
   package_validate_exam_pool: "package-validate-exam-pool",
   package_generate_oral_exam: "package-generate-oral-exam",
   package_validate_oral_exam: "package-validate-oral-exam",
+  package_elite_harden: "package-elite-harden",
   package_build_ai_tutor_index: "package-build-ai-tutor-index",
   package_validate_tutor_index: "package-validate-tutor-index",
   package_generate_handbook: "package-generate-handbook",
@@ -383,12 +384,13 @@ Deno.serve(async (req) => {
     package_validate_tutor_index: ["build_ai_tutor_index"],
     package_generate_oral_exam: ["validate_tutor_index"],
     package_validate_oral_exam: ["generate_oral_exam"],
-    package_generate_handbook: ["validate_oral_exam"],
+    package_elite_harden: ["validate_oral_exam", "validate_tutor_index", "validate_exam_pool"],
+    package_generate_handbook: ["elite_harden", "validate_oral_exam"],
     package_validate_handbook: ["generate_handbook"],
     // Track-aware: integrity_check needs the LAST validation step that exists.
-    // For EXAM_FIRST (no handbook): validate_oral_exam.
-    // For AUSBILDUNG_VOLL: validate_handbook.
-    package_run_integrity_check: ["validate_handbook", "validate_oral_exam", "validate_tutor_index"],
+    // For EXAM_FIRST (no handbook): elite_harden (after validate_oral_exam).
+    // For AUSBILDUNG_VOLL: validate_handbook (after elite_harden).
+    package_run_integrity_check: ["validate_handbook", "elite_harden", "validate_oral_exam", "validate_tutor_index"],
     package_quality_council: ["run_integrity_check"],
     package_auto_publish: ["quality_council"],
   };
