@@ -7,10 +7,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
  * Quality gate for MiniCheck questions:
  * - Minimum question count per lesson/competency
  * - Content quality checks (explanation length, option count, etc.)
- * - Passes ok:true only when thresholds are met
+ * - Coverage check (Learning-Track: ≥90% lessons must have MiniChecks)
+ * - NO auto-approve: only reports PASS/FAIL + quality metrics (Fix #4)
+ *   Actual approval happens in quality_council step.
  */
 
-const MIN_QUESTIONS_PER_TARGET = 3;
+const MIN_ITEMS_PER_LESSON = 3;
 const MIN_EXPLANATION_LENGTH = 30;
 
 function json(body: unknown, status = 200) {
@@ -71,7 +73,7 @@ Deno.serve(async (req) => {
       return json({ ok: false, issues, total: 0 });
     }
 
-    // Quality checks on individual questions
+    // Quality checks on individual questions (read-only — NO status changes, Fix #4)
     const { data: allQuestions } = await sb
       .from("minicheck_questions")
       .select("id, lesson_id, competency_id, question_text, options, explanation, difficulty, status")
@@ -80,13 +82,14 @@ Deno.serve(async (req) => {
       .eq("status", "draft")
       .limit(2000);
 
+    let qualityPass = 0;
     let qualityFails = 0;
-    const approvedIds: string[] = [];
+    const passedIds: string[] = [];
 
     for (const q of allQuestions || []) {
       let isValid = true;
 
-      // Check option count
+      // Check option count (supports both {text}[] and string[])
       const opts = Array.isArray(q.options) ? q.options : [];
       if (opts.length !== 4) { isValid = false; }
 
@@ -97,25 +100,17 @@ Deno.serve(async (req) => {
       if (!q.question_text || q.question_text.length < 15) { isValid = false; }
 
       if (isValid) {
-        approvedIds.push(q.id);
+        qualityPass++;
+        passedIds.push(q.id);
       } else {
         qualityFails++;
       }
     }
 
-    // Batch-approve valid questions
-    if (approvedIds.length > 0) {
-      // Process in batches of 200
-      for (let i = 0; i < approvedIds.length; i += 200) {
-        const batch = approvedIds.slice(i, i + 200);
-        await sb
-          .from("minicheck_questions")
-          .update({ status: "approved" })
-          .in("id", batch);
-      }
-    }
+    // Fix #4: NO auto-approve — just report which IDs passed validation
+    // Actual status='approved' happens in quality_council step
 
-    // Coverage check for lesson mode
+    // Coverage check for lesson mode (Fix #5: strict thresholds)
     if (mode === "lesson" && effectiveCourseId) {
       const { data: lessons } = await sb
         .from("lessons")
@@ -125,7 +120,6 @@ Deno.serve(async (req) => {
 
       const totalLessons = lessons?.length || 0;
       if (totalLessons > 0) {
-        // Count lessons with MiniChecks
         const lessonIds = lessons!.map(l => l.id);
         const { data: coveredLessons } = await sb
           .from("minicheck_questions")
@@ -136,12 +130,45 @@ Deno.serve(async (req) => {
         const coveredSet = new Set((coveredLessons || []).map(c => c.lesson_id));
         const coverage = coveredSet.size / totalLessons;
 
-        if (coverage < 0.5) {
+        // Fix #5: Learning-Track coverage must be ≥90%
+        if (coverage < 0.9) {
+          issues.push({
+            severity: "critical",
+            code: "LOW_COVERAGE",
+            message: `MiniCheck-Abdeckung: ${(coverage * 100).toFixed(0)}% der Lektionen (${coveredSet.size}/${totalLessons}) — mindestens 90% erforderlich`,
+          });
+        } else if (coverage < 0.97) {
           issues.push({
             severity: "warning",
-            code: "LOW_COVERAGE",
+            code: "PARTIAL_COVERAGE",
             message: `MiniCheck-Abdeckung: ${(coverage * 100).toFixed(0)}% der Lektionen (${coveredSet.size}/${totalLessons})`,
           });
+        }
+
+        // Fix #5: Check min items per lesson
+        const { data: perLessonCounts } = await sb
+          .from("minicheck_questions")
+          .select("lesson_id")
+          .in("lesson_id", lessonIds)
+          .eq("mode", "lesson")
+          .eq("status", "draft");
+
+        if (perLessonCounts) {
+          const countByLesson = new Map<string, number>();
+          for (const r of perLessonCounts) {
+            countByLesson.set(r.lesson_id, (countByLesson.get(r.lesson_id) || 0) + 1);
+          }
+          let tooFew = 0;
+          for (const lid of coveredSet) {
+            if ((countByLesson.get(lid) || 0) < MIN_ITEMS_PER_LESSON) tooFew++;
+          }
+          if (tooFew > 0) {
+            issues.push({
+              severity: "warning",
+              code: "LOW_ITEM_COUNT",
+              message: `${tooFew} Lektionen haben weniger als ${MIN_ITEMS_PER_LESSON} MiniCheck-Fragen`,
+            });
+          }
         }
       }
     }
@@ -156,13 +183,14 @@ Deno.serve(async (req) => {
 
     const hasCritical = issues.some(i => i.severity === "critical");
 
-    console.log(`[ValidateMini] ${mode}: ${approvedIds.length} approved, ${qualityFails} rejected, critical=${hasCritical}`);
+    console.log(`[ValidateMini] ${mode}: ${qualityPass} passed, ${qualityFails} rejected, critical=${hasCritical}`);
 
     return json({
       ok: !hasCritical,
       total: totalCount,
-      approved: approvedIds.length,
-      rejected: qualityFails,
+      quality_pass: qualityPass,
+      quality_fail: qualityFails,
+      passed_ids: passedIds,
       issues,
     });
   } catch (e: unknown) {
