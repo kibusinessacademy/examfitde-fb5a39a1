@@ -81,6 +81,22 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
 };
 
 /**
+ * Token Param Adapter: determines if a model needs max_completion_tokens
+ * instead of the legacy max_tokens parameter (and fixed temperature=1).
+ * Covers: GPT-5 family, o1/o3 reasoning models, Lovable gateway variants.
+ */
+const MAX_COMPLETION_TOKEN_PREFIXES = [
+  "gpt-5", "o1", "o1-", "o3", "o3-",
+];
+export function needsMaxCompletionTokens(model: string): boolean {
+  // Direct model names: gpt-5, gpt-5-mini, gpt-5.2, o1, o1-mini, o3, o3-mini
+  if (MAX_COMPLETION_TOKEN_PREFIXES.some(p => model === p || model.startsWith(p))) return true;
+  // Lovable gateway format: openai/gpt-5, openai/o1-mini, etc.
+  if (model.includes("/gpt-5") || model.includes("/o1") || model.includes("/o3")) return true;
+  return false;
+}
+
+/**
  * Call an AI provider directly. Returns the raw Response for streaming or JSON parsing.
  */
 /** Default fetch timeout for AI calls (30s) — prevents Edge Function hard-timeout */
@@ -173,19 +189,17 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       messages: opts.messages,
       ...(opts.stream !== undefined && { stream: opts.stream }),
     };
-    // GPT-5 family: only supports temperature=1 (default) and max_completion_tokens
-    const isGpt5 = model.startsWith("gpt-5") || model.includes("/gpt-5");
-    const isLovableGpt5 = opts.provider === "lovable" && model.includes("openai/gpt-5");
-    const gpt5Mode = isGpt5 || isLovableGpt5;
+    // Models that require max_completion_tokens instead of max_tokens
+    // and only support temperature=1 (default)
+    const useMaxCompletionTokens = needsMaxCompletionTokens(model);
 
     if (opts.temperature !== undefined) {
-      // GPT-5 only supports default temperature (1) — omit custom values
-      if (!gpt5Mode) {
+      if (!useMaxCompletionTokens) {
         body.temperature = opts.temperature;
       }
     }
     if (opts.max_tokens !== undefined) {
-      if (gpt5Mode) {
+      if (useMaxCompletionTokens) {
         body.max_completion_tokens = opts.max_tokens;
       } else {
         body.max_tokens = opts.max_tokens;
