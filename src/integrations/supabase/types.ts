@@ -10746,6 +10746,61 @@ export type Database = {
         }
         Relationships: []
       }
+      minicheck_attempts: {
+        Row: {
+          answered_at: string
+          chosen_index: number
+          id: string
+          is_correct: boolean
+          lesson_id: string | null
+          minicheck_question_id: string
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          answered_at?: string
+          chosen_index: number
+          id?: string
+          is_correct: boolean
+          lesson_id?: string | null
+          minicheck_question_id: string
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          answered_at?: string
+          chosen_index?: number
+          id?: string
+          is_correct?: boolean
+          lesson_id?: string | null
+          minicheck_question_id?: string
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "minicheck_attempts_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_qc_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "minicheck_attempts_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "minicheck_attempts_minicheck_question_id_fkey"
+            columns: ["minicheck_question_id"]
+            isOneToOne: false
+            referencedRelation: "minicheck_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       minicheck_questions: {
         Row: {
           cognitive_level: string | null
@@ -21942,6 +21997,7 @@ export type Database = {
           total: number
         }[]
       }
+      get_lesson_minichecks: { Args: { p_lesson_id: string }; Returns: Json }
       get_lessons_needing_review: {
         Args: { p_course_id?: string }
         Returns: {
@@ -22808,6 +22864,15 @@ export type Database = {
           p_question_index: number
           p_session_id: string
           p_time_spent?: number
+        }
+        Returns: Json
+      }
+      submit_minicheck_attempt: {
+        Args: {
+          p_chosen_index: number
+          p_lesson_id?: string
+          p_question_id: string
+          p_session_id?: string
         }
         Returns: Json
       }
