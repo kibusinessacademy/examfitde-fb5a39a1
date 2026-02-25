@@ -1,0 +1,161 @@
+/**
+ * SSOT Pipeline Step Registry
+ * 
+ * This is the SINGLE SOURCE OF TRUTH for all pipeline step definitions.
+ * All UI components, tests, and references MUST import from here.
+ * Backend edge functions maintain their own copies but MUST match this order.
+ */
+
+export type PipelineStepKey =
+  | "scaffold_learning_course"
+  | "generate_glossary"
+  | "generate_learning_content"
+  | "validate_learning_content"
+  | "auto_seed_exam_blueprints"
+  | "validate_blueprints"
+  | "generate_exam_pool"
+  | "validate_exam_pool"
+  | "build_ai_tutor_index"
+  | "validate_tutor_index"
+  | "generate_oral_exam"
+  | "validate_oral_exam"
+  | "generate_lesson_minichecks"
+  | "validate_lesson_minichecks"
+  | "generate_handbook"
+  | "validate_handbook"
+  | "elite_harden"
+  | "run_integrity_check"
+  | "quality_council"
+  | "auto_publish";
+
+/**
+ * Canonical step order — superset of all tracks.
+ * Steps not present in a package's DB rows are simply skipped.
+ * 
+ * Order rationale:
+ * - MiniChecks before Handbook (so Handbook can reference MiniCheck data)
+ * - elite_harden after Handbook (hardens ALL generated content)
+ * - Matches useTrackConfig / UI expectations
+ */
+export const FULL_STEP_ORDER: PipelineStepKey[] = [
+  "scaffold_learning_course",
+  "generate_glossary",
+  "generate_learning_content",
+  "validate_learning_content",
+  "auto_seed_exam_blueprints",
+  "validate_blueprints",
+  "generate_exam_pool",
+  "validate_exam_pool",
+  "build_ai_tutor_index",
+  "validate_tutor_index",
+  "generate_oral_exam",
+  "validate_oral_exam",
+  "generate_lesson_minichecks",
+  "validate_lesson_minichecks",
+  "generate_handbook",
+  "validate_handbook",
+  "elite_harden",
+  "run_integrity_check",
+  "quality_council",
+  "auto_publish",
+];
+
+/** German UI labels for each step */
+export const PIPELINE_STEP_LABELS: Record<PipelineStepKey, string> = {
+  scaffold_learning_course: "Lernkurs Scaffold",
+  generate_glossary: "Glossar",
+  generate_learning_content: "Lerninhalte",
+  validate_learning_content: "QG Lerninhalte",
+  auto_seed_exam_blueprints: "Exam Blueprints",
+  validate_blueprints: "QG Blueprints",
+  generate_exam_pool: "Prüfungsfragen",
+  validate_exam_pool: "QG Exam Pool",
+  build_ai_tutor_index: "KI-Tutor Index",
+  validate_tutor_index: "QG Tutor",
+  generate_oral_exam: "Mündliche Prüfung",
+  validate_oral_exam: "QG Mündliche",
+  generate_lesson_minichecks: "MiniChecks",
+  validate_lesson_minichecks: "QG MiniChecks",
+  generate_handbook: "Handbuch",
+  validate_handbook: "QG Handbuch",
+  elite_harden: "Elite Harden",
+  run_integrity_check: "Integritätsprüfung",
+  quality_council: "QA Council",
+  auto_publish: "Veröffentlichen",
+};
+
+/** Short labels for compact UI (status bars, step bars) */
+export const PIPELINE_STEP_SHORT_LABELS: Record<PipelineStepKey, string> = {
+  scaffold_learning_course: "Scaffold",
+  generate_glossary: "Glossar",
+  generate_learning_content: "Lerninhalte",
+  validate_learning_content: "QG Lernen",
+  auto_seed_exam_blueprints: "Blueprints",
+  validate_blueprints: "QG BP",
+  generate_exam_pool: "Prüfungen",
+  validate_exam_pool: "QG Fragen",
+  build_ai_tutor_index: "Tutor",
+  validate_tutor_index: "QG Tutor",
+  generate_oral_exam: "Mündlich",
+  validate_oral_exam: "QG Mündl.",
+  generate_lesson_minichecks: "MiniChecks",
+  validate_lesson_minichecks: "QG MC",
+  generate_handbook: "Handbuch",
+  validate_handbook: "QG HB",
+  elite_harden: "Harden",
+  run_integrity_check: "Integrität",
+  quality_council: "Council",
+  auto_publish: "Publish",
+};
+
+/** Emoji for pipeline monitor */
+export const PIPELINE_STEP_EMOJI: Record<PipelineStepKey, string> = {
+  scaffold_learning_course: "📚",
+  generate_glossary: "📖",
+  generate_learning_content: "✏️",
+  validate_learning_content: "✅",
+  auto_seed_exam_blueprints: "🗺️",
+  validate_blueprints: "✅",
+  generate_exam_pool: "❓",
+  validate_exam_pool: "✅",
+  build_ai_tutor_index: "🤖",
+  validate_tutor_index: "✅",
+  generate_oral_exam: "🎤",
+  validate_oral_exam: "✅",
+  generate_lesson_minichecks: "📝",
+  validate_lesson_minichecks: "✅",
+  generate_handbook: "📖",
+  validate_handbook: "✅",
+  elite_harden: "🛡️",
+  run_integrity_check: "🔍",
+  quality_council: "🛡️",
+  auto_publish: "🚀",
+};
+
+/** Package-level status config */
+export const PACKAGE_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  draft: { label: "Entwurf", color: "bg-muted text-muted-foreground" },
+  queued: { label: "Warteschlange", color: "bg-blue-500/10 text-blue-600" },
+  building: { label: "Wird gebaut", color: "bg-primary/10 text-primary" },
+  blocked: { label: "Blockiert", color: "bg-yellow-500/10 text-yellow-700" },
+  quality_gate_failed: { label: "QA blockiert", color: "bg-destructive/10 text-destructive" },
+  frozen: { label: "Eingefroren", color: "bg-yellow-500/10 text-yellow-700" },
+  failed: { label: "Fehlgeschlagen", color: "bg-destructive/10 text-destructive" },
+  done: { label: "Fertig", color: "bg-emerald-500/10 text-emerald-600" },
+  published: { label: "Veröffentlicht", color: "bg-emerald-500/10 text-emerald-600" },
+};
+
+/** Type guard */
+export function isPipelineStepKey(x: string): x is PipelineStepKey {
+  return (FULL_STEP_ORDER as string[]).includes(x);
+}
+
+/** Get label for any step key, with fallback */
+export function getStepLabel(key: string): string {
+  return isPipelineStepKey(key) ? PIPELINE_STEP_LABELS[key] : key;
+}
+
+/** Get short label for any step key, with fallback */
+export function getStepShortLabel(key: string): string {
+  return isPipelineStepKey(key) ? PIPELINE_STEP_SHORT_LABELS[key] : key;
+}

@@ -26,25 +26,9 @@ interface BuildLiveLogProps {
   isBuilding: boolean;
 }
 
-const STEP_LABELS: Record<string, string> = {
-  scaffold_learning_course: 'Lernkurs Scaffold',
-  generate_glossary: 'Glossar',
-  generate_learning_content: 'Lerninhalte',
-  validate_learning_content: 'QG Lerninhalte',
-  auto_seed_exam_blueprints: 'Exam Blueprints',
-  validate_blueprints: 'QG Blueprints',
-  generate_exam_pool: 'Prüfungsfragen',
-  validate_exam_pool: 'QG Exam Pool',
-  generate_oral_exam: 'Mündliche',
-  validate_oral_exam: 'QG Mündliche',
-  build_ai_tutor_index: 'AI Tutor',
-  validate_tutor_index: 'QG Tutor',
-  generate_handbook: 'Handbuch',
-  validate_handbook: 'QG Handbuch',
-  run_integrity_check: 'Qualitätsprüfung',
-  quality_council: 'QA Council',
-  auto_publish: 'Veröffentlichen',
-};
+// Step labels from SSOT
+import { PIPELINE_STEP_LABELS, getStepLabel } from '@/lib/pipeline-steps';
+const STEP_LABELS = PIPELINE_STEP_LABELS as Record<string, string>;
 
 function formatLogMessage(step: any): LogEntry {
   const stepLabel = STEP_LABELS[step.step_key] || step.step_key;

@@ -2,29 +2,11 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAdminKPIs } from '@/hooks/useAdminRealtime';
+import { getStepShortLabel } from '@/lib/pipeline-steps';
 import {
   Activity, AlertTriangle, DollarSign, Gauge, Layers,
   RefreshCw, Loader2, Radio, Wrench, Zap
 } from 'lucide-react';
-
-const STEP_LABELS: Record<string, string> = {
-  scaffold_learning_course: 'Scaffold',
-  generate_learning_content: 'Lerninhalte',
-  validate_learning_content: 'QG Lernen',
-  auto_seed_exam_blueprints: 'Blueprints',
-  validate_blueprints: 'QG Blueprints',
-  generate_exam_pool: 'Prüfungen',
-  validate_exam_pool: 'QG Fragen',
-  generate_oral_exam: 'Mündlich',
-  validate_oral_exam: 'QG Mündl.',
-  build_ai_tutor_index: 'Tutor',
-  validate_tutor_index: 'QG Tutor',
-  generate_handbook: 'Handbuch',
-  validate_handbook: 'QG Handbuch',
-  run_integrity_check: 'Integrität',
-  quality_council: 'QA Council',
-  auto_publish: 'Publish',
-};
 
 export default function GlobalStatusBar() {
   const { kpis, loading, refetch } = useAdminKPIs();

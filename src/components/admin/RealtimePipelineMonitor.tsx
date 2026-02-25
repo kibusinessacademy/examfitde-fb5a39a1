@@ -12,34 +12,17 @@ import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useState } from 'react';
 
-const STEP_META: Record<string, { label: string; emoji: string }> = {
-  scaffold_learning_course: { label: 'Lernkurs erstellen', emoji: '📚' },
-  generate_learning_content: { label: 'Lerninhalte generieren', emoji: '✏️' },
-  validate_learning_content: { label: 'Lerninhalte validieren', emoji: '✅' },
-  auto_seed_exam_blueprints: { label: 'Blueprints seeden', emoji: '🗺️' },
-  validate_blueprints: { label: 'Blueprints validieren', emoji: '✅' },
-  generate_exam_pool: { label: 'Prüfungsfragen', emoji: '❓' },
-  validate_exam_pool: { label: 'Prüfungen validieren', emoji: '✅' },
-  generate_oral_exam: { label: 'Mündliche Prüfung', emoji: '🎤' },
-  validate_oral_exam: { label: 'Mündliche validieren', emoji: '✅' },
-  build_ai_tutor_index: { label: 'KI-Tutor Index', emoji: '🤖' },
-  validate_tutor_index: { label: 'Tutor-Index validieren', emoji: '✅' },
-  generate_handbook: { label: 'Handbuch', emoji: '📖' },
-  validate_handbook: { label: 'Handbuch validieren', emoji: '✅' },
-  run_integrity_check: { label: 'Integritätsprüfung', emoji: '🔍' },
-  quality_council: { label: 'Quality Council', emoji: '🛡️' },
-  auto_publish: { label: 'Veröffentlichen', emoji: '🚀' },
-};
+import {
+  FULL_STEP_ORDER,
+  PIPELINE_STEP_LABELS,
+  PIPELINE_STEP_EMOJI,
+} from '@/lib/pipeline-steps';
 
-const STEP_ORDER = [
-  'scaffold_learning_course', 'generate_learning_content', 'validate_learning_content',
-  'auto_seed_exam_blueprints', 'validate_blueprints',
-  'generate_exam_pool', 'validate_exam_pool',
-  'build_ai_tutor_index', 'validate_tutor_index',
-  'generate_oral_exam', 'validate_oral_exam',
-  'generate_handbook', 'validate_handbook',
-  'run_integrity_check', 'quality_council', 'auto_publish',
-];
+// Derived from SSOT
+const STEP_META: Record<string, { label: string; emoji: string }> = Object.fromEntries(
+  FULL_STEP_ORDER.map(k => [k, { label: PIPELINE_STEP_LABELS[k], emoji: PIPELINE_STEP_EMOJI[k] }])
+);
+const STEP_ORDER = FULL_STEP_ORDER as readonly string[];
 
 function StepStatusIcon({ status }: { status: string }) {
   switch (status) {
