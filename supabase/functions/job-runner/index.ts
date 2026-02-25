@@ -690,7 +690,7 @@ Deno.serve(async (req) => {
           },
         };
       }
-      // ── 4. Quality-Gate failure: ok=false + batch_complete=true → fail the job ──
+      // ── 4. Quality-Gate failure: ok=false + batch_complete=true ──
       else if (parsed && parsed.ok === false && parsed.batch_complete === true) {
         const issuesSummary = Array.isArray(parsed.issues) ? parsed.issues.join("; ").slice(0, 400) : "Validation failed";
         console.warn(`[job-runner] ${fnName} quality-gate FAILED: ${issuesSummary}`);
@@ -698,8 +698,120 @@ Deno.serve(async (req) => {
         const maxAttempts = job.max_attempts || 3;
         const newAttempts = (job.attempts || 0) + 1;
 
-        if (newAttempts >= maxAttempts) {
-          // Terminal failure — let the step be reset to queued (via trigger) so watchdog/auto-heal can act
+        // ── AUTO-HEAL: For validation steps, reset predecessor to trigger re-generation ──
+        // This is CRITICAL: without this, the validator just requeues itself endlessly
+        // while the predecessor (seeder) stays "done" and the missing content is never generated.
+        const VALIDATION_PREDECESSOR: Record<string, string> = {
+          package_validate_blueprints: "auto_seed_exam_blueprints",
+          package_validate_exam_pool: "generate_exam_pool",
+          package_validate_oral_exam: "generate_oral_exam",
+          package_validate_learning_content: "generate_learning_content",
+        };
+        const predecessorStep = VALIDATION_PREDECESSOR[job.job_type];
+        const packageId = job.payload?.package_id as string | undefined;
+        const missingLfIds: string[] | undefined = Array.isArray(parsed.missing_lf_ids) ? parsed.missing_lf_ids : undefined;
+
+        if (predecessorStep && packageId && newAttempts >= maxAttempts) {
+          // Terminal QG failure → trigger targeted re-seed via predecessor reset
+          const MAX_HEAL_CYCLES = 7;
+
+          // Check how many times we've already healed this step
+          const { data: stepRow } = await sb
+            .from("package_steps")
+            .select("attempts, meta")
+            .eq("package_id", packageId)
+            .eq("step_key", predecessorStep)
+            .maybeSingle();
+
+          const healCycles = (stepRow?.meta as any)?.heal_cycles ?? 0;
+
+          if (healCycles >= MAX_HEAL_CYCLES) {
+            // Kill-switch: too many heal cycles — escalate
+            console.error(`[job-runner] 🛑 Kill-switch: ${predecessorStep} healed ${healCycles}x but ${fnName} still fails — escalating`);
+            await sb.from("package_steps")
+              .update({
+                status: "failed",
+                last_error: `Kill-switch: ${MAX_HEAL_CYCLES} heal cycles exhausted. ${issuesSummary}`,
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", fnName.replace("package-", "").replace(/-/g, "_"));
+
+            await sb.from("auto_heal_log").insert({
+              action_type: "qg_heal_kill_switch",
+              trigger_source: "job-runner",
+              target_type: "package_step",
+              target_id: packageId,
+              result_status: "escalated",
+              result_detail: `${fnName} failed ${healCycles}x heal cycles — stopping`,
+              metadata: { step: fnName, predecessor: predecessorStep, heal_cycles: healCycles, missing_lf_ids: missingLfIds },
+            }).catch(() => {});
+
+            finalState = {
+              status: "failed",
+              patch: {
+                error: `QG FAIL ESCALATED (${healCycles} heal cycles): ${issuesSummary}`,
+                result: typeof parsed === "object" ? parsed : { raw: parsed },
+                completed_at: tsNow,
+                attempts: newAttempts,
+              },
+            };
+          } else {
+            // Reset predecessor step to queued with targeted LF info
+            console.log(`[job-runner] 🔄 Auto-heal: resetting ${predecessorStep} for targeted re-seed (cycle ${healCycles + 1}/${MAX_HEAL_CYCLES})${missingLfIds ? ` [${missingLfIds.length} missing LFs]` : ""}`);
+
+            const predecessorUpdate: Record<string, unknown> = {
+              status: "queued",
+              job_id: null,
+              runner_id: null,
+              started_at: null,
+              last_error: `Auto-heal: QG failed → re-seed cycle ${healCycles + 1}${missingLfIds ? ` for ${missingLfIds.length} LFs` : ""}`,
+              meta: {
+                ...(stepRow?.meta as Record<string, unknown> ?? {}),
+                heal_cycles: healCycles + 1,
+                ...(missingLfIds ? { target_lf_ids: missingLfIds } : {}),
+              },
+            };
+
+            await sb.from("package_steps")
+              .update(predecessorUpdate)
+              .eq("package_id", packageId)
+              .eq("step_key", predecessorStep);
+
+            // Also reset the validation step itself to queued (will re-run after predecessor)
+            await sb.from("package_steps")
+              .update({
+                status: "queued",
+                job_id: null,
+                runner_id: null,
+                started_at: null,
+                last_error: `Waiting for ${predecessorStep} re-seed (cycle ${healCycles + 1})`,
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", fnName.replace("package-", "").replace(/-/g, "_"));
+
+            await sb.from("auto_heal_log").insert({
+              action_type: "qg_auto_heal_reseed",
+              trigger_source: "job-runner",
+              target_type: "package_step",
+              target_id: packageId,
+              result_status: "ok",
+              result_detail: `${fnName} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1})`,
+              metadata: { step: fnName, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds },
+            }).catch(() => {});
+
+            // Complete the job (not requeue) — the step system handles the rest
+            finalState = {
+              status: "completed",
+              patch: {
+                result: typeof parsed === "object" ? parsed : { raw: parsed },
+                completed_at: tsNow,
+                attempts: newAttempts,
+                error: `QG FAIL → triggered re-seed cycle ${healCycles + 1}`,
+              },
+            };
+          }
+        } else if (newAttempts >= maxAttempts) {
+          // Terminal failure for non-validation jobs
           finalState = {
             status: "failed",
             patch: {
@@ -710,11 +822,11 @@ Deno.serve(async (req) => {
             },
           };
         } else {
-          // Requeue with backoff to allow auto-heal / re-seeding to fix the blueprints
+          // Requeue with backoff (for jobs that haven't exhausted attempts yet)
           finalState = {
             status: "pending",
             patch: {
-              run_after: new Date(Date.now() + 60_000).toISOString(), // 60s backoff
+              run_after: new Date(Date.now() + 60_000).toISOString(),
               error: `QG FAIL attempt ${newAttempts}/${maxAttempts}: ${issuesSummary}`,
               result: typeof parsed === "object" ? parsed : { raw: parsed },
               attempts: newAttempts,
