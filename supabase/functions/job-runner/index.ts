@@ -163,8 +163,8 @@ const BACKOFF_ERROR_MS = 30_000;
 const BACKOFF_PREREQ_MS = 20_000;
 
 // ── Function versioning (for deployment forensics) ──────────────────
-const FUNCTION_VERSION = "v5.4-fair-share";
-const DEPLOYED_AT = "2026-02-25T12:00:00Z";
+const FUNCTION_VERSION = "v5.5-fair-share-hardened";
+const DEPLOYED_AT = "2026-02-25T13:22:00Z";
 
 // Adaptive thresholds (rolling 5-min window)
 const THROTTLE_TIMEOUT_THRESHOLD = 10;
@@ -404,83 +404,113 @@ Deno.serve(async (req) => {
   const runnerStart = Date.now();
   const RUNNER_TIME_BUDGET_MS = 110_000; // 110s — leave 70s headroom before 180s Edge limit
 
-  // ── Fix 2: Package-Fair-Share — max 1 heavy job per package, max GLOBAL_HEAVY_LIMIT globally ──
-  // This prevents a single package with many fan-out sub-jobs from starving other packages.
-  const HEAVY_JOB_TYPES = new Set(["package_generate_exam_pool", "package_generate_learning_content", "package_generate_handbook"]);
-  const GLOBAL_HEAVY_LIMIT = 3; // Max heavy jobs dispatched per tick across all packages
+  // ── v5.5 Package-Fair-Share (hardened) ───────────────────────────────
+  // Max 1 heavy job per package per tick, max GLOBAL_HEAVY_LIMIT globally.
+  // Uses RPCs for efficient aggregation; skips unknown-package jobs.
+  const HEAVY_JOB_TYPES_ARR = ["package_generate_exam_pool", "package_generate_learning_content", "package_generate_handbook"];
+  const HEAVY_JOB_TYPES = new Set(HEAVY_JOB_TYPES_ARR);
+  const GLOBAL_HEAVY_LIMIT = 3;
   const heavyJobs = jobs.filter((j: any) => HEAVY_JOB_TYPES.has(j.job_type));
   if (heavyJobs.length > 1) {
-    // Group by package_id
+    // ── Concurrency guard: packages already processing heavy jobs get skipped ──
+    let alreadyProcessing = new Set<string>();
+    try {
+      const { data: procRows } = await sb.rpc("heavy_processing_per_package", {
+        p_heavy_types: HEAVY_JOB_TYPES_ARR,
+      });
+      if (procRows) {
+        for (const r of procRows as any[]) {
+          if (r.package_id && r.processing_count > 0) alreadyProcessing.add(r.package_id);
+        }
+      }
+    } catch (e) {
+      console.log(`[job-runner] heavy_processing_per_package RPC failed, skipping guard: ${(e as Error).message}`);
+    }
+
+    // ── Group by package_id, skip unknown and already-processing ──
     const byPackage = new Map<string, any[]>();
     for (const hj of heavyJobs) {
-      const pkgId = hj.payload?.package_id ?? hj.package_id ?? "__unknown__";
+      const pkgId = hj.payload?.package_id;
+      if (!pkgId) continue; // skip jobs without package_id (no slot steal)
+      if (alreadyProcessing.has(pkgId)) continue; // already has heavy processing
       if (!byPackage.has(pkgId)) byPackage.set(pkgId, []);
       byPackage.get(pkgId)!.push(hj);
     }
 
-    // Per package: pick the best candidate (prioritize 0-question LFs, then oldest)
-    const winners: any[] = [];
-    for (const [pkgId, pkgHeavy] of byPackage) {
-      // Sort within package: LF-scoped exam_pool with fewest questions first
-      const examPoolInPkg = pkgHeavy.filter((j: any) => j.job_type === "package_generate_exam_pool" && j.payload?.learning_field_filter);
-      if (examPoolInPkg.length > 0) {
-        // Fetch question counts for candidate LFs
-        const lfIds = examPoolInPkg.map((j: any) => j.payload.learning_field_filter);
-        const curriculumId = examPoolInPkg[0].payload?.curriculum_id;
-        const qByLf = new Map<string, number>();
-        if (curriculumId) {
-          const { data: counts } = await sb
-            .from("exam_questions")
-            .select("learning_field_id")
-            .eq("curriculum_id", curriculumId)
-            .in("learning_field_id", lfIds);
-          if (counts) {
-            for (const row of counts) {
-              qByLf.set(row.learning_field_id, (qByLf.get(row.learning_field_id) ?? 0) + 1);
-            }
+    // ── Per package: pick 1 winner. Use RPC for LF question counts (single-pass) ──
+    // Collect all (curriculum_id → lf_ids) across packages for a batched RPC call
+    const currLfMap = new Map<string, Set<string>>(); // curriculum_id → Set<lf_id>
+    const jobCurr = new Map<string, string>(); // job.id → curriculum_id
+    for (const [, pkgHeavy] of byPackage) {
+      for (const hj of pkgHeavy) {
+        const cid = hj.payload?.curriculum_id;
+        const lf = hj.payload?.learning_field_filter;
+        if (cid && lf) {
+          if (!currLfMap.has(cid)) currLfMap.set(cid, new Set());
+          currLfMap.get(cid)!.add(lf);
+          jobCurr.set(hj.id, cid);
+        }
+      }
+    }
+
+    // Single-pass: one RPC call per curriculum (typically 1-3, not per package)
+    const qByLfGlobal = new Map<string, number>(); // lf_id → count
+    const rpcPromises = [...currLfMap.entries()].map(async ([cid, lfSet]) => {
+      try {
+        const { data } = await sb.rpc("count_questions_by_lf", {
+          p_curriculum_id: cid,
+          p_lf_ids: [...lfSet],
+        });
+        if (data) {
+          for (const row of data as any[]) {
+            qByLfGlobal.set(row.learning_field_id, row.q_count);
           }
         }
-        pkgHeavy.sort((a: any, b: any) => {
-          const aLf = a.payload?.learning_field_filter;
-          const bLf = b.payload?.learning_field_filter;
-          const aQ = aLf ? (qByLf.get(aLf) ?? 0) : Number.MAX_SAFE_INTEGER;
-          const bQ = bLf ? (qByLf.get(bLf) ?? 0) : Number.MAX_SAFE_INTEGER;
-          if (aQ === 0 && bQ !== 0) return -1;
-          if (bQ === 0 && aQ !== 0) return 1;
-          return aQ - bQ || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        });
-      } else {
-        // Non-exam-pool: oldest first
-        pkgHeavy.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      } catch (e) {
+        console.log(`[job-runner] count_questions_by_lf failed for ${cid.slice(0,8)}: ${(e as Error).message}`);
       }
-      // Pick exactly 1 winner per package
+    });
+    await Promise.all(rpcPromises);
+
+    // ── Select 1 winner per package ──
+    const winners: any[] = [];
+    for (const [pkgId, pkgHeavy] of byPackage) {
+      // Sort: 0-question LFs first, then fewest questions, then oldest
+      pkgHeavy.sort((a: any, b: any) => {
+        const aLf = a.payload?.learning_field_filter;
+        const bLf = b.payload?.learning_field_filter;
+        const aQ = aLf ? (qByLfGlobal.get(aLf) ?? 0) : Number.MAX_SAFE_INTEGER;
+        const bQ = bLf ? (qByLfGlobal.get(bLf) ?? 0) : Number.MAX_SAFE_INTEGER;
+        if (aQ === 0 && bQ !== 0) return -1;
+        if (bQ === 0 && aQ !== 0) return 1;
+        return aQ - bQ || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
       winners.push(pkgHeavy[0]);
       console.log(`[job-runner] FAIR_SHARE: pkg ${pkgId.slice(0,8)} → winner ${pkgHeavy[0].job_type}/${(pkgHeavy[0].payload?.learning_field_filter?.slice(0,8) ?? '__root__')}`);
     }
 
-    // Global cap: sort winners by created_at (oldest package gets priority), then take GLOBAL_HEAVY_LIMIT
+    // Global cap: oldest package wins
     winners.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     const globalWinners = winners.slice(0, GLOBAL_HEAVY_LIMIT);
     const keepIds = new Set(globalWinners.map((w: any) => w.id));
 
-    // Release all non-winners
+    // Release non-winners — only those that were claimed (locked_by matches)
     const releaseHeavy = heavyJobs.filter((j: any) => !keepIds.has(j.id));
     if (releaseHeavy.length > 0) {
-      console.log(`[job-runner] FAIR_SHARE: keeping ${globalWinners.length} heavy jobs across ${byPackage.size} packages, releasing ${releaseHeavy.length}`);
+      console.log(`[job-runner] FAIR_SHARE: keeping ${globalWinners.length} heavy across ${byPackage.size} pkgs, releasing ${releaseHeavy.length} (${alreadyProcessing.size} pkgs skipped: already processing)`);
       for (const rj of releaseHeavy) {
         const ts = new Date(Date.now() + 5_000).toISOString();
         await sb.from("job_queue").update({
           status: "pending",
           locked_at: null,
           locked_by: null,
-          scheduled_at: ts,
           run_after: ts,
           updated_at: new Date().toISOString(),
-        }).eq("id", rj.id);
+        }).eq("id", rj.id).eq("locked_by", WORKER_ID); // safety: only release our own locks
       }
     }
 
-    // Stable filter — keep non-heavy + winners
+    // Filter jobs list to non-heavy + winners
     jobs = jobs.filter((j: any) => !HEAVY_JOB_TYPES.has(j.job_type) || keepIds.has(j.id));
   }
 
