@@ -518,7 +518,11 @@ Deno.serve(async (req) => {
       distractorMetaMissing++;
       continue;
     }
-    const dm = Array.isArray(meta.distractor_meta) ? meta.distractor_meta : [];
+    // Support both formats: array directly OR { raw: [...] } wrapper from generator
+    const rawMeta = meta.distractor_meta;
+    const dm = Array.isArray(rawMeta) ? rawMeta 
+      : (rawMeta && Array.isArray(rawMeta.raw)) ? rawMeta.raw 
+      : [];
     // Check for why_wrong + why_tempting on at least 2 distractors
     const withQuality = dm.filter((d: any) => d?.why_wrong && d?.why_tempting);
     if (withQuality.length < 2) {
