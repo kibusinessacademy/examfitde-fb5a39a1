@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   Activity, Zap, RefreshCw, Radio, Play,
-  AlertTriangle, CheckCircle2, XCircle, Timer, Eye
+  AlertTriangle, CheckCircle2, XCircle, Timer, Eye, Shield
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -55,6 +55,26 @@ export default function PipelineMonitorPage() {
     } catch { toast.error('Runner Trigger fehlgeschlagen'); }
   };
 
+  const triggerHardening = async (pkgId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elite-hardening`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ package_id: pkgId, scope: 'all' }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success(`Elite-Hardening gestartet (Run: ${data.run_id?.slice(0, 8)})`);
+      } else {
+        toast.error(`Hardening Fehler: ${data.error}`);
+      }
+    } catch { toast.error('Hardening-Trigger fehlgeschlagen'); }
+  };
   const triggerWatchdog = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -187,6 +207,15 @@ export default function PipelineMonitorPage() {
                 <span className="flex-1 truncate font-medium">{p.title || p.id.slice(0, 8)}</span>
                 <Badge variant="outline" className={cn("text-[10px]", statusColor(p.status))}>{p.status}</Badge>
                 <span className="text-[10px] text-muted-foreground">{p.build_progress ?? 0}%</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] px-1.5"
+                  onClick={(e) => { e.stopPropagation(); triggerHardening(p.id); }}
+                  title="Elite-Hardening starten"
+                >
+                  <Shield className="h-3 w-3 mr-0.5" /> Harden
+                </Button>
                 <span className="text-[10px] text-muted-foreground">
                   {new Date(p.updated_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
                 </span>
