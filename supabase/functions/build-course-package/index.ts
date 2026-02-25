@@ -260,10 +260,18 @@ Deno.serve(async (req) => {
     // Steps are initialized above via init_course_package_steps.
     // pipeline-runner will pick up queued steps and enqueue worker jobs.
 
+    // Ensure priority ≤ 10 so the pipeline-runner's Priority Gate picks it up
+    const { data: currentPkg } = await sb
+      .from("course_packages")
+      .select("priority")
+      .eq("id", packageId)
+      .single();
+    const ensuredPriority = (currentPkg?.priority ?? 100) > 10 ? 5 : currentPkg?.priority;
+
     // Mark package as building (pipeline-runner will acquire lease and process)
     await sb
       .from("course_packages")
-      .update({ status: "building", build_progress: 1 })
+      .update({ status: "building", build_progress: 1, priority: ensuredPriority })
       .eq("id", packageId);
 
     console.log(`[BuildPkg] ✅ ${allSteps.length} steps initialized for ${packageId.slice(0, 8)} — pipeline-runner will enqueue jobs`);
