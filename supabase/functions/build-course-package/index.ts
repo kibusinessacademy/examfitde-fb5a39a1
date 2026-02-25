@@ -227,6 +227,9 @@ Deno.serve(async (req) => {
       contentSteps.push({ step_key: "validate_handbook", job_type: "package_validate_handbook" });
     }
 
+    // Elite Hardening (auto, after all generation, before quality gates)
+    contentSteps.push({ step_key: "elite_harden", job_type: "package_elite_harden" });
+
     // Phase 2: Quality gates
     const gateSteps: Array<{ step_key: string; job_type: string }> = [
       { step_key: "run_integrity_check", job_type: "package_run_integrity_check" },

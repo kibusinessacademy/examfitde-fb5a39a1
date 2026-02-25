@@ -37,6 +37,7 @@ type StepKey =
   | "validate_tutor_index"
   | "generate_oral_exam"
   | "validate_oral_exam"
+  | "elite_harden"
   | "generate_handbook"
   | "validate_handbook"
   | "run_integrity_check"
@@ -58,6 +59,7 @@ const FULL_STEP_ORDER: StepKey[] = [
   "validate_tutor_index",
   "generate_oral_exam",
   "validate_oral_exam",
+  "elite_harden",
   "generate_handbook",
   "validate_handbook",
   "run_integrity_check",
@@ -88,6 +90,7 @@ const STEP_TO_JOB_TYPE: Record<StepKey, string> = {
   validate_exam_pool: "package_validate_exam_pool",
   generate_oral_exam: "package_generate_oral_exam",
   validate_oral_exam: "package_validate_oral_exam",
+  elite_harden: "package_elite_harden",
   build_ai_tutor_index: "package_build_ai_tutor_index",
   validate_tutor_index: "package_validate_tutor_index",
   generate_handbook: "package_generate_handbook",

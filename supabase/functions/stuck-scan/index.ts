@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
       package_generate_exam_pool: 240,
       package_generate_lessons: 300,
       package_generate_flashcards: 300,
+      package_elite_harden: 240,
     };
 
     // 1) Clean stale processing jobs (no heartbeat)
