@@ -684,7 +684,40 @@ Deno.serve(async (req) => {
           },
         };
       }
-      // ── 4. Completed ───────────────────────────────────────────────
+      // ── 4. Quality-Gate failure: ok=false + batch_complete=true → fail the job ──
+      else if (parsed && parsed.ok === false && parsed.batch_complete === true) {
+        const issuesSummary = Array.isArray(parsed.issues) ? parsed.issues.join("; ").slice(0, 400) : "Validation failed";
+        console.warn(`[job-runner] ${fnName} quality-gate FAILED: ${issuesSummary}`);
+
+        const maxAttempts = job.max_attempts || 3;
+        const newAttempts = (job.attempts || 0) + 1;
+
+        if (newAttempts >= maxAttempts) {
+          // Terminal failure — let the step be reset to queued (via trigger) so watchdog/auto-heal can act
+          finalState = {
+            status: "failed",
+            patch: {
+              error: `QG FAIL (${newAttempts}/${maxAttempts}): ${issuesSummary}`,
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+              completed_at: tsNow,
+              attempts: newAttempts,
+            },
+          };
+        } else {
+          // Requeue with backoff to allow auto-heal / re-seeding to fix the blueprints
+          finalState = {
+            status: "pending",
+            patch: {
+              run_after: new Date(Date.now() + 60_000).toISOString(), // 60s backoff
+              error: `QG FAIL attempt ${newAttempts}/${maxAttempts}: ${issuesSummary}`,
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+              attempts: newAttempts,
+              meta: { ...(job.meta || {}), last_qg_fail: tsNow },
+            },
+          };
+        }
+      }
+      // ── 5. Completed ───────────────────────────────────────────────
       else {
         // ── Auto-heal trigger: if content generation completed with poison pills, enqueue heal job ──
         if (job.job_type === "package_generate_learning_content" && parsed?.poison_pills_skipped > 0) {
