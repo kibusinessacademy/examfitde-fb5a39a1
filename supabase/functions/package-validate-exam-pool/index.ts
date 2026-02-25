@@ -278,6 +278,9 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
+  const t0 = Date.now();
+  const timings: Record<string, number> = {};
+
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
@@ -297,28 +300,25 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
-  // Load questions in batches to avoid CPU timeout (max 500 per batch)
-  const BATCH_SIZE = 500;
-  let allQuestions: any[] = [];
-  let offset = 0;
-  while (true) {
-    const { data: batch, error: qErr } = await sb
-      .from("exam_questions")
-      .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id")
-      .eq("curriculum_id", curriculumId)
-      .range(offset, offset + BATCH_SIZE - 1);
+  timings.after_resolve = Date.now() - t0;
+  console.log(`[validate-exam] Phase 1 resolve: ${timings.after_resolve}ms`);
 
-    if (qErr) return json({ error: qErr.message }, 500);
-    if (!batch || batch.length === 0) break;
-    allQuestions = allQuestions.concat(batch);
-    offset += batch.length;
-    if (batch.length < BATCH_SIZE) break; // Last page
-  }
-  const questions = allQuestions;
+  // ── Load questions: MINIMAL columns, single batch, capped at 1000 ──
+  const MAX_QUESTIONS = 1000;
+  const { data: questions, error: qErr } = await sb
+    .from("exam_questions")
+    .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id")
+    .eq("curriculum_id", curriculumId)
+    .order("id")
+    .limit(MAX_QUESTIONS);
 
-  if (questions.length === 0) {
+  if (qErr) return json({ error: qErr.message }, 500);
+  if (!questions || questions.length === 0) {
     return json({ ok: false, error: "NO_QUESTIONS_TO_VALIDATE" }, 409);
   }
+
+  timings.after_load = Date.now() - t0;
+  console.log(`[validate-exam] Phase 2 load: ${timings.after_load}ms (${questions.length} questions)`);
 
   console.log(`[validate-exam] Validating ${questions.length} questions for ${professionName} (pkg ${packageId.slice(0, 8)})`);
 
@@ -329,7 +329,8 @@ Deno.serve(async (req) => {
   const t1Failed = t1Results.filter((r: T1Result) => !r.passed);
   const t1PassRate = ((t1Results.length - t1Failed.length) / t1Results.length) * 100;
 
-  console.log(`[validate-exam] Tier 1: ${t1Results.length - t1Failed.length}/${t1Results.length} passed (${t1PassRate.toFixed(1)}%)`);
+  timings.after_tier1 = Date.now() - t0;
+  console.log(`[validate-exam] Phase 3 Tier1: ${timings.after_tier1}ms — ${t1Results.length - t1Failed.length}/${t1Results.length} passed (${t1PassRate.toFixed(1)}%)`);
 
   // Batch flag failed questions (chunks of 50)
   const failIds = t1Failed.map(f => f.questionId);
@@ -404,9 +405,11 @@ Deno.serve(async (req) => {
       }).eq("id", q.id);
     }
 
-    // Longer delay to avoid rate limits (8-12s)
-    await new Promise(r => setTimeout(r, 8000 + Math.random() * 4000));
+    // Delay to avoid rate limits (3-5s instead of 8-12s — 4 samples max = 20s budget)
+    await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
   }
+
+  timings.after_tier2 = Date.now() - t0;
 
   // Filter out rate-limited results from average calculation
   const scoredResults = t2Results.filter(r => r.score >= 0);
@@ -417,7 +420,7 @@ Deno.serve(async (req) => {
   const skippedCount = t2Results.length - scoredResults.length;
   if (skippedCount > 0) console.log(`[validate-exam] Tier 2: ${skippedCount} samples skipped due to rate limits`);
 
-  console.log(`[validate-exam] Tier 2: avg=${avgScore.toFixed(1)}, flagged=${rejected.length}/${t2Results.length}`);
+  console.log(`[validate-exam] Phase 4 Tier2: ${timings.after_tier2}ms — avg=${avgScore.toFixed(1)}, flagged=${rejected.length}/${t2Results.length}`);
 
   // Batch mark non-sampled as tier1_passed (chunks of 100)
   const passedNotSampled = t1Passed.filter(r => !sampleIds.has(r.questionId)).map(r => r.questionId);
@@ -641,6 +644,9 @@ Deno.serve(async (req) => {
   if (discriminationWarnings.length > 0) console.log(`[validate-exam] Discrimination Gate: ${discriminationWarnings.join("; ")}`);
   if (bloomWarnings.length > 0) console.log(`[validate-exam] Bloom/Context Gate: ${bloomWarnings.join("; ")}`);
 
+  timings.after_gates = Date.now() - t0;
+  console.log(`[validate-exam] Phase 5 gates: ${timings.after_gates}ms`);
+
   // ═══ Final verdict v2 ═══
   // Bloom + Context + Distractor are now HARD gates (block pipeline)
   // Time + Discrimination are SOFT gates (warn but don't block)
@@ -662,6 +668,9 @@ Deno.serve(async (req) => {
       payload: { packageId, tier1_pass_rate: t1PassRate, tier2_avg_score: avgScore, bloom: bloomGatePass, context: contextGatePass, distractor: distractorGatePass },
     }).then(() => {}).catch(() => {});
   }
+
+  timings.total = Date.now() - t0;
+  console.log(`[validate-exam] DONE in ${timings.total}ms — ok=${overallPass}`);
 
   return json({
     ok: overallPass,
@@ -697,6 +706,7 @@ Deno.serve(async (req) => {
       passed: discriminationGatePass,
       warnings: discriminationWarnings,
     },
+    debug_timings: timings,
     message: overallPass
       ? `✅ Exam QC v2 bestanden: ${t1PassRate.toFixed(0)}% T1, avg ${avgScore.toFixed(0)}/100 T2, Bloom ✓, Context ✓, Distraktoren ✓`
       : `❌ Exam QC v2 fehlgeschlagen: ${[
