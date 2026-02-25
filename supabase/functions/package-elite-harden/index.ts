@@ -15,9 +15,9 @@ import type { AIProvider } from "../_shared/ai-client.ts";
  */
 
 const TIME_BUDGET_MS = 110_000;
-const MAX_EXAM_HARDEN = 50;
-const MAX_MINICHECK_HARDEN = 30;
-const MAX_ORAL_HARDEN = 20;
+const MAX_EXAM_HARDEN = 80;
+const MAX_MINICHECK_HARDEN = 40;
+const MAX_ORAL_HARDEN = 30;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -68,7 +68,7 @@ async function hardenExamQuestions(
     .select("id, question_text, options, explanation, correct_answer, cognitive_level, difficulty, competency_id, trap_tags, distractor_meta")
     .eq("curriculum_id", curriculumId)
     .eq("status", "draft")
-    .limit(500);
+    .limit(1100);
 
   if (!questions?.length) return { upgraded: 0, failed: 0, total: 0 };
 
@@ -87,7 +87,7 @@ async function hardenExamQuestions(
     if (expl.length < 200) d++;
     if (!q.distractor_meta || Object.keys(q.distractor_meta || {}).length === 0) d++;
     if (q.cognitive_level === "remember" || q.cognitive_level === "understand") d++;
-    if (d >= 4) weakIds.push(q.id);
+    if (d >= 3) weakIds.push(q.id);
   }
 
   const toProcess = weakIds.slice(0, MAX_EXAM_HARDEN);
