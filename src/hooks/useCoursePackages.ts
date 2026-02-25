@@ -165,6 +165,20 @@ export function useCoursePackageDetail(packageId: string | undefined) {
   const startBuild = useMutation({
     mutationFn: async () => {
       if (!packageId) throw new Error('No package');
+
+      // Ensure priority ≤ 10 so the pipeline-runner's Priority Gate picks it up
+      const { data: pkgRow } = await supabase
+        .from('course_packages')
+        .select('priority')
+        .eq('id', packageId)
+        .single();
+      if (pkgRow && (pkgRow as any).priority > 10) {
+        await supabase
+          .from('course_packages')
+          .update({ priority: 5, updated_at: new Date().toISOString() } as any)
+          .eq('id', packageId);
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke('build-course-package', {
         body: { packageId },
