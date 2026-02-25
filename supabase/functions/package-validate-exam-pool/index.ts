@@ -224,7 +224,7 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
 
       if (!extracted) {
         if (!isRetry) {
-          console.warn(`[validate-exam] Truncated JSON for ${q.id} — retrying with higher budget`);
+          console.warn(`[validate-exam] Truncated JSON for ${q.id} — tail=${raw.slice(-120)} — retrying with higher budget`);
           continue; // retry
         }
         throw new Error("TIER2_JSON_TRUNCATED: no balanced JSON object found after retry");
@@ -251,15 +251,19 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
       };
     } catch (e) {
       const msg = ((e as Error).message || "").toLowerCase();
-      const isTruncation =
+      // Truncation-like errors: always retry on first attempt
+      const isTruncationLike =
         msg.includes("truncated") ||
         msg.includes("unexpected end") ||
         msg.includes("unterminated") ||
         msg.includes("end of json") ||
-        msg.includes("no balanced json") ||
-        msg.includes("schema_invalid");
+        msg.includes("no balanced json");
+      // Schema errors: only retry if it's about core fields (decision/score)
+      const isCoreSchemaMiss =
+        msg.includes("schema_invalid") &&
+        (msg.includes("decision") || msg.includes("overall_score"));
 
-      if (attempt === 0 && isTruncation) {
+      if (attempt === 0 && (isTruncationLike || isCoreSchemaMiss)) {
         console.warn(`[validate-exam] Parse error for ${q.id} (${msg.slice(0, 80)}) — retrying`);
         continue;
       }
