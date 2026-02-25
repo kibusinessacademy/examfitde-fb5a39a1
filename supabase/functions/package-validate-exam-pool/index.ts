@@ -183,7 +183,7 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
           content: `Beruf: ${professionName}\nBlueprint: ${q.blueprint_name || "unbekannt"}\nSchwierigkeit: ${q.difficulty}\n\nFRAGE: ${q.question_text}\n\nOPTIONEN:\n${(Array.isArray(q.options) ? q.options : []).map((o: string, i: number) => `${i === q.correct_answer ? "✓" : "✗"} ${i + 1}. ${o}`).join("\n")}\n\nERKLÄRUNG: ${q.explanation || "(keine)"}`,
         },
       ],
-      max_tokens: 1500,
+      max_tokens: 2500, // increased from 1500 — German JSON responses were being truncated
     });
 
     let raw = (aiResult.content || "").trim();
@@ -198,7 +198,33 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
     // Fix trailing commas and unescaped newlines
     raw = raw.replace(/,\s*([\]}])/g, "$1");
     raw = raw.replace(/(?<=":[\s]*"[^"]*)\n(?=[^"]*")/g, "\\n");
-    const parsed = JSON.parse(raw);
+
+    // Truncation repair: if JSON.parse fails, try closing open strings/arrays/objects
+    let parsed: any;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      // Attempt truncation repair: close any unclosed strings, arrays, objects
+      let repaired = raw;
+      // Count unmatched braces/brackets
+      const opens = (repaired.match(/{/g) || []).length;
+      const closes = (repaired.match(/}/g) || []).length;
+      const openBrackets = (repaired.match(/\[/g) || []).length;
+      const closeBrackets = (repaired.match(/\]/g) || []).length;
+      // If inside an unterminated string, close it
+      const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
+      if (quoteCount % 2 !== 0) repaired += '"';
+      // Close arrays then objects
+      for (let i = 0; i < openBrackets - closeBrackets; i++) repaired += "]";
+      for (let i = 0; i < opens - closes; i++) repaired += "}";
+      try {
+        parsed = JSON.parse(repaired);
+        console.warn(`[validate-exam] JSON truncation repaired for ${q.id}`);
+      } catch (e2) {
+        throw new Error(`JSON parse failed even after repair: ${(e2 as Error).message}`);
+      }
+    }
+
     return {
       questionId: q.id,
       score: parsed.overall_score ?? 0,
