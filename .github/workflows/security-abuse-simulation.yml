@@ -1,0 +1,22 @@
+name: Security Abuse Simulation
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  abuse:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_USER_JWT: ${{ secrets.TEST_USER_JWT }}
+      ADMIN_TEST_JWT: ${{ secrets.ADMIN_TEST_JWT }}
+      DEFAULT_AUDIT_PACKAGE_ID: ${{ secrets.DEFAULT_AUDIT_PACKAGE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node scripts/security/abuse-simulation.mjs

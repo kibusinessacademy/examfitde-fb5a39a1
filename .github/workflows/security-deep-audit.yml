@@ -1,0 +1,19 @@
+name: Security Deep Audit
+
+on:
+  schedule:
+    - cron: "9 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  deep:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node scripts/security/deep-audit.mjs

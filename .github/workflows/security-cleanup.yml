@@ -1,0 +1,27 @@
+name: Security Cleanup
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Call cleanup_security_tables RPC
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Missing secrets"; exit 1
+          fi
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" -X POST \
+            "$SUPABASE_URL/rest/v1/rpc/cleanup_security_tables" \
+            -H "content-type: application/json" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -d '{}')
+          echo "cleanup status=$STATUS"
+          if [ "$STATUS" -ge 400 ]; then exit 1; fi
