@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
   );
 
   const body = await req.json().catch(() => ({}));
-  const COMP_BATCH = Math.min(body.batch_size || 10, 15);
+  const COMP_BATCH = Math.min(body.batch_size || 12, 15);
   const MAX_CURRICULA = Math.min(body.max_curricula || 1, 2);
   const TIME_BUDGET_MS = 60_000; // 60s safe budget
   const startTime = Date.now();
