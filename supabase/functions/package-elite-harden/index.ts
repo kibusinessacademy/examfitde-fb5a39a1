@@ -2,23 +2,24 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
-import { computeElite, toAnnotationInput, ANNOTATION_SELECT } from "../_shared/elite-annotation.ts";
+import { computeElite, buildAnnotationInput } from "../_shared/elite-annotation.ts";
 
 /**
- * package-elite-harden — Pipeline Step (auto, runs after all generation, before integrity check)
+ * package-elite-harden — Pipeline Step
  *
  * SSOT Rules:
- * 1. Only touches items with status='draft' belonging to this package's curriculum
- * 2. Idempotent: skips if course_packages.elite_hardening_version >= 1
- * 3. Tracks every upgrade in elite_hardening_items for audit/revert
- * 4. Budget-capped (110s) with graceful exit
- * 5. Marks package with elite_hardening_version=1 on completion
+ * 1. Approved questions → annotations go to exam_question_elite_annotations (NEVER mutate approved content)
+ * 2. Draft questions → annotate directly in exam_questions + AI content upgrade for weak items
+ * 3. Batch upserts (chunks of 200) to avoid timeout
+ * 4. Manual joins (no FK constraints for PostgREST)
+ * 5. Idempotent: skips if course_packages.elite_hardening_version >= 1
  */
 
 const TIME_BUDGET_MS = 110_000;
 const MAX_EXAM_HARDEN = 80;
 const MAX_MINICHECK_HARDEN = 40;
 const MAX_ORAL_HARDEN = 30;
+const BATCH_SIZE = 200;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -29,7 +30,6 @@ function assertUuid(name: string, v: unknown) {
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
 
-// --- AI Helper ---
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const result = await callAIJSON({
     provider: "lovable" as AIProvider,
@@ -53,9 +53,18 @@ function timeLeft(start: number): boolean {
   return (Date.now() - start) < TIME_BUDGET_MS;
 }
 
+/** Chunked upsert helper */
+async function batchUpsert(sb: ReturnType<typeof createClient>, table: string, rows: any[], conflict: string) {
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const chunk = rows.slice(i, i + BATCH_SIZE);
+    const { error } = await sb.from(table).upsert(chunk, { onConflict: conflict });
+    if (error) throw new Error(`Batch upsert ${table} failed: ${error.message}`);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
-// HARDEN: Exam Questions — Phase 1: SSOT-based annotation (no keywords!)
-// Phase 2: AI content upgrade for draft questions
+// PHASE 1: SSOT Annotation (approved → annotation table, draft → exam_questions)
+// PHASE 2: AI Content Upgrade (draft only)
 // ═══════════════════════════════════════════════════════════════
 async function hardenExamQuestions(
   sb: ReturnType<typeof createClient>,
@@ -64,75 +73,122 @@ async function hardenExamQuestions(
   berufName: string,
   start: number,
 ): Promise<{ upgraded: number; annotated: number; failed: number; total: number }> {
-  // Load questions (flat — no FK constraints, manual join required)
-  const { data: questions } = await sb
-    .from("exam_questions")
-    .select("id, status, difficulty, cognitive_level, trap_tags, distractor_meta, elite_level, multi_variable, transfer_variant, distractor_types, question_text, options, explanation, correct_answer, competency_id, blueprint_id")
-    .eq("curriculum_id", curriculumId)
-    .in("status", ["draft", "approved"])
-    .limit(1100);
+  // ── Load ALL questions via pagination (Supabase 1000-row limit) ──
+  const questions: any[] = [];
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data: page } = await sb
+      .from("exam_questions")
+      .select("id, status, difficulty, cognitive_level, trap_tags, distractor_meta, elite_level, multi_variable, transfer_variant, distractor_types, question_text, options, explanation, correct_answer, competency_id, blueprint_id")
+      .eq("curriculum_id", curriculumId)
+      .in("status", ["draft", "approved"])
+      .range(offset, offset + PAGE - 1);
+    if (!page?.length) break;
+    questions.push(...page);
+    if (page.length < PAGE) break;
+  }
 
-  if (!questions?.length) return { upgraded: 0, annotated: 0, failed: 0, total: 0 };
+  if (!questions.length) return { upgraded: 0, annotated: 0, failed: 0, total: 0 };
 
-  // Load blueprints + competencies for SSOT annotation (manual join — no FK)
+  // ── Manual joins: load blueprints + competencies via IN query ──
   const bpIds = [...new Set(questions.map((q: any) => q.blueprint_id).filter(Boolean))];
-  const allCompIds = [...new Set(questions.map((q: any) => q.competency_id).filter(Boolean))];
+  const compIds = [...new Set(questions.map((q: any) => q.competency_id).filter(Boolean))];
 
   const [{ data: blueprints }, { data: comps }] = await Promise.all([
     bpIds.length > 0
       ? sb.from("question_blueprints").select("id, exam_context_type, decision_structure, scenario_type, typical_errors, knowledge_type, real_world_context").in("id", bpIds)
       : Promise.resolve({ data: [] as any[] }),
-    allCompIds.length > 0
-      ? sb.from("competencies").select("id, bloom_level, exam_relevance_tier, transfer_markers, typical_misconceptions, description").in("id", allCompIds)
+    compIds.length > 0
+      ? sb.from("competencies").select("id, bloom_level, exam_relevance_tier, transfer_markers, typical_misconceptions, description").in("id", compIds)
       : Promise.resolve({ data: [] as any[] }),
   ]);
 
   const bpMap = new Map((blueprints || []).map((b: any) => [b.id, b]));
   const compMap = new Map((comps || []).map((c: any) => [c.id, c]));
 
-  function buildAnnotationInput(q: any) {
-    const bp = bpMap.get(q.blueprint_id) || {} as any;
-    const comp = compMap.get(q.competency_id) || {} as any;
-    return {
-      id: q.id, status: q.status, difficulty: q.difficulty, cognitive_level: q.cognitive_level,
-      trap_tags: q.trap_tags, distractor_meta: q.distractor_meta,
-      exam_context_type: bp.exam_context_type || null, decision_structure: bp.decision_structure || null,
-      scenario_type: bp.scenario_type || null, typical_errors: bp.typical_errors || null,
-      knowledge_type: bp.knowledge_type || null, real_world_context: bp.real_world_context ?? null,
-      bloom_level: comp.bloom_level || null, exam_relevance_tier: comp.exam_relevance_tier || null,
-      transfer_markers: comp.transfer_markers || null, typical_misconceptions: comp.typical_misconceptions || null,
-    };
+  // ── Phase 1a: Approved → annotation table (batch upsert, never mutate exam_questions) ──
+  const approved = questions.filter((q: any) => q.status === "approved");
+
+  // Check which are already annotated
+  const approvedIds = approved.map((q: any) => q.id);
+  let annotatedSet = new Set<string>();
+  if (approvedIds.length > 0) {
+    // Load in batches of 200 to avoid query limits
+    for (let i = 0; i < approvedIds.length; i += BATCH_SIZE) {
+      const chunk = approvedIds.slice(i, i + BATCH_SIZE);
+      const { data: existing } = await sb
+        .from("exam_question_elite_annotations")
+        .select("question_id")
+        .in("question_id", chunk);
+      for (const e of (existing || [])) annotatedSet.add(e.question_id);
+    }
   }
 
-  // ── Phase 1: Annotate unannotated questions using SSOT signals ──
-  const unannotated = questions.filter((q: any) => !q.elite_level);
-  let annotated = 0;
+  const approvedToAnnotate = approved.filter((q: any) => !annotatedSet.has(q.id));
+  const annotationRows: any[] = [];
 
-  for (const q of unannotated) {
-    if (!timeLeft(start)) break;
-    const annotation = computeElite(buildAnnotationInput(q));
-    await sb.from("exam_questions").update({
-      elite_level: annotation.elite_level,
-      multi_variable: annotation.multi_variable,
-      transfer_variant: annotation.transfer_variant,
-      ...(annotation.distractor_types.length > 0 ? { distractor_types: annotation.distractor_types } : {}),
-    }).eq("id", q.id);
-    annotated++;
+  for (const q of approvedToAnnotate) {
+    const bp = bpMap.get(q.blueprint_id) || null;
+    const comp = compMap.get(q.competency_id) || null;
+    const input = buildAnnotationInput(q, bp, comp);
+    const a = computeElite(input);
+
+    annotationRows.push({
+      question_id: q.id,
+      curriculum_id: curriculumId,
+      run_id: runId,
+      elite_level: a.elite_level,
+      multi_variable: a.multi_variable,
+      transfer_variant: a.transfer_variant,
+      distractor_types: a.distractor_types,
+      elite_score: a.elite_score,
+      elite_breakdown: { ...a, blueprint_id: q.blueprint_id, competency_id: q.competency_id },
+      annotated_at: new Date().toISOString(),
+    });
   }
 
-  console.log(`[EliteHarden] SSOT-annotated ${annotated}/${unannotated.length} questions (no keyword heuristics)`);
+  if (annotationRows.length > 0) {
+    await batchUpsert(sb, "exam_question_elite_annotations", annotationRows, "question_id");
+  }
 
-  // ── Phase 2: Full content upgrade for DRAFT questions ──
+  console.log(`[EliteHarden] Phase 1a: ${annotationRows.length} approved → annotation table (${annotatedSet.size} already existed)`);
+
+  // ── Phase 1b: Draft → direct annotation in exam_questions (batch upsert) ──
   const draftQuestions = questions.filter((q: any) => q.status === "draft");
-  const weakIds: string[] = [];
+  const draftMeta: any[] = [];
+
   for (const q of draftQuestions) {
-    const { elite_score } = computeElite(buildAnnotationInput(q));
+    const bp = bpMap.get(q.blueprint_id) || null;
+    const comp = compMap.get(q.competency_id) || null;
+    const a = computeElite(buildAnnotationInput(q, bp, comp));
+    draftMeta.push({
+      id: q.id,
+      elite_level: a.elite_level,
+      multi_variable: a.multi_variable,
+      transfer_variant: a.transfer_variant,
+      distractor_types: a.distractor_types,
+    });
+  }
+
+  if (draftMeta.length > 0) {
+    await batchUpsert(sb, "exam_questions", draftMeta, "id");
+  }
+
+  const totalAnnotated = annotationRows.length + draftMeta.length;
+  console.log(`[EliteHarden] Phase 1b: ${draftMeta.length} draft → direct annotation. Total annotated: ${totalAnnotated}`);
+
+  // ── Phase 2: AI content upgrade for weak DRAFT questions only ──
+  const weakDrafts: string[] = [];
+  for (const q of draftQuestions) {
+    const bp = bpMap.get(q.blueprint_id) || null;
+    const comp = compMap.get(q.competency_id) || null;
+    const { elite_score } = computeElite(buildAnnotationInput(q, bp, comp));
     const hasTags = Array.isArray(q.trap_tags) && q.trap_tags.length > 0;
     const hasMeta = q.distractor_meta && Object.keys(q.distractor_meta || {}).length > 0;
-    if (elite_score <= 4 || (!hasTags && !hasMeta)) weakIds.push(q.id);
+    if (elite_score <= 4 || (!hasTags && !hasMeta)) weakDrafts.push(q.id);
   }
 
-  const toProcess = weakIds.slice(0, MAX_EXAM_HARDEN);
+  const toProcess = weakDrafts.slice(0, MAX_EXAM_HARDEN);
   let upgraded = 0, failed = 0;
 
   for (const qId of toProcess) {
@@ -164,14 +220,20 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
       const parsed = parseJSON(await callAI(systemPrompt, userPrompt));
       if (!parsed.question_text || !parsed.options || parsed.options.length < 4) throw new Error("Invalid AI structure");
 
-      // Audit trail
       await sb.from("elite_hardening_items").insert({
         run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "upgraded",
         original_data: { question_text: q.question_text, options: q.options, explanation: q.explanation, cognitive_level: q.cognitive_level },
         upgraded_data: parsed,
-      });
+      }).then(() => {}, () => {});
 
-      // Apply content upgrade + elite annotations
+      // Re-compute elite after AI upgrade
+      const upgradedInput = buildAnnotationInput(
+        { ...q, trap_tags: parsed.trap_tags || q.trap_tags, distractor_meta: parsed.distractor_meta || q.distractor_meta, cognitive_level: parsed.cognitive_level || q.cognitive_level },
+        bpMap.get(q.blueprint_id) || null,
+        comp || null,
+      );
+      const newElite = computeElite(upgradedInput);
+
       await sb.from("exam_questions").update({
         question_text: parsed.question_text,
         options: parsed.options,
@@ -180,20 +242,22 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
         cognitive_level: parsed.cognitive_level || q.cognitive_level,
         trap_tags: parsed.trap_tags || [],
         distractor_meta: parsed.distractor_meta || {},
-        elite_level: "E2",
-        multi_variable: true,
+        elite_level: newElite.elite_level,
+        multi_variable: newElite.multi_variable,
+        transfer_variant: newElite.transfer_variant,
+        distractor_types: newElite.distractor_types,
       }).eq("id", q.id);
 
       upgraded++;
     } catch (err) {
       await sb.from("elite_hardening_items").insert({
         run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "failed", reason: String(err),
-      });
+      }).then(() => {}, () => {});
       failed++;
     }
   }
 
-  return { upgraded, annotated, failed, total: questions.length };
+  return { upgraded, annotated: totalAnnotated, failed, total: questions.length };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -234,7 +298,7 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
         run_id: runId, entity_type: "minicheck", entity_id: mc.id, action: "upgraded",
         original_data: { question_text: mc.question_text, options: mc.options, explanation: mc.explanation },
         upgraded_data: parsed,
-      });
+      }).then(() => {}, () => {});
 
       await sb.from("minicheck_questions").update({
         question_text: parsed.question_text,
@@ -290,7 +354,7 @@ JSON: {"scenario":"...","lead_questions":["..."],"followups":["..."],"rubric":{"
         run_id: runId, entity_type: "oral_blueprint", entity_id: bp.id, action: "upgraded",
         original_data: { scenario: bp.scenario, rubric: bp.rubric },
         upgraded_data: parsed,
-      });
+      }).then(() => {}, () => {});
 
       await sb.from("oral_exam_blueprints").update({
         scenario: parsed.scenario,
@@ -327,7 +391,7 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id as string;
   const courseId = p.course_id as string | undefined;
 
-  // ── Idempotency: skip if already hardened ──
+  // ── Idempotency ──
   const { data: pkg } = await sb
     .from("course_packages")
     .select("elite_hardening_version, title, curriculum_id")
@@ -337,11 +401,10 @@ Deno.serve(async (req) => {
   if (!pkg) return json({ error: "Package not found" }, 404);
 
   if ((pkg as any).elite_hardening_version >= 1) {
-    console.log(`[EliteHarden] Package ${packageId.slice(0, 8)} already hardened (v${(pkg as any).elite_hardening_version}) — skipping`);
+    console.log(`[EliteHarden] Package ${packageId.slice(0, 8)} already hardened — skipping`);
     return json({ ok: true, batch_complete: true, skipped: true, reason: "already_hardened" });
   }
 
-  // Get beruf name
   const { data: curriculum } = await sb
     .from("curricula")
     .select("title")
@@ -350,15 +413,9 @@ Deno.serve(async (req) => {
 
   const berufName = curriculum?.title || pkg.title || "Ausbildungsberuf";
 
-  // Create tracking run
   const { data: run } = await sb
     .from("elite_hardening_runs")
-    .insert({
-      package_id: packageId,
-      scope: "pipeline_auto",
-      status: "running",
-      started_at: new Date().toISOString(),
-    })
+    .insert({ package_id: packageId, scope: "pipeline_auto", status: "running", started_at: new Date().toISOString() })
     .select("id")
     .single();
 
@@ -366,68 +423,45 @@ Deno.serve(async (req) => {
   const start = Date.now();
 
   try {
-    // 1. Harden Exam Questions
     const examResult = await hardenExamQuestions(sb, runId, curriculumId, berufName, start);
     console.log(`[EliteHarden] Exam: ${examResult.upgraded} upgraded, ${examResult.annotated} annotated, ${examResult.failed} failed (${examResult.total} total)`);
 
-    // 2. Harden MiniChecks
     const mcResult = timeLeft(start)
       ? await hardenMiniChecks(sb, runId, courseId || packageId, berufName, start)
       : { upgraded: 0, total: 0 };
-    console.log(`[EliteHarden] MiniCheck: ${mcResult.upgraded}/${mcResult.total} upgraded`);
 
-    // 3. Harden Oral Blueprints
     const oralResult = timeLeft(start)
       ? await hardenOralBlueprints(sb, runId, curriculumId, berufName, start)
       : { upgraded: 0, total: 0 };
-    console.log(`[EliteHarden] Oral: ${oralResult.upgraded}/${oralResult.total} upgraded`);
 
-    // Mark run done
     await sb.from("elite_hardening_runs").update({
-      status: "done",
-      finished_at: new Date().toISOString(),
-      exam_questions_upgraded: examResult.upgraded,
-      exam_questions_total: examResult.total,
-      minichecks_upgraded: mcResult.upgraded,
-      minichecks_total: mcResult.total,
-      oral_blueprints_upgraded: oralResult.upgraded,
-      oral_blueprints_total: oralResult.total,
+      status: "done", finished_at: new Date().toISOString(),
+      exam_questions_upgraded: examResult.upgraded, exam_questions_total: examResult.total,
+      minichecks_upgraded: mcResult.upgraded, minichecks_total: mcResult.total,
+      oral_blueprints_upgraded: oralResult.upgraded, oral_blueprints_total: oralResult.total,
     }).eq("id", runId);
 
-    // ── Idempotent package marker (only set if still 0) ──
     await sb.from("course_packages").update({
       elite_hardening_version: 1,
       elite_hardened_at: new Date().toISOString(),
     }).eq("id", packageId).eq("elite_hardening_version", 0);
 
-    // Admin notification
     const totalUpgraded = examResult.upgraded + examResult.annotated + mcResult.upgraded + oralResult.upgraded;
     if (totalUpgraded > 0) {
       await sb.from("admin_notifications").insert({
         title: `Elite-Hardening (Auto): ${berufName}`,
         body: `Exam: ${examResult.upgraded} upgraded, ${examResult.annotated} annotated | MC: ${mcResult.upgraded} | Oral: ${oralResult.upgraded}`,
-        severity: "info",
-        category: "pipeline",
-        entity_type: "course_package",
-        entity_id: packageId,
-      });
+        severity: "info", category: "pipeline", entity_type: "course_package", entity_id: packageId,
+      }).then(() => {}, () => {});
     }
 
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-    console.log(`[EliteHarden] ✅ Done in ${elapsed}s — total ${totalUpgraded} items upgraded`);
+    console.log(`[EliteHarden] ✅ Done in ${elapsed}s`);
 
-    return json({
-      ok: true,
-      batch_complete: true,
-      run_id: runId,
-      results: { exam: examResult, minicheck: mcResult, oral: oralResult },
-      elapsed_s: parseFloat(elapsed),
-    });
+    return json({ ok: true, batch_complete: true, run_id: runId, results: { exam: examResult, minicheck: mcResult, oral: oralResult }, elapsed_s: parseFloat(elapsed) });
   } catch (err) {
     await sb.from("elite_hardening_runs").update({
-      status: "failed",
-      error_message: String(err),
-      finished_at: new Date().toISOString(),
+      status: "failed", error_message: String(err), finished_at: new Date().toISOString(),
     }).eq("id", runId);
 
     console.error(`[EliteHarden] FATAL: ${(err as Error)?.message || err}`);

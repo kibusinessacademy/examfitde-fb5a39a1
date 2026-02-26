@@ -2287,6 +2287,13 @@ export type Database = {
             foreignKeyName: "blueprint_variants_exam_question_id_fkey"
             columns: ["exam_question_id"]
             isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_variants_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
             referencedRelation: "exam_questions_safe"
             referencedColumns: ["id"]
           },
@@ -7565,6 +7572,81 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_question_elite_annotations: {
+        Row: {
+          annotated_at: string
+          curriculum_id: string
+          distractor_types: string[]
+          elite_breakdown: Json
+          elite_level: Database["public"]["Enums"]["elite_level"] | null
+          elite_score: number
+          multi_variable: boolean
+          question_id: string
+          run_id: string | null
+          transfer_variant: boolean
+        }
+        Insert: {
+          annotated_at?: string
+          curriculum_id: string
+          distractor_types?: string[]
+          elite_breakdown?: Json
+          elite_level?: Database["public"]["Enums"]["elite_level"] | null
+          elite_score?: number
+          multi_variable?: boolean
+          question_id: string
+          run_id?: string | null
+          transfer_variant?: boolean
+        }
+        Update: {
+          annotated_at?: string
+          curriculum_id?: string
+          distractor_types?: string[]
+          elite_breakdown?: Json
+          elite_level?: Database["public"]["Enums"]["elite_level"] | null
+          elite_score?: number
+          multi_variable?: boolean
+          question_id?: string
+          run_id?: string | null
+          transfer_variant?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_question_elite_annotations_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_question_elite_annotations_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "exam_questions_elite_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_question_elite_annotations_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_question_elite_annotations_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_question_elite_annotations_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "v_exam_questions_sanitized"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_questions: {
         Row: {
           ai_generated: boolean | null
@@ -7808,6 +7890,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
             referencedColumns: ["id"]
           },
           {
@@ -11047,6 +11136,13 @@ export type Database = {
             columns: ["exam_question_id"]
             isOneToOne: false
             referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "minicheck_set_items_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
             referencedColumns: ["id"]
           },
           {
@@ -15448,6 +15544,13 @@ export type Database = {
             foreignKeyName: "question_attempts_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
             referencedRelation: "exam_questions_safe"
             referencedColumns: ["id"]
           },
@@ -15692,6 +15795,13 @@ export type Database = {
             foreignKeyName: "question_discrimination_stats_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: true
+            referencedRelation: "exam_questions_elite_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_discrimination_stats_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
             referencedRelation: "exam_questions_safe"
             referencedColumns: ["id"]
           },
@@ -15799,6 +15909,13 @@ export type Database = {
             foreignKeyName: "question_skill_map_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_skill_map_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
             referencedRelation: "exam_questions_safe"
             referencedColumns: ["id"]
           },
@@ -15874,6 +15991,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: true
             referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_variant_stats_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "exam_questions_elite_v"
             referencedColumns: ["id"]
           },
           {
@@ -17417,6 +17541,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_cards_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
             referencedColumns: ["id"]
           },
           {
@@ -20046,6 +20177,105 @@ export type Database = {
           sample_error: string | null
         }
         Relationships: []
+      }
+      exam_questions_elite_v: {
+        Row: {
+          ai_generated: boolean | null
+          annotation_ts: string | null
+          approved_version_id: string | null
+          bloom_level_validated: string | null
+          blueprint_id: string | null
+          cognitive_level: string | null
+          competency_id: string | null
+          complexity_score: number | null
+          conflict_type: string | null
+          correct_answer: number | null
+          created_at: string | null
+          curriculum_id: string | null
+          difficulty: Database["public"]["Enums"]["question_difficulty"] | null
+          discrimination_tier: string | null
+          distractor_meta: Json | null
+          distractor_types: string[] | null
+          distractor_types_eff: string[] | null
+          dynamic_scenario: boolean | null
+          elite_breakdown: Json | null
+          elite_level: Database["public"]["Enums"]["elite_level"] | null
+          elite_level_eff: Database["public"]["Enums"]["elite_level"] | null
+          elite_score: number | null
+          elite_score_breakdown: Json | null
+          elite_score_eff: number | null
+          exam_part: string | null
+          explanation: string | null
+          id: string | null
+          item_calibrated_at: string | null
+          item_difficulty: number | null
+          item_discrimination: number | null
+          item_guessing: number | null
+          item_usage_count: number | null
+          learning_field_id: string | null
+          multi_variable: boolean | null
+          multi_variable_eff: boolean | null
+          normalized_hash: string | null
+          options: Json | null
+          qc_status: string | null
+          question_text: string | null
+          question_type: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scenario_type: string | null
+          status: Database["public"]["Enums"]["question_status"] | null
+          time_estimate_seconds: number | null
+          transfer_variant: boolean | null
+          transfer_variant_eff: boolean | null
+          trap_tags: string[] | null
+          typical_errors: Json | null
+          variant_group: string | null
+          variant_label: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       exam_questions_safe: {
         Row: {
