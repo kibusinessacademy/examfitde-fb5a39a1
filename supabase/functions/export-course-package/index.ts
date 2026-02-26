@@ -666,13 +666,17 @@ Deno.serve(async (req) => {
             lessons_total: lfLessons.total,
             minichecks: lfLessons.minichecks,
             didactic_steps: lfLessons.steps,
-            weight_percent: 0, // computed below
+            // Use curriculum-defined weight (SSOT), fallback to question-based
+            weight_percent: typeof lf.weight_percent === "number" ? lf.weight_percent : 0,
           });
         }
-        // Compute weight percentages
-        const totalAllQ = lfDistribution.reduce((s: number, d: any) => s + d.questions_total, 0);
-        for (const d of lfDistribution as Record<string, unknown>[]) {
-          (d as any).weight_percent = totalAllQ > 0 ? Math.round(((d as any).questions_total / totalAllQ) * 1000) / 10 : 0;
+        // If no curriculum weights exist, compute from question counts as fallback
+        const hasCurriculumWeights = lfDistribution.some((d: any) => d.weight_percent > 0);
+        if (!hasCurriculumWeights) {
+          const totalAllQ = lfDistribution.reduce((s: number, d: any) => s + d.questions_total, 0);
+          for (const d of lfDistribution as Record<string, unknown>[]) {
+            (d as any).weight_percent = totalAllQ > 0 ? Math.round(((d as any).questions_total / totalAllQ) * 1000) / 10 : 0;
+          }
         }
       } catch (_e) { /* best-effort */ }
     }
