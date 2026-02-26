@@ -1396,6 +1396,14 @@ Deno.serve(async (req) => {
       .createSignedUrl(path, 3600);
     if (signErr) return json({ error: signErr.message }, 500);
 
+    // QW #15: Compute export checksum for delta detection
+    const exportChecksum = await (async () => {
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
+        JSON.stringify({ blocks: manifest.blocks, fileSize: bytes.length })
+      ));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+    })();
+
     await sb.from("course_package_outputs").upsert(
       {
         package_id: packageId,
@@ -1408,7 +1416,10 @@ Deno.serve(async (req) => {
           created_at: new Date().toISOString(),
           blocks: manifest.blocks,
           red_flags_summary: { total: (redFlags as any).total_flags, critical: (redFlags as any).critical },
+          checksum: exportChecksum,
         },
+        last_exported_at: new Date().toISOString(),
+        export_checksum: exportChecksum,
       },
       { onConflict: "package_id,output_key" }
     );

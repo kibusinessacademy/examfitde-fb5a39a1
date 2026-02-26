@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import EliteHealthBadge from '@/components/admin/EliteHealthBadge';
 
 interface CurriculumHealth {
   id: string;
@@ -272,6 +273,14 @@ export default function CurriculumHealthDashboard() {
           </table>
         </div>
       </div>
+
+      {/* Elite Health Summary */}
+      <Card>
+        <CardContent className="py-4">
+          <CardTitle className="text-sm mb-3">Elite-Readiness Übersicht</CardTitle>
+          <EliteHealthBadge />
+        </CardContent>
+      </Card>
 
       <p className="text-xs text-muted-foreground">
         {filtered.length} von {data.length} Curricula angezeigt
