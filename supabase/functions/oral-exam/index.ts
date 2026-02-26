@@ -4,18 +4,18 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
-import { checkRateLimit, rateLimitResponse } from "../_shared/security.ts";
 
 /**
- * Oral-Exam – Elite IHK-Prüfer (SSOT-konform, Blueprint-first)
+ * Oral-Exam – Elite IHK-Prüfer v2 (SSOT-konform, Blueprint-only)
  *
- * Architektur:
- *   1. Fragen aus oral_exam_blueprints (Szenario + Lead-Questions + Followups + Rubrik)
- *   2. Fallback: question_blueprints (oral/open_ended) 
- *   3. Letzter Fallback: LLM mit striktem IHK-Prompt
- *   4. Bewertung: 4-dimensionale Rubrik (Fachlichkeit, Struktur, Begriffssicherheit, Praxisbezug)
- *   5. Bloom-Level-Matrix für Template-Auswahl
- *   6. Mastery-Signal für Analytics
+ * Fixes applied (Elite Review):
+ *   1. Auth: User-Client (anon+jwt) for RLS, Admin-Client only for logging
+ *   2. SSOT: NO llm_fallback → hard error NO_ORAL_BLUEPRINTS
+ *   3. Deterministic: seeded selection via hash(session_id + order_index)
+ *   4. Turn audit: every phase logged to oral_exam_turns
+ *   5. Server-side scoring: overall_score computed in code, not by LLM
+ *   6. Rate limit per action via check_rate_limit_oral RPC
+ *   7. Idempotency per turn via idempotency_keys
  */
 
 // ── Evaluation Weights ─────────────────────────────────────────
@@ -26,6 +26,14 @@ const EVAL_WEIGHTS = {
   praxisbezug: 0.20,
 } as const;
 
+// ── Rate Limit Configs per Action ──────────────────────────────
+const RATE_LIMITS: Record<string, { window: number; max: number }> = {
+  start_session: { window: 300, max: 5 },
+  generate_question: { window: 60, max: 15 },
+  evaluate_answer: { window: 60, max: 15 },
+  finish_session: { window: 300, max: 5 },
+};
+
 // ── Bloom-Level Question Matrix ────────────────────────────────
 const BLOOM_MATRIX: Record<string, string> = {
   remember: "Stelle eine Frage zu Definition/Abgrenzung oder Aufzählung. Keine generischen 'Erzählen Sie'-Sätze. Erwarte präzise Nennung von Fachbegriffen, Merkmalen oder Kriterien.",
@@ -35,7 +43,7 @@ const BLOOM_MATRIX: Record<string, string> = {
   evaluate: "Stelle eine Frage zum Abwägen/Entscheiden mit Trade-offs und Risiko. Begründungspflicht. Zwei Optionen zur Bewertung anbieten.",
 };
 
-// ── IHK System Prompt (Elite) ──────────────────────────────────
+// ── IHK System Prompt ──────────────────────────────────────────
 function buildSystemPrompt(professionName: string, mode: "practice" | "simulation"): string {
   const strictness = mode === "simulation"
     ? "Du bist streng, sachlich und unterbrichst bei Abschweifen. Kein Hinweis auf richtige Antworten."
@@ -65,134 +73,16 @@ Wenn die übergebenen Daten nicht ausreichen, um eine prüfungskonforme Frage zu
 AUSGABEFORMAT: Ausschließlich valides JSON. Kein Markdown, kein Text außerhalb des JSON.`;
 }
 
-// ── Ask Prompt ─────────────────────────────────────────────────
-function buildAskPrompt(params: {
-  competency: { title: string; description: string; bloom_level: string; exam_relevance_tier: string; typical_misconceptions?: string[] };
-  blueprint: { scenario?: string; lead_questions?: string[]; rubric?: any; title?: string; question_type?: string; difficulty?: string; expected_keywords?: string[] };
-  mastery_level: string;
-  professionName: string;
-}): string {
-  const { competency, blueprint, mastery_level, professionName } = params;
-  const bloomRule = BLOOM_MATRIX[competency.bloom_level] || BLOOM_MATRIX.apply;
-
-  // Mastery-basierte Schwierigkeitsanpassung
-  let masteryInstruction = "";
-  if (mastery_level === "high") {
-    masteryInstruction = "Der Prüfling hat hohes Vorwissen. Stelle eine anspruchsvolle Transfer- oder Bewertungsfrage.";
-  } else if (mastery_level === "low") {
-    masteryInstruction = "Der Prüfling zeigt Wissenslücken. Stelle eine strukturierte Grundfrage mit klarer Erwartung.";
+// ── Deterministic hash for seeded selection ─────────────────────
+function deterministicIndex(seed: string, arrayLength: number): number {
+  if (arrayLength <= 0) return 0;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const chr = seed.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0; // Convert to 32bit integer
   }
-
-  return JSON.stringify({
-    instruction: "Erstelle eine präzise mündliche IHK-Prüfungsfrage.",
-    competency: {
-      title: competency.title,
-      description: competency.description,
-      bloom_level: competency.bloom_level,
-      exam_relevance_tier: competency.exam_relevance_tier,
-      typical_misconceptions: competency.typical_misconceptions || [],
-    },
-    blueprint: {
-      scenario: blueprint.scenario || null,
-      lead_questions: blueprint.lead_questions || [],
-      rubric: blueprint.rubric || null,
-      title: blueprint.title || null,
-    },
-    bloom_matrix_rule: bloomRule,
-    mastery_adjustment: masteryInstruction,
-    profession: professionName,
-    constraints: {
-      no_generic_questions: true,
-      no_erzaehlen_sie: true,
-      must_be_profession_specific: true,
-      answerable_in_90_120_seconds: true,
-    },
-    output_schema: {
-      question: "Die konkrete Prüfungsfrage (kein 'Erzählen Sie...')",
-      time_hint_seconds: 90,
-      expected_keywords: "Array der erwarteten Schlüsselbegriffe in der Antwort",
-      difficulty_signal: "easy|medium|hard",
-    },
-  });
-}
-
-// ── Followup Prompt ────────────────────────────────────────────
-function buildFollowupPrompt(params: {
-  competency: { title: string; typical_misconceptions?: string[] };
-  originalQuestion: string;
-  learnerAnswer: string;
-  blueprint: { followups?: string[]; followup_chains?: any };
-  professionName: string;
-}): string {
-  return JSON.stringify({
-    instruction: "Stelle genau 1-2 gezielte Nachfragen als IHK-Prüfer.",
-    rules: [
-      "Mindestens eine Nachfrage muss: eine typische Fehlvorstellung adressieren ODER eine Abgrenzung verlangen ODER einen Praxisbezug einfordern.",
-      "Keine neue Hauptfrage eröffnen.",
-      "Nachfragen müssen sich auf die gegebene Antwort beziehen.",
-      "Kurz, präzise, prüfungstypisch formuliert.",
-    ],
-    context: {
-      competency: params.competency.title,
-      original_question: params.originalQuestion,
-      learner_answer: params.learnerAnswer,
-      blueprint_followups: params.blueprint.followups || [],
-      typical_misconceptions: params.competency.typical_misconceptions || [],
-      profession: params.professionName,
-    },
-    output_schema: {
-      followups: ["Nachfrage 1", "Nachfrage 2 (optional)"],
-    },
-  });
-}
-
-// ── Evaluate Prompt ────────────────────────────────────────────
-function buildEvaluatePrompt(params: {
-  competency: { title: string; bloom_level: string };
-  question: string;
-  learnerAnswer: string;
-  expectedPoints: string[];
-  blueprint: { rubric?: any; expected_keywords?: string[] };
-  professionName: string;
-}): string {
-  return JSON.stringify({
-    instruction: "Bewerte die mündliche Prüfungsantwort als IHK-Prüfer.",
-    rules: [
-      "Bewerte NUR anhand der übergebenen expected_points und rubric – nicht nach eigenem Wissen.",
-      "Jede Bewertungsdimension 1-5 Punkte (1=mangelhaft, 5=sehr gut).",
-      "Stärken und Schwächen müssen konkret und berufsspezifisch sein.",
-      "Verbesserungsvorschläge müssen umsetzbar sein.",
-      "Musterantwort max 180-220 Wörter (2-3 Minuten Redezeit).",
-    ],
-    context: {
-      profession: params.professionName,
-      competency: params.competency.title,
-      bloom_level: params.competency.bloom_level,
-      question: params.question,
-      learner_answer: params.learnerAnswer,
-      expected_points: params.expectedPoints,
-      rubric: params.blueprint.rubric || null,
-      expected_keywords: params.blueprint.expected_keywords || [],
-    },
-    output_schema: {
-      scores: {
-        fachlichkeit: "1-5",
-        struktur: "1-5",
-        begriffssicherheit: "1-5",
-        praxisbezug: "1-5",
-      },
-      overall_score: "gewichteter Durchschnitt (1-5)",
-      covered_points: ["abgedeckte Punkte"],
-      missed_points: ["fehlende Punkte"],
-      detected_errors: ["erkannte typische Fehler"],
-      feedback: "Detailliertes Prüfer-Feedback",
-      strengths: ["konkrete Stärken"],
-      improvements: ["konkrete Verbesserungsvorschläge"],
-      sample_answer: "Musterantwort (180-220 Wörter)",
-      follow_up_question: "Optionale Prüfer-Nachfrage",
-      mastery_signal: "not_mastered|partial|mastered",
-    },
-  });
+  return Math.abs(hash) % arrayLength;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -204,17 +94,10 @@ function json(data: unknown, origin: string | null, status = 200) {
 }
 
 function parseAIJSON(content: string): any {
-  // Try direct parse first
   try { return JSON.parse(content); } catch { /* continue */ }
-  // Try extracting JSON object
   const objMatch = content.match(/\{[\s\S]*\}/);
   if (objMatch) {
     try { return JSON.parse(objMatch[0]); } catch { /* continue */ }
-  }
-  // Try extracting JSON array  
-  const arrMatch = content.match(/\[[\s\S]*\]/);
-  if (arrMatch) {
-    try { return JSON.parse(arrMatch[0]); } catch { /* continue */ }
   }
   return null;
 }
@@ -230,38 +113,82 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, ...params } = body;
 
-    // Auth
+    // ── FIX 1: Auth via anon+jwt (RLS active) ──────────────────
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Unauthorized" }, origin, 401);
+    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, origin, 401);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // User client: RLS-scoped
+    const sbUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    // Admin client: only for logging/rate-limit RPCs (service_role-only functions)
+    const sbAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await sb.auth.getUser(token);
-    if (userError || !user) return json({ error: "Invalid token" }, origin, 401);
+    const { data: claimsData, error: claimsError } = await sbUser.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) return json({ error: "Invalid token" }, origin, 401);
+    const userId = claimsData.claims.sub as string;
 
-    // Rate limit
-    const rlAllowed = await checkRateLimit(sb, user.id, "oral-exam-evaluate");
-    if (!rlAllowed) return rateLimitResponse(origin);
+    // ── FIX 6: Rate limit per action ───────────────────────────
+    const rlConfig = RATE_LIMITS[action] || { window: 60, max: 20 };
+    const { data: rlResult } = await sbAdmin.rpc("check_rate_limit_oral", {
+      p_user_id: userId,
+      p_action_key: `oral-exam:${action}`,
+      p_window_seconds: rlConfig.window,
+      p_max_requests: rlConfig.max,
+    });
+    if (rlResult && !rlResult.ok) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded", retry_after_sec: rlResult.retry_after_sec }), {
+        status: 429,
+        headers: { ...getCorsHeaders(origin), "Content-Type": "application/json", "Retry-After": String(rlResult.retry_after_sec || 60) },
+      });
+    }
 
-    let result;
+    // ── FIX 7: Idempotency check ───────────────────────────────
+    const idemKey = req.headers.get("x-idempotency-key");
+    if (idemKey && idemKey.length >= 8) {
+      const { data: existing } = await sbAdmin
+        .from("idempotency_keys")
+        .select("response_json")
+        .eq("user_id", userId)
+        .eq("endpoint", "oral-exam")
+        .eq("idem_key", idemKey)
+        .maybeSingle();
+      if (existing?.response_json) {
+        return json(existing.response_json, origin);
+      }
+    }
+
+    let result: any;
     switch (action) {
       case "start_session":
-        result = await startSession(sb, user.id, params);
+        result = await startSession(sbUser, sbAdmin, userId, params);
         break;
       case "generate_question":
-        result = await generateQuestion(sb, params);
+        result = await generateQuestion(sbUser, sbAdmin, userId, params);
         break;
       case "evaluate_answer":
-        result = await evaluateAnswer(sb, params);
+        result = await evaluateAnswer(sbUser, sbAdmin, userId, params);
         break;
       case "finish_session":
-        result = await finishSession(sb, params);
+        result = await finishSession(sbUser, sbAdmin, userId, params);
         break;
       default:
         return json({ error: `Unknown action: ${action}` }, origin, 400);
+    }
+
+    // Store idempotency response
+    if (idemKey && idemKey.length >= 8) {
+      await sbAdmin.rpc("set_idempotency_response", {
+        p_user_id: userId,
+        p_endpoint: "oral-exam",
+        p_key: idemKey,
+        p_response: result,
+      }).catch(() => {}); // tolerate failures
     }
 
     return json(result, origin);
@@ -281,7 +208,7 @@ async function loadProfessionName(sb: any, curriculumId: string): Promise<string
   return result.professionName;
 }
 
-// ── Load enriched competency with SSOT fields ──────────────────
+// ── Load enriched competency ───────────────────────────────────
 async function loadEnrichedCompetency(sb: any, competencyId: string) {
   const { data, error } = await sb
     .from("competencies")
@@ -297,11 +224,38 @@ async function loadEnrichedCompetency(sb: any, competencyId: string) {
   return data;
 }
 
+// ── Log Turn (audit trail) ─────────────────────────────────────
+async function logTurn(sbAdmin: any, params: {
+  sessionId: string;
+  questionId?: string;
+  userId: string;
+  phase: "ask" | "followup" | "evaluate" | "finish";
+  role: "examiner" | "learner";
+  payload: any;
+  sourceBlueprintId?: string;
+  renderedQuestion?: string;
+  sourceBlueprintQuestion?: string;
+  renderingModel?: string;
+}) {
+  await sbAdmin.from("oral_exam_turns").insert({
+    session_id: params.sessionId,
+    question_id: params.questionId || null,
+    user_id: params.userId,
+    phase: params.phase,
+    role: params.role,
+    payload_json: params.payload,
+    source_blueprint_id: params.sourceBlueprintId || null,
+    rendered_question: params.renderedQuestion || null,
+    source_blueprint_question: params.sourceBlueprintQuestion || null,
+    rendering_model: params.renderingModel || null,
+  }).catch((e: any) => console.warn("[OralExam] Turn log failed:", e));
+}
+
 // ── Start Session ──────────────────────────────────────────────
-async function startSession(sb: any, userId: string, params: any) {
+async function startSession(sbUser: any, sbAdmin: any, userId: string, params: any) {
   const { curriculum_id, mode = "practice", total_questions = 5 } = params;
 
-  const { data: session, error } = await sb
+  const { data: session, error } = await sbUser
     .from("oral_exam_sessions")
     .insert({
       user_id: userId,
@@ -315,22 +269,37 @@ async function startSession(sb: any, userId: string, params: any) {
 
   if (error) throw error;
 
-  const firstQuestion = await generateQuestionForSession(sb, session.id, curriculum_id, 0, mode);
+  const firstQuestion = await generateQuestionForSession(sbUser, sbAdmin, userId, session.id, curriculum_id, 0, mode);
+
+  await logTurn(sbAdmin, {
+    sessionId: session.id,
+    userId,
+    phase: "ask",
+    role: "examiner",
+    payload: { question: firstQuestion.question_text, blueprint_id: firstQuestion.blueprint_id },
+    sourceBlueprintId: firstQuestion.blueprint_id,
+    renderedQuestion: firstQuestion.question_text,
+    sourceBlueprintQuestion: firstQuestion.source_blueprint_question || null,
+    renderingModel: firstQuestion.rendering_model || null,
+  });
+
   return { session, firstQuestion };
 }
 
-// ── Generate Question (Blueprint-first) ────────────────────────
+// ── Generate Question (Blueprint-only, deterministic) ──────────
 async function generateQuestionForSession(
-  sb: any,
+  sbUser: any,
+  sbAdmin: any,
+  userId: string,
   sessionId: string,
   curriculumId: string,
   orderIndex: number,
   mode: "practice" | "simulation" = "practice",
 ) {
-  const professionName = await loadProfessionName(sb, curriculumId);
+  const professionName = await loadProfessionName(sbAdmin, curriculumId);
 
-  // Load competencies with enrichment data
-  const { data: competencies } = await sb
+  // Load competencies
+  const { data: competencies } = await sbUser
     .from("competencies")
     .select(`
       id, title, description, code, bloom_level, taxonomy_level,
@@ -343,108 +312,92 @@ async function generateQuestionForSession(
   if (!competencies?.length) throw new Error("No competencies found for curriculum");
 
   // Avoid repeats
-  const { data: usedQuestions } = await sb
+  const { data: usedQuestions } = await sbUser
     .from("oral_exam_questions")
     .select("competency_id")
     .eq("session_id", sessionId);
 
   const usedCompIds = new Set((usedQuestions || []).map((q: any) => q.competency_id));
   const available = competencies.filter((c: any) => !usedCompIds.has(c.id));
-  
-  // Prefer high exam_relevance_tier competencies
+
+  // ── FIX 3: Deterministic selection (no Math.random) ──────────
   const pool = available.length > 0 ? available : competencies;
-  const weighted = pool.sort((a: any, b: any) => {
+
+  // Sort by exam_relevance_tier ASC (tier 1 = most relevant first), then by code
+  const sorted = pool.sort((a: any, b: any) => {
     const tierA = parseInt(a.exam_relevance_tier) || 2;
     const tierB = parseInt(b.exam_relevance_tier) || 2;
-    return tierA - tierB; // tier 1 = most relevant, pick first
+    if (tierA !== tierB) return tierA - tierB;
+    return (a.code || "").localeCompare(b.code || "");
   });
-  
-  // Pick from top tier with some randomness
-  const topTier = weighted.filter((c: any) => (parseInt(c.exam_relevance_tier) || 2) <= 2);
-  const candidates = topTier.length > 0 ? topTier : weighted;
-  const competency = candidates[Math.floor(Math.random() * candidates.length)];
 
-  // ── STEP 1: Try oral_exam_blueprints (richest source) ──
-  const { data: oralBlueprints } = await sb
+  // Deterministic pick from top-tier candidates
+  const topTier = sorted.filter((c: any) => (parseInt(c.exam_relevance_tier) || 2) <= 2);
+  const candidates = topTier.length > 0 ? topTier : sorted;
+  const pickIndex = deterministicIndex(`${sessionId}:${orderIndex}`, candidates.length);
+  const competency = candidates[pickIndex];
+
+  // ── FIX 2: SSOT – oral_exam_blueprints ONLY ─────────────────
+  const { data: oralBlueprints } = await sbUser
     .from("oral_exam_blueprints")
-    .select("id, title, scenario, lead_questions, followups, rubric, followup_chains, stress_config, scoring_weights, metadata")
+    .select("id, title, scenario, lead_questions, followups, rubric, metadata")
     .eq("competency_id", competency.id)
     .eq("status", "approved")
     .limit(10);
 
-  let questionText: string;
-  let expectedPoints: string[] = [];
-  let followUpQuestions: string[] = [];
-  let blueprintId: string | null = null;
-  let source: "oral_blueprint" | "question_blueprint" | "llm_fallback" = "oral_blueprint";
-  let blueprintRubric: any = null;
-  let blueprintFollowups: string[] = [];
-
-  if (oralBlueprints?.length) {
-    // ── Use oral_exam_blueprint ──
-    const bp = oralBlueprints[Math.floor(Math.random() * oralBlueprints.length)];
-    blueprintId = bp.id;
-    blueprintRubric = bp.rubric;
-    blueprintFollowups = bp.followups || [];
-
-    // Use lead_questions from blueprint + LLM to contextualize
-    const leadQ = bp.lead_questions || [];
-    if (leadQ.length > 0) {
-      // Pick a lead question and enhance with LLM context
-      const selectedLead = leadQ[Math.floor(Math.random() * leadQ.length)];
-      questionText = await enhanceLeadQuestion(selectedLead, competency, bp.scenario, professionName, mode);
-    } else {
-      // Generate from scenario
-      questionText = await generateFromScenario(bp.scenario, competency, professionName, mode);
-    }
-
-    expectedPoints = extractExpectedPoints(bp.rubric);
-    followUpQuestions = bp.followups?.slice(0, 2) || [];
-
-    console.log(`[OralExam] ✅ oral_exam_blueprint for ${competency.code} (bp: ${bp.id.slice(0, 8)})`);
-  } else {
-    // ── STEP 2: Try question_blueprints (fallback) ──
-    const { data: qBlueprints } = await sb
-      .from("question_blueprints")
-      .select(`
-        id, question_template, question_type, difficulty,
-        correct_answers:blueprint_correct_answers(answer_template),
-        variables:blueprint_variables(variable_name, variable_type, allowed_values, range_min, range_max)
-      `)
-      .eq("competency_id", competency.id)
-      .in("question_type", ["oral", "open_ended", "essay"])
-      .eq("status", "approved")
-      .limit(10);
-
-    if (qBlueprints?.length) {
-      source = "question_blueprint";
-      const bp = qBlueprints[Math.floor(Math.random() * qBlueprints.length)];
-      blueprintId = bp.id;
-      questionText = renderTemplate(bp.question_template, bp.variables || []);
-      expectedPoints = (bp.correct_answers || []).map((a: any) => a.answer_template);
-      followUpQuestions = await generateFollowUps(competency, questionText, professionName);
-
-      console.log(`[OralExam] ⚠️ question_blueprint fallback for ${competency.code} (bp: ${bp.id.slice(0, 8)})`);
-    } else {
-      // ── STEP 3: LLM fallback ──
-      source = "llm_fallback";
-      console.warn(`[OralExam] ❌ No blueprints for ${competency.code} – LLM fallback`);
-
-      const llmResult = await generateQuestionViaLLM(competency, professionName, mode);
-      questionText = llmResult.question;
-      expectedPoints = llmResult.expected_points;
-      followUpQuestions = llmResult.follow_up_questions;
-    }
+  if (!oralBlueprints?.length) {
+    // ── HARD ERROR: No LLM fallback ────────────────────────────
+    console.error(`[OralExam] NO_ORAL_BLUEPRINTS for competency ${competency.id} (${competency.code})`);
+    throw new Error(JSON.stringify({
+      error: "NO_ORAL_BLUEPRINTS",
+      message: `Keine genehmigten Oral-Blueprints für Kompetenz "${competency.title}" (${competency.code}). Bitte oral_exam_blueprints generieren.`,
+      competency_id: competency.id,
+      competency_code: competency.code,
+    }));
   }
 
+  // Deterministic blueprint selection
+  const bpIndex = deterministicIndex(`${sessionId}:bp:${orderIndex}`, oralBlueprints.length);
+  const bp = oralBlueprints[bpIndex];
+  const blueprintRubric = bp.rubric;
+  const blueprintFollowups = bp.followups || [];
+
+  // Pick lead question deterministically
+  const leadQ = bp.lead_questions || [];
+  let questionText: string;
+  let sourceBlueprintQuestion: string | null = null;
+  let renderingModel: string | null = null;
+
+  if (leadQ.length > 0) {
+    const leadIdx = deterministicIndex(`${sessionId}:lead:${orderIndex}`, leadQ.length);
+    const selectedLead = leadQ[leadIdx];
+    sourceBlueprintQuestion = selectedLead;
+
+    // Enhance lead question (rendering only – SSOT stays unchanged)
+    const enhanced = await enhanceLeadQuestion(selectedLead, competency, bp.scenario, professionName, mode);
+    questionText = enhanced.question;
+    renderingModel = enhanced.model;
+  } else {
+    // Generate from scenario
+    const generated = await generateFromScenario(bp.scenario, competency, professionName, mode);
+    questionText = generated.question;
+    sourceBlueprintQuestion = bp.scenario?.slice(0, 200) || null;
+    renderingModel = generated.model;
+  }
+
+  const expectedPoints = extractExpectedPoints(blueprintRubric);
+  const followUpQuestions = blueprintFollowups.slice(0, 3);
+
+  console.log(`[OralExam] ✅ blueprint ${bp.id.slice(0, 8)} for ${competency.code} (deterministic idx=${pickIndex}/${bpIndex})`);
+
   // Persist question
-  const { data: question, error } = await sb
+  const { data: question, error } = await sbUser
     .from("oral_exam_questions")
     .insert({
       session_id: sessionId,
       competency_id: competency.id,
       learning_field_id: competency.learning_field.id,
-      blueprint_id: blueprintId,
+      blueprint_id: bp.id,
       question_text: questionText,
       expected_answer_points: expectedPoints,
       follow_up_questions: followUpQuestions,
@@ -455,17 +408,22 @@ async function generateQuestionForSession(
     .single();
 
   if (error) throw error;
-  return question;
+
+  return {
+    ...question,
+    source_blueprint_question: sourceBlueprintQuestion,
+    rendering_model: renderingModel,
+  };
 }
 
-// ── Enhance lead question with LLM (keep SSOT, add profession context) ──
+// ── Enhance lead question (rendering, not mutation) ────────────
 async function enhanceLeadQuestion(
   leadQuestion: string,
   competency: any,
   scenario: string | null,
   professionName: string,
   mode: string,
-): Promise<string> {
+): Promise<{ question: string; model: string | null }> {
   const bloomRule = BLOOM_MATRIX[competency.bloom_level] || BLOOM_MATRIX.apply;
 
   try {
@@ -474,10 +432,7 @@ async function enhanceLeadQuestion(
       provider: routed.provider,
       model: routed.model,
       messages: [
-        {
-          role: "system",
-          content: buildSystemPrompt(professionName, mode as any),
-        },
+        { role: "system", content: buildSystemPrompt(professionName, mode as any) },
         {
           role: "user",
           content: JSON.stringify({
@@ -496,22 +451,21 @@ async function enhanceLeadQuestion(
     });
 
     const parsed = parseAIJSON(result.content);
-    if (parsed?.question) return parsed.question;
+    if (parsed?.question) return { question: parsed.question, model: routed.model };
   } catch (e) {
     console.warn("[OralExam] Lead question enhancement failed, using raw:", e);
   }
 
-  // Fallback: use raw lead question
-  return leadQuestion;
+  return { question: leadQuestion, model: null };
 }
 
-// ── Generate question from blueprint scenario ──────────────────
+// ── Generate question from scenario ────────────────────────────
 async function generateFromScenario(
   scenario: string,
   competency: any,
   professionName: string,
   mode: string,
-): Promise<string> {
+): Promise<{ question: string; model: string | null }> {
   const bloomRule = BLOOM_MATRIX[competency.bloom_level] || BLOOM_MATRIX.apply;
 
   try {
@@ -520,10 +474,7 @@ async function generateFromScenario(
       provider: routed.provider,
       model: routed.model,
       messages: [
-        {
-          role: "system",
-          content: buildSystemPrompt(professionName, mode as any),
-        },
+        { role: "system", content: buildSystemPrompt(professionName, mode as any) },
         {
           role: "user",
           content: JSON.stringify({
@@ -541,12 +492,15 @@ async function generateFromScenario(
     });
 
     const parsed = parseAIJSON(result.content);
-    if (parsed?.question) return parsed.question;
+    if (parsed?.question) return { question: parsed.question, model: routed.model };
   } catch (e) {
     console.warn("[OralExam] Scenario generation failed:", e);
   }
 
-  return `Betrachten Sie folgendes Szenario: ${scenario?.slice(0, 200)}... Erläutern Sie als ${professionName}, wie Sie in dieser Situation vorgehen würden.`;
+  return {
+    question: `Betrachten Sie folgendes Szenario: ${scenario?.slice(0, 200)}... Erläutern Sie als ${professionName}, wie Sie in dieser Situation vorgehen würden.`,
+    model: null,
+  };
 }
 
 // ── Extract expected points from rubric ────────────────────────
@@ -561,117 +515,11 @@ function extractExpectedPoints(rubric: any): string[] {
   return [];
 }
 
-// ── Template rendering (for question_blueprints fallback) ──────
-function renderTemplate(template: string, variables: any[]): string {
-  let rendered = template;
-  for (const v of variables) {
-    const placeholder = `{{${v.variable_name}}}`;
-    let value: string;
-    if (v.allowed_values?.length) {
-      value = v.allowed_values[Math.floor(Math.random() * v.allowed_values.length)];
-    } else if (v.variable_type === "number" && v.range_min !== null && v.range_max !== null) {
-      const step = v.range_step || 1;
-      const range = Math.floor((v.range_max - v.range_min) / step);
-      value = String(v.range_min + Math.floor(Math.random() * (range + 1)) * step);
-    } else {
-      value = v.variable_name;
-    }
-    rendered = rendered.replaceAll(placeholder, value);
-  }
-  return rendered;
-}
-
-// ── Generate follow-ups ────────────────────────────────────────
-async function generateFollowUps(competency: any, mainQuestion: string, professionName: string): Promise<string[]> {
-  try {
-    const routed = getModel("oral_exam");
-    const result = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        {
-          role: "system",
-          content: `Du bist ein IHK-Prüfer für ${professionName}. Generiere 2 gezielte Nachfragen. Mindestens eine muss: eine typische Fehlvorstellung adressieren ODER eine Abgrenzung verlangen ODER einen Praxisbezug einfordern. NUR JSON-Array: ["Frage1", "Frage2"]`,
-        },
-        {
-          role: "user",
-          content: `Kompetenz: ${competency.title}\nBloom: ${competency.bloom_level || "apply"}\nHauptfrage: ${mainQuestion}`,
-        },
-      ],
-      max_tokens: 300,
-    });
-
-    const parsed = parseAIJSON(result.content);
-    if (Array.isArray(parsed)) return parsed;
-  } catch { /* fallback */ }
-
-  return [
-    `Können Sie das an einem konkreten Beispiel aus Ihrem Berufsalltag als ${professionName} erläutern?`,
-    `Welche typischen Fehler werden dabei in der Praxis häufig gemacht?`,
-  ];
-}
-
-// ── LLM Fallback Question Generation ───────────────────────────
-async function generateQuestionViaLLM(
-  competency: any,
-  professionName: string,
-  mode: string,
-): Promise<{ question: string; expected_points: string[]; follow_up_questions: string[] }> {
-  const bloomRule = BLOOM_MATRIX[competency.bloom_level] || BLOOM_MATRIX.apply;
-
-  try {
-    const routed = getModel("oral_exam");
-    const result = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        {
-          role: "system",
-          content: buildSystemPrompt(professionName, mode as any),
-        },
-        {
-          role: "user",
-          content: buildAskPrompt({
-            competency: {
-              title: competency.title,
-              description: competency.description || competency.title,
-              bloom_level: competency.bloom_level || "apply",
-              exam_relevance_tier: competency.exam_relevance_tier || "2",
-              typical_misconceptions: competency.typical_misconceptions || [],
-            },
-            blueprint: { question_type: "application", difficulty: "medium" },
-            mastery_level: "partial",
-            professionName,
-          }),
-        },
-      ],
-      max_tokens: 600,
-    });
-
-    const parsed = parseAIJSON(result.content);
-    if (parsed?.question) {
-      return {
-        question: parsed.question,
-        expected_points: parsed.expected_keywords || [],
-        follow_up_questions: await generateFollowUps(competency, parsed.question, professionName),
-      };
-    }
-  } catch (e) {
-    console.error("[OralExam] LLM fallback error:", e);
-  }
-
-  return {
-    question: `Erläutern Sie als ${professionName} die wesentlichen Aspekte von "${competency.title}" und beschreiben Sie einen konkreten Fall aus Ihrem Arbeitsalltag.`,
-    expected_points: ["Fachliche Definition mit berufsspezifischen Begriffen", "Praktische Anwendung im Berufsalltag"],
-    follow_up_questions: [`Welche typischen Fehler werden dabei in der Praxis gemacht?`],
-  };
-}
-
 // ── Generate Question (action handler) ─────────────────────────
-async function generateQuestion(sb: any, params: any) {
+async function generateQuestion(sbUser: any, sbAdmin: any, userId: string, params: any) {
   const { session_id } = params;
 
-  const { data: session } = await sb
+  const { data: session } = await sbUser
     .from("oral_exam_sessions")
     .select("*, curriculum_id, mode")
     .eq("id", session_id)
@@ -680,19 +528,33 @@ async function generateQuestion(sb: any, params: any) {
   if (!session) throw new Error("Session not found");
 
   const question = await generateQuestionForSession(
-    sb, session_id, session.curriculum_id, session.current_question_index, session.mode,
+    sbUser, sbAdmin, userId, session_id, session.curriculum_id, session.current_question_index, session.mode,
   );
+
+  // ── FIX 4: Log turn ─────────────────────────────────────────
+  await logTurn(sbAdmin, {
+    sessionId: session_id,
+    questionId: question.id,
+    userId,
+    phase: "ask",
+    role: "examiner",
+    payload: { question: question.question_text, blueprint_id: question.blueprint_id },
+    sourceBlueprintId: question.blueprint_id,
+    renderedQuestion: question.question_text,
+    sourceBlueprintQuestion: question.source_blueprint_question || null,
+    renderingModel: question.rendering_model || null,
+  });
 
   return { question };
 }
 
-// ── Evaluate Answer (Elite Rubric) ─────────────────────────────
-async function evaluateAnswer(sb: any, params: any) {
+// ── Evaluate Answer (Elite Rubric + Server-side Scoring) ───────
+async function evaluateAnswer(sbUser: any, sbAdmin: any, userId: string, params: any) {
   const { question_id, user_answer } = params;
 
   if (!user_answer?.trim()) throw new Error("Empty answer");
 
-  const { data: question } = await sb
+  const { data: question } = await sbUser
     .from("oral_exam_questions")
     .select("*")
     .eq("id", question_id)
@@ -700,8 +562,18 @@ async function evaluateAnswer(sb: any, params: any) {
 
   if (!question) throw new Error("Question not found");
 
-  // Load session for mode + curriculum
-  const { data: session } = await sb
+  // Log learner turn
+  await logTurn(sbAdmin, {
+    sessionId: question.session_id,
+    questionId: question_id,
+    userId,
+    phase: "evaluate",
+    role: "learner",
+    payload: { answer: user_answer.slice(0, 5000) },
+  });
+
+  // Load session
+  const { data: session } = await sbUser
     .from("oral_exam_sessions")
     .select("curriculum_id, mode, current_question_index, total_questions")
     .eq("id", question.session_id)
@@ -709,20 +581,19 @@ async function evaluateAnswer(sb: any, params: any) {
 
   if (!session) throw new Error("Session not found");
 
-  const professionName = await loadProfessionName(sb, session.curriculum_id);
+  const professionName = await loadProfessionName(sbAdmin, session.curriculum_id);
 
-  // Load enriched competency if available
   let competency: any = { title: "", bloom_level: "apply" };
   if (question.competency_id) {
     try {
-      competency = await loadEnrichedCompetency(sb, question.competency_id);
+      competency = await loadEnrichedCompetency(sbAdmin, question.competency_id);
     } catch { /* use defaults */ }
   }
 
-  // Load blueprint rubric if available
+  // Load blueprint rubric
   let blueprintData: any = {};
   if (question.blueprint_id) {
-    const { data: bp } = await sb
+    const { data: bp } = await sbAdmin
       .from("oral_exam_blueprints")
       .select("rubric, followups, scoring_weights")
       .eq("id", question.blueprint_id)
@@ -730,31 +601,39 @@ async function evaluateAnswer(sb: any, params: any) {
     if (bp) blueprintData = bp;
   }
 
-  // Build evaluation prompt
+  // LLM evaluation
   const routed = getModel("oral_exam");
   const result = await callAIJSON({
     provider: routed.provider,
     model: routed.model,
     messages: [
-      {
-        role: "system",
-        content: buildSystemPrompt(professionName, session.mode || "practice"),
-      },
+      { role: "system", content: buildSystemPrompt(professionName, session.mode || "practice") },
       {
         role: "user",
-        content: buildEvaluatePrompt({
-          competency: {
-            title: competency.title || "",
-            bloom_level: competency.bloom_level || "apply",
-          },
-          question: question.question_text,
-          learnerAnswer: user_answer,
-          expectedPoints: question.expected_answer_points || [],
-          blueprint: {
+        content: JSON.stringify({
+          instruction: "Bewerte die mündliche Prüfungsantwort als IHK-Prüfer.",
+          rules: [
+            "Bewerte NUR anhand der übergebenen expected_points und rubric.",
+            "Jede Bewertungsdimension 1-5 Punkte (1=mangelhaft, 5=sehr gut).",
+            "Liefere NUR die Einzelscores – der Server berechnet overall_score.",
+            "Stärken und Schwächen müssen konkret und berufsspezifisch sein.",
+            "Musterantwort max 180-220 Wörter.",
+          ],
+          context: {
+            profession: professionName,
+            competency: competency.title,
+            bloom_level: competency.bloom_level,
+            question: question.question_text,
+            learner_answer: user_answer,
+            expected_points: question.expected_answer_points || [],
             rubric: blueprintData.rubric || null,
-            expected_keywords: [],
           },
-          professionName,
+          output_schema: {
+            scores: { fachlichkeit: "1-5", struktur: "1-5", begriffssicherheit: "1-5", praxisbezug: "1-5" },
+            covered_points: [], missed_points: [], detected_errors: [],
+            feedback: "", strengths: [], improvements: [],
+            sample_answer: "", follow_up_question: "",
+          },
         }),
       },
     ],
@@ -764,10 +643,8 @@ async function evaluateAnswer(sb: any, params: any) {
   let evaluation = parseAIJSON(result.content);
 
   if (!evaluation?.scores) {
-    // Fallback evaluation
     evaluation = {
       scores: { fachlichkeit: 3, struktur: 3, begriffssicherheit: 3, praxisbezug: 3 },
-      overall_score: 3,
       covered_points: [],
       missed_points: question.expected_answer_points || [],
       detected_errors: [],
@@ -776,16 +653,15 @@ async function evaluateAnswer(sb: any, params: any) {
       improvements: ["Bitte versuchen Sie es erneut mit einer ausführlicheren Antwort."],
       sample_answer: "",
       follow_up_question: "",
-      mastery_signal: "partial",
     };
   }
 
-  // Normalize scores (handle both 1-5 scale and 0-1 scale from old prompts)
-  const scores = evaluation.scores || evaluation;
-  const fach = normalizeScore(scores.fachlichkeit ?? evaluation.fachlichkeit_score);
-  const struk = normalizeScore(scores.struktur ?? evaluation.struktur_score);
-  const begrif = normalizeScore(scores.begriffssicherheit ?? evaluation.begriffssicherheit_score);
-  const praxis = normalizeScore(scores.praxisbezug ?? evaluation.praxisbezug_score);
+  // ── FIX 5: Server-side scoring (LLM provides raw scores, server computes overall) ──
+  const scores = evaluation.scores || {};
+  const fach = clampScore(scores.fachlichkeit);
+  const struk = clampScore(scores.struktur);
+  const begrif = clampScore(scores.begriffssicherheit);
+  const praxis = clampScore(scores.praxisbezug);
 
   const overallWeighted =
     fach * EVAL_WEIGHTS.fachlichkeit +
@@ -793,8 +669,10 @@ async function evaluateAnswer(sb: any, params: any) {
     begrif * EVAL_WEIGHTS.begriffssicherheit +
     praxis * EVAL_WEIGHTS.praxisbezug;
 
-  // Persist to DB (store as 0-1 for backwards compat)
-  const { error } = await sb
+  const masterySignal = deriveMasterySignal(overallWeighted);
+
+  // Persist to DB (0-1 scale for backwards compat)
+  const { error } = await sbUser
     .from("oral_exam_questions")
     .update({
       user_answer,
@@ -812,34 +690,50 @@ async function evaluateAnswer(sb: any, params: any) {
   if (error) throw error;
 
   // Update session index
-  await sb
+  await sbUser
     .from("oral_exam_sessions")
     .update({ current_question_index: (session.current_question_index || 0) + 1 })
     .eq("id", question.session_id);
 
+  const evaluationResult = {
+    scores: { fachlichkeit: fach, struktur: struk, begriffssicherheit: begrif, praxisbezug: praxis },
+    overall_score: Math.round(overallWeighted * 100) / 100,
+    covered_points: evaluation.covered_points || [],
+    missed_points: evaluation.missed_points || [],
+    detected_errors: evaluation.detected_errors || [],
+    feedback: evaluation.feedback || "",
+    strengths: evaluation.strengths || [],
+    improvements: evaluation.improvements || [],
+    sample_answer: evaluation.sample_answer || "",
+    follow_up_question: evaluation.follow_up_question || "",
+    mastery_signal: masterySignal,
+  };
+
+  // Log examiner evaluation turn
+  await logTurn(sbAdmin, {
+    sessionId: question.session_id,
+    questionId: question_id,
+    userId,
+    phase: "evaluate",
+    role: "examiner",
+    payload: evaluationResult,
+    renderingModel: routed.model,
+  });
+
   return {
-    evaluation: {
-      scores: { fachlichkeit: fach, struktur: struk, begriffssicherheit: begrif, praxisbezug: praxis },
-      overall_score: overallWeighted,
-      covered_points: evaluation.covered_points || [],
-      missed_points: evaluation.missed_points || [],
-      detected_errors: evaluation.detected_errors || [],
-      feedback: evaluation.feedback || "",
-      strengths: evaluation.strengths || [],
-      improvements: evaluation.improvements || [],
-      sample_answer: evaluation.sample_answer || "",
-      follow_up_question: evaluation.follow_up_question || "",
-      mastery_signal: deriveMasterySignal(overallWeighted),
-    },
+    evaluation: evaluationResult,
     is_last: (session.current_question_index || 0) + 1 >= session.total_questions,
   };
 }
 
-// ── Normalize score to 1-5 scale ───────────────────────────────
-function normalizeScore(value: number | undefined): number {
+// ── Clamp score to 1-5 integer scale ───────────────────────────
+function clampScore(value: number | undefined): number {
   if (value === undefined || value === null) return 3;
-  if (value <= 1) return Math.round(value * 5 * 10) / 10; // 0-1 → 1-5
-  return Math.min(5, Math.max(1, Math.round(value * 10) / 10)); // already 1-5
+  const n = Number(value);
+  if (isNaN(n)) return 3;
+  // Handle 0-1 scale from old prompts
+  if (n > 0 && n <= 1) return Math.round(n * 5);
+  return Math.min(5, Math.max(1, Math.round(n)));
 }
 
 // ── Derive mastery signal ──────────────────────────────────────
@@ -850,10 +744,10 @@ function deriveMasterySignal(overallScore: number): "not_mastered" | "partial" |
 }
 
 // ── Finish Session ─────────────────────────────────────────────
-async function finishSession(sb: any, params: any) {
+async function finishSession(sbUser: any, sbAdmin: any, userId: string, params: any) {
   const { session_id } = params;
 
-  const { data: questions } = await sb
+  const { data: questions } = await sbUser
     .from("oral_exam_questions")
     .select("*")
     .eq("session_id", session_id);
@@ -879,7 +773,7 @@ async function finishSession(sb: any, params: any) {
     if (q.missed_points) q.missed_points.forEach((p: string) => allWeaknesses.add(p));
   });
 
-  const { data: session, error } = await sb
+  const { data: session, error } = await sbUser
     .from("oral_exam_sessions")
     .update({
       finished_at: new Date().toISOString(),
@@ -898,6 +792,15 @@ async function finishSession(sb: any, params: any) {
     .single();
 
   if (error) throw error;
+
+  // Log finish turn
+  await logTurn(sbAdmin, {
+    sessionId: session_id,
+    userId,
+    phase: "finish",
+    role: "examiner",
+    payload: { overall_score: overallScore, passed: overallScore >= 50, questions_count: questions.length },
+  });
 
   return {
     session,

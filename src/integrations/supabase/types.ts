@@ -22065,6 +22065,7 @@ export type Database = {
         Returns: Json
       }
       classify_job_error: { Args: { p_error: string }; Returns: string }
+      cleanup_oral_exam_ephemeral: { Args: never; Returns: undefined }
       cleanup_provider_history: { Args: never; Returns: number }
       cleanup_security_tables: { Args: never; Returns: undefined }
       cleanup_stale_locks: {
@@ -23375,15 +23376,25 @@ export type Database = {
         Args: { p_action_id: string; p_days?: number }
         Returns: undefined
       }
-      set_idempotency_response: {
-        Args: {
-          p_endpoint: string
-          p_key: string
-          p_response: Json
-          p_user_id: string
-        }
-        Returns: undefined
-      }
+      set_idempotency_response:
+        | {
+            Args: {
+              p_endpoint: string
+              p_key: string
+              p_response: Json
+              p_user_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_endpoint: string
+              p_key: string
+              p_response: Json
+              p_user_id: string
+            }
+            Returns: undefined
+          }
       set_package_status: {
         Args: { p_id: string; p_meta?: Json; p_status: string }
         Returns: undefined
