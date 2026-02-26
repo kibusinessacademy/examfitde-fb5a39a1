@@ -5,15 +5,24 @@ import type { AIProvider } from "../_shared/ai-client.ts";
 import { computeElite, buildAnnotationInput } from "../_shared/elite-annotation.ts";
 
 /**
- * package-elite-harden — Pipeline Step
+ * package-elite-harden — Pipeline Step (Phase-Split v2)
+ *
+ * Supports explicit phases to avoid timeout coupling:
+ *   phase: "annotations_only"  → P0: SSOT annotation only, finalize immediately
+ *   phase: "minichecks_only"   → Harden MiniChecks only
+ *   phase: "oral_only"         → Harden Oral Blueprints only
+ *   phase: "all"               → Legacy: run everything sequentially (small packages only)
  *
  * SSOT Rules:
  * 1. Approved questions → annotations go to exam_question_elite_annotations (NEVER mutate approved content)
  * 2. Draft questions → annotate directly in exam_questions + AI content upgrade for weak items
  * 3. Batch upserts (chunks of 200) to avoid timeout
  * 4. Manual joins (no FK constraints for PostgREST)
- * 5. Idempotent: skips if course_packages.elite_hardening_version >= 1
+ * 5. Idempotent: skips if course_packages.elite_hardening_version >= 1 (for "all" mode)
+ * 6. Phase-specific finalization: each phase updates run ledger independently
  */
+
+type Phase = "annotations_only" | "minichecks_only" | "oral_only" | "all";
 
 const TIME_BUDGET_MS = 110_000;
 const MAX_EXAM_HARDEN = 80;
@@ -21,8 +30,17 @@ const MAX_MINICHECK_HARDEN = 40;
 const MAX_ORAL_HARDEN = 30;
 const BATCH_SIZE = 200;
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", ...corsHeaders },
+  });
 }
 
 function assertUuid(name: string, v: unknown) {
@@ -72,6 +90,7 @@ async function hardenExamQuestions(
   curriculumId: string,
   berufName: string,
   start: number,
+  annotationsOnly: boolean,
 ): Promise<{ upgraded: number; annotated: number; failed: number; total: number }> {
   // ── Load ALL questions via pagination (Supabase 1000-row limit) ──
   const questions: any[] = [];
@@ -109,11 +128,9 @@ async function hardenExamQuestions(
   // ── Phase 1a: Approved → annotation table (batch upsert, never mutate exam_questions) ──
   const approved = questions.filter((q: any) => q.status === "approved");
 
-  // Check which are already annotated
   const approvedIds = approved.map((q: any) => q.id);
   let annotatedSet = new Set<string>();
   if (approvedIds.length > 0) {
-    // Load in batches of 200 to avoid query limits
     for (let i = 0; i < approvedIds.length; i += BATCH_SIZE) {
       const chunk = approvedIds.slice(i, i + BATCH_SIZE);
       const { data: existing } = await sb
@@ -177,6 +194,11 @@ async function hardenExamQuestions(
   const totalAnnotated = annotationRows.length + draftMeta.length;
   console.log(`[EliteHarden] Phase 1b: ${draftMeta.length} draft → direct annotation. Total annotated: ${totalAnnotated}`);
 
+  // ── If annotations_only: STOP HERE — no AI content upgrade ──
+  if (annotationsOnly) {
+    return { upgraded: 0, annotated: totalAnnotated, failed: 0, total: questions.length };
+  }
+
   // ── Phase 2: AI content upgrade for weak DRAFT questions only ──
   const weakDrafts: string[] = [];
   for (const q of draftQuestions) {
@@ -226,7 +248,6 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
         upgraded_data: parsed,
       }).then(() => {}, () => {});
 
-      // Re-compute elite after AI upgrade
       const upgradedInput = buildAnnotationInput(
         { ...q, trap_tags: parsed.trap_tags || q.trap_tags, distractor_meta: parsed.distractor_meta || q.distractor_meta, cognitive_level: parsed.cognitive_level || q.cognitive_level },
         bpMap.get(q.blueprint_id) || null,
@@ -371,9 +392,10 @@ JSON: {"scenario":"...","lead_questions":["..."],"followups":["..."],"rubric":{"
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MAIN HANDLER
+// MAIN HANDLER (Phase-Split v2)
 // ═══════════════════════════════════════════════════════════════
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -390,8 +412,10 @@ Deno.serve(async (req) => {
   const packageId = p.package_id as string;
   const curriculumId = p.curriculum_id as string;
   const courseId = p.course_id as string | undefined;
+  const phase: Phase = (["annotations_only", "minichecks_only", "oral_only", "all"] as Phase[])
+    .includes(p.phase) ? p.phase : "all";
 
-  // ── Idempotency ──
+  // ── Idempotency: for "all" and "annotations_only", check elite_hardening_version ──
   const { data: pkg } = await sb
     .from("course_packages")
     .select("elite_hardening_version, title, curriculum_id")
@@ -400,7 +424,8 @@ Deno.serve(async (req) => {
 
   if (!pkg) return json({ error: "Package not found" }, 404);
 
-  if ((pkg as any).elite_hardening_version >= 1) {
+  // For "all" mode: skip if already hardened (backward compat)
+  if (phase === "all" && (pkg as any).elite_hardening_version >= 1) {
     console.log(`[EliteHarden] Package ${packageId.slice(0, 8)} already hardened — skipping`);
     return json({ ok: true, batch_complete: true, skipped: true, reason: "already_hardened" });
   }
@@ -415,7 +440,12 @@ Deno.serve(async (req) => {
 
   const { data: run } = await sb
     .from("elite_hardening_runs")
-    .insert({ package_id: packageId, scope: "pipeline_auto", status: "running", started_at: new Date().toISOString() })
+    .insert({
+      package_id: packageId,
+      scope: phase === "all" ? "pipeline_auto" : `phase_${phase}`,
+      status: "running",
+      started_at: new Date().toISOString(),
+    })
     .select("id")
     .single();
 
@@ -423,17 +453,30 @@ Deno.serve(async (req) => {
   const start = Date.now();
 
   try {
-    const examResult = await hardenExamQuestions(sb, runId, curriculumId, berufName, start);
-    console.log(`[EliteHarden] Exam: ${examResult.upgraded} upgraded, ${examResult.annotated} annotated, ${examResult.failed} failed (${examResult.total} total)`);
+    let examResult = { upgraded: 0, annotated: 0, failed: 0, total: 0 };
+    let mcResult = { upgraded: 0, total: 0 };
+    let oralResult = { upgraded: 0, total: 0 };
 
-    const mcResult = timeLeft(start)
-      ? await hardenMiniChecks(sb, runId, courseId || packageId, berufName, start)
-      : { upgraded: 0, total: 0 };
+    // ── Phase dispatch ──
+    if (phase === "annotations_only" || phase === "all") {
+      const annotationsOnly = phase === "annotations_only";
+      examResult = await hardenExamQuestions(sb, runId, curriculumId, berufName, start, annotationsOnly);
+      console.log(`[EliteHarden] Exam: ${examResult.upgraded} upgraded, ${examResult.annotated} annotated, ${examResult.failed} failed (${examResult.total} total)`);
+    }
 
-    const oralResult = timeLeft(start)
-      ? await hardenOralBlueprints(sb, runId, curriculumId, berufName, start)
-      : { upgraded: 0, total: 0 };
+    if (phase === "minichecks_only" || phase === "all") {
+      mcResult = timeLeft(start)
+        ? await hardenMiniChecks(sb, runId, courseId || packageId, berufName, start)
+        : { upgraded: 0, total: 0 };
+    }
 
+    if (phase === "oral_only" || phase === "all") {
+      oralResult = timeLeft(start)
+        ? await hardenOralBlueprints(sb, runId, curriculumId, berufName, start)
+        : { upgraded: 0, total: 0 };
+    }
+
+    // ── Finalize run ──
     await sb.from("elite_hardening_runs").update({
       status: "done", finished_at: new Date().toISOString(),
       exam_questions_upgraded: examResult.upgraded, exam_questions_total: examResult.total,
@@ -441,24 +484,34 @@ Deno.serve(async (req) => {
       oral_blueprints_upgraded: oralResult.upgraded, oral_blueprints_total: oralResult.total,
     }).eq("id", runId);
 
-    await sb.from("course_packages").update({
-      elite_hardening_version: 1,
-      elite_hardened_at: new Date().toISOString(),
-    }).eq("id", packageId).eq("elite_hardening_version", 0);
+    // ── Update package version (only for "all" or "annotations_only") ──
+    if (phase === "all" || phase === "annotations_only") {
+      await sb.from("course_packages").update({
+        elite_hardening_version: 1,
+        elite_hardened_at: new Date().toISOString(),
+      }).eq("id", packageId).eq("elite_hardening_version", 0);
+    }
 
     const totalUpgraded = examResult.upgraded + examResult.annotated + mcResult.upgraded + oralResult.upgraded;
     if (totalUpgraded > 0) {
       await sb.from("admin_notifications").insert({
-        title: `Elite-Hardening (Auto): ${berufName}`,
+        title: `Elite-Hardening (${phase}): ${berufName}`,
         body: `Exam: ${examResult.upgraded} upgraded, ${examResult.annotated} annotated | MC: ${mcResult.upgraded} | Oral: ${oralResult.upgraded}`,
         severity: "info", category: "pipeline", entity_type: "course_package", entity_id: packageId,
       }).then(() => {}, () => {});
     }
 
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-    console.log(`[EliteHarden] ✅ Done in ${elapsed}s`);
+    console.log(`[EliteHarden] ✅ Phase "${phase}" done in ${elapsed}s`);
 
-    return json({ ok: true, batch_complete: true, run_id: runId, results: { exam: examResult, minicheck: mcResult, oral: oralResult }, elapsed_s: parseFloat(elapsed) });
+    return json({
+      ok: true,
+      batch_complete: true,
+      phase,
+      run_id: runId,
+      results: { exam: examResult, minicheck: mcResult, oral: oralResult },
+      elapsed_s: parseFloat(elapsed),
+    });
   } catch (err) {
     await sb.from("elite_hardening_runs").update({
       status: "failed", error_message: String(err), finished_at: new Date().toISOString(),

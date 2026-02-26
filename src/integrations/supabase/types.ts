@@ -9904,6 +9904,73 @@ export type Database = {
         }
         Relationships: []
       }
+      lesson_minicheck_questions: {
+        Row: {
+          created_at: string
+          exam_question_id: string
+          id: string
+          minicheck_id: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          exam_question_id: string
+          id?: string
+          minicheck_id: string
+          position: number
+        }
+        Update: {
+          created_at?: string
+          exam_question_id?: string
+          id?: string
+          minicheck_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_minicheck_questions_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_minicheck_questions_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_elite_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_minicheck_questions_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_minicheck_questions_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_minicheck_questions_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_questions_sanitized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_minicheck_questions_minicheck_id_fkey"
+            columns: ["minicheck_id"]
+            isOneToOne: false
+            referencedRelation: "minicheck_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_outcomes: {
         Row: {
           attempts: number
@@ -19056,6 +19123,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_competency_mastery: {
+        Row: {
+          competency_id: string
+          curriculum_id: string
+          last_attempt_at: string | null
+          mastery_score: number | null
+          mastery_state: string
+          minicheck_attempts: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competency_id: string
+          curriculum_id: string
+          last_attempt_at?: string | null
+          mastery_score?: number | null
+          mastery_state?: string
+          minicheck_attempts?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competency_id?: string
+          curriculum_id?: string
+          last_attempt_at?: string | null
+          mastery_score?: number | null
+          mastery_state?: string
+          minicheck_attempts?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_competency_stats: {
         Row: {
           competency_id: string | null
@@ -23310,6 +23410,19 @@ export type Database = {
       note_code_failure: {
         Args: { p_code: string; p_lock_seconds?: number; p_max_fail?: number }
         Returns: Json
+      }
+      pick_minicheck_questions: {
+        Args: {
+          p_competency_id: string
+          p_curriculum_id: string
+          p_elite?: number
+          p_total?: number
+        }
+        Returns: {
+          elite_level: string
+          elite_score: number
+          question_id: string
+        }[]
       }
       pick_next_adaptive_question: {
         Args: { p_session_id: string }
