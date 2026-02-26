@@ -38,6 +38,43 @@ function parseJSON(text: string): any {
   return JSON.parse(cleaned);
 }
 
+// ── Berufsabhängige Szenario-Keywords (SSOT-konform, keine Cross-Berufs-Vermischung) ──
+function getScenarioKeywords(profession: string): string[] {
+  const base = ["betrieb", "situation", "fall", "szenario", "bestellt", "reklamiert", "prüft", "berechnet"];
+  const p = profession.toLowerCase();
+
+  if (p.includes("verkäufer") || p.includes("einzelhandel") || p.includes("kaufmann im einzelhandel")) {
+    return [...base, "kunde", "filiale", "kasse", "geschäft", "laden", "markt", "warenbestand",
+      "verkaufsgespräch", "reklamation", "angebot", "rabatt", "lieferung", "lager", "sortiment",
+      "warenpräsentation", "inventur", "kassiervorgang", "umtausch", "servicebereich", "abteilung"];
+  }
+  if (p.includes("pka") || p.includes("pharmazeutisch")) {
+    return [...base, "apotheke", "rezept", "arzneimittel", "patient", "lagerbestand", "btm",
+      "retaxation", "rabattvertrag", "aut-idem", "defektur", "taxierung"];
+  }
+  if (p.includes("mfa") || p.includes("medizinische fachangestellte")) {
+    return [...base, "patient", "praxis", "behandlung", "termin", "abrechnung", "ebm",
+      "goä", "sprechstunde", "dokumentation", "hygiene", "labor"];
+  }
+  if (p.includes("industriekaufmann") || p.includes("industriekauffrau") || p.includes("industriekauf")) {
+    return [...base, "kunde", "lieferant", "fertigung", "beschaffung", "kalkulation",
+      "angebot", "auftrag", "rechnung", "lager", "produktion", "logistik", "abteilung"];
+  }
+  if (p.includes("büro") || p.includes("büromanagement")) {
+    return [...base, "kunde", "termin", "korrespondenz", "ablage", "beschaffung",
+      "protokoll", "veranstaltung", "reiseplanung", "posteingang", "abteilung"];
+  }
+  if (p.includes("bankkaufmann") || p.includes("bankkauffrau") || p.includes("bank")) {
+    return [...base, "kunde", "konto", "kredit", "anlage", "beratungsgespräch",
+      "finanzierung", "wertpapier", "zinsen", "bonität", "sicherheit"];
+  }
+  if (p.includes("e-commerce")) {
+    return [...base, "kunde", "shop", "bestellung", "retoure", "conversion",
+      "warenkorb", "zahlung", "versand", "tracking", "bewertung"];
+  }
+  return [...base, "kunde", "filiale", "abteilung", "geschäft", "kasse"];
+}
+
 // --- Analysis: Score existing content ---
 interface AnalysisResult {
   scenario_pct: number;
@@ -49,7 +86,8 @@ interface AnalysisResult {
 async function analyzeExamPool(
   supabase: any,
   packageId: string,
-  curriculumId: string
+  curriculumId: string,
+  berufName = "",
 ): Promise<AnalysisResult> {
   const { data: questions } = await supabase
     .from("exam_questions")
@@ -60,8 +98,8 @@ async function analyzeExamPool(
 
   if (!questions?.length) return { scenario_pct: 0, multistep_pct: 0, operator_variety: 0, weak_ids: [] };
 
-  const scenarioKeywords = ["Betrieb", "Apotheke", "Kunde", "Patient", "Situation", "Fall", "Szenario", "bestellt", "reklamiert", "prüft", "berechnet"];
-  const multistepKeywords = ["zunächst", "anschließend", "daraufhin", "im nächsten Schritt", "bevor", "nachdem"];
+  const scenarioKeywords = getScenarioKeywords(berufName);
+  const multistepKeywords = ["zunächst", "anschließend", "daraufhin", "im nächsten schritt", "bevor", "nachdem"];
   const operators = new Set<string>();
   const weak: string[] = [];
 
@@ -501,7 +539,7 @@ Deno.serve(async (req) => {
 
       // 1. Analyze exam pool
       if (scope === "all" || scope === "exam_pool") {
-        const analysis = await analyzeExamPool(supabase, package_id, pkg.curriculum_id);
+        const analysis = await analyzeExamPool(supabase, package_id, pkg.curriculum_id, berufName);
         await supabase
           .from("elite_hardening_runs")
           .update({
@@ -532,7 +570,7 @@ Deno.serve(async (req) => {
 
       // Post-analysis
       if (scope === "all" || scope === "exam_pool") {
-        const postAnalysis = await analyzeExamPool(supabase, package_id, pkg.curriculum_id);
+        const postAnalysis = await analyzeExamPool(supabase, package_id, pkg.curriculum_id, berufName);
         await supabase
           .from("elite_hardening_runs")
           .update({
