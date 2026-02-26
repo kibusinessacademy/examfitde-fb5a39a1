@@ -186,13 +186,21 @@ Deno.serve(async (req) => {
 
     console.log(`[BuildPkg] Hybrid Target: ${hybridResult.target} (ship: ${hybridResult.shipTarget})`);
 
+    // ── Elite Override: EXAM_FIRST must NOT skip didaktik/elite steps ──
+    // force_elite in feature_flags enables full didaktik pipeline for any track
+    const forceElite = featureFlags.force_elite === true;
+    const isFullTrack = track === "AUSBILDUNG_VOLL";
+    const wantDidaktik = isFullTrack || forceElite;
+    const wantEliteHarden = isFullTrack || forceElite;
+
     // Build options from feature_flags + Hybrid Engine
+    // When force_elite is set, didaktik components are always included
     const opts = {
-      include_learning_course: featureFlags.has_learning_course ?? (track === "AUSBILDUNG_VOLL"),
+      include_learning_course: wantDidaktik || (featureFlags.has_learning_course ?? false),
       include_exam_pool: featureFlags.has_exam_trainer ?? true,
-      include_oral_exam: featureFlags.has_oral_exam_trainer ?? (track === "AUSBILDUNG_VOLL"),
-      include_ai_tutor: featureFlags.has_ai_tutor ?? (track === "AUSBILDUNG_VOLL"),
-      include_handbook: featureFlags.has_handbook ?? (track === "AUSBILDUNG_VOLL"),
+      include_oral_exam: featureFlags.has_oral_exam_trainer ?? (isFullTrack || forceElite),
+      include_ai_tutor: featureFlags.has_ai_tutor ?? (isFullTrack || forceElite),
+      include_handbook: featureFlags.has_handbook ?? wantDidaktik,
       exam_target: hybridResult.target,
       ship_target: hybridResult.shipTarget,
       ausbildungsdauer_monate: ausbildungsDauer,
@@ -226,7 +234,8 @@ Deno.serve(async (req) => {
     }
 
     // MiniChecks: after oral exam, before handbook
-    const includeMiniChecks = featureFlags.has_minichecks ?? (track === "AUSBILDUNG_VOLL");
+    // Always include when force_elite or full track — never skip for Elite packages
+    const includeMiniChecks = featureFlags.has_minichecks ?? wantDidaktik;
     if (includeMiniChecks) {
       contentSteps.push({ step_key: "generate_lesson_minichecks", job_type: "package_generate_lesson_minichecks" });
       contentSteps.push({ step_key: "validate_lesson_minichecks", job_type: "package_validate_lesson_minichecks" });
