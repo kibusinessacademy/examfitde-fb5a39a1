@@ -6989,16 +6989,20 @@ export type Database = {
       elite_hardening_runs: {
         Row: {
           created_at: string
+          cursor_state: Json
           error_message: string | null
           exam_questions_total: number | null
           exam_questions_upgraded: number | null
           finished_at: string | null
           id: string
+          idempotency_key: string | null
           minichecks_total: number | null
           minichecks_upgraded: number | null
           oral_blueprints_total: number | null
           oral_blueprints_upgraded: number | null
           package_id: string
+          phase: string
+          phase_stats: Json
           post_scores: Json | null
           pre_scores: Json | null
           scope: string
@@ -7008,16 +7012,20 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          cursor_state?: Json
           error_message?: string | null
           exam_questions_total?: number | null
           exam_questions_upgraded?: number | null
           finished_at?: string | null
           id?: string
+          idempotency_key?: string | null
           minichecks_total?: number | null
           minichecks_upgraded?: number | null
           oral_blueprints_total?: number | null
           oral_blueprints_upgraded?: number | null
           package_id: string
+          phase?: string
+          phase_stats?: Json
           post_scores?: Json | null
           pre_scores?: Json | null
           scope?: string
@@ -7027,16 +7035,20 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          cursor_state?: Json
           error_message?: string | null
           exam_questions_total?: number | null
           exam_questions_upgraded?: number | null
           finished_at?: string | null
           id?: string
+          idempotency_key?: string | null
           minichecks_total?: number | null
           minichecks_upgraded?: number | null
           oral_blueprints_total?: number | null
           oral_blueprints_upgraded?: number | null
           package_id?: string
+          phase?: string
+          phase_stats?: Json
           post_scores?: Json | null
           pre_scores?: Json | null
           scope?: string
