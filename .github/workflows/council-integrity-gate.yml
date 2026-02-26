@@ -1,0 +1,21 @@
+name: Council Integrity Gate
+
+on:
+  schedule:
+    - cron: "41 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  integrity:
+    name: Governance Invariant Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run council integrity checks
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/council-integrity-check.mjs
