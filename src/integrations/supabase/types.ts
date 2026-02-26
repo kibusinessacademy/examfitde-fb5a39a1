@@ -4883,21 +4883,27 @@ export type Database = {
       course_package_outputs: {
         Row: {
           created_at: string
+          export_checksum: string | null
           id: string
+          last_exported_at: string | null
           output_key: string
           package_id: string
           payload: Json
         }
         Insert: {
           created_at?: string
+          export_checksum?: string | null
           id?: string
+          last_exported_at?: string | null
           output_key: string
           package_id: string
           payload?: Json
         }
         Update: {
           created_at?: string
+          export_checksum?: string | null
           id?: string
+          last_exported_at?: string | null
           output_key?: string
           package_id?: string
           payload?: Json
@@ -23713,6 +23719,13 @@ export type Database = {
         Args: { p_action?: string; p_package_id: string }
         Returns: Json
       }
+      reannotate_stale_questions: {
+        Args: { p_curriculum_id?: string; p_limit?: number }
+        Returns: {
+          question_id: string
+          reason: string
+        }[]
+      }
       reap_stale_locks: { Args: { p_max_age_minutes?: number }; Returns: Json }
       recalculate_coverage_priorities: { Args: never; Returns: Json }
       recalculate_routing_scores: { Args: never; Returns: undefined }
@@ -24334,6 +24347,16 @@ export type Database = {
       }
       validate_course_integrity_v2: {
         Args: { p_curriculum_id: string }
+        Returns: Json
+      }
+      validate_minicheck_quality: {
+        Args: {
+          p_competency_id: string
+          p_curriculum_id: string
+          p_min_avg_score?: number
+          p_min_elite?: number
+          p_min_total?: number
+        }
         Returns: Json
       }
       validate_publish_readiness: {

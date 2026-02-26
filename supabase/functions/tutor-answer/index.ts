@@ -160,6 +160,40 @@ async function loadTutorSSOT(sb: SB, scopeType: ScopeType, scopeId: string | nul
     refs.push({ type: "course", ...data });
   }
 
+  // QW #13: Load *_eff fields from elite view for exam questions in scope
+  try {
+    let eliteQuery = sb.from("exam_questions_elite_v")
+      .select("id, elite_level_eff, multi_variable_eff, transfer_variant_eff, distractor_types_eff, score_eff")
+      .eq("status", "approved");
+    
+    if (scopeType === "competency" && scopeId) {
+      eliteQuery = eliteQuery.eq("competency_id", scopeId).limit(20);
+    } else if (scopeType === "lesson") {
+      // Get competency_id from the lesson ref we already loaded
+      const lessonRef = refs.find(r => (r as any).type === "lesson") as any;
+      if (lessonRef?.competency_id) {
+        eliteQuery = eliteQuery.eq("competency_id", lessonRef.competency_id).limit(20);
+      }
+    }
+
+    const { data: eliteData } = await eliteQuery;
+    if (eliteData?.length) {
+      refs.push({ type: "elite_question_context", count: eliteData.length, 
+        summary: {
+          elite_pct: Math.round((eliteData.filter((e: any) => e.elite_level_eff === 'elite').length / eliteData.length) * 100),
+          avg_score: Number((eliteData.reduce((s: number, e: any) => s + (e.score_eff || 0), 0) / eliteData.length).toFixed(1)),
+          multi_variable_pct: Math.round((eliteData.filter((e: any) => e.multi_variable_eff).length / eliteData.length) * 100),
+        },
+        questions: eliteData.slice(0, 5).map((e: any) => ({
+          id: e.id, elite_level: e.elite_level_eff, score: e.score_eff, 
+          transfer: e.transfer_variant_eff, multi_var: e.multi_variable_eff,
+        }))
+      });
+    }
+  } catch (e) {
+    console.warn("[tutor-answer] elite context load failed (non-blocking):", e);
+  }
+
   const bps = await sb.from("question_blueprints").select("id, name, canonical_statement").eq("status", "approved").limit(10);
   if (!bps.error && bps.data) refs.push(...bps.data.map((bp: Record<string, unknown>) => ({ type: "blueprint", ...bp })));
 
