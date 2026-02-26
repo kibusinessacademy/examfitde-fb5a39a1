@@ -5,14 +5,14 @@
  *
  * Tests:
  *  [1] Rate limit on submit-exam-answer (90 rapid calls)
- *  [2] Idempotency replay consistency
+ *  [2] Idempotency replay consistency + security event verification
  *  [3] Oversized payload handling (no 5xx)
  *  [4] Export abuse (admin, optional)
  *
  * Requires: TEST_USER_JWT (learner token)
  * Optional: ADMIN_TEST_JWT, DEFAULT_AUDIT_PACKAGE_ID
  */
-import { getEnv, fnCall } from "./_lib/rest.mjs";
+import { getEnv, fnCall, restSelect } from "./_lib/rest.mjs";
 import { sleep } from "./_lib/http.mjs";
 
 async function main() {
@@ -29,6 +29,7 @@ async function main() {
   console.log("== Abuse Simulation ==\n");
 
   // ── 1) Rate limit: rapid submit calls ──
+  // RL is checked before body validation in submit-exam-answer (auth → RL → idempotency → validate)
   console.log("[1] Rate limit on submit-exam-answer");
   let blocked = 0;
   for (let i = 0; i < 90; i++) {
@@ -48,18 +49,44 @@ async function main() {
     console.log(`  ✅ rate limit blocks observed: ${blocked}`);
   }
 
-  // ── 2) Idempotency replay ──
+  // Wait for RL window to reset before idempotency test
+  console.log("  ⏳ waiting 5s for rate-limit window cooldown...");
+  await sleep(5000);
+
+  // ── 2) Idempotency replay + security event verification ──
   console.log("\n[2] Idempotency replay behavior");
-  const key = `replay-${Date.now()}`;
-  const payload = { idempotency_key: key };
+  const idemKey = `replay-${Date.now()}`;
+  const payload = { idempotency_key: idemKey };
   const first = await fnCall({ base, bearer: learner, fnName: "submit-exam-answer", body: payload });
-  await sleep(200);
+  await sleep(300);
   const second = await fnCall({ base, bearer: learner, fnName: "submit-exam-answer", body: payload });
+
+  // 2a) Status consistency
   if (first.res.status !== second.res.status) {
     console.error(`  ❌ FAIL: idempotency replay status mismatch: first=${first.res.status} second=${second.res.status}`);
     failures++;
   } else {
     console.log(`  ✅ idempotency replay consistent (status ${first.res.status})`);
+  }
+
+  // 2b) Verify IDEMPOTENT_REPLAY was logged (via security_events if service key available)
+  if (env.SERVICE_KEY) {
+    await sleep(1000); // allow event to be written
+    const since = new Date(Date.now() - 120_000).toISOString();
+    const ev = await restSelect({
+      base,
+      key: env.SERVICE_KEY,
+      table: "security_events",
+      select: "event_type,metadata",
+      qs: `&event_type=eq.IDEMPOTENT_REPLAY&created_at=gte.${since}&limit=5`,
+    });
+    // Note: IDEMPOTENT_REPLAY is logged in the edge function via logStep, not necessarily
+    // as a security_event. This check is informational – if no event found, it's a soft warn.
+    if (ev.res.ok && (ev.json ?? []).length > 0) {
+      console.log(`  ✅ IDEMPOTENT_REPLAY events found in security_events`);
+    } else {
+      console.warn("  ⚠️  No IDEMPOTENT_REPLAY security_event found (may only be in function logs)");
+    }
   }
 
   // ── 3) Oversized payload (should not 5xx) ──

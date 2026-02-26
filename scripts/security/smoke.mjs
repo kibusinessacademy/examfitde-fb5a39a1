@@ -21,6 +21,7 @@ async function main() {
   // ── A) RLS: anon must NOT read exam_questions ──
   if (env.ANON_KEY) {
     console.log("[A] RLS / Exfil (anon)");
+    // A1: basic access check
     const q = await restSelect({
       base,
       key: env.ANON_KEY,
@@ -33,10 +34,28 @@ async function main() {
       q.res.status === 403 ||
       (Array.isArray(q.json) && q.json.length === 0);
     if (!blocked) {
-      console.error("❌ FAIL: anon can access exam_questions:", q.res.status, q.text.slice(0, 300));
+      console.error("  ❌ FAIL: anon can access exam_questions:", q.res.status, q.text.slice(0, 300));
       failures++;
     } else {
       console.log("  ✅ anon cannot read exam_questions");
+    }
+
+    // A2: leak check – if 200, verify no sensitive fields exposed
+    if (q.res.status === 200 && Array.isArray(q.json) && q.json.length > 0) {
+      const sensitive = await restSelect({
+        base,
+        key: env.ANON_KEY,
+        table: "exam_questions",
+        select: "id,correct_answer,explanation",
+        qs: "&limit=1",
+      });
+      if (sensitive.res.status === 200 && Array.isArray(sensitive.json) && sensitive.json.length > 0) {
+        const row = sensitive.json[0];
+        if (row.correct_answer !== undefined || row.explanation !== undefined) {
+          console.error("  ❌ FAIL: anon can read correct_answer/explanation – DATA LEAK!");
+          failures++;
+        }
+      }
     }
   } else {
     console.warn("  ⚠️  ANON_KEY missing – skipping anon RLS test");
