@@ -1,41 +1,67 @@
-name: Export Audit
+name: Export Audit CI
+
 on:
   workflow_dispatch:
     inputs:
       package_id:
-        description: 'Package ID to audit'
+        description: "Package ID to export & audit"
         required: true
+        type: string
       export_url:
-        description: 'Direct URL to export ZIP (optional, skips download)'
+        description: "Direct URL to export ZIP (optional, skips export step)"
         required: false
+        type: string
+  schedule:
+    - cron: "09 4 * * *"
 
 jobs:
   audit:
+    name: Export & Audit Quality Score
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
-      - run: bun install
+      - run: npm ci
 
-      - name: Download export ZIP
+      - name: Export package (via edge function)
+        if: ${{ !inputs.export_url }}
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          PACKAGE_ID="${{ inputs.package_id }}"
+          if [ -z "$PACKAGE_ID" ]; then
+            PACKAGE_ID="${{ secrets.DEFAULT_AUDIT_PACKAGE_ID }}"
+          fi
+          if [ -z "$PACKAGE_ID" ]; then
+            echo "⚠️  No package_id provided and DEFAULT_AUDIT_PACKAGE_ID not set – skipping"
+            exit 0
+          fi
+          node scripts/export-package.mjs --packageId="$PACKAGE_ID" --out=export.zip
+
+      - name: Download export ZIP (direct URL)
         if: ${{ inputs.export_url }}
         run: curl -L "${{ inputs.export_url }}" -o export.zip
 
-      - name: Run audit
+      - name: Run audit tool
         run: node tools/audit-export.mjs export.zip audit_out
 
-      - name: Check score
+      - name: Score gate
         run: |
           SCORE=$(node -e "const r=JSON.parse(require('fs').readFileSync('audit_out/audit_report.json','utf8')); console.log(r.score.total)")
-          echo "Score: $SCORE"
+          echo "📊 Audit Score: $SCORE/100"
           if [ "$SCORE" -lt 60 ]; then
             echo "::error::Audit score $SCORE < 60 — BLOCKED"
             exit 1
           fi
 
       - name: Upload report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: audit-report
