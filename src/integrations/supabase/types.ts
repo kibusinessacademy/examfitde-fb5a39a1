@@ -23968,6 +23968,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_exam_question_meta_if_draft: {
+        Args: {
+          p_distractor_types: string[]
+          p_elite_levels: string[]
+          p_ids: string[]
+          p_multi_variables: boolean[]
+          p_transfer_variants: boolean[]
+        }
+        Returns: number
+      }
       update_learning_streak: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: {
