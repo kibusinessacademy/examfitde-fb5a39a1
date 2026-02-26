@@ -79,37 +79,15 @@ async function main() {
     }
   }
 
-  // 2) Published packages must have approved questions (via correct join on curriculum_id)
+  // 2) Published packages must have approved questions (single RPC, no N+1)
   console.log("\n── Publish Integrity ──");
-  const published = await restQuery(
-    "course_packages",
-    "id,status,curriculum_id",
-    "&status=eq.published"
-  );
-  if (published) {
-    let publishFailures = 0;
-    for (const pkg of published) {
-      if (!pkg.curriculum_id) {
-        console.error(`  ❌ FAIL: Published package ${pkg.id} has no curriculum_id`);
-        publishFailures++;
-        continue;
-      }
-      // Query approved questions by curriculum_id (the actual FK on exam_questions)
-      const questions = await restQuery(
-        "exam_questions",
-        "id",
-        `&curriculum_id=eq.${pkg.curriculum_id}&status=eq.approved&limit=1`
-      );
-      if (questions && questions.length === 0) {
-        console.error(`  ❌ FAIL: Published package ${pkg.id} (curriculum ${pkg.curriculum_id}) has 0 approved questions`);
-        publishFailures++;
-      }
-    }
-    if (publishFailures > 0) {
-      failures += publishFailures;
-    } else {
-      console.log("  ✅ All published packages have approved questions");
-    }
+  const bad = await rpcCall("check_publish_integrity");
+  if (bad && bad.length > 0) {
+    console.error(`  ❌ FAIL: ${bad.length} published package(s) violate integrity`);
+    bad.slice(0, 10).forEach(r => console.error(`    pkg=${r.package_id} curriculum=${r.curriculum_id} approved_q=${r.approved_q}`));
+    failures += bad.length;
+  } else if (bad) {
+    console.log("  ✅ All published packages have approved questions");
   }
 
   // 3) Security events summary (last 24h)

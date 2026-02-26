@@ -8875,6 +8875,30 @@ export type Database = {
         }
         Relationships: []
       }
+      idempotency_keys: {
+        Row: {
+          created_at: string
+          endpoint: string
+          idempotency_key: string
+          response_json: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          idempotency_key: string
+          response_json?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          idempotency_key?: string
+          response_json?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           billing_account_id: string | null
@@ -15800,6 +15824,27 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          request_count: number
+          updated_at: string
+          user_key: string
+          window_start: string
+        }
+        Insert: {
+          request_count?: number
+          updated_at?: string
+          user_key: string
+          window_start: string
+        }
+        Update: {
+          request_count?: number
+          updated_at?: string
+          user_key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       readiness_scores: {
         Row: {
           calculated_at: string | null
@@ -21780,6 +21825,22 @@ export type Database = {
         Args: { p_curriculum_id: string; p_package_id: string }
         Returns: Json
       }
+      check_publish_integrity: {
+        Args: never
+        Returns: {
+          approved_q: number
+          curriculum_id: string
+          package_id: string
+        }[]
+      }
+      check_rate_limit: {
+        Args: {
+          p_max_requests: number
+          p_user_key: string
+          p_window_seconds: number
+        }
+        Returns: boolean
+      }
       check_schema_drift: { Args: never; Returns: Json }
       check_simulation_gate: {
         Args: { p_curriculum_id: string; p_user_id: string }
@@ -22005,6 +22066,7 @@ export type Database = {
       }
       classify_job_error: { Args: { p_error: string }; Returns: string }
       cleanup_provider_history: { Args: never; Returns: number }
+      cleanup_security_tables: { Args: never; Returns: undefined }
       cleanup_stale_locks: {
         Args: { p_timeout_minutes?: number }
         Returns: number
@@ -22859,6 +22921,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_security_event: {
+        Args: {
+          p_endpoint?: string
+          p_event_type: string
+          p_metadata?: Json
+          p_user_id?: string
+        }
+        Returns: undefined
+      }
       mark_package_stuck: {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
@@ -23277,6 +23348,10 @@ export type Database = {
         Args: { p_action_id: string; p_days?: number }
         Returns: undefined
       }
+      set_idempotency_response: {
+        Args: { p_endpoint: string; p_key: string; p_response: Json }
+        Returns: undefined
+      }
       set_package_status: {
         Args: { p_id: string; p_meta?: Json; p_status: string }
         Returns: undefined
@@ -23538,6 +23613,10 @@ export type Database = {
           p_title: string
         }
         Returns: string
+      }
+      use_idempotency_key: {
+        Args: { p_endpoint: string; p_key: string; p_user_id: string }
+        Returns: Json
       }
       validate_blueprint_constraints: {
         Args: { p_blueprint_id: string; p_variable_values: Json }
