@@ -7539,12 +7539,19 @@ export type Database = {
           blueprint_id: string | null
           cognitive_level: string | null
           competency_id: string | null
+          complexity_score: number | null
+          conflict_type: string | null
           correct_answer: number
           created_at: string
           curriculum_id: string
           difficulty: Database["public"]["Enums"]["question_difficulty"] | null
           discrimination_tier: string | null
           distractor_meta: Json | null
+          distractor_types: string[] | null
+          dynamic_scenario: boolean | null
+          elite_level: Database["public"]["Enums"]["elite_level"] | null
+          elite_score: number | null
+          elite_score_breakdown: Json | null
           exam_part: string | null
           explanation: string | null
           id: string
@@ -7554,6 +7561,7 @@ export type Database = {
           item_guessing: number | null
           item_usage_count: number | null
           learning_field_id: string | null
+          multi_variable: boolean | null
           normalized_hash: string | null
           options: Json
           qc_status: string | null
@@ -7564,6 +7572,7 @@ export type Database = {
           scenario_type: string | null
           status: Database["public"]["Enums"]["question_status"] | null
           time_estimate_seconds: number | null
+          transfer_variant: boolean | null
           trap_tags: string[] | null
           typical_errors: Json | null
           variant_group: string | null
@@ -7576,12 +7585,19 @@ export type Database = {
           blueprint_id?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
+          complexity_score?: number | null
+          conflict_type?: string | null
           correct_answer: number
           created_at?: string
           curriculum_id: string
           difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
           discrimination_tier?: string | null
           distractor_meta?: Json | null
+          distractor_types?: string[] | null
+          dynamic_scenario?: boolean | null
+          elite_level?: Database["public"]["Enums"]["elite_level"] | null
+          elite_score?: number | null
+          elite_score_breakdown?: Json | null
           exam_part?: string | null
           explanation?: string | null
           id?: string
@@ -7591,6 +7607,7 @@ export type Database = {
           item_guessing?: number | null
           item_usage_count?: number | null
           learning_field_id?: string | null
+          multi_variable?: boolean | null
           normalized_hash?: string | null
           options: Json
           qc_status?: string | null
@@ -7601,6 +7618,7 @@ export type Database = {
           scenario_type?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
           time_estimate_seconds?: number | null
+          transfer_variant?: boolean | null
           trap_tags?: string[] | null
           typical_errors?: Json | null
           variant_group?: string | null
@@ -7613,12 +7631,19 @@ export type Database = {
           blueprint_id?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
+          complexity_score?: number | null
+          conflict_type?: string | null
           correct_answer?: number
           created_at?: string
           curriculum_id?: string
           difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
           discrimination_tier?: string | null
           distractor_meta?: Json | null
+          distractor_types?: string[] | null
+          dynamic_scenario?: boolean | null
+          elite_level?: Database["public"]["Enums"]["elite_level"] | null
+          elite_score?: number | null
+          elite_score_breakdown?: Json | null
           exam_part?: string | null
           explanation?: string | null
           id?: string
@@ -7628,6 +7653,7 @@ export type Database = {
           item_guessing?: number | null
           item_usage_count?: number | null
           learning_field_id?: string | null
+          multi_variable?: boolean | null
           normalized_hash?: string | null
           options?: Json
           qc_status?: string | null
@@ -7638,6 +7664,7 @@ export type Database = {
           scenario_type?: string | null
           status?: Database["public"]["Enums"]["question_status"] | null
           time_estimate_seconds?: number | null
+          transfer_variant?: boolean | null
           trap_tags?: string[] | null
           typical_errors?: Json | null
           variant_group?: string | null
@@ -9440,6 +9467,57 @@ export type Database = {
           id?: string
           tag?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      learning_field_elite_policies: {
+        Row: {
+          certification_id: string
+          created_at: string
+          id: string
+          is_core: boolean
+          learning_field_id: string
+          max_knowledge_ratio: number
+          min_conflict_ratio: number
+          min_distractor_types: number
+          min_elite_ratio: number
+          min_evaluate_ratio: number
+          min_multi_variable_ratio: number
+          min_transfer_ratio: number
+          require_distractor_diversity: boolean
+          updated_at: string
+        }
+        Insert: {
+          certification_id: string
+          created_at?: string
+          id?: string
+          is_core?: boolean
+          learning_field_id: string
+          max_knowledge_ratio?: number
+          min_conflict_ratio?: number
+          min_distractor_types?: number
+          min_elite_ratio?: number
+          min_evaluate_ratio?: number
+          min_multi_variable_ratio?: number
+          min_transfer_ratio?: number
+          require_distractor_diversity?: boolean
+          updated_at?: string
+        }
+        Update: {
+          certification_id?: string
+          created_at?: string
+          id?: string
+          is_core?: boolean
+          learning_field_id?: string
+          max_knowledge_ratio?: number
+          min_conflict_ratio?: number
+          min_distractor_types?: number
+          min_elite_ratio?: number
+          min_evaluate_ratio?: number
+          min_multi_variable_ratio?: number
+          min_transfer_ratio?: number
+          require_distractor_diversity?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
@@ -20877,6 +20955,51 @@ export type Database = {
         }
         Relationships: []
       }
+      v_exam_pool_lf_elite_agg: {
+        Row: {
+          approved_questions: number | null
+          conflict_cnt: number | null
+          conflict_ratio: number | null
+          curriculum_id: string | null
+          distractor_diverse_cnt: number | null
+          distractor_diversity_ratio: number | null
+          elite_questions: number | null
+          elite_ratio: number | null
+          evaluate_cnt: number | null
+          evaluate_ratio: number | null
+          knowledge_cnt: number | null
+          knowledge_ratio: number | null
+          learning_field_id: string | null
+          multi_variable_ratio: number | null
+          multivar_cnt: number | null
+          total_questions: number | null
+          transfer_cnt: number | null
+          transfer_ratio: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_exam_questions_approved: {
         Row: {
           ai_generated: boolean | null
@@ -21378,6 +21501,10 @@ export type Database = {
         Returns: undefined
       }
       attempt_auto_recovery: { Args: { p_alert_id: string }; Returns: Json }
+      audit_lf_elite_policy: {
+        Args: { p_curriculum_id: string }
+        Returns: Json
+      }
       auto_block_user_if_needed: {
         Args: {
           p_block_seconds?: number
@@ -21800,6 +21927,18 @@ export type Database = {
       compute_compliance_release_gate: { Args: never; Returns: Json }
       compute_curriculum_coverage: {
         Args: { p_certification_id: string }
+        Returns: Json
+      }
+      compute_elite_score: {
+        Args: {
+          p_cognitive_level: string
+          p_complexity_score: number
+          p_conflict_type: string
+          p_distractor_types: string[]
+          p_dynamic_scenario: boolean
+          p_multi_variable: boolean
+          p_transfer_variant: boolean
+        }
         Returns: Json
       }
       compute_qa_release_gate: { Args: never; Returns: Json }
@@ -23379,6 +23518,7 @@ export type Database = {
         | "transfer"
         | "oral_prompt"
         | "oral_question"
+      elite_level: "standard" | "advanced" | "elite"
       exam_context_type:
         | "isolated_knowledge"
         | "applied_case"
@@ -23707,6 +23847,7 @@ export const Constants = {
         "oral_prompt",
         "oral_question",
       ],
+      elite_level: ["standard", "advanced", "elite"],
       exam_context_type: [
         "isolated_knowledge",
         "applied_case",

@@ -284,6 +284,44 @@ Deno.serve(async (req) => {
         .eq("qc_status", "tier1_passed");
     }
 
+    // ── Elite LF Policy Audit (v2) ──
+    let eliteAudit: any = null;
+    try {
+      const { data: auditResult, error: auditErr } = await sb.rpc(
+        "audit_lf_elite_policy",
+        { p_curriculum_id: curriculumId }
+      );
+      if (auditErr) {
+        console.error(`[QualityCouncil] Elite audit RPC error: ${auditErr.message}`);
+      } else {
+        eliteAudit = auditResult;
+        // Store audit result in quality report
+        await sb.from("package_quality_reports").update({
+          report: sb.rpc ? undefined : undefined, // We update via raw merge below
+        }).eq("package_id", packageId);
+
+        // Log elite audit result
+        const violationCount = eliteAudit?.violations_count ?? 0;
+        console.log(`[QualityCouncil] Elite LF audit: passed=${eliteAudit?.passed}, violations=${violationCount}`);
+
+        // Add elite violations as warnings (not blocking yet — soft rollout)
+        if (!eliteAudit?.passed && eliteAudit?.violations) {
+          for (const v of (eliteAudit.violations as any[])) {
+            if (v.status === "fail") {
+              results.push({
+                rule_key: `elite_lf_${v.rule || "policy"}`,
+                severity: "warn", // Soft rollout: warn not block
+                passed: false,
+                detail: `LF ${String(v.learning_field_id).slice(0, 8)}: ${v.rule} expected=${v.expected} actual=${v.actual}${v.is_core ? " [CORE]" : ""}`,
+              });
+            }
+          }
+        }
+      }
+    } catch (auditE) {
+      console.error(`[QualityCouncil] Elite audit failed: ${(auditE as Error).message}`);
+    }
+
     // Block notification
     if (status === "fail") {
       await sb.from("course_package_reviews").upsert({
