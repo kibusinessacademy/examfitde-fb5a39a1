@@ -43,6 +43,10 @@ export async function checkRateLimit(
   const maxRequests = config?.maxRequests ?? defaults.maxRequests ?? 30;
   const userKey = `${userId}:${endpoint}`;
 
+  // High-risk endpoints fail closed (block on error); low-risk fail open
+  const HIGH_RISK_ENDPOINTS = ["export-course-package", "create-exam-session"];
+  const failOpen = !HIGH_RISK_ENDPOINTS.includes(endpoint);
+
   try {
     const { data: allowed, error } = await admin.rpc("check_rate_limit", {
       p_user_key: userKey,
@@ -51,8 +55,8 @@ export async function checkRateLimit(
     });
 
     if (error) {
-      console.warn("[SECURITY] Rate limit check failed, allowing request:", error.message);
-      return true; // Fail open to avoid blocking legitimate users
+      console.warn("[SECURITY] Rate limit check failed:", error.message);
+      return failOpen; // High-risk → block; low-risk → allow
     }
 
     if (!allowed) {
@@ -66,7 +70,7 @@ export async function checkRateLimit(
     return !!allowed;
   } catch (e) {
     console.warn("[SECURITY] Rate limit error:", e);
-    return true; // Fail open
+    return failOpen;
   }
 }
 
@@ -142,7 +146,7 @@ export async function logSecurityEvent(
       p_event_type: eventType,
       p_user_id: userId || null,
       p_endpoint: endpoint || null,
-      p_metadata: metadata ? JSON.stringify(metadata) : null,
+      p_metadata: metadata ?? null,
     });
   } catch (e) {
     // Never let logging fail the request
