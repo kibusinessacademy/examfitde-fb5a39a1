@@ -825,7 +825,7 @@ Deno.serve(async (req) => {
               result_status: "escalated",
               result_detail: `${job.job_type} failed ${healCycles}x heal cycles — stopping`,
               metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles, missing_lf_ids: missingLfIds, issues: parsed.issues?.slice(0, 5) },
-            }).catch(() => {});
+            }).then(() => {}, () => {});
 
             finalState = {
               status: "failed",
@@ -884,7 +884,7 @@ Deno.serve(async (req) => {
               result_status: "ok",
               result_detail: `${job.job_type} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1})`,
               metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds, trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : "max_attempts", issues: parsed.issues?.slice(0, 5) },
-            }).catch(() => {});
+            }).then(() => {}, () => {});
 
             // Complete the job (not requeue) — the step system handles the rest
             finalState = {
