@@ -487,7 +487,7 @@ async function processPackage(
           p_statuses: rule.cancelStatuses,
         });
         console.log(`[runner] 🏁 Finalized ${rule.stepKey} for ${shortId}: ${cond.reason}, 0 active jobs`);
-        await sb.from("auto_heal_log").insert({
+        await safeQuery(sb.from("auto_heal_log").insert({
           action_type: rule.actionType,
           trigger_source: "pipeline-runner",
           target_type: "course_package",
@@ -495,12 +495,12 @@ async function processPackage(
           result_status: "applied",
           result_detail: `Finalized ${rule.stepKey}: ${cond.reason}`,
           metadata: { step_key: rule.stepKey, job_type: rule.jobType, condition: cond.snapshot, active_jobs: 0 },
-        }).catch(() => {});
+        }), "finalization_log");
         // Update in-memory so pickNextAction sees 'done'
         step.status = "done";
       } else {
         // Race: status changed between check and update — log as skipped
-        await sb.from("auto_heal_log").insert({
+        await safeQuery(sb.from("auto_heal_log").insert({
           action_type: rule.actionType,
           trigger_source: "pipeline-runner",
           target_type: "course_package",
@@ -508,7 +508,7 @@ async function processPackage(
           result_status: "skipped",
           result_detail: `Skipped ${rule.stepKey}: race (status changed)`,
           metadata: { step_key: rule.stepKey, job_type: rule.jobType, condition: cond.snapshot, error: updErr?.message ?? null },
-        }).catch(() => {});
+        }), "finalization_log_skip");
       }
     }
   }

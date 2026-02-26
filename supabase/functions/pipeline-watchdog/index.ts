@@ -385,6 +385,68 @@ Deno.serve(async (req) => {
       actions.push(`Zombie building reset: ${healedZombies} packages via RPC`);
     }
 
+    // ── 3b) Auto-Unblock: QG-failed packages that have been healed ──
+    // If validate_exam_pool + run_integrity_check are both done and
+    // next steps (quality_council/auto_publish) are queued → unblock to building.
+    {
+      const { data: qgHealedPkgs } = await sb
+        .from("course_packages")
+        .select("id")
+        .eq("status", "quality_gate_failed")
+        .limit(20);
+
+      let unblocked = 0;
+      for (const pkg of qgHealedPkgs || []) {
+        const { data: stepRows } = await sb
+          .from("package_steps")
+          .select("step_key, status")
+          .eq("package_id", pkg.id);
+
+        if (!stepRows || stepRows.length === 0) continue;
+
+        const byKey = new Map(stepRows.map((s: any) => [s.step_key, s.status]));
+
+        // Check healing prerequisites
+        const validateDone = byKey.get("validate_exam_pool") === "done";
+        const integrityDone = byKey.get("run_integrity_check") === "done";
+        if (!validateDone || !integrityDone) continue;
+
+        // Check that next steps are queued (ready for runner)
+        const hasQueuedNext = stepRows.some((s: any) =>
+          (s.step_key === "quality_council" || s.step_key === "auto_publish") && s.status === "queued"
+        );
+        if (!hasQueuedNext) continue;
+
+        // No active jobs? (prevent race)
+        const { count: activeJobs } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("package_id", pkg.id)
+          .in("status", ["processing", "pending"]);
+        if ((activeJobs ?? 0) > 0) continue;
+
+        // Unblock!
+        await sb.from("course_packages").update({
+          status: "building",
+          updated_at: new Date().toISOString(),
+          last_error: "Watchdog auto-unblock: QG healed, ready-to-continue",
+        }).eq("id", pkg.id);
+
+        unblocked++;
+        actions.push(`QG-unblock: pkg ${(pkg.id as string).slice(0, 8)} → building (healed)`);
+        console.log(`[watchdog] QG-unblock: ${(pkg.id as string).slice(0, 8)} — validate_exam_pool+integrity done, next steps queued`);
+      }
+
+      if (unblocked > 0) {
+        await sb.from("auto_heal_log").insert({
+          action_type: "qg_auto_unblock",
+          trigger_source: "pipeline-watchdog",
+          result_status: "applied",
+          result_detail: `Unblocked ${unblocked} QG-healed package(s)`,
+        });
+      }
+    }
+
     // ── 4) QG-Failed Auto-Heal ──
     // Detect quality_gate_failed packages and reset them to building
     // with re-queued steps so the pipeline can retry after gap-closing.
