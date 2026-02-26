@@ -65,7 +65,10 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
 
 function parseJSON(text: string): any {
   const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-  return JSON.parse(cleaned);
+  const first = cleaned.indexOf("{");
+  const last = cleaned.lastIndexOf("}");
+  if (first === -1 || last === -1 || last <= first) throw new Error("AI_JSON_NOT_FOUND");
+  return JSON.parse(cleaned.slice(first, last + 1));
 }
 
 function timeLeft(start: number): boolean {
@@ -96,6 +99,7 @@ async function annotateQuestions(
   let totalDraftAnnotated = 0;
   let totalSeen = 0;
   let currentLastId = lastId;
+  let batchesDone = Number(cursorState.batches_done || 0);
 
   // ── Cursor-based pagination loop ──
   while (timeLeft(start)) {
@@ -118,7 +122,7 @@ async function annotateQuestions(
         annotated: totalAnnotated,
         draftAnnotated: totalDraftAnnotated,
         total: totalSeen,
-        cursor: { ...cursorState, last_question_id: currentLastId, done: true },
+        cursor: { last_question_id: currentLastId, batches_done: batchesDone, done: true },
         done: true,
       };
     }
@@ -172,27 +176,31 @@ async function annotateQuestions(
       totalAnnotated += annotationRows.length;
     }
 
-    // ── Draft → direct annotation in exam_questions (guarded with status=draft) ──
+    // ── Draft → batch annotation in exam_questions (collected, then bulk upsert) ──
     const draftQuestions = questions.filter((q: any) => q.status === "draft");
+    const draftMeta: any[] = [];
     for (const q of draftQuestions) {
       const bp = bpMap.get(q.blueprint_id) || null;
       const comp = compMap.get(q.competency_id) || null;
       const a = computeElite(buildAnnotationInput(q, bp, comp));
-
-      // Guard: only update if still draft (prevents race condition with approval)
-      const { error } = await sb.from("exam_questions").update({
+      draftMeta.push({
+        id: q.id,
         elite_level: a.elite_level,
         multi_variable: a.multi_variable,
         transfer_variant: a.transfer_variant,
         distractor_types: a.distractor_types,
-      }).eq("id", q.id).eq("status", "draft");
-
-      if (!error) totalDraftAnnotated++;
+      });
+    }
+    if (draftMeta.length > 0) {
+      // Batch upsert — PK is id, only touches meta fields on existing rows
+      await batchUpsert(sb, "exam_questions", draftMeta, "id");
+      totalDraftAnnotated += draftMeta.length;
     }
 
-    // ── Update cursor after each batch ──
+    // ── Update cursor after each batch (local counter, not stale) ──
+    batchesDone += 1;
     await sb.from("elite_hardening_runs").update({
-      cursor_state: { last_question_id: currentLastId, batches_done: (cursorState.batches_done || 0) + 1 },
+      cursor_state: { last_question_id: currentLastId, batches_done: batchesDone, done: false },
       phase_stats: { annotated: totalAnnotated, draft_annotated: totalDraftAnnotated, total_seen: totalSeen },
     }).eq("id", runId);
 
@@ -204,7 +212,7 @@ async function annotateQuestions(
         annotated: totalAnnotated,
         draftAnnotated: totalDraftAnnotated,
         total: totalSeen,
-        cursor: { last_question_id: currentLastId, done: true },
+        cursor: { last_question_id: currentLastId, batches_done: batchesDone, done: true },
         done: true,
       };
     }
@@ -215,7 +223,7 @@ async function annotateQuestions(
     annotated: totalAnnotated,
     draftAnnotated: totalDraftAnnotated,
     total: totalSeen,
-    cursor: { last_question_id: currentLastId, done: false },
+    cursor: { last_question_id: currentLastId, batches_done: batchesDone, done: false },
     done: false,
   };
 }
