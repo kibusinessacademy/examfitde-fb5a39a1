@@ -1031,6 +1031,79 @@ Deno.serve(async (req) => {
     zip.file("steps.json", JSON.stringify(steps || [], null, 2));
     zip.file("questions_summary.json", JSON.stringify(questionsSummary, null, 2));
 
+    // ══════════════════════════════════════════════════════
+    // ── INTEGRITY GUARD: step metadata vs actual DB counts ──
+    // ══════════════════════════════════════════════════════
+    const integrityCheck = (() => {
+      const issues: { severity: string; step: string; message: string; expected: unknown; actual: unknown }[] = [];
+
+      // Helper: find step meta
+      const stepMeta = (key: string) => {
+        const s = (steps || []).find((st: any) => st.step_key === key);
+        return s ? { status: s.status, meta: s.meta || {} } : null;
+      };
+
+      // Check: blueprints seeded vs DB count
+      const bpStep = stepMeta("auto_seed_exam_blueprints");
+      if (bpStep?.status === "done") {
+        const claimedSeeded = (bpStep.meta as any)?.seeded;
+        if (typeof claimedSeeded === "number" && claimedSeeded > 0 && questionBlueprints.length === 0) {
+          issues.push({ severity: "critical", step: "auto_seed_exam_blueprints", message: `Step claims ${claimedSeeded} seeded but DB has 0 blueprints`, expected: claimedSeeded, actual: 0 });
+        }
+      }
+
+      // Check: exam pool generated vs DB count
+      const epStep = stepMeta("generate_exam_pool");
+      if (epStep?.status === "done") {
+        const claimedQ = (epStep.meta as any)?.total_questions;
+        if (typeof claimedQ === "number" && claimedQ > 0 && allQuestions.length === 0) {
+          issues.push({ severity: "critical", step: "generate_exam_pool", message: `Step claims ${claimedQ} questions but DB has 0`, expected: claimedQ, actual: 0 });
+        }
+      }
+
+      // Check: lessons generated vs DB count  
+      const lcStep = stepMeta("generate_learning_content");
+      if (lcStep?.status === "done") {
+        const claimedL = (lcStep.meta as any)?.lessonsGenerated || (lcStep.meta as any)?.lessons_generated;
+        if (typeof claimedL === "number" && claimedL > 0 && allLessons.length === 0) {
+          issues.push({ severity: "critical", step: "generate_learning_content", message: `Step claims ${claimedL} lessons but DB has 0`, expected: claimedL, actual: 0 });
+        }
+      }
+
+      // Check: course scaffold (modules)
+      const scStep = stepMeta("scaffold_learning_course");
+      if (scStep?.status === "done") {
+        const snap = courseSnapshot as Record<string, unknown> | null;
+        const moduleCount = snap?.modules ? (snap.modules as unknown[]).length : 0;
+        if (moduleCount === 0) {
+          issues.push({ severity: "critical", step: "scaffold_learning_course", message: "Step done but 0 modules in DB", expected: ">0", actual: 0 });
+        }
+      }
+
+      // Check: oral exam blueprints
+      const oeStep = stepMeta("generate_oral_exam");
+      if (oeStep?.status === "done" && oralBlueprints.length === 0) {
+        issues.push({ severity: "high", step: "generate_oral_exam", message: "Step done but 0 oral blueprints in DB", expected: ">0", actual: 0 });
+      }
+
+      const hasCritical = issues.some(i => i.severity === "critical");
+      return {
+        status: issues.length === 0 ? "healthy" : hasCritical ? "INTEGRITY_FAILURE" : "degraded",
+        issues_count: issues.length,
+        critical_count: issues.filter(i => i.severity === "critical").length,
+        issues,
+        recommendation: hasCritical
+          ? "PIPELINE DATA LOSS DETECTED: Steps report success but data is missing from DB. A full pipeline re-run is required."
+          : issues.length > 0
+            ? "Some data inconsistencies detected. Review issues and consider targeted re-generation."
+            : "All step metadata matches actual DB counts.",
+      };
+    })();
+    if (integrityCheck.status === "INTEGRITY_FAILURE") {
+      console.error(`[export] ⚠️ INTEGRITY FAILURE: ${integrityCheck.critical_count} critical issues detected`);
+    }
+    zip.file("integrity_check.json", JSON.stringify(integrityCheck, null, 2));
+
     // ── QUALITY ANALYSIS (computed from all data) ──
     const qualityAnalysis = (() => {
       const diffDist: Record<string, number> = {};
@@ -1286,6 +1359,7 @@ Deno.serve(async (req) => {
       red_flags: redFlags,
       questions_summary: questionsSummary,
       ai_cost_summary: aiCostSummary,
+      integrity_check: integrityCheck,
     };
     zip.file("manifest.json", JSON.stringify(manifest, null, 2));
 
@@ -1329,9 +1403,10 @@ Deno.serve(async (req) => {
       downloadUrl: signed.signedUrl,
       fileName: path,
       fileSize: bytes.length,
-      export_version: "5.1-elite-audit",
+      export_version: "6.1-integrity-guard",
       blocks: manifest.blocks,
       red_flags: { total: (redFlags as any).total_flags, critical: (redFlags as any).critical, high: (redFlags as any).high },
+      integrity_check: { status: integrityCheck.status, issues: integrityCheck.issues_count, critical: integrityCheck.critical_count },
       manifest,
     });
   } catch (e: unknown) {
