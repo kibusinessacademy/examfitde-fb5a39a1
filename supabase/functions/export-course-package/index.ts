@@ -343,7 +343,7 @@ Deno.serve(async (req) => {
         while (true) {
           const { data: batch, error: qErr } = await sb
             .from("exam_questions")
-            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id, question_type, trap_tags, distractor_meta, variant_group, variant_label, item_difficulty, item_discrimination, status, created_at, updated_at, metadata")
+            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id, question_type, trap_tags, distractor_meta, variant_group, variant_label, item_difficulty, item_discrimination, status, created_at, updated_at, metadata, elite_level, elite_score, elite_score_breakdown, complexity_score, multi_variable, conflict_type, dynamic_scenario, transfer_variant, distractor_types")
             .eq("curriculum_id", curriculumId)
             .range(offset, offset + pageSize - 1);
           if (qErr) {
@@ -381,6 +381,16 @@ Deno.serve(async (req) => {
               created_at: q.created_at,
               updated_at: q.updated_at,
               metadata: q.metadata,
+              // Elite v2 fields
+              elite_level: q.elite_level,
+              elite_score: q.elite_score,
+              elite_score_breakdown: q.elite_score_breakdown,
+              complexity_score: q.complexity_score,
+              multi_variable: q.multi_variable,
+              conflict_type: q.conflict_type,
+              dynamic_scenario: q.dynamic_scenario,
+              transfer_variant: q.transfer_variant,
+              distractor_types: q.distractor_types,
             };
             allQuestions.push(qObj);
             if (q.qc_status === "approved" || q.status === "approved") {
@@ -1107,7 +1117,7 @@ Deno.serve(async (req) => {
       })();
 
       return {
-        export_version: "5.2-elite-audit",
+        export_version: "6.0-elite-audit",
         track_type: allLessons.length > 0 ? (totalQ > 0 ? "hybrid" : "lesson_first") : "exam_first",
         primary_quality_source: allLessons.length > 0 ? "lessons+questions" : "exam_pool",
         // Lesson-based bloom (may be 0 for exam-first tracks)
@@ -1131,10 +1141,132 @@ Deno.serve(async (req) => {
     })();
     zip.file("quality_analysis.json", JSON.stringify(qualityAnalysis, null, 2));
 
+    // ══════════════════════════════════════════════════════
+    // ── QUALITY AUDIT FULL (Elite-Standard, all 6 layers) ──
+    // ══════════════════════════════════════════════════════
+    const qualityAuditFull = (() => {
+      const totalQ = allQuestions.length;
+      const qs = allQuestions as Record<string, unknown>[];
+
+      // Elite aggregation per LF
+      const lfEliteAgg: Record<string, any> = {};
+      for (const q of qs) {
+        const lfId = (q.learning_field_id as string) || "_none";
+        if (!lfEliteAgg[lfId]) lfEliteAgg[lfId] = { total: 0, elite: 0, advanced: 0, standard: 0, evaluate: 0, knowledge: 0, multivar: 0, conflict: 0, transfer: 0, distractor_diverse: 0 };
+        const a = lfEliteAgg[lfId];
+        a.total++;
+        const el = q.elite_level as string;
+        if (el === "elite") a.elite++;
+        else if (el === "advanced") a.advanced++;
+        else a.standard++;
+        const cl = q.cognitive_level as string;
+        if (cl === "evaluate" || cl === "analyze") a.evaluate++;
+        if (cl === "remember" || cl === "understand") a.knowledge++;
+        if (q.multi_variable === true) a.multivar++;
+        if (q.conflict_type && q.conflict_type !== "none" && q.conflict_type !== "") a.conflict++;
+        if (q.transfer_variant === true) a.transfer++;
+        const dt = q.distractor_types as string[] | null;
+        if (Array.isArray(dt) && dt.length >= 3) a.distractor_diverse++;
+      }
+      const lfEliteArray = Object.entries(lfEliteAgg).map(([lfId, a]) => {
+        const lfObj = (learningFields as Record<string, unknown>[]).find(lf => lf.id === lfId);
+        return {
+          learning_field_id: lfId,
+          learning_field_title: lfObj ? (lfObj as any).title : "Unbekannt",
+          total_questions: a.total,
+          elite_count: a.elite, advanced_count: a.advanced, standard_count: a.standard,
+          elite_ratio: a.total > 0 ? Math.round((a.elite / a.total) * 1000) / 10 : 0,
+          evaluate_ratio: a.total > 0 ? Math.round((a.evaluate / a.total) * 1000) / 10 : 0,
+          knowledge_ratio: a.total > 0 ? Math.round((a.knowledge / a.total) * 1000) / 10 : 0,
+          multi_variable_ratio: a.total > 0 ? Math.round((a.multivar / a.total) * 1000) / 10 : 0,
+          conflict_ratio: a.total > 0 ? Math.round((a.conflict / a.total) * 1000) / 10 : 0,
+          transfer_ratio: a.total > 0 ? Math.round((a.transfer / a.total) * 1000) / 10 : 0,
+          distractor_diversity_ratio: a.total > 0 ? Math.round((a.distractor_diverse / a.total) * 1000) / 10 : 0,
+        };
+      });
+
+      // Global elite metrics
+      const eliteCnt = qs.filter(q => q.elite_level === "elite").length;
+      const evalCnt = qs.filter(q => q.cognitive_level === "evaluate" || q.cognitive_level === "analyze").length;
+      const knowCnt = qs.filter(q => q.cognitive_level === "remember" || q.cognitive_level === "understand").length;
+      const multiVarCnt = qs.filter(q => q.multi_variable === true).length;
+      const conflictCnt = qs.filter(q => q.conflict_type && q.conflict_type !== "none" && q.conflict_type !== "").length;
+      const transferCnt = qs.filter(q => q.transfer_variant === true).length;
+      const distrDiverseCnt = qs.filter(q => Array.isArray(q.distractor_types) && (q.distractor_types as string[]).length >= 3).length;
+
+      const pct = (n: number) => totalQ > 0 ? Math.round((n / totalQ) * 1000) / 10 : 0;
+
+      // SSOT coverage
+      const hasComp = qs.filter(q => q.competency_id).length;
+      const hasLf = qs.filter(q => q.learning_field_id).length;
+      const hasBp = qs.filter(q => q.blueprint_id).length;
+      const hasDiff = qs.filter(q => q.difficulty).length;
+      const hasCog = qs.filter(q => q.cognitive_level && q.cognitive_level !== "unknown").length;
+
+      // Scoring (0-100)
+      const ssotScore = Math.min(30, Math.round((pct(hasComp) + pct(hasLf) + pct(hasBp)) / 3 * 0.30));
+      const metaScore = Math.min(25, Math.round((pct(hasDiff) + pct(hasCog)) * 0.12 + pct(qs.filter(q => q.distractor_meta).length) * 0.01));
+      const depthScore = Math.min(25, Math.round(
+        Math.min(10, pct(multiVarCnt) * 0.10) +
+        Math.min(6, pct(conflictCnt) * 0.06) +
+        Math.min(4, pct(transferCnt) * 0.04) +
+        Math.min(5, pct(evalCnt) * 0.05)
+      ));
+      const approvedR = pct(approvedQuestions.length);
+      const govScore = Math.min(10, (approvedR >= 95 ? 6 : Math.round(approvedR * 0.06)) + (councilFindings.length > 0 ? 2 : 0) + (aiValidations.length > 0 ? 2 : 0));
+      const riskDeduct = Math.min(10, (redFlags as any).total_flags * 1);
+      const riskScore = Math.max(0, 10 - riskDeduct);
+      const totalScore = ssotScore + metaScore + depthScore + govScore + riskScore;
+
+      // Rules
+      const rules: { id: string; status: string; reason: string }[] = [];
+      const gate = (id: string, ok: boolean, pass: string, fail: string) => rules.push({ id, status: ok ? "pass" : "fail", reason: ok ? pass : fail });
+      gate("G0_SSOT_BINDING", pct(hasComp) >= 98 && pct(hasLf) >= 98, "SSOT binding ≥98%", "SSOT binding incomplete");
+      gate("G1_APPROVAL", approvedR >= 95, "Approved ≥95%", `Approved only ${approvedR}%`);
+      gate("G2_META", pct(hasDiff) >= 98 && pct(hasCog) >= 98, "Meta coverage ≥98%", "Missing difficulty/cognitive_level");
+      gate("E1_MULTIVAR", pct(multiVarCnt) >= 25, "Multi-variable ≥25%", `Multi-variable only ${pct(multiVarCnt)}%`);
+      gate("E2_EVALUATE", pct(evalCnt) >= 15, "Evaluate ≥15%", `Evaluate only ${pct(evalCnt)}%`);
+      gate("E3_KNOWLEDGE", pct(knowCnt) <= 20, "Knowledge ≤20%", `Knowledge ${pct(knowCnt)}% (too high)`);
+
+      const level = totalScore >= 90 ? "elite_ready" : totalScore >= 75 ? "strong" : totalScore >= 60 ? "medium" : "blocked";
+
+      return {
+        meta: {
+          export_version: "6.0-elite-audit",
+          created_at: new Date().toISOString(),
+          package_id: packageId,
+          curriculum_id: curriculumId,
+          track_type: qualityAnalysis.track_type,
+        },
+        score: { total: totalScore, level, bands: { ssot: ssotScore, metadata: metaScore, depth: depthScore, governance: govScore, risk: riskScore } },
+        rules,
+        elite_metrics: {
+          total_questions: totalQ,
+          elite_count: eliteCnt, elite_ratio: pct(eliteCnt),
+          evaluate_ratio: pct(evalCnt), knowledge_ratio: pct(knowCnt),
+          multi_variable_ratio: pct(multiVarCnt), conflict_ratio: pct(conflictCnt),
+          transfer_ratio: pct(transferCnt), distractor_diversity_ratio: pct(distrDiverseCnt),
+        },
+        coverage: {
+          competency_id: pct(hasComp), learning_field_id: pct(hasLf), blueprint_id: pct(hasBp),
+          difficulty: pct(hasDiff), cognitive_level: pct(hasCog),
+        },
+        lf_elite_aggregation: lfEliteArray,
+        governance_summary: {
+          approved_ratio: approvedR,
+          council_findings: councilFindings.length,
+          ai_validations: aiValidations.length,
+          red_flags_total: (redFlags as any).total_flags,
+          red_flags_critical: (redFlags as any).critical,
+        },
+      };
+    })();
+    zip.file("quality_audit_full.json", JSON.stringify(qualityAuditFull, null, 2));
+
     // ── Export Manifest ──
     const manifest = {
       exported_at: new Date().toISOString(),
-      export_version: "5.2-elite-audit",
+      export_version: "6.0-elite-audit",
       package_id: packageId,
       course_id: cid,
       curriculum_id: curriculumId,
