@@ -23621,6 +23621,19 @@ export type Database = {
         Args: { p_code: string; p_lock_seconds?: number; p_max_fail?: number }
         Returns: Json
       }
+      pick_minicheck_elite: {
+        Args: {
+          p_competency_id: string
+          p_min_elite?: number
+          p_total?: number
+        }
+        Returns: {
+          elite_level: string
+          exam_question_id: string
+          score: number
+          sort_pos: number
+        }[]
+      }
       pick_minicheck_questions: {
         Args: {
           p_competency_id: string
