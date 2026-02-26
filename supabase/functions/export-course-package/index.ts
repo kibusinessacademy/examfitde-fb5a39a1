@@ -1047,9 +1047,71 @@ Deno.serve(async (req) => {
       }
       const bpsWithTraps = (questionBlueprints as Record<string, unknown>[]).filter(b => b.typical_errors && Array.isArray(b.typical_errors) && (b.typical_errors as unknown[]).length > 0).length;
       const bpsWithContext = (questionBlueprints as Record<string, unknown>[]).filter(b => b.exam_context_type).length;
+      // Exam-pool specific quality metrics (computed from questions, NOT lessons)
+      const examPoolQuality = (() => {
+        const bloomFromQ: Record<string, number> = {};
+        let qWithBloom = 0;
+        let qWithTrapTags = 0;
+        let qWithDistractorMeta = 0;
+        let qWithExamPart = 0;
+        const examPartDist: Record<string, number> = {};
+        const questionTypeDist2: Record<string, number> = {};
+
+        for (const q of allQuestions as Record<string, unknown>[]) {
+          const cl = (q.cognitive_level as string);
+          if (cl && cl !== "unknown" && cl !== "") {
+            bloomFromQ[cl] = (bloomFromQ[cl] || 0) + 1;
+            qWithBloom++;
+          }
+          if (q.trap_tags && Array.isArray(q.trap_tags) && (q.trap_tags as unknown[]).length > 0) qWithTrapTags++;
+          if (q.distractor_meta && typeof q.distractor_meta === "object") qWithDistractorMeta++;
+          const ep = (q.exam_part as string);
+          if (ep) { qWithExamPart++; examPartDist[ep] = (examPartDist[ep] || 0) + 1; }
+          const qt = (q.question_type as string) || "unknown";
+          questionTypeDist2[qt] = (questionTypeDist2[qt] || 0) + 1;
+        }
+
+        return {
+          total_questions: totalQ,
+          bloom_coverage: {
+            tagged_count: qWithBloom,
+            coverage_percent: totalQ > 0 ? Math.round((qWithBloom / totalQ) * 1000) / 10 : 0,
+            distribution: bloomFromQ,
+            percentages: Object.fromEntries(Object.entries(bloomFromQ).map(([k, v]) => [k, totalQ > 0 ? Math.round((v / totalQ) * 1000) / 10 : 0])),
+          },
+          difficulty_coverage: {
+            distribution: diffDist,
+            percentages: Object.fromEntries(Object.entries(diffDist).map(([k, v]) => [k, totalQ > 0 ? Math.round((v / totalQ) * 1000) / 10 : 0])),
+            targets: { easy: "5-15%", medium: "40-50%", hard: "25-35%", very_hard: "10-20%" },
+          },
+          cognitive_coverage: {
+            distribution: cognDist,
+            percentages: Object.fromEntries(Object.entries(cognDist).map(([k, v]) => [k, totalQ > 0 ? Math.round((v / totalQ) * 1000) / 10 : 0])),
+            targets: { remember: "<20%", understand: "15-25%", apply: "30-40%", analyze: "20-30%", evaluate: "5-15%" },
+          },
+          trap_coverage: {
+            with_trap_tags: qWithTrapTags,
+            coverage_percent: totalQ > 0 ? Math.round((qWithTrapTags / totalQ) * 1000) / 10 : 0,
+          },
+          distractor_meta_coverage: {
+            with_meta: qWithDistractorMeta,
+            coverage_percent: totalQ > 0 ? Math.round((qWithDistractorMeta / totalQ) * 1000) / 10 : 0,
+          },
+          exam_part_coverage: {
+            with_exam_part: qWithExamPart,
+            coverage_percent: totalQ > 0 ? Math.round((qWithExamPart / totalQ) * 1000) / 10 : 0,
+            distribution: examPartDist,
+          },
+          question_type_distribution: questionTypeDist2,
+        };
+      })();
+
       return {
-        export_version: "5.0-critical-audit",
-        bloom_taxonomy: { distribution: bloomDist, percentages: Object.fromEntries(Object.entries(bloomDist).map(([k, v]) => [k, allLessons.length > 0 ? Math.round((v / allLessons.length) * 1000) / 10 : 0])), tagged_count: withBloomTag, coverage_percent: allLessons.length > 0 ? Math.round((withBloomTag / allLessons.length) * 1000) / 10 : 0 },
+        export_version: "5.1-elite-audit",
+        // Lesson-based bloom (may be 0 for exam-first tracks)
+        bloom_taxonomy_lessons: { distribution: bloomDist, percentages: Object.fromEntries(Object.entries(bloomDist).map(([k, v]) => [k, allLessons.length > 0 ? Math.round((v / allLessons.length) * 1000) / 10 : 0])), tagged_count: withBloomTag, coverage_percent: allLessons.length > 0 ? Math.round((withBloomTag / allLessons.length) * 1000) / 10 : 0 },
+        // Question-based metrics (PRIMARY for exam-pool quality)
+        exam_pool_quality: examPoolQuality,
         difficulty_distribution: diffDist,
         difficulty_percentages: Object.fromEntries(Object.entries(diffDist).map(([k, v]) => [k, totalQ > 0 ? Math.round((v / totalQ) * 1000) / 10 : 0])),
         cognitive_distribution: cognDist,
@@ -1070,7 +1132,7 @@ Deno.serve(async (req) => {
     // ── Export Manifest ──
     const manifest = {
       exported_at: new Date().toISOString(),
-      export_version: "5.0-critical-audit",
+      export_version: "5.1-elite-audit",
       package_id: packageId,
       course_id: cid,
       curriculum_id: curriculumId,
@@ -1129,7 +1191,7 @@ Deno.serve(async (req) => {
       downloadUrl: signed.signedUrl,
       fileName: path,
       fileSize: bytes.length,
-      export_version: "5.0-critical-audit",
+      export_version: "5.1-elite-audit",
       blocks: manifest.blocks,
       red_flags: { total: (redFlags as any).total_flags, critical: (redFlags as any).critical, high: (redFlags as any).high },
       manifest,
