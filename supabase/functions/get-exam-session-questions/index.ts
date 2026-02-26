@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { forbiddenResponse, unauthorizedResponse, validateAuth } from "../_shared/auth.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/security.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[GET-EXAM-SESSION-QUESTIONS] ${step}`, details ? JSON.stringify(details) : "");
@@ -39,6 +40,13 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // ── Rate Limit Check ──
+    const rateLimitOk = await checkRateLimit(admin, auth.user.id, "get-exam-session-questions");
+    if (!rateLimitOk) {
+      logStep("RATE_LIMIT_BLOCKED", { userId: auth.user.id });
+      return rateLimitResponse(origin);
+    }
 
     // Load session + verify ownership
     const { data: session, error: sessionError } = await admin

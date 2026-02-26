@@ -1,0 +1,28 @@
+name: Security Invariants Check
+
+on:
+  schedule:
+    - cron: "23 */6 * * *" # every 6 hours
+  workflow_dispatch: {}
+
+jobs:
+  security:
+    name: Security Invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run security invariants
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/security-invariants-check.mjs
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_NAME: "Security Invariants Check"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/ci/issue-on-fail.mjs
