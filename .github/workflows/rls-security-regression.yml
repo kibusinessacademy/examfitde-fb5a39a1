@@ -1,0 +1,23 @@
+name: RLS Security Regression
+
+on:
+  pull_request:
+    paths: ["supabase/migrations/**"]
+  schedule:
+    - cron: "33 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  rls:
+    name: RLS Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run RLS security regression checks
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/rls-security-check.mjs

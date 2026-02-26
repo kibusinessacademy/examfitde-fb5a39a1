@@ -1,0 +1,86 @@
+name: Release Train
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch: {}
+
+jobs:
+  # 1) TypeScript + Build
+  build:
+    name: TypeScript + Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  # 2) SSOT Guard
+  ssot-guard:
+    name: SSOT Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node scripts/ssot-guard.mjs
+
+  # 3) Council Integrity
+  council-integrity:
+    name: Council Integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run council integrity checks
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/council-integrity-check.mjs
+
+  # 4) RLS Security
+  rls-security:
+    name: RLS Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run RLS security checks
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/rls-security-check.mjs
+
+  # 5) Published Packages Smoke
+  smoke:
+    name: Published Packages Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run smoke check
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/smoke-published-approved.mjs
+
+  # 6) Final gate — all must pass
+  release-gate:
+    name: Release Gate ✓
+    needs: [build, ssot-guard, council-integrity, rls-security, smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All gates passed
+        run: echo "✅ Release Train — all gates GREEN. Safe to deploy."
