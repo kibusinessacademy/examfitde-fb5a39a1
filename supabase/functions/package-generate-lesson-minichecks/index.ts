@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { callAIJSON } from "../_shared/ai-client.ts";
+import type { AIProvider } from "../_shared/ai-client.ts";
 
 /**
  * package-generate-lesson-minichecks
@@ -9,6 +11,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
  * - ExamFirst (has_learning_course=false): competency/drill-based, 3-5 items per competency
  * 
  * SSOT: minicheck_questions table with mode='lesson' | 'drill'
+ * 
+ * Blocker-B Fix: Uses callAIJSON from _shared/ai-client.ts directly
+ * instead of routing through ai-tutor (which has incompatible interface).
  */
 
 const TIME_BUDGET_MS = 50_000;
@@ -36,28 +41,23 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done";
 }
 
-async function callLovableAI(prompt: string, systemPrompt: string): Promise<string> {
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-tutor`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-    },
-    body: JSON.stringify({
-      mode: "internal_generation",
-      model: "google/gemini-2.5-flash",
-      system_prompt: systemPrompt,
-      user_prompt: prompt,
-      max_tokens: 4000,
-    }),
+/**
+ * Direct AI call via _shared/ai-client — no ai-tutor routing.
+ * This fixes Blocker B: ai-tutor expects {message, mode, role...}
+ * but we need {messages: [{role, content}], ...} (OpenAI-compatible).
+ */
+async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
+  const result = await callAIJSON({
+    provider: "lovable" as AIProvider,
+    model: "google/gemini-2.5-flash",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0.4,
+    max_tokens: 4000,
   });
-
-  if (!res.ok) throw new Error(`AI call failed: ${res.status}`);
-  const data = await res.json();
-  return data.response || data.text || JSON.stringify(data);
+  return result.content || "";
 }
 
 function buildMiniCheckPrompt(
@@ -207,52 +207,111 @@ Deno.serve(async (req) => {
     let targets: Array<{ id: string; title: string; content: string; competencyTitle: string; competencyId: string | null; lessonId: string | null }> = [];
 
     if (mode === "lesson") {
+      // Lesson MODE: collect targets via lessons + learning_fields
       if (!effectiveCourseId) throw new Error("course_id required for lesson mode");
 
       const { data: lessons } = await sb
         .from("lessons")
         .select("id, title, content, competency_id")
-        .eq("course_id", effectiveCourseId)
+        .eq("module_id", effectiveCourseId)
         .not("content", "is", null)
         .order("sort_order", { ascending: true });
 
-      if (!lessons?.length) throw new Error("No lessons found for course");
+      if (!lessons?.length) {
+        // Fallback: try via modules
+        const { data: modules } = await sb
+          .from("modules")
+          .select("id")
+          .eq("course_id", effectiveCourseId);
 
-      const compIds = [...new Set(lessons.filter(l => l.competency_id).map(l => l.competency_id))];
-      const compMap: Record<string, string> = {};
-      if (compIds.length > 0) {
-        const { data: comps } = await sb.from("competencies").select("id, title").in("id", compIds);
-        for (const c of comps || []) compMap[c.id] = c.title;
+        const moduleIds = (modules || []).map(m => m.id);
+        if (moduleIds.length > 0) {
+          const { data: modLessons } = await sb
+            .from("lessons")
+            .select("id, title, content, competency_id")
+            .in("module_id", moduleIds)
+            .not("content", "is", null)
+            .order("sort_order", { ascending: true });
+
+          if (modLessons?.length) {
+            const compIds = [...new Set(modLessons.filter(l => l.competency_id).map(l => l.competency_id))];
+            const compMap: Record<string, string> = {};
+            if (compIds.length > 0) {
+              const { data: comps } = await sb.from("competencies").select("id, title").in("id", compIds);
+              for (const c of comps || []) compMap[c.id] = c.title;
+            }
+
+            const lessonIds = modLessons.map(l => l.id);
+            const { data: existing } = await sb
+              .from("minicheck_questions")
+              .select("lesson_id")
+              .in("lesson_id", lessonIds)
+              .eq("curriculum_id", curriculumId)
+              .eq("mode", "lesson");
+            const existingSet = new Set((existing || []).map(e => e.lesson_id));
+
+            for (const lesson of modLessons) {
+              if (existingSet.has(lesson.id)) continue;
+              const contentText = typeof lesson.content === "string"
+                ? lesson.content
+                : JSON.stringify(lesson.content || {});
+              if (contentText.length < 50) continue;
+
+              targets.push({
+                id: lesson.id,
+                title: lesson.title,
+                content: contentText,
+                competencyTitle: compMap[lesson.competency_id] || "Allgemein",
+                competencyId: lesson.competency_id,
+                lessonId: lesson.id,
+              });
+            }
+          }
+        }
+
+        if (targets.length === 0) {
+          // No lessons found at all — fall back to drill mode
+          console.log(`[MiniChecks] No lessons found for course ${effectiveCourseId} — falling back to drill mode`);
+        }
+      } else {
+        const compIds = [...new Set(lessons.filter(l => l.competency_id).map(l => l.competency_id))];
+        const compMap: Record<string, string> = {};
+        if (compIds.length > 0) {
+          const { data: comps } = await sb.from("competencies").select("id, title").in("id", compIds);
+          for (const c of comps || []) compMap[c.id] = c.title;
+        }
+
+        const lessonIds = lessons.map(l => l.id);
+        const { data: existing } = await sb
+          .from("minicheck_questions")
+          .select("lesson_id")
+          .in("lesson_id", lessonIds)
+          .eq("curriculum_id", curriculumId)
+          .eq("mode", "lesson");
+        const existingSet = new Set((existing || []).map(e => e.lesson_id));
+
+        for (const lesson of lessons) {
+          if (existingSet.has(lesson.id)) continue;
+          const contentText = typeof lesson.content === "string"
+            ? lesson.content
+            : JSON.stringify(lesson.content || {});
+          if (contentText.length < 50) continue;
+
+          targets.push({
+            id: lesson.id,
+            title: lesson.title,
+            content: contentText,
+            competencyTitle: compMap[lesson.competency_id] || "Allgemein",
+            competencyId: lesson.competency_id,
+            lessonId: lesson.id,
+          });
+        }
       }
+    }
 
-      // Idempotency: curriculum-scoped (Fix #5)
-      const lessonIds = lessons.map(l => l.id);
-      const { data: existing } = await sb
-        .from("minicheck_questions")
-        .select("lesson_id")
-        .in("lesson_id", lessonIds)
-        .eq("curriculum_id", curriculumId)
-        .eq("mode", "lesson");
-      const existingSet = new Set((existing || []).map(e => e.lesson_id));
-
-      for (const lesson of lessons) {
-        if (existingSet.has(lesson.id)) continue;
-        const contentText = typeof lesson.content === "string"
-          ? lesson.content
-          : JSON.stringify(lesson.content || {});
-        if (contentText.length < 50) continue;
-
-        targets.push({
-          id: lesson.id,
-          title: lesson.title,
-          content: contentText,
-          competencyTitle: compMap[lesson.competency_id] || "Allgemein",
-          competencyId: lesson.competency_id,
-          lessonId: lesson.id,
-        });
-      }
-    } else {
-      // DRILL MODE: curriculum → learning_fields → competencies
+    // DRILL MODE: fallback or explicit
+    if (mode === "drill" || (mode === "lesson" && targets.length === 0)) {
+      const effectiveMode = "drill";
       const { data: lfs } = await sb
         .from("learning_fields")
         .select("id")
@@ -269,14 +328,13 @@ Deno.serve(async (req) => {
 
       if (!allComps?.length) throw new Error("No competencies found");
 
-      // Idempotency: curriculum-scoped (Fix #5)
       const compIdsAll = allComps.map(c => c.id);
       const { data: existingDrills } = await sb
         .from("minicheck_questions")
         .select("competency_id")
         .in("competency_id", compIdsAll)
         .eq("curriculum_id", curriculumId)
-        .eq("mode", "drill");
+        .eq("mode", effectiveMode);
       const existingDrillSet = new Set((existingDrills || []).map(e => e.competency_id));
 
       for (const comp of allComps) {
@@ -298,7 +356,8 @@ Deno.serve(async (req) => {
       targets = targets.slice(0, MAX_TARGETS_PER_RUN);
     }
 
-    console.log(`[MiniChecks] ${mode} mode: ${targets.length} targets to generate for ${packageId.slice(0, 8)}`);
+    const effectiveMode = targets[0]?.lessonId ? "lesson" : "drill";
+    console.log(`[MiniChecks] ${effectiveMode} mode: ${targets.length} targets to generate for ${packageId.slice(0, 8)}`);
 
     for (const target of targets) {
       if (Date.now() - startTime > TIME_BUDGET_MS) {
@@ -306,18 +365,19 @@ Deno.serve(async (req) => {
         break;
       }
 
-      const itemCount = mode === "lesson" ? ITEMS_PER_LESSON : ITEMS_PER_DRILL;
+      const itemCount = target.lessonId ? ITEMS_PER_LESSON : ITEMS_PER_DRILL;
+      const targetMode: "lesson" | "drill" = target.lessonId ? "lesson" : "drill";
       const { system, user } = buildMiniCheckPrompt(
         target.title,
         target.content,
         target.competencyTitle,
         itemCount,
-        mode,
+        targetMode,
         professionName
       );
 
       try {
-        const rawResponse = await callLovableAI(user, system);
+        const rawResponse = await callAI(system, user);
         const questions = parseJsonArray(rawResponse);
 
         if (!Array.isArray(questions) || questions.length === 0) {
@@ -337,7 +397,7 @@ Deno.serve(async (req) => {
           cognitive_level: q.cognitive_level || "understand",
           trap_tags: Array.isArray(q.trap_tags) ? q.trap_tags : [],
           distractor_meta: {},
-          mode,
+          mode: targetMode,
           status: "draft",
           sort_order: idx,
         }));
@@ -373,7 +433,7 @@ Deno.serve(async (req) => {
 
     return json({
       ok: true,
-      mode,
+      mode: effectiveMode,
       generated: totalGenerated,
       failed: totalFailed,
       targets_total: targets.length,
