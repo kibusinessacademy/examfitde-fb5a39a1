@@ -228,7 +228,7 @@ serve(async (req) => {
 
     // ── Cache idempotency response ──
     if (idempotency_key) {
-      await setIdempotencyResponse(adminClient, idempotency_key, "submit-exam-answer", result as unknown as Record<string, unknown>);
+      await setIdempotencyResponse(adminClient, idempotency_key, user.id, "submit-exam-answer", result as unknown as Record<string, unknown>);
     }
 
     return new Response(JSON.stringify(result),

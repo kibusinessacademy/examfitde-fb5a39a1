@@ -23349,7 +23349,12 @@ export type Database = {
         Returns: undefined
       }
       set_idempotency_response: {
-        Args: { p_endpoint: string; p_key: string; p_response: Json }
+        Args: {
+          p_endpoint: string
+          p_key: string
+          p_response: Json
+          p_user_id: string
+        }
         Returns: undefined
       }
       set_package_status: {
