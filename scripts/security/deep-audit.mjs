@@ -111,7 +111,9 @@ async function main() {
     select: "user_id,id",
     qs: `&created_at=gte.${recentSince}&order=user_id`,
   });
-  if (sess.res.ok) {
+  if (!sess.res.ok) {
+    console.warn("  ⚠️  exam_sessions query failed (RLS or missing table) – skipped");
+  } else {
     const userCounts = {};
     for (const s of sess.json ?? []) userCounts[s.user_id] = (userCounts[s.user_id] || 0) + 1;
     const abusers = Object.entries(userCounts).filter(([, c]) => c > 20);
