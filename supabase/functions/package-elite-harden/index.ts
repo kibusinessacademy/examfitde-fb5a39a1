@@ -117,7 +117,13 @@ async function annotateQuestions(
 
     const { data: questions } = await query;
     if (!questions?.length) {
-      // No more questions — we're done
+      // No more questions — persist done state to DB, then return
+      await sb.from("elite_hardening_runs").update({
+        cursor_state: { last_question_id: currentLastId, batches_done: batchesDone, done: true },
+        phase_stats: { annotated: totalAnnotated, draft_annotated: totalDraftAnnotated, total_seen: totalSeen },
+        status: "done",
+        completed_at: new Date().toISOString(),
+      }).eq("id", runId);
       return {
         annotated: totalAnnotated,
         draftAnnotated: totalDraftAnnotated,
@@ -192,9 +198,16 @@ async function annotateQuestions(
       });
     }
     if (draftMeta.length > 0) {
-      // Batch upsert — PK is id, only touches meta fields on existing rows
-      await batchUpsert(sb, "exam_questions", draftMeta, "id");
-      totalDraftAnnotated += draftMeta.length;
+      // Bulk-update with status='draft' guard via RPC (1 roundtrip, race-safe)
+      const { data: updatedCnt, error: draftErr } = await sb.rpc("update_exam_question_meta_if_draft", {
+        p_ids: draftMeta.map((d: any) => d.id),
+        p_elite_levels: draftMeta.map((d: any) => d.elite_level),
+        p_multi_variables: draftMeta.map((d: any) => d.multi_variable),
+        p_transfer_variants: draftMeta.map((d: any) => d.transfer_variant),
+        p_distractor_types: draftMeta.map((d: any) => d.distractor_types),
+      });
+      if (draftErr) console.warn(`[EliteHarden] Draft RPC error: ${draftErr.message}`);
+      totalDraftAnnotated += (updatedCnt ?? draftMeta.length);
     }
 
     // ── Update cursor after each batch (local counter, not stale) ──
@@ -207,7 +220,13 @@ async function annotateQuestions(
     console.log(`[EliteHarden] Annotation batch: ${annotationRows.length} approved, ${draftQuestions.length} draft (cursor: ${currentLastId?.slice(0, 8)})`);
 
     if (questions.length < ANNOTATION_BATCH) {
-      // Last page
+      // Last page — persist done state to DB, then return
+      await sb.from("elite_hardening_runs").update({
+        cursor_state: { last_question_id: currentLastId, batches_done: batchesDone, done: true },
+        phase_stats: { annotated: totalAnnotated, draft_annotated: totalDraftAnnotated, total_seen: totalSeen },
+        status: "done",
+        completed_at: new Date().toISOString(),
+      }).eq("id", runId);
       return {
         annotated: totalAnnotated,
         draftAnnotated: totalDraftAnnotated,
