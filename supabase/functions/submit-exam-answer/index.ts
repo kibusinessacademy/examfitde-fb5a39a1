@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { checkRateLimit, checkIdempotency, setIdempotencyResponse, logSecurityEvent, rateLimitResponse } from "../_shared/security.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[SUBMIT-EXAM-ANSWER] ${step}`, details ? JSON.stringify(details) : '');
@@ -40,6 +41,7 @@ interface SubmitAnswerRequest {
   session_id?: string;
   time_spent?: number;
   confidence?: number;
+  idempotency_key?: string;
 }
 
 interface AnswerResult {
@@ -81,14 +83,32 @@ serve(async (req) => {
     logStep("User authenticated", { userId: user.id });
 
     const body: SubmitAnswerRequest = await req.json();
-    const { question_id, selected_answer, session_id, confidence, time_spent } = body;
+    const { question_id, selected_answer, session_id, confidence, time_spent, idempotency_key } = body;
+
+    // ── Rate Limit Check ──
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    const rateLimitOk = await checkRateLimit(adminClient, user.id, "submit-exam-answer");
+    if (!rateLimitOk) {
+      logStep("RATE_LIMIT_BLOCKED", { userId: user.id });
+      return rateLimitResponse(origin);
+    }
+
+    // ── Idempotency Check (replay protection) ──
+    if (idempotency_key) {
+      const cached = await checkIdempotency(adminClient, idempotency_key, user.id, "submit-exam-answer");
+      if (cached) {
+        logStep("IDEMPOTENT_REPLAY", { key: idempotency_key });
+        return new Response(JSON.stringify(cached),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      }
+    }
 
     if (!question_id || selected_answer === undefined || selected_answer === null) {
       return new Response(JSON.stringify({ error: "question_id and selected_answer are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    // adminClient already created above for rate limit/idempotency
 
     // Get question
     const { data: question, error: questionError } = await adminClient
@@ -205,6 +225,11 @@ serve(async (req) => {
       correct_answer: question.correct_answer,
       explanation: question.explanation || '',
     };
+
+    // ── Cache idempotency response ──
+    if (idempotency_key) {
+      await setIdempotencyResponse(adminClient, idempotency_key, "submit-exam-answer", result as unknown as Record<string, unknown>);
+    }
 
     return new Response(JSON.stringify(result),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
