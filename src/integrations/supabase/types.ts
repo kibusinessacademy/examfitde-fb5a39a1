@@ -942,6 +942,33 @@ export type Database = {
         }
         Relationships: []
       }
+      api_rate_limits: {
+        Row: {
+          action_key: string
+          id: number
+          request_count: number
+          updated_at: string
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          action_key: string
+          id?: number
+          request_count?: number
+          updated_at?: string
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          action_key?: string
+          id?: number
+          request_count?: number
+          updated_at?: string
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       authority_decisions: {
         Row: {
           authority_index_at: number | null
@@ -8881,6 +8908,7 @@ export type Database = {
           endpoint: string
           idempotency_key: string
           response_json: Json | null
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -8888,6 +8916,7 @@ export type Database = {
           endpoint: string
           idempotency_key: string
           response_json?: Json | null
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -8895,6 +8924,7 @@ export type Database = {
           endpoint?: string
           idempotency_key?: string
           response_json?: Json | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -11877,6 +11907,51 @@ export type Database = {
             referencedColumns: ["package_id"]
           },
         ]
+      }
+      oral_exam_turns: {
+        Row: {
+          created_at: string
+          id: number
+          payload_json: Json
+          phase: string
+          question_id: string | null
+          rendered_question: string | null
+          rendering_model: string | null
+          role: string
+          session_id: string
+          source_blueprint_id: string | null
+          source_blueprint_question: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          payload_json?: Json
+          phase: string
+          question_id?: string | null
+          rendered_question?: string | null
+          rendering_model?: string | null
+          role: string
+          session_id: string
+          source_blueprint_id?: string | null
+          source_blueprint_question?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          payload_json?: Json
+          phase?: string
+          question_id?: string | null
+          rendered_question?: string | null
+          rendering_model?: string | null
+          role?: string
+          session_id?: string
+          source_blueprint_id?: string | null
+          source_blueprint_question?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       orchestrator_leases: {
         Row: {
@@ -21841,6 +21916,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_rate_limit_oral: {
+        Args: {
+          p_action_key: string
+          p_max_requests: number
+          p_user_id: string
+          p_window_seconds: number
+        }
+        Returns: Json
+      }
       check_schema_drift: { Args: never; Returns: Json }
       check_simulation_gate: {
         Args: { p_curriculum_id: string; p_user_id: string }
@@ -22529,6 +22613,10 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
+      get_idempotency_response: {
+        Args: { p_endpoint: string; p_idem_key: string; p_user_id: string }
+        Returns: Json
+      }
       get_job_fail_rate: {
         Args: { p_last_n?: number }
         Returns: {
@@ -22936,6 +23024,21 @@ export type Database = {
           p_tokens_output?: number
         }
         Returns: string
+      }
+      log_oral_exam_turn: {
+        Args: {
+          p_payload: Json
+          p_phase: string
+          p_question_id: string
+          p_rendered_question: string
+          p_rendering_model: string
+          p_role: string
+          p_session_id: string
+          p_source_blueprint_id: string
+          p_source_blueprint_question: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       log_provider_usage: {
         Args: {
@@ -23389,7 +23492,7 @@ export type Database = {
         | {
             Args: {
               p_endpoint: string
-              p_key: string
+              p_idem_key: string
               p_response: Json
               p_user_id: string
             }

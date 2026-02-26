@@ -148,18 +148,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── FIX 7: Idempotency check ───────────────────────────────
+    // ── FIX 7: Idempotency check (via service-role RPC) ───────
     const idemKey = req.headers.get("x-idempotency-key");
     if (idemKey && idemKey.length >= 8) {
-      const { data: existing } = await sbAdmin
-        .from("idempotency_keys")
-        .select("response_json")
-        .eq("user_id", userId)
-        .eq("endpoint", "oral-exam")
-        .eq("idem_key", idemKey)
-        .maybeSingle();
-      if (existing?.response_json) {
-        return json(existing.response_json, origin);
+      const { data: existing } = await sbAdmin.rpc("get_idempotency_response", {
+        p_user_id: userId,
+        p_endpoint: "oral-exam",
+        p_idem_key: idemKey,
+      });
+      if (existing) {
+        return json(existing, origin);
       }
     }
 
@@ -186,7 +184,7 @@ Deno.serve(async (req) => {
       await sbAdmin.rpc("set_idempotency_response", {
         p_user_id: userId,
         p_endpoint: "oral-exam",
-        p_key: idemKey,
+        p_idem_key: idemKey,
         p_response: result,
       }).catch(() => {}); // tolerate failures
     }
@@ -224,7 +222,7 @@ async function loadEnrichedCompetency(sb: any, competencyId: string) {
   return data;
 }
 
-// ── Log Turn (audit trail) ─────────────────────────────────────
+// ── Log Turn (audit trail via service-role RPC) ────────────────
 async function logTurn(sbAdmin: any, params: {
   sessionId: string;
   questionId?: string;
@@ -237,17 +235,17 @@ async function logTurn(sbAdmin: any, params: {
   sourceBlueprintQuestion?: string;
   renderingModel?: string;
 }) {
-  await sbAdmin.from("oral_exam_turns").insert({
-    session_id: params.sessionId,
-    question_id: params.questionId || null,
-    user_id: params.userId,
-    phase: params.phase,
-    role: params.role,
-    payload_json: params.payload,
-    source_blueprint_id: params.sourceBlueprintId || null,
-    rendered_question: params.renderedQuestion || null,
-    source_blueprint_question: params.sourceBlueprintQuestion || null,
-    rendering_model: params.renderingModel || null,
+  await sbAdmin.rpc("log_oral_exam_turn", {
+    p_session_id: params.sessionId,
+    p_question_id: params.questionId || null,
+    p_user_id: params.userId,
+    p_phase: params.phase,
+    p_role: params.role,
+    p_payload: params.payload || {},
+    p_source_blueprint_id: params.sourceBlueprintId || null,
+    p_source_blueprint_question: params.sourceBlueprintQuestion || null,
+    p_rendered_question: params.renderedQuestion || null,
+    p_rendering_model: params.renderingModel || null,
   }).catch((e: any) => console.warn("[OralExam] Turn log failed:", e));
 }
 
