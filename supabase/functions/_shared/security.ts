@@ -113,6 +113,7 @@ export async function checkIdempotency(
 export async function setIdempotencyResponse(
   admin: SupabaseAdmin,
   idempotencyKey: string,
+  userId: string,
   endpoint: string,
   response: Record<string, unknown>,
 ): Promise<void> {
@@ -121,6 +122,7 @@ export async function setIdempotencyResponse(
   try {
     await admin.rpc("set_idempotency_response", {
       p_key: idempotencyKey,
+      p_user_id: userId,
       p_endpoint: endpoint,
       p_response: response,
     });
