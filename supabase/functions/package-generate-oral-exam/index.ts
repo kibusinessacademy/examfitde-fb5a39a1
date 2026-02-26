@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
           curriculum_id: curriculumId,
           certification_id: certificationId,
           competency_id: comp.id,
+          learning_field_id: lfId,
           title: `Mündliche Prüfung: ${comp.title}`,
           scenario: `Der Prüfling soll im Rahmen eines Fachgesprächs nachweisen, dass er die Kompetenz "${comp.title}" beherrscht. ${comp.description || ""}${topicContext}`.trim(),
           lead_questions: [
