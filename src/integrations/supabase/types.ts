@@ -22165,6 +22165,10 @@ export type Database = {
           q_count: number
         }[]
       }
+      count_unenriched_competencies_for_curriculum: {
+        Args: { p_curriculum_id: string }
+        Returns: number
+      }
       count_upgrade_candidates: {
         Args: { p_curriculum_id: string; p_layer: string }
         Returns: Json
@@ -22744,6 +22748,29 @@ export type Database = {
         Returns: Json
       }
       get_track_summary: { Args: never; Returns: Json }
+      get_unenriched_competencies_for_curriculum: {
+        Args: { p_curriculum_id: string; p_limit?: number }
+        Returns: {
+          action_verb: string
+          bloom_level: string
+          exam_relevance_tier: string
+          id: string
+          learning_field_title: string
+          title: string
+        }[]
+      }
+      get_unenriched_curricula_batch: {
+        Args: { p_limit?: number }
+        Returns: {
+          beruf_kurz: string
+          beruf_lang: string
+          curriculum_id: string
+          curriculum_title: string
+          taetigkeitsprofil: string
+          unenriched_count: number
+          zustaendigkeit: string
+        }[]
+      }
       get_user_dashboard_stats: { Args: never; Returns: Json }
       get_user_entitlements: {
         Args: { p_curriculum_id?: string; p_user_id: string }
