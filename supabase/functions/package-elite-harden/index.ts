@@ -52,6 +52,40 @@ function timeLeft(start: number): boolean {
   return (Date.now() - start) < TIME_BUDGET_MS;
 }
 
+// ── Berufsabhängige Szenario-Keywords (statt generischer Heuristik) ──
+function getScenarioKeywords(profession: string): string[] {
+  const base = ["betrieb", "situation", "fall", "szenario", "bestellt", "reklamiert", "prüft", "berechnet"];
+  const p = profession.toLowerCase();
+
+  if (p.includes("verkäufer") || p.includes("einzelhandel") || p.includes("kaufmann im einzelhandel")) {
+    return [...base, "kunde", "filiale", "kasse", "geschäft", "laden", "markt", "warenbestand",
+      "verkaufsgespräch", "reklamation", "angebot", "rabatt", "lieferung", "lager", "sortiment",
+      "warenpräsentation", "inventur", "kassiervorgang", "umtausch", "servicebereich", "abteilung"];
+  }
+  if (p.includes("pka") || p.includes("pharmazeutisch")) {
+    return [...base, "apotheke", "rezept", "arzneimittel", "patient", "lagerbestand", "btm",
+      "retaxation", "rabattvertrag", "aut-idem", "defektur", "taxierung"];
+  }
+  if (p.includes("mfa") || p.includes("medizinische fachangestellte")) {
+    return [...base, "patient", "praxis", "behandlung", "termin", "abrechnung", "ebm",
+      "goä", "sprechstunde", "dokumentation", "hygiene", "labor"];
+  }
+  if (p.includes("industriekaufmann") || p.includes("industriekauffrau") || p.includes("industriekauf")) {
+    return [...base, "kunde", "lieferant", "fertigung", "beschaffung", "kalkulation",
+      "angebot", "auftrag", "rechnung", "lager", "produktion", "logistik", "abteilung"];
+  }
+  if (p.includes("büro") || p.includes("büromanagement")) {
+    return [...base, "kunde", "termin", "korrespondenz", "ablage", "beschaffung",
+      "protokoll", "veranstaltung", "reiseplanung", "posteingang", "abteilung"];
+  }
+  if (p.includes("bankkaufmann") || p.includes("bankkauffrau") || p.includes("bank")) {
+    return [...base, "kunde", "konto", "kredit", "anlage", "beratungsgespräch",
+      "finanzierung", "wertpapier", "zinsen", "bonität", "sicherheit"];
+  }
+  // Fallback: generische berufsbezogene Keywords
+  return [...base, "kunde", "filiale", "abteilung", "geschäft", "kasse"];
+}
+
 // ═══════════════════════════════════════════════════════════════
 // HARDEN: Exam Questions (draft AND approved — Blocker C fix)
 // For approved questions: annotates elite_level/multi_variable/transfer_variant/distractor_types
@@ -82,7 +116,7 @@ async function hardenExamQuestions(
   let annotated = 0;
 
   // Heuristic annotation for approved questions (no AI call needed)
-  const scenarioKw = ["betrieb", "apotheke", "kunde", "patient", "situation", "fall", "szenario", "bestellt", "reklamiert", "prüft", "berechnet", "filiale", "abteilung", "geschäft", "laden", "markt", "kasse"];
+  const scenarioKw = getScenarioKeywords(berufName);
   const multistepKw = ["zunächst", "anschließend", "daraufhin", "im nächsten schritt", "bevor", "nachdem", "dabei", "deshalb", "folglich"];
   const transferKw = ["übertragen", "vergleich", "analog", "unterschied", "alternativ", "stattdessen", "wenn statt", "im gegensatz"];
 
