@@ -148,16 +148,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── FIX 7: Idempotency check (via service-role RPC) ───────
+    // ── FIX 7: Idempotency check (via service-role RPC, stabilized {hit,response}) ───
     const idemKey = req.headers.get("x-idempotency-key");
     if (idemKey && idemKey.length >= 8) {
-      const { data: existing } = await sbAdmin.rpc("get_idempotency_response", {
+      const { data: idem } = await sbAdmin.rpc("get_idempotency_response", {
         p_user_id: userId,
         p_endpoint: "oral-exam",
         p_idem_key: idemKey,
       });
-      if (existing) {
-        return json(existing, origin);
+      if (idem?.hit === true && idem.response) {
+        return json(idem.response, origin);
       }
     }
 
