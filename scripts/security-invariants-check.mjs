@@ -17,20 +17,6 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
   process.exit(0);
 }
 
-async function query(sql) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
-    },
-    body: JSON.stringify({}),
-  });
-  // Fallback: use direct REST query
-  return [];
-}
-
 async function restQuery(table, select, filters = "") {
   const url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}${filters}`;
   const res = await fetch(url, {
@@ -43,6 +29,25 @@ async function restQuery(table, select, filters = "") {
   if (!res.ok) {
     const text = await res.text();
     console.warn(`  ⚠️  Query failed for ${table}: ${res.status} ${text}`);
+    return null;
+  }
+  return res.json();
+}
+
+async function rpcCall(fnName, params = {}) {
+  const url = `${SUPABASE_URL}/rest/v1/rpc/${fnName}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    console.warn(`  ⚠️  RPC ${fnName} failed: ${res.status} ${text}`);
     return null;
   }
   return res.json();
@@ -74,27 +79,35 @@ async function main() {
     }
   }
 
-  // 2) Published packages must have approved questions
+  // 2) Published packages must have approved questions (via correct join on curriculum_id)
   console.log("\n── Publish Integrity ──");
   const published = await restQuery(
     "course_packages",
-    "id,status",
+    "id,status,curriculum_id",
     "&status=eq.published"
   );
   if (published) {
+    let publishFailures = 0;
     for (const pkg of published) {
+      if (!pkg.curriculum_id) {
+        console.error(`  ❌ FAIL: Published package ${pkg.id} has no curriculum_id`);
+        publishFailures++;
+        continue;
+      }
+      // Query approved questions by curriculum_id (the actual FK on exam_questions)
       const questions = await restQuery(
         "exam_questions",
         "id",
-        `&curriculum_id=eq.${pkg.id}&status=eq.approved&limit=1`
+        `&curriculum_id=eq.${pkg.curriculum_id}&status=eq.approved&limit=1`
       );
-      // Note: curriculum_id may not match package id directly - this is a heuristic
       if (questions && questions.length === 0) {
-        console.error(`  ❌ FAIL: Published package ${pkg.id} has 0 approved questions`);
-        failures++;
+        console.error(`  ❌ FAIL: Published package ${pkg.id} (curriculum ${pkg.curriculum_id}) has 0 approved questions`);
+        publishFailures++;
       }
     }
-    if (failures === 0) {
+    if (publishFailures > 0) {
+      failures += publishFailures;
+    } else {
       console.log("  ✅ All published packages have approved questions");
     }
   }
