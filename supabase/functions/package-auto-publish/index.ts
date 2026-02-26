@@ -40,6 +40,22 @@ Deno.serve(async (req) => {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: run_integrity_check" }, 409);
   }
 
+  // ── PUBLISH-GATE: validate approved question count ──
+  const { data: publishGate } = await sb.rpc("validate_publish_readiness", { p_package_id: packageId });
+  if (publishGate && !publishGate.ok) {
+    console.log(`[auto-publish] 🛑 PUBLISH-GATE blocked: ${publishGate.error} (approved=${publishGate.approved_questions}/${publishGate.total_questions})`);
+    await sb.from("course_packages").update({ status: "quality_gate_failed" }).eq("id", packageId);
+    try {
+      await sb.from("admin_notifications").insert({
+        title: "🛑 Publish-Gate: Keine approved Questions",
+        body: `${publishGate.error}: ${publishGate.approved_questions}/${publishGate.total_questions} approved`,
+        category: "quality", severity: "error",
+        entity_type: "course_package", entity_id: packageId,
+      });
+    } catch (_) { /* non-critical */ }
+    return json({ ok: false, retry: false, error: publishGate.error, ...publishGate }, 422);
+  }
+
   // ── Load package data ──
   const { data: pkgQ } = await sb
     .from("course_packages")

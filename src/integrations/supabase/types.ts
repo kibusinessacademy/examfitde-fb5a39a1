@@ -23288,6 +23288,10 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      validate_publish_readiness: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       verify_evidence_pack_integrity: {
         Args: { p_pack_id: string }
         Returns: Json

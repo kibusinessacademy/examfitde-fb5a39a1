@@ -1107,7 +1107,9 @@ Deno.serve(async (req) => {
       })();
 
       return {
-        export_version: "5.1-elite-audit",
+        export_version: "5.2-elite-audit",
+        track_type: allLessons.length > 0 ? (totalQ > 0 ? "hybrid" : "lesson_first") : "exam_first",
+        primary_quality_source: allLessons.length > 0 ? "lessons+questions" : "exam_pool",
         // Lesson-based bloom (may be 0 for exam-first tracks)
         bloom_taxonomy_lessons: { distribution: bloomDist, percentages: Object.fromEntries(Object.entries(bloomDist).map(([k, v]) => [k, allLessons.length > 0 ? Math.round((v / allLessons.length) * 1000) / 10 : 0])), tagged_count: withBloomTag, coverage_percent: allLessons.length > 0 ? Math.round((withBloomTag / allLessons.length) * 1000) / 10 : 0 },
         // Question-based metrics (PRIMARY for exam-pool quality)
@@ -1132,7 +1134,7 @@ Deno.serve(async (req) => {
     // ── Export Manifest ──
     const manifest = {
       exported_at: new Date().toISOString(),
-      export_version: "5.1-elite-audit",
+      export_version: "5.2-elite-audit",
       package_id: packageId,
       course_id: cid,
       curriculum_id: curriculumId,
