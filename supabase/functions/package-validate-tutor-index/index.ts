@@ -29,7 +29,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-const MIN_CHUNKS_TOTAL = 20;
+const DEFAULT_MIN_CHUNKS_TOTAL = 20;
 const MIN_TOKENS_PER_CHUNK = 200;
 const MAX_TOKENS_PER_CHUNK = 1500;
 
@@ -92,11 +92,16 @@ Deno.serve(async (req) => {
   const minTokens = stats.min_tokens || 0;
   const maxTokens = stats.max_tokens || 0;
 
-  console.log(`[validate-tutor-index] Index found: v${indexRow.index_version}, ${totalChunks} chunks, ${lfCoverage}/${lfTotal} LF`);
+  // Dynamic min chunks: for small curricula (≤6 LF), require 1 per LF; for larger ones, scale up
+  const minChunksTotal = lfTotal > 0
+    ? (lfTotal <= 6 ? lfTotal : Math.min(DEFAULT_MIN_CHUNKS_TOTAL, lfTotal * 2))
+    : DEFAULT_MIN_CHUNKS_TOTAL;
 
-  // ═══ CHECK 2: Minimum chunk count ═══
-  if (totalChunks < MIN_CHUNKS_TOTAL) {
-    issues.push(`TOO_FEW_CHUNKS: ${totalChunks}/${MIN_CHUNKS_TOTAL} Minimum`);
+  console.log(`[validate-tutor-index] Index found: v${indexRow.index_version}, ${totalChunks} chunks, ${lfCoverage}/${lfTotal} LF, minChunks=${minChunksTotal}`);
+
+  // ═══ CHECK 2: Minimum chunk count (relative to curriculum size) ═══
+  if (totalChunks < minChunksTotal) {
+    issues.push(`TOO_FEW_CHUNKS: ${totalChunks}/${minChunksTotal} Minimum`);
   }
 
   // ═══ CHECK 3: Empty index ═══
