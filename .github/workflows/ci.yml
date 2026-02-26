@@ -151,3 +151,14 @@ jobs:
               for (const [k,c] of Object.entries(v)) console.log('| ' + k + ' | ' + c + ' |');
             } catch { console.log('No vulnerabilities found.'); }
           " >> $GITHUB_STEP_SUMMARY
+
+  published-questions-smoke:
+    name: Published Packages Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check published packages have approved questions
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/smoke-published-approved.mjs
