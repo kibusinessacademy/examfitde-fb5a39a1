@@ -106,17 +106,54 @@ Deno.serve(async (req) => {
   const MAX_CURRICULA = Math.min(body.max_curricula || 1, 2);
   const TIME_BUDGET_MS = 60_000; // 60s safe budget
   const startTime = Date.now();
+  const targetCurriculumIds: string[] | undefined = body.curriculum_ids;
 
   try {
     // ── 1. Get next unenriched curricula via RPC (fast, indexed) ──
-    const { data: curricula, error: rpcErr } = await sb.rpc(
-      "get_unenriched_curricula_batch",
-      { p_limit: MAX_CURRICULA },
-    );
-
-    if (rpcErr) {
-      console.error(`[MassEnrich] RPC error: ${rpcErr.message}`);
-      return json({ ok: false, error: rpcErr.message }, 500);
+    let curricula: any[];
+    if (targetCurriculumIds?.length) {
+      // Targeted mode: build curriculum data directly via SQL
+      const targetResults: any[] = [];
+      for (const cid of targetCurriculumIds) {
+        const { data: cData } = await sb
+          .from("curricula")
+          .select("id, beruf_id")
+          .eq("id", cid)
+          .single();
+        if (!cData) continue;
+        const { data: beruf } = await sb
+          .from("berufe")
+          .select("bezeichnung_kurz, bezeichnung_lang, taetigkeitsprofil, zustaendigkeit")
+          .eq("id", cData.beruf_id)
+          .single();
+        if (!beruf) continue;
+        // Count unenriched
+        const { data: countData } = await sb.rpc(
+          "count_unenriched_competencies_for_curriculum",
+          { p_curriculum_id: cid },
+        );
+        const unenriched = countData ?? 0;
+        if (unenriched === 0) continue;
+        targetResults.push({
+          curriculum_id: cid,
+          beruf_kurz: beruf.bezeichnung_kurz,
+          beruf_lang: beruf.bezeichnung_lang,
+          taetigkeitsprofil: beruf.taetigkeitsprofil,
+          zustaendigkeit: beruf.zustaendigkeit,
+          unenriched_count: unenriched,
+        });
+      }
+      curricula = targetResults;
+    } else {
+      const { data, error: rpcErr } = await sb.rpc(
+        "get_unenriched_curricula_batch",
+        { p_limit: MAX_CURRICULA },
+      );
+      if (rpcErr) {
+        console.error(`[MassEnrich] RPC error: ${rpcErr.message}`);
+        return json({ ok: false, error: rpcErr.message }, 500);
+      }
+      curricula = data || [];
     }
 
     if (!curricula?.length) {
