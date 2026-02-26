@@ -28,8 +28,9 @@ const TIME_BUDGET_MS = 110_000;
 const MAX_EXAM_HARDEN = 80;
 const MAX_MINICHECK_HARDEN = 40;
 const MAX_ORAL_HARDEN = 30;
+const MAX_AI_CALLS_PER_RUN = 100; // QW #6: AI budget guard
 const BATCH_SIZE = 200;
-const ANNOTATION_BATCH = 500; // cursor batch for annotations_only
+const ANNOTATION_BATCH = 500;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,6 +70,41 @@ function parseJSON(text: string): any {
   const last = cleaned.lastIndexOf("}");
   if (first === -1 || last === -1 || last <= first) throw new Error("AI_JSON_NOT_FOUND");
   return JSON.parse(cleaned.slice(first, last + 1));
+}
+
+/** QW #7: Strong JSON schema validation for AI exam question outputs */
+function validateAIExamOutput(parsed: any): string | null {
+  if (!parsed.question_text || typeof parsed.question_text !== "string" || parsed.question_text.length < 20)
+    return "question_text too short or missing";
+  if (!Array.isArray(parsed.options) || parsed.options.length < 4)
+    return "options must have at least 4 items";
+  for (let i = 0; i < parsed.options.length; i++) {
+    if (!parsed.options[i]?.text || parsed.options[i].text.length < 3)
+      return `option[${i}].text too short or missing`;
+  }
+  if (typeof parsed.correct_answer !== "number" || parsed.correct_answer < 0 || parsed.correct_answer > 3)
+    return "correct_answer must be 0-3";
+  if (!parsed.explanation || typeof parsed.explanation !== "string" || parsed.explanation.length < 50)
+    return "explanation too short (min 50 chars)";
+  return null; // valid
+}
+
+/** QW #8: Central finalize wrapper — no run ever stays "half done" */
+async function finalizeRunSafe(
+  sb: ReturnType<typeof createClient>,
+  runId: string,
+  status: "done" | "failed" | "partial",
+  meta: Record<string, any> = {},
+) {
+  try {
+    await sb.from("elite_hardening_runs").update({
+      status,
+      finished_at: status !== "partial" ? new Date().toISOString() : null,
+      ...meta,
+    }).eq("id", runId);
+  } catch (e) {
+    console.error(`[EliteHarden] finalizeRunSafe FAILED for ${runId}: ${e}`);
+  }
 }
 
 function timeLeft(start: number): boolean {
@@ -291,10 +327,11 @@ async function upgradeWeakDrafts(
     return elite_score <= 4 || (!hasTags && !hasMeta);
   }).slice(0, MAX_EXAM_HARDEN);
 
-  let upgraded = 0, failed = 0;
+  let upgraded = 0, failed = 0, aiCalls = 0;
 
   for (const q of weak) {
     if (!timeLeft(start)) break;
+    if (aiCalls >= MAX_AI_CALLS_PER_RUN) { console.log("[EliteHarden] AI budget exhausted"); break; }
     const comp = compMap.get(q.competency_id);
     const misconceptions = comp?.typical_misconceptions ? JSON.stringify(comp.typical_misconceptions) : "keine bekannt";
 
@@ -318,8 +355,10 @@ FEHLVORSTELLUNGEN: ${misconceptions}
 
 JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{"text":"D"}],"correct_answer":0,"explanation":"...","cognitive_level":"apply|analyze|evaluate","trap_tags":["tag1"],"distractor_meta":{"d0_trap":"...","d1_trap":"...","d2_trap":"..."}}`;
 
+      aiCalls++;
       const parsed = parseJSON(await callAI(systemPrompt, userPrompt));
-      if (!parsed.question_text || !parsed.options || parsed.options.length < 4) throw new Error("Invalid AI structure");
+      const validationErr = validateAIExamOutput(parsed);
+      if (validationErr) throw new Error(`AI_VALIDATION: ${validationErr}`);
 
       await sb.from("elite_hardening_items").insert({
         run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "upgraded",
@@ -705,10 +744,11 @@ Deno.serve(async (req) => {
 
     return json({ error: `Unknown phase: ${phase}` }, 400);
   } catch (err) {
-    await sb.from("elite_hardening_runs").update({
-      status: "failed", error_message: String(err), finished_at: new Date().toISOString(),
-    }).eq("id", runId);
-
+    // QW #8: Central finalize — no run stays "half done"
+    await finalizeRunSafe(sb, runId, "failed", {
+      error_message: String(err),
+      last_error: String((err as Error)?.message || err),
+    });
     console.error(`[EliteHarden] FATAL: ${(err as Error)?.message || err}`);
     return json({ ok: false, error: String(err) }, 500);
   }
