@@ -396,7 +396,7 @@ Für jeden Blueprint bestimme:
    - Mehrstufiger Kalkulationskette (mind. 2 Rechenschritte)
    - Konkreten Zahlen (EK, VK, Spannen, Mengen)
    - Entscheidungsdruck
-   - Apothekenspezifischem Kontext
+   - Berufsspezifischem Kontext passend zu ${berufName}
 
 Antworte NUR als JSON-Array:
 [{"blueprint_id": "...", "economic_scenario_type": "...", "upgraded_question_template": "..."}]`;
