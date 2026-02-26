@@ -53,7 +53,10 @@ function timeLeft(start: number): boolean {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// HARDEN: Exam Questions (draft only)
+// HARDEN: Exam Questions (draft AND approved — Blocker C fix)
+// For approved questions: annotates elite_level/multi_variable/transfer_variant/distractor_types
+// WITHOUT mutating the question content (preserves approved state).
+// For draft questions: full content upgrade (existing behavior).
 // ═══════════════════════════════════════════════════════════════
 async function hardenExamQuestions(
   sb: ReturnType<typeof createClient>,
@@ -61,23 +64,85 @@ async function hardenExamQuestions(
   curriculumId: string,
   berufName: string,
   start: number,
-): Promise<{ upgraded: number; failed: number; total: number }> {
-  // Only draft questions for this curriculum
+): Promise<{ upgraded: number; annotated: number; failed: number; total: number }> {
+  // Fetch both draft AND approved questions
   const { data: questions } = await sb
     .from("exam_questions")
-    .select("id, question_text, options, explanation, correct_answer, cognitive_level, difficulty, competency_id, trap_tags, distractor_meta")
+    .select("id, question_text, options, explanation, correct_answer, cognitive_level, difficulty, competency_id, trap_tags, distractor_meta, status, elite_level, multi_variable, transfer_variant, distractor_types")
     .eq("curriculum_id", curriculumId)
-    .eq("status", "draft")
+    .in("status", ["draft", "approved"])
     .limit(1100);
 
-  if (!questions?.length) return { upgraded: 0, failed: 0, total: 0 };
+  if (!questions?.length) return { upgraded: 0, annotated: 0, failed: 0, total: 0 };
 
-  // Score deficiencies to find weak items
-  const scenarioKw = ["betrieb", "apotheke", "kunde", "patient", "situation", "fall", "szenario", "bestellt", "reklamiert", "prüft", "berechnet"];
-  const multistepKw = ["zunächst", "anschließend", "daraufhin", "im nächsten schritt", "bevor", "nachdem"];
+  // ── Phase 1: Annotate ALL approved questions with elite metadata ──
+  // This does NOT mutate content — only sets elite_level, multi_variable, transfer_variant, distractor_types
+  const approvedQuestions = questions.filter(q => q.status === "approved");
+  const unannotated = approvedQuestions.filter(q => !q.elite_level);
+  let annotated = 0;
 
+  // Heuristic annotation for approved questions (no AI call needed)
+  const scenarioKw = ["betrieb", "apotheke", "kunde", "patient", "situation", "fall", "szenario", "bestellt", "reklamiert", "prüft", "berechnet", "filiale", "abteilung", "geschäft", "laden", "markt", "kasse"];
+  const multistepKw = ["zunächst", "anschließend", "daraufhin", "im nächsten schritt", "bevor", "nachdem", "dabei", "deshalb", "folglich"];
+  const transferKw = ["übertragen", "vergleich", "analog", "unterschied", "alternativ", "stattdessen", "wenn statt", "im gegensatz"];
+
+  for (const q of unannotated) {
+    if (!timeLeft(start)) break;
+    const text = (q.question_text || "").toLowerCase();
+    const expl = (q.explanation || "").toLowerCase();
+
+    // Determine elite_level by heuristic
+    const hasScenario = scenarioKw.some(k => text.includes(k));
+    const hasMultistep = multistepKw.some(k => text.includes(k));
+    const hasDeepExpl = expl.length >= 200;
+    const isHighBloom = ["apply", "analyze", "evaluate"].includes(q.cognitive_level || "");
+    const hasTraps = (q.trap_tags || []).length > 0;
+
+    let score = 0;
+    if (hasScenario) score += 2;
+    if (hasMultistep) score += 2;
+    if (hasDeepExpl) score += 1;
+    if (isHighBloom) score += 2;
+    if (hasTraps) score += 1;
+
+    const eliteLevel = score >= 6 ? "E3" : score >= 4 ? "E2" : score >= 2 ? "E1" : "E0";
+    const isMultiVariable = hasScenario && hasMultistep;
+    const isTransfer = transferKw.some(k => text.includes(k) || expl.includes(k));
+
+    // Derive distractor_types from distractor_meta or trap_tags
+    let dTypes: string[] = q.distractor_types || [];
+    if (dTypes.length === 0) {
+      if (q.distractor_meta && Object.keys(q.distractor_meta).length > 0) {
+        dTypes = Object.values(q.distractor_meta as Record<string, string>)
+          .filter(v => typeof v === "string" && v.length > 3)
+          .map(v => v.split(/[,;]/)[0].trim().toLowerCase().replace(/\s+/g, "_"))
+          .filter(Boolean)
+          .slice(0, 4);
+      }
+      if (dTypes.length === 0 && (q.trap_tags || []).length > 0) {
+        dTypes = (q.trap_tags as string[]).slice(0, 4);
+      }
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      elite_level: eliteLevel,
+      multi_variable: isMultiVariable,
+      transfer_variant: isTransfer,
+    };
+    if (dTypes.length > 0) {
+      updatePayload.distractor_types = dTypes;
+    }
+
+    await sb.from("exam_questions").update(updatePayload).eq("id", q.id);
+    annotated++;
+  }
+
+  console.log(`[EliteHarden] Annotated ${annotated}/${unannotated.length} approved questions`);
+
+  // ── Phase 2: Full content upgrade for DRAFT questions (existing behavior) ──
+  const draftQuestions = questions.filter(q => q.status === "draft");
   const weakIds: string[] = [];
-  for (const q of questions) {
+  for (const q of draftQuestions) {
     const text = (q.question_text || "").toLowerCase();
     const expl = (q.explanation || "").toLowerCase();
     let d = 0;
@@ -95,7 +160,9 @@ async function hardenExamQuestions(
 
   // Get competency context
   const compIds = [...new Set(questions.filter(q => toProcess.includes(q.id)).map(q => q.competency_id).filter(Boolean))];
-  const { data: competencies } = await sb.from("competencies").select("id, description, typical_misconceptions").in("id", compIds);
+  const { data: competencies } = compIds.length > 0
+    ? await sb.from("competencies").select("id, description, typical_misconceptions").in("id", compIds)
+    : { data: [] };
   const compMap = new Map((competencies || []).map((c: any) => [c.id, c]));
 
   for (const qId of toProcess) {
@@ -134,7 +201,7 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
         upgraded_data: parsed,
       });
 
-      // Apply
+      // Apply content upgrade + elite annotations
       await sb.from("exam_questions").update({
         question_text: parsed.question_text,
         options: parsed.options,
@@ -143,6 +210,8 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
         cognitive_level: parsed.cognitive_level || q.cognitive_level,
         trap_tags: parsed.trap_tags || [],
         distractor_meta: parsed.distractor_meta || {},
+        elite_level: "E2",
+        multi_variable: true,
       }).eq("id", q.id);
 
       upgraded++;
@@ -154,7 +223,7 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
     }
   }
 
-  return { upgraded, failed, total: questions.length };
+  return { upgraded, annotated, failed, total: questions.length };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -329,7 +398,7 @@ Deno.serve(async (req) => {
   try {
     // 1. Harden Exam Questions
     const examResult = await hardenExamQuestions(sb, runId, curriculumId, berufName, start);
-    console.log(`[EliteHarden] Exam: ${examResult.upgraded}/${examResult.total} upgraded, ${examResult.failed} failed`);
+    console.log(`[EliteHarden] Exam: ${examResult.upgraded} upgraded, ${examResult.annotated} annotated, ${examResult.failed} failed (${examResult.total} total)`);
 
     // 2. Harden MiniChecks
     const mcResult = timeLeft(start)
@@ -362,11 +431,11 @@ Deno.serve(async (req) => {
     }).eq("id", packageId).eq("elite_hardening_version", 0);
 
     // Admin notification
-    const totalUpgraded = examResult.upgraded + mcResult.upgraded + oralResult.upgraded;
+    const totalUpgraded = examResult.upgraded + examResult.annotated + mcResult.upgraded + oralResult.upgraded;
     if (totalUpgraded > 0) {
       await sb.from("admin_notifications").insert({
         title: `Elite-Hardening (Auto): ${berufName}`,
-        body: `Exam: ${examResult.upgraded} | MiniCheck: ${mcResult.upgraded} | Oral: ${oralResult.upgraded} (Pipeline-Auto)`,
+        body: `Exam: ${examResult.upgraded} upgraded, ${examResult.annotated} annotated | MC: ${mcResult.upgraded} | Oral: ${oralResult.upgraded}`,
         severity: "info",
         category: "pipeline",
         entity_type: "course_package",
