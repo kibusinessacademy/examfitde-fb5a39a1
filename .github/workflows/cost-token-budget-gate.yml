@@ -1,0 +1,27 @@
+name: Cost & Token Budget Gate
+
+on:
+  schedule:
+    - cron: "07 1 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  budget:
+    name: Cost & Token Budget Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check AI cost & token budgets
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CI_ARTIFACTS: .ci_artifacts
+        run: node scripts/cost-budget-check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cost-budget-report
+          path: .ci_artifacts/

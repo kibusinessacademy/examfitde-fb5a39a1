@@ -1,0 +1,21 @@
+name: LF Elite Policy Gate
+
+on:
+  schedule:
+    - cron: "13 4 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  policy:
+    name: LF Elite Policy Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run LF elite policy checks
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/lf-elite-policy-check.mjs
