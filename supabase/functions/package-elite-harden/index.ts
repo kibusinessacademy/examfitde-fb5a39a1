@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
+import { computeElite, toAnnotationInput, ANNOTATION_SELECT } from "../_shared/elite-annotation.ts";
 
 /**
  * package-elite-harden — Pipeline Step (auto, runs after all generation, before integrity check)
@@ -52,45 +53,9 @@ function timeLeft(start: number): boolean {
   return (Date.now() - start) < TIME_BUDGET_MS;
 }
 
-// ── Berufsabhängige Szenario-Keywords (statt generischer Heuristik) ──
-function getScenarioKeywords(profession: string): string[] {
-  const base = ["betrieb", "situation", "fall", "szenario", "bestellt", "reklamiert", "prüft", "berechnet"];
-  const p = profession.toLowerCase();
-
-  if (p.includes("verkäufer") || p.includes("einzelhandel") || p.includes("kaufmann im einzelhandel")) {
-    return [...base, "kunde", "filiale", "kasse", "geschäft", "laden", "markt", "warenbestand",
-      "verkaufsgespräch", "reklamation", "angebot", "rabatt", "lieferung", "lager", "sortiment",
-      "warenpräsentation", "inventur", "kassiervorgang", "umtausch", "servicebereich", "abteilung"];
-  }
-  if (p.includes("pka") || p.includes("pharmazeutisch")) {
-    return [...base, "apotheke", "rezept", "arzneimittel", "patient", "lagerbestand", "btm",
-      "retaxation", "rabattvertrag", "aut-idem", "defektur", "taxierung"];
-  }
-  if (p.includes("mfa") || p.includes("medizinische fachangestellte")) {
-    return [...base, "patient", "praxis", "behandlung", "termin", "abrechnung", "ebm",
-      "goä", "sprechstunde", "dokumentation", "hygiene", "labor"];
-  }
-  if (p.includes("industriekaufmann") || p.includes("industriekauffrau") || p.includes("industriekauf")) {
-    return [...base, "kunde", "lieferant", "fertigung", "beschaffung", "kalkulation",
-      "angebot", "auftrag", "rechnung", "lager", "produktion", "logistik", "abteilung"];
-  }
-  if (p.includes("büro") || p.includes("büromanagement")) {
-    return [...base, "kunde", "termin", "korrespondenz", "ablage", "beschaffung",
-      "protokoll", "veranstaltung", "reiseplanung", "posteingang", "abteilung"];
-  }
-  if (p.includes("bankkaufmann") || p.includes("bankkauffrau") || p.includes("bank")) {
-    return [...base, "kunde", "konto", "kredit", "anlage", "beratungsgespräch",
-      "finanzierung", "wertpapier", "zinsen", "bonität", "sicherheit"];
-  }
-  // Fallback: generische berufsbezogene Keywords
-  return [...base, "kunde", "filiale", "abteilung", "geschäft", "kasse"];
-}
-
 // ═══════════════════════════════════════════════════════════════
-// HARDEN: Exam Questions (draft AND approved — Blocker C fix)
-// For approved questions: annotates elite_level/multi_variable/transfer_variant/distractor_types
-// WITHOUT mutating the question content (preserves approved state).
-// For draft questions: full content upgrade (existing behavior).
+// HARDEN: Exam Questions — Phase 1: SSOT-based annotation (no keywords!)
+// Phase 2: AI content upgrade for draft questions
 // ═══════════════════════════════════════════════════════════════
 async function hardenExamQuestions(
   sb: ReturnType<typeof createClient>,
@@ -99,109 +64,80 @@ async function hardenExamQuestions(
   berufName: string,
   start: number,
 ): Promise<{ upgraded: number; annotated: number; failed: number; total: number }> {
-  // Fetch both draft AND approved questions
+  // Load questions (flat — no FK constraints, manual join required)
   const { data: questions } = await sb
     .from("exam_questions")
-    .select("id, question_text, options, explanation, correct_answer, cognitive_level, difficulty, competency_id, trap_tags, distractor_meta, status, elite_level, multi_variable, transfer_variant, distractor_types")
+    .select("id, status, difficulty, cognitive_level, trap_tags, distractor_meta, elite_level, multi_variable, transfer_variant, distractor_types, question_text, options, explanation, correct_answer, competency_id, blueprint_id")
     .eq("curriculum_id", curriculumId)
     .in("status", ["draft", "approved"])
     .limit(1100);
 
   if (!questions?.length) return { upgraded: 0, annotated: 0, failed: 0, total: 0 };
 
-  // ── Phase 1: Annotate ALL approved questions with elite metadata ──
-  // This does NOT mutate content — only sets elite_level, multi_variable, transfer_variant, distractor_types
-  const approvedQuestions = questions.filter(q => q.status === "approved");
-  const unannotated = approvedQuestions.filter(q => !q.elite_level);
-  let annotated = 0;
+  // Load blueprints + competencies for SSOT annotation (manual join — no FK)
+  const bpIds = [...new Set(questions.map((q: any) => q.blueprint_id).filter(Boolean))];
+  const allCompIds = [...new Set(questions.map((q: any) => q.competency_id).filter(Boolean))];
 
-  // Heuristic annotation for approved questions (no AI call needed)
-  const scenarioKw = getScenarioKeywords(berufName);
-  const multistepKw = ["zunächst", "anschließend", "daraufhin", "im nächsten schritt", "bevor", "nachdem", "dabei", "deshalb", "folglich"];
-  const transferKw = ["übertragen", "vergleich", "analog", "unterschied", "alternativ", "stattdessen", "wenn statt", "im gegensatz"];
+  const [{ data: blueprints }, { data: comps }] = await Promise.all([
+    bpIds.length > 0
+      ? sb.from("question_blueprints").select("id, exam_context_type, decision_structure, scenario_type, typical_errors, knowledge_type, real_world_context").in("id", bpIds)
+      : Promise.resolve({ data: [] as any[] }),
+    allCompIds.length > 0
+      ? sb.from("competencies").select("id, bloom_level, exam_relevance_tier, transfer_markers, typical_misconceptions, description").in("id", allCompIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+
+  const bpMap = new Map((blueprints || []).map((b: any) => [b.id, b]));
+  const compMap = new Map((comps || []).map((c: any) => [c.id, c]));
+
+  function buildAnnotationInput(q: any) {
+    const bp = bpMap.get(q.blueprint_id) || {} as any;
+    const comp = compMap.get(q.competency_id) || {} as any;
+    return {
+      id: q.id, status: q.status, difficulty: q.difficulty, cognitive_level: q.cognitive_level,
+      trap_tags: q.trap_tags, distractor_meta: q.distractor_meta,
+      exam_context_type: bp.exam_context_type || null, decision_structure: bp.decision_structure || null,
+      scenario_type: bp.scenario_type || null, typical_errors: bp.typical_errors || null,
+      knowledge_type: bp.knowledge_type || null, real_world_context: bp.real_world_context ?? null,
+      bloom_level: comp.bloom_level || null, exam_relevance_tier: comp.exam_relevance_tier || null,
+      transfer_markers: comp.transfer_markers || null, typical_misconceptions: comp.typical_misconceptions || null,
+    };
+  }
+
+  // ── Phase 1: Annotate unannotated questions using SSOT signals ──
+  const unannotated = questions.filter((q: any) => !q.elite_level);
+  let annotated = 0;
 
   for (const q of unannotated) {
     if (!timeLeft(start)) break;
-    const text = (q.question_text || "").toLowerCase();
-    const expl = (q.explanation || "").toLowerCase();
-
-    // Determine elite_level by heuristic
-    const hasScenario = scenarioKw.some(k => text.includes(k));
-    const hasMultistep = multistepKw.some(k => text.includes(k));
-    const hasDeepExpl = expl.length >= 200;
-    const isHighBloom = ["apply", "analyze", "evaluate"].includes(q.cognitive_level || "");
-    const hasTraps = (q.trap_tags || []).length > 0;
-
-    let score = 0;
-    if (hasScenario) score += 2;
-    if (hasMultistep) score += 2;
-    if (hasDeepExpl) score += 1;
-    if (isHighBloom) score += 2;
-    if (hasTraps) score += 1;
-
-    const eliteLevel = score >= 6 ? "E3" : score >= 4 ? "E2" : score >= 2 ? "E1" : "E0";
-    const isMultiVariable = hasScenario && hasMultistep;
-    const isTransfer = transferKw.some(k => text.includes(k) || expl.includes(k));
-
-    // Derive distractor_types from distractor_meta or trap_tags
-    let dTypes: string[] = q.distractor_types || [];
-    if (dTypes.length === 0) {
-      if (q.distractor_meta && Object.keys(q.distractor_meta).length > 0) {
-        dTypes = Object.values(q.distractor_meta as Record<string, string>)
-          .filter(v => typeof v === "string" && v.length > 3)
-          .map(v => v.split(/[,;]/)[0].trim().toLowerCase().replace(/\s+/g, "_"))
-          .filter(Boolean)
-          .slice(0, 4);
-      }
-      if (dTypes.length === 0 && (q.trap_tags || []).length > 0) {
-        dTypes = (q.trap_tags as string[]).slice(0, 4);
-      }
-    }
-
-    const updatePayload: Record<string, unknown> = {
-      elite_level: eliteLevel,
-      multi_variable: isMultiVariable,
-      transfer_variant: isTransfer,
-    };
-    if (dTypes.length > 0) {
-      updatePayload.distractor_types = dTypes;
-    }
-
-    await sb.from("exam_questions").update(updatePayload).eq("id", q.id);
+    const annotation = computeElite(buildAnnotationInput(q));
+    await sb.from("exam_questions").update({
+      elite_level: annotation.elite_level,
+      multi_variable: annotation.multi_variable,
+      transfer_variant: annotation.transfer_variant,
+      ...(annotation.distractor_types.length > 0 ? { distractor_types: annotation.distractor_types } : {}),
+    }).eq("id", q.id);
     annotated++;
   }
 
-  console.log(`[EliteHarden] Annotated ${annotated}/${unannotated.length} approved questions`);
+  console.log(`[EliteHarden] SSOT-annotated ${annotated}/${unannotated.length} questions (no keyword heuristics)`);
 
-  // ── Phase 2: Full content upgrade for DRAFT questions (existing behavior) ──
-  const draftQuestions = questions.filter(q => q.status === "draft");
+  // ── Phase 2: Full content upgrade for DRAFT questions ──
+  const draftQuestions = questions.filter((q: any) => q.status === "draft");
   const weakIds: string[] = [];
   for (const q of draftQuestions) {
-    const text = (q.question_text || "").toLowerCase();
-    const expl = (q.explanation || "").toLowerCase();
-    let d = 0;
-    if (!scenarioKw.some(k => text.includes(k))) d++;
-    if (!multistepKw.some(k => text.includes(k))) d++;
-    if (!q.trap_tags || q.trap_tags.length === 0) d++;
-    if (expl.length < 200) d++;
-    if (!q.distractor_meta || Object.keys(q.distractor_meta || {}).length === 0) d++;
-    if (q.cognitive_level === "remember" || q.cognitive_level === "understand") d++;
-    if (d >= 3) weakIds.push(q.id);
+    const { elite_score } = computeElite(buildAnnotationInput(q));
+    const hasTags = Array.isArray(q.trap_tags) && q.trap_tags.length > 0;
+    const hasMeta = q.distractor_meta && Object.keys(q.distractor_meta || {}).length > 0;
+    if (elite_score <= 4 || (!hasTags && !hasMeta)) weakIds.push(q.id);
   }
 
   const toProcess = weakIds.slice(0, MAX_EXAM_HARDEN);
   let upgraded = 0, failed = 0;
 
-  // Get competency context
-  const compIds = [...new Set(questions.filter(q => toProcess.includes(q.id)).map(q => q.competency_id).filter(Boolean))];
-  const { data: competencies } = compIds.length > 0
-    ? await sb.from("competencies").select("id, description, typical_misconceptions").in("id", compIds)
-    : { data: [] };
-  const compMap = new Map((competencies || []).map((c: any) => [c.id, c]));
-
   for (const qId of toProcess) {
     if (!timeLeft(start)) break;
-    const q = questions.find(x => x.id === qId)!;
+    const q = questions.find((x: any) => x.id === qId)! as any;
     const comp = compMap.get(q.competency_id);
     const misconceptions = comp?.typical_misconceptions ? JSON.stringify(comp.typical_misconceptions) : "keine bekannt";
 
