@@ -287,7 +287,52 @@ async function main() {
         }
       }
 
-      console.log("✅ Phase 8 extended pipeline guards passed (step→job mapping, pool routing, artifact integrity).");
+      // Guard 5: Every JOB_DEFINITIONS entry with edgeFunction must have a matching folder
+      for (const [jobType, def] of Object.entries(jobDefs)) {
+        const d = def as { pool?: string; edgeFunction?: string };
+        if (d.edgeFunction) {
+          const fnDir = `${FUNCTIONS_DIR}/${d.edgeFunction}`;
+          try {
+            await Deno.stat(fnDir);
+          } catch {
+            findings.push({
+              severity: "critical",
+              kind: "drift",
+              file: `supabase/functions/${d.edgeFunction}/index.ts`,
+              message: `JOB_DEFINITIONS["${jobType}"].edgeFunction = "${d.edgeFunction}" but folder does not exist — content-runner dispatch will 404.`,
+              fix: [`Create supabase/functions/${d.edgeFunction}/index.ts or fix the edgeFunction name in JOB_DEFINITIONS`],
+            });
+          }
+        }
+      }
+
+      // Guard 6: FULL_STEP_ORDER ↔ PIPELINE_GRAPH bidirectional consistency
+      const fullStepOrder: string[] = jobMap.FULL_STEP_ORDER ?? [];
+      const graphKeys = new Set(graph.map((n: { key: string }) => n.key));
+      for (const step of fullStepOrder) {
+        if (!graphKeys.has(step)) {
+          findings.push({
+            severity: "critical",
+            kind: "drift",
+            file: "supabase/functions/_shared/job-map.ts",
+            message: `FULL_STEP_ORDER contains "${step}" but PIPELINE_GRAPH does not — step will never execute.`,
+            fix: [`Add "${step}" to PIPELINE_GRAPH with correct dependencies, or remove from FULL_STEP_ORDER`],
+          });
+        }
+      }
+      for (const k of graphKeys) {
+        if (!fullStepOrder.includes(k)) {
+          findings.push({
+            severity: "critical",
+            kind: "drift",
+            file: "supabase/functions/_shared/job-map.ts",
+            message: `PIPELINE_GRAPH contains "${k}" but FULL_STEP_ORDER does not — UI and runner ordering will diverge.`,
+            fix: [`Add "${k}" to FULL_STEP_ORDER at the correct position`],
+          });
+        }
+      }
+
+      console.log("✅ Phase 8 extended pipeline guards passed (step→job, pool routing, artifact integrity, edge fn existence, step order consistency).");
     }
   } catch (e) {
     const msg = (e as Error)?.message ?? String(e);
@@ -303,6 +348,38 @@ async function main() {
       console.warn(`⚠️  Pipeline DAG import/validation skipped: ${msg}`);
     }
   }
+
+  // ── Guard 7: No direct job_queue.insert outside enqueue.ts ──
+  // All job insertions MUST go through enqueueJob() for SSOT pool routing + idempotency
+  const ENQUEUE_ALLOWLIST = new Set([
+    "supabase/functions/_shared/enqueue.ts",
+  ]);
+
+  for await (const file of walk(FUNCTIONS_DIR)) {
+    const rel = file.replace(ROOT + "/", "").replaceAll("\\", "/");
+    if (ENQUEUE_ALLOWLIST.has(rel)) continue;
+
+    const content = normalize(await Deno.readTextFile(file));
+    // Match .from("job_queue").insert or .from('job_queue').insert
+    if (/\.from\(\s*['"`]job_queue['"`]\s*\)\s*\.insert/g.test(content)) {
+      const lines = content.split("\n");
+      const idx = lines.findIndex(l => /\.from\(\s*['"`]job_queue['"`]\s*\)\s*\.insert/.test(l));
+      findings.push({
+        severity: "critical",
+        kind: "drift",
+        file: rel,
+        message: "Direct job_queue.insert detected — MUST use enqueueJob() from _shared/enqueue.ts for SSOT pool routing + idempotency.",
+        evidence: idx >= 0 ? snippet(lines, idx, 2) : ["(no snippet)"],
+        fix: [
+          "Replace direct insert with:",
+          '  import { enqueueJob } from "../_shared/enqueue.ts";',
+          "  await enqueueJob(sb, { job_type, payload, package_id });",
+        ],
+      });
+    }
+  }
+
+  console.log("✅ Guard 7: No direct job_queue.insert bypass detected.");
 
   if (findings.length > 0) {
     console.error("\n❌ Edge Guards failed. Findings:\n");
