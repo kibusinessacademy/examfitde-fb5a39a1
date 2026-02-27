@@ -24548,7 +24548,7 @@ export type Database = {
         Args: { p_code: string; p_lock_seconds?: number; p_max_fail?: number }
         Returns: Json
       }
-      ops_cancel_pending_non_building_jobs: { Args: never; Returns: number }
+      ops_cancel_pending_non_building_jobs: { Args: never; Returns: Json }
       ops_expire_orphan_leases: { Args: never; Returns: number }
       ops_hash_dedupe: {
         Args: { p_alert_key: string; p_details: Json }
