@@ -345,6 +345,7 @@ Deno.serve(async (req) => {
             .from("exam_questions")
             .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id, question_type, trap_tags, distractor_meta, variant_group, variant_label, item_difficulty, item_discrimination, status, created_at, exam_part, scenario_type, bloom_level_validated, time_estimate_seconds, typical_errors, discrimination_tier, elite_level, elite_score, elite_score_breakdown, complexity_score, multi_variable, conflict_type, dynamic_scenario, transfer_variant, distractor_types")
             .eq("curriculum_id", curriculumId)
+            .order("id")
             .range(offset, offset + pageSize - 1);
           if (qErr) {
             console.log(`[export] Question query error at offset ${offset}: ${qErr.message}`);
