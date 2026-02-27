@@ -6,7 +6,8 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
   issues: write
 
 concurrency:
@@ -17,9 +18,19 @@ jobs:
   schema_drift:
     runs-on: ubuntu-latest
 
+    env:
+      DRIFT_CHECK_COMMAND: "node scripts/schema-drift-check.mjs"
+      # Auto-fix: regenerate schema snapshot. Change if you have a different fix command.
+      AUTO_FIX_COMMAND: "node scripts/schema-drift-check.mjs --fix"
+      DRIFT_ISSUE_TITLE: "Schema Drift detected (Nightly)"
+      PR_TITLE: "chore(governance): fix schema drift (nightly)"
+      PR_BRANCH: "gov/schema-drift-fix"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -34,7 +45,7 @@ jobs:
         run: |
           set +e
           mkdir -p artifacts
-          node scripts/schema-drift-check.mjs 2>&1 | tee artifacts/schema-drift.log
+          bash -lc "${DRIFT_CHECK_COMMAND}" 2>&1 | tee artifacts/schema-drift.log
           code=${PIPESTATUS[0]}
           echo "exit_code=$code" >> $GITHUB_OUTPUT
           if [ "$code" -ne 0 ]; then
@@ -53,32 +64,32 @@ jobs:
 
       - name: Create or update issue (on drift)
         if: steps.drift.outputs.drift_found == 'true'
+        id: issue
         uses: actions/github-script@v7
         with:
           script: |
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
-            const title = `Schema Drift detected (Nightly)`;
+            const title = process.env.DRIFT_ISSUE_TITLE;
             const labels = ['schema-drift', 'governance', 'severity:high'];
 
             const fs = require('fs');
             let log = '';
-            try {
-              log = fs.readFileSync('artifacts/schema-drift.log', 'utf8');
-            } catch (e) {
-              log = '(no log found)';
-            }
-            const MAX = 8000;
-            if (log.length > MAX) log = log.slice(0, MAX) + '\n\n... (truncated)';
+            try { log = fs.readFileSync('artifacts/schema-drift.log', 'utf8'); }
+            catch { log = '(no log found)'; }
 
+            const MAX = 8000;
+            if (log.length > MAX) log = '... (truncated)\n\n' + log.slice(-MAX);
+
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
             const body = [
               `Nightly schema drift check failed.`,
               ``,
-              `**Run:** ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+              `**Run:** ${runUrl}`,
               `**Commit:** \`${context.sha.slice(0, 8)}\``,
               `**Workflow:** ${context.workflow}`,
               ``,
-              `### Drift log`,
+              `### Drift log (tail)`,
               '```',
               log,
               '```'
@@ -94,26 +105,93 @@ jobs:
                 owner, repo, title, body, labels
               });
               core.info(`Created issue: #${created.data.number}`);
+              core.setOutput('issue_number', String(created.data.number));
             } else {
               await github.rest.issues.createComment({
-                owner, repo,
-                issue_number: existing.number,
-                body: `New drift detected on \`${context.sha.slice(0, 8)}\`\n\n${body}`
+                owner, repo, issue_number: existing.number,
+                body: `New drift detected on \`${context.sha.slice(0, 8)}\`.\nRun: ${runUrl}`
               });
               try {
                 await github.rest.issues.addLabels({
-                  owner, repo,
-                  issue_number: existing.number,
-                  labels
+                  owner, repo, issue_number: existing.number, labels
                 });
               } catch (e) {
                 core.warning(`Could not add labels: ${e.message}`);
               }
-              core.info(`Updated existing issue: #${existing.number}`);
+              core.setOutput('issue_number', String(existing.number));
             }
 
-      - name: Mark workflow failed if drift found
+      # --- AUTO FIX PHASE ---
+      - name: Attempt auto-fix (on drift)
+        if: steps.drift.outputs.drift_found == 'true'
+        id: autofix
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set +e
+          echo "Attempting auto-fix: ${AUTO_FIX_COMMAND}"
+          bash -lc "${AUTO_FIX_COMMAND}" 2>&1 | tee artifacts/schema-drift-fix.log
+          fix_code=${PIPESTATUS[0]}
+          set -e
+          echo "fix_exit_code=$fix_code" >> $GITHUB_OUTPUT
+          if git diff --quiet; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+            echo "No changes produced by auto-fix."
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+            echo "Auto-fix produced changes."
+          fi
+
+      - name: Upload fix log
+        if: steps.drift.outputs.drift_found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-drift-fix-log
+          path: artifacts/schema-drift-fix.log
+          retention-days: 14
+
+      - name: Create or update PR (if changes)
+        if: steps.autofix.outputs.changes == 'true'
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.PR_BRANCH }}
+          delete-branch: false
+          title: ${{ env.PR_TITLE }}
+          commit-message: ${{ env.PR_TITLE }}
+          body: |
+            Automated governance fix for schema drift detected by the nightly guard.
+
+            - Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            - Commit: `${{ github.sha }}`
+          labels: |
+            schema-drift
+            governance
+          assignees: |
+            ${{ github.actor }}
+
+      - name: Comment PR link on drift issue
+        if: steps.autofix.outputs.changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNum = Number('${{ steps.issue.outputs.issue_number }}');
+            if (!issueNum) return;
+            const prUrl = '${{ steps.cpr.outputs.pull-request-url }}';
+            const prNum = '${{ steps.cpr.outputs.pull-request-number }}';
+            const body = prUrl
+              ? `Auto-fix PR created/updated: #${prNum}\n${prUrl}`
+              : `Auto-fix attempted; no PR URL available. Check the workflow run.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: issueNum, body
+            });
+
+      - name: Fail workflow if drift found
         if: steps.drift.outputs.drift_found == 'true'
         run: |
-          echo "Schema drift detected. Failing job."
+          echo "Schema drift detected. Governance actions executed. Marking workflow as failed."
           exit 1
