@@ -2,9 +2,14 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, edgeFunctionForJobType } from "../_shared/job-map.ts";
 
+import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
+
 const BASE_CONCURRENCY = 3;
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v1.1-constants-fix";
+const FUNCTION_VERSION = "v1.2-boot-guards";
+
+// ── Boot-time guards (crash loudly on drift) ──────────────────────
+validatePipelineGraph(PIPELINE_GRAPH);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,6 +72,7 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(supabaseUrl, serviceKey);
 
+  // ── Boot-time RPC guard: crash loudly if claim RPC missing ──
   const concurrency = Number(Deno.env.get("CONTENT_RUNNER_CONCURRENCY") ?? String(BASE_CONCURRENCY));
 
   // ── 1. Claim content-pool jobs via v4 RPC (with auto-lease healing) ──

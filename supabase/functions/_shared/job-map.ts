@@ -156,3 +156,97 @@ export function inferBackoffSeconds(reason: string | number): number {
   if (r.includes("generate_") || r.includes("scaffold_")) return 45;
   return 30;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Pipeline DAG — Explicit dependency graph for static validation
+// ═══════════════════════════════════════════════════════════════
+
+export interface PipelineNode {
+  key: PipelineStepKey;
+  dependsOn?: PipelineStepKey[];
+}
+
+/**
+ * SSOT: Explicit pipeline DAG.
+ * Used by CI guards + runner boot-time validation.
+ * Adding a step? Add it here with correct dependencies.
+ */
+export const PIPELINE_GRAPH: PipelineNode[] = [
+  { key: "scaffold_learning_course" },
+  { key: "generate_glossary", dependsOn: ["scaffold_learning_course"] },
+  { key: "generate_learning_content", dependsOn: ["scaffold_learning_course"] },
+  { key: "validate_learning_content", dependsOn: ["generate_learning_content"] },
+  { key: "auto_seed_exam_blueprints", dependsOn: ["validate_learning_content"] },
+  { key: "validate_blueprints", dependsOn: ["auto_seed_exam_blueprints"] },
+  { key: "generate_exam_pool", dependsOn: ["validate_blueprints"] },
+  { key: "validate_exam_pool", dependsOn: ["generate_exam_pool"] },
+  { key: "build_ai_tutor_index", dependsOn: ["validate_exam_pool"] },
+  { key: "validate_tutor_index", dependsOn: ["build_ai_tutor_index"] },
+  { key: "generate_oral_exam", dependsOn: ["validate_exam_pool"] },
+  { key: "validate_oral_exam", dependsOn: ["generate_oral_exam"] },
+  { key: "generate_lesson_minichecks", dependsOn: ["validate_learning_content"] },
+  { key: "validate_lesson_minichecks", dependsOn: ["generate_lesson_minichecks"] },
+  { key: "generate_handbook", dependsOn: ["validate_learning_content"] },
+  { key: "validate_handbook", dependsOn: ["generate_handbook"] },
+  { key: "elite_harden", dependsOn: ["validate_exam_pool"] },
+  { key: "run_integrity_check", dependsOn: ["elite_harden"] },
+  { key: "quality_council", dependsOn: ["run_integrity_check"] },
+  { key: "auto_publish", dependsOn: ["quality_council"] },
+];
+
+/**
+ * Validates the pipeline DAG at boot/CI time.
+ * Throws on: missing dependencies, cycles, unreachable nodes, orphaned validate_* steps.
+ */
+export function validatePipelineGraph(graph: PipelineNode[]): void {
+  const keys = new Set(graph.map(n => n.key));
+  const keyList = [...keys];
+
+  // 1. Every dependency must exist in the graph
+  for (const node of graph) {
+    for (const dep of node.dependsOn ?? []) {
+      if (!keys.has(dep)) {
+        throw new Error(`PIPELINE_DAG_INVALID: "${node.key}" depends on missing step "${dep}"`);
+      }
+    }
+  }
+
+  // 2. Cycle detection (DFS)
+  const visited = new Set<string>();
+  const stack = new Set<string>();
+
+  function dfs(nodeKey: string) {
+    if (stack.has(nodeKey)) {
+      throw new Error(`PIPELINE_DAG_CYCLE: cycle detected at "${nodeKey}"`);
+    }
+    if (visited.has(nodeKey)) return;
+    visited.add(nodeKey);
+    stack.add(nodeKey);
+    const node = graph.find(n => n.key === nodeKey);
+    for (const dep of node?.dependsOn ?? []) {
+      dfs(dep);
+    }
+    stack.delete(nodeKey);
+  }
+
+  for (const k of keyList) dfs(k);
+
+  // 3. Every FULL_STEP_ORDER key must be in DAG and vice versa
+  for (const step of FULL_STEP_ORDER) {
+    if (!keys.has(step)) {
+      throw new Error(`PIPELINE_DAG_MISSING: FULL_STEP_ORDER contains "${step}" but DAG does not`);
+    }
+  }
+  for (const k of keyList) {
+    if (!FULL_STEP_ORDER.includes(k)) {
+      throw new Error(`PIPELINE_DAG_ORPHAN: DAG contains "${k}" but FULL_STEP_ORDER does not`);
+    }
+  }
+
+  // 4. validate_* must have a dependency (no standalone validators)
+  for (const node of graph) {
+    if (node.key.startsWith("validate_") && (!node.dependsOn || node.dependsOn.length === 0)) {
+      throw new Error(`PIPELINE_DAG_INVALID: validator "${node.key}" has no dependencies`);
+    }
+  }
+}

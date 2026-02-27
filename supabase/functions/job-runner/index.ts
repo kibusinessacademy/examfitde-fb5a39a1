@@ -1,6 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
+import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
+
+// ── Boot-time DAG validation (crash on broken pipeline definition) ──
+validatePipelineGraph(PIPELINE_GRAPH);
 
 /**
  * job-runner — Atomically claims pending jobs via claim_pending_jobs RPC
