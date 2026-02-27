@@ -15,10 +15,10 @@ function json(body: unknown, status = 200) {
 }
 
 // deno-lint-ignore no-explicit-any
-async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): Promise<{ ok: boolean; result?: any; error?: string }> {
+async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): Promise<{ ok: boolean; result?: any; error?: string; terminal?: boolean }> {
   const edgeFn = edgeFunctionForJobType(job.job_type);
   if (!edgeFn) {
-    return { ok: false, error: `NO_EDGE_FUNCTION_MAPPING:${job.job_type}` };
+    return { ok: false, error: `NO_EDGE_FUNCTION_MAPPING:${job.job_type}`, terminal: true };
   }
 
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     const startMs = Date.now();
 
     try {
-      const { ok, result, error: dispatchError } = await dispatchJob(job, supabaseUrl, serviceKey);
+      const { ok, result, error: dispatchError, terminal } = await dispatchJob(job, supabaseUrl, serviceKey);
 
       if (ok) {
         // ── Success ──
@@ -111,8 +111,21 @@ Deno.serve(async (req) => {
 
         console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) completed in ${Date.now() - startMs}ms`);
         results.push({ id: job.id, ok: true, latency_ms: Date.now() - startMs });
+      } else if (terminal) {
+        // ── Terminal / structural error — fail immediately, no retry ──
+        const now = new Date().toISOString();
+        await sb.from("job_queue").update({
+          status: "failed",
+          last_error: (dispatchError || "terminal").slice(0, 2000),
+          completed_at: now,
+          updated_at: now,
+          locked_at: null,
+          locked_by: null,
+        }).eq("id", job.id);
+        console.error(`[content-runner] 🛑 TERMINAL ${job.job_type} (${shortId}): ${dispatchError}`);
+        results.push({ id: job.id, ok: false, error: dispatchError, terminal: true });
       } else {
-        // ── Failure ──
+        // ── Transient failure — retry with backoff ──
         const attemptsNext = (job.attempts ?? 0) + 1;
         const maxAttempts = job.max_attempts ?? 8;
         const exhausted = attemptsNext >= maxAttempts;

@@ -20934,6 +20934,16 @@ export type Database = {
         }
         Relationships: []
       }
+      job_queue_pressure: {
+        Row: {
+          failed_1h: number | null
+          p95_pending_age_sec: number | null
+          pending: number | null
+          processing: number | null
+          worker_pool: string | null
+        }
+        Relationships: []
+      }
       kpi_admin_nav_badges: {
         Row: {
           critical_competencies: number | null

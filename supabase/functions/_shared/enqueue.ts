@@ -44,7 +44,9 @@ export async function enqueueJob(
     worker_pool,
     run_after: opts.run_after ?? null,
     batch_cursor: opts.batch_cursor ?? null,
-    idempotency_key: `${opts.job_type}:${packageId ?? "global"}`,
+    idempotency_key: opts.batch_cursor
+      ? `${opts.job_type}:${packageId ?? "global"}:${JSON.stringify(opts.batch_cursor)}`
+      : `${opts.job_type}:${packageId ?? "global"}`,
     created_at: now,
     updated_at: now,
   };
