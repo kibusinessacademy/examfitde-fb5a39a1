@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Clock, XCircle, Activity, Euro, RefreshCw, Loader2,
   FileText, Headphones, Users, AlertTriangle, TrendingUp,
-  Pause, ShieldAlert, Brain, Zap, Bot,
+  Pause, ShieldAlert, Brain, Zap, Bot, Snowflake,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -52,7 +52,7 @@ export default function HealthTab() {
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
       const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
       const [pkgRes, ticketRes, profileRes, seoRes, orderRes, todayCostRes, mtdCostRes, budgetRes, aiRes, autoOpsRes, escalationRes, opsHealthRes] = await Promise.all([
-        sb.from('course_packages').select('id, title, status, build_progress, priority, current_step, step_status_json, created_at, updated_at, track').lte('priority', 20).order('priority').order('created_at'),
+        sb.from('course_packages').select('id, title, status, build_progress, priority, current_step, step_status_json, created_at, updated_at, track').order('priority').order('created_at'),
         sb.from('support_tickets').select('status'),
         sb.from('profiles').select('id', { count: 'exact', head: true }),
         sb.from('certification_seo_pages').select('id', { count: 'exact', head: true }),
@@ -107,13 +107,14 @@ export default function HealthTab() {
     const total = packages.length;
     const published = packages.filter(p => p.status === 'published').length;
     const building = packages.filter(p => p.status === 'building').length;
-    const queued = packages.filter(p => p.status === 'queued').length;
+    const queued = packages.filter(p => p.status === 'queued' && p.priority < 99).length;
+    const frozen = packages.filter(p => p.status === 'queued' && p.priority >= 99).length;
     const blocked = packages.filter(p => p.status === 'blocked').length;
     const failed = packages.filter(p => p.status === 'failed').length;
     const remaining = total - published;
     const estimatedDays = Math.ceil((remaining * 4) / (5 * 24));
     const estimatedDate = new Date(Date.now() + estimatedDays * 86400_000);
-    return { total, published, building, queued, blocked, failed, remaining, estimatedDays, estimatedDate };
+    return { total, published, building, queued, frozen, blocked, failed, remaining, estimatedDays, estimatedDate };
   }, [packages]);
 
   if (loading) return <div className="space-y-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-24 bg-muted/30 rounded-lg animate-pulse" />)}</div>;
@@ -122,6 +123,7 @@ export default function HealthTab() {
   const prio10 = packages.filter(p => p.priority === 10);
   const prio15 = packages.filter(p => p.priority === 15);
   const prio20 = packages.filter(p => p.priority === 20);
+  const frozenPkgs = packages.filter(p => p.priority >= 99);
   const budgetPct = budget.monthBudget > 0 ? Math.round((budget.monthSpent / budget.monthBudget) * 100) : 0;
 
   return (
@@ -161,10 +163,11 @@ export default function HealthTab() {
 
       {/* Product KPIs + Budget */}
       {analysis && (
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="grid grid-cols-3 lg:grid-cols-7 gap-2">
           <KPICard icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />} label="Fertig" value={`${analysis.published}/${analysis.total}`} accent="border-emerald-500/20" />
           <KPICard icon={<Loader2 className="h-4 w-4 text-primary animate-spin" />} label="Produktion" value={analysis.building} accent="border-primary/20" />
           <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Queue" value={analysis.queued} />
+          <KPICard icon={<Snowflake className="h-4 w-4 text-sky-500" />} label="Frozen" value={analysis.frozen} accent="border-sky-500/20" />
           <KPICard icon={<Pause className="h-4 w-4 text-amber-500" />} label="Blockiert" value={analysis.blocked} alert={analysis.blocked > 0} />
           <KPICard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Fehler" value={analysis.failed} alert={analysis.failed > 0} />
           <KPICard icon={<TrendingUp className="h-4 w-4 text-primary" />} label="Prognose" value={`~${analysis.estimatedDays}d`} sublabel={analysis.estimatedDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} />
@@ -248,6 +251,7 @@ export default function HealthTab() {
       {prio15.length > 0 && <ProductGroup title="AEVO" emoji="🎓" packages={prio15} isMobile={isMobile} />}
       {prio20.length > 0 && <ProductGroup title="Nächste 10 Ausbildungsberufe" emoji="🥈" packages={prio20} isMobile={isMobile} />}
       {prio5.length > 0 && <ProductGroup title="Sonstige / Legacy" emoji="📦" packages={prio5} isMobile={isMobile} />}
+      {frozenPkgs.length > 0 && <ProductGroup title="Frozen (Enrichment ausstehend)" emoji="❄️" packages={frozenPkgs} isMobile={isMobile} />}
 
       {/* Platform KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
