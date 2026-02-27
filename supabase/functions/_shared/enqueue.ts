@@ -4,6 +4,7 @@
  * All job insertions SHOULD use this helper to guarantee:
  * 1. worker_pool is set deterministically via poolForJobType()
  * 2. Consistent defaults for max_attempts, status, timestamps
+ * 3. Revive-on-conflict: cancelled/failed jobs are reactivated instead of blocked
  *
  * Usage:
  *   import { enqueueJob } from "../_shared/enqueue.ts";
@@ -23,15 +24,27 @@ export interface EnqueueOpts {
   worker_pool?: WorkerPool; // override only if explicitly needed
 }
 
+export interface EnqueueResult {
+  id: string;
+  job_type: string;
+  worker_pool: string;
+  status: string;
+  revived?: boolean;
+}
+
 export async function enqueueJob(
   // deno-lint-ignore no-explicit-any
   sb: any,
   opts: EnqueueOpts,
-) {
+): Promise<EnqueueResult> {
   const worker_pool = opts.worker_pool ?? poolForJobType(opts.job_type);
   const now = new Date().toISOString();
 
   const packageId = opts.package_id ?? (opts.payload?.package_id as string) ?? null;
+
+  const idempotencyKey = opts.batch_cursor
+    ? `${opts.job_type}:${packageId ?? "global"}:${JSON.stringify(opts.batch_cursor)}`
+    : `${opts.job_type}:${packageId ?? "global"}`;
 
   const row = {
     id: crypto.randomUUID(),
@@ -44,9 +57,7 @@ export async function enqueueJob(
     worker_pool,
     run_after: opts.run_after ?? null,
     batch_cursor: opts.batch_cursor ?? null,
-    idempotency_key: opts.batch_cursor
-      ? `${opts.job_type}:${packageId ?? "global"}:${JSON.stringify(opts.batch_cursor)}`
-      : `${opts.job_type}:${packageId ?? "global"}`,
+    idempotency_key: idempotencyKey,
     created_at: now,
     updated_at: now,
   };
@@ -57,6 +68,68 @@ export async function enqueueJob(
     .select("id, job_type, worker_pool, status")
     .single();
 
-  if (error) throw error;
-  return data;
+  if (!error) return data as EnqueueResult;
+
+  // ── Revive-on-conflict ──
+  // If unique constraint violation (23505), check for a cancelled/failed row
+  // with the same idempotency_key and revive it instead of failing.
+  const isUniqueViolation =
+    error.code === "23505" ||
+    error.message?.includes("duplicate key") ||
+    error.message?.includes("unique constraint");
+
+  if (!isUniqueViolation) throw error;
+
+  // Find the existing inactive row
+  const { data: existing } = await sb
+    .from("job_queue")
+    .select("id, job_type, worker_pool, status")
+    .eq("idempotency_key", idempotencyKey)
+    .in("status", ["cancelled", "failed"])
+    .limit(1)
+    .maybeSingle();
+
+  if (!existing) {
+    // Active (pending/processing) row already exists — idempotency working correctly
+    // Return a synthetic result so callers don't crash
+    const { data: active } = await sb
+      .from("job_queue")
+      .select("id, job_type, worker_pool, status")
+      .eq("idempotency_key", idempotencyKey)
+      .in("status", ["pending", "processing"])
+      .limit(1)
+      .maybeSingle();
+
+    if (active) return { ...active, revived: false } as EnqueueResult;
+
+    // No row found at all — unexpected, rethrow original error
+    throw error;
+  }
+
+  // Revive: reset the cancelled/failed row to pending
+  const { data: revived, error: reviveErr } = await sb
+    .from("job_queue")
+    .update({
+      status: "pending",
+      payload: opts.payload ?? existing.payload,
+      priority: opts.priority ?? 10,
+      worker_pool,
+      run_after: opts.run_after ?? null,
+      attempts: 0,
+      last_error: null,
+      error: null,
+      started_at: null,
+      completed_at: null,
+      locked_by: null,
+      locked_at: null,
+      updated_at: now,
+      meta: {},  // clear old blocked-mode metadata
+    })
+    .eq("id", existing.id)
+    .select("id, job_type, worker_pool, status")
+    .single();
+
+  if (reviveErr) throw reviveErr;
+
+  return { ...revived, revived: true } as EnqueueResult;
 }
