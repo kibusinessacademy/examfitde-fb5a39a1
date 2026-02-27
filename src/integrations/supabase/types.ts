@@ -21894,6 +21894,16 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_runner_integrity_details: {
+        Row: {
+          category: string | null
+          info: string | null
+          package_status: string | null
+          ref_id: string | null
+          ts: string | null
+        }
+        Relationships: []
+      }
       ops_seeding_summary: {
         Row: {
           avg_competencies_per_lf: number | null
@@ -23297,7 +23307,7 @@ export type Database = {
       }
       claim_pending_jobs:
         | {
-            Args: { p_limit?: number }
+            Args: { p_limit: number }
             Returns: {
               attempts: number
               batch_cursor: Json | null
@@ -23343,9 +23353,9 @@ export type Database = {
           }
         | {
             Args: {
-              p_limit?: number
-              p_lock_timeout_minutes?: number
-              p_worker_id?: string
+              p_limit: number
+              p_lock_timeout_minutes: number
+              p_worker_id: string
             }
             Returns: {
               attempts: number
@@ -23392,9 +23402,9 @@ export type Database = {
           }
       claim_pending_jobs_current: {
         Args: {
-          p_limit?: number
-          p_lock_timeout_minutes?: number
-          p_worker_id?: string
+          p_limit: number
+          p_lock_timeout_minutes: number
+          p_worker_id: string
         }
         Returns: {
           attempts: number
@@ -23441,9 +23451,9 @@ export type Database = {
       }
       claim_pending_jobs_v2: {
         Args: {
-          p_limit?: number
-          p_lock_timeout_minutes?: number
-          p_worker_id?: string
+          p_limit: number
+          p_lock_timeout_minutes: number
+          p_worker_id: string
         }
         Returns: {
           attempts: number
@@ -23491,9 +23501,9 @@ export type Database = {
       claim_pending_jobs_v3: {
         Args: {
           p_limit: number
-          p_lock_timeout_minutes?: number
-          p_worker_id?: string
-          p_worker_pool?: string
+          p_lock_timeout_minutes: number
+          p_worker_id: string
+          p_worker_pool: string
         }
         Returns: {
           attempts: number
