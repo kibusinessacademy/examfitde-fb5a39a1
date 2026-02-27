@@ -2,20 +2,118 @@ name: Schema Drift Guard (Nightly)
 
 on:
   schedule:
-    - cron: "0 2 * * *"   # täglich 02:00 UTC
+    - cron: "0 2 * * *" # 02:00 UTC
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: schema-drift-nightly
+  cancel-in-progress: false
+
 jobs:
-  drift:
-    name: Schema Drift Check (Edge Function)
+  schema_drift:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Check schema drift via edge function
+
+      - name: Run schema drift check
+        id: drift
+        shell: bash
         env:
           SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/schema-drift-check.mjs
+        run: |
+          set +e
+          mkdir -p artifacts
+          node scripts/schema-drift-check.mjs 2>&1 | tee artifacts/schema-drift.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> $GITHUB_OUTPUT
+          if [ "$code" -ne 0 ]; then
+            echo "drift_found=true" >> $GITHUB_OUTPUT
+          else
+            echo "drift_found=false" >> $GITHUB_OUTPUT
+          fi
+          exit 0
+
+      - name: Upload drift log
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-drift-log
+          path: artifacts/schema-drift.log
+          retention-days: 14
+
+      - name: Create or update issue (on drift)
+        if: steps.drift.outputs.drift_found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+            const title = `Schema Drift detected (Nightly)`;
+            const labels = ['schema-drift', 'governance', 'severity:high'];
+
+            const fs = require('fs');
+            let log = '';
+            try {
+              log = fs.readFileSync('artifacts/schema-drift.log', 'utf8');
+            } catch (e) {
+              log = '(no log found)';
+            }
+            const MAX = 8000;
+            if (log.length > MAX) log = log.slice(0, MAX) + '\n\n... (truncated)';
+
+            const body = [
+              `Nightly schema drift check failed.`,
+              ``,
+              `**Run:** ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+              `**Commit:** \`${context.sha.slice(0, 8)}\``,
+              `**Workflow:** ${context.workflow}`,
+              ``,
+              `### Drift log`,
+              '```',
+              log,
+              '```'
+            ].join('\n');
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', per_page: 100
+            });
+            const existing = issues.find(i => i.title === title);
+
+            if (!existing) {
+              const created = await github.rest.issues.create({
+                owner, repo, title, body, labels
+              });
+              core.info(`Created issue: #${created.data.number}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo,
+                issue_number: existing.number,
+                body: `New drift detected on \`${context.sha.slice(0, 8)}\`\n\n${body}`
+              });
+              try {
+                await github.rest.issues.addLabels({
+                  owner, repo,
+                  issue_number: existing.number,
+                  labels
+                });
+              } catch (e) {
+                core.warning(`Could not add labels: ${e.message}`);
+              }
+              core.info(`Updated existing issue: #${existing.number}`);
+            }
+
+      - name: Mark workflow failed if drift found
+        if: steps.drift.outputs.drift_found == 'true'
+        run: |
+          echo "Schema drift detected. Failing job."
+          exit 1
