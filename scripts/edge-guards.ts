@@ -208,6 +208,37 @@ async function main() {
     });
   }
 
+  // ── PIPELINE DAG VALIDATION ──
+  // Import and validate the pipeline graph at CI time
+  try {
+    const jobMap = await import(SSOT_JOB_MAP);
+    if (typeof jobMap.validatePipelineGraph === "function" && jobMap.PIPELINE_GRAPH) {
+      jobMap.validatePipelineGraph(jobMap.PIPELINE_GRAPH);
+      console.log("✅ Pipeline DAG validation passed (no cycles, no orphans, no missing deps).");
+    } else {
+      findings.push({
+        severity: "high",
+        kind: "drift",
+        file: "supabase/functions/_shared/job-map.ts",
+        message: "PIPELINE_GRAPH or validatePipelineGraph not exported from job-map.ts. DAG guard skipped.",
+        fix: ["Export PIPELINE_GRAPH and validatePipelineGraph from _shared/job-map.ts"],
+      });
+    }
+  } catch (e) {
+    const msg = (e as Error)?.message ?? String(e);
+    if (msg.startsWith("PIPELINE_DAG_")) {
+      findings.push({
+        severity: "critical",
+        kind: "drift",
+        file: "supabase/functions/_shared/job-map.ts",
+        message: `Pipeline DAG structural error: ${msg}`,
+        fix: ["Fix the PIPELINE_GRAPH definition in _shared/job-map.ts to resolve the DAG error."],
+      });
+    } else {
+      console.warn(`⚠️  Pipeline DAG import/validation skipped: ${msg}`);
+    }
+  }
+
   if (findings.length > 0) {
     console.error("\n❌ Edge Guards failed. Findings:\n");
     for (const f of findings) {
