@@ -5233,6 +5233,7 @@ export type Database = {
       }
       course_packages: {
         Row: {
+          archived: boolean
           blocked_reason: string | null
           build_progress: number
           category_id: string | null
@@ -5257,11 +5258,13 @@ export type Database = {
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          is_published: boolean
           last_error: string | null
           last_progress_at: string | null
           locked_at: string | null
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
+          product_id: string | null
           published_at: string | null
           quality_report: Json | null
           queue_position: number | null
@@ -5275,8 +5278,10 @@ export type Database = {
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
           updated_at: string
+          version: number
         }
         Insert: {
+          archived?: boolean
           blocked_reason?: string | null
           build_progress?: number
           category_id?: string | null
@@ -5301,11 +5306,13 @@ export type Database = {
           id?: string
           integrity_passed?: boolean
           integrity_report?: Json | null
+          is_published?: boolean
           last_error?: string | null
           last_progress_at?: string | null
           locked_at?: string | null
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           priority?: number
+          product_id?: string | null
           published_at?: string | null
           quality_report?: Json | null
           queue_position?: number | null
@@ -5319,8 +5326,10 @@ export type Database = {
           track?: Database["public"]["Enums"]["product_track"] | null
           track_subtype?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
+          archived?: boolean
           blocked_reason?: string | null
           build_progress?: number
           category_id?: string | null
@@ -5345,11 +5354,13 @@ export type Database = {
           id?: string
           integrity_passed?: boolean
           integrity_report?: Json | null
+          is_published?: boolean
           last_error?: string | null
           last_progress_at?: string | null
           locked_at?: string | null
           pipeline_mode?: Database["public"]["Enums"]["pipeline_mode"]
           priority?: number
+          product_id?: string | null
           published_at?: string | null
           quality_report?: Json | null
           queue_position?: number | null
@@ -5363,6 +5374,7 @@ export type Database = {
           track?: Database["public"]["Enums"]["product_track"] | null
           track_subtype?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -5392,6 +5404,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "course_packages_subcategory_id_fkey"
@@ -14669,6 +14688,33 @@ export type Database = {
             referencedColumns: ["package_id"]
           },
         ]
+      }
+      products: {
+        Row: {
+          active_package_id: string | null
+          certification_id: string | null
+          created_at: string
+          id: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          active_package_id?: string | null
+          certification_id?: string | null
+          created_at?: string
+          id?: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          active_package_id?: string | null
+          certification_id?: string | null
+          created_at?: string
+          id?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       profession_glossaries: {
         Row: {
@@ -24132,6 +24178,7 @@ export type Database = {
         Args: { p_asset_id: string; p_version_id: string }
         Returns: undefined
       }
+      publish_package_version: { Args: { p_package_id: string }; Returns: Json }
       publish_tutor_asset: {
         Args: { p_asset_id: string; p_version_id: string }
         Returns: undefined
@@ -24342,6 +24389,10 @@ export type Database = {
         Returns: undefined
       }
       revoke_qa_risk: { Args: { p_finding_id: string }; Returns: undefined }
+      rollback_package_version: {
+        Args: { p_product_id: string; p_target_package_id: string }
+        Returns: Json
+      }
       run_azav_compliance_check: {
         Args: never
         Returns: {
@@ -24410,6 +24461,7 @@ export type Database = {
       set_course_package_council_approved: {
         Args: { p_approved: boolean; p_package_id: string }
         Returns: {
+          archived: boolean
           blocked_reason: string | null
           build_progress: number
           category_id: string | null
@@ -24434,11 +24486,13 @@ export type Database = {
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          is_published: boolean
           last_error: string | null
           last_progress_at: string | null
           locked_at: string | null
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
+          product_id: string | null
           published_at: string | null
           quality_report: Json | null
           queue_position: number | null
@@ -24452,6 +24506,7 @@ export type Database = {
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
           updated_at: string
+          version: number
         }
         SetofOptions: {
           from: "*"
@@ -24674,6 +24729,7 @@ export type Database = {
       upsert_course_package: {
         Args: { p_certification_id: string; p_course_id?: string }
         Returns: {
+          archived: boolean
           blocked_reason: string | null
           build_progress: number
           category_id: string | null
@@ -24698,11 +24754,13 @@ export type Database = {
           id: string
           integrity_passed: boolean
           integrity_report: Json | null
+          is_published: boolean
           last_error: string | null
           last_progress_at: string | null
           locked_at: string | null
           pipeline_mode: Database["public"]["Enums"]["pipeline_mode"]
           priority: number
+          product_id: string | null
           published_at: string | null
           quality_report: Json | null
           queue_position: number | null
@@ -24716,6 +24774,7 @@ export type Database = {
           track: Database["public"]["Enums"]["product_track"] | null
           track_subtype: string | null
           updated_at: string
+          version: number
         }
         SetofOptions: {
           from: "*"

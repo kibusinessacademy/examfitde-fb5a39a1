@@ -210,18 +210,32 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Publish ──
+  // ── Publish (atomic version switch) ──
   const { error: cErr } = await sb
     .from("courses")
     .update({ publishing_status: "publish_ready", status: "published", estimated_duration: estimatedDuration > 0 ? estimatedDuration : undefined })
     .eq("id", courseId);
   if (cErr) throw cErr;
 
-  const { error: pErr } = await sb
+  // Use atomic publish RPC if package has product_id (versioned), fallback to direct update
+  const { data: pkgVersion } = await sb
     .from("course_packages")
-    .update({ status: "published", build_progress: 100, council_approved: true, published_at: new Date().toISOString() })
-    .eq("id", packageId);
-  if (pErr) throw pErr;
+    .select("product_id")
+    .eq("id", packageId)
+    .maybeSingle();
+
+  if ((pkgVersion as any)?.product_id) {
+    const { data: publishResult, error: publishErr } = await sb.rpc("publish_package_version", { p_package_id: packageId });
+    if (publishErr) throw publishErr;
+    console.log(`[auto-publish] Atomic version switch:`, publishResult);
+  } else {
+    // Legacy path for non-versioned packages
+    const { error: pErr } = await sb
+      .from("course_packages")
+      .update({ status: "published", build_progress: 100, council_approved: true, published_at: new Date().toISOString() })
+      .eq("id", packageId);
+    if (pErr) throw pErr;
+  }
 
   // ── Log excellence level ──
   const excellenceList = integrityReport?.v3?.excellence || [];
