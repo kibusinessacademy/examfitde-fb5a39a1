@@ -127,6 +127,7 @@ const JOB_TYPE_MAP: Record<string, string> = {
   package_generate_handbook: "package-generate-handbook",
   package_validate_handbook: "package-validate-handbook",
   package_generate_lesson_minichecks: "package-generate-lesson-minichecks",
+  mass_enrich_competencies_v2: "mass-enrich-competencies",
   package_validate_lesson_minichecks: "package-validate-lesson-minichecks",
   package_run_integrity_check: "package-run-integrity-check",
   package_validate_learning_content: "package-validate-learning-content",
