@@ -247,9 +247,54 @@ const ROLES = ['admin', 'teacher', 'learner'] as const;
 
 ---
 
+## 9️⃣ Ops Guard – Runner & Lease Integrity (SSOT)
+
+### Lease-Regel (DB-Trigger enforced)
+
+| Regel | Enforcement |
+|-------|-------------|
+| ✅ Lease darf **nur für `building` Packages** existieren | `trg_guard_package_leases_building_only` (BEFORE INSERT/UPDATE) |
+| ❌ Lease für non-building → `RAISE EXCEPTION` | Prefix: `OPS_GUARD:PACKAGE_LEASES_NON_BUILDING:` |
+
+### Claim Eligibility
+
+| Regel | Beschreibung |
+|-------|--------------|
+| ✅ | Nur `claim_pending_jobs_v4` ist SSOT für Job-Claims |
+| ✅ | v1/v2/v3/current → Wrapper mit Telemetry (`LEGACY_RPC_USED` Alert) |
+| ❌ | Legacy RPCs **niemals direkt nutzen** |
+
+### Integrity Monitoring
+
+```
+ops_runner_integrity          → Zähler-View (Snapshot)
+ops_runner_integrity_details  → Detail-View (Debugging)
+ops_run_integrity_checks()    → RPC: prüft + schreibt Alerts
+```
+
+**Metriken:**
+- `orphan_leases` — Leases für non-building (sollte immer 0, Trigger verhindert)
+- `pending_non_building` / `processing_non_building` — Jobs ohne building-Package
+- `stuck_processing_10m` — Zombie-Jobs
+- `dangling_jobs_no_package` — Jobs ohne existierendes Package
+- `leases_active_no_work` — Idle Leases (building, aber keine Jobs)
+
+### Remediation-Hierarchie
+
+```
+1. DB-Trigger (un-umgehbar)
+2. Claim Eligibility (v4)
+3. Legacy Wrapper + Telemetry
+4. pg_cron Safety-Net (cancel non-building, integrity checks)
+5. GitHub Action (Nightly Alert)
+```
+
+---
+
 ## Änderungs-Protokoll
 
 | Datum      | Änderung                                    | Autor  |
 |------------|---------------------------------------------|--------|
 | 2025-02-07 | Initiale SSOT-Dokumentation                 | System |
 | 2025-02-07 | Überarbeitung: Job-System, Identifier-Regeln, Anti-Patterns | System |
+| 2026-02-27 | Ops Guard Pack: Lease-Trigger, Legacy-Wrapper, Integrity-Monitoring | System |

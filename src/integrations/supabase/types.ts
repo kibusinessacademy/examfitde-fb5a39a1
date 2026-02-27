@@ -21887,6 +21887,7 @@ export type Database = {
           as_of: string | null
           blocked_pending_ready: number | null
           dangling_jobs_no_package: number | null
+          leases_active_no_work: number | null
           orphan_leases: number | null
           pending_non_building: number | null
           processing_non_building: number | null
