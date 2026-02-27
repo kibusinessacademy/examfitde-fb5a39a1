@@ -1,8 +1,8 @@
 /**
- * SSOT: Pipeline StepKey → JobType mapping.
+ * SSOT: Pipeline StepKey → JobType mapping + Worker Pool routing + Edge Function dispatch.
  *
- * Both pipeline-runner and stuck-scan MUST import from here.
- * Adding a new step? Add it here — nowhere else.
+ * Both pipeline-runner, job-runner, content-runner and stuck-scan MUST import from here.
+ * Adding a new step or job? Add it here — nowhere else.
  */
 
 export type PipelineStepKey =
@@ -79,48 +79,65 @@ export const FULL_STEP_ORDER: PipelineStepKey[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════════
-// Worker Pool Routing (SSOT)
+// Unified Job Definitions (SSOT for pool + edge function dispatch)
 // ═══════════════════════════════════════════════════════════════
 
 export type WorkerPool = "core" | "content";
 
+export interface JobDefinition {
+  pool: WorkerPool;
+  /** Edge function name to dispatch to. Only needed for content-runner dispatched jobs. */
+  edgeFunction?: string;
+}
+
 /**
- * SSOT routing table.
- * Anything heavy/LLM-batch/timeout-prone MUST go to content pool.
- * Everything else defaults to core.
+ * SSOT job definition table.
+ * Pool routing AND edge function dispatch in ONE place — no drift possible.
  */
-export const JOB_POOLS: Record<string, WorkerPool> = {
+export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   // ── content / heavy ─────────────────────────────────────────
-  package_generate_learning_content: "content",
-  package_generate_handbook:         "content",
-  package_generate_glossary:         "content",
-  package_generate_oral_exam:        "content",
-  package_generate_lesson_minichecks:"content",
-  mass_enrich_competencies_v2:       "content",
+  package_generate_learning_content: { pool: "content", edgeFunction: "package-generate-learning-content" },
+  package_generate_handbook:         { pool: "content", edgeFunction: "package-generate-handbook" },
+  package_generate_glossary:         { pool: "content", edgeFunction: "package-generate-glossary" },
+  package_generate_oral_exam:        { pool: "content", edgeFunction: "package-generate-oral-exam" },
+  package_generate_lesson_minichecks:{ pool: "content", edgeFunction: "package-generate-lesson-minichecks" },
+  mass_enrich_competencies_v2:       { pool: "content", edgeFunction: "mass-enrich-competencies" },
 
   // ── core / orchestration + validation (explicit for clarity) ─
-  pipeline_tick:                     "core",
-  stuck_scan:                        "core",
-  package_scaffold_learning_course:  "core",
-  package_validate_blueprints:       "core",
-  package_validate_exam_pool:        "core",
-  package_validate_learning_content: "core",
-  package_validate_oral_exam:        "core",
-  package_validate_tutor_index:      "core",
-  package_validate_lesson_minichecks:"core",
-  package_validate_handbook:         "core",
-  package_auto_seed_exam_blueprints: "core",
-  package_generate_exam_pool:        "core",
-  package_build_ai_tutor_index:      "core",
-  package_elite_harden:              "core",
-  package_run_integrity_check:       "core",
-  package_quality_council:           "core",
-  package_auto_publish:              "core",
+  pipeline_tick:                     { pool: "core" },
+  stuck_scan:                        { pool: "core" },
+  package_scaffold_learning_course:  { pool: "core" },
+  package_validate_blueprints:       { pool: "core" },
+  package_validate_exam_pool:        { pool: "core" },
+  package_validate_learning_content: { pool: "core" },
+  package_validate_oral_exam:        { pool: "core" },
+  package_validate_tutor_index:      { pool: "core" },
+  package_validate_lesson_minichecks:{ pool: "core" },
+  package_validate_handbook:         { pool: "core" },
+  package_auto_seed_exam_blueprints: { pool: "core" },
+  package_generate_exam_pool:        { pool: "core" },
+  package_build_ai_tutor_index:      { pool: "core" },
+  package_elite_harden:              { pool: "core" },
+  package_run_integrity_check:       { pool: "core" },
+  package_quality_council:           { pool: "core" },
+  package_auto_publish:              { pool: "core" },
 };
+
+// ── Backward-compatible derived maps (used by existing code) ──
+
+/** @deprecated Use JOB_DEFINITIONS instead. Kept for backward compat. */
+export const JOB_POOLS: Record<string, WorkerPool> = Object.fromEntries(
+  Object.entries(JOB_DEFINITIONS).map(([k, v]) => [k, v.pool])
+);
 
 /** Returns the correct worker pool for a given job type. Defaults to "core". */
 export function poolForJobType(jobType: string): WorkerPool {
-  return JOB_POOLS[jobType] ?? "core";
+  return JOB_DEFINITIONS[jobType]?.pool ?? "core";
+}
+
+/** Returns the edge function name for a given job type, or null if not dispatched. */
+export function edgeFunctionForJobType(jobType: string): string | null {
+  return JOB_DEFINITIONS[jobType]?.edgeFunction ?? null;
 }
 
 /** Backoff heuristic for stale/failed job requeues */

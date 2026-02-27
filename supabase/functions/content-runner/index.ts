@@ -1,30 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { inferBackoffSeconds } from "../_shared/job-map.ts";
-
-/**
- * content-runner — Dedicated worker for heavy/LLM-batch jobs
- *
- * Claims ONLY worker_pool='content' jobs via claim_pending_jobs_v3.
- * Lower concurrency (2–3) to prevent 504 timeouts on heavy AI generation.
- *
- * Dispatches to the same Edge Functions as job-runner, but only content-heavy ones.
- * Idempotent, safe to run via cron every 1–2 minutes.
- */
-
-const FUNCTION_VERSION = "content-runner-v1.0";
-const WORKER_ID = `content-${crypto.randomUUID().slice(0, 8)}`;
-const BASE_CONCURRENCY = 2;
-
-// Map job_type → Edge Function name (subset of job-runner's map)
-const CONTENT_JOB_MAP: Record<string, string> = {
-  package_generate_learning_content: "package-generate-learning-content",
-  package_generate_handbook: "package-generate-handbook",
-  package_generate_glossary: "package-generate-glossary",
-  package_generate_oral_exam: "package-generate-oral-exam",
-  package_generate_lesson_minichecks: "package-generate-lesson-minichecks",
-  mass_enrich_competencies_v2: "mass-enrich-competencies",
-};
+import { inferBackoffSeconds, edgeFunctionForJobType } from "../_shared/job-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,9 +16,9 @@ function json(body: unknown, status = 200) {
 
 // deno-lint-ignore no-explicit-any
 async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): Promise<{ ok: boolean; result?: any; error?: string }> {
-  const edgeFn = CONTENT_JOB_MAP[job.job_type];
+  const edgeFn = edgeFunctionForJobType(job.job_type);
   if (!edgeFn) {
-    return { ok: false, error: `content-runner: unsupported job_type=${job.job_type}` };
+    return { ok: false, error: `NO_EDGE_FUNCTION_MAPPING:${job.job_type}` };
   }
 
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
