@@ -231,7 +231,7 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
               content: `Enriche diese ${comps.length} Kompetenzen für "${cur.beruf_kurz}":\n${JSON.stringify(compList)}`,
             },
           ],
-          max_tokens: 6000,
+          max_tokens: Math.max(6000, comps.length * 400),
         });
 
         const parsed = safeParse(aiResp.content);
