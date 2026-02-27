@@ -101,6 +101,69 @@ Deno.serve(async (req) => {
       staleCount++;
     }
 
+    // 1b) ZOMBIE STEP DETECTION: steps in "running" with meta.ok=true
+    // These are steps where the worker completed but the step was never finalized.
+    const { data: zombieSteps } = await sb
+      .from("package_steps")
+      .select("package_id, step_key, meta, attempts, started_at")
+      .eq("status", "running");
+
+    const zombieResults: Array<{ package_id: string; step_key: string; action: string }> = [];
+    for (const zs of zombieSteps || []) {
+      const meta = (zs.meta ?? {}) as Record<string, unknown>;
+      if (meta.ok === true || meta.batch_complete === true) {
+        // Check age — only auto-fix if running > 5 min (not a fresh step)
+        const age = zs.started_at ? Date.now() - new Date(zs.started_at).getTime() : Infinity;
+        if (age > 5 * 60 * 1000) {
+          await sb.from("package_steps").update({
+            status: "done",
+            finished_at: new Date().toISOString(),
+            last_error: null,
+          }).eq("package_id", zs.package_id).eq("step_key", zs.step_key).eq("status", "running");
+
+          await sb.from("auto_heal_log").insert({
+            action_type: "zombie_step_auto_finalize",
+            trigger_source: "stuck-scan",
+            target_type: "package_step",
+            target_id: zs.package_id,
+            result_status: "applied",
+            result_detail: `Step ${zs.step_key} was running with meta.ok=${meta.ok} for ${Math.round(age / 60000)}min — forced to done`,
+            metadata: { step_key: zs.step_key, meta, age_min: Math.round(age / 60000) },
+          });
+
+          zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: "forced to done" });
+        }
+      }
+    }
+
+    if (zombieResults.length > 0) {
+      console.log(`[stuck-scan] 🧟 Fixed ${zombieResults.length} zombie step(s)`);
+    }
+
+    // 1c) ESCALATION LOOP DETECTION: steps with attempts >= 10 still not done
+    const { data: escalatedSteps } = await sb
+      .from("package_steps")
+      .select("package_id, step_key, attempts, status")
+      .gte("attempts", 10)
+      .not("status", "in", '("done","skipped","blocked")');
+
+    for (const es of escalatedSteps || []) {
+      await sb.from("package_steps").update({
+        status: "skipped",
+        finished_at: new Date().toISOString(),
+        last_error: `stuck-scan: escalation breaker after ${es.attempts} attempts`,
+      }).eq("package_id", es.package_id).eq("step_key", es.step_key);
+
+      // Cancel related jobs
+      await sb.from("job_queue").update({
+        status: "cancelled", completed_at: new Date().toISOString(),
+        error: `stuck-scan: escalation breaker for step ${es.step_key}`,
+      }).eq("status", "pending")
+       .contains("payload" as any, { package_id: es.package_id });
+
+      console.warn(`[stuck-scan] 🛑 Escalation breaker: skipped ${es.step_key} for ${es.package_id.slice(0, 8)} after ${es.attempts} attempts`);
+    }
+
     // 2) Find building packages with no progress
     const stuckSince = new Date(Date.now() - packageTimeout * 60_000).toISOString();
     const { data: stuckPackages } = await sb
@@ -295,7 +358,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed)`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalatedSteps?.length ?? 0} escalation loops broken`);
 
     return json({
       ok: true,
@@ -304,6 +367,8 @@ Deno.serve(async (req) => {
       orphan_packages: orphanResults,
       stale_jobs_reset: staleCount,
       stale_jobs_permanently_failed: failedFromStale,
+      zombie_steps_fixed: zombieResults,
+      escalation_loops_broken: escalatedSteps?.length ?? 0,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
