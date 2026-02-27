@@ -1015,6 +1015,84 @@ Deno.serve(async (req) => {
     zip.file("4_didaktik/handbook_structured.json", JSON.stringify(handbookStructured, null, 2));
 
     // ── Block 5: Governance & Quality Gates ──
+
+    // ═══ NEW: Package-level Quality Gate Report ═══
+    let qualityGateReport: unknown = { error: "not_available" };
+    try {
+      // Fetch pipeline steps status for this package
+      const { data: pipelineSteps } = await sb
+        .from("package_steps")
+        .select("step_key, status, attempts, started_at, completed_at, last_error")
+        .eq("package_id", packageId)
+        .order("created_at");
+
+      // Compute live snapshot metrics
+      const totalQ = (allQuestions || []).length;
+      const approvedQ = (approvedQuestions || []).length;
+      const approvedRatio = totalQ > 0 ? Math.round((approvedQ / totalQ) * 1000) / 10 : 0;
+
+      // LF coverage from approved questions
+      const lfIdsWithQuestions = new Set((approvedQuestions || []).map((q: any) => q.learning_field_id).filter(Boolean));
+      const totalLfs = (learningFields || []).length;
+      const coveredLfs = Math.min(lfIdsWithQuestions.size, totalLfs);
+
+      // Duplicate detection (same question_text)
+      const textSet = new Set<string>();
+      let duplicateCount = 0;
+      for (const q of (approvedQuestions || []) as any[]) {
+        const t = (q.question_text || "").trim().toLowerCase();
+        if (t && textSet.has(t)) duplicateCount++;
+        else textSet.add(t);
+      }
+      const duplicateRate = approvedQ > 0 ? Math.round((duplicateCount / approvedQ) * 1000) / 10 : 0;
+
+      // Bloom distribution
+      const bloomDist: Record<string, number> = {};
+      for (const q of (approvedQuestions || []) as any[]) {
+        const cl = q.cognitive_level || "unknown";
+        bloomDist[cl] = (bloomDist[cl] || 0) + 1;
+      }
+
+      // Council verdict (latest)
+      const latestCouncilVerdict = councilFindings.length > 0
+        ? (councilFindings as any[])[0]?.severity || "unknown"
+        : "no_council_run";
+
+      qualityGateReport = {
+        report_generated_at: new Date().toISOString(),
+        package_id: packageId,
+        curriculum_id: curriculumId,
+        pipeline_steps: pipelineSteps || [],
+        snapshot: {
+          total_questions: totalQ,
+          approved_questions: approvedQ,
+          approved_ratio: approvedRatio,
+          lf_total: totalLfs,
+          lf_covered: coveredLfs,
+          lf_coverage_ratio: totalLfs > 0 ? Math.round((coveredLfs / totalLfs) * 1000) / 10 : 0,
+          duplicate_count: duplicateCount,
+          duplicate_rate: duplicateRate,
+          bloom_distribution: bloomDist,
+          blueprints_total: (questionBlueprints || []).length,
+          blueprints_approved: (questionBlueprints as any[]).filter((b: any) => b.status === "approved").length,
+          lessons_total: (allLessons || []).length,
+          council_findings_count: councilFindings.length,
+          latest_council_verdict: latestCouncilVerdict,
+        },
+        gate_results: {
+          G0_LF_COVERAGE: coveredLfs >= totalLfs ? "PASS" : `FAIL (${coveredLfs}/${totalLfs})`,
+          G1_APPROVAL_RATE: approvedRatio >= 95 ? "PASS" : `FAIL (${approvedRatio}%)`,
+          G2_DUPLICATE_RATE: duplicateRate <= 2 ? "PASS" : `WARN (${duplicateRate}%)`,
+          G3_BLUEPRINT_APPROVED: (questionBlueprints as any[]).filter((b: any) => b.status === "approved").length === (questionBlueprints || []).length ? "PASS" : "FAIL",
+          G4_COUNCIL: latestCouncilVerdict === "no_council_run" ? "PENDING" : (councilFindings.length === 0 ? "PASS" : `${councilFindings.length} findings`),
+        },
+      };
+    } catch (gateErr) {
+      console.error(`[export] Quality gate report error: ${(gateErr as Error).message}`);
+      qualityGateReport = { error: (gateErr as Error).message };
+    }
+
+    zip.file("5_governance/quality_gate_report.json", JSON.stringify(qualityGateReport, null, 2));
     zip.file("5_governance/quality_gates.json", JSON.stringify(qualityGates, null, 2));
     zip.file("5_governance/ai_validations.json", JSON.stringify(aiValidations, null, 2));
     zip.file("5_governance/council_findings.json", JSON.stringify(councilFindings, null, 2));

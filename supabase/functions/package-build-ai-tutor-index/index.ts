@@ -86,6 +86,53 @@ Deno.serve(async (req) => {
     ? await sb.from("lessons").select("id", { count: "exact", head: true }).in("module_id", modIds)
     : { count: 0 };
 
+  // ═══ NEW: Fetch actual lesson content for retrieval chunks ═══
+  let lessonChunks: { id: string; title: string; step_type: string; tokens_est: number }[] = [];
+  if (modIds.length > 0) {
+    const pageSize = 500;
+    let offset = 0;
+    while (true) {
+      const { data: batch } = await sb
+        .from("lessons")
+        .select("id, title, step_type, content")
+        .in("module_id", modIds)
+        .order("id")
+        .range(offset, offset + pageSize - 1);
+      if (!batch || batch.length === 0) break;
+      for (const l of batch) {
+        const contentStr = typeof l.content === "string" ? l.content : JSON.stringify(l.content || "");
+        const tokensEst = Math.round(contentStr.length / 4); // rough token estimate
+        if (tokensEst > 10) { // skip empty/placeholder lessons
+          lessonChunks.push({ id: l.id, title: l.title || "", step_type: l.step_type || "", tokens_est: tokensEst });
+        }
+      }
+      if (batch.length < pageSize) break;
+      offset += pageSize;
+    }
+  }
+  console.log(`[AI-Tutor-Index] Lesson retrieval chunks: ${lessonChunks.length} (from ${lessonCount ?? 0} total lessons)`);
+
+  // ═══ NEW: Fetch handbook chapters as retrieval chunks ═══
+  let handbookChunkCount = 0;
+  let handbookTotalTokens = 0;
+  try {
+    const { data: hbChapters } = await sb
+      .from("handbook_chapters")
+      .select("id, title, body_md")
+      .eq("course_id", courseId)
+      .order("position");
+    if (hbChapters && hbChapters.length > 0) {
+      for (const ch of hbChapters) {
+        const bodyLen = (ch.body_md || "").length;
+        if (bodyLen > 20) {
+          handbookChunkCount++;
+          handbookTotalTokens += Math.round(bodyLen / 4);
+        }
+      }
+    }
+  } catch (_) { /* handbook table may not exist */ }
+  console.log(`[AI-Tutor-Index] Handbook retrieval chunks: ${handbookChunkCount}`);
+
   const { count: topicCount } = await sb
     .from("curriculum_topics").select("id", { count: "exact", head: true }).eq("certification_id", topicLookupId);
 
@@ -107,21 +154,31 @@ Deno.serve(async (req) => {
   }
 
   // Context index (idempotent)
-  // FIX: Populate total_chunks, lf_coverage, lf_total so validate_tutor_index passes.
-  // Each lesson counts as 1 chunk; each topic adds 1 chunk.
-  const totalChunks = (lessonCount ?? 0) + (topicCount ?? 0);
+  // Each lesson with content = 1 chunk; each topic = 1 chunk; each handbook chapter = 1 chunk
+  const lessonContentChunks = lessonChunks.length;
+  const totalChunks = lessonContentChunks + (topicCount ?? 0) + handbookChunkCount;
+  const totalTokensEst = lessonChunks.reduce((s, c) => s + c.tokens_est, 0) + handbookTotalTokens + (topicCount ?? 0) * 300;
   const statsObj = {
     lessonCount: lessonCount ?? 0,
+    lessonContentChunks,
+    handbookChunkCount,
     topicCount: topicCount ?? 0,
     subtopicCount: subtopicCount ?? 0,
     lfCount,
     depthStatus,
     policyVersion,
+    // Retrieval source breakdown
+    retrieval_sources: {
+      lessons: { chunks: lessonContentChunks, tokens_est: lessonChunks.reduce((s, c) => s + c.tokens_est, 0) },
+      handbook: { chunks: handbookChunkCount, tokens_est: handbookTotalTokens },
+      topics: { chunks: topicCount ?? 0, tokens_est: (topicCount ?? 0) * 300 },
+    },
     // Fields required by validate_tutor_index
     total_chunks: totalChunks,
+    total_tokens_est: totalTokensEst,
     lf_coverage: lfCount,
     lf_total: lfCount,
-    avg_tokens_per_chunk: totalChunks > 0 ? 500 : 0, // estimated avg per lesson/topic
+    avg_tokens_per_chunk: totalChunks > 0 ? Math.round(totalTokensEst / totalChunks) : 0,
   };
 
   if (!existingIdx) {
