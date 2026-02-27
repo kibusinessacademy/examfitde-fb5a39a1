@@ -277,7 +277,13 @@ ops_run_integrity_checks()    → RPC: prüft + schreibt Alerts
 - `pending_non_building` / `processing_non_building` — Jobs ohne building-Package
 - `stuck_processing_10m` — Zombie-Jobs
 - `dangling_jobs_no_package` — Jobs ohne existierendes Package
-- `leases_active_no_work` — Idle Leases (building, aber keine Jobs)
+- `leases_active_no_work` — Idle Leases (building, keine Jobs, >10min — Alert ab ≥3 info, ≥10 warn)
+
+### Formale Invarianten
+
+> **Lease-Invariante:** Es darf keine aktive Lease existieren, wenn `course_packages.status ≠ building`. *(DB-Trigger enforced)*
+
+> **Claim-Invariante:** Ein pending Job mit `package_id` darf nur geclaimed werden, wenn das Package `building` ist UND eine gültige Lease existiert. *(`claim_pending_jobs_v4`)*
 
 ### Remediation-Hierarchie
 
