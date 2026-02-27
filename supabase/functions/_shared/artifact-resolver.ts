@@ -104,16 +104,15 @@ async function artifactExists(
       // exam_questions has NO package_id — must resolve via curriculum_id
       const curriculumId = await getCurriculumId(sb, packageId);
       if (!curriculumId) {
-        console.warn(`[artifact-resolver] No curriculum_id for package ${packageId.slice(0, 8)} — skipping data check, trusting step status`);
-        return true; // trust step status if we can't resolve curriculum
+        console.warn(`[artifact-resolver] No curriculum_id for package ${packageId.slice(0, 8)} — cannot verify artifact, returning not-ready`);
+        return false; // surface the issue instead of silently trusting step status
       }
       const { count } = await sb
         .from("exam_questions")
         .select("*", { count: "exact", head: true })
         .eq("curriculum_id", curriculumId)
         .in("status", ["approved", "active"]);
-      // Use realistic threshold: QG requires substantial pool
-      const MIN_EXAM_QUESTIONS = 100;
+      const MIN_EXAM_QUESTIONS = Number(Deno.env.get("EXAM_POOL_MIN_APPROVED") ?? "850");
       return (count ?? 0) >= MIN_EXAM_QUESTIONS;
     }
 
