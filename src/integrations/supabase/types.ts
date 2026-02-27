@@ -9232,6 +9232,7 @@ export type Database = {
           started_at: string | null
           status: string
           updated_at: string
+          worker_pool: string
         }
         Insert: {
           attempts?: number
@@ -9266,6 +9267,7 @@ export type Database = {
           started_at?: string | null
           status?: string
           updated_at?: string
+          worker_pool?: string
         }
         Update: {
           attempts?: number
@@ -9300,6 +9302,7 @@ export type Database = {
           started_at?: string | null
           status?: string
           updated_at?: string
+          worker_pool?: string
         }
         Relationships: []
       }
@@ -22773,6 +22776,7 @@ export type Database = {
               started_at: string | null
               status: string
               updated_at: string
+              worker_pool: string
             }[]
             SetofOptions: {
               from: "*"
@@ -22820,6 +22824,7 @@ export type Database = {
               started_at: string | null
               status: string
               updated_at: string
+              worker_pool: string
             }[]
             SetofOptions: {
               from: "*"
@@ -22867,6 +22872,7 @@ export type Database = {
           started_at: string | null
           status: string
           updated_at: string
+          worker_pool: string
         }[]
         SetofOptions: {
           from: "*"
@@ -22914,6 +22920,56 @@ export type Database = {
           started_at: string | null
           status: string
           updated_at: string
+          worker_pool: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "job_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_pending_jobs_v3: {
+        Args: {
+          p_limit: number
+          p_lock_timeout_minutes?: number
+          p_worker_id?: string
+          p_worker_pool?: string
+        }
+        Returns: {
+          attempts: number
+          batch_cursor: Json | null
+          completed_at: string | null
+          cost_estimate_eur: number | null
+          created_at: string
+          error: string | null
+          estimated_tokens: number | null
+          fallback_count: number | null
+          id: string
+          job_type: string
+          last_error: string | null
+          last_error_code: string | null
+          last_error_hint: string | null
+          last_error_severity: string | null
+          last_http_status: number | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          meta: Json
+          original_provider: string | null
+          package_id: string | null
+          parent_job_id: string | null
+          payload: Json
+          priority: number
+          provider: string | null
+          rate_limited_until: string | null
+          result: Json | null
+          run_after: string | null
+          scheduled_at: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          worker_pool: string
         }[]
         SetofOptions: {
           from: "*"

@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { inferBackoffSeconds } from "../_shared/job-map.ts";
+import { inferBackoffSeconds, poolForJobType } from "../_shared/job-map.ts";
 
 /**
  * pipeline-runner — Pure Orchestrator (v3: Multi-Slot Acquisition)
@@ -1268,6 +1268,7 @@ async function processPackage(
     const stepMaxAttempts = STEP_MAX_ATTEMPTS[stepKey] ?? 10;
 
     const jobId = crypto.randomUUID();
+    const workerPool = poolForJobType(jobType);
     const { error: insertErr } = await sb.from("job_queue").insert({
       id: jobId,
       job_type: jobType,
@@ -1277,6 +1278,7 @@ async function processPackage(
       priority: 10,
       max_attempts: stepMaxAttempts,
       batch_cursor: batchCursor,
+      worker_pool: workerPool,
       ...(retryAfterSec > 0 ? { run_after: new Date(Date.now() + retryAfterSec * 1000).toISOString() } : {}),
     });
 
