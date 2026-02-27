@@ -9741,6 +9741,79 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_field_songs: {
+        Row: {
+          audio_storage_path: string | null
+          audio_uploaded_at: string | null
+          created_at: string
+          curriculum_id: string
+          duration_target_seconds: number
+          export_token: string
+          id: string
+          learning_field_id: string
+          lyrics: string
+          song_key: string
+          status: string
+          style_prompt: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audio_storage_path?: string | null
+          audio_uploaded_at?: string | null
+          created_at?: string
+          curriculum_id: string
+          duration_target_seconds?: number
+          export_token: string
+          id?: string
+          learning_field_id: string
+          lyrics?: string
+          song_key?: string
+          status?: string
+          style_prompt?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audio_storage_path?: string | null
+          audio_uploaded_at?: string | null
+          created_at?: string
+          curriculum_id?: string
+          duration_target_seconds?: number
+          export_token?: string
+          id?: string
+          learning_field_id?: string
+          lyrics?: string
+          song_key?: string
+          status?: string
+          style_prompt?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_field_songs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_field_songs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_field_songs_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_fields: {
         Row: {
           bloom_distribution_target: Json | null
