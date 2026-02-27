@@ -170,6 +170,18 @@ function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepAction {
     if (s.status === "done" || s.status === "skipped") continue;
     if (s.status === "blocked") continue;
 
+    // ── ZOMBIE DETECTION: step is "running" but meta says ok:true / batch_complete:true ──
+    // This means the worker completed successfully but the step was never finalized.
+    // Force it to "done" inline so the pipeline can proceed.
+    if (s.status === "running" && s.meta) {
+      const meta = s.meta as Record<string, unknown>;
+      if (meta.ok === true || meta.batch_complete === true) {
+        console.warn(`[runner] 🧟 ZOMBIE detected: step ${k} is 'running' but meta.ok=${meta.ok}, batch_complete=${meta.batch_complete} — auto-finalizing to done`);
+        // Return a special action that the caller will handle
+        return { action: "enqueue", stepKey: k }; // will be caught by zombie guard below
+      }
+    }
+
     // Poll if step has a linked job (enqueued, running, OR timed-out steps)
     // FIX: timeout steps with a job_id must poll the job first — the job may
     // already be completed while expire_stale_steps() timed out the step.
@@ -190,13 +202,12 @@ function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepAction {
     }
 
     // Running without job_id was already handled above (orphan recovery).
-    // If we reach here with status=running, it shouldn't happen — but guard anyway.
     if (s.status === "running") {
       console.warn(`[runner] Unexpected: step ${k} is running but wasn't caught by earlier checks`);
       return null;
     }
 
-    // Timeout WITHOUT job_id = needs re-enqueue (job_id timeout+poll handled above)
+    // Timeout WITHOUT job_id = needs re-enqueue
     if (s.status === "timeout" && !s.job_id) {
       if (s.attempts < s.max_attempts) {
         return { action: "enqueue", stepKey: k };
@@ -509,6 +520,89 @@ async function processPackage(
           result_detail: `Skipped ${rule.stepKey}: race (status changed)`,
           metadata: { step_key: rule.stepKey, job_type: rule.jobType, condition: cond.snapshot, error: updErr?.message ?? null },
         }), "finalization_log_skip");
+      }
+    }
+  }
+
+  // ── ZOMBIE STEP AUTO-FINALIZATION ──
+  // Detect steps stuck in "running" where meta already indicates success.
+  // This catches the Bankkaufmann-Pattern: worker completed but step never transitioned.
+  {
+    const byKey = new Map<string, StepRow>();
+    for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
+    for (const k of STEP_ORDER) {
+      const s = byKey.get(k);
+      if (!s || s.status !== "running") continue;
+      const meta = (s.meta ?? {}) as Record<string, unknown>;
+      if (meta.ok === true || meta.batch_complete === true) {
+        console.warn(`[runner] 🧟 ZOMBIE auto-fix: step ${k} for ${shortId} is running with meta.ok=${meta.ok} — forcing to done`);
+        await safeQuery(
+          sb.from("package_steps").update({
+            status: "done", finished_at: new Date().toISOString(),
+            last_error: null,
+          }).eq("package_id", packageId).eq("step_key", k).eq("status", "running"),
+          "zombie_auto_finalize",
+        );
+        await safeQuery(sb.from("auto_heal_log").insert({
+          action_type: "zombie_step_auto_finalize",
+          trigger_source: "pipeline-runner",
+          target_type: "package_step",
+          target_id: packageId,
+          result_status: "applied",
+          result_detail: `Step ${k} was running with meta.ok=${meta.ok}, batch_complete=${meta.batch_complete} — forced to done`,
+          metadata: { step_key: k, meta },
+        }), "zombie_log");
+        s.status = "done"; // update in-memory
+      }
+    }
+  }
+
+  // ── ESCALATION LOOP BREAKER ──
+  // Detect validation steps that have been re-created too many times (e.g. Automatenfachmann pattern).
+  // If a step has attempts >= 10 and still isn't done, it's in an infinite heal loop.
+  // Force-skip it and mark the package for manual review.
+  {
+    const ESCALATION_MAX = 10;
+    const byKey = new Map<string, StepRow>();
+    for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
+    for (const k of STEP_ORDER) {
+      const s = byKey.get(k);
+      if (!s) continue;
+      if (s.status === "done" || s.status === "skipped" || s.status === "blocked") continue;
+      if (s.attempts >= ESCALATION_MAX) {
+        console.error(`[runner] 🛑 ESCALATION BREAKER: step ${k} for ${shortId} has ${s.attempts} attempts — forcing skip + flagging package`);
+        await safeQuery(
+          sb.from("package_steps").update({
+            status: "skipped",
+            last_error: `Escalation breaker: ${s.attempts} attempts exceeded max ${ESCALATION_MAX}`,
+            finished_at: new Date().toISOString(),
+          }).eq("package_id", packageId).eq("step_key", k),
+          "escalation_breaker",
+        );
+        // Cancel any active jobs for this step
+        const jobType = STEP_TO_JOB_TYPE[k as StepKey];
+        if (jobType) {
+          await safeRpc(sb, "cancel_jobs_for_package", {
+            p_package_id: packageId, p_job_type: jobType, p_statuses: ["pending", "failed"],
+          });
+        }
+        await safeQuery(sb.from("auto_heal_log").insert({
+          action_type: "escalation_loop_breaker",
+          trigger_source: "pipeline-runner",
+          target_type: "package_step",
+          target_id: packageId,
+          result_status: "escalated",
+          result_detail: `Step ${k} skipped after ${s.attempts} attempts (infinite heal loop detected)`,
+          metadata: { step_key: k, attempts: s.attempts },
+        }), "escalation_log");
+        await safeQuery(sb.from("admin_notifications").insert({
+          title: `Pipeline-Eskalation: ${k}`,
+          body: `Step ${k} für Paket ${shortId} wurde nach ${s.attempts} Versuchen übersprungen. Manuelle Prüfung erforderlich.`,
+          category: "ops", severity: "error",
+          entity_type: "course_package", entity_id: packageId,
+          metadata: { step_key: k, attempts: s.attempts },
+        }), "escalation_notify");
+        s.status = "skipped"; // update in-memory
       }
     }
   }
