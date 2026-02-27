@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,11 +48,10 @@ export function LearningFieldSongPanel({ curriculumId }: Props) {
   });
 
   const generateMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (missingLfIds: string[]) => {
       const body: any = { curriculum_id: curriculumId };
-      if (selectedLfIds.length > 0) {
-        body.learning_field_ids = selectedLfIds;
-      }
+      body.learning_field_ids =
+        selectedLfIds.length > 0 ? selectedLfIds : missingLfIds;
       const { data, error } = await supabase.functions.invoke("create-song-texts", { body });
       if (error) throw error;
       return data;
@@ -82,36 +81,55 @@ export function LearningFieldSongPanel({ curriculumId }: Props) {
     return <Badge variant={s.variant}>{s.label}</Badge>;
   };
 
-  const copyText = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} kopiert`);
+  const copyText = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} kopiert`);
+    } catch {
+      toast.error(`Kopieren fehlgeschlagen (${label}).`);
+    }
   };
 
+  const EXAMFIT_STYLE_STANDARD =
+    "Educational pop, German lyrics, very clear articulation, medium tempo, natural voice, minimal autotune, simple melody, motivational, clean production, focus on intelligibility";
+
+  const lfMap = useMemo(() => {
+    const m = new Map<string, { code?: string; title?: string }>();
+    (learningFields || []).forEach((lf) => m.set(lf.id, { code: lf.code, title: lf.title }));
+    return m;
+  }, [learningFields]);
+
   const buildSunoCopyBlock = (song: any) => {
-    const lf = song.learning_field_code || "";
-    const lfTitle = song.learning_field_title || "";
+    const lfCode = lfMap.get(song.learning_field_id)?.code || "";
+    const lfTitle = lfMap.get(song.learning_field_id)?.title || "";
+    const style = (song.style_prompt || EXAMFIT_STYLE_STANDARD).trim();
+    const token = (song.export_token || "").trim();
+    if (!token) toast.warning("Kein Export-Token – Upload-Matching könnte brechen.");
     return (
       song.suno_copy_block ||
       [
-        lf ? `[${lf}] ${lfTitle} — ${song.title}` : song.title,
+        lfCode ? `[${lfCode}] ${lfTitle} — ${song.title}` : song.title,
         "",
         "=== SONGTEXT ===",
         (song.lyrics || "").trim(),
         "",
         "=== STYLE ===",
-        (song.style_prompt || "").trim(),
+        style,
         "",
         "=== TOKEN ===",
-        (song.export_token || "").trim(),
+        token,
         "",
       ].join("\n")
     );
   };
 
-  // Determine which LFs already have songs
-  const lfWithSong = new Set(songs?.map((s: any) => s.learning_field_id) || []);
-  // LFs without songs yet (for the selection)
-  const lfsWithoutSong = learningFields?.filter((lf) => !lfWithSong.has(lf.id)) || [];
+  // Determine which LFs already have active songs (exclude archived)
+  const lfWithActiveSong = new Set(
+    (songs || [])
+      .filter((s: any) => s.status !== "archived")
+      .map((s: any) => s.learning_field_id)
+  );
+  const lfsWithoutSong = learningFields?.filter((lf) => !lfWithActiveSong.has(lf.id)) || [];
 
   return (
     <Card>
@@ -148,7 +166,7 @@ export function LearningFieldSongPanel({ curriculumId }: Props) {
             </div>
             <div className="flex items-center gap-2 pt-1">
               <Button
-                onClick={() => generateMutation.mutate()}
+                onClick={() => generateMutation.mutate(lfsWithoutSong.map((lf) => lf.id))}
                 disabled={generateMutation.isPending}
                 size="sm"
               >
