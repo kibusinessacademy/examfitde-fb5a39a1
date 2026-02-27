@@ -4,7 +4,7 @@ import { inferBackoffSeconds, edgeFunctionForJobType } from "../_shared/job-map.
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
-const BASE_CONCURRENCY = 3;
+const BASE_CONCURRENCY = 5;
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
 const FUNCTION_VERSION = "v1.2-boot-guards";
 
