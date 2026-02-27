@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump } from "../_shared/job-map.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 // ── Boot-time DAG validation (crash on broken pipeline definition) ──
 validatePipelineGraph(PIPELINE_GRAPH);
@@ -636,15 +637,19 @@ Deno.serve(async (req) => {
                 .in("status", ["pending", "processing"]);
 
               if ((existingCount ?? 0) === 0) {
-                await sb.from("job_queue").insert({
-                  job_type: producerJobType,
-                  package_id: job.payload.package_id,
-                  payload: { package_id: job.payload.package_id },
-                  priority: 10 + bump,
-                  status: "pending",
-                  worker_pool: "core",
-                });
-                console.log(`[job-runner] PHASE6: Enqueued producer ${producerJobType} with priority ${10 + bump} for pkg ${(job.payload.package_id as string).slice(0, 8)}`);
+                try {
+                  await enqueueJob(sb, {
+                    job_type: producerJobType,
+                    package_id: job.payload.package_id as string,
+                    payload: { package_id: job.payload.package_id },
+                    priority: 10 + bump,
+                    run_after: null,
+                  });
+                  console.log(`[job-runner] PHASE6: Enqueued producer ${producerJobType} with priority ${10 + bump} for pkg ${(job.payload.package_id as string).slice(0, 8)}`);
+                } catch (enqErr) {
+                  // Idempotency constraint → already exists, safe to ignore
+                  console.log(`[job-runner] PHASE6: Producer ${producerJobType} already exists (idempotency), skipping`);
+                }
               }
             }
           }

@@ -20909,6 +20909,54 @@ export type Database = {
           },
         ]
       }
+      job_artifact_blocked_mode: {
+        Row: {
+          artifact_blocked: boolean | null
+          backoff_ms: number | null
+          block_count: number | null
+          blocked_by_artifact: string | null
+          blocked_by_producer: string | null
+          blocked_since: string | null
+          job_id: string | null
+          job_type: string | null
+          last_error_200: string | null
+          package_id: string | null
+          run_after: string | null
+          updated_at: string | null
+          worker_pool: string | null
+        }
+        Insert: {
+          artifact_blocked?: never
+          backoff_ms?: never
+          block_count?: never
+          blocked_by_artifact?: never
+          blocked_by_producer?: never
+          blocked_since?: never
+          job_id?: string | null
+          job_type?: string | null
+          last_error_200?: never
+          package_id?: string | null
+          run_after?: string | null
+          updated_at?: string | null
+          worker_pool?: string | null
+        }
+        Update: {
+          artifact_blocked?: never
+          backoff_ms?: never
+          block_count?: never
+          blocked_by_artifact?: never
+          blocked_by_producer?: never
+          blocked_since?: never
+          job_id?: string | null
+          job_type?: string | null
+          last_error_200?: never
+          package_id?: string | null
+          run_after?: string | null
+          updated_at?: string | null
+          worker_pool?: string | null
+        }
+        Relationships: []
+      }
       job_artifact_blockers_top: {
         Row: {
           blocked_by_artifact: string | null
