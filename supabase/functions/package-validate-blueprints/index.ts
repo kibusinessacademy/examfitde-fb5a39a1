@@ -274,11 +274,14 @@ Deno.serve(async (req) => {
   }
 
   // ═══ CHECK 9: Plausibility — no generic statements ═══
+  // IMPORTANT: Use word-boundary anchors (\b) to avoid false positives on German compound words
+  // like "Testprogramme" or "Beispielrechnung" which are valid competency terms.
+  const PLACEHOLDER_RE = /^(test|beispiel|platzhalter|todo|tbd|xxx)\b/i;
   let genericCount = 0;
   for (const bp of blueprints) {
     const stmt = (bp.canonical_statement || "").trim();
     // Only flag truly empty/placeholder statements — short German Fachbegriffe (e.g. "Ausbildung durchführen") are valid
-    if (stmt.length < 5 || /^(test|beispiel|platzhalter|todo|tbd|xxx)/i.test(stmt)) {
+    if (stmt.length < 5 || PLACEHOLDER_RE.test(stmt)) {
       genericCount++;
     }
   }
