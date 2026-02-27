@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
         result_status: applied ? "applied" : "skipped",
         result_detail: JSON.stringify(fr),
         metadata: fr,
-      }).catch(() => {/* non-critical */});
+      }).then(() => {}, () => {/* non-critical */});
 
       if (applied) {
         actions.push(`fail pkg ${bPkg.id.slice(0, 8)}: age=${fr?.age_min}m lease=${fr?.active_leases} jobs=${fr?.active_jobs} steps=${fr?.active_steps}`);
