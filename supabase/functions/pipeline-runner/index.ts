@@ -1495,6 +1495,10 @@ async function backfillPipelinePool(
 }
 
 // ══════════════════════════════════════════════════════════════
+// ── Runner version & instance ID (for heartbeat + health) ──
+const RUNNER_VERSION = "v3.1-hardened";
+const RUNNER_INSTANCE_ID = `runner_${crypto.randomUUID().slice(0, 8)}`;
+
 // MAIN: Multi-Slot Acquisition Loop
 // ══════════════════════════════════════════════════════════════
 Deno.serve(async (req) => {
@@ -1504,6 +1508,36 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  // ── Health endpoint: GET ?health=1 or POST { health: true } ──
+  const url = new URL(req.url);
+  const isHealthCheck = url.searchParams.get("health") === "1";
+  let bodyHealth = false;
+  if (!isHealthCheck && req.method === "POST") {
+    try {
+      const cloned = req.clone();
+      const b = await cloned.json();
+      bodyHealth = b?.health === true || b?.dryRun === true;
+    } catch { /* not JSON, proceed normally */ }
+  }
+
+  if (isHealthCheck || bodyHealth) {
+    // Write heartbeat even on health check
+    await safeRpc(sb, "upsert_worker_heartbeat", {
+      p_worker_name: "pipeline-runner",
+      p_instance_id: RUNNER_INSTANCE_ID,
+      p_version: RUNNER_VERSION,
+      p_processed_count: 0,
+      p_metadata: { type: "health_check" },
+    });
+    return json({
+      ok: true,
+      health: true,
+      version: RUNNER_VERSION,
+      instance: RUNNER_INSTANCE_ID,
+      timestamp: new Date().toISOString(),
+    });
+  }
 
   // Read max slots from config
   const { data: configRow } = await sb
@@ -1523,8 +1557,6 @@ Deno.serve(async (req) => {
       const runnerId = `runner_${crypto.randomUUID().slice(0, 8)}`;
 
       // Lease duration: 120s (not 600s) — prevents poll starvation.
-      // The runner is a pure orchestrator that polls in <1s per package,
-      // so 120s gives ample time while allowing re-acquisition every ~2 min.
       const { data: pkgId, error: acquireErr } = await sb.rpc(
         "acquire_next_package_lease",
         { p_runner_id: runnerId, p_lease_seconds: 120 },
@@ -1556,16 +1588,38 @@ Deno.serve(async (req) => {
       results.push({ slot: slot + 1, ...result });
     }
 
+    // ── Write heartbeat after processing ──
+    const lastErr = results.find(r => (r as Record<string,unknown>).error)
+      ? String((results.find(r => (r as Record<string,unknown>).error) as Record<string,unknown>).error)
+      : null;
+    await safeRpc(sb, "upsert_worker_heartbeat", {
+      p_worker_name: "pipeline-runner",
+      p_instance_id: RUNNER_INSTANCE_ID,
+      p_version: RUNNER_VERSION,
+      p_processed_count: results.length,
+      p_last_error: lastErr,
+      p_metadata: { slots_used: results.length, max_slots: maxSlots },
+    });
+
     if (results.length === 0) {
       return json({ ok: true, idle: true, reason: "no_claimable_packages_or_slots_full" });
     }
 
     console.log(`[runner] Processed ${results.length} package(s) in this invocation`);
-    return json({ ok: true, processed: results.length, results });
+    return json({ ok: true, processed: results.length, version: RUNNER_VERSION, results });
 
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error("[runner] Fatal:", msg);
-    return json({ ok: false, error: msg }, 500);
+    // Write error heartbeat
+    await safeRpc(sb, "upsert_worker_heartbeat", {
+      p_worker_name: "pipeline-runner",
+      p_instance_id: RUNNER_INSTANCE_ID,
+      p_version: RUNNER_VERSION,
+      p_processed_count: 0,
+      p_last_error: msg,
+      p_metadata: { fatal: true },
+    });
+    return json({ ok: false, error: msg, version: RUNNER_VERSION }, 500);
   }
 });

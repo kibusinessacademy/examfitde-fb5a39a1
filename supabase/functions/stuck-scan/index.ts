@@ -58,6 +58,19 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
+  // ── Health endpoint ──
+  const url = new URL(req.url);
+  if (url.searchParams.get("health") === "1") {
+    await safeRpc(sb, "upsert_worker_heartbeat", {
+      p_worker_name: "stuck-scan",
+      p_instance_id: "stuck-scan-singleton",
+      p_version: "v4-hardened",
+      p_processed_count: 0,
+      p_metadata: { type: "health_check" },
+    });
+    return json({ ok: true, health: true, version: "v4-hardened" });
+  }
+
   try {
     // Load policy for timeouts
     const { data: policyRow } = await sb
