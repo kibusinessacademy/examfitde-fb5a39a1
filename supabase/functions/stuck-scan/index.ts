@@ -49,6 +49,9 @@ function inferBackoffSeconds(reason: string): number {
   if (r.includes("rate limit") || r.includes("429")) return 120;
   if (r.includes("timeout") || r.includes("504") || r.includes("deadline")) return 90;
   if (r.includes("unknown") || r.includes("edge") || r.includes("worker job failed")) return 60;
+  // Job-type aware: heavy generators get longer cooldown
+  if (r.includes("elite_harden") || r.includes("generate_exam") || r.includes("generate_learning")) return 60;
+  if (r.includes("generate_") || r.includes("scaffold_")) return 45;
   return 30;
 }
 
@@ -151,16 +154,19 @@ Deno.serve(async (req) => {
 
     // Chunked updates — use run_after (not scheduled_at) for correct claim delay
     for (const c of chunk(toPending, 25)) {
-      const backoff = inferBackoffSeconds("");
-      await Promise.all(c.map((sj) => sb.from("job_queue").update({
-        status: "pending",
-        locked_at: null,
-        locked_by: null,
-        run_after: new Date(Date.now() + backoff * 1000).toISOString(),
-        last_error: `Stale lock (>${sj.threshold}s, type=${sj.job_type}) — attempt ${sj.attempts}/${sj.max_attempts}`,
-        last_error_code: "STALE_LOCK",
-        attempts: sj.attempts,
-      }).eq("id", sj.id)));
+      await Promise.all(c.map((sj) => {
+        // Derive backoff from job_type: heavy generators get longer cooldown
+        const typeBackoff = inferBackoffSeconds(sj.job_type);
+        return sb.from("job_queue").update({
+          status: "pending",
+          locked_at: null,
+          locked_by: null,
+          run_after: new Date(Date.now() + typeBackoff * 1000).toISOString(),
+          last_error: `Stale lock (>${sj.threshold}s, type=${sj.job_type}) — attempt ${sj.attempts}/${sj.max_attempts}`,
+          last_error_code: "STALE_LOCK",
+          attempts: sj.attempts,
+        }).eq("id", sj.id);
+      }));
     }
     for (const c of chunk(toFail, 25)) {
       await Promise.all(c.map((sj) => sb.from("job_queue").update({
@@ -194,6 +200,21 @@ Deno.serve(async (req) => {
 
       const age = zs.started_at ? Date.now() - new Date(zs.started_at).getTime() : Infinity;
       if (age <= ZOMBIE_MIN_AGE_MS) continue;
+
+      // Race-safety gate: only finalize if NO active jobs remain for this step
+      const jobType = STEP_TO_JOB_TYPE[zs.step_key] ?? null;
+      if (jobType) {
+        const { count: activeJobCnt } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("job_type", jobType)
+          .in("status", ["pending", "processing"])
+          .eq("payload->>package_id", zs.package_id);
+        if ((activeJobCnt ?? 0) > 0) {
+          console.log(`[stuck-scan] Zombie candidate ${zs.step_key} for ${zs.package_id.slice(0, 8)} skipped: ${activeJobCnt} active jobs remain`);
+          continue;
+        }
+      }
 
       // 1) Finalize step (match on current status for race safety)
       await sb.from("package_steps").update({
@@ -337,7 +358,7 @@ Deno.serve(async (req) => {
           .from("admin_notifications")
           .select("id", { count: "exact", head: true })
           .eq("category", "ops")
-          .ilike("title", "%System-Freeze%");
+          .eq("metadata->>dedupe_key", dedupeKey);
         if ((existing ?? 0) === 0) {
           await sb.from("admin_notifications").insert({
             title: `⚫ System-Freeze: keine completed Jobs seit ${FREEZE_MINUTES}min`,
