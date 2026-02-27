@@ -8015,6 +8015,7 @@ export type Database = {
           finished_at: string | null
           id: string
           mode: string
+          package_id: string | null
           pass_probability_at_end: number | null
           passed: boolean | null
           points_earned: number | null
@@ -8039,6 +8040,7 @@ export type Database = {
           finished_at?: string | null
           id?: string
           mode?: string
+          package_id?: string | null
           pass_probability_at_end?: number | null
           passed?: boolean | null
           points_earned?: number | null
@@ -8063,6 +8065,7 @@ export type Database = {
           finished_at?: string | null
           id?: string
           mode?: string
+          package_id?: string | null
           pass_probability_at_end?: number | null
           passed?: boolean | null
           points_earned?: number | null
@@ -23435,6 +23438,10 @@ export type Database = {
       generate_invite_code: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       get_active_package_count: { Args: never; Returns: number }
+      get_active_package_for_curriculum: {
+        Args: { p_curriculum_id: string }
+        Returns: string
+      }
       get_active_pipeline_package: {
         Args: never
         Returns: {
