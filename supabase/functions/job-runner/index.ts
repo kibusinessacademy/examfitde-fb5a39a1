@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
-import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
+import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE } from "../_shared/job-map.ts";
+import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 
 // ── Boot-time DAG validation (crash on broken pipeline definition) ──
 validatePipelineGraph(PIPELINE_GRAPH);
@@ -167,8 +168,8 @@ const BACKOFF_ERROR_MS = 30_000;
 const BACKOFF_PREREQ_MS = 20_000;
 
 // ── Function versioning (for deployment forensics) ──────────────────
-const FUNCTION_VERSION = "v5.6-fair-share-final";
-const DEPLOYED_AT = "2026-02-25T13:30:00Z";
+const FUNCTION_VERSION = "v5.7-artifact-resolver";
+const DEPLOYED_AT = "2026-02-27T15:00:00Z";
 
 // Adaptive thresholds (rolling 5-min window)
 const THROTTLE_TIMEOUT_THRESHOLD = 10;
@@ -589,7 +590,44 @@ Deno.serve(async (req) => {
           results.push({ id: job.id, status: "requeued", reason: "prereq_not_done" });
           continue;
         }
+    }
+
+    // ── Artifact resolver (additive intelligence layer) ────────────────
+    // Checks if required artifacts actually exist in DB, not just step status.
+    // This catches data-loss scenarios where step is "done" but data is missing.
+    if (job.payload?.package_id) {
+      // Reverse-lookup: job_type → step_key
+      const stepKey = Object.entries(STEP_TO_JOB_TYPE).find(([, jt]) => jt === job.job_type)?.[0];
+      if (stepKey) {
+        const artifactCheck = await checkArtifacts(sb, job.payload.package_id, stepKey);
+        if (!artifactCheck.ready) {
+          // Check retry-storm: if blocked 3+ times for same artifact, mark blocked
+          const blockCount = (job.meta?.artifact_block_count ?? 0) as number;
+          if (blockCount >= 3) {
+            console.error(`[job-runner] ARTIFACT_STORM: ${job.job_type} blocked ${blockCount}x by missing ${artifactCheck.missingArtifact} → marking blocked`);
+            await sb.from("job_queue").update({
+              status: "failed",
+              error: `Artifact storm: ${artifactCheck.missingArtifact} missing after ${blockCount} retries. Producer: ${artifactCheck.producerStep ?? 'unknown'}`,
+              completed_at: tsNow,
+              ...lockRelease(tsNow),
+            }).eq("id", job.id);
+            results.push({ id: job.id, status: "failed", reason: "artifact_storm" });
+            continue;
+          }
+
+          console.warn(`[job-runner] ARTIFACT: ${job.job_type} missing ${artifactCheck.missingArtifact} (producer: ${artifactCheck.producerStep}) — requeue [${blockCount + 1}/3]`);
+          await sb.from("job_queue").update({
+            status: "pending",
+            run_after: new Date(Date.now() + BACKOFF_PREREQ_MS).toISOString(),
+            error: `Artifact missing: ${artifactCheck.missingArtifact} (producer: ${artifactCheck.producerStep})`,
+            meta: { ...(job.meta || {}), artifact_block_count: blockCount + 1, last_missing_artifact: artifactCheck.missingArtifact },
+            ...lockRelease(tsNow),
+          }).eq("id", job.id);
+          results.push({ id: job.id, status: "requeued", reason: "artifact_missing", artifact: artifactCheck.missingArtifact });
+          continue;
+        }
       }
+    }
     }
 
     // ── Pre-execution lease guard ──────────────────────────────────

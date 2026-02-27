@@ -164,6 +164,10 @@ export function inferBackoffSeconds(reason: string | number): number {
 export interface PipelineNode {
   key: PipelineStepKey;
   dependsOn?: PipelineStepKey[];
+  /** Artifacts this step produces when completed successfully */
+  produces?: string[];
+  /** Artifacts this step requires before it can run */
+  requires?: string[];
 }
 
 /**
@@ -172,26 +176,26 @@ export interface PipelineNode {
  * Adding a step? Add it here with correct dependencies.
  */
 export const PIPELINE_GRAPH: PipelineNode[] = [
-  { key: "scaffold_learning_course" },
-  { key: "generate_glossary", dependsOn: ["scaffold_learning_course"] },
-  { key: "generate_learning_content", dependsOn: ["scaffold_learning_course"] },
-  { key: "validate_learning_content", dependsOn: ["generate_learning_content"] },
-  { key: "auto_seed_exam_blueprints", dependsOn: ["validate_learning_content"] },
-  { key: "validate_blueprints", dependsOn: ["auto_seed_exam_blueprints"] },
-  { key: "generate_exam_pool", dependsOn: ["validate_blueprints"] },
-  { key: "validate_exam_pool", dependsOn: ["generate_exam_pool"] },
-  { key: "build_ai_tutor_index", dependsOn: ["validate_exam_pool"] },
-  { key: "validate_tutor_index", dependsOn: ["build_ai_tutor_index"] },
-  { key: "generate_oral_exam", dependsOn: ["validate_exam_pool"] },
-  { key: "validate_oral_exam", dependsOn: ["generate_oral_exam"] },
-  { key: "generate_lesson_minichecks", dependsOn: ["validate_learning_content"] },
-  { key: "validate_lesson_minichecks", dependsOn: ["generate_lesson_minichecks"] },
-  { key: "generate_handbook", dependsOn: ["validate_learning_content"] },
-  { key: "validate_handbook", dependsOn: ["generate_handbook"] },
-  { key: "elite_harden", dependsOn: ["validate_exam_pool"] },
-  { key: "run_integrity_check", dependsOn: ["elite_harden"] },
-  { key: "quality_council", dependsOn: ["run_integrity_check"] },
-  { key: "auto_publish", dependsOn: ["quality_council"] },
+  { key: "scaffold_learning_course", produces: ["course_scaffold"] },
+  { key: "generate_glossary", dependsOn: ["scaffold_learning_course"], requires: ["course_scaffold"], produces: ["glossary"] },
+  { key: "generate_learning_content", dependsOn: ["scaffold_learning_course"], requires: ["course_scaffold"], produces: ["learning_content"] },
+  { key: "validate_learning_content", dependsOn: ["generate_learning_content"], requires: ["learning_content"], produces: ["validated_learning_content"] },
+  { key: "auto_seed_exam_blueprints", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["exam_blueprints"] },
+  { key: "validate_blueprints", dependsOn: ["auto_seed_exam_blueprints"], requires: ["exam_blueprints"], produces: ["validated_blueprints"] },
+  { key: "generate_exam_pool", dependsOn: ["validate_blueprints"], requires: ["validated_blueprints"], produces: ["exam_questions"] },
+  { key: "validate_exam_pool", dependsOn: ["generate_exam_pool"], requires: ["exam_questions"], produces: ["validated_exam_pool"] },
+  { key: "build_ai_tutor_index", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["tutor_index"] },
+  { key: "validate_tutor_index", dependsOn: ["build_ai_tutor_index"], requires: ["tutor_index"], produces: ["validated_tutor_index"] },
+  { key: "generate_oral_exam", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["oral_exam"] },
+  { key: "validate_oral_exam", dependsOn: ["generate_oral_exam"], requires: ["oral_exam"], produces: ["validated_oral_exam"] },
+  { key: "generate_lesson_minichecks", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["lesson_minichecks"] },
+  { key: "validate_lesson_minichecks", dependsOn: ["generate_lesson_minichecks"], requires: ["lesson_minichecks"], produces: ["validated_minichecks"] },
+  { key: "generate_handbook", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["handbook"] },
+  { key: "validate_handbook", dependsOn: ["generate_handbook"], requires: ["handbook"], produces: ["validated_handbook"] },
+  { key: "elite_harden", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["elite_ready"] },
+  { key: "run_integrity_check", dependsOn: ["elite_harden"], requires: ["elite_ready"], produces: ["integrity_passed"] },
+  { key: "quality_council", dependsOn: ["run_integrity_check"], requires: ["integrity_passed"], produces: ["council_approved"] },
+  { key: "auto_publish", dependsOn: ["quality_council"], requires: ["council_approved"], produces: ["published"] },
 ];
 
 /**
@@ -249,4 +253,31 @@ export function validatePipelineGraph(graph: PipelineNode[]): void {
       throw new Error(`PIPELINE_DAG_INVALID: validator "${node.key}" has no dependencies`);
     }
   }
+
+  // 5. Artifact integrity: every required artifact must have a producer
+  const allProduced = new Set<string>();
+  for (const node of graph) {
+    for (const a of node.produces ?? []) allProduced.add(a);
+  }
+  for (const node of graph) {
+    for (const a of node.requires ?? []) {
+      if (!allProduced.has(a)) {
+        throw new Error(`PIPELINE_DAG_ARTIFACT: "${node.key}" requires artifact "${a}" but no step produces it`);
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Artifact Resolver — checks if a step's required artifacts exist
+// ═══════════════════════════════════════════════════════════════
+
+/** Find the pipeline node that produces a given artifact */
+export function findProducer(artifact: string): PipelineNode | undefined {
+  return PIPELINE_GRAPH.find(n => n.produces?.includes(artifact));
+}
+
+/** Find the pipeline node for a given step key */
+export function findNode(stepKey: string): PipelineNode | undefined {
+  return PIPELINE_GRAPH.find(n => n.key === stepKey);
 }
