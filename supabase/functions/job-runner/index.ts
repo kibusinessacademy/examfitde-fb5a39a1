@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
-import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT } from "../_shared/job-map.ts";
+import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump } from "../_shared/job-map.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 
 // ── Boot-time DAG validation (crash on broken pipeline definition) ──
@@ -168,8 +168,8 @@ const BACKOFF_ERROR_MS = 30_000;
 const BACKOFF_PREREQ_MS = 20_000;
 
 // ── Function versioning (for deployment forensics) ──────────────────
-const FUNCTION_VERSION = "v5.8-orchestrator-phases3-8";
-const DEPLOYED_AT = "2026-02-27T16:00:00Z";
+const FUNCTION_VERSION = "v5.9-phase3+6-hardened";
+const DEPLOYED_AT = "2026-02-27T17:00:00Z";
 
 // Adaptive thresholds (rolling 5-min window)
 const THROTTLE_TIMEOUT_THRESHOLD = 10;
@@ -602,32 +602,78 @@ Deno.serve(async (req) => {
         const artifactCheck = await checkArtifacts(sb, job.payload.package_id, stepKey);
         if (!artifactCheck.ready) {
           const blockCount = (job.meta?.artifact_block_count ?? 0) as number;
-          const isStorm = blockCount >= 3;
-          const backoffMs = isStorm ? 15 * 60_000 : BACKOFF_PREREQ_MS; // 15min storm vs 20s normal
-          const reason = isStorm ? "artifact_storm_backoff" : "artifact_missing";
+          const missing = artifactCheck.missingArtifact ?? "unknown";
+          const producerStep = artifactCheck.producerStep ?? null;
 
-          console.warn(`[job-runner] ARTIFACT${isStorm ? "_STORM" : ""}: ${job.job_type} blocked by missing ${artifactCheck.missingArtifact} (producer: ${artifactCheck.producerStep}) [${blockCount + 1}${isStorm ? " — long backoff 15min" : "/3"}]`);
+          // Phase 3: Progressive backoff — only enter blocked-mode at retry >= 3
+          const backoffMs =
+            blockCount < 1 ? 20_000 :
+            blockCount < 2 ? 60_000 :
+            blockCount < 3 ? 180_000 :
+            blockCount < 5 ? 900_000 :
+            3_600_000; // cap at 60min
+
+          const isBlockedMode = blockCount >= 3;
+          // Only initialize blocked_since once (when entering blocked mode)
+          const blockedSince = isBlockedMode
+            ? (job.meta?.artifact_blocked_since as string | undefined) ?? tsNow
+            : null;
+
+          const reason = isBlockedMode ? "artifact_blocked" : "artifact_missing";
+
+          console.warn(`[job-runner] ARTIFACT${isBlockedMode ? "_BLOCKED" : ""}: ${job.job_type} missing ${missing} (producer: ${producerStep}) [retry=${blockCount + 1}${isBlockedMode ? ` — blocked-mode, backoff=${Math.round(backoffMs / 1000)}s` : `/${3}`}]`);
+
+          // Phase 6: Enqueue producer with priority bump (idempotent — DB dedup handles duplicates)
+          if (producerStep && job.payload?.package_id) {
+            const producerJobType = STEP_TO_JOB_TYPE[producerStep as keyof typeof STEP_TO_JOB_TYPE] ?? null;
+            if (producerJobType) {
+              const bump = getArtifactPriorityBump(producerStep);
+              // Idempotent enqueue: only insert if no pending/processing job of same type+package exists
+              const { count: existingCount } = await sb.from("job_queue")
+                .select("id", { count: "exact", head: true })
+                .eq("job_type", producerJobType)
+                .eq("package_id", job.payload.package_id)
+                .in("status", ["pending", "processing"]);
+
+              if ((existingCount ?? 0) === 0) {
+                await sb.from("job_queue").insert({
+                  job_type: producerJobType,
+                  package_id: job.payload.package_id,
+                  payload: { package_id: job.payload.package_id },
+                  priority: 10 + bump,
+                  status: "pending",
+                  worker_pool: "core",
+                });
+                console.log(`[job-runner] PHASE6: Enqueued producer ${producerJobType} with priority ${10 + bump} for pkg ${(job.payload.package_id as string).slice(0, 8)}`);
+              }
+            }
+          }
 
           await sb.from("job_queue").update({
             status: "pending",
             run_after: new Date(Date.now() + backoffMs).toISOString(),
-            last_error: `Artifact ${isStorm ? "storm" : "missing"}: ${artifactCheck.missingArtifact} (producer: ${artifactCheck.producerStep ?? "unknown"})`,
+            last_error: `Artifact missing: ${missing}${producerStep ? ` (producer: ${producerStep})` : ""}`,
             meta: {
               ...(job.meta || {}),
               artifact_block_count: blockCount + 1,
-              artifact_blocked: true,
-              blocked_by_artifact: artifactCheck.missingArtifact,
-              blocked_by_producer: artifactCheck.producerStep ?? null,
-              artifact_storm: isStorm,
+              last_missing_artifact: missing,
+              last_missing_artifact_at: tsNow,
               last_artifact_check: tsNow,
+              // Phase 3: blocked-mode only at threshold
+              artifact_blocked: isBlockedMode,
+              artifact_blocked_since: blockedSince,
+              artifact_blocked_backoff_ms: backoffMs,
+              blocked_by_artifact: missing,
+              blocked_by_producer: producerStep,
+              artifact_storm: isBlockedMode,
             },
             ...lockRelease(tsNow),
           }).eq("id", job.id);
-          results.push({ id: job.id, status: "requeued", reason, artifact: artifactCheck.missingArtifact });
+          results.push({ id: job.id, status: "requeued", reason, artifact: missing });
           continue;
         } else {
-          // Artifact resolved — clear block metadata if it was previously set
-          if (job.meta?.artifact_blocked) {
+          // Artifact resolved — clear ALL block metadata cleanly
+          if (job.meta?.artifact_blocked || job.meta?.artifact_block_count) {
             await sb.from("job_queue").update({
               meta: {
                 ...(job.meta || {}),
@@ -636,6 +682,9 @@ Deno.serve(async (req) => {
                 artifact_storm: false,
                 blocked_by_artifact: null,
                 blocked_by_producer: null,
+                artifact_blocked_since: null,
+                artifact_blocked_backoff_ms: null,
+                last_missing_artifact: null,
               },
             }).eq("id", job.id);
           }
