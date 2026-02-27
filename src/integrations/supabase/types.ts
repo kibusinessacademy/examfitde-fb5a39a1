@@ -22792,10 +22792,16 @@ export type Database = {
         Args: { p_job_type: string; p_package_id: string }
         Returns: number
       }
-      count_active_jobs_for_package: {
-        Args: { p_package_id: string }
-        Returns: number
-      }
+      count_active_jobs_for_package:
+        | { Args: { p_package_id: string }; Returns: number }
+        | {
+            Args: {
+              p_job_type?: string
+              p_package_id: string
+              p_statuses?: string[]
+            }
+            Returns: number
+          }
       count_curricula_by_status: {
         Args: never
         Returns: {
