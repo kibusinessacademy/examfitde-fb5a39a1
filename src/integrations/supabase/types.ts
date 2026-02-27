@@ -38,6 +38,21 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_matrix_pins: {
+        Row: {
+          curriculum_id: string
+          key: string
+        }
+        Insert: {
+          curriculum_id: string
+          key: string
+        }
+        Update: {
+          curriculum_id?: string
+          key?: string
+        }
+        Relationships: []
+      }
       admin_notifications: {
         Row: {
           body: string | null
@@ -19767,6 +19782,82 @@ export type Database = {
       }
     }
     Views: {
+      admin_elite_matrix_curriculum_v: {
+        Row: {
+          advanced_cnt: number | null
+          approved_coverage_100: boolean | null
+          avg_score: number | null
+          curriculum_id: string | null
+          curriculum_title: string | null
+          elite_annotation_complete: boolean | null
+          elite_cnt: number | null
+          fresh_cnt: number | null
+          has_exam_pool: boolean | null
+          lessons_cnt: number | null
+          minicheck_ready: boolean | null
+          missing_cnt: number | null
+          multi_variable_cnt: number | null
+          oral_blueprints_cnt: number | null
+          oral_hardened_cnt: number | null
+          pct_annotated: number | null
+          pct_elite: number | null
+          pct_multivariable: number | null
+          pct_oral_hardened: number | null
+          pct_transfer: number | null
+          q_annotated: number | null
+          q_approved: number | null
+          q_total: number | null
+          stale_cnt: number | null
+          transfer_cnt: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
+      admin_elite_matrix_v: {
+        Row: {
+          advanced_cnt: number | null
+          approved_coverage_100: boolean | null
+          avg_score: number | null
+          col: string | null
+          curriculum_id: string | null
+          curriculum_title: string | null
+          elite_annotation_complete: boolean | null
+          elite_cnt: number | null
+          fresh_cnt: number | null
+          has_exam_pool: boolean | null
+          lessons_cnt: number | null
+          minicheck_ready: boolean | null
+          missing_cnt: number | null
+          multi_variable_cnt: number | null
+          oral_blueprints_cnt: number | null
+          oral_hardened_cnt: number | null
+          pct_annotated: number | null
+          pct_elite: number | null
+          pct_multivariable: number | null
+          pct_oral_hardened: number | null
+          pct_transfer: number | null
+          q_annotated: number | null
+          q_approved: number | null
+          q_total: number | null
+          stale_cnt: number | null
+          transfer_cnt: number | null
+        }
+        Relationships: []
+      }
       affiliate_referrals_safe: {
         Row: {
           affiliate_id: string | null

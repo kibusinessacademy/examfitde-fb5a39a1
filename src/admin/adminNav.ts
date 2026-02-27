@@ -40,6 +40,7 @@ export const adminNavModules: AdminNavItem[] = [
     badgeKey: 'critical_competencies',
     children: [
       { path: '/admin/quality', label: 'Übersicht' },
+      { path: '/admin/quality/elite-matrix', label: 'Elite-Matrix' },
       { path: '/admin/quality/review', label: 'Review Inbox' },
     ],
   },
