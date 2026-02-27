@@ -58,9 +58,25 @@ export function LearningFieldSongPanel({ curriculumId }: Props) {
   };
 
   const copySunoPrompt = (song: any) => {
-    const text = `Style: ${song.style_prompt}\n\n${song.lyrics}`;
-    navigator.clipboard.writeText(text);
-    toast.success("Suno-Prompt kopiert!");
+    const lf = song.learning_field_code || "";
+    const lfTitle = song.learning_field_title || "";
+    const block =
+      song.suno_copy_block ||
+      [
+        lf ? `[${lf}] ${lfTitle} — ${song.title}` : song.title,
+        "",
+        "=== SONGTEXT ===",
+        (song.lyrics || "").trim(),
+        "",
+        "=== STYLE ===",
+        (song.style_prompt || "").trim(),
+        "",
+        "=== TOKEN ===",
+        (song.export_token || "").trim(),
+        "",
+      ].join("\n");
+    navigator.clipboard.writeText(block);
+    toast.success("Suno Copy-Block kopiert (Songtext + Style + Token)");
   };
 
   return (

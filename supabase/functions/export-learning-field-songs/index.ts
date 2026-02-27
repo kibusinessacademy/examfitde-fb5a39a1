@@ -5,6 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function json(body: unknown, status = 200) {
@@ -12,6 +13,50 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "content-type": "application/json" },
   });
+}
+
+const EXAMFIT_STYLE_STANDARD =
+  "Educational pop, German lyrics, very clear articulation, medium tempo, natural voice, minimal autotune, simple melody, motivational, clean production, focus on intelligibility";
+
+function safeStr(v: unknown): string {
+  return typeof v === "string" ? v : v == null ? "" : String(v);
+}
+
+function buildSunoCopyBlock(args: {
+  lyrics: string;
+  style: string;
+  token: string;
+  title?: string;
+  lfCode?: string;
+  lfTitle?: string;
+}): string {
+  const { lyrics, style, token, title, lfCode, lfTitle } = args;
+  const metaLine = [
+    lfCode ? `[${lfCode}]` : null,
+    lfTitle || null,
+    title ? `— ${title}` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return [
+    metaLine || "ExamFit Bonus Song",
+    "",
+    "=== SONGTEXT ===",
+    lyrics.trim(),
+    "",
+    "=== STYLE ===",
+    (style || EXAMFIT_STYLE_STANDARD).trim(),
+    "",
+    "=== TOKEN ===",
+    token.trim(),
+    "",
+  ].join("\n");
+}
+
+function escapeCsvValue(v: string): string {
+  const s = v.replace(/"/g, '""');
+  return `"${s}"`;
 }
 
 Deno.serve(async (req) => {
@@ -22,7 +67,8 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { curriculum_id, format } = body;
+    const curriculum_id = body?.curriculum_id as string | undefined;
+    const format = (body?.format as string | undefined) || "json";
 
     if (!curriculum_id) return json({ error: "curriculum_id required" }, 400);
 
@@ -30,41 +76,93 @@ Deno.serve(async (req) => {
       .from("learning_field_songs")
       .select(`
         id, title, style_prompt, lyrics, export_token, status, duration_target_seconds,
-        learning_field_id, curriculum_id, song_key
+        learning_field_id, curriculum_id, song_key, audio_uploaded_at
       `)
       .eq("curriculum_id", curriculum_id)
-      .in("status", ["draft", "exported"])
+      .in("status", ["draft", "exported", "audio_uploaded"])
       .order("created_at");
 
     if (error) return json({ error: error.message }, 500);
     if (!songs?.length) return json({ error: "No songs found for export" }, 404);
 
-    // Fetch LF names for enrichment
-    const lfIds = [...new Set(songs.map((s) => s.learning_field_id))];
-    const { data: lfs } = await sb
+    const lfIds = [...new Set(songs.map((s: any) => s.learning_field_id))];
+    const { data: lfs, error: lfErr } = await sb
       .from("learning_fields")
       .select("id, code, title")
       .in("id", lfIds);
 
-    const lfMap: Record<string, { code: string; title: string }> = {};
+    if (lfErr) return json({ error: lfErr.message }, 500);
+
+    const lfMap: Record<string, { code?: string; title?: string }> = {};
     for (const lf of lfs || []) lfMap[lf.id] = { code: lf.code, title: lf.title };
 
-    // Mark as exported
-    const songIds = songs.map((s) => s.id);
-    await sb
-      .from("learning_field_songs")
-      .update({ status: "exported", updated_at: new Date().toISOString() })
-      .in("id", songIds)
-      .eq("status", "draft");
+    // Mark draft → exported
+    const songIdsDraft = songs.filter((s: any) => s.status === "draft").map((s: any) => s.id);
+    if (songIdsDraft.length) {
+      await sb
+        .from("learning_field_songs")
+        .update({ status: "exported", updated_at: new Date().toISOString() })
+        .in("id", songIdsDraft);
+    }
 
-    if (format === "csv") {
-      // CSV export
-      const header = "export_token;lf_code;lf_title;song_title;style_prompt;lyrics";
-      const rows = songs.map((s) => {
-        const lf = lfMap[s.learning_field_id] || { code: "?", title: "?" };
-        const esc = (v: string) => `"${(v || "").replace(/"/g, '""')}"`;
-        return [s.export_token, lf.code, esc(lf.title), esc(s.title), esc(s.style_prompt), esc(s.lyrics)].join(";");
+    const exportRows = songs.map((s: any) => {
+      const lf = lfMap[s.learning_field_id] || {};
+      const style = safeStr(s.style_prompt) || EXAMFIT_STYLE_STANDARD;
+      const lyrics = safeStr(s.lyrics);
+      const token = safeStr(s.export_token);
+      const needs_audio_upload = s.status !== "audio_uploaded";
+
+      const suno_copy_block = buildSunoCopyBlock({
+        lyrics,
+        style,
+        token,
+        title: safeStr(s.title),
+        lfCode: lf.code,
+        lfTitle: lf.title,
       });
+
+      return {
+        export_token: token,
+        lf_code: lf.code || "?",
+        lf_title: lf.title || "?",
+        song_title: safeStr(s.title),
+        song_key: safeStr(s.song_key),
+        status: safeStr(s.status),
+        needs_audio_upload,
+        audio_uploaded_at: s.audio_uploaded_at || null,
+        duration_target: s.duration_target_seconds,
+        style_prompt: style,
+        lyrics,
+        suno_copy_block,
+      };
+    });
+
+    // Suno TXT format
+    if (format === "suno_txt") {
+      const blocks = exportRows.map((r) => r.suno_copy_block).join("\n\n---\n\n");
+      return new Response(blocks, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/plain; charset=utf-8",
+          "Content-Disposition": `attachment; filename="suno-pack-${curriculum_id.slice(0, 8)}.txt"`,
+        },
+      });
+    }
+
+    // CSV format
+    if (format === "csv") {
+      const header = [
+        "export_token", "lf_code", "lf_title", "song_title", "song_key",
+        "status", "needs_audio_upload", "style_prompt", "lyrics", "suno_copy_block",
+      ].join(";");
+
+      const rows = exportRows.map((r) =>
+        [
+          r.export_token, r.lf_code, escapeCsvValue(r.lf_title), escapeCsvValue(r.song_title),
+          r.song_key, r.status, r.needs_audio_upload ? "true" : "false",
+          escapeCsvValue(r.style_prompt), escapeCsvValue(r.lyrics), escapeCsvValue(r.suno_copy_block),
+        ].join(";")
+      );
 
       return new Response([header, ...rows].join("\n"), {
         headers: {
@@ -75,21 +173,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // JSON (default) — Suno-ready format
-    const exportData = songs.map((s) => {
-      const lf = lfMap[s.learning_field_id] || { code: "?", title: "?" };
-      return {
-        export_token: s.export_token,
-        lf_code: lf.code,
-        lf_title: lf.title,
-        song_title: s.title,
-        style_prompt: s.style_prompt,
-        lyrics: s.lyrics,
-        duration_target: s.duration_target_seconds,
-      };
-    });
-
-    return json({ ok: true, count: exportData.length, songs: exportData });
+    // JSON (default)
+    return json({ ok: true, count: exportRows.length, songs: exportRows });
   } catch (e) {
     console.error("[SongExport] Error:", e);
     return json({ error: (e as Error).message }, 500);

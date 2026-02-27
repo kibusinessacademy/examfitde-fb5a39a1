@@ -106,18 +106,33 @@ ${competencyList ? `Kompetenzen:\n- ${competencyList}` : ""}
 ${focusAreas ? `IHK-Schwerpunkte: ${focusAreas}` : ""}
 
 REGELN:
-1. Struktur: Hook (2 Zeilen) → Chorus → Verse1 (Begriffe) → Verse2 (Ablauf) → Bridge (Prüfungsfalle) → Chorus → Outro (1 Zeile)
+1. Struktur EXAKT so (mit Tags in eckigen Klammern):
+   [Hook] (2 Zeilen)
+   [Chorus] (Kerninhalt zusammenfassen)
+   [Verse 1] (Fachbegriffe einführen)
+   [Verse 2] (Ablauf/Prozess erklären)
+   [Bridge] (typische Prüfungsfalle benennen)
+   [Chorus] (Wiederholung)
+   [Outro] (1 Zeile Abschluss)
 2. Sprache: Deutsch, verständlich, jugendfreundlich
-3. Länge: 60–90 Sekunden Zielspielzeit (ca. 150–220 Wörter)
+3. Länge: STRIKT 150–220 Wörter (60–90 Sekunden Zielspielzeit)
 4. Fachbegriffe korrekt verwenden
-5. Chorus muss den Kerninhalt zusammenfassen
-6. Bridge muss eine typische Prüfungsfalle benennen
-7. NUR Songtext ausgeben, keine Erklärungen
+5. NUR Songtext ausgeben, KEINE Erklärungen, KEINE Einleitung
+6. Jede Section mit dem Tag [Hook], [Chorus], [Verse 1] etc. beginnen
 
-Antworte NUR mit dem Songtext. Keine Einleitung, keine Erklärung.`;
+Antworte NUR mit dem Songtext.`;
 
       let lyrics = "";
-      let stylePrompt = `Educational Pop, catchy, German lyrics, 80 BPM, acoustic guitar`;
+      // Heuristic style based on LF weight
+      const weight = lf.weight_percent || 0;
+      let stylePrompt: string;
+      if (weight >= 15) {
+        stylePrompt = "German Rap, educational, clear vocals, punchy beat, 95 BPM, motivational, clean production, focus on intelligibility";
+      } else if (weight >= 8) {
+        stylePrompt = "Educational Pop, German lyrics, catchy chorus, medium tempo 90 BPM, acoustic guitar, natural voice, clean production";
+      } else {
+        stylePrompt = "LoFi Study Beat, German vocals, calm, 75 BPM, soft piano, minimal production, relaxing, focus on memorization";
+      }
 
       if (LOVABLE_API_KEY) {
         try {

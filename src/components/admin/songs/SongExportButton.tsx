@@ -12,7 +12,7 @@ interface Props {
 export function SongExportButton({ curriculumId, disabled }: Props) {
   const [loading, setLoading] = useState(false);
 
-  const handleExport = async (format: "json" | "csv") => {
+  const handleExport = async (format: "json" | "csv" | "suno_txt") => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("export-learning-field-songs", {
@@ -21,8 +21,20 @@ export function SongExportButton({ curriculumId, disabled }: Props) {
 
       if (error) throw error;
 
-      if (format === "csv") {
-        // data is text for CSV
+      if (format === "suno_txt") {
+        const blob = new Blob([typeof data === "string" ? data : String(data)], {
+          type: "text/plain;charset=utf-8",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `suno-pack-${curriculumId.slice(0, 8)}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast.success("Suno TXT exportiert");
+      } else if (format === "csv") {
         const blob = new Blob([typeof data === "string" ? data : JSON.stringify(data)], {
           type: "text/csv;charset=utf-8",
         });
@@ -64,6 +76,9 @@ export function SongExportButton({ curriculumId, disabled }: Props) {
       </Button>
       <Button variant="outline" size="sm" onClick={() => handleExport("csv")} disabled={disabled || loading}>
         CSV
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => handleExport("suno_txt")} disabled={disabled || loading}>
+        Suno TXT
       </Button>
     </div>
   );
