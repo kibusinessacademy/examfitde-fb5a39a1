@@ -1,29 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-
-// Keep in sync with pipeline-runner's STEP_TO_JOB_TYPE mapping.
-const STEP_TO_JOB_TYPE: Record<string, string> = {
-  scaffold_learning_course: "package_scaffold_learning_course",
-  generate_glossary: "package_generate_glossary",
-  generate_learning_content: "package_generate_learning_content",
-  validate_learning_content: "package_validate_learning_content",
-  auto_seed_exam_blueprints: "package_auto_seed_exam_blueprints",
-  validate_blueprints: "package_validate_blueprints",
-  generate_exam_pool: "package_generate_exam_pool",
-  validate_exam_pool: "package_validate_exam_pool",
-  build_ai_tutor_index: "package_build_ai_tutor_index",
-  validate_tutor_index: "package_validate_tutor_index",
-  generate_oral_exam: "package_generate_oral_exam",
-  validate_oral_exam: "package_validate_oral_exam",
-  generate_lesson_minichecks: "package_generate_lesson_minichecks",
-  validate_lesson_minichecks: "package_validate_lesson_minichecks",
-  generate_handbook: "package_generate_handbook",
-  validate_handbook: "package_validate_handbook",
-  elite_harden: "package_elite_harden",
-  run_integrity_check: "package_run_integrity_check",
-  quality_council: "package_quality_council",
-  auto_publish: "package_auto_publish",
-};
+import { STEP_TO_JOB_TYPE, inferBackoffSeconds } from "../_shared/job-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,17 +20,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-function inferBackoffSeconds(reason: string): number {
-  const r = (reason || "").toLowerCase();
-  if (!r) return 30;
-  if (r.includes("rate limit") || r.includes("429")) return 120;
-  if (r.includes("timeout") || r.includes("504") || r.includes("deadline")) return 90;
-  if (r.includes("unknown") || r.includes("edge") || r.includes("worker job failed")) return 60;
-  // Job-type aware: heavy generators get longer cooldown
-  if (r.includes("elite_harden") || r.includes("generate_exam") || r.includes("generate_learning")) return 60;
-  if (r.includes("generate_") || r.includes("scaffold_")) return 45;
-  return 30;
-}
+// inferBackoffSeconds imported from _shared/job-map.ts
 
 async function safeRpc(
   sb: ReturnType<typeof createClient>,
@@ -201,15 +168,14 @@ Deno.serve(async (req) => {
       const age = zs.started_at ? Date.now() - new Date(zs.started_at).getTime() : Infinity;
       if (age <= ZOMBIE_MIN_AGE_MS) continue;
 
-      // Race-safety gate: only finalize if NO active jobs remain for this step
+      // Race-safety gate: only finalize if NO active jobs remain for this step (via RPC — robust JSONB filter)
       const jobType = STEP_TO_JOB_TYPE[zs.step_key] ?? null;
       if (jobType) {
-        const { count: activeJobCnt } = await sb
-          .from("job_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("job_type", jobType)
-          .in("status", ["pending", "processing"])
-          .eq("payload->>package_id", zs.package_id);
+        const { data: activeJobCnt } = await safeRpc(sb, "count_active_jobs_for_package", {
+          p_package_id: zs.package_id,
+          p_job_type: jobType,
+          p_statuses: ["pending", "processing"],
+        });
         if ((activeJobCnt ?? 0) > 0) {
           console.log(`[stuck-scan] Zombie candidate ${zs.step_key} for ${zs.package_id.slice(0, 8)} skipped: ${activeJobCnt} active jobs remain`);
           continue;
@@ -223,8 +189,7 @@ Deno.serve(async (req) => {
         last_error: null,
       }).eq("package_id", zs.package_id).eq("step_key", zs.step_key).in("status", ["running", "enqueued", "queued"]);
 
-      // 2) Cancel jobs scoped to this step (preferred), fallback to package-wide
-      const jobType = STEP_TO_JOB_TYPE[zs.step_key] ?? null;
+      // 2) Cancel jobs scoped to this step
       await safeRpc(sb, "cancel_jobs_for_package", {
         p_package_id: zs.package_id,
         p_job_type: jobType,

@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { inferBackoffSeconds } from "../_shared/job-map.ts";
 
 /**
  * pipeline-runner — Pure Orchestrator (v3: Multi-Slot Acquisition)
@@ -19,93 +20,21 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Step ordering ──
-// FULL superset of all possible steps — used for type-checking and mapping.
-// The ACTUAL ordering for a given package is determined dynamically by
-// filtering this list against the steps that actually exist in the DB
-// (see buildStepOrder below).
-type StepKey =
-  | "scaffold_learning_course"
-  | "generate_glossary"
-  | "generate_learning_content"
-  | "validate_learning_content"
-  | "auto_seed_exam_blueprints"
-  | "validate_blueprints"
-  | "generate_exam_pool"
-  | "validate_exam_pool"
-  | "build_ai_tutor_index"
-  | "validate_tutor_index"
-  | "generate_oral_exam"
-  | "validate_oral_exam"
-  | "generate_lesson_minichecks"
-  | "validate_lesson_minichecks"
-  | "generate_handbook"
-  | "validate_handbook"
-  | "elite_harden"
-  | "run_integrity_check"
-  | "quality_council"
-  | "auto_publish";
+import { STEP_TO_JOB_TYPE, FULL_STEP_ORDER, type PipelineStepKey } from "../_shared/job-map.ts";
 
-// Canonical ordering — superset. Steps not present in the package DB rows
-// are simply skipped by buildStepOrder().
-// SSOT order: MiniChecks → Handbook → elite_harden (matches UI + build-course-package)
-const FULL_STEP_ORDER: StepKey[] = [
-  "scaffold_learning_course",
-  "generate_glossary",
-  "generate_learning_content",
-  "validate_learning_content",
-  "auto_seed_exam_blueprints",
-  "validate_blueprints",
-  "generate_exam_pool",
-  "validate_exam_pool",
-  "build_ai_tutor_index",
-  "validate_tutor_index",
-  "generate_oral_exam",
-  "validate_oral_exam",
-  "generate_lesson_minichecks",
-  "validate_lesson_minichecks",
-  "generate_handbook",
-  "validate_handbook",
-  "elite_harden",
-  "run_integrity_check",
-  "quality_council",
-  "auto_publish",
-];
+// Re-export type alias for local use
+type StepKey = PipelineStepKey;
 
 /**
  * Build a track-aware step order by filtering FULL_STEP_ORDER
  * to only include steps that actually exist in the package's DB rows.
- * This prevents the sequence guard from blocking on steps
- * that don't belong to the package's track (e.g. EXAM_FIRST has no handbook).
  */
 function buildStepOrder(steps: { step_key: string }[]): StepKey[] {
   const existing = new Set(steps.map(s => s.step_key));
   return FULL_STEP_ORDER.filter(k => existing.has(k));
 }
 
-/** Maps step_key → job_type in job_queue */
-const STEP_TO_JOB_TYPE: Record<StepKey, string> = {
-  scaffold_learning_course: "package_scaffold_learning_course",
-  generate_glossary: "package_generate_glossary",
-  generate_learning_content: "package_generate_learning_content",
-  validate_learning_content: "package_validate_learning_content",
-  auto_seed_exam_blueprints: "package_auto_seed_exam_blueprints",
-  validate_blueprints: "package_validate_blueprints",
-  generate_exam_pool: "package_generate_exam_pool",
-  validate_exam_pool: "package_validate_exam_pool",
-  build_ai_tutor_index: "package_build_ai_tutor_index",
-  validate_tutor_index: "package_validate_tutor_index",
-  generate_oral_exam: "package_generate_oral_exam",
-  validate_oral_exam: "package_validate_oral_exam",
-  generate_lesson_minichecks: "package_generate_lesson_minichecks",
-  validate_lesson_minichecks: "package_validate_lesson_minichecks",
-  generate_handbook: "package_generate_handbook",
-  validate_handbook: "package_validate_handbook",
-  elite_harden: "package_elite_harden",
-  run_integrity_check: "package_run_integrity_check",
-  quality_council: "package_quality_council",
-  auto_publish: "package_auto_publish",
-};
+// STEP_TO_JOB_TYPE imported from _shared/job-map.ts
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -153,14 +82,7 @@ interface StepRow {
   updated_at?: string | null;
 }
 
-function inferBackoffSeconds(reason: string): number {
-  const r = (reason || "").toLowerCase();
-  if (!r) return 0;
-  if (r.includes("rate limit") || r.includes("429")) return 120;
-  if (r.includes("timeout") || r.includes("504") || r.includes("deadline")) return 90;
-  if (r.includes("unknown") || r.includes("edge") || r.includes("worker job failed")) return 60;
-  return 15;
-}
+// inferBackoffSeconds imported from _shared/job-map.ts
 
 // ── State machine: pick next actionable step ──
 type StepAction =
