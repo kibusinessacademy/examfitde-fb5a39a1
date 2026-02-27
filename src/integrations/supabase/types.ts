@@ -18029,6 +18029,39 @@ export type Database = {
           },
         ]
       }
+      step_metrics: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error_category: string | null
+          id: string
+          job_type: string
+          step_key: string
+          success: boolean
+          worker_pool: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms: number
+          error_category?: string | null
+          id?: string
+          job_type: string
+          step_key: string
+          success?: boolean
+          worker_pool?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error_category?: string | null
+          id?: string
+          job_type?: string
+          step_key?: string
+          success?: boolean
+          worker_pool?: string | null
+        }
+        Relationships: []
+      }
       store_policy_flags: {
         Row: {
           created_at: string | null
@@ -21813,32 +21846,59 @@ export type Database = {
           },
         ]
       }
+      pipeline_artifact_blocked: {
+        Row: {
+          block_count: number | null
+          blocked_by_artifact: string | null
+          blocked_by_producer: string | null
+          is_storm: boolean | null
+          job_id: string | null
+          job_type: string | null
+          last_check_at: string | null
+          package_id: string | null
+          run_after: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          block_count?: never
+          blocked_by_artifact?: never
+          blocked_by_producer?: never
+          is_storm?: never
+          job_id?: string | null
+          job_type?: string | null
+          last_check_at?: never
+          package_id?: string | null
+          run_after?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          block_count?: never
+          blocked_by_artifact?: never
+          blocked_by_producer?: never
+          is_storm?: never
+          job_id?: string | null
+          job_type?: string | null
+          last_check_at?: never
+          package_id?: string | null
+          run_after?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       pipeline_deadlock_detection: {
         Row: {
           active_steps: number | null
-          blocked_steps: number | null
-          completed_steps: number | null
-          curriculum_id: string | null
-          failed_steps: number | null
-          is_deadlocked: boolean | null
+          deadlock_status: string | null
+          done_steps: number | null
+          last_step_update: string | null
+          no_progress_minutes: number | null
           package_id: string | null
+          package_status: string | null
+          package_title: string | null
+          stuck_steps: number | null
           total_steps: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "curricula"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_packages_curriculum_id_fkey"
-            columns: ["curriculum_id"]
-            isOneToOne: false
-            referencedRelation: "elite_readiness_per_curriculum"
-            referencedColumns: ["curriculum_id"]
-          },
           {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
@@ -21930,6 +21990,17 @@ export type Database = {
         }
         Relationships: []
       }
+      pool_concurrency_recommendation: {
+        Row: {
+          avg_ms: number | null
+          error_rate_pct: number | null
+          p95_ms: number | null
+          recommended_concurrency: number | null
+          runs_1h: number | null
+          worker_pool: string | null
+        }
+        Relationships: []
+      }
       quality_drift_monitor: {
         Row: {
           avg_quality_score: number | null
@@ -21966,6 +22037,21 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
         ]
+      }
+      step_performance_stats: {
+        Row: {
+          avg_duration_ms: number | null
+          error_rate_pct: number | null
+          failures: number | null
+          job_type: string | null
+          last_run_at: string | null
+          p95_duration_ms: number | null
+          step_key: string | null
+          successes: number | null
+          total_runs: number | null
+          worker_pool: string | null
+        }
+        Relationships: []
       }
       v_b2b_metrics: {
         Row: {

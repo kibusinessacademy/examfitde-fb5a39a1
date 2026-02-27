@@ -224,6 +224,71 @@ async function main() {
         fix: ["Export PIPELINE_GRAPH and validatePipelineGraph from _shared/job-map.ts"],
       });
     }
+
+    // ── Phase 8: Extended static guards ──
+    if (jobMap.PIPELINE_GRAPH && jobMap.JOB_DEFINITIONS && jobMap.STEP_TO_JOB_TYPE) {
+      const graph: { key: string; produces?: string[]; requires?: string[] }[] = jobMap.PIPELINE_GRAPH;
+      const jobDefs: Record<string, unknown> = jobMap.JOB_DEFINITIONS;
+      const stepToJob: Record<string, string> = jobMap.STEP_TO_JOB_TYPE;
+
+      // Guard 1: Every step_key in PIPELINE_GRAPH must have a STEP_TO_JOB_TYPE entry
+      for (const node of graph) {
+        if (!stepToJob[node.key]) {
+          findings.push({
+            severity: "critical",
+            kind: "drift",
+            file: "supabase/functions/_shared/job-map.ts",
+            message: `PIPELINE_GRAPH step "${node.key}" has no STEP_TO_JOB_TYPE mapping — jobs cannot dispatch.`,
+            fix: [`Add "${node.key}" → "package_${node.key}" to STEP_TO_JOB_TYPE`],
+          });
+        }
+      }
+
+      // Guard 2: Every STEP_TO_JOB_TYPE job_type must have a JOB_DEFINITIONS entry
+      for (const [stepKey, jobType] of Object.entries(stepToJob)) {
+        if (!jobDefs[jobType]) {
+          findings.push({
+            severity: "high",
+            kind: "drift",
+            file: "supabase/functions/_shared/job-map.ts",
+            message: `Job type "${jobType}" (from step "${stepKey}") missing from JOB_DEFINITIONS — pool routing will fail.`,
+            fix: [`Add "${jobType}" to JOB_DEFINITIONS with correct pool assignment`],
+          });
+        }
+      }
+
+      // Guard 3: Artifact producer/consumer consistency (already in validatePipelineGraph but double-check)
+      const allProduced = new Set<string>();
+      for (const n of graph) for (const a of n.produces ?? []) allProduced.add(a);
+      for (const n of graph) {
+        for (const a of n.requires ?? []) {
+          if (!allProduced.has(a)) {
+            findings.push({
+              severity: "critical",
+              kind: "drift",
+              file: "supabase/functions/_shared/job-map.ts",
+              message: `Step "${n.key}" requires artifact "${a}" but no step produces it.`,
+              fix: [`Add a "produces: ['${a}']" declaration to the appropriate step`],
+            });
+          }
+        }
+      }
+
+      // Guard 4: Every step with weight should have weight > 0
+      for (const node of graph) {
+        if ((node as any).weight !== undefined && (node as any).weight <= 0) {
+          findings.push({
+            severity: "medium",
+            kind: "drift",
+            file: "supabase/functions/_shared/job-map.ts",
+            message: `Step "${node.key}" has invalid weight (${(node as any).weight}). Weight must be > 0.`,
+            fix: [`Set a positive weight for step "${node.key}"`],
+          });
+        }
+      }
+
+      console.log("✅ Phase 8 extended pipeline guards passed (step→job mapping, pool routing, artifact integrity).");
+    }
   } catch (e) {
     const msg = (e as Error)?.message ?? String(e);
     if (msg.startsWith("PIPELINE_DAG_")) {

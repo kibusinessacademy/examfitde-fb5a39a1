@@ -168,6 +168,11 @@ export interface PipelineNode {
   produces?: string[];
   /** Artifacts this step requires before it can run */
   requires?: string[];
+  /** Scheduling weight: higher = more expensive. Used for predictive scheduling. */
+  weight?: number;
+  /** Downstream impact: how many steps are transitively unblocked by this step's artifact.
+   *  Computed by computeArtifactImpact(). Used by Phase 6 predictive scheduling. */
+  artifactImpact?: number;
 }
 
 /**
@@ -176,27 +181,87 @@ export interface PipelineNode {
  * Adding a step? Add it here with correct dependencies.
  */
 export const PIPELINE_GRAPH: PipelineNode[] = [
-  { key: "scaffold_learning_course", produces: ["course_scaffold"] },
-  { key: "generate_glossary", dependsOn: ["scaffold_learning_course"], requires: ["course_scaffold"], produces: ["glossary"] },
-  { key: "generate_learning_content", dependsOn: ["scaffold_learning_course"], requires: ["course_scaffold"], produces: ["learning_content"] },
-  { key: "validate_learning_content", dependsOn: ["generate_learning_content"], requires: ["learning_content"], produces: ["validated_learning_content"] },
-  { key: "auto_seed_exam_blueprints", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["exam_blueprints"] },
-  { key: "validate_blueprints", dependsOn: ["auto_seed_exam_blueprints"], requires: ["exam_blueprints"], produces: ["validated_blueprints"] },
-  { key: "generate_exam_pool", dependsOn: ["validate_blueprints"], requires: ["validated_blueprints"], produces: ["exam_questions"] },
-  { key: "validate_exam_pool", dependsOn: ["generate_exam_pool"], requires: ["exam_questions"], produces: ["validated_exam_pool"] },
-  { key: "build_ai_tutor_index", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["tutor_index"] },
-  { key: "validate_tutor_index", dependsOn: ["build_ai_tutor_index"], requires: ["tutor_index"], produces: ["validated_tutor_index"] },
-  { key: "generate_oral_exam", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["oral_exam"] },
-  { key: "validate_oral_exam", dependsOn: ["generate_oral_exam"], requires: ["oral_exam"], produces: ["validated_oral_exam"] },
-  { key: "generate_lesson_minichecks", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["lesson_minichecks"] },
-  { key: "validate_lesson_minichecks", dependsOn: ["generate_lesson_minichecks"], requires: ["lesson_minichecks"], produces: ["validated_minichecks"] },
-  { key: "generate_handbook", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["handbook"] },
-  { key: "validate_handbook", dependsOn: ["generate_handbook"], requires: ["handbook"], produces: ["validated_handbook"] },
-  { key: "elite_harden", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["elite_ready"] },
-  { key: "run_integrity_check", dependsOn: ["elite_harden"], requires: ["elite_ready"], produces: ["integrity_passed"] },
-  { key: "quality_council", dependsOn: ["run_integrity_check"], requires: ["integrity_passed"], produces: ["council_approved"] },
-  { key: "auto_publish", dependsOn: ["quality_council"], requires: ["council_approved"], produces: ["published"] },
+  { key: "scaffold_learning_course", produces: ["course_scaffold"], weight: 2 },
+  { key: "generate_glossary", dependsOn: ["scaffold_learning_course"], requires: ["course_scaffold"], produces: ["glossary"], weight: 3 },
+  { key: "generate_learning_content", dependsOn: ["scaffold_learning_course"], requires: ["course_scaffold"], produces: ["learning_content"], weight: 10 },
+  { key: "validate_learning_content", dependsOn: ["generate_learning_content"], requires: ["learning_content"], produces: ["validated_learning_content"], weight: 3 },
+  { key: "auto_seed_exam_blueprints", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["exam_blueprints"], weight: 6 },
+  { key: "validate_blueprints", dependsOn: ["auto_seed_exam_blueprints"], requires: ["exam_blueprints"], produces: ["validated_blueprints"], weight: 2 },
+  { key: "generate_exam_pool", dependsOn: ["validate_blueprints"], requires: ["validated_blueprints"], produces: ["exam_questions"], weight: 8 },
+  { key: "validate_exam_pool", dependsOn: ["generate_exam_pool"], requires: ["exam_questions"], produces: ["validated_exam_pool"], weight: 3 },
+  { key: "build_ai_tutor_index", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["tutor_index"], weight: 4 },
+  { key: "validate_tutor_index", dependsOn: ["build_ai_tutor_index"], requires: ["tutor_index"], produces: ["validated_tutor_index"], weight: 2 },
+  { key: "generate_oral_exam", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["oral_exam"], weight: 5 },
+  { key: "validate_oral_exam", dependsOn: ["generate_oral_exam"], requires: ["oral_exam"], produces: ["validated_oral_exam"], weight: 2 },
+  { key: "generate_lesson_minichecks", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["lesson_minichecks"], weight: 5 },
+  { key: "validate_lesson_minichecks", dependsOn: ["generate_lesson_minichecks"], requires: ["lesson_minichecks"], produces: ["validated_minichecks"], weight: 2 },
+  { key: "generate_handbook", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["handbook"], weight: 7 },
+  { key: "validate_handbook", dependsOn: ["generate_handbook"], requires: ["handbook"], produces: ["validated_handbook"], weight: 2 },
+  { key: "elite_harden", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["elite_ready"], weight: 6 },
+  { key: "run_integrity_check", dependsOn: ["elite_harden"], requires: ["elite_ready"], produces: ["integrity_passed"], weight: 3 },
+  { key: "quality_council", dependsOn: ["run_integrity_check"], requires: ["integrity_passed"], produces: ["council_approved"], weight: 4 },
+  { key: "auto_publish", dependsOn: ["quality_council"], requires: ["council_approved"], produces: ["published"], weight: 1 },
 ];
+
+/**
+ * Compute artifact impact score: how many downstream steps are transitively
+ * unblocked when this step completes. Higher = more critical to schedule first.
+ * This powers Phase 6 — Predictive Scheduling.
+ */
+export function computeArtifactImpact(graph: PipelineNode[]): Map<string, number> {
+  const impactMap = new Map<string, number>();
+
+  // Build artifact → consumers mapping
+  const artifactConsumers = new Map<string, Set<string>>();
+  for (const node of graph) {
+    for (const req of node.requires ?? []) {
+      if (!artifactConsumers.has(req)) artifactConsumers.set(req, new Set());
+      artifactConsumers.get(req)!.add(node.key);
+    }
+  }
+
+  // For each node, count how many downstream steps are transitively dependent
+  function countDownstream(key: string, visited: Set<string>): number {
+    if (visited.has(key)) return 0;
+    visited.add(key);
+    const node = graph.find(n => n.key === key);
+    if (!node?.produces) return 0;
+
+    let count = 0;
+    for (const artifact of node.produces) {
+      const consumers = artifactConsumers.get(artifact);
+      if (!consumers) continue;
+      for (const consumerKey of consumers) {
+        count += 1 + countDownstream(consumerKey, visited);
+      }
+    }
+    return count;
+  }
+
+  for (const node of graph) {
+    const downstream = countDownstream(node.key, new Set());
+    impactMap.set(node.key, downstream);
+    node.artifactImpact = downstream;
+  }
+
+  return impactMap;
+}
+
+// Compute impact scores at module load time (available for scheduling)
+export const ARTIFACT_IMPACT = computeArtifactImpact(PIPELINE_GRAPH);
+
+/**
+ * Returns a scheduling priority bump for a job based on its artifact impact.
+ * Higher impact producers get priority 5-15, validators/terminals get 0.
+ * Used by Phase 6 predictive scheduling.
+ */
+export function getArtifactPriorityBump(stepKey: string): number {
+  const impact = ARTIFACT_IMPACT.get(stepKey) ?? 0;
+  if (impact >= 10) return 15; // critical producers (scaffold, generate_learning_content)
+  if (impact >= 5) return 10;  // major producers (exam_pool, blueprints)
+  if (impact >= 2) return 5;   // medium producers
+  return 0;                     // terminals/validators
+}
 
 /**
  * Validates the pipeline DAG at boot/CI time.
