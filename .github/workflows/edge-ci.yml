@@ -25,10 +25,14 @@ jobs:
           deno --version
           deno check supabase/functions/**/index.ts supabase/functions/_shared/*.ts
 
+      - name: Edge Functions - Deno lint (no-redeclare safety)
+        run: |
+          deno lint supabase/functions/**/index.ts supabase/functions/_shared/*.ts
+
       - name: Security + Drift guards
         run: |
           deno run -A scripts/edge-guards.ts
 
       - name: Success summary
         run: |
-          echo "✅ Edge CI passed: deno check + edge guards"
+          echo "✅ Edge CI passed: deno check + deno lint + edge guards"

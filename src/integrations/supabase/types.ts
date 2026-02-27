@@ -11607,6 +11607,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_worker_heartbeats: {
+        Row: {
+          boot_at: string
+          id: string
+          instance_id: string
+          last_error: string | null
+          last_seen_at: string
+          metadata: Json | null
+          processed_count: number
+          worker_name: string
+          worker_version: string
+        }
+        Insert: {
+          boot_at?: string
+          id?: string
+          instance_id: string
+          last_error?: string | null
+          last_seen_at?: string
+          metadata?: Json | null
+          processed_count?: number
+          worker_name: string
+          worker_version?: string
+        }
+        Update: {
+          boot_at?: string
+          id?: string
+          instance_id?: string
+          last_error?: string | null
+          last_seen_at?: string
+          metadata?: Json | null
+          processed_count?: number
+          worker_name?: string
+          worker_version?: string
+        }
+        Relationships: []
+      }
       oral_exam_blueprints: {
         Row: {
           certification_id: string | null
@@ -22592,6 +22628,19 @@ export type Database = {
         Args: { p_curriculum_id: string; p_feature: string; p_user_id: string }
         Returns: boolean
       }
+      check_worker_health: {
+        Args: { p_stale_minutes?: number; p_worker_name?: string }
+        Returns: {
+          instance_id: string
+          is_healthy: boolean
+          last_error: string
+          last_seen_at: string
+          minutes_since_seen: number
+          processed_count: number
+          worker_name: string
+          worker_version: string
+        }[]
+      }
       claim_license_seat: { Args: { p_invite_code: string }; Returns: string }
       claim_next_job:
         | { Args: { p_worker_id: string }; Returns: Json }
@@ -24466,6 +24515,17 @@ export type Database = {
           p_title: string
         }
         Returns: string
+      }
+      upsert_worker_heartbeat: {
+        Args: {
+          p_instance_id: string
+          p_last_error?: string
+          p_metadata?: Json
+          p_processed_count?: number
+          p_version?: string
+          p_worker_name: string
+        }
+        Returns: undefined
       }
       use_idempotency_key: {
         Args: { p_endpoint: string; p_key: string; p_user_id: string }

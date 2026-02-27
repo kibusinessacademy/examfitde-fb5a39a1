@@ -1,0 +1,38 @@
+name: Edge Deploy Health Gate
+
+on:
+  # Trigger after edge-ci passes on main
+  workflow_run:
+    workflows: ["Edge CI (Syntax + Security Guards)"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  post-deploy-health:
+    name: Post-Deploy Boot Sanity
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Wait for Lovable auto-deploy to propagate (edge functions deploy async)
+      - name: Wait for deploy propagation
+        run: sleep 30
+
+      - name: Health check critical functions
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/ci/post-deploy-healthcheck.mjs
+
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_NAME: "Edge Deploy Health Gate"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/ci/issue-on-fail.mjs
