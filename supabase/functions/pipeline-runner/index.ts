@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, poolForJobType } from "../_shared/job-map.ts";
+import { enqueueJob } from "../_shared/enqueue.ts";
 
 /**
  * pipeline-runner — Pure Orchestrator (v3: Multi-Slot Acquisition)
@@ -1267,20 +1268,22 @@ async function processPackage(
     };
     const stepMaxAttempts = STEP_MAX_ATTEMPTS[stepKey] ?? 10;
 
-    const jobId = crypto.randomUUID();
-    const workerPool = poolForJobType(jobType);
-    const { error: insertErr } = await sb.from("job_queue").insert({
-      id: jobId,
-      job_type: jobType,
-      status: "pending",
-      package_id: packageId,
-      payload,
-      priority: 10,
-      max_attempts: stepMaxAttempts,
-      batch_cursor: batchCursor,
-      worker_pool: workerPool,
-      ...(retryAfterSec > 0 ? { run_after: new Date(Date.now() + retryAfterSec * 1000).toISOString() } : {}),
-    });
+    let jobId: string | null = null;
+    let insertErr: { message?: string } | null = null;
+    try {
+      const inserted = await enqueueJob(sb, {
+        job_type: jobType,
+        payload,
+        package_id: packageId,
+        max_attempts: stepMaxAttempts,
+        priority: 10,
+        run_after: retryAfterSec > 0 ? new Date(Date.now() + retryAfterSec * 1000).toISOString() : null,
+        batch_cursor: batchCursor,
+      });
+      jobId = inserted.id;
+    } catch (e) {
+      insertErr = { message: (e as Error).message };
+    }
 
     if (insertErr) {
       if (insertErr.message?.includes("duplicate") || insertErr.message?.includes("unique")) {
@@ -1326,7 +1329,7 @@ async function processPackage(
     // only transition to 'running' during poll when job status = 'processing'.
 
     // Keep lease — slot stays occupied
-    console.log(`[runner] 📤 Enqueued ${jobType} (job ${jobId.slice(0, 8)}) for ${shortId}`);
+    console.log(`[runner] 📤 Enqueued ${jobType} (job ${(jobId ?? "?").slice(0, 8)}) for ${shortId}`);
     return { packageId, stepKey, enqueued: true, jobId };
   }
 
