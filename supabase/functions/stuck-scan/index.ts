@@ -1,6 +1,30 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
+// Keep in sync with pipeline-runner's STEP_TO_JOB_TYPE mapping.
+const STEP_TO_JOB_TYPE: Record<string, string> = {
+  scaffold_learning_course: "package_scaffold_learning_course",
+  generate_glossary: "package_generate_glossary",
+  generate_learning_content: "package_generate_learning_content",
+  validate_learning_content: "package_validate_learning_content",
+  auto_seed_exam_blueprints: "package_auto_seed_exam_blueprints",
+  validate_blueprints: "package_validate_blueprints",
+  generate_exam_pool: "package_generate_exam_pool",
+  validate_exam_pool: "package_validate_exam_pool",
+  build_ai_tutor_index: "package_build_ai_tutor_index",
+  validate_tutor_index: "package_validate_tutor_index",
+  generate_oral_exam: "package_generate_oral_exam",
+  validate_oral_exam: "package_validate_oral_exam",
+  generate_lesson_minichecks: "package_generate_lesson_minichecks",
+  validate_lesson_minichecks: "package_validate_lesson_minichecks",
+  generate_handbook: "package_generate_handbook",
+  validate_handbook: "package_validate_handbook",
+  elite_harden: "package_elite_harden",
+  run_integrity_check: "package_run_integrity_check",
+  quality_council: "package_quality_council",
+  auto_publish: "package_auto_publish",
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -11,6 +35,21 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "content-type": "application/json" },
   });
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function inferBackoffSeconds(reason: string): number {
+  const r = (reason || "").toLowerCase();
+  if (!r) return 30;
+  if (r.includes("rate limit") || r.includes("429")) return 120;
+  if (r.includes("timeout") || r.includes("504") || r.includes("deadline")) return 90;
+  if (r.includes("unknown") || r.includes("edge") || r.includes("worker job failed")) return 60;
+  return 30;
 }
 
 async function safeRpc(
@@ -31,12 +70,15 @@ async function safeRpc(
 }
 
 /**
- * stuck-scan v3 – Hardened production watchdog
+ * stuck-scan v4 – Hardened production watchdog
  *
- * Changes from v2:
- * - Zombie detection uses age guard (>5 min) + cancels stale processing jobs via RPC
- * - Escalation breaker scoped to validate_* steps only; generate_* → needs_manual_review
- * - All job cancellation uses deterministic RPCs instead of .contains()
+ * Changes from v3:
+ * - Stale job requeue uses run_after (not scheduled_at) for correct claim delay
+ * - Query filters by min cutoff server-side to reduce data transfer
+ * - Zombie detection expanded to running/enqueued/queued with step-scoped cleanup
+ * - Escalation breaker adds age guard + failure signature check
+ * - System freeze detector alerts when no jobs complete for >2h
+ * - Chunked batch updates to avoid edge function timeouts
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -69,14 +111,22 @@ Deno.serve(async (req) => {
 
     // ══════════════════════════════════════════════════════
     // 1) Clean stale processing jobs (no heartbeat)
+    //    Filter server-side by minimum threshold to reduce data transfer
     // ══════════════════════════════════════════════════════
+    const now = Date.now();
+    const minThreshold = Math.min(
+      heartbeatTimeout,
+      ...Object.values(JOB_TYPE_STALE_OVERRIDES).map((x) => Number(x)).filter((x) => Number.isFinite(x) && x > 0),
+    );
+    const minCutoffIso = new Date(now - minThreshold * 1000).toISOString();
+
     const { data: processingJobs } = await sb
       .from("job_queue")
       .select("id, attempts, max_attempts, job_type, locked_at")
-      .eq("status", "processing");
+      .eq("status", "processing")
+      .lt("locked_at", minCutoffIso);
 
-    const now = Date.now();
-    const staleJobs = (processingJobs || []).filter(job => {
+    const staleJobs = (processingJobs || []).filter((job) => {
       const threshold = JOB_TYPE_STALE_OVERRIDES[job.job_type] ?? heartbeatTimeout;
       const cutoff = now - threshold * 1000;
       return job.locked_at && new Date(job.locked_at).getTime() < cutoff;
@@ -84,46 +134,58 @@ Deno.serve(async (req) => {
 
     let staleCount = 0;
     let failedFromStale = 0;
+    const toFail: Array<{ id: string; attempts: number; max_attempts: number; job_type: string; threshold: number }> = [];
+    const toPending: Array<{ id: string; attempts: number; max_attempts: number; job_type: string; threshold: number }> = [];
+
     for (const sj of staleJobs) {
       const newAttempts = (sj.attempts || 0) + 1;
       const maxAttempts = sj.max_attempts || 3;
       const effectiveThreshold = JOB_TYPE_STALE_OVERRIDES[sj.job_type] ?? heartbeatTimeout;
-
       if (newAttempts >= maxAttempts) {
-        await sb.from("job_queue").update({
-          status: "failed",
-          locked_at: null,
-          locked_by: null,
-          last_error: `Stale lock (>${effectiveThreshold}s, type=${sj.job_type}) — max attempts (${maxAttempts}) reached`,
-          last_error_code: "STALE_LOCK_EXHAUSTED",
-          attempts: newAttempts,
-          completed_at: new Date().toISOString(),
-        }).eq("id", sj.id);
-        failedFromStale++;
+        toFail.push({ id: sj.id, attempts: newAttempts, max_attempts: maxAttempts, job_type: sj.job_type, threshold: effectiveThreshold });
       } else {
-        await sb.from("job_queue").update({
-          status: "pending",
-          locked_at: null,
-          locked_by: null,
-          scheduled_at: new Date(Date.now() + 30_000).toISOString(),
-          last_error: `Stale lock (>${effectiveThreshold}s, type=${sj.job_type}) — attempt ${newAttempts}/${maxAttempts}`,
-          last_error_code: "STALE_LOCK",
-          attempts: newAttempts,
-        }).eq("id", sj.id);
+        toPending.push({ id: sj.id, attempts: newAttempts, max_attempts: maxAttempts, job_type: sj.job_type, threshold: effectiveThreshold });
       }
       staleCount++;
     }
 
+    // Chunked updates — use run_after (not scheduled_at) for correct claim delay
+    for (const c of chunk(toPending, 25)) {
+      const backoff = inferBackoffSeconds("");
+      await Promise.all(c.map((sj) => sb.from("job_queue").update({
+        status: "pending",
+        locked_at: null,
+        locked_by: null,
+        run_after: new Date(Date.now() + backoff * 1000).toISOString(),
+        last_error: `Stale lock (>${sj.threshold}s, type=${sj.job_type}) — attempt ${sj.attempts}/${sj.max_attempts}`,
+        last_error_code: "STALE_LOCK",
+        attempts: sj.attempts,
+      }).eq("id", sj.id)));
+    }
+    for (const c of chunk(toFail, 25)) {
+      await Promise.all(c.map((sj) => sb.from("job_queue").update({
+        status: "failed",
+        locked_at: null,
+        locked_by: null,
+        last_error: `Stale lock (>${sj.threshold}s, type=${sj.job_type}) — max attempts (${sj.max_attempts}) reached`,
+        last_error_code: "STALE_LOCK_EXHAUSTED",
+        attempts: sj.attempts,
+        completed_at: new Date().toISOString(),
+      }).eq("id", sj.id)));
+      failedFromStale += c.length;
+    }
+
     // ══════════════════════════════════════════════════════
     // 1b) ZOMBIE STEP DETECTION (with age guard)
-    // Steps in "running" with meta.ok=true — worker completed but step never finalized.
-    // Only auto-fix if running > 5 minutes (not a fresh step).
+    // Steps in "running"/"enqueued"/"queued" with meta.ok=true or batch_complete=true
+    // — worker completed but step never finalized.
+    // Only auto-fix if age > 5 minutes (not a fresh step).
     // ══════════════════════════════════════════════════════
     const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
     const { data: zombieSteps } = await sb
       .from("package_steps")
-      .select("package_id, step_key, meta, attempts, started_at")
-      .eq("status", "running");
+      .select("package_id, step_key, meta, attempts, started_at, status")
+      .in("status", ["running", "enqueued", "queued"]);
 
     const zombieResults: Array<{ package_id: string; step_key: string; action: string }> = [];
     for (const zs of zombieSteps || []) {
@@ -133,22 +195,26 @@ Deno.serve(async (req) => {
       const age = zs.started_at ? Date.now() - new Date(zs.started_at).getTime() : Infinity;
       if (age <= ZOMBIE_MIN_AGE_MS) continue;
 
-      // 1) Finalize step
+      // 1) Finalize step (match on current status for race safety)
       await sb.from("package_steps").update({
         status: "done",
         finished_at: new Date().toISOString(),
         last_error: null,
-      }).eq("package_id", zs.package_id).eq("step_key", zs.step_key).eq("status", "running");
+      }).eq("package_id", zs.package_id).eq("step_key", zs.step_key).in("status", ["running", "enqueued", "queued"]);
 
-      // 2) Cancel pending/failed jobs via RPC
+      // 2) Cancel jobs scoped to this step (preferred), fallback to package-wide
+      const jobType = STEP_TO_JOB_TYPE[zs.step_key] ?? null;
       await safeRpc(sb, "cancel_jobs_for_package", {
         p_package_id: zs.package_id,
+        p_job_type: jobType,
+        p_statuses: ["pending", "failed"],
         p_reason: `stuck-scan zombie finalize: cleanup for step ${zs.step_key}`,
       });
 
-      // 3) Cancel stale processing jobs via RPC
+      // 3) Cancel stale processing jobs scoped to this step
       await safeRpc(sb, "cancel_stale_processing_jobs_for_package", {
         p_package_id: zs.package_id,
+        p_job_type: jobType,
         p_stale_minutes: 15,
         p_reason: `stuck-scan zombie finalize: cleanup stale processing for step ${zs.step_key}`,
       });
@@ -160,11 +226,11 @@ Deno.serve(async (req) => {
         target_type: "package_step",
         target_id: zs.package_id,
         result_status: "applied",
-        result_detail: `Step ${zs.step_key} was running with meta.ok=${meta.ok} for ${Math.round(age / 60000)}min — forced to done + jobs cancelled`,
-        metadata: { step_key: zs.step_key, meta, age_min: Math.round(age / 60000) },
+        result_detail: `Step ${zs.step_key} was ${zs.status} with meta.ok=${meta.ok}, batch_complete=${meta.batch_complete} for ${Math.round(age / 60000)}min — forced to done + jobs cancelled`,
+        metadata: { step_key: zs.step_key, original_status: zs.status, meta, age_min: Math.round(age / 60000) },
       });
 
-      zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: "forced to done + jobs cancelled" });
+      zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: `forced to done (was ${zs.status}) + jobs cancelled` });
     }
 
     if (zombieResults.length > 0) {
@@ -175,17 +241,29 @@ Deno.serve(async (req) => {
     // 1c) ESCALATION LOOP DETECTION (scoped by step type)
     // - validate_* steps: skip + notify (safe to skip)
     // - generate_* / other steps: mark package needs_manual_review (NOT skip)
+    // Guards: age > 10min since last update + failure signal required
     // ══════════════════════════════════════════════════════
     const ESCALATION_MAX = 10;
     const { data: escalatedSteps } = await sb
       .from("package_steps")
-      .select("package_id, step_key, attempts, status")
+      .select("package_id, step_key, attempts, status, updated_at, last_error, meta")
       .gte("attempts", ESCALATION_MAX)
       .not("status", "in", '("done","skipped","blocked")');
 
     const escalationResults: Array<{ package_id: string; step_key: string; action: string }> = [];
     for (const es of escalatedSteps || []) {
+      // Age guard: only act on loops that have been stable for a while
+      const updatedAt = es.updated_at ? new Date(es.updated_at).getTime() : 0;
+      const ageMs = updatedAt > 0 ? (Date.now() - updatedAt) : Infinity;
+      if (ageMs < 10 * 60 * 1000) continue;
+
+      // Signature guard: require some failure signal
+      const lastErr = String(es.last_error || "");
+      const metaErr = String(((es.meta ?? {}) as Record<string, unknown>)?.error || "");
+      if (!lastErr && !metaErr) continue;
+
       const isValidation = es.step_key.startsWith("validate_");
+      const jobType = STEP_TO_JOB_TYPE[es.step_key] ?? null;
 
       if (isValidation) {
         // Safe to skip validation steps — content exists, just validation is looping
@@ -195,9 +273,10 @@ Deno.serve(async (req) => {
           last_error: `stuck-scan: escalation breaker after ${es.attempts} attempts`,
         }).eq("package_id", es.package_id).eq("step_key", es.step_key);
 
-        // Cancel related jobs via RPC
+        // Cancel related jobs via RPC (step-scoped)
         await safeRpc(sb, "cancel_jobs_for_package", {
           p_package_id: es.package_id,
+          p_job_type: jobType,
           p_statuses: ["pending", "failed"],
           p_reason: `stuck-scan escalation breaker: skip ${es.step_key}`,
         });
@@ -210,15 +289,64 @@ Deno.serve(async (req) => {
           stuck_reason: `Escalation loop: step ${es.step_key} has ${es.attempts} attempts — manual review required`,
         }).eq("id", es.package_id);
 
-        // Cancel related jobs to stop the loop
+        // Cancel related jobs to stop the loop (step-scoped)
         await safeRpc(sb, "cancel_jobs_for_package", {
           p_package_id: es.package_id,
+          p_job_type: jobType,
           p_statuses: ["pending", "failed"],
           p_reason: `stuck-scan escalation breaker: halt ${es.step_key}`,
         });
 
         escalationResults.push({ package_id: es.package_id, step_key: es.step_key, action: "flagged for manual review (non-validation)" });
         console.warn(`[stuck-scan] 🛑 Escalation: ${es.step_key} for ${es.package_id.slice(0, 8)} flagged for manual review after ${es.attempts} attempts`);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════
+    // 1d) SYSTEM FREEZE DETECTION
+    // If there are NO completed jobs for a long time while pending/processing exist,
+    // alert ops — this indicates a runner crash, cron failure, or queue deadlock.
+    // ══════════════════════════════════════════════════════
+    let systemFrozen = false;
+    {
+      const FREEZE_MINUTES = 120;
+      const { data: lastCompleted } = await sb
+        .from("job_queue")
+        .select("completed_at")
+        .eq("status", "completed")
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false })
+        .limit(1);
+
+      const { count: activeCnt } = await sb
+        .from("job_queue")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "processing"]);
+
+      const lastAt = lastCompleted && lastCompleted[0]?.completed_at
+        ? new Date(lastCompleted[0].completed_at as string).getTime()
+        : 0;
+      const freezeCutoff = Date.now() - FREEZE_MINUTES * 60_000;
+      const isFrozen = (activeCnt ?? 0) > 0 && (lastAt === 0 || lastAt < freezeCutoff);
+
+      if (isFrozen) {
+        systemFrozen = true;
+        // Dedupe: only one notification per hour
+        const dedupeKey = `system_freeze_${new Date().toISOString().slice(0, 13)}`;
+        const { count: existing } = await sb
+          .from("admin_notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("category", "ops")
+          .ilike("title", "%System-Freeze%");
+        if ((existing ?? 0) === 0) {
+          await sb.from("admin_notifications").insert({
+            title: `⚫ System-Freeze: keine completed Jobs seit ${FREEZE_MINUTES}min`,
+            body: `Es gibt ${activeCnt} pending/processing Jobs, aber keinen Abschluss seit >${FREEZE_MINUTES} Minuten. Prüfe cron-trigger, pipeline-runner, job-runner und Rate-Limits.`,
+            category: "ops",
+            severity: "error",
+            metadata: { dedupe_key: dedupeKey, active_jobs: activeCnt, last_completed_at: lastCompleted?.[0]?.completed_at ?? null },
+          });
+        }
       }
     }
 
@@ -381,7 +509,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}`);
 
     return json({
       ok: true,
@@ -392,6 +520,7 @@ Deno.serve(async (req) => {
       stale_jobs_permanently_failed: failedFromStale,
       zombie_steps_fixed: zombieResults,
       escalation_loops: escalationResults,
+      system_frozen: systemFrozen,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);

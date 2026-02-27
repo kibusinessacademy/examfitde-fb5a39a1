@@ -149,6 +149,17 @@ interface StepRow {
   started_at?: string;
   meta?: Record<string, unknown> | null;
   job_id?: string | null;
+  last_error?: string | null;
+  updated_at?: string | null;
+}
+
+function inferBackoffSeconds(reason: string): number {
+  const r = (reason || "").toLowerCase();
+  if (!r) return 0;
+  if (r.includes("rate limit") || r.includes("429")) return 120;
+  if (r.includes("timeout") || r.includes("504") || r.includes("deadline")) return 90;
+  if (r.includes("unknown") || r.includes("edge") || r.includes("worker job failed")) return 60;
+  return 15;
 }
 
 // ── State machine: pick next actionable step ──
@@ -273,7 +284,7 @@ async function processPackage(
   // ── Load steps & determine next action ──
   const { data: steps, error: stepsErr } = await sb
     .from("package_steps")
-    .select("step_key,status,attempts,max_attempts,timeout_seconds,started_at,meta,job_id")
+    .select("step_key,status,attempts,max_attempts,timeout_seconds,started_at,meta,job_id,last_error,updated_at")
     .eq("package_id", packageId);
 
   if (stepsErr) {
@@ -372,6 +383,16 @@ async function processPackage(
 
     const FINALIZATION_RULES: FinalizationRule[] = [
       {
+        stepKey: "scaffold_learning_course",
+        jobType: "package_scaffold_learning_course",
+        actionType: "finalize_scaffold_learning_course",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
         stepKey: "generate_exam_pool",
         jobType: "package_generate_exam_pool",
         actionType: "finalize_generate_exam_pool",
@@ -381,6 +402,28 @@ async function processPackage(
           const target = typeof meta?.exam_target === "number" ? meta.exam_target : 1700;
           const ok = totalQ >= target;
           return { ok, reason: ok ? `${totalQ}>=${target}` : `${totalQ}<${target}`, snapshot: { total_questions: totalQ, exam_target: target } };
+        },
+      },
+      {
+        stepKey: "generate_learning_content",
+        jobType: "package_generate_learning_content",
+        actionType: "finalize_generate_learning_content",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.batch_complete === true;
+          const reason = ok ? "meta.batch_complete=true" : "meta.batch_complete!=true";
+          return { ok, reason, snapshot: { batch_complete: meta?.batch_complete === true } };
+        },
+      },
+      {
+        stepKey: "validate_learning_content",
+        jobType: "package_validate_learning_content",
+        actionType: "finalize_validate_learning_content",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          const reason = ok ? "meta.ok=true" : (meta?.error ? `meta.error=${String(meta.error).slice(0, 80)}` : "meta.ok!=true");
+          return { ok, reason, snapshot: { ok: !!ok, error: meta?.error ?? null } };
         },
       },
       {
@@ -516,15 +559,15 @@ async function processPackage(
   }
 
   // ── ZOMBIE STEP AUTO-FINALIZATION (with age guard) ──
-  // Detect steps stuck in "running" where meta already indicates success.
-  // Only auto-fix if running > 5 minutes to avoid finalizing fresh steps.
+  // Detect steps stuck in "running"/"enqueued"/"queued" where meta already indicates success.
+  // Only auto-fix if age > 5 minutes to avoid finalizing fresh steps.
   {
     const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
     for (const k of STEP_ORDER) {
       const s = byKey.get(k);
-      if (!s || s.status !== "running") continue;
+      if (!s || !["running", "enqueued", "queued"].includes(s.status)) continue;
       const meta = (s.meta ?? {}) as Record<string, unknown>;
       if (meta.ok !== true && meta.batch_complete !== true) continue;
 
@@ -533,14 +576,14 @@ async function processPackage(
       const age = startedAt > 0 ? (Date.now() - startedAt) : Infinity;
       if (age <= ZOMBIE_MIN_AGE_MS) continue;
 
-      console.warn(`[runner] 🧟 ZOMBIE auto-fix: step ${k} for ${shortId} is running with meta.ok=${meta.ok} for ${Math.round(age / 60000)}min — forcing to done`);
+      console.warn(`[runner] 🧟 ZOMBIE auto-fix: step ${k} for ${shortId} is ${s.status} with meta.ok=${meta.ok} for ${Math.round(age / 60000)}min — forcing to done`);
 
-      // 1) Finalize step
+      // 1) Finalize step (match on current status for race safety)
       await safeQuery(
         sb.from("package_steps").update({
           status: "done", finished_at: new Date().toISOString(),
           last_error: null,
-        }).eq("package_id", packageId).eq("step_key", k).eq("status", "running"),
+        }).eq("package_id", packageId).eq("step_key", k).in("status", ["running", "enqueued", "queued"]),
         "zombie_auto_finalize",
       );
 
@@ -590,6 +633,16 @@ async function processPackage(
       if (!s) continue;
       if (s.status === "done" || s.status === "skipped" || s.status === "blocked") continue;
       if (s.attempts < ESCALATION_MAX) continue;
+
+      // Age guard: only act on loops that have been stable > 10min
+      const updatedAt = s.updated_at ? new Date(s.updated_at).getTime() : 0;
+      const ageMs = updatedAt > 0 ? (Date.now() - updatedAt) : Infinity;
+      if (ageMs < 10 * 60 * 1000) continue;
+
+      // Signature guard: require some failure signal
+      const lastErr = String(s.last_error || "");
+      const metaErr = String(((s.meta ?? {}) as Record<string, unknown>)?.error || "");
+      if (!lastErr && !metaErr) continue;
 
       const isValidation = k.startsWith("validate_");
       const jobType = STEP_TO_JOB_TYPE[k as StepKey];
@@ -1083,7 +1136,11 @@ async function processPackage(
 
     // Job failed — auto-heal with up to 7 retries for ALL steps
     if (job.status === "failed") {
-      const errorMsg = job.last_error || job.error || "Worker job failed";
+      const rawErrorMsg = job.last_error || job.error || "Worker job failed";
+      // Normalize unknown errors for better classification + backoff
+      const errorMsg = rawErrorMsg === "Job failed: unknown"
+        ? "UNKNOWN_EDGE_FAILURE"
+        : rawErrorMsg;
       const MAX_STEP_RETRIES = 7;
       // FIX: currentStep must be resolved HERE (not from the "completed" block scope)
       const failedStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
@@ -1091,6 +1148,9 @@ async function processPackage(
 
       if (stepAttempts < MAX_STEP_RETRIES) {
         console.warn(`[runner] 🔄 Auto-heal: ${stepKey} job failed (attempt ${stepAttempts + 1}/${MAX_STEP_RETRIES}) — re-queuing`);
+
+        // Backoff: unknown/rate-limit/timeouts should not hot-loop
+        const backoffSec = inferBackoffSeconds(errorMsg);
 
         // Re-queue the step for retry
         await safeQuery(
@@ -1100,6 +1160,7 @@ async function processPackage(
               job_id: null,
               runner_id: null,
               started_at: null,
+              meta: { ...(failedStep?.meta ?? {}), retry_after_sec: backoffSec, last_fail_reason: errorMsg },
               last_error: `Auto-heal retry ${stepAttempts + 1}/${MAX_STEP_RETRIES}: ${errorMsg.slice(0, 200)}`,
             })
             .eq("package_id", packageId)
@@ -1166,6 +1227,12 @@ async function processPackage(
     const jobType = STEP_TO_JOB_TYPE[stepKey];
     const currentStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
     const stepMeta = currentStep?.meta;
+    const batchCursor = (stepMeta?.batch_cursor as Record<string, unknown>) ?? null;
+
+    // Backoff support: allow step meta to request delayed enqueue
+    const retryAfterSec = typeof stepMeta?.retry_after_sec === "number" && stepMeta.retry_after_sec > 0
+      ? Math.min(300, Math.max(5, Math.floor(stepMeta.retry_after_sec)))
+      : 0;
     const batchCursor = (stepMeta?.batch_cursor as Record<string, unknown>) ?? null;
 
     // ── FIX: Reset orphaned steps to 'queued' before re-enqueue ──
@@ -1290,6 +1357,7 @@ async function processPackage(
       priority: 10,
       max_attempts: stepMaxAttempts,
       batch_cursor: batchCursor,
+      ...(retryAfterSec > 0 ? { run_after: new Date(Date.now() + retryAfterSec * 1000).toISOString() } : {}),
     });
 
     if (insertErr) {
