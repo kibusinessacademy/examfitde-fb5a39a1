@@ -2,6 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, edgeFunctionForJobType } from "../_shared/job-map.ts";
 
+const BASE_CONCURRENCY = 3;
+const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
+const FUNCTION_VERSION = "v1.1-constants-fix";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
