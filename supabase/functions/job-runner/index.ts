@@ -601,17 +601,20 @@ Deno.serve(async (req) => {
       if (stepKey) {
         const artifactCheck = await checkArtifacts(sb, job.payload.package_id, stepKey);
         if (!artifactCheck.ready) {
-          // Check retry-storm: if blocked 3+ times for same artifact, mark blocked
+          // Check retry-storm: if blocked 3+ times for same artifact, use long backoff (not failed!)
+          // Jobs should NOT be killed — the producer may still be running or queued.
           const blockCount = (job.meta?.artifact_block_count ?? 0) as number;
           if (blockCount >= 3) {
-            console.error(`[job-runner] ARTIFACT_STORM: ${job.job_type} blocked ${blockCount}x by missing ${artifactCheck.missingArtifact} → marking blocked`);
+            const longBackoffMs = 5 * 60_000; // 5 min cooldown instead of killing
+            console.warn(`[job-runner] ARTIFACT_STORM: ${job.job_type} blocked ${blockCount}x by missing ${artifactCheck.missingArtifact} — long backoff 5min (not failed)`);
             await sb.from("job_queue").update({
-              status: "failed",
-              error: `Artifact storm: ${artifactCheck.missingArtifact} missing after ${blockCount} retries. Producer: ${artifactCheck.producerStep ?? 'unknown'}`,
-              completed_at: tsNow,
+              status: "pending",
+              run_after: new Date(Date.now() + longBackoffMs).toISOString(),
+              last_error: `Artifact storm: ${artifactCheck.missingArtifact} missing after ${blockCount} retries. Producer: ${artifactCheck.producerStep ?? 'unknown'}`,
+              meta: { ...(job.meta || {}), artifact_block_count: blockCount + 1, artifact_storm: true, last_missing_artifact: artifactCheck.missingArtifact },
               ...lockRelease(tsNow),
             }).eq("id", job.id);
-            results.push({ id: job.id, status: "failed", reason: "artifact_storm" });
+            results.push({ id: job.id, status: "requeued", reason: "artifact_storm_backoff", artifact: artifactCheck.missingArtifact });
             continue;
           }
 
@@ -619,7 +622,7 @@ Deno.serve(async (req) => {
           await sb.from("job_queue").update({
             status: "pending",
             run_after: new Date(Date.now() + BACKOFF_PREREQ_MS).toISOString(),
-            error: `Artifact missing: ${artifactCheck.missingArtifact} (producer: ${artifactCheck.producerStep})`,
+            last_error: `Artifact missing: ${artifactCheck.missingArtifact} (producer: ${artifactCheck.producerStep})`,
             meta: { ...(job.meta || {}), artifact_block_count: blockCount + 1, last_missing_artifact: artifactCheck.missingArtifact },
             ...lockRelease(tsNow),
           }).eq("id", job.id);
