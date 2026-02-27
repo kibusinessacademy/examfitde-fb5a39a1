@@ -1612,6 +1612,14 @@ Deno.serve(async (req) => {
     const progress = Math.min(55, Math.round(25 + (actualTotal / examTarget) * 30));
     await sb.from("course_packages").update({ build_progress: progress }).eq("id", packageId);
 
+    // ── HOLLOW COMPLETION GUARD ──────────────────────────────────────────
+    // NEVER mark batch_complete if 0 questions were persisted.
+    // This prevents the pipeline from marking the step "done" with no artifacts.
+    if (actualTotal <= 0) {
+      console.error(`[ExamPool-v5] HOLLOW_COMPLETION_GUARD: 0 questions persisted for curriculum ${curriculumId?.slice(0,8)}. Refusing batch_complete.`);
+      return json({ ok: false, batch_complete: false, error: "HOLLOW_COMPLETION: no exam_questions persisted", total_questions: 0 }, 500);
+    }
+
     if (targetReached) {
       const shouldMarkDone = !isFanOut || await allFanOutSubJobsDone(sb, packageId);
       if (shouldMarkDone) {

@@ -32,7 +32,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
 
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55_000); // 55s hard cutoff
+  const timeout = setTimeout(() => controller.abort(), 150_000); // 150s — content jobs need longer (exam-pool uses 90s budget)
 
   try {
     const res = await fetch(url, {
