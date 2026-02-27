@@ -65,9 +65,9 @@ Deno.serve(async (req) => {
 
   const concurrency = Number(Deno.env.get("CONTENT_RUNNER_CONCURRENCY") ?? String(BASE_CONCURRENCY));
 
-  // ── 1. Claim content-pool jobs via v3 RPC ──
+  // ── 1. Claim content-pool jobs via v4 RPC (with auto-lease healing) ──
   // deno-lint-ignore no-explicit-any
-  let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v3" as any, {
+  let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
     p_limit: concurrency,
     p_worker_id: WORKER_ID,
     p_lock_timeout_minutes: 25, // content jobs need longer locks
