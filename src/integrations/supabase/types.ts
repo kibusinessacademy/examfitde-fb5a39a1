@@ -11591,6 +11591,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_alert_events: {
+        Row: {
+          alert_key: string
+          created_at: string
+          dedupe_hash: string
+          details: Json
+          id: number
+          resolved_at: string | null
+          severity: string
+          summary: string
+        }
+        Insert: {
+          alert_key: string
+          created_at?: string
+          dedupe_hash: string
+          details?: Json
+          id?: number
+          resolved_at?: string | null
+          severity: string
+          summary: string
+        }
+        Update: {
+          alert_key?: string
+          created_at?: string
+          dedupe_hash?: string
+          details?: Json
+          id?: number
+          resolved_at?: string | null
+          severity?: string
+          summary?: string
+        }
+        Relationships: []
+      }
       ops_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -21420,6 +21453,110 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_hollow_completions: {
+        Row: {
+          artifact_count: number | null
+          artifact_table: string | null
+          curriculum_id: string | null
+          finished_at: string | null
+          meta: Json | null
+          package_id: string | null
+          step_key: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "course_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_blocked_packages"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_building_without_job_or_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_content_factory"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_course_build_progress"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_recent_building_without_lease"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "ops_seeding_summary"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "package_economics"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_price_recommendation"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_profit_forecast"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_unit_economics_package"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
       ops_job_summary: {
         Row: {
           avg_duration_seconds: number | null
@@ -21742,6 +21879,17 @@ export type Database = {
           package_id: string | null
           title: string | null
           updated_at: string | null
+        }
+        Relationships: []
+      }
+      ops_runner_integrity: {
+        Row: {
+          as_of: string | null
+          blocked_pending_ready: number | null
+          orphan_leases: number | null
+          pending_non_building: number | null
+          processing_non_building: number | null
+          stuck_processing_10m: number | null
         }
         Relationships: []
       }
@@ -24388,6 +24536,22 @@ export type Database = {
         Args: { p_code: string; p_lock_seconds?: number; p_max_fail?: number }
         Returns: Json
       }
+      ops_cancel_pending_non_building_jobs: { Args: never; Returns: number }
+      ops_expire_orphan_leases: { Args: never; Returns: number }
+      ops_hash_dedupe: {
+        Args: { p_alert_key: string; p_details: Json }
+        Returns: string
+      }
+      ops_raise_alert: {
+        Args: {
+          p_alert_key: string
+          p_details: Json
+          p_severity: string
+          p_summary: string
+        }
+        Returns: undefined
+      }
+      ops_run_integrity_checks: { Args: never; Returns: Json }
       pick_minicheck_elite: {
         Args: {
           p_competency_id: string
