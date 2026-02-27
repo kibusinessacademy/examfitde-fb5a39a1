@@ -9209,6 +9209,7 @@ export type Database = {
           estimated_tokens: number | null
           fallback_count: number | null
           id: string
+          idempotency_key: string | null
           job_type: string
           last_error: string | null
           last_error_code: string | null
@@ -9244,6 +9245,7 @@ export type Database = {
           estimated_tokens?: number | null
           fallback_count?: number | null
           id?: string
+          idempotency_key?: string | null
           job_type: string
           last_error?: string | null
           last_error_code?: string | null
@@ -9279,6 +9281,7 @@ export type Database = {
           estimated_tokens?: number | null
           fallback_count?: number | null
           id?: string
+          idempotency_key?: string | null
           job_type?: string
           last_error?: string | null
           last_error_code?: string | null
@@ -20863,6 +20866,15 @@ export type Database = {
         }
         Relationships: []
       }
+      job_error_stats_24h: {
+        Row: {
+          cnt: number | null
+          job_type: string | null
+          last_error_preview: string | null
+          worker_pool: string | null
+        }
+        Relationships: []
+      }
       job_failure_analysis: {
         Row: {
           count: number | null
@@ -20882,6 +20894,43 @@ export type Database = {
           pending: number | null
           processing: number | null
           total: number | null
+        }
+        Relationships: []
+      }
+      job_pool_health: {
+        Row: {
+          cnt: number | null
+          newest_update: string | null
+          oldest_job: string | null
+          status: string | null
+          worker_pool: string | null
+        }
+        Relationships: []
+      }
+      job_processing_age: {
+        Row: {
+          attempts: number | null
+          id: string | null
+          job_type: string | null
+          last_error: string | null
+          running_for: unknown
+          worker_pool: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          id?: string | null
+          job_type?: string | null
+          last_error?: string | null
+          running_for?: never
+          worker_pool?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          id?: string | null
+          job_type?: string | null
+          last_error?: string | null
+          running_for?: never
+          worker_pool?: string | null
         }
         Relationships: []
       }
@@ -22753,6 +22802,7 @@ export type Database = {
               estimated_tokens: number | null
               fallback_count: number | null
               id: string
+              idempotency_key: string | null
               job_type: string
               last_error: string | null
               last_error_code: string | null
@@ -22801,6 +22851,7 @@ export type Database = {
               estimated_tokens: number | null
               fallback_count: number | null
               id: string
+              idempotency_key: string | null
               job_type: string
               last_error: string | null
               last_error_code: string | null
@@ -22849,6 +22900,7 @@ export type Database = {
           estimated_tokens: number | null
           fallback_count: number | null
           id: string
+          idempotency_key: string | null
           job_type: string
           last_error: string | null
           last_error_code: string | null
@@ -22897,6 +22949,7 @@ export type Database = {
           estimated_tokens: number | null
           fallback_count: number | null
           id: string
+          idempotency_key: string | null
           job_type: string
           last_error: string | null
           last_error_code: string | null
@@ -22946,6 +22999,7 @@ export type Database = {
           estimated_tokens: number | null
           fallback_count: number | null
           id: string
+          idempotency_key: string | null
           job_type: string
           last_error: string | null
           last_error_code: string | null

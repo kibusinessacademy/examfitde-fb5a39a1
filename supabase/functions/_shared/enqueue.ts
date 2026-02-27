@@ -31,17 +31,20 @@ export async function enqueueJob(
   const worker_pool = opts.worker_pool ?? poolForJobType(opts.job_type);
   const now = new Date().toISOString();
 
+  const packageId = opts.package_id ?? (opts.payload?.package_id as string) ?? null;
+
   const row = {
     id: crypto.randomUUID(),
     job_type: opts.job_type,
     status: "pending",
     payload: opts.payload ?? {},
-    package_id: opts.package_id ?? (opts.payload?.package_id as string) ?? null,
+    package_id: packageId,
     max_attempts: opts.max_attempts ?? 8,
     priority: opts.priority ?? 10,
     worker_pool,
     run_after: opts.run_after ?? null,
     batch_cursor: opts.batch_cursor ?? null,
+    idempotency_key: `${opts.job_type}:${packageId ?? "global"}`,
     created_at: now,
     updated_at: now,
   };
