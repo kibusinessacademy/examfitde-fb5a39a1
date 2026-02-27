@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
-import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE } from "../_shared/job-map.ts";
+import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT } from "../_shared/job-map.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 
 // ── Boot-time DAG validation (crash on broken pipeline definition) ──
@@ -168,8 +168,8 @@ const BACKOFF_ERROR_MS = 30_000;
 const BACKOFF_PREREQ_MS = 20_000;
 
 // ── Function versioning (for deployment forensics) ──────────────────
-const FUNCTION_VERSION = "v5.7-artifact-resolver";
-const DEPLOYED_AT = "2026-02-27T15:00:00Z";
+const FUNCTION_VERSION = "v5.8-orchestrator-phases3-8";
+const DEPLOYED_AT = "2026-02-27T16:00:00Z";
 
 // Adaptive thresholds (rolling 5-min window)
 const THROTTLE_TIMEOUT_THRESHOLD = 10;
@@ -601,33 +601,44 @@ Deno.serve(async (req) => {
       if (stepKey) {
         const artifactCheck = await checkArtifacts(sb, job.payload.package_id, stepKey);
         if (!artifactCheck.ready) {
-          // Check retry-storm: if blocked 3+ times for same artifact, use long backoff (not failed!)
-          // Jobs should NOT be killed — the producer may still be running or queued.
           const blockCount = (job.meta?.artifact_block_count ?? 0) as number;
-          if (blockCount >= 3) {
-            const longBackoffMs = 5 * 60_000; // 5 min cooldown instead of killing
-            console.warn(`[job-runner] ARTIFACT_STORM: ${job.job_type} blocked ${blockCount}x by missing ${artifactCheck.missingArtifact} — long backoff 5min (not failed)`);
-            await sb.from("job_queue").update({
-              status: "pending",
-              run_after: new Date(Date.now() + longBackoffMs).toISOString(),
-              last_error: `Artifact storm: ${artifactCheck.missingArtifact} missing after ${blockCount} retries. Producer: ${artifactCheck.producerStep ?? 'unknown'}`,
-              meta: { ...(job.meta || {}), artifact_block_count: blockCount + 1, artifact_storm: true, last_missing_artifact: artifactCheck.missingArtifact },
-              ...lockRelease(tsNow),
-            }).eq("id", job.id);
-            results.push({ id: job.id, status: "requeued", reason: "artifact_storm_backoff", artifact: artifactCheck.missingArtifact });
-            continue;
-          }
+          const isStorm = blockCount >= 3;
+          const backoffMs = isStorm ? 15 * 60_000 : BACKOFF_PREREQ_MS; // 15min storm vs 20s normal
+          const reason = isStorm ? "artifact_storm_backoff" : "artifact_missing";
 
-          console.warn(`[job-runner] ARTIFACT: ${job.job_type} missing ${artifactCheck.missingArtifact} (producer: ${artifactCheck.producerStep}) — requeue [${blockCount + 1}/3]`);
+          console.warn(`[job-runner] ARTIFACT${isStorm ? "_STORM" : ""}: ${job.job_type} blocked by missing ${artifactCheck.missingArtifact} (producer: ${artifactCheck.producerStep}) [${blockCount + 1}${isStorm ? " — long backoff 15min" : "/3"}]`);
+
           await sb.from("job_queue").update({
             status: "pending",
-            run_after: new Date(Date.now() + BACKOFF_PREREQ_MS).toISOString(),
-            last_error: `Artifact missing: ${artifactCheck.missingArtifact} (producer: ${artifactCheck.producerStep})`,
-            meta: { ...(job.meta || {}), artifact_block_count: blockCount + 1, last_missing_artifact: artifactCheck.missingArtifact },
+            run_after: new Date(Date.now() + backoffMs).toISOString(),
+            last_error: `Artifact ${isStorm ? "storm" : "missing"}: ${artifactCheck.missingArtifact} (producer: ${artifactCheck.producerStep ?? "unknown"})`,
+            meta: {
+              ...(job.meta || {}),
+              artifact_block_count: blockCount + 1,
+              artifact_blocked: true,
+              blocked_by_artifact: artifactCheck.missingArtifact,
+              blocked_by_producer: artifactCheck.producerStep ?? null,
+              artifact_storm: isStorm,
+              last_artifact_check: tsNow,
+            },
             ...lockRelease(tsNow),
           }).eq("id", job.id);
-          results.push({ id: job.id, status: "requeued", reason: "artifact_missing", artifact: artifactCheck.missingArtifact });
+          results.push({ id: job.id, status: "requeued", reason, artifact: artifactCheck.missingArtifact });
           continue;
+        } else {
+          // Artifact resolved — clear block metadata if it was previously set
+          if (job.meta?.artifact_blocked) {
+            await sb.from("job_queue").update({
+              meta: {
+                ...(job.meta || {}),
+                artifact_blocked: false,
+                artifact_block_count: 0,
+                artifact_storm: false,
+                blocked_by_artifact: null,
+                blocked_by_producer: null,
+              },
+            }).eq("id", job.id);
+          }
         }
       }
     }
