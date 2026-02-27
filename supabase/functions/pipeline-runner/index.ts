@@ -170,17 +170,8 @@ function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepAction {
     if (s.status === "done" || s.status === "skipped") continue;
     if (s.status === "blocked") continue;
 
-    // ── ZOMBIE DETECTION: step is "running" but meta says ok:true / batch_complete:true ──
-    // This means the worker completed successfully but the step was never finalized.
-    // Force it to "done" inline so the pipeline can proceed.
-    if (s.status === "running" && s.meta) {
-      const meta = s.meta as Record<string, unknown>;
-      if (meta.ok === true || meta.batch_complete === true) {
-        console.warn(`[runner] 🧟 ZOMBIE detected: step ${k} is 'running' but meta.ok=${meta.ok}, batch_complete=${meta.batch_complete} — auto-finalizing to done`);
-        // Return a special action that the caller will handle
-        return { action: "enqueue", stepKey: k }; // will be caught by zombie guard below
-      }
-    }
+    // NOTE: Zombie detection is handled BEFORE pickNextAction in processPackage.
+    // pickNextAction stays "pure" — poll/enqueue/exhausted only.
 
     // Poll if step has a linked job (enqueued, running, OR timed-out steps)
     // FIX: timeout steps with a job_id must poll the job first — the job may
@@ -524,43 +515,72 @@ async function processPackage(
     }
   }
 
-  // ── ZOMBIE STEP AUTO-FINALIZATION ──
+  // ── ZOMBIE STEP AUTO-FINALIZATION (with age guard) ──
   // Detect steps stuck in "running" where meta already indicates success.
-  // This catches the Bankkaufmann-Pattern: worker completed but step never transitioned.
+  // Only auto-fix if running > 5 minutes to avoid finalizing fresh steps.
   {
+    const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
     for (const k of STEP_ORDER) {
       const s = byKey.get(k);
       if (!s || s.status !== "running") continue;
       const meta = (s.meta ?? {}) as Record<string, unknown>;
-      if (meta.ok === true || meta.batch_complete === true) {
-        console.warn(`[runner] 🧟 ZOMBIE auto-fix: step ${k} for ${shortId} is running with meta.ok=${meta.ok} — forcing to done`);
-        await safeQuery(
-          sb.from("package_steps").update({
-            status: "done", finished_at: new Date().toISOString(),
-            last_error: null,
-          }).eq("package_id", packageId).eq("step_key", k).eq("status", "running"),
-          "zombie_auto_finalize",
-        );
-        await safeQuery(sb.from("auto_heal_log").insert({
-          action_type: "zombie_step_auto_finalize",
-          trigger_source: "pipeline-runner",
-          target_type: "package_step",
-          target_id: packageId,
-          result_status: "applied",
-          result_detail: `Step ${k} was running with meta.ok=${meta.ok}, batch_complete=${meta.batch_complete} — forced to done`,
-          metadata: { step_key: k, meta },
-        }), "zombie_log");
-        s.status = "done"; // update in-memory
+      if (meta.ok !== true && meta.batch_complete !== true) continue;
+
+      // Age guard: only auto-finalize if step has been running > 5 minutes
+      const startedAt = s.started_at ? new Date(s.started_at).getTime() : 0;
+      const age = startedAt > 0 ? (Date.now() - startedAt) : Infinity;
+      if (age <= ZOMBIE_MIN_AGE_MS) continue;
+
+      console.warn(`[runner] 🧟 ZOMBIE auto-fix: step ${k} for ${shortId} is running with meta.ok=${meta.ok} for ${Math.round(age / 60000)}min — forcing to done`);
+
+      // 1) Finalize step
+      await safeQuery(
+        sb.from("package_steps").update({
+          status: "done", finished_at: new Date().toISOString(),
+          last_error: null,
+        }).eq("package_id", packageId).eq("step_key", k).eq("status", "running"),
+        "zombie_auto_finalize",
+      );
+
+      // 2) Cancel pending/failed jobs via RPC
+      const jobType = STEP_TO_JOB_TYPE[k as StepKey];
+      if (jobType) {
+        await safeRpc(sb, "cancel_jobs_for_package", {
+          p_package_id: packageId,
+          p_job_type: jobType,
+          p_statuses: ["pending", "failed"],
+          p_reason: `pipeline-runner zombie finalize: cleanup for step ${k}`,
+        });
+        // Also cancel stale processing jobs (Bankkaufmann pattern)
+        await safeRpc(sb, "cancel_stale_processing_jobs_for_package", {
+          p_package_id: packageId,
+          p_job_type: jobType,
+          p_stale_minutes: 15,
+          p_reason: `pipeline-runner zombie finalize: cleanup stale processing for step ${k}`,
+        });
       }
+
+      // 3) Log
+      await safeQuery(sb.from("auto_heal_log").insert({
+        action_type: "zombie_step_auto_finalize",
+        trigger_source: "pipeline-runner",
+        target_type: "package_step",
+        target_id: packageId,
+        result_status: "applied",
+        result_detail: `Step ${k} was running with meta.ok=${meta.ok}, batch_complete=${meta.batch_complete} for ${Math.round(age / 60000)}min — forced to done + jobs cancelled`,
+        metadata: { step_key: k, meta, age_min: Math.round(age / 60000) },
+      }), "zombie_log");
+
+      // 4) Update in-memory
+      s.status = "done";
     }
   }
 
-  // ── ESCALATION LOOP BREAKER ──
-  // Detect validation steps that have been re-created too many times (e.g. Automatenfachmann pattern).
-  // If a step has attempts >= 10 and still isn't done, it's in an infinite heal loop.
-  // Force-skip it and mark the package for manual review.
+  // ── ESCALATION LOOP BREAKER (scoped by step type) ──
+  // - validate_* steps: safe to skip (content exists, just validation loops)
+  // - generate_* / other critical steps: DO NOT skip — flag for manual review
   {
     const ESCALATION_MAX = 10;
     const byKey = new Map<string, StepRow>();
@@ -569,21 +589,26 @@ async function processPackage(
       const s = byKey.get(k);
       if (!s) continue;
       if (s.status === "done" || s.status === "skipped" || s.status === "blocked") continue;
-      if (s.attempts >= ESCALATION_MAX) {
-        console.error(`[runner] 🛑 ESCALATION BREAKER: step ${k} for ${shortId} has ${s.attempts} attempts — forcing skip + flagging package`);
+      if (s.attempts < ESCALATION_MAX) continue;
+
+      const isValidation = k.startsWith("validate_");
+      const jobType = STEP_TO_JOB_TYPE[k as StepKey];
+
+      if (isValidation) {
+        // Safe to skip validation steps
+        console.error(`[runner] 🛑 ESCALATION BREAKER: validation step ${k} for ${shortId} has ${s.attempts} attempts — forcing skip`);
         await safeQuery(
           sb.from("package_steps").update({
             status: "skipped",
             last_error: `Escalation breaker: ${s.attempts} attempts exceeded max ${ESCALATION_MAX}`,
             finished_at: new Date().toISOString(),
           }).eq("package_id", packageId).eq("step_key", k),
-          "escalation_breaker",
+          "escalation_breaker_skip",
         );
-        // Cancel any active jobs for this step
-        const jobType = STEP_TO_JOB_TYPE[k as StepKey];
         if (jobType) {
           await safeRpc(sb, "cancel_jobs_for_package", {
             p_package_id: packageId, p_job_type: jobType, p_statuses: ["pending", "failed"],
+            p_reason: `escalation breaker: skip ${k}`,
           });
         }
         await safeQuery(sb.from("auto_heal_log").insert({
@@ -592,17 +617,50 @@ async function processPackage(
           target_type: "package_step",
           target_id: packageId,
           result_status: "escalated",
-          result_detail: `Step ${k} skipped after ${s.attempts} attempts (infinite heal loop detected)`,
-          metadata: { step_key: k, attempts: s.attempts },
+          result_detail: `Validation step ${k} skipped after ${s.attempts} attempts (loop detected)`,
+          metadata: { step_key: k, attempts: s.attempts, type: "validation_skip" },
         }), "escalation_log");
         await safeQuery(sb.from("admin_notifications").insert({
           title: `Pipeline-Eskalation: ${k}`,
-          body: `Step ${k} für Paket ${shortId} wurde nach ${s.attempts} Versuchen übersprungen. Manuelle Prüfung erforderlich.`,
-          category: "ops", severity: "error",
+          body: `Validierungsstep ${k} für Paket ${shortId} wurde nach ${s.attempts} Versuchen übersprungen. Inhalt prüfen.`,
+          category: "ops", severity: "warning",
           entity_type: "course_package", entity_id: packageId,
           metadata: { step_key: k, attempts: s.attempts },
         }), "escalation_notify");
-        s.status = "skipped"; // update in-memory
+        s.status = "skipped";
+      } else {
+        // NOT safe to skip generate_* or critical steps — halt and flag
+        console.error(`[runner] 🛑 ESCALATION: critical step ${k} for ${shortId} has ${s.attempts} attempts — flagging for manual review (NOT skipping)`);
+        await safeQuery(
+          sb.from("course_packages").update({
+            stuck_reason: `Escalation loop: step ${k} has ${s.attempts} attempts — manual review required`,
+          }).eq("id", packageId),
+          "escalation_flag_package",
+        );
+        if (jobType) {
+          await safeRpc(sb, "cancel_jobs_for_package", {
+            p_package_id: packageId, p_job_type: jobType, p_statuses: ["pending", "failed"],
+            p_reason: `escalation breaker: halt ${k}`,
+          });
+        }
+        await safeQuery(sb.from("auto_heal_log").insert({
+          action_type: "escalation_loop_breaker",
+          trigger_source: "pipeline-runner",
+          target_type: "package_step",
+          target_id: packageId,
+          result_status: "escalated",
+          result_detail: `Critical step ${k} flagged for manual review after ${s.attempts} attempts (NOT skipped)`,
+          metadata: { step_key: k, attempts: s.attempts, type: "manual_review" },
+        }), "escalation_log");
+        await safeQuery(sb.from("admin_notifications").insert({
+          title: `🚨 Pipeline-Eskalation: ${k}`,
+          body: `Kritischer Step ${k} für Paket ${shortId} hängt nach ${s.attempts} Versuchen. Manuelle Prüfung ERFORDERLICH.`,
+          category: "ops", severity: "error",
+          entity_type: "course_package", entity_id: packageId,
+          metadata: { step_key: k, attempts: s.attempts },
+        }), "escalation_notify_critical");
+        // Don't update s.status — leave as-is, pipeline will halt naturally
+        break; // Stop processing this package
       }
     }
   }

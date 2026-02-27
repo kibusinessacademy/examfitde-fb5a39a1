@@ -22422,9 +22422,36 @@ export type Database = {
       }
       can_run_llm_job: { Args: { p_provider: string }; Returns: boolean }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
-      cancel_jobs_for_package: {
-        Args: { p_job_type: string; p_package_id: string; p_statuses: string[] }
-        Returns: number
+      cancel_jobs_for_package:
+        | {
+            Args: {
+              p_job_type?: string
+              p_package_id: string
+              p_reason?: string
+              p_statuses?: string[]
+            }
+            Returns: {
+              cancelled_count: number
+            }[]
+          }
+        | {
+            Args: {
+              p_job_type: string
+              p_package_id: string
+              p_statuses: string[]
+            }
+            Returns: number
+          }
+      cancel_stale_processing_jobs_for_package: {
+        Args: {
+          p_job_type?: string
+          p_package_id: string
+          p_reason?: string
+          p_stale_minutes?: number
+        }
+        Returns: {
+          cancelled_count: number
+        }[]
       }
       cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
       check_lesson_progression: {
