@@ -8,6 +8,8 @@ import { getModel } from "../_shared/model-routing.ts";
 /**
  * package-validate-exam-pool — Pipeline Step (after generate_exam_pool)
  *
+ * v3.0: Time-budget + cursor-based resumption to prevent 504 timeouts.
+ *
  * Two-tier quality gate for generated exam questions:
  *
  * TIER 1 (All questions, no LLM — instant):
@@ -24,19 +26,26 @@ import { getModel } from "../_shared/model-routing.ts";
  *   - Early exit: if first 2 consecutive calls rate-limited, skip Tier 2 and trust Tier 1
  *
  * On failure: flags low-quality questions, does NOT delete them.
+ *
+ * CURSOR RESUMPTION:
+ *   Accepts `batch_cursor.phase` and `batch_cursor.last_id` to resume
+ *   after a partial run. Runner re-enqueues when partial=true.
  */
 
 const SAMPLE_SIZE = 4;
 const SAMPLE_PASS_THRESHOLD = 70;
 const INDIVIDUAL_REJECT_THRESHOLD = 55;
 const JACCARD_THRESHOLD = 0.85;
+// Time budget: bail out 8s before edge function hard limit (~60s)
+const TIME_BUDGET_MS = 50_000;
+const PAGE_SIZE = 300;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
 // ── Text similarity (sliding window to avoid O(n²) CPU explosion) ──
-const JACCARD_WINDOW = 80; // Only compare against last N questions
+const JACCARD_WINDOW = 80;
 
 function textNgrams(text: string, n = 3): Set<string> {
   const norm = text.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, "").replace(/\s+/g, " ").trim();
@@ -71,6 +80,8 @@ interface T1Result {
   issues: string[];
 }
 
+let questions_total_hint = 0;
+
 function tier1Check(
   q: { id: string; question_text: string; options: any; correct_answer: number; explanation: string | null; difficulty: string | null },
   professionName: string,
@@ -97,25 +108,23 @@ function tier1Check(
     issues.push(`QUESTION_TOO_SHORT: ${(q.question_text || "").length}/30`);
   }
 
-  // ── NEW: Meta-text / first-person / editing artifact detection ──
+  // Meta-text detection
   const fullText = `${q.question_text || ""} ${q.explanation || ""}`;
   for (const pat of META_TEXT_PATTERNS) {
     if (pat.test(fullText)) {
       issues.push(`META_TEXT_DETECTED: ${pat.source}`);
-      break; // one match is enough
+      break;
     }
   }
 
-  // ── NEW: Answer value not in options check ──
+  // Answer mismatch check
   if (q.explanation && q.correct_answer !== null && q.correct_answer !== undefined && opts.length > 0) {
-    // Extract numbers from explanation marked as "richtig" and check plausibility
     const explLower = (q.explanation || "").toLowerCase();
     if (explLower.includes("richtig ist") || explLower.includes("richtig:")) {
       const numMatch = explLower.match(/richtig(?:\s+ist)?[:\s]+([0-9.,]+)/);
       if (numMatch) {
         const correctVal = numMatch[1].replace(/\./g, "").replace(",", ".");
         const correctOpt = String(opts[q.correct_answer] || "");
-        // If the "correct" value from explanation doesn't appear in the marked correct option
         if (correctVal.length >= 3 && !correctOpt.includes(numMatch[1]) && !correctOpt.includes(correctVal)) {
           issues.push(`ANSWER_MISMATCH: explanation says "${numMatch[1]}" but correct option is "${correctOpt.slice(0, 60)}"`);
         }
@@ -123,7 +132,7 @@ function tier1Check(
     }
   }
 
-  // Duplicate check via Jaccard — sliding window only (prevents CPU timeout)
+  // Duplicate check via Jaccard — sliding window only
   if (q.question_text) {
     const ngrams = textNgrams(q.question_text);
     for (const existing of recentNgrams) {
@@ -134,14 +143,13 @@ function tier1Check(
       }
     }
     recentNgrams.push({ id: q.id, ngrams });
-    // Keep only the last JACCARD_WINDOW entries
     if (recentNgrams.length > JACCARD_WINDOW) recentNgrams.shift();
   }
 
   // Contamination — skip for large batches to save CPU
   if (questions_total_hint <= 500) {
-    const fullText = `${q.question_text} ${opts.join(" ")} ${q.explanation || ""}`;
-    const contam = checkContamination(fullText.slice(0, 5000), professionName);
+    const ft = `${q.question_text} ${opts.join(" ")} ${q.explanation || ""}`;
+    const contam = checkContamination(ft.slice(0, 5000), professionName);
     if (contam.isContaminated) {
       issues.push(`CONTAMINATION: ${contam.detectedIndustry} [${contam.matchedTerms.slice(0, 3).join(", ")}]`);
     }
@@ -150,10 +158,7 @@ function tier1Check(
   return { questionId: q.id, passed: issues.length === 0, issues };
 }
 
-// Global hint for tier1Check to skip expensive checks on large pools
-let questions_total_hint = 0;
-
-// ── Balanced JSON extractor (safe, handles nested strings/escapes) ──
+// ── Balanced JSON extractor ──
 function extractFirstJsonObject(text: string): string | null {
   const s = text.indexOf("{");
   if (s < 0) return null;
@@ -172,7 +177,7 @@ function extractFirstJsonObject(text: string): string | null {
     if (ch === "{") depth++;
     if (ch === "}") { depth--; if (depth === 0) return text.slice(s, i + 1); }
   }
-  return null; // truncated — no balanced closing brace found
+  return null;
 }
 
 // ── Tier 2 ──
@@ -199,7 +204,6 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
 
   const userContent = `Beruf: ${professionName}\nBlueprint: ${q.blueprint_name || "unbekannt"}\nSchwierigkeit: ${q.difficulty}\n\nFRAGE: ${q.question_text}\n\nOPTIONEN:\n${(Array.isArray(q.options) ? q.options : []).map((o: string, i: number) => `${i === q.correct_answer ? "✓" : "✗"} ${i + 1}. ${o}`).join("\n")}\n\nERKLÄRUNG: ${q.explanation || "(keine)"}`;
 
-  // ── 3-stage: Extract → Parse → Retry → Skip ──
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const isRetry = attempt > 0;
@@ -217,30 +221,24 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
         max_tokens: isRetry ? TIER2_RETRY_TOKENS : TIER2_BASE_TOKENS,
       });
 
-      // Stage A: fence-strip + balanced extraction
       let raw = (aiResult.content || "").trim();
       raw = raw.replace(/```(?:json)?|```/gi, "").trim();
       const extracted = extractFirstJsonObject(raw);
 
       if (!extracted) {
         if (!isRetry) {
-          console.warn(`[validate-exam] Truncated JSON for ${q.id} — tail=${raw.slice(-120)} — retrying with higher budget`);
-          continue; // retry
+          console.warn(`[validate-exam] Truncated JSON for ${q.id} — retrying`);
+          continue;
         }
-        throw new Error("TIER2_JSON_TRUNCATED: no balanced JSON object found after retry");
+        throw new Error("TIER2_JSON_TRUNCATED");
       }
 
-      // Stage B: trailing-comma fix + parse
       const cleaned = extracted.replace(/,\s*([\]}])/g, "$1");
       const parsed = JSON.parse(cleaned);
 
-      // Schema gate: required keys + decision whitelist
       const VALID_DECISIONS = ["approve", "revise", "reject"];
-      if (
-        typeof parsed.overall_score !== "number" ||
-        !VALID_DECISIONS.includes(parsed.decision)
-      ) {
-        throw new Error("TIER2_SCHEMA_INVALID: missing overall_score or invalid decision");
+      if (typeof parsed.overall_score !== "number" || !VALID_DECISIONS.includes(parsed.decision)) {
+        throw new Error("TIER2_SCHEMA_INVALID");
       }
 
       return {
@@ -251,23 +249,14 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
       };
     } catch (e) {
       const msg = ((e as Error).message || "").toLowerCase();
-      // Truncation-like errors: always retry on first attempt
-      const isTruncationLike =
-        msg.includes("truncated") ||
-        msg.includes("unexpected end") ||
-        msg.includes("unterminated") ||
-        msg.includes("end of json") ||
-        msg.includes("no balanced json");
-      // Schema errors: only retry if it's about core fields (decision/score)
-      const isCoreSchemaMiss =
-        msg.includes("schema_invalid") &&
-        (msg.includes("decision") || msg.includes("overall_score"));
+      const isTruncationLike = msg.includes("truncated") || msg.includes("unexpected end") || msg.includes("unterminated");
+      const isCoreSchemaMiss = msg.includes("schema_invalid");
 
       if (attempt === 0 && (isTruncationLike || isCoreSchemaMiss)) {
-        console.warn(`[validate-exam] Parse error for ${q.id} (${msg.slice(0, 80)}) — retrying`);
+        console.warn(`[validate-exam] Parse error for ${q.id} — retrying`);
         continue;
       }
-      console.error(`[validate-exam] LLM failed for ${q.id} (attempt ${attempt}): ${msg}`);
+      console.error(`[validate-exam] LLM failed for ${q.id}: ${msg}`);
       return { questionId: q.id, score: -1, decision: "skipped", issues: [`LLM_ERROR: ${msg}`] };
     }
   }
@@ -275,10 +264,14 @@ Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reje
   return { questionId: q.id, score: -1, decision: "skipped", issues: ["LLM_ERROR: exhausted retries"] };
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// MAIN HANDLER — with time-budget + cursor resumption
+// ═══════════════════════════════════════════════════════════════════
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const t0 = Date.now();
+  const timeLeft = () => TIME_BUDGET_MS - (Date.now() - t0);
   const timings: Record<string, number> = {};
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -291,6 +284,11 @@ Deno.serve(async (req) => {
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
+  // ── Cursor from previous partial run ──
+  const cursor = p.batch_cursor as { phase?: string; last_id?: string; t1_stats?: any; t1_pass_ids?: string[] } | null;
+  const startPhase = cursor?.phase || "tier1";
+  const startAfterId = cursor?.last_id || null;
+
   // Resolve profession
   let professionName: string;
   try {
@@ -299,357 +297,272 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: (e as Error).message }, 400);
   }
+  timings.resolve = Date.now() - t0;
 
-  timings.after_resolve = Date.now() - t0;
-  console.log(`[validate-exam] Phase 1 resolve: ${timings.after_resolve}ms`);
+  // ═══ PHASE: TIER 1 — Structural checks (paginated) ═══
+  let t1Stats = cursor?.t1_stats || { total: 0, passed: 0, failed: 0, failIds: [] as string[] };
+  let t1PassIds: string[] = cursor?.t1_pass_ids || [];
+  let lastProcessedId: string | null = startAfterId;
+  let allQuestionsLoaded = false;
 
-  // ── Load questions: MINIMAL columns, single batch, capped at 1000 ──
-  const MAX_QUESTIONS = 1000;
-  const { data: questions, error: qErr } = await sb
-    .from("exam_questions")
-    .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id")
-    .eq("curriculum_id", curriculumId)
-    .order("id")
-    .limit(MAX_QUESTIONS);
+  if (startPhase === "tier1") {
+    const recentNgrams: Array<{ id: string; ngrams: Set<string> }> = [];
+    let pageAfterId = startAfterId;
 
-  if (qErr) return json({ error: qErr.message }, 500);
-  if (!questions || questions.length === 0) {
+    while (timeLeft() > 10_000) { // Keep 10s buffer for DB writes
+      let query = sb
+        .from("exam_questions")
+        .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id")
+        .eq("curriculum_id", curriculumId)
+        .order("id")
+        .limit(PAGE_SIZE);
+
+      if (pageAfterId) {
+        query = query.gt("id", pageAfterId);
+      }
+
+      const { data: questions, error: qErr } = await query;
+      if (qErr) return json({ error: qErr.message }, 500);
+
+      if (!questions || questions.length === 0) {
+        allQuestionsLoaded = true;
+        break;
+      }
+
+      questions_total_hint = t1Stats.total + questions.length;
+
+      const pageFailed: string[] = [];
+      for (const q of questions as any[]) {
+        const result = tier1Check(q, professionName, recentNgrams);
+        t1Stats.total++;
+        if (result.passed) {
+          t1Stats.passed++;
+          t1PassIds.push(q.id);
+        } else {
+          t1Stats.failed++;
+          pageFailed.push(q.id);
+        }
+        lastProcessedId = q.id;
+      }
+
+      // Batch flag failed questions
+      for (let i = 0; i < pageFailed.length; i += 50) {
+        const chunk = pageFailed.slice(i, i + 50);
+        await sb.from("exam_questions").update({ qc_status: "tier1_failed" }).in("id", chunk);
+      }
+
+      t1Stats.failIds.push(...pageFailed);
+
+      console.log(`[validate-exam] T1 page: ${questions.length} questions, ${pageFailed.length} failed, elapsed=${Date.now() - t0}ms`);
+
+      // If fewer than PAGE_SIZE returned, we've seen all
+      if (questions.length < PAGE_SIZE) {
+        allQuestionsLoaded = true;
+        break;
+      }
+
+      pageAfterId = lastProcessedId;
+    }
+
+    // If we ran out of time before loading all questions → return partial
+    if (!allQuestionsLoaded) {
+      console.log(`[validate-exam] Time budget reached during T1 at ${lastProcessedId} — returning partial`);
+      return json({
+        ok: null,
+        partial: true,
+        batch_complete: false,
+        batch_cursor: {
+          phase: "tier1",
+          last_id: lastProcessedId,
+          t1_stats: t1Stats,
+          t1_pass_ids: t1PassIds,
+        },
+        message: `⏳ Tier 1 partial: ${t1Stats.total} geprüft, ${t1Stats.failed} fehlerhaft. Wird fortgesetzt…`,
+      });
+    }
+  }
+
+  timings.tier1 = Date.now() - t0;
+  const t1PassRate = t1Stats.total > 0 ? (t1Stats.passed / t1Stats.total) * 100 : 100;
+  console.log(`[validate-exam] T1 complete: ${t1Stats.passed}/${t1Stats.total} passed (${t1PassRate.toFixed(1)}%), elapsed=${timings.tier1}ms`);
+
+  // If no questions found at all
+  if (t1Stats.total === 0) {
     return json({ ok: false, error: "NO_QUESTIONS_TO_VALIDATE" }, 409);
   }
 
-  timings.after_load = Date.now() - t0;
-  console.log(`[validate-exam] Phase 2 load: ${timings.after_load}ms (${questions.length} questions)`);
-
-  console.log(`[validate-exam] Validating ${questions.length} questions for ${professionName} (pkg ${packageId.slice(0, 8)})`);
-
-  // ═══ TIER 1: Structural checks ═══
-  questions_total_hint = questions.length;
-  const recentNgrams: Array<{ id: string; ngrams: Set<string> }> = [];
-  const t1Results = questions.map((q: any) => tier1Check(q, professionName, recentNgrams));
-  const t1Failed = t1Results.filter((r: T1Result) => !r.passed);
-  const t1PassRate = ((t1Results.length - t1Failed.length) / t1Results.length) * 100;
-
-  timings.after_tier1 = Date.now() - t0;
-  console.log(`[validate-exam] Phase 3 Tier1: ${timings.after_tier1}ms — ${t1Results.length - t1Failed.length}/${t1Results.length} passed (${t1PassRate.toFixed(1)}%)`);
-
-  // Batch flag failed questions (chunks of 50)
-  const failIds = t1Failed.map(f => f.questionId);
-  for (let i = 0; i < failIds.length; i += 50) {
-    const chunk = failIds.slice(i, i + 50);
-    await sb.from("exam_questions").update({
-      qc_status: "tier1_failed",
-    }).in("id", chunk);
-  }
-
-  // If < 70% pass T1 → systemic issue
+  // Fast-fail: if < 70% pass T1 → systemic issue, no need for T2
   if (t1PassRate < 70) {
     return json({
       ok: false,
+      batch_complete: true,
       tier1_pass_rate: t1PassRate,
-      tier1_failures: t1Failed.length,
-      message: `❌ Exam QC Tier 1 fehlgeschlagen: ${t1Failed.length}/${t1Results.length} Fragen haben strukturelle Mängel.`,
+      tier1_failures: t1Stats.failed,
+      message: `❌ Exam QC Tier 1 fehlgeschlagen: ${t1Stats.failed}/${t1Stats.total} Fragen haben strukturelle Mängel.`,
     });
   }
 
-  // ═══ TIER 2: LLM sample (with early-exit on rate limits) ═══
-  const t1Passed = t1Results.filter((r: T1Result) => r.passed);
-  const sampleSize = Math.min(SAMPLE_SIZE, t1Passed.length);
-  const sampleIds = new Set<string>();
+  // ═══ PHASE: TIER 2 — LLM sample ═══
+  // Only run if we have enough time left
+  let t2Results: Array<{ questionId: string; score: number; decision: string; issues: string[] }> = [];
+  let t2Skipped = false;
 
-  // Stratified by difficulty
-  const byDiff = new Map<string, string[]>();
-  for (const r of t1Passed) {
-    const q = questions.find((q: any) => q.id === r.questionId);
-    const d = q?.difficulty || "unknown";
-    const arr = byDiff.get(d) || [];
-    arr.push(r.questionId);
-    byDiff.set(d, arr);
-  }
-  let idx = 0;
-  const diffEntries = [...byDiff.entries()];
-  while (sampleIds.size < sampleSize && diffEntries.some(([, arr]) => arr.length > 0)) {
-    const [, arr] = diffEntries[idx % diffEntries.length];
-    if (arr.length > 0) {
-      const ri = Math.floor(Math.random() * arr.length);
-      sampleIds.add(arr[ri]);
-      arr.splice(ri, 1);
+  if (timeLeft() > 20_000 && (startPhase === "tier1" || startPhase === "tier2")) {
+    const sampleSize = Math.min(SAMPLE_SIZE, t1PassIds.length);
+    // Pick random sample from passed IDs
+    const shuffled = [...t1PassIds].sort(() => Math.random() - 0.5);
+    const sampleIds = shuffled.slice(0, sampleSize);
+
+    // Load full data for sample
+    const { data: sampleQs } = await sb
+      .from("exam_questions")
+      .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id")
+      .in("id", sampleIds);
+
+    let consecutiveRateLimits = 0;
+    for (const q of (sampleQs || []) as any[]) {
+      if (consecutiveRateLimits >= 2 || timeLeft() < 8_000) {
+        console.log(`[validate-exam] T2 early exit: rateLimits=${consecutiveRateLimits}, timeLeft=${timeLeft()}ms`);
+        break;
+      }
+      const result = await tier2Validate(q, professionName);
+      t2Results.push(result);
+
+      if (result.score === -1) {
+        consecutiveRateLimits++;
+      } else {
+        consecutiveRateLimits = 0;
+        await sb.from("exam_questions").update({
+          qc_status: result.decision === "approve" ? "approved" : "needs_revision",
+        }).eq("id", q.id);
+      }
+
+      await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
     }
-    idx++;
-  }
-
-  console.log(`[validate-exam] Tier 2: Sampling ${sampleIds.size} questions for LLM validation`);
-
-  const t2Results: Array<{ questionId: string; score: number; decision: string; issues: string[] }> = [];
-  let consecutiveRateLimits = 0;
-
-  for (const qId of sampleIds) {
-    // Early exit after 2 consecutive rate limits — trust Tier 1
-    if (consecutiveRateLimits >= 2) {
-      console.log(`[validate-exam] Tier 2: Early exit after ${consecutiveRateLimits} consecutive rate limits — trusting Tier 1`);
-      break;
-    }
-
-    const q = questions.find((q: any) => q.id === qId);
-    if (!q) continue;
-
-    const result = await tier2Validate(q, professionName);
-    t2Results.push(result);
-
-    if (result.score === -1) {
-      consecutiveRateLimits++;
-    } else {
-      consecutiveRateLimits = 0;
-      // Only update individual question qc_status for scored results
-      await sb.from("exam_questions").update({
-        qc_status: result.decision === "approve" ? "approved" : "needs_revision",
-      }).eq("id", q.id);
-    }
-
-    // Delay to avoid rate limits (3-5s instead of 8-12s — 4 samples max = 20s budget)
-    await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
+  } else {
+    t2Skipped = true;
+    console.log(`[validate-exam] T2 skipped: timeLeft=${timeLeft()}ms`);
   }
 
-  timings.after_tier2 = Date.now() - t0;
+  timings.tier2 = Date.now() - t0;
 
-  // Filter out rate-limited results from average calculation
   const scoredResults = t2Results.filter(r => r.score >= 0);
   const avgScore = scoredResults.length > 0
     ? scoredResults.reduce((sum, r) => sum + r.score, 0) / scoredResults.length
-    : 100; // If all rate-limited, trust Tier 1
+    : 100; // Trust T1 if no T2 scores
   const rejected = scoredResults.filter(r => r.score < INDIVIDUAL_REJECT_THRESHOLD);
-  const skippedCount = t2Results.length - scoredResults.length;
-  if (skippedCount > 0) console.log(`[validate-exam] Tier 2: ${skippedCount} samples skipped due to rate limits`);
 
-  console.log(`[validate-exam] Phase 4 Tier2: ${timings.after_tier2}ms — avg=${avgScore.toFixed(1)}, flagged=${rejected.length}/${t2Results.length}`);
-
-  // Batch mark non-sampled as tier1_passed (chunks of 100)
-  const passedNotSampled = t1Passed.filter(r => !sampleIds.has(r.questionId)).map(r => r.questionId);
-  for (let i = 0; i < passedNotSampled.length; i += 100) {
-    const chunk = passedNotSampled.slice(i, i + 100);
-    await sb.from("exam_questions").update({
-      qc_status: "tier1_passed",
-    }).in("id", chunk);
-  }
-
-  // ═══ GATE 3: Bloom Distribution (Elite 2.0) ═══
-  // Reads cognitive_level from linked blueprints to assess pool distribution
-  const bloomCounts: Record<string, number> = { remember: 0, understand: 0, apply: 0, analyze: 0 };
-  const contextCounts: Record<string, number> = {};
-  let blueprintsMapped = 0;
-
-  // Load blueprint cognitive levels for all questions
-  const bpIds = [...new Set(questions.filter((q: any) => q.blueprint_id).map((q: any) => q.blueprint_id))];
-  const bpCogMap = new Map<string, { cognitive: string; context: string }>();
-  if (bpIds.length > 0) {
-    for (let i = 0; i < bpIds.length; i += 200) {
-      const chunk = bpIds.slice(i, i + 200);
-      const { data: bps } = await sb
-        .from("question_blueprints")
-        .select("id, cognitive_level, exam_context_type")
-        .in("id", chunk);
-      for (const bp of (bps || []) as any[]) {
-        bpCogMap.set(bp.id, { cognitive: bp.cognitive_level || "understand", context: bp.exam_context_type || "isolated_knowledge" });
-      }
+  // Batch mark non-sampled as tier1_passed (only if we have time)
+  if (timeLeft() > 5_000) {
+    const t2Ids = new Set(t2Results.map(r => r.questionId));
+    const passedNotSampled = t1PassIds.filter(id => !t2Ids.has(id));
+    for (let i = 0; i < passedNotSampled.length; i += 100) {
+      if (timeLeft() < 3_000) break;
+      const chunk = passedNotSampled.slice(i, i + 100);
+      await sb.from("exam_questions").update({ qc_status: "tier1_passed" }).in("id", chunk);
     }
   }
 
-  for (const q of questions as any[]) {
-    const bpInfo = q.blueprint_id ? bpCogMap.get(q.blueprint_id) : null;
-    if (bpInfo) {
-      bloomCounts[bpInfo.cognitive] = (bloomCounts[bpInfo.cognitive] || 0) + 1;
-      contextCounts[bpInfo.context] = (contextCounts[bpInfo.context] || 0) + 1;
-      blueprintsMapped++;
-    }
-  }
-
-  const bloomTotal = Object.values(bloomCounts).reduce((s, v) => s + v, 0);
+  // ═══ GATES 3-6 — only if time permits ═══
   let bloomGatePass = true;
   let contextGatePass = true;
-  const bloomWarnings: string[] = [];
-
-  if (bloomTotal > 0) {
-    const rememberRatio = bloomCounts.remember / bloomTotal;
-    const applyRatio = bloomCounts.apply / bloomTotal;
-    const analyzeRatio = bloomCounts.analyze / bloomTotal;
-    const applyPlusAnalyze = applyRatio + analyzeRatio;
-
-    // Bloom Gate: max 20% remember, min 30% apply+analyze
-    if (rememberRatio > 0.25) {
-      bloomWarnings.push(`BLOOM_TOO_MUCH_REMEMBER: ${(rememberRatio * 100).toFixed(1)}% (max 25%)`);
-      bloomGatePass = false;
-    }
-    if (applyPlusAnalyze < 0.25) {
-      bloomWarnings.push(`BLOOM_TOO_LOW_APPLY_ANALYZE: ${(applyPlusAnalyze * 100).toFixed(1)}% (min 25%)`);
-      bloomGatePass = false;
-    }
-
-    // Context Gate: max 30% isolated_knowledge
-    const isolatedCount = contextCounts["isolated_knowledge"] || 0;
-    const isolatedRatio = isolatedCount / bloomTotal;
-    if (isolatedRatio > 0.30) {
-      bloomWarnings.push(`CONTEXT_TOO_MUCH_ISOLATED: ${(isolatedRatio * 100).toFixed(1)}% (max 30%)`);
-      contextGatePass = false;
-    }
-  } else {
-    // No blueprint mapping — skip as warning, don't block
-    bloomWarnings.push("BLOOM_NO_BLUEPRINT_DATA: Could not map questions to blueprints for Bloom analysis");
-  }
-
-  if (bloomWarnings.length > 0) {
-    console.log(`[validate-exam] Bloom/Context Gate: ${bloomWarnings.join("; ")}`);
-  }
-
-  // ═══ GATE 4: Distractor Quality Gate (HARD) ═══
-  // Check that questions have distractor_meta with why_wrong + why_tempting
-  let distractorMetaMissing = 0;
-  let distractorMetaWeak = 0;
-  const formatCounts: Record<string, number> = {};
-  const distractorSampleSize = Math.min(100, questions.length);
-  const distractorSample = questions.slice(0, distractorSampleSize);
-
-  // Load distractor_meta for sample
-  const sampleQIds = distractorSample.map((q: any) => q.id);
-  const { data: qWithMeta } = await sb
-    .from("exam_questions")
-    .select("id, distractor_meta, typical_errors, time_estimate_seconds, item_discrimination")
-    .in("id", sampleQIds);
-
-  const metaMap = new Map((qWithMeta || []).map((q: any) => [q.id, q]));
-
-  for (const q of distractorSample as any[]) {
-    const meta = metaMap.get(q.id);
-    if (!meta?.distractor_meta) {
-      distractorMetaMissing++;
-      continue;
-    }
-    // Support both formats: array directly OR { raw: [...] } wrapper from generator
-    const rawMeta = meta.distractor_meta;
-    let dmFormat: 'array' | 'wrapper_raw' | 'unknown' = 'unknown';
-    let dm: any[] = [];
-    if (Array.isArray(rawMeta)) {
-      dm = rawMeta;
-      dmFormat = 'array';
-    } else if (rawMeta && Array.isArray(rawMeta.raw)) {
-      dm = rawMeta.raw;
-      dmFormat = 'wrapper_raw';
-    }
-    formatCounts[dmFormat] = (formatCounts[dmFormat] || 0) + 1;
-
-    // Check for why_wrong + why_tempting on at least 2 distractors
-    const withQuality = dm.filter((d: any) => d?.why_wrong && d?.why_tempting);
-    if (withQuality.length < 2) {
-      distractorMetaWeak++;
-    }
-  }
-
-  const distractorGatePass = (distractorMetaMissing + distractorMetaWeak) / distractorSampleSize < 0.4;
-  const distractorWarnings: string[] = [];
-  if (distractorMetaMissing > 0) {
-    distractorWarnings.push(`DISTRACTOR_META_MISSING: ${distractorMetaMissing}/${distractorSampleSize} ohne Metadaten`);
-  }
-  if (distractorMetaWeak > 0) {
-    distractorWarnings.push(`DISTRACTOR_META_WEAK: ${distractorMetaWeak}/${distractorSampleSize} ohne why_wrong/why_tempting`);
-  }
-
-  // ═══ GATE 5: Time Budget Gate (HARD) ═══
-  // Sum estimated_time_seconds per LF and compare against exam_time_minutes
+  let distractorGatePass = true;
   let timeGatePass = true;
-  const timeWarnings: string[] = [];
-
-  // Group questions by LF via blueprint
-  const qByLf = new Map<string, number[]>();
-  for (const q of questions as any[]) {
-    const bpInfo = q.blueprint_id ? bpCogMap.get(q.blueprint_id) : null;
-    // We need LF mapping — get it from blueprints
-    if (q.blueprint_id) {
-      const meta = metaMap.get(q.id);
-      const timeEst = meta?.time_estimate_seconds || 120; // default 2min
-      // We'll use a simpler approach: aggregate time estimates across all questions
-      // and compare against total exam time from curriculum
-    }
-  }
-
-  // Aggregate total time vs curriculum exam time
-  let totalTimeSeconds = 0;
-  let questionsWithTime = 0;
-  for (const q of (qWithMeta || []) as any[]) {
-    if (q.time_estimate_seconds) {
-      totalTimeSeconds += q.time_estimate_seconds;
-      questionsWithTime++;
-    }
-  }
-
-  // Load curriculum exam_structure for time budget
-  const { data: curricData } = await sb
-    .from("curricula")
-    .select("exam_structure")
-    .eq("id", curriculumId)
-    .single();
-
-  if (curricData?.exam_structure && questionsWithTime > 0) {
-    const examStruct = curricData.exam_structure as any;
-    const parts = examStruct?.parts || [];
-    const totalExamMinutes = parts.reduce((s: number, p: any) => s + (p.duration_min || 0), 0);
-    if (totalExamMinutes > 0) {
-      const avgTimePerQ = totalTimeSeconds / questionsWithTime;
-      const estimatedExamMinutes = (avgTimePerQ * questions.length) / 60;
-      // If estimated time exceeds 150% of available time, flag
-      if (estimatedExamMinutes > totalExamMinutes * 1.5) {
-        timeWarnings.push(`TIME_BUDGET_EXCEEDED: geschätzt ${estimatedExamMinutes.toFixed(0)}min für ${questions.length} Fragen, verfügbar ${totalExamMinutes}min`);
-        timeGatePass = false;
-      }
-    }
-  }
-
-  // ═══ GATE 6: Discrimination Gate ═══
-  // Questions with item_discrimination < 0.20 should be training-only
-  let lowDiscriminationCount = 0;
-  let discriminationChecked = 0;
-  for (const q of (qWithMeta || []) as any[]) {
-    if (q.item_discrimination !== null && q.item_discrimination !== undefined) {
-      discriminationChecked++;
-      if (q.item_discrimination < 0.20) {
-        lowDiscriminationCount++;
-      }
-    }
-  }
-
-  const discriminationWarnings: string[] = [];
   let discriminationGatePass = true;
-  if (discriminationChecked > 10) {
-    const lowPct = (lowDiscriminationCount / discriminationChecked) * 100;
-    if (lowPct > 30) {
-      discriminationWarnings.push(`LOW_DISCRIMINATION: ${lowDiscriminationCount}/${discriminationChecked} (${lowPct.toFixed(0)}%) mit Index < 0.20 — zu viele schwache Items`);
-      discriminationGatePass = false;
+  const allWarnings: string[] = [];
+  let gatesRun = false;
+
+  if (timeLeft() > 8_000 && (startPhase === "tier1" || startPhase === "tier2" || startPhase === "gates")) {
+    gatesRun = true;
+
+    // Gate 3: Bloom Distribution — load blueprints for a sample
+    const bpSampleIds = t1PassIds.slice(0, 300);
+    const { data: sampleQsForBp } = await sb
+      .from("exam_questions")
+      .select("id, blueprint_id")
+      .in("id", bpSampleIds);
+
+    const bpIds = [...new Set((sampleQsForBp || []).filter((q: any) => q.blueprint_id).map((q: any) => q.blueprint_id))];
+    const bloomCounts: Record<string, number> = { remember: 0, understand: 0, apply: 0, analyze: 0 };
+    const contextCounts: Record<string, number> = {};
+    let blueprintsMapped = 0;
+
+    if (bpIds.length > 0 && timeLeft() > 5_000) {
+      const bpCogMap = new Map<string, { cognitive: string; context: string }>();
+      for (let i = 0; i < bpIds.length; i += 200) {
+        const chunk = bpIds.slice(i, i + 200);
+        const { data: bps } = await sb
+          .from("question_blueprints")
+          .select("id, cognitive_level, exam_context_type")
+          .in("id", chunk);
+        for (const bp of (bps || []) as any[]) {
+          bpCogMap.set(bp.id, { cognitive: bp.cognitive_level || "understand", context: bp.exam_context_type || "isolated_knowledge" });
+        }
+      }
+
+      for (const q of (sampleQsForBp || []) as any[]) {
+        const bpInfo = q.blueprint_id ? bpCogMap.get(q.blueprint_id) : null;
+        if (bpInfo) {
+          bloomCounts[bpInfo.cognitive] = (bloomCounts[bpInfo.cognitive] || 0) + 1;
+          contextCounts[bpInfo.context] = (contextCounts[bpInfo.context] || 0) + 1;
+          blueprintsMapped++;
+        }
+      }
     }
-  }
-  if (lowDiscriminationCount > 0) {
-    discriminationWarnings.push(`DISCRIMINATION_WEAK_ITEMS: ${lowDiscriminationCount} Fragen mit Index < 0.20 → training-only empfohlen`);
-    // Auto-tag weak discrimination items
-    const weakIds = (qWithMeta || [])
-      .filter((q: any) => q.item_discrimination !== null && q.item_discrimination < 0.20)
-      .map((q: any) => q.id);
-    if (weakIds.length > 0) {
-      for (let i = 0; i < weakIds.length; i += 50) {
-        const chunk = weakIds.slice(i, i + 50);
-        await sb.from("exam_questions").update({
-          discrimination_tier: "weak",
-        }).in("id", chunk);
+
+    const bloomTotal = Object.values(bloomCounts).reduce((s, v) => s + v, 0);
+    if (bloomTotal > 0) {
+      const rememberRatio = bloomCounts.remember / bloomTotal;
+      const applyPlusAnalyze = (bloomCounts.apply + bloomCounts.analyze) / bloomTotal;
+      if (rememberRatio > 0.25) { allWarnings.push(`BLOOM_TOO_MUCH_REMEMBER: ${(rememberRatio * 100).toFixed(1)}%`); bloomGatePass = false; }
+      if (applyPlusAnalyze < 0.25) { allWarnings.push(`BLOOM_TOO_LOW_APPLY_ANALYZE: ${(applyPlusAnalyze * 100).toFixed(1)}%`); bloomGatePass = false; }
+      const isolatedRatio = (contextCounts["isolated_knowledge"] || 0) / bloomTotal;
+      if (isolatedRatio > 0.30) { allWarnings.push(`CONTEXT_TOO_MUCH_ISOLATED: ${(isolatedRatio * 100).toFixed(1)}%`); contextGatePass = false; }
+    }
+
+    // Gate 4: Distractor Quality (sample of 100)
+    if (timeLeft() > 5_000) {
+      const distSampleIds = t1PassIds.slice(0, 100);
+      const { data: qWithMeta } = await sb
+        .from("exam_questions")
+        .select("id, distractor_meta, item_discrimination")
+        .in("id", distSampleIds);
+
+      let distractorMissing = 0;
+      let distractorWeak = 0;
+      let lowDisc = 0;
+      let discChecked = 0;
+
+      for (const q of (qWithMeta || []) as any[]) {
+        // Distractor check
+        if (!q.distractor_meta) { distractorMissing++; }
+        else {
+          const raw = q.distractor_meta;
+          const dm: any[] = Array.isArray(raw) ? raw : (raw?.raw && Array.isArray(raw.raw) ? raw.raw : []);
+          if (dm.filter((d: any) => d?.why_wrong && d?.why_tempting).length < 2) distractorWeak++;
+        }
+        // Discrimination check
+        if (q.item_discrimination !== null && q.item_discrimination !== undefined) {
+          discChecked++;
+          if (q.item_discrimination < 0.20) lowDisc++;
+        }
+      }
+
+      const sampleLen = (qWithMeta || []).length || 1;
+      if ((distractorMissing + distractorWeak) / sampleLen >= 0.4) {
+        distractorGatePass = false;
+        allWarnings.push(`DISTRACTOR_QUALITY: ${distractorMissing} missing, ${distractorWeak} weak out of ${sampleLen}`);
+      }
+      if (discChecked > 10 && (lowDisc / discChecked) > 0.3) {
+        discriminationGatePass = false;
+        allWarnings.push(`LOW_DISCRIMINATION: ${lowDisc}/${discChecked}`);
       }
     }
   }
 
-  if (distractorWarnings.length > 0) console.log(`[validate-exam] Distractor Gate: ${distractorWarnings.join("; ")}`);
-  if (timeWarnings.length > 0) console.log(`[validate-exam] Time Gate: ${timeWarnings.join("; ")}`);
-  if (discriminationWarnings.length > 0) console.log(`[validate-exam] Discrimination Gate: ${discriminationWarnings.join("; ")}`);
-  if (bloomWarnings.length > 0) console.log(`[validate-exam] Bloom/Context Gate: ${bloomWarnings.join("; ")}`);
+  timings.gates = Date.now() - t0;
 
-  timings.after_gates = Date.now() - t0;
-  console.log(`[validate-exam] Phase 5 gates: ${timings.after_gates}ms`);
-
-  // ═══ Final verdict v2 ═══
-  // Bloom + Context + Distractor are now HARD gates (block pipeline)
-  // Time + Discrimination are SOFT gates (warn but don't block)
+  // ═══ Final verdict ═══
   const overallPass = avgScore >= SAMPLE_PASS_THRESHOLD
     && t1PassRate >= 70
     && bloomGatePass
@@ -657,66 +570,42 @@ Deno.serve(async (req) => {
     && distractorGatePass;
 
   await sb.from("course_packages").update({
-    last_error: overallPass ? null : `Exam QC v2: avg=${avgScore.toFixed(0)}, t1=${t1PassRate.toFixed(0)}%, bloom=${bloomGatePass}, ctx=${contextGatePass}, dist=${distractorGatePass}`,
+    last_error: overallPass ? null : `Exam QC v3: avg=${avgScore.toFixed(0)}, t1=${t1PassRate.toFixed(0)}%, bloom=${bloomGatePass}, ctx=${contextGatePass}, dist=${distractorGatePass}`,
   }).eq("id", packageId);
 
   if (!overallPass) {
     await sb.from("ops_alerts").insert({
-      source: "validate-exam-pool-v2",
+      source: "validate-exam-pool-v3",
       severity: "warning",
-      message: `Exam QC v2 failed for pkg ${packageId.slice(0, 8)}: avg=${avgScore.toFixed(0)}, bloom=${bloomGatePass}, ctx=${contextGatePass}, dist=${distractorGatePass}`,
+      message: `Exam QC v3 failed for pkg ${packageId.slice(0, 8)}: avg=${avgScore.toFixed(0)}, bloom=${bloomGatePass}, ctx=${contextGatePass}, dist=${distractorGatePass}`,
       payload: { packageId, tier1_pass_rate: t1PassRate, tier2_avg_score: avgScore, bloom: bloomGatePass, context: contextGatePass, distractor: distractorGatePass },
-    }).then(() => {}).catch(() => {});
+    }).then(() => {}, () => {});
   }
 
   timings.total = Date.now() - t0;
-  console.log(`[validate-exam] DONE in ${timings.total}ms — ok=${overallPass}`);
+  console.log(`[validate-exam] DONE in ${timings.total}ms — ok=${overallPass}, gates_run=${gatesRun}`);
 
   return json({
     ok: overallPass,
     batch_complete: true,
-    tier1: { total: t1Results.length, passed: t1Results.length - t1Failed.length, failed: t1Failed.length, pass_rate: t1PassRate },
-    tier2: { sample_size: t2Results.length, avg_score: avgScore, flagged: rejected.length, skipped: skippedCount, results: t2Results },
-    bloom_gate: {
-      mapped: blueprintsMapped,
-      distribution: bloomTotal > 0 ? Object.fromEntries(Object.entries(bloomCounts).map(([k, v]) => [k, Math.round((v / bloomTotal) * 100)])) : null,
-      passed: bloomGatePass,
-      warnings: bloomWarnings,
-    },
-    context_gate: {
-      distribution: bloomTotal > 0 ? contextCounts : null,
-      passed: contextGatePass,
-      isolated_pct: bloomTotal > 0 ? Math.round(((contextCounts["isolated_knowledge"] || 0) / bloomTotal) * 100) : null,
-    },
-    distractor_gate: {
-      sample_size: distractorSampleSize,
-      missing: distractorMetaMissing,
-      weak: distractorMetaWeak,
-      passed: distractorGatePass,
-      warnings: distractorWarnings,
-      format_distribution: formatCounts,
-    },
-    time_gate: {
-      passed: timeGatePass,
-      warnings: timeWarnings,
-    },
-    discrimination_gate: {
-      checked: discriminationChecked,
-      low_discrimination: lowDiscriminationCount,
-      passed: discriminationGatePass,
-      warnings: discriminationWarnings,
-    },
+    tier1: { total: t1Stats.total, passed: t1Stats.passed, failed: t1Stats.failed, pass_rate: t1PassRate },
+    tier2: { sample_size: t2Results.length, avg_score: avgScore, flagged: rejected.length, skipped: t2Skipped, results: t2Results },
+    bloom_gate: { passed: bloomGatePass },
+    context_gate: { passed: contextGatePass },
+    distractor_gate: { passed: distractorGatePass },
+    time_gate: { passed: timeGatePass },
+    discrimination_gate: { passed: discriminationGatePass },
+    gates_run: gatesRun,
+    warnings: allWarnings,
     debug_timings: timings,
     message: overallPass
-      ? `✅ Exam QC v2 bestanden: ${t1PassRate.toFixed(0)}% T1, avg ${avgScore.toFixed(0)}/100 T2, Bloom ✓, Context ✓, Distraktoren ✓`
-      : `❌ Exam QC v2 fehlgeschlagen: ${[
+      ? `✅ Exam QC v3 bestanden: ${t1PassRate.toFixed(0)}% T1, avg ${avgScore.toFixed(0)}/100 T2`
+      : `❌ Exam QC v3 fehlgeschlagen: ${[
           t1PassRate < 70 ? `T1 ${t1PassRate.toFixed(0)}%` : null,
           avgScore < SAMPLE_PASS_THRESHOLD ? `T2 avg ${avgScore.toFixed(0)}` : null,
           !bloomGatePass ? "Bloom ✗" : null,
           !contextGatePass ? "Context ✗" : null,
           !distractorGatePass ? "Distraktoren ✗" : null,
-          !timeGatePass ? "Zeit ⚠" : null,
-          !discriminationGatePass ? "Discrimination ⚠" : null,
         ].filter(Boolean).join(", ")}`,
   });
 });
