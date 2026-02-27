@@ -1155,8 +1155,6 @@ async function processPackage(
     const retryAfterSec = typeof stepMeta?.retry_after_sec === "number" && stepMeta.retry_after_sec > 0
       ? Math.min(300, Math.max(5, Math.floor(stepMeta.retry_after_sec)))
       : 0;
-    const batchCursor = (stepMeta?.batch_cursor as Record<string, unknown>) ?? null;
-
     // ── FIX: Reset orphaned steps to 'queued' before re-enqueue ──
     // This prevents step_start from double-counting attempts on steps
     // that were stuck in 'running' or 'enqueued' without a valid job
