@@ -694,6 +694,114 @@ async function main() {
     console.warn(`⚠️  Guard 12 skipped: ${(e as Error).message}`);
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Guard 13: Blueprint Quality + Bloom Governance (SSOT-level, CI-safe)
+  // ─────────────────────────────────────────────────────────────────────────────
+  try {
+    const g13before = findings.length;
+
+    const jobMap = await import(SSOT_JOB_MAP);
+
+    const FULL_STEP_ORDER: string[] = jobMap.FULL_STEP_ORDER ?? [];
+    const STEP_TO_JOB_TYPE: Record<string, string> = jobMap.STEP_TO_JOB_TYPE ?? {};
+    const JOB_DEFINITIONS: Record<string, unknown> = jobMap.JOB_DEFINITIONS ?? {};
+
+    // A) Required validate/quality steps must exist
+    const requiredValidateSteps = [
+      "validate_blueprints",
+      "validate_exam_pool",
+      "validate_learning_content",
+      "validate_oral_exam",
+      "validate_lesson_minichecks",
+      "run_integrity_check",
+      "quality_council",
+    ];
+
+    for (const step of requiredValidateSteps) {
+      if (!FULL_STEP_ORDER.includes(step)) {
+        findings.push({
+          severity: "critical",
+          kind: "drift",
+          file: "supabase/functions/_shared/job-map.ts",
+          message: `Guard 13: Required validate step "${step}" missing from FULL_STEP_ORDER.`,
+          fix: [`Add "${step}" to FULL_STEP_ORDER in correct position.`],
+        });
+      }
+      const jt = STEP_TO_JOB_TYPE[step];
+      if (!jt) {
+        findings.push({
+          severity: "critical",
+          kind: "drift",
+          file: "supabase/functions/_shared/job-map.ts",
+          message: `Guard 13: STEP_TO_JOB_TYPE missing mapping for validate step "${step}".`,
+          fix: [`Add STEP_TO_JOB_TYPE["${step}"] = "<job_type>".`],
+        });
+      } else if (!JOB_DEFINITIONS[jt]) {
+        findings.push({
+          severity: "critical",
+          kind: "drift",
+          file: "supabase/functions/_shared/job-map.ts",
+          message: `Guard 13: Job type "${jt}" (from step "${step}") missing in JOB_DEFINITIONS.`,
+          fix: [`Add JOB_DEFINITIONS["${jt}"] with pool + edgeFunction config.`],
+        });
+      }
+    }
+
+    // B) Bloom taxonomy allowlist must exist and be stable
+    const BLOOM_LEVELS: string[] = Array.isArray(jobMap.BLOOM_LEVELS) ? [...jobMap.BLOOM_LEVELS] : [];
+    const recommended = ["remember", "understand", "apply", "analyze", "evaluate", "create"];
+
+    if (BLOOM_LEVELS.length === 0) {
+      findings.push({
+        severity: "high",
+        kind: "governance",
+        file: "supabase/functions/_shared/job-map.ts",
+        message: "Guard 13: Missing BLOOM_LEVELS SSOT export. Add BLOOM_LEVELS allowlist to prevent taxonomy drift.",
+        fix: [`Export const BLOOM_LEVELS = ${JSON.stringify(recommended)} as const;`],
+      });
+    } else {
+      const s = new Set(BLOOM_LEVELS);
+      const missing = recommended.filter((x) => !s.has(x));
+      if (missing.length) {
+        findings.push({
+          severity: "high",
+          kind: "drift",
+          file: "supabase/functions/_shared/job-map.ts",
+          message: `Guard 13: BLOOM_LEVELS missing canonical entries: ${missing.join(", ")}.`,
+          fix: [`Ensure BLOOM_LEVELS includes: ${recommended.join(", ")}.`],
+        });
+      }
+    }
+
+    // C) Blueprint quality gate job types should be present
+    const requiredJobTypes = [
+      "package_validate_blueprints",
+      "package_validate_exam_pool",
+      "package_validate_learning_content",
+      "package_validate_oral_exam",
+      "package_validate_lesson_minichecks",
+      "package_run_integrity_check",
+    ];
+
+    for (const jt of requiredJobTypes) {
+      if (!JOB_DEFINITIONS[jt]) {
+        findings.push({
+          severity: "medium",
+          kind: "governance",
+          file: "supabase/functions/_shared/job-map.ts",
+          message: `Guard 13: Quality gate job type "${jt}" missing from JOB_DEFINITIONS.`,
+          fix: [`Add JOB_DEFINITIONS["${jt}"] or update guard list if renamed.`],
+        });
+      }
+    }
+
+    if (findings.length === g13before) {
+      console.log("✅ Guard 13: Blueprint Quality + Bloom Governance passed.");
+    }
+  } catch (e) {
+    console.warn(`⚠️  Guard 13 skipped: ${(e as Error).message}`);
+  }
+
   if (findings.length > 0) {
     console.error("\n❌ Edge Guards failed. Findings:\n");
     for (const f of findings) {
@@ -729,11 +837,12 @@ async function main() {
   console.log("   ✓ Schema drift");
   console.log("   ✓ Security invariants");
   console.log("   ✓ Edge function directory validation");
-  console.log("   ✓ Pool contract");
-  console.log("   ✓ Step order topology");
-  console.log("   ✓ Time budget governance");
-  console.log("   ✓ Concurrency governance");
-  console.log("   ✓ SSOT existence & soft-stop enforcement");
+  console.log("   ✓ Pool contract (Guard 8)");
+  console.log("   ✓ Step order topology (Guard 9)");
+  console.log("   ✓ Time budget governance (Guard 10)");
+  console.log("   ✓ Concurrency governance (Guard 11)");
+  console.log("   ✓ SSOT existence & soft-stop enforcement (Guard 12)");
+  console.log("   ✓ Blueprint quality + Bloom governance (Guard 13)");
   console.log("\n✅ System Integrity Verified.");
 }
 

@@ -21527,6 +21527,18 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_blueprint_quality_kpis: {
+        Row: {
+          bloom_distribution: Json | null
+          competencies_total: number | null
+          competencies_with_bp: number | null
+          competencies_without_bp: number | null
+          computed_at: string | null
+          pct_competencies_with_bp: number | null
+          sample_missing_blueprints: Json | null
+        }
+        Relationships: []
+      }
       ops_building_without_job_or_lease: {
         Row: {
           build_progress: number | null
@@ -23403,6 +23415,14 @@ export type Database = {
         }[]
       }
       cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
+      check_blueprint_quality_kpis: {
+        Args: {
+          p_allow_unknown_bloom?: boolean
+          p_min_pct_competencies_with_bp?: number
+          p_min_pct_with_bp_per_bloom?: number
+        }
+        Returns: Json
+      }
       check_lesson_progression: {
         Args: { p_lesson_id: string; p_user_id: string }
         Returns: Json
