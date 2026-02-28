@@ -79,6 +79,21 @@ export const FULL_STEP_ORDER: PipelineStepKey[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════════
+// Bloom Taxonomy Allowlist (SSOT — used by CI Guard 13)
+// ═══════════════════════════════════════════════════════════════
+
+export const BLOOM_LEVELS = [
+  "remember",
+  "understand",
+  "apply",
+  "analyze",
+  "evaluate",
+  "create",
+] as const;
+
+export type BloomLevel = (typeof BLOOM_LEVELS)[number];
+
+// ═══════════════════════════════════════════════════════════════
 // Unified Job Definitions (SSOT for pool + edge function dispatch)
 // ═══════════════════════════════════════════════════════════════
 
