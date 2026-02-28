@@ -666,18 +666,26 @@ async function main() {
       if (!text) continue;
 
       const usesBudget = text.includes("_shared/time-budget.ts") || text.includes("getTimeBudget(") || text.includes("makeAbortController(") || text.includes("shouldSoftStop(");
+      const hk =
+        file.includes("package-generate-exam-pool") ? "exam_pool_fanout" :
+        file.includes("handbook") ? "handbook" :
+        file.includes("glossary") ? "glossary" :
+        file.includes("oral-exam") ? "oral_exam" :
+        file.includes("lesson-minichecks") ? "lesson_minichecks" :
+        "learning_content";
+
       if (!usesBudget) {
-        findings.push({ severity: "high", kind: "drift", file, message: "Guard 12: Generator does not reference SSOT time budget module.", fix: ['Import { makeAbortController, shouldSoftStop } from "../_shared/time-budget.ts".'] });
+        findings.push({ severity: "high", kind: "drift", file, message: "Guard 12: Generator does not reference SSOT time budget module.", fix: [`Import { makeAbortController, shouldSoftStop } from "../_shared/time-budget.ts" and use key "${hk}".`] });
         continue;
       }
 
       if (!text.includes("shouldSoftStop(")) {
-        findings.push({ severity: "high", kind: "drift", file, message: "Guard 12: Generator uses SSOT budgets but does NOT enforce soft-stop (shouldSoftStop). Risks timeouts under load.", fix: ['Add: if (shouldSoftStop(started, "<budget_key>")) break;'] });
+        findings.push({ severity: "high", kind: "drift", file, message: "Guard 12: Generator uses SSOT budgets but does NOT enforce soft-stop (shouldSoftStop). Risks timeouts under load.", fix: [`Add: if (shouldSoftStop(started, "${hk}")) break;`] });
       }
 
       const mentionsAbort = text.includes("AbortController") || text.includes("controller.abort()");
       if (mentionsAbort && !text.includes("makeAbortController(")) {
-        findings.push({ severity: "medium", kind: "drift", file, message: "Guard 12: Uses AbortController but not makeAbortController(). Prefer SSOT makeAbortController().", fix: ['Replace manual AbortController + setTimeout with makeAbortController("<budget_key>").'] });
+        findings.push({ severity: "medium", kind: "drift", file, message: "Guard 12: Uses AbortController but not makeAbortController(). Prefer SSOT makeAbortController().", fix: [`Replace manual AbortController + setTimeout with makeAbortController("${hk}").`] });
       }
     }
 
