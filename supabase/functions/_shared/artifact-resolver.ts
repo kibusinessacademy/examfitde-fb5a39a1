@@ -111,8 +111,9 @@ async function artifactExists(
         .from("exam_questions")
         .select("*", { count: "exact", head: true })
         .eq("curriculum_id", curriculumId)
-        .in("status", ["approved", "active"]);
+        .eq("status", "approved");
       const MIN_EXAM_QUESTIONS = Number(Deno.env.get("EXAM_POOL_MIN_APPROVED") ?? "850");
+      console.log(`[artifact-resolver] exam_questions count=${count} min=${MIN_EXAM_QUESTIONS} curriculum=${curriculumId.slice(0,8)}`);
       return (count ?? 0) >= MIN_EXAM_QUESTIONS;
     }
 
