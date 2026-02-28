@@ -29,11 +29,11 @@ import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
  */
 
 const AI_CHUNK_SIZE = 20;
-const AI_CHUNK_SIZE_FANOUT = 4;       // Fan-out: max 4 BPs per invocation (~24 LLM calls → <90s)
+const AI_CHUNK_SIZE_FANOUT = 2;       // Fan-out: max 2 BPs per invocation (reduced to fit 45s budget)
 const AI_QUESTIONS_PER_CALL = 5;
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
 const HARD_CAP_QUESTIONS = 1700;
-const TIME_BUDGET_MS = 90_000;        // Hard time budget: 90s (edge limit=180s, leave margin)
+const TIME_BUDGET_MS = Number(Deno.env.get("EDGE_TIME_BUDGET_MS") ?? "45000"); // 45s budget (edge limit ~55s dispatch)
 
 // ─── Cognitive Level Distribution (IHK-realistic) ─────────────────────────────
 
@@ -1387,7 +1387,8 @@ Deno.serve(async (req) => {
       const bp = bps[currentBpIndex] as BlueprintInfo & { max_variations: number | null };
 
       const callsPerBp = Math.ceil(perBlueprint / AI_QUESTIONS_PER_CALL);
-      const maxCallsPerBp = Math.min(callsPerBp, 6);
+      const isFanOut = !!payload?.lf_id;
+      const maxCallsPerBp = Math.min(callsPerBp, isFanOut ? 2 : 6);
 
       let brokeMidBp = false;
       for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx++) {
