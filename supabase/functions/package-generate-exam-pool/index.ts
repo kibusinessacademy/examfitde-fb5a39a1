@@ -1387,7 +1387,7 @@ Deno.serve(async (req) => {
       const bp = bps[currentBpIndex] as BlueprintInfo & { max_variations: number | null };
 
       const callsPerBp = Math.ceil(perBlueprint / AI_QUESTIONS_PER_CALL);
-      const isFanOut = !!payload?.lf_id;
+      // FIX: was `!!payload?.lf_id` which crashed — `payload` not defined; use outer `isFanOut` (L1072)
       const maxCallsPerBp = Math.min(callsPerBp, isFanOut ? 2 : 6);
 
       let brokeMidBp = false;
