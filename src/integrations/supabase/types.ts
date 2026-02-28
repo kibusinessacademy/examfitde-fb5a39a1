@@ -17805,6 +17805,186 @@ export type Database = {
         }
         Relationships: []
       }
+      social_calendar_items: {
+        Row: {
+          content_id: string | null
+          created_at: string
+          id: string
+          scheduled_date: string | null
+        }
+        Insert: {
+          content_id?: string | null
+          created_at?: string
+          id?: string
+          scheduled_date?: string | null
+        }
+        Update: {
+          content_id?: string | null
+          created_at?: string
+          id?: string
+          scheduled_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_calendar_items_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "social_content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_campaigns: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      social_content_items: {
+        Row: {
+          audience: string | null
+          campaign_id: string | null
+          created_at: string
+          created_by: string | null
+          funnel_stage: string | null
+          id: string
+          intent: string | null
+          payload: Json
+          platform_variant: string | null
+          provider: string
+          ssot_anchor_id: string | null
+          ssot_anchor_type: string | null
+          title: string | null
+        }
+        Insert: {
+          audience?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          funnel_stage?: string | null
+          id?: string
+          intent?: string | null
+          payload?: Json
+          platform_variant?: string | null
+          provider: string
+          ssot_anchor_id?: string | null
+          ssot_anchor_type?: string | null
+          title?: string | null
+        }
+        Update: {
+          audience?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          funnel_stage?: string | null
+          id?: string
+          intent?: string | null
+          payload?: Json
+          platform_variant?: string | null
+          provider?: string
+          ssot_anchor_id?: string | null
+          ssot_anchor_type?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_social_content_campaign"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "social_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_lead_magnets: {
+        Row: {
+          asset_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          title: string | null
+        }
+        Insert: {
+          asset_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          title?: string | null
+        }
+        Update: {
+          asset_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
+      social_nurture_sequences: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      social_nurture_steps: {
+        Row: {
+          body: string | null
+          id: string
+          sequence_id: string
+          step_order: number
+          subject: string | null
+        }
+        Insert: {
+          body?: string | null
+          id?: string
+          sequence_id: string
+          step_order?: number
+          subject?: string | null
+        }
+        Update: {
+          body?: string | null
+          id?: string
+          sequence_id?: string
+          step_order?: number
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_nurture_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "social_nurture_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spaced_repetition_cards: {
         Row: {
           bloom_level: string
