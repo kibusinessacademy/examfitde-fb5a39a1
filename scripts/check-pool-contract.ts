@@ -11,7 +11,6 @@ async function main() {
   // Load golden contract
   const contractText = await Deno.readTextFile(CONTRACT_PATH);
   const contract: Record<string, string> = JSON.parse(contractText);
-  delete contract._comment;
 
   // Dynamic import of job-map
   const jobMap = await import(`../${JOB_MAP_PATH}`);

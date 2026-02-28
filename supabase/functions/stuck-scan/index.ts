@@ -617,7 +617,7 @@ Deno.serve(async (req) => {
               updated_at: new Date().toISOString(),
             }).eq("id", row.id);
           }
-          poolMismatchFixed = mismatched.length;
+          poolMismatchFixed += mismatched.length;
           const mismatchJobTypes = [...new Set(mismatched.map(r => r.job_type))];
           const mismatchSampleIds = mismatched.slice(0, 5).map(r => r.id);
           console.warn(`[stuck-scan] 🔧 POOL_SWEEP: Fixed ${mismatched.length} job(s) from core→content | types=${mismatchJobTypes.join(",")} | samples=${mismatchSampleIds.join(",")}`);
