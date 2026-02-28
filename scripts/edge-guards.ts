@@ -522,6 +522,8 @@ async function main() {
       try { return await Deno.readTextFile(path); } catch { return null; }
     }
 
+    const g10before = findings.length;
+
     for (const file of BUDGET_SENSITIVE_FILES) {
       const text = await readSafe(file);
       if (!text) continue;
@@ -554,7 +556,7 @@ async function main() {
       }
     }
 
-    console.log("✅ Guard 10: Time Budget Governance passed.");
+    if (findings.length === g10before) console.log("✅ Guard 10: Time Budget Governance passed.");
   } catch (e) {
     console.warn(`⚠️  Guard 10 skipped: ${(e as Error).message}`);
   }
@@ -568,6 +570,8 @@ async function main() {
     async function readSafe2(path: string): Promise<string | null> {
       try { return await Deno.readTextFile(path); } catch { return null; }
     }
+
+    const g11before = findings.length;
 
     const cfgText = await readSafe2(WC_FILE);
     if (!cfgText) {
@@ -608,7 +612,7 @@ async function main() {
       }
     }
 
-    console.log("✅ Guard 11: Concurrency Governance passed.");
+    if (findings.length === g11before) console.log("✅ Guard 11: Concurrency Governance passed.");
   } catch (e) {
     console.warn(`⚠️  Guard 11 skipped: ${(e as Error).message}`);
   }
