@@ -38,6 +38,16 @@ export async function enqueueJob(
   opts: EnqueueOpts,
 ): Promise<EnqueueResult> {
   const worker_pool = opts.worker_pool ?? poolForJobType(opts.job_type);
+
+  // ── SSOT Pool Guard: fail fast on pool drift ──
+  const ssotPool = poolForJobType(opts.job_type);
+  if (opts.worker_pool && opts.worker_pool !== ssotPool) {
+    console.warn(`[enqueue] SSOT_POOL_OVERRIDE: ${opts.job_type} forced to "${opts.worker_pool}" but SSOT says "${ssotPool}"`);
+  }
+  if (worker_pool !== ssotPool && !opts.worker_pool) {
+    throw new Error(`SSOT_POOL_GUARD: ${opts.job_type} resolved to "${worker_pool}" but SSOT requires "${ssotPool}"`);
+  }
+
   const now = new Date().toISOString();
 
   const packageId = opts.package_id ?? (opts.payload?.package_id as string) ?? null;
