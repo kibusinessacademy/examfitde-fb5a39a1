@@ -195,6 +195,27 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── HOLLOW COMPLETION GUARD ──
+      // Before finalizing generate_exam_pool, verify at least 1 question exists.
+      // This prevents the catastrophic bug where a step is marked "done" with 0 artifacts.
+      if (zs.step_key === "generate_exam_pool") {
+        const { data: pkg } = await sb.from("course_packages").select("curriculum_id").eq("id", zs.package_id).maybeSingle();
+        if (pkg?.curriculum_id) {
+          const { count: qCount } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", pkg.curriculum_id);
+          if ((qCount ?? 0) === 0) {
+            console.warn(`[stuck-scan] HOLLOW GUARD: ${zs.step_key} for ${zs.package_id.slice(0,8)} has 0 exam questions — NOT finalizing, resetting to queued`);
+            await sb.from("package_steps").update({
+              status: "queued",
+              started_at: null,
+              finished_at: null,
+              meta: { note: "HOLLOW_GUARD: 0 artifacts, reset by stuck-scan" },
+            }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
+            zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: "HOLLOW GUARD: reset to queued (0 questions)" });
+            continue;
+          }
+        }
+      }
+
       // 1) Finalize step (match on current status for race safety)
       await sb.from("package_steps").update({
         status: "done",
