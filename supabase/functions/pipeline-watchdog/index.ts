@@ -562,19 +562,24 @@ Deno.serve(async (req) => {
           console.error(`[watchdog] computeMissingLfIds error for pkg=${(pkg.id as string).slice(0, 8)}:`, (e as Error).message);
         }
 
-        await sb.from("job_queue").insert({
-          job_type: "pool_fill_lf_gaps",
-          payload: {
-            package_id: pkg.id,
-            curriculum_id: pkg.curriculum_id,
-            missing_learning_field_ids: missingLfIds,
-            missing_count: missingLfIds.length,
-            heal_reason: healReason,
-          },
-          status: "pending",
-          priority: 15,
-          package_id: pkg.id,
-        });
+        // FIX: Use enqueueJob helper (not raw insert) to respect SSOT pool routing + immutability guard
+        try {
+          const { enqueueJob } = await import("../_shared/enqueue.ts");
+          await enqueueJob(sb, {
+            job_type: "pool_fill_lf_gaps",
+            payload: {
+              package_id: pkg.id,
+              curriculum_id: pkg.curriculum_id,
+              missing_learning_field_ids: missingLfIds,
+              missing_count: missingLfIds.length,
+              heal_reason: healReason,
+            },
+            package_id: pkg.id as string,
+            priority: 15,
+          });
+        } catch (enqErr) {
+          console.warn(`[watchdog] pool_fill_lf_gaps enqueue blocked for pkg=${(pkg.id as string).slice(0, 8)}: ${(enqErr as Error).message}`);
+        }
 
         console.log(
           `[watchdog] QG-heal: enqueued pool_fill_lf_gaps for pkg=${(pkg.id as string).slice(0, 8)} (${missingLfIds.length} missing LFs: ${missingLfIds.map((id: string) => id.slice(0, 8)).join(", ")})`,
