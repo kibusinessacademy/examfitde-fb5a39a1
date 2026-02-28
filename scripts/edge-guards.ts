@@ -381,6 +381,53 @@ async function main() {
 
   console.log("✅ Guard 7: No direct job_queue.insert bypass detected.");
 
+  // ── Guard 8: Pool Contract — golden snapshot vs JOB_DEFINITIONS ──
+  try {
+    const contractText = await Deno.readTextFile(`${ROOT}/scripts/job-pool-contract.json`);
+    const contract: Record<string, string> = JSON.parse(contractText);
+    delete contract._comment;
+
+    const jobMap = await import(SSOT_JOB_MAP);
+    const jobDefs: Record<string, { pool: string }> = jobMap.JOB_DEFINITIONS ?? {};
+
+    for (const [jobType, expectedPool] of Object.entries(contract)) {
+      const actual = jobDefs[jobType];
+      if (!actual) {
+        findings.push({
+          severity: "critical",
+          kind: "drift",
+          file: "scripts/job-pool-contract.json",
+          message: `Pool contract: "${jobType}" is in contract but MISSING from JOB_DEFINITIONS.`,
+          fix: [`Add "${jobType}" to JOB_DEFINITIONS in _shared/job-map.ts or remove from contract.`],
+        });
+      } else if (actual.pool !== expectedPool) {
+        findings.push({
+          severity: "critical",
+          kind: "drift",
+          file: "supabase/functions/_shared/job-map.ts",
+          message: `Pool contract DRIFT: "${jobType}" contract="${expectedPool}" but JOB_DEFINITIONS="${actual.pool}". Update contract or fix JOB_DEFINITIONS.`,
+          fix: [`Either update scripts/job-pool-contract.json to "${actual.pool}" or fix JOB_DEFINITIONS.`],
+        });
+      }
+    }
+
+    for (const jobType of Object.keys(jobDefs)) {
+      if (!(jobType in contract)) {
+        findings.push({
+          severity: "high",
+          kind: "drift",
+          file: "scripts/job-pool-contract.json",
+          message: `New job type "${jobType}" has no pool contract entry — add it to scripts/job-pool-contract.json.`,
+          fix: [`Add "${jobType}": "${jobDefs[jobType].pool}" to scripts/job-pool-contract.json`],
+        });
+      }
+    }
+
+    console.log("✅ Guard 8: Pool contract validation passed.");
+  } catch (e) {
+    console.warn(`⚠️  Guard 8 skipped: ${(e as Error).message}`);
+  }
+
   if (findings.length > 0) {
     console.error("\n❌ Edge Guards failed. Findings:\n");
     for (const f of findings) {

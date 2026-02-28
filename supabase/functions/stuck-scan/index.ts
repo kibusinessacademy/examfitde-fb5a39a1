@@ -586,7 +586,54 @@ Deno.serve(async (req) => {
       console.warn(`[stuck-scan] Hygiene threw: ${(hEx as Error).message}`);
     }
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}`);
+    // ══════════════════════════════════════════════════════
+    // NIGHTLY POOL-MISMATCH SWEEP
+    // Auto-fix jobs where worker_pool doesn't match SSOT and alert
+    // ══════════════════════════════════════════════════════
+    let poolMismatchFixed = 0;
+    try {
+      // Import pool definitions dynamically to stay in sync with SSOT
+      const { JOB_DEFINITIONS } = await import("../_shared/job-map.ts");
+      const contentJobTypes = Object.entries(JOB_DEFINITIONS)
+        .filter(([_, def]: [string, any]) => def.pool === "content")
+        .map(([k]) => k);
+
+      if (contentJobTypes.length > 0) {
+        // Find pending/processing jobs on wrong pool
+        const { data: mismatched } = await sb
+          .from("job_queue")
+          .select("id, job_type, worker_pool")
+          .in("status", ["pending", "processing"])
+          .eq("worker_pool", "core")
+          .in("job_type", contentJobTypes)
+          .limit(200);
+
+        if (mismatched && mismatched.length > 0) {
+          for (const row of mismatched) {
+            await sb.from("job_queue").update({
+              worker_pool: "content",
+              meta: { pool_autofixed: true, old_pool: "core", fixed_by: "stuck-scan-sweep" },
+              updated_at: new Date().toISOString(),
+            }).eq("id", row.id);
+          }
+          poolMismatchFixed = mismatched.length;
+          console.warn(`[stuck-scan] 🔧 POOL_SWEEP: Fixed ${mismatched.length} job(s) from core→content`);
+
+          // Alert if mismatch found (indicates upstream drift)
+          await sb.from("admin_notifications").insert({
+            title: "Pool Mismatch Sweep: jobs auto-fixed",
+            body: `${mismatched.length} job(s) were on wrong pool (core instead of content). Auto-fixed. Job types: ${[...new Set(mismatched.map(r => r.job_type))].join(", ")}`,
+            category: "ops",
+            severity: "warn",
+            metadata: { fixed_count: mismatched.length, job_types: [...new Set(mismatched.map(r => r.job_type))] },
+          }).then(() => {}, () => {});
+        }
+      }
+    } catch (sweepErr) {
+      console.warn(`[stuck-scan] Pool sweep error: ${(sweepErr as Error).message}`);
+    }
+
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
     return json({
       ok: true,
@@ -599,6 +646,7 @@ Deno.serve(async (req) => {
       escalation_loops: escalationResults,
       system_frozen: systemFrozen,
       hygiene: hygieneResult,
+      pool_mismatch_fixed: poolMismatchFixed,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
