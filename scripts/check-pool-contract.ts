@@ -41,7 +41,13 @@ async function main() {
   if (errors.length > 0) {
     console.error("❌ Pool Contract Guard FAILED:\n");
     for (const e of errors) console.error(`  • ${e}`);
-    console.error(`\nTo fix: update ${CONTRACT_PATH} deliberately, then commit.`);
+    console.error(`
+HOW TO FIX:
+  Option 1: Change JOB_DEFINITIONS in ${JOB_MAP_PATH} to match the contract.
+  Option 2: Deliberately update ${CONTRACT_PATH} to reflect the new pool assignment.
+             Run: npx ts-node scripts/update-pool-contract.ts  (or manually edit the JSON)
+  IMPORTANT: If you change a pool, ensure a backfill migration exists for in-flight jobs.
+`);
     Deno.exit(1);
   }
 
