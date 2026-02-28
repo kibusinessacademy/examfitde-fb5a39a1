@@ -42,6 +42,26 @@ export async function enqueueJob(
 
   const packageId = opts.package_id ?? (opts.payload?.package_id as string) ?? null;
 
+  // Hard guard: never enqueue package-bound jobs for immutable/non-building packages.
+  // This prevents infinite requeue loops on already published packages.
+  if (packageId && opts.job_type.startsWith("package_")) {
+    const { data: pkg, error: pkgErr } = await sb
+      .from("course_packages")
+      .select("id,status,published_at")
+      .eq("id", packageId)
+      .maybeSingle();
+
+    if (pkgErr) throw pkgErr;
+    if (!pkg) throw new Error(`PACKAGE_NOT_FOUND:${packageId}`);
+
+    if (pkg.published_at) {
+      throw new Error(`PACKAGE_NOT_EXECUTABLE:already_published:${packageId}`);
+    }
+    if (pkg.status !== "building") {
+      throw new Error(`PACKAGE_NOT_EXECUTABLE:status_${pkg.status}:${packageId}`);
+    }
+  }
+
   const idempotencyKey = opts.batch_cursor
     ? `${opts.job_type}:${packageId ?? "global"}:${JSON.stringify(opts.batch_cursor)}`
     : `${opts.job_type}:${packageId ?? "global"}`;
