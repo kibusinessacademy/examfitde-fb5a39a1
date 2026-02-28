@@ -29,10 +29,10 @@ export default function AdminSidebar({ collapsed, mobileOpen, onCollapse, onMobi
 
   // Track page visits
   const breadcrumbLabels: Record<string, string> = {
-    command: 'Leitstelle', studio: 'Factory', quality: 'Qualität',
-    ops: 'Ops', business: 'Finanzen', growth: 'Wachstum', scale: 'Skalierung',
+    command: 'Leitstelle', studio: 'Kurse', quality: 'Qualität',
+    ops: 'System', business: 'Finanzen', growth: 'Wachstum', scale: 'Skalierung',
     content: 'Content & SEO', crm: 'CRM', support: 'Support',
-    pipeline: 'Pipeline Live', handbook: 'Handbuch',
+    pipeline: 'Pipeline Live', handbook: 'Handbuch', social: 'Social & Videos',
   };
   useEffect(() => {
     const parts = location.pathname.replace('/admin/', '').split('/').filter(Boolean);

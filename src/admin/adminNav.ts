@@ -29,7 +29,7 @@ export const adminNavModules: AdminNavItem[] = [
     ],
   },
   {
-    path: '/admin/studio', label: 'Factory', icon: BookOpen, group: 'navigation',
+    path: '/admin/studio', label: 'Kurse', icon: BookOpen, group: 'navigation',
     children: [
       { path: '/admin/studio', label: 'Kurs-Pakete' },
       { path: '/admin/studio/new', label: 'Neues Kurs-Paket' },
@@ -66,7 +66,12 @@ export const adminNavModules: AdminNavItem[] = [
     ],
   },
   { path: '/admin/growth', label: 'Wachstum', icon: TrendingUp, group: 'navigation' },
-  { path: '/admin/social', label: 'Social Engine', icon: Radio, group: 'navigation' },
+  {
+    path: '/admin/social', label: 'Social & Videos', icon: Radio, group: 'navigation',
+    children: [
+      { path: '/admin/social', label: 'Content-Engine' },
+    ],
+  },
   { path: '/admin/scale', label: 'Skalierung', icon: Layers, group: 'navigation' },
   {
     path: '/admin/handbook', label: 'Handbuch', icon: HelpCircle, group: 'navigation',
