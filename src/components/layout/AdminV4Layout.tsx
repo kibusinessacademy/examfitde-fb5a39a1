@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import CommandPalette from '@/components/admin/CommandPalette';
 import NotificationBell from '@/components/admin/NotificationBell';
 import AdminSidebar from '@/components/admin/AdminSidebar';
+import AutoPageExplainer from '@/components/admin/AutoPageExplainer';
 
 export default function AdminV4Layout() {
   const { user, loading, isAdmin, signOut } = useAuth();
@@ -53,18 +54,40 @@ export default function AdminV4Layout() {
   // Breadcrumbs
   const pathParts = location.pathname.replace('/admin/', '').split('/').filter(Boolean);
   const breadcrumbLabels: Record<string, string> = {
-    command: 'Leitstelle', studio: 'Factory', quality: 'Qualität',
-    ops: 'Ops', business: 'Finanzen', growth: 'Wachstum', scale: 'Skalierung',
-    content: 'Content & SEO', crm: 'CRM', support: 'Support',
-    new: 'Neues Paket', integrity: 'Integrität', compliance: 'Compliance',
-    azav: 'AZAV/ISO', logs: 'Live Logs', deadletter: 'Dead Letter',
-    health: 'Health', 'ai-workers': 'AI Workers', licenses: 'Lizenzen',
-    exports: 'Exporte', nudges: 'Nudge Engine', feedback: 'Feedback',
-    reporting: 'Reporting', pipeline: 'Pipeline Live',
-    review: 'Review Inbox', 'load-control': 'Load Control',
-    blog: 'Blog', assets: 'Assets', seo: 'SEO & Redirects',
-    segments: 'Segmente', churn: 'Churn Risk',
-    tickets: 'Tickets', faq: 'FAQ Knüpfung',
+    command: 'Leitstelle',
+    studio: 'Kurse',
+    quality: 'Qualität',
+    ops: 'System',
+    business: 'Finanzen',
+    growth: 'Wachstum',
+    scale: 'Skalierung',
+    content: 'Content & SEO',
+    crm: 'CRM',
+    support: 'Support',
+    new: 'Neues Kurs-Paket',
+    integrity: 'Integrität',
+    compliance: 'Compliance',
+    azav: 'AZAV/ISO',
+    logs: 'Live Logs',
+    deadletter: 'Fehlerkorb',
+    health: 'Systemstatus',
+    'ai-workers': 'KI-Worker',
+    licenses: 'Lizenzen',
+    exports: 'Exporte',
+    nudges: 'Nudge Engine',
+    feedback: 'Feedback',
+    reporting: 'Reporting',
+    pipeline: 'Pipeline Live',
+    review: 'Review Inbox',
+    'load-control': 'Laststeuerung',
+    queue: 'Auftragsliste',
+    blog: 'Blog',
+    assets: 'Assets & Dateien',
+    seo: 'SEO & Redirects',
+    segments: 'Segmente',
+    churn: 'Churn Risk',
+    tickets: 'Tickets',
+    faq: 'FAQ',
     handbook: 'Handbuch',
   };
 
@@ -136,6 +159,9 @@ export default function AdminV4Layout() {
                 </span>
               ))}
             </nav>
+            <div className="mt-3">
+              <AutoPageExplainer />
+            </div>
           </div>
           <div className="px-4 lg:px-6 pb-6 max-w-[1400px]">
             <Outlet />
