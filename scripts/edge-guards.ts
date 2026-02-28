@@ -423,9 +423,65 @@ async function main() {
       }
     }
 
-    console.log("✅ Guard 8: Pool contract validation passed.");
+  console.log("✅ Guard 8: Pool contract validation passed.");
   } catch (e) {
     console.warn(`⚠️  Guard 8 skipped: ${(e as Error).message}`);
+  }
+
+  // ── Guard 9: SSOT Step Order — topological validity ──
+  try {
+    const jobMap = await import(SSOT_JOB_MAP);
+    const FULL_STEP_ORDER: string[] = jobMap.FULL_STEP_ORDER ?? [];
+    const STEP_TO_JOB_TYPE: Record<string, string> = jobMap.STEP_TO_JOB_TYPE ?? {};
+    const PIPELINE_GRAPH: Array<{ key: string; dependsOn?: string[] }> = jobMap.PIPELINE_GRAPH ?? [];
+
+    const keysFromOrder = new Set(FULL_STEP_ORDER);
+    const keysFromMap = new Set(Object.keys(STEP_TO_JOB_TYPE));
+    const keysFromGraph = new Set(PIPELINE_GRAPH.map((n) => n.key));
+
+    // A) Completeness: all three structures must have same keys
+    for (const k of keysFromOrder) {
+      if (!keysFromMap.has(k)) findings.push({ severity: "critical", kind: "drift", file: "supabase/functions/_shared/job-map.ts", message: `Guard 9: STEP_TO_JOB_TYPE missing key "${k}"` });
+      if (!keysFromGraph.has(k)) findings.push({ severity: "critical", kind: "drift", file: "supabase/functions/_shared/job-map.ts", message: `Guard 9: PIPELINE_GRAPH missing key "${k}"` });
+    }
+    for (const k of keysFromMap) {
+      if (!keysFromOrder.has(k)) findings.push({ severity: "critical", kind: "drift", file: "supabase/functions/_shared/job-map.ts", message: `Guard 9: FULL_STEP_ORDER missing key "${k}"` });
+    }
+    for (const k of keysFromGraph) {
+      if (!keysFromOrder.has(k)) findings.push({ severity: "critical", kind: "drift", file: "supabase/functions/_shared/job-map.ts", message: `Guard 9: FULL_STEP_ORDER missing key "${k}"` });
+    }
+
+    // B) Topological validity: every dependency must appear BEFORE the dependent
+    const pos = new Map<string, number>();
+    FULL_STEP_ORDER.forEach((k: string, i: number) => pos.set(k, i));
+
+    for (const node of PIPELINE_GRAPH) {
+      for (const dep of node.dependsOn ?? []) {
+        const a = pos.get(node.key);
+        const b = pos.get(dep);
+        if (a == null || b == null) continue;
+        if (b > a) {
+          findings.push({
+            severity: "critical",
+            kind: "drift",
+            file: "supabase/functions/_shared/job-map.ts",
+            message: `Guard 9: Topo order invalid — "${node.key}" dependsOn "${dep}" but "${dep}" appears AFTER it in FULL_STEP_ORDER.`,
+            fix: [`Move "${dep}" before "${node.key}" in FULL_STEP_ORDER`],
+          });
+        }
+      }
+    }
+
+    // C) Mapping stability
+    for (const [k, v] of Object.entries(STEP_TO_JOB_TYPE)) {
+      if (!v || typeof v !== "string") {
+        findings.push({ severity: "critical", kind: "drift", file: "supabase/functions/_shared/job-map.ts", message: `Guard 9: STEP_TO_JOB_TYPE["${k}"] is invalid` });
+      }
+    }
+
+    console.log("✅ Guard 9: SSOT step order governance passed.");
+  } catch (e) {
+    console.warn(`⚠️  Guard 9 skipped: ${(e as Error).message}`);
   }
 
   if (findings.length > 0) {
