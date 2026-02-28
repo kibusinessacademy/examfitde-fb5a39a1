@@ -8,7 +8,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "pool:contract:check": "deno run -A scripts/check-pool-contract.ts",
+    "pool:contract:update": "deno run -A scripts/update-pool-contract.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",

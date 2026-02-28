@@ -1,5 +1,4 @@
 {
-  "_comment": "Golden snapshot: SSOT pool assignments. CI fails if JOB_DEFINITIONS drifts from this contract. Update deliberately via: deno run scripts/update-pool-contract.ts",
   "package_generate_learning_content": "content",
   "package_generate_handbook": "content",
   "package_generate_glossary": "content",
