@@ -21534,6 +21534,8 @@ export type Database = {
           competencies_with_bp: number | null
           competencies_without_bp: number | null
           computed_at: string | null
+          learning_field_distribution: Json | null
+          min_active_blueprints_per_competency: number | null
           pct_competencies_with_bp: number | null
           sample_missing_blueprints: Json | null
         }
@@ -23415,14 +23417,26 @@ export type Database = {
         }[]
       }
       cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
-      check_blueprint_quality_kpis: {
-        Args: {
-          p_allow_unknown_bloom?: boolean
-          p_min_pct_competencies_with_bp?: number
-          p_min_pct_with_bp_per_bloom?: number
-        }
-        Returns: Json
-      }
+      check_blueprint_quality_kpis:
+        | {
+            Args: {
+              p_allow_unknown_bloom?: boolean
+              p_min_pct_competencies_with_bp?: number
+              p_min_pct_with_bp_per_bloom?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_allow_unknown_bloom?: boolean
+              p_min_active_blueprints_in_learning_field?: number
+              p_min_active_blueprints_per_competency?: number
+              p_min_pct_competencies_with_bp?: number
+              p_min_pct_with_bp_per_bloom?: number
+              p_min_pct_with_bp_per_learning_field?: number
+            }
+            Returns: Json
+          }
       check_lesson_progression: {
         Args: { p_lesson_id: string; p_user_id: string }
         Returns: Json
