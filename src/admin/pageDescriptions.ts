@@ -92,6 +92,56 @@ export const PAGE_DESCRIPTIONS: Record<string, PageDescription> = {
       'Als PDF/Text exportieren',
     ],
   },
+  '/admin/crm': {
+    title: 'CRM — Kontakte & Segmente',
+    description: 'Verwalte Nutzer, Segmente und Kundenbeziehungen. Erkenne Churn-Risiken und steuere gezielte Ansprachen.',
+    actions: [
+      'Nutzerliste filtern und durchsuchen',
+      'Segmente erstellen und pflegen',
+      'Churn-Risiko-Dashboard prüfen',
+      'Nutzerprofile und Aktivitätshistorie einsehen',
+    ],
+  },
+  '/admin/support': {
+    title: 'Support — Tickets & FAQ',
+    description: 'Bearbeite Support-Anfragen, pflege FAQ-Einträge und behalte offene Tickets im Blick.',
+    actions: [
+      'Offene Tickets sichten und beantworten',
+      'FAQ-Einträge erstellen und aktualisieren',
+      'Ticket-Statistiken und Antwortzeiten prüfen',
+      'Eskalierte Anfragen priorisieren',
+    ],
+  },
+  '/admin/growth': {
+    title: 'Wachstum — Conversion & Engagement',
+    description: 'Analysiere Wachstumskennzahlen, Conversion-Funnels und Engagement-Metriken. Steuere Nudges und Kampagnen.',
+    actions: [
+      'Conversion-Funnel analysieren',
+      'Engagement-Metriken nach Kohorte prüfen',
+      'Nudge Engine konfigurieren',
+      'A/B-Tests und Kampagnen-Performance auswerten',
+    ],
+  },
+  '/admin/scale': {
+    title: 'Skalierung — Infrastruktur & Kapazität',
+    description: 'Kapazitätsplanung, Multi-Mandanten-Steuerung und Infrastruktur-Monitoring für skalierbaren Betrieb.',
+    actions: [
+      'Kapazitätsauslastung prüfen',
+      'Mandanten und Instanzen verwalten',
+      'Auto-Scaling-Regeln konfigurieren',
+      'Performance-Benchmarks vergleichen',
+    ],
+  },
+  '/admin/social': {
+    title: 'Social Engine — Content-Generierung',
+    description: 'Generiere Social-Media-Posts, E-Mails, Blog-Artikel und Nurture-Sequenzen für alle Plattformen.',
+    actions: [
+      'Posts für LinkedIn, Instagram, Facebook generieren',
+      'E-Mail-Kampagnen und Blog-Artikel erstellen',
+      'Wochen-Content-Pläne automatisch planen',
+      'Nurture-Sequenzen für Lead-Magnets aufsetzen',
+    ],
+  },
 };
 
 /** Get description for a route, with fallback */
