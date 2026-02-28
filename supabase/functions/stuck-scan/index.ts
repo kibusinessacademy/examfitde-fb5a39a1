@@ -599,20 +599,21 @@ Deno.serve(async (req) => {
         .map(([k]) => k);
 
       if (contentJobTypes.length > 0) {
-        // Find pending/processing jobs on wrong pool
+        // Only fix PENDING jobs (not processing) to avoid race with active workers
         const { data: mismatched } = await sb
           .from("job_queue")
-          .select("id, job_type, worker_pool")
-          .in("status", ["pending", "processing"])
+          .select("id, job_type, worker_pool, meta")
+          .eq("status", "pending")
           .eq("worker_pool", "core")
           .in("job_type", contentJobTypes)
           .limit(200);
 
         if (mismatched && mismatched.length > 0) {
           for (const row of mismatched) {
+            const mergedMeta = { ...(row.meta as Record<string, unknown> ?? {}), pool_autofixed: true, old_pool: "core", fixed_by: "stuck-scan-sweep" };
             await sb.from("job_queue").update({
               worker_pool: "content",
-              meta: { pool_autofixed: true, old_pool: "core", fixed_by: "stuck-scan-sweep" },
+              meta: mergedMeta,
               updated_at: new Date().toISOString(),
             }).eq("id", row.id);
           }
