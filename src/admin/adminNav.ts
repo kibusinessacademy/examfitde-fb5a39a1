@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, BookOpen, Shield, Activity, DollarSign,
   TrendingUp, Layers, Plus, FileText, Brain, Headphones,
-  Users, Radio, Globe, Image, Search,
+  Users, Radio, Globe, Image, Search, HelpCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -67,6 +67,14 @@ export const adminNavModules: AdminNavItem[] = [
   },
   { path: '/admin/growth', label: 'Wachstum', icon: TrendingUp, group: 'navigation' },
   { path: '/admin/scale', label: 'Skalierung', icon: Layers, group: 'navigation' },
+  {
+    path: '/admin/handbook', label: 'Handbuch', icon: HelpCircle, group: 'navigation',
+    children: [
+      { path: '/admin/handbook', label: 'Übersicht' },
+      { path: '/admin/handbook#glossar', label: 'Glossar' },
+      { path: '/admin/handbook#faq', label: 'FAQ' },
+    ],
+  },
 ];
 
 export const adminQuickActions: AdminNavItem[] = [
