@@ -58,11 +58,12 @@ async function main() {
     for (const pkg of building) {
       const activeJobs = await query(
         "job_queue",
-        `select=id&status=in.(pending,processing)&limit=1`
+        `select=id&package_id=eq.${pkg.id}&status=in.(pending,processing)&limit=1`
       );
-      // Simple heuristic: if there are building packages but no active jobs at all
+
+      // Per-package check: a building package must have at least one active job
       if (!activeJobs || activeJobs.length === 0) {
-        console.error(`❌ FAIL: Package "${pkg.title || pkg.id?.slice(0, 8)}" is building but no active jobs found`);
+        console.error(`❌ FAIL: Package "${pkg.title || pkg.id?.slice(0, 8)}" is building but has no active jobs`);
         fail = true;
       }
     }

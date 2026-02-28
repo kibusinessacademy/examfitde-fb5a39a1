@@ -1045,8 +1045,12 @@ async function enqueueLearningFieldJobs(
   if (jobs.length > 0) {
     const { error } = await sb.from("job_queue").insert(jobs);
     if (error) {
-      console.log(`[ExamPool-v5] Fan-out enqueue error: ${error.message}`);
-      return { enqueued: 0, learningFields: lfCount };
+      // Partial duplicate collisions must NOT short-circuit fan-out.
+      // Retry idempotent per-row inserts and continue with active-subjob count.
+      console.log(`[ExamPool-v5] Fan-out enqueue error: ${error.message} — retrying per-row idempotent inserts`);
+      for (const j of jobs) {
+        await sb.from("job_queue").insert(j).select("id").maybeSingle();
+      }
     }
   }
 

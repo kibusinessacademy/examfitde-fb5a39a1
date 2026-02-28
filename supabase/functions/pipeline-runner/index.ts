@@ -165,13 +165,37 @@ async function processPackage(
   // ── Load package metadata ──
   const { data: pkg, error: pkgErr } = await sb
     .from("course_packages")
-    .select("id,pipeline_mode,course_id,curriculum_id,certification_id,feature_flags")
+    .select("id,title,status,published_at,pipeline_mode,course_id,curriculum_id,certification_id,feature_flags")
     .eq("id", packageId)
     .single();
 
   if (pkgErr || !pkg) {
     await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
     return { packageId, error: pkgErr?.message ?? "package not found" };
+  }
+
+  // ── Executability guard (self-heal status drift) ──
+  // Never process packages that are already published or not in building state.
+  if (pkg.published_at || pkg.status !== "building") {
+    const normalizedStatus = pkg.published_at ? "published" : pkg.status;
+
+    if (pkg.published_at && pkg.status !== "published") {
+      await safeQuery(
+        sb.from("course_packages").update({
+          status: "published",
+          last_error: "OPS_NORMALIZE:PUBLISHED_STATUS",
+          updated_at: new Date().toISOString(),
+        }).eq("id", packageId),
+      );
+    }
+
+    await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+    return {
+      packageId,
+      skipped: true,
+      reason: pkg.published_at ? "already_published" : "package_not_building",
+      package_status: normalizedStatus,
+    };
   }
 
   // ── Auto-resolve missing curriculum_id ──
