@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { inferBackoffSeconds, edgeFunctionForJobType } from "../_shared/job-map.ts";
+import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType } from "../_shared/job-map.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
@@ -93,6 +93,20 @@ Deno.serve(async (req) => {
 
   if (!jobs || jobs.length === 0) {
     return json({ ok: true, processed: 0, worker: WORKER_ID, message: "No content jobs pending" });
+  }
+
+  // ── Defense-in-Depth: Auto-fix pool mismatch on claimed jobs ──
+  for (const job of jobs) {
+    const expectedPool = poolForJobType(job.job_type);
+    if (job.worker_pool && job.worker_pool !== expectedPool) {
+      console.warn(`[content-runner] POOL_AUTOFIX: ${job.job_type} (${String(job.id).slice(0,8)}) had pool="${job.worker_pool}" → fixing to "${expectedPool}"`);
+      await sb.from("job_queue").update({
+        worker_pool: expectedPool,
+        meta: { ...(job.meta || {}), pool_autofixed: true, old_pool: job.worker_pool },
+        updated_at: new Date().toISOString(),
+      }).eq("id", job.id);
+      job.worker_pool = expectedPool;
+    }
   }
 
   console.log(`[content-runner] Claimed ${jobs.length} job(s) [concurrency=${concurrency}, worker=${WORKER_ID}, version=${FUNCTION_VERSION}]`);

@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
-import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump } from "../_shared/job-map.ts";
+import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType } from "../_shared/job-map.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 
@@ -372,6 +372,20 @@ Deno.serve(async (req) => {
 
   if (!jobs || jobs.length === 0) {
     return json({ ok: true, processed: 0, concurrency: adaptiveConcurrency, worker: WORKER_ID, message: "No pending jobs" });
+  }
+
+  // ── Defense-in-Depth: Auto-fix pool mismatch on claimed jobs ──
+  for (const job of jobs) {
+    const expectedPool = poolForJobType(job.job_type);
+    if (job.worker_pool && job.worker_pool !== expectedPool) {
+      console.warn(`[job-runner] POOL_AUTOFIX: ${job.job_type} (${String(job.id).slice(0,8)}) had pool="${job.worker_pool}" → fixing to "${expectedPool}"`);
+      await sb.from("job_queue").update({
+        worker_pool: expectedPool,
+        meta: { ...(job.meta || {}), pool_autofixed: true, old_pool: job.worker_pool },
+        updated_at: new Date().toISOString(),
+      }).eq("id", job.id);
+      job.worker_pool = expectedPool;
+    }
   }
 
   console.log(`[job-runner] Claimed ${jobs.length} job(s) [concurrency=${adaptiveConcurrency}, worker=${WORKER_ID}, version=${FUNCTION_VERSION}]`);
