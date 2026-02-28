@@ -144,6 +144,10 @@ function fixForDrift(): string[] {
 async function main() {
   const findings: Finding[] = [];
 
+  async function readTextOrNull(path: string): Promise<string | null> {
+    try { return await Deno.readTextFile(path); } catch { return null; }
+  }
+
   // Print allowlist for visibility
   console.log("ℹ️  Security allowlist entries:");
   for (const s of SECURITY_ALLOWLIST_SUFFIXES) {
@@ -518,38 +522,44 @@ async function main() {
     ];
     const parseMs = (raw: string) => Number(raw.replace(/_/g, ""));
 
-    async function readSafe(path: string): Promise<string | null> {
-      try { return await Deno.readTextFile(path); } catch { return null; }
-    }
-
     const g10before = findings.length;
 
+    const budgetHintKey = (f: string): string =>
+      f.includes("package-generate-exam-pool") ? "exam_pool_fanout" :
+      f.includes("content-runner") || f.includes("job-runner") ? "runner_claim" :
+      f.includes("handbook") ? "handbook" :
+      f.includes("glossary") ? "glossary" :
+      f.includes("oral-exam") ? "oral_exam" :
+      f.includes("lesson-minichecks") ? "lesson_minichecks" :
+      "learning_content";
+
     for (const file of BUDGET_SENSITIVE_FILES) {
-      const text = await readSafe(file);
+      const text = await readTextOrNull(file);
       if (!text) continue;
+      const hk = budgetHintKey(file);
 
       for (const match of text.matchAll(HARD_ABORT_RE)) {
         const ms = parseMs(match[1]);
         if (Number.isFinite(ms) && ms > MAX_HARDCODED_MS) {
-          findings.push({ severity: "critical", kind: "drift", file, message: `Guard 10: Hardcoded abort timeout ${ms}ms (>${MAX_HARDCODED_MS}ms). Use SSOT _shared/time-budget.ts.`, fix: [`Replace with makeAbortController("<budget_key>")`] });
+          findings.push({ severity: "critical", kind: "drift", file, message: `Guard 10: Hardcoded abort timeout ${ms}ms (>${MAX_HARDCODED_MS}ms). Use SSOT _shared/time-budget.ts.`, fix: [`Replace with makeAbortController("${hk}")`] });
         }
       }
       for (const match of text.matchAll(TIME_BUDGET_CONST_RE)) {
         const ms = parseMs(match[1]);
         if (Number.isFinite(ms) && ms > 0) {
-          findings.push({ severity: "high", kind: "drift", file, message: `Guard 10: TIME_BUDGET_MS hardcoded (${ms}ms). Use getTimeBudget() from _shared/time-budget.ts.`, fix: [`Replace with getTimeBudget("<key>").ms`] });
+          findings.push({ severity: "high", kind: "drift", file, message: `Guard 10: TIME_BUDGET_MS hardcoded (${ms}ms). Use getTimeBudget() from _shared/time-budget.ts.`, fix: [`Replace with getTimeBudget("${hk}").ms`] });
         }
       }
       for (const match of text.matchAll(GENERIC_BUDGET_RE)) {
         const ms = parseMs(match[2]);
         if (Number.isFinite(ms) && ms > 0) {
-          findings.push({ severity: "medium", kind: "drift", file, message: `Guard 10: Hardcoded "${match[1]}" (${ms}ms). Prefer SSOT _shared/time-budget.ts.`, fix: [`Use getTimeBudget()/makeAbortController()`] });
+          findings.push({ severity: "medium", kind: "drift", file, message: `Guard 10: Hardcoded "${match[1]}" (${ms}ms). Prefer SSOT _shared/time-budget.ts.`, fix: [`Use makeAbortController("${hk}")`] });
         }
       }
     }
 
     for (const file of MUST_IMPORT_BUDGET) {
-      const text = await readSafe(file);
+      const text = await readTextOrNull(file);
       if (!text) continue;
       if (!SSOT_HINTS.some((h) => text.includes(h))) {
         findings.push({ severity: "high", kind: "drift", file, message: `Guard 10: No SSOT budget usage found. Generator must use _shared/time-budget.ts.`, fix: [`Import { makeAbortController, shouldSoftStop } from "../_shared/time-budget.ts"`] });
@@ -567,13 +577,9 @@ async function main() {
     const JR_FILE = "supabase/functions/job-runner/index.ts";
     const WC_FILE = "supabase/functions/_shared/worker-config.ts";
 
-    async function readSafe2(path: string): Promise<string | null> {
-      try { return await Deno.readTextFile(path); } catch { return null; }
-    }
-
     const g11before = findings.length;
 
-    const cfgText = await readSafe2(WC_FILE);
+    const cfgText = await readTextOrNull(WC_FILE);
     if (!cfgText) {
       findings.push({ severity: "critical", kind: "drift", file: WC_FILE, message: `Guard 11: Missing _shared/worker-config.ts. Runner concurrency must be SSOT-governed.`, fix: [`Create ${WC_FILE} with getRunnerConfig()`] });
     } else {
@@ -586,7 +592,7 @@ async function main() {
       }
     }
 
-    const contentText = await readSafe2(CR_FILE);
+    const contentText = await readTextOrNull(CR_FILE);
     if (contentText) {
       const usesConfig = contentText.includes("getRunnerConfig(") && (contentText.includes("../_shared/worker-config.ts") || contentText.includes("./_shared/worker-config.ts"));
       if (!usesConfig) {
@@ -604,7 +610,7 @@ async function main() {
       }
     }
 
-    const jobText = await readSafe2(JR_FILE);
+    const jobText = await readTextOrNull(JR_FILE);
     if (jobText) {
       const usesConfig = jobText.includes("getRunnerConfig(") && (jobText.includes("../_shared/worker-config.ts") || jobText.includes("./_shared/worker-config.ts"));
       if (!usesConfig) {
@@ -615,6 +621,69 @@ async function main() {
     if (findings.length === g11before) console.log("✅ Guard 11: Concurrency Governance passed.");
   } catch (e) {
     console.warn(`⚠️  Guard 11 skipped: ${(e as Error).message}`);
+  }
+
+  // ── Guard 12: SSOT Budget + Concurrency Existence & Soft-Stop Enforcement ──
+  try {
+    const g12before = findings.length;
+    const TIME_BUDGET_FILE = "supabase/functions/_shared/time-budget.ts";
+    const WORKER_CONFIG_FILE = "supabase/functions/_shared/worker-config.ts";
+    const GENERATORS = [
+      "supabase/functions/package-generate-exam-pool/index.ts",
+      "supabase/functions/package-generate-learning-content/index.ts",
+      "supabase/functions/package-generate-handbook/index.ts",
+      "supabase/functions/package-generate-glossary/index.ts",
+      "supabase/functions/package-generate-oral-exam/index.ts",
+      "supabase/functions/package-generate-lesson-minichecks/index.ts",
+    ];
+
+    // A) SSOT modules must exist and export required functions
+    const tb = await readTextOrNull(TIME_BUDGET_FILE);
+    if (!tb) {
+      findings.push({ severity: "critical", kind: "drift", file: TIME_BUDGET_FILE, message: "Guard 12: Missing SSOT time budget module (_shared/time-budget.ts).", fix: [`Create ${TIME_BUDGET_FILE} with getTimeBudget, makeAbortController, shouldSoftStop.`] });
+    } else {
+      const missing = ["getTimeBudget", "makeAbortController", "shouldSoftStop"].filter((fn) => !tb.includes(`export function ${fn}`));
+      if (missing.length) {
+        findings.push({ severity: "high", kind: "drift", file: TIME_BUDGET_FILE, message: `Guard 12: time-budget.ts missing required exports: ${missing.join(", ")}.`, fix: ["Ensure time-budget.ts exports: getTimeBudget(key), makeAbortController(key), shouldSoftStop(startMs, key)."] });
+      }
+    }
+
+    const wc = await readTextOrNull(WORKER_CONFIG_FILE);
+    if (!wc) {
+      findings.push({ severity: "critical", kind: "drift", file: WORKER_CONFIG_FILE, message: "Guard 12: Missing SSOT worker config module (_shared/worker-config.ts).", fix: [`Create ${WORKER_CONFIG_FILE} with getRunnerConfig().`] });
+    } else {
+      if (!wc.includes("export function getRunnerConfig")) {
+        findings.push({ severity: "high", kind: "drift", file: WORKER_CONFIG_FILE, message: "Guard 12: worker-config.ts does not export getRunnerConfig().", fix: ["Export getRunnerConfig(kind) from worker-config.ts."] });
+      }
+      if (!wc.includes("content_runner") || !wc.includes("job_runner")) {
+        findings.push({ severity: "medium", kind: "drift", file: WORKER_CONFIG_FILE, message: "Guard 12: worker-config.ts should define both content_runner and job_runner defaults.", fix: ["Ensure DEFAULTS contains content_runner and job_runner entries."] });
+      }
+    }
+
+    // B) Generators must use SSOT budgets AND enforce soft-stop
+    for (const file of GENERATORS) {
+      const text = await readTextOrNull(file);
+      if (!text) continue;
+
+      const usesBudget = text.includes("_shared/time-budget.ts") || text.includes("getTimeBudget(") || text.includes("makeAbortController(") || text.includes("shouldSoftStop(");
+      if (!usesBudget) {
+        findings.push({ severity: "high", kind: "drift", file, message: "Guard 12: Generator does not reference SSOT time budget module.", fix: ['Import { makeAbortController, shouldSoftStop } from "../_shared/time-budget.ts".'] });
+        continue;
+      }
+
+      if (!text.includes("shouldSoftStop(")) {
+        findings.push({ severity: "high", kind: "drift", file, message: "Guard 12: Generator uses SSOT budgets but does NOT enforce soft-stop (shouldSoftStop). Risks timeouts under load.", fix: ['Add: if (shouldSoftStop(started, "<budget_key>")) break;'] });
+      }
+
+      const mentionsAbort = text.includes("AbortController") || text.includes("controller.abort()");
+      if (mentionsAbort && !text.includes("makeAbortController(")) {
+        findings.push({ severity: "medium", kind: "drift", file, message: "Guard 12: Uses AbortController but not makeAbortController(). Prefer SSOT makeAbortController().", fix: ['Replace manual AbortController + setTimeout with makeAbortController("<budget_key>").'] });
+      }
+    }
+
+    if (findings.length === g12before) console.log("✅ Guard 12: Budget/Concurrency SSOT + soft-stop enforcement passed.");
+  } catch (e) {
+    console.warn(`⚠️  Guard 12 skipped: ${(e as Error).message}`);
   }
 
   if (findings.length > 0) {
