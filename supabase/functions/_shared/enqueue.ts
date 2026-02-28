@@ -54,7 +54,8 @@ export async function enqueueJob(
 
   // Hard guard: never enqueue package-bound jobs for immutable/non-building packages.
   // This prevents infinite requeue loops on already published packages.
-  if (packageId && opts.job_type.startsWith("package_")) {
+  // Covers ALL job types with a package_id (including pool_fill_lf_gaps).
+  if (packageId) {
     const { data: pkg, error: pkgErr } = await sb
       .from("course_packages")
       .select("id,status,published_at")
