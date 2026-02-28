@@ -484,6 +484,135 @@ async function main() {
     console.warn(`⚠️  Guard 9 skipped: ${(e as Error).message}`);
   }
 
+  // ── Guard 10: Time Budget Governance ──
+  try {
+    const BUDGET_SENSITIVE_FILES = [
+      "supabase/functions/content-runner/index.ts",
+      "supabase/functions/job-runner/index.ts",
+      "supabase/functions/stuck-scan/index.ts",
+      "supabase/functions/package-generate-exam-pool/index.ts",
+      "supabase/functions/package-generate-learning-content/index.ts",
+      "supabase/functions/package-generate-handbook/index.ts",
+      "supabase/functions/package-generate-glossary/index.ts",
+      "supabase/functions/package-generate-oral-exam/index.ts",
+      "supabase/functions/package-generate-lesson-minichecks/index.ts",
+    ];
+    const MUST_IMPORT_BUDGET = [
+      "supabase/functions/package-generate-exam-pool/index.ts",
+      "supabase/functions/package-generate-learning-content/index.ts",
+      "supabase/functions/package-generate-handbook/index.ts",
+      "supabase/functions/package-generate-glossary/index.ts",
+      "supabase/functions/package-generate-oral-exam/index.ts",
+      "supabase/functions/package-generate-lesson-minichecks/index.ts",
+    ];
+    const HARD_ABORT_RE = /setTimeout\(\s*\(\s*\)\s*=>\s*controller\.abort\(\)\s*,\s*([0-9_]+)\s*\)/g;
+    const TIME_BUDGET_CONST_RE = /\bTIME_BUDGET_MS\b\s*=\s*([0-9_]+)/g;
+    const GENERIC_BUDGET_RE = /\b(BUDGET_MS|TIMEOUT_MS|EDGE_TIME_BUDGET_MS)\b\s*=\s*([0-9_]+)/g;
+    const MAX_HARDCODED_MS = 60_000;
+    const SSOT_HINTS = [
+      'from "../_shared/time-budget.ts"',
+      'from "./_shared/time-budget.ts"',
+      "makeAbortController(",
+      "getTimeBudget(",
+      "shouldSoftStop(",
+    ];
+    const parseMs = (raw: string) => Number(raw.replace(/_/g, ""));
+
+    async function readSafe(path: string): Promise<string | null> {
+      try { return await Deno.readTextFile(path); } catch { return null; }
+    }
+
+    for (const file of BUDGET_SENSITIVE_FILES) {
+      const text = await readSafe(file);
+      if (!text) continue;
+
+      for (const match of text.matchAll(HARD_ABORT_RE)) {
+        const ms = parseMs(match[1]);
+        if (Number.isFinite(ms) && ms > MAX_HARDCODED_MS) {
+          findings.push({ severity: "critical", kind: "drift", file, message: `Guard 10: Hardcoded abort timeout ${ms}ms (>${MAX_HARDCODED_MS}ms). Use SSOT _shared/time-budget.ts.`, fix: [`Replace with makeAbortController("<budget_key>")`] });
+        }
+      }
+      for (const match of text.matchAll(TIME_BUDGET_CONST_RE)) {
+        const ms = parseMs(match[1]);
+        if (Number.isFinite(ms) && ms > 0) {
+          findings.push({ severity: "high", kind: "drift", file, message: `Guard 10: TIME_BUDGET_MS hardcoded (${ms}ms). Use getTimeBudget() from _shared/time-budget.ts.`, fix: [`Replace with getTimeBudget("<key>").ms`] });
+        }
+      }
+      for (const match of text.matchAll(GENERIC_BUDGET_RE)) {
+        const ms = parseMs(match[2]);
+        if (Number.isFinite(ms) && ms > 0) {
+          findings.push({ severity: "medium", kind: "drift", file, message: `Guard 10: Hardcoded "${match[1]}" (${ms}ms). Prefer SSOT _shared/time-budget.ts.`, fix: [`Use getTimeBudget()/makeAbortController()`] });
+        }
+      }
+    }
+
+    for (const file of MUST_IMPORT_BUDGET) {
+      const text = await readSafe(file);
+      if (!text) continue;
+      if (!SSOT_HINTS.some((h) => text.includes(h))) {
+        findings.push({ severity: "high", kind: "drift", file, message: `Guard 10: No SSOT budget usage found. Generator must use _shared/time-budget.ts.`, fix: [`Import { makeAbortController, shouldSoftStop } from "../_shared/time-budget.ts"`] });
+      }
+    }
+
+    console.log("✅ Guard 10: Time Budget Governance passed.");
+  } catch (e) {
+    console.warn(`⚠️  Guard 10 skipped: ${(e as Error).message}`);
+  }
+
+  // ── Guard 11: Concurrency Governance ──
+  try {
+    const CR_FILE = "supabase/functions/content-runner/index.ts";
+    const JR_FILE = "supabase/functions/job-runner/index.ts";
+    const WC_FILE = "supabase/functions/_shared/worker-config.ts";
+
+    async function readSafe2(path: string): Promise<string | null> {
+      try { return await Deno.readTextFile(path); } catch { return null; }
+    }
+
+    const cfgText = await readSafe2(WC_FILE);
+    if (!cfgText) {
+      findings.push({ severity: "critical", kind: "drift", file: WC_FILE, message: `Guard 11: Missing _shared/worker-config.ts. Runner concurrency must be SSOT-governed.`, fix: [`Create ${WC_FILE} with getRunnerConfig()`] });
+    } else {
+      if (!cfgText.includes("content_runner") || !cfgText.includes("maxConcurrency") || !cfgText.includes("claimLimit")) {
+        findings.push({ severity: "high", kind: "drift", file: WC_FILE, message: `Guard 11: worker-config.ts missing content_runner defaults.`, fix: [`Add content_runner: { maxConcurrency: 1, claimLimit: 1 }`] });
+      }
+      const hasHardCap = cfgText.includes('kind === "content_runner"') && (cfgText.includes("Math.min(maxConcurrency, 2)") || cfgText.includes("Math.min(claimLimit, 2)"));
+      if (!hasHardCap) {
+        findings.push({ severity: "medium", kind: "drift", file: WC_FILE, message: `Guard 11: No hard cap for content_runner concurrency (<=2).`, fix: [`Add Math.min(..., 2) cap for content_runner`] });
+      }
+    }
+
+    const contentText = await readSafe2(CR_FILE);
+    if (contentText) {
+      const usesConfig = contentText.includes("getRunnerConfig(") && (contentText.includes("../_shared/worker-config.ts") || contentText.includes("./_shared/worker-config.ts"));
+      if (!usesConfig) {
+        findings.push({ severity: "critical", kind: "drift", file: CR_FILE, message: `Guard 11: content-runner not using SSOT worker-config.ts.`, fix: [`Import getRunnerConfig from "../_shared/worker-config.ts"`] });
+      }
+      for (const m of contentText.matchAll(/p_limit\s*:\s*([0-9]+)/g)) {
+        if (Number(m[1]) > 2) {
+          findings.push({ severity: "critical", kind: "drift", file: CR_FILE, message: `Guard 11: p_limit:${m[1]} (>2) in content-runner. Must be <=2.`, fix: [`Use cfg.claimLimit from getRunnerConfig("content_runner")`] });
+        }
+      }
+      for (const m of contentText.matchAll(/\bBASE_CONCURRENCY\b\s*=\s*([0-9_]+)/g)) {
+        if (Number(String(m[1]).replace(/_/g, "")) > 2) {
+          findings.push({ severity: "high", kind: "drift", file: CR_FILE, message: `Guard 11: BASE_CONCURRENCY=${m[1]} (>2). Must be safe-by-default.`, fix: [`Use getRunnerConfig("content_runner") instead`] });
+        }
+      }
+    }
+
+    const jobText = await readSafe2(JR_FILE);
+    if (jobText) {
+      const usesConfig = jobText.includes("getRunnerConfig(") && (jobText.includes("../_shared/worker-config.ts") || jobText.includes("./_shared/worker-config.ts"));
+      if (!usesConfig) {
+        findings.push({ severity: "high", kind: "drift", file: JR_FILE, message: `Guard 11: job-runner not using SSOT worker-config.ts.`, fix: [`Import getRunnerConfig from "../_shared/worker-config.ts"`] });
+      }
+    }
+
+    console.log("✅ Guard 11: Concurrency Governance passed.");
+  } catch (e) {
+    console.warn(`⚠️  Guard 11 skipped: ${(e as Error).message}`);
+  }
+
   if (findings.length > 0) {
     console.error("\n❌ Edge Guards failed. Findings:\n");
     for (const f of findings) {
