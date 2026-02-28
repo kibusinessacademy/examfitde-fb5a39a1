@@ -53,11 +53,25 @@ function validateTransferMarker(t: unknown): boolean {
 }
 
 function safeParse(raw: string): unknown | null {
-  const cleaned = raw.replace(/```json\s*/g, "").replace(/```/g, "").trim();
+  // Strip markdown code fences (```json ... ```)
+  let cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
   try { return JSON.parse(cleaned); } catch { /* */ }
+  // Try to extract the largest JSON object or array
   const m = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
   if (!m) return null;
-  try { return JSON.parse(m[1]); } catch { return null; }
+  try { return JSON.parse(m[1]); } catch { /* */ }
+  // Last resort: try to repair truncated JSON by closing brackets
+  let attempt = m[1];
+  const openBraces = (attempt.match(/\{/g) || []).length;
+  const closeBraces = (attempt.match(/\}/g) || []).length;
+  const openBrackets = (attempt.match(/\[/g) || []).length;
+  const closeBrackets = (attempt.match(/\]/g) || []).length;
+  // Remove trailing comma or incomplete key-value
+  attempt = attempt.replace(/,\s*$/, "");
+  attempt = attempt.replace(/,\s*"[^"]*"?\s*:?\s*$/, "");
+  for (let i = 0; i < openBraces - closeBraces; i++) attempt += "}";
+  for (let i = 0; i < openBrackets - closeBrackets; i++) attempt += "]";
+  try { return JSON.parse(attempt); } catch { return null; }
 }
 
 /* ── Profession prompt builder ── */
@@ -103,7 +117,7 @@ Deno.serve(async (req) => {
   );
 
   const body = await req.json().catch(() => ({}));
-  const COMP_BATCH = Math.min(body.batch_size || 10, 15);
+  const COMP_BATCH = Math.min(body.batch_size || 5, 10); // reduced from 10 to 5 to prevent output truncation
   const MAX_CURRICULA = Math.min(body.max_curricula || 1, 2);
   const TIME_BUDGET_MS = 50_000; // 50s safe budget (leave margin for DB)
   const startTime = Date.now();
@@ -232,7 +246,7 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
               content: `Enriche diese ${comps.length} Kompetenzen für "${cur.beruf_kurz}":\n${JSON.stringify(compList)}`,
             },
           ],
-          max_tokens: Math.max(6000, comps.length * 400),
+          max_tokens: Math.max(8000, comps.length * 600), // increased tokens-per-comp to prevent truncation
         });
 
         const parsed = safeParse(aiResp.content);
