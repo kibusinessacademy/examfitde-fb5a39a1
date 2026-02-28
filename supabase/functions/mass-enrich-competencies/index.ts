@@ -91,6 +91,47 @@ function parseEnrichmentsFromRaw(raw: string): any[] | null {
   return Array.isArray(wrapped) ? wrapped : null;
 }
 
+const ENRICHMENT_TOOL = {
+  type: "function" as const,
+  function: {
+    name: "submit_enrichments",
+    description: "Return validated enrichment payload for competencies.",
+    parameters: {
+      type: "object",
+      properties: {
+        enrichments: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              context_conditions: { type: "string" },
+              misconceptions: { type: "array", items: { type: "object" } },
+              transfer_markers: { type: "array", items: { type: "object" } },
+            },
+            required: ["id"],
+          },
+        },
+      },
+      required: ["enrichments"],
+    },
+  },
+};
+
+function parseEnrichmentsFromAIResponse(aiResp: {
+  content: string;
+  toolCalls?: Array<{ function: { name: string; arguments: string } }>;
+}): any[] | null {
+  const firstTool = aiResp.toolCalls?.[0];
+  if (firstTool?.function?.arguments) {
+    const parsedArgs = safeParse(firstTool.function.arguments);
+    if (Array.isArray(parsedArgs)) return parsedArgs as any[];
+    const wrapped = (parsedArgs as any)?.enrichments;
+    if (Array.isArray(wrapped)) return wrapped as any[];
+  }
+  return parseEnrichmentsFromRaw(aiResp.content);
+}
+
 /* ── Profession prompt builder ── */
 
 function buildProfessionPrompt(
@@ -312,10 +353,13 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
               content: `Enriche diese ${comps.length} Kompetenzen für "${cur.beruf_kurz}":\n${JSON.stringify(compList)}`,
             },
           ],
-          max_tokens: Math.max(6000, comps.length * 800),
+          tools: [ENRICHMENT_TOOL],
+          tool_choice: { type: "function", function: { name: "submit_enrichments" } },
+          max_tokens: Math.max(5000, comps.length * 1100),
+          timeout_ms: 22_000,
         });
 
-        let enrichments = parseEnrichmentsFromRaw(aiResp.content);
+        let enrichments = parseEnrichmentsFromAIResponse(aiResp);
 
         // Deterministic fallback: if batch output is truncated/invalid, process competency-by-competency
         if (!enrichments) {
@@ -336,10 +380,13 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
                     content: `Enriche genau diese eine Kompetenz für "${cur.beruf_kurz}":\n${JSON.stringify([single])}`,
                   },
                 ],
-                max_tokens: 2400,
+                tools: [ENRICHMENT_TOOL],
+                tool_choice: { type: "function", function: { name: "submit_enrichments" } },
+                max_tokens: 2600,
+                timeout_ms: 16_000,
               });
 
-              const singleEnrichments = parseEnrichmentsFromRaw(singleResp.content);
+              const singleEnrichments = parseEnrichmentsFromAIResponse(singleResp);
               if (!singleEnrichments?.length) {
                 skipped++;
                 console.warn(`[MassEnrich] Single-item parse fail ${cur.beruf_kurz} comp=${single.id?.slice?.(0, 8) || single.id}`);
