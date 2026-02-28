@@ -24734,6 +24734,10 @@ export type Database = {
         Args: { p_alert_key: string; p_details: Json }
         Returns: string
       }
+      ops_hygiene_cleanup: {
+        Args: { p_max_job_cleanup?: number; p_max_lease_cleanup?: number }
+        Returns: Json
+      }
       ops_raise_alert: {
         Args: {
           p_alert_key: string
