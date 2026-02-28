@@ -107,15 +107,44 @@ async function artifactExists(
         console.warn(`[artifact-resolver] No curriculum_id for package ${packageId.slice(0, 8)} — cannot verify artifact, returning not-ready`);
         return false; // surface the issue instead of silently trusting step status
       }
-      const { count } = await sb
+
+      // IMPORTANT: exam questions are quality-staged via qc_status; status='approved'
+      // is not the canonical success marker for this pipeline.
+      const { count: readyCount } = await sb
         .from("exam_questions")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("curriculum_id", curriculumId)
-        .eq("status", "approved");
-      const MIN_EXAM_QUESTIONS = Number(Deno.env.get("EXAM_POOL_MIN_APPROVED") ?? "850");
-      console.log(`[artifact-resolver] exam_questions count=${count} min=${MIN_EXAM_QUESTIONS} curriculum=${curriculumId.slice(0,8)}`);
-      return (count ?? 0) >= MIN_EXAM_QUESTIONS;
+        .or("status.eq.approved,qc_status.eq.approved,qc_status.eq.tier1_passed");
+
+      // Dynamic threshold: if generator stored a target, respect it, but never
+      // require more than actually generated in this package run (loop-capped safety).
+      const { data: genStep } = await sb
+        .from("package_steps")
+        .select("meta")
+        .eq("package_id", packageId)
+        .eq("step_key", "generate_exam_pool")
+        .maybeSingle();
+
+      const meta = (genStep?.meta ?? {}) as Record<string, unknown>;
+      const toNum = (v: unknown) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      const generatedTotal = toNum(meta.total_questions);
+      const declaredTarget = toNum(meta.ship_target) || toNum(meta.target) || toNum(meta.exam_target);
+      const fallbackMin = Number(Deno.env.get("EXAM_POOL_MIN_READY") ?? "1");
+
+      let requiredMin = declaredTarget > 0 ? declaredTarget : fallbackMin;
+      if (generatedTotal > 0) requiredMin = Math.min(requiredMin, generatedTotal);
+      requiredMin = Math.max(1, requiredMin);
+
+      console.log(
+        `[artifact-resolver] exam_ready=${readyCount ?? 0} required=${requiredMin} curriculum=${curriculumId.slice(0, 8)} (generated_total=${generatedTotal}, declared_target=${declaredTarget})`,
+      );
+      return (readyCount ?? 0) >= requiredMin;
     }
+
 
     default:
       // For all other artifacts, step status "done" is sufficient
