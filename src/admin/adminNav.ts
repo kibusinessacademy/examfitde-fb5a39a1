@@ -66,6 +66,7 @@ export const adminNavModules: AdminNavItem[] = [
     ],
   },
   { path: '/admin/growth', label: 'Wachstum', icon: TrendingUp, group: 'navigation' },
+  { path: '/admin/social', label: 'Social Engine', icon: Radio, group: 'navigation' },
   { path: '/admin/scale', label: 'Skalierung', icon: Layers, group: 'navigation' },
   {
     path: '/admin/handbook', label: 'Handbuch', icon: HelpCircle, group: 'navigation',

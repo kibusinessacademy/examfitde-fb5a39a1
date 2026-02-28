@@ -60,6 +60,7 @@ export default function AdminV4Layout() {
     ops: 'System',
     business: 'Finanzen',
     growth: 'Wachstum',
+    social: 'Social Engine',
     scale: 'Skalierung',
     content: 'Content & SEO',
     crm: 'CRM',
