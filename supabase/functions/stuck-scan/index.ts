@@ -309,6 +309,9 @@ Deno.serve(async (req) => {
     let systemFrozen = false;
     {
       const FREEZE_MINUTES = 120;
+      const ACTIVE_STALL_MINUTES = 20;
+      const nowIso = new Date().toISOString();
+
       const { data: lastCompleted } = await sb
         .from("job_queue")
         .select("completed_at")
@@ -317,20 +320,41 @@ Deno.serve(async (req) => {
         .order("completed_at", { ascending: false })
         .limit(1);
 
-      const { count: activeCnt } = await sb
+      const { count: processingCnt } = await sb
         .from("job_queue")
         .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "processing"]);
+        .eq("status", "processing");
 
-      const lastAt = lastCompleted && lastCompleted[0]?.completed_at
+      const { count: readyPendingCnt } = await sb
+        .from("job_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending")
+        .or(`run_after.is.null,run_after.lte.${nowIso}`);
+
+      const { data: lastActive } = await sb
+        .from("job_queue")
+        .select("updated_at")
+        .in("status", ["pending", "processing"])
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      const activeCnt = (processingCnt ?? 0) + (readyPendingCnt ?? 0);
+      const lastCompletedAt = lastCompleted?.[0]?.completed_at
         ? new Date(lastCompleted[0].completed_at as string).getTime()
         : 0;
+      const lastActiveAt = lastActive?.[0]?.updated_at
+        ? new Date(lastActive[0].updated_at as string).getTime()
+        : 0;
+
       const freezeCutoff = Date.now() - FREEZE_MINUTES * 60_000;
-      const isFrozen = (activeCnt ?? 0) > 0 && (lastAt === 0 || lastAt < freezeCutoff);
+      const activityCutoff = Date.now() - ACTIVE_STALL_MINUTES * 60_000;
+      const isFrozen =
+        activeCnt > 0 &&
+        (lastCompletedAt === 0 || lastCompletedAt < freezeCutoff) &&
+        (lastActiveAt === 0 || lastActiveAt < activityCutoff);
 
       if (isFrozen) {
         systemFrozen = true;
-        // Dedupe robustly by title + recent window (JSON-path filters are not reliable across environments)
         const dedupeTitle = `⚫ System-Freeze: keine completed Jobs seit ${FREEZE_MINUTES}min`;
         const dedupeSince = new Date(Date.now() - 60 * 60_000).toISOString();
         const dedupeKey = `system_freeze_${new Date().toISOString().slice(0, 13)}`;
@@ -343,10 +367,17 @@ Deno.serve(async (req) => {
         if ((existing ?? 0) === 0) {
           await sb.from("admin_notifications").insert({
             title: dedupeTitle,
-            body: `Es gibt ${activeCnt} pending/processing Jobs, aber keinen Abschluss seit >${FREEZE_MINUTES} Minuten. Prüfe cron-trigger, pipeline-runner, job-runner und Rate-Limits.`,
+            body: `Ready-Queue/Processing aktiv (${activeCnt}), aber kein Completion seit >${FREEZE_MINUTES} Min und keine Queue-Aktivität seit >${ACTIVE_STALL_MINUTES} Min. Prüfe Runner + Lease-Hygiene.`,
             category: "ops",
             severity: "error",
-            metadata: { dedupe_key: dedupeKey, active_jobs: activeCnt, last_completed_at: lastCompleted?.[0]?.completed_at ?? null },
+            metadata: {
+              dedupe_key: dedupeKey,
+              active_jobs: activeCnt,
+              processing: processingCnt ?? 0,
+              ready_pending: readyPendingCnt ?? 0,
+              last_completed_at: lastCompleted?.[0]?.completed_at ?? null,
+              last_active_at: lastActive?.[0]?.updated_at ?? null,
+            },
           });
         }
       }
