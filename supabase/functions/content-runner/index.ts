@@ -4,7 +4,7 @@ import { inferBackoffSeconds, edgeFunctionForJobType } from "../_shared/job-map.
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
-const BASE_CONCURRENCY = 5;
+const BASE_CONCURRENCY = 1;
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
 const FUNCTION_VERSION = "v1.2-boot-guards";
 
@@ -32,7 +32,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
 
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 150_000); // 150s — content jobs need longer (exam-pool uses 90s budget)
+  const timeout = setTimeout(() => controller.abort(), 55_000); // 55s — safe under platform edge limit
 
   try {
     const res = await fetch(url, {
@@ -73,17 +73,18 @@ Deno.serve(async (req) => {
   const sb = createClient(supabaseUrl, serviceKey);
 
   // ── Boot-time RPC guard: crash loudly if claim RPC missing ──
-  const concurrency = Number(Deno.env.get("CONTENT_RUNNER_CONCURRENCY") ?? String(BASE_CONCURRENCY));
+  // Force concurrency=1: heavy content jobs (exam-pool, handbook) need full edge budget
+  const concurrency = 1;
 
   // ── 1. Claim content-pool jobs via v4 RPC (with auto-lease healing) ──
   // deno-lint-ignore no-explicit-any
   let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
-    p_limit: concurrency,
+    p_limit: 1,
     p_worker_id: WORKER_ID,
     p_lock_timeout_minutes: 25, // content jobs need longer locks
     p_worker_pool: "content",
   });
-  jobs = (jobs ?? []) as any[];
+  jobs = ((jobs ?? []) as any[]).slice(0, 1);
 
   if (claimErr) {
     console.error(`[content-runner] claim error: ${claimErr.message}`);
