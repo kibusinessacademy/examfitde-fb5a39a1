@@ -19,20 +19,20 @@ export interface AdminNavItem {
 export const adminNavModules: AdminNavItem[] = [
   { path: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard, group: 'navigation' },
   {
-    path: '/admin/ops', label: 'Ops', icon: Activity, group: 'navigation',
+    path: '/admin/ops', label: 'System', icon: Activity, group: 'navigation',
     badgeKey: 'failed_jobs_24h',
     children: [
       { path: '/admin/ops', label: 'Ampel & Alerts' },
-      { path: '/admin/ops/queue', label: 'Queue' },
+      { path: '/admin/ops/queue', label: 'Auftragsliste' },
       { path: '/admin/pipeline', label: 'Pipeline Live' },
-      { path: '/admin/ops/ai-workers', label: 'AI Workers' },
+      { path: '/admin/ops/ai-workers', label: 'KI-Worker' },
     ],
   },
   {
     path: '/admin/studio', label: 'Factory', icon: BookOpen, group: 'navigation',
     children: [
-      { path: '/admin/studio', label: 'Pakete' },
-      { path: '/admin/studio/new', label: 'Neues Paket' },
+      { path: '/admin/studio', label: 'Kurs-Pakete' },
+      { path: '/admin/studio/new', label: 'Neues Kurs-Paket' },
     ],
   },
   {
@@ -50,9 +50,9 @@ export const adminNavModules: AdminNavItem[] = [
     children: [
       { path: '/admin/content', label: 'Seiten' },
       { path: '/admin/content/blog', label: 'Blog' },
-      { path: '/admin/content/blocks', label: 'Content Blocks' },
-      { path: '/admin/content/assets', label: 'Assets' },
-      { path: '/admin/content/media', label: 'Media & Alt' },
+      { path: '/admin/content/blocks', label: 'Inhaltsblöcke' },
+      { path: '/admin/content/assets', label: 'Assets & Dateien' },
+      { path: '/admin/content/media', label: 'Medien & Alt-Texte' },
       { path: '/admin/content/seo', label: 'SEO & Redirects' },
     ],
   },
@@ -78,13 +78,13 @@ export const adminNavModules: AdminNavItem[] = [
 ];
 
 export const adminQuickActions: AdminNavItem[] = [
-  { label: 'Dead Letter anzeigen', path: '/admin/ops/deadletter', icon: Activity, group: 'actions' },
+  { label: 'Fehlerkorb (Dead Letter)', path: '/admin/ops/deadletter', icon: Activity, group: 'actions' },
   { label: 'Live Logs öffnen', path: '/admin/ops/logs', icon: FileText, group: 'actions' },
   { label: 'Steuer-Export', path: '/admin/business/exports', icon: DollarSign, group: 'actions' },
   { label: 'AZAV Compliance', path: '/admin/quality/azav', icon: Shield, group: 'actions' },
   { label: 'Churn Dashboard', path: '/admin/growth', icon: TrendingUp, group: 'actions' },
-  { label: 'AI Workers', path: '/admin/ops/ai-workers', icon: Brain, group: 'actions' },
-  { label: 'System-Handbuch', path: '/admin/handbook', icon: BookOpen, group: 'actions' },
+  { label: 'KI-Worker', path: '/admin/ops/ai-workers', icon: Brain, group: 'actions' },
+  { label: 'Admin-Handbuch', path: '/admin/handbook', icon: BookOpen, group: 'actions' },
 ];
 
 /** Flat list for CommandPalette search */

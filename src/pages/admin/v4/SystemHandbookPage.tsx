@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PageExplainer from '@/components/admin/PageExplainer';
+import { useLocation } from 'react-router-dom';
+import { ADMIN_GLOSSARY } from '@/admin/adminGlossary';
 
 /* ── Section data ── */
 
@@ -31,6 +33,43 @@ interface SectionBlock {
   table?: { headers: string[]; rows: string[][] };
   code?: string;
   note?: string;
+}
+
+function buildGlossaryBlocks(): SectionBlock[] {
+  const order: { key: string; title: string }[] = [
+    { key: 'pipeline', title: 'Pipeline & Produktion' },
+    { key: 'quality', title: 'Qualität & Governance' },
+    { key: 'system', title: 'Systembetrieb' },
+    { key: 'product', title: 'Produktmodule' },
+    { key: 'status', title: 'Statuswerte' },
+  ];
+
+  const entries = Object.entries(ADMIN_GLOSSARY).map(([key, v]) => ({ key, ...v }));
+  const blocks: SectionBlock[] = [
+    {
+      heading: 'So liest du das Glossar',
+      text: 'Die Admin-UI nutzt deutsche Begriffe. In Klammern steht der technische Begriff (englisch). Nutze dieses Glossar, wenn dir ein Status, Button oder Menüpunkt unklar ist.',
+    },
+  ];
+
+  for (const cat of order) {
+    const rows = entries
+      .filter(e => e.category === cat.key)
+      .sort((a, b) => a.de.localeCompare(b.de))
+      .map(e => [e.de, e.en, e.desc]);
+
+    if (rows.length === 0) continue;
+
+    blocks.push({
+      heading: cat.title,
+      table: {
+        headers: ['Begriff (DE)', 'Technisch (EN)', 'Bedeutung'],
+        rows,
+      },
+    });
+  }
+
+  return blocks;
 }
 
 const HANDBOOK_SECTIONS: Section[] = [
@@ -83,6 +122,12 @@ const HANDBOOK_SECTIONS: Section[] = [
         },
       },
     ],
+  },
+  {
+    id: 'glossar',
+    title: 'Glossar',
+    icon: BookOpen,
+    content: buildGlossaryBlocks(),
   },
   {
     id: 'pipeline',
@@ -247,10 +292,10 @@ const HANDBOOK_SECTIONS: Section[] = [
           headers: ['Modul', 'Pfad', 'Funktion'],
           rows: [
             ['Leitstelle', '/admin/command', 'Produktionssteuerung, KPI-Übersicht, Quick Actions'],
-            ['Factory', '/admin/studio', 'Paket-Verwaltung, Neues Paket erstellen, Build-Monitoring'],
+            ['Kurse (Factory)', '/admin/studio', 'Kurs-Pakete verwalten, neues Paket erstellen, Build-Monitoring'],
             ['Qualität', '/admin/quality', 'Review Inbox, Integrität, Compliance, AZAV/ISO'],
-            ['Ops', '/admin/ops', 'Ampel & Alerts, Queue, Pipeline Live, Load Control, AI Workers'],
-            ['Content & SEO', '/admin/content', 'Seiten, Blog, Assets, SEO & Redirects'],
+            ['System (Ops)', '/admin/ops', 'Ampel & Alerts, Auftragsliste, Pipeline Live, Laststeuerung, KI-Worker'],
+            ['Content & SEO', '/admin/content', 'Seiten, Blog, Assets & Dateien, SEO & Redirects'],
             ['CRM', '/admin/crm', 'Kontakte, Segmente, Churn Risk'],
             ['Support', '/admin/support', 'Tickets, FAQ-Knüpfung'],
             ['Finanzen', '/admin/business', 'Umsatz, Lizenzen, Steuer-Export'],
@@ -358,7 +403,7 @@ const HANDBOOK_SECTIONS: Section[] = [
 
 function generatePlainText(sections: Section[]): string {
   let out = '═══════════════════════════════════════════\n';
-  out += '  ExamFit System-Handbuch\n';
+  out += '  ExamFit Admin-Handbuch\n';
   out += '  Exportiert: ' + new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }) + '\n';
   out += '═══════════════════════════════════════════\n\n';
 
@@ -393,7 +438,7 @@ function generatePlainText(sections: Section[]): string {
 
 function generateHTML(sections: Section[]): string {
   let html = `<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8">
-<title>ExamFit System-Handbuch</title>
+<title>ExamFit Admin-Handbuch</title>
 <style>
 body{font-family:system-ui,-apple-system,sans-serif;max-width:900px;margin:0 auto;padding:40px 20px;color:#1a1a2e;line-height:1.6}
 h1{font-size:28px;border-bottom:3px solid #4361ee;padding-bottom:8px}
@@ -410,7 +455,7 @@ p{font-size:14px}
 code{background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px}
 @media print{body{padding:20px}h2{break-before:auto}}
 </style></head><body>
-<h1>ExamFit System-Handbuch</h1>
+<h1>ExamFit Admin-Handbuch</h1>
 <p class="meta">Exportiert: ${new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}</p>`;
 
   for (const s of sections) {
@@ -456,9 +501,19 @@ function downloadBlob(content: string, filename: string, mime: string) {
 /* ── Component ── */
 
 export default function SystemHandbookPage() {
+  const location = useLocation();
   const [activeSection, setActiveSection] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Deep-linking: /admin/handbook#faq, /admin/handbook#glossar etc.
+  useEffect(() => {
+    const hash = (location.hash || '').replace('#', '').trim();
+    if (!hash) return;
+    if (HANDBOOK_SECTIONS.some(s => s.id === hash)) {
+      setActiveSection(hash);
+    }
+  }, [location.hash]);
 
   // Filter sections by search query
   const filteredSections = useMemo(() => {
@@ -482,17 +537,16 @@ export default function SystemHandbookPage() {
 
   const exportJSX = () => {
     const text = generatePlainText(HANDBOOK_SECTIONS);
-    downloadBlob(text, 'examfit-system-handbuch.txt', 'text/plain;charset=utf-8');
+    downloadBlob(text, 'examfit-admin-handbuch.txt', 'text/plain;charset=utf-8');
   };
 
   const exportDOCX = () => {
     const html = generateHTML(HANDBOOK_SECTIONS);
-    // DOCX via HTML blob with Word-compatible mime type
     const docxContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-<head><meta charset="utf-8"><title>ExamFit System-Handbuch</title>
+<head><meta charset="utf-8"><title>ExamFit Admin-Handbuch</title>
 <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
 </head><body>${html}</body></html>`;
-    downloadBlob(docxContent, 'examfit-system-handbuch.doc', 'application/msword');
+    downloadBlob(docxContent, 'examfit-admin-handbuch.doc', 'application/msword');
   };
 
   const exportPDF = () => {
@@ -506,7 +560,7 @@ export default function SystemHandbookPage() {
   };
 
   const currentSection = searchQuery.length >= 2
-    ? null // show all filtered sections
+    ? null
     : (HANDBOOK_SECTIONS.find(s => s.id === activeSection) || HANDBOOK_SECTIONS[0]);
 
   return (
@@ -515,10 +569,10 @@ export default function SystemHandbookPage() {
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
             <BookOpen className="h-6 w-6 text-primary" />
-            System-Handbuch
+            Admin-Handbuch
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Technische Dokumentation · Workflows · Admin-FAQ
+            Workflows · Begriffe · Fehlerbehebung (für Admins)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -535,8 +589,8 @@ export default function SystemHandbookPage() {
       </div>
 
       <PageExplainer
-        title="System-Handbuch & Workflows"
-        description="Vollständige technische Dokumentation des ExamFit-Systems. Beschreibt alle Workflows, Architekturentscheidungen und Konfigurationen, um das System nachzubilden oder zu warten."
+        title="Admin-Handbuch: Orientierung & Workflows"
+        description="Dieses Handbuch erklärt dir in verständlicher Sprache, wofür die Admin-Bereiche da sind, welche Workflows es gibt und wie du typische Fehlerbilder löst. Technische Details bleiben verfügbar – aber du startest immer bei der Handlung."
         actions={[
           'Navigiere durch die Kapitel links',
           'Exportiere das gesamte Handbuch als TXT, DOCX oder PDF',
@@ -595,7 +649,6 @@ export default function SystemHandbookPage() {
 
         {/* Content area */}
         <div ref={printRef} className={cn("space-y-6", searchQuery && "lg:col-span-2")}>
-          {/* Search results: show all matching sections */}
           {searchQuery.length >= 2 ? (
             filteredSections.length === 0 ? (
               <Card>
@@ -622,7 +675,6 @@ export default function SystemHandbookPage() {
               ))
             )
           ) : (
-            /* Normal mode: show active section */
             currentSection && (
               <Card>
                 <CardHeader>
@@ -645,7 +697,7 @@ export default function SystemHandbookPage() {
   );
 }
 
-/* ── Block renderer (extracted to avoid duplication) ── */
+/* ── Block renderer ── */
 function SectionBlockRenderer({ block }: { block: SectionBlock }) {
   return (
     <div className="space-y-2">
