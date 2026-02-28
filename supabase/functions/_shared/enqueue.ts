@@ -54,11 +54,22 @@ export async function enqueueJob(
     if (pkgErr) throw pkgErr;
     if (!pkg) throw new Error(`PACKAGE_NOT_FOUND:${packageId}`);
 
-    if (pkg.published_at) {
-      throw new Error(`PACKAGE_NOT_EXECUTABLE:already_published:${packageId}`);
-    }
-    if (pkg.status !== "building") {
-      throw new Error(`PACKAGE_NOT_EXECUTABLE:status_${pkg.status}:${packageId}`);
+    if (pkg.published_at || pkg.status !== "building") {
+      // Fire-and-forget alert for observability
+      const reason = pkg.published_at
+        ? `already_published`
+        : `status_${pkg.status}`;
+      sb.from("admin_notifications").insert({
+        title: "Immutability Guard: enqueue blocked",
+        body: `Job ${opts.job_type} for package ${packageId} blocked (${reason}).`,
+        category: "ops",
+        severity: "warn",
+        entity_type: "package",
+        entity_id: packageId,
+        metadata: { job_type: opts.job_type, reason, package_status: pkg.status },
+      }).then(() => {/* fire-and-forget */});
+
+      throw new Error(`PACKAGE_NOT_EXECUTABLE:${reason}:${packageId}`);
     }
   }
 

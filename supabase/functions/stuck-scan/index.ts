@@ -510,6 +510,27 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ══════════════════════════════════════════════════════
+    // 5) Scheduled Hygiene – clean orphan leases & non-building jobs
+    // ══════════════════════════════════════════════════════
+    let hygieneResult: Record<string, unknown> = {};
+    try {
+      const { data: hData, error: hErr } = await sb.rpc("ops_hygiene_cleanup", {
+        p_max_lease_cleanup: 50,
+        p_max_job_cleanup: 200,
+      });
+      if (hErr) {
+        console.warn(`[stuck-scan] Hygiene RPC error: ${hErr.message}`);
+      } else {
+        hygieneResult = hData ?? {};
+        if ((hData?.orphan_leases_removed ?? 0) + (hData?.idle_leases_removed ?? 0) + (hData?.non_building_jobs_failed ?? 0) > 0) {
+          console.log(`[stuck-scan] Hygiene: ${JSON.stringify(hData)}`);
+        }
+      }
+    } catch (hEx) {
+      console.warn(`[stuck-scan] Hygiene threw: ${(hEx as Error).message}`);
+    }
+
     console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}`);
 
     return json({
@@ -522,6 +543,7 @@ Deno.serve(async (req) => {
       zombie_steps_fixed: zombieResults,
       escalation_loops: escalationResults,
       system_frozen: systemFrozen,
+      hygiene: hygieneResult,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
