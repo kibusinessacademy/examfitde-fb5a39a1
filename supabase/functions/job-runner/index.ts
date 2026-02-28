@@ -381,6 +381,7 @@ Deno.serve(async (req) => {
     timeouts: 0, rateLimits: 0, escalations: 0, dlqItems: 0,
     completed: 0, totalLatencyMs: 0,
   };
+  const packageStateCache = new Map<string, { status: string | null; published_at: string | null }>();
 
   // ── Pipeline prerequisite map ──────────────────────────────────────
   // Each entry lists prerequisite(s) in priority order.
@@ -567,6 +568,37 @@ Deno.serve(async (req) => {
       continue;
     }
 
+    // ── Package executability guard (hard invariant) ─────────────────
+    const jobPackageId = (job.package_id ?? job.payload?.package_id) as string | undefined;
+    if (jobPackageId) {
+      let pkgState = packageStateCache.get(jobPackageId);
+      if (!pkgState) {
+        const { data: pkgRow } = await sb
+          .from("course_packages")
+          .select("status,published_at")
+          .eq("id", jobPackageId)
+          .maybeSingle();
+        pkgState = {
+          status: pkgRow?.status ?? null,
+          published_at: pkgRow?.published_at ?? null,
+        };
+        packageStateCache.set(jobPackageId, pkgState);
+      }
+
+      const notExecutable = !!pkgState.published_at || (pkgState.status !== "building");
+      if (notExecutable) {
+        const reason = `OPS_GUARD:PACKAGE_NOT_EXECUTABLE status=${pkgState.status ?? "missing"} published_at=${pkgState.published_at ? "set" : "null"}`;
+        await sb.from("job_queue").update({
+          status: "failed",
+          completed_at: tsNow,
+          last_error: reason,
+          ...lockRelease(tsNow),
+        }).eq("id", job.id);
+        results.push({ id: job.id, status: "failed", reason: "package_not_executable" });
+        continue;
+      }
+    }
+
     // ── Prereq guard (track-aware) ─────────────────────────────────────
     const prereqCandidates = PIPELINE_PREREQS[job.job_type];
     if (prereqCandidates && job.payload?.package_id) {
@@ -592,125 +624,124 @@ Deno.serve(async (req) => {
           results.push({ id: job.id, status: "requeued", reason: "prereq_not_done" });
           continue;
         }
-    }
+      }
 
-    // ── Artifact resolver (additive intelligence layer) ────────────────
-    // Checks if required artifacts actually exist in DB, not just step status.
-    // This catches data-loss scenarios where step is "done" but data is missing.
-    if (job.payload?.package_id) {
-      // Reverse-lookup: job_type → step_key
-      const stepKey = Object.entries(STEP_TO_JOB_TYPE).find(([, jt]) => jt === job.job_type)?.[0];
-      if (stepKey) {
-        const artifactCheck = await checkArtifacts(sb, job.payload.package_id, stepKey);
-        if (!artifactCheck.ready) {
-          const blockCount = (job.meta?.artifact_block_count ?? 0) as number;
-          const missing = artifactCheck.missingArtifact ?? "unknown";
-          const producerStep = artifactCheck.producerStep ?? null;
+      // ── Artifact resolver (additive intelligence layer) ────────────────
+      // Checks if required artifacts actually exist in DB, not just step status.
+      // This catches data-loss scenarios where step is "done" but data is missing.
+      if (job.payload?.package_id) {
+        // Reverse-lookup: job_type → step_key
+        const stepKey = Object.entries(STEP_TO_JOB_TYPE).find(([, jt]) => jt === job.job_type)?.[0];
+        if (stepKey) {
+          const artifactCheck = await checkArtifacts(sb, job.payload.package_id, stepKey);
+          if (!artifactCheck.ready) {
+            const blockCount = (job.meta?.artifact_block_count ?? 0) as number;
+            const missing = artifactCheck.missingArtifact ?? "unknown";
+            const producerStep = artifactCheck.producerStep ?? null;
 
-          // Phase 3: Progressive backoff — only enter blocked-mode at retry >= 3
-          const backoffMs =
-            blockCount < 1 ? 20_000 :
-            blockCount < 2 ? 60_000 :
-            blockCount < 3 ? 180_000 :
-            blockCount < 5 ? 900_000 :
-            3_600_000; // cap at 60min
+            // Phase 3: Progressive backoff — only enter blocked-mode at retry >= 3
+            const backoffMs =
+              blockCount < 1 ? 20_000 :
+              blockCount < 2 ? 60_000 :
+              blockCount < 3 ? 180_000 :
+              blockCount < 5 ? 900_000 :
+              3_600_000; // cap at 60min
 
-          const isBlockedMode = blockCount >= 3;
-          // Only initialize blocked_since once (when entering blocked mode)
-          const blockedSince = isBlockedMode
-            ? (job.meta?.artifact_blocked_since as string | undefined) ?? tsNow
-            : null;
+            const isBlockedMode = blockCount >= 3;
+            // Only initialize blocked_since once (when entering blocked mode)
+            const blockedSince = isBlockedMode
+              ? (job.meta?.artifact_blocked_since as string | undefined) ?? tsNow
+              : null;
 
-          const reason = isBlockedMode ? "artifact_blocked" : "artifact_missing";
+            const reason = isBlockedMode ? "artifact_blocked" : "artifact_missing";
 
-          console.warn(`[job-runner] ARTIFACT${isBlockedMode ? "_BLOCKED" : ""}: ${job.job_type} missing ${missing} (producer: ${producerStep}) [retry=${blockCount + 1}${isBlockedMode ? ` — blocked-mode, backoff=${Math.round(backoffMs / 1000)}s` : `/${3}`}]`);
+            console.warn(`[job-runner] ARTIFACT${isBlockedMode ? "_BLOCKED" : ""}: ${job.job_type} missing ${missing} (producer: ${producerStep}) [retry=${blockCount + 1}${isBlockedMode ? ` — blocked-mode, backoff=${Math.round(backoffMs / 1000)}s` : `/${3}`}]`);
 
-          // Phase 6: Enqueue producer with priority bump (idempotent — DB dedup handles duplicates)
-          if (producerStep && job.payload?.package_id) {
-            const producerJobType = STEP_TO_JOB_TYPE[producerStep as keyof typeof STEP_TO_JOB_TYPE] ?? null;
-            if (producerJobType) {
-              const bump = getArtifactPriorityBump(producerStep);
-              // Idempotent enqueue: only insert if no pending/processing job of same type+package exists
-              const { count: existingCount } = await sb.from("job_queue")
-                .select("id", { count: "exact", head: true })
-                .eq("job_type", producerJobType)
-                .eq("package_id", job.payload.package_id)
-                .in("status", ["pending", "processing"]);
+            // Phase 6: Enqueue producer with priority bump (idempotent — DB dedup handles duplicates)
+            if (producerStep && job.payload?.package_id) {
+              const producerJobType = STEP_TO_JOB_TYPE[producerStep as keyof typeof STEP_TO_JOB_TYPE] ?? null;
+              if (producerJobType) {
+                const bump = getArtifactPriorityBump(producerStep);
+                // Idempotent enqueue: only insert if no pending/processing job of same type+package exists
+                const { count: existingCount } = await sb.from("job_queue")
+                  .select("id", { count: "exact", head: true })
+                  .eq("job_type", producerJobType)
+                  .eq("package_id", job.payload.package_id)
+                  .in("status", ["pending", "processing"]);
 
-              if ((existingCount ?? 0) === 0) {
-                try {
-                  await enqueueJob(sb, {
-                    job_type: producerJobType,
-                    package_id: job.payload.package_id as string,
-                    payload: { package_id: job.payload.package_id },
-                    priority: 10 + bump,
-                    run_after: null,
-                  });
-                  console.log(`[job-runner] PHASE6: Enqueued producer ${producerJobType} with priority ${10 + bump} for pkg ${(job.payload.package_id as string).slice(0, 8)}`);
-                } catch (enqErr) {
-                  // Idempotency constraint → already exists, safe to ignore
-                  console.log(`[job-runner] PHASE6: Producer ${producerJobType} already exists (idempotency), skipping`);
+                if ((existingCount ?? 0) === 0) {
+                  try {
+                    await enqueueJob(sb, {
+                      job_type: producerJobType,
+                      package_id: job.payload.package_id as string,
+                      payload: { package_id: job.payload.package_id },
+                      priority: 10 + bump,
+                      run_after: null,
+                    });
+                    console.log(`[job-runner] PHASE6: Enqueued producer ${producerJobType} with priority ${10 + bump} for pkg ${(job.payload.package_id as string).slice(0, 8)}`);
+                  } catch (_enqErr) {
+                    // Idempotency or non-executable package guard → safe to ignore
+                    console.log(`[job-runner] PHASE6: Producer ${producerJobType} not enqueued (idempotent/non-executable)`);
+                  }
                 }
               }
             }
-          }
 
-          await sb.from("job_queue").update({
-            status: "pending",
-            run_after: new Date(Date.now() + backoffMs).toISOString(),
-            last_error: `Artifact missing: ${missing}${producerStep ? ` (producer: ${producerStep})` : ""}`,
-            meta: {
-              ...(job.meta || {}),
-              artifact_block_count: blockCount + 1,
-              last_missing_artifact: missing,
-              last_missing_artifact_at: tsNow,
-              last_artifact_check: tsNow,
-              // Phase 3: blocked-mode only at threshold
-              artifact_blocked: isBlockedMode,
-              artifact_blocked_since: blockedSince,
-              artifact_blocked_backoff_ms: backoffMs,
-              blocked_by_artifact: missing,
-              blocked_by_producer: producerStep,
-              artifact_storm: isBlockedMode,
-            },
-            ...lockRelease(tsNow),
-          }).eq("id", job.id);
-          results.push({ id: job.id, status: "requeued", reason, artifact: missing });
-          continue;
-        } else {
-          // Artifact resolved — clear ALL block metadata cleanly
-          if (job.meta?.artifact_blocked || job.meta?.artifact_block_count) {
             await sb.from("job_queue").update({
+              status: "pending",
+              run_after: new Date(Date.now() + backoffMs).toISOString(),
+              last_error: `Artifact missing: ${missing}${producerStep ? ` (producer: ${producerStep})` : ""}`,
               meta: {
                 ...(job.meta || {}),
-                artifact_blocked: false,
-                artifact_block_count: 0,
-                artifact_storm: false,
-                blocked_by_artifact: null,
-                blocked_by_producer: null,
-                artifact_blocked_since: null,
-                artifact_blocked_backoff_ms: null,
-                last_missing_artifact: null,
+                artifact_block_count: blockCount + 1,
+                last_missing_artifact: missing,
+                last_missing_artifact_at: tsNow,
+                last_artifact_check: tsNow,
+                // Phase 3: blocked-mode only at threshold
+                artifact_blocked: isBlockedMode,
+                artifact_blocked_since: blockedSince,
+                artifact_blocked_backoff_ms: backoffMs,
+                blocked_by_artifact: missing,
+                blocked_by_producer: producerStep,
+                artifact_storm: isBlockedMode,
               },
+              ...lockRelease(tsNow),
             }).eq("id", job.id);
+            results.push({ id: job.id, status: "requeued", reason, artifact: missing });
+            continue;
+          } else {
+            // Artifact resolved — clear ALL block metadata cleanly
+            if (job.meta?.artifact_blocked || job.meta?.artifact_block_count) {
+              await sb.from("job_queue").update({
+                meta: {
+                  ...(job.meta || {}),
+                  artifact_blocked: false,
+                  artifact_block_count: 0,
+                  artifact_storm: false,
+                  blocked_by_artifact: null,
+                  blocked_by_producer: null,
+                  artifact_blocked_since: null,
+                  artifact_blocked_backoff_ms: null,
+                  last_missing_artifact: null,
+                },
+              }).eq("id", job.id);
+            }
           }
         }
       }
     }
-    }
-
     // ── Pre-execution lease guard ──────────────────────────────────
-    const jobPackageId = job.package_id ?? job.payload?.package_id;
-    if (jobPackageId) {
+    const execPackageId = job.package_id ?? job.payload?.package_id;
+    if (execPackageId) {
       const { data: leaseRow } = await sb
         .from("package_leases")
         .select("lease_until")
-        .eq("package_id", jobPackageId)
+        .eq("package_id", execPackageId)
         .gt("lease_until", new Date().toISOString())
         .maybeSingle();
 
       if (!leaseRow) {
-        console.warn(`[job-runner] Lease expired before execution for job ${job.id} (pkg ${String(jobPackageId).slice(0, 8)})`);
+        console.warn(`[job-runner] Lease expired before execution for job ${job.id} (pkg ${String(execPackageId).slice(0, 8)})`);
         await requeueWithBackoff(sb, job.id, job.meta, 60_000, "Lease expired pre-execution", tsNow);
         results.push({ id: job.id, status: "requeued", reason: "lease_expired" });
         continue;
@@ -720,10 +751,10 @@ Deno.serve(async (req) => {
     const startMs = Date.now();
 
     // ── Progress heartbeat: update last_progress_at so UI doesn't show "stuck" ──
-    if (jobPackageId) {
+    if (execPackageId) {
       await sb.from("course_packages")
         .update({ last_progress_at: new Date().toISOString() })
-        .eq("id", jobPackageId);
+        .eq("id", execPackageId);
     }
 
     // ── Single-exit state for guaranteed lock release ─────────────

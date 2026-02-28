@@ -357,6 +357,7 @@ Deno.serve(async (req) => {
       .from("course_packages")
       .select("id, title, last_progress_at, stuck_reason, course_id")
       .eq("status", "building")
+      .is("published_at", null)
       .lt("last_progress_at", stuckSince);
 
     const results: Array<{ package_id: string; retried: number; reason: string }> = [];
@@ -448,6 +449,7 @@ Deno.serve(async (req) => {
       .from("course_packages")
       .select("id, title, build_progress, updated_at, course_id")
       .eq("status", "building")
+      .is("published_at", null)
       .is("stuck_reason", null);
 
     const orphanResults: Array<{ package_id: string; action: string }> = [];
