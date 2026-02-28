@@ -99,12 +99,13 @@ Deno.serve(async (req) => {
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { db: { schema: "public" }, global: { headers: { "x-statement-timeout": "25000" } } },
   );
 
   const body = await req.json().catch(() => ({}));
-  const COMP_BATCH = Math.min(body.batch_size || 20, 25);
+  const COMP_BATCH = Math.min(body.batch_size || 10, 15);
   const MAX_CURRICULA = Math.min(body.max_curricula || 1, 2);
-  const TIME_BUDGET_MS = 60_000; // 60s safe budget
+  const TIME_BUDGET_MS = 50_000; // 50s safe budget (leave margin for DB)
   const startTime = Date.now();
   const targetCurriculumIds: string[] | undefined = body.curriculum_ids;
 
