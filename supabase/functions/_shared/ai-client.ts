@@ -42,6 +42,7 @@ export interface AIRequestOptions {
   messages: AIMessage[];
   temperature?: number;
   max_tokens?: number;
+  timeout_ms?: number;
   stream?: boolean;
   tools?: AITool[];
   tool_choice?: Record<string, unknown>;
@@ -118,9 +119,11 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   recordRequest(opts.provider);
 
   // Dynamic timeout: large content gen needs more time, tool-calling adds latency
-  const fetchTimeout = opts.max_tokens && opts.max_tokens > 4096
-    ? 90_000 // 90s for large content generation (tool calling + long prompts)
-    : AI_FETCH_TIMEOUT_MS;
+  const fetchTimeout = opts.timeout_ms ?? (
+    opts.max_tokens && opts.max_tokens > 4096
+      ? 90_000 // 90s for large content generation (tool calling + long prompts)
+      : AI_FETCH_TIMEOUT_MS
+  );
 
   const model = opts.model || cfg.model;
 

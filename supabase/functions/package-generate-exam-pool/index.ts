@@ -13,6 +13,7 @@ import { checkContamination } from "../_shared/contamination-guard.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
 import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD, computeHallucinationRisk, computeVariationScore, loadMasteryContext, buildMasteryFeedbackSuffix } from "../_shared/prompt-kit.ts";
 import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
+import { getTimeBudget, shouldSoftStop } from "../_shared/time-budget.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
@@ -33,7 +34,8 @@ const AI_CHUNK_SIZE_FANOUT = 2;       // Fan-out: max 2 BPs per invocation (redu
 const AI_QUESTIONS_PER_CALL = 5;
 const AI_QUESTIONS_PER_BLUEPRINT = 35;
 const HARD_CAP_QUESTIONS = 1700;
-const TIME_BUDGET_MS = Number(Deno.env.get("EDGE_TIME_BUDGET_MS") ?? "45000"); // 45s budget (edge limit ~55s dispatch)
+const EXAM_POOL_BUDGET = getTimeBudget("exam_pool_fanout");
+const TIME_BUDGET_MS = EXAM_POOL_BUDGET.ms;
 
 // ─── Cognitive Level Distribution (IHK-realistic) ─────────────────────────────
 
@@ -619,7 +621,7 @@ async function generateTurboQuestions(
 
   const { system, user } = buildTurboPrompt(bp, difficulty, questionType, cognitiveLevel, count, lfTitle, compTitle, compDesc, professionName, depthTopics, glossaryContext, masteryInjection);
 
-  const maxTokens = count <= 2 ? 3000 : count <= 5 ? 6000 : 8000;
+  const maxTokens = count <= 2 ? 2200 : count <= 5 ? 3500 : 4096;
 
   let exclude: string[] = [];
   let result: { content: string } | undefined;
@@ -633,6 +635,7 @@ async function generateTurboQuestions(
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
         temperature: 0.85,
         max_tokens: maxTokens,
+        timeout_ms: 25_000,
       });
       break;
     } catch (e: unknown) {
@@ -1377,10 +1380,14 @@ Deno.serve(async (req) => {
     const invocationStart = Date.now();
 
     while (bpsProcessed < effectiveChunkSize && currentBpIndex < bps.length) {
-      // ── TIME BUDGET: break before edge function timeout ──
+      // ── TIME BUDGET: stop scheduling new work before hard timeout ──
       const elapsed = Date.now() - invocationStart;
       if (elapsed > TIME_BUDGET_MS) {
         console.log(`[ExamPool-v5] TIME_BUDGET: ${elapsed}ms > ${TIME_BUDGET_MS}ms — breaking for requeue`);
+        break;
+      }
+      if (shouldSoftStop(invocationStart, "exam_pool_fanout")) {
+        console.log(`[ExamPool-v5] SOFT_STOP: ${elapsed}ms reached soft window — stop scheduling new BP calls`);
         break;
       }
 
@@ -1392,9 +1399,14 @@ Deno.serve(async (req) => {
 
       let brokeMidBp = false;
       for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx++) {
-        // Time check inside inner loop too
+        // Time checks inside inner loop too
         if (Date.now() - invocationStart > TIME_BUDGET_MS) {
           console.log(`[ExamPool-v5] TIME_BUDGET inner: breaking mid-blueprint`);
+          brokeMidBp = true;
+          break;
+        }
+        if (shouldSoftStop(invocationStart, "exam_pool_fanout")) {
+          console.log(`[ExamPool-v5] SOFT_STOP inner: breaking mid-blueprint before next AI call`);
           brokeMidBp = true;
           break;
         }
@@ -1462,7 +1474,7 @@ Deno.serve(async (req) => {
     const calcInserted = calcInsertedCount ?? 0;
     const calcDeficit = calcTarget - calcInserted;
 
-    if (calcDeficit > 0 && bps.length > 0 && (globalTotal + questionsThisChunk) < HARD_CAP_QUESTIONS && (Date.now() - invocationStart) < TIME_BUDGET_MS) {
+    if (calcDeficit > 0 && bps.length > 0 && (globalTotal + questionsThisChunk) < HARD_CAP_QUESTIONS && !shouldSoftStop(invocationStart, "exam_pool_fanout") && (Date.now() - invocationStart) < TIME_BUDGET_MS) {
       const maxCalcAttempts = calcDeficit * 4 + 10;
       let calcBackfillSaved = 0;
       let calcAttempts = 0;
@@ -1474,7 +1486,7 @@ Deno.serve(async (req) => {
 
       console.log(`[ExamPool-v5] CALC_BACKFILL: deficit=${calcDeficit}, target=${calcTarget}, inserted=${calcInserted}, calcBps=${calcBps.length}/${bps.length}, maxAttempts=${maxCalcAttempts}`);
 
-      for (let i = 0; calcBackfillSaved < calcDeficit && calcAttempts < maxCalcAttempts && (Date.now() - invocationStart) < TIME_BUDGET_MS; i++) {
+      for (let i = 0; calcBackfillSaved < calcDeficit && calcAttempts < maxCalcAttempts && !shouldSoftStop(invocationStart, "exam_pool_fanout") && (Date.now() - invocationStart) < TIME_BUDGET_MS; i++) {
         const bp = shuffledBps[i % shuffledBps.length] as BlueprintInfo & { max_variations: number | null };
         const diff = calcDiffs[calcAttempts % calcDiffs.length];
         const cog = cogEntries[calcAttempts % cogEntries.length][0];
@@ -1540,7 +1552,7 @@ Deno.serve(async (req) => {
 
         console.log(`[ExamPool-v5] CALC_GLOBAL_BACKFILL_START: globalDeficit=${globalDeficit}, capped=${cappedDeficit}, pool=${gCalc}/${gTotal}, calcBps=${calcBps.length}/${bps.length}`);
 
-        for (let i = 0; globalSaved < cappedDeficit && globalAttempts < maxAttempts && (Date.now() - invocationStart) < TIME_BUDGET_MS; i++) {
+        for (let i = 0; globalSaved < cappedDeficit && globalAttempts < maxAttempts && !shouldSoftStop(invocationStart, "exam_pool_fanout") && (Date.now() - invocationStart) < TIME_BUDGET_MS; i++) {
           const bp = shuffledBps[i % shuffledBps.length] as BlueprintInfo & { max_variations: number | null };
           const diff = calcDiffs[globalAttempts % calcDiffs.length];
           const cog = cogEntries[globalAttempts % cogEntries.length][0];

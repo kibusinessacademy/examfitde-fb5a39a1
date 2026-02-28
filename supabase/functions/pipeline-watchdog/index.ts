@@ -455,7 +455,7 @@ Deno.serve(async (req) => {
 
     const { data: qgFailedPkgs } = await sb
       .from("course_packages")
-      .select("id, title, integrity_report, updated_at, curriculum_id")
+      .select("id, title, integrity_report, updated_at, curriculum_id, published_at, blocked_reason")
       .eq("status", "quality_gate_failed")
       .lt("updated_at", qgCooldownCutoff) // Only packages that have been stuck for > cooldown
       .limit(5); // Process max 5 per cycle to avoid overload
@@ -466,6 +466,16 @@ Deno.serve(async (req) => {
 
     for (const pkg of (qgFailedPkgs || [])) {
       qgSeenCount++;
+
+      // Hard guard: immutable/published legacy packages are NOT executable.
+      // Never auto-heal/re-enqueue them, otherwise we create failing job storms.
+      const isImmutableLegacy = !!pkg.published_at || String(pkg.blocked_reason || "").includes("LEGACY_VIOLATION");
+      if (isImmutableLegacy) {
+        qgSkippedCount++;
+        console.log(`[watchdog] QG-heal skip immutable pkg=${(pkg.id as string).slice(0, 8)} published_at=${pkg.published_at ? "set" : "null"}`);
+        continue;
+      }
+
       const report = pkg.integrity_report as any;
       const hardFails: string[] = report?.v3?.hard_fail_reasons || [];
 
@@ -563,6 +573,7 @@ Deno.serve(async (req) => {
         }
 
         // FIX: Use enqueueJob helper (not raw insert) to respect SSOT pool routing + immutability guard
+        let gapFillEnqueued = false;
         try {
           const { enqueueJob } = await import("../_shared/enqueue.ts");
           await enqueueJob(sb, {
@@ -577,13 +588,16 @@ Deno.serve(async (req) => {
             package_id: pkg.id as string,
             priority: 15,
           });
+          gapFillEnqueued = true;
         } catch (enqErr) {
           console.warn(`[watchdog] pool_fill_lf_gaps enqueue blocked for pkg=${(pkg.id as string).slice(0, 8)}: ${(enqErr as Error).message}`);
         }
 
-        console.log(
-          `[watchdog] QG-heal: enqueued pool_fill_lf_gaps for pkg=${(pkg.id as string).slice(0, 8)} (${missingLfIds.length} missing LFs: ${missingLfIds.map((id: string) => id.slice(0, 8)).join(", ")})`,
-        );
+        if (gapFillEnqueued) {
+          console.log(
+            `[watchdog] QG-heal: enqueued pool_fill_lf_gaps for pkg=${(pkg.id as string).slice(0, 8)} (${missingLfIds.length} missing LFs: ${missingLfIds.map((id: string) => id.slice(0, 8)).join(", ")})`,
+          );
+        }
       }
 
       qgHealedCount++;
