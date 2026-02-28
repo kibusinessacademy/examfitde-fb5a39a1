@@ -91,8 +91,10 @@ const MAX_COMPLETION_TOKEN_PREFIXES = [
 export function needsMaxCompletionTokens(model: string): boolean {
   // Direct model names: gpt-5, gpt-5-mini, gpt-5.2, o1, o1-mini, o3, o3-mini
   if (MAX_COMPLETION_TOKEN_PREFIXES.some(p => model === p || model.startsWith(p))) return true;
-  // Lovable gateway format: openai/gpt-5, openai/o1-mini, etc.
+  // Lovable gateway format: openai/gpt-5, openai/o1-mini, google/gemini-*, etc.
   if (model.includes("/gpt-5") || model.includes("/o1") || model.includes("/o3")) return true;
+  // Lovable gateway requires max_completion_tokens for ALL models (including Gemini)
+  if (model.includes("google/") || model.includes("gemini")) return true;
   return false;
 }
 
