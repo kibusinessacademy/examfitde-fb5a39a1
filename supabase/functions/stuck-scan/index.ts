@@ -330,16 +330,19 @@ Deno.serve(async (req) => {
 
       if (isFrozen) {
         systemFrozen = true;
-        // Dedupe: only one notification per hour
+        // Dedupe robustly by title + recent window (JSON-path filters are not reliable across environments)
+        const dedupeTitle = `⚫ System-Freeze: keine completed Jobs seit ${FREEZE_MINUTES}min`;
+        const dedupeSince = new Date(Date.now() - 60 * 60_000).toISOString();
         const dedupeKey = `system_freeze_${new Date().toISOString().slice(0, 13)}`;
         const { count: existing } = await sb
           .from("admin_notifications")
           .select("id", { count: "exact", head: true })
           .eq("category", "ops")
-          .eq("metadata->>dedupe_key", dedupeKey);
+          .eq("title", dedupeTitle)
+          .gte("created_at", dedupeSince);
         if ((existing ?? 0) === 0) {
           await sb.from("admin_notifications").insert({
-            title: `⚫ System-Freeze: keine completed Jobs seit ${FREEZE_MINUTES}min`,
+            title: dedupeTitle,
             body: `Es gibt ${activeCnt} pending/processing Jobs, aber keinen Abschluss seit >${FREEZE_MINUTES} Minuten. Prüfe cron-trigger, pipeline-runner, job-runner und Rate-Limits.`,
             category: "ops",
             severity: "error",

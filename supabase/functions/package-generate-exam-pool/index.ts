@@ -8,6 +8,7 @@ import type { AIProvider } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import type { ModelChoice } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { enqueueJob } from "../_shared/enqueue.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
 import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD, computeHallucinationRisk, computeVariationScore, loadMasteryContext, buildMasteryFeedbackSuffix } from "../_shared/prompt-kit.ts";
@@ -950,7 +951,6 @@ async function enqueueLearningFieldJobs(
   bps: BlueprintInfo[],
   examTarget: number,
 ): Promise<{ enqueued: number; learningFields: number }> {
-  // Group blueprints by learning field
   const lfGroups = new Map<string, BlueprintInfo[]>();
   for (const bp of bps) {
     const lfId = bp.learning_field_id || "unknown";
@@ -961,25 +961,20 @@ async function enqueueLearningFieldJobs(
   const lfCount = lfGroups.size;
   if (lfCount === 0) return { enqueued: 0, learningFields: 0 };
 
-  // ── Step 1: Proportional weighting by blueprint count per LF ──
-  // Anti-Dominanz: No single LF may exceed MAX_LF_SHARE of the total target.
-  // This prevents massive imbalances (e.g. one LF having 60%+ of all questions).
   const totalBps = bps.length;
-  const MIN_LF_SHARE = 0.06; // Every LF gets at least 6% of target
-  const MAX_LF_SHARE = Math.min(0.20, 2.0 / lfCount); // Cap: max 20% or 2/lfCount (whichever is smaller)
+  const MIN_LF_SHARE = 0.06;
+  const MAX_LF_SHARE = Math.min(0.20, 2.0 / lfCount);
 
   const lfWeights = new Map<string, number>();
   for (const [lfId, lfBps] of lfGroups) {
     const naturalWeight = totalBps > 0 ? lfBps.length / totalBps : 1 / lfCount;
-    // Clamp between MIN and MAX share
     lfWeights.set(lfId, Math.min(MAX_LF_SHARE, Math.max(MIN_LF_SHARE, naturalWeight)));
   }
-  // Normalize weights to sum to 1
+
   const totalWeight = Array.from(lfWeights.values()).reduce((s, w) => s + w, 0);
   for (const [lfId, w] of lfWeights) lfWeights.set(lfId, w / totalWeight);
   console.log(`[ExamPool-v5] Anti-Dominanz: lfCount=${lfCount}, MAX_LF_SHARE=${(MAX_LF_SHARE * 100).toFixed(1)}%, weights=[${Array.from(lfWeights.entries()).map(([id, w]) => `${id.slice(0, 8)}:${(w * 100).toFixed(1)}%`).join(', ')}]`);
 
-  // ── Step 2: Query existing questions per LF (gap detection) ──
   const lfIds = Array.from(lfGroups.keys());
   const existingPerLf = new Map<string, number>();
   for (const lfId of lfIds) {
@@ -990,21 +985,15 @@ async function enqueueLearningFieldJobs(
     existingPerLf.set(lfId, count ?? 0);
   }
 
-  // ── Step 3: Calculate gap-aware targets per LF ──
-  const nowIso = new Date().toISOString();
-  const jobs = [];
-
-  // Sort by gap size descending (biggest gaps first = higher priority)
   const lfEntries = Array.from(lfGroups.entries()).sort((a, b) => {
     const aExist = existingPerLf.get(a[0]) ?? 0;
     const bExist = existingPerLf.get(b[0]) ?? 0;
     const aTarget = Math.ceil(examTarget * (lfWeights.get(a[0]) ?? 0));
     const bTarget = Math.ceil(examTarget * (lfWeights.get(b[0]) ?? 0));
-    const aGap = aTarget - aExist;
-    const bGap = bTarget - bExist;
-    return bGap - aGap; // Biggest gap first
+    return (bTarget - bExist) - (aTarget - aExist);
   });
 
+  let enqueued = 0;
   for (const [lfId, lfBps] of lfEntries) {
     const weight = lfWeights.get(lfId) ?? (1 / lfCount);
     const proportionalTarget = Math.ceil(examTarget * weight);
@@ -1016,46 +1005,44 @@ async function enqueueLearningFieldJobs(
       continue;
     }
 
-    // Priority: 0 = run first (biggest gaps), 1 = run later
     const priority = existing === 0 ? 0 : 1;
 
-    jobs.push({
-      job_type: "package_generate_exam_pool",
-      status: "pending",
-      package_id: packageId,
-      attempts: 0,
-      max_attempts: 20, // Chunked jobs need high runway — planned requeue doesn't increment attempts
-      run_after: priority === 0 ? nowIso : new Date(Date.now() + 30_000).toISOString(),
-      payload: {
+    try {
+      const enq = await enqueueJob(sb, {
+        job_type: "package_generate_exam_pool",
         package_id: packageId,
-        curriculum_id: curriculumId,
-        learning_field_filter: lfId,
-        lf_target_total: proportionalTarget,  // SSOT: absolute Zielzahl (NICHT Gap!)
-        lf_gap: gap,                           // Informativer Gap-Wert für Logs
-        lf_existing: existing,
-        blueprint_ids: lfBps.map(b => b.id),
-        options: { exam_target: examTarget },
-        _fan_out: true,
-      },
-    });
+        payload: {
+          package_id: packageId,
+          curriculum_id: curriculumId,
+          learning_field_filter: lfId,
+          learning_field_id: lfId,
+          lf_target_total: proportionalTarget,
+          lf_gap: gap,
+          lf_existing: existing,
+          blueprint_ids: lfBps.map((b) => b.id),
+          options: { exam_target: examTarget },
+          _fan_out: true,
+        },
+        max_attempts: 20,
+        priority: priority === 0 ? 8 : 10,
+        run_after: priority === 0 ? null : new Date(Date.now() + 30_000).toISOString(),
+        batch_cursor: {
+          mode: "lf_fanout",
+          curriculum_id: curriculumId,
+          learning_field_filter: lfId,
+          target_total: proportionalTarget,
+        },
+      });
 
-    console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: weight=${(weight * 100).toFixed(1)}%, target=${proportionalTarget}, existing=${existing}, gap=${gap}`);
-  }
-
-  if (jobs.length > 0) {
-    const { error } = await sb.from("job_queue").insert(jobs);
-    if (error) {
-      // Partial duplicate collisions must NOT short-circuit fan-out.
-      // Retry idempotent per-row inserts and continue with active-subjob count.
-      console.log(`[ExamPool-v5] Fan-out enqueue error: ${error.message} — retrying per-row idempotent inserts`);
-      for (const j of jobs) {
-        await sb.from("job_queue").insert(j).select("id").maybeSingle();
-      }
+      if (enq.status === "pending" || enq.status === "processing") enqueued++;
+      console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: weight=${(weight * 100).toFixed(1)}%, target=${proportionalTarget}, existing=${existing}, gap=${gap}, enqueue_status=${enq.status}`);
+    } catch (e) {
+      console.warn(`[ExamPool-v5] LF ${lfId.slice(0, 8)} enqueue failed: ${(e as Error).message}`);
     }
   }
 
-  console.log(`[ExamPool-v5] Proportional fan-out: ${jobs.length} sub-jobs for ${lfCount} LFs, ${lfEntries.length - jobs.length} already covered`);
-  return { enqueued: jobs.length, learningFields: lfCount };
+  console.log(`[ExamPool-v5] Proportional fan-out: ${enqueued} active sub-jobs for ${lfCount} LFs, ${lfEntries.length - enqueued} skipped/covered`);
+  return { enqueued, learningFields: lfCount };
 }
 
 async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, packageId: string): Promise<boolean> {
@@ -1145,7 +1132,35 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Resolve profession + load glossary
+    // Get blueprints early — root fan-out must run before expensive context generation
+    let bpQuery = sb.from("question_blueprints")
+      .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template, trap_spec, typical_exam_trap, exam_context_type, typical_errors, estimated_time_seconds, decision_structure, exam_relevance_score")
+      .eq("curriculum_id", curriculumId).eq("status", "approved").order("created_at", { ascending: true });
+
+    if (blueprintIds?.length) bpQuery = bpQuery.in("id", blueprintIds);
+
+    const { data: bps, error: bpErr } = await bpQuery;
+    if (bpErr) throw bpErr;
+    if (!bps?.length) {
+      console.warn(`[ExamPool-v5] No approved blueprints for curriculum ${curriculumId} → 409 retry`);
+      return json({ ok: false, retry: true, error: "NO_BLUEPRINTS: auto_seed_exam_blueprints must complete first." }, 409);
+    }
+
+    // Root job: prioritize fan-out path before glossary/model-heavy preparation
+    if (!isFanOut && bpIndex === 0) {
+      const uniqueLFs = new Set(bps.map(b => (b as BlueprintInfo).learning_field_id).filter(Boolean));
+      if (uniqueLFs.size > 1) {
+        const { enqueued, learningFields } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
+        console.log(`[ExamPool-v5] GUARD: Multi-LF detected (${uniqueLFs.size} LFs) → Fan-Out ONLY. Enqueued=${enqueued}`);
+        const alreadyCovered = enqueued === 0;
+        if (alreadyCovered) {
+          console.log(`[ExamPool-v5] GUARD: fan_out_skipped=true, already_covered=true — alle LFs haben Target erreicht`);
+        }
+        return json({ ok: true, batch_complete: alreadyCovered, fan_out: true, fan_out_skipped: alreadyCovered, sub_jobs: enqueued, learningFields });
+      }
+    }
+
+    // Resolve profession + load glossary only when this invocation really generates questions
     const certificationId = p.certification_id || null;
     const professionResult = await resolveProfession(sb, { certificationId, curriculumId });
     const professionName = professionResult.professionName;
@@ -1174,7 +1189,6 @@ Deno.serve(async (req) => {
         mathRatioApplied = true;
       }
     } catch (e) { console.log(`[ExamPool-v5] BREADCRUMB-ERR: catalog lookup failed: ${(e as Error).message}`); }
-    // Fallback: ensure calculation has at least default 0.20 share
     if (!mathRatioApplied) {
       console.log(`[ExamPool-v5] No certification_catalog match for "${professionName}" — using default math_ratio=0.20`);
       applyMathRatio(0.20);
@@ -1183,37 +1197,6 @@ Deno.serve(async (req) => {
 
     if (generatedSoFar === 0 && !isFanOut) {
       console.log(`[ExamPool-v5] Start "${professionName}": target=${examTarget}, engine=v5-ihk-quality`);
-    }
-
-    // Get blueprints
-    let bpQuery = sb.from("question_blueprints")
-      .select("id, max_variations, curriculum_id, learning_field_id, competency_id, name, canonical_statement, cognitive_level, question_template, trap_spec, typical_exam_trap, exam_context_type, typical_errors, estimated_time_seconds, decision_structure, exam_relevance_score")
-      .eq("curriculum_id", curriculumId).eq("status", "approved").order("created_at", { ascending: true });
-
-    if (blueprintIds?.length) bpQuery = bpQuery.in("id", blueprintIds);
-
-    const { data: bps, error: bpErr } = await bpQuery;
-    if (bpErr) throw bpErr;
-    // Graceful prereq guard: if no blueprints exist, return 409 retry instead of crashing
-    if (!bps?.length) {
-      console.warn(`[ExamPool-v5] No approved blueprints for curriculum ${curriculumId} → 409 retry`);
-      return json({ ok: false, retry: true, error: "NO_BLUEPRINTS: auto_seed_exam_blueprints must complete first." }, 409);
-    }
-
-    // ── GUARD: Root-Job MUSS Fan-Out verwenden bei Multi-LF ──
-    // Root darf NIE selbst generieren wenn Fan-Out möglich ist
-    if (!isFanOut && bpIndex === 0) {
-      const uniqueLFs = new Set(bps.map(b => (b as BlueprintInfo).learning_field_id).filter(Boolean));
-      if (uniqueLFs.size > 1) {
-        const { enqueued, learningFields } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
-        console.log(`[ExamPool-v5] GUARD: Multi-LF detected (${uniqueLFs.size} LFs) → Fan-Out ONLY. Enqueued=${enqueued}`);
-        // IMMER returnen bei Multi-LF, auch wenn enqueued=0 (= alle LFs covered)
-        const alreadyCovered = enqueued === 0;
-        if (alreadyCovered) {
-          console.log(`[ExamPool-v5] GUARD: fan_out_skipped=true, already_covered=true — alle LFs haben Target erreicht`);
-        }
-        return json({ ok: true, batch_complete: alreadyCovered, fan_out: true, fan_out_skipped: alreadyCovered, sub_jobs: enqueued, learningFields });
-      }
     }
 
     // Load existing hashes for dedup
