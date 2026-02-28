@@ -115,7 +115,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   package_validate_lesson_minichecks:{ pool: "core" },
   package_validate_handbook:         { pool: "core" },
   package_auto_seed_exam_blueprints: { pool: "core" },
-  package_generate_exam_pool:        { pool: "core" },
+  package_generate_exam_pool:        { pool: "content", edgeFunction: "package-generate-exam-pool" },
   package_build_ai_tutor_index:      { pool: "core" },
   package_elite_harden:              { pool: "core" },
   package_run_integrity_check:       { pool: "core" },
