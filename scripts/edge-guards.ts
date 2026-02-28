@@ -709,10 +709,32 @@ async function main() {
       }
       console.error("");
     }
+
+    const bySeverity = findings.reduce((acc, f) => {
+      acc[f.severity] = (acc[f.severity] ?? 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.error("🔎 Governance Summary:");
+    for (const [sev, count] of Object.entries(bySeverity)) {
+      console.error(`  • ${sev}: ${count}`);
+    }
+    console.error(`  Total: ${findings.length} finding(s)\n`);
+
     Deno.exit(1);
   }
 
-  console.log("✅ Edge Guards passed (no critical security/drift issues found).");
+  console.log("\n🛡  All governance layers passed:");
+  console.log("   ✓ SSOT integrity (job-map)");
+  console.log("   ✓ Job-queue bypass protection");
+  console.log("   ✓ Schema drift");
+  console.log("   ✓ Security invariants");
+  console.log("   ✓ Edge function directory validation");
+  console.log("   ✓ Pool contract");
+  console.log("   ✓ Step order topology");
+  console.log("   ✓ Time budget governance");
+  console.log("   ✓ Concurrency governance");
+  console.log("   ✓ SSOT existence & soft-stop enforcement");
+  console.log("\n✅ System Integrity Verified.");
 }
 
 await main();
