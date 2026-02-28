@@ -1592,7 +1592,18 @@ Deno.serve(async (req) => {
       );
 
       if (acquireErr) {
-        console.error(`[runner] acquire error on slot ${slot}:`, acquireErr.message);
+        const msg = acquireErr.message || "unknown acquire error";
+        console.error(`[runner] acquire error on slot ${slot}:`, msg);
+
+        // Self-heal path: stale/non-building lease drift should not stall all slots
+        if (msg.includes("PACKAGE_LEASES_NON_BUILDING")) {
+          await safeRpc(sb, "ops_hygiene_cleanup", {
+            p_max_lease_cleanup: 100,
+            p_max_job_cleanup: 200,
+          });
+          continue;
+        }
+
         break;
       }
 

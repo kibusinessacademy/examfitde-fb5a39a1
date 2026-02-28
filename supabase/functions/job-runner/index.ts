@@ -617,10 +617,20 @@ Deno.serve(async (req) => {
         const prereqStatus = stepMap.get(prereqStep);
         // "skipped" counts as fulfilled — the step was intentionally bypassed by track logic
         if (prereqStatus !== "done" && prereqStatus !== "skipped") {
-          // FIX v5.2: Requeue instead of cancel — prereq may finish soon, cancelling causes zombie steps
-          console.warn(`[job-runner] Prereq guard: ${job.job_type} requeued — ${prereqStep} is '${prereqStatus ?? 'missing'}' (pkg ${(job.payload.package_id as string).slice(0, 8)})`);
-          await requeueWithBackoff(sb, job.id, job.meta, BACKOFF_PREREQ_MS,
-            `Prereq guard: ${prereqStep} not done (${prereqStatus ?? 'missing'})`, tsNow);
+          // Adaptive backoff: if prereq is already enqueued/running, wait longer to avoid hot requeue loops
+          const prereqDelayMs = (prereqStatus === "enqueued" || prereqStatus === "running")
+            ? 90_000
+            : BACKOFF_PREREQ_MS;
+
+          console.warn(`[job-runner] Prereq guard: ${job.job_type} requeued — ${prereqStep} is '${prereqStatus ?? 'missing'}' (pkg ${(job.payload.package_id as string).slice(0, 8)}, backoff=${prereqDelayMs}ms)`);
+          await requeueWithBackoff(
+            sb,
+            job.id,
+            job.meta,
+            prereqDelayMs,
+            `Prereq guard: ${prereqStep} not done (${prereqStatus ?? 'missing'})`,
+            tsNow,
+          );
           results.push({ id: job.id, status: "requeued", reason: "prereq_not_done" });
           continue;
         }
