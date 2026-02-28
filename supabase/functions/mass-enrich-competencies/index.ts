@@ -56,22 +56,39 @@ function safeParse(raw: string): unknown | null {
   // Strip markdown code fences (```json ... ```)
   let cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
   try { return JSON.parse(cleaned); } catch { /* */ }
-  // Try to extract the largest JSON object or array
-  const m = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-  if (!m) return null;
-  try { return JSON.parse(m[1]); } catch { /* */ }
-  // Last resort: try to repair truncated JSON by closing brackets
-  let attempt = m[1];
+
+  // Try strict extraction first (balanced object/array)
+  const strict = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (strict) {
+    try { return JSON.parse(strict[1]); } catch { /* */ }
+  }
+
+  // Fallback for truncated model output: take from first JSON opener to end and repair
+  const firstObj = cleaned.indexOf("{");
+  const firstArr = cleaned.indexOf("[");
+  const first = [firstObj, firstArr].filter((x) => x >= 0).sort((a, b) => a - b)[0];
+  if (first === undefined) return null;
+
+  let attempt = cleaned.slice(first).replace(/,\s*$/, "");
+  attempt = attempt.replace(/,\s*"[^"]*"?\s*:?\s*$/, "");
+
   const openBraces = (attempt.match(/\{/g) || []).length;
   const closeBraces = (attempt.match(/\}/g) || []).length;
   const openBrackets = (attempt.match(/\[/g) || []).length;
   const closeBrackets = (attempt.match(/\]/g) || []).length;
-  // Remove trailing comma or incomplete key-value
-  attempt = attempt.replace(/,\s*$/, "");
-  attempt = attempt.replace(/,\s*"[^"]*"?\s*:?\s*$/, "");
+
   for (let i = 0; i < openBraces - closeBraces; i++) attempt += "}";
   for (let i = 0; i < openBrackets - closeBrackets; i++) attempt += "]";
+
   try { return JSON.parse(attempt); } catch { return null; }
+}
+
+function parseEnrichmentsFromRaw(raw: string): any[] | null {
+  const parsed = safeParse(raw);
+  if (!parsed) return null;
+  if (Array.isArray(parsed)) return parsed as any[];
+  const wrapped = (parsed as any)?.enrichments;
+  return Array.isArray(wrapped) ? wrapped : null;
 }
 
 /* ── Profession prompt builder ── */
@@ -117,7 +134,7 @@ Deno.serve(async (req) => {
   );
 
   const body = await req.json().catch(() => ({}));
-  const COMP_BATCH = Math.min(body.batch_size || 5, 10); // reduced from 10 to 5 to prevent output truncation
+  const COMP_BATCH = Math.min(body.batch_size || 3, 6); // smaller batches to avoid model truncation
   const MAX_CURRICULA = Math.min(body.max_curricula || 1, 2);
   const TIME_BUDGET_MS = 50_000; // 50s safe budget (leave margin for DB)
   const startTime = Date.now();
@@ -236,79 +253,107 @@ Erstelle für JEDE Kompetenz:
 Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions, transfer_markers}]}`;
 
       try {
+        let enriched = 0;
+        let skipped = 0;
+
+        const applyEnrichments = async (enrichments: any[]) => {
+          for (const e of enrichments) {
+            if (!e?.id) {
+              skipped++;
+              continue;
+            }
+            const update: Record<string, any> = {};
+            let valid = false;
+
+            if (
+              typeof e.context_conditions === "string" &&
+              e.context_conditions.length >= 30
+            ) {
+              update.context_conditions = e.context_conditions;
+              valid = true;
+            }
+            if (Array.isArray(e.misconceptions)) {
+              const good = e.misconceptions.filter(validateMisconception);
+              if (good.length >= 2) {
+                update.typical_misconceptions = good;
+                valid = true;
+              }
+            }
+            if (Array.isArray(e.transfer_markers)) {
+              const good = e.transfer_markers.filter(validateTransferMarker);
+              if (good.length >= 1) {
+                update.transfer_markers = good;
+                valid = true;
+              }
+            }
+
+            if (valid) {
+              update.enrichment_version = 2;
+              update.enriched_at = new Date().toISOString();
+              const { error: upErr } = await sb
+                .from("competencies")
+                .update(update)
+                .eq("id", e.id);
+              if (!upErr) enriched++;
+              else skipped++;
+            } else {
+              skipped++;
+            }
+          }
+        };
+
         const aiResp = await callAIJSON({
           provider: "lovable",
           model: "google/gemini-2.5-flash",
           messages: [
-            { role: "system", content: systemPrompt },
+            { role: "system", content: `${systemPrompt}\n\nHalte die Ausgabe kompakt und valide JSON-only.` },
             {
               role: "user",
               content: `Enriche diese ${comps.length} Kompetenzen für "${cur.beruf_kurz}":\n${JSON.stringify(compList)}`,
             },
           ],
-          max_tokens: Math.max(8000, comps.length * 600), // increased tokens-per-comp to prevent truncation
+          max_tokens: Math.max(5000, comps.length * 450),
         });
 
-        const parsed = safeParse(aiResp.content);
-        if (!parsed) {
+        let enrichments = parseEnrichmentsFromRaw(aiResp.content);
+
+        // Deterministic fallback: if batch output is truncated/invalid, process competency-by-competency
+        if (!enrichments) {
           console.warn(
-            `[MassEnrich] Parse fail for ${cur.beruf_kurz}: ${aiResp.content.slice(0, 200)}`,
+            `[MassEnrich] Batch parse fail for ${cur.beruf_kurz} → fallback single-item mode: ${aiResp.content.slice(0, 200)}`,
           );
-          results.push({
-            curriculum_id: cur.curriculum_id,
-            beruf: cur.beruf_kurz,
-            enriched: 0,
-            skipped: comps.length,
-            remaining: cur.unenriched_count,
-          });
-          continue;
-        }
 
-        const enrichments: any[] = Array.isArray(parsed)
-          ? parsed
-          : ((parsed as any).enrichments || []);
-        let enriched = 0;
-        let skipped = 0;
+          for (const single of compList) {
+            if (Date.now() - startTime > TIME_BUDGET_MS) break;
+            try {
+              const singleResp = await callAIJSON({
+                provider: "lovable",
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  { role: "system", content: `${systemPrompt}\n\nGib genau 1 Enrichment-Objekt zurück, nur JSON.` },
+                  {
+                    role: "user",
+                    content: `Enriche genau diese eine Kompetenz für "${cur.beruf_kurz}":\n${JSON.stringify([single])}`,
+                  },
+                ],
+                max_tokens: 2400,
+              });
 
-        for (const e of enrichments) {
-          if (!e.id) continue;
-          const update: Record<string, any> = {};
-          let valid = false;
+              const singleEnrichments = parseEnrichmentsFromRaw(singleResp.content);
+              if (!singleEnrichments?.length) {
+                skipped++;
+                console.warn(`[MassEnrich] Single-item parse fail ${cur.beruf_kurz} comp=${single.id?.slice?.(0, 8) || single.id}`);
+                continue;
+              }
 
-          if (
-            typeof e.context_conditions === "string" &&
-            e.context_conditions.length >= 30
-          ) {
-            update.context_conditions = e.context_conditions;
-            valid = true;
-          }
-          if (Array.isArray(e.misconceptions)) {
-            const good = e.misconceptions.filter(validateMisconception);
-            if (good.length >= 2) {
-              update.typical_misconceptions = good;
-              valid = true;
+              await applyEnrichments(singleEnrichments.slice(0, 1));
+            } catch (singleErr) {
+              skipped++;
+              console.warn(`[MassEnrich] Single-item fallback error for ${cur.beruf_kurz}: ${(singleErr as Error).message}`);
             }
           }
-          if (Array.isArray(e.transfer_markers)) {
-            const good = e.transfer_markers.filter(validateTransferMarker);
-            if (good.length >= 1) {
-              update.transfer_markers = good;
-              valid = true;
-            }
-          }
-
-          if (valid) {
-            update.enrichment_version = 2;
-            update.enriched_at = new Date().toISOString();
-            const { error: upErr } = await sb
-              .from("competencies")
-              .update(update)
-              .eq("id", e.id);
-            if (!upErr) enriched++;
-            else skipped++;
-          } else {
-            skipped++;
-          }
+        } else {
+          await applyEnrichments(enrichments);
         }
 
         // ── 4. Fast remaining count via RPC ──
@@ -322,7 +367,7 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
           beruf: cur.beruf_kurz,
           enriched,
           skipped,
-          remaining: remaining ?? cur.unenriched_count - enriched,
+          remaining: remaining ?? Math.max(0, cur.unenriched_count - enriched),
         });
       } catch (aiErr) {
         console.error(
