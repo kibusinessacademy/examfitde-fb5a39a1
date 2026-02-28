@@ -175,8 +175,8 @@ Deno.serve(async (req) => {
   );
 
   const body = await req.json().catch(() => ({}));
-  const COMP_BATCH = Math.min(body.batch_size || 5, 8); // 5 default for higher throughput
-  const MAX_CURRICULA = Math.min(body.max_curricula || 3, 5); // 3 curricula per invocation
+  const COMP_BATCH = Math.min(body.batch_size || 6, 8); // 6 default for higher throughput
+  const MAX_CURRICULA = Math.min(body.max_curricula || 5, 6); // 5 curricula per invocation
   const TIME_BUDGET_MS = 50_000; // 50s safe budget (leave margin for DB)
   const startTime = Date.now();
   const targetCurriculumIds: string[] | undefined = body.curriculum_ids;
