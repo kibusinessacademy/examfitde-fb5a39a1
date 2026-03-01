@@ -646,13 +646,17 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
           throw new Error(`Content too short: ${charCount} chars (min ${minChars})`);
         }
         // v2: Combined quality gate (depth + hallucination + variation)
+        // v5.7: Depth failures → warn only (content still saved to content_versions for Council review)
+        //       Only hallucination "regenerate" verdict causes hard fail.
+        //       This prevents infinite loops where content is generated but never saved.
         const v2Result = runV2QualityGate(content.html || "", lesson.step, difficultyLevel);
-        if (v2Result.overallVerdict === "fail") {
-          const reasons = [
-            ...v2Result.depthMissing,
-            ...(v2Result.hallucinationRisk.verdict === "regenerate" ? [`Halluzinationsrisiko: ${v2Result.hallucinationRisk.riskScore} (${v2Result.hallucinationRisk.suspiciousRegulatory.join(", ")})`] : []),
-          ].join("; ");
-          throw new Error(`v2 Quality Gate FAILED for ${lesson.id}: ${reasons}`);
+        if (v2Result.hallucinationRisk.verdict === "regenerate") {
+          const reasons = `Halluzinationsrisiko: ${v2Result.hallucinationRisk.riskScore} (${v2Result.hallucinationRisk.suspiciousRegulatory.join(", ")})`;
+          throw new Error(`v2 Quality Gate FAILED (hallucination) for ${lesson.id}: ${reasons}`);
+        }
+        if (v2Result.overallVerdict === "fail" && !v2Result.depthPasses) {
+          // Depth issues → log warning but still save content (Council can review)
+          console.warn(`[gen-content] v2 Quality DEPTH-WARN for ${lesson.id}: ${v2Result.depthMissing.join("; ")} — saving anyway for Council review`);
         }
         if (v2Result.overallVerdict === "warn") {
           console.warn(`[gen-content] v2 Quality WARN for ${lesson.id}: depth=${v2Result.depthPasses}, hallucination=${v2Result.hallucinationRisk.riskScore}, variation=${v2Result.variationScore.score}`);
