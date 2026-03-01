@@ -5,6 +5,8 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
+const LESSON_STEPS = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"] as const;
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
@@ -24,32 +26,133 @@ Deno.serve(async (req) => {
   // Do NOT touch pipeline_lock / course_package_locks / update_course_package_step.
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const fnUrl = `${supabaseUrl}/functions/v1/generate-course`;
+    // ── Generation Lock (idempotent) ──
+    const { error: lockError } = await sb
+      .from("course_generation_locks")
+      .insert({ course_id: courseId, locked_by: "pipeline" });
 
-    const resp = await fetch(fnUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-job-runner-key": serviceRoleKey,
-        "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")!}`,
-      },
-      body: JSON.stringify({ courseId, curriculumId }),
-    });
-
-    const data = await resp.json().catch(() => ({}));
-
-    if (!resp.ok && (data as Record<string, unknown>)?.code !== "GENERATION_LOCKED") {
-      throw new Error(data?.error || `generate-course returned ${resp.status}`);
-    }
-    if ((data as Record<string, unknown>)?.code === "GENERATION_LOCKED") {
-      // Idempotency: if already generating, treat as success (another run is handling it)
-      console.log(`[scaffold] Course ${courseId} already locked — treating as idempotent success`);
-      return json({ ok: true, skipped: true, reason: "GENERATION_LOCKED" });
+    if (lockError) {
+      if (lockError.code === "23505") {
+        console.log(`[scaffold] Course ${courseId} already locked — treating as idempotent success`);
+        return json({ ok: true, skipped: true, reason: "GENERATION_LOCKED" });
+      }
+      // Non-lock error: continue anyway (table might not exist for some setups)
+      console.warn(`[scaffold] Lock warning: ${lockError.message}`);
     }
 
-    return json({ ok: true, result: data ?? null });
+    try {
+      // ── Set course status ──
+      await sb.from("courses").update({ status: "generating", publishing_status: "draft" }).eq("id", courseId);
+
+      // ── Load learning fields ──
+      const { data: lfs, error: lfErr } = await sb
+        .from("learning_fields")
+        .select("id, code, title, description, sort_order")
+        .eq("curriculum_id", curriculumId)
+        .order("sort_order");
+
+      if (lfErr) throw new Error(`LF query: ${lfErr.message}`);
+      if (!lfs || lfs.length === 0) throw new Error("No learning fields found");
+
+      let modulesCreated = 0;
+      let lessonsCreated = 0;
+
+      for (const lf of lfs) {
+        // Check if module already exists (idempotent)
+        const { data: existingMod } = await sb
+          .from("modules")
+          .select("id")
+          .eq("course_id", courseId)
+          .eq("learning_field_id", lf.id)
+          .maybeSingle();
+
+        let modId: string;
+        if (existingMod) {
+          modId = existingMod.id;
+        } else {
+          const { data: mod, error: modErr } = await sb.from("modules").insert({
+            course_id: courseId,
+            learning_field_id: lf.id,
+            title: `${lf.code}: ${lf.title}`,
+            description: lf.description,
+            sort_order: lf.sort_order,
+          }).select("id").single();
+
+          if (modErr) {
+            if (modErr.code === "23505") continue; // duplicate
+            throw new Error(`Module insert: ${modErr.message}`);
+          }
+          if (!mod) continue;
+          modId = mod.id;
+          modulesCreated++;
+        }
+
+        // ── Load competencies ──
+        const { data: comps } = await sb
+          .from("competencies")
+          .select("id, code, title, description, taxonomy_level, sort_order")
+          .eq("learning_field_id", lf.id)
+          .order("sort_order");
+
+        if (!comps || comps.length === 0) continue;
+
+        // Check if lessons already exist for this module
+        const { count: existingLessons } = await sb
+          .from("lessons")
+          .select("id", { count: "exact", head: true })
+          .eq("module_id", modId);
+
+        if ((existingLessons ?? 0) > 0) continue; // already scaffolded
+
+        const rows = [];
+        for (const comp of comps) {
+          for (let si = 0; si < LESSON_STEPS.length; si++) {
+            const step = LESSON_STEPS[si];
+            rows.push({
+              module_id: modId,
+              competency_id: comp.id,
+              title: `${comp.code}: ${comp.title}`,
+              step,
+              content: {
+                type: step === "mini_check" ? "mini_check" : "text",
+                html: `<h3>${comp.title} – ${step}</h3><p>⏳ Inhalt wird generiert...</p>`,
+                objectives: [`Verständnis von ${comp.title}`],
+                _placeholder: true,
+              },
+              duration_minutes: step === "mini_check" ? 5 : 10,
+              sort_order: (comp.sort_order || 0) * 5 + si,
+              weight_tag: ["mini_check", "anwenden"].includes(step) ? "high" : step === "verstehen" ? "medium" : "low",
+              exam_relevance_score: 30,
+              mastery_weight: step === "mini_check" ? 1.0 : 0,
+              minicheck_parsed: false,
+            });
+          }
+        }
+
+        if (rows.length > 0) {
+          // Chunk inserts to avoid payload limits
+          const CHUNK = 200;
+          for (let i = 0; i < rows.length; i += CHUNK) {
+            const { error: insErr } = await sb.from("lessons").insert(rows.slice(i, i + CHUNK));
+            if (insErr) {
+              if (insErr.code === "23505") continue; // duplicates
+              throw new Error(`Lesson insert: ${insErr.message}`);
+            }
+          }
+          lessonsCreated += rows.length;
+        }
+      }
+
+      // ── Update course status ──
+      await sb.from("courses").update({ status: "draft" }).eq("id", courseId);
+
+      console.log(`[scaffold] Done: ${modulesCreated} modules, ${lessonsCreated} lessons for course ${courseId.slice(0, 8)}`);
+      return json({ ok: true, batch_complete: true, modules_created: modulesCreated, lessons_created: lessonsCreated });
+
+    } finally {
+      // Release generation lock
+      await sb.from("course_generation_locks").delete().eq("course_id", courseId);
+    }
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     // Idempotency: if unique constraint violation, the scaffold already ran
