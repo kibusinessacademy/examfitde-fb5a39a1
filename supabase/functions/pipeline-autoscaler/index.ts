@@ -57,17 +57,15 @@ Deno.serve(async (req) => {
   // Query error rate over the last WINDOW_HOURS
   const since = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 
-  const { data: stats } = await sb.rpc("sql", { query: "" }).maybeSingle();
-  // Use direct query via count
   const { count: totalCount } = await sb
     .from("job_queue")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .in("status", ["completed", "failed"])
     .gte("created_at", since);
 
   const { count: failedCount } = await sb
     .from("job_queue")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("status", "failed")
     .gte("created_at", since);
 
