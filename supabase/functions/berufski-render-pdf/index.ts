@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const beruf = product.berufski_berufe as Record<string, unknown>;
 
     // ── 2) Load theme (product.theme_id or default) ──
-    let theme = { primary: "#0B7285", accent: "#20C997", font: "Inter", logoUrl: null as string | null, brandName: "BerufsKI" };
+    let theme = { primary: "#0B7285", accent: "#20C997", font: "Inter", logoUrl: null as string | null, brandName: "ExamFit@work" };
     const themeId = product.theme_id;
     if (themeId) {
       const { data: dbTheme } = await sb.from("berufski_brand_themes").select("*").eq("id", themeId).maybeSingle();

@@ -93,10 +93,11 @@ serve(async (req) => {
 
       const meta = session.metadata || {};
 
-      // ── Route: BerufsKI purchases are handled in the dedicated section below ──
-      // ── Route: BerufsKI brand is handled in the dedicated section below ──
-      if (meta.brand === 'BerufsKI') {
-        logStep("BerufsKI brand detected — skipping ExamFit handler, will process below");
+      // ── Route: ExamFit@work (formerly BerufsKI) purchases are handled below ──
+      const _brandLower = String(meta.brand || '').toLowerCase();
+      const _isWorkBrand = _brandLower.includes('examfit@work') || _brandLower.includes('examfitwork') || _brandLower === 'berufski';
+      if (_isWorkBrand) {
+        logStep("ExamFit@work brand detected — skipping ExamFit handler, will process below");
       } else {
         // ── ExamFit Store handler ──
         try {
@@ -562,15 +563,19 @@ serve(async (req) => {
       });
     }
 
-    // ========== BerufsKI checkout.session.completed (brand=BerufsKI) ==========
+    // ========== ExamFit@work checkout.session.completed (brand=ExamFit@work or legacy BerufsKI) ==========
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const meta = session.metadata || {};
       const appBaseUrl = Deno.env.get('APP_BASE_URL') || 'https://examfit.de';
+      const brandName = 'ExamFit@work';
 
-      if (meta.brand === 'BerufsKI' && session.payment_status === 'paid') {
+      const wBrandLower = String(meta.brand || '').toLowerCase();
+      const isWorkBrand = wBrandLower.includes('examfit@work') || wBrandLower.includes('examfitwork') || wBrandLower === 'berufski';
+
+      if (isWorkBrand && session.payment_status === 'paid') {
         const scope = meta.scope || 'product';
-        logStep("BerufsKI purchase detected", { scope, productId: meta.productId, bundleId: meta.bundleId });
+        logStep("ExamFit@work purchase detected", { scope, productId: meta.productId, bundleId: meta.bundleId });
 
         const buyerEmail = session.customer_email || session.customer_details?.email || '';
         const amountTotal = session.amount_total || 0;
@@ -629,13 +634,14 @@ serve(async (req) => {
               }
 
               // Build download links with token
-              const dlBase = `${appBaseUrl}/berufski/download?product=${meta.productId}&token=${downloadToken}`;
+              const dlBase = `${appBaseUrl}/work/download?product=${meta.productId}&token=${downloadToken}`;
               const dlScreen = `${dlBase}&mode=screen`;
               const dlPrint = `${dlBase}&mode=print`;
+              const expiresStr = new Date(Date.now() + 90 * 24 * 3600 * 1000).toLocaleDateString('de-DE');
 
               await adminClient.from('berufski_email_outbox').insert({
                 to_email: buyerEmail,
-                subject: 'Dein BerufsKI Download ist bereit 🎉',
+                subject: `Dein ${brandName} Download ist bereit 🎉`,
                 html: `<div style="font-family:system-ui,Segoe UI,Roboto,Arial;line-height:1.6">
                   <h2>Danke für deinen Kauf! 🎉</h2>
                   <p>Dein Download ist jetzt bereit:</p>
@@ -647,7 +653,7 @@ serve(async (req) => {
                     Tipp: Prüfungsvorbereitung & Lernsysteme findest du bei <a href="https://examfit.de">examfit.de</a>.
                   </p>
                   <hr style="border:none;border-top:1px solid #eee;margin:16px 0"/>
-                  <p style="color:#666;font-size:12px">Download-Links gültig bis: ${new Date(Date.now() + 90 * 24 * 3600 * 1000).toLocaleDateString('de-DE')} · BerufsKI.de</p>
+                  <p style="color:#666;font-size:12px">Download-Links gültig bis: ${expiresStr} · ${brandName}</p>
                 </div>`,
                 meta: { scope: 'product', productId: meta.productId, purchaseId: bkiPurchase.id, affiliateCode: meta.affiliateCode, downloadToken },
               });
@@ -692,11 +698,12 @@ serve(async (req) => {
                 await adminClient.rpc('berufski_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
               }
 
-              const bundleDlBase = `${appBaseUrl}/berufski/download?bundle=${meta.bundleId}&token=${downloadToken}`;
+              const bundleDlBase = `${appBaseUrl}/work/download?bundle=${meta.bundleId}&token=${downloadToken}`;
+              const bundleExpiresStr = new Date(Date.now() + 90 * 24 * 3600 * 1000).toLocaleDateString('de-DE');
 
               await adminClient.from('berufski_email_outbox').insert({
                 to_email: buyerEmail,
-                subject: 'Dein BerufsKI Bundle-Download ist bereit 🎉',
+                subject: `Dein ${brandName} Bundle-Download ist bereit 🎉`,
                 html: `<div style="font-family:system-ui,Segoe UI,Roboto,Arial;line-height:1.6">
                   <h2>Bundle-Kauf erfolgreich! 🎉</h2>
                   <p>Dein Bundle-Download ist jetzt verfügbar:</p>
@@ -704,7 +711,7 @@ serve(async (req) => {
                     <a href="${bundleDlBase}&mode=pdf" style="display:inline-block;background:#000;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">📦 Bundle PDF herunterladen</a>
                   </div>
                   <hr style="border:none;border-top:1px solid #eee;margin:16px 0"/>
-                  <p style="color:#666;font-size:12px">Download-Link gültig bis: ${new Date(Date.now() + 90 * 24 * 3600 * 1000).toLocaleDateString('de-DE')} · BerufsKI.de</p>
+                  <p style="color:#666;font-size:12px">Download-Link gültig bis: ${bundleExpiresStr} · ${brandName}</p>
                 </div>`,
                 meta: { scope: 'bundle', bundleId: meta.bundleId, purchaseId: bundlePurchase.id, affiliateCode: meta.affiliateCode, downloadToken },
               });

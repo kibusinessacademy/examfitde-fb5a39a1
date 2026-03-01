@@ -117,6 +117,9 @@ serve(async (req) => {
       { path: "/wissen", priority: 0.8, changefreq: "daily" },
       { path: "/preise", priority: 0.7, changefreq: "monthly" },
       { path: "/unternehmen", priority: 0.6, changefreq: "monthly" },
+      // ExamFit@work routes
+      { path: "/work", priority: 0.9, changefreq: "weekly" },
+      { path: "/work/corporate", priority: 0.7, changefreq: "monthly" },
     ];
 
     staticPages.forEach((page) => {

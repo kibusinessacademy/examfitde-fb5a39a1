@@ -44,9 +44,9 @@ serve(async (req) => {
 
       if (!stripeProductId) {
         const sp = await stripe.products.create({
-          name: `BerufsKI Corporate Lizenz — ${plan}`,
+          name: `ExamFit@work Corporate Lizenz — ${plan}`,
           description: `Corporate Lizenz Plan ${plan} (jährlich)`,
-          metadata: { scope: 'corporate', plan, brand: 'BerufsKI' },
+          metadata: { scope: 'corporate', plan, brand: 'ExamFit@work' },
         });
         stripeProductId = sp.id;
       }

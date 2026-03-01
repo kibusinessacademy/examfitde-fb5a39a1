@@ -94,8 +94,8 @@ serve(async (req) => {
     if (!stripeProductId) {
       const sp = await stripe.products.create({
         name: prod.titel,
-        description: `BerufsKI Produkt für ${beruf?.name || 'Beruf'} (Tier ${prod.tier}€).`,
-        metadata: { productId, beruf: beruf?.name || '', tier: prod.tier, brand: 'BerufsKI' },
+        description: `ExamFit@work Produkt für ${beruf?.name || 'Beruf'} (Tier ${prod.tier}€).`,
+        metadata: { productId, beruf: beruf?.name || '', tier: prod.tier, brand: 'ExamFit@work' },
       });
       stripeProductId = sp.id;
       logStep("Stripe product created", { stripeProductId });

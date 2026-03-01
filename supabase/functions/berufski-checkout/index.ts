@@ -94,8 +94,8 @@ serve(async (req) => {
       }).catch(() => null);
     }
 
-    const successUrl = `${appBaseUrl}/berufski/success?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${appBaseUrl}${landingPath || `/berufski/ki-fuer/${beruf?.slug || ''}`}`;
+    const successUrl = `${appBaseUrl}/work/success?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${appBaseUrl}${landingPath || `/work/buy/${prod.id}`}`;
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -111,7 +111,7 @@ serve(async (req) => {
         tier: prod.tier,
         couponCode: appliedCouponCode || '',
         affiliateCode: affiliateCode || '',
-        brand: 'BerufsKI',
+        brand: 'ExamFit@work',
       },
     });
 
