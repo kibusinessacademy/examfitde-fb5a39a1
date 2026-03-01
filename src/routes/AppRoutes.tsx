@@ -62,6 +62,7 @@ const BusinessPage = lazy(() => import('@/pages/admin/v4/BusinessPage'));
 const GrowthPage = lazy(() => import('@/pages/admin/v4/GrowthPage'));
 const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
 const PipelineMonitorPage = lazy(() => import('@/pages/admin/v4/PipelineMonitorPage'));
+const BerufsKIPipelinePage = lazy(() => import('@/pages/admin/v4/BerufsKIPipelinePage'));
 const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
 const CRMPage = lazy(() => import('@/pages/admin/v4/CRMPage'));
 const SupportPage = lazy(() => import('@/pages/admin/v4/SupportPage'));
@@ -234,6 +235,7 @@ const AppRoutes = () => {
           <Route path="queue" element={<QueueManagerPage />} />
           <Route path="social" element={<SocialEnginePage />} />
           <Route path="berufski" element={<BerufsKIPage />} />
+          <Route path="berufski/pipeline" element={<BerufsKIPipelinePage />} />
           <Route path="berufski/templates" element={<BerufsKITemplatesPage />} />
           <Route path="berufski/bundles" element={<BerufsKIBundlesPage />} />
           <Route path="berufski/licenses" element={<BerufsKILicensesPage />} />

@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Plus, Loader2, Tag, Users, Mail, Rocket, ShoppingCart,
-  CheckCircle2, XCircle, Eye, Download, TicketPercent
+  CheckCircle2, XCircle, Eye, Download, TicketPercent, Trash2
 } from 'lucide-react';
 
 // ─── Hooks ───
@@ -173,7 +173,7 @@ function CouponsSection() {
   const qc = useQueryClient();
   const { data: coupons = [], isLoading } = useCoupons();
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ code: '', type: 'percent' as string, value: '', max_redemptions: '' });
+  const [form, setForm] = useState({ code: '', type: 'percent' as string, value: '', max_redemptions: '', starts_at: '', ends_at: '' });
 
   const create = useMutation({
     mutationFn: async () => {
@@ -182,6 +182,8 @@ function CouponsSection() {
         type: form.type,
         value: Number(form.value),
         max_redemptions: form.max_redemptions ? Number(form.max_redemptions) : null,
+        starts_at: form.starts_at || null,
+        ends_at: form.ends_at || null,
         active: true,
       });
       if (error) throw error;
@@ -190,7 +192,7 @@ function CouponsSection() {
       toast.success('Coupon erstellt');
       qc.invalidateQueries({ queryKey: ['berufski-coupons'] });
       setShowCreate(false);
-      setForm({ code: '', type: 'percent', value: '', max_redemptions: '' });
+      setForm({ code: '', type: 'percent', value: '', max_redemptions: '', starts_at: '', ends_at: '' });
     },
     onError: (e) => toast.error(`Fehler: ${(e as Error).message}`),
   });
@@ -201,6 +203,15 @@ function CouponsSection() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['berufski-coupons'] }),
+  });
+
+  const deleteCoupon = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('berufski_coupons').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success('Coupon gelöscht'); qc.invalidateQueries({ queryKey: ['berufski-coupons'] }); },
+    onError: (e) => toast.error((e as Error).message),
   });
 
   return (
@@ -225,6 +236,10 @@ function CouponsSection() {
               </div>
               <div><Label>Wert ({form.type === 'percent' ? '%' : '€'})</Label><Input type="number" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} /></div>
               <div><Label>Max. Einlösungen (leer = unbegrenzt)</Label><Input type="number" value={form.max_redemptions} onChange={e => setForm(f => ({ ...f, max_redemptions: e.target.value }))} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Gültig ab</Label><Input type="date" value={form.starts_at} onChange={e => setForm(f => ({ ...f, starts_at: e.target.value }))} /></div>
+                <div><Label>Gültig bis</Label><Input type="date" value={form.ends_at} onChange={e => setForm(f => ({ ...f, ends_at: e.target.value }))} /></div>
+              </div>
               <Button onClick={() => create.mutate()} disabled={!form.code || !form.value || create.isPending} className="w-full">
                 {create.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}Erstellen
               </Button>
@@ -242,8 +257,15 @@ function CouponsSection() {
                   <Badge variant={c.active ? 'default' : 'secondary'}>{c.code}</Badge>
                   <span className="text-sm">{c.type === 'percent' ? `${c.value}%` : `${c.value}€`} Rabatt</span>
                   <span className="text-xs text-muted-foreground">{c.redeemed_count}{c.max_redemptions ? `/${c.max_redemptions}` : ''} eingelöst</span>
+                  {c.starts_at && <span className="text-xs text-muted-foreground">ab {new Date(c.starts_at).toLocaleDateString('de-DE')}</span>}
+                  {c.ends_at && <span className="text-xs text-muted-foreground">bis {new Date(c.ends_at).toLocaleDateString('de-DE')}</span>}
                 </div>
-                <Switch checked={c.active} onCheckedChange={v => toggle.mutate({ id: c.id, active: v })} />
+                <div className="flex items-center gap-2">
+                  <Switch checked={c.active} onCheckedChange={v => toggle.mutate({ id: c.id, active: v })} />
+                  <Button variant="ghost" size="sm" onClick={() => { if (confirm('Coupon löschen?')) deleteCoupon.mutate(c.id); }}>
+                    <XCircle className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
