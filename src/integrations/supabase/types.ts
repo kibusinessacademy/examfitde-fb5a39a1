@@ -11821,6 +11821,27 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_guardrail_events: {
+        Row: {
+          created_at: string
+          details: Json
+          guard_key: string
+          id: number
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          guard_key: string
+          id?: number
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          guard_key?: string
+          id?: number
+        }
+        Relationships: []
+      }
       ops_health_snapshots: {
         Row: {
           autofix_summary: Json
@@ -26718,6 +26739,7 @@ export type Database = {
         }[]
       }
       run_health_checks: { Args: never; Returns: Json }
+      run_nightly_pipeline_guards: { Args: never; Returns: Json }
       search_berufe: {
         Args: { lim?: number; q: string }
         Returns: {
