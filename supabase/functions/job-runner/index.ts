@@ -1162,11 +1162,17 @@ Deno.serve(async (req) => {
 
     // ── SINGLE EXIT: Guaranteed DB write with lock release ──────────
     if (finalState) {
-      await sb.from("job_queue").update({
+      // Normalize: patch uses 'error' but DB column is 'last_error'
+      const { error: patchError, ...restPatch } = finalState.patch;
+      const dbPatch: Record<string, unknown> = {
         status: finalState.status,
-        ...finalState.patch,
+        ...restPatch,
         ...lockRelease(tsNow),
-      }).eq("id", job.id);
+      };
+      if (patchError !== undefined) {
+        dbPatch.last_error = patchError;
+      }
+      await sb.from("job_queue").update(dbPatch).eq("id", job.id);
 
       // DLQ write for failed exam pool / question generation
       if (finalState.metricsAction === "dlq") {
