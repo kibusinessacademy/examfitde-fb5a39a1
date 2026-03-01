@@ -76,7 +76,7 @@ export async function enqueueJob(
         category: "ops",
         severity: "warn",
         entity_type: "package",
-        entity_id: packageId,
+        entity_id: packageId as unknown as string, // UUID string — matches uuid column type
         metadata: { job_type: opts.job_type, reason, package_status: pkg.status },
       }).then(() => {/* fire-and-forget */});
 

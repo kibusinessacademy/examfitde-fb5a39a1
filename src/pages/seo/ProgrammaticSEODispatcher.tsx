@@ -21,6 +21,12 @@ const SEO_SUFFIXES = [
   '-qualitaet',
 ] as const;
 
+/** Slugs reserved by other route groups — must not be handled here */
+const RESERVED_SLUGS = new Set([
+  'work', 'berufski', 'shop', 'auth', 'admin', 'dashboard',
+  'installieren', 'purchase-success',
+]);
+
 /**
  * Single dispatcher for all programmatic SEO routes (/:slug-suffix).
  * React Router v6 can't distinguish between /:slug-pruefung and /:slug-qualitaet
@@ -32,7 +38,12 @@ const SEO_SUFFIXES = [
  */
 const ProgrammaticSEODispatcher = () => {
   const { pathname } = useLocation();
-  const segment = pathname.replace(/^\//, '');
+  const segment = pathname.replace(/^\//, '').split('/')[0];
+
+  // Reserved slugs handled by other route groups — render nothing so RR falls through
+  if (RESERVED_SLUGS.has(segment)) {
+    return null;
+  }
 
   // Check if this URL has a known SEO suffix
   const hasKnownSuffix = SEO_SUFFIXES.some(suffix => segment.endsWith(suffix));
