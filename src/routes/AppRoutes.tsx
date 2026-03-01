@@ -73,6 +73,8 @@ const BerufsKITemplatesPage = lazy(() => import('@/pages/admin/v4/BerufsKITempla
 const BerufsKIBundlesPage = lazy(() => import('@/pages/admin/v4/BerufsKIBundlesPage'));
 const BerufsKILicensesPage = lazy(() => import('@/pages/admin/v4/BerufsKILicensesPage'));
 const BerufsKICommercePage = lazy(() => import('@/pages/admin/v4/BerufsKICommercePage'));
+const BerufsKISuccessPage = lazy(() => import('@/pages/berufski/BerufsKISuccessPage'));
+const BerufsKIBuyPage = lazy(() => import('@/pages/berufski/BerufsKIBuyPage'));
 
 // Content nested routes
 const ContentLayout = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentLayout })));
@@ -123,6 +125,10 @@ const AppRoutes = () => {
         {/* Shop Routes */}
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
+
+        {/* BerufsKI Public Routes */}
+        <Route path="/berufski/success" element={<BerufsKISuccessPage />} />
+        <Route path="/berufski/buy/:productId" element={<BerufsKIBuyPage />} />
 
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
