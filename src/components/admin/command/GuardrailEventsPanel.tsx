@@ -193,7 +193,11 @@ export default function GuardrailEventsPanel() {
                       <TableCell>
                         <Badge variant="outline" className={cn("text-[10px]", meta.color)}>{meta.label}</Badge>
                       </TableCell>
-                      <TableCell className="text-xs max-w-[400px] truncate">{JSON.stringify(ev.details)}</TableCell>
+                      <TableCell className="text-xs max-w-[400px]">
+                        <pre className="whitespace-pre-wrap break-all text-xs max-h-[120px] overflow-auto">
+                          {(() => { const s = JSON.stringify(ev.details, null, 2); return s.length > 1200 ? s.slice(0, 1200) + "…" : s; })()}
+                        </pre>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
