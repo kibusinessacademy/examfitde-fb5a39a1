@@ -69,6 +69,9 @@ const SystemHandbookPage = lazy(() => import('@/pages/admin/v4/SystemHandbookPag
 const QueueManagerPage = lazy(() => import('@/pages/admin/QueueManagerPage'));
 const SocialEnginePage = lazy(() => import('@/pages/admin/v4/SocialEnginePage'));
 const BerufsKIPage = lazy(() => import('@/pages/admin/v4/BerufsKIPage'));
+const BerufsKITemplatesPage = lazy(() => import('@/pages/admin/v4/BerufsKITemplatesPage'));
+const BerufsKIBundlesPage = lazy(() => import('@/pages/admin/v4/BerufsKIBundlesPage'));
+const BerufsKILicensesPage = lazy(() => import('@/pages/admin/v4/BerufsKILicensesPage'));
 
 // Content nested routes
 const ContentLayout = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentLayout })));
@@ -218,7 +221,10 @@ const AppRoutes = () => {
           <Route path="handbook" element={<SystemHandbookPage />} />
           <Route path="queue" element={<QueueManagerPage />} />
           <Route path="social" element={<SocialEnginePage />} />
-          <Route path="berufski/*" element={<BerufsKIPage />} />
+          <Route path="berufski" element={<BerufsKIPage />} />
+          <Route path="berufski/templates" element={<BerufsKITemplatesPage />} />
+          <Route path="berufski/bundles" element={<BerufsKIBundlesPage />} />
+          <Route path="berufski/licenses" element={<BerufsKILicensesPage />} />
         </Route>
 
         {/* Legacy redirects */}
