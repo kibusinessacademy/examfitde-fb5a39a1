@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  console.log(`[BERUFSKI-DOWNLOAD-GATE] ${step}`, details ? JSON.stringify(details) : '');
+  console.log(`[WORK-DOWNLOAD-GATE] ${step}`, details ? JSON.stringify(details) : '');
 };
 
 serve(async (req) => {
@@ -24,9 +24,8 @@ serve(async (req) => {
 
     logStep("Download request", { productId, mode });
 
-    // Validate token
     const { data: purchase, error: pErr } = await adminClient
-      .from('berufski_purchases')
+      .from('work_purchases')
       .select('id, download_token, token_expires_at, produkt_id')
       .eq('download_token', token)
       .eq('produkt_id', productId)
@@ -42,9 +41,8 @@ serve(async (req) => {
       return json(403, { ok: false, error: "Download token has expired" }, origin);
     }
 
-    // Find PDF export
     const { data: pdfExport } = await adminClient
-      .from('berufski_pdf_exports')
+      .from('work_pdf_exports')
       .select('storage_path')
       .eq('product_id', productId)
       .eq('mode', mode)
@@ -56,7 +54,6 @@ serve(async (req) => {
       return json(404, { ok: false, error: "PDF not found for this mode" }, origin);
     }
 
-    // Generate signed URL (15 min)
     const { data: signedData, error: signErr } = await adminClient
       .storage
       .from('berufski-assets')
@@ -67,8 +64,7 @@ serve(async (req) => {
       return json(500, { ok: false, error: "Could not generate download URL" }, origin);
     }
 
-    // Update download count
-    await adminClient.from('berufski_purchases').update({
+    await adminClient.from('work_purchases').update({
       download_count: (purchase as any).download_count ? (purchase as any).download_count + 1 : 1,
       last_download_at: new Date().toISOString(),
     }).eq('id', purchase.id);

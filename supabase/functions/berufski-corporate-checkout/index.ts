@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  console.log(`[BERUFSKI-CORPORATE-CHECKOUT] ${step}`, details ? JSON.stringify(details) : '');
+  console.log(`[WORK-CORPORATE-CHECKOUT] ${step}`, details ? JSON.stringify(details) : '');
 };
 
 serve(async (req) => {
@@ -31,9 +31,8 @@ serve(async (req) => {
 
     logStep("Corporate checkout", { orgName, plan, scope, scopeId });
 
-    // Validate plan has Stripe mapping
     const { data: cc } = await adminClient
-      .from('berufski_corporate_commerce')
+      .from('work_corporate_commerce')
       .select('*')
       .eq('plan', plan)
       .single();
@@ -42,10 +41,9 @@ serve(async (req) => {
       return json(400, { ok: false, error: "Corporate plan not synced to Stripe (admin: sync first)" }, origin);
     }
 
-    // Validate scope exists and is published
     if (scope === 'product') {
       const { data: prod } = await adminClient
-        .from('berufski_produkte')
+        .from('work_produkte')
         .select('id, status')
         .eq('id', scopeId)
         .maybeSingle();
@@ -54,7 +52,7 @@ serve(async (req) => {
       }
     } else if (scope === 'bundle') {
       const { data: b } = await adminClient
-        .from('berufski_bundles')
+        .from('work_bundles')
         .select('id, is_active')
         .eq('id', scopeId)
         .maybeSingle();
@@ -65,8 +63,8 @@ serve(async (req) => {
       return json(400, { ok: false, error: "Invalid scope" }, origin);
     }
 
-    const successUrl = `${appBaseUrl}/berufski/success?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${appBaseUrl}/berufski/corporate`;
+    const successUrl = `${appBaseUrl}/work/success?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${appBaseUrl}/work/corporate`;
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',

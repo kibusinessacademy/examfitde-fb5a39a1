@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  console.log(`[BERUFSKI-PUBLISH-GATE] ${step}`, details ? JSON.stringify(details) : '');
+  console.log(`[WORK-PUBLISH-GATE] ${step}`, details ? JSON.stringify(details) : '');
 };
 
 function tierAmount(tier: string): number {
@@ -26,7 +26,6 @@ serve(async (req) => {
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Auth check (admin only)
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return json(401, { ok: false, error: "Unauthorized" }, origin);
 
@@ -34,7 +33,6 @@ serve(async (req) => {
     const { data: userData } = await adminClient.auth.getUser(token);
     if (!userData?.user) return json(401, { ok: false, error: "Invalid token" }, origin);
 
-    // Check admin role
     const { data: profile } = await adminClient
       .from('profiles')
       .select('role')
@@ -50,23 +48,20 @@ serve(async (req) => {
 
     logStep("Publish gate started", { productId });
 
-    // Load product
     const { data: prod, error: prodErr } = await adminClient
-      .from('berufski_produkte')
+      .from('work_produkte')
       .select('id, tier, titel, status, content_json, beruf_id, stripe_price_id, stripe_product_id')
       .eq('id', productId)
       .single();
 
     if (prodErr || !prod) return json(404, { ok: false, error: "Product not found" }, origin);
 
-    // Must have content
     if (!prod.content_json) {
       return json(400, { ok: false, error: "Publish Gate failed: No content generated yet." }, origin);
     }
 
-    // Gate: Require PDF exports (screen + print)
     const { data: exports } = await adminClient
-      .from('berufski_pdf_exports')
+      .from('work_pdf_exports')
       .select('mode')
       .eq('product_id', productId);
 
@@ -79,9 +74,8 @@ serve(async (req) => {
       }, origin);
     }
 
-    // Get beruf for metadata
     const { data: beruf } = await adminClient
-      .from('berufski_berufe')
+      .from('work_berufe')
       .select('name, slug')
       .eq('id', prod.beruf_id)
       .single();
@@ -90,7 +84,6 @@ serve(async (req) => {
     let stripeProductId = prod.stripe_product_id;
     let stripePriceId = prod.stripe_price_id;
 
-    // Create Stripe product if missing
     if (!stripeProductId) {
       const sp = await stripe.products.create({
         name: prod.titel,
@@ -101,7 +94,6 @@ serve(async (req) => {
       logStep("Stripe product created", { stripeProductId });
     }
 
-    // Create Stripe price if missing
     if (!stripePriceId) {
       const pr = await stripe.prices.create({
         product: stripeProductId,
@@ -113,8 +105,7 @@ serve(async (req) => {
       logStep("Stripe price created", { stripePriceId });
     }
 
-    // Update product with Stripe IDs + published status
-    await adminClient.from('berufski_produkte').update({
+    await adminClient.from('work_produkte').update({
       status: 'published',
       published_at: new Date().toISOString(),
       stripe_product_id: stripeProductId,
