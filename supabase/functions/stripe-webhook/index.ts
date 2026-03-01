@@ -545,6 +545,85 @@ serve(async (req) => {
       });
     }
 
+    // ========== BerufsKI checkout.session.completed (brand=BerufsKI) ==========
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const meta = session.metadata || {};
+
+      if (meta.brand === 'BerufsKI' && session.payment_status === 'paid') {
+        logStep("BerufsKI purchase detected", { productId: meta.productId });
+
+        // Dedup
+        const { data: existingBKI } = await adminClient
+          .from('berufski_purchases')
+          .select('id')
+          .eq('stripe_session_id', session.id)
+          .maybeSingle();
+
+        if (!existingBKI) {
+          const downloadToken = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+            .map(b => b.toString(16).padStart(2, '0')).join('');
+
+          const buyerEmail = session.customer_email || session.customer_details?.email || '';
+          const amountTotal = session.amount_total || 0;
+
+          // We need a user_id — for guest checkout use a placeholder
+          const userId = meta.user_id || '00000000-0000-0000-0000-000000000000';
+
+          const { data: bkiPurchase } = await adminClient
+            .from('berufski_purchases')
+            .insert({
+              user_id: userId,
+              user_email: buyerEmail,
+              produkt_id: meta.productId,
+              stripe_session_id: session.id,
+              stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || null,
+              amount_cents: amountTotal,
+              currency: session.currency || 'eur',
+              coupon_code: meta.couponCode || null,
+              affiliate_code: meta.affiliateCode || null,
+              download_token: downloadToken,
+              token_expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
+              status: 'paid',
+            })
+            .select('id')
+            .single();
+
+          if (bkiPurchase) {
+            // Coupon redemption
+            if (meta.couponCode) {
+              await adminClient.from('berufski_coupon_redemptions').insert({
+                coupon_code: meta.couponCode,
+                purchase_id: bkiPurchase.id,
+              });
+              await adminClient.rpc('berufski_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
+            }
+
+            // Queue email
+            const appBase = Deno.env.get('APP_BASE_URL') || 'https://examfit.de';
+            const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+            const dlScreen = `${supabaseUrl}/functions/v1/berufski-download-gate`;
+
+            await adminClient.from('berufski_email_outbox').insert({
+              to_email: buyerEmail,
+              subject: 'Dein BerufsKI Download ist bereit 🎉',
+              html: `<div style="font-family:system-ui,Arial;line-height:1.5"><h2>Danke für deinen Kauf!</h2><p>Dein Download ist bereit. Nutze den Link in deinem Konto oder antworte auf diese E-Mail.</p><p style="color:#666;font-size:12px">Token gültig 90 Tage · BerufsKI.de</p></div>`,
+              meta: { productId: meta.productId, purchaseId: bkiPurchase.id, affiliateCode: meta.affiliateCode },
+            });
+
+            // Fire-and-forget email flush
+            fetch(`${supabaseUrl}/functions/v1/berufski-email-flush`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}` },
+              body: '{}',
+            }).catch(() => null);
+
+            logStep("BerufsKI purchase created", { purchaseId: bkiPurchase.id, email: buyerEmail });
+          }
+        }
+      }
+    }
+
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
