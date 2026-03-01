@@ -77,7 +77,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ received: true, dedup: true }), { status: 200 });
     }
 
-    // ========== checkout.session.completed ==========
+    // ========== checkout.session.completed (ExamFit Store) ==========
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
@@ -92,17 +92,22 @@ serve(async (req) => {
       }
 
       const meta = session.metadata || {};
-      const userId = meta.user_id;
-      const productId = meta.product_id;
-      const curriculumId = meta.curriculum_id;
-      const quantity = parseInt(meta.quantity || "1");
-      const unitPriceCents = parseInt(meta.unit_price_cents || "0");
-      const buyerIsLicensee = meta.buyer_is_licensee !== 'false';
 
-      if (!userId || !productId || !curriculumId) {
-        logStep("ERROR: Missing required metadata", { userId, productId, curriculumId });
-        return new Response("Missing metadata", { status: 400 });
-      }
+      // ── Route: BerufsKI purchases are handled in the dedicated section below ──
+      if (meta.brand === 'BerufsKI') {
+        logStep("BerufsKI brand detected — skipping ExamFit handler, will process below");
+      } else {
+        // ── ExamFit Store handler ──
+        const userId = meta.user_id;
+        const productId = meta.product_id;
+        const curriculumId = meta.curriculum_id;
+        const quantity = parseInt(meta.quantity || "1");
+        const unitPriceCents = parseInt(meta.unit_price_cents || "0");
+        const buyerIsLicensee = meta.buyer_is_licensee !== 'false';
+
+        if (!userId || !productId || !curriculumId) {
+          logStep("ExamFit: Missing required metadata — skipping ExamFit handler", { userId, productId, curriculumId });
+        } else {
 
       // IDEMPOTENCY CHECK for license_packages
       const { data: existingPackage } = await adminClient
@@ -125,8 +130,7 @@ serve(async (req) => {
 
       if (productError || !product) {
         logStep("ERROR: Product not found", { productId, error: productError });
-        return new Response("Product not found", { status: 400 });
-      }
+      } else {
 
       // Calculate expiration
       const expiresAt = new Date();
@@ -198,8 +202,7 @@ serve(async (req) => {
 
       if (packageError || !licensePackage) {
         logStep("ERROR: Failed to create package", { error: packageError });
-        return new Response("Failed to create license package", { status: 500 });
-      }
+      } else {
       logStep("License package created", { packageId: licensePackage.id });
 
       // ===== Create seats =====
@@ -291,7 +294,6 @@ serve(async (req) => {
 
         // 3) Payment
         let feeCents = 0;
-        // Try to get Stripe fee from balance transaction
         if (stripePaymentIntentId) {
           try {
             const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId, {
@@ -402,7 +404,7 @@ serve(async (req) => {
         orderId: order?.id,
       });
 
-      // ===== REFERRAL CONVERSION: mark referral as converted on purchase =====
+      // ===== REFERRAL CONVERSION =====
       try {
         const { data: refResult } = await adminClient.rpc('convert_referral_on_purchase', {
           p_buyer_user_id: userId,
@@ -414,7 +416,11 @@ serve(async (req) => {
       } catch (refErr) {
         logStep("WARN: Referral conversion check failed (non-critical)", { error: String(refErr) });
       }
-    }
+      } // end licensePackage ok
+      } // end product ok
+      } // end ExamFit metadata present
+      } // end not BerufsKI brand
+    } // end checkout.session.completed (ExamFit)
 
     // ========== charge.refunded ==========
     if (event.type === "charge.refunded") {
@@ -549,9 +555,10 @@ serve(async (req) => {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const meta = session.metadata || {};
+      const appBaseUrl = Deno.env.get('APP_BASE_URL') || 'https://examfit.de';
 
       if (meta.brand === 'BerufsKI' && session.payment_status === 'paid') {
-        const scope = meta.scope || 'product'; // product | bundle | corporate
+        const scope = meta.scope || 'product';
         logStep("BerufsKI purchase detected", { scope, productId: meta.productId, bundleId: meta.bundleId });
 
         const buyerEmail = session.customer_email || session.customer_details?.email || '';
@@ -560,6 +567,18 @@ serve(async (req) => {
 
         const generateToken = () => Array.from(crypto.getRandomValues(new Uint8Array(24)))
           .map(b => b.toString(16).padStart(2, '0')).join('');
+
+        const triggerFlush = () => {
+          const supabaseUrlEnv = Deno.env.get('SUPABASE_URL') || '';
+          fetch(`${supabaseUrlEnv}/functions/v1/berufski-email-flush`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: '{}',
+          }).catch(() => null);
+        };
 
         // ===== PRODUCT PURCHASE =====
         if (scope === 'product' || (!scope && meta.productId)) {
@@ -598,20 +617,31 @@ serve(async (req) => {
                 await adminClient.rpc('berufski_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
               }
 
+              // Build download links with token
+              const dlBase = `${appBaseUrl}/berufski/download?product=${meta.productId}&token=${downloadToken}`;
+              const dlScreen = `${dlBase}&mode=screen`;
+              const dlPrint = `${dlBase}&mode=print`;
+
               await adminClient.from('berufski_email_outbox').insert({
                 to_email: buyerEmail,
                 subject: 'Dein BerufsKI Download ist bereit 🎉',
-                html: `<div style="font-family:system-ui,Arial;line-height:1.5"><h2>Danke für deinen Kauf!</h2><p>Dein Download ist bereit.</p><p style="color:#666;font-size:12px">Token gültig 90 Tage · BerufsKI.de</p></div>`,
-                meta: { scope: 'product', productId: meta.productId, purchaseId: bkiPurchase.id, affiliateCode: meta.affiliateCode },
+                html: `<div style="font-family:system-ui,Segoe UI,Roboto,Arial;line-height:1.6">
+                  <h2>Danke für deinen Kauf! 🎉</h2>
+                  <p>Dein Download ist jetzt bereit:</p>
+                  <div style="margin:16px 0">
+                    <a href="${dlScreen}" style="display:inline-block;background:#000;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;margin-right:8px">📱 PDF (Screen)</a>
+                    <a href="${dlPrint}" style="display:inline-block;background:#333;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">🖨️ PDF (Print-Ready)</a>
+                  </div>
+                  <p style="margin-top:14px;color:#444;font-size:14px">
+                    Tipp: Prüfungsvorbereitung & Lernsysteme findest du bei <a href="https://examfit.de">examfit.de</a>.
+                  </p>
+                  <hr style="border:none;border-top:1px solid #eee;margin:16px 0"/>
+                  <p style="color:#666;font-size:12px">Download-Links gültig bis: ${new Date(Date.now() + 90 * 24 * 3600 * 1000).toLocaleDateString('de-DE')} · BerufsKI.de</p>
+                </div>`,
+                meta: { scope: 'product', productId: meta.productId, purchaseId: bkiPurchase.id, affiliateCode: meta.affiliateCode, downloadToken },
               });
 
-              const supabaseUrlEnv = Deno.env.get('SUPABASE_URL') || '';
-              fetch(`${supabaseUrlEnv}/functions/v1/berufski-email-flush`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}` },
-                body: '{}',
-              }).catch(() => null);
-
+              triggerFlush();
               logStep("BerufsKI product purchase created", { purchaseId: bkiPurchase.id });
             }
           }
@@ -651,19 +681,24 @@ serve(async (req) => {
                 await adminClient.rpc('berufski_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
               }
 
+              const bundleDlBase = `${appBaseUrl}/berufski/download?bundle=${meta.bundleId}&token=${downloadToken}`;
+
               await adminClient.from('berufski_email_outbox').insert({
                 to_email: buyerEmail,
                 subject: 'Dein BerufsKI Bundle-Download ist bereit 🎉',
-                html: `<div style="font-family:system-ui,Arial;line-height:1.5"><h2>Bundle-Kauf erfolgreich!</h2><p>Dein Bundle-Download ist jetzt verfügbar.</p><p style="color:#666;font-size:12px">Token gültig 90 Tage · BerufsKI.de</p></div>`,
-                meta: { scope: 'bundle', bundleId: meta.bundleId, purchaseId: bundlePurchase.id, affiliateCode: meta.affiliateCode },
+                html: `<div style="font-family:system-ui,Segoe UI,Roboto,Arial;line-height:1.6">
+                  <h2>Bundle-Kauf erfolgreich! 🎉</h2>
+                  <p>Dein Bundle-Download ist jetzt verfügbar:</p>
+                  <div style="margin:16px 0">
+                    <a href="${bundleDlBase}&mode=pdf" style="display:inline-block;background:#000;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">📦 Bundle PDF herunterladen</a>
+                  </div>
+                  <hr style="border:none;border-top:1px solid #eee;margin:16px 0"/>
+                  <p style="color:#666;font-size:12px">Download-Link gültig bis: ${new Date(Date.now() + 90 * 24 * 3600 * 1000).toLocaleDateString('de-DE')} · BerufsKI.de</p>
+                </div>`,
+                meta: { scope: 'bundle', bundleId: meta.bundleId, purchaseId: bundlePurchase.id, affiliateCode: meta.affiliateCode, downloadToken },
               });
 
-              const supabaseUrlEnv = Deno.env.get('SUPABASE_URL') || '';
-              fetch(`${supabaseUrlEnv}/functions/v1/berufski-email-flush`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}` },
-                body: '{}',
-              }).catch(() => null);
+              triggerFlush();
 
               logStep("BerufsKI bundle purchase created", { purchaseId: bundlePurchase.id });
             }
@@ -741,12 +776,7 @@ serve(async (req) => {
                   meta: { scope: 'corporate', licenseId: license.id, orgId, plan: meta.plan },
                 });
 
-                const supabaseUrlEnv = Deno.env.get('SUPABASE_URL') || '';
-                fetch(`${supabaseUrlEnv}/functions/v1/berufski-email-flush`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}` },
-                  body: '{}',
-                }).catch(() => null);
+                triggerFlush();
 
                 logStep("BerufsKI corporate license created", { licenseId: license.id, orgId, key: keyValue });
               }
