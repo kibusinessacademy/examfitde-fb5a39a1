@@ -8,6 +8,7 @@ import { DEPTH_SELF_CHECK, REGULATORY_GUARD, ANTI_KI_RULES, buildMiniCheckPrompt
 import type { DifficultyLevel, MasteryContext } from "../_shared/prompt-kit.ts";
 import { canonicalStepKey, STEP_KEY_MAP } from "../_shared/step-keys.ts";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
+import { getTimeBudget, shouldSoftStop } from "../_shared/time-budget.ts";
 
 /**
  * package-generate-learning-content — Pipeline Step
@@ -21,9 +22,9 @@ import { assertSchemaReady } from "../_shared/schema-gate.ts";
  *   - Robust idempotency with ON CONFLICT handling
  */
 
-const BATCH_SIZE = 5;          // Balanced: faster throughput without timeout storms
-const BASE_DELAY_MS = 1500;    // 1.5s between calls
-const MAX_DELAY_MS = 10000;    // Max backoff
+const BATCH_SIZE = 2;          // Timeout-safe: fewer lessons per invocation
+const BASE_DELAY_MS = 300;     // Keep throughput without wasting budget
+const MAX_DELAY_MS = 3000;     // Cap backoff to stay within soft budget
 const MAX_LESSON_RETRIES = 3;  // Poison-pill guard: skip lessons after N failures
 
 const STEP_PROMPTS: Record<string, { system: string; minChars: number; minWords: number }> = {
@@ -257,6 +258,8 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id;
   const certificationId = p.certification_id || null;
   const batchCursor = p.batch_cursor || p._batch_cursor || null;
+  const startMs = Date.now();
+  const budget = getTimeBudget("learning_content");
 
   if (!packageId || !curriculumId) {
     return json({ error: "Missing package_id or curriculum_id" }, 400);
@@ -470,9 +473,16 @@ Deno.serve(async (req) => {
   let skippedWriteBack = 0;
   let failed = 0;
   let currentDelay = BASE_DELAY_MS;
+  let softStopped = false;
   const details: any[] = [];
 
   for (const lesson of batch) {
+    if (shouldSoftStop(startMs, "learning_content")) {
+      softStopped = true;
+      console.warn(`[gen-content] Soft-stop reached (${Date.now() - startMs}ms/${budget.softStopMs}ms) — yielding remaining lessons to next batch`);
+      break;
+    }
+
     const isMiniCheck = lesson.step === "mini_check";
     const stepConfig = STEP_PROMPTS[lesson.step];
     const moduleName = (lesson as any).modules?.title || "";
@@ -519,13 +529,32 @@ Deno.serve(async (req) => {
       // ── Use failover chain instead of single provider ──
       const chain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
 
-      const result = await callAIWithFailover(
-        chain.map(c => ({ provider: c.provider, model: c.model })),
-        {
-          messages: [
-            {
-              role: "system",
-              content: `Du bist ein erfahrener IHK-Fachexperte mit 20 Jahren Berufserfahrung als ${professionName}. Du erstellst Lerninhalte die sich anfühlen, als wären sie von einem Fachlehrer geschrieben — NICHT von einer KI.
+      const elapsedMs = Date.now() - startMs;
+      const remainingSoftMs = budget.softStopMs - elapsedMs;
+      const llmTimeoutMs = Math.max(8_000, Math.min(28_000, remainingSoftMs - 1_500));
+      if (remainingSoftMs <= 9_500) {
+        softStopped = true;
+        console.warn(`[gen-content] Not enough soft budget left (${remainingSoftMs}ms) before LLM call — stopping batch`);
+        break;
+      }
+
+      const llmAbort = new AbortController();
+      let llmTimer: number | null = null;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        llmTimer = setTimeout(() => {
+          llmAbort.abort();
+          reject(new Error(`LLM_TIMEOUT_${llmTimeoutMs}`));
+        }, llmTimeoutMs) as unknown as number;
+      });
+
+      const result = await Promise.race([
+        callAIWithFailover(
+          chain.map(c => ({ provider: c.provider, model: c.model })),
+          {
+            messages: [
+              {
+                role: "system",
+                content: `Du bist ein erfahrener IHK-Fachexperte mit 20 Jahren Berufserfahrung als ${professionName}. Du erstellst Lerninhalte die sich anfühlen, als wären sie von einem Fachlehrer geschrieben — NICHT von einer KI.
 
 QUALITÄTSSTANDARD:
 - Jeder Lernschritt MUSS die fachliche Tiefe des offiziellen Rahmenplans abbilden
@@ -550,15 +579,20 @@ ANTI-KI-REGELN:
 - Schreibe so, wie ein erfahrener Ausbilder im Betrieb einem Azubi etwas erklärt
 
 Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
-            },
-            { role: "user", content: userPrompt },
-          ],
-          tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,
-          tool_choice: { type: "function", function: { name: isMiniCheck ? "create_mini_check" : "create_lesson_content" } },
-          // temperature omitted — GPT-5 only supports default (1)
-          max_tokens: isMiniCheck ? 4096 : 8192,
-        },
-      );
+              },
+              { role: "user", content: userPrompt },
+            ],
+            tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,
+            tool_choice: { type: "function", function: { name: isMiniCheck ? "create_mini_check" : "create_lesson_content" } },
+            // temperature omitted — GPT-5 only supports default (1)
+            max_tokens: isMiniCheck ? 2200 : 3200,
+            signal: llmAbort.signal,
+          },
+        ),
+        timeoutPromise,
+      ]) as Awaited<ReturnType<typeof callAIWithFailover>>;
+
+      if (llmTimer) clearTimeout(llmTimer);
 
       // Parse tool call from failover result — with robust fallback
       let content: any;
@@ -774,6 +808,8 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     details,
     message: effectiveComplete
       ? `✅ Lerninhalt-Generierung abgeschlossen. ${generated} generiert, ${skippedWriteBack} write-back, ${skippableLessons.size} Poison-Pills übersprungen.`
-      : `🔄 ${generated} generiert, ${skippedWriteBack} write-back, ${remaining} verbleibend.`,
+      : softStopped
+        ? `⏱️ Soft-stop erreicht: ${generated} generiert, ${remaining} verbleibend.`
+        : `🔄 ${generated} generiert, ${skippedWriteBack} write-back, ${remaining} verbleibend.`,
   });
 });

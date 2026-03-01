@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIWithFailover, logLLMCostEvent } from "../_shared/ai-client.ts";
-import { shouldSoftStop, makeAbortController } from "../_shared/time-budget.ts";
+import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 import { getModelChain } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 
@@ -141,18 +141,24 @@ Antworte NUR mit Markdown.`;
   const maxTokens = Math.max(3200, Math.round(wordTarget * 4));
 
   try {
-    // Use AbortController to cap LLM at 40s
+    const budget = getTimeBudget("handbook");
+    const remainingSoftMs = budget.softStopMs - (Date.now() - startMs);
+    if (remainingSoftMs <= 9_500) {
+      console.warn(`[generate-handbook] Soft-stop before LLM call for ${fieldCode} (remaining ${remainingSoftMs}ms)`);
+      return { content: "", provider: "soft-stop", model: "none" };
+    }
+
+    const llmTimeoutMs = Math.max(8_000, Math.min(32_000, remainingSoftMs - 1_500));
     const llmAbort = new AbortController();
-    const llmTimer = setTimeout(() => llmAbort.abort(), 40_000);
+    const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs);
     const result = await callAIWithFailover(chain, {
       messages: [
         { role: "system", content: "Du schreibst ausführliche, prüfungsstrategische IHK-Handbuch-Inhalte auf Experten-Niveau. Antworte nur mit Markdown. Schreibe umfassend und detailliert — NICHT kurz oder stichwortartig. Jeder Abschnitt muss Fallbeispiele, Prüfungsfallen und Merkschemata enthalten. Denke wie ein erfahrener IHK-Prüfer, der sein Wissen an Prüflinge weitergibt." },
         { role: "user", content: prompt },
       ],
-      max_tokens: Math.min(3072, maxTokens),
+      max_tokens: Math.min(2800, maxTokens),
       signal: llmAbort.signal,
-    });
-    clearTimeout(llmTimer);
+    }).finally(() => clearTimeout(llmTimer));
 
     // Log cost
     try {
@@ -180,13 +186,21 @@ Antworte NUR mit Markdown.`;
     if (content.length > 200 && content.length < MIN_SECTION_CHARS && !shouldSoftStop(startMs, "handbook")) {
       console.log(`[generate-handbook] Section ${fieldCode} too short (${content.length} chars < ${MIN_SECTION_CHARS}). Attempting expand...`);
       try {
+        const expandBudget = getTimeBudget("handbook");
+        const remainingSoftMs = expandBudget.softStopMs - (Date.now() - startMs);
+        if (remainingSoftMs <= 9_500) throw new Error("SOFT_STOP_BEFORE_EXPAND");
+
+        const expandAbort = new AbortController();
+        const expandTimeoutMs = Math.max(8_000, Math.min(20_000, remainingSoftMs - 1_500));
+        const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
         const expandResult = await callAIWithFailover(chain, {
           messages: [
             { role: "system", content: "Du erweiterst IHK-Handbuch-Inhalte. Antworte nur mit dem vollständigen, erweiterten Markdown-Text." },
             { role: "user", content: `Der folgende Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" ist zu kurz. Erweitere ihn auf mindestens ${minWords} Wörter. Füge mehr Erklärungen, Beispiele, Definitionen und Prüfungstipps hinzu. Behalte die bestehende Struktur bei und ergänze sie.\n\n${content}` },
           ],
-          max_tokens: Math.min(4096, maxTokens),
-        });
+          max_tokens: Math.min(3000, maxTokens),
+          signal: expandAbort.signal,
+        }).finally(() => clearTimeout(expandTimer));
         try {
           await logLLMCostEvent(sb, {
             job_type: "generate_handbook_expand",
