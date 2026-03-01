@@ -430,6 +430,39 @@ Deno.serve(async (req) => {
   const packageId = p.package_id as string;
   const curriculumId = p.curriculum_id as string;
   const certificationId = p.certification_id || null;
+  const forceRebuild = Boolean(p?.force_rebuild);
+
+  // ⚠️ Force rebuild: explicit admin action to hard-reset handbook for this curriculum.
+  // Deletes all sections + chapters, then falls through to normal idempotent generation.
+  if (forceRebuild) {
+    console.log(`[generate-handbook] force_rebuild=true for curriculum=${curriculumId}`);
+
+    const { data: existingChapters, error: chErr } = await sb
+      .from("handbook_chapters")
+      .select("id")
+      .eq("curriculum_id", curriculumId);
+
+    if (chErr) throw new Error(`handbook_chapters select: ${chErr.message}`);
+
+    if (existingChapters?.length) {
+      const chapterIds = existingChapters.map((x: any) => x.id);
+
+      // Delete sections first (FK safety)
+      const { error: secDelErr } = await sb
+        .from("handbook_sections")
+        .delete()
+        .in("chapter_id", chapterIds);
+      if (secDelErr) throw new Error(`handbook_sections delete: ${secDelErr.message}`);
+
+      const { error: chDelErr } = await sb
+        .from("handbook_chapters")
+        .delete()
+        .eq("curriculum_id", curriculumId);
+      if (chDelErr) throw new Error(`handbook_chapters delete: ${chDelErr.message}`);
+
+      console.log(`[generate-handbook] force_rebuild: deleted ${existingChapters.length} chapters + sections`);
+    }
+  }
 
   if (!(await prereqDone(sb, packageId, "validate_learning_content"))) {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: validate_learning_content" }, 409);
