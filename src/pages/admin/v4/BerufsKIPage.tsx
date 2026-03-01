@@ -10,8 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Zap, FileText, Link2, Eye, Package, Loader2, CheckCircle2, AlertCircle, Sparkles, FileDown, Printer } from 'lucide-react';
+import { Plus, Zap, FileText, Link2, Eye, Package, Loader2, CheckCircle2, AlertCircle, Sparkles, FileDown, Printer, Save, Trash2 } from 'lucide-react';
 
 // ─── Types ───
 interface WorkBeruf {
@@ -86,6 +88,10 @@ function useCurricula() {
   });
 }
 
+// ─── Helpers ───
+const toStr = (arr: string[] | null) => (arr || []).join(', ');
+const toArr = (s: string) => s.split(',').map(v => v.trim()).filter(Boolean);
+
 // ─── Main Page ───
 export default function BerufsKIPage() {
   const [selectedBeruf, setSelectedBeruf] = useState<WorkBeruf | null>(null);
@@ -159,6 +165,7 @@ export default function BerufsKIPage() {
   );
 }
 
+// ─── Stat Card ───
 function StatCard({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
   return (
     <Card>
@@ -173,6 +180,7 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
   );
 }
 
+// ─── Create Form ───
 function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
   const qc = useQueryClient();
   const { data: curricula = [] } = useCurricula();
@@ -209,7 +217,6 @@ function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
 
   const create = useMutation({
     mutationFn: async () => {
-      const toArr = (s: string) => s.split(',').map(v => v.trim()).filter(Boolean);
       const slug = form.slug || form.name.toLowerCase().replace(/[^a-z0-9äöüß]+/g, '-').replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss');
       const { error } = await supabase.from('work_berufe').insert({
         name: form.name, slug, branche: form.branche || null,
@@ -282,29 +289,85 @@ function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+// ─── Editable Detail ───
 function BerufDetail({ beruf, produkte, onUpdate }: { beruf: WorkBeruf; produkte: WorkProdukt[]; onUpdate: () => void }) {
   const qc = useQueryClient();
+  const { data: curricula = [] } = useCurricula();
   const [genTier, setGenTier] = useState<string>('9');
   const [dnaLoading, setDnaLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [form, setForm] = useState({
+    name: beruf.name,
+    slug: beruf.slug,
+    branche: beruf.branche || '',
+    digitalisierungsgrad: beruf.digitalisierungsgrad || 'mittel',
+    typische_aufgaben: toStr(beruf.typische_aufgaben),
+    dokumenttypen: toStr(beruf.dokumenttypen),
+    pain_points: toStr(beruf.pain_points),
+    haftungsrisiken: toStr(beruf.haftungsrisiken),
+    seo_keywords: toStr(beruf.seo_keywords),
+    conversion_story: beruf.conversion_story || '',
+    examfit_curriculum_id: beruf.examfit_curriculum_id || '',
+    is_published: beruf.is_published || false,
+  });
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('work_berufe').update({
+        name: form.name,
+        slug: form.slug,
+        branche: form.branche || null,
+        digitalisierungsgrad: form.digitalisierungsgrad,
+        typische_aufgaben: toArr(form.typische_aufgaben),
+        dokumenttypen: toArr(form.dokumenttypen),
+        pain_points: toArr(form.pain_points),
+        haftungsrisiken: toArr(form.haftungsrisiken),
+        seo_keywords: toArr(form.seo_keywords),
+        conversion_story: form.conversion_story || null,
+        examfit_curriculum_id: form.examfit_curriculum_id || null,
+        is_published: form.is_published,
+      }).eq('id', beruf.id);
+      if (error) throw error;
+      toast.success('Beruf gespeichert');
+      qc.invalidateQueries({ queryKey: ['work-berufe'] });
+      onUpdate();
+    } catch (e) {
+      toast.error(`Fehler: ${(e as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      const { error } = await supabase.from('work_berufe').delete().eq('id', beruf.id);
+      if (error) throw error;
+      toast.success('Beruf gelöscht');
+      qc.invalidateQueries({ queryKey: ['work-berufe'] });
+      onUpdate();
+    } catch (e) {
+      toast.error(`Fehler: ${(e as Error).message}`);
+    }
+  };
 
   const regenerateDna = async () => {
     setDnaLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('work-generate-dna', {
-        body: { name: beruf.name, branche: beruf.branche || null },
+        body: { name: form.name, branche: form.branche || null },
       });
       if (error) throw error;
-      const { error: updateErr } = await supabase.from('work_berufe').update({
-        typische_aufgaben: data.typische_aufgaben || [],
-        dokumenttypen: data.dokumenttypen || [],
-        pain_points: data.pain_points || [],
-        haftungsrisiken: data.haftungsrisiken || [],
-        seo_keywords: data.seo_keywords || [],
-      }).eq('id', beruf.id);
-      if (updateErr) throw updateErr;
-      toast.success('Berufs-DNA aktualisiert');
-      qc.invalidateQueries({ queryKey: ['work-berufe'] });
-      onUpdate();
+      setForm(f => ({
+        ...f,
+        typische_aufgaben: (data.typische_aufgaben || []).join(', '),
+        dokumenttypen: (data.dokumenttypen || []).join(', '),
+        pain_points: (data.pain_points || []).join(', '),
+        haftungsrisiken: (data.haftungsrisiken || []).join(', '),
+        seo_keywords: (data.seo_keywords || []).join(', '),
+      }));
+      toast.success('DNA generiert – bitte noch speichern');
     } catch (e) {
       toast.error(`DNA-Fehler: ${(e as Error).message}`);
     } finally {
@@ -351,35 +414,92 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: WorkBeruf; produkte
 
   return (
     <div className="space-y-6">
+      {/* ── Stammdaten ── */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                {beruf.name}
-                {beruf.examfit_curriculum_id && <Badge variant="outline"><Link2 className="h-3 w-3 mr-1" />SSOT verknüpft</Badge>}
-              </CardTitle>
-              <CardDescription>{beruf.branche} · Digitalisierung: {beruf.digitalisierungsgrad}</CardDescription>
+            <CardTitle>Stammdaten</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mr-4">
+                <Switch checked={form.is_published} onCheckedChange={v => setForm(f => ({ ...f, is_published: v }))} />
+                <Label className="text-sm">{form.is_published ? 'Live' : 'Entwurf'}</Label>
+              </div>
+              <Button size="sm" onClick={handleSave} disabled={saving || !form.name}>
+                {saving ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Save className="mr-2 h-3 w-3" />}
+                Speichern
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="destructive"><Trash2 className="mr-2 h-3 w-3" />Löschen</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Beruf löschen?</AlertDialogTitle>
+                    <AlertDialogDescription>„{beruf.name}" und alle zugehörigen Produkte werden unwiderruflich gelöscht.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete}>Endgültig löschen</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
-            <Button size="sm" variant="secondary" onClick={regenerateDna} disabled={dnaLoading}>
-              {dnaLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Sparkles className="mr-2 h-3 w-3" />}
-              DNA neu generieren
-            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <DNASection title="Typische Aufgaben" items={beruf.typische_aufgaben} />
-            <DNASection title="Dokumenttypen" items={beruf.dokumenttypen} />
-            <DNASection title="Pain Points" items={beruf.pain_points} />
-            <DNASection title="Haftungsrisiken" items={beruf.haftungsrisiken} />
+            <div><Label>Name *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
+            <div><Label>Slug</Label><Input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} /></div>
+            <div><Label>Branche</Label><Input value={form.branche} onChange={e => setForm(f => ({ ...f, branche: e.target.value }))} /></div>
+            <div>
+              <Label>Digitalisierungsgrad</Label>
+              <Select value={form.digitalisierungsgrad} onValueChange={v => setForm(f => ({ ...f, digitalisierungsgrad: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="niedrig">Niedrig</SelectItem>
+                  <SelectItem value="mittel">Mittel</SelectItem>
+                  <SelectItem value="hoch">Hoch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          {beruf.seo_keywords && beruf.seo_keywords.length > 0 && (
-            <DNASection title="SEO Keywords" items={beruf.seo_keywords} />
-          )}
+          <div>
+            <Label>ExamFit Curriculum (SSOT-Verknüpfung)</Label>
+            <Select value={form.examfit_curriculum_id} onValueChange={v => setForm(f => ({ ...f, examfit_curriculum_id: v }))}>
+              <SelectTrigger><SelectValue placeholder="Optional – für SSOT-Anreicherung" /></SelectTrigger>
+              <SelectContent>
+                {curricula.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Conversion Story</Label>
+            <Textarea value={form.conversion_story} onChange={e => setForm(f => ({ ...f, conversion_story: e.target.value }))} placeholder="Optionale Story für Landing Page…" rows={3} />
+          </div>
         </CardContent>
       </Card>
 
+      {/* ── Berufs-DNA ── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Berufs-DNA</CardTitle>
+            <Button size="sm" variant="secondary" onClick={regenerateDna} disabled={!form.name || dnaLoading}>
+              {dnaLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Sparkles className="mr-2 h-3 w-3" />}
+              KI-DNA generieren
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div><Label>Typische Aufgaben (kommagetrennt)</Label><Textarea value={form.typische_aufgaben} onChange={e => setForm(f => ({ ...f, typische_aufgaben: e.target.value }))} rows={3} /></div>
+          <div><Label>Dokumenttypen (kommagetrennt)</Label><Textarea value={form.dokumenttypen} onChange={e => setForm(f => ({ ...f, dokumenttypen: e.target.value }))} rows={2} /></div>
+          <div><Label>Pain Points (kommagetrennt)</Label><Textarea value={form.pain_points} onChange={e => setForm(f => ({ ...f, pain_points: e.target.value }))} rows={3} /></div>
+          <div><Label>Haftungsrisiken (kommagetrennt)</Label><Textarea value={form.haftungsrisiken} onChange={e => setForm(f => ({ ...f, haftungsrisiken: e.target.value }))} rows={2} /></div>
+          <div><Label>SEO Keywords (kommagetrennt)</Label><Input value={form.seo_keywords} onChange={e => setForm(f => ({ ...f, seo_keywords: e.target.value }))} /></div>
+        </CardContent>
+      </Card>
+
+      {/* ── Produkt generieren ── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" />Produkt generieren</CardTitle>
@@ -405,6 +525,7 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: WorkBeruf; produkte
         </CardContent>
       </Card>
 
+      {/* ── Produkte ── */}
       <Card>
         <CardHeader><CardTitle>Produkte ({produkte.length})</CardTitle></CardHeader>
         <CardContent>
@@ -444,18 +565,6 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: WorkBeruf; produkte
           )}
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function DNASection({ title, items }: { title: string; items: string[] | null }) {
-  if (!items || items.length === 0) return null;
-  return (
-    <div>
-      <p className="text-sm font-medium mb-1">{title}</p>
-      <div className="flex flex-wrap gap-1">
-        {items.map((item, i) => <Badge key={i} variant="outline" className="text-xs">{item}</Badge>)}
-      </div>
     </div>
   );
 }
