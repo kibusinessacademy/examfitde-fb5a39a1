@@ -524,15 +524,11 @@ async function processPackage(
        if (!s || !["running", "enqueued"].includes(s.status)) continue;
        const meta = (s.meta ?? {}) as Record<string, unknown>;
 
-       // BUG 1 FIX: If the step uses ok semantics, require ok===true.
-       // batch_complete is informational only and must never allow ok=false through.
-       const hasOkField = meta.ok !== undefined && meta.ok !== null;
-       if (hasOkField) {
-         if (meta.ok !== true) continue; // hard gate — ok=false is NOT success
-       } else {
-         // No ok field: batch_complete can serve as hint, but only if truthy
-         if (meta.batch_complete !== true) continue;
-       }
+        // BUG 1 FIX (hardened): Zombie-fix ONLY when meta.ok === true.
+        // No ok field at all → do NOT zombify (safest: avoids batch_complete false-positives).
+        const hasOkField = meta.ok !== undefined && meta.ok !== null;
+        if (!hasOkField) continue;          // 🔒 no ok semantics → skip entirely
+        if (meta.ok !== true) continue;     // 🔒 ok=false is NOT success
 
        // BUG 5 FIX: Steps that were never started are not zombies — skip them
        const startedAt = s.started_at ? new Date(s.started_at).getTime() : 0;
@@ -560,7 +556,7 @@ async function processPackage(
         sb.from("package_steps").update({
           status: "done", finished_at: new Date().toISOString(),
           last_error: null,
-        }).eq("package_id", packageId).eq("step_key", k).in("status", ["running", "enqueued", "queued"]),
+        }).eq("package_id", packageId).eq("step_key", k).in("status", ["running", "enqueued"]),
         "zombie_auto_finalize",
       );
 
