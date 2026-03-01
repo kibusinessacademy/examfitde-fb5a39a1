@@ -144,11 +144,11 @@ export default function HomePage() {
       <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
         <div className="container mx-auto max-w-4xl text-center">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4 sm:mb-6">
-            Du verkaufst kein Lernen. Du verkaufst <span className="text-gradient">Prüfungssicherheit.</span>
+            Bestehe deine Prüfung – <span className="text-gradient">beim ersten Anlauf.</span>
           </h2>
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
-            Viele Azubis scheitern nicht am Wissen, sondern an der Prüfungssituation.
-            ExamFit trainiert gezielt Prüfungsreife – nicht unnötige Theorie.
+            ExamFit analysiert deine Schwächen, trainiert gezielt prüfungsrelevante Inhalte
+            und zeigt dir in Echtzeit, wie nah du am Bestehen bist.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
