@@ -46,6 +46,8 @@ export interface AIRequestOptions {
   stream?: boolean;
   tools?: AITool[];
   tool_choice?: Record<string, unknown>;
+  /** Caller-provided AbortSignal — combined with internal timeout for earliest-wins abort */
+  signal?: AbortSignal;
 }
 
 export interface AIResponse {
@@ -125,6 +127,12 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       : AI_FETCH_TIMEOUT_MS
   );
 
+  // ── Combine caller signal with internal timeout (earliest wins) ──
+  const timeoutSignal = AbortSignal.timeout(fetchTimeout);
+  const combinedSignal = opts.signal
+    ? AbortSignal.any([opts.signal, timeoutSignal])
+    : timeoutSignal;
+
   const model = opts.model || cfg.model;
 
   let resp: Response;
@@ -166,7 +174,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(fetchTimeout),
+      signal: combinedSignal,
     });
   } else if (cfg.format === "google") {
     // Google Gemini uses OpenAI-compatible endpoint with API key in header
@@ -185,7 +193,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(fetchTimeout),
+      signal: combinedSignal,
     });
   } else {
     // OpenAI-compatible (OpenAI, Lovable)
@@ -220,7 +228,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(fetchTimeout),
+      signal: combinedSignal,
     });
   }
 
