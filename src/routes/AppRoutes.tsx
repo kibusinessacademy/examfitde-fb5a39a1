@@ -7,6 +7,8 @@ import MainLayout from '@/components/layout/MainLayout';
 import AdminV4Layout from '@/components/layout/AdminV4Layout';
 import SEOLayout from '@/components/layout/SEOLayout';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import AdminEmailGuard from '@/components/auth/AdminEmailGuard';
+import WorkGonePage from '@/components/work/WorkGonePage';
 
 // Lazy Loaded Pages
 const HomePage = lazy(() => import('@/pages/HomePage'));
@@ -62,31 +64,26 @@ const BusinessPage = lazy(() => import('@/pages/admin/v4/BusinessPage'));
 const GrowthPage = lazy(() => import('@/pages/admin/v4/GrowthPage'));
 const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
 const PipelineMonitorPage = lazy(() => import('@/pages/admin/v4/PipelineMonitorPage'));
-const BerufsKIPipelinePage = lazy(() => import('@/pages/admin/v4/BerufsKIPipelinePage'));
+const WorkPipelinePage = lazy(() => import('@/pages/admin/v4/BerufsKIPipelinePage'));
 const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
 const CRMPage = lazy(() => import('@/pages/admin/v4/CRMPage'));
 const SupportPage = lazy(() => import('@/pages/admin/v4/SupportPage'));
 const SystemHandbookPage = lazy(() => import('@/pages/admin/v4/SystemHandbookPage'));
 const QueueManagerPage = lazy(() => import('@/pages/admin/QueueManagerPage'));
 const SocialEnginePage = lazy(() => import('@/pages/admin/v4/SocialEnginePage'));
-const BerufsKIPage = lazy(() => import('@/pages/admin/v4/BerufsKIPage'));
-const BerufsKITemplatesPage = lazy(() => import('@/pages/admin/v4/BerufsKITemplatesPage'));
-const BerufsKIBundlesPage = lazy(() => import('@/pages/admin/v4/BerufsKIBundlesPage'));
-const BerufsKILicensesPage = lazy(() => import('@/pages/admin/v4/BerufsKILicensesPage'));
-const BerufsKICommercePage = lazy(() => import('@/pages/admin/v4/BerufsKICommercePage'));
-const BerufsKIAffiliateDashboard = lazy(() => import('@/pages/admin/v4/BerufsKIAffiliateDashboard'));
-const BerufsKISuccessPage = lazy(() => import('@/pages/berufski/BerufsKISuccessPage'));
-const BerufsKIBuyPage = lazy(() => import('@/pages/berufski/BerufsKIBuyPage'));
-const BerufsKIBundleBuyPage = lazy(() => import('@/pages/berufski/BerufsKIBundleBuyPage'));
-const BerufsKICorporatePage = lazy(() => import('@/pages/berufski/BerufsKICorporatePage'));
+const WorkAdminPage = lazy(() => import('@/pages/admin/v4/BerufsKIPage'));
+const WorkTemplatesPage = lazy(() => import('@/pages/admin/v4/BerufsKITemplatesPage'));
+const WorkBundlesPage = lazy(() => import('@/pages/admin/v4/BerufsKIBundlesPage'));
+const WorkLicensesPage = lazy(() => import('@/pages/admin/v4/BerufsKILicensesPage'));
+const WorkCommercePage = lazy(() => import('@/pages/admin/v4/BerufsKICommercePage'));
+const WorkAffiliateDashboard = lazy(() => import('@/pages/admin/v4/BerufsKIAffiliateDashboard'));
 
-// ExamFit@work (rebrand) pages
+// ExamFit@work public pages
 const WorkHomePage = lazy(() => import('@/pages/work/WorkHomePage'));
 const WorkSuccessPage = lazy(() => import('@/pages/work/WorkSuccessPage'));
 const WorkBuyPage = lazy(() => import('@/pages/work/WorkBuyPage'));
 const WorkBundleBuyPage = lazy(() => import('@/pages/work/WorkBundleBuyPage'));
 const WorkCorporatePage = lazy(() => import('@/pages/work/WorkCorporatePage'));
-import WorkRedirect from '@/components/work/WorkRedirect';
 
 // Content nested routes
 const ContentLayout = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentLayout })));
@@ -145,9 +142,9 @@ const AppRoutes = () => {
         <Route path="/work/bundles/:bundleId" element={<WorkBundleBuyPage />} />
         <Route path="/work/corporate" element={<WorkCorporatePage />} />
 
-        {/* Legacy BerufsKI → /work redirects */}
-        <Route path="/berufski/*" element={<WorkRedirect />} />
-        <Route path="/berufski" element={<WorkRedirect />} />
+        {/* Legacy /berufski/* → 410 Gone */}
+        <Route path="/berufski/*" element={<WorkGonePage />} />
+        <Route path="/berufski" element={<WorkGonePage />} />
 
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
@@ -247,16 +244,20 @@ const AppRoutes = () => {
           <Route path="handbook" element={<SystemHandbookPage />} />
           <Route path="queue" element={<QueueManagerPage />} />
           <Route path="social" element={<SocialEnginePage />} />
-          <Route path="berufski" element={<BerufsKIPage />} />
-          <Route path="berufski/pipeline" element={<BerufsKIPipelinePage />} />
-          <Route path="berufski/templates" element={<BerufsKITemplatesPage />} />
-          <Route path="berufski/bundles" element={<BerufsKIBundlesPage />} />
-          <Route path="berufski/licenses" element={<BerufsKILicensesPage />} />
-          <Route path="berufski/commerce" element={<BerufsKICommercePage />} />
-          <Route path="berufski/affiliates" element={<BerufsKIAffiliateDashboard />} />
+
+          {/* ExamFit@work Admin (email-gated) */}
+          <Route element={<AdminEmailGuard />}>
+            <Route path="work" element={<WorkAdminPage />} />
+            <Route path="work/pipeline" element={<WorkPipelinePage />} />
+            <Route path="work/templates" element={<WorkTemplatesPage />} />
+            <Route path="work/bundles" element={<WorkBundlesPage />} />
+            <Route path="work/licenses" element={<WorkLicensesPage />} />
+            <Route path="work/commerce" element={<WorkCommercePage />} />
+            <Route path="work/affiliates" element={<WorkAffiliateDashboard />} />
+          </Route>
         </Route>
 
-        {/* Legacy redirects */}
+        {/* Legacy admin redirects */}
         <Route path="/admin/dashboard" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/course-studio" element={<Navigate to="/admin/studio/new" replace />} />
@@ -267,6 +268,9 @@ const AppRoutes = () => {
         <Route path="/admin/finance/*" element={<Navigate to="/admin/business" replace />} />
         <Route path="/admin/council/*" element={<Navigate to="/admin/quality" replace />} />
         <Route path="/admin-v2/*" element={<Navigate to="/admin/command" replace />} />
+        {/* Legacy berufski admin → work admin */}
+        <Route path="/admin/berufski" element={<Navigate to="/admin/work" replace />} />
+        <Route path="/admin/berufski/*" element={<Navigate to="/admin/work" replace />} />
 
         {/* 404 */}
         <Route path="*" element={<NotFound />} />

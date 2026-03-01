@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,50 +11,48 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Package, Loader2, Trash2, Save, Euro, Tag } from 'lucide-react';
+import { Plus, Package, Loader2, Trash2, Save } from 'lucide-react';
 
+// ─── Types ───
 interface Bundle {
   id: string;
-  slug: string;
   title: string;
+  slug: string;
   description: string | null;
-  bundle_type: string;
+  bundle_type: 'single_pdf' | 'zip';
   price_cents: number;
   original_price_cents: number | null;
-  included_product_ids: string[] | null;
-  bonus_content: unknown;
+  included_product_ids: string[];
+  is_active: boolean;
+  sort_order: number;
   stripe_price_id: string | null;
-  stripe_product_id: string | null;
-  is_active: boolean | null;
-  sort_order: number | null;
-  created_at: string | null;
 }
 
 interface Produkt {
   id: string;
-  titel: string;
-  tier: string;
   beruf_id: string;
+  tier: string;
+  titel: string;
 }
 
 function useBundles() {
   return useQuery({
-    queryKey: ['berufski-bundles'],
+    queryKey: ['work-bundles'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('berufski_bundles').select('*').order('sort_order');
+      const { data, error } = await supabase.from('work_bundles').select('*').order('sort_order');
       if (error) throw error;
-      return (data || []) as Bundle[];
+      return (data || []) as any[];
     },
   });
 }
 
 function useProdukte() {
   return useQuery({
-    queryKey: ['berufski-alle-produkte'],
+    queryKey: ['work-alle-produkte'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('berufski_produkte').select('id, titel, tier, beruf_id').order('titel');
+      const { data, error } = await supabase.from('work_produkte').select('id, titel, tier, beruf_id').order('titel');
       if (error) throw error;
-      return (data || []) as Produkt[];
+      return (data || []) as any[];
     },
   });
 }
@@ -66,19 +64,19 @@ export default function BerufsKIBundlesPage() {
 
   const deleteBundle = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('berufski_bundles').delete().eq('id', id);
+      const { error } = await supabase.from('work_bundles').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success('Bundle gelöscht'); qc.invalidateQueries({ queryKey: ['berufski-bundles'] }); },
+    onSuccess: () => { toast.success('Bundle gelöscht'); qc.invalidateQueries({ queryKey: ['work-bundles'] }); },
     onError: (e) => toast.error((e as Error).message),
   });
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from('berufski_bundles').update({ is_active: active }).eq('id', id);
+      const { error } = await supabase.from('work_bundles').update({ is_active: active }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['berufski-bundles'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['work-bundles'] }); },
   });
 
   return (
@@ -97,11 +95,10 @@ export default function BerufsKIBundlesPage() {
         </Dialog>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         <Card><CardContent className="py-4"><p className="text-2xl font-bold">{bundles.length}</p><p className="text-sm text-muted-foreground">Bundles gesamt</p></CardContent></Card>
-        <Card><CardContent className="py-4"><p className="text-2xl font-bold">{bundles.filter(b => b.is_active).length}</p><p className="text-sm text-muted-foreground">Aktiv</p></CardContent></Card>
-        <Card><CardContent className="py-4"><p className="text-2xl font-bold">{bundles.filter(b => b.stripe_price_id).length}</p><p className="text-sm text-muted-foreground">Mit Stripe</p></CardContent></Card>
+        <Card><CardContent className="py-4"><p className="text-2xl font-bold">{bundles.filter((b: any) => b.is_active).length}</p><p className="text-sm text-muted-foreground">Aktiv</p></CardContent></Card>
+        <Card><CardContent className="py-4"><p className="text-2xl font-bold">{bundles.filter((b: any) => b.stripe_price_id).length}</p><p className="text-sm text-muted-foreground">Mit Stripe</p></CardContent></Card>
       </div>
 
       {isLoading ? (
@@ -110,7 +107,7 @@ export default function BerufsKIBundlesPage() {
         <Card><CardContent className="py-12 text-center text-muted-foreground">Noch keine Bundles erstellt.</CardContent></Card>
       ) : (
         <div className="space-y-3">
-          {bundles.map(b => (
+          {bundles.map((b: any) => (
             <Card key={b.id}>
               <CardContent className="py-4 flex items-center justify-between">
                 <div className="space-y-1">
@@ -124,14 +121,11 @@ export default function BerufsKIBundlesPage() {
                     {(b.price_cents / 100).toFixed(2)}€
                     {b.original_price_cents && <span className="line-through ml-2">{(b.original_price_cents / 100).toFixed(2)}€</span>}
                     {' · '}{(b.included_product_ids || []).length} Produkte
-                    {b.description && ` · ${b.description.slice(0, 60)}…`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch checked={b.is_active ?? false} onCheckedChange={v => toggleActive.mutate({ id: b.id, active: v })} />
-                  <Button variant="ghost" size="sm" onClick={() => deleteBundle.mutate(b.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => deleteBundle.mutate(b.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
               </CardContent>
             </Card>
@@ -148,25 +142,23 @@ function BundleForm({ onSuccess }: { onSuccess: () => void }) {
   const [form, setForm] = useState({
     title: '', slug: '', description: '', bundle_type: 'single_pdf',
     price_cents: 4900, original_price_cents: 5700,
-    selected_product_ids: [] as string[],
-    is_active: true,
+    selected_product_ids: [] as string[], is_active: true,
   });
 
   const save = useMutation({
     mutationFn: async () => {
       const slug = form.slug || form.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      const { error } = await supabase.from('berufski_bundles').insert({
+      const { error } = await supabase.from('work_bundles').insert({
         title: form.title, slug, description: form.description || null,
         bundle_type: form.bundle_type, price_cents: form.price_cents,
         original_price_cents: form.original_price_cents || null,
-        included_product_ids: form.selected_product_ids,
-        is_active: form.is_active,
+        included_product_ids: form.selected_product_ids, is_active: form.is_active,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success('Bundle erstellt');
-      qc.invalidateQueries({ queryKey: ['berufski-bundles'] });
+      qc.invalidateQueries({ queryKey: ['work-bundles'] });
       onSuccess();
     },
     onError: (e) => toast.error((e as Error).message),
@@ -174,10 +166,8 @@ function BundleForm({ onSuccess }: { onSuccess: () => void }) {
 
   const toggleProduct = (id: string) => {
     setForm(f => ({
-      ...f,
-      selected_product_ids: f.selected_product_ids.includes(id)
-        ? f.selected_product_ids.filter(x => x !== id)
-        : [...f.selected_product_ids, id],
+      ...f, selected_product_ids: f.selected_product_ids.includes(id)
+        ? f.selected_product_ids.filter(x => x !== id) : [...f.selected_product_ids, id],
     }));
   };
 
@@ -207,17 +197,14 @@ function BundleForm({ onSuccess }: { onSuccess: () => void }) {
         <div>
           <Label>Streichpreis (Cent)</Label>
           <Input type="number" value={form.original_price_cents} onChange={e => setForm(f => ({ ...f, original_price_cents: parseInt(e.target.value) || 0 }))} />
-          <p className="text-xs text-muted-foreground mt-1">{(form.original_price_cents / 100).toFixed(2)}€</p>
         </div>
       </div>
-
-      {/* Product Selector */}
       <div>
         <Label>Enthaltene Produkte ({form.selected_product_ids.length})</Label>
         <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-1 mt-1">
           {produkte.length === 0 ? (
             <p className="text-sm text-muted-foreground">Keine Produkte vorhanden</p>
-          ) : produkte.map(p => (
+          ) : produkte.map((p: any) => (
             <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
               <input type="checkbox" checked={form.selected_product_ids.includes(p.id)} onChange={() => toggleProduct(p.id)} />
               <span>{p.titel}</span>
@@ -226,15 +213,12 @@ function BundleForm({ onSuccess }: { onSuccess: () => void }) {
           ))}
         </div>
       </div>
-
       <div className="flex items-center gap-2">
         <Switch checked={form.is_active} onCheckedChange={v => setForm(f => ({ ...f, is_active: v }))} />
         <Label>Sofort aktiv</Label>
       </div>
-
       <Button onClick={() => save.mutate()} disabled={!form.title || save.isPending} className="w-full">
-        {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-        Bundle erstellen
+        {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Bundle erstellen
       </Button>
     </div>
   );

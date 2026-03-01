@@ -27,9 +27,9 @@ export default function BerufsKIPipelinePage() {
   const [tier, setTier] = useState('19');
 
   const { data: berufe = [] } = useQuery({
-    queryKey: ['berufski-berufe-pipeline'],
+    queryKey: ['work-berufe-pipeline'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('berufski_berufe').select('id, slug, name').order('name');
+      const { data, error } = await supabase.from('work_berufe').select('id, slug, name').order('name');
       if (error) throw error;
       return data || [];
     },
@@ -44,11 +44,8 @@ export default function BerufsKIPipelinePage() {
       return data as { ok: boolean; productId: string; landingUrl: string; steps: PipelineStep[] };
     },
     onSuccess: (data) => {
-      if (data.ok) {
-        toast.success('Pipeline komplett! Produkt ist live.', { description: data.landingUrl });
-      } else {
-        toast.warning('Pipeline teilweise abgeschlossen – siehe Details');
-      }
+      if (data.ok) toast.success('Pipeline komplett! Produkt ist live.', { description: data.landingUrl });
+      else toast.warning('Pipeline teilweise abgeschlossen – siehe Details');
     },
     onError: (e) => toast.error(`Pipeline-Fehler: ${(e as Error).message}`),
   });
@@ -60,32 +57,22 @@ export default function BerufsKIPipelinePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Auto-Pipeline (1-Click)</h1>
-        <p className="text-muted-foreground">
-          Generate → PDF Export → Stripe Publish → SEO in einem Klick
-        </p>
+        <p className="text-muted-foreground">Generate → PDF Export → Stripe Publish → SEO in einem Klick</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Rocket className="h-5 w-5" />Pipeline starten</CardTitle>
-          <CardDescription>
-            Wähle einen Beruf und Tier — das System generiert das Produkt, exportiert PDFs (Screen + Print),
-            publiziert via Stripe und aktiviert die Landing-Page.
-          </CardDescription>
+          <CardDescription>Wähle einen Beruf und Tier — das System generiert das Produkt, exportiert PDFs, publiziert via Stripe und aktiviert die Landing-Page.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex-1 min-w-[200px]">
               <Select value={selectedBeruf} onValueChange={setSelectedBeruf}>
                 <SelectTrigger><SelectValue placeholder="Beruf wählen…" /></SelectTrigger>
-                <SelectContent>
-                  {berufe.map((b: any) => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectContent>{berufe.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-
             <Select value={tier} onValueChange={setTier}>
               <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -94,64 +81,34 @@ export default function BerufsKIPipelinePage() {
                 <SelectItem value="29">Komplettsystem (29€)</SelectItem>
               </SelectContent>
             </Select>
-
-            <Button
-              onClick={() => pipeline.mutate()}
-              disabled={!selectedBeruf || pipeline.isPending}
-              size="lg"
-            >
-              {pipeline.isPending ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Pipeline läuft (~60s)…</>
-              ) : (
-                <><Zap className="mr-2 h-4 w-4" />Pipeline starten</>
-              )}
+            <Button onClick={() => pipeline.mutate()} disabled={!selectedBeruf || pipeline.isPending} size="lg">
+              {pipeline.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Pipeline läuft (~60s)…</> : <><Zap className="mr-2 h-4 w-4" />Pipeline starten</>}
             </Button>
           </div>
-
-          {beruf && (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Beruf: <strong>{beruf.name}</strong> · Slug: {beruf.slug}
-            </p>
-          )}
+          {beruf && <p className="mt-3 text-sm text-muted-foreground">Beruf: <strong>{beruf.name}</strong> · Slug: {beruf.slug}</p>}
         </CardContent>
       </Card>
 
-      {/* Pipeline Steps */}
       {steps.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Pipeline-Ergebnis</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Pipeline-Ergebnis</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {steps.map((s, i) => (
               <div key={i} className="flex items-center justify-between p-3 rounded-lg border">
                 <div className="flex items-center gap-3">
-                  {s.status === 'ok' ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-destructive" />
-                  )}
+                  {s.status === 'ok' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-destructive" />}
                   <span className="font-medium">{STEP_LABELS[s.step] || s.step}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={s.status === 'ok' ? 'default' : 'destructive'}>{s.status}</Badge>
-                  {typeof s.detail === 'string' && (
-                    <span className="text-xs text-muted-foreground max-w-xs truncate">{s.detail}</span>
-                  )}
+                  {typeof s.detail === 'string' && <span className="text-xs text-muted-foreground max-w-xs truncate">{s.detail}</span>}
                 </div>
               </div>
             ))}
-
             {pipeline.data?.landingUrl && (
               <div className="pt-3 flex items-center gap-3">
-                <a
-                  href={pipeline.data.landingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-sm text-primary hover:underline"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Landing-Page ansehen
+                <a href={pipeline.data.landingUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-primary hover:underline">
+                  <ExternalLink className="h-4 w-4" />Landing-Page ansehen
                 </a>
                 <span className="text-xs text-muted-foreground">Product ID: {pipeline.data.productId}</span>
               </div>

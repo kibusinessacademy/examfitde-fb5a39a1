@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  console.log(`[BERUFSKI-EMAIL-FLUSH] ${step}`, details ? JSON.stringify(details) : '');
+  console.log(`[WORK-EMAIL-FLUSH] ${step}`, details ? JSON.stringify(details) : '');
 };
 
 function isAuthorized(req: Request): boolean {
@@ -38,11 +38,11 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY not set");
 
-    const fromAddress = Deno.env.get("RESEND_FROM") || "BerufsKI <noreply@berufski.de>";
+    const fromAddress = Deno.env.get("RESEND_FROM") || "ExamFit@work <noreply@examfitwork.de>";
     const replyTo = Deno.env.get("RESEND_REPLY_TO") || "likeitmark9@gmail.com";
 
     const { data: emails } = await admin
-      .from("berufski_email_outbox")
+      .from("work_email_outbox")
       .select("*")
       .eq("status", "queued")
       .order("created_at", { ascending: true })
@@ -81,14 +81,14 @@ serve(async (req) => {
           throw new Error(`Resend error ${res.status}: ${errText}`);
         }
 
-        await admin.from("berufski_email_outbox").update({
+        await admin.from("work_email_outbox").update({
           status: "sent",
           sent_at: new Date().toISOString(),
         }).eq("id", e.id);
         sent++;
         logStep("Email sent", { to: e.to_email, id: e.id });
       } catch (err) {
-        await admin.from("berufski_email_outbox").update({
+        await admin.from("work_email_outbox").update({
           status: "failed",
           error: String(err).slice(0, 500),
         }).eq("id", e.id);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,54 +13,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Plus, Palette, FileCode, Loader2, Star, Trash2, Save } from 'lucide-react';
 
-// ─── Types ───
-interface PdfTemplate {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  html_shell: string;
-  css: string;
-  version: number;
-  is_default: boolean | null;
-  layout_components: unknown;
-  created_at: string | null;
-}
-
-interface BrandTheme {
-  id: string;
-  brand_name: string;
-  primary_color: string;
-  accent_color: string;
-  secondary_color: string | null;
-  font_heading: string | null;
-  font_body: string | null;
-  logo_url: string | null;
-  footer_text: string | null;
-  legal_notice: string | null;
-  is_default: boolean | null;
-  created_at: string | null;
-}
-
-// ─── Hooks ───
 function useTemplates() {
   return useQuery({
-    queryKey: ['berufski-pdf-templates'],
+    queryKey: ['work-pdf-templates'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('berufski_pdf_templates').select('*').order('name');
+      const { data, error } = await supabase.from('work_pdf_templates').select('*').order('name');
       if (error) throw error;
-      return (data || []) as PdfTemplate[];
+      return (data || []) as any[];
     },
   });
 }
 
 function useThemes() {
   return useQuery({
-    queryKey: ['berufski-brand-themes'],
+    queryKey: ['work-brand-themes'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('berufski_brand_themes').select('*').order('brand_name');
+      const { data, error } = await supabase.from('work_brand_themes').select('*').order('brand_name');
       if (error) throw error;
-      return (data || []) as BrandTheme[];
+      return (data || []) as any[];
     },
   });
 }
@@ -70,27 +40,20 @@ export default function BerufsKITemplatesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Template Manager</h1>
-        <p className="text-muted-foreground">PDF-Templates & Brand-Themes für BerufsKI-Produkte</p>
+        <p className="text-muted-foreground">PDF-Templates & Brand-Themes für ExamFit@work-Produkte</p>
       </div>
-
       <Tabs defaultValue="templates">
         <TabsList>
           <TabsTrigger value="templates"><FileCode className="h-4 w-4 mr-1" />PDF-Templates</TabsTrigger>
           <TabsTrigger value="themes"><Palette className="h-4 w-4 mr-1" />Brand-Themes</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="templates" className="mt-4">
-          <TemplatesSection />
-        </TabsContent>
-        <TabsContent value="themes" className="mt-4">
-          <ThemesSection />
-        </TabsContent>
+        <TabsContent value="templates" className="mt-4"><TemplatesSection /></TabsContent>
+        <TabsContent value="themes" className="mt-4"><ThemesSection /></TabsContent>
       </Tabs>
     </div>
   );
 }
 
-// ─── Templates Section ───
 function TemplatesSection() {
   const { data: templates = [], isLoading } = useTemplates();
   const [showCreate, setShowCreate] = useState(false);
@@ -99,25 +62,25 @@ function TemplatesSection() {
 
   const deleteTemplate = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('berufski_pdf_templates').delete().eq('id', id);
+      const { error } = await supabase.from('work_pdf_templates').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success('Template gelöscht'); qc.invalidateQueries({ queryKey: ['berufski-pdf-templates'] }); },
+    onSuccess: () => { toast.success('Template gelöscht'); qc.invalidateQueries({ queryKey: ['work-pdf-templates'] }); },
     onError: (e) => toast.error((e as Error).message),
   });
 
   const setDefault = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from('berufski_pdf_templates').update({ is_default: false }).neq('id', id);
-      const { error } = await supabase.from('berufski_pdf_templates').update({ is_default: true }).eq('id', id);
+      await supabase.from('work_pdf_templates').update({ is_default: false }).neq('id', id);
+      const { error } = await supabase.from('work_pdf_templates').update({ is_default: true }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success('Standard-Template gesetzt'); qc.invalidateQueries({ queryKey: ['berufski-pdf-templates'] }); },
+    onSuccess: () => { toast.success('Standard-Template gesetzt'); qc.invalidateQueries({ queryKey: ['work-pdf-templates'] }); },
   });
 
   if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
-  const editing = editId ? templates.find(t => t.id === editId) : null;
+  const editing = editId ? templates.find((t: any) => t.id === editId) : null;
 
   return (
     <div className="space-y-4">
@@ -130,12 +93,11 @@ function TemplatesSection() {
           </DialogContent>
         </Dialog>
       </div>
-
       {templates.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">Noch keine Templates vorhanden.</CardContent></Card>
       ) : (
         <div className="grid gap-4">
-          {templates.map(t => (
+          {templates.map((t: any) => (
             <Card key={t.id}>
               <CardContent className="py-4 flex items-center justify-between">
                 <div className="space-y-1">
@@ -147,11 +109,7 @@ function TemplatesSection() {
                   <p className="text-sm text-muted-foreground">{t.description || t.slug}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {!t.is_default && (
-                    <Button variant="outline" size="sm" onClick={() => setDefault.mutate(t.id)}>
-                      <Star className="h-3 w-3 mr-1" />Standard
-                    </Button>
-                  )}
+                  {!t.is_default && <Button variant="outline" size="sm" onClick={() => setDefault.mutate(t.id)}><Star className="h-3 w-3 mr-1" />Standard</Button>}
                   <Dialog open={editId === t.id} onOpenChange={open => setEditId(open ? t.id : null)}>
                     <DialogTrigger asChild><Button variant="outline" size="sm">Bearbeiten</Button></DialogTrigger>
                     <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -159,9 +117,7 @@ function TemplatesSection() {
                       {editing && <TemplateForm template={editing} onSuccess={() => setEditId(null)} />}
                     </DialogContent>
                   </Dialog>
-                  <Button variant="ghost" size="sm" onClick={() => deleteTemplate.mutate(t.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => deleteTemplate.mutate(t.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
               </CardContent>
             </Card>
@@ -172,43 +128,33 @@ function TemplatesSection() {
   );
 }
 
-// ─── Template Form ───
-function TemplateForm({ template, onSuccess }: { template?: PdfTemplate; onSuccess: () => void }) {
+function TemplateForm({ template, onSuccess }: { template?: any; onSuccess: () => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    name: template?.name || '',
-    slug: template?.slug || '',
-    description: template?.description || '',
+    name: template?.name || '', slug: template?.slug || '', description: template?.description || '',
     html_shell: template?.html_shell || '<!DOCTYPE html>\n<html>\n<head><style>{{CSS}}</style></head>\n<body>{{CONTENT}}</body>\n</html>',
     css: template?.css || '@page { size: A4; margin: 20mm; }',
-    version: template?.version || 1,
-    is_default: template?.is_default || false,
+    version: template?.version || 1, is_default: template?.is_default || false,
   });
 
   const save = useMutation({
     mutationFn: async () => {
       const slug = form.slug || form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       if (template) {
-        const { error } = await supabase.from('berufski_pdf_templates').update({
+        const { error } = await supabase.from('work_pdf_templates').update({
           name: form.name, slug, description: form.description || null,
-          html_shell: form.html_shell, css: form.css, version: form.version,
-          is_default: form.is_default,
+          html_shell: form.html_shell, css: form.css, version: form.version, is_default: form.is_default,
         }).eq('id', template.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('berufski_pdf_templates').insert({
+        const { error } = await supabase.from('work_pdf_templates').insert({
           name: form.name, slug, description: form.description || null,
-          html_shell: form.html_shell, css: form.css, version: form.version,
-          is_default: form.is_default,
+          html_shell: form.html_shell, css: form.css, version: form.version, is_default: form.is_default,
         });
         if (error) throw error;
       }
     },
-    onSuccess: () => {
-      toast.success(template ? 'Template aktualisiert' : 'Template erstellt');
-      qc.invalidateQueries({ queryKey: ['berufski-pdf-templates'] });
-      onSuccess();
-    },
+    onSuccess: () => { toast.success(template ? 'Template aktualisiert' : 'Template erstellt'); qc.invalidateQueries({ queryKey: ['work-pdf-templates'] }); onSuccess(); },
     onError: (e) => toast.error((e as Error).message),
   });
 
@@ -223,7 +169,6 @@ function TemplateForm({ template, onSuccess }: { template?: PdfTemplate; onSucce
       <div>
         <Label>HTML Shell</Label>
         <Textarea className="font-mono text-xs min-h-[200px]" value={form.html_shell} onChange={e => setForm(f => ({ ...f, html_shell: e.target.value }))} />
-        <p className="text-xs text-muted-foreground mt-1">Platzhalter: {'{{CSS}}'}, {'{{CONTENT}}'}, {'{{COVER}}'}, {'{{TOC}}'}</p>
       </div>
       <div>
         <Label>CSS</Label>
@@ -241,7 +186,6 @@ function TemplateForm({ template, onSuccess }: { template?: PdfTemplate; onSucce
   );
 }
 
-// ─── Themes Section ───
 function ThemesSection() {
   const { data: themes = [], isLoading } = useThemes();
   const [showCreate, setShowCreate] = useState(false);
@@ -249,20 +193,20 @@ function ThemesSection() {
 
   const deleteTheme = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('berufski_brand_themes').delete().eq('id', id);
+      const { error } = await supabase.from('work_brand_themes').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success('Theme gelöscht'); qc.invalidateQueries({ queryKey: ['berufski-brand-themes'] }); },
+    onSuccess: () => { toast.success('Theme gelöscht'); qc.invalidateQueries({ queryKey: ['work-brand-themes'] }); },
     onError: (e) => toast.error((e as Error).message),
   });
 
   const setDefault = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from('berufski_brand_themes').update({ is_default: false }).neq('id', id);
-      const { error } = await supabase.from('berufski_brand_themes').update({ is_default: true }).eq('id', id);
+      await supabase.from('work_brand_themes').update({ is_default: false }).neq('id', id);
+      const { error } = await supabase.from('work_brand_themes').update({ is_default: true }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success('Standard-Theme gesetzt'); qc.invalidateQueries({ queryKey: ['berufski-brand-themes'] }); },
+    onSuccess: () => { toast.success('Standard-Theme gesetzt'); qc.invalidateQueries({ queryKey: ['work-brand-themes'] }); },
   });
 
   if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -278,12 +222,11 @@ function ThemesSection() {
           </DialogContent>
         </Dialog>
       </div>
-
       {themes.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">Noch keine Themes vorhanden.</CardContent></Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {themes.map(t => (
+          {themes.map((t: any) => (
             <Card key={t.id}>
               <CardContent className="py-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -292,14 +235,8 @@ function ThemesSection() {
                     {t.is_default && <Badge><Star className="h-3 w-3 mr-1" />Standard</Badge>}
                   </div>
                   <div className="flex gap-1">
-                    {!t.is_default && (
-                      <Button variant="outline" size="sm" onClick={() => setDefault.mutate(t.id)}>
-                        <Star className="h-3 w-3" />
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={() => deleteTheme.mutate(t.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    {!t.is_default && <Button variant="outline" size="sm" onClick={() => setDefault.mutate(t.id)}><Star className="h-3 w-3" /></Button>}
+                    <Button variant="ghost" size="sm" onClick={() => deleteTheme.mutate(t.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -307,10 +244,7 @@ function ThemesSection() {
                   <div className="w-8 h-8 rounded border" style={{ backgroundColor: t.accent_color }} title="Accent" />
                   {t.secondary_color && <div className="w-8 h-8 rounded border" style={{ backgroundColor: t.secondary_color }} title="Secondary" />}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {t.font_heading || 'System'} / {t.font_body || 'System'}
-                  {t.footer_text && ` · Footer: ${t.footer_text.slice(0, 40)}…`}
-                </p>
+                <p className="text-xs text-muted-foreground">{t.font_heading || 'System'} / {t.font_body || 'System'}</p>
               </CardContent>
             </Card>
           ))}
@@ -320,7 +254,6 @@ function ThemesSection() {
   );
 }
 
-// ─── Theme Form ───
 function ThemeForm({ onSuccess }: { onSuccess: () => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
@@ -331,31 +264,21 @@ function ThemeForm({ onSuccess }: { onSuccess: () => void }) {
 
   const save = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('berufski_brand_themes').insert({
-        brand_name: form.brand_name,
-        primary_color: form.primary_color,
-        accent_color: form.accent_color,
-        secondary_color: form.secondary_color || null,
-        font_heading: form.font_heading || null,
-        font_body: form.font_body || null,
-        logo_url: form.logo_url || null,
-        footer_text: form.footer_text || null,
-        legal_notice: form.legal_notice || null,
-        is_default: form.is_default,
+      const { error } = await supabase.from('work_brand_themes').insert({
+        brand_name: form.brand_name, primary_color: form.primary_color, accent_color: form.accent_color,
+        secondary_color: form.secondary_color || null, font_heading: form.font_heading || null,
+        font_body: form.font_body || null, logo_url: form.logo_url || null,
+        footer_text: form.footer_text || null, legal_notice: form.legal_notice || null, is_default: form.is_default,
       });
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast.success('Theme erstellt');
-      qc.invalidateQueries({ queryKey: ['berufski-brand-themes'] });
-      onSuccess();
-    },
+    onSuccess: () => { toast.success('Theme erstellt'); qc.invalidateQueries({ queryKey: ['work-brand-themes'] }); onSuccess(); },
     onError: (e) => toast.error((e as Error).message),
   });
 
   return (
     <div className="space-y-4">
-      <div><Label>Markenname *</Label><Input value={form.brand_name} onChange={e => setForm(f => ({ ...f, brand_name: e.target.value }))} placeholder="BerufsKI Premium" /></div>
+      <div><Label>Markenname *</Label><Input value={form.brand_name} onChange={e => setForm(f => ({ ...f, brand_name: e.target.value }))} placeholder="ExamFit@work Premium" /></div>
       <div className="grid grid-cols-3 gap-4">
         <div><Label>Primärfarbe</Label><Input type="color" value={form.primary_color} onChange={e => setForm(f => ({ ...f, primary_color: e.target.value }))} /></div>
         <div><Label>Akzentfarbe</Label><Input type="color" value={form.accent_color} onChange={e => setForm(f => ({ ...f, accent_color: e.target.value }))} /></div>
@@ -365,16 +288,15 @@ function ThemeForm({ onSuccess }: { onSuccess: () => void }) {
         <div><Label>Font Heading</Label><Input value={form.font_heading} onChange={e => setForm(f => ({ ...f, font_heading: e.target.value }))} /></div>
         <div><Label>Font Body</Label><Input value={form.font_body} onChange={e => setForm(f => ({ ...f, font_body: e.target.value }))} /></div>
       </div>
-      <div><Label>Logo URL</Label><Input value={form.logo_url} onChange={e => setForm(f => ({ ...f, logo_url: e.target.value }))} placeholder="https://..." /></div>
-      <div><Label>Footer-Text</Label><Input value={form.footer_text} onChange={e => setForm(f => ({ ...f, footer_text: e.target.value }))} placeholder="© BerufsKI.de" /></div>
+      <div><Label>Logo URL</Label><Input value={form.logo_url} onChange={e => setForm(f => ({ ...f, logo_url: e.target.value }))} /></div>
+      <div><Label>Footer-Text</Label><Input value={form.footer_text} onChange={e => setForm(f => ({ ...f, footer_text: e.target.value }))} placeholder="© ExamFit@work" /></div>
       <div><Label>Rechtlicher Hinweis</Label><Textarea value={form.legal_notice} onChange={e => setForm(f => ({ ...f, legal_notice: e.target.value }))} /></div>
       <div className="flex items-center gap-2">
         <Switch checked={form.is_default} onCheckedChange={v => setForm(f => ({ ...f, is_default: v }))} />
         <Label>Als Standard verwenden</Label>
       </div>
       <Button onClick={() => save.mutate()} disabled={!form.brand_name || save.isPending} className="w-full">
-        {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-        Erstellen
+        {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Erstellen
       </Button>
     </div>
   );
