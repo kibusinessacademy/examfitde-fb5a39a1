@@ -46,6 +46,17 @@ export interface ContaminationResult {
  * Check if generated text contains terms from a FOREIGN industry.
  * Returns contamination details. The caller decides whether to reject.
  */
+// Adjacent industries whose terms naturally co-occur
+// (e.g., MFA handles Medikamente → pharmazie terms are expected)
+const ADJACENT_INDUSTRIES: Record<string, string[]> = {
+  medizin: ["pharmazie"],     // MFA naturally mentions medications/prescriptions
+  pharmazie: ["medizin"],     // PKA naturally mentions diagnoses/therapies
+};
+
+// Minimum unique foreign terms to count as real contamination
+// Single stray term = noise, 3+ = real cross-profession pollution
+const CONTAMINATION_THRESHOLD = 3;
+
 export function checkContamination(
   text: string,
   professionName: string,
@@ -54,9 +65,18 @@ export function checkContamination(
   const matchedTerms: string[] = [];
   let detectedIndustry: string | null = null;
 
+  // Which industries are allowed (own + adjacent)
+  const allowedIndustries = new Set<string>();
+  if (professionIndustry) {
+    allowedIndustries.add(professionIndustry);
+    for (const adj of ADJACENT_INDUSTRIES[professionIndustry] || []) {
+      allowedIndustries.add(adj);
+    }
+  }
+
   for (const [industry, regex] of Object.entries(INDUSTRY_KEYWORDS)) {
-    // Skip the profession's own industry
-    if (industry === professionIndustry) continue;
+    // Skip the profession's own and adjacent industries
+    if (allowedIndustries.has(industry)) continue;
 
     const matches = text.match(new RegExp(regex.source, "gi"));
     if (matches && matches.length > 0) {
@@ -69,7 +89,7 @@ export function checkContamination(
   const uniqueTerms = [...new Set(matchedTerms)];
 
   return {
-    isContaminated: uniqueTerms.length > 0,
+    isContaminated: uniqueTerms.length >= CONTAMINATION_THRESHOLD,
     detectedIndustry,
     matchedTerms: uniqueTerms,
     professionIndustry,
