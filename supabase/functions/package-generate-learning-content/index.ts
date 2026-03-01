@@ -531,8 +531,8 @@ Deno.serve(async (req) => {
 
       const elapsedMs = Date.now() - startMs;
       const remainingSoftMs = budget.softStopMs - elapsedMs;
-      const llmTimeoutMs = Math.max(8_000, Math.min(28_000, remainingSoftMs - 1_500));
-      if (remainingSoftMs <= 9_500) {
+      const llmTimeoutMs = Math.max(8_000, Math.min(40_000, remainingSoftMs - 2_000));
+      if (remainingSoftMs <= 10_000) {
         softStopped = true;
         console.warn(`[gen-content] Not enough soft budget left (${remainingSoftMs}ms) before LLM call — stopping batch`);
         break;
