@@ -28,7 +28,7 @@ export interface MiniCheckContent {
 
 interface MiniCheckPlayerProps {
   content: MiniCheckContent;
-  lessonId: string;
+  lessonId?: string | null;
   onCompleted?: (score: number, maxScore: number) => void;
 }
 
@@ -83,7 +83,7 @@ export default function MiniCheckPlayer({
         p_question_id: currentQuestion.id,
         p_chosen_index: selectedIndex,
         p_session_id: sessionId,
-        p_lesson_id: lessonId,
+        p_lesson_id: lessonId || null,
       });
 
       if (error) {
@@ -148,21 +148,23 @@ export default function MiniCheckPlayer({
     
     setSaving(true);
     try {
-      const { error } = await supabase.rpc('update_lesson_outcome', {
-        p_lesson_id: lessonId,
-        p_score_percent: scorePercent
-      });
-      
-      if (error) {
-        console.error('Error saving mini-check result:', error);
-        toast({
-          title: 'Fehler beim Speichern',
-          description: 'Dein Ergebnis konnte nicht gespeichert werden.',
-          variant: 'destructive'
+      // Only save lesson outcome if we have a real lessonId (not drill mode)
+      if (lessonId) {
+        const { error } = await supabase.rpc('update_lesson_outcome', {
+          p_lesson_id: lessonId,
+          p_score_percent: scorePercent
         });
-      } else {
-        onCompleted?.(correctCount, totalQuestions);
+        
+        if (error) {
+          console.error('Error saving mini-check result:', error);
+          toast({
+            title: 'Fehler beim Speichern',
+            description: 'Dein Ergebnis konnte nicht gespeichert werden.',
+            variant: 'destructive'
+          });
+        }
       }
+      onCompleted?.(correctCount, totalQuestions);
     } catch (err) {
       console.error('Error in saveResult:', err);
     } finally {

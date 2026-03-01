@@ -202,7 +202,7 @@ export default function DrillSession() {
 
         <MiniCheckPlayer
           content={drillContent}
-          lessonId={curriculumId} // used as context ID for attempts
+          lessonId={null}
           onCompleted={handleCompleted}
         />
       </div>
