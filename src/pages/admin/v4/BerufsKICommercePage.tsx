@@ -19,9 +19,9 @@ import {
 // ─── Hooks ───
 function useCoupons() {
   return useQuery({
-    queryKey: ['berufski-coupons'],
+    queryKey: ['work-coupons'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('berufski_coupons').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('work_coupons').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -30,9 +30,9 @@ function useCoupons() {
 
 function useAffiliates() {
   return useQuery({
-    queryKey: ['berufski-affiliates'],
+    queryKey: ['work-affiliates'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('berufski_affiliates').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('work_affiliates').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -41,11 +41,11 @@ function useAffiliates() {
 
 function usePurchases() {
   return useQuery({
-    queryKey: ['berufski-purchases'],
+    queryKey: ['work-purchases'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('berufski_purchases')
-        .select('*, berufski_produkte(titel, tier)')
+        .from('work_purchases')
+        .select('*, work_produkte(titel, tier)')
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -56,10 +56,10 @@ function usePurchases() {
 
 function useEmailOutbox() {
   return useQuery({
-    queryKey: ['berufski-email-outbox'],
+    queryKey: ['work-email-outbox'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('berufski_email_outbox')
+        .from('work_email_outbox')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
@@ -71,11 +71,11 @@ function useEmailOutbox() {
 
 function usePublishableProducts() {
   return useQuery({
-    queryKey: ['berufski-publishable'],
+    queryKey: ['work-publishable'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('berufski_produkte')
-        .select('id, titel, tier, status, published_at, stripe_price_id, beruf_id, berufski_berufe(name)')
+        .from('work_produkte')
+        .select('id, titel, tier, status, published_at, stripe_price_id, beruf_id, work_berufe(name)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
@@ -88,7 +88,7 @@ export default function BerufsKICommercePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">BerufsKI Commerce</h1>
+        <h1 className="text-2xl font-bold">ExamFit@work Commerce</h1>
         <p className="text-muted-foreground">Publish Gate, Coupons, Affiliates, Verkäufe & E-Mails</p>
       </div>
 
@@ -127,7 +127,7 @@ function PublishSection() {
     },
     onSuccess: (data) => {
       toast.success('Produkt publiziert!', { description: `Stripe Price: ${data.stripePriceId}` });
-      qc.invalidateQueries({ queryKey: ['berufski-publishable'] });
+      qc.invalidateQueries({ queryKey: ['work-publishable'] });
     },
     onError: (e) => toast.error(`Publish-Fehler: ${(e as Error).message}`),
   });
@@ -147,7 +147,7 @@ function PublishSection() {
                   {p.status === 'published' && <CheckCircle2 className="h-3 w-3 mr-1" />}
                   {p.status || 'draft'}
                 </Badge>
-                {p.berufski_berufe && <span className="text-sm text-muted-foreground">{(p.berufski_berufe as any).name}</span>}
+                {p.work_berufe && <span className="text-sm text-muted-foreground">{(p.work_berufe as any).name}</span>}
               </div>
               {p.stripe_price_id && <p className="text-xs text-muted-foreground">Stripe: {p.stripe_price_id}</p>}
               {p.published_at && <p className="text-xs text-muted-foreground">Publiziert: {new Date(p.published_at).toLocaleDateString('de-DE')}</p>}
@@ -177,7 +177,7 @@ function CouponsSection() {
 
   const create = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('berufski_coupons').insert({
+      const { error } = await supabase.from('work_coupons').insert({
         code: form.code.toUpperCase(),
         type: form.type,
         value: Number(form.value),
@@ -190,7 +190,7 @@ function CouponsSection() {
     },
     onSuccess: () => {
       toast.success('Coupon erstellt');
-      qc.invalidateQueries({ queryKey: ['berufski-coupons'] });
+      qc.invalidateQueries({ queryKey: ['work-coupons'] });
       setShowCreate(false);
       setForm({ code: '', type: 'percent', value: '', max_redemptions: '', starts_at: '', ends_at: '' });
     },
@@ -199,18 +199,18 @@ function CouponsSection() {
 
   const toggle = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from('berufski_coupons').update({ active }).eq('id', id);
+      const { error } = await supabase.from('work_coupons').update({ active }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['berufski-coupons'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['work-coupons'] }),
   });
 
   const deleteCoupon = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('berufski_coupons').delete().eq('id', id);
+      const { error } = await supabase.from('work_coupons').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success('Coupon gelöscht'); qc.invalidateQueries({ queryKey: ['berufski-coupons'] }); },
+    onSuccess: () => { toast.success('Coupon gelöscht'); qc.invalidateQueries({ queryKey: ['work-coupons'] }); },
     onError: (e) => toast.error((e as Error).message),
   });
 
@@ -284,7 +284,7 @@ function AffiliatesSection() {
 
   const create = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('berufski_affiliates').insert({
+      const { error } = await supabase.from('work_affiliates').insert({
         code: form.code.toUpperCase(),
         name: form.name,
         payout_percent: Number(form.payout_percent),
@@ -293,7 +293,7 @@ function AffiliatesSection() {
     },
     onSuccess: () => {
       toast.success('Affiliate erstellt');
-      qc.invalidateQueries({ queryKey: ['berufski-affiliates'] });
+      qc.invalidateQueries({ queryKey: ['work-affiliates'] });
       setShowCreate(false);
     },
     onError: (e) => toast.error(`Fehler: ${(e as Error).message}`),
@@ -357,7 +357,7 @@ function PurchasesSection() {
                     {p.affiliate_code && <Badge variant="outline"><Users className="h-3 w-3 mr-1" />{p.affiliate_code}</Badge>}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {p.berufski_produkte?.titel} · {new Date(p.created_at).toLocaleDateString('de-DE')}
+                    {p.work_produkte?.titel} · {new Date(p.created_at).toLocaleDateString('de-DE')}
                     {p.download_count ? ` · ${p.download_count}x heruntergeladen` : ''}
                   </p>
                 </div>
@@ -385,7 +385,7 @@ function EmailsSection() {
     },
     onSuccess: (data) => {
       toast.success(`${data.sent} E-Mails versendet`);
-      qc.invalidateQueries({ queryKey: ['berufski-email-outbox'] });
+      qc.invalidateQueries({ queryKey: ['work-email-outbox'] });
     },
     onError: (e) => toast.error(`Fehler: ${(e as Error).message}`),
   });
@@ -398,7 +398,7 @@ function EmailsSection() {
         <h2 className="text-lg font-semibold">E-Mail Outbox ({emails.length})</h2>
         <Button size="sm" onClick={() => flush.mutate()} disabled={flush.isPending || queuedCount === 0}>
           {flush.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Mail className="h-4 w-4 mr-1" />}
-          {queuedCount} Queued senden
+          {queuedCount} versenden
         </Button>
       </div>
 
@@ -409,19 +409,11 @@ function EmailsSection() {
               <CardContent className="py-3 flex items-center justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{e.to_email}</span>
-                    <span className="text-xs text-muted-foreground truncate max-w-64">{e.subject}</span>
+                    <span className="font-medium">{e.to_email}</span>
+                    <Badge variant={e.status === 'sent' ? 'default' : e.status === 'failed' ? 'destructive' : 'secondary'}>{e.status}</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(e.created_at).toLocaleString('de-DE')}
-                    {e.sent_at && ` · Gesendet: ${new Date(e.sent_at).toLocaleString('de-DE')}`}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{e.subject} · {new Date(e.created_at).toLocaleDateString('de-DE')}</p>
                 </div>
-                <Badge variant={e.status === 'sent' ? 'default' : e.status === 'failed' ? 'destructive' : 'secondary'}>
-                  {e.status === 'sent' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                  {e.status === 'failed' && <XCircle className="h-3 w-3 mr-1" />}
-                  {e.status}
-                </Badge>
               </CardContent>
             </Card>
           ))}

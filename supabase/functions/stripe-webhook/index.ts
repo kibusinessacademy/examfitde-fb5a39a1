@@ -93,7 +93,7 @@ serve(async (req) => {
 
       const meta = session.metadata || {};
 
-      // ── Route: ExamFit@work (formerly BerufsKI) purchases are handled below ──
+      // ── Route: ExamFit@work purchases are handled below ──
       const _brandLower = String(meta.brand || '').toLowerCase();
       const _isWorkBrand = _brandLower.includes('examfit@work') || _brandLower.includes('examfitwork') || _brandLower === 'berufski';
       if (_isWorkBrand) {
@@ -101,337 +101,336 @@ serve(async (req) => {
       } else {
         // ── ExamFit Store handler ──
         try {
-        const userId = meta.user_id;
-        const productId = meta.product_id;
-        const curriculumId = meta.curriculum_id;
-        const quantity = parseInt(meta.quantity || "1");
-        const unitPriceCents = parseInt(meta.unit_price_cents || "0");
-        const buyerIsLicensee = meta.buyer_is_licensee !== 'false';
+          const userId = meta.user_id;
+          const productId = meta.product_id;
+          const curriculumId = meta.curriculum_id;
+          const quantity = parseInt(meta.quantity || "1");
+          const unitPriceCents = parseInt(meta.unit_price_cents || "0");
+          const buyerIsLicensee = meta.buyer_is_licensee !== 'false';
 
-        const hasExamFitMeta = !!userId && !!productId && !!curriculumId;
+          const hasExamFitMeta = !!userId && !!productId && !!curriculumId;
 
-        if (!hasExamFitMeta) {
-          logStep("SKIP ExamFit checkout.session.completed (metadata missing)", {
-            sessionId: session.id,
-            metaKeys: Object.keys(meta || {}),
-          });
+          if (!hasExamFitMeta) {
+            logStep("SKIP ExamFit checkout.session.completed (metadata missing)", {
+              sessionId: session.id,
+              metaKeys: Object.keys(meta || {}),
+            });
+          } else {
+
+        // IDEMPOTENCY CHECK for license_packages
+        const { data: existingPackage } = await adminClient
+          .from('license_packages')
+          .select('id')
+          .eq('stripe_checkout_session_id', session.id)
+          .maybeSingle();
+
+        if (existingPackage) {
+          logStep("Package already exists - idempotent skip", { packageId: existingPackage.id });
         } else {
 
-      // IDEMPOTENCY CHECK for license_packages
-      const { data: existingPackage } = await adminClient
-        .from('license_packages')
-        .select('id')
-        .eq('stripe_checkout_session_id', session.id)
-        .maybeSingle();
+        // Get product info
+        const { data: product, error: productError } = await adminClient
+          .from('store_products')
+          .select('*')
+          .eq('id', productId)
+          .single();
 
-      if (existingPackage) {
-        logStep("Package already exists - idempotent skip", { packageId: existingPackage.id });
-        // Do NOT return early — let BerufsKI handler run below
-      } else {
+        if (productError || !product) {
+          logStep("ERROR: Product not found", { productId, error: productError });
+        } else {
 
-      // Get product info
-      const { data: product, error: productError } = await adminClient
-        .from('store_products')
-        .select('*')
-        .eq('id', productId)
-        .single();
+        // Calculate expiration
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + (product.access_duration_days || 365));
+        const totalPriceCents = quantity * unitPriceCents;
 
-      if (productError || !product) {
-        logStep("ERROR: Product not found", { productId, error: productError });
-      } else {
-
-      // Calculate expiration
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + (product.access_duration_days || 365));
-      const totalPriceCents = quantity * unitPriceCents;
-
-      // Extract billing info
-      const customerDetails = session.customer_details;
-      const billingEmail = meta.billing_email || customerDetails?.email || '';
-      const billingName = meta.billing_name || customerDetails?.name || '';
-      const billingCompany = meta.billing_company || '';
-      const billingVatId = meta.billing_vat_id || '';
-      let billingAddress: Record<string, string> | null = null;
-      if (meta.billing_address) {
-        try { billingAddress = JSON.parse(meta.billing_address); } catch { /* ignore */ }
-      }
-      if (!billingAddress && customerDetails?.address) {
-        billingAddress = customerDetails.address as unknown as Record<string, string>;
-      }
-
-      // Retrieve Stripe invoice info
-      let stripeInvoiceId: string | null = null;
-      let stripeInvoiceUrl: string | null = null;
-      if (session.invoice) {
-        try {
-          const invoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice.id;
-          const invoice = await stripe.invoices.retrieve(invoiceId);
-          stripeInvoiceId = invoice.id;
-          stripeInvoiceUrl = invoice.hosted_invoice_url || null;
-        } catch (e) {
-          logStep("WARN: Could not retrieve invoice", { error: String(e) });
+        // Extract billing info
+        const customerDetails = session.customer_details;
+        const billingEmail = meta.billing_email || customerDetails?.email || '';
+        const billingName = meta.billing_name || customerDetails?.name || '';
+        const billingCompany = meta.billing_company || '';
+        const billingVatId = meta.billing_vat_id || '';
+        let billingAddress: Record<string, string> | null = null;
+        if (meta.billing_address) {
+          try { billingAddress = JSON.parse(meta.billing_address); } catch { /* ignore */ }
         }
-      }
-
-      const stripeCustomerId = typeof session.customer === 'string'
-        ? session.customer
-        : session.customer?.id || null;
-
-      const stripePaymentIntentId = typeof session.payment_intent === 'string'
-        ? session.payment_intent
-        : session.payment_intent?.id || null;
-
-      // ===== Create license package =====
-      const { data: licensePackage, error: packageError } = await adminClient
-        .from('license_packages')
-        .insert({
-          buyer_user_id: userId,
-          product_id: productId,
-          curriculum_id: curriculumId,
-          quantity,
-          price_paid_cents: totalPriceCents,
-          stripe_checkout_session_id: session.id,
-          stripe_payment_intent_id: stripePaymentIntentId,
-          expires_at: expiresAt.toISOString(),
-          status: 'active',
-          buyer_is_licensee: buyerIsLicensee,
-          billing_email: billingEmail,
-          billing_name: billingName,
-          billing_company: billingCompany,
-          billing_vat_id: billingVatId,
-          billing_address: billingAddress,
-          stripe_customer_id: stripeCustomerId,
-          stripe_invoice_id: stripeInvoiceId,
-          stripe_invoice_url: stripeInvoiceUrl,
-          delivery_status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (packageError || !licensePackage) {
-        logStep("ERROR: Failed to create package", { error: packageError });
-      } else {
-      logStep("License package created", { packageId: licensePackage.id });
-
-      // ===== Create seats =====
-      const seatsToCreate = [];
-      for (let i = 0; i < quantity; i++) {
-        const assignToBuyer = buyerIsLicensee && i === 0;
-        seatsToCreate.push({
-          package_id: licensePackage.id,
-          assigned_user_id: assignToBuyer ? userId : null,
-          invite_code: assignToBuyer ? null : generateInviteCode(),
-          assigned_at: assignToBuyer ? new Date().toISOString() : null,
-        });
-      }
-
-      const { data: seats, error: seatsError } = await adminClient
-        .from('license_seats')
-        .insert(seatsToCreate)
-        .select();
-
-      if (seatsError) {
-        logStep("ERROR: Failed to create seats", { error: seatsError });
-      } else {
-        logStep("Seats created", { count: seats?.length });
-      }
-
-      // Entitlement for buyer
-      if (buyerIsLicensee && seats) {
-        const buyerSeat = seats.find(s => s.assigned_user_id === userId);
-        if (buyerSeat) {
-          await adminClient.from('entitlements').insert({
-            user_id: userId,
-            seat_id: buyerSeat.id,
-            curriculum_id: curriculumId,
-            has_learning_course: product.includes_learning_course,
-            has_exam_trainer: product.includes_exam_trainer,
-            has_ai_tutor: product.includes_ai_tutor,
-            has_oral_trainer: product.includes_oral_trainer,
-            valid_until: expiresAt.toISOString(),
-          });
-          logStep("Entitlement created for buyer");
+        if (!billingAddress && customerDetails?.address) {
+          billingAddress = customerDetails.address as unknown as Record<string, string>;
         }
-      }
 
-      // ===== LEDGER: Create order + order_items + payment + invoice + ledger_entries =====
-      const taxRate = 19.00;
-      const taxCents = Math.round(totalPriceCents - totalPriceCents / (1 + taxRate / 100));
-      const netCents = totalPriceCents - taxCents;
-
-      // 1) Order
-      const { data: order, error: orderError } = await adminClient
-        .from('orders')
-        .insert({
-          buyer_user_id: userId,
-          license_package_id: licensePackage.id,
-          billing_name: billingName,
-          billing_company: billingCompany,
-          billing_email: billingEmail,
-          billing_address: billingAddress,
-          billing_vat_id: billingVatId,
-          currency: 'eur',
-          country: billingAddress?.country || 'DE',
-          tax_mode: 'gross',
-          subtotal_cents: netCents,
-          tax_cents: taxCents,
-          total_cents: totalPriceCents,
-          stripe_checkout_session_id: session.id,
-          stripe_payment_intent_id: stripePaymentIntentId,
-          status: 'paid',
-        })
-        .select()
-        .single();
-
-      if (orderError || !order) {
-        logStep("ERROR: Failed to create order", { error: orderError });
-      } else {
-        logStep("Order created", { orderId: order.id });
-
-        // 2) Order items
-        await adminClient.from('order_items').insert({
-          order_id: order.id,
-          product_id: productId,
-          description: `${product.name} (${quantity}x)`,
-          quantity,
-          unit_amount_net_cents: Math.round(unitPriceCents / (1 + taxRate / 100)),
-          unit_amount_gross_cents: unitPriceCents,
-          tax_rate: taxRate,
-          tax_amount_cents: Math.round(unitPriceCents - unitPriceCents / (1 + taxRate / 100)) * quantity,
-        });
-
-        // 3) Payment
-        let feeCents = 0;
-        if (stripePaymentIntentId) {
+        // Retrieve Stripe invoice info
+        let stripeInvoiceId: string | null = null;
+        let stripeInvoiceUrl: string | null = null;
+        if (session.invoice) {
           try {
-            const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId, {
-              expand: ['latest_charge.balance_transaction'],
-            });
-            const charge = pi.latest_charge as Stripe.Charge;
-            const bt = charge?.balance_transaction as Stripe.BalanceTransaction;
-            feeCents = bt?.fee || 0;
+            const invoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice.id;
+            const invoice = await stripe.invoices.retrieve(invoiceId);
+            stripeInvoiceId = invoice.id;
+            stripeInvoiceUrl = invoice.hosted_invoice_url || null;
           } catch (e) {
-            logStep("WARN: Could not get fee", { error: String(e) });
+            logStep("WARN: Could not retrieve invoice", { error: String(e) });
           }
         }
 
-        const { data: payment } = await adminClient
-          .from('payments')
+        const stripeCustomerId = typeof session.customer === 'string'
+          ? session.customer
+          : session.customer?.id || null;
+
+        const stripePaymentIntentId = typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id || null;
+
+        // ===== Create license package =====
+        const { data: licensePackage, error: packageError } = await adminClient
+          .from('license_packages')
           .insert({
-            order_id: order.id,
+            buyer_user_id: userId,
+            product_id: productId,
+            curriculum_id: curriculumId,
+            quantity,
+            price_paid_cents: totalPriceCents,
+            stripe_checkout_session_id: session.id,
             stripe_payment_intent_id: stripePaymentIntentId,
-            stripe_charge_id: null,
-            amount_cents: totalPriceCents,
-            fee_cents: feeCents,
-            net_cents: totalPriceCents - feeCents,
-            currency: 'eur',
-            payment_status: 'succeeded',
-            paid_at: new Date().toISOString(),
-            stripe_event_id: event.id,
-          })
-          .select()
-          .single();
-
-        logStep("Payment recorded", { paymentId: payment?.id, feeCents });
-
-        // 4) Invoice
-        const { data: invoiceNumResult } = await adminClient.rpc('generate_invoice_number');
-        const invoiceNumber = invoiceNumResult || `EF-${Date.now()}`;
-
-        const { data: dbInvoice } = await adminClient
-          .from('invoices')
-          .insert({
-            order_id: order.id,
-            invoice_number: invoiceNumber,
-            issue_date: new Date().toISOString().slice(0, 10),
-            pdf_url: stripeInvoiceUrl,
+            expires_at: expiresAt.toISOString(),
+            status: 'active',
+            buyer_is_licensee: buyerIsLicensee,
+            billing_email: billingEmail,
+            billing_name: billingName,
+            billing_company: billingCompany,
+            billing_vat_id: billingVatId,
+            billing_address: billingAddress,
+            stripe_customer_id: stripeCustomerId,
             stripe_invoice_id: stripeInvoiceId,
-            status: 'paid',
-            total_net_cents: netCents,
-            total_tax_cents: taxCents,
-            total_gross_cents: totalPriceCents,
-            tax_rate: taxRate,
+            stripe_invoice_url: stripeInvoiceUrl,
+            delivery_status: 'pending',
           })
           .select()
           .single();
 
-        logStep("Invoice created", { invoiceNumber });
+        if (packageError || !licensePackage) {
+          logStep("ERROR: Failed to create package", { error: packageError });
+        } else {
+        logStep("License package created", { packageId: licensePackage.id });
 
-        // 5) Ledger entries (SSOT)
-        const ledgerEntries = [
-          {
-            event_type: 'sale',
-            order_id: order.id,
-            payment_id: payment?.id,
-            invoice_id: dbInvoice?.id,
-            account: 'revenue',
-            amount_cents: totalPriceCents,
-            currency: 'eur',
-            tax_rate: taxRate,
-            country: billingAddress?.country || 'DE',
-            description: `Sale: ${product.name} x${quantity}`,
-            stripe_event_id: event.id,
-          },
-          {
-            event_type: 'sale',
-            order_id: order.id,
-            payment_id: payment?.id,
-            invoice_id: dbInvoice?.id,
-            account: 'tax_payable',
-            amount_cents: taxCents,
-            currency: 'eur',
-            tax_rate: taxRate,
-            country: billingAddress?.country || 'DE',
-            description: `USt ${taxRate}%: ${product.name}`,
-            stripe_event_id: event.id + '_tax',
-          },
-        ];
-
-        if (feeCents > 0) {
-          ledgerEntries.push({
-            event_type: 'fee',
-            order_id: order.id,
-            payment_id: payment?.id,
-            invoice_id: null as unknown as string,
-            account: 'stripe_fees',
-            amount_cents: -feeCents,
-            currency: 'eur',
-            tax_rate: 0,
-            country: 'DE',
-            description: `Stripe fee for PI ${stripePaymentIntentId}`,
-            stripe_event_id: event.id + '_fee',
+        // ===== Create seats =====
+        const seatsToCreate = [];
+        for (let i = 0; i < quantity; i++) {
+          const assignToBuyer = buyerIsLicensee && i === 0;
+          seatsToCreate.push({
+            package_id: licensePackage.id,
+            assigned_user_id: assignToBuyer ? userId : null,
+            invite_code: assignToBuyer ? null : generateInviteCode(),
+            assigned_at: assignToBuyer ? new Date().toISOString() : null,
           });
         }
 
-        await adminClient.from('ledger_entries').insert(ledgerEntries);
-        logStep("Ledger entries written", { count: ledgerEntries.length });
-      }
+        const { data: seats, error: seatsError } = await adminClient
+          .from('license_seats')
+          .insert(seatsToCreate)
+          .select();
 
-      logStep("checkout.session.completed fully processed", {
-        packageId: licensePackage.id,
-        orderId: order?.id,
-      });
-
-      // ===== REFERRAL CONVERSION =====
-      try {
-        const { data: refResult } = await adminClient.rpc('convert_referral_on_purchase', {
-          p_buyer_user_id: userId,
-          p_order_id: order?.id ?? null,
-        });
-        if (refResult?.ok) {
-          logStep("Referral converted", { referrerId: refResult.referrer_id, rewardType: refResult.reward_type });
+        if (seatsError) {
+          logStep("ERROR: Failed to create seats", { error: seatsError });
+        } else {
+          logStep("Seats created", { count: seats?.length });
         }
-      } catch (refErr) {
-        logStep("WARN: Referral conversion check failed (non-critical)", { error: String(refErr) });
-      }
-      } // end licensePackage ok
-      } // end product ok
-      } // end existingPackage check
-      } // end ExamFit metadata present
+
+        // Entitlement for buyer
+        if (buyerIsLicensee && seats) {
+          const buyerSeat = seats.find(s => s.assigned_user_id === userId);
+          if (buyerSeat) {
+            await adminClient.from('entitlements').insert({
+              user_id: userId,
+              seat_id: buyerSeat.id,
+              curriculum_id: curriculumId,
+              has_learning_course: product.includes_learning_course,
+              has_exam_trainer: product.includes_exam_trainer,
+              has_ai_tutor: product.includes_ai_tutor,
+              has_oral_trainer: product.includes_oral_trainer,
+              valid_until: expiresAt.toISOString(),
+            });
+            logStep("Entitlement created for buyer");
+          }
+        }
+
+        // ===== LEDGER: Create order + order_items + payment + invoice + ledger_entries =====
+        const taxRate = 19.00;
+        const taxCents = Math.round(totalPriceCents - totalPriceCents / (1 + taxRate / 100));
+        const netCents = totalPriceCents - taxCents;
+
+        // 1) Order
+        const { data: order, error: orderError } = await adminClient
+          .from('orders')
+          .insert({
+            buyer_user_id: userId,
+            license_package_id: licensePackage.id,
+            billing_name: billingName,
+            billing_company: billingCompany,
+            billing_email: billingEmail,
+            billing_address: billingAddress,
+            billing_vat_id: billingVatId,
+            currency: 'eur',
+            country: billingAddress?.country || 'DE',
+            tax_mode: 'gross',
+            subtotal_cents: netCents,
+            tax_cents: taxCents,
+            total_cents: totalPriceCents,
+            stripe_checkout_session_id: session.id,
+            stripe_payment_intent_id: stripePaymentIntentId,
+            status: 'paid',
+          })
+          .select()
+          .single();
+
+        if (orderError || !order) {
+          logStep("ERROR: Failed to create order", { error: orderError });
+        } else {
+          logStep("Order created", { orderId: order.id });
+
+          // 2) Order items
+          await adminClient.from('order_items').insert({
+            order_id: order.id,
+            product_id: productId,
+            description: `${product.name} (${quantity}x)`,
+            quantity,
+            unit_amount_net_cents: Math.round(unitPriceCents / (1 + taxRate / 100)),
+            unit_amount_gross_cents: unitPriceCents,
+            tax_rate: taxRate,
+            tax_amount_cents: Math.round(unitPriceCents - unitPriceCents / (1 + taxRate / 100)) * quantity,
+          });
+
+          // 3) Payment
+          let feeCents = 0;
+          if (stripePaymentIntentId) {
+            try {
+              const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId, {
+                expand: ['latest_charge.balance_transaction'],
+              });
+              const charge = pi.latest_charge as Stripe.Charge;
+              const bt = charge?.balance_transaction as Stripe.BalanceTransaction;
+              feeCents = bt?.fee || 0;
+            } catch (e) {
+              logStep("WARN: Could not get fee", { error: String(e) });
+            }
+          }
+
+          const { data: payment } = await adminClient
+            .from('payments')
+            .insert({
+              order_id: order.id,
+              stripe_payment_intent_id: stripePaymentIntentId,
+              stripe_charge_id: null,
+              amount_cents: totalPriceCents,
+              fee_cents: feeCents,
+              net_cents: totalPriceCents - feeCents,
+              currency: 'eur',
+              payment_status: 'succeeded',
+              paid_at: new Date().toISOString(),
+              stripe_event_id: event.id,
+            })
+            .select()
+            .single();
+
+          logStep("Payment recorded", { paymentId: payment?.id, feeCents });
+
+          // 4) Invoice
+          const { data: invoiceNumResult } = await adminClient.rpc('generate_invoice_number');
+          const invoiceNumber = invoiceNumResult || `EF-${Date.now()}`;
+
+          const { data: dbInvoice } = await adminClient
+            .from('invoices')
+            .insert({
+              order_id: order.id,
+              invoice_number: invoiceNumber,
+              issue_date: new Date().toISOString().slice(0, 10),
+              pdf_url: stripeInvoiceUrl,
+              stripe_invoice_id: stripeInvoiceId,
+              status: 'paid',
+              total_net_cents: netCents,
+              total_tax_cents: taxCents,
+              total_gross_cents: totalPriceCents,
+              tax_rate: taxRate,
+            })
+            .select()
+            .single();
+
+          logStep("Invoice created", { invoiceNumber });
+
+          // 5) Ledger entries (SSOT)
+          const ledgerEntries = [
+            {
+              event_type: 'sale',
+              order_id: order.id,
+              payment_id: payment?.id,
+              invoice_id: dbInvoice?.id,
+              account: 'revenue',
+              amount_cents: totalPriceCents,
+              currency: 'eur',
+              tax_rate: taxRate,
+              country: billingAddress?.country || 'DE',
+              description: `Sale: ${product.name} x${quantity}`,
+              stripe_event_id: event.id,
+            },
+            {
+              event_type: 'sale',
+              order_id: order.id,
+              payment_id: payment?.id,
+              invoice_id: dbInvoice?.id,
+              account: 'tax_payable',
+              amount_cents: taxCents,
+              currency: 'eur',
+              tax_rate: taxRate,
+              country: billingAddress?.country || 'DE',
+              description: `USt ${taxRate}%: ${product.name}`,
+              stripe_event_id: event.id + '_tax',
+            },
+          ];
+
+          if (feeCents > 0) {
+            ledgerEntries.push({
+              event_type: 'fee',
+              order_id: order.id,
+              payment_id: payment?.id,
+              invoice_id: null as unknown as string,
+              account: 'stripe_fees',
+              amount_cents: -feeCents,
+              currency: 'eur',
+              tax_rate: 0,
+              country: 'DE',
+              description: `Stripe fee for PI ${stripePaymentIntentId}`,
+              stripe_event_id: event.id + '_fee',
+            });
+          }
+
+          await adminClient.from('ledger_entries').insert(ledgerEntries);
+          logStep("Ledger entries written", { count: ledgerEntries.length });
+        }
+
+        logStep("checkout.session.completed fully processed", {
+          packageId: licensePackage.id,
+          orderId: order?.id,
+        });
+
+        // ===== REFERRAL CONVERSION =====
+        try {
+          const { data: refResult } = await adminClient.rpc('convert_referral_on_purchase', {
+            p_buyer_user_id: userId,
+            p_order_id: order?.id ?? null,
+          });
+          if (refResult?.ok) {
+            logStep("Referral converted", { referrerId: refResult.referrer_id, rewardType: refResult.reward_type });
+          }
+        } catch (refErr) {
+          logStep("WARN: Referral conversion check failed (non-critical)", { error: String(refErr) });
+        }
+        } // end licensePackage ok
+        } // end product ok
+        } // end existingPackage check
+        } // end ExamFit metadata present
         } catch (examFitErr) {
           logStep("WARN: ExamFit handler error (non-blocking)", { error: String(examFitErr) });
         }
-      } // end not BerufsKI brand
+      } // end not work brand
     } // end checkout.session.completed (ExamFit)
 
     // ========== charge.refunded ==========
@@ -518,7 +517,6 @@ serve(async (req) => {
 
       logStep("Processing charge.dispute.created", { disputeId: dispute.id, chargeId, disputeAmount });
 
-      // Find order via charge → payment_intent
       if (chargeId) {
         try {
           const chargeObj = await stripe.charges.retrieve(chargeId);
@@ -563,7 +561,7 @@ serve(async (req) => {
       });
     }
 
-    // ========== ExamFit@work checkout.session.completed (brand=ExamFit@work or legacy BerufsKI) ==========
+    // ========== ExamFit@work checkout.session.completed (brand=ExamFit@work or legacy) ==========
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const meta = session.metadata || {};
@@ -598,18 +596,18 @@ serve(async (req) => {
 
         // ===== PRODUCT PURCHASE =====
         if (scope === 'product' || (!scope && meta.productId)) {
-          const { data: existingBKI } = await adminClient
-            .from('berufski_purchases')
+          const { data: existingPurchase } = await adminClient
+            .from('work_purchases')
             .select('id')
             .eq('stripe_session_id', session.id)
             .maybeSingle();
 
-          if (!existingBKI) {
+          if (!existingPurchase) {
             const downloadToken = generateToken();
             const userId = meta.user_id || null;
 
-            const { data: bkiPurchase } = await adminClient
-              .from('berufski_purchases')
+            const { data: purchase } = await adminClient
+              .from('work_purchases')
               .insert({
                 user_id: userId,
                 user_email: buyerEmail,
@@ -627,10 +625,10 @@ serve(async (req) => {
               .select('id')
               .single();
 
-            if (bkiPurchase) {
+            if (purchase) {
               if (meta.couponCode) {
-                await adminClient.from('berufski_coupon_redemptions').insert({ coupon_code: meta.couponCode, purchase_id: bkiPurchase.id });
-                await adminClient.rpc('berufski_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
+                await adminClient.from('work_coupon_redemptions').insert({ coupon_code: meta.couponCode, purchase_id: purchase.id });
+                await adminClient.rpc('work_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
               }
 
               // Build download links with token
@@ -639,7 +637,7 @@ serve(async (req) => {
               const dlPrint = `${dlBase}&mode=print`;
               const expiresStr = new Date(Date.now() + 90 * 24 * 3600 * 1000).toLocaleDateString('de-DE');
 
-              await adminClient.from('berufski_email_outbox').insert({
+              await adminClient.from('work_email_outbox').insert({
                 to_email: buyerEmail,
                 subject: `Dein ${brandName} Download ist bereit 🎉`,
                 html: `<div style="font-family:system-ui,Segoe UI,Roboto,Arial;line-height:1.6">
@@ -655,11 +653,11 @@ serve(async (req) => {
                   <hr style="border:none;border-top:1px solid #eee;margin:16px 0"/>
                   <p style="color:#666;font-size:12px">Download-Links gültig bis: ${expiresStr} · ${brandName}</p>
                 </div>`,
-                meta: { scope: 'product', productId: meta.productId, purchaseId: bkiPurchase.id, affiliateCode: meta.affiliateCode, downloadToken },
+                meta: { scope: 'product', productId: meta.productId, purchaseId: purchase.id, affiliateCode: meta.affiliateCode, downloadToken },
               });
 
               triggerFlush();
-              logStep("BerufsKI product purchase created", { purchaseId: bkiPurchase.id });
+              logStep("ExamFit@work product purchase created", { purchaseId: purchase.id });
             }
           }
         }
@@ -667,7 +665,7 @@ serve(async (req) => {
         // ===== BUNDLE PURCHASE =====
         if (scope === 'bundle' && meta.bundleId) {
           const { data: existingBP } = await adminClient
-            .from('berufski_bundle_purchases')
+            .from('work_bundle_purchases')
             .select('id')
             .eq('stripe_session_id', session.id)
             .maybeSingle();
@@ -676,7 +674,7 @@ serve(async (req) => {
             const downloadToken = generateToken();
 
             const { data: bundlePurchase } = await adminClient
-              .from('berufski_bundle_purchases')
+              .from('work_bundle_purchases')
               .insert({
                 user_email: buyerEmail,
                 bundle_id: meta.bundleId,
@@ -694,14 +692,14 @@ serve(async (req) => {
 
             if (bundlePurchase) {
               if (meta.couponCode) {
-                await adminClient.from('berufski_coupon_redemptions').insert({ coupon_code: meta.couponCode, purchase_id: bundlePurchase.id });
-                await adminClient.rpc('berufski_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
+                await adminClient.from('work_coupon_redemptions').insert({ coupon_code: meta.couponCode, purchase_id: bundlePurchase.id });
+                await adminClient.rpc('work_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
               }
 
               const bundleDlBase = `${appBaseUrl}/work/download?bundle=${meta.bundleId}&token=${downloadToken}`;
               const bundleExpiresStr = new Date(Date.now() + 90 * 24 * 3600 * 1000).toLocaleDateString('de-DE');
 
-              await adminClient.from('berufski_email_outbox').insert({
+              await adminClient.from('work_email_outbox').insert({
                 to_email: buyerEmail,
                 subject: `Dein ${brandName} Bundle-Download ist bereit 🎉`,
                 html: `<div style="font-family:system-ui,Segoe UI,Roboto,Arial;line-height:1.6">
@@ -718,7 +716,7 @@ serve(async (req) => {
 
               triggerFlush();
 
-              logStep("BerufsKI bundle purchase created", { purchaseId: bundlePurchase.id });
+              logStep("ExamFit@work bundle purchase created", { purchaseId: bundlePurchase.id });
             }
           }
         }
@@ -726,7 +724,7 @@ serve(async (req) => {
         // ===== CORPORATE LICENSE =====
         if (scope === 'corporate' && meta.plan) {
           const existingCheck = await adminClient
-            .from('berufski_licenses')
+            .from('work_licenses')
             .select('id')
             .eq('stripe_subscription_id', session.id)
             .maybeSingle();
@@ -735,7 +733,7 @@ serve(async (req) => {
             // Create or find org
             let orgId: string | null = null;
             const { data: existingOrg } = await adminClient
-              .from('berufski_organizations')
+              .from('work_organizations')
               .select('id')
               .eq('billing_email', meta.buyerEmail || buyerEmail)
               .maybeSingle();
@@ -744,7 +742,7 @@ serve(async (req) => {
               orgId = existingOrg.id;
             } else {
               const { data: newOrg } = await adminClient
-                .from('berufski_organizations')
+                .from('work_organizations')
                 .insert({
                   name: meta.orgName || 'Organisation',
                   billing_email: meta.buyerEmail || buyerEmail,
@@ -760,7 +758,7 @@ serve(async (req) => {
               endsAt.setFullYear(endsAt.getFullYear() + 1);
 
               const { data: license } = await adminClient
-                .from('berufski_licenses')
+                .from('work_licenses')
                 .insert({
                   org_id: orgId,
                   plan: meta.plan,
@@ -778,25 +776,25 @@ serve(async (req) => {
 
               if (license) {
                 // Generate license key
-                const keyValue = `BK-${Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().substring(0, 20)}`;
+                const keyValue = `EFW-${Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().substring(0, 20)}`;
                 
-                await adminClient.from('berufski_license_keys').insert({
+                await adminClient.from('work_license_keys').insert({
                   license_id: license.id,
                   key: keyValue,
                   status: 'available',
                 });
 
                 // Email with license key
-                await adminClient.from('berufski_email_outbox').insert({
+                await adminClient.from('work_email_outbox').insert({
                   to_email: meta.buyerEmail || buyerEmail,
-                  subject: 'Deine BerufsKI Corporate Lizenz 🏢',
+                  subject: `Deine ${brandName} Corporate Lizenz 🏢`,
                   html: `<div style="font-family:system-ui,Arial;line-height:1.5"><h2>Corporate Lizenz aktiviert!</h2><p>Plan: <strong>${meta.plan}</strong> (${seats} Plätze)</p><p>Lizenz-Key: <code style="background:#f3f4f6;padding:4px 8px;border-radius:4px">${keyValue}</code></p><p>Gültig bis: ${endsAt.toLocaleDateString('de-DE')}</p><p style="color:#666;font-size:12px">Stamped PDF Downloads enthalten Wasserzeichen mit Organisationsname.</p></div>`,
                   meta: { scope: 'corporate', licenseId: license.id, orgId, plan: meta.plan },
                 });
 
                 triggerFlush();
 
-                logStep("BerufsKI corporate license created", { licenseId: license.id, orgId, key: keyValue });
+                logStep("ExamFit@work corporate license created", { licenseId: license.id, orgId, key: keyValue });
               }
             }
           }

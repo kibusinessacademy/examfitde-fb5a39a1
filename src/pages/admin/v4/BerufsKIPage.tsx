@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { Plus, Zap, FileText, Link2, Eye, Package, Loader2, CheckCircle2, AlertCircle, Sparkles, FileDown, Printer } from 'lucide-react';
 
 // ─── Types ───
-interface BerufskiBeruf {
+interface WorkBeruf {
   id: string;
   slug: string;
   name: string;
@@ -31,7 +31,7 @@ interface BerufskiBeruf {
   created_at: string | null;
 }
 
-interface BerufskiProdukt {
+interface WorkProdukt {
   id: string;
   beruf_id: string;
   tier: string;
@@ -48,29 +48,29 @@ interface BerufskiProdukt {
 }
 
 // ─── Hooks ───
-function useBerufsKIBerufe() {
+function useWorkBerufe() {
   return useQuery({
-    queryKey: ['berufski-berufe'],
+    queryKey: ['work-berufe'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('berufski_berufe')
+        .from('work_berufe')
         .select('*')
         .order('name');
       if (error) throw error;
-      return (data || []) as BerufskiBeruf[];
+      return (data || []) as WorkBeruf[];
     },
   });
 }
 
-function useBerufsKIProdukte(berufId?: string) {
+function useWorkProdukte(berufId?: string) {
   return useQuery({
-    queryKey: ['berufski-produkte', berufId],
+    queryKey: ['work-produkte', berufId],
     queryFn: async () => {
-      let q = supabase.from('berufski_produkte').select('*').order('tier');
+      let q = supabase.from('work_produkte').select('*').order('tier');
       if (berufId) q = q.eq('beruf_id', berufId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as BerufskiProdukt[];
+      return (data || []) as WorkProdukt[];
     },
     enabled: !!berufId || berufId === undefined,
   });
@@ -78,13 +78,9 @@ function useBerufsKIProdukte(berufId?: string) {
 
 function useCurricula() {
   return useQuery({
-    queryKey: ['curricula-for-berufski'],
+    queryKey: ['curricula-for-work'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('curricula')
-        .select('id, title')
-        .order('title')
-        .limit(500);
+      const { data } = await supabase.from('curricula').select('id, title').order('title').limit(500);
       return data || [];
     },
   });
@@ -92,17 +88,17 @@ function useCurricula() {
 
 // ─── Main Page ───
 export default function BerufsKIPage() {
-  const [selectedBeruf, setSelectedBeruf] = useState<BerufskiBeruf | null>(null);
+  const [selectedBeruf, setSelectedBeruf] = useState<WorkBeruf | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const { data: berufe = [], isLoading } = useBerufsKIBerufe();
-  const { data: produkte = [] } = useBerufsKIProdukte(selectedBeruf?.id);
+  const { data: berufe = [], isLoading } = useWorkBerufe();
+  const { data: produkte = [] } = useWorkProdukte(selectedBeruf?.id);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">BerufsKI.de</h1>
+          <h1 className="text-2xl font-bold">ExamFit@work</h1>
           <p className="text-muted-foreground">KI-Praxisleitfäden für Berufe verwalten</p>
         </div>
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -110,15 +106,12 @@ export default function BerufsKIPage() {
             <Button><Plus className="mr-2 h-4 w-4" />Beruf anlegen</Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Neuen Beruf anlegen</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Neuen Beruf anlegen</DialogTitle></DialogHeader>
             <CreateBerufForm onSuccess={() => setShowCreateDialog(false)} />
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         <StatCard label="Berufe" value={berufe.length} icon={<Package className="h-4 w-4" />} />
         <StatCard label="Publiziert" value={berufe.filter(b => b.is_published).length} icon={<Eye className="h-4 w-4" />} />
@@ -151,9 +144,7 @@ export default function BerufsKIPage() {
                     </div>
                     <p className="text-sm text-muted-foreground">{b.branche || 'Keine Branche'} · {(b.typische_aufgaben || []).length} Aufgaben · {(b.pain_points || []).length} Pain Points</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{b.slug}</Badge>
-                  </div>
+                  <Badge variant="secondary">{b.slug}</Badge>
                 </CardContent>
               </Card>
             ))
@@ -168,7 +159,6 @@ export default function BerufsKIPage() {
   );
 }
 
-// ─── Stat Card ───
 function StatCard({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
   return (
     <Card>
@@ -183,7 +173,6 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
   );
 }
 
-// ─── Create Form ───
 function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
   const qc = useQueryClient();
   const { data: curricula = [] } = useCurricula();
@@ -197,10 +186,8 @@ function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
     mutationFn: async () => {
       const toArr = (s: string) => s.split(',').map(v => v.trim()).filter(Boolean);
       const slug = form.slug || form.name.toLowerCase().replace(/[^a-z0-9äöüß]+/g, '-').replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss');
-      const { error } = await supabase.from('berufski_berufe').insert({
-        name: form.name,
-        slug,
-        branche: form.branche || null,
+      const { error } = await supabase.from('work_berufe').insert({
+        name: form.name, slug, branche: form.branche || null,
         digitalisierungsgrad: form.digitalisierungsgrad,
         typische_aufgaben: toArr(form.typische_aufgaben),
         dokumenttypen: toArr(form.dokumenttypen),
@@ -213,7 +200,7 @@ function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
     },
     onSuccess: () => {
       toast.success('Beruf angelegt');
-      qc.invalidateQueries({ queryKey: ['berufski-berufe'] });
+      qc.invalidateQueries({ queryKey: ['work-berufe'] });
       onSuccess();
     },
     onError: (e) => toast.error(`Fehler: ${(e as Error).message}`),
@@ -246,11 +233,11 @@ function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
           </SelectContent>
         </Select>
       </div>
-      <div><Label>Typische Aufgaben (kommagetrennt)</Label><Textarea value={form.typische_aufgaben} onChange={e => setForm(f => ({ ...f, typische_aufgaben: e.target.value }))} placeholder="Onlineshop-Management, Produktdatenpflege, ..." /></div>
-      <div><Label>Dokumenttypen (kommagetrennt)</Label><Textarea value={form.dokumenttypen} onChange={e => setForm(f => ({ ...f, dokumenttypen: e.target.value }))} placeholder="Bestellbestätigungen, Rechnungen, ..." /></div>
-      <div><Label>Pain Points (kommagetrennt)</Label><Textarea value={form.pain_points} onChange={e => setForm(f => ({ ...f, pain_points: e.target.value }))} placeholder="Zeitaufwändige Produktbeschreibungen, ..." /></div>
-      <div><Label>Haftungsrisiken (kommagetrennt)</Label><Textarea value={form.haftungsrisiken} onChange={e => setForm(f => ({ ...f, haftungsrisiken: e.target.value }))} placeholder="DSGVO-Verletzungen, ..." /></div>
-      <div><Label>SEO Keywords (kommagetrennt)</Label><Input value={form.seo_keywords} onChange={e => setForm(f => ({ ...f, seo_keywords: e.target.value }))} placeholder="KI E-Commerce, ChatGPT Handel, ..." /></div>
+      <div><Label>Typische Aufgaben (kommagetrennt)</Label><Textarea value={form.typische_aufgaben} onChange={e => setForm(f => ({ ...f, typische_aufgaben: e.target.value }))} /></div>
+      <div><Label>Dokumenttypen (kommagetrennt)</Label><Textarea value={form.dokumenttypen} onChange={e => setForm(f => ({ ...f, dokumenttypen: e.target.value }))} /></div>
+      <div><Label>Pain Points (kommagetrennt)</Label><Textarea value={form.pain_points} onChange={e => setForm(f => ({ ...f, pain_points: e.target.value }))} /></div>
+      <div><Label>Haftungsrisiken (kommagetrennt)</Label><Textarea value={form.haftungsrisiken} onChange={e => setForm(f => ({ ...f, haftungsrisiken: e.target.value }))} /></div>
+      <div><Label>SEO Keywords (kommagetrennt)</Label><Input value={form.seo_keywords} onChange={e => setForm(f => ({ ...f, seo_keywords: e.target.value }))} /></div>
       <Button onClick={() => create.mutate()} disabled={!form.name || create.isPending} className="w-full">
         {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
         Beruf anlegen
@@ -259,8 +246,7 @@ function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-// ─── Beruf Detail with Generator ───
-function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; produkte: BerufskiProdukt[]; onUpdate: () => void }) {
+function BerufDetail({ beruf, produkte, onUpdate }: { beruf: WorkBeruf; produkte: WorkProdukt[]; onUpdate: () => void }) {
   const qc = useQueryClient();
   const [genTier, setGenTier] = useState<string>('9');
 
@@ -276,7 +262,7 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
       toast.success(`Produkt generiert: Tier ${genTier}€`, {
         description: `SSOT: ${data.ssotEnriched?.learningFieldCount || 0} Lernfelder, ${data.ssotEnriched?.blueprintSampleCount || 0} Blueprints`,
       });
-      qc.invalidateQueries({ queryKey: ['berufski-produkte'] });
+      qc.invalidateQueries({ queryKey: ['work-produkte'] });
     },
     onError: (e) => toast.error(`Fehler: ${(e as Error).message}`),
   });
@@ -293,7 +279,7 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
       toast.success(`PDF gerendert`, {
         description: `${data.renderMethod === 'browserless' ? 'PDF' : 'HTML'} · ${(data.fileSize / 1024).toFixed(0)} KB · ${data.renderDurationMs}ms`,
       });
-      qc.invalidateQueries({ queryKey: ['berufski-produkte'] });
+      qc.invalidateQueries({ queryKey: ['work-produkte'] });
     },
     onError: (e) => toast.error(`PDF-Fehler: ${(e as Error).message}`),
   });
@@ -303,7 +289,6 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
 
   return (
     <div className="space-y-6">
-      {/* DNA Overview */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -326,13 +311,10 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
         </CardContent>
       </Card>
 
-      {/* Generator */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" />Produkt generieren</CardTitle>
-          <CardDescription>
-            KI-gestützte Generierung mit SSOT-Anreicherung aus Lernfeldern, Kompetenzen und Blueprint-Mustern
-          </CardDescription>
+          <CardDescription>KI-gestützte Generierung mit SSOT-Anreicherung</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
@@ -340,33 +322,22 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
               <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {['9', '19', '29'].map(t => (
-                  <SelectItem key={t} value={t}>
-                    {tierLabels[t]} {existingTiers.has(t) && '(existiert)'}
-                  </SelectItem>
+                  <SelectItem key={t} value={t}>{tierLabels[t]} {existingTiers.has(t) && '(existiert)'}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Button onClick={() => generate.mutate(genTier)} disabled={generate.isPending}>
-              {generate.isPending ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generiert (~30s)...</>
-              ) : (
-                <><Zap className="mr-2 h-4 w-4" />Generieren</>
-              )}
+              {generate.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generiert (~30s)...</> : <><Zap className="mr-2 h-4 w-4" />Generieren</>}
             </Button>
           </div>
           {existingTiers.has(genTier) && (
-            <p className="text-sm text-destructive mt-2 flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />Existierendes Produkt wird überschrieben
-            </p>
+            <p className="text-sm text-destructive mt-2 flex items-center gap-1"><AlertCircle className="h-3 w-3" />Existierendes Produkt wird überschrieben</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Products */}
       <Card>
-        <CardHeader>
-          <CardTitle>Produkte ({produkte.length})</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Produkte ({produkte.length})</CardTitle></CardHeader>
         <CardContent>
           {produkte.length === 0 ? (
             <p className="text-muted-foreground text-sm">Noch keine Produkte generiert.</p>
@@ -378,8 +349,7 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{p.titel}</span>
                       <Badge variant={p.status === 'ready' ? 'default' : p.status === 'generated' ? 'secondary' : 'outline'}>
-                        {p.status === 'ready' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                        {p.status || 'draft'}
+                        {p.status === 'ready' && <CheckCircle2 className="h-3 w-3 mr-1" />}{p.status || 'draft'}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -391,15 +361,13 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
                     {p.content_json && (
                       <>
                         <Button size="sm" variant="outline" onClick={() => renderPdf.mutate({ productId: p.id, mode: 'screen' })} disabled={renderPdf.isPending}>
-                          {renderPdf.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileDown className="h-3 w-3 mr-1" />}
-                          Screen
+                          {renderPdf.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileDown className="h-3 w-3 mr-1" />}Screen
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => renderPdf.mutate({ productId: p.id, mode: 'print' })} disabled={renderPdf.isPending}>
                           <Printer className="h-3 w-3 mr-1" />Print
                         </Button>
                       </>
                     )}
-                    <Badge variant="outline">{p.tier}€</Badge>
                   </div>
                 </div>
               ))}
@@ -412,12 +380,12 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
 }
 
 function DNASection({ title, items }: { title: string; items: string[] | null }) {
-  if (!items?.length) return null;
+  if (!items || items.length === 0) return null;
   return (
     <div>
       <p className="text-sm font-medium mb-1">{title}</p>
       <div className="flex flex-wrap gap-1">
-        {items.map((item, i) => <Badge key={i} variant="secondary" className="text-xs">{item}</Badge>)}
+        {items.map((item, i) => <Badge key={i} variant="outline" className="text-xs">{item}</Badge>)}
       </div>
     </div>
   );
