@@ -13,6 +13,14 @@ function json(body: unknown, status = 200) {
   });
 }
 
+const PIPELINE_JOB_TYPES = [
+  "package_generate_exam_pool", "package_validate_exam_pool",
+  "package_generate_oral_exam", "package_validate_oral_exam",
+  "package_generate_handbook", "package_validate_handbook",
+  "package_build_ai_tutor_index", "package_validate_tutor_index",
+  "package_run_integrity_check", "package_quality_council", "package_auto_publish",
+] as const;
+
 /**
  * pipeline-optimizer — Self-optimizing AI strategy engine
  *
@@ -145,44 +153,55 @@ Deno.serve(async (req) => {
     // Direct query approach for orphan detection
     const { count: orphanedCount } = await sb.from("job_queue")
       .select("id", { count: "exact", head: true })
-      .in("job_type", [
-        "package_generate_exam_pool", "package_validate_exam_pool",
-        "package_generate_oral_exam", "package_validate_oral_exam",
-        "package_generate_handbook", "package_validate_handbook",
-        "package_build_ai_tutor_index", "package_validate_tutor_index",
-        "package_run_integrity_check", "package_quality_council", "package_auto_publish",
-      ])
+      .in("job_type", PIPELINE_JOB_TYPES as unknown as string[])
       .in("status", ["pending", "processing"]);
 
-    // Check which of these have packages NOT in building state
     if ((orphanedCount ?? 0) > 50) {
-      // Batch cancel orphaned jobs for non-building packages
       const { data: orphans } = await sb.from("job_queue")
         .select("id, job_type, payload")
-        .in("job_type", [
-          "package_generate_exam_pool", "package_validate_exam_pool",
-          "package_generate_oral_exam", "package_generate_handbook",
-        ])
+        .in("job_type", PIPELINE_JOB_TYPES as unknown as string[])
         .in("status", ["pending", "processing"])
         .limit(500);
 
-      let cancelledCount = 0;
+      // Batch: collect unique package IDs, fetch their statuses in one query
+      const pkgIdMap = new Map<string, string[]>(); // pkgId → [jobId, ...]
       for (const o of orphans || []) {
         const pkgId = (o.payload as any)?.package_id;
         if (!pkgId) continue;
-        const { data: pkg } = await sb.from("course_packages")
-          .select("status")
-          .eq("id", pkgId)
-          .maybeSingle();
-        if (pkg && pkg.status !== "building") {
-          await sb.from("job_queue").update({
-            status: "cancelled",
-            error: "Optimizer: package not building, job orphaned",
-            completed_at: new Date().toISOString(),
-          }).eq("id", o.id);
-          cancelledCount++;
+        if (!pkgIdMap.has(pkgId)) pkgIdMap.set(pkgId, []);
+        pkgIdMap.get(pkgId)!.push(o.id);
+      }
+
+      let cancelledCount = 0;
+      if (pkgIdMap.size > 0) {
+        const pkgIds = [...pkgIdMap.keys()];
+        const { data: pkgs } = await sb.from("course_packages")
+          .select("id, status")
+          .in("id", pkgIds);
+
+        const nonBuildingPkgIds = new Set(
+          (pkgs || []).filter(p => p.status !== "building").map(p => p.id)
+        );
+
+        // Batch cancel all jobs belonging to non-building packages
+        const jobIdsToCancel = pkgIds
+          .filter(pid => nonBuildingPkgIds.has(pid))
+          .flatMap(pid => pkgIdMap.get(pid)!);
+
+        if (jobIdsToCancel.length > 0) {
+          // Supabase .in() supports up to ~300 IDs comfortably
+          for (let i = 0; i < jobIdsToCancel.length; i += 200) {
+            const batch = jobIdsToCancel.slice(i, i + 200);
+            await sb.from("job_queue").update({
+              status: "cancelled",
+              error: "Optimizer: package not building, job orphaned",
+              completed_at: new Date().toISOString(),
+            }).in("id", batch);
+          }
+          cancelledCount = jobIdsToCancel.length;
         }
       }
+
       if (cancelledCount > 0) {
         actions.push(`🧹 Cancelled ${cancelledCount} orphaned pipeline jobs`);
       }
