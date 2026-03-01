@@ -22,7 +22,7 @@ import { computeElite, buildAnnotationInput } from "../_shared/elite-annotation.
  * 6. Idempotency via unique (package_id, phase, idempotency_key)
  */
 
-type Phase = "annotations_only" | "minichecks_only" | "oral_only" | "all";
+type Phase = "annotations_only" | "drafts_upgrade" | "minichecks_only" | "oral_only" | "all";
 
 const TIME_BUDGET_MS = 110_000;
 const MAX_EXAM_HARDEN = 80;
@@ -692,6 +692,25 @@ Deno.serve(async (req) => {
     }
 
     // ════════════════════════════════════════════════════
+    // PHASE: drafts_upgrade — AI upgrade of weak draft questions
+    // ════════════════════════════════════════════════════
+    if (phase === "drafts_upgrade") {
+      const draftResult = await upgradeWeakDrafts(sb, runId, curriculumId, berufName, start);
+
+      await sb.from("elite_hardening_runs").update({
+        status: "done",
+        finished_at: new Date().toISOString(),
+        phase_stats: draftResult,
+        exam_questions_upgraded: draftResult.upgraded,
+        exam_questions_total: draftResult.total,
+      }).eq("id", runId);
+
+      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+      console.log(`[EliteHarden] ✅ drafts_upgrade done in ${elapsed}s — ${draftResult.upgraded}/${draftResult.total} upgraded`);
+      return json({ ok: true, batch_complete: true, phase, run_id: runId, results: { drafts: draftResult }, elapsed_s: parseFloat(elapsed) });
+    }
+
+    // ════════════════════════════════════════════════════
     // PHASE: all — enqueue follow-ups, never inline
     // ════════════════════════════════════════════════════
     if (phase === "all") {
@@ -707,8 +726,10 @@ Deno.serve(async (req) => {
       // Step 1: Run annotations inline (this is fast/safe)
       const annotResult = await annotateQuestions(sb, runId, curriculumId, start, {});
 
-      // Step 2: Enqueue follow-up phases as separate jobs (never inline)
+      // Step 2: Enqueue ALL follow-up phases as separate jobs (never inline)
+      // BUG FIX: Previously missing drafts_upgrade — weak drafts were never AI-upgraded
       await sb.from("job_queue").insert([
+        { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "drafts_upgrade" } },
         { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "minichecks_only" } },
         { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, phase: "oral_only" } },
       ]).then(() => {}, () => {});
@@ -717,7 +738,7 @@ Deno.serve(async (req) => {
       await sb.from("elite_hardening_runs").update({
         status: "done",
         finished_at: new Date().toISOString(),
-        phase_stats: { annotations: annotResult, enqueued: ["minichecks_only", "oral_only"] },
+        phase_stats: { annotations: annotResult, enqueued: ["drafts_upgrade", "minichecks_only", "oral_only"] },
         exam_questions_total: annotResult.total,
       }).eq("id", runId);
 
@@ -730,14 +751,14 @@ Deno.serve(async (req) => {
       }
 
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      console.log(`[EliteHarden] ✅ "all" done in ${elapsed}s — annotations: ${annotResult.annotated}, enqueued minichecks+oral`);
+      console.log(`[EliteHarden] ✅ "all" done in ${elapsed}s — annotations: ${annotResult.annotated}, enqueued drafts_upgrade+minichecks+oral`);
 
       return json({
         ok: true,
         batch_complete: true,
         phase: "all",
         run_id: runId,
-        results: { annotations: annotResult, enqueued: ["minichecks_only", "oral_only"] },
+        results: { annotations: annotResult, enqueued: ["drafts_upgrade", "minichecks_only", "oral_only"] },
         elapsed_s: parseFloat(elapsed),
       });
     }
