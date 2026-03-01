@@ -22,7 +22,7 @@ import { getTimeBudget, shouldSoftStop } from "../_shared/time-budget.ts";
  *   - Robust idempotency with ON CONFLICT handling
  */
 
-const BATCH_SIZE = 1;          // v5.4: single lesson per invocation to prevent 55s timeouts
+const BATCH_SIZE = 2;          // v5.5: raised back to 2 with gemini-3-flash-preview (19s avg latency)
 const BASE_DELAY_MS = 300;     // Keep throughput without wasting budget
 const MAX_DELAY_MS = 3000;     // Cap backoff to stay within soft budget
 const MAX_LESSON_RETRIES = 3;  // Poison-pill guard: skip lessons after N failures
