@@ -25125,6 +25125,10 @@ export type Database = {
       auto_link_certification_documents: { Args: never; Returns: number }
       auto_ops_cycle: { Args: never; Returns: Json }
       auto_provision_all_curricula: { Args: never; Returns: Json }
+      auto_recover_exhausted_content_step: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       auto_retry_stuck_package: {
         Args: { p_package_id: string }
         Returns: number
@@ -25282,6 +25286,10 @@ export type Database = {
       }
       check_lesson_progression: {
         Args: { p_lesson_id: string; p_user_id: string }
+        Returns: Json
+      }
+      check_lesson_writes_in_flight: {
+        Args: { p_course_id: string; p_window_minutes?: number }
         Returns: Json
       }
       check_no_placeholder_lessons: {
