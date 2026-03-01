@@ -4,14 +4,9 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 /**
- * berufski-generate-product
+ * work-generate-product (formerly berufski-generate-product)
  *
- * Generates structured content_json for a BerufsKI product (tier 9/19/29).
- * Enriches prompts with ExamFit SSOT data:
- *   - berufe (profession master data)
- *   - curricula → learning_fields → competencies
- *   - profession_profiles (exam style, scenarios, error patterns)
- *   - question_blueprints (real exam patterns & canonical statements)
+ * Generates structured content_json for an ExamFit@work product (tier 9/19/29).
  */
 
 interface SSOTContext {
@@ -45,9 +40,9 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // ── 1) Load BerufsKI Beruf ──
+    // ── 1) Load Work Beruf ──
     const { data: bkBeruf, error: bkErr } = await sb
-      .from("berufski_berufe")
+      .from("work_berufe")
       .select("*")
       .eq("id", berufskiId)
       .single();
@@ -91,7 +86,7 @@ Deno.serve(async (req) => {
     const tierLabel = tier === "29" ? "Komplettsystem" : tier === "19" ? "Praxisleitfaden" : "Prompt Guide";
 
     const { data: product, error: insertErr } = await sb
-      .from("berufski_produkte")
+      .from("work_produkte")
       .upsert({
         beruf_id: berufskiId,
         tier,
@@ -101,14 +96,14 @@ Deno.serve(async (req) => {
         generation_model: "google/gemini-2.5-flash",
         landing_headline: `KI-${tierLabel} für ${bkBeruf.name}`,
         landing_subline: `Spare 3–7 Stunden pro Woche durch berufsspezifische KI-Workflows`,
-        meta_title: `KI für ${bkBeruf.name} – ${tierLabel} | BerufsKI.de`,
+        meta_title: `KI für ${bkBeruf.name} – ${tierLabel} | ExamFit@work`,
         meta_description: `${tierLabel} mit ${tier === "9" ? "50+" : tier === "19" ? "50+ Prompts & 10 Praxisfällen" : "50+ Prompts, 10 Praxisfällen & DSGVO-Leitfaden"} für ${bkBeruf.name}. Sofort einsetzbar.`,
       }, { onConflict: "beruf_id,tier" })
       .select("id")
       .single();
 
     if (insertErr) {
-      console.error("[berufski-generate] DB error:", insertErr);
+      console.error("[work-generate] DB error:", insertErr);
       return new Response(JSON.stringify({ error: insertErr.message }), { status: 500, headers });
     }
 
@@ -127,7 +122,7 @@ Deno.serve(async (req) => {
     }), { headers });
 
   } catch (e) {
-    console.error("[berufski-generate] Error:", (e as Error).message);
+    console.error("[work-generate] Error:", (e as Error).message);
     return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers });
   }
 });
@@ -138,43 +133,25 @@ Deno.serve(async (req) => {
 
 async function gatherSSOTContext(sb: ReturnType<typeof createClient>, bkBeruf: Record<string, unknown>): Promise<SSOTContext> {
   const ctx: SSOTContext = {
-    beruf: null,
-    curriculum: null,
-    learningFields: [],
-    competencies: [],
-    professionProfile: null,
-    blueprintSamples: [],
+    beruf: null, curriculum: null, learningFields: [], competencies: [],
+    professionProfile: null, blueprintSamples: [],
   };
 
   const curriculumId = bkBeruf.examfit_curriculum_id as string | null;
   if (!curriculumId) return ctx;
 
-  // Parallel fetch: curriculum + profession profile
   const [currRes, profileRes] = await Promise.all([
-    sb.from("curricula")
-      .select("id, title, beruf_id, status")
-      .eq("id", curriculumId)
-      .maybeSingle(),
-    sb.from("profession_profiles")
-      .select("profile, profession_name")
-      .eq("beruf_id", curriculumId) // profession_profiles keyed by beruf_id from curricula
-      .maybeSingle(),
+    sb.from("curricula").select("id, title, beruf_id, status").eq("id", curriculumId).maybeSingle(),
+    sb.from("profession_profiles").select("profile, profession_name").eq("beruf_id", curriculumId).maybeSingle(),
   ]);
 
   ctx.curriculum = currRes.data;
 
-  // If curriculum has beruf_id, load ExamFit beruf + profession_profile
   const berufId = (currRes.data as any)?.beruf_id;
   if (berufId) {
     const [berufRes, profileByBerufRes] = await Promise.all([
-      sb.from("berufe")
-        .select("bezeichnung_kurz, bezeichnung_lang, zustaendigkeit, ausbildungsdauer_monate, taetigkeitsprofil, einsatzgebiete")
-        .eq("id", berufId)
-        .maybeSingle(),
-      sb.from("profession_profiles")
-        .select("profile, profession_name")
-        .eq("beruf_id", berufId)
-        .maybeSingle(),
+      sb.from("berufe").select("bezeichnung_kurz, bezeichnung_lang, zustaendigkeit, ausbildungsdauer_monate, taetigkeitsprofil, einsatzgebiete").eq("id", berufId).maybeSingle(),
+      sb.from("profession_profiles").select("profile, profession_name").eq("beruf_id", berufId).maybeSingle(),
     ]);
     ctx.beruf = berufRes.data;
     ctx.professionProfile = profileByBerufRes.data || profileRes.data;
@@ -182,32 +159,16 @@ async function gatherSSOTContext(sb: ReturnType<typeof createClient>, bkBeruf: R
     ctx.professionProfile = profileRes.data;
   }
 
-  // Load learning fields + competencies
-  const { data: lfs } = await sb
-    .from("learning_fields")
-    .select("id, code, title, exam_part, sort_order")
-    .eq("curriculum_id", curriculumId)
-    .order("sort_order")
-    .limit(20);
-
+  const { data: lfs } = await sb.from("learning_fields").select("id, code, title, exam_part, sort_order").eq("curriculum_id", curriculumId).order("sort_order").limit(20);
   ctx.learningFields = lfs || [];
 
   if (lfs?.length) {
     const lfIds = lfs.map((lf: any) => lf.id);
-    const { data: comps } = await sb
-      .from("competencies")
-      .select("id, code, title, learning_field_id")
-      .in("learning_field_id", lfIds)
-      .limit(100);
+    const { data: comps } = await sb.from("competencies").select("id, code, title, learning_field_id").in("learning_field_id", lfIds).limit(100);
     ctx.competencies = comps || [];
   }
 
-  // Sample blueprints for real exam patterns
-  const { data: blueprints } = await sb
-    .from("question_blueprints")
-    .select("canonical_statement, knowledge_type, cognitive_level, question_template")
-    .eq("curriculum_id", curriculumId)
-    .limit(15);
+  const { data: blueprints } = await sb.from("question_blueprints").select("canonical_statement, knowledge_type, cognitive_level, question_template").eq("curriculum_id", curriculumId).limit(15);
   ctx.blueprintSamples = blueprints || [];
 
   return ctx;
@@ -220,7 +181,6 @@ async function gatherSSOTContext(sb: ReturnType<typeof createClient>, bkBeruf: R
 function buildSystemPrompt(bkBeruf: Record<string, unknown>, ssot: SSOTContext, tier: string): string {
   const name = bkBeruf.name as string;
 
-  // ── Base DNA ──
   let dnaSection = `
 ## Berufs-DNA
 Beruf: ${name}
@@ -231,31 +191,38 @@ Pain Points: ${(bkBeruf.pain_points as string[] || []).join(", ") || "k.A."}
 Haftungsrisiken: ${(bkBeruf.haftungsrisiken as string[] || []).join(", ") || "k.A."}
 Digitalisierungsgrad: ${bkBeruf.digitalisierungsgrad || "k.A."}`;
 
-  // ── ExamFit SSOT Enrichment ──
   let ssotSection = "";
 
   if (ssot.beruf) {
     const b = ssot.beruf as any;
-    ssotSection += `\n\n## ExamFit Berufsdaten (SSOT)
+    ssotSection += `
+
+## ExamFit Berufsdaten (SSOT)
 Offizielle Bezeichnung: ${b.bezeichnung_kurz} (${b.bezeichnung_lang || ""})
 Zuständigkeit: ${b.zustaendigkeit}
 Ausbildungsdauer: ${b.ausbildungsdauer_monate} Monate
 Tätigkeitsprofil: ${(b.taetigkeitsprofil || "").slice(0, 600)}`;
     if (b.einsatzgebiete) {
-      ssotSection += `\nEinsatzgebiete: ${JSON.stringify(b.einsatzgebiete).slice(0, 300)}`;
+      ssotSection += `
+Einsatzgebiete: ${JSON.stringify(b.einsatzgebiete).slice(0, 300)}`;
     }
   }
 
   if (ssot.learningFields.length) {
-    ssotSection += `\n\n## Lernfelder aus dem Rahmenlehrplan (${ssot.learningFields.length} Felder)`;
+    ssotSection += `
+
+## Lernfelder aus dem Rahmenlehrplan (${ssot.learningFields.length} Felder)`;
     for (const lf of ssot.learningFields) {
       const l = lf as any;
-      ssotSection += `\n- ${l.code}: ${l.title}${l.exam_part ? ` (${l.exam_part})` : ""}`;
+      ssotSection += `
+- ${l.code}: ${l.title}${l.exam_part ? ` (${l.exam_part})` : ""}`;
     }
   }
 
   if (ssot.competencies.length) {
-    ssotSection += `\n\n## Kompetenzen (${ssot.competencies.length} aus dem Curriculum)`;
+    ssotSection += `
+
+## Kompetenzen (${ssot.competencies.length} aus dem Curriculum)`;
     const grouped = new Map<string, string[]>();
     for (const c of ssot.competencies) {
       const comp = c as any;
@@ -265,38 +232,49 @@ Tätigkeitsprofil: ${(b.taetigkeitsprofil || "").slice(0, 600)}`;
     }
     for (const [lfId, comps] of grouped) {
       const lf = ssot.learningFields.find((l: any) => l.id === lfId) as any;
-      ssotSection += `\n${lf?.code || "?"}: ${comps.slice(0, 5).join("; ")}`;
+      ssotSection += `
+${lf?.code || "?"}: ${comps.slice(0, 5).join("; ")}`;
     }
   }
 
   if (ssot.professionProfile) {
     const pp = (ssot.professionProfile as any).profile;
     if (pp) {
-      ssotSection += `\n\n## Berufsprofil (IHK-Expertise)`;
-      if (pp.typical_task_types) ssotSection += `\nTypische Aufgabentypen: ${pp.typical_task_types.join(", ")}`;
-      if (pp.term_strictness) ssotSection += `\nFachbegriff-Strenge: ${pp.term_strictness} – ${pp.term_strictness_rationale || ""}`;
-      if (pp.exam_style_hints) ssotSection += `\nPrüfungsstil: ${pp.exam_style_hints.slice(0, 3).join("; ")}`;
+      ssotSection += `
+
+## Berufsprofil (IHK-Expertise)`;
+      if (pp.typical_task_types) ssotSection += `
+Typische Aufgabentypen: ${pp.typical_task_types.join(", ")}`;
+      if (pp.term_strictness) ssotSection += `
+Fachbegriff-Strenge: ${pp.term_strictness} – ${pp.term_strictness_rationale || ""}`;
+      if (pp.exam_style_hints) ssotSection += `
+Prüfungsstil: ${pp.exam_style_hints.slice(0, 3).join("; ")}`;
       if (pp.common_error_patterns) {
-        ssotSection += `\nHäufige Fehler: ${pp.common_error_patterns.slice(0, 5).map((e: any) => `${e.error} (${e.domain})`).join("; ")}`;
+        ssotSection += `
+Häufige Fehler: ${pp.common_error_patterns.slice(0, 5).map((e: any) => `${e.error} (${e.domain})`).join("; ")}`;
       }
       if (pp.industry_context) {
         const ic = pp.industry_context;
-        if (ic.key_regulations) ssotSection += `\nRelevante Vorschriften: ${ic.key_regulations.join(", ")}`;
-        if (ic.digital_tools) ssotSection += `\nDigitale Tools: ${ic.digital_tools.join(", ")}`;
+        if (ic.key_regulations) ssotSection += `
+Relevante Vorschriften: ${ic.key_regulations.join(", ")}`;
+        if (ic.digital_tools) ssotSection += `
+Digitale Tools: ${ic.digital_tools.join(", ")}`;
       }
     }
   }
 
   if (ssot.blueprintSamples.length) {
-    ssotSection += `\n\n## Echte Prüfungsmuster (Blueprint-Beispiele)`;
+    ssotSection += `
+
+## Echte Prüfungsmuster (Blueprint-Beispiele)`;
     for (const bp of ssot.blueprintSamples.slice(0, 8)) {
       const b = bp as any;
-      ssotSection += `\n- [${b.knowledge_type}/${b.cognitive_level}] ${b.canonical_statement?.slice(0, 120)}`;
+      ssotSection += `
+- [${b.knowledge_type}/${b.cognitive_level}] ${b.canonical_statement?.slice(0, 120)}`;
       if (b.question_template) ssotSection += ` → Template: "${b.question_template.slice(0, 80)}"`;
     }
   }
 
-  // ── Tier-specific structure ──
   const tierStructure = getTierStructure(tier);
 
   return `Du bist ein Fachautor für KI-Anwendungen im Beruf "${name}" in Deutschland.
@@ -313,8 +291,8 @@ ${tierStructure}
 
 ## Output-Format
 Liefere ein JSON-Objekt mit der folgenden Struktur. Jedes Kapitel ist ein Objekt mit "title", "type" (text|prompts|cases|checklist|table|workflow), und "content" (Array von Items).
-Prompts müssen Objekte sein: {"prompt": "...", "context": "...", "expected_output": "...", "lernfeld_ref": "..."}
-Praxisfälle: {"title": "...", "situation": "...", "ki_loesung": "...", "zeitersparnis_min": number, "kompetenz_ref": "..."}
+Prompts müssen Objekte sein: {\"prompt\": \"...\", \"context\": \"...\", \"expected_output\": \"...\", \"lernfeld_ref\": \"...\"}
+Praxisfälle: {\"title\": \"...\", \"situation\": \"...\", \"ki_loesung\": \"...\", \"zeitersparnis_min\": number, \"kompetenz_ref\": \"...\"}
 
 KEINE generischen Inhalte. ALLES muss spezifisch für ${name} sein.`;
 }

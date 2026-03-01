@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  console.log(`[BERUFSKI-CORPORATE-SYNC] ${step}`, details ? JSON.stringify(details) : '');
+  console.log(`[WORK-CORPORATE-SYNC] ${step}`, details ? JSON.stringify(details) : '');
 };
 
 const PLAN_DEFAULTS: Record<string, number> = {
@@ -33,7 +33,7 @@ serve(async (req) => {
 
     for (const plan of plans) {
       const { data: cc } = await adminClient
-        .from('berufski_corporate_commerce')
+        .from('work_corporate_commerce')
         .select('*')
         .eq('plan', plan)
         .single();
@@ -61,7 +61,7 @@ serve(async (req) => {
         stripePriceId = pr.id;
       }
 
-      await adminClient.from('berufski_corporate_commerce').update({
+      await adminClient.from('work_corporate_commerce').update({
         stripe_product_id: stripeProductId,
         stripe_price_id: stripePriceId,
         amount_cents: amount,

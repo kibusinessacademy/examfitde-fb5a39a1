@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  console.log(`[BERUFSKI-CHECKOUT] ${step}`, details ? JSON.stringify(details) : '');
+  console.log(`[WORK-CHECKOUT] ${step}`, details ? JSON.stringify(details) : '');
 };
 
 serve(async (req) => {
@@ -31,9 +31,8 @@ serve(async (req) => {
 
     logStep("Checkout request", { productId, buyerEmail, couponCode, affiliateCode });
 
-    // Product must be published
     const { data: prod, error: prodErr } = await adminClient
-      .from('berufski_produkte')
+      .from('work_produkte')
       .select('id, status, titel, tier, stripe_price_id, stripe_product_id, amount_cents, beruf_id')
       .eq('id', productId)
       .single();
@@ -42,20 +41,18 @@ serve(async (req) => {
     if (prod.status !== 'published') return json(400, { ok: false, error: "Product not published" }, origin);
     if (!prod.stripe_price_id) return json(400, { ok: false, error: "No Stripe price configured (publish first)" }, origin);
 
-    // Get beruf name for metadata
     const { data: beruf } = await adminClient
-      .from('berufski_berufe')
+      .from('work_berufe')
       .select('name, slug')
       .eq('id', prod.beruf_id)
       .single();
 
-    // Optional coupon validation
     let discounts: Array<{ coupon: string }> | undefined = undefined;
     let appliedCouponCode: string | null = null;
 
     if (couponCode) {
       const { data: coupon } = await adminClient
-        .from('berufski_coupons')
+        .from('work_coupons')
         .select('*')
         .eq('code', couponCode)
         .eq('active', true)
@@ -68,14 +65,13 @@ serve(async (req) => {
         (!coupon.max_redemptions || coupon.redeemed_count < coupon.max_redemptions);
 
       if (valid) {
-        // Create or reuse Stripe coupon
         let stripeCouponId = coupon.stripe_coupon_id;
         if (!stripeCouponId) {
           const created = coupon.type === 'percent'
             ? await stripe.coupons.create({ percent_off: Number(coupon.value), duration: 'once' })
             : await stripe.coupons.create({ amount_off: Math.round(Number(coupon.value) * 100), currency: 'eur', duration: 'once' });
           stripeCouponId = created.id;
-          await adminClient.from('berufski_coupons').update({ stripe_coupon_id: stripeCouponId }).eq('id', coupon.id);
+          await adminClient.from('work_coupons').update({ stripe_coupon_id: stripeCouponId }).eq('id', coupon.id);
         }
         discounts = [{ coupon: stripeCouponId }];
         appliedCouponCode = coupon.code;
@@ -85,11 +81,10 @@ serve(async (req) => {
       }
     }
 
-    // Track affiliate click
     if (affiliateCode) {
-      await adminClient.from('berufski_affiliate_clicks').insert({
+      await adminClient.from('work_affiliate_clicks').insert({
         affiliate_code: affiliateCode,
-        landing_path: landingPath || `/berufski/ki-fuer/${beruf?.slug || ''}`,
+        landing_path: landingPath || `/work/beruf/${beruf?.slug || ''}`,
         referrer: req.headers.get('referer') || null,
       }).catch(() => null);
     }

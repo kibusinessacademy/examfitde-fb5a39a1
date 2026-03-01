@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  console.log(`[BERUFSKI-BUNDLE-PUBLISH] ${step}`, details ? JSON.stringify(details) : '');
+  console.log(`[WORK-BUNDLE-PUBLISH] ${step}`, details ? JSON.stringify(details) : '');
 };
 
 serve(async (req) => {
@@ -26,16 +26,15 @@ serve(async (req) => {
     if (!bundleId) return json(400, { ok: false, error: "bundleId required" }, origin);
 
     const { data: bundle, error: bErr } = await adminClient
-      .from('berufski_bundles')
+      .from('work_bundles')
       .select('*')
       .eq('id', bundleId)
       .single();
 
     if (bErr || !bundle) return json(404, { ok: false, error: "Bundle not found" }, origin);
 
-    // Publish gate: bundle must have at least one asset
     const { data: assets } = await adminClient
-      .from('berufski_bundle_assets')
+      .from('work_bundle_assets')
       .select('kind, storage_path')
       .eq('bundle_id', bundleId);
 
@@ -45,8 +44,6 @@ serve(async (req) => {
     }
 
     const amountCents = bundle.price_cents;
-
-    // Create or reuse Stripe product/price
     let stripeProductId = bundle.stripe_product_id;
     let stripePriceId = bundle.stripe_price_id;
 
@@ -69,7 +66,7 @@ serve(async (req) => {
       stripePriceId = pr.id;
     }
 
-    await adminClient.from('berufski_bundles').update({
+    await adminClient.from('work_bundles').update({
       stripe_product_id: stripeProductId,
       stripe_price_id: stripePriceId,
       is_active: true,

@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  console.log(`[BERUFSKI-BUNDLE-CHECKOUT] ${step}`, details ? JSON.stringify(details) : '');
+  console.log(`[WORK-BUNDLE-CHECKOUT] ${step}`, details ? JSON.stringify(details) : '');
 };
 
 serve(async (req) => {
@@ -31,9 +31,8 @@ serve(async (req) => {
 
     logStep("Bundle checkout request", { bundleId, buyerEmail });
 
-    // Bundle must be published
     const { data: bundle, error: bErr } = await adminClient
-      .from('berufski_bundles')
+      .from('work_bundles')
       .select('id, slug, title, is_active, stripe_price_id, stripe_product_id, price_cents')
       .eq('id', bundleId)
       .single();
@@ -42,13 +41,12 @@ serve(async (req) => {
     if (!bundle.is_active) return json(400, { ok: false, error: "Bundle not active" }, origin);
     if (!bundle.stripe_price_id) return json(400, { ok: false, error: "No Stripe price (publish bundle first)" }, origin);
 
-    // Coupon validation
     let discounts: Array<{ coupon: string }> | undefined = undefined;
     let appliedCouponCode: string | null = null;
 
     if (couponCode) {
       const { data: coupon } = await adminClient
-        .from('berufski_coupons')
+        .from('work_coupons')
         .select('*')
         .eq('code', couponCode)
         .eq('active', true)
@@ -67,18 +65,17 @@ serve(async (req) => {
             ? await stripe.coupons.create({ percent_off: Number(coupon.value), duration: 'once' })
             : await stripe.coupons.create({ amount_off: Math.round(Number(coupon.value) * 100), currency: 'eur', duration: 'once' });
           stripeCouponId = created.id;
-          await adminClient.from('berufski_coupons').update({ stripe_coupon_id: stripeCouponId }).eq('id', coupon.id);
+          await adminClient.from('work_coupons').update({ stripe_coupon_id: stripeCouponId }).eq('id', coupon.id);
         }
         discounts = [{ coupon: stripeCouponId }];
         appliedCouponCode = coupon.code;
       }
     }
 
-    // Affiliate tracking
     if (affiliateCode) {
-      await adminClient.from('berufski_affiliate_clicks').insert({
+      await adminClient.from('work_affiliate_clicks').insert({
         affiliate_code: affiliateCode,
-        landing_path: landingPath || `/berufski/bundles/${bundle.slug}`,
+        landing_path: landingPath || `/work/bundles/${bundle.slug}`,
         referrer: req.headers.get('referer') || null,
       }).catch(() => null);
     }

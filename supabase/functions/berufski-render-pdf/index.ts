@@ -5,16 +5,6 @@ import { buildPremiumHtml } from "../_shared/berufski-premium-template.ts";
 import { buildCoverSvg, svgToDataUrl, getTierBadge, getTierSubtitle } from "../_shared/berufski-cover-svg.ts";
 import type { ContentJson } from "../_shared/berufski-content-schema.ts";
 
-/**
- * berufski-render-pdf
- *
- * Renders structured content_json into print-ready HTML,
- * then converts to PDF via Browserless/Puppeteer API.
- *
- * Input:  { productId, mode?: "screen"|"print" }
- * Output: { ok, exportId, storagePath, fileSize }
- */
-
 Deno.serve(async (req) => {
   const preflight = handleCorsPreflightRequest(req);
   if (preflight) return preflight;
@@ -39,8 +29,8 @@ Deno.serve(async (req) => {
 
     // ── 1) Load product + beruf ──
     const { data: product, error: prodErr } = await sb
-      .from("berufski_produkte")
-      .select("*, berufski_berufe(*)")
+      .from("work_produkte")
+      .select("*, work_berufe(*)")
       .eq("id", productId)
       .single();
 
@@ -53,33 +43,20 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Kein content_json vorhanden. Bitte zuerst generieren." }), { status: 400, headers });
     }
 
-    const beruf = product.berufski_berufe as Record<string, unknown>;
+    const beruf = product.work_berufe as Record<string, unknown>;
 
-    // ── 2) Load theme (product.theme_id or default) ──
+    // ── 2) Load theme ──
     let theme = { primary: "#0B7285", accent: "#20C997", font: "Inter", logoUrl: null as string | null, brandName: "ExamFit@work" };
     const themeId = product.theme_id;
     if (themeId) {
-      const { data: dbTheme } = await sb.from("berufski_brand_themes").select("*").eq("id", themeId).maybeSingle();
+      const { data: dbTheme } = await sb.from("work_brand_themes").select("*").eq("id", themeId).maybeSingle();
       if (dbTheme) {
-        theme = {
-          primary: dbTheme.primary_color,
-          accent: dbTheme.accent_color,
-          font: dbTheme.font_heading || dbTheme.font_body || "Inter",
-          logoUrl: dbTheme.logo_url,
-          brandName: dbTheme.brand_name,
-        };
+        theme = { primary: dbTheme.primary_color, accent: dbTheme.accent_color, font: dbTheme.font_heading || dbTheme.font_body || "Inter", logoUrl: dbTheme.logo_url, brandName: dbTheme.brand_name };
       }
     } else {
-      // Try default theme
-      const { data: defaultTheme } = await sb.from("berufski_brand_themes").select("*").eq("is_default", true).maybeSingle();
+      const { data: defaultTheme } = await sb.from("work_brand_themes").select("*").eq("is_default", true).maybeSingle();
       if (defaultTheme) {
-        theme = {
-          primary: defaultTheme.primary_color,
-          accent: defaultTheme.accent_color,
-          font: defaultTheme.font_heading || defaultTheme.font_body || "Inter",
-          logoUrl: defaultTheme.logo_url,
-          brandName: defaultTheme.brand_name,
-        };
+        theme = { primary: defaultTheme.primary_color, accent: defaultTheme.accent_color, font: defaultTheme.font_heading || defaultTheme.font_body || "Inter", logoUrl: defaultTheme.logo_url, brandName: defaultTheme.brand_name };
       }
     }
 
@@ -110,15 +87,13 @@ Deno.serve(async (req) => {
     let renderMethod: string;
 
     if (browserlessEndpoint) {
-      // Use Browserless API
       const pdfResp = await fetch(browserlessEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           html,
           options: {
-            printBackground: true,
-            format: "A4",
+            printBackground: true, format: "A4",
             margin: mode === "print" ? { top: "20mm", right: "20mm", bottom: "20mm", left: "20mm" } : undefined,
             preferCSSPageSize: true,
           },
@@ -134,7 +109,6 @@ Deno.serve(async (req) => {
       pdfBuffer = await pdfResp.arrayBuffer();
       renderMethod = "browserless";
     } else {
-      // Fallback: Store HTML as "PDF preview" (user can print from browser)
       const encoder = new TextEncoder();
       pdfBuffer = encoder.encode(html).buffer;
       renderMethod = "html_fallback";
@@ -155,25 +129,20 @@ Deno.serve(async (req) => {
       });
 
     if (uploadErr) {
-      console.error("[berufski-render-pdf] Upload error:", uploadErr);
+      console.error("[work-render-pdf] Upload error:", uploadErr);
       return new Response(JSON.stringify({ error: "Upload failed", detail: uploadErr.message }), { status: 500, headers });
     }
 
     // ── 7) Record export + update product ──
     const [exportRes, _updateRes] = await Promise.all([
-      sb.from("berufski_pdf_exports").insert({
-        product_id: productId,
-        mode,
-        storage_path: storagePath,
-        template_id: product.template_id || null,
-        theme_id: product.theme_id || null,
-        render_duration_ms: renderDuration,
-        file_size_bytes: pdfBuffer.byteLength,
+      sb.from("work_pdf_exports").insert({
+        product_id: productId, mode, storage_path: storagePath,
+        template_id: product.template_id || null, theme_id: product.theme_id || null,
+        render_duration_ms: renderDuration, file_size_bytes: pdfBuffer.byteLength,
         version: (product.pdf_version || 0) + 1,
       }).select("id").single(),
-      sb.from("berufski_produkte").update({
-        pdf_storage_path: storagePath,
-        pdf_rendered_at: new Date().toISOString(),
+      sb.from("work_produkte").update({
+        pdf_storage_path: storagePath, pdf_rendered_at: new Date().toISOString(),
         pdf_version: (product.pdf_version || 0) + 1,
         ...(mode === "screen" ? { screen_pdf_path: storagePath } : { print_pdf_path: storagePath }),
         status: "ready",
@@ -181,17 +150,12 @@ Deno.serve(async (req) => {
     ]);
 
     return new Response(JSON.stringify({
-      ok: true,
-      exportId: exportRes.data?.id,
-      storagePath,
-      fileSize: pdfBuffer.byteLength,
-      renderMethod,
-      renderDurationMs: renderDuration,
-      mode,
+      ok: true, exportId: exportRes.data?.id, storagePath,
+      fileSize: pdfBuffer.byteLength, renderMethod, renderDurationMs: renderDuration, mode,
     }), { headers });
 
   } catch (e) {
-    console.error("[berufski-render-pdf] Error:", (e as Error).message);
+    console.error("[work-render-pdf] Error:", (e as Error).message);
     return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers });
   }
 });
