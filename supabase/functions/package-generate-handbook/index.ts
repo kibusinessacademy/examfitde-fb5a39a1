@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIWithFailover, logLLMCostEvent } from "../_shared/ai-client.ts";
+import { shouldSoftStop, makeAbortController } from "../_shared/time-budget.ts";
 import { getModelChain } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 
@@ -78,7 +79,13 @@ async function generateSectionContent(
   subtopics: string[],
   wordTarget: number,
   packageId: string | null,
+  startMs: number,
 ): Promise<{ content: string; provider: string; model: string }> {
+  // Soft-stop guard: if we're already past 40s, skip LLM and return empty
+  if (shouldSoftStop(startMs, "handbook")) {
+    console.warn(`[generate-handbook] Soft-stop reached before LLM call for ${fieldCode}`);
+    return { content: "", provider: "soft-stop", model: "none" };
+  }
   const chain = getModelChain("handbook");
   const topicContext = subtopics.length > 0
     ? `\nKernthemen aus dem Rahmenplan:\n${subtopics.map(t => `- ${t}`).join("\n")}`
@@ -134,13 +141,18 @@ Antworte NUR mit Markdown.`;
   const maxTokens = Math.max(3200, Math.round(wordTarget * 4));
 
   try {
+    // Use AbortController to cap LLM at 40s
+    const llmAbort = new AbortController();
+    const llmTimer = setTimeout(() => llmAbort.abort(), 40_000);
     const result = await callAIWithFailover(chain, {
       messages: [
         { role: "system", content: "Du schreibst ausführliche, prüfungsstrategische IHK-Handbuch-Inhalte auf Experten-Niveau. Antworte nur mit Markdown. Schreibe umfassend und detailliert — NICHT kurz oder stichwortartig. Jeder Abschnitt muss Fallbeispiele, Prüfungsfallen und Merkschemata enthalten. Denke wie ein erfahrener IHK-Prüfer, der sein Wissen an Prüflinge weitergibt." },
         { role: "user", content: prompt },
       ],
-      max_tokens: Math.min(4096, maxTokens),
+      max_tokens: Math.min(3072, maxTokens),
+      signal: llmAbort.signal,
     });
+    clearTimeout(llmTimer);
 
     // Log cost
     try {
@@ -165,7 +177,7 @@ Antworte NUR mit Markdown.`;
     content = content.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
 
     // ── LENGTH ENFORCER: If content too short, do one expand retry ──
-    if (content.length > 200 && content.length < MIN_SECTION_CHARS) {
+    if (content.length > 200 && content.length < MIN_SECTION_CHARS && !shouldSoftStop(startMs, "handbook")) {
       console.log(`[generate-handbook] Section ${fieldCode} too short (${content.length} chars < ${MIN_SECTION_CHARS}). Attempting expand...`);
       try {
         const expandResult = await callAIWithFailover(chain, {
@@ -225,6 +237,7 @@ Antworte NUR mit Markdown.`;
 }
 
 Deno.serve(async (req) => {
+  const startMs = Date.now();
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -414,6 +427,7 @@ Deno.serve(async (req) => {
       subtopics,
       wordTarget,
       packageId,
+      startMs,
     );
 
     const MIN_ACCEPT_CHARS = 2000;
