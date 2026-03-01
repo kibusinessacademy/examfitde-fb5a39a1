@@ -736,6 +736,19 @@ async function processPackage(
 
   // ── Handle: exhausted retries ──
   if (nextAction.action === "exhausted") {
+    // ── Auto-recovery: if content step exhausted but content is actually ready, reset ──
+    if (nextAction.stepKey === "generate_learning_content") {
+      const { data: recoveryResult } = await sb.rpc("auto_recover_exhausted_content_step", {
+        p_package_id: packageId,
+      });
+      const recovery = recoveryResult as { recovered: boolean; real?: number; total?: number; still_empty?: number } | null;
+      if (recovery?.recovered) {
+        console.log(`[runner] ♻️ Auto-recovered exhausted generate_learning_content for ${shortId} (${recovery.real}/${recovery.total} real)`);
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey: nextAction.stepKey, auto_recovered: true, real: recovery.real, total: recovery.total };
+      }
+    }
+
     await safeQuery(
       sb.from("course_packages")
         .update({ status: "failed", last_error: `Attempts exhausted on step ${nextAction.stepKey}` })
@@ -1248,14 +1261,34 @@ async function processPackage(
         if (repaired?.ready) {
           console.log(`[runner] ✅ Auto-repair fixed ${repaired.fixed_flags} flags — content now ready, proceeding`);
         } else {
-          // Still not ready — reset generate_learning_content to re-generate missing content
+          // ── Progress-aware gate: check if content-runner is actively writing ──
+          const { data: flightCheck } = await sb.rpc("check_lesson_writes_in_flight", {
+            p_course_id: pkg.course_id,
+            p_window_minutes: 5,
+          });
+          const inFlight = flightCheck as { in_flight: boolean; recent_writes: number } | null;
+
+          if (inFlight?.in_flight) {
+            // Content generation is actively writing — defer, don't reset
+            console.log(`[runner] ⏳ Content writes in-flight (${inFlight.recent_writes} recent) for ${shortId} — deferring integrity gate`);
+            await safeQuery(
+              sb.from("package_steps").update({
+                last_error: `Deferred: ${inFlight.recent_writes} lesson writes in last 5min (still ${repaired?.still_empty ?? '?'} empty)`,
+              }).eq("package_id", packageId).eq("step_key", stepKey),
+              "integrity_gate_defer",
+            );
+            await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+            return { packageId, stepKey, integrity_gate_deferred: true, recent_writes: inFlight.recent_writes };
+          }
+
+          // No in-flight writes — genuinely stalled, reset generate_learning_content
           await safeQuery(
             sb.from("package_steps").update({
               status: "queued",
               job_id: null,
               runner_id: null,
               started_at: null,
-              last_error: `Integrity gate: ${repaired?.still_empty ?? '?'} lessons still empty — re-generating content`,
+              last_error: `Integrity gate: ${repaired?.still_empty ?? '?'} lessons still empty — re-generating content (stagnant)`,
             }).eq("package_id", packageId).eq("step_key", "generate_learning_content"),
             "integrity_gate_reset_content",
           );
@@ -1277,7 +1310,7 @@ async function processPackage(
               target_type: "package",
               target_id: packageId,
               result_status: "healed",
-              result_detail: `Blocked exam_pool, reset generate_learning_content (${repaired?.still_empty} empty lessons, ${repaired?.fixed_flags} flags fixed)`,
+              result_detail: `Blocked exam_pool, reset generate_learning_content (${repaired?.still_empty} empty lessons, ${repaired?.fixed_flags} flags fixed, stagnant=true)`,
             }),
             "log_integrity_gate",
           );
