@@ -5,13 +5,35 @@ import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 import { getModelChain } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 
+/**
+ * package-generate-handbook — Elite Handbook Generator v3
+ *
+ * Generates a comprehensive IHK exam preparation handbook per learning field.
+ * Each section targets 1500–2500 words of didactic-depth prose.
+ *
+ * Architecture:
+ *   - BATCH_SIZE = 1 (each LF gets full time budget)
+ *   - Uses batch_cursor for multi-invocation progress
+ *   - Loads competencies + misconceptions for context enrichment
+ *   - Two-pass generation: initial + depth-expand if under threshold
+ */
+
+const BATCH_SIZE = 1;
+const TARGET_CHAPTERS = 5;
+const MIN_SECTION_CHARS = 4000;   // ~1000+ words minimum per section
+const IDEAL_SECTION_CHARS = 8000; // ~2000 words ideal
+const MIN_WORD_TARGET = 1200;
+const MAX_WORD_TARGET = 2500;
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
+
 function assertUuid(name: string, v: unknown) {
   const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!v || typeof v !== "string" || !re.test(v)) throw new Error(`INVALID_${name.toUpperCase()}`);
 }
+
 async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
   const { data: d1 } = await sb
     .from("package_steps").select("status")
@@ -23,9 +45,26 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done";
 }
 
-/**
- * Load curriculum_topics depth for a learning field.
- */
+// ── Context Loaders ──────────────────────────────────────────
+
+async function loadFieldCompetencies(
+  sb: ReturnType<typeof createClient>,
+  fieldId: string,
+): Promise<{ name: string; bloom: string; misconceptions: string[] }[]> {
+  try {
+    const { data } = await sb
+      .from("competencies")
+      .select("competency_name, bloom_level, typical_misconceptions")
+      .eq("learning_field_id", fieldId)
+      .limit(30);
+    return (data || []).map((c: any) => ({
+      name: c.competency_name || "",
+      bloom: c.bloom_level || "understand",
+      misconceptions: Array.isArray(c.typical_misconceptions) ? c.typical_misconceptions : [],
+    }));
+  } catch { return []; }
+}
+
 async function loadFieldTopicDepth(
   sb: ReturnType<typeof createClient>,
   curriculumId: string,
@@ -61,15 +100,127 @@ async function loadFieldTopicDepth(
       .limit(50);
 
     return subtopics?.map((s: any) => s.topic_name) || [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
-/**
- * Generate real handbook section content via LLM with failover chain.
- * Returns { content, provider, model } or empty content on total failure.
- */
+async function loadExamQuestionSample(
+  sb: ReturnType<typeof createClient>,
+  curriculumId: string,
+  fieldId: string,
+): Promise<string[]> {
+  try {
+    const { data } = await sb
+      .from("exam_questions")
+      .select("question_text")
+      .eq("curriculum_id", curriculumId)
+      .eq("learning_field_id", fieldId)
+      .in("status", ["approved"])
+      .limit(5);
+    return (data || []).map((q: any) => q.question_text || "").filter(Boolean);
+  } catch { return []; }
+}
+
+// ── Elite Prompt Builder ─────────────────────────────────────
+
+function buildElitePrompt(
+  professionName: string,
+  fieldCode: string,
+  fieldTitle: string,
+  fieldDescription: string,
+  subtopics: string[],
+  competencies: { name: string; bloom: string; misconceptions: string[] }[],
+  sampleQuestions: string[],
+  wordTarget: number,
+): string {
+  const minWords = Math.round(wordTarget * 0.9);
+  
+  const topicContext = subtopics.length > 0
+    ? `\n**Kernthemen aus dem Rahmenplan:**\n${subtopics.map(t => `- ${t}`).join("\n")}`
+    : "";
+
+  const compContext = competencies.length > 0
+    ? `\n**Kompetenzen (mit Bloom-Niveau):**\n${competencies.slice(0, 15).map(c => 
+        `- ${c.name} [${c.bloom}]${c.misconceptions.length > 0 ? ` — Typische Fehler: ${c.misconceptions.slice(0, 2).join("; ")}` : ""}`
+      ).join("\n")}`
+    : "";
+
+  const questionContext = sampleQuestions.length > 0
+    ? `\n**Beispiel-Prüfungsfragen aus dem Pool (zum Einbetten als Übungsaufgaben):**\n${sampleQuestions.slice(0, 3).map((q, i) => `${i + 1}. ${q.slice(0, 200)}`).join("\n")}`
+    : "";
+
+  return `Du bist ein erfahrener IHK-Prüfungscoach und Fachexperte für "${professionName}".
+Erstelle einen UMFASSENDEN, TIEFGEHENDEN Handbuch-Abschnitt für das Lernfeld "${fieldCode}: ${fieldTitle}".
+
+${fieldDescription ? `**Lernfeld-Beschreibung:** ${fieldDescription}` : ""}
+${topicContext}
+${compContext}
+${questionContext}
+
+## QUALITÄTSANFORDERUNGEN (ELITE-STANDARD):
+
+### 1. UMFANG & TIEFE
+- Mindestumfang: **${minWords} Wörter** — schreibe AUSFÜHRLICH, nicht stichwortartig!
+- Jedes Unterthema braucht 3–5 Absätze mit konkreten Erklärungen
+- Verwende Fachbegriffe UND erkläre sie verständlich
+- KEINE Platzhalter, KEINE "wird ergänzt", KEINE leeren Abschnitte
+
+### 2. PFLICHT-STRUKTUR (alle Abschnitte MÜSSEN vorhanden sein):
+
+#### 📚 Fachliche Grundlagen
+- Systematische Erklärung aller Kernthemen des Lernfelds
+- Definitionen mit Kontext (nicht nur Lexikon-Einträge)
+- Zusammenhänge zwischen den Themen aufzeigen
+- Rechtliche Grundlagen und Vorschriften (Paragraphen, Verordnungen)
+
+#### 🔢 Formeln, Berechnungen & Methoden
+- Alle relevanten Formeln mit AUSFÜHRLICHER Herleitung
+- Mindestens 2 durchgerechnete Beispiele pro Formel
+- Schritt-für-Schritt-Rechenweg zeigen
+- Einheiten und typische Wertebereiche nennen
+
+#### 🎯 Prüfungsstrategische Analyse
+- "So denkt der IHK-Prüfer" — was wird erwartet?
+- Welche Formulierungen bringen Punkte? Welche kosten Punkte?
+- Typische Aufgabenformate in der schriftlichen Prüfung
+- Zeitmanagement-Tipps für dieses Themengebiet
+
+#### ⚠️ Prüfungsfallen & Typische Fehler (mindestens 5)
+Für JEDE Falle detailliert:
+| Falle | Warum passiert das? | Korrekte Antwort |
+Format: Tabelle oder ausführliche Aufzählung mit konkreten Zahlen/Paragraphen
+
+#### 📋 Merkschemata & Checklisten
+- Mindestens 2 Merkregeln/Eselsbrücken
+- Checklisten für typische Aufgabentypen (Schritt 1 → Schritt 2 → ...)
+- Vergleichstabellen bei ähnlichen Konzepten
+- "Wenn X, dann Y" — Entscheidungsbäume
+
+#### 📝 Musteraufgaben mit Musterlösung (mindestens 2)
+- 1× Berechnungsaufgabe (falls quantitatives Thema)
+- 1× Fallstudie / Situationsaufgabe
+- Jeweils: vollständiger Lösungsweg + Bewertungshinweise + häufige Fehler
+
+#### 🔄 Transfer & Vertiefung
+- "Was ändert sich, wenn...?" — 2–3 Variationsaufgaben
+- Verbindungen zu anderen Lernfeldern
+- Praxisbezug: Wie begegnet man diesem Thema im Berufsalltag?
+
+#### 💡 Zusammenfassung & Schnell-Wiederholung
+- Die 10 wichtigsten Fakten als nummerierte Liste
+- "Das MUSS sitzen" — absolute Kernpunkte für die Prüfung
+
+### 3. FORMATIERUNG
+- Markdown mit ## und ### Überschriften
+- Tabellen für Vergleiche und Übersichten
+- Aufzählungen mit Spiegelstrichen für Strukturierung
+- **Fettdruck** für Schlüsselbegriffe
+- Formeln klar abgesetzt
+
+Antworte NUR mit dem Markdown-Inhalt. Keine Meta-Kommentare.`;
+}
+
+// ── Section Generator ────────────────────────────────────────
+
 async function generateSectionContent(
   sb: ReturnType<typeof createClient>,
   professionName: string,
@@ -77,90 +228,43 @@ async function generateSectionContent(
   fieldTitle: string,
   fieldDescription: string,
   subtopics: string[],
+  competencies: { name: string; bloom: string; misconceptions: string[] }[],
+  sampleQuestions: string[],
   wordTarget: number,
   packageId: string | null,
   startMs: number,
 ): Promise<{ content: string; provider: string; model: string }> {
-  // Soft-stop guard: if we're already past 40s, skip LLM and return empty
   if (shouldSoftStop(startMs, "handbook")) {
     console.warn(`[generate-handbook] Soft-stop reached before LLM call for ${fieldCode}`);
     return { content: "", provider: "soft-stop", model: "none" };
   }
+
   const chain = getModelChain("handbook");
-  const topicContext = subtopics.length > 0
-    ? `\nKernthemen aus dem Rahmenplan:\n${subtopics.map(t => `- ${t}`).join("\n")}`
-    : "";
-
-  const minWords = Math.round(wordTarget * 0.8);
-  const maxWords = Math.round(wordTarget * 1.2);
-  // Hard minimum: each section must reach this char count to pass QC
-  const MIN_SECTION_CHARS = 2000;
-
-  const prompt = `Du bist ein IHK-Fachexperte und Prüfungscoach für "${professionName}". 
-Erstelle einen ausführlichen, prüfungsstrategischen Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}".
-
-${fieldDescription ? `Beschreibung: ${fieldDescription}` : ""}
-${topicContext}
-
-ANFORDERUNGEN:
-1. Fachlich korrekt, prüfungsrelevant für IHK-Abschlussprüfung
-2. Konkrete Definitionen, Formeln, Merksätze — AUSFÜHRLICH erklären
-3. Mindestens 3 praxisnahe Beispiele mit konkreten Zahlen/Szenarien
-4. Typische Prüfungsfallen mit Erklärung, warum sie Fallen sind
-5. Markdown mit ## und ### Überschriften
-6. WICHTIG: Mindestumfang ${minWords} Wörter, Zielumfang ${maxWords} Wörter. Schreibe NICHT kürzer!
-7. KEINE Platzhalter, KEINE Verweise auf externe Quellen
-8. Jedes Unterthema braucht mindestens 2-3 Absätze Erklärung
-
-PRÜFUNGSSTRATEGISCHE PFLICHT-SEKTIONEN:
-### 🎯 So denkt der Prüfer
-- Was erwartet der IHK-Prüfer bei diesem Thema? Welche Formulierungen bewertet er positiv?
-- Welche typischen Fehler führen zu Punktabzug?
-- Worauf achtet der Prüfer bei der Bewertung besonders?
-
-### ⚠️ Typische Prüfungsfallen (mindestens 3)
-- Für jede Falle: Was ist der Fehler? → Warum machen Prüflinge ihn? → Was ist die korrekte Antwort?
-- Konkrete Beispiele mit Zahlen/§§ wo relevant
-
-### 📋 Merkschemata & Checklisten
-- Prüfungstaugliche Merksätze und Eselsbrücken
-- Schritt-für-Schritt-Checklisten für typische Aufgabentypen
-- Formelsammlungen mit Erklärung (bei quantitativen Themen)
-
-### 📝 Musteraufgabe mit Musterlösung
-- 1 realistische IHK-Prüfungsaufgabe (Fallstudie/Berechnung) mit vollständiger Musterlösung
-- Bewertungshinweise: Was bringt volle Punktzahl? Was führt zu Abzug?
-- Lösungsstrategie: In welcher Reihenfolge sollte man vorgehen?
-
-### 🔄 Transferübungen
-- 2 Variationsaufgaben: "Was ändert sich, wenn...?"
-- Verbindung zu anderen Lernfeldern aufzeigen
-
-Antworte NUR mit Markdown.`;
-
-  const maxTokens = Math.max(3200, Math.round(wordTarget * 4));
+  const prompt = buildElitePrompt(professionName, fieldCode, fieldTitle, fieldDescription, subtopics, competencies, sampleQuestions, wordTarget);
+  
+  // Higher token budget for elite content
+  const maxTokens = Math.max(6000, Math.round(wordTarget * 5));
 
   try {
     const budget = getTimeBudget("handbook");
     const remainingSoftMs = budget.softStopMs - (Date.now() - startMs);
     if (remainingSoftMs <= 9_500) {
-      console.warn(`[generate-handbook] Soft-stop before LLM call for ${fieldCode} (remaining ${remainingSoftMs}ms)`);
       return { content: "", provider: "soft-stop", model: "none" };
     }
 
-    const llmTimeoutMs = Math.max(8_000, Math.min(32_000, remainingSoftMs - 1_500));
+    const llmTimeoutMs = Math.max(10_000, Math.min(40_000, remainingSoftMs - 2_000));
     const llmAbort = new AbortController();
     const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs);
+    
     const result = await callAIWithFailover(chain, {
       messages: [
-        { role: "system", content: "Du schreibst ausführliche, prüfungsstrategische IHK-Handbuch-Inhalte auf Experten-Niveau. Antworte nur mit Markdown. Schreibe umfassend und detailliert — NICHT kurz oder stichwortartig. Jeder Abschnitt muss Fallbeispiele, Prüfungsfallen und Merkschemata enthalten. Denke wie ein erfahrener IHK-Prüfer, der sein Wissen an Prüflinge weitergibt." },
+        { role: "system", content: `Du bist ein IHK-Prüfungscoach mit 20 Jahren Erfahrung als Prüfer und Dozent für "${professionName}". Du schreibst das umfassendste und tiefgehendste Prüfungsvorbereitungs-Handbuch, das je für diesen Beruf erstellt wurde. Jeder Abschnitt muss so detailliert sein, dass ein Prüfling NUR mit diesem Handbuch die Prüfung bestehen könnte. Schreibe IMMER lang und ausführlich — niemals stichwortartig. Mindestens ${wordTarget} Wörter pro Abschnitt.` },
         { role: "user", content: prompt },
       ],
-      max_tokens: Math.min(2800, maxTokens),
+      max_tokens: Math.min(8000, maxTokens),
       signal: llmAbort.signal,
     }).finally(() => clearTimeout(llmTimer));
 
-    // Log cost
     try {
       await logLLMCostEvent(sb, {
         job_type: "generate_handbook",
@@ -174,65 +278,80 @@ Antworte NUR mit Markdown.`;
     } catch { /* non-blocking */ }
 
     let content = result.content || "";
+    content = content.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
     if (content.startsWith("{") || content.startsWith('"')) {
       try {
         const parsed = JSON.parse(content);
         content = typeof parsed === "string" ? parsed : parsed.content || parsed.markdown || JSON.stringify(parsed);
       } catch { /* use as-is */ }
     }
-    content = content.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
 
-    // ── LENGTH ENFORCER: If content too short, do one expand retry ──
-    if (content.length > 200 && content.length < MIN_SECTION_CHARS && !shouldSoftStop(startMs, "handbook")) {
-      console.log(`[generate-handbook] Section ${fieldCode} too short (${content.length} chars < ${MIN_SECTION_CHARS}). Attempting expand...`);
+    // ── Depth Expansion Pass: if content below threshold, request expansion ──
+    if (content.length > 500 && content.length < IDEAL_SECTION_CHARS && !shouldSoftStop(startMs, "handbook")) {
+      console.log(`[generate-handbook] Section ${fieldCode} below ideal (${content.length}/${IDEAL_SECTION_CHARS} chars). Expanding...`);
       try {
         const expandBudget = getTimeBudget("handbook");
-        const remainingSoftMs = expandBudget.softStopMs - (Date.now() - startMs);
-        if (remainingSoftMs <= 9_500) throw new Error("SOFT_STOP_BEFORE_EXPAND");
+        const remainingMs = expandBudget.softStopMs - (Date.now() - startMs);
+        if (remainingMs > 12_000) {
+          const expandAbort = new AbortController();
+          const expandTimeoutMs = Math.max(10_000, Math.min(25_000, remainingMs - 2_000));
+          const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
+          
+          const expandResult = await callAIWithFailover(chain, {
+            messages: [
+              { role: "system", content: "Du erweiterst IHK-Handbuch-Inhalte auf Elite-Niveau. Antworte NUR mit dem vollständigen, erweiterten Markdown-Text. Füge KEINE Meta-Kommentare hinzu." },
+              { role: "user", content: `Der folgende Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" muss DRINGEND erweitert werden.
 
-        const expandAbort = new AbortController();
-        const expandTimeoutMs = Math.max(8_000, Math.min(20_000, remainingSoftMs - 1_500));
-        const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
-        const expandResult = await callAIWithFailover(chain, {
-          messages: [
-            { role: "system", content: "Du erweiterst IHK-Handbuch-Inhalte. Antworte nur mit dem vollständigen, erweiterten Markdown-Text." },
-            { role: "user", content: `Der folgende Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" ist zu kurz. Erweitere ihn auf mindestens ${minWords} Wörter. Füge mehr Erklärungen, Beispiele, Definitionen und Prüfungstipps hinzu. Behalte die bestehende Struktur bei und ergänze sie.\n\n${content}` },
-          ],
-          max_tokens: Math.min(3000, maxTokens),
-          signal: expandAbort.signal,
-        }).finally(() => clearTimeout(expandTimer));
-        try {
-          await logLLMCostEvent(sb, {
-            job_type: "generate_handbook_expand",
-            provider: expandResult.provider,
-            model: expandResult.model,
-            tokens_in: expandResult.usage?.input_tokens || 0,
-            tokens_out: expandResult.usage?.output_tokens || 0,
-            package_id: packageId,
-            estimatedUsage: expandResult.estimatedUsage,
-          });
-        } catch { /* non-blocking */ }
+AKTUELLE SCHWÄCHEN:
+- Zu wenig Praxisbeispiele und Berechnungen
+- Prüfungsfallen fehlen oder sind zu oberflächlich
+- Keine konkreten Musteraufgaben mit Lösungsweg
 
-        let expanded = expandResult.content || "";
-        expanded = expanded.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
-        if (expanded.length > content.length) {
-          console.log(`[generate-handbook] Expand OK: ${content.length} → ${expanded.length} chars`);
-          content = expanded;
+ERWEITERE den Text auf mindestens ${MIN_WORD_TARGET} Wörter. Füge hinzu:
+1. Mindestens 3 weitere durchgerechnete Beispiele
+2. Mindestens 3 weitere Prüfungsfallen mit Erklärung
+3. Eine zusätzliche Musteraufgabe mit vollständigem Lösungsweg
+4. Mehr "So denkt der Prüfer"-Hinweise
+5. Detailliertere Erklärungen der Fachbegriffe
+
+BESTEHENDER TEXT:\n\n${content}` },
+            ],
+            max_tokens: Math.min(6000, maxTokens),
+            signal: expandAbort.signal,
+          }).finally(() => clearTimeout(expandTimer));
+
+          try {
+            await logLLMCostEvent(sb, {
+              job_type: "generate_handbook_expand",
+              provider: expandResult.provider,
+              model: expandResult.model,
+              tokens_in: expandResult.usage?.input_tokens || 0,
+              tokens_out: expandResult.usage?.output_tokens || 0,
+              package_id: packageId,
+              estimatedUsage: expandResult.estimatedUsage,
+            });
+          } catch { /* non-blocking */ }
+
+          let expanded = expandResult.content || "";
+          expanded = expanded.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
+          if (expanded.length > content.length * 1.2) {
+            console.log(`[generate-handbook] Expand OK: ${content.length} → ${expanded.length} chars`);
+            content = expanded;
+          }
         }
       } catch (expandErr) {
-        console.warn(`[generate-handbook] Expand failed for ${fieldCode}: ${(expandErr as Error).message}`);
+        console.warn(`[generate-handbook] Expand failed: ${(expandErr as Error).message}`);
       }
     }
 
     const hasRealContent = content.length >= MIN_SECTION_CHARS;
     if (content.length > 0 && !hasRealContent) {
-      console.warn(`[generate-handbook] Below min for ${fieldCode} via ${result.provider}/${result.model}: ${content.length}/${MIN_SECTION_CHARS} chars`);
+      console.warn(`[generate-handbook] Below min for ${fieldCode}: ${content.length}/${MIN_SECTION_CHARS} chars`);
     }
     return { content, provider: result.provider, model: result.model };
   } catch (e) {
     const msg = (e as Error).message || String(e);
     console.error(`[generate-handbook] ALL PROVIDERS FAILED for ${fieldCode}: ${msg}`);
-
     try {
       await logLLMCostEvent(sb, {
         job_type: "generate_handbook",
@@ -245,10 +364,53 @@ Antworte NUR mit Markdown.`;
         error_message: msg.slice(0, 500),
       });
     } catch { /* non-blocking */ }
-
     return { content: "", provider: "none", model: "none" };
   }
 }
+
+// ── Fallback Builder ─────────────────────────────────────────
+
+function buildFallbackContent(lf: any, subtopics: string[], competencies: any[]): string {
+  const parts: string[] = [
+    `## ${lf.code}: ${lf.title}`,
+    "",
+    lf.description || `Dieses Lernfeld behandelt zentrale Aspekte von ${lf.title}.`,
+    "",
+  ];
+
+  if (subtopics.length > 0) {
+    parts.push("### Kernthemen aus dem Rahmenplan");
+    for (const t of subtopics) parts.push(`- ${t}`);
+    parts.push("");
+  }
+
+  if (competencies.length > 0) {
+    parts.push("### Kompetenzen");
+    for (const c of competencies.slice(0, 10)) {
+      parts.push(`- **${c.name}** [${c.bloom}]`);
+      if (c.misconceptions.length > 0) {
+        parts.push(`  - Typischer Fehler: ${c.misconceptions[0]}`);
+      }
+    }
+    parts.push("");
+  }
+
+  parts.push(
+    "### Prüfungsrelevanz",
+    `Dieses Lernfeld ist fester Bestandteil der IHK-Abschlussprüfung.`,
+    "",
+    "### Lernhinweise",
+    "- Fachbegriffe und Definitionen sicher beherrschen",
+    "- Zusammenhänge zwischen Theorie und Praxis herstellen",
+    "- Typische Rechenaufgaben und Fallstudien üben",
+    "",
+    "_Dieser Abschnitt wird durch die nächste Generierungs-Iteration mit Tiefeninhalt angereichert._",
+  );
+
+  return parts.join("\n");
+}
+
+// ── Main Handler ─────────────────────────────────────────────
 
 Deno.serve(async (req) => {
   const startMs = Date.now();
@@ -269,8 +431,8 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id as string;
   const certificationId = p.certification_id || null;
 
-  if (!(await prereqDone(sb, packageId, "build_ai_tutor_index"))) {
-    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: build_ai_tutor_index" }, 409);
+  if (!(await prereqDone(sb, packageId, "validate_learning_content"))) {
+    return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: validate_learning_content" }, 409);
   }
 
   let professionName = "Ausbildungsberuf";
@@ -289,7 +451,7 @@ Deno.serve(async (req) => {
   if (lfErr) throw new Error(`LF query: ${lfErr.message}`);
   if (!fields || fields.length === 0) throw new Error(`No learning_fields for curriculum ${curriculumId}`);
 
-  // Load exam blueprint weights
+  // Load exam blueprint weights for word target calibration
   const { data: blueprintWeights } = await sb
     .from("exam_blueprints")
     .select("learning_field_id, weight_pct")
@@ -303,40 +465,23 @@ Deno.serve(async (req) => {
     }
   }
 
-  const BASE_WORDS = 400;
-  const MAX_WORDS = 800;
   const totalWeight = Array.from(weightByLf.values()).reduce((s, v) => s + v, 0) || fields.length;
-
   const lfWordTargets = new Map<string, number>();
   for (const lf of fields) {
     const w = weightByLf.get(lf.id) || (100 / fields.length);
     const normalizedWeight = w / totalWeight;
-    const wordTarget = Math.round(BASE_WORDS + (MAX_WORDS - BASE_WORDS) * Math.min(1, normalizedWeight * fields.length));
-    lfWordTargets.set(lf.id, Math.max(BASE_WORDS, Math.min(MAX_WORDS, wordTarget)));
+    const wordTarget = Math.round(MIN_WORD_TARGET + (MAX_WORD_TARGET - MIN_WORD_TARGET) * Math.min(1, normalizedWeight * fields.length));
+    lfWordTargets.set(lf.id, Math.max(MIN_WORD_TARGET, Math.min(MAX_WORD_TARGET, wordTarget)));
   }
 
-  // Load competencies per LF
-  const lfIds = fields.map((f: any) => f.id);
-  const { data: allComps } = await sb
-    .from("competencies")
-    .select("id, learning_field_id")
-    .in("learning_field_id", lfIds)
-    .limit(500);
+  console.log(`[generate-handbook] Elite v3 for ${professionName}: ${fields.length} LFs (pkg ${packageId.slice(0, 8)})`);
 
-  const primaryCompByLf = new Map<string, string>();
-  if (allComps?.length) {
-    for (const comp of allComps) {
-      const lfId = (comp as any).learning_field_id;
-      if (!primaryCompByLf.has(lfId)) primaryCompByLf.set(lfId, comp.id);
-    }
-  }
-
-  console.log(`[generate-handbook] Generating for ${professionName}: ${fields.length} LFs, weighted word targets (pkg ${packageId.slice(0, 8)})`);
-
-  // 2) Delete existing handbook (idempotent rebuild) — only on first batch
+  // 2) Handle chapters (create on first batch, load on resume)
   const batchCursor = p.batch_cursor ?? 0;
+  let chapters: Array<{ id: string; sort_order: number }>;
 
   if (batchCursor === 0) {
+    // Delete existing handbook (idempotent rebuild)
     const { data: existingChapters } = await sb
       .from("handbook_chapters").select("id").eq("curriculum_id", curriculumId);
 
@@ -345,13 +490,8 @@ Deno.serve(async (req) => {
       try { await sb.from("handbook_sections").delete().in("chapter_id", chapterIds); } catch (_) { /* ignore */ }
       try { await sb.from("handbook_chapters").delete().eq("curriculum_id", curriculumId); } catch (_) { /* ignore */ }
     }
-  }
 
-  // 3) Create chapters (target 5) — only on first batch
-  let chapters: Array<{ id: string; sort_order: number }>;
-  const TARGET_CHAPTERS = 5;
-
-  if (batchCursor === 0) {
+    // Create chapters
     const chapterSize = Math.max(1, Math.floor(fields.length / TARGET_CHAPTERS)) || 1;
     const rawChunks: typeof fields[] = [];
     for (let i = 0; i < fields.length; i += chapterSize) rawChunks.push(fields.slice(i, i + chapterSize));
@@ -380,7 +520,6 @@ Deno.serve(async (req) => {
     if (!newChapters?.length) throw new Error("handbook_chapters: 0 rows inserted");
     chapters = newChapters;
   } else {
-    // Resume: load existing chapters
     const { data: existingCh } = await sb
       .from("handbook_chapters")
       .select("id, sort_order")
@@ -401,11 +540,10 @@ Deno.serve(async (req) => {
 
   const fieldToChapter: number[] = [];
   for (let ci = 0; ci < rawChunks.length; ci++) {
-    for (let fi = 0; fi < rawChunks[ci].length; fi++) fieldToChapter.push(ci + 1);
+    for (let _fi = 0; _fi < rawChunks[ci].length; _fi++) fieldToChapter.push(ci + 1);
   }
 
-  // 4) Generate sections ONE AT A TIME
-  const BATCH_SIZE = 1;
+  // 3) Generate sections ONE AT A TIME (full budget per LF)
   const sectionRows: Array<Record<string, unknown>> = [];
   let sectionOrder = batchCursor + 1;
   let llmSuccessCount = 0;
@@ -429,8 +567,14 @@ Deno.serve(async (req) => {
     const chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
     if (!chapter) continue;
 
-    const subtopics = await loadFieldTopicDepth(sb, curriculumId, lf.title);
-    const wordTarget = lfWordTargets.get(lf.id) || BASE_WORDS;
+    // Load rich context for this LF
+    const [subtopics, competencies, sampleQuestions] = await Promise.all([
+      loadFieldTopicDepth(sb, curriculumId, lf.title),
+      loadFieldCompetencies(sb, lf.id),
+      loadExamQuestionSample(sb, curriculumId, lf.id),
+    ]);
+
+    const wordTarget = lfWordTargets.get(lf.id) || MIN_WORD_TARGET;
 
     const generated = await generateSectionContent(
       sb,
@@ -439,19 +583,20 @@ Deno.serve(async (req) => {
       lf.title,
       lf.description || "",
       subtopics,
+      competencies,
+      sampleQuestions,
       wordTarget,
       packageId,
       startMs,
     );
 
-    const MIN_ACCEPT_CHARS = 2000;
-    const hasRealContent = generated.content.length >= MIN_ACCEPT_CHARS;
+    const hasRealContent = generated.content.length >= MIN_SECTION_CHARS;
     if (hasRealContent) llmSuccessCount++;
     else llmFailCount++;
 
     const contentMarkdown = hasRealContent
       ? generated.content
-      : buildFallbackContent(lf, subtopics);
+      : buildFallbackContent(lf, subtopics, competencies);
 
     sectionRows.push({
       chapter_id: chapter.id,
@@ -461,20 +606,21 @@ Deno.serve(async (req) => {
       content_type: "text",
       sort_order: sectionOrder++,
       learning_field_id: lf.id,
-      competency_id: primaryCompByLf.get(lf.id) || null,
       metadata: {
         depth_enriched: subtopics.length > 0,
         llm_generated: hasRealContent,
         llm_provider: generated.provider,
         llm_model: generated.model,
         word_target: wordTarget,
+        actual_chars: generated.content.length,
         exam_weight_pct: weightByLf.get(lf.id) || null,
+        competency_count: competencies.length,
+        version: "elite_v3",
       },
     });
   }
 
   if (sectionRows.length > 0) {
-    // Use upsert to handle retries/re-runs without duplicate key errors
     const { error: secErr } = await sb.from("handbook_sections").upsert(sectionRows, {
       onConflict: "chapter_id,section_key",
       ignoreDuplicates: false,
@@ -497,7 +643,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  try { await sb.from("course_packages").update({ build_progress: 90 }).eq("id", packageId); } catch (_) { /* ignore */ }
   return json({
     ok: true,
     batch_complete: true,
@@ -505,32 +650,6 @@ Deno.serve(async (req) => {
     sections: sectionOrder - 1,
     llm_generated: llmSuccessCount,
     llm_fallback: llmFailCount,
+    version: "elite_v3",
   });
 });
-
-function buildFallbackContent(lf: any, subtopics: string[]): string {
-  const parts: string[] = [
-    `## ${lf.code}: ${lf.title}`,
-    "",
-    lf.description || `Dieses Lernfeld behandelt zentrale Aspekte von ${lf.title}.`,
-    "",
-  ];
-
-  if (subtopics.length > 0) {
-    parts.push("### Kernthemen aus dem Rahmenplan");
-    for (const t of subtopics) parts.push(`- ${t}`);
-    parts.push("");
-  }
-
-  parts.push(
-    "### Prüfungsrelevanz",
-    `Dieses Lernfeld ist ein fester Bestandteil der IHK-Abschlussprüfung. Die Inhalte werden regelmäßig in schriftlichen und mündlichen Prüfungsteilen abgefragt.`,
-    "",
-    "### Lernhinweise",
-    "- Fachbegriffe und Definitionen sicher beherrschen",
-    "- Zusammenhänge zwischen Theorie und Praxis herstellen",
-    "- Typische Rechenaufgaben und Fallstudien üben",
-  );
-
-  return parts.join("\n");
-}

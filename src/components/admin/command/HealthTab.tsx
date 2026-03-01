@@ -52,7 +52,7 @@ export default function HealthTab() {
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
       const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
       const [pkgRes, ticketRes, profileRes, seoRes, orderRes, todayCostRes, mtdCostRes, budgetRes, aiRes, autoOpsRes, escalationRes, opsHealthRes] = await Promise.all([
-        sb.from('course_packages').select('id, title, status, build_progress, priority, current_step, step_status_json, created_at, updated_at, track').order('priority').order('created_at'),
+        sb.from('course_packages').select('id, title, status, build_progress, priority, current_step, step_status_json, created_at, updated_at, track').neq('status', 'archived').order('priority').order('created_at'),
         sb.from('support_tickets').select('status'),
         sb.from('profiles').select('id', { count: 'exact', head: true }),
         sb.from('certification_seo_pages').select('id', { count: 'exact', head: true }),

@@ -143,6 +143,7 @@ export const PACKAGE_STATUS_CONFIG: Record<string, { label: string; color: strin
   failed: { label: "Fehlgeschlagen", color: "bg-destructive/10 text-destructive" },
   done: { label: "Fertig", color: "bg-emerald-500/10 text-emerald-600" },
   published: { label: "Veröffentlicht", color: "bg-emerald-500/10 text-emerald-600" },
+  archived: { label: "Archiviert", color: "bg-muted text-muted-foreground" },
 };
 
 /** Type guard */
