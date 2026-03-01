@@ -13417,6 +13417,10 @@ export type Database = {
         Row: {
           attempts: number
           created_at: string
+          exception_approved: boolean
+          exception_approved_at: string | null
+          exception_approved_by: string | null
+          exception_reason: string | null
           finished_at: string | null
           id: string
           job_id: string | null
@@ -13435,6 +13439,10 @@ export type Database = {
         Insert: {
           attempts?: number
           created_at?: string
+          exception_approved?: boolean
+          exception_approved_at?: string | null
+          exception_approved_by?: string | null
+          exception_reason?: string | null
           finished_at?: string | null
           id?: string
           job_id?: string | null
@@ -13453,6 +13461,10 @@ export type Database = {
         Update: {
           attempts?: number
           created_at?: string
+          exception_approved?: boolean
+          exception_approved_at?: string | null
+          exception_approved_by?: string | null
+          exception_reason?: string | null
           finished_at?: string | null
           id?: string
           job_id?: string | null
