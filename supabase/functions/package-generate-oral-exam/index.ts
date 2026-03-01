@@ -19,6 +19,97 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done";
 }
 
+// ═══ Scenario Hashing for Deduplication ═══
+async function hashScenario(text: string): Promise<string> {
+  const norm = text.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  const data = new TextEncoder().encode(norm);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+}
+
+// ═══ Scenario Variation Angles ═══
+// For small curricula (few LFs), we inject diverse angles to force uniqueness
+const SCENARIO_ANGLES = [
+  { prefix: "Fallsituation – Beratungsgespräch", focus: "einem simulierten Beratungsgespräch" },
+  { prefix: "Fallsituation – Problemlösung", focus: "einer konkreten Problemstellung im Betrieb" },
+  { prefix: "Fallsituation – Planungsszenario", focus: "der Planung und Durchführung eines Arbeitsauftrags" },
+  { prefix: "Fallsituation – Qualitätssicherung", focus: "der Qualitätskontrolle und Fehlervermeidung" },
+  { prefix: "Fallsituation – Kundenkommunikation", focus: "der professionellen Kommunikation mit Kunden" },
+  { prefix: "Fallsituation – Teamarbeit", focus: "der Zusammenarbeit im Team und Konfliktlösung" },
+  { prefix: "Fallsituation – Wirtschaftlichkeit", focus: "wirtschaftlichen Überlegungen und Kostenanalyse" },
+  { prefix: "Fallsituation – Rechtliche Grundlagen", focus: "der Anwendung relevanter Rechtsvorschriften" },
+  { prefix: "Fallsituation – Arbeitssicherheit", focus: "Arbeitsschutz und Sicherheitsvorschriften" },
+  { prefix: "Fallsituation – Innovation & Digitalisierung", focus: "digitalen Werkzeugen und modernen Arbeitsprozessen" },
+  { prefix: "Fallsituation – Nachhaltigkeit", focus: "nachhaltigen und umweltbewussten Handeln im Beruf" },
+  { prefix: "Fallsituation – Ausbildung & Anleitung", focus: "der Anleitung und Unterstützung von Kollegen oder Auszubildenden" },
+];
+
+const FOLLOWUP_POOLS = [
+  "Wie würden Sie in einer alternativen Situation vorgehen? Begründen Sie Ihre Entscheidung fachlich.",
+  "Welche rechtlichen Grundlagen und Vorschriften sind hier relevant?",
+  "Wie bewerten Sie das Ergebnis Ihres Vorgehens? Welche Alternativen hätten Sie?",
+  "Welche wirtschaftlichen Auswirkungen hat Ihre Entscheidung?",
+  "Was wären die Konsequenzen, wenn Sie einen Fehler in diesem Bereich machen würden?",
+  "Erklären Sie einem neuen Kollegen diesen Sachverhalt — wie gehen Sie vor?",
+  "Welche Qualitätskriterien legen Sie zugrunde?",
+  "Wie dokumentieren Sie Ihr Vorgehen und warum?",
+  "Welche Rolle spielt die Digitalisierung in diesem Kontext?",
+  "Wie stellen Sie sicher, dass Ihre Lösung nachhaltig ist?",
+  "Nennen Sie mögliche Risiken und wie Sie diesen begegnen.",
+  "Inwiefern beeinflusst Kundenfeedback Ihr Handeln in diesem Fall?",
+];
+
+function buildRubric() {
+  return {
+    criteria: [
+      {
+        name: "Fachlichkeit", weight: 40,
+        levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
+        expectation_horizon: {
+          sehr_gut: "Alle Fachbegriffe korrekt verwendet, tiefes Verständnis der Zusammenhänge, eigenständige Querverweise zu verwandten Themen, korrekte §§-/Normenreferenzen",
+          gut: "Fachbegriffe überwiegend korrekt, gutes Verständnis, vereinzelte Querverweise",
+          ausreichend: "Grundlegende Fachbegriffe bekannt, Zusammenhänge in Ansätzen erkannt",
+          mangelhaft: "Fachbegriffe lückenhaft oder falsch, oberflächliches Verständnis",
+        },
+      },
+      {
+        name: "Struktur", weight: 25,
+        levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
+        expectation_horizon: {
+          sehr_gut: "Klare Gliederung, logischer Argumentationsaufbau, souveräne Überleitung zwischen Aspekten",
+          gut: "Erkennbare Gliederung, weitgehend logischer Aufbau",
+          ausreichend: "Grundstruktur erkennbar, teilweise sprunghaft",
+          mangelhaft: "Keine erkennbare Struktur, unzusammenhängend",
+        },
+      },
+      {
+        name: "Begriffssicherheit", weight: 20,
+        levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
+        expectation_horizon: {
+          sehr_gut: "Fachterminologie durchgehend korrekt und präzise eingesetzt, Abgrenzung ähnlicher Begriffe sicher",
+          gut: "Fachterminologie überwiegend korrekt, vereinzelte Unschärfen",
+          ausreichend: "Grundbegriffe bekannt, häufiger Umgangssprache statt Fachsprache",
+          mangelhaft: "Fachbegriffe falsch oder unbekannt, überwiegend Alltagssprache",
+        },
+      },
+      {
+        name: "Praxisbezug", weight: 15,
+        levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
+        expectation_horizon: {
+          sehr_gut: "Konkrete Praxisbeispiele aus dem eigenen Betrieb, eigenständige Transferleistung auf neue Situationen",
+          gut: "Praxisbeispiele vorhanden, teilweise Transferleistung",
+          ausreichend: "Allgemeine Praxisbezüge, kein eigenständiger Transfer",
+          mangelhaft: "Kein erkennbarer Praxisbezug, rein theoretisch",
+        },
+      },
+    ],
+    scoring_guide: {
+      points_per_criterion: "0-2 Punkte (0=ungenügend/mangelhaft, 1=ausreichend/befriedigend, 2=gut/sehr gut)",
+      max_total: 10, pass_threshold: 5, excellence_threshold: 8,
+    },
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
@@ -39,13 +130,12 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id as string;
   const certificationId = p.certification_id || curriculumId;
 
-  // Oral exam runs AFTER tutor index (Exam → Tutor → Oral sequence)
   if (!(await prereqDone(sb, packageId, "validate_tutor_index"))) {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: validate_tutor_index" }, 409);
   }
 
   try {
-    // ═══ STEP 1: Load Learning Fields for proportional distribution ═══
+    // ═══ STEP 1: Load Learning Fields ═══
     const { data: learningFields, error: lfErr } = await sb
       .from("learning_fields")
       .select("id, code, title, sort_order")
@@ -62,9 +152,8 @@ Deno.serve(async (req) => {
       .in("learning_field_id", lfIds)
       .limit(500);
     if (compErr) throw new Error(`Competencies query: ${compErr.message}`);
-    if (!competencies?.length) throw new Error("No competencies found – cannot generate oral exam blueprints");
+    if (!competencies?.length) throw new Error("No competencies found");
 
-    // Group competencies by LF
     const compsByLf = new Map<string, typeof competencies>();
     for (const comp of competencies) {
       const lfId = (comp as any).learning_field_id;
@@ -72,7 +161,7 @@ Deno.serve(async (req) => {
       compsByLf.get(lfId)!.push(comp);
     }
 
-    // ═══ STEP 3: Load exam blueprint weights for proportional allocation ═══
+    // ═══ STEP 3: Blueprint weights ═══
     const { data: blueprintWeights } = await sb
       .from("exam_blueprints")
       .select("learning_field_id, weight_pct")
@@ -86,35 +175,29 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ═══ STEP 4: Calculate proportional blueprint targets per LF ═══
+    // ═══ STEP 4: Proportional allocation ═══
     const MAX_BLUEPRINTS = 30;
-    const MIN_SHARE = 0.06; // each LF gets at least 6%
+    const MIN_SHARE = 0.06;
 
-    // Assign weights: use blueprint weights if available, else equal distribution
-    const lfWeights: { lfId: string; weight: number; comps: typeof competencies }[] = [];
+    const lfWeights: { lfId: string; lfTitle: string; weight: number; comps: typeof competencies }[] = [];
     let totalWeight = 0;
     for (const lf of learningFields) {
       const comps = compsByLf.get(lf.id) || [];
       if (comps.length === 0) continue;
       const w = weightByLf.get(lf.id) || (100 / learningFields.length);
-      lfWeights.push({ lfId: lf.id, weight: w, comps });
+      lfWeights.push({ lfId: lf.id, lfTitle: lf.title, weight: w, comps });
       totalWeight += w;
     }
 
-    // Normalize and enforce minimum share
-    for (const lw of lfWeights) {
-      lw.weight = Math.max(lw.weight / totalWeight, MIN_SHARE);
-    }
+    for (const lw of lfWeights) lw.weight = Math.max(lw.weight / totalWeight, MIN_SHARE);
     const normSum = lfWeights.reduce((s, lw) => s + lw.weight, 0);
     for (const lw of lfWeights) lw.weight /= normSum;
 
-    // Calculate target blueprints per LF (min 1)
     const lfTargets = lfWeights.map(lw => ({
       ...lw,
       target: Math.max(1, Math.round(lw.weight * MAX_BLUEPRINTS)),
     }));
 
-    // Clamp total to MAX_BLUEPRINTS
     let totalTarget = lfTargets.reduce((s, t) => s + t.target, 0);
     while (totalTarget > MAX_BLUEPRINTS) {
       const maxLf = lfTargets.reduce((a, b) => a.target > b.target ? a : b);
@@ -122,9 +205,7 @@ Deno.serve(async (req) => {
       totalTarget--;
     }
 
-    console.log(`[OralExam] Proportional distribution: ${lfTargets.map(t => `${t.lfId.slice(0, 8)}=${t.target}`).join(", ")}`);
-
-    // ═══ STEP 5: Load subtopics for depth enrichment ═══
+    // ═══ STEP 5: Load subtopics ═══
     const { data: allSubtopics } = await sb
       .from("curriculum_topics")
       .select("topic_name, difficulty_level, parent_topic_id")
@@ -136,16 +217,17 @@ Deno.serve(async (req) => {
     // ═══ STEP 6: Idempotent rebuild ═══
     await sb.from("oral_exam_blueprints").delete().eq("curriculum_id", curriculumId);
 
-    // ═══ STEP 7: Generate blueprints proportionally per LF ═══
+    // ═══ STEP 7: Generate blueprints with DEDUPLICATION ═══
     const blueprintRows: any[] = [];
+    const seenHashes = new Set<string>();
     let globalIdx = 0;
+    const isSmallCurriculum = learningFields.length <= 6;
 
-    for (const { lfId, comps, target } of lfTargets) {
-      // Select competencies for this LF: cycle through if target > comps.length
+    for (const { lfId, lfTitle, comps, target } of lfTargets) {
       for (let i = 0; i < target; i++) {
         const comp = comps[i % comps.length];
 
-        // Pick relevant subtopics for this competency
+        // Pick relevant subtopics
         const relevantTopics = subtopicNames.filter((name: string) => {
           const compWords = comp.title.toLowerCase().split(/\s+/);
           const topicLower = name.toLowerCase();
@@ -160,98 +242,60 @@ Deno.serve(async (req) => {
           ? `\n\nRelevante Fachthemen aus dem Rahmenplan:\n${topicsForScenario.map((t: string) => `• ${t}`).join("\n")}`
           : "";
 
-        blueprintRows.push({
-          curriculum_id: curriculumId,
-          certification_id: certificationId,
-          competency_id: comp.id,
-          learning_field_id: lfId,
-          title: `Mündliche Prüfung: ${comp.title}`,
-          scenario: `Der Prüfling soll im Rahmen eines Fachgesprächs nachweisen, dass er die Kompetenz "${comp.title}" beherrscht. ${comp.description || ""}${topicContext}`.trim(),
-          lead_questions: [
-            `Erklären Sie den Zusammenhang von "${comp.title}" in Ihrem Ausbildungsbetrieb und gehen Sie dabei auf ${topicsForScenario[0] || "relevante Fachaspekte"} ein.`,
-            `Welche praktischen Erfahrungen haben Sie im Bereich "${comp.title}" gesammelt? Beschreiben Sie insbesondere ${topicsForScenario[1] || "konkrete Arbeitsprozesse"}.`,
-            `Beschreiben Sie eine konkrete Situation aus Ihrem Arbeitsalltag zu "${comp.title}" und analysieren Sie die fachlichen Zusammenhänge.`,
-          ],
-          followups: [
-            "Wie würden Sie in einer alternativen Situation vorgehen? Begründen Sie Ihre Entscheidung fachlich.",
-            "Welche rechtlichen Grundlagen und Vorschriften sind hier relevant? Nennen Sie konkrete Paragraphen.",
-            "Wie bewerten Sie das Ergebnis Ihres Vorgehens? Welche Alternativen hätten Sie?",
-            topicsForScenario.length > 2 ? `Wie hängt ${topicsForScenario[2]} mit Ihrer beschriebenen Situation zusammen?` : "Welche wirtschaftlichen Auswirkungen hat Ihre Entscheidung?",
-            "Was wären die Konsequenzen, wenn Sie einen Fehler in diesem Bereich machen würden?",
-            "Erklären Sie einem neuen Kollegen diesen Sachverhalt — wie gehen Sie vor?",
-          ],
-          rubric: {
-            criteria: [
-              {
-                name: "Fachlichkeit",
-                weight: 40,
-                levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
-                expectation_horizon: {
-                  sehr_gut: "Alle Fachbegriffe korrekt verwendet, tiefes Verständnis der Zusammenhänge, eigenständige Querverweise zu verwandten Themen, korrekte §§-/Normenreferenzen",
-                  gut: "Fachbegriffe überwiegend korrekt, gutes Verständnis, vereinzelte Querverweise",
-                  ausreichend: "Grundlegende Fachbegriffe bekannt, Zusammenhänge in Ansätzen erkannt",
-                  mangelhaft: "Fachbegriffe lückenhaft oder falsch, oberflächliches Verständnis",
-                },
-              },
-              {
-                name: "Struktur",
-                weight: 25,
-                levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
-                expectation_horizon: {
-                  sehr_gut: "Klare Gliederung (Einleitung-Hauptteil-Schluss), logischer Argumentationsaufbau, souveräne Überleitung zwischen Aspekten",
-                  gut: "Erkennbare Gliederung, weitgehend logischer Aufbau",
-                  ausreichend: "Grundstruktur erkennbar, teilweise sprunghaft",
-                  mangelhaft: "Keine erkennbare Struktur, unzusammenhängend",
-                },
-              },
-              {
-                name: "Begriffssicherheit",
-                weight: 20,
-                levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
-                expectation_horizon: {
-                  sehr_gut: "Fachterminologie durchgehend korrekt und präzise eingesetzt, Abgrenzung ähnlicher Begriffe sicher",
-                  gut: "Fachterminologie überwiegend korrekt, vereinzelte Unschärfen",
-                  ausreichend: "Grundbegriffe bekannt, häufiger Umgangssprache statt Fachsprache",
-                  mangelhaft: "Fachbegriffe falsch oder unbekannt, überwiegend Alltagssprache",
-                },
-              },
-              {
-                name: "Praxisbezug",
-                weight: 15,
-                levels: ["ungenügend", "mangelhaft", "ausreichend", "befriedigend", "gut", "sehr gut"],
-                expectation_horizon: {
-                  sehr_gut: "Konkrete Praxisbeispiele aus dem eigenen Betrieb, eigenständige Transferleistung auf neue Situationen",
-                  gut: "Praxisbeispiele vorhanden, teilweise Transferleistung",
-                  ausreichend: "Allgemeine Praxisbezüge, kein eigenständiger Transfer",
-                  mangelhaft: "Kein erkennbarer Praxisbezug, rein theoretisch",
-                },
-              },
-            ],
-            scoring_guide: {
-              points_per_criterion: "0-2 Punkte (0=ungenügend/mangelhaft, 1=ausreichend/befriedigend, 2=gut/sehr gut)",
-              max_total: 10,
-              pass_threshold: 5,
-              excellence_threshold: 8,
-            },
-          },
-          status: "approved",
-          metadata: {
-            depth_enriched: topicsForScenario.length > 0,
-            topic_count: topicsForScenario.length,
-            learning_field_id: lfId,
-            nachhak_categories: ["Begründung", "Alternative", "Konsequenz", "Normbezug", "Transfer"],
-          },
-        });
+        // ═══ KEY FIX: Inject angle variation for small curricula ═══
+        const angle = SCENARIO_ANGLES[globalIdx % SCENARIO_ANGLES.length];
+        const anglePrefix = isSmallCurriculum
+          ? `${angle.prefix}: `
+          : "";
+        const angleFocus = isSmallCurriculum
+          ? ` Im Rahmen von ${angle.focus} soll der Prüfling nachweisen, dass er`
+          : " Der Prüfling soll im Rahmen eines Fachgesprächs nachweisen, dass er";
+
+        const scenario = `${anglePrefix}${angleFocus} die Kompetenz "${comp.title}" beherrscht. ${comp.description || ""}${topicContext}`.trim();
+
+        // ═══ Dedup: hash-check before adding ═══
+        const hash = await hashScenario(scenario);
+        if (seenHashes.has(hash)) {
+          // Generate alternative scenario with different subtopic offset
+          const altOffset = (globalIdx * 7 + i * 13) % Math.max(1, subtopicNames.length);
+          const altTopics = subtopicNames.slice(altOffset, altOffset + 3);
+          const altTopicCtx = altTopics.length > 0
+            ? `\n\nAlternative Fachaspekte:\n${altTopics.map((t: string) => `• ${t}`).join("\n")}`
+            : "";
+          const altAngle = SCENARIO_ANGLES[(globalIdx + 5) % SCENARIO_ANGLES.length];
+          const altScenario = `${altAngle.prefix}: Im Kontext von ${altAngle.focus} demonstriert der Prüfling Kompetenz in "${comp.title}". ${comp.description || ""}${altTopicCtx}`.trim();
+          const altHash = await hashScenario(altScenario);
+          if (!seenHashes.has(altHash)) {
+            seenHashes.add(altHash);
+            // Use the alternative
+            blueprintRows.push(buildBlueprint(curriculumId, certificationId, comp, lfId, altScenario, altHash, topicsForScenario.concat(altTopics), globalIdx));
+            globalIdx++;
+            continue;
+          }
+          // If even alt is duplicate, skip (don't pad with duplicates)
+          console.warn(`[OralExam] Skipping duplicate scenario for comp=${comp.title.slice(0, 30)}, hash=${hash}`);
+          globalIdx++;
+          continue;
+        }
+
+        seenHashes.add(hash);
+        blueprintRows.push(buildBlueprint(curriculumId, certificationId, comp, lfId, scenario, hash, topicsForScenario, globalIdx));
         globalIdx++;
       }
     }
+
+    if (blueprintRows.length < 10) {
+      throw new Error(`Only ${blueprintRows.length} unique blueprints generated (need ≥10). Curriculum may lack sufficient competency diversity.`);
+    }
+
+    console.log(`[OralExam] Generated ${blueprintRows.length} unique blueprints (${seenHashes.size} unique hashes) across ${lfTargets.length} LFs`);
 
     const { data: inserted, error: insertErr } = await sb
       .from("oral_exam_blueprints")
       .insert(blueprintRows)
       .select("id");
     if (insertErr) throw new Error(`oral_exam_blueprints insert: ${insertErr.message}`);
-    if (!inserted || inserted.length === 0) throw new Error("oral_exam_blueprints: 0 rows inserted – aborting");
+    if (!inserted || inserted.length === 0) throw new Error("oral_exam_blueprints: 0 rows inserted");
 
     // Sessionset
     const blueprintIds = inserted.map((x: { id: string }) => x.id);
@@ -263,7 +307,7 @@ Deno.serve(async (req) => {
       );
     if (upErr) throw new Error(`oral_exam_sessionsets upsert: ${upErr.message}`);
 
-    // ═══ STEP 9: Generate session templates from blueprints ═══
+    // ═══ Session Templates ═══
     await sb.from("oral_exam_session_templates").delete().eq("package_id", packageId);
 
     const sessionTemplates = inserted.map((ins: { id: string }, idx: number) => {
@@ -286,6 +330,7 @@ Deno.serve(async (req) => {
         metadata: {
           depth_enriched: bp.metadata?.depth_enriched || false,
           topic_count: bp.metadata?.topic_count || 0,
+          scenario_hash: bp.metadata?.scenario_hash || null,
           generated_at: new Date().toISOString(),
         },
       };
@@ -298,14 +343,60 @@ Deno.serve(async (req) => {
     if (sessErr) throw new Error(`session_templates insert: ${sessErr.message}`);
 
     const depthCount = blueprintRows.filter((b: any) => b.metadata?.depth_enriched).length;
-    const lfCoverage = lfTargets.length;
     const sessCount = sessInserted?.length || 0;
-    console.log(`[OralExam] Done: ${inserted.length} blueprints, ${sessCount} session templates across ${lfCoverage} LFs, ${depthCount} depth-enriched`);
 
-    return json({ ok: true, batch_complete: true, blueprints_created: inserted.length, sessions_created: sessCount, lf_coverage: lfCoverage, depth_enriched: depthCount });
+    return json({
+      ok: true, batch_complete: true,
+      blueprints_created: inserted.length,
+      sessions_created: sessCount,
+      lf_coverage: lfTargets.length,
+      depth_enriched: depthCount,
+      unique_hashes: seenHashes.size,
+    });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
     console.error(`[OralExam] Error: ${msg}`);
     return json({ ok: false, error: msg }, 500);
   }
 });
+
+// ═══ Blueprint Row Builder ═══
+function buildBlueprint(
+  curriculumId: string, certificationId: string, comp: any,
+  lfId: string, scenario: string, hash: string,
+  topics: string[], idx: number,
+) {
+  // Pick 6 diverse followups using index-based rotation
+  const followups: string[] = [];
+  for (let f = 0; f < 6; f++) {
+    followups.push(FOLLOWUP_POOLS[(idx * 3 + f) % FOLLOWUP_POOLS.length]);
+  }
+  // Add topic-specific followup if available
+  if (topics.length > 2) {
+    followups[3] = `Wie hängt ${topics[2]} mit Ihrer beschriebenen Situation zusammen?`;
+  }
+
+  return {
+    curriculum_id: curriculumId,
+    certification_id: certificationId,
+    competency_id: comp.id,
+    learning_field_id: lfId,
+    title: `Mündliche Prüfung: ${comp.title}`,
+    scenario,
+    lead_questions: [
+      `Erklären Sie den Zusammenhang von "${comp.title}" in Ihrem Ausbildungsbetrieb und gehen Sie dabei auf ${topics[0] || "relevante Fachaspekte"} ein.`,
+      `Welche praktischen Erfahrungen haben Sie im Bereich "${comp.title}" gesammelt? Beschreiben Sie insbesondere ${topics[1] || "konkrete Arbeitsprozesse"}.`,
+      `Beschreiben Sie eine konkrete Situation aus Ihrem Arbeitsalltag zu "${comp.title}" und analysieren Sie die fachlichen Zusammenhänge.`,
+    ],
+    followups,
+    rubric: buildRubric(),
+    status: "approved",
+    metadata: {
+      depth_enriched: topics.length > 0,
+      topic_count: topics.length,
+      learning_field_id: lfId,
+      scenario_hash: hash,
+      nachhak_categories: ["Begründung", "Alternative", "Konsequenz", "Normbezug", "Transfer"],
+    },
+  };
+}
