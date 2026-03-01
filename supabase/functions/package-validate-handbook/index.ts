@@ -16,10 +16,10 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
  */
 
 const MIN_CHAPTERS = 3;
-const MIN_SECTION_LENGTH = 200;
-const MIN_PROSE_LENGTH = 120;
-const MIN_SECTION_WORD_COUNT = 80; // NEW: minimum words per section (audit: handbook too short)
-const MIN_HANDBOOK_TOTAL_CHARS = 30000; // NEW: minimum total handbook size (audit: 9k too short)
+const MIN_SECTION_LENGTH = 2000;       // v3: elite minimum (was 200)
+const MIN_PROSE_LENGTH = 1500;         // v3: elite prose minimum (was 120)
+const MIN_SECTION_WORD_COUNT = 400;    // v3: elite word count (was 80)
+const MIN_HANDBOOK_TOTAL_CHARS = 60000; // v3: elite total (was 30000)
 const MAX_RETRIES_BEFORE_REGEN = 10;
 const PLACEHOLDER_PATTERNS = [
   "_Wird durch Council",
