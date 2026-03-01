@@ -73,8 +73,11 @@ const BerufsKITemplatesPage = lazy(() => import('@/pages/admin/v4/BerufsKITempla
 const BerufsKIBundlesPage = lazy(() => import('@/pages/admin/v4/BerufsKIBundlesPage'));
 const BerufsKILicensesPage = lazy(() => import('@/pages/admin/v4/BerufsKILicensesPage'));
 const BerufsKICommercePage = lazy(() => import('@/pages/admin/v4/BerufsKICommercePage'));
+const BerufsKIAffiliateDashboard = lazy(() => import('@/pages/admin/v4/BerufsKIAffiliateDashboard'));
 const BerufsKISuccessPage = lazy(() => import('@/pages/berufski/BerufsKISuccessPage'));
 const BerufsKIBuyPage = lazy(() => import('@/pages/berufski/BerufsKIBuyPage'));
+const BerufsKIBundleBuyPage = lazy(() => import('@/pages/berufski/BerufsKIBundleBuyPage'));
+const BerufsKICorporatePage = lazy(() => import('@/pages/berufski/BerufsKICorporatePage'));
 
 // Content nested routes
 const ContentLayout = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentLayout })));
@@ -129,6 +132,8 @@ const AppRoutes = () => {
         {/* BerufsKI Public Routes */}
         <Route path="/berufski/success" element={<BerufsKISuccessPage />} />
         <Route path="/berufski/buy/:productId" element={<BerufsKIBuyPage />} />
+        <Route path="/berufski/bundles/:bundleId" element={<BerufsKIBundleBuyPage />} />
+        <Route path="/berufski/corporate" element={<BerufsKICorporatePage />} />
 
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>
@@ -233,6 +238,7 @@ const AppRoutes = () => {
           <Route path="berufski/bundles" element={<BerufsKIBundlesPage />} />
           <Route path="berufski/licenses" element={<BerufsKILicensesPage />} />
           <Route path="berufski/commerce" element={<BerufsKICommercePage />} />
+          <Route path="berufski/affiliates" element={<BerufsKIAffiliateDashboard />} />
         </Route>
 
         {/* Legacy redirects */}

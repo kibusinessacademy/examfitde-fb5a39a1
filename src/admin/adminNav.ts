@@ -81,6 +81,7 @@ export const adminNavModules: AdminNavItem[] = [
       { path: '/admin/berufski/bundles', label: 'Bundle Builder' },
       { path: '/admin/berufski/licenses', label: 'Lizenzen' },
       { path: '/admin/berufski/commerce', label: 'Commerce & Coupons' },
+      { path: '/admin/berufski/affiliates', label: 'Affiliate Dashboard' },
     ],
   },
   {
