@@ -353,3 +353,30 @@ verify_jwt = false
 
 [functions.berufski-generate-product]
 verify_jwt = false
+
+[functions.berufski-checkout]
+verify_jwt = false
+
+[functions.berufski-publish-gate]
+verify_jwt = false
+
+[functions.berufski-download-gate]
+verify_jwt = false
+
+[functions.berufski-email-flush]
+verify_jwt = false
+
+[functions.berufski-bundle-checkout]
+verify_jwt = false
+
+[functions.berufski-bundle-publish]
+verify_jwt = false
+
+[functions.berufski-corporate-checkout]
+verify_jwt = false
+
+[functions.berufski-corporate-sync]
+verify_jwt = false
+
+[functions.berufski-auto-pipeline]
+verify_jwt = false

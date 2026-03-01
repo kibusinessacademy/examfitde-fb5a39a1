@@ -94,10 +94,12 @@ serve(async (req) => {
       const meta = session.metadata || {};
 
       // ── Route: BerufsKI purchases are handled in the dedicated section below ──
+      // ── Route: BerufsKI brand is handled in the dedicated section below ──
       if (meta.brand === 'BerufsKI') {
         logStep("BerufsKI brand detected — skipping ExamFit handler, will process below");
       } else {
         // ── ExamFit Store handler ──
+        try {
         const userId = meta.user_id;
         const productId = meta.product_id;
         const curriculumId = meta.curriculum_id;
@@ -105,8 +107,13 @@ serve(async (req) => {
         const unitPriceCents = parseInt(meta.unit_price_cents || "0");
         const buyerIsLicensee = meta.buyer_is_licensee !== 'false';
 
-        if (!userId || !productId || !curriculumId) {
-          logStep("ExamFit: Missing required metadata — skipping ExamFit handler", { userId, productId, curriculumId });
+        const hasExamFitMeta = !!userId && !!productId && !!curriculumId;
+
+        if (!hasExamFitMeta) {
+          logStep("SKIP ExamFit checkout.session.completed (metadata missing)", {
+            sessionId: session.id,
+            metaKeys: Object.keys(meta || {}),
+          });
         } else {
 
       // IDEMPOTENCY CHECK for license_packages
@@ -118,8 +125,8 @@ serve(async (req) => {
 
       if (existingPackage) {
         logStep("Package already exists - idempotent skip", { packageId: existingPackage.id });
-        return new Response(JSON.stringify({ received: true, already_processed: true }), { status: 200 });
-      }
+        // Do NOT return early — let BerufsKI handler run below
+      } else {
 
       // Get product info
       const { data: product, error: productError } = await adminClient
@@ -418,7 +425,11 @@ serve(async (req) => {
       }
       } // end licensePackage ok
       } // end product ok
+      } // end existingPackage check
       } // end ExamFit metadata present
+        } catch (examFitErr) {
+          logStep("WARN: ExamFit handler error (non-blocking)", { error: String(examFitErr) });
+        }
       } // end not BerufsKI brand
     } // end checkout.session.completed (ExamFit)
 
@@ -590,7 +601,7 @@ serve(async (req) => {
 
           if (!existingBKI) {
             const downloadToken = generateToken();
-            const userId = meta.user_id || '00000000-0000-0000-0000-000000000000';
+            const userId = meta.user_id || null;
 
             const { data: bkiPurchase } = await adminClient
               .from('berufski_purchases')
