@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Zap, FileText, Link2, Eye, Package, Loader2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { Plus, Zap, FileText, Link2, Eye, Package, Loader2, CheckCircle2, AlertCircle, Sparkles, FileDown, Printer } from 'lucide-react';
 
 // ─── Types ───
 interface BerufskiBeruf {
@@ -39,6 +39,11 @@ interface BerufskiProdukt {
   status: string | null;
   content_json: unknown;
   generation_model: string | null;
+  pdf_storage_path: string | null;
+  pdf_rendered_at: string | null;
+  pdf_version: number | null;
+  screen_pdf_path: string | null;
+  print_pdf_path: string | null;
   created_at: string | null;
 }
 
@@ -261,17 +266,11 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
 
   const generate = useMutation({
     mutationFn: async (tier: string) => {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const resp = await fetch(`https://${projectId}.supabase.co/functions/v1/berufski-generate-product`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-        body: JSON.stringify({ berufskiId: beruf.id, tier }),
+      const { data, error } = await supabase.functions.invoke('berufski-generate-product', {
+        body: { berufskiId: beruf.id, tier },
       });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: resp.statusText }));
-        throw new Error(err.error || 'Generierung fehlgeschlagen');
-      }
-      return resp.json();
+      if (error) throw error;
+      return data;
     },
     onSuccess: (data) => {
       toast.success(`Produkt generiert: Tier ${genTier}€`, {
@@ -280,6 +279,23 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
       qc.invalidateQueries({ queryKey: ['berufski-produkte'] });
     },
     onError: (e) => toast.error(`Fehler: ${(e as Error).message}`),
+  });
+
+  const renderPdf = useMutation({
+    mutationFn: async ({ productId, mode }: { productId: string; mode: string }) => {
+      const { data, error } = await supabase.functions.invoke('berufski-render-pdf', {
+        body: { productId, mode },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(`PDF gerendert`, {
+        description: `${data.renderMethod === 'browserless' ? 'PDF' : 'HTML'} · ${(data.fileSize / 1024).toFixed(0)} KB · ${data.renderDurationMs}ms`,
+      });
+      qc.invalidateQueries({ queryKey: ['berufski-produkte'] });
+    },
+    onError: (e) => toast.error(`PDF-Fehler: ${(e as Error).message}`),
   });
 
   const tierLabels: Record<string, string> = { '9': 'Prompt Guide (9€)', '19': 'Praxisleitfaden (19€)', '29': 'Komplettsystem (29€)' };
@@ -361,16 +377,30 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: BerufskiBeruf; prod
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{p.titel}</span>
-                      <Badge variant={p.status === 'generated' ? 'default' : p.status === 'published' ? 'default' : 'secondary'}>
-                        {p.status === 'generated' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                      <Badge variant={p.status === 'ready' ? 'default' : p.status === 'generated' ? 'secondary' : 'outline'}>
+                        {p.status === 'ready' && <CheckCircle2 className="h-3 w-3 mr-1" />}
                         {p.status || 'draft'}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Tier {p.tier}€ · {p.generation_model || '–'} · {p.content_json ? 'Content ✓' : 'Kein Content'}
+                      {p.pdf_version ? ` · PDF v${p.pdf_version}` : ''}
                     </p>
                   </div>
-                  <Badge variant="outline">{p.tier}€</Badge>
+                  <div className="flex items-center gap-2">
+                    {p.content_json && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => renderPdf.mutate({ productId: p.id, mode: 'screen' })} disabled={renderPdf.isPending}>
+                          {renderPdf.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileDown className="h-3 w-3 mr-1" />}
+                          Screen
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => renderPdf.mutate({ productId: p.id, mode: 'print' })} disabled={renderPdf.isPending}>
+                          <Printer className="h-3 w-3 mr-1" />Print
+                        </Button>
+                      </>
+                    )}
+                    <Badge variant="outline">{p.tier}€</Badge>
+                  </div>
                 </div>
               ))}
             </div>
