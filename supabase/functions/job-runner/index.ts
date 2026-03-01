@@ -622,15 +622,17 @@ Deno.serve(async (req) => {
         .select("step_key, status")
         .eq("package_id", job.payload.package_id);
 
-      const stepMap = new Map((allSteps || []).map((s: any) => [s.step_key, s.status]));
+      const stepMap = new Map((allSteps || []).map((s: any) => [s.step_key, { status: s.status, exception_approved: s.exception_approved }]));
 
       // Find the first prereq that actually exists as a step in this package
       const prereqStep = prereqCandidates.find(p => stepMap.has(p));
 
       if (prereqStep) {
-        const prereqStatus = stepMap.get(prereqStep);
+        const prereqInfo = stepMap.get(prereqStep);
+        const prereqStatus = prereqInfo?.status;
         // "skipped" counts as fulfilled — the step was intentionally bypassed by track logic
-        if (prereqStatus !== "done" && prereqStatus !== "skipped") {
+        // exception_approved also counts as fulfilled — admin override
+        if (prereqStatus !== "done" && prereqStatus !== "skipped" && !prereqInfo?.exception_approved) {
           // Adaptive backoff: if prereq is already enqueued/running, wait longer to avoid hot requeue loops
           const prereqDelayMs = (prereqStatus === "enqueued" || prereqStatus === "running")
             ? 90_000
