@@ -2842,7 +2842,7 @@ export type Database = {
           stripe_session_id: string | null
           token_expires_at: string | null
           user_email: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           affiliate_code?: string | null
@@ -2860,7 +2860,7 @@ export type Database = {
           stripe_session_id?: string | null
           token_expires_at?: string | null
           user_email?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           affiliate_code?: string | null
@@ -2878,7 +2878,7 @@ export type Database = {
           stripe_session_id?: string | null
           token_expires_at?: string | null
           user_email?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
