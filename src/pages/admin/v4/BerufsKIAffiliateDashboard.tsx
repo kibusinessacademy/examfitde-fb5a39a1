@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,9 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Download, RefreshCw, Users, TrendingUp, DollarSign } from 'lucide-react';
+import { Download, RefreshCw, Users, TrendingUp, DollarSign, ToggleLeft, ToggleRight } from 'lucide-react';
 
 const BerufsKIAffiliateDashboard = () => {
+  const qc = useQueryClient();
   // Affiliate list
   const { data: affiliates, refetch: refetchAffiliates } = useQuery({
     queryKey: ['berufski-affiliates'],
@@ -76,6 +77,20 @@ const BerufsKIAffiliateDashboard = () => {
     },
     onSuccess: () => toast.success('Corporate Pläne synchronisiert'),
     onError: (err: any) => toast.error(err.message),
+  });
+
+  // Toggle affiliate status
+  const toggleStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const newStatus = status === 'active' ? 'paused' : 'active';
+      const { error } = await supabase.from('berufski_affiliates').update({ status: newStatus }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Status aktualisiert');
+      qc.invalidateQueries({ queryKey: ['berufski-affiliates'] });
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   // Compute affiliate summary
@@ -192,7 +207,16 @@ const BerufsKIAffiliateDashboard = () => {
                       <TableCell>{a.bundleOrders}</TableCell>
                       <TableCell>{(a.totalRevenue / 100).toFixed(2)} €</TableCell>
                       <TableCell className="font-semibold">{(a.commission / 100).toFixed(2)} €</TableCell>
-                      <TableCell><Badge variant={a.status === 'active' ? 'default' : 'secondary'}>{a.status}</Badge></TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleStatus.mutate({ id: a.id, status: a.status })}
+                          disabled={toggleStatus.isPending}
+                        >
+                          <Badge variant={a.status === 'active' ? 'default' : 'secondary'}>{a.status}</Badge>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {affiliateSummary.length === 0 && (
