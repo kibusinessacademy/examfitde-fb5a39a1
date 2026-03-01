@@ -1834,6 +1834,39 @@ export type Database = {
         }
         Relationships: []
       }
+      berufski_affiliate_payouts: {
+        Row: {
+          affiliate_code: string
+          amount_cents: number
+          created_at: string
+          currency: string
+          id: string
+          period_end: string
+          period_start: string
+          status: string
+        }
+        Insert: {
+          affiliate_code: string
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          id?: string
+          period_end: string
+          period_start: string
+          status?: string
+        }
+        Update: {
+          affiliate_code?: string
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+        }
+        Relationships: []
+      }
       berufski_affiliates: {
         Row: {
           code: string
@@ -2057,6 +2090,59 @@ export type Database = {
           },
         ]
       }
+      berufski_bundle_purchases: {
+        Row: {
+          affiliate_code: string | null
+          amount_paid_cents: number
+          bundle_id: string
+          coupon_code: string | null
+          created_at: string
+          currency: string
+          download_token: string
+          id: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string
+          token_expires_at: string
+          user_email: string
+        }
+        Insert: {
+          affiliate_code?: string | null
+          amount_paid_cents: number
+          bundle_id: string
+          coupon_code?: string | null
+          created_at?: string
+          currency?: string
+          download_token: string
+          id?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id: string
+          token_expires_at?: string
+          user_email: string
+        }
+        Update: {
+          affiliate_code?: string | null
+          amount_paid_cents?: number
+          bundle_id?: string
+          coupon_code?: string | null
+          created_at?: string
+          currency?: string
+          download_token?: string
+          id?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string
+          token_expires_at?: string
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_bundle_purchases_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_bundles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       berufski_bundles: {
         Row: {
           bonus_content: Json | null
@@ -2108,6 +2194,33 @@ export type Database = {
           stripe_product_id?: string | null
           title?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      berufski_corporate_commerce: {
+        Row: {
+          amount_cents: number
+          currency: string
+          plan: string
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          currency?: string
+          plan: string
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          currency?: string
+          plan?: string
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -21365,6 +21478,21 @@ export type Database = {
           recent_evidence_packs: number | null
           total_documents: number | null
           total_massnahmen: number | null
+        }
+        Relationships: []
+      }
+      berufski_v_affiliate_sales: {
+        Row: {
+          affiliate_code: string | null
+          affiliate_name: string | null
+          bundle_orders: number | null
+          bundle_revenue_cents: number | null
+          currency: string | null
+          est_commission_cents: number | null
+          payout_percent: number | null
+          product_orders: number | null
+          product_revenue_cents: number | null
+          total_revenue_cents: number | null
         }
         Relationships: []
       }

@@ -551,74 +551,206 @@ serve(async (req) => {
       const meta = session.metadata || {};
 
       if (meta.brand === 'BerufsKI' && session.payment_status === 'paid') {
-        logStep("BerufsKI purchase detected", { productId: meta.productId });
+        const scope = meta.scope || 'product'; // product | bundle | corporate
+        logStep("BerufsKI purchase detected", { scope, productId: meta.productId, bundleId: meta.bundleId });
 
-        // Dedup
-        const { data: existingBKI } = await adminClient
-          .from('berufski_purchases')
-          .select('id')
-          .eq('stripe_session_id', session.id)
-          .maybeSingle();
+        const buyerEmail = session.customer_email || session.customer_details?.email || '';
+        const amountTotal = session.amount_total || 0;
+        const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || null;
 
-        if (!existingBKI) {
-          const downloadToken = Array.from(crypto.getRandomValues(new Uint8Array(24)))
-            .map(b => b.toString(16).padStart(2, '0')).join('');
+        const generateToken = () => Array.from(crypto.getRandomValues(new Uint8Array(24)))
+          .map(b => b.toString(16).padStart(2, '0')).join('');
 
-          const buyerEmail = session.customer_email || session.customer_details?.email || '';
-          const amountTotal = session.amount_total || 0;
-
-          // We need a user_id — for guest checkout use a placeholder
-          const userId = meta.user_id || '00000000-0000-0000-0000-000000000000';
-
-          const { data: bkiPurchase } = await adminClient
+        // ===== PRODUCT PURCHASE =====
+        if (scope === 'product' || (!scope && meta.productId)) {
+          const { data: existingBKI } = await adminClient
             .from('berufski_purchases')
-            .insert({
-              user_id: userId,
-              user_email: buyerEmail,
-              produkt_id: meta.productId,
-              stripe_session_id: session.id,
-              stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || null,
-              amount_cents: amountTotal,
-              currency: session.currency || 'eur',
-              coupon_code: meta.couponCode || null,
-              affiliate_code: meta.affiliateCode || null,
-              download_token: downloadToken,
-              token_expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
-              status: 'paid',
-            })
             .select('id')
-            .single();
+            .eq('stripe_session_id', session.id)
+            .maybeSingle();
 
-          if (bkiPurchase) {
-            // Coupon redemption
-            if (meta.couponCode) {
-              await adminClient.from('berufski_coupon_redemptions').insert({
-                coupon_code: meta.couponCode,
-                purchase_id: bkiPurchase.id,
+          if (!existingBKI) {
+            const downloadToken = generateToken();
+            const userId = meta.user_id || '00000000-0000-0000-0000-000000000000';
+
+            const { data: bkiPurchase } = await adminClient
+              .from('berufski_purchases')
+              .insert({
+                user_id: userId,
+                user_email: buyerEmail,
+                produkt_id: meta.productId,
+                stripe_session_id: session.id,
+                stripe_payment_intent_id: paymentIntentId,
+                amount_cents: amountTotal,
+                currency: session.currency || 'eur',
+                coupon_code: meta.couponCode || null,
+                affiliate_code: meta.affiliateCode || null,
+                download_token: downloadToken,
+                token_expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
+                status: 'paid',
+              })
+              .select('id')
+              .single();
+
+            if (bkiPurchase) {
+              if (meta.couponCode) {
+                await adminClient.from('berufski_coupon_redemptions').insert({ coupon_code: meta.couponCode, purchase_id: bkiPurchase.id });
+                await adminClient.rpc('berufski_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
+              }
+
+              await adminClient.from('berufski_email_outbox').insert({
+                to_email: buyerEmail,
+                subject: 'Dein BerufsKI Download ist bereit 🎉',
+                html: `<div style="font-family:system-ui,Arial;line-height:1.5"><h2>Danke für deinen Kauf!</h2><p>Dein Download ist bereit.</p><p style="color:#666;font-size:12px">Token gültig 90 Tage · BerufsKI.de</p></div>`,
+                meta: { scope: 'product', productId: meta.productId, purchaseId: bkiPurchase.id, affiliateCode: meta.affiliateCode },
               });
-              await adminClient.rpc('berufski_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
+
+              const supabaseUrlEnv = Deno.env.get('SUPABASE_URL') || '';
+              fetch(`${supabaseUrlEnv}/functions/v1/berufski-email-flush`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}` },
+                body: '{}',
+              }).catch(() => null);
+
+              logStep("BerufsKI product purchase created", { purchaseId: bkiPurchase.id });
+            }
+          }
+        }
+
+        // ===== BUNDLE PURCHASE =====
+        if (scope === 'bundle' && meta.bundleId) {
+          const { data: existingBP } = await adminClient
+            .from('berufski_bundle_purchases')
+            .select('id')
+            .eq('stripe_session_id', session.id)
+            .maybeSingle();
+
+          if (!existingBP) {
+            const downloadToken = generateToken();
+
+            const { data: bundlePurchase } = await adminClient
+              .from('berufski_bundle_purchases')
+              .insert({
+                user_email: buyerEmail,
+                bundle_id: meta.bundleId,
+                stripe_session_id: session.id,
+                stripe_payment_intent_id: paymentIntentId,
+                amount_paid_cents: amountTotal,
+                currency: session.currency || 'eur',
+                coupon_code: meta.couponCode || null,
+                affiliate_code: meta.affiliateCode || null,
+                download_token: downloadToken,
+                token_expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
+              })
+              .select('id')
+              .single();
+
+            if (bundlePurchase) {
+              if (meta.couponCode) {
+                await adminClient.from('berufski_coupon_redemptions').insert({ coupon_code: meta.couponCode, purchase_id: bundlePurchase.id });
+                await adminClient.rpc('berufski_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
+              }
+
+              await adminClient.from('berufski_email_outbox').insert({
+                to_email: buyerEmail,
+                subject: 'Dein BerufsKI Bundle-Download ist bereit 🎉',
+                html: `<div style="font-family:system-ui,Arial;line-height:1.5"><h2>Bundle-Kauf erfolgreich!</h2><p>Dein Bundle-Download ist jetzt verfügbar.</p><p style="color:#666;font-size:12px">Token gültig 90 Tage · BerufsKI.de</p></div>`,
+                meta: { scope: 'bundle', bundleId: meta.bundleId, purchaseId: bundlePurchase.id, affiliateCode: meta.affiliateCode },
+              });
+
+              const supabaseUrlEnv = Deno.env.get('SUPABASE_URL') || '';
+              fetch(`${supabaseUrlEnv}/functions/v1/berufski-email-flush`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}` },
+                body: '{}',
+              }).catch(() => null);
+
+              logStep("BerufsKI bundle purchase created", { purchaseId: bundlePurchase.id });
+            }
+          }
+        }
+
+        // ===== CORPORATE LICENSE =====
+        if (scope === 'corporate' && meta.plan) {
+          const existingCheck = await adminClient
+            .from('berufski_licenses')
+            .select('id')
+            .eq('stripe_subscription_id', session.id)
+            .maybeSingle();
+
+          if (!existingCheck?.data) {
+            // Create or find org
+            let orgId: string | null = null;
+            const { data: existingOrg } = await adminClient
+              .from('berufski_organizations')
+              .select('id')
+              .eq('billing_email', meta.buyerEmail || buyerEmail)
+              .maybeSingle();
+
+            if (existingOrg) {
+              orgId = existingOrg.id;
+            } else {
+              const { data: newOrg } = await adminClient
+                .from('berufski_organizations')
+                .insert({
+                  name: meta.orgName || 'Organisation',
+                  billing_email: meta.buyerEmail || buyerEmail,
+                })
+                .select('id')
+                .single();
+              orgId = newOrg?.id || null;
             }
 
-            // Queue email
-            const appBase = Deno.env.get('APP_BASE_URL') || 'https://examfit.de';
-            const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-            const dlScreen = `${supabaseUrl}/functions/v1/berufski-download-gate`;
+            if (orgId) {
+              const seats = meta.plan === 'team_10' ? 10 : meta.plan === 'company_100' ? 100 : 999;
+              const endsAt = new Date();
+              endsAt.setFullYear(endsAt.getFullYear() + 1);
 
-            await adminClient.from('berufski_email_outbox').insert({
-              to_email: buyerEmail,
-              subject: 'Dein BerufsKI Download ist bereit 🎉',
-              html: `<div style="font-family:system-ui,Arial;line-height:1.5"><h2>Danke für deinen Kauf!</h2><p>Dein Download ist bereit. Nutze den Link in deinem Konto oder antworte auf diese E-Mail.</p><p style="color:#666;font-size:12px">Token gültig 90 Tage · BerufsKI.de</p></div>`,
-              meta: { productId: meta.productId, purchaseId: bkiPurchase.id, affiliateCode: meta.affiliateCode },
-            });
+              const { data: license } = await adminClient
+                .from('berufski_licenses')
+                .insert({
+                  org_id: orgId,
+                  plan: meta.plan,
+                  product_id: meta.licenseScope === 'product' ? meta.licenseScopeId : null,
+                  bundle_id: meta.licenseScope === 'bundle' ? meta.licenseScopeId : null,
+                  seats,
+                  starts_at: new Date().toISOString(),
+                  ends_at: endsAt.toISOString(),
+                  status: 'active',
+                  stripe_subscription_id: session.id,
+                  watermark_text: `Lizenziert für ${meta.orgName || 'Organisation'}`,
+                })
+                .select('id')
+                .single();
 
-            // Fire-and-forget email flush
-            fetch(`${supabaseUrl}/functions/v1/berufski-email-flush`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}` },
-              body: '{}',
-            }).catch(() => null);
+              if (license) {
+                // Generate license key
+                const keyValue = `BK-${Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().substring(0, 20)}`;
+                
+                await adminClient.from('berufski_license_keys').insert({
+                  license_id: license.id,
+                  key: keyValue,
+                  status: 'available',
+                });
 
-            logStep("BerufsKI purchase created", { purchaseId: bkiPurchase.id, email: buyerEmail });
+                // Email with license key
+                await adminClient.from('berufski_email_outbox').insert({
+                  to_email: meta.buyerEmail || buyerEmail,
+                  subject: 'Deine BerufsKI Corporate Lizenz 🏢',
+                  html: `<div style="font-family:system-ui,Arial;line-height:1.5"><h2>Corporate Lizenz aktiviert!</h2><p>Plan: <strong>${meta.plan}</strong> (${seats} Plätze)</p><p>Lizenz-Key: <code style="background:#f3f4f6;padding:4px 8px;border-radius:4px">${keyValue}</code></p><p>Gültig bis: ${endsAt.toLocaleDateString('de-DE')}</p><p style="color:#666;font-size:12px">Stamped PDF Downloads enthalten Wasserzeichen mit Organisationsname.</p></div>`,
+                  meta: { scope: 'corporate', licenseId: license.id, orgId, plan: meta.plan },
+                });
+
+                const supabaseUrlEnv = Deno.env.get('SUPABASE_URL') || '';
+                fetch(`${supabaseUrlEnv}/functions/v1/berufski-email-flush`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}` },
+                  body: '{}',
+                }).catch(() => null);
+
+                logStep("BerufsKI corporate license created", { licenseId: license.id, orgId, key: keyValue });
+              }
+            }
           }
         }
       }
