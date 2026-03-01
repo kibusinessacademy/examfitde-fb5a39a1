@@ -66,6 +66,7 @@ export default function DiagnosticTest() {
     queryFn: async (): Promise<DiagnosticQuestion[]> => {
       if (!curriculumId) return [];
 
+      // 1. Get competencies for this curriculum
       const { data: learningFields, error: lfError } = await supabase
         .from('learning_fields')
         .select('id')
@@ -81,39 +82,48 @@ export default function DiagnosticTest() {
         .in('learning_field_id', learningFieldIds);
 
       if (compError) throw compError;
+      if (!competencies?.length) return [];
 
-      const shuffledCompetencies = (competencies || [])
+      // 2. Pick up to 15 random competencies
+      const shuffledCompetencies = competencies
         .slice()
         .sort(() => Math.random() - 0.5)
         .slice(0, 15);
+      const compIds = shuffledCompetencies.map(c => c.id);
+      const compMap = new Map(shuffledCompetencies.map(c => [c.id, c.title]));
+
+      // 3. Single DB query: fetch questions for all selected competencies at once
+      // NOTE: correct_answer and explanation are NOT selected (security)
+      const { data: rawQuestions, error: qError } = await (supabase as any)
+        .from('v_exam_questions_safe')
+        .select('id, question_text, options, competency_id, difficulty')
+        .in('competency_id', compIds)
+        .limit(200);
+
+      if (qError) throw qError;
+      const questions = (rawQuestions || []) as { id: string; question_text: string; options: string[]; competency_id: string; difficulty: string }[];
+      if (!questions.length) return [];
+
+      // 4. Pick one question per competency (shuffled)
+      const byComp = new Map<string, typeof questions>();
+      for (const q of questions) {
+        const arr = byComp.get(q.competency_id) || [];
+        arr.push(q);
+        byComp.set(q.competency_id, arr);
+      }
 
       const questionsOut: DiagnosticQuestion[] = [];
-      const excludeIds: string[] = [];
-
-      for (const comp of shuffledCompetencies) {
-        const { data, error } = await supabase.functions.invoke('get-exam-questions', {
-          body: {
-            competency_id: comp.id,
-            difficulty: 'medium',
-            count: 1,
-            exclude_question_ids: excludeIds,
-          },
-        });
-
-        if (error) continue;
-
-        const q = (data?.questions || [])[0];
-        if (!q) continue;
-
+      for (const compId of compIds) {
+        const pool = byComp.get(compId);
+        if (!pool?.length) continue;
+        const q = pool[Math.floor(Math.random() * pool.length)];
         questionsOut.push({
           id: q.id,
-          competency_id: comp.id,
-          competency_title: comp.title,
+          competency_id: compId,
+          competency_title: compMap.get(compId) || '',
           question_text: q.question_text,
-          options: q.options,
+          options: q.options as string[],
         });
-
-        excludeIds.push(q.id);
         if (questionsOut.length >= 15) break;
       }
 
