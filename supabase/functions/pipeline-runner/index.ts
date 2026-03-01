@@ -513,6 +513,13 @@ async function processPackage(
    // BUG 5 FIX: Steps that were never started must NOT be zombified.
    {
      const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
+     // GUARDRAIL 1: Only these steps are safe to auto-finalize (idempotent read-only or meta-only steps)
+     const ZOMBIFIABLE_STEPS = new Set([
+       "validate_learning_content", "validate_exam_pool", "validate_blueprints",
+       "validate_oral_exam", "validate_handbook", "validate_lesson_minichecks",
+       "validate_tutor_index", "run_integrity_check", "quality_council",
+       "auto_publish", "elite_harden",
+     ]);
      const byKey = new Map<string, StepRow>();
      for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
 
@@ -520,8 +527,9 @@ async function processPackage(
 
      for (const k of STEP_ORDER) {
        const s = byKey.get(k);
-       // BUG 5 HARDENING: only zombie-fix steps that are actually running/enqueued (not queued)
+       // Only zombie-fix running/enqueued steps that are in the whitelist
        if (!s || !["running", "enqueued"].includes(s.status)) continue;
+       if (!ZOMBIFIABLE_STEPS.has(k)) continue; // GUARDRAIL 1: not whitelisted → skip
        const meta = (s.meta ?? {}) as Record<string, unknown>;
 
         // BUG 1 FIX (hardened): Zombie-fix ONLY when meta.ok === true.
