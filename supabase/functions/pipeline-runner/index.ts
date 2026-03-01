@@ -505,25 +505,55 @@ async function processPackage(
     }
   }
 
-  // ── ZOMBIE STEP AUTO-FINALIZATION (with age guard) ──
-  // Detect steps stuck in "running"/"enqueued"/"queued" where meta already indicates success.
-  // Only auto-fix if age > 5 minutes to avoid finalizing fresh steps.
-  {
-    const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
-    const byKey = new Map<string, StepRow>();
-    for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
-    for (const k of STEP_ORDER) {
-      const s = byKey.get(k);
-      if (!s || !["running", "enqueued", "queued"].includes(s.status)) continue;
-      const meta = (s.meta ?? {}) as Record<string, unknown>;
-      if (meta.ok !== true && meta.batch_complete !== true) continue;
+   // ── ZOMBIE STEP AUTO-FINALIZATION (with age guard) ──
+   // Detect steps stuck in "running"/"enqueued"/"queued" where meta already indicates success.
+   // Only auto-fix if age > 5 minutes to avoid finalizing fresh steps.
+   // BUG 1 FIX: batch_complete must NOT override ok=false.
+   // BUG 4 FIX: Predecessor must be done/skipped before force-finalizing.
+   // BUG 5 FIX: Steps that were never started must NOT be zombified.
+   {
+     const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
+     const byKey = new Map<string, StepRow>();
+     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
 
-      // Age guard: only auto-finalize if step has been running > 5 minutes
-      const startedAt = s.started_at ? new Date(s.started_at).getTime() : 0;
-      const age = startedAt > 0 ? (Date.now() - startedAt) : Infinity;
-      if (age <= ZOMBIE_MIN_AGE_MS) continue;
+     function isTerminalStatus(st: string) { return st === "done" || st === "skipped"; }
 
-      console.warn(`[runner] 🧟 ZOMBIE auto-fix: step ${k} for ${shortId} is ${s.status} with meta.ok=${meta.ok} for ${Math.round(age / 60000)}min — forcing to done`);
+     for (const k of STEP_ORDER) {
+       const s = byKey.get(k);
+       // BUG 5 HARDENING: only zombie-fix steps that are actually running/enqueued (not queued)
+       if (!s || !["running", "enqueued"].includes(s.status)) continue;
+       const meta = (s.meta ?? {}) as Record<string, unknown>;
+
+       // BUG 1 FIX: If the step uses ok semantics, require ok===true.
+       // batch_complete is informational only and must never allow ok=false through.
+       const hasOkField = meta.ok !== undefined && meta.ok !== null;
+       if (hasOkField) {
+         if (meta.ok !== true) continue; // hard gate — ok=false is NOT success
+       } else {
+         // No ok field: batch_complete can serve as hint, but only if truthy
+         if (meta.batch_complete !== true) continue;
+       }
+
+       // BUG 5 FIX: Steps that were never started are not zombies — skip them
+       const startedAt = s.started_at ? new Date(s.started_at).getTime() : 0;
+       if (!startedAt || startedAt <= 0) continue;
+
+       // Age guard: only auto-finalize if step has been running > 5 minutes
+       const age = Date.now() - startedAt;
+       if (age <= ZOMBIE_MIN_AGE_MS) continue;
+
+       // BUG 4 FIX: Check that predecessor step is done/skipped before finalizing
+       const stepIdx = STEP_ORDER.indexOf(k as StepKey);
+       if (stepIdx > 0) {
+         const prevKey = STEP_ORDER[stepIdx - 1];
+         const prev = byKey.get(prevKey);
+         if (!prev || !isTerminalStatus(prev.status)) {
+           console.warn(`[runner] 🧟 ZOMBIE blocked: step ${k} predecessor ${prevKey} is ${prev?.status ?? 'missing'} — not finalizing`);
+           continue;
+         }
+       }
+
+       console.warn(`[runner] 🧟 ZOMBIE auto-fix: step ${k} for ${shortId} is ${s.status} with meta.ok=${meta.ok} for ${Math.round(age / 60000)}min — forcing to done`);
 
       // 1) Finalize step (match on current status for race safety)
       await safeQuery(

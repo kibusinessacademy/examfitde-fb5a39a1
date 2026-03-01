@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
 
   const { data: allLessons, error: fetchErr } = await sb
     .from("lessons")
-    .select("id, title, step, module_id, content, modules!inner(course_id, title)")
+    .select("id, title, step, module_id, content, qc_status, modules!inner(course_id, title)")
     .eq("modules.course_id", courseId)
     .order("id", { ascending: true });
 
@@ -312,6 +312,8 @@ Deno.serve(async (req) => {
     if (c._placeholder === true || c._placeholder === "true") return true;
     // Lessons stuck in _regenerating state without html need regeneration
     if (c._regenerating === true || c._regenerating === "true") return true;
+    // BUG 2 FIX: tier1_failed lessons are dead-ends unless we regenerate them
+    if ((l as any).qc_status === "tier1_failed") return true;
     // Lessons without an html field (e.g. mini_check stubs) need full content
     if (typeof c.html !== "string") return true;
     if (c.html.includes("Platzhalter") || (c.html as string).length < 100) return true;
