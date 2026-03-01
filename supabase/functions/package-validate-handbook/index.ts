@@ -251,8 +251,9 @@ Deno.serve(async (req) => {
       depthEnrichedCount++;
     }
 
-    // Content has actual topic-specific bullet points (not just template)
-    const bulletCount = (md.match(/^[-•]\s/gm) || []).length;
+    // Content has actual topic-specific bullet points or list items (not just template)
+    // Match -, •, *, numbered lists (1. / 1) ), and markdown task lists
+    const bulletCount = (md.match(/^(\s*[-•*]\s|^\s*\d+[.)]\s|^\s*- \[[ x]\])/gm) || []).length;
     if (bulletCount < 2 && prose.length > 300) {
       issues.push("NO_BULLET_POINTS_IN_LONG_SECTION");
     }
