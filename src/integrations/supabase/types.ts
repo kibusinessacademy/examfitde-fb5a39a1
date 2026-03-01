@@ -3663,6 +3663,13 @@ export type Database = {
             referencedRelation: "content_versions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "content_versions_parent_version_id_fkey"
+            columns: ["parent_version_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_lesson_content"
+            referencedColumns: ["content_version_id"]
+          },
         ]
       }
       controlling_snapshots: {
@@ -4087,6 +4094,13 @@ export type Database = {
             referencedRelation: "content_versions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "council_messages_content_version_id_fkey"
+            columns: ["content_version_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_lesson_content"
+            referencedColumns: ["content_version_id"]
+          },
         ]
       }
       council_recommendations: {
@@ -4327,6 +4341,13 @@ export type Database = {
             referencedRelation: "content_versions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "council_verdicts_content_version_id_fkey"
+            columns: ["content_version_id"]
+            isOneToOne: true
+            referencedRelation: "v_latest_lesson_content"
+            referencedColumns: ["content_version_id"]
+          },
         ]
       }
       council_votes: {
@@ -4364,6 +4385,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "content_versions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "council_votes_content_version_id_fkey"
+            columns: ["content_version_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_lesson_content"
+            referencedColumns: ["content_version_id"]
           },
         ]
       }
@@ -24442,6 +24470,32 @@ export type Database = {
             columns: ["subcategory_id"]
             isOneToOne: false
             referencedRelation: "product_subcategories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_latest_lesson_content: {
+        Row: {
+          content_json: Json | null
+          content_version_id: string | null
+          created_at: string | null
+          lesson_id: string | null
+          quality_score: number | null
+          status: Database["public"]["Enums"]["content_version_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_versions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_qc_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_versions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
             referencedColumns: ["id"]
           },
         ]
