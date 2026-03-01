@@ -1908,9 +1908,526 @@ export type Database = {
         }
         Relationships: []
       }
+      berufski_brand_themes: {
+        Row: {
+          accent_color: string
+          brand_name: string
+          cover_style: Json | null
+          created_at: string | null
+          font_body: string | null
+          font_heading: string | null
+          footer_text: string | null
+          id: string
+          is_default: boolean | null
+          legal_notice: string | null
+          logo_url: string | null
+          primary_color: string
+          secondary_color: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accent_color?: string
+          brand_name: string
+          cover_style?: Json | null
+          created_at?: string | null
+          font_body?: string | null
+          font_heading?: string | null
+          footer_text?: string | null
+          id?: string
+          is_default?: boolean | null
+          legal_notice?: string | null
+          logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accent_color?: string
+          brand_name?: string
+          cover_style?: Json | null
+          created_at?: string | null
+          font_body?: string | null
+          font_heading?: string | null
+          footer_text?: string | null
+          id?: string
+          is_default?: boolean | null
+          legal_notice?: string | null
+          logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      berufski_bundle_assets: {
+        Row: {
+          bundle_id: string
+          checksum: string | null
+          created_at: string | null
+          file_size_bytes: number | null
+          id: string
+          kind: string
+          storage_path: string
+          version: number | null
+        }
+        Insert: {
+          bundle_id: string
+          checksum?: string | null
+          created_at?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          kind: string
+          storage_path: string
+          version?: number | null
+        }
+        Update: {
+          bundle_id?: string
+          checksum?: string | null
+          created_at?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          kind?: string
+          storage_path?: string
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_bundle_assets_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_bundles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufski_bundles: {
+        Row: {
+          bonus_content: Json | null
+          bundle_type: string
+          created_at: string | null
+          description: string | null
+          id: string
+          included_product_ids: string[] | null
+          is_active: boolean | null
+          original_price_cents: number | null
+          price_cents: number
+          slug: string
+          sort_order: number | null
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          bonus_content?: Json | null
+          bundle_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          included_product_ids?: string[] | null
+          is_active?: boolean | null
+          original_price_cents?: number | null
+          price_cents: number
+          slug: string
+          sort_order?: number | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          bonus_content?: Json | null
+          bundle_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          included_product_ids?: string[] | null
+          is_active?: boolean | null
+          original_price_cents?: number | null
+          price_cents?: number
+          slug?: string
+          sort_order?: number | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      berufski_cover_assets: {
+        Row: {
+          badge_text: string | null
+          beruf_id: string
+          color_variant: Json | null
+          created_at: string | null
+          icon_key: string | null
+          id: string
+          image_url: string | null
+          source_prompt: string | null
+          storage_path: string | null
+          style: string | null
+          tier: string
+          updated_at: string | null
+        }
+        Insert: {
+          badge_text?: string | null
+          beruf_id: string
+          color_variant?: Json | null
+          created_at?: string | null
+          icon_key?: string | null
+          id?: string
+          image_url?: string | null
+          source_prompt?: string | null
+          storage_path?: string | null
+          style?: string | null
+          tier: string
+          updated_at?: string | null
+        }
+        Update: {
+          badge_text?: string | null
+          beruf_id?: string
+          color_variant?: Json | null
+          created_at?: string | null
+          icon_key?: string | null
+          id?: string
+          image_url?: string | null
+          source_prompt?: string | null
+          storage_path?: string | null
+          style?: string | null
+          tier?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_cover_assets_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_berufe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufski_license_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          license_id: string
+          metadata: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          license_id: string
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          license_id?: string
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_license_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufski_license_keys: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          created_at: string | null
+          id: string
+          key: string
+          license_id: string
+          status: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          created_at?: string | null
+          id?: string
+          key?: string
+          license_id: string
+          status?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          created_at?: string | null
+          id?: string
+          key?: string
+          license_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_license_keys_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufski_licenses: {
+        Row: {
+          bundle_id: string | null
+          created_at: string | null
+          ends_at: string
+          id: string
+          org_id: string
+          plan: string
+          product_id: string | null
+          seats: number
+          starts_at: string
+          status: string | null
+          stripe_subscription_id: string | null
+          updated_at: string | null
+          watermark_text: string | null
+        }
+        Insert: {
+          bundle_id?: string | null
+          created_at?: string | null
+          ends_at: string
+          id?: string
+          org_id: string
+          plan: string
+          product_id?: string | null
+          seats?: number
+          starts_at?: string
+          status?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+          watermark_text?: string | null
+        }
+        Update: {
+          bundle_id?: string | null
+          created_at?: string | null
+          ends_at?: string
+          id?: string
+          org_id?: string
+          plan?: string
+          product_id?: string | null
+          seats?: number
+          starts_at?: string
+          status?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+          watermark_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_licenses_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufski_org_members: {
+        Row: {
+          added_at: string | null
+          id: string
+          org_id: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          org_id: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          org_id?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_org_members_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufski_organizations: {
+        Row: {
+          address: Json | null
+          admin_user_id: string | null
+          billing_email: string
+          created_at: string | null
+          domain: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          vat_id: string | null
+        }
+        Insert: {
+          address?: Json | null
+          admin_user_id?: string | null
+          billing_email: string
+          created_at?: string | null
+          domain?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          vat_id?: string | null
+        }
+        Update: {
+          address?: Json | null
+          admin_user_id?: string | null
+          billing_email?: string
+          created_at?: string | null
+          domain?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          vat_id?: string | null
+        }
+        Relationships: []
+      }
+      berufski_pdf_exports: {
+        Row: {
+          bundle_id: string | null
+          checksum: string | null
+          created_at: string | null
+          file_size_bytes: number | null
+          id: string
+          mode: string
+          page_count: number | null
+          product_id: string | null
+          render_duration_ms: number | null
+          storage_path: string
+          template_id: string | null
+          theme_id: string | null
+          version: number | null
+        }
+        Insert: {
+          bundle_id?: string | null
+          checksum?: string | null
+          created_at?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          mode?: string
+          page_count?: number | null
+          product_id?: string | null
+          render_duration_ms?: number | null
+          storage_path: string
+          template_id?: string | null
+          theme_id?: string | null
+          version?: number | null
+        }
+        Update: {
+          bundle_id?: string | null
+          checksum?: string | null
+          created_at?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          mode?: string
+          page_count?: number | null
+          product_id?: string | null
+          render_duration_ms?: number | null
+          storage_path?: string
+          template_id?: string | null
+          theme_id?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_pdf_exports_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "berufski_pdf_exports_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_produkte"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "berufski_pdf_exports_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_pdf_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "berufski_pdf_exports_theme_id_fkey"
+            columns: ["theme_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_brand_themes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufski_pdf_templates: {
+        Row: {
+          created_at: string | null
+          css: string
+          description: string | null
+          html_shell: string
+          id: string
+          is_default: boolean | null
+          layout_components: Json | null
+          name: string
+          slug: string
+          updated_at: string | null
+          version: number
+        }
+        Insert: {
+          created_at?: string | null
+          css: string
+          description?: string | null
+          html_shell: string
+          id?: string
+          is_default?: boolean | null
+          layout_components?: Json | null
+          name: string
+          slug: string
+          updated_at?: string | null
+          version?: number
+        }
+        Update: {
+          created_at?: string | null
+          css?: string
+          description?: string | null
+          html_shell?: string
+          id?: string
+          is_default?: boolean | null
+          layout_components?: Json | null
+          name?: string
+          slug?: string
+          updated_at?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       berufski_produkte: {
         Row: {
           beruf_id: string
+          content_json: Json | null
+          cover_asset_id: string | null
           created_at: string | null
           generation_cost_eur: number | null
           generation_model: string | null
@@ -1921,16 +2438,24 @@ export type Database = {
           meta_description: string | null
           meta_title: string | null
           pdf_content: string | null
+          pdf_rendered_at: string | null
           pdf_storage_path: string | null
+          pdf_version: number | null
+          print_pdf_path: string | null
+          screen_pdf_path: string | null
           seo_cluster: Json | null
           status: string | null
           stripe_price_id: string | null
+          template_id: string | null
+          theme_id: string | null
           tier: string
           titel: string
           updated_at: string | null
         }
         Insert: {
           beruf_id: string
+          content_json?: Json | null
+          cover_asset_id?: string | null
           created_at?: string | null
           generation_cost_eur?: number | null
           generation_model?: string | null
@@ -1941,16 +2466,24 @@ export type Database = {
           meta_description?: string | null
           meta_title?: string | null
           pdf_content?: string | null
+          pdf_rendered_at?: string | null
           pdf_storage_path?: string | null
+          pdf_version?: number | null
+          print_pdf_path?: string | null
+          screen_pdf_path?: string | null
           seo_cluster?: Json | null
           status?: string | null
           stripe_price_id?: string | null
+          template_id?: string | null
+          theme_id?: string | null
           tier: string
           titel: string
           updated_at?: string | null
         }
         Update: {
           beruf_id?: string
+          content_json?: Json | null
+          cover_asset_id?: string | null
           created_at?: string | null
           generation_cost_eur?: number | null
           generation_model?: string | null
@@ -1961,10 +2494,16 @@ export type Database = {
           meta_description?: string | null
           meta_title?: string | null
           pdf_content?: string | null
+          pdf_rendered_at?: string | null
           pdf_storage_path?: string | null
+          pdf_version?: number | null
+          print_pdf_path?: string | null
+          screen_pdf_path?: string | null
           seo_cluster?: Json | null
           status?: string | null
           stripe_price_id?: string | null
+          template_id?: string | null
+          theme_id?: string | null
           tier?: string
           titel?: string
           updated_at?: string | null
@@ -1975,6 +2514,27 @@ export type Database = {
             columns: ["beruf_id"]
             isOneToOne: false
             referencedRelation: "berufski_berufe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "berufski_produkte_cover_asset_id_fkey"
+            columns: ["cover_asset_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_cover_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "berufski_produkte_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_pdf_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "berufski_produkte_theme_id_fkey"
+            columns: ["theme_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_brand_themes"
             referencedColumns: ["id"]
           },
         ]
