@@ -1804,6 +1804,63 @@ export type Database = {
         }
         Relationships: []
       }
+      berufski_affiliate_clicks: {
+        Row: {
+          affiliate_code: string
+          created_at: string
+          id: string
+          ip_hash: string | null
+          landing_path: string
+          referrer: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          affiliate_code: string
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          landing_path: string
+          referrer?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          affiliate_code?: string
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          landing_path?: string
+          referrer?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      berufski_affiliates: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          payout_percent: number
+          status: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          payout_percent?: number
+          status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          payout_percent?: number
+          status?: string
+        }
+        Relationships: []
+      }
       berufski_articles: {
         Row: {
           article_type: string
@@ -2054,6 +2111,77 @@ export type Database = {
         }
         Relationships: []
       }
+      berufski_coupon_redemptions: {
+        Row: {
+          coupon_code: string
+          created_at: string
+          id: string
+          purchase_id: string
+        }
+        Insert: {
+          coupon_code: string
+          created_at?: string
+          id?: string
+          purchase_id: string
+        }
+        Update: {
+          coupon_code?: string
+          created_at?: string
+          id?: string
+          purchase_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_coupon_redemptions_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufski_coupons: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          ends_at: string | null
+          id: string
+          max_redemptions: number | null
+          redeemed_count: number
+          starts_at: string | null
+          stripe_coupon_id: string | null
+          type: string
+          value: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          max_redemptions?: number | null
+          redeemed_count?: number
+          starts_at?: string | null
+          stripe_coupon_id?: string | null
+          type: string
+          value: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          max_redemptions?: number | null
+          redeemed_count?: number
+          starts_at?: string | null
+          stripe_coupon_id?: string | null
+          type?: string
+          value?: number
+        }
+        Relationships: []
+      }
       berufski_cover_assets: {
         Row: {
           badge_text: string | null
@@ -2106,6 +2234,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      berufski_email_outbox: {
+        Row: {
+          created_at: string
+          error: string | null
+          html: string
+          id: string
+          meta: Json
+          sent_at: string | null
+          status: string
+          subject: string
+          to_email: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          html: string
+          id?: string
+          meta?: Json
+          sent_at?: string | null
+          status?: string
+          subject: string
+          to_email: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          html?: string
+          id?: string
+          meta?: Json
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          to_email?: string
+        }
+        Relationships: []
       }
       berufski_license_events: {
         Row: {
@@ -2425,6 +2589,7 @@ export type Database = {
       }
       berufski_produkte: {
         Row: {
+          amount_cents: number | null
           beruf_id: string
           content_json: Json | null
           cover_asset_id: string | null
@@ -2442,10 +2607,12 @@ export type Database = {
           pdf_storage_path: string | null
           pdf_version: number | null
           print_pdf_path: string | null
+          published_at: string | null
           screen_pdf_path: string | null
           seo_cluster: Json | null
           status: string | null
           stripe_price_id: string | null
+          stripe_product_id: string | null
           template_id: string | null
           theme_id: string | null
           tier: string
@@ -2453,6 +2620,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          amount_cents?: number | null
           beruf_id: string
           content_json?: Json | null
           cover_asset_id?: string | null
@@ -2470,10 +2638,12 @@ export type Database = {
           pdf_storage_path?: string | null
           pdf_version?: number | null
           print_pdf_path?: string | null
+          published_at?: string | null
           screen_pdf_path?: string | null
           seo_cluster?: Json | null
           status?: string | null
           stripe_price_id?: string | null
+          stripe_product_id?: string | null
           template_id?: string | null
           theme_id?: string | null
           tier: string
@@ -2481,6 +2651,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          amount_cents?: number | null
           beruf_id?: string
           content_json?: Json | null
           cover_asset_id?: string | null
@@ -2498,10 +2669,12 @@ export type Database = {
           pdf_storage_path?: string | null
           pdf_version?: number | null
           print_pdf_path?: string | null
+          published_at?: string | null
           screen_pdf_path?: string | null
           seo_cluster?: Json | null
           status?: string | null
           stripe_price_id?: string | null
+          stripe_product_id?: string | null
           template_id?: string | null
           theme_id?: string | null
           tier?: string
@@ -2541,42 +2714,57 @@ export type Database = {
       }
       berufski_purchases: {
         Row: {
+          affiliate_code: string | null
           amount_cents: number
+          coupon_code: string | null
           created_at: string | null
           currency: string | null
           download_count: number | null
+          download_token: string | null
           id: string
           last_download_at: string | null
           produkt_id: string
           status: string | null
           stripe_payment_intent_id: string | null
           stripe_session_id: string | null
+          token_expires_at: string | null
+          user_email: string | null
           user_id: string
         }
         Insert: {
+          affiliate_code?: string | null
           amount_cents: number
+          coupon_code?: string | null
           created_at?: string | null
           currency?: string | null
           download_count?: number | null
+          download_token?: string | null
           id?: string
           last_download_at?: string | null
           produkt_id: string
           status?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
+          token_expires_at?: string | null
+          user_email?: string | null
           user_id: string
         }
         Update: {
+          affiliate_code?: string | null
           amount_cents?: number
+          coupon_code?: string | null
           created_at?: string | null
           currency?: string | null
           download_count?: number | null
+          download_token?: string | null
           id?: string
           last_download_at?: string | null
           produkt_id?: string
           status?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
+          token_expires_at?: string | null
+          user_email?: string | null
           user_id?: string
         }
         Relationships: [
@@ -24075,6 +24263,10 @@ export type Database = {
         }[]
       }
       auto_trigger_curriculum_ingest: { Args: never; Returns: number }
+      berufski_increment_coupon_redeemed: {
+        Args: { p_code: string }
+        Returns: undefined
+      }
       bulk_sync_content_versions_to_lessons: { Args: never; Returns: number }
       calculate_authority_index: {
         Args: {
