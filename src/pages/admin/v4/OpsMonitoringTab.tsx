@@ -12,6 +12,10 @@ import {
 import {
   RefreshCw, AlertTriangle, CheckCircle2, Activity, Package, Loader2,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { lazy, Suspense } from "react";
+
+const GuardrailEventsPanel = lazy(() => import("@/components/admin/command/GuardrailEventsPanel"));
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -267,127 +271,142 @@ export default function OpsMonitoringTab() {
   const batchCount = batchRows.reduce((sum, r) => sum + Number(r.requeues ?? 0), 0);
 
   return (
-    <div className="space-y-4">
-      {/* Header bar */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            <Activity className="h-5 w-5 text-primary" />
-            OPS Pipeline Monitor
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Stand: {data?.as_of ? formatTs(data.as_of) : "—"}
-            {loading && " • lädt…"}
-          </p>
-        </div>
+    <Tabs defaultValue="pipeline" className="space-y-4">
+      <TabsList className="h-auto gap-1">
+        <TabsTrigger value="pipeline" className="text-xs">Pipeline Monitor</TabsTrigger>
+        <TabsTrigger value="guardrails" className="text-xs">Guardrails & Readiness</TabsTrigger>
+      </TabsList>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
-            <Label htmlFor="auto-refresh" className="text-xs">Auto (30s)</Label>
-          </div>
-          <Button size="sm" variant="outline" onClick={load} disabled={loading}>
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
-      </div>
-
-      {/* KPI Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className={cn("p-3 border-l-4 transition-colors", stuckCount > 0 ? "border-l-destructive bg-destructive/5" : "border-l-emerald-500")}>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-            <AlertTriangle className={cn("h-3.5 w-3.5", stuckCount > 0 ? "text-destructive" : "text-emerald-500")} />
-            Stuck Packages
-          </div>
-          <div className={cn("text-2xl font-black", stuckCount > 0 ? "text-destructive" : "text-emerald-500")}>
-            {stuckCount}
-          </div>
-        </Card>
-        <Card className={cn("p-3 border-l-4 transition-colors", driftCount > 0 ? "border-l-yellow-500 bg-yellow-500/5" : "border-l-emerald-500")}>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-            <Activity className={cn("h-3.5 w-3.5", driftCount > 0 ? "text-yellow-500" : "text-emerald-500")} />
-            Step↔Job Drift
-          </div>
-          <div className={cn("text-2xl font-black", driftCount > 0 ? "text-yellow-600" : "text-emerald-500")}>
-            {driftCount}
-          </div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-primary">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-            <RefreshCw className="h-3.5 w-3.5 text-primary" />
-            Batch Requeues (6h)
-          </div>
-          <div className="text-2xl font-black">{batchCount}</div>
-        </Card>
-        <Card className={cn("p-3 border-l-4 transition-colors", prereqRows.length > 0 ? "border-l-yellow-500 bg-yellow-500/5" : "border-l-emerald-500")}>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-            <CheckCircle2 className={cn("h-3.5 w-3.5", prereqRows.length > 0 ? "text-yellow-500" : "text-emerald-500")} />
-            Prereq Cancelled
-          </div>
-          <div className={cn("text-2xl font-black", prereqRows.length > 0 ? "text-yellow-600" : "text-emerald-500")}>
-            {prereqRows.reduce((s, r) => s + Number(r.cancelled ?? 0), 0)}
-          </div>
-        </Card>
-      </div>
-
-      {/* Error banner */}
-      {err && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-destructive font-bold text-sm">
-              <AlertTriangle className="h-4 w-4" />
-              OPS Snapshot Fehler
+      <TabsContent value="pipeline">
+        <div className="space-y-4">
+          {/* Header bar */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Activity className="h-5 w-5 text-primary" />
+                OPS Pipeline Monitor
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Stand: {data?.as_of ? formatTs(data.as_of) : "—"}
+                {loading && " • lädt…"}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{err}</p>
-            {data?.details && (
-              <pre className="text-xs mt-2 overflow-auto max-h-32 bg-muted/50 p-2 rounded">
-                {JSON.stringify(data.details, null, 2)}
-              </pre>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Panel 0: Course Build Progress */}
-      <DataPanel
-        title="Course Build Progress"
-        icon={<Package className="h-4 w-4 text-primary" />}
-        columns={progressCols}
-        rows={progressRows}
-      />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+                <Label htmlFor="auto-refresh" className="text-xs">Auto (30s)</Label>
+              </div>
+              <Button size="sm" variant="outline" onClick={load} disabled={loading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+          </div>
 
-      {/* Panel 1-4 in 2-column grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <DataPanel
-          title="Batch-Requeue Summary"
-          icon={<RefreshCw className="h-4 w-4 text-warning" />}
-          columns={batchCols}
-          rows={batchRows}
-          emptyText="Keine Batch-Requeues in den letzten 6h."
-        />
-        <DataPanel
-          title="Package Steps — Stuck"
-          icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
-          columns={stuckCols}
-          rows={stuckRows}
-          emptyText="Keine hängenden Steps."
-        />
-        <DataPanel
-          title="Step ↔ Job Drift"
-          icon={<Activity className="h-4 w-4 text-warning" />}
-          columns={driftCols}
-          rows={driftRows}
-          emptyText="Kein Drift erkannt."
-        />
-        <DataPanel
-          title="Prereq-Guard Cancelled"
-          icon={<CheckCircle2 className="h-4 w-4 text-muted-foreground" />}
-          columns={prereqCols}
-          rows={prereqRows}
-          emptyText="Keine Prereq-Cancels in den letzten 6h."
-        />
-      </div>
-    </div>
+          {/* KPI Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card className={cn("p-3 border-l-4 transition-colors", stuckCount > 0 ? "border-l-destructive bg-destructive/5" : "border-l-emerald-500")}>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <AlertTriangle className={cn("h-3.5 w-3.5", stuckCount > 0 ? "text-destructive" : "text-emerald-500")} />
+                Stuck Packages
+              </div>
+              <div className={cn("text-2xl font-black", stuckCount > 0 ? "text-destructive" : "text-emerald-500")}>
+                {stuckCount}
+              </div>
+            </Card>
+            <Card className={cn("p-3 border-l-4 transition-colors", driftCount > 0 ? "border-l-yellow-500 bg-yellow-500/5" : "border-l-emerald-500")}>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <Activity className={cn("h-3.5 w-3.5", driftCount > 0 ? "text-yellow-500" : "text-emerald-500")} />
+                Step↔Job Drift
+              </div>
+              <div className={cn("text-2xl font-black", driftCount > 0 ? "text-yellow-600" : "text-emerald-500")}>
+                {driftCount}
+              </div>
+            </Card>
+            <Card className="p-3 border-l-4 border-l-primary">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <RefreshCw className="h-3.5 w-3.5 text-primary" />
+                Batch Requeues (6h)
+              </div>
+              <div className="text-2xl font-black">{batchCount}</div>
+            </Card>
+            <Card className={cn("p-3 border-l-4 transition-colors", prereqRows.length > 0 ? "border-l-yellow-500 bg-yellow-500/5" : "border-l-emerald-500")}>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <CheckCircle2 className={cn("h-3.5 w-3.5", prereqRows.length > 0 ? "text-yellow-500" : "text-emerald-500")} />
+                Prereq Cancelled
+              </div>
+              <div className={cn("text-2xl font-black", prereqRows.length > 0 ? "text-yellow-600" : "text-emerald-500")}>
+                {prereqRows.reduce((s, r) => s + Number(r.cancelled ?? 0), 0)}
+              </div>
+            </Card>
+          </div>
+
+          {/* Error banner */}
+          {err && (
+            <Card className="border-destructive/30 bg-destructive/5">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-destructive font-bold text-sm">
+                  <AlertTriangle className="h-4 w-4" />
+                  OPS Snapshot Fehler
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">{err}</p>
+                {data?.details && (
+                  <pre className="text-xs mt-2 overflow-auto max-h-32 bg-muted/50 p-2 rounded">
+                    {JSON.stringify(data.details, null, 2)}
+                  </pre>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Panel 0: Course Build Progress */}
+          <DataPanel
+            title="Course Build Progress"
+            icon={<Package className="h-4 w-4 text-primary" />}
+            columns={progressCols}
+            rows={progressRows}
+          />
+
+          {/* Panel 1-4 in 2-column grid */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <DataPanel
+              title="Batch-Requeue Summary"
+              icon={<RefreshCw className="h-4 w-4 text-warning" />}
+              columns={batchCols}
+              rows={batchRows}
+              emptyText="Keine Batch-Requeues in den letzten 6h."
+            />
+            <DataPanel
+              title="Package Steps — Stuck"
+              icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
+              columns={stuckCols}
+              rows={stuckRows}
+              emptyText="Keine hängenden Steps."
+            />
+            <DataPanel
+              title="Step ↔ Job Drift"
+              icon={<Activity className="h-4 w-4 text-warning" />}
+              columns={driftCols}
+              rows={driftRows}
+              emptyText="Kein Drift erkannt."
+            />
+            <DataPanel
+              title="Prereq-Guard Cancelled"
+              icon={<CheckCircle2 className="h-4 w-4 text-muted-foreground" />}
+              columns={prereqCols}
+              rows={prereqRows}
+              emptyText="Keine Prereq-Cancels in den letzten 6h."
+            />
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="guardrails">
+        <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          <GuardrailEventsPanel />
+        </Suspense>
+      </TabsContent>
+    </Tabs>
   );
 }
