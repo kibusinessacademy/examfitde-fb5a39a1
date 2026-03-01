@@ -53,8 +53,8 @@ serve(async (req) => {
     if (!stripeProductId) {
       const sp = await stripe.products.create({
         name: bundle.title,
-        description: bundle.description || 'BerufsKI Bundle',
-        metadata: { scope: 'bundle', bundleId, brand: 'BerufsKI' },
+        description: bundle.description || 'ExamFit@work Bundle',
+        metadata: { scope: 'bundle', bundleId, brand: 'ExamFit@work' },
       });
       stripeProductId = sp.id;
     }

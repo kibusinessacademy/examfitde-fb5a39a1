@@ -81,7 +81,7 @@ serve(async (req) => {
         buyerEmail,
         licenseScope: scope,
         licenseScopeId: scopeId,
-        brand: 'BerufsKI',
+        brand: 'ExamFit@work',
       },
     });
 

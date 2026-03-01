@@ -80,6 +80,14 @@ const BerufsKIBuyPage = lazy(() => import('@/pages/berufski/BerufsKIBuyPage'));
 const BerufsKIBundleBuyPage = lazy(() => import('@/pages/berufski/BerufsKIBundleBuyPage'));
 const BerufsKICorporatePage = lazy(() => import('@/pages/berufski/BerufsKICorporatePage'));
 
+// ExamFit@work (rebrand) pages
+const WorkHomePage = lazy(() => import('@/pages/work/WorkHomePage'));
+const WorkSuccessPage = lazy(() => import('@/pages/work/WorkSuccessPage'));
+const WorkBuyPage = lazy(() => import('@/pages/work/WorkBuyPage'));
+const WorkBundleBuyPage = lazy(() => import('@/pages/work/WorkBundleBuyPage'));
+const WorkCorporatePage = lazy(() => import('@/pages/work/WorkCorporatePage'));
+import WorkRedirect from '@/components/work/WorkRedirect';
+
 // Content nested routes
 const ContentLayout = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentLayout })));
 const ContentPagesList = lazy(() => import('@/pages/admin/v4/ContentCRMSupportPages').then(m => ({ default: m.ContentPagesList })));
@@ -130,11 +138,16 @@ const AppRoutes = () => {
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
 
-        {/* BerufsKI Public Routes */}
-        <Route path="/berufski/success" element={<BerufsKISuccessPage />} />
-        <Route path="/berufski/buy/:productId" element={<BerufsKIBuyPage />} />
-        <Route path="/berufski/bundles/:bundleId" element={<BerufsKIBundleBuyPage />} />
-        <Route path="/berufski/corporate" element={<BerufsKICorporatePage />} />
+        {/* ExamFit@work Public Routes */}
+        <Route path="/work" element={<WorkHomePage />} />
+        <Route path="/work/success" element={<WorkSuccessPage />} />
+        <Route path="/work/buy/:productId" element={<WorkBuyPage />} />
+        <Route path="/work/bundles/:bundleId" element={<WorkBundleBuyPage />} />
+        <Route path="/work/corporate" element={<WorkCorporatePage />} />
+
+        {/* Legacy BerufsKI → /work redirects */}
+        <Route path="/berufski/*" element={<WorkRedirect />} />
+        <Route path="/berufski" element={<WorkRedirect />} />
 
         {/* SEO Routes */}
         <Route element={<SEOLayout />}>

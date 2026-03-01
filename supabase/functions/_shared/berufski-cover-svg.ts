@@ -26,7 +26,7 @@ export function buildCoverSvg(params: CoverParams): string {
   const t = escapeXml(params.title);
   const st = escapeXml(params.subtitle);
   const b = escapeXml(params.badge);
-  const brand = escapeXml(params.brandName || "BerufsKI");
+  const brand = escapeXml(params.brandName || "ExamFit@work");
 
   // Word-wrap title if too long (rough: >28 chars → 2 lines)
   const titleLines: string[] = [];
