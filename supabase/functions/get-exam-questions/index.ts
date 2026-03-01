@@ -261,7 +261,7 @@ serve(async (req) => {
       }
     }
 
-    logStep("Distribution", { distribution, totalCompetencies, minPerTopic });
+    logStep("Distribution", { distribution, minPerTopic });
 
     // IHK-realistic difficulty mix
     const DIFFICULTY_MIX = { easy: 0.27, medium: 0.38, hard: 0.25, very_hard: 0.10 };
