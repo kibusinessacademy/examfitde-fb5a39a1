@@ -476,94 +476,118 @@ Deno.serve(async (req) => {
 
   console.log(`[generate-handbook] Elite v3 for ${professionName}: ${fields.length} LFs (pkg ${packageId.slice(0, 8)})`);
 
-  // 2) Handle chapters (create on first batch, load on resume)
-  const batchCursor = p.batch_cursor ?? 0;
+  // 2) Handle chapters — IDEMPOTENT: never delete existing sections.
+  //    Check which learning fields already have sections and only generate missing ones.
+  //    This fixes the infinite loop where batch_cursor=0 deleted all progress.
   let chapters: Array<{ id: string; sort_order: number }>;
 
-  if (batchCursor === 0) {
-    // Delete existing handbook (idempotent rebuild)
-    const { data: existingChapters } = await sb
-      .from("handbook_chapters").select("id").eq("curriculum_id", curriculumId);
+  // Load existing chapters
+  const { data: existingCh } = await sb
+    .from("handbook_chapters")
+    .select("id, sort_order")
+    .eq("curriculum_id", curriculumId)
+    .order("sort_order", { ascending: true });
 
-    if (existingChapters?.length) {
-      const chapterIds = existingChapters.map((x: { id: string }) => x.id);
-      try { await sb.from("handbook_sections").delete().in("chapter_id", chapterIds); } catch (_) { /* ignore */ }
-      try { await sb.from("handbook_chapters").delete().eq("curriculum_id", curriculumId); } catch (_) { /* ignore */ }
-    }
-
-    // Create chapters
-    const chapterSize = Math.max(1, Math.floor(fields.length / TARGET_CHAPTERS)) || 1;
-    const rawChunks: typeof fields[] = [];
-    for (let i = 0; i < fields.length; i += chapterSize) rawChunks.push(fields.slice(i, i + chapterSize));
-    while (rawChunks.length > TARGET_CHAPTERS && rawChunks.length > 1) {
-      const last = rawChunks.pop()!;
-      rawChunks[rawChunks.length - 1] = [...rawChunks[rawChunks.length - 1], ...last];
-    }
-    while (rawChunks.length < TARGET_CHAPTERS) rawChunks.push([]);
-
-    const chaptersToCreate = rawChunks.map((chunk, idx) => {
-      const chapterNum = idx + 1;
-      const firstCode = chunk.length ? (chunk[0] as any).code : `X${chapterNum}`;
-      const lastCode = chunk.length ? (chunk[chunk.length - 1] as any).code : `X${chapterNum}`;
-      const titleSuffix = chunk.length ? `${firstCode}–${lastCode} Prüfungsrelevante Themen` : "Ergänzende Prüfungsthemen";
-      return {
-        curriculum_id: curriculumId,
-        chapter_key: `handbuch-${curriculumId.slice(0, 8)}-kap${chapterNum}`,
-        title: `Kapitel ${chapterNum}: ${titleSuffix}`,
-        sort_order: chapterNum,
-      };
-    });
-
-    const { data: newChapters, error: chErr } = await sb
-      .from("handbook_chapters").insert(chaptersToCreate).select("id, sort_order");
-    if (chErr) throw new Error(`Chapter insert: ${chErr.message}`);
-    if (!newChapters?.length) throw new Error("handbook_chapters: 0 rows inserted");
-    chapters = newChapters;
+  if (existingCh && existingCh.length >= TARGET_CHAPTERS) {
+    // Chapters exist — reuse them
+    chapters = existingCh;
   } else {
-    const { data: existingCh } = await sb
-      .from("handbook_chapters")
-      .select("id, sort_order")
-      .eq("curriculum_id", curriculumId)
-      .order("sort_order", { ascending: true });
-    chapters = existingCh || [];
-    if (!chapters.length) throw new Error("No chapters found for resume batch");
+    // No chapters yet (or too few) — create them, but DON'T delete existing sections
+    if (existingCh?.length) {
+      // Chapters exist but fewer than target — reuse what we have
+      chapters = existingCh;
+    } else {
+      // Create fresh chapters
+      const chapterSize = Math.max(1, Math.floor(fields.length / TARGET_CHAPTERS)) || 1;
+      const rawChunks: typeof fields[] = [];
+      for (let i = 0; i < fields.length; i += chapterSize) rawChunks.push(fields.slice(i, i + chapterSize));
+      while (rawChunks.length > TARGET_CHAPTERS && rawChunks.length > 1) {
+        const last = rawChunks.pop()!;
+        rawChunks[rawChunks.length - 1] = [...rawChunks[rawChunks.length - 1], ...last];
+      }
+      while (rawChunks.length < TARGET_CHAPTERS) rawChunks.push([]);
+
+      const chaptersToCreate = rawChunks.map((chunk, idx) => {
+        const chapterNum = idx + 1;
+        const firstCode = chunk.length ? (chunk[0] as any).code : `X${chapterNum}`;
+        const lastCode = chunk.length ? (chunk[chunk.length - 1] as any).code : `X${chapterNum}`;
+        const titleSuffix = chunk.length ? `${firstCode}–${lastCode} Prüfungsrelevante Themen` : "Ergänzende Prüfungsthemen";
+        return {
+          curriculum_id: curriculumId,
+          chapter_key: `handbuch-${curriculumId.slice(0, 8)}-kap${chapterNum}`,
+          title: `Kapitel ${chapterNum}: ${titleSuffix}`,
+          sort_order: chapterNum,
+        };
+      });
+
+      const { data: newChapters, error: chErr } = await sb
+        .from("handbook_chapters").insert(chaptersToCreate).select("id, sort_order");
+      if (chErr) throw new Error(`Chapter insert: ${chErr.message}`);
+      if (!newChapters?.length) throw new Error("handbook_chapters: 0 rows inserted");
+      chapters = newChapters;
+    }
   }
 
-  // Build field→chapter mapping
-  const chapterSize = Math.max(1, Math.floor(fields.length / TARGET_CHAPTERS)) || 1;
-  const rawChunks: typeof fields[] = [];
-  for (let i = 0; i < fields.length; i += chapterSize) rawChunks.push(fields.slice(i, i + chapterSize));
-  while (rawChunks.length > TARGET_CHAPTERS && rawChunks.length > 1) {
-    const last = rawChunks.pop()!;
-    rawChunks[rawChunks.length - 1] = [...rawChunks[rawChunks.length - 1], ...last];
+  // ── Load existing sections to determine which LFs still need generation ──
+  const chapterIds = chapters.map((c: any) => c.id);
+  const { data: existingSections } = await sb
+    .from("handbook_sections")
+    .select("id, learning_field_id, content_markdown, chapter_id")
+    .in("chapter_id", chapterIds);
+
+  const populatedLfIds = new Set<string>();
+  for (const sec of (existingSections || [])) {
+    // Only count as populated if content is substantial (not fallback/placeholder)
+    const md = sec.content_markdown || "";
+    if (md.length >= MIN_SECTION_CHARS && sec.learning_field_id) {
+      populatedLfIds.add(sec.learning_field_id);
+    }
   }
 
-  const fieldToChapter: number[] = [];
-  for (let ci = 0; ci < rawChunks.length; ci++) {
-    for (let _fi = 0; _fi < rawChunks[ci].length; _fi++) fieldToChapter.push(ci + 1);
+  // Filter fields to only those that still need generation
+  const fieldsNeedingGeneration = fields.filter((lf: any) => !populatedLfIds.has(lf.id));
+  console.log(`[generate-handbook] ${populatedLfIds.size}/${fields.length} LFs already have sections. ${fieldsNeedingGeneration.length} remaining.`);
+
+  if (fieldsNeedingGeneration.length === 0) {
+    // All sections already generated — report complete
+    return json({
+      ok: true,
+      batch_complete: true,
+      chapters: chapters.length,
+      sections: existingSections?.length || 0,
+      already_populated: populatedLfIds.size,
+      version: "elite_v3",
+    });
   }
 
-  // 3) Generate sections ONE AT A TIME (full budget per LF)
+  // Build field→chapter mapping (maps field index in ALL fields to chapter sort_order)
+  const chapterSizeFull = Math.max(1, Math.floor(fields.length / TARGET_CHAPTERS)) || 1;
+  const rawChunksFull: typeof fields[] = [];
+  for (let i = 0; i < fields.length; i += chapterSizeFull) rawChunksFull.push(fields.slice(i, i + chapterSizeFull));
+  while (rawChunksFull.length > TARGET_CHAPTERS && rawChunksFull.length > 1) {
+    const last = rawChunksFull.pop()!;
+    rawChunksFull[rawChunksFull.length - 1] = [...rawChunksFull[rawChunksFull.length - 1], ...last];
+  }
+
+  const fieldIdToChapterSort = new Map<string, number>();
+  for (let ci = 0; ci < rawChunksFull.length; ci++) {
+    for (const f of rawChunksFull[ci]) {
+      fieldIdToChapterSort.set((f as any).id, ci + 1);
+    }
+  }
+
+  // 3) Generate sections for MISSING LFs only (batch of BATCH_SIZE per invocation)
   const sectionRows: Array<Record<string, unknown>> = [];
-  let sectionOrder = batchCursor + 1;
+  let sectionOrder = (existingSections?.length || 0) + 1;
   let llmSuccessCount = 0;
   let llmFailCount = 0;
 
-  if (batchCursor > 0) {
-    const { data: existingSections } = await sb
-      .from("handbook_sections")
-      .select("id")
-      .in("chapter_id", chapters.map((c: any) => c.id));
-    sectionOrder = (existingSections?.length || 0) + 1;
-  }
-
-  const batchEnd = Math.min(batchCursor + BATCH_SIZE, fields.length);
-  const batchFields = fields.slice(batchCursor, batchEnd);
+  // Take at most BATCH_SIZE from the fields that still need generation
+  const batchFields = fieldsNeedingGeneration.slice(0, BATCH_SIZE);
 
   for (let i = 0; i < batchFields.length; i++) {
     const lf = batchFields[i] as any;
-    const globalIdx = batchCursor + i;
-    const chapterSortOrder = fieldToChapter[globalIdx] || 1;
+    const chapterSortOrder = fieldIdToChapterSort.get(lf.id) || 1;
     const chapter = chapters.find((c: any) => c.sort_order === chapterSortOrder);
     if (!chapter) continue;
 
@@ -628,18 +652,22 @@ Deno.serve(async (req) => {
     if (secErr) throw new Error(`Section upsert: ${secErr.message}`);
   }
 
-  const isComplete = batchEnd >= fields.length;
-  const progress = Math.round((batchEnd / fields.length) * 100);
+  // Check remaining after this batch
+  const remainingAfterBatch = fieldsNeedingGeneration.length - batchFields.length;
+  const totalPopulated = populatedLfIds.size + sectionRows.length;
+  const isComplete = remainingAfterBatch <= 0;
+  const progress = Math.round((totalPopulated / fields.length) * 100);
 
-  console.log(`[generate-handbook] Batch ${batchCursor}-${batchEnd}/${fields.length}: ${sectionRows.length} sections, ${llmSuccessCount} LLM, ${llmFailCount} fallback${isComplete ? ' — COMPLETE' : ''}`);
+  console.log(`[generate-handbook] Batch: ${sectionRows.length} sections generated, ${llmSuccessCount} LLM, ${llmFailCount} fallback. Total: ${totalPopulated}/${fields.length} (${progress}%)${isComplete ? ' — COMPLETE' : ''}`);
 
   if (!isComplete) {
     return json({
       ok: true,
       batch_complete: false,
-      batch_cursor: batchEnd,
       progress,
       sections_this_batch: sectionRows.length,
+      total_populated: totalPopulated,
+      remaining: remainingAfterBatch,
     });
   }
 
@@ -647,7 +675,7 @@ Deno.serve(async (req) => {
     ok: true,
     batch_complete: true,
     chapters: chapters.length,
-    sections: sectionOrder - 1,
+    sections: totalPopulated,
     llm_generated: llmSuccessCount,
     llm_fallback: llmFailCount,
     version: "elite_v3",
