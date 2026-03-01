@@ -9,6 +9,7 @@ const ALLOWED_ORIGINS = [
   'https://www.examfit.de',
   'https://examfitde.lovable.app',
   'https://id-preview--ad51e8f9-6cff-41cf-9723-b4e49dbcd9db.lovable.app',
+  'https://ad51e8f9-6cff-41cf-9723-b4e49dbcd9db.lovableproject.com',
 ];
 
 // Development mode check
