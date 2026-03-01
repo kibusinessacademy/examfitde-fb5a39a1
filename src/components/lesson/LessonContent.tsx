@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import type { Json } from '@/integrations/supabase/types';
 import MiniCheckPlayer, { type MiniCheckContent, type MiniCheckQuestion } from './MiniCheckPlayer';
 import { useLessonMiniChecks } from '@/hooks/useLessonMiniChecks';
-
+import { useLessonAnswerKey } from '@/hooks/useLessonAnswerKey';
+import LessonAnswerCheck from './LessonAnswerCheck';
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
 interface LessonContentProps {
@@ -118,6 +119,8 @@ export default function LessonContent({
 }: LessonContentProps) {
   // Fetch DB-backed MiniChecks for this lesson (pipeline SSOT)
   const { data: dbMiniChecks, isLoading: dbMiniChecksLoading } = useLessonMiniChecks(lessonId);
+  // Fetch answer key for interactive Einstieg/Anwenden steps
+  const { data: answerKey } = useLessonAnswerKey(lessonId);
 
   // If there's a direct h5p_content_id on the lesson, use that
   if (h5pContentId) {
@@ -200,6 +203,13 @@ export default function LessonContent({
           className="prose prose-invert max-w-none"
           dangerouslySetInnerHTML={{ __html: sanitizedHTML }} 
         />
+        {/* Answer check for Einstieg/Anwenden steps */}
+        {answerKey && lessonId && (
+          <LessonAnswerCheck
+            lessonId={lessonId}
+            exemplarAnswer={answerKey.exemplar_answer}
+          />
+        )}
       </div>
     );
   }

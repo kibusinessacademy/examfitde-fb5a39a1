@@ -10038,6 +10038,54 @@ export type Database = {
           },
         ]
       }
+      lesson_answer_keys: {
+        Row: {
+          checklist: string[]
+          created_at: string
+          exemplar_answer: string
+          id: string
+          keywords: string[]
+          lesson_id: string
+          rubric: Json | null
+          updated_at: string
+        }
+        Insert: {
+          checklist?: string[]
+          created_at?: string
+          exemplar_answer: string
+          id?: string
+          keywords?: string[]
+          lesson_id: string
+          rubric?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          checklist?: string[]
+          created_at?: string
+          exemplar_answer?: string
+          id?: string
+          keywords?: string[]
+          lesson_id?: string
+          rubric?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_answer_keys_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: true
+            referencedRelation: "lesson_qc_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_answer_keys_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: true
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_improvement_suggestions: {
         Row: {
           applied: boolean
@@ -24538,6 +24586,10 @@ export type Database = {
             }
             Returns: Json
           }
+      check_lesson_answer: {
+        Args: { p_lesson_id: string; p_user_answer: string }
+        Returns: Json
+      }
       check_lesson_progression: {
         Args: { p_lesson_id: string; p_user_id: string }
         Returns: Json
