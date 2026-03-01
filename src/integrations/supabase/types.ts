@@ -26737,6 +26737,10 @@ export type Database = {
         Args: { p_action?: string; p_package_id: string }
         Returns: Json
       }
+      quarantine_package: {
+        Args: { p_package_id: string; p_reason?: string }
+        Returns: Json
+      }
       reannotate_stale_questions: {
         Args: { p_curriculum_id?: string; p_limit?: number }
         Returns: {
