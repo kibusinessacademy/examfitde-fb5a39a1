@@ -1804,6 +1804,231 @@ export type Database = {
         }
         Relationships: []
       }
+      berufski_articles: {
+        Row: {
+          article_type: string
+          beruf_id: string
+          body_md: string | null
+          created_at: string | null
+          id: string
+          meta_description: string | null
+          meta_title: string | null
+          slug: string
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          article_type: string
+          beruf_id: string
+          body_md?: string | null
+          created_at?: string | null
+          id?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          slug: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          article_type?: string
+          beruf_id?: string
+          body_md?: string | null
+          created_at?: string | null
+          id?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          slug?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_articles_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_berufe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufski_berufe: {
+        Row: {
+          branche: string | null
+          conversion_story: string | null
+          created_at: string | null
+          digitalisierungsgrad: string | null
+          dokumenttypen: string[] | null
+          examfit_curriculum_id: string | null
+          haftungsrisiken: string[] | null
+          id: string
+          is_published: boolean | null
+          name: string
+          pain_points: string[] | null
+          seo_keywords: string[] | null
+          slug: string
+          typische_aufgaben: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          branche?: string | null
+          conversion_story?: string | null
+          created_at?: string | null
+          digitalisierungsgrad?: string | null
+          dokumenttypen?: string[] | null
+          examfit_curriculum_id?: string | null
+          haftungsrisiken?: string[] | null
+          id?: string
+          is_published?: boolean | null
+          name: string
+          pain_points?: string[] | null
+          seo_keywords?: string[] | null
+          slug: string
+          typische_aufgaben?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          branche?: string | null
+          conversion_story?: string | null
+          created_at?: string | null
+          digitalisierungsgrad?: string | null
+          dokumenttypen?: string[] | null
+          examfit_curriculum_id?: string | null
+          haftungsrisiken?: string[] | null
+          id?: string
+          is_published?: boolean | null
+          name?: string
+          pain_points?: string[] | null
+          seo_keywords?: string[] | null
+          slug?: string
+          typische_aufgaben?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      berufski_produkte: {
+        Row: {
+          beruf_id: string
+          created_at: string | null
+          generation_cost_eur: number | null
+          generation_model: string | null
+          id: string
+          landing_content: string | null
+          landing_headline: string | null
+          landing_subline: string | null
+          meta_description: string | null
+          meta_title: string | null
+          pdf_content: string | null
+          pdf_storage_path: string | null
+          seo_cluster: Json | null
+          status: string | null
+          stripe_price_id: string | null
+          tier: string
+          titel: string
+          updated_at: string | null
+        }
+        Insert: {
+          beruf_id: string
+          created_at?: string | null
+          generation_cost_eur?: number | null
+          generation_model?: string | null
+          id?: string
+          landing_content?: string | null
+          landing_headline?: string | null
+          landing_subline?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
+          pdf_content?: string | null
+          pdf_storage_path?: string | null
+          seo_cluster?: Json | null
+          status?: string | null
+          stripe_price_id?: string | null
+          tier: string
+          titel: string
+          updated_at?: string | null
+        }
+        Update: {
+          beruf_id?: string
+          created_at?: string | null
+          generation_cost_eur?: number | null
+          generation_model?: string | null
+          id?: string
+          landing_content?: string | null
+          landing_headline?: string | null
+          landing_subline?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
+          pdf_content?: string | null
+          pdf_storage_path?: string | null
+          seo_cluster?: Json | null
+          status?: string | null
+          stripe_price_id?: string | null
+          tier?: string
+          titel?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_produkte_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_berufe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      berufski_purchases: {
+        Row: {
+          amount_cents: number
+          created_at: string | null
+          currency: string | null
+          download_count: number | null
+          id: string
+          last_download_at: string | null
+          produkt_id: string
+          status: string | null
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string | null
+          currency?: string | null
+          download_count?: number | null
+          id?: string
+          last_download_at?: string | null
+          produkt_id: string
+          status?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string | null
+          currency?: string | null
+          download_count?: number | null
+          id?: string
+          last_download_at?: string | null
+          produkt_id?: string
+          status?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "berufski_purchases_produkt_id_fkey"
+            columns: ["produkt_id"]
+            isOneToOne: false
+            referencedRelation: "berufski_produkte"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_accounts: {
         Row: {
           billing_email: string | null
