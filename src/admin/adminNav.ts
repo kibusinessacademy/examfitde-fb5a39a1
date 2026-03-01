@@ -77,6 +77,9 @@ export const adminNavModules: AdminNavItem[] = [
     path: '/admin/berufski', label: 'BerufsKI', icon: Sparkles, group: 'navigation',
     children: [
       { path: '/admin/berufski', label: 'Übersicht' },
+      { path: '/admin/berufski/templates', label: 'Templates & Themes' },
+      { path: '/admin/berufski/bundles', label: 'Bundle Builder' },
+      { path: '/admin/berufski/licenses', label: 'Lizenzen' },
     ],
   },
   {
