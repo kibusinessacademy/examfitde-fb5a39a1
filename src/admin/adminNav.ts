@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, BookOpen, Shield, Activity, DollarSign,
   TrendingUp, Layers, Plus, FileText, Brain, Headphones,
-  Users, Radio, Globe, Image, Search, HelpCircle,
+  Users, Radio, Globe, Image, Search, HelpCircle, Sparkles,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -73,6 +73,12 @@ export const adminNavModules: AdminNavItem[] = [
     ],
   },
   { path: '/admin/scale', label: 'Skalierung', icon: Layers, group: 'navigation' },
+  {
+    path: '/admin/berufski', label: 'BerufsKI', icon: Sparkles, group: 'navigation',
+    children: [
+      { path: '/admin/berufski', label: 'Übersicht' },
+    ],
+  },
   {
     path: '/admin/handbook', label: 'Handbuch', icon: HelpCircle, group: 'navigation',
     children: [
