@@ -62,7 +62,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
     setPipelineRunning(true);
     try {
       if (councils.length === 0) { await initCouncils.mutateAsync(); toast.info('Councils einberufen...'); }
-      if (!pkg?.council_approved) { await approveCouncils.mutateAsync(); toast.info('Council-Freigabe erteilt...'); }
+      // Council approval is NOT auto-granted — it requires actual completed council sessions
       await startBuild.mutateAsync();
       toast.success('Pipeline gestartet – Build läuft automatisch');
       refreshAll();
