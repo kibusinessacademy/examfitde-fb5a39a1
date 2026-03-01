@@ -22,7 +22,9 @@ const MIN_SCENARIO_LENGTH = 100;
 const MIN_LEAD_QUESTIONS = 3;
 const MIN_FOLLOWUPS = 2;
 const MIN_RUBRIC_CRITERIA = 2;
-const JACCARD_THRESHOLD = 0.80;
+// Base threshold — dynamically adjusted for small curricula (few learning fields)
+const JACCARD_THRESHOLD_BASE = 0.80;
+const JACCARD_THRESHOLD_SMALL_CURRICULUM = 0.92; // ≤6 LFs → higher similarity tolerance
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -84,6 +86,14 @@ Deno.serve(async (req) => {
 
   console.log(`[validate-oral] Validating ${blueprints.length} blueprints for ${professionName} (pkg ${packageId.slice(0, 8)})`);
 
+  // Dynamic Jaccard threshold: small curricula (≤6 LFs) produce naturally similar scenarios
+  const { count: lfCount } = await sb
+    .from("learning_fields")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", curriculumId);
+  const jaccardThreshold = (lfCount ?? 99) <= 6 ? JACCARD_THRESHOLD_SMALL_CURRICULUM : JACCARD_THRESHOLD_BASE;
+  console.log(`[validate-oral] LF count=${lfCount}, jaccard threshold=${jaccardThreshold}`);
+
   // Count check
   if (blueprints.length < MIN_BLUEPRINTS) {
     return json({
@@ -137,7 +147,7 @@ Deno.serve(async (req) => {
     if (bp.scenario) {
       const ng = textNgrams(bp.scenario);
       for (const [existingId, existingNg] of scenarioNgrams) {
-        if (jaccardSim(ng, existingNg) >= JACCARD_THRESHOLD) {
+        if (jaccardSim(ng, existingNg) >= jaccardThreshold) {
           issues.push(`DUPLICATE_SCENARIO: ${existingId.slice(0, 8)}`);
           break;
         }

@@ -331,19 +331,22 @@ Deno.serve(async (req) => {
     console.log(`[export] Collected ${allLessons.length} lessons (full content)`);
 
     // ── ALL Exam Questions (paginated, no limit) ──
+    // CRITICAL: Use exam_questions_elite_v view to get *_eff fields from annotations
+    // The base table's elite_level/elite_score are intentionally NULL for approved questions
+    // (immutability principle). The view merges annotations via exam_question_elite_annotations.
     const allQuestions: unknown[] = [];
     const approvedQuestions: unknown[] = [];
     const seenQuestionIds = new Set<string>();
     if (curriculumId) {
-      console.log(`[export] Collecting ALL exam questions for curriculum ${curriculumId}`);
+      console.log(`[export] Collecting ALL exam questions via elite view for curriculum ${curriculumId}`);
       try {
         const pageSize = 500;
         let offset = 0;
         let duplicatesSkipped = 0;
         while (true) {
           const { data: batch, error: qErr } = await sb
-            .from("exam_questions")
-            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id, question_type, trap_tags, distractor_meta, variant_group, variant_label, item_difficulty, item_discrimination, status, created_at, exam_part, scenario_type, bloom_level_validated, time_estimate_seconds, typical_errors, discrimination_tier, elite_level, elite_score, elite_score_breakdown, complexity_score, multi_variable, conflict_type, dynamic_scenario, transfer_variant, distractor_types")
+            .from("exam_questions_elite_v")
+            .select("id, question_text, options, correct_answer, explanation, difficulty, cognitive_level, learning_field_id, qc_status, blueprint_id, competency_id, question_type, trap_tags, distractor_meta, variant_group, variant_label, item_difficulty, item_discrimination, status, created_at, exam_part, scenario_type, bloom_level_validated, time_estimate_seconds, typical_errors, discrimination_tier, elite_level_eff, elite_score_eff, complexity_score, multi_variable_eff, conflict_type, dynamic_scenario, transfer_variant_eff, distractor_types_eff")
             .eq("curriculum_id", curriculumId)
             .order("id")
             .range(offset, offset + pageSize - 1);
@@ -386,16 +389,15 @@ Deno.serve(async (req) => {
               time_estimate_seconds: q.time_estimate_seconds,
               typical_errors: q.typical_errors,
               discrimination_tier: q.discrimination_tier,
-              // Elite v2 fields
-              elite_level: q.elite_level,
-              elite_score: q.elite_score,
-              elite_score_breakdown: q.elite_score_breakdown,
+              // Elite v2 fields — from *_eff (annotation-merged) columns
+              elite_level: q.elite_level_eff,
+              elite_score: q.elite_score_eff,
               complexity_score: q.complexity_score,
-              multi_variable: q.multi_variable,
+              multi_variable: q.multi_variable_eff,
               conflict_type: q.conflict_type,
               dynamic_scenario: q.dynamic_scenario,
-              transfer_variant: q.transfer_variant,
-              distractor_types: q.distractor_types,
+              transfer_variant: q.transfer_variant_eff,
+              distractor_types: q.distractor_types_eff,
             };
             allQuestions.push(qObj);
             if (q.qc_status === "approved" || q.status === "approved") {
