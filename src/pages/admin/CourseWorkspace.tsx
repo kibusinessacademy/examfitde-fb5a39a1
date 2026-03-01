@@ -335,11 +335,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                     const hasDetails = step?.meta || step?.log || step?.last_error || step?.error_message || isException;
                     const Icon = stepDef.icon;
                     return (
-                      <div key={stepKey} className={cn("border rounded-lg transition-colors", isRunning ? "border-primary/40 bg-primary/5" : isException ? "border-warning/40" : "border-border/30")}>
+                      <div key={stepKey} className={cn("border rounded-lg transition-colors", isRunning ? "border-primary/40 bg-primary/5" : isException ? "border-success/40" : "border-border/30")}>
                         <button className="w-full flex items-center justify-between gap-3 py-2.5 px-3 text-left hover:bg-muted/30 rounded-lg transition-colors" onClick={() => setExpandedStep(isExpanded ? null : stepKey)}>
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="text-[10px] text-muted-foreground w-4 text-center">{idx + 1}</span>
-                            {isException ? <ShieldCheck className="h-4 w-4 text-warning shrink-0" /> : isDone ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> : isFailed ? <XCircle className="h-4 w-4 text-destructive shrink-0" /> : isRunning ? <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" /> : <Clock className="h-4 w-4 text-muted-foreground shrink-0" />}
+                            {isException ? <ShieldCheck className="h-4 w-4 text-success shrink-0" /> : isDone ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> : isFailed ? <XCircle className="h-4 w-4 text-destructive shrink-0" /> : isRunning ? <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" /> : <Clock className="h-4 w-4 text-muted-foreground shrink-0" />}
                             <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <div className="min-w-0">
                               <span className="text-sm truncate block">{stepDef.label}</span>
@@ -357,7 +357,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                                 <RotateCcw className="h-3 w-3 mr-0.5" /> Retry
                               </Button>
                             )}
-                            {isException && <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning">Ausnahme</Badge>}
+                            {isException && <Badge variant="outline" className="text-[10px] bg-success/10 text-success">Genehmigt</Badge>}
                             <Badge variant="outline" className={cn("text-[10px]", isDone ? 'bg-success/10 text-success' : isSkipped ? 'bg-muted text-muted-foreground' : isFailed ? 'bg-destructive/10 text-destructive' : isRunning ? 'bg-primary/10 text-primary' : '')}>{status}</Badge>
                             {hasDetails && (isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />)}
                           </div>
@@ -365,10 +365,10 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                         {isExpanded && hasDetails && (
                         <div className="px-3 pb-3 pt-0 space-y-2">
                             {isException && (
-                              <div className="bg-warning/5 border border-warning/20 rounded p-2">
+                              <div className="bg-success/5 border border-success/20 rounded p-2">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <ShieldCheck className="h-3.5 w-3.5 text-warning" />
-                                  <span className="text-[10px] font-medium text-warning uppercase tracking-wider">Ausnahme genehmigt</span>
+                                  <ShieldCheck className="h-3.5 w-3.5 text-success" />
+                                  <span className="text-[10px] font-medium text-success uppercase tracking-wider">Ausnahme genehmigt</span>
                                 </div>
                                 <p className="text-xs text-muted-foreground">{step?.exception_reason}</p>
                                 <p className="text-[10px] text-muted-foreground mt-1">
