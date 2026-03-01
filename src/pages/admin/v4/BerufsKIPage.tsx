@@ -181,6 +181,31 @@ function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
     typische_aufgaben: '', dokumenttypen: '', pain_points: '', haftungsrisiken: '',
     seo_keywords: '', examfit_curriculum_id: '',
   });
+  const [dnaLoading, setDnaLoading] = useState(false);
+
+  const generateDna = async () => {
+    if (!form.name) { toast.error('Bitte zuerst einen Namen eingeben'); return; }
+    setDnaLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('work-generate-dna', {
+        body: { name: form.name, branche: form.branche || null },
+      });
+      if (error) throw error;
+      setForm(f => ({
+        ...f,
+        typische_aufgaben: (data.typische_aufgaben || []).join(', '),
+        dokumenttypen: (data.dokumenttypen || []).join(', '),
+        pain_points: (data.pain_points || []).join(', '),
+        haftungsrisiken: (data.haftungsrisiken || []).join(', '),
+        seo_keywords: (data.seo_keywords || []).join(', '),
+      }));
+      toast.success('Berufs-DNA automatisch generiert');
+    } catch (e) {
+      toast.error(`DNA-Fehler: ${(e as Error).message}`);
+    } finally {
+      setDnaLoading(false);
+    }
+  };
 
   const create = useMutation({
     mutationFn: async () => {
@@ -233,11 +258,22 @@ function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
           </SelectContent>
         </Select>
       </div>
-      <div><Label>Typische Aufgaben (kommagetrennt)</Label><Textarea value={form.typische_aufgaben} onChange={e => setForm(f => ({ ...f, typische_aufgaben: e.target.value }))} /></div>
-      <div><Label>Dokumenttypen (kommagetrennt)</Label><Textarea value={form.dokumenttypen} onChange={e => setForm(f => ({ ...f, dokumenttypen: e.target.value }))} /></div>
-      <div><Label>Pain Points (kommagetrennt)</Label><Textarea value={form.pain_points} onChange={e => setForm(f => ({ ...f, pain_points: e.target.value }))} /></div>
-      <div><Label>Haftungsrisiken (kommagetrennt)</Label><Textarea value={form.haftungsrisiken} onChange={e => setForm(f => ({ ...f, haftungsrisiken: e.target.value }))} /></div>
-      <div><Label>SEO Keywords (kommagetrennt)</Label><Input value={form.seo_keywords} onChange={e => setForm(f => ({ ...f, seo_keywords: e.target.value }))} /></div>
+
+      <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">Berufs-DNA</p>
+          <Button type="button" size="sm" variant="secondary" onClick={generateDna} disabled={!form.name || dnaLoading}>
+            {dnaLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Sparkles className="mr-2 h-3 w-3" />}
+            KI-DNA generieren
+          </Button>
+        </div>
+        <div><Label>Typische Aufgaben (kommagetrennt)</Label><Textarea value={form.typische_aufgaben} onChange={e => setForm(f => ({ ...f, typische_aufgaben: e.target.value }))} /></div>
+        <div><Label>Dokumenttypen (kommagetrennt)</Label><Textarea value={form.dokumenttypen} onChange={e => setForm(f => ({ ...f, dokumenttypen: e.target.value }))} /></div>
+        <div><Label>Pain Points (kommagetrennt)</Label><Textarea value={form.pain_points} onChange={e => setForm(f => ({ ...f, pain_points: e.target.value }))} /></div>
+        <div><Label>Haftungsrisiken (kommagetrennt)</Label><Textarea value={form.haftungsrisiken} onChange={e => setForm(f => ({ ...f, haftungsrisiken: e.target.value }))} /></div>
+        <div><Label>SEO Keywords (kommagetrennt)</Label><Input value={form.seo_keywords} onChange={e => setForm(f => ({ ...f, seo_keywords: e.target.value }))} /></div>
+      </div>
+
       <Button onClick={() => create.mutate()} disabled={!form.name || create.isPending} className="w-full">
         {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
         Beruf anlegen
@@ -249,6 +285,32 @@ function CreateBerufForm({ onSuccess }: { onSuccess: () => void }) {
 function BerufDetail({ beruf, produkte, onUpdate }: { beruf: WorkBeruf; produkte: WorkProdukt[]; onUpdate: () => void }) {
   const qc = useQueryClient();
   const [genTier, setGenTier] = useState<string>('9');
+  const [dnaLoading, setDnaLoading] = useState(false);
+
+  const regenerateDna = async () => {
+    setDnaLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('work-generate-dna', {
+        body: { name: beruf.name, branche: beruf.branche || null },
+      });
+      if (error) throw error;
+      const { error: updateErr } = await supabase.from('work_berufe').update({
+        typische_aufgaben: data.typische_aufgaben || [],
+        dokumenttypen: data.dokumenttypen || [],
+        pain_points: data.pain_points || [],
+        haftungsrisiken: data.haftungsrisiken || [],
+        seo_keywords: data.seo_keywords || [],
+      }).eq('id', beruf.id);
+      if (updateErr) throw updateErr;
+      toast.success('Berufs-DNA aktualisiert');
+      qc.invalidateQueries({ queryKey: ['work-berufe'] });
+      onUpdate();
+    } catch (e) {
+      toast.error(`DNA-Fehler: ${(e as Error).message}`);
+    } finally {
+      setDnaLoading(false);
+    }
+  };
 
   const generate = useMutation({
     mutationFn: async (tier: string) => {
@@ -299,6 +361,10 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: WorkBeruf; produkte
               </CardTitle>
               <CardDescription>{beruf.branche} · Digitalisierung: {beruf.digitalisierungsgrad}</CardDescription>
             </div>
+            <Button size="sm" variant="secondary" onClick={regenerateDna} disabled={dnaLoading}>
+              {dnaLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Sparkles className="mr-2 h-3 w-3" />}
+              DNA neu generieren
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -308,6 +374,9 @@ function BerufDetail({ beruf, produkte, onUpdate }: { beruf: WorkBeruf; produkte
             <DNASection title="Pain Points" items={beruf.pain_points} />
             <DNASection title="Haftungsrisiken" items={beruf.haftungsrisiken} />
           </div>
+          {beruf.seo_keywords && beruf.seo_keywords.length > 0 && (
+            <DNASection title="SEO Keywords" items={beruf.seo_keywords} />
+          )}
         </CardContent>
       </Card>
 
