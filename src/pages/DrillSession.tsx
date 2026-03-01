@@ -152,19 +152,36 @@ export default function DrillSession() {
 
   if (!drillContent) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="glass-card max-w-md w-full">
-          <CardContent className="p-8 text-center space-y-4">
-            <Zap className="h-12 w-12 text-muted-foreground mx-auto" />
-            <p className="text-muted-foreground">
-              Noch keine Drill-Fragen verfügbar. Die KI erstellt gerade Übungsfragen.
-            </p>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Zurück
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-background py-8 px-4">
+        <div className="container mx-auto max-w-2xl">
+          <Button variant="ghost" className="mb-6 gap-2" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4" />
+            Zurück
+          </Button>
+
+          <Card className="glass-card">
+            <CardContent className="p-8 text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Zap className="h-8 w-8 text-primary" />
+              </div>
+              <h2 className="text-lg font-semibold">Drill-Fragen werden vorbereitet</h2>
+              <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                Für dieses Curriculum werden gerade Übungsfragen erstellt. 
+                Sobald genügend geprüfte Fragen vorliegen, kannst du hier trainieren.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                <Button variant="outline" onClick={() => navigate(-1)} className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Zurück zum Dashboard
+                </Button>
+                <Button variant="outline" onClick={() => refetch()} className="gap-2">
+                  <Zap className="h-4 w-4" />
+                  Erneut prüfen
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
