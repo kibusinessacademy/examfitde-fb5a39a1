@@ -194,9 +194,19 @@ export default function GuardrailEventsPanel() {
                         <Badge variant="outline" className={cn("text-[10px]", meta.color)}>{meta.label}</Badge>
                       </TableCell>
                       <TableCell className="text-xs max-w-[400px]">
-                        <pre className="whitespace-pre-wrap break-all text-xs max-h-[120px] overflow-auto">
-                          {(() => { const s = JSON.stringify(ev.details, null, 2); return s.length > 1200 ? s.slice(0, 1200) + "…" : s; })()}
-                        </pre>
+                        <div className="relative group">
+                          <pre className="whitespace-pre-wrap break-all text-xs max-h-[120px] overflow-auto">
+                            {(() => { const s = JSON.stringify(ev.details, null, 2); return s.length > 1200 ? s.slice(0, 1200) + "…" : s; })()}
+                          </pre>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="absolute top-0 right-0 h-6 px-1.5 opacity-0 group-hover:opacity-100 text-[10px]"
+                            onClick={() => navigator.clipboard.writeText(JSON.stringify(ev.details, null, 2))}
+                          >
+                            Copy
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
