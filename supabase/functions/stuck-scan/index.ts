@@ -162,12 +162,26 @@ Deno.serve(async (req) => {
     }
 
     // ══════════════════════════════════════════════════════
-    // 1b) ZOMBIE STEP DETECTION (with age guard)
+    // 1b) ZOMBIE STEP DETECTION (with age guard + WHITELIST)
     // Steps in "running"/"enqueued"/"queued" with meta.ok=true or batch_complete=true
     // — worker completed but step never finalized.
     // Only auto-fix if age > 5 minutes (not a fresh step).
+    // CRITICAL: Only whitelist steps are safe to auto-finalize.
+    // Generator steps (generate_*) are NEVER zombifiable because they
+    // run in batches across many invocations — meta.ok=true after one
+    // batch does NOT mean the step is complete. Zombifying them causes
+    // a deadly oscillation loop with the integrity gate.
     // ══════════════════════════════════════════════════════
     const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
+    // GUARDRAIL: Only idempotent read-only/meta-only steps may be auto-finalized.
+    // Generator steps (generate_learning_content, generate_exam_pool, etc.) are EXCLUDED
+    // because they run across many invocations and meta.ok=true is per-batch, not per-step.
+    const ZOMBIFIABLE_STEPS = new Set([
+      "validate_learning_content", "validate_exam_pool", "validate_blueprints",
+      "validate_oral_exam", "validate_handbook", "validate_lesson_minichecks",
+      "validate_tutor_index", "run_integrity_check", "quality_council",
+      "auto_publish",
+    ]);
     const { data: zombieSteps } = await sb
       .from("package_steps")
       .select("package_id, step_key, meta, attempts, started_at, status")
@@ -175,6 +189,9 @@ Deno.serve(async (req) => {
 
     const zombieResults: Array<{ package_id: string; step_key: string; action: string }> = [];
     for (const zs of zombieSteps || []) {
+      // GUARDRAIL: Skip non-whitelisted steps entirely
+      if (!ZOMBIFIABLE_STEPS.has(zs.step_key)) continue;
+
       const meta = (zs.meta ?? {}) as Record<string, unknown>;
       if (meta.ok !== true && meta.batch_complete !== true) continue;
 
