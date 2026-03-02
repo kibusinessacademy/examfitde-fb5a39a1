@@ -834,6 +834,37 @@ Deno.serve(async (req) => {
       try { parsed = JSON.parse(text); } catch { parsed = text; }
 
       if (!res.ok) {
+        // ── 422 Permanent SSOT/Guard failure (NO RETRY) ──────────────
+        // Edge functions return 422 for permanent DB/SSOT guard violations
+        // (CHECK/NOT NULL/FK/RLS). These MUST NOT be requeued.
+        if (res.status === 422) {
+          const maxAttempts = job.max_attempts || 3;
+          const errStr =
+            typeof parsed === "string"
+              ? parsed.slice(0, 500)
+              : JSON.stringify(parsed).slice(0, 500);
+
+          const isPermanent =
+            (typeof parsed === "object" && parsed && (parsed as any).permanent === true) ||
+            (typeof parsed === "object" && parsed && String((parsed as any).error || "").toLowerCase().includes("ssot")) ||
+            (typeof parsed === "object" && parsed && String((parsed as any).message || "").toLowerCase().includes("ssot_guard_permanent"));
+
+          if (isPermanent) {
+            console.warn(`[job-runner] ${fnName} 422 permanent SSOT/guard → terminal fail (no retry)`);
+            finalState = {
+              status: "failed",
+              patch: {
+                error: `HTTP 422 PERMANENT: ${errStr}`,
+                completed_at: tsNow,
+                attempts: maxAttempts,
+                result: typeof parsed === "object" ? parsed : { raw: parsed },
+              },
+            };
+            tickMetrics.totalLatencyMs += elapsedMs;
+            continue;
+          }
+          // If 422 but not marked permanent, fall through to standard hard-failure handling.
+        }
         // ── 409 Conflict ─────────────────────────────────────────────
         if (res.status === 409) {
           const isIdempotent = parsed?.skipped === true || parsed?.ok === true || parsed?.retry === false;
