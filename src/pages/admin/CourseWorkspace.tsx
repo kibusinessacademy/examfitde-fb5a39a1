@@ -189,8 +189,8 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
           <h1 className="text-xl font-display font-bold text-foreground">{pkg.title || 'Kurspaket'}</h1>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <TrackBadge track={track} certType={certType} showCertType />
-            <Badge variant="outline" className={cn("text-xs", pkg.status === 'published' ? 'bg-success/20 text-success' : pkg.status === 'failed' ? 'bg-destructive/20 text-destructive' : isBuilding ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>
-              {pkg.status === 'published' ? 'Live' : isBuilding ? 'Build läuft' : pkg.status === 'failed' ? 'Fehler' : pkg.status === 'qa' ? 'QA' : 'Draft'}
+            <Badge variant="outline" className={cn("text-xs", pkg.status === 'published' ? 'bg-success/20 text-success' : (pkg.status === 'failed' || pkg.status === 'quality_gate_failed') ? 'bg-destructive/20 text-destructive' : isBuilding ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>
+              {pkg.status === 'published' ? 'Live' : isBuilding ? 'Build läuft' : pkg.status === 'quality_gate_failed' ? 'QG Failed' : pkg.status === 'failed' ? 'Fehler' : pkg.status === 'qa' ? 'QA' : pkg.status === 'done' ? 'Done' : 'Draft'}
             </Badge>
             <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold", healthScore >= 95 ? 'bg-success/10 text-success' : healthScore >= 80 ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive')}>
               <Activity className="h-3 w-3" /> {healthScore}%
@@ -254,8 +254,8 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
             </Card>
           )}
 
-          {/* One-click pipeline */}
-          {pkg.status !== 'published' && !isBuilding && (
+          {/* One-click pipeline — hide for published, done, and quality_gate_failed */}
+          {!['published', 'done', 'quality_gate_failed'].includes(pkg.status) && !isBuilding && (
             <Card className="border-primary/30 bg-primary/5">
               <CardContent className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
@@ -265,6 +265,18 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                 <Button onClick={handleFullPipeline} disabled={pipelineRunning} size="sm">
                   {pipelineRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Zap className="h-4 w-4 mr-1" />} Pipeline starten
                 </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* QG-Failed repair hint */}
+          {pkg.status === 'quality_gate_failed' && !isBuilding && (
+            <Card className="border-destructive/30 bg-destructive/5">
+              <CardContent className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-destructive flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Quality Gate nicht bestanden</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Prüfe den Integritätsbericht unten und behebe die Lücken über den Auto-Gap-Closer oder manuelle Schritte.</p>
+                </div>
               </CardContent>
             </Card>
           )}
