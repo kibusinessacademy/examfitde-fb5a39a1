@@ -5383,7 +5383,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_step: number | null
-          curriculum_id: string | null
+          curriculum_id: string
           elite_hardened_at: string | null
           elite_hardening_version: number
           exam_structure: string | null
@@ -5431,7 +5431,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_step?: number | null
-          curriculum_id?: string | null
+          curriculum_id: string
           elite_hardened_at?: string | null
           elite_hardening_version?: number
           exam_structure?: string | null
@@ -5479,7 +5479,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_step?: number | null
-          curriculum_id?: string | null
+          curriculum_id?: string
           elite_hardened_at?: string | null
           elite_hardening_version?: number
           exam_structure?: string | null
@@ -27047,7 +27047,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_step: number | null
-          curriculum_id: string | null
+          curriculum_id: string
           elite_hardened_at: string | null
           elite_hardening_version: number
           exam_structure: string | null
@@ -27315,7 +27315,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_step: number | null
-          curriculum_id: string | null
+          curriculum_id: string
           elite_hardened_at: string | null
           elite_hardening_version: number
           exam_structure: string | null
