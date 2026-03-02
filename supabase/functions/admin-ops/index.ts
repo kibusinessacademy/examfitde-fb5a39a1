@@ -106,7 +106,38 @@ serve(async (req) => {
       return json({ success: true });
     }
 
-    return json({ error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health | freeze_package | unfreeze_package" }, 400);
+    // ── enqueue_job (privileged job creation) ─────────────────
+    if (action === "enqueue_job") {
+      const ALLOWED_JOB_TYPES = ["package_auto_publish"];
+      const jobType = body.job_type as string;
+      const packageId = body.package_id as string;
+      const courseId = body.course_id as string;
+
+      if (!jobType || !ALLOWED_JOB_TYPES.includes(jobType)) {
+        return json({ error: `job_type must be one of: ${ALLOWED_JOB_TYPES.join(", ")}` }, 400);
+      }
+      if (!packageId) return json({ error: "package_id required" }, 400);
+      if (!courseId) return json({ error: "course_id required" }, 400);
+
+      const maxAttempts = Math.max(1, Math.min(body.max_attempts ?? 3, 10));
+
+      const { data, error: err } = await sb
+        .from("job_queue")
+        .insert({
+          job_type: jobType,
+          status: "pending",
+          payload: { package_id: packageId, course_id: courseId },
+          max_attempts: maxAttempts,
+        })
+        .select("id")
+        .single();
+
+      if (err) return json({ error: err.message }, 500);
+      console.log(`[admin-ops] enqueue_job: ${jobType} job=${data?.id} pkg=${packageId} by ${user.id}`);
+      return json({ success: true, job_id: data?.id });
+    }
+
+    return json({ error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health | freeze_package | unfreeze_package | enqueue_job" }, 400);
   } catch (e) {
     console.error("[admin-ops] error", e);
     return json({ error: String((e as Error)?.message || e) }, 500);
