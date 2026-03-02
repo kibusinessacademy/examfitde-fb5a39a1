@@ -100,6 +100,8 @@ const LESSON_STEPS = [
 
 > 🔒 **7 CHECK Constraints** auf DB-Ebene machen es physisch unmöglich, eine Frage ohne vollständige SSOT-Felder auf `approved` zu setzen.
 
+> ⚠️ `learning_field_id` ist redundant gespeichert (SSOT ist `competencies.learning_field_id`). Wert muss bei Insert/Update konsistent gehalten werden (write-once, dann immutable).
+
 ### Status-Workflow
 
 ```
