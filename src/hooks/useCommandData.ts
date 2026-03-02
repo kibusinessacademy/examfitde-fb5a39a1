@@ -24,6 +24,7 @@ export interface CommandKPIs {
   building: number;
   queued: number;
   published: number;
+  done: number;
   failed: number;
   jobs_pending: number;
   jobs_processing: number;
@@ -66,7 +67,8 @@ export function useCommandData() {
             total: data.length,
             building: data.filter((d: any) => d.status === 'building').length,
             queued: data.filter((d: any) => d.status === 'queued').length,
-            published: data.filter((d: any) => d.status === 'published' || d.status === 'done').length,
+            published: data.filter((d: any) => d.status === 'published').length,
+            done: data.filter((d: any) => d.status === 'done').length,
             failed: data.filter((d: any) => d.status === 'failed' || d.status === 'quality_gate_failed').length,
           };
         }),
@@ -116,6 +118,7 @@ export function useCommandData() {
         building: statuses.building,
         queued: statuses.queued,
         published: statuses.published,
+        done: statuses.done,
         failed: statuses.failed,
         jobs_pending: jobsPending,
         jobs_processing: jobsProcessing,

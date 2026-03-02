@@ -19,7 +19,11 @@ import { deriveStepProgress } from '@/lib/pipeline-steps';
 import ForensikPanel from './ForensikPanel';
 import StepDurationPanel from './StepDurationPanel';
 
-const fmtEur = (v: number) => `€${v.toFixed(2)}`;
+const fmtEur = (v: number) => {
+  if (v === 0) return '€0,00';
+  if (v < 0.01) return `€${v.toFixed(4)}`;
+  return `€${v.toFixed(2)}`;
+};
 
 function Metric({ icon, label, value, sub, alert }: {
   icon: React.ReactNode; label: string; value: string | number; sub?: string; alert?: boolean;
@@ -187,13 +191,14 @@ export default function Leitstelle() {
       )}
 
       {/* Pipeline Overview – SSOT */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-        <Metric icon={<Package className="h-3.5 w-3.5 text-muted-foreground" />} label="Gesamt" value={kpis.total_packages} sub={`${kpis.published} live`} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2">
+        <Metric icon={<Package className="h-3.5 w-3.5 text-muted-foreground" />} label="Gesamt" value={kpis.total_packages} sub={`${kpis.done} done · ${kpis.published} live`} />
         <Metric icon={<Server className="h-3.5 w-3.5 text-primary" />} label="Build (Leases)" value={bm.active_by_leases} sub="WIP-Slots" />
         <Metric icon={<Zap className="h-3.5 w-3.5 text-primary" />} label="Build (Jobs)" value={bm.active_by_jobs} sub="Runner aktiv" />
         <Metric icon={<Wrench className="h-3.5 w-3.5 text-destructive" />} label="Zombies" value={bm.zombies} alert={bm.zombies > 0} sub={bm.zombies > 0 ? 'Fix nötig' : 'Sauber'} />
         <Metric icon={<Clock className="h-3.5 w-3.5 text-muted-foreground" />} label="Queue" value={kpis.queued} />
         <Metric icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />} label="Published" value={kpis.published} />
+        <Metric icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />} label="Done" value={kpis.done} />
         <Metric icon={<XCircle className="h-3.5 w-3.5 text-destructive" />} label="Failed" value={kpis.failed} alert={kpis.failed > 0} />
         <Metric icon={<TrendingUp className="h-3.5 w-3.5 text-primary" />} label="ETA Backlog" value={etaH > 0 ? `${etaH}h` : '—'} sub={`${Math.round(throughputPerH)} Jobs/h`} />
       </div>
