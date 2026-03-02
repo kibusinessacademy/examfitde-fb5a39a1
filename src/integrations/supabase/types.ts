@@ -25148,6 +25148,10 @@ export type Database = {
         }[]
       }
       auto_trigger_curriculum_ingest: { Args: never; Returns: number }
+      backfill_approve_pipeline_content_versions: {
+        Args: { p_limit?: number }
+        Returns: number
+      }
       bulk_sync_content_versions_to_lessons: { Args: never; Returns: number }
       calculate_authority_index: {
         Args: {
