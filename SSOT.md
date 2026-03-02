@@ -105,7 +105,7 @@ draft → review → approved | rejected
 ### Schwierigkeitsgrade (SSOT)
 
 ```typescript
-const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
+const DIFFICULTIES = ['easy', 'medium', 'hard', 'very_hard'] as const;
 ```
 
 ---
