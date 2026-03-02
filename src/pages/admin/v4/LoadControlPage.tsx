@@ -113,11 +113,11 @@ export default function LoadControlPage() {
   const { data: jobStats } = useQuery({
     queryKey: ["job-stats-lc"],
     queryFn: async () => {
-      const { data: raw } = await supabase.from("job_queue").select("status").limit(5000);
-      if (!raw) return {} as Record<string, number>;
-      const counts: Record<string, number> = {};
-      raw.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
-      return counts;
+      const { data, error } = await supabase.functions.invoke("admin-ops", {
+        body: { action: "queue_health" },
+      });
+      if (error) throw error;
+      return (data ?? {}) as Record<string, number>;
     },
     refetchInterval: 5000,
   });
@@ -149,11 +149,11 @@ export default function LoadControlPage() {
 
   const togglePause = useMutation({
     mutationFn: async ({ provider, pause }: { provider: string; pause: boolean }) => {
-      const { error } = await supabase
-        .from("llm_rate_limits")
-        .update({ is_paused: pause, updated_at: new Date().toISOString() })
-        .eq("provider", provider);
+      const { data, error } = await supabase.functions.invoke("admin-ops", {
+        body: { action: "set_provider_pause", provider, pause },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: (_, { provider, pause }) => {
       toast.success(`${provider} ${pause ? "pausiert" : "fortgesetzt"}`);
@@ -163,11 +163,11 @@ export default function LoadControlPage() {
 
   const updateConcurrency = useMutation({
     mutationFn: async ({ provider, value }: { provider: string; value: number }) => {
-      const { error } = await supabase
-        .from("llm_rate_limits")
-        .update({ max_concurrent: value, updated_at: new Date().toISOString() })
-        .eq("provider", provider);
+      const { data, error } = await supabase.functions.invoke("admin-ops", {
+        body: { action: "set_provider_concurrency", provider, value },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: (_, { provider }) => {
       toast.success(`Concurrency für ${provider} aktualisiert`);
@@ -178,11 +178,11 @@ export default function LoadControlPage() {
   const toggleHardStop = useMutation({
     mutationFn: async (hardStop: boolean) => {
       if (!budget) return;
-      const { error } = await supabase
-        .from("llm_budget")
-        .update({ hard_stop: hardStop })
-        .eq("id", budget.id);
+      const { data, error } = await supabase.functions.invoke("admin-ops", {
+        body: { action: "set_hard_stop", budget_id: budget.id, hard_stop: hardStop },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: (_, hardStop) => {
       toast.success(`Hard Stop ${hardStop ? "aktiviert" : "deaktiviert"}`);
@@ -192,18 +192,11 @@ export default function LoadControlPage() {
 
   const retryRateLimited = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("job_queue")
-        .update({
-          status: "pending",
-          scheduled_at: null,
-          rate_limited_until: null,
-          last_error_code: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("status", "failed")
-        .in("last_error_code", ["RATE_LIMIT", "RATE_LIMIT_EXHAUSTED", "TIMEOUT_EXHAUSTED", "TRANSIENT_NETWORK_EXHAUSTED"]);
+      const { data, error } = await supabase.functions.invoke("admin-ops", {
+        body: { action: "retry_rate_limited" },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       toast.success("Transiente Fehler zurückgesetzt");
@@ -213,17 +206,18 @@ export default function LoadControlPage() {
 
   const cancelFailed = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("job_queue")
-        .update({ status: "cancelled", updated_at: new Date().toISOString() })
-        .eq("status", "failed");
+      const { data, error } = await supabase.functions.invoke("admin-ops", {
+        body: { action: "cancel_failed" },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       toast.success("Failed Jobs abgebrochen");
       qc.invalidateQueries({ queryKey: ["job-stats-lc"] });
     },
   });
+
 
   const spentPct = budget ? Math.round((budget.spent_eur / budget.budget_eur) * 100) : 0;
   const totalRunning = runningLLM?._total ?? 0;

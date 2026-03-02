@@ -65,11 +65,13 @@ serve(async (req) => {
     if (action === "queue_health") {
       const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
 
-      const [pendingR, processingR, failedR, stuckR] = await Promise.all([
+      const [pendingR, processingR, failedR, stuckR, completedR, cancelledR] = await Promise.all([
         sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "pending"),
         sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "processing"),
         sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "failed"),
         sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "processing").lt("started_at", tenMinAgo),
+        sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "completed"),
+        sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "cancelled"),
       ]);
 
       return json({
@@ -77,6 +79,8 @@ serve(async (req) => {
         processing: processingR.count ?? 0,
         failed: failedR.count ?? 0,
         stuck: stuckR.count ?? 0,
+        completed: completedR.count ?? 0,
+        cancelled: cancelledR.count ?? 0,
       });
     }
 
@@ -137,7 +141,89 @@ serve(async (req) => {
       return json({ success: true, job_id: data?.id });
     }
 
-    return json({ error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health | freeze_package | unfreeze_package | enqueue_job" }, 400);
+    // ── set_provider_pause ───────────────────────────────────
+    if (action === "set_provider_pause") {
+      const provider = body.provider as string;
+      const pause = body.pause as boolean;
+      if (!provider || typeof pause !== "boolean") {
+        return json({ error: "provider (string) and pause (boolean) required" }, 400);
+      }
+      const { error: err } = await sb
+        .from("llm_rate_limits")
+        .update({ is_paused: pause, updated_at: new Date().toISOString() })
+        .eq("provider", provider);
+      if (err) return json({ error: err.message }, 500);
+      console.log(`[admin-ops] set_provider_pause: ${provider} → ${pause ? "paused" : "resumed"} by ${user.id}`);
+      return json({ success: true });
+    }
+
+    // ── set_provider_concurrency ─────────────────────────────
+    if (action === "set_provider_concurrency") {
+      const provider = body.provider as string;
+      const value = Number(body.value);
+      if (!provider || !Number.isFinite(value) || value < 1 || value > 50) {
+        return json({ error: "provider (string) and value (1–50) required" }, 400);
+      }
+      const { error: err } = await sb
+        .from("llm_rate_limits")
+        .update({ max_concurrent: Math.round(value), updated_at: new Date().toISOString() })
+        .eq("provider", provider);
+      if (err) return json({ error: err.message }, 500);
+      console.log(`[admin-ops] set_provider_concurrency: ${provider} → ${value} by ${user.id}`);
+      return json({ success: true });
+    }
+
+    // ── set_hard_stop ────────────────────────────────────────
+    if (action === "set_hard_stop") {
+      const hardStop = body.hard_stop as boolean;
+      const budgetId = body.budget_id as string;
+      if (typeof hardStop !== "boolean" || !budgetId) {
+        return json({ error: "budget_id (string) and hard_stop (boolean) required" }, 400);
+      }
+      const { error: err } = await sb
+        .from("llm_budget")
+        .update({ hard_stop: hardStop })
+        .eq("id", budgetId);
+      if (err) return json({ error: err.message }, 500);
+      console.log(`[admin-ops] set_hard_stop: ${hardStop} budget=${budgetId} by ${user.id}`);
+      return json({ success: true });
+    }
+
+    // ── retry_rate_limited ───────────────────────────────────
+    if (action === "retry_rate_limited") {
+      const TRANSIENT_CODES = ["RATE_LIMIT", "RATE_LIMIT_EXHAUSTED", "TIMEOUT_EXHAUSTED", "TRANSIENT_NETWORK_EXHAUSTED"];
+      const { data, error: err } = await sb
+        .from("job_queue")
+        .update({
+          status: "pending",
+          scheduled_at: null,
+          rate_limited_until: null,
+          last_error_code: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("status", "failed")
+        .in("last_error_code", TRANSIENT_CODES)
+        .select("id");
+      if (err) return json({ error: err.message }, 500);
+      console.log(`[admin-ops] retry_rate_limited: ${data?.length ?? 0} jobs reset by ${user.id}`);
+      return json({ success: true, count: data?.length ?? 0 });
+    }
+
+    // ── cancel_failed ────────────────────────────────────────
+    if (action === "cancel_failed") {
+      const { data, error: err } = await sb
+        .from("job_queue")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("status", "failed")
+        .select("id");
+      if (err) return json({ error: err.message }, 500);
+      console.log(`[admin-ops] cancel_failed: ${data?.length ?? 0} jobs cancelled by ${user.id}`);
+      return json({ success: true, count: data?.length ?? 0 });
+    }
+
+    return json({
+      error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health | freeze_package | unfreeze_package | enqueue_job | set_provider_pause | set_provider_concurrency | set_hard_stop | retry_rate_limited | cancel_failed",
+    }, 400);
   } catch (e) {
     console.error("[admin-ops] error", e);
     return json({ error: String((e as Error)?.message || e) }, 500);
