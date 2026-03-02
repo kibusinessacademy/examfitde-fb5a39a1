@@ -26164,6 +26164,10 @@ export type Database = {
           total: number
         }[]
       }
+      get_learning_content_progress: {
+        Args: { p_min_chars?: number; p_package_id: string }
+        Returns: Json
+      }
       get_lesson_minichecks: { Args: { p_lesson_id: string }; Returns: Json }
       get_lessons_needing_review: {
         Args: { p_course_id?: string }

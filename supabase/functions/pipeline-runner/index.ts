@@ -70,6 +70,26 @@ async function safeQuery(promise: PromiseLike<unknown>, label?: string) {
   }
 }
 
+interface LearningContentProgress {
+  ok: boolean;
+  package_id?: string;
+  course_id?: string;
+  total?: number;
+  real?: number;
+  placeholder?: number;
+}
+
+async function getLearningContentProgress(
+  sb: ReturnType<typeof createClient>,
+  packageId: string,
+): Promise<LearningContentProgress | null> {
+  const { data } = await sb.rpc("get_learning_content_progress", {
+    p_package_id: packageId,
+    p_min_chars: 200,
+  });
+  return (data as LearningContentProgress | null) ?? null;
+}
+
 interface StepRow {
   step_key: string;
   status: string;
@@ -283,6 +303,21 @@ async function processPackage(
       console.error(`[runner] Bootstrap error for ${shortId}:`, (buildErr as Error).message);
       await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
       return { packageId, error: `bootstrap_error: ${(buildErr as Error).message}` };
+    }
+  }
+
+  // ── Guardrail: prevent premature exhaustion for long-running learning generation ──
+  {
+    const learningStep = (steps ?? []).find((s: StepRow) => s.step_key === "generate_learning_content");
+    if (learningStep && (learningStep.max_attempts ?? 0) < 20) {
+      await safeQuery(
+        sb.from("package_steps")
+          .update({ max_attempts: 20 })
+          .eq("package_id", packageId)
+          .eq("step_key", "generate_learning_content"),
+        "raise_generate_learning_content_max_attempts",
+      );
+      learningStep.max_attempts = 20;
     }
   }
 
@@ -922,6 +957,57 @@ async function processPackage(
       }
 
       if (result.batch_complete === false && result.batch_cursor) {
+        if (stepKey === "generate_learning_content") {
+          const beforeReal = Number(currentStep?.meta?.last_real_count ?? 0);
+          const progress = await getLearningContentProgress(sb, packageId);
+          const afterReal = Number(progress?.real ?? 0);
+          const afterTotal = Number(progress?.total ?? 0);
+          const progressed = (progress?.ok === true) && afterReal > beforeReal;
+
+          let resetAttempts = progressed;
+          let statusNote = progressed
+            ? `Progress: ${beforeReal}→${afterReal}/${afterTotal}`
+            : `No measurable progress (${afterReal}/${afterTotal})`;
+
+          if (!progressed && pkg.course_id) {
+            const { data: flightCheck } = await sb.rpc("check_lesson_writes_in_flight", {
+              p_course_id: progress?.course_id ?? pkg.course_id,
+              p_window_minutes: 5,
+            });
+            const inFlight = flightCheck as { in_flight: boolean; recent_writes: number } | null;
+            if (inFlight?.in_flight) {
+              resetAttempts = true;
+              statusNote = `Deferred: writes in-flight (${inFlight.recent_writes})`;
+            }
+          }
+
+          await safeQuery(
+            sb.from("package_steps")
+              .update({
+                status: "queued",
+                job_id: null,
+                runner_id: null,
+                attempts: resetAttempts ? 0 : currentStep?.attempts ?? 0,
+                meta: {
+                  ...(currentStep?.meta ?? {}),
+                  batch_cursor: result.batch_cursor,
+                  last_progress_at: progressed ? new Date().toISOString() : currentStep?.meta?.last_progress_at ?? null,
+                  last_real_count: afterReal,
+                  last_total_count: afterTotal,
+                  last_progress_note: statusNote,
+                },
+                last_error: statusNote,
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", stepKey),
+            "learning_batch_progress_update",
+          );
+
+          console.log(`[runner] 🔄 Step ${stepKey} batch incomplete — re-queued (${statusNote})`);
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return { packageId, stepKey, batch_continue: true, progressed, afterReal, afterTotal };
+        }
+
         await safeQuery(
           sb.from("package_steps")
             .update({
@@ -1084,6 +1170,34 @@ async function processPackage(
           );
           await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
           return { packageId, stepKey, fan_out_guard: true, pending_sub_jobs: pendingSubJobs };
+        }
+      }
+
+      if (stepKey === "generate_learning_content") {
+        const progress = await getLearningContentProgress(sb, packageId);
+        const total = Number(progress?.total ?? 0);
+        const real = Number(progress?.real ?? 0);
+        const isComplete = progress?.ok === true && total > 0 && real >= total;
+
+        if (!isComplete) {
+          await safeQuery(
+            sb.from("package_steps").update({
+              status: "queued",
+              job_id: null,
+              runner_id: null,
+              attempts: real > Number(currentStep?.meta?.last_real_count ?? 0) ? 0 : currentStep?.attempts ?? 0,
+              meta: {
+                ...(currentStep?.meta ?? {}),
+                last_real_count: real,
+                last_total_count: total,
+                last_progress_at: real > Number(currentStep?.meta?.last_real_count ?? 0) ? new Date().toISOString() : currentStep?.meta?.last_progress_at ?? null,
+              },
+              last_error: `Completion guard: ${real}/${total} real lessons`,
+            }).eq("package_id", packageId).eq("step_key", stepKey),
+            "learning_completion_guard",
+          );
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return { packageId, stepKey, completion_guard_deferred: true, real, total };
         }
       }
 
