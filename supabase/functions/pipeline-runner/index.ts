@@ -473,6 +473,11 @@ async function processPackage(
       if (!step) continue;
       if (!["queued", "running", "enqueued"].includes(step.status)) continue;
 
+      // GHOST GUARD: Never finalize a step that was never started
+      if (!step.started_at) {
+        continue;
+      }
+
       const meta = (step.meta ?? {}) as any;
       const cond = rule.shouldFinalize(meta);
       if (!cond.ok) continue;
@@ -745,7 +750,25 @@ async function processPackage(
     const allDone = statuses.length > 0 && statuses.every((s: string) => s === "done" || s === "skipped");
 
     if (allDone) {
-      await safeQuery(sb.from("course_packages").update({ status: "published" }).eq("id", packageId));
+      // GHOST GUARD: Verify at least SOME steps were actually executed (have started_at)
+      const executedSteps = (steps ?? []).filter((s: StepRow) => s.started_at !== null);
+      if (executedSteps.length === 0) {
+        console.error(`[runner] 🚨 GHOST COMPLETION BLOCKED: All ${statuses.length} steps "done" but NONE were ever started for ${shortId}`);
+        await safeQuery(sb.from("course_packages").update({ 
+          status: "quality_gate_failed", 
+          blocked_reason: "GHOST_COMPLETION: All steps done but none were ever executed" 
+        }).eq("id", packageId));
+        await safeQuery(sb.from("admin_notifications").insert({
+          title: `🚨 Ghost Completion blockiert: ${shortId}`,
+          body: `Alle ${statuses.length} Steps als "done" markiert aber keiner wurde je gestartet. Paket auf quality_gate_failed gesetzt.`,
+          category: "ops", severity: "error",
+          entity_type: "course_package", entity_id: packageId,
+        }));
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, ghost_completion_blocked: true, steps: statuses.length };
+      }
+
+      await safeQuery(sb.from("course_packages").update({ status: "done" }).eq("id", packageId));
       console.log(`[runner] Package ${shortId} → done`);
 
       // 🚀 Backfill: keep active pipeline pool at TARGET_POOL_SIZE

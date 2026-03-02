@@ -212,8 +212,9 @@ Deno.serve(async (req) => {
     // ── Define pipeline steps (sequential per STEP_ORDER) ──
     // Phase 1: Scaffold + Content Generation
     const contentSteps: Array<{ step_key: string; job_type: string }> = [];
+    // ALWAYS include scaffolding — even EXAM_FIRST needs course structure
+    contentSteps.push({ step_key: "scaffold_learning_course", job_type: "package_scaffold_learning_course" });
     if (opts.include_learning_course) {
-      contentSteps.push({ step_key: "scaffold_learning_course", job_type: "package_scaffold_learning_course" });
       contentSteps.push({ step_key: "generate_glossary", job_type: "package_generate_glossary" });
       contentSteps.push({ step_key: "generate_learning_content", job_type: "package_generate_learning_content" });
       contentSteps.push({ step_key: "validate_learning_content", job_type: "package_validate_learning_content" });
