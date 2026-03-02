@@ -15,6 +15,7 @@ import {
   AlertTriangle, BookOpen, FileText, Brain, Mic, Package, TrendingUp, Zap,
   ShieldAlert, Wrench, Server,
 } from 'lucide-react';
+import { deriveStepProgress } from '@/lib/pipeline-steps';
 import ForensikPanel from './ForensikPanel';
 import StepDurationPanel from './StepDurationPanel';
 
@@ -44,23 +45,23 @@ function ContentIcon({ ok, partial }: { ok: boolean; partial?: boolean }) {
 }
 
 function PackageRow({ pkg }: { pkg: PipelinePackage }) {
-  const stepsLabel = `${pkg.steps_done}/16`;
-  const isStuck = pkg.steps_running === 0 && pkg.steps_failed === 0 && pkg.steps_done < 16;
+  const { progress, currentLabel, isActive } = deriveStepProgress(pkg.step_status_json as Record<string, string> | null);
+  const stepsLabel = `${currentLabel}`;
   const lastUpdate = new Date(pkg.updated_at);
   const ageMin = Math.round((Date.now() - lastUpdate.getTime()) / 60000);
-  const staleWarning = ageMin > 120;
+  const staleWarning = ageMin > 120 && !isActive;
 
   return (
     <TableRow className={cn(
       pkg.steps_failed > 0 && 'bg-destructive/5',
-      pkg.steps_running > 0 && 'bg-primary/5',
+      isActive && 'bg-primary/5',
     )}>
       <TableCell className="font-medium text-sm max-w-[200px] truncate">{pkg.name}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1.5">
-          {pkg.steps_running > 0 ? (
+          {isActive ? (
             <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">
-              <Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Step {(pkg.current_step || 0) + 1}
+              <Loader2 className="h-3 w-3 mr-0.5 animate-spin" />{currentLabel}
             </Badge>
           ) : staleWarning ? (
             <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px]">
@@ -76,8 +77,8 @@ function PackageRow({ pkg }: { pkg: PipelinePackage }) {
       <TableCell className="text-center"><ContentIcon ok={pkg.step_generate_handbook === 'done' && pkg.step_validate_handbook === 'done'} partial={pkg.step_generate_handbook === 'done'} /></TableCell>
       <TableCell className="text-right">
         <div className="flex items-center gap-1.5 justify-end">
-          <Progress value={pkg.build_progress} className="h-1.5 w-14" />
-          <span className="text-xs font-mono text-muted-foreground w-8 text-right">{pkg.build_progress}%</span>
+          <Progress value={progress} className="h-1.5 w-14" />
+          <span className="text-xs font-mono text-muted-foreground w-8 text-right">{progress}%</span>
         </div>
       </TableCell>
     </TableRow>
@@ -85,6 +86,7 @@ function PackageRow({ pkg }: { pkg: PipelinePackage }) {
 }
 
 function PackageCard({ pkg }: { pkg: PipelinePackage }) {
+  const { progress, currentLabel } = deriveStepProgress(pkg.step_status_json as Record<string, string> | null);
   return (
     <div className={cn(
       "border rounded-lg p-3 space-y-2",
@@ -93,9 +95,10 @@ function PackageCard({ pkg }: { pkg: PipelinePackage }) {
     )}>
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium text-sm truncate">{pkg.name}</span>
-        <span className="text-xs font-mono text-muted-foreground">{pkg.build_progress}%</span>
+        <span className="text-xs font-mono text-muted-foreground">{progress}%</span>
       </div>
-      <Progress value={pkg.build_progress} className="h-1.5" />
+      <Progress value={progress} className="h-1.5" />
+      <div className="text-[10px] text-muted-foreground text-center">{currentLabel}</div>
       <div className="grid grid-cols-3 gap-1 text-[10px] text-center text-muted-foreground">
         <div><ContentIcon ok={pkg.step_generate_oral === 'done' && pkg.step_validate_oral === 'done'} partial={pkg.step_generate_oral === 'done'} /><br/>Oral</div>
         <div><ContentIcon ok={pkg.step_build_tutor === 'done' && pkg.step_validate_tutor === 'done'} partial={pkg.step_build_tutor === 'done'} /><br/>Tutor</div>

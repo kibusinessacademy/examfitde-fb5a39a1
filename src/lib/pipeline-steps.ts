@@ -160,3 +160,26 @@ export function getStepLabel(key: string): string {
 export function getStepShortLabel(key: string): string {
   return isPipelineStepKey(key) ? PIPELINE_STEP_SHORT_LABELS[key] : key;
 }
+
+/**
+ * Derive real progress & current step from step_status_json (SSOT).
+ * Never trust course_packages.build_progress / current_step — they can be stale.
+ */
+export function deriveStepProgress(stepStatuses: Record<string, string> | null | undefined) {
+  const statuses = stepStatuses || {};
+  // Only count steps that actually exist in this package's status map
+  const packageSteps = FULL_STEP_ORDER.filter(k => k in statuses);
+  const total = packageSteps.length || 1;
+  const doneCount = packageSteps.filter(k => statuses[k] === 'done' || statuses[k] === 'skipped').length;
+  const progress = Math.round((doneCount / total) * 100);
+
+  // Current step = first step that is running/enqueued, or the first non-done step
+  const activeStep = packageSteps.find(k => statuses[k] === 'running' || statuses[k] === 'enqueued');
+  const nextStep = activeStep || packageSteps.find(k => statuses[k] !== 'done' && statuses[k] !== 'skipped');
+  const currentLabel = nextStep
+    ? (isPipelineStepKey(nextStep) ? PIPELINE_STEP_SHORT_LABELS[nextStep] : nextStep)
+    : (doneCount >= total ? 'Fertig' : '—');
+  const isActive = !!activeStep;
+
+  return { progress, currentLabel, isActive, doneCount, total, activeStepKey: activeStep || null };
+}
