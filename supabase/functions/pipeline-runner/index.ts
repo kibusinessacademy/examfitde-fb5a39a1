@@ -964,22 +964,23 @@ async function processPackage(
           const afterTotal = Number(progress?.total ?? 0);
           const progressed = (progress?.ok === true) && afterReal > beforeReal;
 
-          let resetAttempts = progressed;
-          let statusNote = progressed
-            ? `Progress: ${beforeReal}→${afterReal}/${afterTotal}`
-            : `No measurable progress (${afterReal}/${afterTotal})`;
-
-          if (!progressed && pkg.course_id) {
+          // Fix 1: use progress.course_id (from RPC) instead of pkg.course_id
+          // Fix 2: explicit Boolean() to prevent truthy drift
+          let inFlight: { in_flight: boolean; recent_writes: number } | null = null;
+          if (!progressed && progress?.ok && progress.course_id) {
             const { data: flightCheck } = await sb.rpc("check_lesson_writes_in_flight", {
-              p_course_id: progress?.course_id ?? pkg.course_id,
+              p_course_id: progress.course_id,
               p_window_minutes: 5,
             });
-            const inFlight = flightCheck as { in_flight: boolean; recent_writes: number } | null;
-            if (inFlight?.in_flight) {
-              resetAttempts = true;
-              statusNote = `Deferred: writes in-flight (${inFlight.recent_writes})`;
-            }
+            inFlight = (flightCheck as { in_flight: boolean; recent_writes: number } | null) ?? null;
           }
+
+          const shouldResetAttempts = Boolean(progressed) || Boolean(inFlight?.in_flight);
+          const statusNote = progressed
+            ? `Progress: ${beforeReal}→${afterReal}/${afterTotal}`
+            : inFlight?.in_flight
+              ? `Deferred: writes in-flight (${inFlight.recent_writes})`
+              : `No measurable progress (${afterReal}/${afterTotal})`;
 
           await safeQuery(
             sb.from("package_steps")
@@ -987,7 +988,7 @@ async function processPackage(
                 status: "queued",
                 job_id: null,
                 runner_id: null,
-                attempts: resetAttempts ? 0 : currentStep?.attempts ?? 0,
+                attempts: shouldResetAttempts ? 0 : (currentStep?.attempts ?? 0),
                 meta: {
                   ...(currentStep?.meta ?? {}),
                   batch_cursor: result.batch_cursor,
@@ -996,7 +997,8 @@ async function processPackage(
                   last_total_count: afterTotal,
                   last_progress_note: statusNote,
                 },
-                last_error: statusNote,
+                // Fix 3: only write real errors to last_error, not "deferred" notes
+                last_error: shouldResetAttempts ? null : statusNote,
               })
               .eq("package_id", packageId)
               .eq("step_key", stepKey),
