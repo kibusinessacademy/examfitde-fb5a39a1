@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
 import { loadMathRatio } from "../_shared/math-ratio.ts";
+import { handleDbFailure } from "../_shared/job-fail.ts";
 
 /**
  * pool-rework — Scheduled Batch Job: Incremental Quality Upgrades (PLANNER)
@@ -237,7 +238,11 @@ Deno.serve(async (req) => {
             ].slice(0, toDelete);
 
             for (let i = 0; i < ids.length; i += 50) {
-              await sb.from("exam_questions").delete().in("id", ids.slice(i, i + 50));
+              const { error: delErr } = await sb.from("exam_questions").delete().in("id", ids.slice(i, i + 50));
+              if (delErr) {
+                const r = await handleDbFailure({ supabase: sb }, delErr);
+                if (r?.permanent) return json(r, 422);
+              }
             }
             totalDeleted += toDelete;
             console.log(`[pool-rework] DIFF_DELETE: ${toDelete} surplus "${diff}" removed (non-approved first)`);
@@ -293,7 +298,11 @@ Deno.serve(async (req) => {
         }).then(() => {}).catch(() => {});
 
         for (let i = 0; i < ids.length; i += 50) {
-          await sb.from("exam_questions").delete().in("id", ids.slice(i, i + 50));
+          const { error: delErr } = await sb.from("exam_questions").delete().in("id", ids.slice(i, i + 50));
+          if (delErr) {
+            const r = await handleDbFailure({ supabase: sb }, delErr);
+            if (r?.permanent) return json(r, 422);
+          }
         }
         report.qcReplace.deleted = ids.length;
 
