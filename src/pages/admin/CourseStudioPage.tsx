@@ -37,7 +37,7 @@ function PackageList({ onSelect }: { onSelect: (id: string) => void }) {
 
   const handleCreate = () => {
     if (!certId || !title) return;
-    createPackage.mutate({ certificationId: certId, title }, {
+    createPackage.mutate({ certificationId: certId, curriculumId: certId, title }, {
       onSuccess: (pkg) => onSelect(pkg.id),
     });
   };

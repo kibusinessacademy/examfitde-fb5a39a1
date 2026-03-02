@@ -81,11 +81,12 @@ export function useCoursePackages() {
   });
 
   const createPackage = useMutation({
-    mutationFn: async (params: { certificationId: string; title: string; components?: Record<string, boolean> }) => {
+    mutationFn: async (params: { certificationId: string; curriculumId: string; title: string; components?: Record<string, boolean> }) => {
       const { data, error } = await supabase
         .from('course_packages')
         .insert({
           certification_id: params.certificationId,
+          curriculum_id: params.curriculumId,
           title: params.title,
           components: params.components || {
             learning_course: true,
@@ -94,7 +95,7 @@ export function useCoursePackages() {
             ai_tutor: true,
             handbook: true,
           },
-        })
+        } as any)
         .select('*')
         .single();
       if (error) throw error;
