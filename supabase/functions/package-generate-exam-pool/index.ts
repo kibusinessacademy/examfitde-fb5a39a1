@@ -14,6 +14,7 @@ import { loadOrGenerateGlossary, formatGlossaryForPrompt } from "../_shared/glos
 import { EXPLANATION_TEMPLATE, CALCULATION_GUARD, REGULATORY_GUARD, computeHallucinationRisk, computeVariationScore, loadMasteryContext, buildMasteryFeedbackSuffix } from "../_shared/prompt-kit.ts";
 import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
 import { getTimeBudget, shouldSoftStop } from "../_shared/time-budget.ts";
+import { handleDbFailure } from "../_shared/job-fail.ts";
 
 /**
  * DOMINANZ-ENGINE v5: IHK-REALISTIC QUALITY GATES
@@ -884,8 +885,15 @@ async function generateTurboQuestions(
         time_estimate_seconds: resolvedTimeEstimate,
         typical_errors: resolvedTypicalErrors.length > 0 ? resolvedTypicalErrors : null,
       });
-      if (error && error.code !== "23505") console.log(`[ExamPool-v5] Insert error: ${error.message}`);
-      if (!error) gateFailed++;
+      if (error) {
+        if (error.code === "23505") { /* duplicate, skip */ }
+        else {
+          const r = await handleDbFailure({ supabase: sb }, error);
+          if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
+        }
+      } else {
+        gateFailed++;
+      }
       continue;
     }
 
@@ -923,7 +931,10 @@ async function generateTurboQuestions(
 
     if (error) {
       if (error.code === "23505") { /* duplicate, skip */ }
-      else console.log(`[ExamPool-v5] Insert error: ${error.message}`);
+      else {
+        const r = await handleDbFailure({ supabase: sb }, error);
+        if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
+      }
     } else {
       if (assignedPool === "exam") saved++;
       else training++;

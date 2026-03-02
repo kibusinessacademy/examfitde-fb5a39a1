@@ -4,6 +4,7 @@ import { checkContamination } from "../_shared/contamination-guard.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModel } from "../_shared/model-routing.ts";
+import { handleDbFailure } from "../_shared/job-fail.ts";
 
 /**
  * package-validate-exam-pool — Pipeline Step (after generate_exam_pool)
@@ -348,7 +349,11 @@ Deno.serve(async (req) => {
       // Batch flag failed questions
       for (let i = 0; i < pageFailed.length; i += 50) {
         const chunk = pageFailed.slice(i, i + 50);
-        await sb.from("exam_questions").update({ qc_status: "tier1_failed" }).in("id", chunk);
+        const { error: uErr } = await sb.from("exam_questions").update({ qc_status: "tier1_failed" }).in("id", chunk);
+        if (uErr) {
+          const r = await handleDbFailure({ supabase: sb, packageId: packageId ?? null, stepKey: "validate_exam_pool" }, uErr);
+          if (r?.permanent) return json(r, 422);
+        }
       }
 
       t1Stats.failIds.push(...pageFailed);
@@ -432,9 +437,13 @@ Deno.serve(async (req) => {
         consecutiveRateLimits++;
       } else {
         consecutiveRateLimits = 0;
-        await sb.from("exam_questions").update({
+        const { error: uErr } = await sb.from("exam_questions").update({
           qc_status: result.decision === "approve" ? "approved" : "needs_revision",
         }).eq("id", q.id);
+        if (uErr) {
+          const r = await handleDbFailure({ supabase: sb, packageId: packageId ?? null, stepKey: "validate_exam_pool" }, uErr);
+          if (r?.permanent) return json(r, 422);
+        }
       }
 
       await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
@@ -459,7 +468,11 @@ Deno.serve(async (req) => {
     for (let i = 0; i < passedNotSampled.length; i += 100) {
       if (timeLeft() < 3_000) break;
       const chunk = passedNotSampled.slice(i, i + 100);
-      await sb.from("exam_questions").update({ qc_status: "tier1_passed" }).in("id", chunk);
+      const { error: uErr } = await sb.from("exam_questions").update({ qc_status: "tier1_passed" }).in("id", chunk);
+      if (uErr) {
+        const r = await handleDbFailure({ supabase: sb, packageId: packageId ?? null, stepKey: "validate_exam_pool" }, uErr);
+        if (r?.permanent) return json(r, 422);
+      }
     }
   }
 
