@@ -25125,10 +25125,16 @@ export type Database = {
       auto_link_certification_documents: { Args: never; Returns: number }
       auto_ops_cycle: { Args: never; Returns: Json }
       auto_provision_all_curricula: { Args: never; Returns: Json }
-      auto_recover_exhausted_content_step: {
-        Args: { p_package_id: string }
-        Returns: Json
-      }
+      auto_recover_exhausted_content_step:
+        | { Args: { p_package_id: string }; Returns: Json }
+        | {
+            Args: {
+              p_min_content_chars?: number
+              p_package_id: string
+              p_ready_ratio?: number
+            }
+            Returns: Json
+          }
       auto_retry_stuck_package: {
         Args: { p_package_id: string }
         Returns: number
