@@ -20,6 +20,18 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+function isPermanentStepFailure(step: any): boolean {
+  const meta = (step?.meta ?? {}) as Record<string, unknown>;
+  const cls = String(meta?.last_error_class ?? "");
+  if (cls === "permanent") return true;
+  const kind = String(meta?.last_error_kind ?? "");
+  if (["check_violation", "not_null_violation", "foreign_key_violation", "rls_denied", "unique_violation"].includes(kind)) return true;
+  const lastErr = String(step?.last_error ?? "");
+  if (lastErr.toUpperCase().includes("SSOT_GUARD")) return true;
+  if (lastErr.toUpperCase().includes("HTTP 422 PERMANENT")) return true;
+  return false;
+}
+
 // inferBackoffSeconds imported from _shared/job-map.ts
 
 async function safeRpc(
@@ -465,18 +477,42 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Check for queued/failed steps that can be retried
-      const { count: retryableSteps } = await sb
+      // ── Permanent step failures must NOT be retried ───────────────────
+      const { data: failedSteps } = await sb
         .from("package_steps")
-        .select("step_key", { count: "exact", head: true })
+        .select("step_key, status, meta, last_error")
+        .eq("package_id", pkg.id)
+        .eq("status", "failed");
+
+      const permanentFailed = (failedSteps || []).filter(isPermanentStepFailure);
+      if (permanentFailed.length > 0) {
+        const reason = `Permanent SSOT guard failure in step(s): ${permanentFailed
+          .slice(0, 5)
+          .map((s: any) => s.step_key)
+          .join(", ")}${permanentFailed.length > 5 ? "…" : ""}`;
+        await sb.from("course_packages").update({ stuck_reason: reason }).eq("id", pkg.id);
+        results.push({ package_id: pkg.id, retried: 0, reason: `Marked stuck: ${reason}` });
+        continue;
+      }
+
+      // Check for queued/failed steps that can be retried
+      const { data: candidateSteps } = await sb
+        .from("package_steps")
+        .select("step_key, status, meta, last_error")
         .eq("package_id", pkg.id)
         .in("status", ["queued", "failed"]);
 
-      if ((retryableSteps ?? 0) > 0) {
+      const retryableSteps = (candidateSteps || []).filter((s: any) => {
+        if (s.status === "queued") return true;
+        if (s.status === "failed") return !isPermanentStepFailure(s);
+        return false;
+      });
+
+      if (retryableSteps.length > 0) {
         if (pkg.stuck_reason) {
           await sb.from("course_packages").update({ stuck_reason: null }).eq("id", pkg.id);
         }
-        results.push({ package_id: pkg.id, retried: 0, reason: `Has ${retryableSteps} retryable steps — will be picked up by runner` });
+        results.push({ package_id: pkg.id, retried: 0, reason: `Has ${retryableSteps.length} retryable steps — will be picked up by runner` });
         continue;
       }
 
