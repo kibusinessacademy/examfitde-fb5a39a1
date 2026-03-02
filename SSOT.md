@@ -88,11 +88,17 @@ const LESSON_STEPS = [
 
 ### Regeln
 
-| Feld | Pflicht |
-|------|---------|
-| `curriculum_id` | ✅ Pflicht |
-| `learning_field_id` | ⚠️ Optional |
-| `competency_id` | ⚠️ Optional |
+| Feld | Pflicht (approved) | DB-Guard |
+|------|-------------------|----------|
+| `curriculum_id` | ✅ Pflicht | `exam_questions_approved_requires_curriculum` |
+| `learning_field_id` | ✅ Pflicht | `exam_questions_approved_requires_lf` |
+| `competency_id` | ✅ Pflicht | `exam_questions_approved_requires_competency` |
+| `difficulty` | ✅ Pflicht | `exam_questions_approved_requires_difficulty` |
+| `cognitive_level` | ✅ Pflicht | `exam_questions_approved_requires_bloom` |
+| `question_text` | ✅ Pflicht (>10 chars) | `exam_questions_approved_requires_text` |
+| `correct_answer` | ✅ Pflicht | `exam_questions_approved_requires_answer` |
+
+> 🔒 **7 CHECK Constraints** auf DB-Ebene machen es physisch unmöglich, eine Frage ohne vollständige SSOT-Felder auf `approved` zu setzen.
 
 ### Status-Workflow
 
@@ -106,6 +112,14 @@ draft → review → approved | rejected
 
 ```typescript
 const DIFFICULTIES = ['easy', 'medium', 'hard', 'very_hard'] as const;
+```
+
+> `very_hard`: Seltene, stark prüfungsnahe Transfer-/Fallenfragen. Nicht Standard-Default.
+
+### Bloom Cognitive Levels (SSOT)
+
+```typescript
+const COGNITIVE_LEVELS = ['remember', 'understand', 'apply', 'analyze', 'evaluate'] as const;
 ```
 
 ---
