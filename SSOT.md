@@ -101,6 +101,11 @@ const LESSON_STEPS = [
 > 🔒 **7 CHECK Constraints** auf DB-Ebene machen es physisch unmöglich, eine Frage ohne vollständige SSOT-Felder auf `approved` zu setzen.
 
 > ⚠️ `learning_field_id` ist redundant gespeichert (SSOT ist `competencies.learning_field_id`). Wert muss bei Insert/Update konsistent gehalten werden (write-once, dann immutable).
+> Empfehlung: Beim Schreiben immer aus `competency_id` ableiten (serverseitig) und bei Updates entweder blocken oder automatisch korrigieren.
+
+**Konsistenzregel:** Für `approved` gilt: `exam_questions.learning_field_id` MUSS dem Join `competencies.learning_field_id` entsprechen.
+**Schreibregel:** `learning_field_id` wird serverseitig gesetzt (aus `competency_id`) und nach `approved` nicht mehr verändert.
+**DB-Trigger:** `exam_questions_enforce_learning_field_id` setzt `learning_field_id` automatisch aus `competency_id` und blockt Änderungen an `competency_id`/`learning_field_id` nach `approved`.
 
 ### Status-Workflow
 
