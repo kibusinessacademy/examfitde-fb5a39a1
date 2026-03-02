@@ -467,21 +467,29 @@ Deno.serve(async (req) => {
     for (const pkg of (qgFailedPkgs || [])) {
       qgSeenCount++;
 
-      // Hard guard: immutable/published legacy packages are NOT executable.
-      // Never auto-heal/re-enqueue them, otherwise we create failing job storms.
-      const isImmutableLegacy = !!pkg.published_at || String(pkg.blocked_reason || "").includes("LEGACY_VIOLATION");
-      if (isImmutableLegacy) {
+      // Hard guard: truly immutable packages (published AND NOT qg-failed) are NOT executable.
+      // But: packages that WERE published and then demoted to quality_gate_failed by the
+      // publish-readiness gate SHOULD be healable — their published_at is stale/invalid.
+      const hasLegacyViolation = String(pkg.blocked_reason || "").includes("LEGACY_VIOLATION");
+      if (hasLegacyViolation) {
         qgSkippedCount++;
-        console.log(`[watchdog] QG-heal skip immutable pkg=${(pkg.id as string).slice(0, 8)} published_at=${pkg.published_at ? "set" : "null"}`);
+        console.log(`[watchdog] QG-heal skip LEGACY_VIOLATION pkg=${(pkg.id as string).slice(0, 8)}`);
         continue;
+      }
+
+      // Clear stale published_at if present — the package is NOT published anymore
+      if (pkg.published_at) {
+        await sb.from("course_packages").update({ published_at: null }).eq("id", pkg.id);
+        console.log(`[watchdog] QG-heal: cleared stale published_at for pkg=${(pkg.id as string).slice(0, 8)}`);
       }
 
       const report = pkg.integrity_report as any;
       const hardFails: string[] = report?.v3?.hard_fail_reasons || [];
 
       if (hardFails.length === 0) {
-        qgSkippedCount++;
-        continue; // No known failures, skip
+        // No structured failures — try generic re-run of integrity + council
+        console.log(`[watchdog] QG-heal: no hard_fail_reasons for pkg=${(pkg.id as string).slice(0, 8)}, doing generic retry`);
+        // Fall through to generic case below instead of skipping
       }
 
       // Determine which steps need re-queuing based on failure type
