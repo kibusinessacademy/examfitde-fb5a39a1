@@ -975,12 +975,24 @@ async function processPackage(
             inFlight = (flightCheck as { in_flight: boolean; recent_writes: number } | null) ?? null;
           }
 
-          const shouldResetAttempts = Boolean(progressed) || Boolean(inFlight?.in_flight);
+          // ── Stall-aware attempt management ──
+          const prevStall = Number((currentStep?.meta as Record<string, unknown>)?.stall_runs ?? 0) || 0;
+          const isStall = !progressed && !inFlight?.in_flight;
+          const stallRuns = progressed ? 0 : (inFlight?.in_flight ? prevStall : prevStall + 1);
+          const shouldConsumeAttempt = isStall && stallRuns >= 4;
+
+          const nextAttempts = progressed || inFlight?.in_flight
+            ? 0
+            : shouldConsumeAttempt
+              ? (currentStep?.attempts ?? 0) + 1
+              : (currentStep?.attempts ?? 0);
+
+          const deltaReal = afterReal - beforeReal;
           const statusNote = progressed
-            ? `Progress: ${beforeReal}→${afterReal}/${afterTotal}`
+            ? `Progress: ${beforeReal}→${afterReal}/${afterTotal} (+${deltaReal})`
             : inFlight?.in_flight
               ? `Deferred: writes in-flight (${inFlight.recent_writes})`
-              : `No measurable progress (${afterReal}/${afterTotal})`;
+              : `Stall ${stallRuns}/4 — no progress (${afterReal}/${afterTotal})`;
 
           await safeQuery(
             sb.from("package_steps")
@@ -988,26 +1000,43 @@ async function processPackage(
                 status: "queued",
                 job_id: null,
                 runner_id: null,
-                attempts: shouldResetAttempts ? 0 : (currentStep?.attempts ?? 0),
+                attempts: nextAttempts,
                 meta: {
                   ...(currentStep?.meta ?? {}),
                   batch_cursor: result.batch_cursor,
-                  last_progress_at: progressed ? new Date().toISOString() : currentStep?.meta?.last_progress_at ?? null,
+                  last_progress_at: progressed ? new Date().toISOString() : (currentStep?.meta as Record<string, unknown>)?.last_progress_at ?? null,
                   last_real_count: afterReal,
                   last_total_count: afterTotal,
                   last_progress_note: statusNote,
+                  stall_runs: stallRuns,
                 },
-                // Fix 3: only write real errors to last_error, not "deferred" notes
-                last_error: shouldResetAttempts ? null : statusNote,
+                last_error: (progressed || inFlight?.in_flight) ? null : statusNote,
               })
               .eq("package_id", packageId)
               .eq("step_key", stepKey),
             "learning_batch_progress_update",
           );
 
+          // ── Low-progress boost: if only a few lessons per run, enqueue higher-priority job ──
+          if (progressed && deltaReal > 0 && deltaReal < 5 && afterReal < afterTotal) {
+            console.log(`[runner] ⚡ Low-progress boost: only ${deltaReal} lessons this run, enqueuing priority boost`);
+            await safeQuery(
+              sb.from("job_queue").insert({
+                job_type: stepKey === "generate_learning_content" ? "package_generate_learning_content" : stepKey,
+                package_id: packageId,
+                status: "pending",
+                priority: 70,
+                payload: { package_id: packageId, reason: "low_progress_boost", real: afterReal, total: afterTotal },
+                worker_pool: "content",
+                max_attempts: 8,
+              }),
+              "enqueue_low_progress_boost",
+            );
+          }
+
           console.log(`[runner] 🔄 Step ${stepKey} batch incomplete — re-queued (${statusNote})`);
           await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-          return { packageId, stepKey, batch_continue: true, progressed, afterReal, afterTotal };
+          return { packageId, stepKey, batch_continue: true, progressed, afterReal, afterTotal, stallRuns };
         }
 
         await safeQuery(
