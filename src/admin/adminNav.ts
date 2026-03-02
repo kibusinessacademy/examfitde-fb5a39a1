@@ -74,15 +74,15 @@ export const adminNavModules: AdminNavItem[] = [
   },
   { path: '/admin/scale', label: 'Skalierung', icon: Layers, group: 'navigation' },
   {
-    path: '/admin/berufski', label: 'BerufsKI', icon: Sparkles, group: 'navigation',
+    path: '/admin/work', label: 'ExamFit@work', icon: Sparkles, group: 'navigation',
     children: [
-      { path: '/admin/berufski', label: 'Übersicht' },
-      { path: '/admin/berufski/pipeline', label: 'Auto-Pipeline' },
-      { path: '/admin/berufski/templates', label: 'Templates & Themes' },
-      { path: '/admin/berufski/bundles', label: 'Bundle Builder' },
-      { path: '/admin/berufski/licenses', label: 'Lizenzen' },
-      { path: '/admin/berufski/commerce', label: 'Commerce & Coupons' },
-      { path: '/admin/berufski/affiliates', label: 'Affiliate Dashboard' },
+      { path: '/admin/work', label: 'Übersicht' },
+      { path: '/admin/work/pipeline', label: 'Auto-Pipeline' },
+      { path: '/admin/work/templates', label: 'Templates & Themes' },
+      { path: '/admin/work/bundles', label: 'Bundle Builder' },
+      { path: '/admin/work/licenses', label: 'Lizenzen' },
+      { path: '/admin/work/commerce', label: 'Commerce & Coupons' },
+      { path: '/admin/work/affiliates', label: 'Affiliate Dashboard' },
     ],
   },
   {

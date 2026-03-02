@@ -190,12 +190,17 @@ export default function ReviewInboxPage() {
         .single();
 
       if (pkg?.course_id) {
-        await supabase.from('job_queue').insert({
-          job_type: 'package_auto_publish',
-          status: 'pending',
-          payload: { package_id: review.course_package_id, course_id: pkg.course_id },
-          max_attempts: 3,
-        } as any);
+        const { data: enqRes, error: enqErr } = await supabase.functions.invoke('admin-ops', {
+          body: {
+            action: 'enqueue_job',
+            job_type: 'package_auto_publish',
+            package_id: review.course_package_id,
+            course_id: pkg.course_id,
+            max_attempts: 3,
+          },
+        });
+        if (enqErr) throw new Error(enqErr.message || 'Failed to enqueue publish job');
+        if (enqRes?.error) throw new Error(enqRes.error);
       }
     },
     onSuccess: () => {
