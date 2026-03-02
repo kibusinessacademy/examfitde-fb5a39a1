@@ -720,9 +720,11 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         step_key: stepKeyCanonical,
         content_json: finalContent,
         created_by_agent: "generate-learning-content",
-        status: "under_review",
+        status: "approved",
         council_round: 1,
         entity_type: isMiniCheck ? "minicheck" : "lesson_step",
+        published_at: new Date().toISOString(),
+        published_by: "pipeline-auto-approve",
       }).select("id").single();
 
       if (vErr) {
