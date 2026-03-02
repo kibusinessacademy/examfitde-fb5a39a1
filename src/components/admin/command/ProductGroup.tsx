@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { Clock, Loader2, Pause, Snowflake } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PackageInfo, STEP_LABELS, STEP_ORDER } from './types';
+import { deriveStepProgress } from '@/lib/pipeline-steps';
 
 function getStatusBadge(status: string, priority?: number) {
   // Frozen = queued with priority >= 99 (enrichment block)
@@ -45,7 +46,7 @@ function StepBar({ stepStatuses }: { stepStatuses: Record<string, string> }) {
 
 function ProductCard({ pkg }: { pkg: PackageInfo }) {
   const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
-  const progress = pkg.build_progress || 0;
+  const { progress, currentLabel, isActive } = deriveStepProgress(pkg.step_status_json);
   return (
     <Link to={`/admin/studio/${pkg.id}`} className={cn("block rounded-lg border p-3 transition-colors active:bg-muted/50", pkg.status === 'building' && 'border-primary/30 bg-primary/5', pkg.status === 'failed' && 'border-destructive/30 bg-destructive/5')}>
       <div className="flex items-center justify-between gap-2 mb-2">
@@ -54,7 +55,7 @@ function ProductCard({ pkg }: { pkg: PackageInfo }) {
       </div>
       <StepBar stepStatuses={stepStatuses} />
       <div className="flex items-center justify-between mt-2">
-        <span className="text-[10px] text-muted-foreground">{pkg.current_step ? STEP_LABELS[pkg.current_step] || pkg.current_step : '—'}</span>
+        <span className={cn("text-[10px] text-muted-foreground", isActive && "text-primary font-medium")}>{currentLabel}</span>
         <div className="flex items-center gap-2"><Progress value={progress} className="h-1.5 w-16" /><span className="text-xs font-mono text-muted-foreground">{progress}%</span></div>
       </div>
     </Link>
@@ -63,7 +64,7 @@ function ProductCard({ pkg }: { pkg: PackageInfo }) {
 
 function ProductRow({ pkg }: { pkg: PackageInfo }) {
   const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
-  const progress = pkg.build_progress || 0;
+  const { progress } = deriveStepProgress(pkg.step_status_json);
   return (
     <TableRow className={cn(pkg.status === 'building' && 'bg-primary/5', pkg.status === 'failed' && 'bg-destructive/5')}>
       <TableCell className="pl-6"><Link to={`/admin/studio/${pkg.id}`} className="hover:underline font-medium text-sm">{getShortTitle(pkg)}</Link></TableCell>
