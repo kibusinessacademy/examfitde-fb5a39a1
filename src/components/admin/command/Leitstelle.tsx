@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity, CheckCircle2, Clock, DollarSign, Loader2, RefreshCw, XCircle,
-  AlertTriangle, BookOpen, FileText, Brain, Mic, Package, TrendingUp, Zap,
+  AlertTriangle, Package, TrendingUp, Zap,
   ShieldAlert, Wrench, Server,
 } from 'lucide-react';
 import { deriveStepProgress } from '@/lib/pipeline-steps';
@@ -38,22 +38,35 @@ function Metric({ icon, label, value, sub, alert }: {
   );
 }
 
-function ContentIcon({ ok, partial }: { ok: boolean; partial?: boolean }) {
-  if (ok) return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
+/** Derive content artefact status from step_status_json SSOT */
+function getStepOk(statuses: Record<string, string>, genKey: string, valKey: string) {
+  const gen = statuses[genKey];
+  const val = statuses[valKey];
+  const done = (gen === 'done' || gen === 'skipped') && (val === 'done' || val === 'skipped');
+  const partial = gen === 'done' || gen === 'skipped';
+  return { done, partial };
+}
+
+function ContentIcon({ done, partial }: { done: boolean; partial?: boolean }) {
+  if (done) return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
   if (partial) return <Clock className="h-3.5 w-3.5 text-amber-500" />;
   return <XCircle className="h-3.5 w-3.5 text-destructive" />;
 }
 
 function PackageRow({ pkg }: { pkg: PipelinePackage }) {
-  const { progress, currentLabel, isActive } = deriveStepProgress(pkg.step_status_json as Record<string, string> | null);
-  const stepsLabel = `${currentLabel}`;
+  const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
+  const { progress, currentLabel, isActive } = deriveStepProgress(stepStatuses);
   const lastUpdate = new Date(pkg.updated_at);
   const ageMin = Math.round((Date.now() - lastUpdate.getTime()) / 60000);
   const staleWarning = ageMin > 120 && !isActive;
 
+  const oral = getStepOk(stepStatuses, 'generate_oral_exam', 'validate_oral_exam');
+  const tutor = getStepOk(stepStatuses, 'build_ai_tutor_index', 'validate_tutor_index');
+  const handbook = getStepOk(stepStatuses, 'generate_handbook', 'validate_handbook');
+
   return (
     <TableRow className={cn(
-      pkg.steps_failed > 0 && 'bg-destructive/5',
+      Object.values(stepStatuses).some(s => s === 'failed') && 'bg-destructive/5',
       isActive && 'bg-primary/5',
     )}>
       <TableCell className="font-medium text-sm max-w-[200px] truncate">{pkg.name}</TableCell>
@@ -68,13 +81,13 @@ function PackageRow({ pkg }: { pkg: PipelinePackage }) {
               <AlertTriangle className="h-3 w-3 mr-0.5" />Wartend
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-[10px]">{stepsLabel}</Badge>
+            <Badge variant="outline" className="text-[10px]">{currentLabel}</Badge>
           )}
         </div>
       </TableCell>
-      <TableCell className="text-center"><ContentIcon ok={pkg.step_generate_oral === 'done' && pkg.step_validate_oral === 'done'} partial={pkg.step_generate_oral === 'done'} /></TableCell>
-      <TableCell className="text-center"><ContentIcon ok={pkg.step_build_tutor === 'done' && pkg.step_validate_tutor === 'done'} partial={pkg.step_build_tutor === 'done'} /></TableCell>
-      <TableCell className="text-center"><ContentIcon ok={pkg.step_generate_handbook === 'done' && pkg.step_validate_handbook === 'done'} partial={pkg.step_generate_handbook === 'done'} /></TableCell>
+      <TableCell className="text-center"><ContentIcon done={oral.done} partial={oral.partial} /></TableCell>
+      <TableCell className="text-center"><ContentIcon done={tutor.done} partial={tutor.partial} /></TableCell>
+      <TableCell className="text-center"><ContentIcon done={handbook.done} partial={handbook.partial} /></TableCell>
       <TableCell className="text-right">
         <div className="flex items-center gap-1.5 justify-end">
           <Progress value={progress} className="h-1.5 w-14" />
@@ -86,12 +99,20 @@ function PackageRow({ pkg }: { pkg: PipelinePackage }) {
 }
 
 function PackageCard({ pkg }: { pkg: PipelinePackage }) {
-  const { progress, currentLabel } = deriveStepProgress(pkg.step_status_json as Record<string, string> | null);
+  const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
+  const { progress, currentLabel } = deriveStepProgress(stepStatuses);
+  const hasFailed = Object.values(stepStatuses).some(s => s === 'failed');
+  const isActive = Object.values(stepStatuses).some(s => s === 'running' || s === 'enqueued');
+
+  const oral = getStepOk(stepStatuses, 'generate_oral_exam', 'validate_oral_exam');
+  const tutor = getStepOk(stepStatuses, 'build_ai_tutor_index', 'validate_tutor_index');
+  const handbook = getStepOk(stepStatuses, 'generate_handbook', 'validate_handbook');
+
   return (
     <div className={cn(
       "border rounded-lg p-3 space-y-2",
-      pkg.steps_failed > 0 && 'border-destructive/30 bg-destructive/5',
-      pkg.steps_running > 0 && 'border-primary/30 bg-primary/5',
+      hasFailed && 'border-destructive/30 bg-destructive/5',
+      isActive && 'border-primary/30 bg-primary/5',
     )}>
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium text-sm truncate">{pkg.name}</span>
@@ -100,9 +121,9 @@ function PackageCard({ pkg }: { pkg: PipelinePackage }) {
       <Progress value={progress} className="h-1.5" />
       <div className="text-[10px] text-muted-foreground text-center">{currentLabel}</div>
       <div className="grid grid-cols-3 gap-1 text-[10px] text-center text-muted-foreground">
-        <div><ContentIcon ok={pkg.step_generate_oral === 'done' && pkg.step_validate_oral === 'done'} partial={pkg.step_generate_oral === 'done'} /><br/>Oral</div>
-        <div><ContentIcon ok={pkg.step_build_tutor === 'done' && pkg.step_validate_tutor === 'done'} partial={pkg.step_build_tutor === 'done'} /><br/>Tutor</div>
-        <div><ContentIcon ok={pkg.step_generate_handbook === 'done' && pkg.step_validate_handbook === 'done'} partial={pkg.step_generate_handbook === 'done'} /><br/>Handb.</div>
+        <div><ContentIcon done={oral.done} partial={oral.partial} /><br/>Oral</div>
+        <div><ContentIcon done={tutor.done} partial={tutor.partial} /><br/>Tutor</div>
+        <div><ContentIcon done={handbook.done} partial={handbook.partial} /><br/>Handb.</div>
       </div>
     </div>
   );
@@ -167,44 +188,14 @@ export default function Leitstelle() {
 
       {/* Pipeline Overview – SSOT */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-        <Metric
-          icon={<Package className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="Gesamt" value={kpis.total_packages}
-          sub={`${kpis.published} live`}
-        />
-        <Metric
-          icon={<Server className="h-3.5 w-3.5 text-primary" />}
-          label="Build (Leases)" value={bm.active_by_leases}
-          sub="WIP-Slots"
-        />
-        <Metric
-          icon={<Zap className="h-3.5 w-3.5 text-primary" />}
-          label="Build (Jobs)" value={bm.active_by_jobs}
-          sub="Runner aktiv"
-        />
-        <Metric
-          icon={<Wrench className="h-3.5 w-3.5 text-destructive" />}
-          label="Zombies" value={bm.zombies}
-          alert={bm.zombies > 0}
-          sub={bm.zombies > 0 ? 'Fix nötig' : 'Sauber'}
-        />
-        <Metric
-          icon={<Clock className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="Queue" value={kpis.queued}
-        />
-        <Metric
-          icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
-          label="Published" value={kpis.published}
-        />
-        <Metric
-          icon={<XCircle className="h-3.5 w-3.5 text-destructive" />}
-          label="Failed" value={kpis.failed} alert={kpis.failed > 0}
-        />
-        <Metric
-          icon={<TrendingUp className="h-3.5 w-3.5 text-primary" />}
-          label="ETA Backlog" value={etaH > 0 ? `${etaH}h` : '—'}
-          sub={`${Math.round(throughputPerH)} Jobs/h`}
-        />
+        <Metric icon={<Package className="h-3.5 w-3.5 text-muted-foreground" />} label="Gesamt" value={kpis.total_packages} sub={`${kpis.published} live`} />
+        <Metric icon={<Server className="h-3.5 w-3.5 text-primary" />} label="Build (Leases)" value={bm.active_by_leases} sub="WIP-Slots" />
+        <Metric icon={<Zap className="h-3.5 w-3.5 text-primary" />} label="Build (Jobs)" value={bm.active_by_jobs} sub="Runner aktiv" />
+        <Metric icon={<Wrench className="h-3.5 w-3.5 text-destructive" />} label="Zombies" value={bm.zombies} alert={bm.zombies > 0} sub={bm.zombies > 0 ? 'Fix nötig' : 'Sauber'} />
+        <Metric icon={<Clock className="h-3.5 w-3.5 text-muted-foreground" />} label="Queue" value={kpis.queued} />
+        <Metric icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />} label="Published" value={kpis.published} />
+        <Metric icon={<XCircle className="h-3.5 w-3.5 text-destructive" />} label="Failed" value={kpis.failed} alert={kpis.failed > 0} />
+        <Metric icon={<TrendingUp className="h-3.5 w-3.5 text-primary" />} label="ETA Backlog" value={etaH > 0 ? `${etaH}h` : '—'} sub={`${Math.round(throughputPerH)} Jobs/h`} />
       </div>
 
       {/* Zombie Drawer Button */}
@@ -217,23 +208,10 @@ export default function Leitstelle() {
 
       {/* Job Queue + Cost */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <Metric
-          icon={<Clock className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="Jobs Pending" value={kpis.jobs_pending}
-        />
-        <Metric
-          icon={<Zap className="h-3.5 w-3.5 text-primary" />}
-          label="Processing" value={kpis.jobs_processing}
-        />
-        <Metric
-          icon={<XCircle className="h-3.5 w-3.5 text-destructive" />}
-          label="Jobs Failed" value={kpis.jobs_failed}
-          alert={kpis.jobs_failed > 5}
-        />
-        <Metric
-          icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
-          label="Erledigt heute" value={kpis.jobs_completed_today}
-        />
+        <Metric icon={<Clock className="h-3.5 w-3.5 text-muted-foreground" />} label="Jobs Pending" value={kpis.jobs_pending} />
+        <Metric icon={<Zap className="h-3.5 w-3.5 text-primary" />} label="Processing" value={kpis.jobs_processing} />
+        <Metric icon={<XCircle className="h-3.5 w-3.5 text-destructive" />} label="Jobs Failed" value={kpis.jobs_failed} alert={kpis.jobs_failed > 5} />
+        <Metric icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />} label="Erledigt heute" value={kpis.jobs_completed_today} />
       </div>
 
       {/* Cost Card */}
