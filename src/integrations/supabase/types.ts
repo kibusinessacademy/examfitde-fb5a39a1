@@ -19433,6 +19433,27 @@ export type Database = {
         }
         Relationships: []
       }
+      system_cron_runs: {
+        Row: {
+          created_at: string
+          id: number
+          job_name: string
+          result: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          job_name: string
+          result?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          job_name?: string
+          result?: Json
+        }
+        Relationships: []
+      }
       system_health_checks: {
         Row: {
           check_name: string
