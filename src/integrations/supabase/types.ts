@@ -1534,6 +1534,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "azav_massnahmen_zulassungen_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "azav_massnahmen_zulassungen_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "azav_massnahmen_zulassungen_fachbereich_id_fkey"
             columns: ["fachbereich_id"]
             isOneToOne: false
@@ -2186,6 +2200,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "blueprint_quality_constraints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "blueprint_quality_constraints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -4602,6 +4630,20 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "course_evidence_packs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_evidence_packs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       course_generation_locks: {
@@ -5539,6 +5581,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "course_packages_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -5867,6 +5923,20 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       coverage_snapshots: {
@@ -6145,6 +6215,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -6568,6 +6652,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "disallowed_keywords_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "disallowed_keywords_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -7424,6 +7522,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "entitlements_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "entitlements_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "entitlements_seat_id_fkey"
             columns: ["seat_id"]
             isOneToOne: false
@@ -7671,6 +7783,20 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "exam_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_attempts_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       exam_blueprints: {
@@ -7738,6 +7864,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -8052,6 +8192,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -8261,6 +8415,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -8846,6 +9014,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "handbook_chapters_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "handbook_chapters_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -9646,6 +9828,20 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "learner_diagnostics_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learner_diagnostics_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       learner_gates: {
@@ -9692,6 +9888,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learner_gates_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learner_gates_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -9995,6 +10205,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "learning_field_songs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_field_songs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "learning_field_songs_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -10071,6 +10295,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "learning_fields_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -10734,6 +10972,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "license_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "license_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -12470,6 +12722,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -16470,6 +16736,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "question_blueprints_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -16862,6 +17142,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "readiness_scores_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "readiness_scores_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -17887,6 +18181,20 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "seo_documents_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "seo_documents_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       seo_generation_jobs: {
@@ -18482,6 +18790,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "spaced_repetition_cards_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_cards_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "spaced_repetition_cards_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
@@ -18641,6 +18963,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -20165,6 +20501,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "user_competency_stats_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "user_competency_stats_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "user_competency_stats_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -20285,6 +20635,20 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "user_learning_streaks_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "user_learning_streaks_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       user_remediation_queue: {
@@ -20341,6 +20705,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "user_remediation_queue_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "user_remediation_queue_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -20603,6 +20981,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "weakness_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "weakness_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -21745,6 +22137,20 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       admin_elite_matrix_v: {
@@ -22229,6 +22635,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -22265,6 +22685,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -22324,6 +22758,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -22570,6 +23018,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -22635,6 +23097,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -23130,6 +23606,104 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_curriculum_quality_dashboard: {
+        Row: {
+          approved_blueprints: number | null
+          approved_questions: number | null
+          avg_exam_relevance_score: number | null
+          avg_exam_score: number | null
+          avg_total_score: number | null
+          bloom_analyze: number | null
+          bloom_apply: number | null
+          bloom_create: number | null
+          bloom_evaluate: number | null
+          bloom_levels_covered: number | null
+          bloom_remember: number | null
+          bloom_understand: number | null
+          blueprint_approval_rate_pct: number | null
+          blueprint_coverage_pct: number | null
+          competencies_total: number | null
+          competencies_with_blueprint: number | null
+          curriculum_id: string | null
+          curriculum_status:
+            | Database["public"]["Enums"]["curriculum_status"]
+            | null
+          curriculum_title: string | null
+          curriculum_track: Database["public"]["Enums"]["product_track"] | null
+          curriculum_updated_at: string | null
+          easy_pct: number | null
+          enrichment_competencies_total: number | null
+          enrichment_competencies_v2: number | null
+          enrichment_v2_pct: number | null
+          hardish_pct: number | null
+          packages_last_update: string | null
+          packages_published: number | null
+          packages_qg_failed: number | null
+          packages_total: number | null
+          packages_with_published_at: number | null
+          pkg_examfirst_cnt: number | null
+          pkg_full_cnt: number | null
+          pkg_integrity_failed: number | null
+          pkg_integrity_passed: number | null
+          pkg_legacy_reports: number | null
+          pkg_null_reports: number | null
+          q_easy: number | null
+          q_hard: number | null
+          q_medium: number | null
+          q_very_hard: number | null
+          total_blueprints: number | null
+        }
+        Relationships: []
+      }
+      ops_curriculum_quality_dashboard_mv: {
+        Row: {
+          approved_blueprints: number | null
+          approved_questions: number | null
+          avg_exam_relevance_score: number | null
+          avg_exam_score: number | null
+          avg_total_score: number | null
+          bloom_analyze: number | null
+          bloom_apply: number | null
+          bloom_create: number | null
+          bloom_evaluate: number | null
+          bloom_levels_covered: number | null
+          bloom_remember: number | null
+          bloom_understand: number | null
+          blueprint_approval_rate_pct: number | null
+          blueprint_coverage_pct: number | null
+          competencies_total: number | null
+          competencies_with_blueprint: number | null
+          curriculum_id: string | null
+          curriculum_status:
+            | Database["public"]["Enums"]["curriculum_status"]
+            | null
+          curriculum_title: string | null
+          curriculum_track: Database["public"]["Enums"]["product_track"] | null
+          curriculum_updated_at: string | null
+          easy_pct: number | null
+          enrichment_competencies_total: number | null
+          enrichment_competencies_v2: number | null
+          enrichment_v2_pct: number | null
+          hardish_pct: number | null
+          packages_last_update: string | null
+          packages_published: number | null
+          packages_qg_failed: number | null
+          packages_total: number | null
+          packages_with_published_at: number | null
+          pkg_examfirst_cnt: number | null
+          pkg_full_cnt: number | null
+          pkg_integrity_failed: number | null
+          pkg_integrity_passed: number | null
+          pkg_legacy_reports: number | null
+          pkg_null_reports: number | null
+          q_easy: number | null
+          q_hard: number | null
+          q_medium: number | null
+          q_very_hard: number | null
+          total_blueprints: number | null
+        }
+        Relationships: []
+      }
       ops_heal_effectiveness: {
         Row: {
           action_type: string | null
@@ -23194,6 +23768,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -24105,6 +24693,20 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["curriculum_id"]
           },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
         ]
       }
       step_performance_stats: {
@@ -24270,6 +24872,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -24373,6 +24989,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -24452,6 +25082,20 @@ export type Database = {
             referencedColumns: ["curriculum_id"]
           },
           {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
             foreignKeyName: "exam_questions_learning_field_id_fkey"
             columns: ["learning_field_id"]
             isOneToOne: false
@@ -24520,6 +25164,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -24659,6 +25317,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
           {
@@ -25006,6 +25678,20 @@ export type Database = {
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
           },
         ]
@@ -26867,6 +27553,10 @@ export type Database = {
         }[]
       }
       refresh_course_forecast_actuals: { Args: never; Returns: undefined }
+      refresh_curriculum_quality_dashboard_mv: {
+        Args: never
+        Returns: undefined
+      }
       register_cert_document: {
         Args: {
           p_certification_id: string
