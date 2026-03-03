@@ -307,6 +307,40 @@ async function processPackage(
     }
   }
 
+  // ── Step Completeness Guard: auto-create missing Elite steps for AUSBILDUNG_VOLL ──
+  // Packages bootstrapped with older code may be missing mandatory steps.
+  // Detect and insert them so the pipeline doesn't silently skip Elite hardening.
+  {
+    const ELITE_MANDATORY_STEPS: StepKey[] = [
+      "elite_harden",
+      "generate_lesson_minichecks",
+      "validate_lesson_minichecks",
+    ];
+    const existingKeys = new Set((steps ?? []).map((s: StepRow) => s.step_key));
+    const missingElite = ELITE_MANDATORY_STEPS.filter(k => !existingKeys.has(k));
+    if (missingElite.length > 0 && pkg.track === "AUSBILDUNG_VOLL") {
+      console.warn(`[runner] 🛡️ Step Completeness Guard: ${shortId} missing Elite steps: ${missingElite.join(", ")}`);
+      for (const mk of missingElite) {
+        const { error: insErr } = await safeQuery(
+          sb.from("package_steps").insert({
+            package_id: packageId,
+            step_key: mk,
+            status: "queued",
+            meta: { auto_created: true, reason: "step_completeness_guard" },
+          }),
+          `insert_missing_step_${mk}`,
+        );
+        if (!insErr) {
+          // Add to in-memory steps so the rest of this invocation sees them
+          (steps as StepRow[]).push({
+            step_key: mk, status: "queued", package_id: packageId,
+            meta: { auto_created: true },
+          } as unknown as StepRow);
+        }
+      }
+    }
+  }
+
   // ── Guardrail: prevent premature exhaustion for long-running learning generation ──
   {
     const learningStep = (steps ?? []).find((s: StepRow) => s.step_key === "generate_learning_content");

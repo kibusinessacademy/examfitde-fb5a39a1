@@ -234,15 +234,16 @@ Deno.serve(async (req) => {
       contentSteps.push({ step_key: "validate_oral_exam", job_type: "package_validate_oral_exam" });
     }
 
-    // MiniChecks: after oral exam, before handbook
-    // Always include when force_elite or full track — never skip for Elite packages
-    const includeMiniChecks = featureFlags.has_minichecks ?? wantDidaktik;
+    // MiniChecks: MANDATORY for AUSBILDUNG_VOLL — never skip for Elite packages
+    // force_elite or full track always includes minichecks regardless of feature_flags
+    const includeMiniChecks = wantDidaktik || (featureFlags.has_minichecks ?? false);
     if (includeMiniChecks) {
       contentSteps.push({ step_key: "generate_lesson_minichecks", job_type: "package_generate_lesson_minichecks" });
       contentSteps.push({ step_key: "validate_lesson_minichecks", job_type: "package_validate_lesson_minichecks" });
     }
 
-    if (opts.include_handbook) {
+    // Handbook: MANDATORY for AUSBILDUNG_VOLL — wantDidaktik forces inclusion
+    if (opts.include_handbook || wantDidaktik) {
       contentSteps.push({ step_key: "generate_handbook", job_type: "package_generate_handbook" });
       contentSteps.push({ step_key: "validate_handbook", job_type: "package_validate_handbook" });
     }
