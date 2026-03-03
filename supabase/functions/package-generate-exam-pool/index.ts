@@ -298,6 +298,35 @@ function getShipTarget(examTarget: number): number {
   return 1000;
 }
 
+// ─── Telemetry Helpers (P0: every return path MUST include metrics) ───────────
+
+type ExamPoolMetrics = {
+  blueprints_found?: number;
+  blueprints_used?: number;
+  learning_fields_total?: number;
+  learning_fields_enqueued?: number;
+  learning_fields_skipped?: number;
+  learning_fields_errors?: number;
+  generated?: number;
+  inserted?: number;
+  fan_out?: boolean;
+  reason?: string;
+};
+
+function withMetrics(base: Record<string, unknown>, metrics: ExamPoolMetrics): Record<string, unknown> {
+  return { ...base, metrics: { ...(base.metrics as Record<string, unknown> ?? {}), ...metrics } };
+}
+
+function transientBackoff(error: string, backoff_seconds: number, metrics: ExamPoolMetrics = {}) {
+  return json(
+    withMetrics(
+      { ok: false, transient: true, backoff_seconds, error },
+      metrics,
+    ),
+    200,
+  );
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
@@ -964,7 +993,7 @@ async function enqueueLearningFieldJobs(
   curriculumId: string,
   bps: BlueprintInfo[],
   examTarget: number,
-): Promise<{ enqueued: number; learningFields: number }> {
+): Promise<{ enqueued: number; learningFields: number; skipped: number; errors: string[] }> {
   const lfGroups = new Map<string, BlueprintInfo[]>();
   for (const bp of bps) {
     const lfId = bp.learning_field_id || "unknown";
@@ -973,7 +1002,7 @@ async function enqueueLearningFieldJobs(
   }
 
   const lfCount = lfGroups.size;
-  if (lfCount === 0) return { enqueued: 0, learningFields: 0 };
+  if (lfCount === 0) return { enqueued: 0, learningFields: 0, skipped: 0, errors: [] };
 
   const totalBps = bps.length;
   const MIN_LF_SHARE = 0.06;
@@ -1008,6 +1037,9 @@ async function enqueueLearningFieldJobs(
   });
 
   let enqueued = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
   for (const [lfId, lfBps] of lfEntries) {
     const weight = lfWeights.get(lfId) ?? (1 / lfCount);
     const proportionalTarget = Math.ceil(examTarget * weight);
@@ -1016,6 +1048,7 @@ async function enqueueLearningFieldJobs(
 
     if (gap <= 0) {
       console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: target=${proportionalTarget}, existing=${existing} → SKIP (covered)`);
+      skipped++;
       continue;
     }
 
@@ -1051,12 +1084,14 @@ async function enqueueLearningFieldJobs(
       if (enq.status === "pending" || enq.status === "processing") enqueued++;
       console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: weight=${(weight * 100).toFixed(1)}%, target=${proportionalTarget}, existing=${existing}, gap=${gap}, enqueue_status=${enq.status}`);
     } catch (e) {
-      console.warn(`[ExamPool-v5] LF ${lfId.slice(0, 8)} enqueue failed: ${(e as Error).message}`);
+      const errMsg = (e as Error).message || String(e);
+      console.warn(`[ExamPool-v5] LF ${lfId.slice(0, 8)} enqueue FAILED: ${errMsg}`);
+      errors.push(`${lfId.slice(0, 8)}:${errMsg.slice(0, 200)}`);
     }
   }
 
-  console.log(`[ExamPool-v5] Proportional fan-out: ${enqueued} active sub-jobs for ${lfCount} LFs, ${lfEntries.length - enqueued} skipped/covered`);
-  return { enqueued, learningFields: lfCount };
+  console.log(`[ExamPool-v5] Proportional fan-out: ${enqueued} active, ${skipped} skipped, ${errors.length} errors for ${lfCount} LFs`);
+  return { enqueued, learningFields: lfCount, skipped, errors };
 }
 
 async function allFanOutSubJobsDone(sb: ReturnType<typeof createClient>, packageId: string): Promise<boolean> {
@@ -1164,13 +1199,47 @@ Deno.serve(async (req) => {
     if (!isFanOut && bpIndex === 0) {
       const uniqueLFs = new Set(bps.map(b => (b as BlueprintInfo).learning_field_id).filter(Boolean));
       if (uniqueLFs.size > 1) {
-        const { enqueued, learningFields } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
-        console.log(`[ExamPool-v5] GUARD: Multi-LF detected (${uniqueLFs.size} LFs) → Fan-Out ONLY. Enqueued=${enqueued}`);
-        const alreadyCovered = enqueued === 0;
-        if (alreadyCovered) {
-          console.log(`[ExamPool-v5] GUARD: fan_out_skipped=true, already_covered=true — alle LFs haben Target erreicht`);
+        const { enqueued, learningFields, skipped, errors: enqErrors } = await enqueueLearningFieldJobs(sb, packageId, curriculumId, bps as BlueprintInfo[], examTarget);
+        console.log(`[ExamPool-v5] GUARD: Multi-LF detected (${uniqueLFs.size} LFs) → Fan-Out ONLY. Enqueued=${enqueued}, skipped=${skipped}, errors=${enqErrors.length}`);
+
+        // ── P0 HOLLOW GUARD: check if we actually have questions before declaring "covered" ──
+        const { count: currentTotal } = await sb.from("exam_questions")
+          .select("id", { count: "exact", head: true })
+          .eq("curriculum_id", curriculumId);
+        const totalNow = currentTotal ?? 0;
+
+        if (enqueued === 0 && totalNow === 0) {
+          // CRITICAL: No sub-jobs created AND no questions exist.
+          // This is the hollow completion bug — must NOT return ok:true/batch_complete:true.
+          if (enqErrors.length > 0) {
+            // Enqueue errors prevented fan-out
+            console.error(`[ExamPool-v5] HOLLOW_FANOUT_GUARD: 0 enqueued, 0 questions, ${enqErrors.length} enqueue errors → transient backoff`);
+            return transientBackoff(
+              `FANOUT_ENQUEUE_FAILED: ${enqErrors[0]?.slice(0, 200)}`,
+              180,
+              { fan_out: true, learning_fields_total: learningFields, learning_fields_enqueued: 0, learning_fields_errors: enqErrors.length, reason: "FANOUT_ENQUEUE_FAILED" },
+            );
+          }
+          // All LFs "skipped" as covered, but 0 questions exist — upstream data issue
+          console.error(`[ExamPool-v5] HOLLOW_FANOUT_GUARD: all ${skipped} LFs skipped as covered but totalNow=0 → transient backoff (upstream gap calc wrong)`);
+          return transientBackoff(
+            `HOLLOW_FANOUT: all LFs skipped but 0 questions exist — gap calc drift`,
+            300,
+            { fan_out: true, learning_fields_total: learningFields, learning_fields_skipped: skipped, inserted: 0, reason: "HOLLOW_FANOUT_GAP_DRIFT" },
+          );
         }
-        return json({ ok: true, batch_complete: alreadyCovered, fan_out: true, fan_out_skipped: alreadyCovered, sub_jobs: enqueued, learningFields });
+
+        if (enqueued === 0 && totalNow > 0) {
+          // Legitimately covered: all LFs at target and questions exist
+          console.log(`[ExamPool-v5] GUARD: fan_out_skipped=true, totalNow=${totalNow} — alle LFs haben Target erreicht`);
+        }
+
+        return json(
+          withMetrics(
+            { ok: true, batch_complete: enqueued === 0 && totalNow > 0, fan_out: true, fan_out_skipped: enqueued === 0, sub_jobs: enqueued, learningFields },
+            { fan_out: true, learning_fields_total: learningFields, learning_fields_enqueued: enqueued, learning_fields_skipped: skipped, learning_fields_errors: enqErrors.length, inserted: totalNow },
+          ),
+        );
       }
     }
 
@@ -1636,22 +1705,37 @@ Deno.serve(async (req) => {
       if (shouldMarkDone) {
         await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
       }
-      return json({ ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget });
+      return json(withMetrics(
+        { ok: true, batch_complete: true, engine: "v5-ihk-quality", total_questions: actualTotal, training_pool: trainingThisChunk, target: examTarget },
+        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+      ));
     } else if (allBlueprintsProcessed) {
       const currentLoop = (batchCursor?.loop_count ?? 0) + 1;
       if (currentLoop >= 8) {
+        // ── HOLLOW GUARD on loop_capped: refuse batch_complete if 0 questions ──
+        if (actualTotal <= 0) {
+          console.error(`[ExamPool-v5] HOLLOW_LOOP_CAP: 8 loops but 0 questions → transient backoff`);
+          return transientBackoff(
+            "HOLLOW_LOOP_CAP: 8 loops completed but 0 questions persisted",
+            300,
+            { generated: questionsThisChunk, inserted: 0, blueprints_found: bps.length, blueprints_used: bpsProcessed, reason: "HOLLOW_LOOP_CAP" },
+          );
+        }
         if (!isFanOut) await sb.from("course_packages").update({ build_progress: 55 }).eq("id", packageId);
-        return json({ ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true });
+        return json(withMetrics(
+          { ok: true, batch_complete: true, total_questions: actualTotal, loop_capped: true },
+          { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+        ));
       }
-      return json({
-        ok: true, batch_complete: false,
-        batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: currentLoop },
-      });
+      return json(withMetrics(
+        { ok: true, batch_complete: false, batch_cursor: { generated: actualTotal, blueprint_index: 0, target: examTarget, blueprints_total: bps.length, loop_count: currentLoop } },
+        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+      ));
     } else {
-      return json({
-        ok: true, batch_complete: false,
-        batch_cursor: { generated: actualTotal, blueprint_index: currentBpIndex, target: examTarget, blueprints_total: bps.length, loop_count: batchCursor?.loop_count ?? 0 },
-      });
+      return json(withMetrics(
+        { ok: true, batch_complete: false, batch_cursor: { generated: actualTotal, blueprint_index: currentBpIndex, target: examTarget, blueprints_total: bps.length, loop_count: batchCursor?.loop_count ?? 0 } },
+        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+      ));
     }
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
