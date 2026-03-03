@@ -15,6 +15,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { findNode, findProducer, type PipelineNode } from "./job-map.ts";
+import { getTrackArtifactOverride } from "./track-prereqs.ts";
 
 export interface ArtifactCheckResult {
   ready: boolean;
@@ -37,7 +38,26 @@ export async function checkArtifacts(
   const node = findNode(stepKey);
   if (!node?.requires?.length) return { ready: true };
 
-  for (const artifact of node.requires) {
+  // ── Track-aware override ───────────────────────────────────────────
+  // Resolve the package's track to determine which artifacts are actually needed.
+  // EXAM_FIRST skips elite_harden → run_integrity_check must NOT require elite_ready.
+  const { data: pkg } = await sb
+    .from("course_packages")
+    .select("track")
+    .eq("id", packageId)
+    .maybeSingle();
+  const track = (pkg as any)?.track ?? "AUSBILDUNG_VOLL";
+
+  // Check for a track-specific override; fall back to static PIPELINE_GRAPH.requires[]
+  const trackOverride = getTrackArtifactOverride(stepKey, track);
+  const effectiveRequires = trackOverride ?? node.requires;
+
+  if (!effectiveRequires.length) {
+    console.log(`[artifact-resolver] Step ${stepKey} has no required artifacts for track ${track} — ready`);
+    return { ready: true };
+  }
+
+  for (const artifact of effectiveRequires) {
     const exists = await artifactExists(sb, packageId, artifact);
     if (!exists) {
       const producer = findProducer(artifact);
