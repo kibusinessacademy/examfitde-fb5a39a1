@@ -248,7 +248,7 @@ serve(async (req) => {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
       const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
 
-      const [stalledR, dupsR, integrityNullR, wipR, trackWipR] = await Promise.all([
+      const [stalledR, dupsR, integrityNullR, wipR, trackWipR, qcCanaryR] = await Promise.all([
         sb.rpc("pipeline_health_stalled_content", { p_since: tenMinAgo }),
         sb.rpc("pipeline_health_duplicate_jobs", { p_since: sixHoursAgo }),
         sb.from("package_steps")
@@ -266,6 +266,10 @@ serve(async (req) => {
         sb.from("course_packages")
           .select("track,status")
           .in("status", ["queued", "building"]),
+        // QC promotion canary
+        sb.from("v_pipeline_canary_qc_promotion")
+          .select("qc_approved_but_draft,oldest,latest")
+          .maybeSingle(),
       ]);
 
       const stalledCount = typeof stalledR.data === "number" ? stalledR.data : (stalledR.data as any)?.count ?? 0;
@@ -280,6 +284,8 @@ serve(async (req) => {
         if (row.status === "building") trackWip[t].building++;
       }
 
+      const qcApprovedButDraft = Number((qcCanaryR.data as any)?.qc_approved_but_draft ?? 0);
+
       return json({
         stalled_content: stalledCount,
         duplicate_pending_jobs: dupsCount,
@@ -288,6 +294,8 @@ serve(async (req) => {
         wip_queued: (wipR as any)[0]?.count ?? 0,
         wip_building: (wipR as any)[1]?.count ?? 0,
         track_wip: trackWip,
+        qc_approved_but_draft: qcApprovedButDraft,
+        qc_approved_but_draft_oldest: (qcCanaryR.data as any)?.oldest ?? null,
         timestamp: new Date().toISOString(),
       });
     }

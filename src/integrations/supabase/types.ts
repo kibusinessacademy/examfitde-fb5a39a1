@@ -24767,6 +24767,14 @@ export type Database = {
         }
         Relationships: []
       }
+      v_pipeline_canary_qc_promotion: {
+        Row: {
+          latest: string | null
+          oldest: string | null
+          qc_approved_but_draft: number | null
+        }
+        Relationships: []
+      }
       v_pipeline_execution_health: {
         Row: {
           avg_duration_sec: number | null
