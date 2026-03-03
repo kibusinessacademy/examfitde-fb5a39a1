@@ -79,12 +79,16 @@ export function useBerufPages() {
 
       return data?.map(beruf => {
         const kammerInfo = getKammerInfo(beruf.zustaendigkeit);
+        // Safe fallback: if taetigkeitsprofil is null/garbled, generate neutral description
+        const safeDescription = beruf.taetigkeitsprofil && beruf.taetigkeitsprofil.length >= 25
+          ? beruf.taetigkeitsprofil
+          : `${beruf.bezeichnung_kurz} – ${beruf.ausbildungsdauer_monate / 12}-jährige duale Ausbildung (${kammerInfo.short}).`;
         return {
           id: beruf.id,
           slug: generateSlug(beruf.bezeichnung_kurz),
           title: beruf.bezeichnung_kurz,
           fullTitle: beruf.bezeichnung_lang || beruf.bezeichnung_kurz,
-          description: beruf.taetigkeitsprofil,
+          description: safeDescription,
           duration: beruf.ausbildungsdauer_monate,
           dqrLevel: beruf.dqr_niveau,
           bibbUrl: beruf.bibb_profil_url,

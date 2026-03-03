@@ -1710,6 +1710,13 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["beruf_id"]
           },
+          {
+            foreignKeyName: "beruf_aliases_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_berufe_public_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       beruf_dokumente: {
@@ -1758,6 +1765,13 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["beruf_id"]
           },
+          {
+            foreignKeyName: "beruf_dokumente_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_berufe_public_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       berufe: {
@@ -1778,6 +1792,7 @@ export type Database = {
           kldb_code: string | null
           rahmenlehrplan_url: string | null
           taetigkeitsprofil: string | null
+          taetigkeitsprofil_raw: string | null
           updated_at: string
           verordnung_datum: string | null
           verordnung_pdf_url: string | null
@@ -1801,6 +1816,7 @@ export type Database = {
           kldb_code?: string | null
           rahmenlehrplan_url?: string | null
           taetigkeitsprofil?: string | null
+          taetigkeitsprofil_raw?: string | null
           updated_at?: string
           verordnung_datum?: string | null
           verordnung_pdf_url?: string | null
@@ -1824,6 +1840,7 @@ export type Database = {
           kldb_code?: string | null
           rahmenlehrplan_url?: string | null
           taetigkeitsprofil?: string | null
+          taetigkeitsprofil_raw?: string | null
           updated_at?: string
           verordnung_datum?: string | null
           verordnung_pdf_url?: string | null
@@ -6215,6 +6232,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "curricula_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_berufe_public_safe"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -14859,6 +14883,13 @@ export type Database = {
             referencedColumns: ["beruf_id"]
           },
           {
+            foreignKeyName: "portfolio_priority_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: true
+            referencedRelation: "v_berufe_public_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "portfolio_priority_cluster_id_fkey"
             columns: ["cluster_id"]
             isOneToOne: false
@@ -15570,6 +15601,13 @@ export type Database = {
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["beruf_id"]
           },
+          {
+            foreignKeyName: "profession_glossaries_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_berufe_public_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       profession_profiles: {
@@ -15614,6 +15652,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "profession_profiles_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_berufe_public_safe"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -18297,6 +18342,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "elite_readiness_per_curriculum"
             referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "seo_documents_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_berufe_public_safe"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "seo_documents_competency_id_fkey"
@@ -24991,6 +25043,84 @@ export type Database = {
           last_purchase: string | null
           total_orders: number | null
           total_spend: number | null
+        }
+        Relationships: []
+      }
+      v_berufe_public_safe: {
+        Row: {
+          ausbildungsdauer_monate: number | null
+          bezeichnung_kurz: string | null
+          bezeichnung_lang: string | null
+          bgbl_referenz: string | null
+          bibb_id: string | null
+          bibb_profil_url: string | null
+          created_at: string | null
+          dqr_niveau: number | null
+          einsatzgebiete: Json | null
+          gueltig_ab: string | null
+          gueltig_bis: string | null
+          id: string | null
+          ist_aktiv: boolean | null
+          kldb_code: string | null
+          rahmenlehrplan_url: string | null
+          taetigkeitsprofil: string | null
+          taetigkeitsprofil_raw: string | null
+          taetigkeitsprofil_safe: string | null
+          updated_at: string | null
+          verordnung_datum: string | null
+          verordnung_pdf_url: string | null
+          verordnung_titel: string | null
+          zustaendigkeit: string | null
+        }
+        Insert: {
+          ausbildungsdauer_monate?: number | null
+          bezeichnung_kurz?: string | null
+          bezeichnung_lang?: string | null
+          bgbl_referenz?: string | null
+          bibb_id?: string | null
+          bibb_profil_url?: string | null
+          created_at?: string | null
+          dqr_niveau?: number | null
+          einsatzgebiete?: Json | null
+          gueltig_ab?: string | null
+          gueltig_bis?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          kldb_code?: string | null
+          rahmenlehrplan_url?: string | null
+          taetigkeitsprofil?: string | null
+          taetigkeitsprofil_raw?: string | null
+          taetigkeitsprofil_safe?: never
+          updated_at?: string | null
+          verordnung_datum?: string | null
+          verordnung_pdf_url?: string | null
+          verordnung_titel?: string | null
+          zustaendigkeit?: string | null
+        }
+        Update: {
+          ausbildungsdauer_monate?: number | null
+          bezeichnung_kurz?: string | null
+          bezeichnung_lang?: string | null
+          bgbl_referenz?: string | null
+          bibb_id?: string | null
+          bibb_profil_url?: string | null
+          created_at?: string | null
+          dqr_niveau?: number | null
+          einsatzgebiete?: Json | null
+          gueltig_ab?: string | null
+          gueltig_bis?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          kldb_code?: string | null
+          rahmenlehrplan_url?: string | null
+          taetigkeitsprofil?: string | null
+          taetigkeitsprofil_raw?: string | null
+          taetigkeitsprofil_safe?: never
+          updated_at?: string | null
+          verordnung_datum?: string | null
+          verordnung_pdf_url?: string | null
+          verordnung_titel?: string | null
+          zustaendigkeit?: string | null
         }
         Relationships: []
       }
