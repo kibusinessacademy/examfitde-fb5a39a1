@@ -378,6 +378,73 @@ Deno.serve(async (req) => {
     }
 
     // ══════════════════════════════════════════════════════
+    // 1b3) ENQUEUED-DRIFT SELF-HEAL
+    // Steps stuck in "enqueued" with no active job for >10min
+    // → reset to "queued" so the runner picks them up again.
+    // Root cause: enqueue succeeded but job was cancelled/completed
+    // without updating step status.
+    // ══════════════════════════════════════════════════════
+    const ENQ_DRIFT_MIN_AGE_MS = 10 * 60 * 1000;
+    const enqueuedDriftResults: Array<{ package_id: string; step_key: string; action: string }> = [];
+    {
+      const { data: enqSteps } = await sb
+        .from("package_steps")
+        .select("package_id, step_key, updated_at, attempts, meta, status")
+        .eq("status", "enqueued")
+        .limit(500);
+
+      for (const ps of enqSteps || []) {
+        const ageMs = Date.now() - new Date(ps.updated_at).getTime();
+        if (ageMs <= ENQ_DRIFT_MIN_AGE_MS) continue;
+
+        const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
+        if (!jobType) continue;
+
+        const { count: activeCnt, error: jobErr } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("package_id", ps.package_id)
+          .eq("job_type", jobType)
+          .in("status", ["pending", "processing"]);
+
+        if (jobErr) {
+          console.error(`[stuck-scan] enqueued-drift job check error: ${jobErr.message}`);
+          continue;
+        }
+        if ((activeCnt ?? 0) > 0) continue;
+
+        const prevMeta = (ps.meta ?? {}) as Record<string, unknown>;
+        const ageMin = Math.round(ageMs / 60000);
+
+        await sb.from("package_steps").update({
+          status: "queued",
+          meta: {
+            ...prevMeta,
+            last_progress_note: `enqueued-drift-heal: no active job for ${ageMin}min`,
+            enqueued_healed_at: new Date().toISOString(),
+          },
+        }).eq("package_id", ps.package_id).eq("step_key", ps.step_key);
+
+        await sb.from("auto_heal_log").insert({
+          action_type: "enqueued_drift_self_heal",
+          trigger_source: "stuck-scan",
+          target_type: "package_step",
+          target_id: ps.package_id,
+          result_status: "applied",
+          result_detail: `Step ${ps.step_key} enqueued ${ageMin}min with 0 active jobs — reset to queued`,
+          metadata: { step_key: ps.step_key, age_min: ageMin },
+        });
+
+        enqueuedDriftResults.push({ package_id: ps.package_id, step_key: ps.step_key, action: `enqueued-drift-heal: reset to queued (${ageMin}min stale)` });
+        console.warn(`[stuck-scan] 📭 Enqueued-drift-heal: ${ps.step_key} for ${ps.package_id.slice(0,8)} — enqueued ${ageMin}min, no jobs → queued`);
+      }
+
+      if (enqueuedDriftResults.length > 0) {
+        console.log(`[stuck-scan] 📭 Self-healed ${enqueuedDriftResults.length} enqueued-drift step(s)`);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════
     // 1c) ESCALATION LOOP DETECTION (scoped by step type)
     // - validate_* steps: skip + notify (safe to skip)
     // - generate_* / other steps: mark package needs_manual_review (NOT skip)
