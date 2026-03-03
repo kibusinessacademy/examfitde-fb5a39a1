@@ -307,6 +307,18 @@ Deno.serve(async (req) => {
     // Guards: age > 10min since last update + failure signal required
     // ══════════════════════════════════════════════════════
     const ESCALATION_MAX = 10;
+    // Multi-batch steps run across many invocations — high attempts are NORMAL.
+    // Escalating them cancels pending jobs, forcing the runner to re-create them
+    // in a pointless cycle. Exclude them from escalation entirely; the progress-aware
+    // circuit breaker in the runner handles genuine stalls.
+    const MULTI_BATCH_STEPS = new Set([
+      "generate_learning_content",
+      "generate_exam_pool",
+      "generate_lesson_minichecks",
+      "generate_oral_exam",
+      "generate_handbook",
+    ]);
+
     const { data: escalatedSteps } = await sb
       .from("package_steps")
       .select("package_id, step_key, attempts, status, updated_at, last_error, meta")
@@ -315,6 +327,25 @@ Deno.serve(async (req) => {
 
     const escalationResults: Array<{ package_id: string; step_key: string; action: string }> = [];
     for (const es of escalatedSteps || []) {
+      // ── Multi-batch exclusion: these steps progress across many jobs ──
+      if (MULTI_BATCH_STEPS.has(es.step_key)) {
+        // Check if there were recent completions — if yes, step IS progressing
+        const jobType = STEP_TO_JOB_TYPE[es.step_key] ?? null;
+        if (jobType) {
+          const recentCutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+          const { count: recentCompletions } = await sb
+            .from("job_queue")
+            .select("id", { count: "exact", head: true })
+            .eq("job_type", jobType)
+            .eq("status", "completed")
+            .gte("completed_at", recentCutoff);
+          if ((recentCompletions ?? 0) > 0) {
+            // Step is progressing — skip escalation entirely
+            continue;
+          }
+        }
+      }
+
       // Age guard: only act on loops that have been stable for a while
       const updatedAt = es.updated_at ? new Date(es.updated_at).getTime() : 0;
       const ageMs = updatedAt > 0 ? (Date.now() - updatedAt) : Infinity;
