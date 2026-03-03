@@ -118,12 +118,20 @@ function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepAction {
   const byKey = new Map<string, StepRow>();
   for (const s of steps) byKey.set(s.step_key, s);
 
+  const nowIso = new Date().toISOString();
+
   for (const k of stepOrder) {
     const s = byKey.get(k);
     if (!s) continue;
 
     if (s.status === "done" || s.status === "skipped") continue;
     if (s.status === "blocked") continue;
+
+    // ✅ P0 FIX: Respect next_run_at — skip steps with future backoff
+    const nra = (s.meta as Record<string, unknown>)?.next_run_at;
+    if (nra && typeof nra === "string" && nra > nowIso) {
+      continue; // backoff not yet elapsed
+    }
 
     // NOTE: Zombie detection is handled BEFORE pickNextAction in processPackage.
     // pickNextAction stays "pure" — poll/enqueue/exhausted only.
@@ -1224,20 +1232,36 @@ async function processPackage(
           );
 
           // ── Low-progress boost: if only a few lessons per run, enqueue higher-priority job ──
+          // ✅ P1 FIX: Dedupe — only insert if no pending/processing job exists for this package+type
           if (progressed && deltaReal > 0 && deltaReal < 5 && afterReal < afterTotal) {
-            console.log(`[runner] ⚡ Low-progress boost: only ${deltaReal} lessons this run, enqueuing priority boost`);
-            await safeQuery(
-              sb.from("job_queue").insert({
-                job_type: stepKey === "generate_learning_content" ? "package_generate_learning_content" : stepKey,
-                package_id: packageId,
-                status: "pending",
-                priority: 70,
-                payload: { package_id: packageId, reason: "low_progress_boost", real: afterReal, total: afterTotal },
-                worker_pool: "content",
-                max_attempts: 8,
-              }),
-              "enqueue_low_progress_boost",
-            );
+            const boostJobType = stepKey === "generate_learning_content" ? "package_generate_learning_content" : stepKey;
+            const { data: existingBoost } = await safeQuery(
+              sb.from("job_queue")
+                .select("id")
+                .eq("package_id", packageId)
+                .eq("job_type", boostJobType)
+                .in("status", ["pending", "processing"])
+                .limit(1),
+              "check_existing_boost",
+            ) as any;
+
+            if (!existingBoost || existingBoost.length === 0) {
+              console.log(`[runner] ⚡ Low-progress boost: only ${deltaReal} lessons this run, enqueuing priority boost`);
+              await safeQuery(
+                sb.from("job_queue").insert({
+                  job_type: boostJobType,
+                  package_id: packageId,
+                  status: "pending",
+                  priority: 70,
+                  payload: { package_id: packageId, reason: "low_progress_boost", real: afterReal, total: afterTotal },
+                  worker_pool: "content",
+                  max_attempts: 8,
+                }),
+                "enqueue_low_progress_boost",
+              );
+            } else {
+              console.log(`[runner] ⚡ Low-progress boost skipped: job already pending/processing for ${shortId}`);
+            }
           }
 
           console.log(`[runner] 🔄 Step ${stepKey} batch incomplete — re-queued (${statusNote})`);
