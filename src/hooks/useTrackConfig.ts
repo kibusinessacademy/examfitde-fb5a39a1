@@ -94,6 +94,23 @@ export function getActiveSteps(flags: FeatureFlags | null | undefined) {
   );
 }
 
+// ── SSOT Track Interpreter ─────────────────────────────────
+export function requiresLearning(track: ProductTrack): boolean {
+  return track === 'AUSBILDUNG_VOLL';
+}
+
+export function requiresHandbook(track: ProductTrack): boolean {
+  return track === 'AUSBILDUNG_VOLL';
+}
+
+export function requiresTutorIndex(track: ProductTrack): boolean {
+  return track === 'AUSBILDUNG_VOLL';
+}
+
+export function isExamOnlyScore(track: ProductTrack): boolean {
+  return track === 'EXAM_FIRST';
+}
+
 export function useTrackConfig(pkg: { track?: string; feature_flags?: any; certification_type?: string } | null | undefined) {
   return useMemo(() => {
     const track = (pkg?.track || 'AUSBILDUNG_VOLL') as ProductTrack;
