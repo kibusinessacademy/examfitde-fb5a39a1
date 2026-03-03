@@ -9,6 +9,7 @@ import type { DifficultyLevel, MasteryContext } from "../_shared/prompt-kit.ts";
 import { canonicalStepKey, STEP_KEY_MAP } from "../_shared/step-keys.ts";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { getTimeBudget, shouldSoftStop } from "../_shared/time-budget.ts";
+import { assessLessonQuality, buildExpandSystemPrompt, getStepThresholds } from "../_shared/content-quality.ts";
 
 /**
  * package-generate-learning-content — Pipeline Step
@@ -26,6 +27,7 @@ const BATCH_SIZE = 3;          // v5.7: raised to 3 — auto-approve removes cou
 const BASE_DELAY_MS = 300;     // Keep throughput without wasting budget
 const MAX_DELAY_MS = 3000;     // Cap backoff to stay within soft budget
 const MAX_LESSON_RETRIES = 3;  // Poison-pill guard: skip lessons after N failures
+const MAX_EXPAND_RETRIES = 2;  // Content-depth expand retries per lesson
 
 const STEP_PROMPTS: Record<string, { system: string; minChars: number; minWords: number }> = {
   einstieg: {
@@ -449,6 +451,30 @@ Deno.serve(async (req) => {
 
   console.log(`[gen-content] Processing ${batch.length}/${placeholderLessons.length} placeholder lessons for ${professionName}`);
 
+  // ── Progress telemetry: update package_steps.meta at batch start ──
+  const updateStepProgress = async (metaPatch: Record<string, unknown>) => {
+    try {
+      const { data: stepRow } = await sb
+        .from("package_steps")
+        .select("id, meta")
+        .eq("package_id", packageId)
+        .eq("step_key", "generate_learning_content")
+        .maybeSingle();
+      if (stepRow) {
+        await sb.from("package_steps").update({
+          meta: { ...(stepRow.meta ?? {}), ...metaPatch, updated_at: new Date().toISOString() },
+        }).eq("id", stepRow.id);
+      }
+    } catch (e) { console.warn(`[gen-content] Progress meta update failed: ${(e as Error).message}`); }
+  };
+
+  await updateStepProgress({
+    last_progress_note: `batch_start: ${batch.length}/${placeholderLessons.length} placeholders, profession=${professionName}`,
+    batch_size: batch.length,
+    total_placeholders: placeholderLessons.length,
+    poison_pills: skippableLessons.size,
+  });
+
   const { data: topics } = await sb
     .from("curriculum_topics")
     .select("topic_name, difficulty_level, parent_topic_id")
@@ -474,6 +500,7 @@ Deno.serve(async (req) => {
   let generated = 0;
   let skippedWriteBack = 0;
   let failed = 0;
+  let expandedCount = 0;
   let currentDelay = BASE_DELAY_MS;
   let softStopped = false;
   const details: any[] = [];
@@ -527,6 +554,7 @@ Deno.serve(async (req) => {
       ? buildMiniCheckPrompt(professionName, contextBlock)
       : `${stepConfig?.system || STEP_PROMPTS.verstehen.system}\n\n${contextBlock}`;
 
+    let expandAttempts = 0;
     try {
       // ── Use failover chain instead of single provider ──
       const chain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
@@ -663,6 +691,117 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         if (v2Result.overallVerdict === "warn") {
           console.warn(`[gen-content] v2 Quality WARN for ${lesson.id}: depth=${v2Result.depthPasses}, hallucination=${v2Result.hallucinationRisk.riskScore}, variation=${v2Result.variationScore.score}`);
         }
+
+        // ── v6: Deterministic content-depth expand-retry loop ──
+        // After v2 gate passes (no hallucination block), check structural quality.
+        // If content is too short/missing required elements, auto-expand with retries.
+        const stepThresholds = getStepThresholds(lesson.step);
+        let qualityCheck = assessLessonQuality(content.html, lesson.step);
+        let expandAttempts = 0;
+
+        while (!qualityCheck.ok && expandAttempts < MAX_EXPAND_RETRIES && !shouldSoftStop(startMs, "learning_content")) {
+          expandAttempts++;
+          console.log(`[gen-content] Expand-retry ${expandAttempts}/${MAX_EXPAND_RETRIES} for ${lesson.id.slice(0, 8)}: ${qualityCheck.reasons.join(", ")}`);
+
+          try {
+            const expandChain = await getModelChainAsync("learning_content");
+            const expandElapsed = Date.now() - startMs;
+            const expandRemaining = budget.softStopMs - expandElapsed;
+            if (expandRemaining <= 12_000) {
+              console.warn(`[gen-content] Not enough budget for expand retry (${expandRemaining}ms) — accepting current quality`);
+              break;
+            }
+            const expandTimeout = Math.max(8_000, Math.min(35_000, expandRemaining - 3_000));
+
+            const expandAbort = new AbortController();
+            let expandTimer: number | null = null;
+            const expandTimeoutPromise = new Promise<never>((_, reject) => {
+              expandTimer = setTimeout(() => {
+                expandAbort.abort();
+                reject(new Error(`EXPAND_TIMEOUT_${expandTimeout}`));
+              }, expandTimeout) as unknown as number;
+            });
+
+            const expandSystemPrompt = buildExpandSystemPrompt({
+              professionName,
+              lessonTitle: lesson.title || "Lesson",
+              step: lesson.step,
+              missingReasons: qualityCheck.reasons,
+              thresholds: stepThresholds,
+            });
+
+            const expandResult = await Promise.race([
+              callAIWithFailover(
+                expandChain.map(c => ({ provider: c.provider, model: c.model })),
+                {
+                  messages: [
+                    { role: "system", content: expandSystemPrompt },
+                    { role: "user", content: `Bestehender Inhalt (erweitern, NICHT ersetzen):\n\n${content.html}\n\nGib den vollständig erweiterten Inhalt über die Funktion zurück.` },
+                  ],
+                  tools: [CONTENT_TOOL] as any,
+                  tool_choice: { type: "function", function: { name: "create_lesson_content" } },
+                  max_tokens: 4000,
+                  signal: expandAbort.signal,
+                },
+              ),
+              expandTimeoutPromise,
+            ]) as Awaited<ReturnType<typeof callAIWithFailover>>;
+
+            if (expandTimer) clearTimeout(expandTimer);
+
+            // Parse expanded content
+            let expandedContent: any;
+            if (expandResult.toolCalls && expandResult.toolCalls.length > 0) {
+              try { expandedContent = JSON.parse(expandResult.toolCalls[0].function.arguments); } catch { /* fallthrough */ }
+            }
+            if (!expandedContent && expandResult.content) {
+              const raw = expandResult.content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+              try { expandedContent = JSON.parse(raw); } catch { /* fallthrough */ }
+            }
+            if (!expandedContent && expandResult.content) {
+              const fb = expandResult.content.indexOf("{");
+              const lb = expandResult.content.lastIndexOf("}");
+              if (fb !== -1 && lb > fb) {
+                try { expandedContent = JSON.parse(expandResult.content.slice(fb, lb + 1)); } catch { /* noop */ }
+              }
+            }
+
+            if (expandedContent?.html && expandedContent.html.length > (content.html?.length || 0)) {
+              // Merge: keep original structured fields, take expanded html
+              content.html = expandedContent.html;
+              if (expandedContent.objectives?.length) content.objectives = expandedContent.objectives;
+              if (expandedContent.key_terms?.length) content.key_terms = expandedContent.key_terms;
+              if (expandedContent.common_mistakes?.length) content.common_mistakes = expandedContent.common_mistakes;
+              if (expandedContent.exam_triggers?.length) content.exam_triggers = expandedContent.exam_triggers;
+              if (expandedContent.transfer_questions?.length) content.transfer_questions = expandedContent.transfer_questions;
+            }
+
+            // Re-assess quality
+            qualityCheck = assessLessonQuality(content.html, lesson.step);
+
+            await logLLMCostEvent(sb, {
+              job_type: "generate_learning_content_expand",
+              provider: expandResult.provider,
+              model: expandResult.model,
+              tokens_in: expandResult.usage?.input_tokens || 0,
+              tokens_out: expandResult.usage?.output_tokens || 0,
+              package_id: packageId,
+              certification_id: certificationId,
+              course_id: courseId,
+              estimatedUsage: expandResult.estimatedUsage,
+              meta: { expand_attempt: expandAttempts, quality_ok: qualityCheck.ok, reasons: qualityCheck.reasons },
+            });
+
+            console.log(`[gen-content] Expand ${expandAttempts} result: ${qualityCheck.ok ? "✅ OK" : "❌ " + qualityCheck.reasons.join(", ")} (${qualityCheck.charCount} chars, ${qualityCheck.wordCount} words)`);
+          } catch (expandErr) {
+            console.warn(`[gen-content] Expand-retry ${expandAttempts} failed for ${lesson.id.slice(0, 8)}: ${(expandErr as Error).message}`);
+            break; // Don't block — use whatever content we have
+          }
+        }
+
+        if (!qualityCheck.ok && expandAttempts > 0) {
+          console.warn(`[gen-content] Content still below quality bar after ${expandAttempts} expands for ${lesson.id.slice(0, 8)}: ${qualityCheck.reasons.join(", ")} — saving anyway for Council review`);
+        }
       }
 
       // ── Bloom-Level mapping from lesson step ──
@@ -762,7 +901,16 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
       });
 
       generated++;
-      details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "ok", versionId: newVersion!.id, provider: result.provider, model: result.model });
+      if (!isMiniCheck && expandAttempts > 0) expandedCount++;
+      details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "ok", versionId: newVersion!.id, provider: result.provider, model: result.model, expand_retries: expandAttempts });
+
+      // ── Progress telemetry after each successful lesson ──
+      await updateStepProgress({
+        last_progress_note: `lesson_ok: ${lesson.id.slice(0, 8)} (${generated}/${batch.length}) expand=${expandAttempts}`,
+        real_generated: generated,
+        failed_count: failed,
+        expanded_count: expandedCount,
+      });
 
       // Success → reset delay toward base
       currentDelay = Math.max(BASE_DELAY_MS, currentDelay * 0.7);
@@ -790,6 +938,17 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     await new Promise(r => setTimeout(r, currentDelay));
   }
 
+  // ── Final batch telemetry ──
+  await updateStepProgress({
+    last_progress_note: softStopped
+      ? `batch_softstop: gen=${generated} fail=${failed} expand=${expandedCount} remaining=${remaining}`
+      : `batch_done: gen=${generated} fail=${failed} expand=${expandedCount} remaining=${remaining}`,
+    real_generated: generated,
+    failed_count: failed,
+    expanded_count: expandedCount,
+    batch_elapsed_ms: Date.now() - startMs,
+  });
+
   // ── batch_complete logic v2: Complete when no actionable placeholders remain ──
   // Poison-pill lessons are excluded from the "remaining" count — they won't resolve
   // without manual intervention, so they must NOT block pipeline progress.
@@ -807,6 +966,7 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
       _poison_pills: poisonPills,
     } : {}),
     generated,
+    expanded: expandedCount,
     skipped_write_back: skippedWriteBack,
     failed,
     poison_pills_skipped: skippableLessons.size,
