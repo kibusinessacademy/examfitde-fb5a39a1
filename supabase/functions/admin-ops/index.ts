@@ -303,6 +303,23 @@ serve(async (req) => {
       });
     }
 
+    // ── seed_blueprint_targets ────────────────────────────────
+    if (action === "seed_blueprint_targets") {
+      const curriculumId = body.curriculum_id as string;
+      if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
+      const track = body.track ?? null;
+      const mode = body.mode ?? "default";
+
+      const { data, error: err } = await sb.rpc("seed_blueprint_targets_for_curriculum", {
+        p_curriculum_id: curriculumId,
+        p_track: track,
+        p_mode: mode,
+      });
+      if (err) return json({ error: err.message }, 500);
+      console.log(`[admin-ops] seed_blueprint_targets: ${JSON.stringify(data)} by ${user.id}`);
+      return json({ success: true, result: data });
+    }
+
     // ── enqueue_blueprint_gap_fill ─────────────────────────────
     if (action === "enqueue_blueprint_gap_fill") {
       const curriculumId = body.curriculum_id as string;

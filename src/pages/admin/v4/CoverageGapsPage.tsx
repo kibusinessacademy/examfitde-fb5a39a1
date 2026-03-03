@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Zap, Target, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Loader2, Zap, Target, TrendingUp, AlertTriangle, Sprout } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -38,6 +38,8 @@ interface DashboardRow {
   enrichment_v2_pct: number;
 }
 
+type SeedMode = 'default' | 'light' | 'heavy';
+
 export default function CoverageGapsPage() {
   const [curricula, setCurricula] = useState<CurriculumOption[]>([]);
   const [selectedCurriculum, setSelectedCurriculum] = useState<string>('');
@@ -46,6 +48,8 @@ export default function CoverageGapsPage() {
   const [loading, setLoading] = useState(true);
   const [gapsLoading, setGapsLoading] = useState(false);
   const [filling, setFilling] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedMode, setSeedMode] = useState<SeedMode>('default');
 
   useEffect(() => {
     (async () => {
@@ -75,6 +79,24 @@ export default function CoverageGapsPage() {
     loadGaps(id);
   };
 
+  const handleSeedTargets = async () => {
+    if (!selectedCurriculum) return;
+    setSeeding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-ops', {
+        body: { action: 'seed_blueprint_targets', curriculum_id: selectedCurriculum, mode: seedMode },
+      });
+      if (error) throw error;
+      const result = (data as any)?.result;
+      toast.success(`${result?.upserts ?? 0} Targets gesetzt (${result?.track}/${result?.mode})`);
+      loadGaps(selectedCurriculum);
+    } catch (e: any) {
+      toast.error(e.message || 'Fehler beim Seeden');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const handleFillGaps = async () => {
     if (!selectedCurriculum) return;
     setFilling(true);
@@ -85,7 +107,6 @@ export default function CoverageGapsPage() {
       if (error) throw error;
       const result = (data as any)?.result;
       toast.success(`${result?.enqueued ?? 0} Gap-Fill Jobs enqueued`);
-      // Reload gaps
       loadGaps(selectedCurriculum);
     } catch (e: any) {
       toast.error(e.message || 'Fehler beim Enqueue');
@@ -122,15 +143,15 @@ export default function CoverageGapsPage() {
         ))}
       </div>
 
-      {/* Curriculum Selector + Action */}
+      {/* Curriculum Selector + Actions */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Coverage Gap Analyse</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Select value={selectedCurriculum} onValueChange={handleSelectCurriculum}>
-              <SelectTrigger className="flex-1">
+              <SelectTrigger className="flex-1 min-w-48">
                 <SelectValue placeholder="Curriculum wählen…" />
               </SelectTrigger>
               <SelectContent>
@@ -142,6 +163,31 @@ export default function CoverageGapsPage() {
               </SelectContent>
             </Select>
 
+            {/* Seed Targets */}
+            <div className="flex items-center gap-1.5">
+              <Select value={seedMode} onValueChange={(v) => setSeedMode(v as SeedMode)}>
+                <SelectTrigger className="w-24 h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="heavy">Heavy</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleSeedTargets}
+                disabled={!selectedCurriculum || seeding}
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+              >
+                {seeding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sprout className="h-3 w-3 mr-1" />}
+                Targets setzen
+              </Button>
+            </div>
+
+            {/* Fill Gaps */}
             <Button
               onClick={handleFillGaps}
               disabled={!selectedCurriculum || filling || totalGap === 0}
