@@ -217,7 +217,8 @@ Deno.serve(async (req) => {
         .select("id, title, content, competency_id")
         .eq("module_id", effectiveCourseId)
         .not("content", "is", null)
-        .order("sort_order", { ascending: true });
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true });
 
       if (!lessons?.length) {
         // Fallback: try via modules
@@ -233,7 +234,8 @@ Deno.serve(async (req) => {
             .select("id, title, content, competency_id")
             .in("module_id", moduleIds)
             .not("content", "is", null)
-            .order("sort_order", { ascending: true });
+            .order("sort_order", { ascending: true })
+            .order("id", { ascending: true });
 
           if (modLessons?.length) {
             const compIds = [...new Set(modLessons.filter(l => l.competency_id).map(l => l.competency_id))];
@@ -434,9 +436,10 @@ Deno.serve(async (req) => {
     const softStopped = shouldSoftStop(startMs, "lesson_minichecks");
     console.log(`[MiniChecks] ${softStopped ? "⏱️ Soft-stopped" : "✅ Done"}: ${totalGenerated} questions generated, ${totalFailed} failed, ${elapsed}ms`);
 
-    // Signal batch_complete=false if we soft-stopped or had remaining targets
-    const processedTargets = targets.slice(0, targets.indexOf(targets.find((_, i) => i >= MAX_TARGETS_PER_RUN) as any) + 1 || targets.length);
-    const batchComplete = !softStopped && totalFailed === 0;
+    // batch_complete=false triggers runner re-enqueue (line 939 in job-runner)
+    // Must be false if: soft-stopped, any failures, or we capped targets (more remain)
+    const cappedTargets = targets.length >= MAX_TARGETS_PER_RUN;
+    const batchComplete = !softStopped && totalFailed === 0 && !cappedTargets;
 
     return json({
       ok: true,
