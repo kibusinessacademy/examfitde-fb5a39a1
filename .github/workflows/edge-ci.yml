@@ -33,6 +33,21 @@ jobs:
         run: |
           deno run -A scripts/edge-guards.ts
 
+      - name: SSOT Guard — block direct package_steps done writes
+        run: |
+          # Only _shared/steps.ts may write status='done' to package_steps
+          HITS=$(grep -rn 'package_steps' supabase/functions/ \
+            --include='*.ts' \
+            -l | grep -v '_shared/steps.ts' | while read f; do
+              grep -Pn "status.*['\"]done['\"]" "$f" 2>/dev/null || true
+            done)
+          if [ -n "$HITS" ]; then
+            echo "❌ SSOT VIOLATION: Direct package_steps status='done' writes found outside _shared/steps.ts:"
+            echo "$HITS"
+            exit 1
+          fi
+          echo "✅ No direct package_steps done writes outside SSOT"
+
       - name: Success summary
         run: |
-          echo "✅ Edge CI passed: deno check + deno lint + edge guards"
+          echo "✅ Edge CI passed: deno check + deno lint + edge guards + SSOT guards"

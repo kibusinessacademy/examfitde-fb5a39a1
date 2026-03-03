@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, poolForJobType } from "../_shared/job-map.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import { markStepDone } from "../_shared/steps.ts";
 
 /**
  * pipeline-runner — Pure Orchestrator (v3: Multi-Slot Acquisition)
@@ -497,19 +498,37 @@ async function processPackage(
       }
 
       // Compare-and-set: only finalize if status still matches (race-safe)
-      const { data: updatedRows, error: updErr } = await sb
-        .from("package_steps")
-        .update({
-          status: "done",
-          last_error: null,
-          finished_at: new Date().toISOString(),
-        })
-        .eq("package_id", packageId)
-        .eq("step_key", rule.stepKey)
-        .in("status", ["queued", "running", "enqueued"])
-        .select("step_key");
+      if (!["queued", "running", "enqueued"].includes(step.status)) continue;
 
-      const applied = !!(updatedRows && updatedRows.length > 0);
+      // ── SSOT: use markStepDone (post-condition guards for content steps) ──
+      let applied = false;
+      try {
+        await markStepDone(sb, {
+          packageId,
+          stepKey: rule.stepKey,
+          meta: { finalized_by: "pipeline-runner", reason: cond.reason, snapshot: cond.snapshot },
+        });
+        // Also clear last_error after successful markStepDone
+        await safeQuery(
+          sb.from("package_steps").update({ last_error: null }).eq("package_id", packageId).eq("step_key", rule.stepKey),
+          "clear_last_error_after_finalize",
+        );
+        applied = true;
+      } catch (postCondErr: unknown) {
+        // Post-condition failed (e.g. HOLLOW_LESSONS) — do NOT finalize, log and skip
+        const msg = postCondErr instanceof Error ? postCondErr.message : String(postCondErr);
+        console.warn(`[runner] ⛔ markStepDone BLOCKED finalization of ${rule.stepKey} for ${shortId}: ${msg}`);
+        await safeQuery(sb.from("auto_heal_log").insert({
+          action_type: rule.actionType,
+          trigger_source: "pipeline-runner",
+          target_type: "course_package",
+          target_id: packageId,
+          result_status: "blocked",
+          result_detail: `Post-condition blocked finalization: ${msg.slice(0, 500)}`,
+          metadata: { step_key: rule.stepKey, error: msg.slice(0, 300) },
+        }), "finalization_blocked_log");
+        continue;
+      }
 
       if (applied) {
         // Cancel orphaned jobs only when we actually finalized
@@ -602,14 +621,29 @@ async function processPackage(
 
        console.warn(`[runner] 🧟 ZOMBIE auto-fix: step ${k} for ${shortId} is ${s.status} with meta.ok=${meta.ok} for ${Math.round(age / 60000)}min — forcing to done`);
 
-      // 1) Finalize step (match on current status for race safety)
-      await safeQuery(
-        sb.from("package_steps").update({
-          status: "done", finished_at: new Date().toISOString(),
-          last_error: null,
-        }).eq("package_id", packageId).eq("step_key", k).in("status", ["running", "enqueued"]),
-        "zombie_auto_finalize",
-      );
+      // 1) Finalize step via SSOT markStepDone (post-condition guards)
+      try {
+        await markStepDone(sb, {
+          packageId,
+          stepKey: k,
+          meta: { finalized_by: "zombie-auto-fix", age_minutes: Math.round(age / 60000) },
+        });
+        await safeQuery(
+          sb.from("package_steps").update({ last_error: null }).eq("package_id", packageId).eq("step_key", k),
+          "zombie_clear_error",
+        );
+      } catch (postCondErr: unknown) {
+        const msg = postCondErr instanceof Error ? postCondErr.message : String(postCondErr);
+        console.warn(`[runner] ⛔ ZOMBIE markStepDone BLOCKED for ${k} (${shortId}): ${msg} — resetting to queued`);
+        await safeQuery(
+          sb.from("package_steps").update({
+            status: "queued", started_at: null, finished_at: null,
+            last_error: `ZOMBIE post-condition failed: ${msg.slice(0, 500)}`,
+          }).eq("package_id", packageId).eq("step_key", k),
+          "zombie_post_condition_reset",
+        );
+        continue;
+      }
 
       // 2) Cancel pending/failed jobs via RPC
       const jobType = STEP_TO_JOB_TYPE[k as StepKey];

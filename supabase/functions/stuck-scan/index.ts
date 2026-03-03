@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { STEP_TO_JOB_TYPE, inferBackoffSeconds } from "../_shared/job-map.ts";
+import { markStepDone } from "../_shared/steps.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -245,12 +246,25 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 1) Finalize step (match on current status for race safety)
-      await sb.from("package_steps").update({
-        status: "done",
-        finished_at: new Date().toISOString(),
-        last_error: null,
-      }).eq("package_id", zs.package_id).eq("step_key", zs.step_key).in("status", ["running", "enqueued", "queued"]);
+      // 1) Finalize step via SSOT markStepDone (post-condition guards)
+      try {
+        await markStepDone(sb, {
+          packageId: zs.package_id,
+          stepKey: zs.step_key,
+          meta: { finalized_by: "stuck-scan", note: "zombie finalization" },
+        });
+        await sb.from("package_steps").update({ last_error: null })
+          .eq("package_id", zs.package_id).eq("step_key", zs.step_key);
+      } catch (postCondErr: unknown) {
+        const msg = postCondErr instanceof Error ? postCondErr.message : String(postCondErr);
+        console.warn(`[stuck-scan] ⛔ markStepDone BLOCKED for ${zs.step_key} (${zs.package_id.slice(0,8)}): ${msg} — resetting to queued`);
+        await sb.from("package_steps").update({
+          status: "queued", started_at: null, finished_at: null,
+          last_error: `stuck-scan post-condition failed: ${msg.slice(0, 500)}`,
+        }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
+        zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: "POST_CONDITION_BLOCKED: reset to queued" });
+        continue;
+      }
 
       // 2) Cancel jobs scoped to this step
       await safeRpc(sb, "cancel_jobs_for_package", {
