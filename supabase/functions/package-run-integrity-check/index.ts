@@ -523,6 +523,15 @@ async function runCourseReadyGate(
 // ══════════════════════════════════════════════════════
 // Main handler
 // ══════════════════════════════════════════════════════
+function serializeErr(e: any): { name: string; message: string; stack: string; code: string | null } {
+  return {
+    name: String(e?.name ?? "Error"),
+    message: String(e?.message ?? e),
+    stack: String(e?.stack ?? "").slice(0, 2000),
+    code: e?.code ? String(e.code) : null,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
@@ -530,131 +539,174 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
 
+  let packageId: string | null = null;
+
   try {
     assertUuid("package_id", p?.package_id);
     assertUuid("course_id", p?.course_id);
-  } catch (e: unknown) {
-    return json({ error: (e as Error).message }, 400);
-  }
 
-  const packageId = p.package_id as string;
-  const courseId = p.course_id as string;
+    packageId = p.package_id as string;
+    const courseId = p.course_id as string;
 
-  // Track-aware prerequisite: EXAM_FIRST requires validate_oral_exam,
-  // AUSBILDUNG_VOLL (full track) requires generate_handbook
-  const { data: pkgTrack } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
-  const track = (pkgTrack as any)?.track ?? "AUSBILDUNG_VOLL";
-  
-  const prereqStep = track === "EXAM_FIRST" ? "validate_oral_exam" : "generate_handbook";
-  if (!(await prereqDone(sb, packageId, prereqStep))) {
-    return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${prereqStep}` }, 409);
-  }
+    // Track-aware prerequisite: EXAM_FIRST requires validate_oral_exam,
+    // AUSBILDUNG_VOLL (full track) requires generate_handbook
+    const { data: pkgTrack } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
+    const track = (pkgTrack as any)?.track ?? "AUSBILDUNG_VOLL";
 
-  // Get curriculum_id from course
-  const { data: courseData } = await sb.from("courses").select("curriculum_id").eq("id", courseId).single();
-  const currId = courseData?.curriculum_id;
-
-  // ── Run COURSE_READY gate ──
-  const gate = await runCourseReadyGate(sb, courseId, currId, packageId);
-
-  console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} COURSE_READY score=${gate.score} hardFails=${gate.hardFails.length} warnings=${gate.warnings.length} excellence=${gate.excellence.length}`);
-  for (const hf of gate.hardFails) console.log(`  ❌ ${hf}`);
-  for (const w of gate.warnings) console.log(`  ⚠️ ${w}`);
-  for (const e of gate.excellence) console.log(`  🌟 ${e}`);
-
-  // ── Build council-friendly v3.summary (SSOT for Council) ──
-  // Council reads ONLY from summary — computed directly from gate metrics.
-  const { totalApproved, approvedQs, uniqueLFs, moduleIds, totalCompetencies } = gate.metrics;
-
-  // Competency binding
-  const summaryUnboundCount = approvedQs.filter((q: any) => !q.competency_id).length;
-  const summaryBindingPct = totalApproved > 0
-    ? ((totalApproved - summaryUnboundCount) / totalApproved) * 100
-    : 100;
-
-  // Competency coverage
-  const summaryCoveredComps = new Set(approvedQs.map((q: any) => q.competency_id).filter(Boolean));
-
-  // Bloom remember pct
-  const summaryRememberCount = approvedQs.filter((q: any) =>
-    ["remember","erinnern","wissen","kennen"].includes((q as any).cognitive_level?.toLowerCase?.() || "")
-  ).length;
-  const summaryRememberPct = totalApproved > 0 ? (summaryRememberCount / totalApproved) * 100 : 0;
-
-  // Context isolated pct
-  const summaryBpIds = [...new Set(approvedQs.filter((q: any) => q.blueprint_id).map((q: any) => q.blueprint_id))];
-  let summaryIsolatedPct: number | null = null;
-  if (summaryBpIds.length > 0) {
-    const ctxMap2 = new Map<string, string>();
-    for (let i = 0; i < summaryBpIds.length; i += 200) {
-      const chunk = summaryBpIds.slice(i, i + 200);
-      const { data: bps } = await sb.from("question_blueprints").select("id, exam_context_type").in("id", chunk);
-      for (const bp of (bps || []) as any[]) ctxMap2.set(bp.id, bp.exam_context_type || "isolated_knowledge");
+    const prereqStep = track === "EXAM_FIRST" ? "validate_oral_exam" : "generate_handbook";
+    if (!(await prereqDone(sb, packageId, prereqStep))) {
+      return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${prereqStep}` }, 409);
     }
-    let isoC = 0, mapC = 0;
-    for (const q of approvedQs as any[]) {
-      const ctx = q.blueprint_id ? (ctxMap2.get(q.blueprint_id) || "isolated_knowledge") : "unmapped";
-      if (ctx !== "unmapped") { mapC++; if (ctx === "isolated_knowledge") isoC++; }
+
+    // Get curriculum_id from course
+    const { data: courseData } = await sb.from("courses").select("curriculum_id").eq("id", courseId).single();
+    const currId = courseData?.curriculum_id;
+
+    // ── Run COURSE_READY gate ──
+    const gate = await runCourseReadyGate(sb, courseId, currId, packageId);
+
+    console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} COURSE_READY score=${gate.score} hardFails=${gate.hardFails.length} warnings=${gate.warnings.length} excellence=${gate.excellence.length}`);
+    for (const hf of gate.hardFails) console.log(`  ❌ ${hf}`);
+    for (const w of gate.warnings) console.log(`  ⚠️ ${w}`);
+    for (const e of gate.excellence) console.log(`  🌟 ${e}`);
+
+    // ── Build council-friendly v3.summary (SSOT for Council) ──
+    // Council reads ONLY from summary — computed directly from gate metrics.
+    const { totalApproved, approvedQs, uniqueLFs, moduleIds, totalCompetencies } = gate.metrics;
+
+    // Competency binding
+    const summaryUnboundCount = approvedQs.filter((q: any) => !q.competency_id).length;
+    const summaryBindingPct = totalApproved > 0
+      ? ((totalApproved - summaryUnboundCount) / totalApproved) * 100
+      : 100;
+
+    // Competency coverage
+    const summaryCoveredComps = new Set(approvedQs.map((q: any) => q.competency_id).filter(Boolean));
+
+    // Bloom remember pct
+    const summaryRememberCount = approvedQs.filter((q: any) =>
+      ["remember","erinnern","wissen","kennen"].includes((q as any).cognitive_level?.toLowerCase?.() || "")
+    ).length;
+    const summaryRememberPct = totalApproved > 0 ? (summaryRememberCount / totalApproved) * 100 : 0;
+
+    // Context isolated pct
+    const summaryBpIds = [...new Set(approvedQs.filter((q: any) => q.blueprint_id).map((q: any) => q.blueprint_id))];
+    let summaryIsolatedPct: number | null = null;
+    if (summaryBpIds.length > 0) {
+      const ctxMap2 = new Map<string, string>();
+      for (let i = 0; i < summaryBpIds.length; i += 200) {
+        const chunk = summaryBpIds.slice(i, i + 200);
+        const { data: bps } = await sb.from("question_blueprints").select("id, exam_context_type").in("id", chunk);
+        for (const bp of (bps || []) as any[]) ctxMap2.set(bp.id, bp.exam_context_type || "isolated_knowledge");
+      }
+      let isoC = 0, mapC = 0;
+      for (const q of approvedQs as any[]) {
+        const ctx = q.blueprint_id ? (ctxMap2.get(q.blueprint_id) || "isolated_knowledge") : "unmapped";
+        if (ctx !== "unmapped") { mapC++; if (ctx === "isolated_knowledge") isoC++; }
+      }
+      summaryIsolatedPct = mapC > 0 ? (isoC / mapC) * 100 : null;
     }
-    summaryIsolatedPct = mapC > 0 ? (isoC / mapC) * 100 : null;
-  }
 
-  const summary = {
-    blueprint_coverage_pct: totalApproved >= 500 ? 100 : pctOrNA(totalApproved, 500),
-    lf_coverage_pct: pctOrNA(uniqueLFs.size, moduleIds.length),
-    duplicate_rate_pct: 0,
-    competency_coverage_pct: pctOrNA(summaryCoveredComps.size, totalCompetencies),
-    competency_binding_pct: summaryBindingPct,
-    questions_total: totalApproved,
-    questions_approved_total: totalApproved,
-    bloom_remember_pct: summaryRememberPct,
-    context_isolated_pct: summaryIsolatedPct,
-    hard_fail_reasons: gate.hardFails,
-  };
-
-  const report = {
-    score: gate.score,
-    generated_at: new Date().toISOString(),
-    gate_version: "COURSE_READY_v1.3",
-    v3: {
+    const summary = {
+      blueprint_coverage_pct: totalApproved >= 500 ? 100 : pctOrNA(totalApproved, 500),
+      lf_coverage_pct: pctOrNA(uniqueLFs.size, moduleIds.length),
+      duplicate_rate_pct: 0,
+      competency_coverage_pct: pctOrNA(summaryCoveredComps.size, totalCompetencies),
+      competency_binding_pct: summaryBindingPct,
+      questions_total: totalApproved,
+      questions_approved_total: totalApproved,
+      bloom_remember_pct: summaryRememberPct,
+      context_isolated_pct: summaryIsolatedPct,
       hard_fail_reasons: gate.hardFails,
-      warnings: gate.warnings,
-      excellence: gate.excellence,
-      gates: gate.results,
-      summary,
-      stats: {
-        totalLessons: gate.results.find(r => r.gate === "placeholder_check")?.detail ?? "",
-        approvedQuestions: gate.results.find(r => r.gate === "exam_pool_distribution")?.detail ?? "",
-        handbookChars: gate.results.find(r => r.gate === "handbook_depth")?.value ?? 0,
-        bloomLevels: gate.results.find(r => r.gate === "bloom_cognitive_levels")?.detail ?? "",
+    };
+
+    const report = {
+      score: gate.score,
+      generated_at: new Date().toISOString(),
+      gate_version: "COURSE_READY_v1.4",
+      v3: {
+        hard_fail_reasons: gate.hardFails,
+        warnings: gate.warnings,
+        excellence: gate.excellence,
+        gates: gate.results,
+        summary,
+        stats: {
+          totalLessons: gate.results.find(r => r.gate === "placeholder_check")?.detail ?? "",
+          approvedQuestions: gate.results.find(r => r.gate === "exam_pool_distribution")?.detail ?? "",
+          handbookChars: gate.results.find(r => r.gate === "handbook_depth")?.value ?? 0,
+          bloomLevels: gate.results.find(r => r.gate === "bloom_cognitive_levels")?.detail ?? "",
+        },
       },
-    },
-  };
+    };
 
-  const updatePayload: Record<string, unknown> = {
-    integrity_report: report,
-    build_progress: gate.hardFails.length === 0 ? 95 : 80,
-  };
-  if (gate.hardFails.length > 0) {
-    updatePayload.status = "quality_gate_failed";
+    const updatePayload: Record<string, unknown> = {
+      integrity_report: report,
+      build_progress: gate.hardFails.length === 0 ? 95 : 80,
+    };
+    if (gate.hardFails.length > 0) {
+      updatePayload.status = "quality_gate_failed";
+    }
+    const { error: uErr } = await sb.from("course_packages").update(updatePayload).eq("id", packageId);
+
+    if (uErr) throw uErr;
+
+    // Admin notification on hard fails
+    if (gate.hardFails.length > 0) {
+      try {
+        await sb.from("admin_notifications").insert({
+          title: "🛑 COURSE_READY Gate: Release blocked",
+          body: `${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
+          category: "quality",
+          severity: "error",
+          entity_type: "course_package",
+          entity_id: packageId,
+        });
+      } catch (_) { /* non-critical */ }
+    }
+
+    return json({ ok: true, report });
+
+  } catch (e) {
+    // ✅ P0 FIX: ALWAYS write last_error on crash — prevents silent-fail state
+    const err = serializeErr(e);
+    console.error(`[integrity-check] CRASH pkg=${packageId?.slice(0, 8) ?? "?"}: ${err.message}`);
+
+    if (packageId) {
+      try {
+        // Merge meta (read-then-write) to preserve existing keys
+        const { data: stepRow } = await sb
+          .from("package_steps")
+          .select("meta")
+          .eq("package_id", packageId)
+          .eq("step_key", "run_integrity_check")
+          .maybeSingle();
+
+        const prevMeta = (stepRow?.meta as Record<string, unknown>) ?? {};
+        const nextMeta = {
+          ...prevMeta,
+          last_error: err.message,
+          last_error_name: err.name,
+          last_error_stack: err.stack,
+          last_error_class: "transient",
+          last_progress_note: `Integrity check crashed: ${err.message.slice(0, 200)}`,
+          crashed_at: new Date().toISOString(),
+        };
+
+        await sb
+          .from("package_steps")
+          .update({
+            status: "failed",
+            meta: nextMeta,
+          })
+          .eq("package_id", packageId)
+          .eq("step_key", "run_integrity_check");
+      } catch (writeErr) {
+        console.error(`[integrity-check] DOUBLE FAULT: failed to write error state: ${(writeErr as Error).message}`);
+      }
+    }
+
+    // Return 200 so Runner doesn't enter "edge-call failed" codepath —
+    // the step state in DB is the SSOT for failure.
+    return json({ ok: false, error: err.message });
   }
-  const { error: uErr } = await sb.from("course_packages").update(updatePayload).eq("id", packageId);
-
-  if (uErr) throw uErr;
-
-  // Admin notification on hard fails
-  if (gate.hardFails.length > 0) {
-    try {
-      await sb.from("admin_notifications").insert({
-        title: "🛑 COURSE_READY Gate: Release blocked",
-        body: `${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
-        category: "quality",
-        severity: "error",
-        entity_type: "course_package",
-        entity_id: packageId,
-      });
-    } catch (_) { /* non-critical */ }
-  }
-
-  return json({ ok: true, report });
 });
