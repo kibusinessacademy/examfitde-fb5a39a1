@@ -28090,6 +28090,10 @@ export type Database = {
         }
         Returns: Json
       }
+      seed_blueprint_targets_for_curriculum: {
+        Args: { p_curriculum_id: string; p_mode?: string; p_track?: string }
+        Returns: Json
+      }
       select_best_provider: {
         Args: {
           p_exclude?: string[]
