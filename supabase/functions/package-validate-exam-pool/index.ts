@@ -285,6 +285,18 @@ Deno.serve(async (req) => {
 
   if (!packageId || !curriculumId) return json({ error: "Missing package_id or curriculum_id" }, 400);
 
+  // ── Artifact Guard: don't run if 0 approved questions exist ──
+  const { count: approvedCount } = await sb
+    .from("exam_questions")
+    .select("id", { count: "exact", head: true })
+    .eq("curriculum_id", curriculumId)
+    .eq("status", "approved");
+
+  if ((approvedCount ?? 0) === 0) {
+    console.log(`[validate-exam] NO_APPROVED_QUESTIONS for curriculum ${curriculumId.slice(0,8)} — backoff 120s`);
+    return json({ ok: false, transient: true, backoff_seconds: 120, error: "NO_APPROVED_QUESTIONS_YET" });
+  }
+
   // ── Cursor from previous partial run ──
   const cursor = p.batch_cursor as { phase?: string; last_id?: string; t1_stats?: any; t1_pass_ids?: string[] } | null;
   const startPhase = cursor?.phase || "tier1";
