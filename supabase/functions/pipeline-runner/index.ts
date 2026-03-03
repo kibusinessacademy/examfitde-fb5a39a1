@@ -128,9 +128,11 @@ function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepAction {
     if (s.status === "blocked") continue;
 
     // ✅ P0 FIX: Respect next_run_at — skip steps with future backoff
+    // Use Date.parse for robust comparison (handles offsets, Z, etc.)
     const nra = (s.meta as Record<string, unknown>)?.next_run_at;
-    if (nra && typeof nra === "string" && nra > nowIso) {
-      continue; // backoff not yet elapsed
+    if (typeof nra === "string") {
+      const nraMs = Date.parse(nra);
+      if (!Number.isNaN(nraMs) && nraMs > Date.now()) continue;
     }
 
     // NOTE: Zombie detection is handled BEFORE pickNextAction in processPackage.
@@ -1245,7 +1247,8 @@ async function processPackage(
               "check_existing_boost",
             ) as any;
 
-            if (!existingBoost || existingBoost.length === 0) {
+            const boostRows = Array.isArray(existingBoost) ? existingBoost : (existingBoost as any)?.data ?? [];
+            if (!Array.isArray(boostRows) || boostRows.length === 0) {
               console.log(`[runner] ⚡ Low-progress boost: only ${deltaReal} lessons this run, enqueuing priority boost`);
               await safeQuery(
                 sb.from("job_queue").insert({
