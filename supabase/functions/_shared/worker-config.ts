@@ -54,7 +54,7 @@ export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST";
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
   AUSBILDUNG_VOLL: 3,
-  EXAM_FIRST: 8,
+  EXAM_FIRST: 12,
 };
 
 export function getTrackQuota(track: TrackKey): number {
