@@ -334,8 +334,8 @@ Deno.serve(async (req) => {
             .select("id", { count: "exact", head: true })
             .eq("package_id", ps.package_id)
             .eq("job_type", jobType)
-            .in("status", ["pending", "processing"]);
-          if ((activeJobCnt ?? 0) > 0) continue; // Jobs still running — not orphaned
+            .in("status", ["pending", "queued", "processing"]);
+          if ((activeJobCnt ?? 0) > 0) continue; // Jobs still active — not orphaned
         }
 
         // No active jobs + processing for >10min → orphan, reset to queued
@@ -405,7 +405,7 @@ Deno.serve(async (req) => {
           .select("id", { count: "exact", head: true })
           .eq("package_id", ps.package_id)
           .eq("job_type", jobType)
-          .in("status", ["pending", "processing"]);
+          .in("status", ["pending", "queued", "processing"]);
 
         if (jobErr) {
           console.error(`[stuck-scan] enqueued-drift job check error: ${jobErr.message}`);
@@ -573,7 +573,7 @@ Deno.serve(async (req) => {
       const { data: lastActive } = await sb
         .from("job_queue")
         .select("updated_at")
-        .in("status", ["pending", "processing"])
+        .in("status", ["pending", "queued", "processing"])
         .order("updated_at", { ascending: false })
         .limit(1);
 
