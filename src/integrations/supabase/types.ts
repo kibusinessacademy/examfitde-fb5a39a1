@@ -2218,6 +2218,87 @@ export type Database = {
           },
         ]
       }
+      blueprint_targets: {
+        Row: {
+          competency_id: string
+          created_at: string
+          curriculum_id: string
+          id: string
+          priority: number
+          target_application: number
+          target_error_patterns: number
+          target_recall: number
+          target_scenario: number
+          target_total: number | null
+          target_transfer: number
+          updated_at: string
+        }
+        Insert: {
+          competency_id: string
+          created_at?: string
+          curriculum_id: string
+          id?: string
+          priority?: number
+          target_application?: number
+          target_error_patterns?: number
+          target_recall?: number
+          target_scenario?: number
+          target_total?: number | null
+          target_transfer?: number
+          updated_at?: string
+        }
+        Update: {
+          competency_id?: string
+          created_at?: string
+          curriculum_id?: string
+          id?: string
+          priority?: number
+          target_application?: number
+          target_error_patterns?: number
+          target_recall?: number
+          target_scenario?: number
+          target_total?: number | null
+          target_transfer?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_targets_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       blueprint_variables: {
         Row: {
           allowed_values: string[] | null
@@ -8022,6 +8103,7 @@ export type Database = {
           approved_version_id: string | null
           bloom_level_validated: string | null
           blueprint_id: string | null
+          canonical_hash: string | null
           cognitive_level: string | null
           competency_id: string | null
           complexity_score: number | null
@@ -8039,6 +8121,7 @@ export type Database = {
           elite_score_breakdown: Json | null
           exam_part: string | null
           explanation: string | null
+          global_canonical_hash: string | null
           id: string
           item_calibrated_at: string | null
           item_difficulty: number | null
@@ -8068,6 +8151,7 @@ export type Database = {
           approved_version_id?: string | null
           bloom_level_validated?: string | null
           blueprint_id?: string | null
+          canonical_hash?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
           complexity_score?: number | null
@@ -8085,6 +8169,7 @@ export type Database = {
           elite_score_breakdown?: Json | null
           exam_part?: string | null
           explanation?: string | null
+          global_canonical_hash?: string | null
           id?: string
           item_calibrated_at?: string | null
           item_difficulty?: number | null
@@ -8114,6 +8199,7 @@ export type Database = {
           approved_version_id?: string | null
           bloom_level_validated?: string | null
           blueprint_id?: string | null
+          canonical_hash?: string | null
           cognitive_level?: string | null
           competency_id?: string | null
           complexity_score?: number | null
@@ -8131,6 +8217,7 @@ export type Database = {
           elite_score_breakdown?: Json | null
           exam_part?: string | null
           explanation?: string | null
+          global_canonical_hash?: string | null
           id?: string
           item_calibrated_at?: string | null
           item_difficulty?: number | null
@@ -23527,6 +23614,70 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_blueprint_coverage_diff: {
+        Row: {
+          actual_application: number | null
+          actual_error_patterns: number | null
+          actual_recall: number | null
+          actual_scenario: number | null
+          actual_total: number | null
+          actual_transfer: number | null
+          competency_id: string | null
+          competency_title: string | null
+          curriculum_id: string | null
+          gap_application: number | null
+          gap_error_patterns: number | null
+          gap_recall: number | null
+          gap_scenario: number | null
+          gap_total: number | null
+          gap_transfer: number | null
+          learning_field_title: string | null
+          priority: number | null
+          target_application: number | null
+          target_error_patterns: number | null
+          target_recall: number | null
+          target_scenario: number | null
+          target_total: number | null
+          target_transfer: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_targets_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       ops_blueprint_quality_kpis: {
         Row: {
           bloom_distribution: Json | null
@@ -26013,6 +26164,30 @@ export type Database = {
             }
             Returns: Json
           }
+      check_canonical_collision: {
+        Args: {
+          p_cognitive_level: string
+          p_competency_id: string
+          p_correct_answer: number
+          p_difficulty: string
+          p_exclude_id?: string
+          p_scenario_type: string
+          p_transfer_variant: boolean
+        }
+        Returns: {
+          colliding_blueprint_id: string
+          colliding_question_id: string
+          collision_found: boolean
+        }[]
+      }
+      check_canonical_density: {
+        Args: {
+          p_blueprint_id: string
+          p_canonical_hash: string
+          p_max_per_bucket?: number
+        }
+        Returns: boolean
+      }
       check_lesson_answer: {
         Args: { p_lesson_id: string; p_user_answer: string }
         Returns: Json
@@ -26453,6 +26628,18 @@ export type Database = {
         Args: { p: Database["public"]["Enums"]["compliance_severity"] }
         Returns: number
       }
+      compute_canonical_hash: {
+        Args: {
+          p_blueprint_id: string
+          p_cognitive_level: string
+          p_competency_id: string
+          p_correct_answer: number
+          p_difficulty: string
+          p_scenario_type: string
+          p_transfer_variant: boolean
+        }
+        Returns: string
+      }
       compute_compliance_release_gate: { Args: never; Returns: Json }
       compute_curriculum_coverage: {
         Args: { p_certification_id: string }
@@ -26469,6 +26656,17 @@ export type Database = {
           p_transfer_variant: boolean
         }
         Returns: Json
+      }
+      compute_global_canonical_hash: {
+        Args: {
+          p_cognitive_level: string
+          p_competency_id: string
+          p_correct_answer: number
+          p_difficulty: string
+          p_scenario_type: string
+          p_transfer_variant: boolean
+        }
+        Returns: string
       }
       compute_qa_release_gate: { Args: never; Returns: Json }
       compute_question_hash: { Args: { p_text: string }; Returns: string }
@@ -26732,6 +26930,21 @@ export type Database = {
           description: string
           ihk_weight: number
           question_count: number
+        }[]
+      }
+      get_blueprint_coverage_gaps: {
+        Args: { p_curriculum_id: string; p_min_gap?: number }
+        Returns: {
+          competency_id: string
+          competency_title: string
+          gap_application: number
+          gap_error_patterns: number
+          gap_recall: number
+          gap_scenario: number
+          gap_total: number
+          gap_transfer: number
+          learning_field_title: string
+          priority: number
         }[]
       }
       get_building_metrics: { Args: never; Returns: Json }
