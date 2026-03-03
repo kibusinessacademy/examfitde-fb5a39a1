@@ -14,6 +14,7 @@ const ComplianceDashboardPage = lazy(() => import('@/pages/admin/ComplianceDashb
 const AZAVCompliancePage = lazy(() => import('@/pages/admin/AZAVCompliancePage'));
 const ManualLessonEditor = lazy(() => import('@/components/admin/ManualLessonEditor'));
 const EliteMatrixPage = lazy(() => import('@/pages/admin/EliteMatrixPage'));
+const CoverageGapsPage = lazy(() => import('@/pages/admin/v4/CoverageGapsPage'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
@@ -26,6 +27,7 @@ const QualityShieldDashboard = lazy(() => import('@/components/admin/QualityShie
 const tabs = [
   { path: '/admin/quality', label: 'Übersicht' },
   { path: '/admin/quality/elite-matrix', label: 'Elite-Matrix' },
+  { path: '/admin/quality/coverage', label: 'Coverage Gaps' },
   { path: '/admin/quality/shield', label: 'Quality Shield' },
   { path: '/admin/quality/integrity', label: 'Integrität' },
   { path: '/admin/quality/repair', label: 'Nachbearbeitung' },
@@ -272,6 +274,7 @@ export default function QualityPage() {
         <Routes>
           <Route index element={<QualityOverview />} />
           <Route path="elite-matrix" element={<EliteMatrixPage />} />
+          <Route path="coverage" element={<CoverageGapsPage />} />
           <Route path="shield" element={<QualityShieldDashboard />} />
           <Route path="integrity" element={<IntegrityOverview />} />
           <Route path="repair" element={<ManualLessonEditor />} />
