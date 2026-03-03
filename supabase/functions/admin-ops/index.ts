@@ -380,8 +380,9 @@ serve(async (req) => {
     return json({
       error: "Unknown action",
     }, 400);
-  } catch (e) {
-    console.error("[admin-ops] error", e);
-    return json({ error: String((e as Error)?.message || e) }, 500);
+  } catch (e: any) {
+    const status = typeof e?.status === "number" ? e.status : 500;
+    console.error(`[admin-ops] error (${status})`, e);
+    return json({ error: String(e?.message || e) }, status);
   }
 });
