@@ -112,7 +112,8 @@ serve(async (req) => {
 
     // ── enqueue_job (privileged job creation) ─────────────────
     if (action === "enqueue_job") {
-      const ALLOWED_JOB_TYPES = ["package_auto_publish"];
+      const ALLOWED_JOB_TYPES = ["package_auto_publish", "package_rebuild_learning"];
+      const VALID_SCOPES = ["learning", "handbook", "tutor", "all"];
       const jobType = body.job_type as string;
       const packageId = body.package_id as string;
       const courseId = body.course_id as string;
@@ -123,14 +124,24 @@ serve(async (req) => {
       if (!packageId) return json({ error: "package_id required" }, 400);
       if (!courseId) return json({ error: "course_id required" }, 400);
 
+      // Extra validation for rebuild jobs
+      if (jobType === "package_rebuild_learning") {
+        const scope = body.scope as string;
+        if (!scope || !VALID_SCOPES.includes(scope)) {
+          return json({ error: `scope must be one of: ${VALID_SCOPES.join(", ")}` }, 400);
+        }
+      }
+
       const maxAttempts = Math.max(1, Math.min(body.max_attempts ?? 3, 10));
+      const payload: Record<string, unknown> = { package_id: packageId, course_id: courseId };
+      if (body.scope) payload.scope = body.scope;
 
       const { data, error: err } = await sb
         .from("job_queue")
         .insert({
           job_type: jobType,
           status: "pending",
-          payload: { package_id: packageId, course_id: courseId },
+          payload,
           max_attempts: maxAttempts,
         })
         .select("id")

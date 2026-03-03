@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, AlertTriangle, Shield, BookOpen, ClipboardCheck, MessageSquare, FileText, Bot } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle, Shield, BookOpen, ClipboardCheck, MessageSquare, FileText, Bot, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -47,8 +47,14 @@ export default function IntegrityReportCard({ report, curriculumId, packageId }:
   }, [curriculumId, packageId]);
 
   if (!report || typeof report !== 'object') return null;
-  const score = report.score ?? 0;
-  const passed = report.passed ?? (score >= 80);
+
+  // ── Track-aware scoring ──────────────────────────────────
+  const scoreScope = report.score_scope as string | undefined;
+  const examScore = report.exam_score ?? report.score ?? 0;
+  const learningScore = report.learning_score ?? null;
+  const totalScore = report.score ?? 0;
+  const skippedLearning = report.skipped_learning_gates === true || scoreScope === 'exam_only';
+  const passed = report.passed ?? (totalScore >= 80);
 
   const v3 = report.v3?.stats;
   const examTotal = liveCounts?.questions ?? report.exam?.total ?? v3?.questionCount ?? null;
@@ -65,15 +71,47 @@ export default function IntegrityReportCard({ report, curriculumId, packageId }:
   const snapshotAge = report.checked_at ? Math.round((Date.now() - new Date(report.checked_at).getTime()) / 3600000) : null;
 
   return (
-    <Card className={cn("border", passed ? "border-success/30" : "border-destructive/30")}>
+    <Card className={cn("border", passed && !skippedLearning ? "border-success/30" : skippedLearning ? "border-warning/30" : "border-destructive/30")}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center justify-between">
           <span className="flex items-center gap-2">
             <Shield className="h-4 w-4" /> Qualitätsbericht
             {liveCounts && <Badge variant="outline" className="text-[9px] text-primary">LIVE</Badge>}
+            {skippedLearning && (
+              <Badge variant="outline" className="text-[9px] text-warning border-warning/40 bg-warning/10">
+                Exam-only
+              </Badge>
+            )}
           </span>
-          <span className={cn("text-lg font-bold", score >= 80 ? "text-success" : score >= 60 ? "text-warning" : "text-destructive")}>{score}/100</span>
+          <span className={cn("text-lg font-bold", totalScore >= 80 && !skippedLearning ? "text-success" : totalScore >= 60 ? "text-warning" : "text-destructive")}>
+            {totalScore}/100
+          </span>
         </CardTitle>
+
+        {/* Sub-scores when available */}
+        {(learningScore != null || skippedLearning) && (
+          <div className="flex gap-3 text-[10px] mt-1">
+            <span className="text-muted-foreground">
+              Exam: <span className="font-mono text-foreground">{examScore}</span>
+            </span>
+            <span className="text-muted-foreground">
+              Learning: {skippedLearning && learningScore == null
+                ? <span className="font-mono text-warning">übersprungen</span>
+                : <span className="font-mono text-foreground">{learningScore ?? '–'}</span>
+              }
+            </span>
+          </div>
+        )}
+
+        {skippedLearning && (
+          <div className="flex items-start gap-1.5 mt-1.5 p-1.5 rounded bg-warning/10 border border-warning/20">
+            <Info className="h-3 w-3 text-warning shrink-0 mt-0.5" />
+            <p className="text-[10px] text-warning leading-tight">
+              Learning-Gates übersprungen (Track: Exam-First). Score bildet nur Prüfungspool ab. Für Veröffentlichung als Vollkurs wird AUSBILDUNG_VOLL benötigt.
+            </p>
+          </div>
+        )}
+
         {snapshotAge != null && snapshotAge > 1 && (
           <p className="text-[10px] text-warning">⚠ Snapshot {snapshotAge}h alt – Fragen-Counts sind live</p>
         )}
