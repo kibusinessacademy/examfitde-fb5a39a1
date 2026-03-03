@@ -749,7 +749,7 @@ Deno.serve(async (req) => {
       .is("published_at", null)
       .is("stuck_reason", null);
 
-    const orphanResults: Array<{ package_id: string; action: string }> = [];
+    const buildingPkgResults: Array<{ package_id: string; action: string }> = [];
     for (const pkg of buildingPkgs || []) {
       const { count: activeSteps } = await sb
         .from("package_steps")
@@ -774,19 +774,19 @@ Deno.serve(async (req) => {
         await sb.from("course_packages")
           .update({ status: "published", build_progress: 100, stuck_reason: null })
           .eq("id", pkg.id);
-        orphanResults.push({ package_id: pkg.id, action: "All steps done — promoted to published" });
+        buildingPkgResults.push({ package_id: pkg.id, action: "All steps done — promoted to published" });
         continue;
       }
 
       if ((totalSteps ?? 0) === 0) {
-        orphanResults.push({ package_id: pkg.id, action: "No steps yet — waiting for runner bootstrap" });
+        buildingPkgResults.push({ package_id: pkg.id, action: "No steps yet — waiting for runner bootstrap" });
         continue;
       }
 
       await sb.from("course_packages").update({
         stuck_reason: "No actionable steps remaining",
       }).eq("id", pkg.id);
-      orphanResults.push({ package_id: pkg.id, action: "marked stuck (no actionable steps)" });
+      buildingPkgResults.push({ package_id: pkg.id, action: "marked stuck (no actionable steps)" });
     }
 
     // ══════════════════════════════════════════════════════
@@ -794,7 +794,7 @@ Deno.serve(async (req) => {
     // ══════════════════════════════════════════════════════
     const allStuck = [
       ...results.filter(r => r.reason.includes("Marked stuck")),
-      ...orphanResults.filter(o => o.action.includes("stuck")),
+      ...buildingPkgResults.filter(o => o.action.includes("stuck")),
       ...escalationResults,
     ];
     if (allStuck.length > 0) {
@@ -878,13 +878,14 @@ Deno.serve(async (req) => {
       console.warn(`[stuck-scan] Pool sweep error: ${(sweepErr as Error).message}`);
     }
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
     return json({
       ok: true,
       config: { heartbeat_timeout_s: heartbeatTimeout, package_timeout_min: packageTimeout },
       stuck_packages: results,
       orphan_packages: orphanResults,
+      building_pkg_results: buildingPkgResults,
       stale_jobs_reset: staleCount,
       stale_jobs_permanently_failed: failedFromStale,
       zombie_steps_fixed: zombieResults,
