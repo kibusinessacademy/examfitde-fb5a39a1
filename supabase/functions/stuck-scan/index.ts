@@ -445,6 +445,62 @@ Deno.serve(async (req) => {
     }
 
     // ══════════════════════════════════════════════════════
+    // 1b4) STATUS-LAG SELF-HEAL
+    // Job is processing but step still enqueued → step must be running.
+    // This is a pure sync fix — the job is already running, the step
+    // just didn't get updated (race condition between enqueue and claim).
+    // ══════════════════════════════════════════════════════
+    const statusLagResults: Array<{ package_id: string; step_key: string }> = [];
+    {
+      const { data: lagSteps } = await sb
+        .from("package_steps")
+        .select("package_id, step_key, status, meta")
+        .eq("status", "enqueued")
+        .limit(500);
+
+      for (const ps of lagSteps || []) {
+        const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
+        if (!jobType) continue;
+
+        const { count: procCnt } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("package_id", ps.package_id)
+          .eq("job_type", jobType)
+          .eq("status", "processing");
+
+        if ((procCnt ?? 0) === 0) continue;
+
+        const prevMeta = (ps.meta ?? {}) as Record<string, unknown>;
+        await sb.from("package_steps").update({
+          status: "running",
+          started_at: new Date().toISOString(),
+          meta: {
+            ...prevMeta,
+            last_progress_note: "status-lag-heal: job processing -> step running",
+            status_lag_healed_at: new Date().toISOString(),
+          },
+        }).eq("package_id", ps.package_id).eq("step_key", ps.step_key);
+
+        await sb.from("auto_heal_log").insert({
+          action_type: "status_lag_self_heal",
+          trigger_source: "stuck-scan",
+          target_type: "package_step",
+          target_id: ps.package_id,
+          result_status: "applied",
+          result_detail: `Step ${ps.step_key} was enqueued but job ${jobType} is processing -> step set to running`,
+          metadata: { step_key: ps.step_key, job_type: jobType },
+        });
+
+        statusLagResults.push({ package_id: ps.package_id, step_key: ps.step_key });
+      }
+
+      if (statusLagResults.length > 0) {
+        console.log(`[stuck-scan] 🧷 Status-lag healed ${statusLagResults.length} step(s)`);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════
     // 1c) ESCALATION LOOP DETECTION (scoped by step type)
     // - validate_* steps: skip + notify (safe to skip)
     // - generate_* / other steps: mark package needs_manual_review (NOT skip)
@@ -878,7 +934,7 @@ Deno.serve(async (req) => {
       console.warn(`[stuck-scan] Pool sweep error: ${(sweepErr as Error).message}`);
     }
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
     return json({
       ok: true,
@@ -893,6 +949,8 @@ Deno.serve(async (req) => {
       system_frozen: systemFrozen,
       hygiene: hygieneResult,
       pool_mismatch_fixed: poolMismatchFixed,
+      status_lag_healed: statusLagResults,
+      enqueued_drift_healed: enqueuedDriftResults,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);

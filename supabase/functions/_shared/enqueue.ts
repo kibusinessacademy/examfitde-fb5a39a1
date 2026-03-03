@@ -138,11 +138,31 @@ export async function enqueueJob(
       .from("job_queue")
       .select("id, job_type, worker_pool, status")
       .eq("idempotency_key", idempotencyKey)
-      .in("status", ["pending", "processing"])
+      .in("status", ["pending", "queued", "processing"])
       .limit(1)
       .maybeSingle();
 
-    if (active) return { ...active, revived: false } as EnqueueResult;
+    if (active) {
+      console.log(`[enqueue] DEDUP: ${opts.job_type} already active (${active.status}) — returning existing job ${String(active.id).slice(0,8)}`);
+      return { ...active, revived: false } as EnqueueResult;
+    }
+
+    // Also try matching by package_id + job_type (for partial unique index hits)
+    if (packageId) {
+      const { data: activeByPkg } = await sb
+        .from("job_queue")
+        .select("id, job_type, worker_pool, status")
+        .eq("package_id", packageId)
+        .eq("job_type", opts.job_type)
+        .in("status", ["pending", "queued", "processing"])
+        .limit(1)
+        .maybeSingle();
+
+      if (activeByPkg) {
+        console.log(`[enqueue] DEDUP_PKG: ${opts.job_type} for ${packageId.slice(0,8)} already active — returning existing job ${String(activeByPkg.id).slice(0,8)}`);
+        return { ...activeByPkg, revived: false } as EnqueueResult;
+      }
+    }
 
     // No row found at all — unexpected, rethrow original error
     throw error;
