@@ -1,6 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
+import {
+  assessLessonQuality,
+  buildExpandSystemPrompt,
+  getEliteStepThresholds,
+  type StepQualityThresholds,
+} from "../_shared/content-quality.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -477,7 +483,139 @@ JSON-Antwort:
   return { upgraded, total: blueprints.length };
 }
 
-// --- Main Handler ---
+// --- Hardening: Lesson Content (Elite Expansion Phase 2) ---
+async function hardenLessons(
+  supabase: any,
+  runId: string,
+  courseId: string,
+  berufName: string,
+  startTime: number = Date.now()
+): Promise<{ upgraded: number; skipped: number; failed: number; total: number }> {
+  const TIME_BUDGET_MS = 100_000;
+  const MAX_EXPAND_RETRIES = 2;
+  const MAX_LESSONS_PER_RUN = 20;
+
+  // Get lessons via modules → course
+  const { data: modules } = await supabase
+    .from("modules")
+    .select("id")
+    .eq("course_id", courseId);
+
+  if (!modules?.length) return { upgraded: 0, skipped: 0, failed: 0, total: 0 };
+
+  const moduleIds = modules.map((m: any) => m.id);
+  const { data: lessons } = await supabase
+    .from("lessons")
+    .select("id, title, step, content, module_id")
+    .in("module_id", moduleIds)
+    .in("status", ["approved", "draft"])
+    .order("sort_order", { ascending: true })
+    .limit(500);
+
+  if (!lessons?.length) return { upgraded: 0, skipped: 0, failed: 0, total: 0 };
+
+  let upgraded = 0;
+  let skipped = 0;
+  let failed = 0;
+  let processed = 0;
+
+  for (const lesson of lessons) {
+    if (Date.now() - startTime > TIME_BUDGET_MS) break;
+    if (processed >= MAX_LESSONS_PER_RUN) break;
+
+    // Extract HTML from JSONB content: {html: "...", type: "text", ...}
+    const contentObj = lesson.content ?? {};
+    const htmlContent = typeof contentObj === "object" && contentObj !== null
+      ? String((contentObj as any).html ?? "")
+      : String(contentObj);
+
+    const stepType = lesson.step || "verstehen";
+    const thresholds = getEliteStepThresholds(stepType);
+    const quality = assessLessonQuality(htmlContent, stepType, thresholds);
+
+    if (quality.ok) {
+      skipped++;
+      continue;
+    }
+
+    processed++;
+
+    // Expand-retry loop
+    let currentHtml = htmlContent;
+    let lastQuality = quality;
+    let attempts = 0;
+    let success = false;
+
+    while (!lastQuality.ok && attempts < MAX_EXPAND_RETRIES) {
+      if (Date.now() - startTime > TIME_BUDGET_MS - 12_000) break; // 12s safety margin
+      attempts++;
+
+      try {
+        const expandSystem = buildExpandSystemPrompt({
+          professionName: berufName,
+          lessonTitle: lesson.title || "Lesson",
+          step: stepType,
+          missingReasons: lastQuality.reasons,
+          thresholds,
+        });
+
+        const expandUser = `Hier ist der aktuelle Inhalt, der erweitert werden muss:\n\n${currentHtml}`;
+
+        const expanded = await callAI(supabase, expandSystem, expandUser);
+
+        if (expanded && expanded.length > currentHtml.length) {
+          currentHtml = expanded;
+          lastQuality = assessLessonQuality(currentHtml, stepType, thresholds);
+
+          // Write back as JSONB preserving other fields
+          const updatedContent = typeof contentObj === "object" && contentObj !== null
+            ? { ...(contentObj as any), html: currentHtml }
+            : { html: currentHtml, type: "text" };
+
+          await supabase.from("lessons").update({
+            content: updatedContent,
+          }).eq("id", lesson.id);
+        }
+      } catch (err) {
+        console.warn(`[elite-hardening] Expand failed for lesson ${String(lesson.id).slice(0,8)}: ${err}`);
+        break;
+      }
+    }
+
+    if (lastQuality.ok) {
+      upgraded++;
+      success = true;
+    } else {
+      failed++;
+    }
+
+    // Record in items log
+    await supabase.from("elite_hardening_items").insert({
+      run_id: runId,
+      entity_type: "lesson",
+      entity_id: lesson.id,
+      action: success ? "upgraded" : "expand_incomplete",
+      original_data: { charCount: quality.charCount, reasons: quality.reasons },
+      upgraded_data: {
+        charCount: lastQuality.charCount,
+        wordCount: lastQuality.wordCount,
+        ok: lastQuality.ok,
+        reasons: lastQuality.reasons,
+        attempts,
+      },
+    });
+  }
+
+  // Update run stats
+  await supabase.from("elite_hardening_runs").update({
+    lessons_upgraded: upgraded,
+    lessons_total: lessons.length,
+  }).eq("id", runId);
+
+  return { upgraded, skipped, failed, total: lessons.length };
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -535,7 +673,12 @@ Deno.serve(async (req) => {
     const invocationStart = Date.now();
 
     try {
-      const results: any = { exam: null, minicheck: null, oral: null };
+      const results: any = { exam: null, minicheck: null, oral: null, lessons: null };
+
+      // 0. Harden Lessons (Elite Expansion — Phase 2)
+      if (scope === "all" || scope === "lessons") {
+        results.lessons = await hardenLessons(supabase, runId, pkg.course_id, berufName, invocationStart);
+      }
 
       // 1. Analyze exam pool
       if (scope === "all" || scope === "exam_pool") {
@@ -596,7 +739,7 @@ Deno.serve(async (req) => {
       // Admin notification
       await supabase.from("admin_notifications").insert({
         title: `Elite-Hardening abgeschlossen: ${pkg.title}`,
-        body: `Exam: ${results.exam?.upgraded || 0} upgraded | MiniCheck: ${results.minicheck?.upgraded || 0} | Oral: ${results.oral?.upgraded || 0}`,
+        body: `Lessons: ${results.lessons?.upgraded || 0}/${results.lessons?.total || 0} elite | Exam: ${results.exam?.upgraded || 0} upgraded | MiniCheck: ${results.minicheck?.upgraded || 0} | Oral: ${results.oral?.upgraded || 0}`,
         severity: "info",
         category: "pipeline",
         entity_type: "course_package",
