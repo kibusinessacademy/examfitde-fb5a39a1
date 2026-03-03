@@ -561,10 +561,20 @@ Deno.serve(async (req) => {
 
       const elapsedMs = Date.now() - startMs;
       const remainingSoftMs = budget.softStopMs - elapsedMs;
-      const llmTimeoutMs = Math.max(8_000, Math.min(40_000, remainingSoftMs - 2_000));
-      if (remainingSoftMs <= 10_000) {
+      // v6.1: Raise minimum timeout to 18s — 8s was causing first-lesson timeouts
+      // that wasted entire invocations (fail=1, gen=0, then soft-stop).
+      const llmTimeoutMs = Math.max(18_000, Math.min(40_000, remainingSoftMs - 2_000));
+      // v6.1: Lower soft-stop guard to 20s — ensures at least 1 full LLM call can execute
+      if (remainingSoftMs <= 20_000 && generated > 0) {
         softStopped = true;
-        console.warn(`[gen-content] Not enough soft budget left (${remainingSoftMs}ms) before LLM call — stopping batch`);
+        console.warn(`[gen-content] Not enough soft budget left (${remainingSoftMs}ms) before LLM call — stopping batch (already generated ${generated})`);
+        break;
+      }
+      // If we haven't generated ANYTHING yet, allow one more attempt even with tight budget
+      if (remainingSoftMs <= 10_000 && generated === 0) {
+        console.warn(`[gen-content] Tight budget (${remainingSoftMs}ms) but gen=0 — allowing one last attempt`);
+      } else if (remainingSoftMs <= 10_000) {
+        softStopped = true;
         break;
       }
 
