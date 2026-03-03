@@ -16,6 +16,8 @@ interface HealthData {
   wip_queued: number;
   wip_building: number;
   track_wip?: Record<string, TrackWip>;
+  qc_approved_but_draft: number;
+  qc_approved_but_draft_oldest?: string | null;
   timestamp: string;
 }
 
@@ -104,6 +106,15 @@ export default function PipelineHealthPanel() {
       sev: data.wip_queued > 50 && data.wip_building < 3 ? 'warn' : 'ok',
       desc: `Building vs total active (${data.wip_queued} queued)`,
       icon: <Activity className="h-3.5 w-3.5" />,
+    },
+    {
+      label: 'QC Promotion Bug',
+      value: data.qc_approved_but_draft,
+      sev: severity(data.qc_approved_but_draft, 1, 1),
+      desc: data.qc_approved_but_draft > 0
+        ? `qc_status=approved aber status=draft (oldest: ${data.qc_approved_but_draft_oldest ? new Date(data.qc_approved_but_draft_oldest).toLocaleDateString('de-DE') : 'n/a'})`
+        : 'OK: keine inkonsistenten QC-Approvals',
+      icon: <AlertTriangle className="h-3.5 w-3.5" />,
     },
   ] : [];
 
