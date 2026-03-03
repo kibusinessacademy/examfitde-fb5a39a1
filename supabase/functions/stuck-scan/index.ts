@@ -327,13 +327,14 @@ Deno.serve(async (req) => {
         if (ageMs !== null && ageMs <= ORPHAN_MIN_AGE_MS) continue;
         // Ghost processing with attempts > 0 falls through (treated as orphan)
 
-        // Check if any active jobs exist for this step
+        // Check if any active jobs exist for this step (direct query — no RPC dependency)
         if (jobType) {
-          const { data: activeJobCnt } = await safeRpc(sb, "count_active_jobs_for_package", {
-            p_package_id: ps.package_id,
-            p_job_type: jobType,
-            p_statuses: ["pending", "processing"],
-          });
+          const { count: activeJobCnt } = await sb
+            .from("job_queue")
+            .select("id", { count: "exact", head: true })
+            .eq("package_id", ps.package_id)
+            .eq("job_type", jobType)
+            .in("status", ["pending", "processing"]);
           if ((activeJobCnt ?? 0) > 0) continue; // Jobs still running — not orphaned
         }
 
@@ -341,6 +342,8 @@ Deno.serve(async (req) => {
         const prevMeta = (ps.meta ?? {}) as Record<string, unknown>;
         const stallCount = Number(prevMeta.stall_count ?? 0) + 1;
         const newAttempts = (ps.attempts || 0) + 1;
+
+        const ageMin = ageMs !== null ? Math.round(ageMs / 60000) : 0;
 
         await sb.from("package_steps").update({
           status: "queued",
@@ -350,7 +353,7 @@ Deno.serve(async (req) => {
           meta: {
             ...prevMeta,
             stall_count: stallCount,
-            last_progress_note: `orphan-heal: processing>${Math.round(age/60000)}min, no active jobs`,
+            last_progress_note: `orphan-heal: processing>${ageMin}min, no active jobs`,
             orphan_healed_at: new Date().toISOString(),
           },
         }).eq("package_id", ps.package_id).eq("step_key", ps.step_key);
@@ -361,12 +364,12 @@ Deno.serve(async (req) => {
           target_type: "package_step",
           target_id: ps.package_id,
           result_status: "applied",
-          result_detail: `Step ${ps.step_key} was processing for ${Math.round(age/60000)}min with 0 active jobs — reset to queued (attempt ${newAttempts}, stall ${stallCount})`,
-          metadata: { step_key: ps.step_key, age_min: Math.round(age/60000), stall_count: stallCount },
+          result_detail: `Step ${ps.step_key} was processing for ${ageMin}min with 0 active jobs — reset to queued (attempt ${newAttempts}, stall ${stallCount})`,
+          metadata: { step_key: ps.step_key, age_min: ageMin, stall_count: stallCount },
         });
 
-        orphanResults.push({ package_id: ps.package_id, step_key: ps.step_key, action: `orphan-heal: reset to queued (${Math.round(age/60000)}min stale)` });
-        console.warn(`[stuck-scan] 🧟‍♂️ Orphan-heal: ${ps.step_key} for ${ps.package_id.slice(0,8)} — processing ${Math.round(age/60000)}min, no jobs → queued`);
+        orphanResults.push({ package_id: ps.package_id, step_key: ps.step_key, action: `orphan-heal: reset to queued (${ageMin}min stale)` });
+        console.warn(`[stuck-scan] 🧟‍♂️ Orphan-heal: ${ps.step_key} for ${ps.package_id.slice(0,8)} — processing ${ageMin}min, no jobs → queued`);
       }
 
       if (orphanResults.length > 0) {
