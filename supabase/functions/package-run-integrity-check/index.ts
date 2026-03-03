@@ -667,7 +667,32 @@ Deno.serve(async (req) => {
       build_progress: gate.hardFails.length === 0 ? 95 : 80,
     };
 
-    if (gate.hardFails.length > 0) {
+    // ── Runtime Policy Violation Guard (EXAM_FIRST) ──
+    // Detects if Full-Track thresholds leaked into EXAM_FIRST evaluation
+    const isExamFirstRuntime = track === "EXAM_FIRST";
+    let policyViolation = false;
+
+    if (isExamFirstRuntime && gate.hardFails.length > 0) {
+      const forbiddenPatterns = gate.hardFails.filter(
+        (b) => b.includes("/500") || b.includes("<40%") || b.includes("/800"),
+      );
+      if (forbiddenPatterns.length > 0) {
+        policyViolation = true;
+        console.error(`[integrity-check] POLICY VIOLATION: EXAM_FIRST evaluated with Full-Track thresholds: ${forbiddenPatterns.join(", ")}`);
+        try {
+          await sb.from("admin_notifications").insert({
+            title: "🚨 Policy violation: EXAM_FIRST with Full-Track thresholds",
+            body: `Regression detected! Forbidden blockers: ${forbiddenPatterns.join(", ")}. This indicates track-aware thresholds were bypassed.`,
+            category: "quality",
+            severity: "error",
+            entity_type: "course_package",
+            entity_id: packageId,
+          });
+        } catch (_) { /* non-critical */ }
+      }
+    }
+
+    if (gate.hardFails.length > 0 && !policyViolation) {
       if (isAlreadyPublished) {
         // Do NOT depublish — report only
         console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} PUBLISHED+FAILED: keeping published, report-only`);
@@ -695,6 +720,14 @@ Deno.serve(async (req) => {
           });
         } catch (_) { /* non-critical */ }
       }
+    } else if (policyViolation) {
+      // Policy violation: do NOT mutate status, report only
+      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} POLICY_VIOLATION: no status change, report-only`);
+    }
+
+    // Bombensicher: strip any status mutation if policy violation detected
+    if (policyViolation) {
+      delete (updatePayload as any).status;
     }
 
     const { error: uErr } = await sb.from("course_packages").update(updatePayload).eq("id", packageId);
