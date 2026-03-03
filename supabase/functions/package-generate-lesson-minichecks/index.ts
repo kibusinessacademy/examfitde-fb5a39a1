@@ -355,14 +355,15 @@ Deno.serve(async (req) => {
     }
 
     // +1 probe: fetch one extra to definitively know if more remain
-    const hasMore = targets.length > MAX_TARGETS_PER_RUN;
+    const targetsFound = targets.length;
+    const hasMore = targetsFound > MAX_TARGETS_PER_RUN;
     if (hasMore) {
-      console.log(`[MiniChecks] Capping targets from ${targets.length} to ${MAX_TARGETS_PER_RUN} (more remain)`);
+      console.log(`[MiniChecks] Capping targets from ${targetsFound} to ${MAX_TARGETS_PER_RUN} (more remain)`);
       targets = targets.slice(0, MAX_TARGETS_PER_RUN);
     }
 
     const effectiveMode = targets[0]?.lessonId ? "lesson" : "drill";
-    console.log(`[MiniChecks] ${effectiveMode} mode: ${targets.length} targets to generate for ${packageId.slice(0, 8)} (hasMore=${hasMore})`);
+    console.log(`[MiniChecks] ${effectiveMode} mode: ${targets.length} targets to generate for ${packageId.slice(0, 8)} (hasMore=${hasMore}, found=${targetsFound})`);
 
     for (const target of targets) {
       if (shouldSoftStop(startMs, "lesson_minichecks")) {
@@ -441,13 +442,22 @@ Deno.serve(async (req) => {
     // hasMore is the definitive "+1 probe" signal — no false positives
     const batchComplete = !softStopped && totalFailed === 0 && !hasMore;
 
-    // Progress heartbeat: always update step meta so UI never shows "stuck"
+    // Progress heartbeat: merge meta (never overwrite existing keys like stall_runs, artifact_*)
     const progressNote = totalGenerated > 0
       ? `${totalGenerated} generated, ${totalFailed} failed, hasMore=${hasMore}, elapsed=${elapsed}ms`
       : `0 generated (all existed or skipped), hasMore=${hasMore}, elapsed=${elapsed}ms`;
-    
+
+    const { data: stepRow } = await sb
+      .from("package_steps")
+      .select("meta")
+      .eq("package_id", packageId)
+      .eq("step_key", "generate_lesson_minichecks")
+      .maybeSingle();
+
+    const nextMeta = { ...((stepRow?.meta as Record<string, unknown>) ?? {}), last_progress_note: progressNote };
+
     await sb.from("package_steps")
-      .update({ meta: { last_progress_note: progressNote, updated_at: new Date().toISOString() } })
+      .update({ meta: nextMeta })
       .eq("package_id", packageId)
       .eq("step_key", "generate_lesson_minichecks");
 
@@ -457,7 +467,8 @@ Deno.serve(async (req) => {
       mode: effectiveMode,
       generated: totalGenerated,
       failed: totalFailed,
-      targets_total: targets.length,
+      targets_found: targetsFound,
+      targets_processed: targets.length,
       elapsed_ms: elapsed,
       soft_stopped: softStopped,
       has_more: hasMore,
