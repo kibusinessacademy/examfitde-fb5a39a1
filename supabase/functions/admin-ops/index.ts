@@ -303,8 +303,37 @@ serve(async (req) => {
       });
     }
 
+    // ── enqueue_blueprint_gap_fill ─────────────────────────────
+    if (action === "enqueue_blueprint_gap_fill") {
+      const curriculumId = body.curriculum_id as string;
+      const cap = body.cap ?? 30;
+      if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
+
+      const { data, error: err } = await sb.rpc("enqueue_blueprint_gap_jobs", {
+        p_curriculum_id: curriculumId,
+        p_cap: cap,
+        p_reason: "admin_manual",
+      });
+      if (err) return json({ error: err.message }, 500);
+      console.log(`[admin-ops] enqueue_blueprint_gap_fill: ${JSON.stringify(data)} by ${user.id}`);
+      return json({ success: true, result: data });
+    }
+
+    // ── get_coverage_gaps ───────────────────────────────────────
+    if (action === "get_coverage_gaps") {
+      const curriculumId = body.curriculum_id as string;
+      if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
+
+      const { data, error: err } = await sb.rpc("get_blueprint_coverage_gaps", {
+        p_curriculum_id: curriculumId,
+        p_min_gap: body.min_gap ?? 1,
+      });
+      if (err) return json({ error: err.message }, 500);
+      return json({ gaps: data });
+    }
+
     return json({
-      error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health | pipeline_health | freeze_package | unfreeze_package | enqueue_job | set_provider_pause | set_provider_concurrency | set_hard_stop | retry_rate_limited | cancel_failed | get_package_realness",
+      error: "Unknown action",
     }, 400);
   } catch (e) {
     console.error("[admin-ops] error", e);

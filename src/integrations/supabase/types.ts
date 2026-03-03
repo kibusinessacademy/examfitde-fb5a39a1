@@ -2162,6 +2162,57 @@ export type Database = {
           },
         ]
       }
+      blueprint_param_sets: {
+        Row: {
+          blueprint_id: string
+          context_label: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          params: Json
+          used_count: number
+          weight: number
+        }
+        Insert: {
+          blueprint_id: string
+          context_label?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          params?: Json
+          used_count?: number
+          weight?: number
+        }
+        Update: {
+          blueprint_id?: string
+          context_label?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          params?: Json
+          used_count?: number
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_param_sets_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "blueprint_param_sets_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blueprint_quality_constraints: {
         Row: {
           constraint_config: Json
@@ -24252,6 +24303,62 @@ export type Database = {
           },
         ]
       }
+      ops_param_set_utilization: {
+        Row: {
+          active_param_sets: number | null
+          blueprint_id: string | null
+          blueprint_name: string | null
+          curriculum_id: string | null
+          total_param_sets: number | null
+          total_uses: number | null
+          unused_sets: number | null
+          utilization_pct: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_param_sets_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "blueprint_param_sets_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       ops_pipeline_velocity: {
         Row: {
           avg_duration_seconds: number | null
@@ -26802,6 +26909,10 @@ export type Database = {
         Returns: Json
       }
       enforce_priority_gate: { Args: never; Returns: undefined }
+      enqueue_blueprint_gap_jobs: {
+        Args: { p_cap?: number; p_curriculum_id: string; p_reason?: string }
+        Returns: Json
+      }
       enqueue_finance_export: {
         Args: { p_currency?: string; p_export_type: string; p_month: string }
         Returns: string
