@@ -65,10 +65,12 @@ serve(async (req) => {
     if (action === "queue_health") {
       const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
 
-      const [pendingR, processingR, failedR, stuckR, completedR, cancelledR] = await Promise.all([
+      const [pendingR, processingR, failedR, realFailedR, stuckR, completedR, cancelledR] = await Promise.all([
         sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "pending"),
         sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "processing"),
         sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "failed"),
+        // Real failures: actually executed (attempts > 0 OR has last_error)
+        sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "failed").gt("attempts", 0),
         sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "processing").lt("started_at", tenMinAgo),
         sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "completed"),
         sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "cancelled"),
@@ -78,6 +80,7 @@ serve(async (req) => {
         pending: pendingR.count ?? 0,
         processing: processingR.count ?? 0,
         failed: failedR.count ?? 0,
+        real_failed: realFailedR.count ?? 0,
         stuck: stuckR.count ?? 0,
         completed: completedR.count ?? 0,
         cancelled: cancelledR.count ?? 0,
