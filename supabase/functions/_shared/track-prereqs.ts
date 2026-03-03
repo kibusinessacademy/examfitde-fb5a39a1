@@ -9,7 +9,7 @@
  * Steps listed here OVERRIDE the static requires[] completely for that track.
  */
 
-export type Track = "AUSBILDUNG_VOLL" | "EXAM_FIRST";
+export type Track = "AUSBILDUNG_VOLL" | "ELITE" | "EXAM_FIRST";
 
 /**
  * Per-step, per-track artifact overrides.
@@ -20,12 +20,14 @@ const TRACK_ARTIFACT_OVERRIDES: Record<string, Partial<Record<Track, string[]>>>
   // run_integrity_check: ELITE needs elite_ready, EXAM_FIRST does NOT
   run_integrity_check: {
     AUSBILDUNG_VOLL: ["elite_ready"],  // default from PIPELINE_GRAPH
+    ELITE: ["elite_ready"],             // alias for full pipeline
     EXAM_FIRST: [],                     // no elite step → no elite artifact
   },
 
   // quality_council: ELITE needs integrity_passed, EXAM_FIRST needs validated_exam_pool
   quality_council: {
     AUSBILDUNG_VOLL: ["integrity_passed"],  // default from PIPELINE_GRAPH
+    ELITE: ["integrity_passed"],             // alias for full pipeline
     EXAM_FIRST: ["validated_exam_pool"],     // skip integrity check entirely
   },
 };
