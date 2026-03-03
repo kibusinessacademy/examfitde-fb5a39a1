@@ -16,6 +16,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { findNode, findProducer, type PipelineNode } from "./job-map.ts";
 import { getTrackArtifactOverride } from "./track-prereqs.ts";
+import { normalizeTrack } from "./track-normalize.ts";
 
 export interface ArtifactCheckResult {
   ready: boolean;
@@ -46,7 +47,7 @@ export async function checkArtifacts(
     .select("track")
     .eq("id", packageId)
     .maybeSingle();
-  const track = (pkg as any)?.track ?? "AUSBILDUNG_VOLL";
+  const track = normalizeTrack((pkg as any)?.track);
 
   // Check for a track-specific override; fall back to static PIPELINE_GRAPH.requires[]
   const trackOverride = getTrackArtifactOverride(stepKey, track);
