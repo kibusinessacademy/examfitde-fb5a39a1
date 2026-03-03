@@ -26781,6 +26781,10 @@ export type Database = {
         }[]
       }
       reap_stale_locks: { Args: { p_max_age_minutes?: number }; Returns: Json }
+      rebuild_package_step_status_json: {
+        Args: { p_package_id: string }
+        Returns: undefined
+      }
       recalculate_coverage_priorities: { Args: never; Returns: Json }
       recalculate_routing_scores: { Args: never; Returns: undefined }
       recompute_compliance_block: {
