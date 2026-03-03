@@ -18,7 +18,7 @@ function envInt(name: string, fallback: number): number {
 }
 
 const DEFAULTS: Record<RunnerKind, RunnerConfig> = {
-  content_runner: { maxConcurrency: 2, claimLimit: 2 },
+  content_runner: { maxConcurrency: 4, claimLimit: 8 },
   job_runner:     { maxConcurrency: 5, claimLimit: 5 },
 };
 
@@ -30,8 +30,8 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
   // Hard safety caps (non-negotiable)
   if (kind === "content_runner") {
     return {
-      maxConcurrency: Math.min(maxConcurrency, 2),
-      claimLimit: Math.min(claimLimit, 2),
+      maxConcurrency: Math.min(maxConcurrency, 8),
+      claimLimit: Math.min(claimLimit, 16),
     };
   }
   return {
