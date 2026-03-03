@@ -26647,6 +26647,10 @@ export type Database = {
         Returns: undefined
       }
       ops_run_integrity_checks: { Args: never; Returns: Json }
+      package_lessons_realness: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       pick_minicheck_elite: {
         Args: {
           p_competency_id: string
