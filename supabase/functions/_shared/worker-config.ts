@@ -39,3 +39,27 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
     claimLimit: Math.min(claimLimit, 10),
   };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SSOT: Track-aware WIP Quotas (Fair Scheduling)
+// ═══════════════════════════════════════════════════════════════
+
+export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST";
+
+/**
+ * WIP quota per track: max packages in "building" status simultaneously.
+ * Env-overridable via WIP_QUOTA_AUSBILDUNG_VOLL / WIP_QUOTA_EXAM_FIRST.
+ * Sum of all quotas may exceed global max_concurrent_packages — the global
+ * cap in acquire_next_package_lease_v2 provides the hard ceiling.
+ */
+export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
+  AUSBILDUNG_VOLL: 3,
+  EXAM_FIRST: 8,
+};
+
+export function getTrackQuota(track: TrackKey): number {
+  return envInt(`WIP_QUOTA_${track}`, WIP_QUOTA_DEFAULTS[track]);
+}
+
+/** Acquisition order: which track gets slots first. EXAM_FIRST goes first to prevent starvation. */
+export const TRACK_ACQUISITION_ORDER: TrackKey[] = ["EXAM_FIRST", "AUSBILDUNG_VOLL"];

@@ -242,18 +242,15 @@ serve(async (req) => {
       return json({ ok: true, realness: data });
     }
 
-    // ── pipeline_health (4-KPI health panel) ─────────────────
+    // ── pipeline_health (6-KPI health panel with track WIP) ──
     if (action === "pipeline_health") {
       const sixHoursAgo = new Date(Date.now() - 6 * 3600_000).toISOString();
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
       const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
 
-      const [stalledR, dupsR, integrityNullR, wipR] = await Promise.all([
-        // KPI 1: Stalled learning content (>10min, next_run_at elapsed)
+      const [stalledR, dupsR, integrityNullR, wipR, trackWipR] = await Promise.all([
         sb.rpc("pipeline_health_stalled_content", { p_since: tenMinAgo }),
-        // KPI 2: Duplicate pending jobs (6h)
         sb.rpc("pipeline_health_duplicate_jobs", { p_since: sixHoursAgo }),
-        // KPI 3: Integrity failed with null last_error (24h)
         sb.from("package_steps")
           .select("package_id,step_key,status,updated_at", { count: "exact", head: false })
           .eq("step_key", "run_integrity_check")
@@ -261,15 +258,27 @@ serve(async (req) => {
           .is("last_error", null)
           .gte("updated_at", twentyFourHoursAgo)
           .limit(20),
-        // KPI 4: WIP pressure (queued vs building)
         Promise.all([
           sb.from("course_packages").select("id", { count: "exact", head: true }).eq("status", "queued"),
           sb.from("course_packages").select("id", { count: "exact", head: true }).eq("status", "building"),
         ]),
+        // Track-level WIP breakdown
+        sb.from("course_packages")
+          .select("track,status")
+          .in("status", ["queued", "building"]),
       ]);
 
       const stalledCount = typeof stalledR.data === "number" ? stalledR.data : (stalledR.data as any)?.count ?? 0;
       const dupsCount = typeof dupsR.data === "number" ? dupsR.data : (dupsR.data as any)?.count ?? 0;
+
+      // Compute per-track WIP
+      const trackWip: Record<string, { queued: number; building: number }> = {};
+      for (const row of ((trackWipR.data ?? []) as { track: string; status: string }[])) {
+        const t = row.track || "AUSBILDUNG_VOLL";
+        if (!trackWip[t]) trackWip[t] = { queued: 0, building: 0 };
+        if (row.status === "queued") trackWip[t].queued++;
+        if (row.status === "building") trackWip[t].building++;
+      }
 
       return json({
         stalled_content: stalledCount,
@@ -278,6 +287,7 @@ serve(async (req) => {
         integrity_null_details: (integrityNullR.data ?? []).slice(0, 10),
         wip_queued: (wipR as any)[0]?.count ?? 0,
         wip_building: (wipR as any)[1]?.count ?? 0,
+        track_wip: trackWip,
         timestamp: new Date().toISOString(),
       });
     }

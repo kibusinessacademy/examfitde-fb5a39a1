@@ -1,9 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, HeartPulse, AlertTriangle, Copy, Activity } from 'lucide-react';
+
+interface TrackWip {
+  queued: number;
+  building: number;
+}
 
 interface HealthData {
   stalled_content: number;
@@ -11,6 +15,7 @@ interface HealthData {
   integrity_null_errors: number;
   wip_queued: number;
   wip_building: number;
+  track_wip?: Record<string, TrackWip>;
   timestamp: string;
 }
 
@@ -27,6 +32,11 @@ const sevColors = {
 };
 
 const sevDot = { ok: 'bg-emerald-500', warn: 'bg-amber-500', crit: 'bg-red-500' };
+
+const TRACK_QUOTAS: Record<string, number> = {
+  AUSBILDUNG_VOLL: 3,
+  EXAM_FIRST: 8,
+};
 
 export default function PipelineHealthPanel() {
   const [data, setData] = useState<HealthData | null>(null);
@@ -97,8 +107,28 @@ export default function PipelineHealthPanel() {
     },
   ] : [];
 
-  const overallSev = kpis.length > 0
-    ? kpis.some(k => k.sev === 'crit') ? 'crit' : kpis.some(k => k.sev === 'warn') ? 'warn' : 'ok'
+  // Track-level WIP cards
+  const trackCards = data?.track_wip ? Object.entries(data.track_wip).map(([track, wip]) => {
+    const quota = TRACK_QUOTAS[track] ?? 5;
+    const starved = wip.queued > 0 && wip.building === 0;
+    const atCap = wip.building >= quota;
+    const sev = starved ? 'crit' as const : atCap ? 'warn' as const : 'ok' as const;
+    const shortTrack = track === 'AUSBILDUNG_VOLL' ? 'Elite' : track === 'EXAM_FIRST' ? 'Exam-First' : track;
+    return {
+      label: `${shortTrack} WIP`,
+      value: `${wip.building}/${quota}`,
+      sev,
+      desc: starved
+        ? `⚠️ STARVATION: ${wip.queued} queued, 0 building`
+        : `${wip.queued} queued, ${wip.building} building`,
+      icon: <Activity className="h-3.5 w-3.5" />,
+    };
+  }) : [];
+
+  const allKpis = [...kpis, ...trackCards];
+
+  const overallSev = allKpis.length > 0
+    ? allKpis.some(k => k.sev === 'crit') ? 'crit' : allKpis.some(k => k.sev === 'warn') ? 'warn' : 'ok'
     : 'ok';
 
   return (
@@ -121,8 +151,8 @@ export default function PipelineHealthPanel() {
         {loading && !data ? (
           <div className="flex justify-center py-4"><RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" /></div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {kpis.map(kpi => (
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            {allKpis.map(kpi => (
               <div key={kpi.label} className={`rounded-lg border p-3 ${sevColors[kpi.sev]}`}>
                 <div className="flex items-center gap-1.5 mb-1">
                   {kpi.icon}

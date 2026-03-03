@@ -1987,11 +1987,14 @@ async function backfillPipelinePool(
 
 // ══════════════════════════════════════════════════════════════
 // ── Runner version & instance ID (for heartbeat + health) ──
-const RUNNER_VERSION = "v3.1-hardened";
+const RUNNER_VERSION = "v4.0-track-fair";
 const RUNNER_INSTANCE_ID = `runner_${crypto.randomUUID().slice(0, 8)}`;
 
-// MAIN: Multi-Slot Acquisition Loop
+// MAIN: Multi-Slot Acquisition Loop (v4: Track-Fair Scheduling)
 // ══════════════════════════════════════════════════════════════
+
+import { getTrackQuota, TRACK_ACQUISITION_ORDER, type TrackKey as WipTrackKey } from "../_shared/worker-config.ts";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
@@ -2013,7 +2016,6 @@ Deno.serve(async (req) => {
   }
 
   if (isHealthCheck || bodyHealth) {
-    // Write heartbeat even on health check
     await safeRpc(sb, "upsert_worker_heartbeat", {
       p_worker_name: "pipeline-runner",
       p_instance_id: RUNNER_INSTANCE_ID,
@@ -2036,58 +2038,116 @@ Deno.serve(async (req) => {
     .select("value")
     .eq("key", "max_concurrent_packages")
     .maybeSingle();
-  // Turbo: Default 5 concurrent packages (was 3) — configurable via ops_pipeline_config
   const maxSlots = parseInt(configRow?.value ?? "5", 10);
 
   const results: Record<string, unknown>[] = [];
   const processedPackageIds = new Set<string>();
 
   try {
-    // Loop: try to acquire up to maxSlots packages
-    for (let slot = 0; slot < maxSlots; slot++) {
-      const runnerId = `runner_${crypto.randomUUID().slice(0, 8)}`;
+    // ── Track-Fair WIP Quota Calculation ──
+    // Count current building packages per track
+    const { data: wipRows } = await sb
+      .from("course_packages")
+      .select("track")
+      .eq("status", "building");
 
-      // Lease duration: 120s (not 600s) — prevents poll starvation.
-      const { data: pkgId, error: acquireErr } = await sb.rpc(
-        "acquire_next_package_lease",
-        { p_runner_id: runnerId, p_lease_seconds: 120 },
-      );
+    const wipByTrack: Record<string, number> = {};
+    for (const r of (wipRows ?? []) as { track: string }[]) {
+      const t = String(r.track || "AUSBILDUNG_VOLL");
+      wipByTrack[t] = (wipByTrack[t] ?? 0) + 1;
+    }
 
-      if (acquireErr) {
-        const msg = acquireErr.message || "unknown acquire error";
-        console.error(`[runner] acquire error on slot ${slot}:`, msg);
+    // Calculate available slots per track
+    const trackSlots: Record<string, number> = {};
+    for (const track of TRACK_ACQUISITION_ORDER) {
+      const quota = getTrackQuota(track);
+      const current = wipByTrack[track] ?? 0;
+      trackSlots[track] = Math.max(0, quota - current);
+    }
 
-        // Self-heal path: stale/non-building lease drift should not stall all slots
-        if (msg.includes("PACKAGE_LEASES_NON_BUILDING")) {
-          await safeRpc(sb, "ops_hygiene_cleanup", {
-            p_max_lease_cleanup: 100,
-            p_max_job_cleanup: 200,
-          });
-          continue;
+    console.log(`[runner] 📊 WIP quotas: ${TRACK_ACQUISITION_ORDER.map(t => `${t}=${wipByTrack[t] ?? 0}/${getTrackQuota(t)} (slots=${trackSlots[t]})`).join(", ")}`);
+
+    let totalAcquired = 0;
+
+    // ── Phase 1: Acquire per-track with quota limits ──
+    for (const track of TRACK_ACQUISITION_ORDER) {
+      const slotsForTrack = trackSlots[track];
+      if (slotsForTrack <= 0 || totalAcquired >= maxSlots) continue;
+
+      const claimCount = Math.min(slotsForTrack, maxSlots - totalAcquired);
+
+      for (let i = 0; i < claimCount; i++) {
+        const runnerId = `runner_${crypto.randomUUID().slice(0, 8)}`;
+
+        const { data: pkgId, error: acquireErr } = await sb.rpc(
+          "acquire_next_package_lease_v2",
+          { p_runner_id: runnerId, p_lease_seconds: 120, p_track: track },
+        );
+
+        if (acquireErr) {
+          const msg = acquireErr.message || "unknown acquire error";
+          console.error(`[runner] acquire error for ${track} slot ${i}:`, msg);
+          if (msg.includes("PACKAGE_LEASES_NON_BUILDING")) {
+            await safeRpc(sb, "ops_hygiene_cleanup", {
+              p_max_lease_cleanup: 100,
+              p_max_job_cleanup: 200,
+            });
+            continue;
+          }
+          break;
         }
 
-        break;
+        if (!pkgId) break; // No more packages for this track
+
+        const packageId = String(pkgId);
+        if (processedPackageIds.has(packageId)) {
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          continue;
+        }
+        processedPackageIds.add(packageId);
+        totalAcquired++;
+
+        console.log(`[runner] Acquired ${track} slot ${i + 1}/${claimCount}: package ${packageId.slice(0, 8)}`);
+        const result = await processPackage(sb, packageId, runnerId);
+        results.push({ slot: totalAcquired, track, ...result });
       }
+    }
 
-      if (!pkgId) {
-        console.log(`[runner] No more packages available after ${slot} acquisitions`);
-        break;
+    // ── Phase 2: Borrow remaining global slots (any track) ──
+    if (totalAcquired < maxSlots) {
+      const remaining = maxSlots - totalAcquired;
+      for (let i = 0; i < remaining; i++) {
+        const runnerId = `runner_${crypto.randomUUID().slice(0, 8)}`;
+        const { data: pkgId, error: acquireErr } = await sb.rpc(
+          "acquire_next_package_lease_v2",
+          { p_runner_id: runnerId, p_lease_seconds: 120, p_track: null },
+        );
+
+        if (acquireErr) break;
+        if (!pkgId) break;
+
+        const packageId = String(pkgId);
+        if (processedPackageIds.has(packageId)) {
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          continue;
+        }
+        processedPackageIds.add(packageId);
+        totalAcquired++;
+
+        console.log(`[runner] Borrow slot: package ${packageId.slice(0, 8)}`);
+        const result = await processPackage(sb, packageId, runnerId);
+        results.push({ slot: totalAcquired, track: "borrow", ...result });
       }
+    }
 
-      const packageId = String(pkgId);
-
-      // ── DEDUP: Skip if already processed in this invocation ──
-      if (processedPackageIds.has(packageId)) {
-        console.warn(`[runner] Slot ${slot + 1}: package ${packageId.slice(0, 8)} already processed this invocation — releasing duplicate lease`);
-        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-        continue;
+    // Log starvation warning
+    for (const track of TRACK_ACQUISITION_ORDER) {
+      if (trackSlots[track] > 0) {
+        const claimed = results.filter(r => (r as any).track === track).length;
+        if (claimed === 0) {
+          console.warn(`[runner] ⚠️ STARVATION: ${track} had ${trackSlots[track]} free slots but claimed 0 packages`);
+        }
       }
-      processedPackageIds.add(packageId);
-
-      console.log(`[runner] Acquired slot ${slot + 1}/${maxSlots}: package ${packageId.slice(0, 8)}`);
-
-      const result = await processPackage(sb, packageId, runnerId);
-      results.push({ slot: slot + 1, ...result });
     }
 
     // ── Write heartbeat after processing ──
