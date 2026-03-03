@@ -1,45 +1,50 @@
 // ExamFit E2E Auth Helper
-// Usage: import { loginAs } from './auth';
+import { Page, expect } from '@playwright/test';
 
-import { Page } from '@playwright/test';
-
-const BASE_URL = process.env.STAGING_URL || 'https://examfitde.lovable.app';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
 
 export const TEST_USERS = {
+  smoke_learner: {
+    email: process.env.E2E_EMAIL || 'smoke_with_entitlement@examfit.test',
+    password: process.env.E2E_PASSWORD || 'TestPass_Smoke2!',
+  },
   smoke_no_entitlement: {
     email: 'smoke_no_entitlement@examfit.test',
     password: process.env.TEST_USER_PASSWORD || 'TestPass_Smoke1!',
   },
-  smoke_with_entitlement: {
-    email: 'smoke_with_entitlement@examfit.test',
-    password: process.env.TEST_USER_PASSWORD || 'TestPass_Smoke2!',
-  },
-  uat_azubi: {
-    email: 'uat_azubi@examfit.test',
-    password: process.env.TEST_USER_PASSWORD || 'TestPass_UAT1!',
-  },
 };
 
-export async function loginAs(page: Page, userKey: keyof typeof TEST_USERS) {
+/**
+ * Login as a test user via the auth page.
+ */
+export async function loginAs(page: Page, userKey: keyof typeof TEST_USERS = 'smoke_learner') {
   const user = TEST_USERS[userKey];
-  await page.goto(`${BASE_URL}/auth`);
+  if (!user.email || !user.password) {
+    throw new Error(`Missing credentials for ${userKey}`);
+  }
+
+  await page.goto('/auth');
   await page.fill('input[type="email"]', user.email);
   await page.fill('input[type="password"]', user.password);
   await page.click('button[type="submit"]');
-  // Wait for redirect away from auth page
-  await page.waitForURL((url) => !url.pathname.includes('/auth'), { timeout: 10000 });
+  await page.waitForURL((url) => !url.pathname.includes('/auth'), { timeout: 15_000 });
 }
 
+/**
+ * Logout by navigating and clicking logout button.
+ */
 export async function logout(page: Page) {
-  // Click user menu and logout
-  await page.goto(`${BASE_URL}/`);
-  // Attempt to find and click logout
+  await page.goto('/');
   const logoutBtn = page.locator('text=Abmelden').or(page.locator('text=Logout'));
-  if (await logoutBtn.isVisible()) {
+  if (await logoutBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await logoutBtn.click();
   }
 }
 
-export { BASE_URL };
+/**
+ * Get env variable with fallback.
+ */
+export function env(key: string, fallback = ''): string {
+  return process.env[key] ?? fallback;
+}
