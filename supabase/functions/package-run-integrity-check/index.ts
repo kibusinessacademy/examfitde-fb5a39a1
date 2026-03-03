@@ -664,6 +664,7 @@ Deno.serve(async (req) => {
 
     const updatePayload: Record<string, unknown> = {
       integrity_report: report,
+      integrity_passed: gate.hardFails.length === 0,
       build_progress: gate.hardFails.length === 0 ? 95 : 80,
     };
 
