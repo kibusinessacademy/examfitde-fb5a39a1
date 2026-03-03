@@ -312,14 +312,22 @@ Deno.serve(async (req) => {
       const { data: processingSteps } = await sb
         .from("package_steps")
         .select("package_id, step_key, started_at, attempts, meta, status")
-        .eq("status", "processing");
+        .eq("status", "running")
+        .limit(500); // Performance guard
 
       for (const ps of processingSteps || []) {
-        const age = ps.started_at ? Date.now() - new Date(ps.started_at).getTime() : Infinity;
-        if (age <= ORPHAN_MIN_AGE_MS) continue;
+        // Guard: skip steps without a known job type (virtual steps)
+        const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
+        if (!jobType) continue;
+
+        // Guard: ghost processing (no started_at) — give first attempt a chance
+        const ageMs = ps.started_at ? Date.now() - new Date(ps.started_at).getTime() : null;
+        const isGhostProcessing = !ps.started_at;
+        if (isGhostProcessing && (ps.attempts || 0) === 0) continue; // first attempt still initializing
+        if (ageMs !== null && ageMs <= ORPHAN_MIN_AGE_MS) continue;
+        // Ghost processing with attempts > 0 falls through (treated as orphan)
 
         // Check if any active jobs exist for this step
-        const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
         if (jobType) {
           const { data: activeJobCnt } = await safeRpc(sb, "count_active_jobs_for_package", {
             p_package_id: ps.package_id,
