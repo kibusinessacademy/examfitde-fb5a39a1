@@ -31,11 +31,14 @@ export default function IntegrityReportCard({ report, curriculumId, packageId }:
           ? sb.from('ai_tutor_context_index').select('id', { count: 'exact', head: true }).eq('package_id', packageId)
           : Promise.resolve({ count: 0 }),
         packageId
-          ? sb.rpc('package_lessons_realness', { p_package_id: packageId })
-          : Promise.resolve({ data: null }),
+          ? supabase.functions.invoke('admin-ops', {
+              body: { action: 'get_package_realness', package_id: packageId },
+            }).then(r => r.data)
+          : Promise.resolve(null),
       ]);
       const qData = qRes.data || [];
-      const realness = realnessRes.data;
+      const realnessJson = realnessRes as any;
+      const realness = realnessJson?.ok ? realnessJson.realness : null;
       setLiveCounts({
         questions: qRes.count ?? qData.length,
         questionsApproved: qData.filter?.((r: any) => r.status === 'approved').length ?? 0,

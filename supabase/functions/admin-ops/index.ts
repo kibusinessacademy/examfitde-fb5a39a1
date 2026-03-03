@@ -232,8 +232,18 @@ serve(async (req) => {
       return json({ success: true, count: data?.length ?? 0 });
     }
 
+    // ── get_package_realness (read-only, service_role RPC proxy) ─
+    if (action === "get_package_realness") {
+      const packageId = body.package_id as string;
+      if (!packageId) return json({ error: "package_id required" }, 400);
+
+      const { data, error: err } = await sb.rpc("package_lessons_realness", { p_package_id: packageId });
+      if (err) return json({ error: err.message }, 500);
+      return json({ ok: true, realness: data });
+    }
+
     return json({
-      error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health | freeze_package | unfreeze_package | enqueue_job | set_provider_pause | set_provider_concurrency | set_hard_stop | retry_rate_limited | cancel_failed",
+      error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health | freeze_package | unfreeze_package | enqueue_job | set_provider_pause | set_provider_concurrency | set_hard_stop | retry_rate_limited | cancel_failed | get_package_realness",
     }, 400);
   } catch (e) {
     console.error("[admin-ops] error", e);
