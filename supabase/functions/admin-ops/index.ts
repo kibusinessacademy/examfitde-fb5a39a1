@@ -242,8 +242,48 @@ serve(async (req) => {
       return json({ ok: true, realness: data });
     }
 
+    // ── pipeline_health (4-KPI health panel) ─────────────────
+    if (action === "pipeline_health") {
+      const sixHoursAgo = new Date(Date.now() - 6 * 3600_000).toISOString();
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
+      const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+
+      const [stalledR, dupsR, integrityNullR, wipR] = await Promise.all([
+        // KPI 1: Stalled learning content (>10min, next_run_at elapsed)
+        sb.rpc("pipeline_health_stalled_content", { p_since: tenMinAgo }),
+        // KPI 2: Duplicate pending jobs (6h)
+        sb.rpc("pipeline_health_duplicate_jobs", { p_since: sixHoursAgo }),
+        // KPI 3: Integrity failed with null last_error (24h)
+        sb.from("package_steps")
+          .select("package_id,step_key,status,updated_at", { count: "exact", head: false })
+          .eq("step_key", "run_integrity_check")
+          .eq("status", "failed")
+          .is("last_error", null)
+          .gte("updated_at", twentyFourHoursAgo)
+          .limit(20),
+        // KPI 4: WIP pressure (queued vs building)
+        Promise.all([
+          sb.from("course_packages").select("id", { count: "exact", head: true }).eq("status", "queued"),
+          sb.from("course_packages").select("id", { count: "exact", head: true }).eq("status", "building"),
+        ]),
+      ]);
+
+      const stalledCount = typeof stalledR.data === "number" ? stalledR.data : (stalledR.data as any)?.count ?? 0;
+      const dupsCount = typeof dupsR.data === "number" ? dupsR.data : (dupsR.data as any)?.count ?? 0;
+
+      return json({
+        stalled_content: stalledCount,
+        duplicate_pending_jobs: dupsCount,
+        integrity_null_errors: integrityNullR.count ?? (integrityNullR.data as any[])?.length ?? 0,
+        integrity_null_details: (integrityNullR.data ?? []).slice(0, 10),
+        wip_queued: (wipR as any)[0]?.count ?? 0,
+        wip_building: (wipR as any)[1]?.count ?? 0,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     return json({
-      error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health | freeze_package | unfreeze_package | enqueue_job | set_provider_pause | set_provider_concurrency | set_hard_stop | retry_rate_limited | cancel_failed | get_package_realness",
+      error: "Unknown action. Use: retry_failed_jobs | recover_stuck_processing | queue_health | pipeline_health | freeze_package | unfreeze_package | enqueue_job | set_provider_pause | set_provider_concurrency | set_hard_stop | retry_rate_limited | cancel_failed | get_package_realness",
     }, 400);
   } catch (e) {
     console.error("[admin-ops] error", e);

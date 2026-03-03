@@ -270,6 +270,23 @@ async function processPackage(
     return { packageId, error: stepsErr.message };
   }
 
+  // ✅ Package-level early-exit: if ALL non-done steps have future next_run_at, release immediately
+  {
+    const nowMs = Date.now();
+    const pendingSteps = (steps || []).filter((s: any) => s.status !== 'done' && s.status !== 'skipped' && s.status !== 'blocked');
+    const allBackedOff = pendingSteps.length > 0 && pendingSteps.every((s: any) => {
+      const nra = (s.meta as Record<string, unknown>)?.next_run_at;
+      if (typeof nra !== 'string') return false;
+      const nraMs = Date.parse(nra);
+      return !Number.isNaN(nraMs) && nraMs > nowMs;
+    });
+    if (allBackedOff) {
+      console.log(`[runner] 💤 All ${pendingSteps.length} pending steps for ${shortId} have future next_run_at — releasing early`);
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return { packageId, skipped: true, reason: "all_steps_backed_off", pending: pendingSteps.length };
+    }
+  }
+
   // ── Bootstrap: If no steps exist, invoke build-course-package to create them ──
   if (!steps || steps.length === 0) {
     console.log(`[runner] Package ${shortId} has no steps — invoking build-course-package to bootstrap`);

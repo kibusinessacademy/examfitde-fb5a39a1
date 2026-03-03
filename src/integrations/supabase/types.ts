@@ -26695,6 +26695,14 @@ export type Database = {
         Args: { max_active?: number }
         Returns: string
       }
+      pipeline_health_duplicate_jobs: {
+        Args: { p_since: string }
+        Returns: number
+      }
+      pipeline_health_stalled_content: {
+        Args: { p_since: string }
+        Returns: number
+      }
       pipeline_write_lesson_content:
         | { Args: { p_content: Json; p_lesson_id: string }; Returns: undefined }
         | {
