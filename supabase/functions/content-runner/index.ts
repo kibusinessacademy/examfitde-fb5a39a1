@@ -4,7 +4,7 @@ import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType } from "../
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
-const BASE_CONCURRENCY = 1;
+const BASE_CONCURRENCY = 4;
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
 const FUNCTION_VERSION = "v1.2-boot-guards";
 
@@ -73,18 +73,18 @@ Deno.serve(async (req) => {
   const sb = createClient(supabaseUrl, serviceKey);
 
   // ── Boot-time RPC guard: crash loudly if claim RPC missing ──
-  // Force concurrency=1: heavy content jobs (exam-pool, handbook) need full edge budget
-  const concurrency = 1;
+  // Content concurrency: controlled via BASE_CONCURRENCY (env-overridable)
+  const concurrency = BASE_CONCURRENCY;
 
   // ── 1. Claim content-pool jobs via v4 RPC (with auto-lease healing) ──
   // deno-lint-ignore no-explicit-any
   let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
-    p_limit: 1,
+    p_limit: concurrency,
     p_worker_id: WORKER_ID,
     p_lock_timeout_minutes: 25, // content jobs need longer locks
     p_worker_pool: "content",
   });
-  jobs = ((jobs ?? []) as any[]).slice(0, 1);
+  jobs = ((jobs ?? []) as any[]).slice(0, concurrency);
 
   if (claimErr) {
     console.error(`[content-runner] claim error: ${claimErr.message}`);
