@@ -553,9 +553,20 @@ Deno.serve(async (req) => {
     const { data: pkgTrack } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
     const track = (pkgTrack as any)?.track ?? "AUSBILDUNG_VOLL";
 
-    const prereqStep = track === "EXAM_FIRST" ? "validate_oral_exam" : "generate_handbook";
+    const INTEGRITY_PREREQ_BY_TRACK: Record<string, string> = {
+      EXAM_FIRST: "validate_oral_exam",
+      AUSBILDUNG_VOLL: "generate_handbook",
+    };
+    const prereqStep = INTEGRITY_PREREQ_BY_TRACK[track] ?? INTEGRITY_PREREQ_BY_TRACK["AUSBILDUNG_VOLL"];
     if (!(await prereqDone(sb, packageId, prereqStep))) {
-      return json({ ok: false, retry: true, error: `PREREQ_NOT_DONE: ${prereqStep}` }, 409);
+      // ✅ Return 200: Runner handles retry via SSOT step state, no "edge-call failed"
+      return json({
+        ok: false,
+        retry: true,
+        transient: true,
+        backoff_seconds: 60,
+        error: `PREREQ_NOT_DONE: ${prereqStep}`,
+      }, 200);
     }
 
     // Get curriculum_id from course
@@ -664,6 +675,35 @@ Deno.serve(async (req) => {
       } catch (_) { /* non-critical */ }
     }
 
+    // ✅ Mark run_integrity_check step as DONE (SSOT)
+    try {
+      const { data: stepRow } = await sb
+        .from("package_steps")
+        .select("meta")
+        .eq("package_id", packageId)
+        .eq("step_key", "run_integrity_check")
+        .maybeSingle();
+
+      const prevMeta = (stepRow?.meta as Record<string, unknown>) ?? {};
+      await sb
+        .from("package_steps")
+        .update({
+          status: "done",
+          last_error: null,
+          meta: {
+            ...prevMeta,
+            last_error: null,
+            last_error_class: null,
+            last_progress_note: `Integrity ${gate.hardFails.length === 0 ? "passed" : "completed with blockers"} (score=${gate.score})`,
+            finished_at: new Date().toISOString(),
+          },
+        })
+        .eq("package_id", packageId)
+        .eq("step_key", "run_integrity_check");
+    } catch (_) {
+      // non-critical best-effort
+    }
+
     return json({ ok: true, report });
 
   } catch (e) {
@@ -696,6 +736,7 @@ Deno.serve(async (req) => {
           .from("package_steps")
           .update({
             status: "failed",
+            last_error: err.message,   // ✅ P0: always write last_error column
             meta: nextMeta,
           })
           .eq("package_id", packageId)
