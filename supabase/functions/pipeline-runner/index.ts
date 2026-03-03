@@ -1166,24 +1166,37 @@ async function processPackage(
             inFlight = (flightCheck as { in_flight: boolean; recent_writes: number } | null) ?? null;
           }
 
+          // ── P0 FIX: Transient LLM errors bypass stall detection entirely ──
+          // When the edge function reports transient=true (empty response, timeout, 429),
+          // the batch had no chance to make progress. Incrementing stall_runs or attempts
+          // would cause premature escalation/exhaustion.
+          const isTransientResult = result.transient === true;
+
           // ── Stall-aware attempt management ──
           const prevStall = Number((currentStep?.meta as Record<string, unknown>)?.stall_runs ?? 0) || 0;
-          const isStall = !progressed && !inFlight?.in_flight;
-          const stallRuns = progressed ? 0 : (inFlight?.in_flight ? prevStall : prevStall + 1);
+          const isStall = !progressed && !inFlight?.in_flight && !isTransientResult;
+          const stallRuns = progressed ? 0 : (inFlight?.in_flight || isTransientResult ? prevStall : prevStall + 1);
           const shouldConsumeAttempt = isStall && stallRuns >= 4;
 
           const nextAttempts = progressed || inFlight?.in_flight
             ? 0
-            : shouldConsumeAttempt
-              ? (currentStep?.attempts ?? 0) + 1
-              : (currentStep?.attempts ?? 0);
+            : isTransientResult
+              ? (currentStep?.attempts ?? 0) // freeze attempts on transient
+              : shouldConsumeAttempt
+                ? (currentStep?.attempts ?? 0) + 1
+                : (currentStep?.attempts ?? 0);
 
           const deltaReal = afterReal - beforeReal;
-          const statusNote = progressed
-            ? `Progress: ${beforeReal}→${afterReal}/${afterTotal} (+${deltaReal})`
-            : inFlight?.in_flight
-              ? `Deferred: writes in-flight (${inFlight.recent_writes})`
-              : `Stall ${stallRuns}/4 — no progress (${afterReal}/${afterTotal})`;
+          const statusNote = isTransientResult
+            ? `Transient LLM error — no stall penalty (${afterReal}/${afterTotal})`
+            : progressed
+              ? `Progress: ${beforeReal}→${afterReal}/${afterTotal} (+${deltaReal})`
+              : inFlight?.in_flight
+                ? `Deferred: writes in-flight (${inFlight.recent_writes})`
+                : `Stall ${stallRuns}/4 — no progress (${afterReal}/${afterTotal})`;
+
+          // Transient errors get a short backoff before retry
+          const transientBackoffMs = isTransientResult ? 60_000 : 0;
 
           await safeQuery(
             sb.from("package_steps")
@@ -1200,8 +1213,10 @@ async function processPackage(
                   last_total_count: afterTotal,
                   last_progress_note: statusNote,
                   stall_runs: stallRuns,
+                  ...(isTransientResult ? { last_transient_at: new Date().toISOString() } : {}),
+                  ...(transientBackoffMs > 0 ? { next_run_at: new Date(Date.now() + transientBackoffMs).toISOString(), backoff_seconds: transientBackoffMs / 1000 } : {}),
                 },
-                last_error: (progressed || inFlight?.in_flight) ? null : statusNote,
+                last_error: (progressed || inFlight?.in_flight || isTransientResult) ? null : statusNote,
               })
               .eq("package_id", packageId)
               .eq("step_key", stepKey),
@@ -1227,7 +1242,7 @@ async function processPackage(
 
           console.log(`[runner] 🔄 Step ${stepKey} batch incomplete — re-queued (${statusNote})`);
           await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-          return { packageId, stepKey, batch_continue: true, progressed, afterReal, afterTotal, stallRuns };
+          return { packageId, stepKey, batch_continue: true, progressed, afterReal, afterTotal, stallRuns, transient: isTransientResult || undefined };
         }
 
         await safeQuery(

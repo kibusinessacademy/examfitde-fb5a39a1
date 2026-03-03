@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/ai-client.ts";
+import { isTransientLlmError } from "../_shared/llm/normalize.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { loadCachedGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
@@ -679,7 +680,11 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         // to enable targeted retry logic and clearer error attribution.
         const cLen = result.content?.length || 0;
         if (cLen === 0) {
-          throw new Error(`AI returned empty response (provider=${result.provider}, model=${result.model}) — likely provider outage, will retry with failover`);
+          // P0 FIX: Mark as LLM_EMPTY_RESPONSE so isTransientLlmError() classifies it correctly.
+          // This prevents stall_runs++ and attempts++ in the pipeline-runner.
+          const emptyErr = new Error(`LLM_EMPTY_RESPONSE: AI returned empty response (provider=${result.provider}, model=${result.model}) — transient, will retry`);
+          (emptyErr as any).name = "LLM_EMPTY_RESPONSE";
+          throw emptyErr;
         }
         throw new Error(`No parseable tool response from AI (provider=${result.provider}, model=${result.model}, contentLength=${cLen})`);
       }
@@ -932,8 +937,20 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
       currentDelay = Math.max(BASE_DELAY_MS, currentDelay * 0.7);
 
     } catch (e) {
-      failed++;
       const errMsg = (e as Error).message || String(e);
+      const transient = isTransientLlmError(e);
+
+      if (transient) {
+        // P0 FIX: Transient LLM errors (empty response, timeout, 429, 503)
+        // must NOT count as content-generation failures.
+        // They don't increment failed/poison-pills — they just end the batch early.
+        console.warn(`[gen-content] TRANSIENT error on ${lesson.id.slice(0, 8)}: ${errMsg.slice(0, 200)} — stopping batch (no stall penalty)`);
+        details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "transient_error", error: errMsg });
+        softStopped = true; // end batch gracefully — do NOT increment failed counter
+        break;
+      }
+
+      failed++;
       console.error(`[gen-content] Failed lesson ${lesson.id}: ${errMsg}`);
       details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "failed", error: errMsg });
 
@@ -974,9 +991,13 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     placeholderLessons.every(l => skippableLessons.has(l.id) || !placeholderLessons.filter(pl => !skippableLessons.has(pl.id)).some(al => al.id === l.id));
   const effectiveComplete = batchComplete || (actionablePlaceholders.length === 0 && skippableLessons.size > 0);
 
+  // P0 FIX: Flag transient LLM errors so pipeline-runner skips stall_runs/attempts increment
+  const hasTransientError = details.some((d: any) => d.status === "transient_error");
+
   return json({
     ok: true,
     batch_complete: effectiveComplete,
+    transient: hasTransientError ? true : undefined,
     ...(!effectiveComplete ? {
       batch_cursor: { offset: 0 },
       _poison_pills: poisonPills,
@@ -992,8 +1013,10 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     details,
     message: effectiveComplete
       ? `✅ Lerninhalt-Generierung abgeschlossen. ${generated} generiert, ${skippedWriteBack} write-back, ${skippableLessons.size} Poison-Pills übersprungen.`
-      : softStopped
-        ? `⏱️ Soft-stop erreicht: ${generated} generiert, ${remaining} verbleibend.`
-        : `🔄 ${generated} generiert, ${skippedWriteBack} write-back, ${remaining} verbleibend.`,
+      : hasTransientError
+        ? `⚡ Transient LLM error (empty/timeout) — ${generated} generiert, retrying.`
+        : softStopped
+          ? `⏱️ Soft-stop erreicht: ${generated} generiert, ${remaining} verbleibend.`
+          : `🔄 ${generated} generiert, ${skippedWriteBack} write-back, ${remaining} verbleibend.`,
   });
 });
