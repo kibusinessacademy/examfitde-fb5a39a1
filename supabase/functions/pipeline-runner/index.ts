@@ -831,8 +831,12 @@ async function processPackage(
 
   // ── Handle: exhausted retries ──
   if (nextAction.action === "exhausted") {
+    const stepKey = nextAction.stepKey;
+    const currentStep = steps.find((s: any) => s.step_key === stepKey);
+    const stepMeta = (currentStep?.meta ?? {}) as Record<string, any>;
+
     // ── Auto-recovery: if content step exhausted but content is actually ready, reset ──
-    if (nextAction.stepKey === "generate_learning_content") {
+    if (stepKey === "generate_learning_content") {
       const { data: recoveryResult } = await sb.rpc("auto_recover_exhausted_content_step", {
         p_package_id: packageId,
       });
@@ -840,25 +844,96 @@ async function processPackage(
       if (recovery?.recovered) {
         console.log(`[runner] ♻️ Auto-recovered exhausted generate_learning_content for ${shortId} (${recovery.real}/${recovery.total} real)`);
         await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-        return { packageId, stepKey: nextAction.stepKey, auto_recovered: true, real: recovery.real, total: recovery.total };
+        return { packageId, stepKey, auto_recovered: true, real: recovery.real, total: recovery.total };
       }
+
+      // ── Progress-aware escalation: check fingerprint before giving up ──
+      const { data: realness } = await sb.rpc("package_lessons_realness", { p_package_id: packageId });
+      const fpReal = Number(realness?.real_content ?? 0);
+      const fpPh = Number(realness?.placeholders ?? 0);
+      const fpAvg = Number(realness?.avg_len ?? 0);
+      const fpTotal = Number(realness?.lessons_total ?? 0);
+      const prevFpReal = Number(stepMeta.fp_real ?? 0);
+
+      if (fpReal > prevFpReal) {
+        // Progress detected! Reset attempts, re-queue with short backoff
+        console.log(`[runner] ♻️ STEP_EXHAUSTED but progress detected (${prevFpReal}→${fpReal}) — resetting attempts for ${shortId}`);
+        await safeQuery(
+          sb.from("package_steps").update({
+            status: "queued",
+            started_at: null,
+            finished_at: null,
+            attempts: 0,
+            meta: {
+              ...stepMeta,
+              attempts: 0,
+              fp_real: fpReal,
+              fp_placeholders: fpPh,
+              fp_avg_len: fpAvg,
+              progress_reset: true,
+              progress_reset_at: new Date().toISOString(),
+              last_progress_note: `Progress reset: ${prevFpReal}→${fpReal}/${fpTotal} real`,
+              next_run_at: new Date(Date.now() + 30_000).toISOString(),
+              backoff_seconds: 30,
+            },
+            last_error: null,
+          }).eq("package_id", packageId).eq("step_key", stepKey),
+          "progress_reset_exhausted",
+        );
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, progress_reset: true, fpReal, fpTotal };
+      }
+
+      // ── No progress: escalate with 6h backoff instead of hard-fail ──
+      const escalationBackoff = 6 * 3600;
+      console.warn(`[runner] ⚠️ STEP_EXHAUSTED + no progress for ${shortId} — escalating (6h backoff)`);
+      await safeQuery(
+        sb.from("package_steps").update({
+          status: "queued",
+          started_at: null,
+          finished_at: null,
+          meta: {
+            ...stepMeta,
+            escalated: true,
+            escalated_at: new Date().toISOString(),
+            fp_real: fpReal,
+            fp_placeholders: fpPh,
+            fp_avg_len: fpAvg,
+            next_run_at: new Date(Date.now() + escalationBackoff * 1000).toISOString(),
+            backoff_seconds: escalationBackoff,
+            last_progress_note: `ESCALATED: no progress after ${currentStep?.attempts ?? '?'} attempts (${fpReal}/${fpTotal} real, ${fpPh} placeholders)`,
+          },
+        }).eq("package_id", packageId).eq("step_key", stepKey),
+        "escalate_exhausted_content",
+      );
+      await safeQuery(
+        sb.from("ops_alerts").insert({
+          source: "pipeline-runner",
+          severity: "warning",
+          message: `STEP_ESCALATED: ${stepKey} pkg ${shortId} — ${fpReal}/${fpTotal} real, ${fpPh} placeholders, avg ${fpAvg}`,
+          payload: { packageId, stepKey, fp_real: fpReal, fp_placeholders: fpPh, fp_avg_len: fpAvg, fp_total: fpTotal, attempts: currentStep?.attempts },
+        }),
+      );
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return { packageId, stepKey, escalated: true, fpReal, fpTotal, fpPh };
     }
 
+    // ── Non-content steps: original hard-fail behavior ──
     await safeQuery(
       sb.from("course_packages")
-        .update({ status: "failed", last_error: `Attempts exhausted on step ${nextAction.stepKey}` })
+        .update({ status: "failed", last_error: `Attempts exhausted on step ${stepKey}` })
         .eq("id", packageId),
     );
     await safeQuery(
       sb.from("ops_alerts").insert({
         source: "pipeline-runner",
         severity: "error",
-        message: `STEP_EXHAUSTED: ${nextAction.stepKey} pkg ${shortId}`,
-        payload: { packageId, stepKey: nextAction.stepKey },
+        message: `STEP_EXHAUSTED: ${stepKey} pkg ${shortId}`,
+        payload: { packageId, stepKey, attempts: currentStep?.attempts, meta: stepMeta },
       }),
     );
     await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-    return { packageId, stepKey: nextAction.stepKey, exhausted: true };
+    return { packageId, stepKey, exhausted: true };
   }
 
   // ── Handle: step timed out ──

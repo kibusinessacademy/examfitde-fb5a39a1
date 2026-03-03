@@ -53,18 +53,33 @@ export async function markStepFailed(sb: SB, args: {
 }) {
   const verdict = args.err?.__meta?.verdict ?? null;
   const isHollow = isHollowVerdict(verdict);
+  const errMeta = args.err?.__meta ?? {};
 
-  // ✅ Increment attempts ONCE here (SSOT) — requeue reads it as-is
+  // ── Progress Fingerprint comparison ──
+  const prevFpReal = Number(args.stepMeta?.fp_real ?? 0);
+  const currFpReal = Number(errMeta.fp_real ?? 0);
+  const prevFpPh = Number(args.stepMeta?.fp_placeholders ?? Infinity);
+  const currFpPh = Number(errMeta.fp_placeholders ?? Infinity);
+  const madeProgress = isHollow && (currFpReal > prevFpReal || currFpPh < prevFpPh);
+
+  // ✅ Progress-aware attempt management:
+  // If real content increased or placeholders decreased → reset attempts (keep building)
+  // If no progress → increment attempts toward escalation
   const prevAttempts = Number(args.stepMeta?.attempts ?? 0);
-  const nextAttempts = prevAttempts + 1;
+  const nextAttempts = madeProgress ? 0 : prevAttempts + 1;
 
   const baseMeta = {
     ...(args.stepMeta ?? {}),
     attempts: nextAttempts,
-    ...(args.err?.__meta ?? {}),
+    ...errMeta,
     last_error: String(args.err?.message ?? args.err),
     last_error_class: verdict ? "permanent" : "transient",
     failed_at: new Date().toISOString(),
+    // Persist fingerprint for next comparison
+    fp_real: errMeta.fp_real ?? args.stepMeta?.fp_real ?? null,
+    fp_placeholders: errMeta.fp_placeholders ?? args.stepMeta?.fp_placeholders ?? null,
+    fp_avg_len: errMeta.fp_avg_len ?? args.stepMeta?.fp_avg_len ?? null,
+    progress_reset: madeProgress ? true : undefined,
   };
 
   // Persist the failure first (audit trail)
@@ -90,8 +105,31 @@ export async function markStepFailed(sb: SB, args: {
         packageId: args.packageId,
         stepKey: args.stepKey,
         stepMeta: baseMeta,
-        reason: `auto-rebuild: ${String(verdict)}`,
+        reason: madeProgress
+          ? `progress-reset + auto-rebuild: ${String(verdict)}`
+          : `auto-rebuild: ${String(verdict)}`,
       });
+    } else {
+      // ── Escalation: max attempts reached without progress → escalate, don't die ──
+      const escalationBackoff = 6 * 3600; // 6h
+      const nextRunAt = new Date(Date.now() + escalationBackoff * 1000).toISOString();
+      await sb
+        .from("package_steps")
+        .update({
+          status: "queued",
+          started_at: null,
+          finished_at: null,
+          meta: {
+            ...baseMeta,
+            escalated: true,
+            escalated_at: new Date().toISOString(),
+            next_run_at: nextRunAt,
+            backoff_seconds: escalationBackoff,
+            last_progress_note: `ESCALATED: ${attempts} attempts without progress — 6h backoff`,
+          },
+        })
+        .eq("package_id", args.packageId)
+        .eq("step_key", args.stepKey);
     }
   }
 }

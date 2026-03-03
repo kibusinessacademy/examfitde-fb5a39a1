@@ -44,6 +44,10 @@ export async function assertStepPostConditions(sb: SB, args: {
         placeholders: ph,
         avg_len: avg,
         min_real_required: minReal,
+        // Progress fingerprint — enables progress-aware retry logic
+        fp_placeholders: ph,
+        fp_real: real,
+        fp_avg_len: avg,
       };
       throw e;
     }
