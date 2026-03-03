@@ -9,11 +9,22 @@ on:
         description: "Base URL to test against"
         required: false
         default: "https://examfitde.lovable.app"
+      suite:
+        description: "Test suite to run (smoke | nightly | all)"
+        required: false
+        default: "smoke"
+  schedule:
+    # Nightly at 02:00 UTC
+    - cron: '0 2 * * *'
 
 jobs:
-  e2e:
+  # ── Post-Publish Smoke (fast, every deploy) ──────────
+  smoke:
+    if: >
+      github.event_name == 'repository_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && (inputs.suite == 'smoke' || inputs.suite == 'all'))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -30,23 +41,21 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run Learner E2E tests
+      - name: Run Smoke E2E tests
         env:
           BASE_URL: ${{ github.event.client_payload.base_url || inputs.base_url || 'https://examfitde.lovable.app' }}
-          PACKAGE_ID: ${{ github.event.client_payload.package_id || '' }}
           CURRICULUM_ID: ${{ github.event.client_payload.curriculum_id || '' }}
-          TRACK: ${{ github.event.client_payload.track || 'EXAM_FIRST' }}
           E2E_EMAIL: ${{ github.event.client_payload.test_user_email || secrets.E2E_TEST_USER_EMAIL }}
           E2E_PASSWORD: ${{ github.event.client_payload.test_user_password || secrets.E2E_TEST_USER_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: npx playwright test --project=smoke --project=sanity
+        run: npx playwright test --project=smoke
 
       - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: smoke-playwright-report
           path: playwright-report
           retention-days: 14
 
@@ -54,6 +63,63 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-artifacts
+          name: smoke-playwright-artifacts
+          path: test-results
+          retention-days: 14
+
+  # ── Nightly Full Rotation (long, scheduled) ──────────
+  nightly:
+    if: >
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && (inputs.suite == 'nightly' || inputs.suite == 'all'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Nightly E2E tests
+        env:
+          BASE_URL: ${{ inputs.base_url || 'https://examfitde.lovable.app' }}
+          CURRICULUM_ID: ${{ secrets.NIGHTLY_CURRICULUM_ID || '' }}
+          E2E_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: npx playwright test --project=nightly
+
+      - name: Upload Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-coverage-report
+          path: test-results/coverage-report.json
+          retention-days: 30
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-playwright-report
+          path: playwright-report
+          retention-days: 14
+
+      - name: Upload traces/videos/screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-playwright-artifacts
           path: test-results
           retention-days: 14
