@@ -173,19 +173,26 @@ async function runCourseReadyGate(
   const veryHardPct = totalApproved > 0 ? (veryHardCount / totalApproved) * 100 : 0;
   const hardishPct = totalApproved > 0 ? (hardishCount / totalApproved) * 100 : 0;
 
-  // Hard fail: total < 500, hard+very_hard < 40% (SSOT target 45%, gate allows 5% tolerance), easy > 15%
-  const poolPassed = totalApproved >= 500 && hardishPct >= 40 && easyPct <= 15;
+  // ── Track-aware thresholds ──
+  const POOL_THRESHOLDS: Record<string, { minApproved: number; minHardishPct: number; maxEasyPct: number }> = {
+    AUSBILDUNG_VOLL: { minApproved: 500, minHardishPct: 40, maxEasyPct: 15 },
+    EXAM_FIRST:      { minApproved: 60,  minHardishPct: 20, maxEasyPct: 25 },
+    ELITE:           { minApproved: 800, minHardishPct: 45, maxEasyPct: 10 },
+  };
+  const poolTh = POOL_THRESHOLDS[trackEarly] ?? POOL_THRESHOLDS["AUSBILDUNG_VOLL"];
+
+  const poolPassed = totalApproved >= poolTh.minApproved && hardishPct >= poolTh.minHardishPct && easyPct <= poolTh.maxEasyPct;
   results.push({
     gate: "exam_pool_distribution",
     passed: poolPassed,
     severity: "blocker",
-    detail: `${totalApproved} approved | easy=${easyPct.toFixed(1)}% medium=${mediumPct.toFixed(1)}% hard=${hardOnlyPct.toFixed(1)}% very_hard=${veryHardPct.toFixed(1)}% (hardish=${hardishPct.toFixed(1)}%)`,
+    detail: `${totalApproved} approved (min ${poolTh.minApproved}) | easy=${easyPct.toFixed(1)}% medium=${mediumPct.toFixed(1)}% hard=${hardOnlyPct.toFixed(1)}% very_hard=${veryHardPct.toFixed(1)}% (hardish=${hardishPct.toFixed(1)}%) [track=${trackEarly}]`,
   });
   if (!poolPassed) {
     const reasons: string[] = [];
-    if (totalApproved < 500) reasons.push(`TOO_FEW_APPROVED(${totalApproved}/500)`);
-    if (hardishPct < 40) reasons.push(`HARDISH_TOO_LOW(${hardishPct.toFixed(1)}%<40%)`);
-    if (easyPct > 15) reasons.push(`EASY_TOO_HIGH(${easyPct.toFixed(1)}%>15%)`);
+    if (totalApproved < poolTh.minApproved) reasons.push(`TOO_FEW_APPROVED(${totalApproved}/${poolTh.minApproved})`);
+    if (hardishPct < poolTh.minHardishPct) reasons.push(`HARDISH_TOO_LOW(${hardishPct.toFixed(1)}%<${poolTh.minHardishPct}%)`);
+    if (easyPct > poolTh.maxEasyPct) reasons.push(`EASY_TOO_HIGH(${easyPct.toFixed(1)}%>${poolTh.maxEasyPct}%)`);
     hardFails.push(`EXAM_POOL: ${reasons.join(", ")}`);
   }
 
@@ -307,14 +314,15 @@ async function runCourseReadyGate(
 
     if (mappedCount > 0) {
       const isolatedPct = (isolatedCount / mappedCount) * 100;
-      const ctxPassed = isolatedPct <= 30;
+      const maxIsolatedPct = isExamFirstEarly ? 45 : 30;
+      const ctxPassed = isolatedPct <= maxIsolatedPct;
       results.push({
         gate: "elite_context_distribution",
         passed: ctxPassed,
         severity: "blocker",
-        detail: `isolated_knowledge=${isolatedPct.toFixed(1)}% (max 30%), ${Object.entries(ctxCounts).map(([k, v]) => `${k}=${v}`).join(", ")}`,
+        detail: `isolated_knowledge=${isolatedPct.toFixed(1)}% (max ${maxIsolatedPct}%, track=${trackEarly}), ${Object.entries(ctxCounts).map(([k, v]) => `${k}=${v}`).join(", ")}`,
       });
-      if (!ctxPassed) hardFails.push(`ELITE_CONTEXT: ${isolatedPct.toFixed(1)}% isolated_knowledge (max 30%)`);
+      if (!ctxPassed) hardFails.push(`ELITE_CONTEXT: ${isolatedPct.toFixed(1)}% isolated_knowledge (max ${maxIsolatedPct}%)`);
 
       // Excellence: > 40% multi_step or applied_case
       const complexCount = (ctxCounts["multi_step_case"] || 0) + (ctxCounts["applied_case"] || 0);
@@ -650,30 +658,47 @@ Deno.serve(async (req) => {
       },
     };
 
+    // ── Depublish protection: published packages get report+notify only ──
+    const { data: cpStatus } = await sb.from("course_packages").select("published_at, status").eq("id", packageId).maybeSingle();
+    const isAlreadyPublished = Boolean((cpStatus as any)?.published_at) || (cpStatus as any)?.status === "published";
+
     const updatePayload: Record<string, unknown> = {
       integrity_report: report,
       build_progress: gate.hardFails.length === 0 ? 95 : 80,
     };
+
     if (gate.hardFails.length > 0) {
-      updatePayload.status = "quality_gate_failed";
+      if (isAlreadyPublished) {
+        // Do NOT depublish — report only
+        console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} PUBLISHED+FAILED: keeping published, report-only`);
+        try {
+          await sb.from("admin_notifications").insert({
+            title: "⚠️ Integrity re-check failed (published — NOT depublished)",
+            body: `Track=${track}. ${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
+            category: "quality",
+            severity: "warning",
+            entity_type: "course_package",
+            entity_id: packageId,
+          });
+        } catch (_) { /* non-critical */ }
+      } else {
+        // Pre-publish: failing gate is authoritative
+        updatePayload.status = "quality_gate_failed";
+        try {
+          await sb.from("admin_notifications").insert({
+            title: "🛑 COURSE_READY Gate: Release blocked",
+            body: `${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
+            category: "quality",
+            severity: "error",
+            entity_type: "course_package",
+            entity_id: packageId,
+          });
+        } catch (_) { /* non-critical */ }
+      }
     }
+
     const { error: uErr } = await sb.from("course_packages").update(updatePayload).eq("id", packageId);
-
     if (uErr) throw uErr;
-
-    // Admin notification on hard fails
-    if (gate.hardFails.length > 0) {
-      try {
-        await sb.from("admin_notifications").insert({
-          title: "🛑 COURSE_READY Gate: Release blocked",
-          body: `${gate.hardFails.length} blocker(s): ${gate.hardFails.slice(0, 3).join("; ")}`,
-          category: "quality",
-          severity: "error",
-          entity_type: "course_package",
-          entity_id: packageId,
-        });
-      } catch (_) { /* non-critical */ }
-    }
 
     // ✅ Mark run_integrity_check step as DONE (SSOT)
     try {
