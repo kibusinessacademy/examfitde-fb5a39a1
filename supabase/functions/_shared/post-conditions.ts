@@ -49,12 +49,21 @@ export async function assertStepPostConditions(sb: SB, args: {
     }
   }
 
-  // ── generate_handbook: must have real chapter content ──
+  // ── generate_handbook: must have real chapter content (via course_id lookup) ──
   if (stepKey === "generate_handbook") {
+    // Resolve course_id from package (handbook_chapters uses course_id, not package_id)
+    const { data: pkg, error: pErr } = await sb
+      .from("course_packages")
+      .select("course_id")
+      .eq("id", packageId)
+      .single();
+    if (pErr) throw pErr;
+
+    const courseId = pkg?.course_id;
     const { data, error } = await sb
       .from("handbook_chapters")
       .select("id, content", { count: "exact" })
-      .eq("package_id", packageId);
+      .eq("course_id", courseId);
     if (error) throw error;
 
     const total = data?.length ?? 0;
