@@ -1,0 +1,59 @@
+name: Learner E2E
+
+on:
+  repository_dispatch:
+    types: [learner_e2e]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL to test against"
+        required: false
+        default: "https://examfitde.lovable.app"
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Learner E2E tests
+        env:
+          BASE_URL: ${{ github.event.client_payload.base_url || inputs.base_url || 'https://examfitde.lovable.app' }}
+          PACKAGE_ID: ${{ github.event.client_payload.package_id || '' }}
+          CURRICULUM_ID: ${{ github.event.client_payload.curriculum_id || '' }}
+          TRACK: ${{ github.event.client_payload.track || 'EXAM_FIRST' }}
+          E2E_EMAIL: ${{ github.event.client_payload.test_user_email || secrets.E2E_TEST_USER_EMAIL }}
+          E2E_PASSWORD: ${{ github.event.client_payload.test_user_password || secrets.E2E_TEST_USER_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: npx playwright test --project=smoke --project=sanity
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 14
+
+      - name: Upload traces/videos/screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: test-results
+          retention-days: 14

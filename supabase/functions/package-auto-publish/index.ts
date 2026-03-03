@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
   // ── Load package data ──
   const { data: pkgQ } = await sb
     .from("course_packages")
-    .select("quality_report, integrity_report, feature_flags, pipeline_mode")
+    .select("quality_report, integrity_report, feature_flags, pipeline_mode, curriculum_id")
     .eq("id", packageId)
     .maybeSingle();
 
@@ -251,6 +251,24 @@ Deno.serve(async (req) => {
       entity_id: packageId,
     });
   } catch (_) { /* non-critical */ }
+
+  // ── Trigger post-publish Learner E2E (non-blocking) ──
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const triggerRes = await fetch(`${supabaseUrl}/functions/v1/ops-trigger-learner-e2e`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-job-runner-key": internalSecret,
+      },
+      body: JSON.stringify({ package_id: packageId, curriculum_id: (pkgQ as any)?.curriculum_id ?? "", course_id: courseId, track: "EXAM_FIRST", reason: "post_publish" }),
+    });
+    const triggerBody = await triggerRes.json().catch(() => ({}));
+    console.log(`[auto-publish] E2E trigger: ${triggerRes.status}`, triggerBody);
+  } catch (e) {
+    console.warn(`[auto-publish] E2E trigger failed (non-critical):`, e);
+  }
 
   return json({ ok: true, badge, integrity_score: integrityReport?.score ?? 100, excellence: excellenceList });
 });
