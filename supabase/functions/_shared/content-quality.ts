@@ -29,10 +29,58 @@ export interface StepQualityThresholds {
 }
 
 /**
- * Per-step quality thresholds — aligned with existing STEP_PROMPTS config.
+ * Per-step quality thresholds — TWO-PHASE ARCHITECTURE:
+ *
+ * Phase 1 (Build/Lean): Low thresholds to keep pipeline fast.
+ *   Content must be structurally complete but not deeply expanded.
+ *   Expansion happens later in elite_harden (Phase 2).
+ *
  * These are the HARD minimums; content below these triggers expand-retry.
  */
 const STEP_THRESHOLDS: Record<string, StepQualityThresholds> = {
+  einstieg: {
+    minChars: 400,
+    minWords: 120,
+    requireExamTip: false,
+    requireExamTrap: false,
+    requireList: false,
+  },
+  verstehen: {
+    minChars: 600,
+    minWords: 150,
+    requireExamTip: false,
+    requireExamTrap: false,
+    requireList: true,
+  },
+  anwenden: {
+    minChars: 500,
+    minWords: 130,
+    requireExamTip: false,
+    requireExamTrap: false,
+    requireList: false,
+  },
+  wiederholen: {
+    minChars: 400,
+    minWords: 100,
+    requireExamTip: false,
+    requireExamTrap: false,
+    requireList: false,
+  },
+};
+
+const DEFAULT_THRESHOLDS: StepQualityThresholds = {
+  minChars: 500,
+  minWords: 120,
+  requireExamTip: false,
+  requireExamTrap: false,
+  requireList: false,
+};
+
+/**
+ * Phase 2 (Elite Expansion) thresholds — used by elite_harden step.
+ * These are the FULL Elite-quality requirements.
+ */
+export const ELITE_STEP_THRESHOLDS: Record<string, StepQualityThresholds> = {
   einstieg: {
     minChars: 600,
     minWords: 250,
@@ -63,7 +111,7 @@ const STEP_THRESHOLDS: Record<string, StepQualityThresholds> = {
   },
 };
 
-const DEFAULT_THRESHOLDS: StepQualityThresholds = {
+export const ELITE_DEFAULT_THRESHOLDS: StepQualityThresholds = {
   minChars: 1400,
   minWords: 300,
   requireExamTip: true,
@@ -177,8 +225,15 @@ Gib den vollständig erweiterten Inhalt über die bereitgestellte Funktion zurü
 }
 
 /**
- * Get thresholds for a given step type.
+ * Get Phase 1 (lean build) thresholds for a given step type.
  */
 export function getStepThresholds(step: string): StepQualityThresholds {
   return STEP_THRESHOLDS[step] || DEFAULT_THRESHOLDS;
+}
+
+/**
+ * Get Phase 2 (elite expansion) thresholds for a given step type.
+ */
+export function getEliteStepThresholds(step: string): StepQualityThresholds {
+  return ELITE_STEP_THRESHOLDS[step] || ELITE_DEFAULT_THRESHOLDS;
 }

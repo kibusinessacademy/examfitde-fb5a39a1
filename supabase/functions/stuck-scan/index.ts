@@ -301,6 +301,72 @@ Deno.serve(async (req) => {
     }
 
     // ══════════════════════════════════════════════════════
+    // 1b2) ORPHAN-PROCESSING SELF-HEAL
+    // Steps stuck in "processing" with no active jobs for >10min
+    // → reset to "queued" with attempt increment.
+    // This catches the 3 Zombies from the dashboard.
+    // ══════════════════════════════════════════════════════
+    const ORPHAN_MIN_AGE_MS = 10 * 60 * 1000; // 10 minutes
+    const orphanResults: Array<{ package_id: string; step_key: string; action: string }> = [];
+    {
+      const { data: processingSteps } = await sb
+        .from("package_steps")
+        .select("package_id, step_key, started_at, attempts, meta, status")
+        .eq("status", "processing");
+
+      for (const ps of processingSteps || []) {
+        const age = ps.started_at ? Date.now() - new Date(ps.started_at).getTime() : Infinity;
+        if (age <= ORPHAN_MIN_AGE_MS) continue;
+
+        // Check if any active jobs exist for this step
+        const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
+        if (jobType) {
+          const { data: activeJobCnt } = await safeRpc(sb, "count_active_jobs_for_package", {
+            p_package_id: ps.package_id,
+            p_job_type: jobType,
+            p_statuses: ["pending", "processing"],
+          });
+          if ((activeJobCnt ?? 0) > 0) continue; // Jobs still running — not orphaned
+        }
+
+        // No active jobs + processing for >10min → orphan, reset to queued
+        const prevMeta = (ps.meta ?? {}) as Record<string, unknown>;
+        const stallCount = Number(prevMeta.stall_count ?? 0) + 1;
+        const newAttempts = (ps.attempts || 0) + 1;
+
+        await sb.from("package_steps").update({
+          status: "queued",
+          started_at: null,
+          finished_at: null,
+          attempts: newAttempts,
+          meta: {
+            ...prevMeta,
+            stall_count: stallCount,
+            last_progress_note: `orphan-heal: processing>${Math.round(age/60000)}min, no active jobs`,
+            orphan_healed_at: new Date().toISOString(),
+          },
+        }).eq("package_id", ps.package_id).eq("step_key", ps.step_key);
+
+        await sb.from("auto_heal_log").insert({
+          action_type: "orphan_processing_self_heal",
+          trigger_source: "stuck-scan",
+          target_type: "package_step",
+          target_id: ps.package_id,
+          result_status: "applied",
+          result_detail: `Step ${ps.step_key} was processing for ${Math.round(age/60000)}min with 0 active jobs — reset to queued (attempt ${newAttempts}, stall ${stallCount})`,
+          metadata: { step_key: ps.step_key, age_min: Math.round(age/60000), stall_count: stallCount },
+        });
+
+        orphanResults.push({ package_id: ps.package_id, step_key: ps.step_key, action: `orphan-heal: reset to queued (${Math.round(age/60000)}min stale)` });
+        console.warn(`[stuck-scan] 🧟‍♂️ Orphan-heal: ${ps.step_key} for ${ps.package_id.slice(0,8)} — processing ${Math.round(age/60000)}min, no jobs → queued`);
+      }
+
+      if (orphanResults.length > 0) {
+        console.log(`[stuck-scan] 🧟‍♂️ Self-healed ${orphanResults.length} orphan-processing step(s)`);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════
     // 1c) ESCALATION LOOP DETECTION (scoped by step type)
     // - validate_* steps: skip + notify (safe to skip)
     // - generate_* / other steps: mark package needs_manual_review (NOT skip)

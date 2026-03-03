@@ -27,7 +27,7 @@ const BATCH_SIZE = 3;          // v5.7: raised to 3 — auto-approve removes cou
 const BASE_DELAY_MS = 300;     // Keep throughput without wasting budget
 const MAX_DELAY_MS = 3000;     // Cap backoff to stay within soft budget
 const MAX_LESSON_RETRIES = 3;  // Poison-pill guard: skip lessons after N failures
-const MAX_EXPAND_RETRIES = 2;  // Content-depth expand retries per lesson
+const MAX_EXPAND_RETRIES = 0;  // Phase 1 (Lean Build): NO expand retries — expansion moves to elite_harden Phase 2
 
 const STEP_PROMPTS: Record<string, { system: string; minChars: number; minWords: number }> = {
   einstieg: {
