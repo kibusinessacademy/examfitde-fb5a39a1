@@ -248,8 +248,12 @@ Deno.serve(async (req) => {
       contentSteps.push({ step_key: "validate_handbook", job_type: "package_validate_handbook" });
     }
 
-    // Elite Hardening: ONLY for AUSBILDUNG_VOLL or force_elite — NEVER for EXAM_FIRST
+    // Elite Hardening: full pipeline (all phases) for AUSBILDUNG_VOLL / force_elite
     if (wantEliteHarden) {
+      contentSteps.push({ step_key: "elite_harden", job_type: "package_elite_harden" });
+    } else if (opts.include_exam_pool) {
+      // EXAM_FIRST: still needs SSOT-based elite annotations (deterministic, no AI)
+      // This ensures elite metrics are computed from blueprint/competency data
       contentSteps.push({ step_key: "elite_harden", job_type: "package_elite_harden" });
     }
 
