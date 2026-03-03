@@ -329,6 +329,7 @@ async function processPackage(
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
     let lastIncompleteSeq = -1;
+    const resetStepKeys: string[] = [];
     for (let i = 0; i < STEP_ORDER.length; i++) {
       const s = byKey.get(STEP_ORDER[i]);
       if (!s) continue;
@@ -347,7 +348,28 @@ async function processPackage(
         );
         // Update in-memory too so pickNextAction sees corrected state
         s.status = "queued";
+        resetStepKeys.push(STEP_ORDER[i]);
       }
+    }
+
+    // ── Cancel stale jobs for ALL steps that come AFTER a reset step ──
+    // When a sequence reset happens, later steps may already have pending jobs
+    // that will bounce forever on prereq guards (EXAM_FIRST deadlock pattern).
+    if (resetStepKeys.length > 0) {
+      const firstResetIdx = STEP_ORDER.indexOf(resetStepKeys[0] as StepKey);
+      for (let j = firstResetIdx; j < STEP_ORDER.length; j++) {
+        const laterKey = STEP_ORDER[j] as StepKey;
+        const laterJobType = STEP_TO_JOB_TYPE[laterKey];
+        if (laterJobType) {
+          await safeRpc(sb, "cancel_jobs_for_package", {
+            p_package_id: packageId,
+            p_job_type: laterJobType,
+            p_statuses: ["pending", "failed"],
+            p_reason: `sequence_guard: predecessor reset invalidated this job`,
+          });
+        }
+      }
+      console.log(`[runner] 🧹 Sequence fix: cancelled stale jobs for ${STEP_ORDER.length - firstResetIdx} steps after reset point`);
     }
   }
 
