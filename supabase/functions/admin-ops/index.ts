@@ -303,12 +303,37 @@ serve(async (req) => {
       });
     }
 
+    // ── helpers: payload guards ──────────────────────────────
+    const assertUuid = (x: unknown, name: string): string => {
+      const s = String(x ?? "");
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)) {
+        throw Object.assign(new Error(`Invalid UUID for ${name}`), { status: 400 });
+      }
+      return s;
+    };
+    const clampInt = (x: unknown, min: number, max: number, fallback: number): number => {
+      const n = Number(x);
+      return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.trunc(n))) : fallback;
+    };
+    const assertSeedMode = (x: unknown): string => {
+      const s = String(x ?? "default");
+      return ["light", "default", "heavy"].includes(s) ? s : "default";
+    };
+    const auditLog = async (act: string, entityId: string, payload: Record<string, unknown>) => {
+      try {
+        await sb.from("admin_actions").insert({
+          action: act,
+          user_id: user!.id,
+          payload: { entity_id: entityId, ...payload },
+        });
+      } catch (_) { /* best-effort */ }
+    };
+
     // ── seed_blueprint_targets ────────────────────────────────
     if (action === "seed_blueprint_targets") {
-      const curriculumId = body.curriculum_id as string;
-      if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
-      const track = body.track ?? null;
-      const mode = body.mode ?? "default";
+      const curriculumId = assertUuid(body.curriculum_id, "curriculum_id");
+      const mode = assertSeedMode(body.mode);
+      const track = body.track ? String(body.track) : null;
 
       const { data, error: err } = await sb.rpc("seed_blueprint_targets_for_curriculum", {
         p_curriculum_id: curriculumId,
@@ -316,37 +341,40 @@ serve(async (req) => {
         p_mode: mode,
       });
       if (err) return json({ error: err.message }, 500);
-      console.log(`[admin-ops] seed_blueprint_targets: ${JSON.stringify(data)} by ${user.id}`);
+
+      console.log(`[admin-ops] seed_blueprint_targets: ${JSON.stringify(data)} by ${user!.id}`);
+      await auditLog("seed_blueprint_targets", curriculumId, { mode, track, result: data });
       return json({ success: true, result: data });
     }
 
     // ── enqueue_blueprint_gap_fill ─────────────────────────────
     if (action === "enqueue_blueprint_gap_fill") {
-      const curriculumId = body.curriculum_id as string;
-      const cap = body.cap ?? 30;
-      if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
+      const curriculumId = assertUuid(body.curriculum_id, "curriculum_id");
+      const cap = clampInt(body.cap, 5, 200, 50);
 
       const { data, error: err } = await sb.rpc("enqueue_blueprint_gap_jobs", {
         p_curriculum_id: curriculumId,
         p_cap: cap,
-        p_reason: "admin_manual",
+        p_reason: "admin_ui_gap_fill",
       });
       if (err) return json({ error: err.message }, 500);
-      console.log(`[admin-ops] enqueue_blueprint_gap_fill: ${JSON.stringify(data)} by ${user.id}`);
+
+      console.log(`[admin-ops] enqueue_blueprint_gap_fill: ${JSON.stringify(data)} by ${user!.id}`);
+      await auditLog("enqueue_blueprint_gap_fill", curriculumId, { cap, result: data });
       return json({ success: true, result: data });
     }
 
     // ── get_coverage_gaps ───────────────────────────────────────
     if (action === "get_coverage_gaps") {
-      const curriculumId = body.curriculum_id as string;
-      if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
+      const curriculumId = assertUuid(body.curriculum_id, "curriculum_id");
+      const minGap = clampInt(body.min_gap, 1, 50, 1);
 
       const { data, error: err } = await sb.rpc("get_blueprint_coverage_gaps", {
         p_curriculum_id: curriculumId,
-        p_min_gap: body.min_gap ?? 1,
+        p_min_gap: minGap,
       });
       if (err) return json({ error: err.message }, 500);
-      return json({ gaps: data });
+      return json({ gaps: data ?? [] });
     }
 
     return json({
