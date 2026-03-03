@@ -4,6 +4,7 @@ import { lazy, Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 import Leitstelle from '@/components/admin/command/Leitstelle';
 import RealtimeAlerts from '@/components/admin/RealtimeAlerts';
+import PipelineHealthPanel from '@/components/admin/command/PipelineHealthPanel';
 
 const HealthTab = lazy(() => import('@/components/admin/command/HealthTab'));
 const CostTab = lazy(() => import('@/components/admin/command/CostTab'));
@@ -19,7 +20,7 @@ export default function CommandPage() {
   return (
     <div className="space-y-4">
       <RealtimeAlerts />
-
+      <PipelineHealthPanel />
       <Tabs defaultValue="leitstelle" className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="leitstelle" className="flex items-center gap-1.5 text-xs lg:text-sm py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
