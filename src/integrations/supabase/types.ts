@@ -26232,6 +26232,12 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_next_hollow_lessons: {
+        Args: { p_limit?: number; p_package_id: string }
+        Returns: {
+          lesson_id: string
+        }[]
+      }
       get_ops_scaling_status: { Args: never; Returns: Json }
       get_ops_summary: {
         Args: never
