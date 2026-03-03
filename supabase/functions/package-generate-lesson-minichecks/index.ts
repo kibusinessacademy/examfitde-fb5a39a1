@@ -354,14 +354,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Cap targets per run
-    if (targets.length > MAX_TARGETS_PER_RUN) {
-      console.log(`[MiniChecks] Capping targets from ${targets.length} to ${MAX_TARGETS_PER_RUN}`);
+    // +1 probe: fetch one extra to definitively know if more remain
+    const hasMore = targets.length > MAX_TARGETS_PER_RUN;
+    if (hasMore) {
+      console.log(`[MiniChecks] Capping targets from ${targets.length} to ${MAX_TARGETS_PER_RUN} (more remain)`);
       targets = targets.slice(0, MAX_TARGETS_PER_RUN);
     }
 
     const effectiveMode = targets[0]?.lessonId ? "lesson" : "drill";
-    console.log(`[MiniChecks] ${effectiveMode} mode: ${targets.length} targets to generate for ${packageId.slice(0, 8)}`);
+    console.log(`[MiniChecks] ${effectiveMode} mode: ${targets.length} targets to generate for ${packageId.slice(0, 8)} (hasMore=${hasMore})`);
 
     for (const target of targets) {
       if (shouldSoftStop(startMs, "lesson_minichecks")) {
@@ -437,9 +438,18 @@ Deno.serve(async (req) => {
     console.log(`[MiniChecks] ${softStopped ? "⏱️ Soft-stopped" : "✅ Done"}: ${totalGenerated} questions generated, ${totalFailed} failed, ${elapsed}ms`);
 
     // batch_complete=false triggers runner re-enqueue (line 939 in job-runner)
-    // Must be false if: soft-stopped, any failures, or we capped targets (more remain)
-    const cappedTargets = targets.length >= MAX_TARGETS_PER_RUN;
-    const batchComplete = !softStopped && totalFailed === 0 && !cappedTargets;
+    // hasMore is the definitive "+1 probe" signal — no false positives
+    const batchComplete = !softStopped && totalFailed === 0 && !hasMore;
+
+    // Progress heartbeat: always update step meta so UI never shows "stuck"
+    const progressNote = totalGenerated > 0
+      ? `${totalGenerated} generated, ${totalFailed} failed, hasMore=${hasMore}, elapsed=${elapsed}ms`
+      : `0 generated (all existed or skipped), hasMore=${hasMore}, elapsed=${elapsed}ms`;
+    
+    await sb.from("package_steps")
+      .update({ meta: { last_progress_note: progressNote, updated_at: new Date().toISOString() } })
+      .eq("package_id", packageId)
+      .eq("step_key", "generate_lesson_minichecks");
 
     return json({
       ok: true,
@@ -450,6 +460,7 @@ Deno.serve(async (req) => {
       targets_total: targets.length,
       elapsed_ms: elapsed,
       soft_stopped: softStopped,
+      has_more: hasMore,
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
