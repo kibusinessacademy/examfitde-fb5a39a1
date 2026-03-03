@@ -9,14 +9,15 @@ import { supabase } from '@/integrations/supabase/client';
 export default function IntegrityReportCard({ report, curriculumId, packageId }: { report: any; curriculumId?: string; packageId?: string }) {
   const [liveCounts, setLiveCounts] = useState<{
     questions: number; questionsApproved: number; questionsDraft: number;
-    oralBlueprints: number; handbookChapters: number; tutorIndex: number; lessons: number;
+    oralBlueprints: number; handbookChapters: number; tutorIndex: number;
+    lessonsTotal: number; lessonsReal: number; lessonsPlaceholders: number; lessonsAvgLen: number;
   } | null>(null);
 
   useEffect(() => {
     if (!curriculumId && !packageId) return;
     const fetchLive = async () => {
       const sb = supabase as any;
-      const [qRes, oralRes, hbRes, tutorRes] = await Promise.all([
+      const [qRes, oralRes, hbRes, tutorRes, realnessRes] = await Promise.all([
         curriculumId
           ? sb.from('exam_questions').select('id, status', { count: 'exact' }).eq('curriculum_id', curriculumId)
           : Promise.resolve({ data: [], count: 0 }),
@@ -29,8 +30,12 @@ export default function IntegrityReportCard({ report, curriculumId, packageId }:
         packageId
           ? sb.from('ai_tutor_context_index').select('id', { count: 'exact', head: true }).eq('package_id', packageId)
           : Promise.resolve({ count: 0 }),
+        packageId
+          ? sb.rpc('package_lessons_realness', { p_package_id: packageId })
+          : Promise.resolve({ data: null }),
       ]);
       const qData = qRes.data || [];
+      const realness = realnessRes.data;
       setLiveCounts({
         questions: qRes.count ?? qData.length,
         questionsApproved: qData.filter?.((r: any) => r.status === 'approved').length ?? 0,
@@ -38,7 +43,10 @@ export default function IntegrityReportCard({ report, curriculumId, packageId }:
         oralBlueprints: oralRes.count ?? 0,
         handbookChapters: hbRes.count ?? 0,
         tutorIndex: tutorRes.count ?? 0,
-        lessons: 0,
+        lessonsTotal: realness?.lessons_total ?? 0,
+        lessonsReal: realness?.real_content ?? 0,
+        lessonsPlaceholders: realness?.placeholders ?? 0,
+        lessonsAvgLen: realness?.avg_len ?? 0,
       });
     };
     fetchLive();
@@ -60,8 +68,16 @@ export default function IntegrityReportCard({ report, curriculumId, packageId }:
   const examTotal = liveCounts?.questions ?? report.exam?.total ?? v3?.questionCount ?? null;
   const examApproved = liveCounts?.questionsApproved ?? 0;
   
+  const lessonsActual = liveCounts ? liveCounts.lessonsReal : (report.lessons?.actual ?? v3?.lessonCount ?? null);
+  const lessonsExpected = liveCounts ? liveCounts.lessonsTotal : (report.lessons?.expected ?? v3?.lessonTarget ?? null);
+  const lessonsDetail = liveCounts
+    ? (liveCounts.lessonsPlaceholders > 0
+      ? `${liveCounts.lessonsPlaceholders} Platzhalter, ∅ ${liveCounts.lessonsAvgLen} Zeichen`
+      : `${liveCounts.lessonsReal}/${liveCounts.lessonsTotal} real, ∅ ${liveCounts.lessonsAvgLen} Zeichen`)
+    : (report.lessons?.duplicates > 0 ? `${report.lessons.duplicates} Duplikate` : null);
+
   const sections = [
-    { label: 'Lektionen', actual: report.lessons?.actual ?? v3?.lessonCount ?? null, expected: report.lessons?.expected ?? v3?.lessonTarget ?? null, icon: BookOpen, detail: report.lessons?.duplicates > 0 ? `${report.lessons.duplicates} Duplikate` : null },
+    { label: 'Lektionen (real)', actual: lessonsActual, expected: lessonsExpected, icon: BookOpen, detail: lessonsDetail },
     { label: 'Prüfungsfragen', actual: examTotal, expected: report.exam?.target ?? v3?.questionTarget ?? 1000, icon: ClipboardCheck, detail: examApproved > 0 ? `${examApproved} approved` : liveCounts ? `${liveCounts.questionsDraft} draft, 0 approved` : null },
     { label: 'Mündliche Szenarien', actual: liveCounts?.oralBlueprints ?? report.oral?.total ?? v3?.oralCount ?? null, expected: report.oral?.target ?? v3?.oralTarget ?? null, icon: MessageSquare },
     { label: 'Handbuch-Kapitel', actual: liveCounts?.handbookChapters ?? report.handbook?.chapters ?? v3?.handbookChapters ?? null, expected: report.handbook?.target ?? v3?.handbookTarget ?? null, icon: FileText, detail: report.handbook?.sections ? `${report.handbook.sections} Abschnitte` : null },

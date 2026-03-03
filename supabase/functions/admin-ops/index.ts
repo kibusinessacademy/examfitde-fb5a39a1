@@ -140,7 +140,7 @@ serve(async (req) => {
         .from("job_queue")
         .insert({
           job_type: jobType,
-          status: "pending",
+          status: "queued",
           payload,
           max_attempts: maxAttempts,
         })
