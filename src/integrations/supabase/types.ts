@@ -25901,6 +25901,10 @@ export type Database = {
         Args: { p_currency?: string; p_export_type: string; p_month: string }
         Returns: string
       }
+      enqueue_integrity_rechecks: {
+        Args: { p_cap?: number; p_reason?: string }
+        Returns: Json
+      }
       enqueue_security_review: {
         Args: {
           p_event_id: string
@@ -26629,6 +26633,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      mark_legacy_integrity_reports: { Args: never; Returns: undefined }
       mark_package_stuck: {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
