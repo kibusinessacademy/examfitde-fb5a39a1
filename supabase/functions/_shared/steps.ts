@@ -54,8 +54,13 @@ export async function markStepFailed(sb: SB, args: {
   const verdict = args.err?.__meta?.verdict ?? null;
   const isHollow = isHollowVerdict(verdict);
 
+  // ✅ Increment attempts ONCE here (SSOT) — requeue reads it as-is
+  const prevAttempts = Number(args.stepMeta?.attempts ?? 0);
+  const nextAttempts = prevAttempts + 1;
+
   const baseMeta = {
     ...(args.stepMeta ?? {}),
+    attempts: nextAttempts,
     ...(args.err?.__meta ?? {}),
     last_error: String(args.err?.message ?? args.err),
     last_error_class: verdict ? "permanent" : "transient",

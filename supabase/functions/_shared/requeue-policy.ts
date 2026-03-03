@@ -48,8 +48,9 @@ export async function requeueStepWithBackoff(sb: SB, args: {
   stepMeta?: Record<string, any>;
   reason?: string;
 }) {
-  const prevAttempts = num(args.stepMeta?.attempts ?? 0);
-  const nextAttempt = prevAttempts + 1;
+  // attempts already incremented by markStepFailed upstream — don't double-count
+  const nextAttempt = num(args.stepMeta?.attempts ?? 1);
+  const prevAttempts = Math.max(0, nextAttempt - 1);
 
   const backoff = computeHollowBackoffSeconds(prevAttempts);
   const nextRunAt = new Date(Date.now() + backoff * 1000).toISOString();
