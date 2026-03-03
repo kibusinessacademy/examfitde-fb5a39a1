@@ -2,8 +2,8 @@
  * Track-aware Artifact Prerequisites (SSOT)
  *
  * Not all pipeline steps require the same artifacts in every track.
- * EXAM_FIRST skips elite_harden entirely, so run_integrity_check
- * must NOT require "elite_ready" in that track.
+ * EXAM_FIRST now includes elite_harden (annotations_only) for SSOT metrics,
+ * but run_integrity_check still does NOT require elite_ready in EXAM_FIRST.
  *
  * Steps NOT listed here fall back to the static PIPELINE_GRAPH requires[].
  * Steps listed here OVERRIDE the static requires[] completely for that track.

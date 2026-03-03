@@ -33,6 +33,7 @@ const EXAM_FIRST_STEPS = new Set([
   'generate_exam_pool','validate_exam_pool',
   'build_ai_tutor_index','validate_tutor_index',
   'generate_oral_exam','validate_oral_exam',
+  'elite_harden',  // annotations_only (auto-forced for EXAM_FIRST)
   'run_integrity_check','quality_council','auto_publish'
 ]);
 

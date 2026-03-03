@@ -530,8 +530,20 @@ Deno.serve(async (req) => {
   const packageId = p.package_id as string;
   const curriculumId = p.curriculum_id as string;
   const courseId = p.course_id as string | undefined;
-  const phase: Phase = (["annotations_only", "minichecks_only", "oral_only", "all"] as Phase[])
-    .includes(p.phase) ? p.phase : "all";
+
+  // ── Track-aware phase resolution ──
+  // EXAM_FIRST only needs deterministic SSOT annotations (no AI upgrade)
+  const { data: trackPkg } = await sb
+    .from("course_packages")
+    .select("track")
+    .eq("id", packageId)
+    .single();
+  const isExamFirst = trackPkg?.track === "EXAM_FIRST";
+  const requestedPhase = p.phase as Phase | undefined;
+  const phase: Phase = isExamFirst && !requestedPhase
+    ? "annotations_only"  // Auto-force annotations_only for EXAM_FIRST
+    : (["annotations_only", "minichecks_only", "oral_only", "all"] as Phase[])
+        .includes(requestedPhase as Phase) ? requestedPhase as Phase : "all";
   const idempotencyKey: string | null = typeof p.idempotency_key === "string" ? p.idempotency_key : null;
 
   // ── Package lookup ──
