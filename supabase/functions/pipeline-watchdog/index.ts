@@ -451,11 +451,12 @@ Deno.serve(async (req) => {
     // Detect quality_gate_failed packages and reset them to building
     // with re-queued steps so the pipeline can retry after gap-closing.
     const QG_COOLDOWN_MINUTES = 60; // Don't re-heal within 60 min
+    const QG_MAX_HEAL_CYCLES = 3;   // Circuit breaker: max heal attempts before blocking
     const qgCooldownCutoff = new Date(Date.now() - QG_COOLDOWN_MINUTES * 60 * 1000).toISOString();
 
     const { data: qgFailedPkgs } = await sb
       .from("course_packages")
-      .select("id, title, integrity_report, updated_at, curriculum_id, published_at, blocked_reason")
+      .select("id, title, integrity_report, updated_at, curriculum_id, published_at, blocked_reason, retry_count")
       .eq("status", "quality_gate_failed")
       .lt("updated_at", qgCooldownCutoff) // Only packages that have been stuck for > cooldown
       .limit(5); // Process max 5 per cycle to avoid overload
@@ -474,6 +475,29 @@ Deno.serve(async (req) => {
       if (hasLegacyViolation) {
         qgSkippedCount++;
         console.log(`[watchdog] QG-heal skip LEGACY_VIOLATION pkg=${(pkg.id as string).slice(0, 8)}`);
+        continue;
+      }
+
+      // ── Circuit Breaker: stop infinite QG-heal loops ──
+      const currentRetryCount = (pkg as any).retry_count ?? 0;
+      if (currentRetryCount >= QG_MAX_HEAL_CYCLES) {
+        // Block the package — generator cannot produce enough content
+        await sb.from("course_packages").update({
+          status: "blocked",
+          blocked_reason: `QG_HEAL_EXHAUSTED: ${currentRetryCount} heal cycles without resolution`,
+          updated_at: new Date().toISOString(),
+        }).eq("id", pkg.id);
+        await sb.from("admin_notifications").insert({
+          title: `QG-Heal exhausted: ${(pkg.title as string || "").slice(0, 40)}`,
+          body: `Package ${(pkg.id as string).slice(0, 8)} blocked after ${currentRetryCount} QG-heal cycles. Manual review required.`,
+          severity: "error",
+          category: "pipeline",
+          entity_type: "course_package",
+          entity_id: pkg.id as string,
+        });
+        qgSkippedCount++;
+        actions.push(`QG-heal BLOCKED: pkg ${(pkg.id as string).slice(0, 8)} after ${currentRetryCount} cycles`);
+        console.warn(`[watchdog] QG-heal CIRCUIT BREAKER: pkg=${(pkg.id as string).slice(0, 8)} blocked after ${currentRetryCount} cycles`);
         continue;
       }
 
@@ -549,12 +573,13 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Reset package to building
+      // Reset package to building + increment retry_count for circuit breaker tracking
       await sb
         .from("course_packages")
         .update({
           status: "building",
-          last_error: `Watchdog QG-heal: ${healReason} — ${hardFails.length} blocker(s), ${stepsResetCount} steps reset → retry`,
+          retry_count: currentRetryCount + 1,
+          last_error: `Watchdog QG-heal: ${healReason} — ${hardFails.length} blocker(s), ${stepsResetCount} steps reset → retry (cycle ${currentRetryCount + 1}/${QG_MAX_HEAL_CYCLES})`,
         })
         .eq("id", pkg.id);
 
