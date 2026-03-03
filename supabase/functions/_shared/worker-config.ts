@@ -18,7 +18,7 @@ function envInt(name: string, fallback: number): number {
 }
 
 const DEFAULTS: Record<RunnerKind, RunnerConfig> = {
-  content_runner: { maxConcurrency: 4, claimLimit: 8 },
+  content_runner: { maxConcurrency: 6, claimLimit: 12 },
   job_runner:     { maxConcurrency: 5, claimLimit: 5 },
 };
 
