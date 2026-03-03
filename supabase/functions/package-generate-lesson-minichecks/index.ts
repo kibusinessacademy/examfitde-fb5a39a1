@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
+import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 
 /**
  * package-generate-lesson-minichecks
@@ -12,14 +13,14 @@ import type { AIProvider } from "../_shared/ai-client.ts";
  * 
  * SSOT: minicheck_questions table with mode='lesson' | 'drill'
  * 
- * Blocker-B Fix: Uses callAIJSON from _shared/ai-client.ts directly
- * instead of routing through ai-tutor (which has incompatible interface).
+ * v2: Uses SSOT time-budget with shouldSoftStop() instead of hardcoded timeout.
+ *     Reduced MAX_TARGETS_PER_RUN from 40→5 to stay within 55s edge limit.
+ *     Each AI call takes ~8-12s, so 5 targets ≈ 40-50s (within soft-stop window).
  */
 
-const TIME_BUDGET_MS = 50_000;
 const ITEMS_PER_LESSON = 7;
 const ITEMS_PER_DRILL = 5;
-const MAX_TARGETS_PER_RUN = 40;
+const MAX_TARGETS_PER_RUN = 5;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -161,9 +162,10 @@ Deno.serve(async (req) => {
   const courseId = p.course_id as string | undefined;
   const curriculumId = p.curriculum_id as string;
 
-  const startTime = Date.now();
+    const startMs = Date.now();
+    const budget = getTimeBudget("lesson_minichecks");
 
-  try {
+    try {
     const { data: pkgRow } = await sb
       .from("course_packages")
       .select("track, feature_flags, course_id")
@@ -360,8 +362,8 @@ Deno.serve(async (req) => {
     console.log(`[MiniChecks] ${effectiveMode} mode: ${targets.length} targets to generate for ${packageId.slice(0, 8)}`);
 
     for (const target of targets) {
-      if (Date.now() - startTime > TIME_BUDGET_MS) {
-        console.log(`[MiniChecks] Time budget exceeded after ${totalGenerated} generated`);
+      if (shouldSoftStop(startMs, "lesson_minichecks")) {
+        console.log(`[MiniChecks] Soft-stop reached after ${totalGenerated} generated (${Date.now() - startMs}ms/${budget.softStopMs}ms)`);
         break;
       }
 
@@ -428,16 +430,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    const elapsed = Date.now() - startTime;
-    console.log(`[MiniChecks] ✅ Done: ${totalGenerated} questions generated, ${totalFailed} failed, ${elapsed}ms`);
+    const elapsed = Date.now() - startMs;
+    const softStopped = shouldSoftStop(startMs, "lesson_minichecks");
+    console.log(`[MiniChecks] ${softStopped ? "⏱️ Soft-stopped" : "✅ Done"}: ${totalGenerated} questions generated, ${totalFailed} failed, ${elapsed}ms`);
+
+    // Signal batch_complete=false if we soft-stopped or had remaining targets
+    const processedTargets = targets.slice(0, targets.indexOf(targets.find((_, i) => i >= MAX_TARGETS_PER_RUN) as any) + 1 || targets.length);
+    const batchComplete = !softStopped && totalFailed === 0;
 
     return json({
       ok: true,
+      batch_complete: batchComplete,
       mode: effectiveMode,
       generated: totalGenerated,
       failed: totalFailed,
       targets_total: targets.length,
       elapsed_ms: elapsed,
+      soft_stopped: softStopped,
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
