@@ -63,7 +63,9 @@ const state: Record<AIProvider, ProviderState> = {
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function pruneOlderThan(arr: number[], cutoff: number): number[] {
-  while (arr.length > 0 && arr[0] < cutoff) arr.shift();
+  let i = 0;
+  while (i < arr.length && arr[i] < cutoff) i++;
+  if (i > 0) arr.splice(0, i);
   return arr;
 }
 
@@ -103,6 +105,14 @@ export function getProviderHealth(provider: AIProvider): ProviderHealth {
   const rpm = s.requestTimestamps.length;
   const rpmLimit = RPM_LIMITS[provider];
 
+  // Auto-clear expired cooldown FIRST (before active check)
+  if (s.cooldownUntil && now >= s.cooldownUntil) {
+    const prev = s.cooldownCount;
+    s.cooldownUntil = null;
+    s.cooldownCount = Math.max(0, s.cooldownCount - 1);
+    console.info(`[RATE-LIMITER] ✅ Provider ${provider} cooldown expired (step ${prev} → ${s.cooldownCount})`);
+  }
+
   // Check active cooldown
   if (s.cooldownUntil && now < s.cooldownUntil) {
     return {
@@ -116,13 +126,6 @@ export function getProviderHealth(provider: AIProvider): ProviderHealth {
       total429s: s.total429s,
       totalRequests: s.totalRequests,
     };
-  }
-
-  // Auto-clear expired cooldown + de-escalate one step
-  if (s.cooldownUntil && now >= s.cooldownUntil) {
-    s.cooldownUntil = null;
-    s.cooldownCount = Math.max(0, s.cooldownCount - 1);
-    console.info(`[RATE-LIMITER] ✅ Provider ${provider} cooldown expired (escalation step now ${s.cooldownCount})`);
   }
 
   // Check RPM limit (leave 10% headroom)
