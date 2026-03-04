@@ -1,10 +1,12 @@
 /**
- * Provider Rate Limiter — Proactive Token-Bucket + Cooldown
+ * Provider Rate Limiter — Proactive Token-Bucket + Progressive Cooldown
  *
  * Features:
  *   1. Per-provider request-per-minute tracking (token bucket)
- *   2. Auto-cooldown after N consecutive 429s within a window
- *   3. Provider health status for smart routing decisions
+ *   2. Progressive cooldown after N consecutive 429s (30s→60s→120s→300s)
+ *   3. Auto-clear expired cooldowns with de-escalation
+ *   4. Hard caps on timestamp arrays to prevent memory leaks
+ *   5. Provider health status for smart routing decisions
  *
  * All state is in-memory (per Edge Function isolate).
  * This is intentional: each isolate independently throttles,
@@ -29,6 +31,10 @@ const COOLDOWN_TRIGGER_COUNT = 6;
 const COOLDOWN_WINDOW_MS = 60_000;
 /** Progressive cooldown durations — each consecutive trigger escalates */
 const COOLDOWN_STEPS_MS = [30_000, 60_000, 120_000, 300_000];
+
+/** Hard caps to prevent unbounded memory growth */
+const MAX_REQUEST_TIMESTAMPS = 500;
+const MAX_RATELIMIT_TIMESTAMPS = 200;
 
 // ── Internal State ──────────────────────────────────────────────────
 
@@ -57,8 +63,14 @@ const state: Record<AIProvider, ProviderState> = {
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function pruneOlderThan(arr: number[], cutoff: number): number[] {
-  // Mutate in place for efficiency
   while (arr.length > 0 && arr[0] < cutoff) arr.shift();
+  return arr;
+}
+
+/** Prune + hard-cap an array to prevent memory leaks in long-lived isolates */
+function pruneAndCap(arr: number[], cutoff: number, maxLen: number): number[] {
+  pruneOlderThan(arr, cutoff);
+  if (arr.length > maxLen) arr.splice(0, arr.length - maxLen);
   return arr;
 }
 
@@ -71,6 +83,7 @@ export interface ProviderHealth {
   rpm: number;
   rpmLimit: number;
   cooldownRemainingMs: number;
+  cooldownStep: number;
   total429s: number;
   totalRequests: number;
 }
@@ -83,30 +96,33 @@ export function getProviderHealth(provider: AIProvider): ProviderHealth {
   const s = state[provider];
   const now = Date.now();
 
-  // Prune old timestamps
-  pruneOlderThan(s.requestTimestamps, now - 60_000);
-  pruneOlderThan(s.rateLimitTimestamps, now - COOLDOWN_WINDOW_MS);
+  // Prune + cap old timestamps
+  pruneAndCap(s.requestTimestamps, now - 60_000, MAX_REQUEST_TIMESTAMPS);
+  pruneAndCap(s.rateLimitTimestamps, now - COOLDOWN_WINDOW_MS, MAX_RATELIMIT_TIMESTAMPS);
 
   const rpm = s.requestTimestamps.length;
   const rpmLimit = RPM_LIMITS[provider];
 
-  // Check cooldown
+  // Check active cooldown
   if (s.cooldownUntil && now < s.cooldownUntil) {
     return {
       provider,
       available: false,
-      reason: `cooldown (${Math.ceil((s.cooldownUntil - now) / 1000)}s remaining)`,
+      reason: `cooldown (${Math.ceil((s.cooldownUntil - now) / 1000)}s remaining, step ${s.cooldownCount})`,
       rpm,
       rpmLimit,
       cooldownRemainingMs: s.cooldownUntil - now,
+      cooldownStep: s.cooldownCount,
       total429s: s.total429s,
       totalRequests: s.totalRequests,
     };
   }
 
-  // Clear expired cooldown
+  // Auto-clear expired cooldown + de-escalate one step
   if (s.cooldownUntil && now >= s.cooldownUntil) {
     s.cooldownUntil = null;
+    s.cooldownCount = Math.max(0, s.cooldownCount - 1);
+    console.info(`[RATE-LIMITER] ✅ Provider ${provider} cooldown expired (escalation step now ${s.cooldownCount})`);
   }
 
   // Check RPM limit (leave 10% headroom)
@@ -118,6 +134,7 @@ export function getProviderHealth(provider: AIProvider): ProviderHealth {
       rpm,
       rpmLimit,
       cooldownRemainingMs: 0,
+      cooldownStep: s.cooldownCount,
       total429s: s.total429s,
       totalRequests: s.totalRequests,
     };
@@ -129,6 +146,7 @@ export function getProviderHealth(provider: AIProvider): ProviderHealth {
     rpm,
     rpmLimit,
     cooldownRemainingMs: 0,
+    cooldownStep: s.cooldownCount,
     total429s: s.total429s,
     totalRequests: s.totalRequests,
   };
@@ -140,13 +158,18 @@ export function getProviderHealth(provider: AIProvider): ProviderHealth {
  */
 export function recordRequest(provider: AIProvider): void {
   const s = state[provider];
-  s.requestTimestamps.push(Date.now());
+  const now = Date.now();
+  s.requestTimestamps.push(now);
   s.totalRequests++;
+  // Prevent unbounded growth
+  if (s.requestTimestamps.length > MAX_REQUEST_TIMESTAMPS) {
+    s.requestTimestamps.splice(0, s.requestTimestamps.length - MAX_REQUEST_TIMESTAMPS);
+  }
 }
 
 /**
  * Record a 429 (rate limit) response from a provider.
- * Triggers cooldown if threshold is exceeded.
+ * Only 429s trigger cooldown escalation (not 503/timeouts).
  */
 export function recordRateLimit(provider: AIProvider): void {
   const s = state[provider];
@@ -155,30 +178,31 @@ export function recordRateLimit(provider: AIProvider): void {
   s.rateLimitTimestamps.push(now);
   s.total429s++;
 
-  // Prune old 429 timestamps
-  pruneOlderThan(s.rateLimitTimestamps, now - COOLDOWN_WINDOW_MS);
+  // Prune + cap
+  pruneAndCap(s.rateLimitTimestamps, now - COOLDOWN_WINDOW_MS, MAX_RATELIMIT_TIMESTAMPS);
 
   // Check if cooldown should be triggered
   if (s.rateLimitTimestamps.length >= COOLDOWN_TRIGGER_COUNT) {
     const stepIdx = Math.min(s.cooldownCount, COOLDOWN_STEPS_MS.length - 1);
     const duration = COOLDOWN_STEPS_MS[stepIdx];
     s.cooldownUntil = now + duration;
-    s.cooldownCount++;
+    const nextCount = s.cooldownCount + 1;
     console.warn(
       `[RATE-LIMITER] ⚠️ Provider ${provider} entered cooldown for ${duration / 1000}s ` +
-      `(step ${s.cooldownCount}/${COOLDOWN_STEPS_MS.length}, ` +
+      `(step ${nextCount}/${COOLDOWN_STEPS_MS.length}, ` +
       `${s.rateLimitTimestamps.length} 429s in ${COOLDOWN_WINDOW_MS / 1000}s)`
     );
+    s.cooldownCount = nextCount;
   }
 }
 
 /**
  * Record a successful response from a provider.
- * Can be used to clear rate limit pressure.
+ * De-escalates cooldown step on sustained success (provider recovered).
  */
 export function recordSuccess(provider: AIProvider): void {
-  // Reset escalation on sustained success (provider recovered)
   const s = state[provider];
+  // Only de-escalate when not actively in cooldown (i.e. provider is serving again)
   if (s.cooldownCount > 0 && !s.cooldownUntil) {
     s.cooldownCount = Math.max(0, s.cooldownCount - 1);
   }
@@ -193,11 +217,9 @@ export function pickAvailableProvider(
   candidates: Array<{ provider: AIProvider; model: string }>,
   requiredApiKeys?: Record<string, boolean>,
 ): { provider: AIProvider; model: string; health: ProviderHealth } | null {
-  // Sort by RPM usage (lowest first) for load distribution
   const withHealth = candidates
     .map(c => ({ ...c, health: getProviderHealth(c.provider) }))
     .filter(c => {
-      // Skip providers without API keys
       if (requiredApiKeys && !requiredApiKeys[c.provider]) return false;
       return c.health.available;
     })
@@ -205,7 +227,7 @@ export function pickAvailableProvider(
       // Weighted round-robin: prefer providers with more capacity
       const aCapacity = 1 - (a.health.rpm / a.health.rpmLimit);
       const bCapacity = 1 - (b.health.rpm / b.health.rpmLimit);
-      return bCapacity - aCapacity; // higher capacity first
+      return bCapacity - aCapacity;
     });
 
   return withHealth[0] ?? null;
@@ -225,5 +247,5 @@ export function clearCooldown(provider: AIProvider): void {
   state[provider].cooldownUntil = null;
   state[provider].cooldownCount = 0;
   state[provider].rateLimitTimestamps = [];
-  console.log(`[RATE-LIMITER] Cooldown cleared for ${provider}`);
+  console.info(`[RATE-LIMITER] ✅ Cooldown force-cleared for ${provider}`);
 }
