@@ -512,6 +512,11 @@ Deno.serve(async (req) => {
   let expandedCount = 0;
   let currentDelay = BASE_DELAY_MS;
   let softStopped = false;
+  let consecutiveTransient = 0;
+  const STEP_BLOOM_MAP: Record<string, string> = {
+    einstieg: "remember", verstehen: "understand", anwenden: "apply",
+    wiederholen: "analyze", mini_check: "apply",
+  };
   const details: any[] = [];
 
   for (const lesson of batch) {
@@ -845,14 +850,6 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         }
       }
 
-      // ── Bloom-Level mapping from lesson step ──
-      const STEP_BLOOM_MAP: Record<string, string> = {
-        einstieg: "remember",
-        verstehen: "understand",
-        anwenden: "apply",
-        wiederholen: "analyze",
-        mini_check: "apply",
-      };
       const bloomLevel = STEP_BLOOM_MAP[lesson.step] || "understand";
       
       // ── Exam relevance score (1-5 based on LF weight + difficulty) ──
@@ -942,6 +939,7 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
       });
 
       generated++;
+      consecutiveTransient = 0; // Reset on success
       if (!isMiniCheck && expandAttempts > 0) expandedCount++;
       details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "ok", versionId: newVersion!.id, provider: result.provider, model: result.model, expand_retries: expandAttempts });
 
@@ -961,16 +959,101 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
       const transient = isTransientLlmError(e);
 
       if (transient) {
-        // P0 FIX: Transient LLM errors (empty response, timeout, 429, 503)
+        // P1 FIX: Transient LLM errors (empty response, timeout, 429, 503)
         // must NOT count as content-generation failures.
-        // They don't increment failed/poison-pills — they just end the batch early.
-        console.warn(`[gen-content] TRANSIENT error on ${lesson.id.slice(0, 8)}: ${errMsg.slice(0, 200)} — stopping batch (no stall penalty)`);
+        // v6.1: DON'T abort the entire batch on first transient — try next lesson.
+        // Only abort if ALL lessons in the batch hit transient errors (consecutiveTransient).
+        consecutiveTransient++;
+        console.warn(`[gen-content] TRANSIENT error on ${lesson.id.slice(0, 8)} (${consecutiveTransient}/${batch.length}): ${errMsg.slice(0, 200)}`);
         details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "transient_error", error: errMsg });
-        softStopped = true; // end batch gracefully — do NOT increment failed counter
-        break;
+
+        // Rate limit specifically → increase delay + abort batch (provider is throttling)
+        if (e instanceof RateLimitError || errMsg.includes("429") || errMsg.includes("Rate limit")) {
+          currentDelay = Math.min(currentDelay * 2, MAX_DELAY_MS);
+          console.warn(`[gen-content] Rate limited — aborting batch, backoff=${currentDelay}ms`);
+          softStopped = true;
+          break;
+        }
+
+        // If ALL lessons so far were transient, abort to avoid wasting budget
+        if (consecutiveTransient >= batch.length) {
+          console.warn(`[gen-content] All ${consecutiveTransient} lessons transient — aborting batch`);
+          softStopped = true;
+          break;
+        }
+
+        // Otherwise: try next lesson (the transient may be prompt-specific)
+        currentDelay = Math.min(currentDelay * 1.5, MAX_DELAY_MS);
+        await new Promise(r => setTimeout(r, currentDelay));
+        continue;
+      }
+
+      // ── Non-tool-call parse failure: retry once with plain JSON mode ──
+      if (errMsg.includes("No parseable tool response") && !lesson._plainRetried) {
+        console.warn(`[gen-content] Parse failure on ${lesson.id.slice(0, 8)} — retrying with plain JSON (no tool-calling)`);
+        lesson._plainRetried = true;
+        try {
+          const plainChain = await getModelChainAsync("learning_content");
+          const plainResult = await callAIWithFailover(
+            plainChain.map(c => ({ provider: c.provider, model: c.model })),
+            {
+              messages: [
+                { role: "system", content: `Du bist ein IHK-Fachexperte. Erstelle Lerninhalt für "${professionName}". Antworte mit einem JSON-Objekt: {"html": "...", "objectives": [...], "key_terms": [...], "common_mistakes": [...], "exam_triggers": [...]}. NUR JSON, kein Markdown, kein Text davor/danach.` },
+                { role: "user", content: userPrompt },
+              ],
+              max_tokens: isMiniCheck ? 2200 : 3200,
+            },
+          );
+          // Parse plain JSON response
+          let plainContent: any;
+          const rawPlain = (plainResult.content || "").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+          const fb = rawPlain.indexOf("{");
+          const lb = rawPlain.lastIndexOf("}");
+          if (fb !== -1 && lb > fb) {
+            try { plainContent = JSON.parse(rawPlain.slice(fb, lb + 1)); } catch { /* noop */ }
+          }
+          if (plainContent?.html && plainContent.html.length > 200) {
+            // Success! Use this content — jump back to the persist logic
+            // For simplicity, re-throw to outer handler to avoid duplicating persist code
+            console.log(`[gen-content] Plain JSON retry SUCCESS for ${lesson.id.slice(0, 8)} (${plainContent.html.length} chars)`);
+            // Persist inline
+            const stepKeyCanonical = canonicalStepKey(lesson.step);
+            const finalContent = {
+              type: "text", html: plainContent.html,
+              objectives: plainContent.objectives || [], key_terms: plainContent.key_terms || [],
+              common_mistakes: plainContent.common_mistakes || [], exam_triggers: plainContent.exam_triggers || [],
+              transfer_questions: plainContent.transfer_questions || [],
+              bloom_level: STEP_BLOOM_MAP[lesson.step] || "understand",
+              step: lesson.step, generated_at: new Date().toISOString(), version: 5,
+            };
+            const { error: vErr2 } = await sb.from("content_versions").insert({
+              course_id: courseId, lesson_id: lesson.id, step_key: stepKeyCanonical,
+              content_json: finalContent, created_by_agent: "generate-learning-content",
+              status: "approved", council_round: 1,
+              entity_type: isMiniCheck ? "minicheck" : "lesson_step",
+              published_at: new Date().toISOString(), published_by: "pipeline-auto-approve",
+            }).select("id").single();
+            if (!vErr2) {
+              generated++;
+              consecutiveTransient = 0;
+              details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "ok_plain_retry", provider: plainResult.provider });
+              await logLLMCostEvent(sb, {
+                job_type: "generate_learning_content", provider: plainResult.provider, model: plainResult.model,
+                tokens_in: plainResult.usage?.input_tokens || 0, tokens_out: plainResult.usage?.output_tokens || 0,
+                package_id: packageId, certification_id: certificationId, course_id: courseId,
+                estimatedUsage: plainResult.estimatedUsage, meta: { plain_retry: true },
+              });
+              await new Promise(r => setTimeout(r, currentDelay));
+              continue;
+            }
+          }
+        } catch (plainErr) {
+          console.warn(`[gen-content] Plain retry also failed: ${(plainErr as Error).message?.slice(0, 100)}`);
+        }
       }
 
       failed++;
+      consecutiveTransient = 0; // Reset — this was a real failure, not transient
       console.error(`[gen-content] Failed lesson ${lesson.id}: ${errMsg}`);
       details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "failed", error: errMsg });
 
