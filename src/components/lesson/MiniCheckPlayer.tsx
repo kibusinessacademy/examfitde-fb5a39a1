@@ -233,7 +233,7 @@ export default function MiniCheckPlayer({
           </div>
 
           <div className="space-y-2">
-            <div className="text-4xl font-bold">
+            <div className="text-4xl font-bold" data-testid="minicheck-result-score">
               {correct} / {total}
             </div>
             <Progress value={scorePercent} className="h-3" />
@@ -380,7 +380,7 @@ export default function MiniCheckPlayer({
                 Antwort prüfen
               </Button>
             ) : (
-              <Button onClick={handleNextQuestion} className="gap-2" disabled={saving}>
+              <Button onClick={handleNextQuestion} className="gap-2" disabled={saving} data-testid="question-next">
                 {currentIndex < totalQuestions - 1 ? (
                   <>
                     Nächste Frage
