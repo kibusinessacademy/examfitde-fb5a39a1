@@ -186,12 +186,13 @@ Deno.serve(async (req) => {
 
     console.log(`[BuildPkg] Hybrid Target: ${hybridResult.target} (ship: ${hybridResult.shipTarget})`);
 
-    // ── Elite Override: EXAM_FIRST must NOT skip didaktik/elite steps ──
-    // force_elite in feature_flags enables full didaktik pipeline for any track
+    // ── Elite Override: robust didaktik detection ──
+    // wantDidaktik fires if: full track, force_elite, OR feature_flags signal learning
     const forceElite = featureFlags.force_elite === true;
     const isFullTrack = track === "AUSBILDUNG_VOLL";
-    const wantDidaktik = isFullTrack || forceElite;
-    const wantEliteHarden = isFullTrack || forceElite;
+    const flagsWantLearning = featureFlags.has_learning_course === true;
+    const wantDidaktik = isFullTrack || forceElite || flagsWantLearning;
+    const wantEliteHarden = isFullTrack || forceElite || flagsWantLearning;
 
     // Build options from feature_flags + Hybrid Engine
     // When force_elite is set, didaktik components are always included
