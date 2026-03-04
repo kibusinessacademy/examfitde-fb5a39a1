@@ -512,7 +512,10 @@ Deno.serve(async (req) => {
   let expandedCount = 0;
   let currentDelay = BASE_DELAY_MS;
   let softStopped = false;
+  let softStoppedReason = "";
   let consecutiveTransient = 0;
+  let attempted = 0; // #5: track actually attempted lessons (vs skipped)
+  const plainRetryDone = new Set<string>(); // #3: track plain-retry per lesson (no input mutation)
   const STEP_BLOOM_MAP: Record<string, string> = {
     einstieg: "remember", verstehen: "understand", anwenden: "apply",
     wiederholen: "analyze", mini_check: "apply",
@@ -522,6 +525,7 @@ Deno.serve(async (req) => {
   for (const lesson of batch) {
     if (shouldSoftStop(startMs, "learning_content")) {
       softStopped = true;
+      softStoppedReason = "budget_exhausted";
       console.warn(`[gen-content] Soft-stop reached (${Date.now() - startMs}ms/${budget.softStopMs}ms) — yielding remaining lessons to next batch`);
       break;
     }
@@ -537,6 +541,7 @@ Deno.serve(async (req) => {
       continue;
     }
 
+    attempted++; // #5: only count actually attempted lessons for consecutiveTransient check
     const stepConfig = STEP_PROMPTS[lesson.step];
     const moduleName = (lesson as any).modules?.title || "";
 
@@ -970,15 +975,18 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         // Rate limit specifically → increase delay + abort batch (provider is throttling)
         if (e instanceof RateLimitError || errMsg.includes("429") || errMsg.includes("Rate limit")) {
           currentDelay = Math.min(currentDelay * 2, MAX_DELAY_MS);
-          console.warn(`[gen-content] Rate limited — aborting batch, backoff=${currentDelay}ms`);
           softStopped = true;
+          softStoppedReason = "rate_limit";
+          console.warn(`[gen-content] Rate limited — aborting batch, backoff=${currentDelay}ms`);
+          details.push({ soft_stopped_reason: "rate_limit", soft_stopped_after: lesson.id, backoff_ms: currentDelay });
           break;
         }
 
-        // If ALL lessons so far were transient, abort to avoid wasting budget
-        if (consecutiveTransient >= batch.length) {
-          console.warn(`[gen-content] All ${consecutiveTransient} lessons transient — aborting batch`);
+        // #5: Use attempted count (not batch.length) — skipped lessons don't count
+        if (attempted > 0 && consecutiveTransient >= attempted) {
           softStopped = true;
+          softStoppedReason = "all_transient";
+          console.warn(`[gen-content] All ${consecutiveTransient}/${attempted} attempted lessons transient — aborting batch`);
           break;
         }
 
@@ -988,10 +996,10 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         continue;
       }
 
-      // ── Non-tool-call parse failure: retry once with plain JSON mode ──
-      if (errMsg.includes("No parseable tool response") && !lesson._plainRetried) {
+      // #3: Use Set instead of mutating lesson object
+      if (errMsg.includes("No parseable tool response") && !plainRetryDone.has(lesson.id)) {
+        plainRetryDone.add(lesson.id);
         console.warn(`[gen-content] Parse failure on ${lesson.id.slice(0, 8)} — retrying with plain JSON (no tool-calling)`);
-        lesson._plainRetried = true;
         try {
           const plainChain = await getModelChainAsync("learning_content");
           const plainResult = await callAIWithFailover(
@@ -1077,11 +1085,14 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
   // ── Final batch telemetry ──
   await updateStepProgress({
     last_progress_note: softStopped
-      ? `batch_softstop: gen=${generated} fail=${failed} expand=${expandedCount} remaining=${remaining}`
+      ? `batch_softstop(${softStoppedReason}): gen=${generated} fail=${failed} expand=${expandedCount} remaining=${remaining} attempted=${attempted} transient=${consecutiveTransient}`
       : `batch_done: gen=${generated} fail=${failed} expand=${expandedCount} remaining=${remaining}`,
     real_generated: generated,
     failed_count: failed,
     expanded_count: expandedCount,
+    attempted,
+    consecutive_transient: consecutiveTransient,
+    soft_stopped_reason: softStoppedReason || undefined,
     batch_elapsed_ms: Date.now() - startMs,
   });
 
