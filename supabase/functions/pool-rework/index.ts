@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { ERROR_TAG_VOCABULARY } from "../_shared/error-tag-vocabulary.ts";
 import { loadMathRatio } from "../_shared/math-ratio.ts";
