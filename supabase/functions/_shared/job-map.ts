@@ -158,6 +158,16 @@ export function edgeFunctionForJobType(jobType: string): string | null {
   return JOB_DEFINITIONS[jobType]?.edgeFunction ?? null;
 }
 
+/** All known job types (SSOT). Used for runtime validation at enqueue time. */
+export const KNOWN_JOB_TYPES = new Set(Object.keys(JOB_DEFINITIONS));
+
+/** Runtime guard: throws if jobType is not registered in JOB_DEFINITIONS. */
+export function assertKnownJobType(jobType: string): void {
+  if (!KNOWN_JOB_TYPES.has(jobType)) {
+    throw new Error(`UNKNOWN_JOB_TYPE: "${jobType}" not in JOB_DEFINITIONS. Register it in _shared/job-map.ts first.`);
+  }
+}
+
 /** Backoff heuristic for stale/failed job requeues */
 export function inferBackoffSeconds(reason: string | number): number {
   if (typeof reason === "number") {
