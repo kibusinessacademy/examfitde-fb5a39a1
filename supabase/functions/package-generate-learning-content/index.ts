@@ -580,19 +580,14 @@ Deno.serve(async (req) => {
 
       const elapsedMs = Date.now() - startMs;
       const remainingSoftMs = budget.softStopMs - elapsedMs;
-      // v6.2: Deterministic budget guard
-      // MIN_TIMEOUT_MS = minimum viable LLM call duration
-      // MIN_PERSIST_MS = time needed to persist results + log after LLM returns
-      // v5.8: Aggressive budget — init overhead is ~30s of 45s softStop.
-      // Gemini Flash responds in 5-12s typically. We MUST allow calls with ≥10s remaining
-      // or else the generator will NEVER make a single LLM call.
-      const MIN_TIMEOUT_MS = 10_000;
-      const MIN_PERSIST_MS = 2_000;
-      const MIN_REMAINING_MS = MIN_TIMEOUT_MS + MIN_PERSIST_MS; // 12s
+      // v5.9: With 120s softStop, we have ~90s of usable LLM time after init.
+      // Each Gemini Flash call takes 5-15s. We can fit 6-10 lessons per invocation.
+      const MIN_TIMEOUT_MS = 15_000;
+      const MIN_PERSIST_MS = 3_000;
+      const MIN_REMAINING_MS = MIN_TIMEOUT_MS + MIN_PERSIST_MS; // 18s
 
       if (remainingSoftMs < MIN_REMAINING_MS) {
-        if (generated === 0 && remainingSoftMs >= 8_000) {
-          // Allow one last attempt with tight budget — gen=0 invocation is worse than a short timeout
+        if (generated === 0 && remainingSoftMs >= 10_000) {
           console.warn(`[gen-content] Tight budget (${remainingSoftMs}ms) but gen=0 — allowing one last attempt`);
         } else {
           softStopped = true;
@@ -1019,9 +1014,15 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
   // P0 FIX: Flag transient LLM errors so pipeline-runner skips stall_runs/attempts increment
   const hasTransientError = details.some((d: any) => d.status === "transient_error");
 
+  // ── v5.9: Progress-aware result — pipeline can detect zero-progress runs ──
+  const progressMade = generated > 0 || skippedWriteBack > 0;
+  const placeholdersBefore = placeholderLessons.length;
+  const placeholdersAfter = remaining;
+
   return json({
     ok: true,
     batch_complete: effectiveComplete,
+    progress: progressMade,
     transient: hasTransientError ? true : undefined,
     ...(!effectiveComplete ? {
       batch_cursor: { offset: 0 },
@@ -1032,9 +1033,14 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     skipped_write_back: skippedWriteBack,
     failed,
     poison_pills_skipped: skippableLessons.size,
-    total_placeholders: placeholderLessons.length,
+    total_placeholders: placeholdersBefore,
+    placeholders_before: placeholdersBefore,
+    placeholders_after: placeholdersAfter,
     actionable_remaining: actionablePlaceholders.length - batch.length,
     remaining,
+    reason: !progressMade
+      ? (hasTransientError ? "LLM_TRANSIENT" : softStopped ? "BUDGET_EXHAUSTED" : "UNKNOWN")
+      : undefined,
     details,
     message: effectiveComplete
       ? `✅ Lerninhalt-Generierung abgeschlossen. ${generated} generiert, ${skippedWriteBack} write-back, ${skippableLessons.size} Poison-Pills übersprungen.`

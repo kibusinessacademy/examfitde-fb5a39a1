@@ -29,8 +29,8 @@ function envInt(name: string, fallback: number): number {
 const DEFAULTS: Record<BudgetKey, TimeBudget> = {
   runner_claim:       { ms: 55_000, softStopMs: 45_000 },
   exam_pool_fanout:   { ms: 45_000, softStopMs: 35_000 },
-  learning_content:   { ms: 55_000, softStopMs: 45_000 },
-  handbook:           { ms: 55_000, softStopMs: 45_000 },
+  learning_content:   { ms: 150_000, softStopMs: 120_000 },  // v5.8: 2.5min hard / 2min soft — content gen has ~30s init overhead
+  handbook:           { ms: 150_000, softStopMs: 120_000 },  // v5.8: same rationale as learning_content
   glossary:           { ms: 45_000, softStopMs: 35_000 },
   oral_exam:          { ms: 45_000, softStopMs: 35_000 },
   lesson_minichecks:  { ms: 45_000, softStopMs: 35_000 },
