@@ -1,0 +1,63 @@
+name: E2E Full Journey
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL for E2E"
+        required: false
+        default: "https://examfitde.lovable.app"
+      suite:
+        description: "Suite (all)"
+        required: false
+        default: "all"
+  schedule:
+    - cron: "15 3 * * *" # daily 03:15 UTC
+
+jobs:
+  full-journey:
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && (inputs.suite == 'all'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Full Journey E2E
+        env:
+          E2E_BASE_URL: ${{ inputs.base_url || 'https://examfitde.lovable.app' }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: npx playwright test tests/e2e/learner-full-journey.spec.ts
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-journey-report
+          path: playwright-report
+          retention-days: 14
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-journey-artifacts
+          path: test-results
+          retention-days: 14

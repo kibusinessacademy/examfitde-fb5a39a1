@@ -8595,6 +8595,33 @@ export type Database = {
           },
         ]
       }
+      expected_trigger_bindings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          expected_schema: string
+          expected_table: string
+          expected_trigger: string
+          id: number
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          expected_schema?: string
+          expected_table: string
+          expected_trigger: string
+          id?: number
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          expected_schema?: string
+          expected_table?: string
+          expected_trigger?: string
+          id?: number
+        }
+        Relationships: []
+      }
       experiment_assignments: {
         Row: {
           assigned_at: string
@@ -26479,10 +26506,9 @@ export type Database = {
       check_trigger_bindings: {
         Args: never
         Returns: {
-          expected_schema: string
-          expected_table: string
-          expected_trigger: string
-          is_missing: boolean
+          all_clear: boolean
+          missing: Json
+          missing_count: number
         }[]
       }
       check_user_entitlement: {

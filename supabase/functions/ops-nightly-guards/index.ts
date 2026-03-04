@@ -39,15 +39,42 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2) Trigger-binding verification guard
-    const { data: triggerCheck, error: triggerErr } = await sb.rpc("check_trigger_bindings");
-    const missingTriggers = (triggerCheck as any[])?.filter((t: any) => t.is_missing) || [];
-    
+    // 2) Trigger-binding verification guard (SSOT table-driven)
+    const { data: tgData, error: tgErr } = await sb.rpc("check_trigger_bindings");
+
+    if (tgErr) {
+      // Non-blocking but visible
+      await sb.from("admin_notifications").insert({
+        title: "🚨 Trigger Binding Guard failed",
+        body: `check_trigger_bindings() RPC failed: ${tgErr.message}`,
+        severity: "error",
+        category: "ops",
+        entity_type: "system",
+        entity_id: "trigger_binding_guard",
+      });
+    }
+
+    // Extract missing triggers from the new RPC format
+    const tgResult = Array.isArray(tgData) ? tgData[0] : tgData;
+    const missingTriggers = (tgResult?.missing ?? []) as Array<{
+      expected_trigger: string;
+      expected_schema: string;
+      expected_table: string;
+      function_exists: boolean;
+      is_missing: boolean;
+    }>;
+
     if (missingTriggers.length > 0) {
-      const names = missingTriggers.map((t: any) => `${t.expected_trigger} → ${t.expected_table}`).join(", ");
+      const names = missingTriggers
+        .map(
+          (t) =>
+            `${t.expected_trigger} → ${t.expected_schema}.${t.expected_table} (fn_exists=${t.function_exists})`
+        )
+        .join(", ");
+
       await sb.from("admin_notifications").insert({
         title: "🚨 CRITICAL: Missing DB triggers detected",
-        body: `The following triggers are NOT bound to their tables: ${names}. This is a governance violation that can cause silent publish bypasses.`,
+        body: `Triggers are NOT bound: ${names}. This can silently bypass publish gates.`,
         severity: "error",
         category: "ops",
         entity_type: "system",
@@ -56,10 +83,18 @@ Deno.serve(async (req) => {
     }
 
     const result = data as Record<string, unknown>;
-    const allClear = result?.all_clear === true && missingTriggers.length === 0;
+    const allClear =
+      result?.all_clear === true && missingTriggers.length === 0;
 
     return new Response(
-      JSON.stringify({ ...result, trigger_guard: { missing: missingTriggers.length, details: missingTriggers } }),
+      JSON.stringify({
+        ...result,
+        trigger_guard: {
+          all_clear: missingTriggers.length === 0,
+          missing_count: missingTriggers.length,
+          details: missingTriggers,
+        },
+      }),
       {
         status: allClear ? 200 : 422,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
