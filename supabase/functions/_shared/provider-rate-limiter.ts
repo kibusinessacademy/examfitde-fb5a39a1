@@ -27,8 +27,8 @@ const RPM_LIMITS: Record<AIProvider, number> = {
 const COOLDOWN_TRIGGER_COUNT = 6;
 /** Window in which COOLDOWN_TRIGGER_COUNT 429s trigger a cooldown */
 const COOLDOWN_WINDOW_MS = 60_000;
-/** How long to cool down a provider after trigger (ms) */
-const COOLDOWN_DURATION_MS = 30_000;
+/** Progressive cooldown durations — each consecutive trigger escalates */
+const COOLDOWN_STEPS_MS = [30_000, 60_000, 120_000, 300_000];
 
 // ── Internal State ──────────────────────────────────────────────────
 
@@ -39,6 +39,8 @@ interface ProviderState {
   rateLimitTimestamps: number[];
   /** If set, provider is in cooldown until this epoch ms */
   cooldownUntil: number | null;
+  /** How many times cooldown was triggered (for progressive backoff) */
+  cooldownCount: number;
   /** Total 429s since isolate start */
   total429s: number;
   /** Total requests since isolate start */
@@ -46,10 +48,10 @@ interface ProviderState {
 }
 
 const state: Record<AIProvider, ProviderState> = {
-  openai: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, total429s: 0, totalRequests: 0 },
-  anthropic: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, total429s: 0, totalRequests: 0 },
-  google: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, total429s: 0, totalRequests: 0 },
-  lovable: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, total429s: 0, totalRequests: 0 },
+  openai: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, cooldownCount: 0, total429s: 0, totalRequests: 0 },
+  anthropic: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, cooldownCount: 0, total429s: 0, totalRequests: 0 },
+  google: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, cooldownCount: 0, total429s: 0, totalRequests: 0 },
+  lovable: { requestTimestamps: [], rateLimitTimestamps: [], cooldownUntil: null, cooldownCount: 0, total429s: 0, totalRequests: 0 },
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -158,10 +160,14 @@ export function recordRateLimit(provider: AIProvider): void {
 
   // Check if cooldown should be triggered
   if (s.rateLimitTimestamps.length >= COOLDOWN_TRIGGER_COUNT) {
-    s.cooldownUntil = now + COOLDOWN_DURATION_MS;
+    const stepIdx = Math.min(s.cooldownCount, COOLDOWN_STEPS_MS.length - 1);
+    const duration = COOLDOWN_STEPS_MS[stepIdx];
+    s.cooldownUntil = now + duration;
+    s.cooldownCount++;
     console.warn(
-      `[RATE-LIMITER] ⚠️ Provider ${provider} entered cooldown for ${COOLDOWN_DURATION_MS / 1000}s ` +
-      `(${s.rateLimitTimestamps.length} 429s in ${COOLDOWN_WINDOW_MS / 1000}s)`
+      `[RATE-LIMITER] ⚠️ Provider ${provider} entered cooldown for ${duration / 1000}s ` +
+      `(step ${s.cooldownCount}/${COOLDOWN_STEPS_MS.length}, ` +
+      `${s.rateLimitTimestamps.length} 429s in ${COOLDOWN_WINDOW_MS / 1000}s)`
     );
   }
 }
@@ -171,8 +177,11 @@ export function recordRateLimit(provider: AIProvider): void {
  * Can be used to clear rate limit pressure.
  */
 export function recordSuccess(provider: AIProvider): void {
-  // Success is implicit — no special action needed.
-  // The rate limit timestamps will naturally age out.
+  // Reset escalation on sustained success (provider recovered)
+  const s = state[provider];
+  if (s.cooldownCount > 0 && !s.cooldownUntil) {
+    s.cooldownCount = Math.max(0, s.cooldownCount - 1);
+  }
 }
 
 /**
@@ -214,6 +223,7 @@ export function getAllProviderHealth(): ProviderHealth[] {
  */
 export function clearCooldown(provider: AIProvider): void {
   state[provider].cooldownUntil = null;
+  state[provider].cooldownCount = 0;
   state[provider].rateLimitTimestamps = [];
   console.log(`[RATE-LIMITER] Cooldown cleared for ${provider}`);
 }
