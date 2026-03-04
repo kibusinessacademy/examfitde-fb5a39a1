@@ -27633,6 +27633,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_exam_pool_gap_report: {
+        Args: { p_curriculum_id: string }
+        Returns: Json
+      }
       get_exam_readiness: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json

@@ -17,11 +17,20 @@ export type Track = "AUSBILDUNG_VOLL" | "ELITE" | "EXAM_FIRST";
  * If not listed, the static PIPELINE_GRAPH.requires[] is used unchanged.
  */
 const TRACK_ARTIFACT_OVERRIDES: Record<string, Partial<Record<Track, string[]>>> = {
+  // elite_harden: EXAM_FIRST can run it too when eligibility is met
+  // (eligibility checked at runtime in artifact-resolver via approved question count).
+  // EXAM_FIRST only needs validated_exam_pool — same as AUSBILDUNG_VOLL.
+  elite_harden: {
+    AUSBILDUNG_VOLL: ["validated_exam_pool"],  // default from PIPELINE_GRAPH
+    ELITE: ["validated_exam_pool"],
+    EXAM_FIRST: ["validated_exam_pool"],        // eligible when >= 60 approved questions
+  },
+
   // run_integrity_check: ELITE needs elite_ready, EXAM_FIRST does NOT
   run_integrity_check: {
     AUSBILDUNG_VOLL: ["elite_ready"],  // default from PIPELINE_GRAPH
     ELITE: ["elite_ready"],             // alias for full pipeline
-    EXAM_FIRST: [],                     // no elite step → no elite artifact
+    EXAM_FIRST: [],                     // no mandatory elite gate — but elite_harden may have run optionally
   },
 
   // quality_council: ELITE needs integrity_passed, EXAM_FIRST needs validated_exam_pool
@@ -50,3 +59,9 @@ export function getTrackArtifactOverride(
   // Fallback: treat unknown tracks like AUSBILDUNG_VOLL (full pipeline)
   return overrides["AUSBILDUNG_VOLL"] ?? null;
 }
+
+/**
+ * EXAM_FIRST elite_harden eligibility: requires >= 60 approved questions.
+ * Called by artifact-resolver to gate elite_harden for lean tracks.
+ */
+export const ELITE_HARDEN_MIN_APPROVED = 60;
