@@ -149,10 +149,20 @@ const JOB_TYPE_MAP: Record<string, string> = {
   lesson_generate_content: "lesson-generate-content",
 };
 
-// ── Boot-time sync guard: every JOB_DEFINITIONS entry with edgeFunction must be in JOB_TYPE_MAP ──
-for (const [jobType, def] of Object.entries(JOB_DEFINITIONS)) {
-  if (def.edgeFunction && !JOB_TYPE_MAP[jobType]) {
-    console.error(`[job-runner] SSOT_DRIFT: "${jobType}" has edgeFunction "${def.edgeFunction}" in JOB_DEFINITIONS but is MISSING from JOB_TYPE_MAP!`);
+// ── Boot-time sync guard: detect ALL forms of drift between JOB_DEFINITIONS ↔ JOB_TYPE_MAP ──
+{
+  const defs = Object.entries(JOB_DEFINITIONS)
+    .filter(([, d]) => d.edgeFunction)
+    .map(([t, d]) => ({ jobType: t, edgeFunction: d.edgeFunction! }));
+
+  const missing = defs.filter(d => !JOB_TYPE_MAP[d.jobType]);
+  const mismatched = defs.filter(d => JOB_TYPE_MAP[d.jobType] && JOB_TYPE_MAP[d.jobType] !== d.edgeFunction);
+  const extras = Object.keys(JOB_TYPE_MAP).filter(t => !(t in JOB_DEFINITIONS));
+
+  if (missing.length || mismatched.length || extras.length) {
+    const drift = { missing, mismatched, extras };
+    console.error(`[job-runner] SSOT_DRIFT: ${JSON.stringify(drift)}`);
+    // Non-blocking: log structured event but don't crash the runner in prod
   }
 }
 
@@ -587,15 +597,25 @@ Deno.serve(async (req) => {
 
     const fnName = JOB_TYPE_MAP[job.job_type];
     if (!fnName) {
-      console.error(`[job-runner] ❌ Unknown job_type: ${job.job_type} — hard-failing (add to JOB_TYPE_MAP!)`);
+      console.error(`[job-runner] ❌ Unknown job_type: ${job.job_type} — permanent hard-fail (add to JOB_TYPE_MAP + JOB_DEFINITIONS!)`);
       await sb.from("job_queue").update({
         status: "failed",
-        error: `Unknown job_type: ${job.job_type}. Add mapping to JOB_TYPE_MAP in job-runner.`,
+        error: `UNKNOWN_JOB_TYPE: ${job.job_type}. Add mapping to JOB_TYPE_MAP + JOB_DEFINITIONS.`,
+        last_error: `UNKNOWN_JOB_TYPE: ${job.job_type}`,
         completed_at: tsNow,
-        max_attempts: 1,
+        max_attempts: 1, // prevent any retry
+        meta: { ...(job.meta ?? {}), last_error_class: "permanent", error_kind: "unknown_job_type" },
         ...lockRelease(tsNow),
       }).eq("id", job.id);
-      results.push({ id: job.id, status: "failed", reason: "unknown_type" });
+      // Fire-and-forget: write admin notification for visibility
+      sb.from("admin_notifications").insert({
+        title: "SSOT Drift: Unknown job_type in runner",
+        body: `Job ${String(job.id).slice(0,8)} has unregistered type "${job.job_type}". Add it to JOB_TYPE_MAP + JOB_DEFINITIONS.`,
+        category: "ops", severity: "error",
+        entity_type: "job", entity_id: job.id,
+        metadata: { job_type: job.job_type, error_class: "permanent" },
+      }).then(() => {/* fire-and-forget */});
+      results.push({ id: job.id, status: "failed", reason: "unknown_type_permanent" });
       continue;
     }
 

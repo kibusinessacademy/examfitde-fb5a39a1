@@ -37,8 +37,16 @@ export async function enqueueJob(
   sb: any,
   opts: EnqueueOpts,
 ): Promise<EnqueueResult> {
-  // ── SSOT Guard: reject unknown job types at enqueue time ──
-  assertKnownJobType(opts.job_type);
+  // ── SSOT Guard: reject unknown job types at enqueue time (permanent, never retry) ──
+  try {
+    assertKnownJobType(opts.job_type);
+  } catch (e) {
+    // Enrich error with context so callers can classify as permanent
+    const err = e instanceof Error ? e : new Error(String(e));
+    (err as any).permanent = true;
+    (err as any).error_class = "unknown_job_type";
+    throw err;
+  }
 
   const worker_pool = opts.worker_pool ?? poolForJobType(opts.job_type);
 
