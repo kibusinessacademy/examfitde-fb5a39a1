@@ -10,7 +10,7 @@
  *   SCHEMA_DRIFT       – contracts vs actual DB mismatch (real inconsistency)
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
 
 export class SchemaNotReadyError extends Error {
   constructor(functionName: string, requiredMigration: string) {

@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
 import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";

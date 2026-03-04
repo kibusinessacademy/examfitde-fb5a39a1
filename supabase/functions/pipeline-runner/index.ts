@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, poolForJobType } from "../_shared/job-map.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { markStepDone } from "../_shared/steps.ts";

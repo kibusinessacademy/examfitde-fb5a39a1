@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType } from "../_shared/job-map.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";

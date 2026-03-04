@@ -33,6 +33,16 @@ jobs:
         run: |
           deno run -A scripts/edge-guards.ts
 
+      - name: ESM.SH Guard — block unstable esm.sh imports
+        run: |
+          HITS=$(grep -rn 'esm\.sh/@supabase\|esm\.sh/stripe\|esm\.sh/jszip' supabase/functions/ --include='*.ts' || true)
+          if [ -n "$HITS" ]; then
+            echo "❌ ESM.SH VIOLATION: Use npm: specifier instead of esm.sh:"
+            echo "$HITS"
+            exit 1
+          fi
+          echo "✅ No esm.sh imports for critical packages"
+
       - name: SSOT Guard — block direct package_steps done writes
         run: |
           # Only _shared/steps.ts may write status='done' to package_steps

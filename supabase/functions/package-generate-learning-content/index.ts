@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/ai-client.ts";
 import { isTransientLlmError } from "../_shared/llm/normalize.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
