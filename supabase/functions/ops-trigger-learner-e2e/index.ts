@@ -1,5 +1,28 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { handleCorsPreflightRequest, json } from "../_shared/cors.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+
+// Rate-limit: max 1 bad-credentials notification per hour
+let lastBadCredNotification = 0;
+
+async function notifyBadGitHubToken(reason: string) {
+  const now = Date.now();
+  if (now - lastBadCredNotification < 3600_000) return; // 1h cooldown
+  lastBadCredNotification = now;
+  try {
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    await sb.from("admin_notifications").insert({
+      title: "⚠️ GitHub E2E Token invalid",
+      body: `GITHUB_E2E_TOKEN returned: ${reason}. E2E dispatch is non-blocking but tests won't run. Update the secret.`,
+      severity: "warning",
+      category: "ops",
+      entity_type: "system",
+      entity_id: "github_e2e_token",
+    });
+  } catch (e) {
+    console.warn("[ops-trigger-learner-e2e] Failed to insert bad-cred notification:", e);
+  }
+}
 
 Deno.serve(async (req) => {
   const cors = handleCorsPreflightRequest(req);
@@ -43,6 +66,26 @@ Deno.serve(async (req) => {
     return json(400, { error: "package_id and curriculum_id required" }, origin);
   }
 
+  // ── GitHub Token Preflight Check ──
+  try {
+    const checkRes = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": "examfit-ops-trigger",
+      },
+    });
+    const checkBody = await checkRes.text();
+    if (checkRes.status === 401 || checkRes.status === 403) {
+      console.error(`[ops-trigger-learner-e2e] ❌ GitHub token invalid: ${checkRes.status}`);
+      await notifyBadGitHubToken(`HTTP ${checkRes.status} – Bad credentials`);
+      // Non-blocking: return success to not block publish pipeline
+      return json(200, { ok: true, triggered: false, skip_reason: "github_token_invalid", package_id: packageId }, origin);
+    }
+  } catch (e) {
+    console.warn("[ops-trigger-learner-e2e] GitHub preflight check failed (continuing):", e);
+  }
+
   // ── Dispatch to GitHub Actions ──
   const payload = {
     event_type: "learner_e2e",
@@ -74,9 +117,14 @@ Deno.serve(async (req) => {
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     console.error(`[ops-trigger-learner-e2e] GitHub dispatch failed: ${res.status} ${txt}`);
+
+    if (res.status === 401 || res.status === 403) {
+      await notifyBadGitHubToken(`Dispatch HTTP ${res.status}`);
+      return json(200, { ok: true, triggered: false, skip_reason: "github_dispatch_auth_fail", package_id: packageId }, origin);
+    }
+
     return json(502, { ok: false, status: res.status, error: txt }, origin);
   }
-  // Consume body
   await res.text().catch(() => {});
 
   console.log(`[ops-trigger-learner-e2e] ✅ Dispatched learner_e2e for package=${packageId} reason=${reason}`);
