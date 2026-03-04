@@ -24371,6 +24371,24 @@ export type Database = {
           },
         ]
       }
+      ops_job_queue_rollup: {
+        Row: {
+          avg_fail_attempts: number | null
+          blocked: number | null
+          cancelled: number | null
+          completed: number | null
+          exhausted: number | null
+          failed: number | null
+          gen0_failed: number | null
+          hour_bucket: string | null
+          job_type: string | null
+          last_activity: string | null
+          pending: number | null
+          processing: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
       ops_job_summary: {
         Row: {
           avg_duration_seconds: number | null
