@@ -145,6 +145,8 @@ const JOB_TYPE_MAP: Record<string, string> = {
   heal_poison_lessons: "heal-poison-lessons",
   rework_trap_retrofit: "pool-rework-trap-retrofit",
   pool_fill_lf_gaps: "pool-fill-lf-gaps",
+  pool_fill_bloom_gaps: "pool-fill-bloom-gaps",
+  lesson_generate_content: "lesson-generate-content",
 };
 
 // Functions that require x-rework-secret instead of Bearer auth
