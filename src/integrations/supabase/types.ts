@@ -23738,7 +23738,7 @@ export type Database = {
           id: string | null
           job_type: string | null
           last_error: string | null
-          running_for: unknown
+          running_for: string | null
           worker_pool: string | null
         }
         Insert: {
