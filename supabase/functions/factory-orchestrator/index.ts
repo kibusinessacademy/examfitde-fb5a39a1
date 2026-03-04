@@ -171,6 +171,30 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Priority Refill: gestaffelter Rollout für queued Pakete ──
+    const { count: buildingCount } = await sb
+      .from("course_packages")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "building");
+
+    const { count: queuedDefault } = await sb
+      .from("course_packages")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "queued")
+      .gt("priority", 10);
+
+    if ((queuedDefault ?? 0) > 0 && (buildingCount ?? 0) < 28) {
+      const batchSize = Math.min(20, 28 - (buildingCount ?? 0));
+      const { data: refilled } = await sb.rpc("reprioritize_queued_exam_first", {
+        p_batch_size: batchSize,
+        p_new_priority: 8,
+      });
+      const refilledCount = Array.isArray(refilled) ? refilled.length : 0;
+      if (refilledCount > 0) {
+        actions.push(`Priority-refill: ${refilledCount} packages → priority=8 (building=${buildingCount})`);
+      }
+    }
+
     // Log
     await sb.from("auto_heal_log").insert({
       action_type: "factory_orchestrator_cycle",

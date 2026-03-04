@@ -28237,6 +28237,14 @@ export type Database = {
           tax_rate: number
         }[]
       }
+      reprioritize_queued_exam_first: {
+        Args: { p_batch_size?: number; p_new_priority?: number }
+        Returns: {
+          applied_priority: number
+          old_priority: number
+          package_id: string
+        }[]
+      }
       requeue_failed_jobs: { Args: never; Returns: number }
       reset_failed_jobs_for_package: {
         Args: { p_job_types?: string[]; p_package_id: string }
