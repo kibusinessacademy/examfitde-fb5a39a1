@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 import { isUuid, clampInt, clampStr } from "../_shared/org_privacy.ts";
 
