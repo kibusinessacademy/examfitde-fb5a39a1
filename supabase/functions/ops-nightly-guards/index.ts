@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
   });
 
   try {
+    // 1) Run nightly pipeline guards RPC
     const { data, error } = await sb.rpc("run_nightly_pipeline_guards");
 
     if (error) {
@@ -38,13 +39,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    const result = data as Record<string, unknown>;
-    const allClear = result?.all_clear === true;
+    // 2) Trigger-binding verification guard
+    const { data: triggerCheck, error: triggerErr } = await sb.rpc("check_trigger_bindings");
+    const missingTriggers = (triggerCheck as any[])?.filter((t: any) => t.is_missing) || [];
+    
+    if (missingTriggers.length > 0) {
+      const names = missingTriggers.map((t: any) => `${t.expected_trigger} → ${t.expected_table}`).join(", ");
+      await sb.from("admin_notifications").insert({
+        title: "🚨 CRITICAL: Missing DB triggers detected",
+        body: `The following triggers are NOT bound to their tables: ${names}. This is a governance violation that can cause silent publish bypasses.`,
+        severity: "error",
+        category: "ops",
+        entity_type: "system",
+        entity_id: "trigger_binding_guard",
+      });
+    }
 
-    return new Response(JSON.stringify(result), {
-      status: allClear ? 200 : 422,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const result = data as Record<string, unknown>;
+    const allClear = result?.all_clear === true && missingTriggers.length === 0;
+
+    return new Response(
+      JSON.stringify({ ...result, trigger_guard: { missing: missingTriggers.length, details: missingTriggers } }),
+      {
+        status: allClear ? 200 : 422,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   } catch (e) {
     return new Response(JSON.stringify({ error: (e as Error).message }), {
       status: 500,

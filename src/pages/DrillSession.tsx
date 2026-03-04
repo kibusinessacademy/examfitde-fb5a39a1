@@ -110,7 +110,7 @@ export default function DrillSession() {
                 Trainiere gezielt deine Schwächen oder starte eine zufällige Session.
               </p>
 
-              <Button onClick={handleStartRandom} className="w-full gradient-primary text-primary-foreground gap-2">
+              <Button onClick={handleStartRandom} className="w-full gradient-primary text-primary-foreground gap-2" data-testid="drill-start-random">
                 <Zap className="h-4 w-4" />
                 Zufälliges Training starten
               </Button>

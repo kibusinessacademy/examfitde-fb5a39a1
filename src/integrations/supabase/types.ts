@@ -26476,6 +26476,15 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
+      check_trigger_bindings: {
+        Args: never
+        Returns: {
+          expected_schema: string
+          expected_table: string
+          expected_trigger: string
+          is_missing: boolean
+        }[]
+      }
       check_user_entitlement: {
         Args: { p_curriculum_id: string; p_feature: string; p_user_id: string }
         Returns: boolean

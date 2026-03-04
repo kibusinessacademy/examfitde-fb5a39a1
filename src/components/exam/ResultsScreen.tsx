@@ -29,7 +29,7 @@ export function ResultsScreen({ result, sessionId, onRestart }: ResultsScreenPro
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       {/* Main Result Card */}
-      <Card className={cn("glass-card text-center", passedClass)}>
+      <Card className={cn("glass-card text-center", passedClass)} data-testid="exam-result-card">
         <CardContent className="pt-8 pb-6">
           <div className={cn(
             "w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-4",
@@ -46,7 +46,7 @@ export function ResultsScreen({ result, sessionId, onRestart }: ResultsScreenPro
             {result.passed ? 'Bestanden!' : 'Nicht bestanden'}
           </h2>
           
-          <div className="text-4xl font-bold mb-2">
+          <div className="text-4xl font-bold mb-2" data-testid="exam-result-score">
             {result.score_percentage.toFixed(1)}%
           </div>
           

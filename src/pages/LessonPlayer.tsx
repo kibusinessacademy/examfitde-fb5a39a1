@@ -358,7 +358,7 @@ export default function LessonPlayer() {
   const nextLesson = getNextLesson();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" data-testid="lesson-player">
       <LessonHeader
         courseId={course.id}
         courseTitle={course.title}
@@ -390,8 +390,8 @@ export default function LessonPlayer() {
         />
 
         {/* Content Area */}
-        <Card className="glass-card max-w-4xl mx-auto mb-8">
-          <CardContent className="p-6 md:p-10">
+        <Card className="glass-card max-w-4xl mx-auto mb-8" data-testid="lesson-content-card">
+          <CardContent className="p-6 md:p-10" data-testid="lesson-content">
             <LessonContent
               key={miniCheckKey}
               content={lesson.content}
