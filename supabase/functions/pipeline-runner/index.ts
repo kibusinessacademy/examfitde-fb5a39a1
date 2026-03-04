@@ -885,8 +885,23 @@ async function processPackage(
         return { packageId, ghost_completion_blocked: true, steps: statuses.length };
       }
 
-      await safeQuery(sb.from("course_packages").update({ status: "done" }).eq("id", packageId));
-      console.log(`[runner] Package ${shortId} → done`);
+      // ── INTEGRITY GUARD: Only finalize to "done" if integrity_passed is true ──
+      // Prevents "done" packages with failed integrity gates from reaching auto_publish
+      const { data: pkgIntegrity } = await safeQuery(
+        sb.from("course_packages").select("integrity_passed").eq("id", packageId).maybeSingle()
+      );
+      const integrityPassed = (pkgIntegrity as any)?.integrity_passed === true;
+
+      if (integrityPassed) {
+        await safeQuery(sb.from("course_packages").update({ status: "done" }).eq("id", packageId));
+        console.log(`[runner] Package ${shortId} → done (integrity_passed=true)`);
+      } else {
+        await safeQuery(sb.from("course_packages").update({ 
+          status: "quality_gate_failed",
+          blocked_reason: "ALL_STEPS_DONE_BUT_INTEGRITY_FAILED",
+        }).eq("id", packageId));
+        console.log(`[runner] Package ${shortId} → quality_gate_failed (integrity_passed=false, all steps done)`);
+      }
 
       // 🚀 Backfill: keep active pipeline pool at TARGET_POOL_SIZE
       try {
