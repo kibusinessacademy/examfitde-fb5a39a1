@@ -47,6 +47,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const [rebuildingStep, setRebuildingStep] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(0);
   const [cancelling, setCancelling] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
 
   useEffect(() => {
     if (pkg?.status !== 'building') return;
@@ -182,6 +183,48 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
           'Fehlerdiagnose: Jeder fehlgeschlagene Step zeigt Ursache + Lösungsvorschlag',
         ]}
       />
+
+      {/* Elite Upgrade Warning */}
+      {(() => {
+        const ff = (pkg as any).feature_flags || {};
+        const needsElite = 
+          (pkg as any).track !== 'AUSBILDUNG_VOLL' ||
+          !ff.has_learning_course ||
+          !ff.has_minichecks ||
+          !ff.has_handbook;
+        if (!needsElite) return null;
+        const handleUpgrade = async () => {
+          setUpgrading(true);
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const { data, error } = await supabase.functions.invoke('admin-ops', {
+              body: { action: 'upgrade_to_elite', package_id: packageId },
+              headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+            });
+            if (error) throw error;
+            toast.success(`Elite-Upgrade: ${data?.steps_injected ?? data?.count ?? 0} Steps injiziert`);
+            refreshAll();
+          } catch (e: any) { toast.error(`Upgrade fehlgeschlagen: ${e.message}`); }
+          finally { setUpgrading(false); }
+        };
+        return (
+          <Card className="border-warning/50 bg-warning/5">
+            <CardContent className="flex items-center justify-between py-3 px-4">
+              <div className="flex items-center gap-2 text-warning">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span className="text-sm font-medium">
+                  Didaktik fehlt — Track: {(pkg as any).track || 'unbekannt'} | Flags: 
+                  {!ff.has_learning_course && ' ⚠️ Learning'}{!ff.has_minichecks && ' ⚠️ MiniChecks'}{!ff.has_handbook && ' ⚠️ Handbook'}
+                </span>
+              </div>
+              <Button size="sm" variant="default" onClick={handleUpgrade} disabled={upgrading} className="shrink-0">
+                {upgrading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
+                Upgrade to Elite
+              </Button>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

@@ -1,0 +1,44 @@
+name: Guard - No EXAM_FIRST Default without Didaktik
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Block hardcoded EXAM_FIRST defaults in pipeline functions
+        run: |
+          set -euo pipefail
+          echo "🔍 Scanning for dangerous EXAM_FIRST defaults..."
+
+          # 1) Block hardcoded track: "EXAM_FIRST" in setup/build functions
+          if grep -RIn --include='*.ts' --exclude-dir=node_modules --exclude-dir=dist \
+            'track:\s*["'"'"']EXAM_FIRST["'"'"']' \
+            supabase/functions/setup-course-package \
+            supabase/functions/build-course-package 2>/dev/null; then
+            echo "::error::Found hardcoded track: 'EXAM_FIRST' in pipeline functions. Default must be AUSBILDUNG_VOLL."
+            exit 1
+          fi
+
+          # 2) Warn on explicit didaktik flags forced false in setup paths
+          if grep -RIn --include='*.ts' --exclude-dir=node_modules --exclude-dir=dist \
+            'has_learning_course:\s*false' \
+            supabase/functions/setup-course-package 2>/dev/null; then
+            echo "::error::Found has_learning_course: false in setup-course-package. New packages must default to full didaktik."
+            exit 1
+          fi
+
+          # 3) Block esm.sh imports (existing guard, included for completeness)
+          if grep -RIn --include='*.ts' --exclude-dir=node_modules --exclude-dir=dist \
+            'from\s*["'"'"']https://esm\.sh' \
+            supabase/functions/ 2>/dev/null; then
+            echo "::error::Found esm.sh import. Use npm: specifier instead."
+            exit 1
+          fi
+
+          echo "✅ All guards passed."
