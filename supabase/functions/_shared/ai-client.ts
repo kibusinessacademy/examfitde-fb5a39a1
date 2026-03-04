@@ -18,6 +18,8 @@ import {
   type AIProvider,
 } from "./provider-rate-limiter.ts";
 
+import { warnIfUnclassifiedLlmError } from "./llm/normalize.ts";
+
 import { fillUsage, estimateCostEur } from "./token-estimator.ts";
 
 export type { AIProvider };
@@ -454,6 +456,7 @@ export async function callAIWithFailover(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`${candidate.provider}/${candidate.model}: ${msg}`);
+      warnIfUnclassifiedLlmError(err, { provider: candidate.provider, model: candidate.model });
     }
   }
 

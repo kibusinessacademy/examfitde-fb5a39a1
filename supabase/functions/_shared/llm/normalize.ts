@@ -22,29 +22,46 @@ export function assertNonEmptyText(out: LlmText, context: string): string {
  * Transient errors must NOT increment stall_runs or attempts —
  * they represent infrastructure issues, not content-generation failures.
  */
-export function isTransientLlmError(e: any): boolean {
-  const msg = String(e?.message ?? "").toLowerCase();
-  const name = String(e?.name ?? "").toLowerCase();
-  const combined = `${name} ${msg}`;
-  return (
-    combined.includes("llm_empty_response") ||
-    combined.includes("empty response") ||
-    combined.includes("llm_timeout") ||
-    combined.includes("timeout") ||
-    combined.includes("timed out") ||
-    combined.includes("timed_out") ||
-    combined.includes("etimedout") ||
-    combined.includes("econnreset") ||
-    combined.includes("econnrefused") ||
-    combined.includes("fetch failed") ||
-    combined.includes("connection") ||
-    combined.includes("429") ||
-    combined.includes("503") ||
-    combined.includes("rate limit") ||
-    combined.includes("rate_limit") ||
-    combined.includes("aborted") ||
-    combined.includes("all providers failed") ||
-    combined.includes("signal") ||
-    combined.includes("network")
-  );
+export function isTransientLlmError(err: unknown): boolean {
+  const raw = (err as any)?.message ?? (err as any)?.error ?? String(err ?? "");
+  const msg = String(raw).toLowerCase();
+
+  // Hard rule: provider-layer failures are always transient
+  if (msg.includes("all providers failed")) return true;
+
+  const TRANSIENT_PATTERNS = [
+    // Network / connectivity
+    "timed out", "timeout", "request timeout",
+    "aborterror", "signal is aborted", "fetch failed",
+    "network error", "econnreset", "econnrefused", "enotfound",
+    "eai_again", "socket hang up", "tls",
+    "connection closed", "connection reset", "connection",
+    "broken pipe", "server closed the connection",
+    // Provider overload / availability
+    "rate limit", "rate_limit", "429", "503", "502", "504",
+    "service unavailable", "overloaded", "temporarily unavailable",
+    "upstream", "bad gateway", "gateway",
+    // App-level known transient signatures
+    "llm_empty_response", "empty response", "llm_timeout",
+    "empty/timeout result", "transient",
+  ];
+
+  return TRANSIENT_PATTERNS.some(p => msg.includes(p));
+}
+
+/**
+ * Log warning for LLM errors that were NOT classified as transient.
+ * Helps detect missing patterns before they cause false-permanent failures.
+ */
+export function warnIfUnclassifiedLlmError(
+  err: unknown,
+  context: { provider?: string; model?: string },
+): void {
+  if (isTransientLlmError(err)) return;
+  const msg = String((err as any)?.message ?? err ?? "").slice(0, 180);
+  console.warn("[llm] UNCLASSIFIED_NON_TRANSIENT", {
+    sample: msg,
+    provider: context.provider ?? "unknown",
+    model: context.model ?? "unknown",
+  });
 }
