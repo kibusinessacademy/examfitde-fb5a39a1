@@ -973,17 +973,34 @@ Deno.serve(async (req) => {
           tickMetrics.rateLimits++;
         }
       }
-      // ── 3. Batch incomplete → requeue ──────────────────────────────
+      // ── 3. Batch incomplete → adaptive requeue ─────────────────────
       else if (parsed && parsed.batch_complete === false) {
-        console.log(`[job-runner] ${fnName} batch incomplete → requeue +${BACKOFF_BATCH_MS}ms (remaining=${parsed.actionable_remaining ?? parsed.remaining ?? '?'})`);
+        // ── Dispatcher-aware adaptive delay ──
+        // Avoids 3s spam-requeue; gives lesson jobs time to complete
+        const gate = parsed?.completion_gate ?? {};
+        const activeJobs = Number(gate?.active_jobs ?? parsed?.active_lesson_jobs ?? 0);
+        const missingCount = Number(gate?.missing ?? parsed?.total_missing ?? 1);
+
+        // Adaptive delay: 30s if jobs running, 10s if need to fan-out more, 20s fallback
+        const dispatcherDelayMs =
+          activeJobs > 0 ? 30_000 :
+          missingCount > 0 ? 10_000 :
+          20_000;
+
+        console.log(`[job-runner] ${fnName} batch incomplete → requeue +${dispatcherDelayMs}ms (active=${activeJobs}, missing=${missingCount})`);
         // Preserve poison_pills across requeue cycles so content generator can skip persistently-failing lessons
         const poisonPills = parsed._poison_pills || {};
         finalState = {
           status: "pending",
           patch: {
-            run_after: new Date(Date.now() + BACKOFF_BATCH_MS).toISOString(),
+            run_after: new Date(Date.now() + dispatcherDelayMs).toISOString(),
             batch_cursor: parsed.batch_cursor ?? null,
-            meta: { ...(job.meta || {}), last_batch: tsNow, poison_pills_count: Object.keys(poisonPills).length },
+            meta: {
+              ...(job.meta || {}),
+              last_batch: tsNow,
+              poison_pills_count: Object.keys(poisonPills).length,
+              dispatcher_gate: parsed?.completion_gate ?? null,
+            },
             // Merge poison pills into payload for next invocation
             payload: { ...(job.payload || {}), _poison_pills: poisonPills },
           },
