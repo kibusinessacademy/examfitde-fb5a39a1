@@ -586,6 +586,9 @@ Deno.serve(async (req) => {
         Math.min(50_000, remainingSoftMs - MIN_PERSIST_MS)
       );
 
+      // v5.6: Per-provider timeout — each provider in the chain gets its own
+      // timeout via callAI's internal AbortSignal.timeout. The OUTER abort
+      // only fires as a hard safety net for the entire failover chain.
       const llmAbort = new AbortController();
       let llmTimer: number | null = null;
       const timeoutPromise = new Promise<never>((_, reject) => {

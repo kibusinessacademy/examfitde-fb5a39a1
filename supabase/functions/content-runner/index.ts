@@ -123,19 +123,61 @@ Deno.serve(async (req) => {
       const { ok, result, error: dispatchError, terminal } = await dispatchJob(job, supabaseUrl, serviceKey);
 
       if (ok) {
-        // ── Success ──
-        const now = new Date().toISOString();
-        await sb.from("job_queue").update({
-          status: "completed",
-          result: result ?? {},
-          completed_at: now,
-          updated_at: now,
-          locked_at: null,
-          locked_by: null,
-        }).eq("id", job.id);
+        // ── v5.6: Success ONLY if result has real content ──
+        // Prevent "completed" status on empty/transient results
+        const hasRealResult = result && typeof result === "object" && (
+          (result.generated !== undefined && result.generated > 0) ||
+          result.batch_complete === true ||
+          result.ok === true
+        );
+        const isTransient = result?.transient === true;
 
-        console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) completed in ${Date.now() - startMs}ms`);
-        results.push({ id: job.id, ok: true, latency_ms: Date.now() - startMs });
+        if (isTransient || !hasRealResult) {
+          // Transient or empty result → treat as soft failure with backoff
+          const attemptsNext = (job.attempts ?? 0) + 1;
+          const maxAttempts = job.max_attempts ?? 8;
+          const exhausted = attemptsNext >= maxAttempts;
+          const now = new Date().toISOString();
+
+          // Stall penalty: 30s for first transient, escalating
+          const stallBackoff = Math.min(30 * Math.pow(2, Math.min(attemptsNext - 1, 5)), 1800);
+
+          const update: Record<string, unknown> = {
+            attempts: attemptsNext,
+            last_error: isTransient
+              ? `TRANSIENT: empty/timeout result (gen=${result?.generated ?? 0})`
+              : `EMPTY_RESULT: job returned ok=true but no real content`,
+            updated_at: now,
+            locked_at: null,
+            locked_by: null,
+          };
+
+          if (exhausted) {
+            update.status = "failed";
+            update.completed_at = now;
+          } else {
+            update.status = "pending";
+            update.run_after = new Date(Date.now() + stallBackoff * 1000).toISOString();
+          }
+
+          await sb.from("job_queue").update(update).eq("id", job.id);
+          console.warn(`[content-runner] ⚠️ ${job.job_type} (${shortId}) ${isTransient ? "TRANSIENT" : "EMPTY_RESULT"} — backoff ${stallBackoff}s [${attemptsNext}/${maxAttempts}]`);
+          results.push({ id: job.id, ok: false, error: update.last_error, exhausted });
+        } else {
+          // Real success
+          const now = new Date().toISOString();
+          await sb.from("job_queue").update({
+            status: "completed",
+            result: result ?? {},
+            completed_at: now,
+            updated_at: now,
+            locked_at: null,
+            locked_by: null,
+          }).eq("id", job.id);
+
+          console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) completed in ${Date.now() - startMs}ms (gen=${result?.generated ?? "?"})`);
+          results.push({ id: job.id, ok: true, latency_ms: Date.now() - startMs });
+        }
       } else if (terminal) {
         // ── Terminal / structural error — fail immediately, no retry ──
         const now = new Date().toISOString();
