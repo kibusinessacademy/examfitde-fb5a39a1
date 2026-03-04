@@ -201,6 +201,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
+  const startMs = Date.now();
+  try {
+
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   await assertSchemaReady("lesson-generate-content", sb);
 
@@ -213,7 +216,6 @@ Deno.serve(async (req) => {
   const certificationId = p.certification_id || null;
   const lessonId = p.lesson_id;
   const stepKeyRaw = p.step_key || p.step;
-  const startMs = Date.now();
   const budget = getTimeBudget("lesson_single");
 
   if (!packageId || !courseId || !lessonId || !stepKeyRaw) {
@@ -539,7 +541,13 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     if (vErr.message?.includes("idx_cv_idempotency") || vErr.code === "23505") {
       return json({ ok: true, skipped: true, reason: "deduped_on_persist" });
     }
-    return json({ error: "persist_failed", details: vErr.message }, 500);
+    // DB persist errors are transient (connection issues, locks) — use 503 so runner retries
+    const isConstraint = vErr.code?.startsWith("23"); // 23xxx = constraint violations = permanent
+    return json({
+      ok: false, retry: !isConstraint, transient: !isConstraint,
+      error: `persist_failed: ${vErr.message?.slice(0, 150)}`,
+      elapsed_ms: Date.now() - startMs,
+    }, isConstraint ? 500 : 503);
   }
 
   // ── Audit: council message ──
@@ -576,4 +584,21 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     elapsed_ms: Date.now() - startMs,
     chars: isMiniCheck ? undefined : content.html?.length,
   });
+
+  } catch (outerErr) {
+    // ── Global safety net: classify unhandled exceptions ──
+    const msg = (outerErr as Error).message || String(outerErr);
+    const isTransient = isTransientLlmError(outerErr) ||
+      msg.includes("timeout") || msg.includes("TIMEOUT") ||
+      msg.includes("AbortError") || msg.includes("connection") ||
+      msg.includes("fetch failed");
+    console.error(`[lesson-gen] UNHANDLED: ${msg.slice(0, 300)}`);
+    return json({
+      ok: false,
+      retry: isTransient,
+      transient: isTransient,
+      error: `UNHANDLED: ${msg.slice(0, 200)}`,
+      elapsed_ms: Date.now() - startMs,
+    }, isTransient ? 503 : 500);
+  }
 });
