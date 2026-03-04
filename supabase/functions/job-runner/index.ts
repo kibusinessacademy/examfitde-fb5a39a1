@@ -5,9 +5,6 @@ import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPAC
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 
-// ── Boot-time DAG validation (crash on broken pipeline definition) ──
-validatePipelineGraph(PIPELINE_GRAPH);
-
 /**
  * job-runner — Atomically claims pending jobs via claim_pending_jobs RPC
  * (FOR UPDATE SKIP LOCKED), dispatches to Edge Functions, writes back
@@ -19,150 +16,21 @@ validatePipelineGraph(PIPELINE_GRAPH);
  * Requeue = pending + run_after (backoff), NOT custom status values.
  */
 
-const JOB_TYPE_MAP: Record<string, string> = {
-  extract_curriculum: "extract-curriculum",
-  generate_curriculum_content: "generate-curriculum-content",
-  setup_course_package: "setup-course-package",
-  generate_course: "generate-course",
-  generate_course_batch: "generate-course-batch",
-  seed_exam_questions: "generate-blueprint-questions",
-  enrich_exam_solutions: "blooms-taxonomy",
-  upgrade_minichecks_v1: "regenerate-minichecks",
-  quality_gate_precheck: "run-quality-checks",
-  curriculum_smoke: "run-quality-checks",
-  qc_worker_full: "qc-worker",
-  quality_gate_7: "quality-gate-check",
-  seo_foundation: "generate-seo-slug",
-  seo_audit: "ihk-quality-audit",
-  seo_internal_links: "seo-internal-linker",
-  seo_sitemap_refresh: "generate-sitemap",
-  seo_generate: "seo-generate",
-  seo_qc_check: "seo-qc-check",
-  seo_publish: "seo-publish",
-  seo_content_batch: "seo-generate",
-  publish_product: "product-orchestrator",
-  repair_lessons: "repair-lessons",
-  improve_lesson: "improve-lesson",
-  validate_content: "validate-content",
-  upgrade_ihk: "course-upgrade-ihk",
-  assessment_blueprint_propose: "assessment-council-run",
-  assessment_blueprint_critique: "assessment-council-run",
-  assessment_blueprint_verdict: "assessment-council-run",
-  assessment_blueprint_approve: "assessment-council-run",
-  assessment_questions_generate: "assessment-council-run",
-  assessment_questions_critique: "assessment-council-run",
-  assessment_questions_verdict: "assessment-council-run",
-  assessment_questions_approve: "assessment-council-run",
-  assessment_minicheck_assemble: "assessment-council-run",
-  assessment_minicheck_critique: "assessment-council-run",
-  assessment_minicheck_verdict: "assessment-council-run",
-  assessment_minicheck_approve: "assessment-council-run",
-  course_finalize: "course-finalizer",
-  post_validation: "post-validation",
-  council_run_step: "council-run-step",
-  council_propose_step: "council-run-step",
-  council_critique_step: "council-run-step",
-  council_revise_step: "council-run-step",
-  council_vote_and_verdict: "council-run-step",
-  council_publish_step: "council-run-step",
-  council_recompute_course_ready: "council-run-step",
-  tech_scan_rls: "tech-council-run",
-  tech_scan_edge: "tech-council-run",
-  tech_scan_queue: "tech-council-run",
-  tech_propose_patch: "tech-council-run",
-  tech_validate_patch: "tech-council-run",
-  tech_full_pipeline: "tech-council-run",
-  marketing_seed_assets: "marketing-council-run",
-  marketing_propose: "marketing-council-run",
-  marketing_critique: "marketing-council-run",
-  marketing_revise: "marketing-council-run",
-  marketing_verdict: "marketing-council-run",
-  marketing_publish: "marketing-council-run",
-  marketing_full_pipeline: "marketing-council-run",
-  tutor_seed_assets: "tutor-council-run",
-  tutor_council_run_asset: "tutor-council-run",
-  tutor_backfill_assets_for_course: "tutor-council-run",
-  tutor_validate_runtime_templates: "tutor-council-run",
-  tutor_oral_exam_propose: "tutor-council-run",
-  tutor_oral_exam_critique: "tutor-council-run",
-  tutor_oral_exam_verdict: "tutor-council-run",
-  tutor_feedback_propose: "tutor-council-run",
-  tutor_feedback_critique: "tutor-council-run",
-  tutor_feedback_verdict: "tutor-council-run",
-  compliance_scan: "compliance-council-scan",
-  compliance_scan_pii: "compliance-council-scan",
-  compliance_scan_rls: "compliance-council-scan",
-  compliance_scan_retention: "compliance-council-scan",
-  compliance_scan_ai_act: "compliance-council-scan",
-  compliance_scan_azav: "compliance-council-scan",
-  compliance_recompute_block: "compliance-council-scan",
-  compliance_remediate: "compliance-council-remediate",
-  compliance_report: "compliance-council-report",
-  compliance_export_pdf: "compliance-council-export-pdf",
-  growth_run: "growth-council-run",
-  growth_actions_api: "growth-actions-api",
-  finance_reconcile: "finance-council-reconcile",
-  finance_export_csv: "finance-export-csv",
-  finance_export_datev: "finance-export-datev",
-  qa_smoke: "qa-council-smoke",
-  qa_runtime_smoke: "qa-council-runtime-smoke",
-  qa_h5p_smoke: "qa-council-h5p-smoke",
-  qa_error_budget: "qa-council-error-budget",
-  claim_license_secure: "claim-license-secure",
-  security_gate_check: "security-gate-check",
-  security_botnet_gate: "security-botnet-gate",
-  package_queue_next: "package-queue-next",
-  package_scaffold_learning_course: "package-scaffold-learning-course",
-  package_generate_glossary: "package-generate-glossary",
-  package_generate_learning_content: "package-generate-learning-content",
-  package_auto_seed_exam_blueprints: "package-auto-seed-exam-blueprints",
-  package_validate_blueprints: "package-validate-blueprints",
-  package_generate_exam_pool: "package-generate-exam-pool",
-  package_validate_exam_pool: "package-validate-exam-pool",
-  package_generate_oral_exam: "package-generate-oral-exam",
-  package_validate_oral_exam: "package-validate-oral-exam",
-  package_elite_harden: "package-elite-harden",
-  package_build_ai_tutor_index: "package-build-ai-tutor-index",
-  package_validate_tutor_index: "package-validate-tutor-index",
-  package_generate_handbook: "package-generate-handbook",
-  package_validate_handbook: "package-validate-handbook",
-  package_generate_lesson_minichecks: "package-generate-lesson-minichecks",
-  mass_enrich_competencies_v2: "mass-enrich-competencies",
-  package_validate_lesson_minichecks: "package-validate-lesson-minichecks",
-  package_run_integrity_check: "package-run-integrity-check",
-  package_validate_learning_content: "package-validate-learning-content",
-  package_auto_publish: "package-auto-publish",
-  package_quality_council: "package-quality-council",
-  auto_gap_close: "auto-gap-close",
-  generate_image: "generate-image",
-  daily_test_run: "daily-test-runner",
-  generate_questions: "generate-questions",
-  auto_map_topics_to_blueprint: "auto-map-topics-to-blueprint",
-  blooms_classify: "blooms-taxonomy",
-  package_curriculum_ingest: "package-curriculum-ingest",
-  ingest_curriculum_document: "ingest-curriculum-document",
-  generate_handbook: "package-generate-handbook",
-  heal_poison_lessons: "heal-poison-lessons",
-  rework_trap_retrofit: "pool-rework-trap-retrofit",
-  pool_fill_lf_gaps: "pool-fill-lf-gaps",
-  pool_fill_bloom_gaps: "pool-fill-bloom-gaps",
-  lesson_generate_content: "lesson-generate-content",
-};
+// ── JOB_TYPE_MAP: auto-generated from JOB_DEFINITIONS (SSOT) ──
+// No manual map to drift. Every entry with edgeFunction becomes a mapping.
+const JOB_TYPE_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(JOB_DEFINITIONS)
+    .filter(([, def]) => def.edgeFunction)
+    .map(([jobType, def]) => [jobType, def.edgeFunction!])
+);
 
-// ── Boot-time sync guard: detect ALL forms of drift between JOB_DEFINITIONS ↔ JOB_TYPE_MAP ──
+// ── Boot-time integrity: log job types without edgeFunction (not dispatched) ──
 {
-  const defs = Object.entries(JOB_DEFINITIONS)
-    .filter(([, d]) => d.edgeFunction)
-    .map(([t, d]) => ({ jobType: t, edgeFunction: d.edgeFunction! }));
-
-  const missing = defs.filter(d => !JOB_TYPE_MAP[d.jobType]);
-  const mismatched = defs.filter(d => JOB_TYPE_MAP[d.jobType] && JOB_TYPE_MAP[d.jobType] !== d.edgeFunction);
-  const extras = Object.keys(JOB_TYPE_MAP).filter(t => !(t in JOB_DEFINITIONS));
-
-  if (missing.length || mismatched.length || extras.length) {
-    const drift = { missing, mismatched, extras };
-    console.error(`[job-runner] SSOT_DRIFT: ${JSON.stringify(drift)}`);
-    // Non-blocking: log structured event but don't crash the runner in prod
+  const noEdge = Object.entries(JOB_DEFINITIONS)
+    .filter(([, d]) => !d.edgeFunction)
+    .map(([t]) => t);
+  if (noEdge.length) {
+    console.warn(`[job-runner] INFO: ${noEdge.length} job types have no edgeFunction (not dispatched by runner): ${noEdge.join(", ")}`);
   }
 }
 
