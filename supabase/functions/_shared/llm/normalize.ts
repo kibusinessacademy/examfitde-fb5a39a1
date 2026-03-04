@@ -23,22 +23,28 @@ export function assertNonEmptyText(out: LlmText, context: string): string {
  * they represent infrastructure issues, not content-generation failures.
  */
 export function isTransientLlmError(e: any): boolean {
-  const msg = String(e?.message ?? "");
-  const name = String(e?.name ?? "");
+  const msg = String(e?.message ?? "").toLowerCase();
+  const name = String(e?.name ?? "").toLowerCase();
+  const combined = `${name} ${msg}`;
   return (
-    name.includes("LLM_EMPTY_RESPONSE") ||
-    msg.includes("LLM_EMPTY_RESPONSE") ||
-    msg.includes("Empty response") ||
-    msg.includes("empty response") ||
-    msg.includes("LLM_TIMEOUT") ||
-    msg.includes("timeout") ||
-    msg.includes("TIMEOUT") ||
-    msg.includes("ETIMEDOUT") ||
-    msg.includes("ECONNRESET") ||
-    msg.includes("429") ||
-    msg.includes("503") ||
-    msg.includes("Rate limit") ||
-    msg.includes("rate limit") ||
-    msg.includes("aborted")
+    combined.includes("llm_empty_response") ||
+    combined.includes("empty response") ||
+    combined.includes("llm_timeout") ||
+    combined.includes("timeout") ||
+    combined.includes("timed out") ||
+    combined.includes("timed_out") ||
+    combined.includes("etimedout") ||
+    combined.includes("econnreset") ||
+    combined.includes("econnrefused") ||
+    combined.includes("fetch failed") ||
+    combined.includes("connection") ||
+    combined.includes("429") ||
+    combined.includes("503") ||
+    combined.includes("rate limit") ||
+    combined.includes("rate_limit") ||
+    combined.includes("aborted") ||
+    combined.includes("all providers failed") ||
+    combined.includes("signal") ||
+    combined.includes("network")
   );
 }
