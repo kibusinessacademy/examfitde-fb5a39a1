@@ -457,6 +457,63 @@ export async function callAIWithFailover(
     }
   }
 
+  // ── v5.6 SAFETY NET: Plain-text JSON fallback (no tools/tool_choice) ──
+  // If ALL providers returned empty with tool-calling, retry the FIRST
+  // available provider WITHOUT tools — forces raw text completion.
+  if (opts.tools && opts.tools.length > 0) {
+    console.warn(`[AI-CLIENT] All tool-call providers empty — trying plain-text JSON fallback`);
+
+    for (const candidate of chain) {
+      if (!keyAvailability[candidate.provider]) continue;
+      const health2 = getProviderHealth(candidate.provider);
+      if (!health2.available) continue;
+
+      try {
+        // Strip tools/tool_choice, add JSON-only instruction
+        const fallbackMessages = [
+          ...opts.messages,
+          {
+            role: "system" as const,
+            content: "IMPORTANT: The function-calling mode failed. Return ONLY valid JSON matching the required schema. No prose, no markdown fences, no explanation. If you cannot comply, return: {\"error\":\"cannot_generate\"}.",
+          },
+        ];
+
+        const result = await callAIJSON({
+          ...opts,
+          provider: candidate.provider,
+          model: candidate.model,
+          tools: undefined,
+          tool_choice: undefined,
+        } as any);
+
+        // Override messages with fallback messages
+        const fallbackResult = await callAIJSON({
+          provider: candidate.provider,
+          model: candidate.model,
+          messages: fallbackMessages,
+          temperature: opts.temperature,
+          max_tokens: opts.max_tokens,
+          signal: opts.signal,
+        });
+
+        if (fallbackResult.content && fallbackResult.content.trim().length > 0) {
+          console.log(`[AI-CLIENT] ✅ Plain-text fallback succeeded via ${candidate.provider}/${candidate.model} (${fallbackResult.content.length} chars)`);
+          return {
+            content: fallbackResult.content,
+            toolCalls: undefined,
+            provider: candidate.provider,
+            model: candidate.model,
+            usage: fallbackResult.usage,
+            estimatedUsage: fallbackResult.estimatedUsage,
+          };
+        }
+      } catch (err2) {
+        const msg2 = err2 instanceof Error ? err2.message : String(err2);
+        errors.push(`FALLBACK ${candidate.provider}/${candidate.model}: ${msg2}`);
+      }
+    }
+  }
+
   throw new Error(`All providers failed: ${errors.join(" | ")}`);
 }
 
