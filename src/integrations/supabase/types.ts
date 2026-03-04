@@ -8599,26 +8599,44 @@ export type Database = {
         Row: {
           created_at: string
           enabled: boolean
+          enabled_auto_rebind: boolean
           expected_schema: string
           expected_table: string
           expected_trigger: string
+          for_each: string
+          function_name: string | null
+          function_schema: string
           id: number
+          trigger_events: string[]
+          trigger_timing: string
         }
         Insert: {
           created_at?: string
           enabled?: boolean
+          enabled_auto_rebind?: boolean
           expected_schema?: string
           expected_table: string
           expected_trigger: string
+          for_each?: string
+          function_name?: string | null
+          function_schema?: string
           id?: number
+          trigger_events?: string[]
+          trigger_timing?: string
         }
         Update: {
           created_at?: string
           enabled?: boolean
+          enabled_auto_rebind?: boolean
           expected_schema?: string
           expected_table?: string
           expected_trigger?: string
+          for_each?: string
+          function_name?: string | null
+          function_schema?: string
           id?: number
+          trigger_events?: string[]
+          trigger_timing?: string
         }
         Relationships: []
       }
@@ -12315,6 +12333,27 @@ export type Database = {
           payload?: Json
           severity?: string
           source?: string
+        }
+        Relationships: []
+      }
+      ops_ddl_audit: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json
+          id: number
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json
+          id?: number
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json
+          id?: number
         }
         Relationships: []
       }
@@ -26263,6 +26302,15 @@ export type Database = {
       auto_link_certification_documents: { Args: never; Returns: number }
       auto_ops_cycle: { Args: never; Returns: Json }
       auto_provision_all_curricula: { Args: never; Returns: Json }
+      auto_rebind_missing_triggers: {
+        Args: { dry_run?: boolean }
+        Returns: {
+          actions: Json
+          attempted: number
+          rebound: number
+          skipped: number
+        }[]
+      }
       auto_recover_exhausted_content_step:
         | { Args: { p_package_id: string }; Returns: Json }
         | {
