@@ -24,7 +24,7 @@ import { assessLessonQuality, buildExpandSystemPrompt, getStepThresholds } from 
  *   - Robust idempotency with ON CONFLICT handling
  */
 
-const BATCH_SIZE = 3;          // v5.7: raised to 3 — auto-approve removes council overhead, fits 55s budget
+const BATCH_SIZE = 2;          // v5.5: reduced from 3 to 2 — budget-safe with 28s min timeout
 const BASE_DELAY_MS = 300;     // Keep throughput without wasting budget
 const MAX_DELAY_MS = 3000;     // Cap backoff to stay within soft budget
 const MAX_LESSON_RETRIES = 3;  // Poison-pill guard: skip lessons after N failures
@@ -565,9 +565,9 @@ Deno.serve(async (req) => {
       // v6.2: Deterministic budget guard
       // MIN_TIMEOUT_MS = minimum viable LLM call duration
       // MIN_PERSIST_MS = time needed to persist results + log after LLM returns
-      const MIN_TIMEOUT_MS = 18_000;
+      const MIN_TIMEOUT_MS = 28_000;   // v5.5: raised from 18s — 18s caused 100% timeout rate
       const MIN_PERSIST_MS = 4_000;
-      const MIN_REMAINING_MS = MIN_TIMEOUT_MS + MIN_PERSIST_MS; // 22s
+      const MIN_REMAINING_MS = MIN_TIMEOUT_MS + MIN_PERSIST_MS; // 32s
 
       if (remainingSoftMs < MIN_REMAINING_MS) {
         if (generated === 0 && remainingSoftMs >= MIN_TIMEOUT_MS) {
@@ -580,9 +580,10 @@ Deno.serve(async (req) => {
         }
       }
 
+      // v5.5: Give failover chain enough room — outer timeout covers all providers
       const llmTimeoutMs = Math.max(
         MIN_TIMEOUT_MS,
-        Math.min(40_000, remainingSoftMs - MIN_PERSIST_MS)
+        Math.min(50_000, remainingSoftMs - MIN_PERSIST_MS)
       );
 
       const llmAbort = new AbortController();

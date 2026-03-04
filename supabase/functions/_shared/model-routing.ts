@@ -46,8 +46,8 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "openai/gpt-5" },
   ],
   learning_content: [
-    { provider: "lovable", model: "google/gemini-3-flash-preview" },  // v5.4: faster to avoid 55s timeouts
-    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },        // v5.5: gemini-3-flash-preview caused persistent timeouts — reverted to proven model
+    { provider: "lovable", model: "google/gemini-2.5-flash-lite" },
     { provider: "lovable", model: "google/gemini-2.5-pro", is_fallback: true },
   ],
   exam_questions: [
@@ -60,8 +60,8 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "openai/gpt-5" },
   ],
   handbook: [
-    { provider: "lovable", model: "google/gemini-3-flash-preview" },  // v5.4: faster to avoid 55s timeouts
-    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },        // v5.5: gemini-3-flash-preview caused persistent timeouts
+    { provider: "lovable", model: "google/gemini-2.5-flash-lite" },
     { provider: "lovable", model: "google/gemini-2.5-pro", is_fallback: true },
   ],
   minicheck: [
