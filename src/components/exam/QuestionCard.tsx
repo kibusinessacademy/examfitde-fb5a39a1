@@ -75,7 +75,7 @@ export function QuestionCard({
     || difficultyConfig.medium;
   
   return (
-    <Card className="glass-card">
+    <Card className="glass-card" data-testid="exam-question-card">
       <CardHeader>
         <div className="flex items-center justify-between mb-2">
           <Badge variant="secondary">
@@ -114,6 +114,7 @@ export function QuestionCard({
             return (
               <div 
                 key={idx}
+                data-testid={`exam-option-${idx}`}
                 className={cn(
                   "flex items-center space-x-3 p-4 rounded-lg border transition-all",
                   optionClass
@@ -189,6 +190,7 @@ export function QuestionCard({
             onClick={handleSubmit}
             disabled={localAnswer === null || isSubmitting}
             className="w-full"
+            data-testid="exam-answer-submit"
           >
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

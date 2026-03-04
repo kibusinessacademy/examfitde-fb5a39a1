@@ -208,7 +208,7 @@ export default function MiniCheckPlayer({
     const { correct, total } = getScore();
 
     return (
-      <Card className="glass-card">
+      <Card className="glass-card" data-testid="minicheck-result">
         <CardContent className="p-8 text-center space-y-6">
           <div className={cn(
             "w-20 h-20 rounded-full mx-auto flex items-center justify-center",
@@ -255,7 +255,7 @@ export default function MiniCheckPlayer({
 
   // Question screen
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="minicheck-player">
       {/* Proactive Help Hints */}
       <ProactiveHelpHints
         failCount={consecutiveFails}
@@ -277,7 +277,7 @@ export default function MiniCheckPlayer({
       {/* Question */}
       <Card className="glass-card">
         <CardContent className="p-6 space-y-6">
-          <h3 className="text-lg font-medium leading-relaxed">
+          <h3 className="text-lg font-medium leading-relaxed" data-testid="question-text">
             {currentQuestion.text}
           </h3>
 
@@ -308,6 +308,7 @@ export default function MiniCheckPlayer({
                   key={idx}
                   onClick={() => handleSelectOption(idx)}
                   disabled={hasAnswered || checking}
+                  data-testid={`question-option-${idx}`}
                   className={cn(
                     "w-full p-4 rounded-xl border-2 text-left transition-all",
                     "flex items-center gap-3",
@@ -337,7 +338,7 @@ export default function MiniCheckPlayer({
 
           {/* Feedback */}
           {hasAnswered && answerResult && (
-            <div className={cn(
+            <div data-testid={answerResult.is_correct ? "feedback-correct" : "feedback-incorrect"} className={cn(
               "p-4 rounded-xl",
               answerResult.is_correct ? "bg-green-500/10 border border-green-500/30" : "bg-red-500/10 border border-red-500/30"
             )}>
@@ -373,6 +374,7 @@ export default function MiniCheckPlayer({
                 onClick={handleCheckAnswer}
                 disabled={selectedIndex === null || checking}
                 className="gap-2"
+                data-testid="answer-submit"
               >
                 {checking && <Loader2 className="h-4 w-4 animate-spin" />}
                 Antwort prüfen

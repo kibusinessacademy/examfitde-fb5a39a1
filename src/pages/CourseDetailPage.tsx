@@ -267,7 +267,7 @@ export default function CourseDetailPage() {
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-              <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-2">{course.title}</h1>
+              <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-2" data-testid="course-title">{course.title}</h1>
               <p className="text-muted-foreground max-w-2xl mb-4">{course.description}</p>
               <div className="flex flex-wrap items-center gap-4">
                 {course.estimated_duration && (
@@ -303,7 +303,7 @@ export default function CourseDetailPage() {
                   ) : null}
                 </div>
                 <div className="flex gap-3">
-                  <Button onClick={handleContinue} className="gradient-primary text-primary-foreground shadow-glow-sm">
+                  <Button onClick={handleContinue} className="gradient-primary text-primary-foreground shadow-glow-sm" data-testid="course-continue-btn">
                     <PlayCircle className="h-4 w-4 mr-2" />
                     {progressPercent > 0 ? "Fortsetzen" : "Training starten"}
                   </Button>
