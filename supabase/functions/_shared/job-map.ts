@@ -119,6 +119,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   mass_enrich_competencies_v2:       { pool: "content", edgeFunction: "mass-enrich-competencies" },
   pool_fill_lf_gaps:                 { pool: "content", edgeFunction: "pool-fill-lf-gaps" },
   pool_fill_bloom_gaps:              { pool: "content", edgeFunction: "pool-fill-bloom-gaps" },
+  lesson_generate_content:           { pool: "content", edgeFunction: "lesson-generate-content" },
 
   // ── core / orchestration + validation (explicit for clarity) ─
   pipeline_tick:                     { pool: "core" },

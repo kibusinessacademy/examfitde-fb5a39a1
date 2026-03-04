@@ -9,6 +9,7 @@ export type BudgetKey =
   | "runner_claim"
   | "exam_pool_fanout"
   | "learning_content"
+  | "lesson_single"
   | "handbook"
   | "glossary"
   | "oral_exam"
@@ -30,6 +31,7 @@ const DEFAULTS: Record<BudgetKey, TimeBudget> = {
   runner_claim:       { ms: 55_000, softStopMs: 45_000 },
   exam_pool_fanout:   { ms: 45_000, softStopMs: 35_000 },
   learning_content:   { ms: 150_000, softStopMs: 120_000 },  // v5.8: 2.5min hard / 2min soft — content gen has ~30s init overhead
+  lesson_single:      { ms: 55_000,  softStopMs: 45_000 },   // v7: single-unit worker — 1 lesson per invocation
   handbook:           { ms: 150_000, softStopMs: 120_000 },  // v5.8: same rationale as learning_content
   glossary:           { ms: 45_000, softStopMs: 35_000 },
   oral_exam:          { ms: 45_000, softStopMs: 35_000 },
