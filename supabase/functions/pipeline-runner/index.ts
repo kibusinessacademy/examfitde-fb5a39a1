@@ -2008,7 +2008,7 @@ const RUNNER_INSTANCE_ID = `runner_${crypto.randomUUID().slice(0, 8)}`;
 // MAIN: Multi-Slot Acquisition Loop (v4: Track-Fair Scheduling)
 // ══════════════════════════════════════════════════════════════
 
-import { getTrackQuota, TRACK_ACQUISITION_ORDER, type TrackKey as WipTrackKey } from "../_shared/worker-config.ts";
+import { getTrackQuota, TRACK_ACQUISITION_ORDER, WIP_TOTAL_CAP, rebalanceQuotas, type TrackKey as WipTrackKey, type TrackStats } from "../_shared/worker-config.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -2059,8 +2059,7 @@ Deno.serve(async (req) => {
   const processedPackageIds = new Set<string>();
 
   try {
-    // ── Track-Fair WIP Quota Calculation ──
-    // Count current building packages per track
+    // ── Track-Fair WIP Quota Calculation with Auto-Rebalance ──
     const { data: wipRows } = await sb
       .from("course_packages")
       .select("track")
@@ -2072,15 +2071,44 @@ Deno.serve(async (req) => {
       wipByTrack[t] = (wipByTrack[t] ?? 0) + 1;
     }
 
+    // Count eligible targets per track (queued packages with priority ≤ 10)
+    const targetsByTrack: Record<string, number> = {};
+    for (const track of TRACK_ACQUISITION_ORDER) {
+      const { count } = await sb
+        .from("course_packages")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "queued")
+        .eq("track", track)
+        .lte("priority", 10);
+      targetsByTrack[track] = count ?? 0;
+    }
+
+    // Build stats and rebalance
+    const trackStats: Record<WipTrackKey, TrackStats> = {} as any;
+    for (const track of TRACK_ACQUISITION_ORDER) {
+      trackStats[track] = {
+        active: wipByTrack[track] ?? 0,
+        quota: getTrackQuota(track),
+        targets: targetsByTrack[track] ?? 0,
+      };
+    }
+    const effectiveQuotas = rebalanceQuotas(trackStats);
+
     // Calculate available slots per track
     const trackSlots: Record<string, number> = {};
     for (const track of TRACK_ACQUISITION_ORDER) {
-      const quota = getTrackQuota(track);
       const current = wipByTrack[track] ?? 0;
-      trackSlots[track] = Math.max(0, quota - current);
+      trackSlots[track] = Math.max(0, effectiveQuotas[track] - current);
     }
 
-    console.log(`[runner] 📊 WIP quotas: ${TRACK_ACQUISITION_ORDER.map(t => `${t}=${wipByTrack[t] ?? 0}/${getTrackQuota(t)} (slots=${trackSlots[t]})`).join(", ")}`);
+    const starvedTracks = TRACK_ACQUISITION_ORDER.filter(t =>
+      trackStats[t].targets > 0 && trackSlots[t] === 0
+    );
+
+    console.log(`[runner] 📊 WIP quotas: ${TRACK_ACQUISITION_ORDER.map(t =>
+      `${t}=${wipByTrack[t] ?? 0}/${effectiveQuotas[t]}(base=${getTrackQuota(t)},slots=${trackSlots[t]},targets=${targetsByTrack[t] ?? 0})`
+    ).join(", ")}${starvedTracks.length ? ` | ⚠️ STARVED: ${starvedTracks.join(",")}` : ""}`);
+
 
     let totalAcquired = 0;
 

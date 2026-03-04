@@ -41,16 +41,17 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SSOT: Track-aware WIP Quotas (Fair Scheduling)
+// SSOT: Track-aware WIP Quotas (Fair Scheduling + Auto-Rebalance)
 // ═══════════════════════════════════════════════════════════════
 
 export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST";
 
+/** Hard ceiling across all tracks (cost control) */
+export const WIP_TOTAL_CAP = 15;
+
 /**
  * WIP quota per track: max packages in "building" status simultaneously.
  * Env-overridable via WIP_QUOTA_AUSBILDUNG_VOLL / WIP_QUOTA_EXAM_FIRST.
- * Sum of all quotas may exceed global max_concurrent_packages — the global
- * cap in acquire_next_package_lease_v2 provides the hard ceiling.
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
   AUSBILDUNG_VOLL: 12,
@@ -61,5 +62,70 @@ export function getTrackQuota(track: TrackKey): number {
   return envInt(`WIP_QUOTA_${track}`, WIP_QUOTA_DEFAULTS[track]);
 }
 
-/** Acquisition order: which track gets slots first. AUSBILDUNG_VOLL goes first (primary track). */
+/** Acquisition order: primary track first. */
 export const TRACK_ACQUISITION_ORDER: TrackKey[] = ["AUSBILDUNG_VOLL", "EXAM_FIRST"];
+
+// ═══════════════════════════════════════════════════════════════
+// Auto-Rebalance: lend idle track slots to hungry tracks
+// ═══════════════════════════════════════════════════════════════
+
+export interface TrackStats {
+  active: number;   // currently building packages
+  quota: number;    // base quota for this track
+  targets: number;  // eligible candidates found this tick
+}
+
+/**
+ * Dynamically rebalances WIP quotas each runner tick.
+ * If a track has 0 targets, its quota is lent to tracks that do.
+ * Total never exceeds WIP_TOTAL_CAP. Every track with targets gets ≥1 slot.
+ */
+export function rebalanceQuotas(
+  stats: Record<TrackKey, TrackStats>,
+): Record<TrackKey, number> {
+  const tracks = Object.keys(stats) as TrackKey[];
+  const effective: Record<string, number> = {};
+
+  // Start with base quotas
+  for (const t of tracks) effective[t] = stats[t].quota;
+
+  // Collect lendable slots from idle tracks
+  let lendable = 0;
+  for (const t of tracks) {
+    if (stats[t].targets <= 0) {
+      lendable += effective[t];
+      effective[t] = 0;
+    }
+  }
+
+  // Distribute lendable to hungry tracks (most targets first)
+  const hungry = tracks
+    .filter((t) => stats[t].targets > 0)
+    .sort((a, b) => stats[b].targets - stats[a].targets);
+
+  for (const t of hungry) {
+    if (lendable <= 0) break;
+    effective[t] += lendable;
+    lendable = 0;
+  }
+
+  // Enforce total cap
+  const total = tracks.reduce((s, t) => s + effective[t], 0);
+  if (total > WIP_TOTAL_CAP) {
+    let over = total - WIP_TOTAL_CAP;
+    const ordered = [...tracks].sort((a, b) => effective[b] - effective[a]);
+    for (const t of ordered) {
+      if (over <= 0) break;
+      const cut = Math.min(over, effective[t]);
+      effective[t] -= cut;
+      over -= cut;
+    }
+  }
+
+  // Guarantee ≥1 slot for any track with targets (anti-deadlock)
+  for (const t of tracks) {
+    if (stats[t].targets > 0 && effective[t] === 0) effective[t] = 1;
+  }
+
+  return effective as Record<TrackKey, number>;
+}
