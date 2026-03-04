@@ -6,7 +6,7 @@
  * - Input validation helpers
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 type SupabaseAdmin = ReturnType<typeof createClient>;
 

@@ -13,7 +13,7 @@
  * All exam lookups MUST go through curriculum_id (resolved via course_packages).
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { findNode, findProducer, type PipelineNode } from "./job-map.ts";
 import { getTrackArtifactOverride } from "./track-prereqs.ts";
 import { normalizeTrack } from "./track-normalize.ts";
