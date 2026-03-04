@@ -394,22 +394,8 @@ serve(async (req) => {
       return json({ gaps: data ?? [] });
     }
 
-    // ── upgrade_to_elite ──────────────────────────────────────
-    // Upgrades an EXAM_FIRST package to AUSBILDUNG_VOLL by injecting
-    // missing didaktik steps and resetting to building status.
+    // ── upgrade_to_elite (batch + dry-run + idempotent) ──────
     if (action === "upgrade_to_elite") {
-      const packageId = assertUuid(body.package_id, "package_id");
-
-      // 1) Verify package exists and is EXAM_FIRST
-      const { data: pkg, error: pkgErr } = await sb
-        .from("course_packages")
-        .select("id, track, course_id, curriculum_id, status, feature_flags, step_status_json")
-        .eq("id", packageId)
-        .single();
-      if (pkgErr || !pkg) return json({ error: "Package not found" }, 404);
-      if (pkg.track === "AUSBILDUNG_VOLL") return json({ error: "Already AUSBILDUNG_VOLL" }, 400);
-
-      // 2) Define all didaktik steps that EXAM_FIRST is missing
       const DIDAKTIK_STEPS = [
         "scaffold_learning_course",
         "generate_glossary",
@@ -421,77 +407,129 @@ serve(async (req) => {
         "validate_handbook",
         "elite_harden",
       ];
+      const GATES_TO_RESET = ["run_integrity_check", "quality_council", "auto_publish"];
 
-      // 3) Get existing steps
-      const { data: existingSteps } = await sb
-        .from("package_steps")
-        .select("step_key")
-        .eq("package_id", packageId);
-      const existingKeys = new Set((existingSteps ?? []).map((s: { step_key: string }) => s.step_key));
+      const dryRun = Boolean(body.dry_run);
+      const maxTargets = clampInt(body.max_targets, 1, 50, 25);
 
-      // 4) Insert missing steps
-      const missingSteps = DIDAKTIK_STEPS.filter(k => !existingKeys.has(k));
-      let injected = 0;
-      for (const stepKey of missingSteps) {
-        const { error: insErr } = await sb.from("package_steps").insert({
-          package_id: packageId,
-          step_key: stepKey,
-          status: "queued",
-          meta: { auto_created: true, reason: "upgrade_to_elite" },
-        });
-        if (!insErr) injected++;
+      // Accept single or batch
+      const singleId = body.package_id ? String(body.package_id) : null;
+      const batchIds: string[] = Array.isArray(body.package_ids) ? body.package_ids : [];
+      const targets = (batchIds.length > 0 ? batchIds : singleId ? [singleId] : []).slice(0, maxTargets);
+      if (!targets.length) return json({ error: "package_id or package_ids required" }, 400);
+
+      async function upgradeOne(pkgId: string) {
+        const id = assertUuid(pkgId, "package_id");
+
+        const { data: pkg, error: pkgErr } = await sb
+          .from("course_packages")
+          .select("id, track, course_id, status, feature_flags, step_status_json, title")
+          .eq("id", id)
+          .single();
+        if (pkgErr || !pkg) throw new Error(`Package ${id} not found`);
+
+        // Get existing steps
+        const { data: existingSteps } = await sb
+          .from("package_steps")
+          .select("step_key, status")
+          .eq("package_id", id);
+        const existingKeys = new Set((existingSteps ?? []).map((s: any) => s.step_key));
+        const missingSteps = DIDAKTIK_STEPS.filter(k => !existingKeys.has(k));
+
+        // Build new step_status_json
+        const newStepStatus: Record<string, string> = { ...(pkg.step_status_json || {}) };
+        for (const sk of missingSteps) newStepStatus[sk] = "queued";
+        for (const g of GATES_TO_RESET) newStepStatus[g] = "queued";
+
+        const newFlags = {
+          ...(pkg.feature_flags || {}),
+          has_learning_course: true,
+          has_minichecks: true,
+          has_handbook: true,
+          ai_tutor_mode: "full",
+        };
+
+        if (dryRun) {
+          return {
+            package_id: id,
+            title: pkg.title,
+            previous_track: pkg.track,
+            current_status: pkg.status,
+            existing_steps: existingKeys.size,
+            missing_steps: missingSteps,
+            gates_to_reset: GATES_TO_RESET,
+            will_set_track: "AUSBILDUNG_VOLL",
+          };
+        }
+
+        // 1) Insert missing steps idempotently (ON CONFLICT via unique index)
+        if (missingSteps.length > 0) {
+          const rows = missingSteps.map(sk => ({
+            package_id: id,
+            step_key: sk,
+            status: "queued",
+            meta: { auto_created: true, reason: "upgrade_to_elite" },
+          }));
+          // Use upsert with onConflict to be fully idempotent
+          await sb.from("package_steps").upsert(rows, {
+            onConflict: "package_id,step_key",
+            ignoreDuplicates: true,
+          });
+        }
+
+        // 2) Reset gates if they exist
+        for (const gate of GATES_TO_RESET) {
+          await sb.from("package_steps")
+            .update({ status: "queued", meta: { reset_reason: "upgrade_to_elite" } })
+            .eq("package_id", id)
+            .eq("step_key", gate);
+        }
+
+        // 3) Update package (track + flags + status)
+        await sb.from("course_packages").update({
+          track: "AUSBILDUNG_VOLL",
+          feature_flags: newFlags,
+          step_status_json: newStepStatus,
+          status: "building",
+          build_progress: 0,
+          updated_at: new Date().toISOString(),
+        }).eq("id", id);
+
+        // 4) Clear generation lock
+        if (pkg.course_id) {
+          await sb.from("course_generation_locks").delete().eq("course_id", pkg.course_id);
+        }
+
+        return {
+          package_id: id,
+          title: pkg.title,
+          previous_track: pkg.track,
+          new_track: "AUSBILDUNG_VOLL",
+          injected_steps: missingSteps,
+          injected_count: missingSteps.length,
+        };
       }
 
-      // 5) Update step_status_json to include new steps
-      const newStepStatus = { ...(pkg.step_status_json || {}) };
-      for (const stepKey of missingSteps) {
-        newStepStatus[stepKey] = "queued";
-      }
-      // Reset integrity/quality gates so they re-run with didaktik data
-      for (const gate of ["run_integrity_check", "quality_council", "auto_publish"]) {
-        newStepStatus[gate] = "queued";
-        await sb.from("package_steps")
-          .update({ status: "queued", meta: { reset_reason: "upgrade_to_elite" } })
-          .eq("package_id", packageId)
-          .eq("step_key", gate);
+      const results = [];
+      const errors = [];
+      for (const tid of targets) {
+        try {
+          results.push(await upgradeOne(tid));
+        } catch (e: any) {
+          errors.push({ package_id: tid, error: e.message });
+        }
       }
 
-      // 6) Update package track + feature_flags + status
-      const newFlags = {
-        ...(pkg.feature_flags || {}),
-        has_learning_course: true,
-        has_minichecks: true,
-        has_handbook: true,
-        ai_tutor_mode: "full",
-      };
-
-      await sb.from("course_packages").update({
-        track: "AUSBILDUNG_VOLL",
-        feature_flags: newFlags,
-        step_status_json: newStepStatus,
-        status: "building",
-        build_progress: 0,
-        updated_at: new Date().toISOString(),
-      }).eq("id", packageId);
-
-      // 7) Delete generation lock if exists
-      await sb.from("course_generation_locks").delete().eq("course_id", pkg.course_id);
-
-      console.log(`[admin-ops] upgrade_to_elite: ${packageId} upgraded (${injected} steps injected) by ${user!.id}`);
-      await auditLog("upgrade_to_elite", packageId, {
-        previous_track: pkg.track,
-        injected_steps: missingSteps,
-        injected_count: injected,
+      await auditLog("upgrade_to_elite", targets[0], {
+        dry_run: dryRun,
+        target_count: targets.length,
+        success_count: results.length,
+        error_count: errors.length,
+        package_ids: targets,
       });
 
-      return json({
-        success: true,
-        package_id: packageId,
-        previous_track: pkg.track,
-        new_track: "AUSBILDUNG_VOLL",
-        steps_injected: injected,
-        missing_steps: missingSteps,
-      });
+      console.log(`[admin-ops] upgrade_to_elite: ${results.length}/${targets.length} upgraded (dry=${dryRun}) by ${user!.id}`);
+      return json({ success: true, dry_run: dryRun, count: results.length, errors, results });
     }
 
     return json({
