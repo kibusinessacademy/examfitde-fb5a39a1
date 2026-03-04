@@ -109,6 +109,9 @@ Implemented:
 - ✅ Step order governance
 - ✅ Budget governance
 - ✅ Concurrency governance
+- ✅ Job outcome classification (blocked vs transient vs permanent)
+- ✅ Auto-publish readiness gate (integrity_passed guard)
+- ✅ Exponential backoff with jitter for transient failures
 
 ---
 

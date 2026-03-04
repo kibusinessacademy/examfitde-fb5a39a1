@@ -166,8 +166,16 @@ const WORKER_ID = `job-runner-${crypto.randomUUID().slice(0, 8)}`;
 const BACKOFF_409_MS = 30_000;
 const BACKOFF_429_MS = 60_000;
 const BACKOFF_BATCH_MS = 3_000;
-const BACKOFF_ERROR_MS = 30_000;
 const BACKOFF_PREREQ_MS = 20_000;
+
+/** Exponential backoff with ±20% jitter for transient/hard failures.
+ *  attempt 0→30s, 1→90s, 2→180s, 3→300s, 4→600s, 5+→900s (cap) */
+function computeErrorBackoffMs(attempt: number): number {
+  const table = [30_000, 90_000, 180_000, 300_000, 600_000, 900_000];
+  const base = table[Math.min(attempt, table.length - 1)];
+  const jitter = base * 0.2 * (Math.random() * 2 - 1); // ±20%
+  return Math.round(base + jitter);
+}
 
 // ── Function versioning (for deployment forensics) ──────────────────
 const FUNCTION_VERSION = "v5.9-phase3+6-hardened";
@@ -602,13 +610,36 @@ Deno.serve(async (req) => {
       const notExecutable = !!pkgState.published_at || (pkgState.status !== "building");
       if (notExecutable) {
         const reason = `OPS_GUARD:PACKAGE_NOT_EXECUTABLE status=${pkgState.status ?? "missing"} published_at=${pkgState.published_at ? "set" : "null"}`;
+        // Use "cancelled" — this is a deterministic block, not a failure.
+        // Prevents noise in failure metrics and stops retry loops.
         await sb.from("job_queue").update({
-          status: "failed",
+          status: "cancelled",
           completed_at: tsNow,
           last_error: reason,
+          meta: { ...(job.meta || {}), outcome: "blocked", blocked_reason: reason },
           ...lockRelease(tsNow),
         }).eq("id", job.id);
-        results.push({ id: job.id, status: "failed", reason: "package_not_executable" });
+        results.push({ id: job.id, status: "cancelled", reason: "package_not_executable" });
+        continue;
+      }
+    }
+
+    // ── Auto-publish readiness gate ─────────────────────────────────────
+    // Prevent noise: don't dispatch auto_publish until integrity_passed=true.
+    // This eliminates premature 422/guard failures that inflate error metrics.
+    if (job.job_type === "package_auto_publish" && jobPackageId) {
+      const { data: pubGate } = await sb
+        .from("course_packages")
+        .select("integrity_passed")
+        .eq("id", jobPackageId)
+        .maybeSingle();
+
+      if (!pubGate?.integrity_passed) {
+        const gateReason = `AUTO_PUBLISH_GATE: integrity_passed=${pubGate?.integrity_passed ?? "null"} — not ready`;
+        console.log(`[job-runner] ${gateReason} (pkg ${jobPackageId.slice(0, 8)})`);
+        // Long backoff (5 min) — integrity won't flip in seconds
+        await requeueWithBackoff(sb, job.id, job.meta, 300_000, gateReason, tsNow);
+        results.push({ id: job.id, status: "requeued", reason: "auto_publish_gate" });
         continue;
       }
     }
@@ -849,21 +880,26 @@ Deno.serve(async (req) => {
             (typeof parsed === "object" && parsed && String((parsed as any).error || "").toLowerCase().includes("ssot")) ||
             (typeof parsed === "object" && parsed && String((parsed as any).message || "").toLowerCase().includes("ssot_guard_permanent"));
 
-          if (isPermanent) {
-            console.warn(`[job-runner] ${fnName} 422 permanent SSOT/guard → terminal fail (no retry)`);
+          // Check if response explicitly says retry:false — this is a deterministic block
+          const isNoRetry = typeof parsed === "object" && parsed && (parsed as any).retry === false;
+
+          if (isPermanent || isNoRetry) {
+            const label = isPermanent ? "PERMANENT" : "BLOCKED";
+            console.warn(`[job-runner] ${fnName} 422 ${label} → terminal (no retry)`);
             finalState = {
-              status: "failed",
+              status: "cancelled",
               patch: {
-                error: `HTTP 422 PERMANENT: ${errStr}`,
+                error: `HTTP 422 ${label}: ${errStr}`,
                 completed_at: tsNow,
-                attempts: maxAttempts,
+                last_error: `HTTP 422 ${label}: ${errStr}`,
+                meta: { ...(job.meta || {}), outcome: label.toLowerCase(), blocked_reason: errStr },
                 result: typeof parsed === "object" ? parsed : { raw: parsed },
               },
             };
             tickMetrics.totalLatencyMs += elapsedMs;
             continue;
           }
-          // If 422 but not marked permanent, fall through to standard hard-failure handling.
+          // If 422 but not marked permanent/blocked, fall through to standard hard-failure handling.
         }
         // ── 409 Conflict ─────────────────────────────────────────────
         if (res.status === 409) {
@@ -918,7 +954,7 @@ Deno.serve(async (req) => {
             finalState = {
               status: "pending",
               patch: {
-                run_after: new Date(Date.now() + BACKOFF_ERROR_MS).toISOString(),
+                run_after: new Date(Date.now() + computeErrorBackoffMs(newAttempts)).toISOString(),
                 error: `HTTP ${res.status} — attempt ${newAttempts}/${maxAttempts}`,
                 attempts: newAttempts,
                 meta: { ...(job.meta || {}), last_retry: tsNow },
@@ -1180,7 +1216,7 @@ Deno.serve(async (req) => {
           metricsAction: (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") ? "dlq" : undefined,
         };
       } else {
-        const delay = isTimeout ? BACKOFF_429_MS : BACKOFF_ERROR_MS;
+        const delay = isTimeout ? BACKOFF_429_MS : computeErrorBackoffMs((job.attempts || 0) + 1);
         finalState = {
           status: "pending",
           patch: {
