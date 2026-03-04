@@ -317,6 +317,14 @@ Deno.serve(async (req) => {
     if (c._regenerating === true || c._regenerating === "true") return true;
     // BUG 2 FIX: tier1_failed lessons are dead-ends unless we regenerate them
     if ((l as any).qc_status === "tier1_failed") return true;
+    // v5.8 FIX: Don't treat lessons with substantial real content as placeholders.
+    // Mini-check stubs and short content without html used to match, causing dedup loops
+    // where the generator wasted entire budget on already-generated lessons.
+    const contentLen = JSON.stringify(c).length;
+    if (contentLen > 500 && !c._placeholder) {
+      // This lesson has real content — only re-generate if explicitly marked
+      return false;
+    }
     // Lessons without an html field (e.g. mini_check stubs) need full content
     if (typeof c.html !== "string") return true;
     if (c.html.includes("Platzhalter") || (c.html as string).length < 100) return true;
@@ -513,7 +521,17 @@ Deno.serve(async (req) => {
       break;
     }
 
+    // ── v5.8: Pre-LLM dedup check — skip lessons that already have a content_version ──
+    // This prevents wasting 15-30s of LLM budget on already-generated lessons.
     const isMiniCheck = lesson.step === "mini_check";
+    const preCheck = await existingVersion(sb, lesson.id, lesson.step);
+    if (preCheck) {
+      skippedWriteBack++;
+      details.push({ id: lesson.id, title: lesson.title, step: lesson.step, status: "pre_deduped", versionId: preCheck.id });
+      console.log(`[gen-content] ⏭️ Pre-dedup: ${lesson.title.slice(0, 40)} already has version ${String(preCheck.id).slice(0, 8)}`);
+      continue;
+    }
+
     const stepConfig = STEP_PROMPTS[lesson.step];
     const moduleName = (lesson as any).modules?.title || "";
 
@@ -565,15 +583,16 @@ Deno.serve(async (req) => {
       // v6.2: Deterministic budget guard
       // MIN_TIMEOUT_MS = minimum viable LLM call duration
       // MIN_PERSIST_MS = time needed to persist results + log after LLM returns
-      // v5.7: Lowered MIN_TIMEOUT to 15s — gemini-2.5-flash typically responds in 8-15s.
-      // The previous 28s+4s=32s threshold was blocking ALL calls because overhead alone takes ~25-30s.
-      const MIN_TIMEOUT_MS = 15_000;
-      const MIN_PERSIST_MS = 3_000;
-      const MIN_REMAINING_MS = MIN_TIMEOUT_MS + MIN_PERSIST_MS; // 18s
+      // v5.8: Aggressive budget — init overhead is ~30s of 45s softStop.
+      // Gemini Flash responds in 5-12s typically. We MUST allow calls with ≥10s remaining
+      // or else the generator will NEVER make a single LLM call.
+      const MIN_TIMEOUT_MS = 10_000;
+      const MIN_PERSIST_MS = 2_000;
+      const MIN_REMAINING_MS = MIN_TIMEOUT_MS + MIN_PERSIST_MS; // 12s
 
       if (remainingSoftMs < MIN_REMAINING_MS) {
-        if (generated === 0 && remainingSoftMs >= MIN_TIMEOUT_MS) {
-          // Allow one last attempt — wasting an entire invocation with gen=0 is worse
+        if (generated === 0 && remainingSoftMs >= 8_000) {
+          // Allow one last attempt with tight budget — gen=0 invocation is worse than a short timeout
           console.warn(`[gen-content] Tight budget (${remainingSoftMs}ms) but gen=0 — allowing one last attempt`);
         } else {
           softStopped = true;
