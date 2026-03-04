@@ -565,9 +565,11 @@ Deno.serve(async (req) => {
       // v6.2: Deterministic budget guard
       // MIN_TIMEOUT_MS = minimum viable LLM call duration
       // MIN_PERSIST_MS = time needed to persist results + log after LLM returns
-      const MIN_TIMEOUT_MS = 28_000;   // v5.5: raised from 18s — 18s caused 100% timeout rate
-      const MIN_PERSIST_MS = 4_000;
-      const MIN_REMAINING_MS = MIN_TIMEOUT_MS + MIN_PERSIST_MS; // 32s
+      // v5.7: Lowered MIN_TIMEOUT to 15s — gemini-2.5-flash typically responds in 8-15s.
+      // The previous 28s+4s=32s threshold was blocking ALL calls because overhead alone takes ~25-30s.
+      const MIN_TIMEOUT_MS = 15_000;
+      const MIN_PERSIST_MS = 3_000;
+      const MIN_REMAINING_MS = MIN_TIMEOUT_MS + MIN_PERSIST_MS; // 18s
 
       if (remainingSoftMs < MIN_REMAINING_MS) {
         if (generated === 0 && remainingSoftMs >= MIN_TIMEOUT_MS) {
