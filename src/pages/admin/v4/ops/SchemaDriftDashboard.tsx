@@ -53,6 +53,12 @@ interface DriftAnalytics {
   last_resolved_at: string | null;
   unresolved_count: number;
 }
+interface PermanentFailure {
+  job_type: string;
+  error_class: string;
+  cnt: number;
+  last_seen: string;
+}
 
 export default function SchemaDriftDashboard() {
   const [driftResult, setDriftResult] = useState<DriftResult | null>(null);
@@ -61,6 +67,7 @@ export default function SchemaDriftDashboard() {
   const [recentDrifts, setRecentDrifts] = useState<any[]>([]);
   const [topDrifts, setTopDrifts] = useState<DriftAnalytics[]>([]);
   const [rpcVersions, setRpcVersions] = useState<RpcVersion[]>([]);
+  const [permanentFailures, setPermanentFailures] = useState<PermanentFailure[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -68,7 +75,7 @@ export default function SchemaDriftDashboard() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [contractRes, ledgerRes, driftLogRes, analyticsRes, rpcRes] = await Promise.all([
+      const [contractRes, ledgerRes, driftLogRes, analyticsRes, rpcRes, permFailRes] = await Promise.all([
         supabase.from('schema_contracts').select('contract_type, deprecated_at'),
         supabase.from('schema_version_ledger')
           .select('function_name, required_migration, verified_ok, last_verified_at')
@@ -76,6 +83,11 @@ export default function SchemaDriftDashboard() {
         supabase.from('schema_drift_log').select('*').order('detected_at', { ascending: false }).limit(20),
         supabase.from('v_drift_analytics' as any).select('*').limit(15),
         supabase.from('rpc_version_registry' as any).select('*').order('rpc_name, version'),
+        supabase.from('job_queue' as any)
+          .select('job_type, meta, created_at')
+          .eq('status', 'failed')
+          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .limit(500),
       ]);
 
       if (contractRes.data) {
@@ -91,6 +103,27 @@ export default function SchemaDriftDashboard() {
       if (driftLogRes.data) setRecentDrifts(driftLogRes.data);
       if (analyticsRes.data) setTopDrifts(analyticsRes.data as unknown as DriftAnalytics[]);
       if (rpcRes.data) setRpcVersions(rpcRes.data as unknown as RpcVersion[]);
+
+      // Aggregate permanent failures from job_queue
+      if (permFailRes.data) {
+        const agg = new Map<string, { cnt: number; last_seen: string; error_class: string }>();
+        for (const row of permFailRes.data as any[]) {
+          const cls = row.meta?.last_error_class || 'unknown';
+          const key = `${row.job_type}::${cls}`;
+          const existing = agg.get(key);
+          if (existing) {
+            existing.cnt++;
+            if (row.created_at > existing.last_seen) existing.last_seen = row.created_at;
+          } else {
+            agg.set(key, { cnt: 1, last_seen: row.created_at, error_class: cls });
+          }
+        }
+        const sorted = [...agg.entries()]
+          .map(([key, v]) => ({ job_type: key.split('::')[0], ...v }))
+          .sort((a, b) => b.cnt - a.cnt)
+          .slice(0, 20);
+        setPermanentFailures(sorted);
+      }
     } catch (e) {
       console.error('Failed to load schema data', e);
     }
@@ -270,7 +303,38 @@ export default function SchemaDriftDashboard() {
         </Card>
       )}
 
-      {/* Live Drift Results */}
+      {/* Permanent Failures (last 24h) */}
+      {permanentFailures.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <XCircle className="h-4 w-4 text-destructive" />
+              Permanente Failures (24h) — Top {permanentFailures.length}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {permanentFailures.map((f, i) => (
+                <div key={i} className="flex items-center justify-between text-sm py-1.5 border-b border-border last:border-0">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                    <span className="font-mono text-xs truncate max-w-[200px]">{f.job_type}</span>
+                    <Badge variant={f.error_class === 'permanent' ? 'destructive' : 'secondary'} className="text-[10px]">
+                      {f.error_class}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <span>{f.cnt}× failed</span>
+                    <span>zuletzt {new Date(f.last_seen).toLocaleString('de-DE')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
       {driftResult && (
         <Card>
           <CardHeader className="pb-2">
