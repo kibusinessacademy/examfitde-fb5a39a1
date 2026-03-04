@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Zap, Target, TrendingUp, AlertTriangle, Sprout } from 'lucide-react';
+import { Loader2, Zap, Target, TrendingUp, AlertTriangle, Sprout, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -48,6 +48,7 @@ export default function CoverageGapsPage() {
   const [loading, setLoading] = useState(true);
   const [gapsLoading, setGapsLoading] = useState(false);
   const [filling, setFilling] = useState(false);
+  const [bloomFilling, setBloomFilling] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedMode, setSeedMode] = useState<SeedMode>('default');
 
@@ -112,6 +113,22 @@ export default function CoverageGapsPage() {
       toast.error(e.message || 'Fehler beim Enqueue');
     } finally {
       setFilling(false);
+    }
+  };
+
+  const handleBloomGapFill = async () => {
+    if (!selectedCurriculum) return;
+    setBloomFilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-ops', {
+        body: { action: 'enqueue_bloom_gap_fill', curriculum_id: selectedCurriculum },
+      });
+      if (error) throw error;
+      toast.success(`Bloom Gap-Fill Job enqueued (ID: ${(data as any)?.result?.job_id?.slice(0, 8) ?? '?'})`);
+    } catch (e: any) {
+      toast.error(e.message || 'Fehler beim Bloom Gap-Fill');
+    } finally {
+      setBloomFilling(false);
     }
   };
 
@@ -196,6 +213,18 @@ export default function CoverageGapsPage() {
             >
               {filling ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
               Gaps füllen ({totalGap})
+            </Button>
+
+            {/* Bloom Gap Fill */}
+            <Button
+              onClick={handleBloomGapFill}
+              disabled={!selectedCurriculum || bloomFilling}
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+            >
+              {bloomFilling ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />}
+              Bloom Gap-Fill
             </Button>
           </div>
 

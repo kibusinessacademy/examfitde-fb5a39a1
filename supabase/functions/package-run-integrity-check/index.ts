@@ -333,28 +333,56 @@ async function runCourseReadyGate(
 
   // ═══════════════════════════════════════════════
   // GATE 4e: Elite 2.0 — Bloom Distribution (verschärft)
-  // Target: max 20% remember, min 30% apply+analyze
+  // SSOT targets: remember≤20%, understand≥15%, apply≥30%, analyze≥15%, evaluate≥3%
   // ═══════════════════════════════════════════════
   if (totalApproved > 0) {
-    const rememberCount = (approvedQs ?? []).filter((q: any) => ["remember","erinnern","wissen","kennen"].includes((q as any).cognitive_level?.toLowerCase?.() || "")).length;
-    const applyAnalyzeCount = (approvedQs ?? []).filter((q: any) => ["apply","anwenden","analyze","analysieren","bewerten","beurteilen"].includes((q as any).cognitive_level?.toLowerCase?.() || "")).length;
-    const rememberPctElite = (rememberCount / totalApproved) * 100;
-    const applyAnalyzePctElite = (applyAnalyzeCount / totalApproved) * 100;
+    const bloomBuckets: Record<string, string[]> = {
+      remember: ["remember","erinnern","wissen","kennen"],
+      understand: ["understand","verstehen"],
+      apply: ["apply","anwenden"],
+      analyze: ["analyze","analysieren"],
+      evaluate: ["evaluate","bewerten","beurteilen","create","erschaffen"],
+    };
+    const bloomCounts: Record<string, number> = {};
+    for (const [bucket, aliases] of Object.entries(bloomBuckets)) {
+      bloomCounts[bucket] = (approvedQs ?? []).filter((q: any) =>
+        aliases.includes((q as any).cognitive_level?.toLowerCase?.() || "")
+      ).length;
+    }
+    const bloomPcts: Record<string, number> = {};
+    for (const k of Object.keys(bloomCounts)) {
+      bloomPcts[k] = (bloomCounts[k] / totalApproved) * 100;
+    }
 
-    const eliteBloomPassed = rememberPctElite <= 25 && applyAnalyzePctElite >= 25;
+    // Track-aware thresholds
+    const BLOOM_TARGETS: Record<string, Record<string, { min?: number; max?: number }>> = {
+      AUSBILDUNG_VOLL: { remember: { max: 25 }, understand: { min: 12 }, apply: { min: 25 }, analyze: { min: 12 }, evaluate: { min: 2 } },
+      EXAM_FIRST:      { remember: { max: 35 }, understand: { min: 8 },  apply: { min: 20 }, analyze: { min: 8 },  evaluate: { min: 1 } },
+      ELITE:           { remember: { max: 20 }, understand: { min: 15 }, apply: { min: 30 }, analyze: { min: 15 }, evaluate: { min: 3 } },
+    };
+    const bloomTh = BLOOM_TARGETS[trackEarly] ?? BLOOM_TARGETS["AUSBILDUNG_VOLL"];
+
+    const bloomViolations: string[] = [];
+    for (const [bucket, limits] of Object.entries(bloomTh)) {
+      const pct = bloomPcts[bucket] ?? 0;
+      if (limits.max !== undefined && pct > limits.max) bloomViolations.push(`${bucket.toUpperCase()}=${pct.toFixed(1)}%>max${limits.max}%`);
+      if (limits.min !== undefined && pct < limits.min) bloomViolations.push(`${bucket.toUpperCase()}=${pct.toFixed(1)}%<min${limits.min}%`);
+    }
+
+    const eliteBloomPassed = bloomViolations.length === 0;
+    const bloomDetail = Object.entries(bloomPcts).map(([k, v]) => `${k}=${v.toFixed(1)}%`).join(", ");
     results.push({
       gate: "elite_bloom_distribution",
       passed: eliteBloomPassed,
       severity: "warning",
-      detail: `remember=${rememberPctElite.toFixed(1)}% (max 25%), apply+analyze=${applyAnalyzePctElite.toFixed(1)}% (min 25%)`,
+      detail: `${bloomDetail} [track=${trackEarly}]${bloomViolations.length > 0 ? ` — violations: ${bloomViolations.join(", ")}` : ""}`,
     });
     if (!eliteBloomPassed) {
-      const reasons: string[] = [];
-      if (rememberPctElite > 25) reasons.push(`REMEMBER_TOO_HIGH(${rememberPctElite.toFixed(1)}%>25%)`);
-      if (applyAnalyzePctElite < 25) reasons.push(`APPLY_ANALYZE_TOO_LOW(${applyAnalyzePctElite.toFixed(1)}%<25%)`);
-      warnings.push(`ELITE_BLOOM: ${reasons.join(", ")}`);
+      warnings.push(`ELITE_BLOOM: ${bloomViolations.join(", ")}`);
     }
-    if (applyAnalyzePctElite >= 40) excellence.push(`ELITE_BLOOM_EXCELLENT: ${applyAnalyzePctElite.toFixed(0)}% apply+analyze`);
+    if ((bloomPcts.apply ?? 0) + (bloomPcts.analyze ?? 0) >= 40) {
+      excellence.push(`ELITE_BLOOM_EXCELLENT: ${((bloomPcts.apply ?? 0) + (bloomPcts.analyze ?? 0)).toFixed(0)}% apply+analyze`);
+    }
   }
 
   // ═══════════════════════════════════════════════
