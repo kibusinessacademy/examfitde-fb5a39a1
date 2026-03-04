@@ -180,12 +180,13 @@ const STEP_BLOOM_MAP: Record<string, string> = {
 
 async function existingVersion(sb: any, lessonId: string, step: string) {
   const canonKey = canonicalStepKey(step);
+  const isMini = step === "mini_check" || step === "step_5_minicheck" || canonKey === "step_5_minicheck";
   const { data } = await sb
     .from("content_versions")
     .select("id, content_json")
     .eq("lesson_id", lessonId)
     .eq("step_key", canonKey)
-    .eq("entity_type", step === "mini_check" ? "minicheck" : "lesson_step")
+    .eq("entity_type", isMini ? "minicheck" : "lesson_step")
     .neq("status", "rejected")
     .limit(1)
     .maybeSingle();
@@ -369,9 +370,7 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
       timeoutPromise,
     ]) as Awaited<ReturnType<typeof callAIWithFailover>>;
 
-    clearTimeout(llmTimer);
-
-    // Parse tool call
+    // Parse tool call (timer cleared in finally)
     if (result.toolCalls?.length > 0) {
       try { content = JSON.parse(result.toolCalls[0].function.arguments); } catch { /* fallthrough */ }
     }
@@ -405,7 +404,7 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
       throw new Error(`No parseable tool response (provider=${result.provider}, model=${result.model}, contentLength=${cLen})`);
     }
   } catch (e) {
-    clearTimeout(llmTimer);
+    // timer cleared in finally
     const errMsg = (e as Error).message || String(e);
     const transient = isTransientLlmError(e);
 
@@ -444,20 +443,15 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     }
 
     if (!content || (!content.html && !content.questions)) {
-      // Log cost for failed attempt
-      if (transient || e instanceof RateLimitError) {
-        return json({
-          ok: false, retry: true, transient: true,
-          error: `TRANSIENT: ${errMsg.slice(0, 200)}`,
-          elapsed_ms: Date.now() - startMs,
-        }, 503);
-      }
+      const isTransient = transient || e instanceof RateLimitError;
       return json({
-        ok: false, retry: false,
-        error: errMsg.slice(0, 300),
+        ok: false, retry: isTransient, transient: isTransient,
+        error: `${isTransient ? "TRANSIENT: " : ""}${errMsg.slice(0, 200)}`,
         elapsed_ms: Date.now() - startMs,
-      }, 500);
+      }, isTransient ? 503 : 500);
     }
+  } finally {
+    clearTimeout(llmTimer);
   }
 
   // ── Quality gate (depth + hallucination) ──
@@ -519,6 +513,11 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         version: 5,
         meta: { plain_retry: plainRetry },
       };
+
+  // ── Budget check before persist — prevent mid-write kills ──
+  if (shouldSoftStop(startMs, "lesson_single")) {
+    return json({ ok: false, retry: true, error: "budget_exhausted_pre_persist", elapsed_ms: Date.now() - startMs }, 503);
+  }
 
   // ── Persist to content_versions (Council write path) ──
   const stepKeyCanonical = canonicalStepKey(stepKey);

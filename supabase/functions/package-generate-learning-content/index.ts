@@ -213,12 +213,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── COMPLETION GATE: missing=0 AND active=0 → step done ──
     return json({
       ok: true,
       batch_complete: true,
       message: `✅ Alle ${lessons.length} Lektionen haben Inhalt.`,
       total_lessons: lessons.length,
       placeholders_remaining: 0,
+      completion_gate: { missing: 0, active_jobs: 0 },
     });
   }
 
