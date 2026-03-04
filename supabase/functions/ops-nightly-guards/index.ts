@@ -28,6 +28,8 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  const AUTO_REBIND = (Deno.env.get("AUTO_REBIND_TRIGGERS") ?? "false") === "true";
+
   try {
     // 1) Run nightly pipeline guards RPC
     const { data, error } = await sb.rpc("run_nightly_pipeline_guards");
@@ -43,7 +45,6 @@ Deno.serve(async (req) => {
     const { data: tgData, error: tgErr } = await sb.rpc("check_trigger_bindings");
 
     if (tgErr) {
-      // Non-blocking but visible
       await sb.from("admin_notifications").insert({
         title: "🚨 Trigger Binding Guard failed",
         body: `check_trigger_bindings() RPC failed: ${tgErr.message}`,
@@ -54,15 +55,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Extract missing triggers from the new RPC format
+    // Extract missing triggers
     const tgResult = Array.isArray(tgData) ? tgData[0] : tgData;
     const missingTriggers = (tgResult?.missing ?? []) as Array<{
       expected_trigger: string;
       expected_schema: string;
       expected_table: string;
       function_exists: boolean;
-      is_missing: boolean;
     }>;
+
+    // 3) Auto-rebind if enabled and triggers are missing
+    let rebindResult: { attempted?: number; rebound?: number; skipped?: number; actions?: unknown } = {};
 
     if (missingTriggers.length > 0) {
       const names = missingTriggers
@@ -80,6 +83,52 @@ Deno.serve(async (req) => {
         entity_type: "system",
         entity_id: "trigger_binding_guard",
       });
+
+      if (AUTO_REBIND) {
+        // Dry run first for visibility
+        const { data: dryData } = await sb.rpc("auto_rebind_missing_triggers", { dry_run: true });
+        const dryResult = Array.isArray(dryData) ? dryData[0] : dryData;
+
+        if (dryResult && (dryResult.attempted ?? 0) > 0) {
+          await sb.from("admin_notifications").insert({
+            title: "🛠 Auto-Rebind dry run",
+            body: `Would rebind: attempted=${dryResult.attempted} skipped=${dryResult.skipped}`,
+            severity: "info",
+            category: "ops",
+            entity_type: "system",
+            entity_id: "auto_rebind_triggers",
+            metadata: { actions: dryResult.actions },
+          });
+        }
+
+        // Execute rebind
+        const { data: execData, error: execErr } = await sb.rpc("auto_rebind_missing_triggers", { dry_run: false });
+        const execResult = Array.isArray(execData) ? execData[0] : execData;
+
+        if (execErr) {
+          await sb.from("admin_notifications").insert({
+            title: "🚨 Auto-Rebind failed",
+            body: `auto_rebind_missing_triggers() failed: ${execErr.message}`,
+            severity: "error",
+            category: "ops",
+            entity_type: "system",
+            entity_id: "auto_rebind_triggers",
+          });
+        } else if (execResult) {
+          rebindResult = execResult;
+          await sb.from("admin_notifications").insert({
+            title: execResult.rebound > 0
+              ? "✅ Auto-Rebind: triggers restored"
+              : "ℹ️ Auto-Rebind: nothing to fix",
+            body: `attempted=${execResult.attempted} rebound=${execResult.rebound} skipped=${execResult.skipped}`,
+            severity: execResult.rebound > 0 ? "warning" : "info",
+            category: "ops",
+            entity_type: "system",
+            entity_id: "auto_rebind_triggers",
+            metadata: { actions: execResult.actions },
+          });
+        }
+      }
     }
 
     const result = data as Record<string, unknown>;
@@ -93,6 +142,10 @@ Deno.serve(async (req) => {
           all_clear: missingTriggers.length === 0,
           missing_count: missingTriggers.length,
           details: missingTriggers,
+        },
+        auto_rebind: {
+          enabled: AUTO_REBIND,
+          ...rebindResult,
         },
       }),
       {
