@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
-import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType } from "../_shared/job-map.ts";
+import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPACT, getArtifactPriorityBump, poolForJobType, JOB_DEFINITIONS } from "../_shared/job-map.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 
@@ -148,6 +148,13 @@ const JOB_TYPE_MAP: Record<string, string> = {
   pool_fill_bloom_gaps: "pool-fill-bloom-gaps",
   lesson_generate_content: "lesson-generate-content",
 };
+
+// ── Boot-time sync guard: every JOB_DEFINITIONS entry with edgeFunction must be in JOB_TYPE_MAP ──
+for (const [jobType, def] of Object.entries(JOB_DEFINITIONS)) {
+  if (def.edgeFunction && !JOB_TYPE_MAP[jobType]) {
+    console.error(`[job-runner] SSOT_DRIFT: "${jobType}" has edgeFunction "${def.edgeFunction}" in JOB_DEFINITIONS but is MISSING from JOB_TYPE_MAP!`);
+  }
+}
 
 // Functions that require x-rework-secret instead of Bearer auth
 const REWORK_SECRET_FUNCTIONS = new Set([

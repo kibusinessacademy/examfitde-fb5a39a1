@@ -11,7 +11,7 @@
  *   await enqueueJob(sb, { job_type: "package_generate_glossary", payload: { package_id: "..." } });
  */
 
-import { poolForJobType, type WorkerPool } from "./job-map.ts";
+import { poolForJobType, type WorkerPool, assertKnownJobType } from "./job-map.ts";
 
 export interface EnqueueOpts {
   job_type: string;
@@ -37,6 +37,9 @@ export async function enqueueJob(
   sb: any,
   opts: EnqueueOpts,
 ): Promise<EnqueueResult> {
+  // ── SSOT Guard: reject unknown job types at enqueue time ──
+  assertKnownJobType(opts.job_type);
+
   const worker_pool = opts.worker_pool ?? poolForJobType(opts.job_type);
 
   // ── SSOT Pool Guard: fail fast on pool drift ──
