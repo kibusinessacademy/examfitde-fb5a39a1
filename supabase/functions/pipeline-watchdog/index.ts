@@ -633,6 +633,26 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── Targeted Bloom/Difficulty gap-fill: enqueue alongside LF gaps ──
+      if (pkg.curriculum_id) {
+        try {
+          const { enqueueJob } = await import("../_shared/enqueue.ts");
+          await enqueueJob(sb, {
+            job_type: "pool_fill_bloom_gaps",
+            payload: {
+              package_id: pkg.id,
+              curriculum_id: pkg.curriculum_id,
+              heal_reason: healReason,
+            },
+            package_id: pkg.id as string,
+            priority: 14,
+          });
+          console.log(`[watchdog] QG-heal: enqueued pool_fill_bloom_gaps for pkg=${(pkg.id as string).slice(0, 8)}`);
+        } catch (enqErr) {
+          console.warn(`[watchdog] pool_fill_bloom_gaps enqueue blocked: ${(enqErr as Error).message}`);
+        }
+      }
+
       qgHealedCount++;
       actions.push(
         `QG-heal: ${(pkg.title as string).slice(0, 30)} (${healReason}, ${stepsResetCount}/${stepsToReset.length} steps reset)`,

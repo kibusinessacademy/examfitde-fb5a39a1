@@ -347,6 +347,23 @@ serve(async (req) => {
       return json({ success: true, result: data });
     }
 
+    // ── enqueue_bloom_gap_fill ────────────────────────────────
+    if (action === "enqueue_bloom_gap_fill") {
+      const curriculumId = assertUuid(body.curriculum_id, "curriculum_id");
+      const packageId = body.package_id ? assertUuid(body.package_id, "package_id") : undefined;
+
+      const { enqueueJob: enq } = await import("../_shared/enqueue.ts");
+      const result = await enq(sb, {
+        job_type: "pool_fill_bloom_gaps",
+        payload: { curriculum_id: curriculumId, package_id: packageId },
+        package_id: packageId,
+      });
+
+      console.log(`[admin-ops] enqueue_bloom_gap_fill: ${JSON.stringify(result)} by ${user!.id}`);
+      await auditLog("enqueue_bloom_gap_fill", curriculumId, { package_id: packageId, result });
+      return json({ success: true, result });
+    }
+
     // ── enqueue_blueprint_gap_fill ─────────────────────────────
     if (action === "enqueue_blueprint_gap_fill") {
       const curriculumId = assertUuid(body.curriculum_id, "curriculum_id");
