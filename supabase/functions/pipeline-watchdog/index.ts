@@ -522,6 +522,26 @@ Deno.serve(async (req) => {
 
       const hasLfCoverage = hardFails.some((f: string) => f.includes("LF_COVERAGE"));
       const hasPoolIssue = hardFails.some((f: string) => f.includes("EXAM_POOL") || f.includes("TOO_FEW"));
+      const hasBloomGap = hardFails.some((f: string) => f.includes("HARDISH_TOO_LOW") || f.includes("BLOOM_") || f.includes("EASY_TOO_HIGH"));
+
+      if (hasBloomGap && pkg.curriculum_id) {
+        // Trigger targeted bloom gap-fill BEFORE resetting steps
+        try {
+          const { enqueueJob } = await import("../_shared/enqueue.ts");
+          await enqueueJob(sb, {
+            job_type: "pool_fill_bloom_gaps",
+            payload: {
+              curriculum_id: pkg.curriculum_id,
+              package_id: pkg.id,
+              heal_reason: "WATCHDOG_BLOOM_GAP_HEAL",
+            },
+            max_attempts: 3,
+          });
+          actions.push(`Bloom-gap-fill enqueued for pkg ${(pkg.id as string).slice(0, 8)}`);
+        } catch (e) {
+          console.error(`[watchdog] bloom-gap-fill enqueue error:`, (e as Error).message);
+        }
+      }
 
       if (hasLfCoverage) {
         // LF_COVERAGE: DON'T re-queue generate_exam_pool (pool_fill_lf_gaps handles it)
@@ -586,7 +606,7 @@ Deno.serve(async (req) => {
       // Archive failed jobs (preserve forensics), delete only cancelled
       await sb
         .from("job_queue")
-        .update({ status: "archived", last_error: `Watchdog QG-heal archived` })
+        .update({ status: "cancelled", last_error: `Watchdog QG-heal cleanup` })
         .eq("package_id", pkg.id)
         .eq("status", "failed");
 
