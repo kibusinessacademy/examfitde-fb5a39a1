@@ -53,13 +53,13 @@ export type TrackKey = "AUSBILDUNG_VOLL" | "EXAM_FIRST";
  * cap in acquire_next_package_lease_v2 provides the hard ceiling.
  */
 export const WIP_QUOTA_DEFAULTS: Record<TrackKey, number> = {
-  AUSBILDUNG_VOLL: 3,
-  EXAM_FIRST: 12,
+  AUSBILDUNG_VOLL: 12,
+  EXAM_FIRST: 3,
 };
 
 export function getTrackQuota(track: TrackKey): number {
   return envInt(`WIP_QUOTA_${track}`, WIP_QUOTA_DEFAULTS[track]);
 }
 
-/** Acquisition order: which track gets slots first. EXAM_FIRST goes first to prevent starvation. */
-export const TRACK_ACQUISITION_ORDER: TrackKey[] = ["EXAM_FIRST", "AUSBILDUNG_VOLL"];
+/** Acquisition order: which track gets slots first. AUSBILDUNG_VOLL goes first (primary track). */
+export const TRACK_ACQUISITION_ORDER: TrackKey[] = ["AUSBILDUNG_VOLL", "EXAM_FIRST"];
