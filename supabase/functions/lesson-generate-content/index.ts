@@ -226,9 +226,37 @@ Deno.serve(async (req) => {
   const isMiniCheck = stepKey === "mini_check" || stepKey === "step_5_minicheck";
 
   // ── Idempotency: skip if content_version already exists ──
-  const existing = await existingVersion(sb, lessonId, stepKey);
-  if (existing) {
-    return json({ ok: true, skipped: true, reason: "already_generated", versionId: existing.id });
+  // CRITICAL: tier1_failed lessons MUST regenerate — reject stale versions first
+  const { data: lessonQc } = await sb
+    .from("lessons")
+    .select("qc_status")
+    .eq("id", lessonId)
+    .maybeSingle();
+
+  const forceRegen = lessonQc?.qc_status === "tier1_failed";
+
+  if (forceRegen) {
+    // Reject all non-rejected versions so idempotency doesn't block regen
+    const { data: staleVersions } = await sb
+      .from("content_versions")
+      .select("id")
+      .eq("lesson_id", lessonId)
+      .eq("step_key", canonicalStepKey(stepKeyRaw))
+      .neq("status", "rejected");
+
+    if (staleVersions && staleVersions.length > 0) {
+      const vIds = staleVersions.map((v: any) => v.id);
+      await sb
+        .from("content_versions")
+        .update({ status: "rejected", updated_at: new Date().toISOString() })
+        .in("id", vIds);
+      console.log(`[worker] FORCE_REGEN: Rejected ${vIds.length} stale versions for tier1_failed lesson ${lessonId.slice(0, 8)}`);
+    }
+  } else {
+    const existing = await existingVersion(sb, lessonId, stepKey);
+    if (existing) {
+      return json({ ok: true, skipped: true, reason: "already_generated", versionId: existing.id });
+    }
   }
 
   // ── Load lesson metadata ──

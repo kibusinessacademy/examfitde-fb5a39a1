@@ -16,6 +16,7 @@ export async function assertStepPostConditions(sb: SB, args: {
   const { packageId, stepKey } = args;
 
   // ── generate_learning_content: lessons must be real, not placeholder shells ──
+  // SSOT: "done" requires artifact-based validation, NOT job-based
   if (stepKey === "generate_learning_content") {
     const { data, error } = await sb.rpc("package_lessons_realness", { p_package_id: packageId });
     if (error) throw error;
@@ -25,27 +26,46 @@ export async function assertStepPostConditions(sb: SB, args: {
     const ph    = num(data?.placeholders);
     const avg   = num(data?.avg_len);
 
+    // ── Additional artifact guard: count tier1_failed lessons (needs_regen) ──
+    // Even if realness RPC says "all real", tier1_failed means QC rejected the content
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("course_id")
+      .eq("id", packageId)
+      .single();
+    let tier1Failed = 0;
+    if (pkg?.course_id) {
+      const { data: failedLessons } = await sb
+        .from("lessons")
+        .select("id, modules!inner(course_id)")
+        .eq("modules.course_id", pkg.course_id)
+        .eq("qc_status", "tier1_failed");
+      tier1Failed = failedLessons?.length ?? 0;
+    }
+
     const expected = num(args.expectedLessons ?? total);
     const minReal = expected > 0 ? Math.max(1, Math.floor(expected * 0.95)) : 1;
 
     const ok =
       total > 0 &&
       ph === 0 &&
+      tier1Failed === 0 &&
       real >= minReal &&
       avg >= 600;
 
     if (!ok) {
       const e: any = new Error("HOLLOW_LESSONS: post-condition failed");
       e.__meta = {
-        verdict: "HOLLOW_LESSONS",
+        verdict: ph > 0 || tier1Failed > 0 ? "HOLLOW_LESSONS" : "HOLLOW_LESSONS_SHORT",
         lessons_total: total,
         expected_lessons: expected,
         real_content: real,
         placeholders: ph,
+        tier1_failed: tier1Failed,
         avg_len: avg,
         min_real_required: minReal,
         // Progress fingerprint — enables progress-aware retry logic
-        fp_placeholders: ph,
+        fp_placeholders: ph + tier1Failed,
         fp_real: real,
         fp_avg_len: avg,
       };
