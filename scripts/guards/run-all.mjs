@@ -13,6 +13,7 @@ const guards = [
   "hard-literal-guard.mjs",
   "pipeline-contract-guard.mjs",
   "integrity-track-aware-guard.mjs",
+  "no-gemini-learning-content-guard.mjs",
 ];
 
 function run(file) {
