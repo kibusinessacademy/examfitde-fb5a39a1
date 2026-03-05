@@ -41,7 +41,13 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
         "Content-Type": "application/json",
         Authorization: `Bearer ${serviceKey}`,
       },
-      body: JSON.stringify({ ...(job.payload ?? {}), attempts: job.attempts ?? 0 }),
+      body: JSON.stringify({
+        ...(job.payload ?? {}),
+        attempts: job.attempts ?? 0,
+        attempt_index: job.attempts ?? 0,  // 0-based: rotation key for provider selection
+        max_attempts: job.max_attempts ?? 8,
+        job_id: job.id,
+      }),
       signal: controller.signal,
     });
 
