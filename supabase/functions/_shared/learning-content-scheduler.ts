@@ -101,7 +101,7 @@ export async function selectTargets(
     .select("id, title, step, qc_status")
     .in("module_id", moduleIds)
     .or(NEEDS_REGEN_OR_FILTER)
-    .order("updated_at", { ascending: true })
+    .order("created_at", { ascending: true })  // v10.1: was updated_at which doesn't exist on lessons
     .limit(limit);
 
   return lessons ?? [];
