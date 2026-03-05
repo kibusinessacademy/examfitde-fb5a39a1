@@ -225,7 +225,40 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ── HOLLOW COMPLETION GUARD ──
+      // ── HOLLOW COMPLETION GUARD: generate_learning_content ──
+      // Before finalizing, verify NO broken lessons remain (content NULL/placeholder/tier1_failed/regenerating).
+      // This is the Edge-side mirror of the DB trigger guard_learning_content_step_done.
+      if (zs.step_key === "generate_learning_content") {
+        const { data: pkg } = await sb.from("course_packages").select("course_id").eq("id", zs.package_id).maybeSingle();
+        if (pkg?.course_id) {
+          const { data: mods } = await sb.from("modules").select("id").eq("course_id", pkg.course_id);
+          const modIds = (mods ?? []).map((m: { id: string }) => m.id);
+          if (modIds.length > 0) {
+            const { count: brokenCount } = await sb
+              .from("lessons")
+              .select("id", { count: "exact", head: true })
+              .in("module_id", modIds)
+              .or("content.is.null,qc_status.eq.tier1_failed,content->>_placeholder.eq.true,content->>_regenerating.eq.true");
+            if ((brokenCount ?? 0) > 0) {
+              console.warn(`[stuck-scan] HOLLOW GUARD: generate_learning_content for ${zs.package_id.slice(0,8)} has ${brokenCount} broken lessons — NOT finalizing, resetting to running`);
+              await sb.from("package_steps").update({
+                status: "running",
+                meta: {
+                  ...meta,
+                  force_running: true,
+                  hollow_guard_blocked_at: new Date().toISOString(),
+                  broken_lessons: brokenCount,
+                  last_progress_note: `HOLLOW_GUARD: ${brokenCount} broken lessons, cannot finalize`,
+                },
+              }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
+              zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: `HOLLOW GUARD: reset to running (${brokenCount} broken lessons)` });
+              continue;
+            }
+          }
+        }
+      }
+
+      // ── HOLLOW COMPLETION GUARD: generate_exam_pool ──
       // Before finalizing generate_exam_pool, verify at least 1 question exists.
       // This prevents the catastrophic bug where a step is marked "done" with 0 artifacts.
       if (zs.step_key === "generate_exam_pool") {
