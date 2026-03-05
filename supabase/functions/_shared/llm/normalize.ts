@@ -1,5 +1,5 @@
 // supabase/functions/_shared/llm/normalize.ts
-// SSOT: Transient LLM error detection + empty-response guard
+// SSOT: Transient LLM error detection + empty-response guard + provider cooldown classification
 
 export type LlmText = { text: string; raw?: unknown };
 
@@ -44,9 +44,92 @@ export function isTransientLlmError(err: unknown): boolean {
     // App-level known transient signatures
     "llm_empty_response", "empty response", "llm_timeout",
     "empty/timeout result", "transient",
+    // v13: Empty response patterns (gpt-5-nano killer)
+    "no content returned", "empty_response", "no parseable tool response",
   ];
 
   return TRANSIENT_PATTERNS.some(p => msg.includes(p));
+}
+
+// ── v13: Rich error classification with provider cooldown ──────
+
+export interface ErrorClassification {
+  isTransient: boolean;
+  reason: string;
+  providerCooldownMs?: number;
+}
+
+/**
+ * Classify an error with cooldown recommendation.
+ * Use this in the runner to decide whether to rotate providers.
+ */
+export function classifyError(err: unknown): ErrorClassification {
+  const raw = (err as any)?.message ?? (err as any)?.error ?? String(err ?? "");
+  const msg = String(raw).toLowerCase();
+
+  // Empty response / blank output = transient + hard cooldown (10min)
+  if (
+    msg.includes("empty response") ||
+    msg.includes("empty_response") ||
+    msg.includes("llm_empty_response") ||
+    msg.includes("no content returned") ||
+    msg.includes("no parseable tool response") ||
+    (msg.trim() === "" && raw !== "")
+  ) {
+    return {
+      isTransient: true,
+      reason: "ops_empty_response",
+      providerCooldownMs: 10 * 60_000, // 10 min cooldown for that provider+model
+    };
+  }
+
+  // 429 rate limit = transient + moderate cooldown
+  if (msg.includes("429") || msg.includes("rate limit") || msg.includes("rate_limit")) {
+    return {
+      isTransient: true,
+      reason: "ops_rate_limited",
+      providerCooldownMs: 5 * 60_000, // 5 min
+    };
+  }
+
+  // 503 / timeouts = transient + short cooldown
+  if (
+    msg.includes("503") || msg.includes("502") || msg.includes("504") ||
+    msg.includes("timeout") || msg.includes("timed out") ||
+    msg.includes("llm_timeout") || msg.includes("service unavailable") ||
+    msg.includes("bad gateway") || msg.includes("overloaded")
+  ) {
+    return {
+      isTransient: true,
+      reason: "ops_transient_timeout",
+      providerCooldownMs: 5 * 60_000,
+    };
+  }
+
+  // Network errors = transient, no specific cooldown
+  if (
+    msg.includes("fetch failed") || msg.includes("econnreset") ||
+    msg.includes("econnrefused") || msg.includes("network error") ||
+    msg.includes("signal is aborted") || msg.includes("aborterror")
+  ) {
+    return { isTransient: true, reason: "ops_network_error" };
+  }
+
+  // Provider-layer aggregate failures
+  if (msg.includes("all providers failed")) {
+    return {
+      isTransient: true,
+      reason: "ops_all_providers_failed",
+      providerCooldownMs: 3 * 60_000,
+    };
+  }
+
+  // Check generic transient (catch-all for patterns in isTransientLlmError)
+  if (isTransientLlmError(err)) {
+    return { isTransient: true, reason: "ops_transient_generic" };
+  }
+
+  return { isTransient: false, reason: "permanent_or_unknown" };
 }
 
 /**
