@@ -140,36 +140,60 @@ Deno.serve(async (req) => {
         const isTransient = result?.transient === true;
 
         if (isTransient || !hasRealResult) {
-          // Transient or empty result → treat as soft failure with backoff
-          const attemptsNext = (job.attempts ?? 0) + 1;
-          const maxAttempts = job.max_attempts ?? 8;
-          const exhausted = attemptsNext >= maxAttempts;
+          // Transient or empty result → use SEPARATE transient budget (not main attempts)
           const now = new Date().toISOString();
+          const prevTransient = (job.meta?.transient_attempts ?? 0);
+          const transientNext = prevTransient + 1;
+          const TRANSIENT_MAX = 15;
+          const TRANSIENT_TIMEOUT_MS = 20 * 60 * 1000; // 20 min max transient window
 
-          // Stall penalty: 30s for first transient, escalating
-          const stallBackoff = Math.min(30 * Math.pow(2, Math.min(attemptsNext - 1, 5)), 1800);
+          // Track first transient occurrence for timeout guard
+          const firstTransientAtRaw = job.meta?.first_transient_at;
+          const firstTransientAt =
+            typeof firstTransientAtRaw === "string" && !Number.isNaN(Date.parse(firstTransientAtRaw))
+              ? firstTransientAtRaw
+              : now;
+          const transientElapsedMs = Date.now() - new Date(firstTransientAt).getTime();
+          const timedOut = transientElapsedMs > TRANSIENT_TIMEOUT_MS;
+          const exhausted = transientNext >= TRANSIENT_MAX || timedOut;
+
+          // Stall penalty: min 15s, escalating, capped at 1800s
+          const stallBackoff = Math.max(15, Math.min(30 * Math.pow(2, Math.min(transientNext - 1, 5)), 1800));
+
+          const errorLabel = isTransient
+            ? `TRANSIENT: empty/timeout result (gen=${result?.generated ?? 0})`
+            : `EMPTY_RESULT: job returned ok=true but no real content`;
 
           const update: Record<string, unknown> = {
-            attempts: attemptsNext,
-            last_error: isTransient
-              ? `TRANSIENT: empty/timeout result (gen=${result?.generated ?? 0})`
-              : `EMPTY_RESULT: job returned ok=true but no real content`,
+            // DO NOT increment attempts — transient budget is separate
+            last_error: errorLabel,
             updated_at: now,
             locked_at: null,
             locked_by: null,
+            meta: {
+              ...(job.meta || {}),
+              transient_attempts: transientNext,
+              last_error_kind: "transient",
+              last_error_class: "transient",
+              last_transient_at: now,
+              first_transient_at: firstTransientAt,
+            },
           };
 
           if (exhausted) {
             update.status = "failed";
             update.completed_at = now;
+            update.attempts = (job.attempts ?? 0) + 1; // consume 1 attempt only on exhaustion
+            (update.meta as Record<string, unknown>).transient_exhausted = true;
+            (update.meta as Record<string, unknown>).exhaust_reason = timedOut ? "ops_transient_timeout" : "max_transient_attempts";
           } else {
             update.status = "pending";
             update.run_after = new Date(Date.now() + stallBackoff * 1000).toISOString();
           }
 
           await sb.from("job_queue").update(update).eq("id", job.id);
-          console.warn(`[content-runner] ⚠️ ${job.job_type} (${shortId}) ${isTransient ? "TRANSIENT" : "EMPTY_RESULT"} — backoff ${stallBackoff}s [${attemptsNext}/${maxAttempts}]`);
-          results.push({ id: job.id, ok: false, error: update.last_error, exhausted });
+          console.warn(`[content-runner] ⚠️ ${job.job_type} (${shortId}) ${isTransient ? "TRANSIENT" : "EMPTY_RESULT"} — backoff ${stallBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
+          results.push({ id: job.id, ok: false, error: errorLabel, exhausted, transient: true });
         } else {
           // Real success
           const now = new Date().toISOString();
@@ -203,7 +227,7 @@ Deno.serve(async (req) => {
         const errorStr = dispatchError || "";
         const isTransient = isTransientLlmError(errorStr);
         const now = new Date().toISOString();
-        const backoffSec = inferBackoffSeconds(errorStr);
+        const backoffSec = Math.max(15, inferBackoffSeconds(errorStr)); // clamp minimum 15s
 
         if (isTransient) {
           // Transient errors (503, timeout, rate limit) use separate budget
@@ -212,8 +236,12 @@ Deno.serve(async (req) => {
           const TRANSIENT_MAX = 15;
           const TRANSIENT_TIMEOUT_MS = 20 * 60 * 1000; // 20 min max transient window
 
-          // Track first transient occurrence for timeout guard
-          const firstTransientAt = job.meta?.first_transient_at ?? now;
+          // Track first transient occurrence for timeout guard (robust parsing)
+          const firstTransientAtRaw = job.meta?.first_transient_at;
+          const firstTransientAt =
+            typeof firstTransientAtRaw === "string" && !Number.isNaN(Date.parse(firstTransientAtRaw))
+              ? firstTransientAtRaw
+              : now;
           const transientElapsedMs = Date.now() - new Date(firstTransientAt).getTime();
           const timedOut = transientElapsedMs > TRANSIENT_TIMEOUT_MS;
           const exhausted = transientNext >= TRANSIENT_MAX || timedOut;
@@ -227,6 +255,7 @@ Deno.serve(async (req) => {
               ...(job.meta || {}),
               transient_attempts: transientNext,
               last_error_kind: "transient",
+              last_error_class: "transient",
               last_transient_at: now,
               first_transient_at: firstTransientAt,
             },
@@ -261,6 +290,7 @@ Deno.serve(async (req) => {
             meta: {
               ...(job.meta || {}),
               last_error_kind: "permanent",
+              last_error_class: "permanent",
             },
           };
 
