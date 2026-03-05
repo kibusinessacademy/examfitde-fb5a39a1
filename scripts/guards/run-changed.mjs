@@ -28,6 +28,7 @@ const conditional = [
   { file: "ssot-guard.mjs", match: (f) => f.startsWith("src/") || f.includes("frontend") },
   { file: "blueprint-guard.mjs", match: (f) => f.startsWith("src/") || f.includes("edge") || f.includes("functions") },
   { file: "curriculum-freeze-guard.mjs", match: (f) => f.includes("supabase/migrations") || f.includes("curriculum") || f.includes("ssot") },
+  { file: "integrity-track-aware-guard.mjs", match: (f) => f.includes("package-run-integrity-check") || f.includes("integrity") },
 ];
 
 function run(file) {
