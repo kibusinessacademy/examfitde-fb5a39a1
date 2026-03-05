@@ -106,6 +106,57 @@ export async function assertStepPostConditions(sb: SB, args: {
     }
   }
 
+  // ── auto_seed_exam_blueprints: must have blueprints for curriculum ──
+  if (stepKey === "auto_seed_exam_blueprints") {
+    const { data: pkg } = await sb.from("course_packages").select("curriculum_id").eq("id", packageId).single();
+    if (!pkg?.curriculum_id) throw new Error("HOLLOW_BLUEPRINTS: no curriculum_id on package");
+    // Check question_blueprints table (SSOT for blueprints)
+    const { count, error } = await sb
+      .from("question_blueprints")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", pkg.curriculum_id);
+    if (error) throw error;
+
+    if ((count ?? 0) < 1) {
+      const e: any = new Error("HOLLOW_BLUEPRINTS: post-condition failed");
+      e.__meta = {
+        verdict: "HOLLOW_BLUEPRINTS",
+        blueprint_count: count ?? 0,
+      };
+      throw e;
+    }
+  }
+
+  // ── generate_exam_pool: must have meaningful question count ──
+  if (stepKey === "generate_exam_pool") {
+    const { data: pkg } = await sb.from("course_packages").select("curriculum_id, meta").eq("id", packageId).single();
+    if (!pkg?.curriculum_id) throw new Error("HOLLOW_EXAM_POOL: no curriculum_id on package");
+
+    const { count, error } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", pkg.curriculum_id);
+    if (error) throw error;
+
+    // Dynamic threshold: use exam_target from package meta, floor at 50
+    const pkgMeta = (pkg.meta ?? {}) as Record<string, unknown>;
+    const examTarget = num(pkgMeta.exam_target) || 1000;
+    // Require at least 5% of target as absolute minimum (prevents hollow with 10 questions)
+    const minRequired = Math.max(50, Math.floor(examTarget * 0.05));
+    const actual = count ?? 0;
+
+    if (actual < minRequired) {
+      const e: any = new Error("HOLLOW_EXAM_POOL: post-condition failed");
+      e.__meta = {
+        verdict: "HOLLOW_EXAM_POOL",
+        exam_questions_count: actual,
+        min_required: minRequired,
+        exam_target: examTarget,
+      };
+      throw e;
+    }
+  }
+
   // ── build_ai_tutor_index: must have index rows ──
   if (stepKey === "build_ai_tutor_index") {
     const { count, error } = await sb

@@ -259,21 +259,44 @@ Deno.serve(async (req) => {
       }
 
       // ── HOLLOW COMPLETION GUARD: generate_exam_pool ──
-      // Before finalizing generate_exam_pool, verify at least 1 question exists.
-      // This prevents the catastrophic bug where a step is marked "done" with 0 artifacts.
+      // Before finalizing, verify MEANINGFUL question count exists (not just >0).
+      // Previous bug: 10 questions slipped through with min=0, causing HOLLOW_COMPLETION.
       if (zs.step_key === "generate_exam_pool") {
-        const { data: pkg } = await sb.from("course_packages").select("curriculum_id").eq("id", zs.package_id).maybeSingle();
+        const { data: pkg } = await sb.from("course_packages").select("curriculum_id, meta").eq("id", zs.package_id).maybeSingle();
         if (pkg?.curriculum_id) {
           const { count: qCount } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", pkg.curriculum_id);
-          if ((qCount ?? 0) === 0) {
-            console.warn(`[stuck-scan] HOLLOW GUARD: ${zs.step_key} for ${zs.package_id.slice(0,8)} has 0 exam questions — NOT finalizing, resetting to queued`);
+          const pkgMeta = (pkg.meta ?? {}) as Record<string, unknown>;
+          const examTarget = Number(pkgMeta?.exam_target ?? 1000);
+          const minRequired = Math.max(50, Math.floor(examTarget * 0.05));
+          if ((qCount ?? 0) < minRequired) {
+            console.warn(`[stuck-scan] HOLLOW GUARD: ${zs.step_key} for ${zs.package_id.slice(0,8)} has ${qCount ?? 0} exam questions (min=${minRequired}) — NOT finalizing, resetting to queued`);
             await sb.from("package_steps").update({
               status: "queued",
               started_at: null,
               finished_at: null,
-              meta: { note: "HOLLOW_GUARD: 0 artifacts, reset by stuck-scan" },
+              meta: { ...meta, note: `HOLLOW_GUARD: ${qCount ?? 0}/${minRequired} questions, reset by stuck-scan`, hollow_guard_at: new Date().toISOString() },
             }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
-            zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: "HOLLOW GUARD: reset to queued (0 questions)" });
+            zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: `HOLLOW GUARD: reset to queued (${qCount ?? 0}/${minRequired} questions)` });
+            continue;
+          }
+        }
+      }
+
+      // ── HOLLOW COMPLETION GUARD: auto_seed_exam_blueprints ──
+      // Blueprints must exist before marking step done.
+      if (zs.step_key === "auto_seed_exam_blueprints") {
+        const { data: pkg } = await sb.from("course_packages").select("curriculum_id").eq("id", zs.package_id).maybeSingle();
+        if (pkg?.curriculum_id) {
+          const { count: bpCount } = await sb.from("question_blueprints").select("id", { count: "exact", head: true }).eq("curriculum_id", pkg.curriculum_id);
+          if ((bpCount ?? 0) < 1) {
+            console.warn(`[stuck-scan] HOLLOW GUARD: ${zs.step_key} for ${zs.package_id.slice(0,8)} has 0 blueprints — NOT finalizing, resetting to queued`);
+            await sb.from("package_steps").update({
+              status: "queued",
+              started_at: null,
+              finished_at: null,
+              meta: { ...meta, note: "HOLLOW_GUARD: 0 blueprints, reset by stuck-scan", hollow_guard_at: new Date().toISOString() },
+            }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
+            zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: "HOLLOW GUARD: reset to queued (0 blueprints)" });
             continue;
           }
         }
