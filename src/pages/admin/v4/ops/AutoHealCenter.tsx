@@ -37,7 +37,9 @@ export default function AutoHealCenter() {
   useEffect(() => {
     const load = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('admin-auto-heal-status');
+        const { data, error } = await supabase.functions.invoke('admin-auto-heal-status', {
+          body: {},
+        });
         if (error) throw error;
         setRuns(data?.runs || []);
         setPolicy(data?.policy || null);
