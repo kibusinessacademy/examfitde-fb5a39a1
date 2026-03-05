@@ -20,6 +20,7 @@ const CRITICAL_FUNCTIONS = [
   "pipeline-runner",
   "job-runner",
   "stuck-scan",
+  "admin-deploy-smoke-check",
 ];
 
 const MAX_RETRIES = 3;

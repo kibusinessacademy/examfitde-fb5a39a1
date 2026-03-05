@@ -258,6 +258,29 @@ export function getBudget(intent: PipelineIntent): number {
   return INTENT_BUDGETS[intent];
 }
 
+// ── Deploy Revision Tracking ─────────────────────────────────
+
+/** Returns the deploy revision (git SHA) from env, or empty string. */
+export function getDeployRev(): string {
+  return Deno.env.get("DEPLOY_REV") || Deno.env.get("GITHUB_SHA") || "";
+}
+
+/**
+ * Build metadata object for llm_cost_events.meta with chain traceability.
+ * Call this when logging AI calls to ensure deploy-smoke-check can verify.
+ */
+export function buildChainMeta(
+  chain: ModelChoice[],
+  extra?: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...(extra ?? {}),
+    chain_size: chain.length,
+    chain_models: chain.map((c) => c.model),
+    deploy_rev: getDeployRev(),
+  };
+}
+
 // ── Adaptive Quality Escalation ──────────────────────────────
 
 export type ContentDifficulty = "easy" | "medium" | "hard" | "very_hard";
