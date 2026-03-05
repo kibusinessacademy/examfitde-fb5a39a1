@@ -1,15 +1,38 @@
 import { useEffect, useState } from 'react';
-import { Gauge } from 'lucide-react';
+import { Gauge, ShieldCheck, Play, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Loading, MiniKPI } from './OpsShared';
+import { toast } from 'sonner';
+
+interface HealResult {
+  package_id: string;
+  curriculum_id: string;
+  blueprint_count: number;
+  question_count: number;
+  hollow_reason: string;
+  jobs_canceled: number;
+  steps_reset: string[];
+}
+
+interface HealResponse {
+  ok: boolean;
+  dry_run: boolean;
+  scanned_packages: number;
+  healed: HealResult[];
+  healed_count: number;
+  error?: string;
+}
 
 export default function AutoHealCenter() {
   const [runs, setRuns] = useState<any[]>([]);
   const [policy, setPolicy] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [healResult, setHealResult] = useState<HealResponse | null>(null);
+  const [healLoading, setHealLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -24,6 +47,27 @@ export default function AutoHealCenter() {
     load();
   }, []);
 
+  const runHeal = async (dryRun: boolean) => {
+    setHealLoading(true);
+    setHealResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('safe-global-heal', {
+        body: { dry_run: dryRun, min_questions: 50 },
+      });
+      if (error) throw error;
+      setHealResult(data as HealResponse);
+      if (data?.healed_count > 0) {
+        toast.success(`${dryRun ? '[DRY RUN] ' : ''}${data.healed_count} Pakete ${dryRun ? 'erkannt' : 'geheilt'}`);
+      } else {
+        toast.info('Keine HOLLOW-Pakete gefunden – Pipeline ist sauber.');
+      }
+    } catch (e: any) {
+      toast.error(`Heal fehlgeschlagen: ${e.message}`);
+    } finally {
+      setHealLoading(false);
+    }
+  };
+
   if (loading) return <Loading />;
 
   const active = runs.filter(r => r.status === 'running');
@@ -37,6 +81,80 @@ export default function AutoHealCenter() {
 
   return (
     <div className="space-y-6">
+      {/* Safe Global Heal Controls */}
+      <Card className="border-primary/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" /> Safe Global Heal
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Scannt alle aktiven Pakete auf HOLLOW-Steps (done ohne Artefakte), Zombie-Steps und blockierte QG-Jobs.
+            Resettet nur die kaputte Exam-Kette – kein Fortschritt geht verloren.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={healLoading}
+              onClick={() => runHeal(true)}
+            >
+              <Eye className="h-3.5 w-3.5 mr-1.5" />
+              Dry Run (Scan)
+            </Button>
+            <Button
+              size="sm"
+              variant="default"
+              disabled={healLoading}
+              onClick={() => runHeal(false)}
+            >
+              <Play className="h-3.5 w-3.5 mr-1.5" />
+              Heal ausführen
+            </Button>
+          </div>
+
+          {healResult && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2 text-xs">
+                <Badge variant={healResult.dry_run ? 'secondary' : 'default'} className="text-[10px]">
+                  {healResult.dry_run ? 'DRY RUN' : 'EXECUTED'}
+                </Badge>
+                <span className="text-muted-foreground">
+                  {healResult.scanned_packages} Pakete gescannt · {healResult.healed_count} HOLLOW gefunden
+                </span>
+              </div>
+              {healResult.healed.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border text-muted-foreground">
+                        <th className="text-left py-1.5 px-2">Paket</th>
+                        <th className="text-left py-1.5 px-2">Grund</th>
+                        <th className="text-left py-1.5 px-2">Blueprints</th>
+                        <th className="text-left py-1.5 px-2">Fragen</th>
+                        <th className="text-left py-1.5 px-2">Jobs canceled</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {healResult.healed.map((h) => (
+                        <tr key={h.package_id} className="border-b border-border/30">
+                          <td className="py-1.5 px-2 font-mono">{h.package_id.substring(0, 8)}</td>
+                          <td className="py-1.5 px-2 text-destructive truncate max-w-[250px]">{h.hollow_reason}</td>
+                          <td className="py-1.5 px-2">{h.blueprint_count}</td>
+                          <td className="py-1.5 px-2">{h.question_count}</td>
+                          <td className="py-1.5 px-2">{h.jobs_canceled}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {policy && (
         <Card>
           <CardHeader className="pb-2">
