@@ -14,7 +14,7 @@ interface HealResult {
   blueprint_count: number;
   question_count: number;
   hollow_reason: string;
-  jobs_canceled: number;
+  jobs_cancelled: number;
   steps_reset: string[];
 }
 
@@ -36,13 +36,16 @@ export default function AutoHealCenter() {
 
   useEffect(() => {
     const load = async () => {
-      const [runsRes, policyRes] = await Promise.all([
-        (supabase as any).from('autofix_runs').select('*').order('created_at', { ascending: false }).limit(20),
-        (supabase as any).from('auto_heal_policies').select('*').eq('is_active', true).maybeSingle(),
-      ]);
-      setRuns(runsRes.data || []);
-      setPolicy(policyRes.data);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase.functions.invoke('admin-auto-heal-status');
+        if (error) throw error;
+        setRuns(data?.runs || []);
+        setPolicy(data?.policy || null);
+      } catch (e: any) {
+        console.error('Failed to load auto-heal status:', e.message);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
@@ -133,7 +136,7 @@ export default function AutoHealCenter() {
                         <th className="text-left py-1.5 px-2">Grund</th>
                         <th className="text-left py-1.5 px-2">Blueprints</th>
                         <th className="text-left py-1.5 px-2">Fragen</th>
-                        <th className="text-left py-1.5 px-2">Jobs canceled</th>
+                        <th className="text-left py-1.5 px-2">Jobs cancelled</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -143,7 +146,7 @@ export default function AutoHealCenter() {
                           <td className="py-1.5 px-2 text-destructive truncate max-w-[250px]">{h.hollow_reason}</td>
                           <td className="py-1.5 px-2">{h.blueprint_count}</td>
                           <td className="py-1.5 px-2">{h.question_count}</td>
-                          <td className="py-1.5 px-2">{h.jobs_canceled}</td>
+                          <td className="py-1.5 px-2">{h.jobs_cancelled}</td>
                         </tr>
                       ))}
                     </tbody>
