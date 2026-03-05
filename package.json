@@ -10,7 +10,13 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "pool:contract:check": "deno run -A scripts/check-pool-contract.ts",
-    "pool:contract:update": "deno run -A scripts/update-pool-contract.ts"
+    "pool:contract:update": "deno run -A scripts/update-pool-contract.ts",
+    "ci:typecheck": "tsc --noEmit",
+    "ci:guards": "node scripts/guards/run-all.mjs",
+    "ci:guards:changed": "node scripts/guards/run-changed.mjs",
+    "ci:schema:offline": "node scripts/schema-drift/offline.mjs",
+    "ci:schema:online": "node scripts/schema-drift/online.mjs",
+    "ci:audit": "npm audit --audit-level=high"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
@@ -60,6 +66,7 @@
     "date-fns": "^3.6.0",
     "dompurify": "^3.3.1",
     "embla-carousel-react": "^8.6.0",
+    "glob": "^11.1.0",
     "h5p-standalone": "^3.8.0",
     "input-otp": "^1.4.2",
     "jsdom": "^20.0.3",

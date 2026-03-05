@@ -2,7 +2,6 @@ name: Content Quality Gate
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
@@ -11,101 +10,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  typescript:
-    name: TypeScript Check
+  gate:
+    name: ExamFit Quality Gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npx tsc --noEmit
-        id: tsc
-      - name: Annotate errors
-        if: failure()
-        run: echo "::error::TypeScript compilation failed. Fix type errors before merging."
+          node-version: "20"
+          cache: "npm"
 
-  esm-guard:
-    name: ESM.SH Import Guard
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check for banned esm.sh imports
-        run: |
-          VIOLATIONS=$(grep -rn "https://esm.sh/" supabase/functions/ --include="*.ts" || true)
-          if [ -n "$VIOLATIONS" ]; then
-            echo "::error::❌ Banned esm.sh imports found. Use npm: specifier instead."
-            echo "$VIOLATIONS"
-            exit 1
-          fi
-          echo "✅ No esm.sh imports found."
+      - name: Install
+        run: npm ci
 
-  ssot-guard:
-    name: SSOT Guard
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: node scripts/ssot-guard.mjs
+      - name: Typecheck
+        run: npm run ci:typecheck
 
-  track-aware-guard:
-    name: Track-Aware Literals Guard
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: node scripts/guards/integrity-track-aware-guard.mjs
+      - name: Guards (changed files)
+        env:
+          CI_DIFF_BASE: origin/main
+        run: npm run ci:guards:changed
 
-  edge-function-lint:
-    name: Edge Function Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check shared imports consistency
-        run: |
-          # Verify all edge functions import from _shared where expected
-          MISSING_CORS=$(find supabase/functions -name "index.ts" -not -path "*/_shared/*" -not -path "*/test-*" | while read f; do
-            if grep -q "Deno.serve" "$f" && ! grep -q "cors\|handleCors\|corsHeaders" "$f"; then
-              echo "$f"
-            fi
-          done)
-          if [ -n "$MISSING_CORS" ]; then
-            echo "::warning::Edge functions without CORS handling:"
-            echo "$MISSING_CORS"
-          fi
-          echo "✅ Edge function lint complete."
+      - name: Schema Drift (offline)
+        env:
+          CI_DIFF_BASE: origin/main
+        run: npm run ci:schema:offline
 
-  build-check:
-    name: Production Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: Check bundle size
-        run: |
-          SIZE=$(du -sb dist/ | cut -f1)
-          SIZE_MB=$(echo "scale=2; $SIZE / 1048576" | bc)
-          echo "📦 Bundle size: ${SIZE_MB} MB"
-          echo "BUNDLE_SIZE_MB=${SIZE_MB}" >> $GITHUB_ENV
-          # Warn if over 15MB
-          if (( $(echo "$SIZE_MB > 15" | bc -l) )); then
-            echo "::warning::Bundle size ${SIZE_MB}MB exceeds 15MB threshold"
-          fi
-
-  gate-result:
-    name: Quality Gate ✓
-    needs: [typescript, esm-guard, ssot-guard, track-aware-guard, edge-function-lint, build-check]
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "✅ Content Quality Gate — all checks passed."
+      - name: Production Build
+        run: npm run build
