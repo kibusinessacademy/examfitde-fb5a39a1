@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     payload: {
       curriculum_id: c.id,
       beruf_id: c.beruf_id,
-      provider: idx % 2 === 0 ? "openai" : "google", // alternate GPT / Gemini
+      provider: "openai", // v11: was alternating GPT/Gemini — now always OpenAI
     },
   }));
 

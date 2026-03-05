@@ -46,10 +46,9 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "openai/gpt-5" },
   ],
   learning_content: [
-    { provider: "lovable", model: "openai/gpt-5-mini" },              // v10.2: GPT primary — Gemini tool-parse fails 90%+ → moved to fallback
-    { provider: "lovable", model: "google/gemini-2.5-flash" },        // v10.2: Gemini as secondary (rotation on retry)
-    { provider: "lovable", model: "google/gemini-2.5-flash-lite" },
-    { provider: "lovable", model: "google/gemini-2.5-pro", is_fallback: true },
+    { provider: "lovable", model: "openai/gpt-5-mini" },              // v11: Gemini fully removed — tool-parse fails 90%+ on Lovable proxy
+    { provider: "lovable", model: "openai/gpt-5" },                   // v11: GPT-5 as fallback (was gemini-2.5-flash)
+    { provider: "lovable", model: "openai/gpt-5-nano", is_fallback: true }, // v11: nano as last resort (was gemini-2.5-pro)
   ],
   exam_questions: [
     { provider: "lovable", model: "openai/gpt-5-mini" },

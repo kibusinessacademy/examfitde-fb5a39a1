@@ -106,7 +106,7 @@ Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
     let provider = providerOverride || "";
     let model = "";
     if (provider) {
-      model = provider === "google" ? "gemini-2.5-flash" : "gpt-4.1";
+      model = provider === "google" ? "google/gemini-2.5-flash" : "openai/gpt-5-mini"; // v11: gpt-4.1 → gpt-5-mini
     } else {
       const { getModelAsync } = await import("../_shared/model-routing.ts");
       const routed = await getModelAsync("curriculum_import");
