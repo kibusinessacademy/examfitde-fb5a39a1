@@ -11456,6 +11456,30 @@ export type Database = {
         }
         Relationships: []
       }
+      llm_provider_cooldowns: {
+        Row: {
+          model: string
+          provider: string
+          reason: string
+          set_at: string
+          until_at: string
+        }
+        Insert: {
+          model: string
+          provider: string
+          reason: string
+          set_at?: string
+          until_at: string
+        }
+        Update: {
+          model?: string
+          provider?: string
+          reason?: string
+          set_at?: string
+          until_at?: string
+        }
+        Relationships: []
+      }
       llm_rate_limits: {
         Row: {
           cooldown_seconds: number

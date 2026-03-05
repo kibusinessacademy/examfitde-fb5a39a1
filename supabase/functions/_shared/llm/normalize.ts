@@ -65,16 +65,17 @@ export interface ErrorClassification {
  */
 export function classifyError(err: unknown): ErrorClassification {
   const raw = (err as any)?.message ?? (err as any)?.error ?? String(err ?? "");
-  const msg = String(raw).toLowerCase();
+  const rawStr = String(raw ?? "");
+  const msg = rawStr.toLowerCase();
 
   // Empty response / blank output = transient + hard cooldown (10min)
   if (
+    rawStr.trim().length === 0 ||
     msg.includes("empty response") ||
     msg.includes("empty_response") ||
     msg.includes("llm_empty_response") ||
     msg.includes("no content returned") ||
-    msg.includes("no parseable tool response") ||
-    (msg.trim() === "" && raw !== "")
+    msg.includes("no parseable tool response")
   ) {
     return {
       isTransient: true,
