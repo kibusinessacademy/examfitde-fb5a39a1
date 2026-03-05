@@ -803,16 +803,23 @@ Deno.serve(async (req) => {
       warnings: warningChecks,
       critical: criticalChecks,
       autofix: fixStats,
-      findings_summary: allFindings
-        .filter((f) => !f.passed)
-        .map((f) => ({
-          check_id: f.check_id,
-          check_name: f.check_name,
-          severity: f.severity,
-          metric_value: f.metric_value,
-          root_cause: f.root_cause_category,
-          action: f.recommended_action,
-        })),
+      started_at: new Date().toISOString(),
+      scope,
+      mode,
+      findings: allFindings.map((f) => ({
+        layer: f.layer,
+        check_id: f.check_id,
+        check_name: f.check_name,
+        severity: f.severity,
+        passed: f.passed,
+        metric_value: f.metric_value,
+        threshold: f.threshold,
+        root_cause_category: f.root_cause_category,
+        root_cause_detail: f.root_cause_detail,
+        recommended_action: f.recommended_action,
+        action_risk: f.action_risk,
+        sample_rows: f.sample_rows,
+      })),
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
