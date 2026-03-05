@@ -26516,6 +26516,19 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      audit_track_plausibility: {
+        Args: { p_limit?: number }
+        Returns: {
+          didaktik_steps: number
+          lessons_placeholder: number
+          lessons_total: number
+          package_id: string
+          status: string
+          title: string
+          track: string
+          verdict: string
+        }[]
+      }
       auto_block_user_if_needed: {
         Args: {
           p_block_seconds?: number
