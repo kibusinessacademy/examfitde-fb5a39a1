@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType } from "../_shared/job-map.ts";
-import { isTransientLlmError } from "../_shared/llm/normalize.ts";
+import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
+import { setProviderCooldown } from "../_shared/llm/provider-cooldown.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
@@ -278,18 +279,34 @@ Deno.serve(async (req) => {
         console.error(`[content-runner] 🛑 TERMINAL ${job.job_type} (${shortId}): ${dispatchError}`);
         results.push({ id: job.id, ok: false, error: dispatchError, terminal: true });
       } else {
-        // ── Transient failure — retry with backoff, DON'T consume attempts budget ──
+        // ── Transient or permanent failure — classify with cooldown info ──
         const errorStr = dispatchError || "";
-        const isTransient = isTransientLlmError(errorStr);
+        const classification = classifyError(errorStr);
+        const isTransient = classification.isTransient;
         const now = new Date().toISOString();
         const backoffSec = Math.max(15, inferBackoffSeconds(errorStr)); // clamp minimum 15s
 
+        // v13: Set provider cooldown if classification recommends it
+        // This prevents the runner from re-dispatching to the same failing provider
+        if (classification.providerCooldownMs) {
+          // Extract provider/model from job payload or error for cooldown tracking
+          const jobProvider = job.meta?.last_provider || job.payload?.provider || "unknown";
+          const jobModel = job.meta?.last_model || job.payload?.model || "unknown";
+          setProviderCooldown({
+            provider: jobProvider,
+            model: jobModel,
+            ms: classification.providerCooldownMs,
+            reason: classification.reason,
+          });
+          console.warn(`[content-runner] 🔄 COOLDOWN SET: ${jobProvider}/${jobModel} for ${Math.round(classification.providerCooldownMs / 1000)}s — reason: ${classification.reason}`);
+        }
+
         if (isTransient) {
-          // Transient errors (503, timeout, rate limit) use separate budget
+          // Transient errors (503, timeout, rate limit, empty response) use separate budget
           const prevTransient = (job.meta?.transient_attempts ?? 0);
           const transientNext = prevTransient + 1;
           const TRANSIENT_MAX = 25;
-          const TRANSIENT_TIMEOUT_MS = 45 * 60 * 1000; // 45 min max transient window (was 20 — too short for extended provider outages)
+          const TRANSIENT_TIMEOUT_MS = 45 * 60 * 1000; // 45 min max transient window
 
           // Track first transient occurrence for timeout guard (robust parsing)
           const firstTransientAtRaw = job.meta?.first_transient_at;
@@ -312,6 +329,7 @@ Deno.serve(async (req) => {
               attempt_index: transientNext,
               last_error_kind: "transient",
               last_error_class: "transient",
+              last_error_reason: classification.reason,
               last_transient_at: now,
               first_transient_at: firstTransientAt,
             },
@@ -325,11 +343,15 @@ Deno.serve(async (req) => {
             (update.meta as Record<string, unknown>).exhaust_reason = timedOut ? "ops_transient_timeout" : "max_transient_attempts";
           } else {
             update.status = "pending";
-            update.run_after = new Date(Date.now() + backoffSec * 1000).toISOString();
+            // v13: Use shorter backoff for empty responses (rotate faster)
+            const effectiveBackoff = classification.reason === "ops_empty_response"
+              ? Math.max(15, Math.min(backoffSec, 30))  // fast rotate on empty response
+              : backoffSec;
+            update.run_after = new Date(Date.now() + effectiveBackoff * 1000).toISOString();
           }
 
           await sb.from("job_queue").update(update).eq("id", job.id);
-          console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT — backoff ${backoffSec}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
+          console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT [${classification.reason}] — backoff ${backoffSec}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
           results.push({ id: job.id, ok: false, error: errorStr, exhausted, transient: true });
         } else {
           // Non-transient (permanent) failure — consume attempts budget
@@ -347,6 +369,7 @@ Deno.serve(async (req) => {
               ...(job.meta || {}),
               last_error_kind: "permanent",
               last_error_class: "permanent",
+              last_error_reason: classification.reason,
             },
           };
 
