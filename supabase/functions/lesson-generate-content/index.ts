@@ -320,7 +320,7 @@ Deno.serve(async (req) => {
     return json({ ok: false, retry: true, error: "budget_exhausted_after_init", elapsed_ms: Date.now() - startMs }, 503);
   }
 
-  const llmTimeoutMs = Math.max(MIN_TIMEOUT_MS, Math.min(55_000, remainingSoftMs - MIN_PERSIST_MS));  // v7.1: raised cap from 40s → 55s
+  const llmTimeoutMs = Math.max(MIN_TIMEOUT_MS, Math.min(38_000, remainingSoftMs - MIN_PERSIST_MS));  // v9.0: capped at 38s — platform kills at 55s, need room for init (~8s) + persist (~5s)
   const llmAbort = new AbortController();
   const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs) as unknown as number;
   const timeoutPromise = new Promise<never>((_, reject) => {
