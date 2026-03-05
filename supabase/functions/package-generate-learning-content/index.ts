@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
       ok: true,
       batch_complete: false,
       message: `🔒 No free WIP slots (effective=${effectiveWip}, inFlight=${globalInFlight}).`,
-      needs_regen,
+      needs_regen: needsRegen,
       dispatched: 0,
       reason: "no_free_slots",
     });
@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
       ok: true,
       batch_complete: false,
       message: `🔒 Per-package cap reached (max=${caps.perPackageMax}, inFlight=${pkgInFlight}).`,
-      needs_regen,
+      needs_regen: needsRegen,
       dispatched: 0,
       reason: "per_package_cap",
     });
@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
       ok: true,
       batch_complete: false,
       message: `⚠️ needs_regen=${needsRegen} but no targets returned — possible race.`,
-      needs_regen,
+      needs_regen: needsRegen,
       dispatched: 0,
     });
   }
