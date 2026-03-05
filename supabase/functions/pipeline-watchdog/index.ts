@@ -222,16 +222,22 @@ Deno.serve(async (req) => {
     // Type 1: Processing with NO lock at all — fetch first, then update with RACE-GUARD
     const { data: zombieJobs } = await sb
       .from("job_queue")
-      .select("id, attempts, max_attempts, package_id, job_type")
+      .select("id, attempts, max_attempts, package_id, job_type, last_error, meta")
       .eq("status", "processing")
       .is("locked_at", null)
       .lt("updated_at", zombieCutoff);
 
     let zombieCount = 0;
     for (const zj of zombieJobs || []) {
-      const newAttempts = (zj.attempts || 0) + 1;
+      // FIX: Stale locks caused by transient errors (503/timeout) must NOT consume attempts
+      const lastErr = String(zj.last_error ?? zj.meta?.last_error ?? "").toLowerCase();
+      const isTransientZombie = lastErr.includes("503") || lastErr.includes("504") || lastErr.includes("502")
+        || lastErr.includes("timeout") || lastErr.includes("service unavailable")
+        || lastErr.includes("rate limit") || lastErr.includes("llm_empty")
+        || lastErr.includes("transient") || lastErr.includes("all providers failed");
+      const newAttempts = isTransientZombie ? (zj.attempts || 0) : (zj.attempts || 0) + 1;
       const maxAttempts = zj.max_attempts || 3;
-      if (newAttempts >= maxAttempts) {
+      if (!isTransientZombie && newAttempts >= maxAttempts) {
         // RACE-GUARD: repeat original filter conditions in UPDATE to prevent overwriting freshly-claimed jobs
         const { count } = await sb.from("job_queue").update({
           status: "failed",
@@ -251,9 +257,11 @@ Deno.serve(async (req) => {
           status: "pending",
           locked_at: null,
           locked_by: null,
-          scheduled_at: new Date(Date.now() + 30_000).toISOString(),
-          last_error: `Watchdog zombie: no lock >${ZOMBIE_AGE_MINUTES}min — attempt ${newAttempts}/${maxAttempts}`,
-          last_error_code: "ZOMBIE_RETRY",
+          scheduled_at: new Date(Date.now() + (isTransientZombie ? 60_000 : 30_000)).toISOString(),
+          last_error: isTransientZombie
+            ? `Watchdog zombie: transient stale lock — reset (no attempts consumed)`
+            : `Watchdog zombie: no lock >${ZOMBIE_AGE_MINUTES}min — attempt ${newAttempts}/${maxAttempts}`,
+          last_error_code: isTransientZombie ? "ZOMBIE_TRANSIENT_RESET" : "ZOMBIE_RETRY",
           attempts: newAttempts,
           updated_at: new Date().toISOString(),
         }).eq("id", zj.id).eq("status", "processing").is("locked_at", null);
@@ -264,15 +272,21 @@ Deno.serve(async (req) => {
     // Type 2: Processing with STALE lock (locked_at too old) — fetch first, then update with RACE-GUARD
     const { data: staleJobs } = await sb
       .from("job_queue")
-      .select("id, attempts, max_attempts, package_id, job_type")
+      .select("id, attempts, max_attempts, package_id, job_type, last_error, meta")
       .eq("status", "processing")
       .lt("locked_at", staleLockCutoff);
 
     let staleLockCount = 0;
     for (const sj of staleJobs || []) {
-      const newAttempts = (sj.attempts || 0) + 1;
+      // FIX: Stale locks caused by transient errors must NOT consume attempts
+      const lastErr = String(sj.last_error ?? sj.meta?.last_error ?? "").toLowerCase();
+      const isTransientStale = lastErr.includes("503") || lastErr.includes("504") || lastErr.includes("502")
+        || lastErr.includes("timeout") || lastErr.includes("service unavailable")
+        || lastErr.includes("rate limit") || lastErr.includes("llm_empty")
+        || lastErr.includes("transient") || lastErr.includes("all providers failed");
+      const newAttempts = isTransientStale ? (sj.attempts || 0) : (sj.attempts || 0) + 1;
       const maxAttempts = sj.max_attempts || 3;
-      if (newAttempts >= maxAttempts) {
+      if (!isTransientStale && newAttempts >= maxAttempts) {
         // RACE-GUARD: repeat stale-lock cutoff in UPDATE
         const { count } = await sb.from("job_queue").update({
           status: "failed",
@@ -294,9 +308,11 @@ Deno.serve(async (req) => {
           status: "pending",
           locked_at: null,
           locked_by: null,
-          scheduled_at: new Date(Date.now() + 30_000).toISOString(),
-          last_error: `Watchdog: stale lock >${STALE_LOCK_MINUTES}min — attempt ${newAttempts}/${maxAttempts}`,
-          last_error_code: "STALE_LOCK",
+          scheduled_at: new Date(Date.now() + (isTransientStale ? 60_000 : 30_000)).toISOString(),
+          last_error: isTransientStale
+            ? `Watchdog: transient stale lock — reset (no attempts consumed)`
+            : `Watchdog: stale lock >${STALE_LOCK_MINUTES}min — attempt ${newAttempts}/${maxAttempts}`,
+          last_error_code: isTransientStale ? "STALE_LOCK_TRANSIENT_RESET" : "STALE_LOCK",
           attempts: newAttempts,
           updated_at: new Date().toISOString(),
         }).eq("id", sj.id).eq("status", "processing").lt("locked_at", staleLockCutoff);
@@ -306,7 +322,7 @@ Deno.serve(async (req) => {
 
     const zombieJobCount = zombieCount + staleLockCount;
     if (zombieJobCount > 0) {
-      actions.push(`Zombie sweep: ${zombieCount} unlocked + ${staleLockCount} stale-locked jobs (with attempts increment)`);
+      actions.push(`Zombie sweep: ${zombieCount} unlocked + ${staleLockCount} stale-locked jobs (transient-aware attempts)`);
     }
 
     // ── 2c) Ghost-Running-Step Guard ──
@@ -317,7 +333,7 @@ Deno.serve(async (req) => {
 
     const { data: ghostSteps } = await sb
       .from("package_steps")
-      .select("package_id, step_key, job_id, attempts, max_attempts")
+      .select("package_id, step_key, job_id, attempts, max_attempts, last_error")
       .eq("status", "running")
       .lt("last_heartbeat_at", ghostCutoff);
 
@@ -336,9 +352,14 @@ Deno.serve(async (req) => {
       }
 
       if (!hasActiveJob) {
-        const stepAttempts = (gs.attempts || 0) + 1;
+        // FIX: Ghost steps from transient errors (503/timeout) must NOT consume attempts
+        const lastStepErr = String(gs.last_error ?? "").toLowerCase();
+        const isTransientGhost = lastStepErr.includes("503") || lastStepErr.includes("504") || lastStepErr.includes("502")
+          || lastStepErr.includes("timeout") || lastStepErr.includes("transient")
+          || lastStepErr.includes("service unavailable") || lastStepErr.includes("all providers failed");
+        const stepAttempts = isTransientGhost ? (gs.attempts || 0) : (gs.attempts || 0) + 1;
         const stepMax = gs.max_attempts || 5;
-        if (stepAttempts >= stepMax) {
+        if (!isTransientGhost && stepAttempts >= stepMax) {
           // Exhausted → fail the step and package
           await sb.from("package_steps").update({
             status: "failed",
@@ -360,7 +381,9 @@ Deno.serve(async (req) => {
             runner_id: null,
             started_at: null,
             attempts: stepAttempts,
-            last_error: `Watchdog ghost-guard: running without active job — reset (attempt ${stepAttempts}/${stepMax})`,
+            last_error: isTransientGhost
+              ? `Watchdog ghost-guard: transient stale — reset (no attempts consumed)`
+              : `Watchdog ghost-guard: running without active job — reset (attempt ${stepAttempts}/${stepMax})`,
           }).eq("package_id", gs.package_id).eq("step_key", gs.step_key).eq("status", "running");
         }
 
