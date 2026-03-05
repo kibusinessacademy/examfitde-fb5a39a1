@@ -22,6 +22,10 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (req.method !== "POST") {
+      return json({ ok: false, error: "method_not_allowed" }, 405);
+    }
+
     // Auth: require admin JWT
     const authHeader = req.headers.get("authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) {
@@ -29,7 +33,10 @@ Deno.serve(async (req) => {
     }
 
     const jwt = authHeader.replace("Bearer ", "");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? SERVICE_ROLE;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!anonKey) {
+    return json({ ok: false, error: "missing_anon_key" }, 500);
+  }
 
     const userClient = createClient(SUPABASE_URL, anonKey, {
       auth: { persistSession: false },

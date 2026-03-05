@@ -49,7 +49,10 @@ async function authenticate(req: Request): Promise<{ ok: boolean; error?: string
   }
 
   const jwt = authHeader.replace("Bearer ", "");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? SERVICE_ROLE;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!anonKey) {
+    return { ok: false, error: "missing_anon_key" };
+  }
 
   // Use anon client with the user's JWT to validate
   const userClient = createClient(SUPABASE_URL, anonKey, {
@@ -185,11 +188,12 @@ Deno.serve(async (req) => {
         const { data: cancelledJobs } = await sb
           .from("job_queue")
           .update({
-            status: "cancelled",
-            completed_at: new Date().toISOString(),
-            locked_at: null,
-            locked_by: null,
-            last_error: `SAFE_GLOBAL_HEAL: ${hollowReason}`,
+          status: "cancelled",
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          locked_at: null,
+          locked_by: null,
+          last_error: `SAFE_GLOBAL_HEAL: ${hollowReason}`,
           })
           .eq("package_id", pkg.id)
           .in("status", ["pending", "processing"])
@@ -223,6 +227,7 @@ Deno.serve(async (req) => {
               status: "queued",
               started_at: null,
               finished_at: null,
+              updated_at: new Date().toISOString(),
               job_id: null,
               runner_id: null,
               last_error: `SAFE_GLOBAL_HEAL: ${hollowReason}`,
