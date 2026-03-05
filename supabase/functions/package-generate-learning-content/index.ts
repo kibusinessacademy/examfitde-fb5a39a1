@@ -3,24 +3,27 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { canonicalStepKey } from "../_shared/step-keys.ts";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
+import {
+  getSchedulerCaps,
+  computeAdaptiveWip,
+  countGlobalInFlight,
+  countPackageInFlight,
+  getNeedsRegenCount,
+  selectTargets,
+} from "../_shared/learning-content-scheduler.ts";
 
 /**
- * package-generate-learning-content — DISPATCHER (v7)
+ * package-generate-learning-content — SSOT Dispatcher (v8)
  *
- * No longer generates content directly. Instead:
- * 1. Identifies missing lesson-step content_versions
- * 2. Enqueues individual `lesson_generate_content` jobs (1 per lesson-step)
- * 3. Reports batch_complete when all lesson-steps have content
- *
- * Benefits:
- *   - No Edge timeout risk (dispatcher runs <10s)
- *   - Perfect retry/backoff per lesson via job_queue
- *   - Parallel execution via worker pool concurrency
- *   - Poison pills isolated to single lesson jobs
+ * Fair, artifact-based scheduling:
+ *   1. Adaptive global WIP throttle (fail-rate aware)
+ *   2. Round-robin across all building packages
+ *   3. Per-package cap (prevents hotspotting)
+ *   4. "DONE" ONLY when needs_regen === 0 (artifact truth, not job truth)
+ *   5. tier1_failed → reject stale content_versions before dispatching
  */
 
-const MAX_ENQUEUE_PER_RUN = 50;  // Cap to avoid overwhelming queue
-const STAGGER_MS = 150;          // Small stagger between jobs
+const STAGGER_MS = 150;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,19 +46,51 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done";
 }
 
-async function countActiveLessonJobs(sb: ReturnType<typeof createClient>, packageId: string): Promise<number> {
-  const { count, error } = await sb
-    .from("job_queue")
-    .select("id", { count: "exact", head: true })
-    .eq("job_type", "lesson_generate_content")
-    .eq("package_id", packageId)
-    .in("status", ["pending", "queued", "processing"]);
-  if (error) {
-    console.warn(`[dispatcher] Active lesson job count failed: ${error.message}`);
-    return 0;
+// ═══════════════════════════════════════════════════════════════
+// Reject stale content_versions for tier1_failed lessons
+// (safety net — ensures both dispatcher and worker see "missing")
+// ═══════════════════════════════════════════════════════════════
+
+async function rejectStaleVersionsForTier1Failed(
+  // deno-lint-ignore no-explicit-any
+  sb: any, courseId: string,
+): Promise<number> {
+  const { data: mods } = await sb
+    .from("modules").select("id").eq("course_id", courseId);
+  const moduleIds = (mods ?? []).map((m: { id: string }) => m.id);
+  if (moduleIds.length === 0) return 0;
+
+  // Find tier1_failed lesson IDs
+  const { data: failedLessons } = await sb
+    .from("lessons").select("id")
+    .in("module_id", moduleIds)
+    .eq("qc_status", "tier1_failed");
+  const failedIds = (failedLessons ?? []).map((l: { id: string }) => l.id);
+  if (failedIds.length === 0) return 0;
+
+  let rejected = 0;
+  for (let i = 0; i < failedIds.length; i += 200) {
+    const chunk = failedIds.slice(i, i + 200);
+    const { data: stale } = await sb
+      .from("content_versions")
+      .select("id")
+      .in("lesson_id", chunk)
+      .neq("status", "rejected");
+
+    if (stale && stale.length > 0) {
+      const vIds = stale.map((v: { id: string }) => v.id);
+      await sb.from("content_versions")
+        .update({ status: "rejected", updated_at: new Date().toISOString() })
+        .in("id", vIds);
+      rejected += vIds.length;
+    }
   }
-  return count ?? 0;
+  return rejected;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Main handler
+// ═══════════════════════════════════════════════════════════════
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -81,188 +116,99 @@ Deno.serve(async (req) => {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: scaffold_learning_course" }, 409);
   }
 
-  // ── Fetch all lessons for this course ──
-  const { data: allLessons, error: fetchErr } = await sb
-    .from("lessons")
-    .select("id, title, step, module_id, content, qc_status, modules!inner(course_id)")
-    .eq("modules.course_id", courseId)
-    .order("id", { ascending: true });
-
-  if (fetchErr) return json({ error: fetchErr.message }, 500);
-  const lessons = allLessons || [];
-
-  if (lessons.length === 0) {
-    return json({ ok: true, batch_complete: true, message: "No lessons found", total_lessons: 0 });
+  // ── Reject stale content_versions for tier1_failed lessons ──
+  const rejectedCount = await rejectStaleVersionsForTier1Failed(sb, courseId);
+  if (rejectedCount > 0) {
+    console.log(`[dispatcher] Rejected ${rejectedCount} stale content_versions for tier1_failed lessons`);
   }
 
-  // ── Identify placeholder/missing lessons ──
-  const placeholderLessons = lessons.filter((l: any) => {
-    if (!l.content) return true;
-    const c = l.content as Record<string, unknown>;
-    if (c._placeholder === true || c._placeholder === "true") return true;
-    if (c._regenerating === true || c._regenerating === "true") return true;
-    if ((l as any).qc_status === "tier1_failed") return true;
-    const contentLen = JSON.stringify(c).length;
-    if (contentLen > 500 && !c._placeholder) return false;
-    if (typeof c.html !== "string") return true;
-    if (c.html.includes("Platzhalter") || (c.html as string).length < 100) return true;
-    return false;
-  });
+  // ════════════════════════════════════════════════════════════════
+  // SSOT Scheduler: fair, capped, adaptive
+  // ════════════════════════════════════════════════════════════════
 
-  // ── PERMANENT FIX: Reject stale content_versions for tier1_failed lessons ──
-  // Without this, the idempotency check in both dispatcher and worker
-  // blocks regeneration → No-Op cycle (content exists but is garbage).
-  const tier1FailedIds = placeholderLessons
-    .filter((l: any) => (l as any).qc_status === "tier1_failed")
-    .map((l: any) => l.id);
+  const caps = getSchedulerCaps();
+  const { effectiveWip, failRate } = await computeAdaptiveWip(sb, caps.globalWipMax);
+  const globalInFlight = await countGlobalInFlight(sb);
+  const freeSlots = Math.max(0, effectiveWip - globalInFlight);
 
-  if (tier1FailedIds.length > 0) {
-    let rejectedCount = 0;
-    for (let i = 0; i < tier1FailedIds.length; i += 200) {
-      const chunk = tier1FailedIds.slice(i, i + 200);
-      const { data: staleVersions } = await sb
-        .from("content_versions")
-        .select("id")
-        .in("lesson_id", chunk)
-        .neq("status", "rejected");
+  console.log(
+    `[dispatcher] WIP: base=${caps.globalWipMax} effective=${effectiveWip} inFlight=${globalInFlight} free=${freeSlots} failRate=${failRate.toFixed(2)}`
+  );
 
-      if (staleVersions && staleVersions.length > 0) {
-        const vIds = staleVersions.map((v: any) => v.id);
-        await sb
-          .from("content_versions")
-          .update({ status: "rejected", updated_at: new Date().toISOString() })
-          .in("id", vIds);
-        rejectedCount += vIds.length;
-      }
-    }
-    if (rejectedCount > 0) {
-      console.log(`[dispatcher] NEEDS_REGEN: Rejected ${rejectedCount} stale content_versions for ${tier1FailedIds.length} tier1_failed lessons`);
-    }
-  }
+  // ── Artifact-based DONE gate ──
+  const needsRegen = await getNeedsRegenCount(sb, packageId);
 
-  // ── Build list of (lesson_id, step_key) targets ──
-  const targets = placeholderLessons.map((l: any) => ({
-    lesson_id: l.id,
-    step_key: canonicalStepKey(l.step),
-    title: l.title,
-  }));
-
-  // ── Check which targets already have content_versions ──
-  const lessonIds = [...new Set(targets.map(t => t.lesson_id))];
-  let existingSet = new Set<string>();
-
-  if (lessonIds.length > 0) {
-    // Batch query in chunks of 200 to avoid URL length limits
-    for (let i = 0; i < lessonIds.length; i += 200) {
-      const chunk = lessonIds.slice(i, i + 200);
-      const { data: existing } = await sb
-        .from("content_versions")
-        .select("lesson_id, step_key")
-        .in("lesson_id", chunk)
-        .neq("status", "rejected");
-
-      for (const row of (existing || []) as any[]) {
-        existingSet.add(`${row.lesson_id}:${row.step_key}`);
-      }
-    }
-  }
-
-  // ── Determine truly missing lesson-steps ──
-  const missing = targets.filter(t => !existingSet.has(`${t.lesson_id}:${t.step_key}`));
-
-  // ── If nothing missing: check DB integrity view as hard guard ──
-  if (missing.length === 0) {
-    // Also check integrity view to catch too-short content
-    let tooShortCount = 0;
-    try {
-      const { data: integrity } = await sb
-        .from("v_course_content_integrity")
-        .select("placeholder_lessons, too_short_lessons")
-        .eq("course_id", courseId)
-        .maybeSingle();
-      if (integrity) {
-        tooShortCount = integrity.too_short_lessons || 0;
-        if (integrity.placeholder_lessons > 0) {
-          // DB reports more placeholders — re-check on next tick
-          return json({
-            ok: true,
-            batch_complete: false,
-            batch_cursor: { offset: 0 },
-            message: `🔄 DB reports ${integrity.placeholder_lessons} placeholders remaining.`,
-            total_lessons: lessons.length,
-            placeholders_remaining: integrity.placeholder_lessons,
-          });
-        }
-      }
-    } catch { /* integrity view not available — proceed */ }
-
-    // Mark too-short for regen if needed
-    if (tooShortCount > 0) {
-      const { data: courseModules } = await sb
-        .from("modules").select("id").eq("course_id", courseId);
-      const moduleIds = (courseModules || []).map((m: any) => m.id);
-
-      if (moduleIds.length > 0) {
-        const { data: shortLessons } = await sb
-          .from("lessons")
-          .select("id, content")
-          .in("module_id", moduleIds)
-          .not("content", "is", null);
-
-        let marked = 0;
-        for (const lesson of (shortLessons || [])) {
-          const c = lesson.content as Record<string, unknown>;
-          const html = typeof c?.html === "string" ? c.html : "";
-          if (html.length > 0 && html.length < 200 && c?._placeholder !== true) {
-            await sb.rpc("pipeline_write_lesson_content_v2" as any, {
-              p_lesson_id: lesson.id,
-              p_content: { ...c, _regenerating: true, _placeholder: true },
-              p_source: 'generate-learning-content',
-            });
-            marked++;
-          }
-        }
-        if (marked > 0) {
-          return json({
-            ok: true, batch_complete: false, batch_cursor: { offset: 0 },
-            message: `🔄 ${marked} too-short lessons marked for regeneration.`,
-            too_short_marked: marked,
-          });
-        }
-      }
-    }
-
-    // Check if any lesson jobs are still running
-    const activeJobs = await countActiveLessonJobs(sb, packageId);
-    if (activeJobs > 0) {
+  if (needsRegen === 0) {
+    // Check if any lesson jobs still running for this package
+    const pkgInFlight = await countPackageInFlight(sb, packageId);
+    if (pkgInFlight > 0) {
       return json({
         ok: true,
         batch_complete: false,
-        message: `⏳ ${activeJobs} lesson jobs still active — waiting.`,
-        active_lesson_jobs: activeJobs,
-        total_lessons: lessons.length,
+        message: `⏳ ${pkgInFlight} lesson jobs still active — waiting.`,
+        active_lesson_jobs: pkgInFlight,
+        needs_regen: 0,
       });
     }
 
-    // ── COMPLETION GATE: missing=0 AND active=0 → step done ──
+    // ── COMPLETION GATE: needs_regen=0 AND active=0 → step done ──
     return json({
       ok: true,
       batch_complete: true,
-      message: `✅ Alle ${lessons.length} Lektionen haben Inhalt.`,
-      total_lessons: lessons.length,
-      placeholders_remaining: 0,
-      completion_gate: { missing: 0, active_jobs: 0 },
+      message: `✅ All lessons have valid content (needs_regen=0).`,
+      needs_regen: 0,
+      completion_gate: { needs_regen: 0, active_jobs: 0 },
     });
   }
 
-  // ── Enqueue missing lesson-steps as individual jobs ──
-  const toEnqueue = missing.slice(0, MAX_ENQUEUE_PER_RUN);
+  // ── Capacity check ──
+  if (freeSlots <= 0) {
+    return json({
+      ok: true,
+      batch_complete: false,
+      message: `🔒 No free WIP slots (effective=${effectiveWip}, inFlight=${globalInFlight}).`,
+      needs_regen,
+      dispatched: 0,
+      reason: "no_free_slots",
+    });
+  }
+
+  // ── Per-package cap ──
+  const pkgInFlight = await countPackageInFlight(sb, packageId);
+  const pkgFree = Math.max(0, caps.perPackageMax - pkgInFlight);
+
+  if (pkgFree <= 0) {
+    return json({
+      ok: true,
+      batch_complete: false,
+      message: `🔒 Per-package cap reached (max=${caps.perPackageMax}, inFlight=${pkgInFlight}).`,
+      needs_regen,
+      dispatched: 0,
+      reason: "per_package_cap",
+    });
+  }
+
+  // ── Select targets: min of free slots, per-package cap, batch max ──
+  const take = Math.min(pkgFree, freeSlots, caps.dispatchBatchMax);
+  const targets = await selectTargets(sb, packageId, take);
+
+  if (targets.length === 0) {
+    return json({
+      ok: true,
+      batch_complete: false,
+      message: `⚠️ needs_regen=${needsRegen} but no targets returned — possible race.`,
+      needs_regen,
+      dispatched: 0,
+    });
+  }
+
+  // ── Enqueue lesson jobs via SSOT enqueueJob helper ──
   let enqueued = 0;
   let deduped = 0;
-  const now = Date.now();
   const errors: string[] = [];
+  const now = Date.now();
 
-  // ── Update package_steps.meta with dispatch progress ──
+  // Update dispatch progress in package_steps.meta
   try {
     const { data: stepRow } = await sb
       .from("package_steps")
@@ -275,16 +221,18 @@ Deno.serve(async (req) => {
         meta: {
           ...(stepRow.meta ?? {}),
           dispatcher_mode: true,
-          total_missing: missing.length,
-          enqueue_batch: toEnqueue.length,
+          needs_regen: needsRegen,
+          enqueue_batch: targets.length,
+          effective_wip: effectiveWip,
+          fail_rate: failRate,
           last_dispatch_at: new Date().toISOString(),
         },
       }).eq("id", stepRow.id);
     }
   } catch { /* non-critical */ }
 
-  for (let i = 0; i < toEnqueue.length; i++) {
-    const t = toEnqueue[i];
+  for (let i = 0; i < targets.length; i++) {
+    const t = targets[i];
     try {
       const result = await enqueueJob(sb, {
         job_type: "lesson_generate_content",
@@ -294,55 +242,43 @@ Deno.serve(async (req) => {
           course_id: courseId,
           curriculum_id: curriculumId,
           certification_id: certificationId,
-          lesson_id: t.lesson_id,
-          step_key: t.step_key,
+          lesson_id: t.id,
+          step_key: canonicalStepKey(t.step),
         },
-        // batch_cursor makes idempotency_key unique per lesson-step:
-        // "lesson_generate_content:{pkg}:{lesson_id}:{step_key}"
-        batch_cursor: { lesson_id: t.lesson_id, step_key: t.step_key },
+        batch_cursor: { lesson_id: t.id, step_key: canonicalStepKey(t.step) },
         priority: 12,
         run_after: new Date(now + i * STAGGER_MS).toISOString(),
         max_attempts: 5,
       });
-
       if (result.revived) {
-        console.log(`[dispatcher] Revived job for ${t.lesson_id.slice(0, 8)}:${t.step_key}`);
+        console.log(`[dispatcher] Revived job for ${t.id.slice(0, 8)}:${canonicalStepKey(t.step)}`);
       }
       enqueued++;
     } catch (e) {
       const msg = (e as Error).message || String(e);
-      // Dedup: job already exists in active state
       if (msg.includes("DEDUP") || msg.includes("duplicate") || msg.includes("23505")) {
         deduped++;
       } else if (msg.includes("PACKAGE_NOT_EXECUTABLE")) {
-        // Package no longer building — stop dispatching
-        return json({
-          ok: false,
-          error: "Package not executable",
-          details: msg,
-          enqueued,
-          deduped,
-        }, 409);
+        return json({ ok: false, error: "Package not executable", enqueued, deduped }, 409);
       } else {
-        errors.push(`${t.lesson_id.slice(0, 8)}: ${msg.slice(0, 100)}`);
+        errors.push(`${t.id.slice(0, 8)}: ${msg.slice(0, 100)}`);
       }
     }
   }
 
-  const moreRemaining = missing.length > MAX_ENQUEUE_PER_RUN;
-
-  console.log(`[dispatcher] ${packageId.slice(0, 8)}: ${enqueued} enqueued, ${deduped} deduped, ${missing.length} total missing, ${errors.length} errors`);
+  console.log(
+    `[dispatcher] ${packageId.slice(0, 8)}: enqueued=${enqueued} deduped=${deduped} needsRegen=${needsRegen} errors=${errors.length}`
+  );
 
   return json({
     ok: true,
     batch_complete: false,
-    batch_cursor: moreRemaining ? { offset: 0 } : undefined,
-    message: `📤 ${enqueued} Lesson-Jobs enqueued (${deduped} deduped), ${missing.length} total fehlend.`,
-    total_lessons: lessons.length,
-    total_missing: missing.length,
+    message: `📤 ${enqueued} jobs enqueued (${deduped} deduped), ${needsRegen} needs_regen.`,
+    needs_regen: needsRegen,
     enqueued,
     deduped,
+    effective_wip: effectiveWip,
+    fail_rate: failRate,
     errors: errors.length > 0 ? errors : undefined,
-    capped: moreRemaining,
   });
 });
