@@ -143,9 +143,32 @@ Deno.serve(async (req) => {
       console.warn(`[nightly-guards] revive_transient_failed_lesson_jobs failed:`, reviveErr);
     }
 
+    // 5) Track plausibility audit — detect packages in wrong track
+    let trackRedFlags: Array<{ package_id: string; title: string; track: string; verdict: string }> = [];
+    try {
+      const { data: flags } = await sb.rpc("audit_track_plausibility", { p_limit: 50 });
+      trackRedFlags = (Array.isArray(flags) ? flags : []).filter((f: any) => f.verdict !== 'OK');
+      if (trackRedFlags.length > 0) {
+        const summary = trackRedFlags.slice(0, 5).map((f: any) =>
+          `${f.title} [${f.track}]: ${f.verdict}`
+        ).join("; ");
+        await sb.from("admin_notifications").insert({
+          title: `⚠️ Track Audit: ${trackRedFlags.length} suspicious package(s)`,
+          body: summary,
+          severity: "warning",
+          category: "ops",
+          entity_type: "course_package",
+          metadata: { red_flags: trackRedFlags.slice(0, 10) },
+        });
+        console.log(`[nightly-guards] Track audit: ${trackRedFlags.length} red flags`);
+      }
+    } catch (trackErr) {
+      console.warn(`[nightly-guards] audit_track_plausibility failed:`, trackErr);
+    }
+
     const result = data as Record<string, unknown>;
     const allClear =
-      result?.all_clear === true && missingTriggers.length === 0;
+      result?.all_clear === true && missingTriggers.length === 0 && trackRedFlags.length === 0;
 
     return new Response(
       JSON.stringify({
@@ -160,6 +183,10 @@ Deno.serve(async (req) => {
           ...rebindResult,
         },
         auto_revive: { revived_count: revivedCount },
+        track_audit: {
+          red_flag_count: trackRedFlags.length,
+          red_flags: trackRedFlags.slice(0, 10),
+        },
       }),
       {
         status: allClear ? 200 : 422,
