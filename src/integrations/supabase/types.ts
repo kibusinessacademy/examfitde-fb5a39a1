@@ -20143,6 +20143,227 @@ export type Database = {
         }
         Relationships: []
       }
+      system_audit_actions: {
+        Row: {
+          action_risk: string
+          action_type: string
+          after_snapshot: Json | null
+          before_snapshot: Json
+          created_at: string
+          diff: Json | null
+          error_message: string | null
+          executed_at: string | null
+          finding_id: string | null
+          id: string
+          run_id: string
+          status: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action_risk?: string
+          action_type: string
+          after_snapshot?: Json | null
+          before_snapshot?: Json
+          created_at?: string
+          diff?: Json | null
+          error_message?: string | null
+          executed_at?: string | null
+          finding_id?: string | null
+          id?: string
+          run_id: string
+          status?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action_risk?: string
+          action_type?: string
+          after_snapshot?: Json | null
+          before_snapshot?: Json
+          created_at?: string
+          diff?: Json | null
+          error_message?: string | null
+          executed_at?: string | null
+          finding_id?: string | null
+          id?: string
+          run_id?: string
+          status?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_audit_actions_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: false
+            referencedRelation: "system_audit_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_audit_actions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "system_audit_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_audit_findings: {
+        Row: {
+          action_risk: string | null
+          affected_entities: Json | null
+          check_id: string
+          check_name: string
+          created_at: string
+          dependency_chain: Json | null
+          id: string
+          layer: string
+          metric_value: number | null
+          passed: boolean
+          recommended_action: string | null
+          root_cause_category: string | null
+          root_cause_confidence: number | null
+          root_cause_detail: string | null
+          run_id: string
+          sample_rows: Json | null
+          severity: string
+          threshold: number | null
+        }
+        Insert: {
+          action_risk?: string | null
+          affected_entities?: Json | null
+          check_id: string
+          check_name: string
+          created_at?: string
+          dependency_chain?: Json | null
+          id?: string
+          layer: string
+          metric_value?: number | null
+          passed?: boolean
+          recommended_action?: string | null
+          root_cause_category?: string | null
+          root_cause_confidence?: number | null
+          root_cause_detail?: string | null
+          run_id: string
+          sample_rows?: Json | null
+          severity?: string
+          threshold?: number | null
+        }
+        Update: {
+          action_risk?: string | null
+          affected_entities?: Json | null
+          check_id?: string
+          check_name?: string
+          created_at?: string
+          dependency_chain?: Json | null
+          id?: string
+          layer?: string
+          metric_value?: number | null
+          passed?: boolean
+          recommended_action?: string | null
+          root_cause_category?: string | null
+          root_cause_confidence?: number | null
+          root_cause_detail?: string | null
+          run_id?: string
+          sample_rows?: Json | null
+          severity?: string
+          threshold?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_audit_findings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "system_audit_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_audit_runs: {
+        Row: {
+          autofix_applied: number | null
+          autofix_attempted: number | null
+          autofix_failed: number | null
+          autofix_skipped: number | null
+          content_score: number | null
+          created_at: string
+          critical_checks: number | null
+          data_score: number | null
+          didactic_score: number | null
+          error_message: string | null
+          finished_at: string | null
+          health_score: number | null
+          id: string
+          infra_score: number | null
+          metadata: Json | null
+          mode: string
+          passed_checks: number | null
+          pipeline_score: number | null
+          scope: string
+          security_score: number | null
+          started_at: string
+          status: string
+          target_package_id: string | null
+          total_checks: number | null
+          warning_checks: number | null
+        }
+        Insert: {
+          autofix_applied?: number | null
+          autofix_attempted?: number | null
+          autofix_failed?: number | null
+          autofix_skipped?: number | null
+          content_score?: number | null
+          created_at?: string
+          critical_checks?: number | null
+          data_score?: number | null
+          didactic_score?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          health_score?: number | null
+          id?: string
+          infra_score?: number | null
+          metadata?: Json | null
+          mode?: string
+          passed_checks?: number | null
+          pipeline_score?: number | null
+          scope?: string
+          security_score?: number | null
+          started_at?: string
+          status?: string
+          target_package_id?: string | null
+          total_checks?: number | null
+          warning_checks?: number | null
+        }
+        Update: {
+          autofix_applied?: number | null
+          autofix_attempted?: number | null
+          autofix_failed?: number | null
+          autofix_skipped?: number | null
+          content_score?: number | null
+          created_at?: string
+          critical_checks?: number | null
+          data_score?: number | null
+          didactic_score?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          health_score?: number | null
+          id?: string
+          infra_score?: number | null
+          metadata?: Json | null
+          mode?: string
+          passed_checks?: number | null
+          pipeline_score?: number | null
+          scope?: string
+          security_score?: number | null
+          started_at?: string
+          status?: string
+          target_package_id?: string | null
+          total_checks?: number | null
+          warning_checks?: number | null
+        }
+        Relationships: []
+      }
       system_backups: {
         Row: {
           backup_type: string
@@ -26749,6 +26970,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_duplicate_active_jobs: {
+        Args: never
+        Returns: {
+          active_count: number
+          job_type: string
+          package_id: string
+        }[]
+      }
       check_lesson_answer: {
         Args: { p_lesson_id: string; p_user_answer: string }
         Returns: Json
@@ -26799,6 +27028,15 @@ export type Database = {
       check_simulation_gate: {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
+      }
+      check_step_status_json_sync: {
+        Args: never
+        Returns: {
+          actual_status: string
+          json_status: string
+          package_id: string
+          step_key: string
+        }[]
       }
       check_trigger_bindings: {
         Args: never
@@ -27271,6 +27509,12 @@ export type Database = {
           status: string
         }[]
       }
+      count_placeholder_lessons_in_published: {
+        Args: never
+        Returns: {
+          count: number
+        }[]
+      }
       count_questions_by_lf: {
         Args: { p_curriculum_id: string; p_lf_ids: string[] }
         Returns: {
@@ -27450,6 +27694,34 @@ export type Database = {
       fail_job: {
         Args: { p_allow_retry?: boolean; p_error: string; p_job_id: string }
         Returns: undefined
+      }
+      find_ghost_published_courses: {
+        Args: never
+        Returns: {
+          course_id: string
+          course_status: string
+          course_title: string
+          published_package_count: number
+        }[]
+      }
+      find_steps_without_jobs: {
+        Args: never
+        Returns: {
+          package_id: string
+          step_id: string
+          step_key: string
+          step_status: string
+          updated_at: string
+        }[]
+      }
+      find_thin_lessons: {
+        Args: { min_length?: number; p_limit?: number }
+        Returns: {
+          content_length: number
+          course_title: string
+          lesson_id: string
+          lesson_title: string
+        }[]
       }
       finish_exam_session: { Args: { p_session_id: string }; Returns: Json }
       generate_compliance_report: {
