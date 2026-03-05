@@ -415,9 +415,9 @@ Deno.serve(async (req) => {
     ? Math.min(maxTokensOverride, baseTokenClamp)
     : baseTokenClamp;
 
-  // ── Compute LLM timeout: platform-aware ──
+  // ── Compute LLM timeout: tightened to 25s to prevent wasted wall-time ──
   const llmBudgetMs = remainingPlatformMs - MIN_PERSIST_MS - MIN_CHECKPOINT_MS;
-  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(38_000, llmBudgetMs));
+  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(25_000, llmBudgetMs));  // v10: was 38s → 25s
   const llmAbort = new AbortController();
   const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs) as unknown as number;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -529,19 +529,26 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     const errMsg = (e as Error).message || String(e);
     const transient = isTransientLlmError(e);
 
-    // ── Plain-JSON fallback (one attempt, no tool-calling) ──
+    // ── Plain-JSON fallback: rotate to DIFFERENT provider (no tools) ──
     if (errMsg.includes("No parseable tool response") && !plainRetry) {
       plainRetry = true;
       try {
-        // Plain retry: also use single provider + clamped tokens
+        // v10: Use a non-Gemini provider for plain retry to avoid same parse issue
+        const plainChain = fullChain
+          .filter(c => !c.model.includes("gemini"))
+          .slice(0, 1);
+        // Fallback: if ALL providers are Gemini, use original chain
+        const retryChain = plainChain.length > 0 ? plainChain : chain;
+
         const plainResult = await callAIWithFailover(
-          chain.map(c => ({ provider: c.provider, model: c.model })),
+          retryChain.map(c => ({ provider: c.provider, model: c.model })),
           {
             messages: [
               { role: "system", content: `Du bist ein IHK-Fachexperte. Erstelle Lerninhalt für "${professionName}". Antworte mit einem JSON-Objekt: {"html": "...", "objectives": [...], "key_terms": [...], "common_mistakes": [...], "exam_triggers": [...]}. NUR JSON, kein Markdown.` },
               { role: "user", content: userPrompt },
             ],
             max_tokens: effectiveMaxTokens,
+            timeout_ms: Math.min(15_000, llmTimeoutMs),  // v10: tight timeout for retry
           },
         );
 
@@ -556,7 +563,7 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         if (plainContent?.html && plainContent.html.length > 200) {
           content = plainContent;
           result = plainResult as any;
-          console.log(`[lesson-gen] Plain JSON fallback SUCCESS for ${lessonId.slice(0, 8)} (${plainContent.html.length} chars)`);
+          console.log(`[lesson-gen] Plain JSON fallback SUCCESS (${retryChain[0].model}) for ${lessonId.slice(0, 8)} (${plainContent.html.length} chars)`);
         }
       } catch (plainErr) {
         console.warn(`[lesson-gen] Plain retry also failed: ${(plainErr as Error).message?.slice(0, 100)}`);
