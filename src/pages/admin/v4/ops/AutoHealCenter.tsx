@@ -52,6 +52,19 @@ export default function AutoHealCenter() {
     load();
   }, []);
 
+  const loadStatus = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-auto-heal-status', {
+        body: {},
+      });
+      if (error) throw error;
+      setRuns(data?.runs || []);
+      setPolicy(data?.policy || null);
+    } catch (e: any) {
+      console.error('Failed to load auto-heal status:', e.message);
+    }
+  };
+
   const runHeal = async (dryRun: boolean) => {
     setHealLoading(true);
     setHealResult(null);
@@ -66,6 +79,8 @@ export default function AutoHealCenter() {
       } else {
         toast.info('Keine HOLLOW-Pakete gefunden – Pipeline ist sauber.');
       }
+      // Refresh status after heal
+      await loadStatus();
     } catch (e: any) {
       toast.error(`Heal fehlgeschlagen: ${e.message}`);
     } finally {

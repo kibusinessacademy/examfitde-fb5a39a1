@@ -110,6 +110,8 @@ Deno.serve(async (req) => {
     // ══════════════════════════════════════════════════════
     // 1) Find HOLLOW packages
     // ══════════════════════════════════════════════════════
+    const cutoffIso = new Date(Date.now() - 2000).toISOString(); // 2s race guard
+
     const { data: examSteps } = await sb
       .from("package_steps")
       .select("package_id, step_key, status, meta")
@@ -126,7 +128,7 @@ Deno.serve(async (req) => {
       .from("course_packages")
       .select("id, curriculum_id, meta, status")
       .in("id", packageIds)
-      .in("status", ["building", "done"]);
+      .in("status", ["building", "quality_gate_failed"]);
 
     if (!packages?.length) {
       return json({ ok: true, dry_run: dryRun, healed: [], message: "No active packages found" });
@@ -214,11 +216,23 @@ Deno.serve(async (req) => {
       const stepsToReset = [...EXAM_CHAIN_STEPS];
 
       if (!dryRun) {
-        // Load existing meta for each step to merge
+        // Load fresh meta per step to avoid stale overwrites
         for (const stepKey of stepsToReset) {
-          const existingStep = pkgSteps.find((s) => s.step_key === stepKey);
-          const existingMeta = (existingStep?.meta && typeof existingStep.meta === "object")
-            ? existingStep.meta as Record<string, unknown>
+          const { data: freshStep } = await sb
+            .from("package_steps")
+            .select("meta, status")
+            .eq("package_id", pkg.id)
+            .eq("step_key", stepKey)
+            .lt("updated_at", cutoffIso) // Race guard: skip if updated in last 2s
+            .maybeSingle();
+
+          if (!freshStep) {
+            // Step was just touched by runner — skip to avoid race
+            continue;
+          }
+
+          const existingMeta = (freshStep?.meta && typeof freshStep.meta === "object")
+            ? freshStep.meta as Record<string, unknown>
             : {};
 
           await sb
@@ -239,31 +253,31 @@ Deno.serve(async (req) => {
               },
             })
             .eq("package_id", pkg.id)
-            .eq("step_key", stepKey);
+            .eq("step_key", stepKey)
+            .lt("updated_at", cutoffIso); // Race guard
         }
       }
 
       // ══════════════════════════════════════════════════════
-      // 4) Audit trail
+      // 4) Audit trail (also for dry_run as "scan")
       // ══════════════════════════════════════════════════════
-      if (!dryRun) {
-        await sb.from("auto_heal_log").insert({
-          action_type: "safe_global_heal_exam_chain",
-          trigger_source: "edge_function",
-          target_type: "package",
-          target_id: pkg.id,
-          result_status: "healed",
-          result_detail: hollowReason,
-          metadata: {
-            curriculum_id: pkg.curriculum_id,
-            blueprint_count: bpCount,
-            question_count: qCount,
-            jobs_cancelled: jobsCancelled,
-            steps_reset: stepsToReset,
-            min_questions: minQuestions,
-          },
-        });
-      }
+      await sb.from("auto_heal_log").insert({
+        action_type: "safe_global_heal_exam_chain",
+        trigger_source: "edge_function",
+        target_type: "package",
+        target_id: pkg.id,
+        result_status: dryRun ? "scan" : "healed",
+        result_detail: `${dryRun ? "DRY_RUN: " : ""}${hollowReason}`,
+        metadata: {
+          curriculum_id: pkg.curriculum_id,
+          blueprint_count: bpCount,
+          question_count: qCount,
+          jobs_cancelled: jobsCancelled,
+          steps_reset: stepsToReset,
+          min_questions: minQuestions,
+          dry_run: dryRun,
+        },
+      });
 
       results.push({
         package_id: pkg.id,
