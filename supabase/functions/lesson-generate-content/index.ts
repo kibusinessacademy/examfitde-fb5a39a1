@@ -365,11 +365,12 @@ Deno.serve(async (req) => {
   // This gives each provider the FULL 38s budget.
   // ═══════════════════════════════════════════════════════════════
 
-  // Rotate provider based on attempt number (from job payload)
-  const attemptNum = p.attempt ?? p.attempts ?? 0;
-  const providerIndex = attemptNum % fullChain.length;
+  // ── v9.3: Explicit attempt_index for deterministic provider rotation ──
+  // attempt_index is 0-based, sent by content-runner. Falls back gracefully.
+  const attemptIndex = Number.isFinite(p.attempt_index) ? p.attempt_index : (p.attempts ?? 0);
+  const providerIndex = attemptIndex % fullChain.length;
   const chain = [fullChain[providerIndex]];
-  console.log(`[lesson-gen] SINGLE_PROVIDER: using chain[${providerIndex}] = ${chain[0].provider}/${chain[0].model} (attempt=${attemptNum}, chain_size=${fullChain.length})`);
+  console.log(`[lesson-gen] SINGLE_PROVIDER: chain[${providerIndex}] = ${chain[0].provider}/${chain[0].model} (attempt_index=${attemptIndex}, chain_size=${fullChain.length}, job=${(p.job_id || 'unknown').slice(0,8)})`);
 
   // ═══════════════════════════════════════════════════════════════
   // v9.2 TOKEN CLAMP: Hard limit to fit within 38s LLM budget
@@ -457,7 +458,9 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
           entity_type: isMiniCheck ? "minicheck" : "lesson_step",
         });
         console.log(`[lesson-gen] CHECKPOINT saved: ${rawResponseText.length} chars for ${lessonId.slice(0,8)}`);
-      } catch { /* checkpoint is best-effort — don't block */ }
+      } catch (cpErr) {
+        console.warn(`[lesson-gen] CHECKPOINT_FAIL: ${(cpErr as Error)?.message?.slice(0, 120) || 'unknown'} (lesson=${lessonId.slice(0,8)})`);
+      }
     }
 
     // Parse tool call (timer cleared in finally)
@@ -668,7 +671,7 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     certification_id: certificationId,
     course_id: courseId,
     estimatedUsage: (result as any).estimatedUsage,
-    meta: { plain_retry: plainRetry, step_key: stepKey, autopilot: autopilotAction },
+    meta: { plain_retry: plainRetry, step_key: stepKey, autopilot: autopilotAction, attempt_index: attemptIndex, provider_index: providerIndex },
   });
 
   return json({
