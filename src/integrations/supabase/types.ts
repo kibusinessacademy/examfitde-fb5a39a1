@@ -28120,6 +28120,14 @@ export type Database = {
       get_priority_ceiling: { Args: never; Returns: number }
       get_production_kpis: { Args: never; Returns: Json }
       get_profiles_security_status: { Args: never; Returns: Json }
+      get_provider_p95_latency: {
+        Args: { p_job_type: string; p_window_minutes?: number }
+        Returns: {
+          p95_ms: number
+          primary_model: string
+          sample_count: number
+        }[]
+      }
       get_quality_dashboard: { Args: never; Returns: Json }
       get_quality_public_summary: {
         Args: { p_certification_id: string }
