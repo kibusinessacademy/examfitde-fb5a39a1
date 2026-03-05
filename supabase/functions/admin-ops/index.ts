@@ -532,6 +532,159 @@ serve(async (req) => {
       return json({ success: true, dry_run: dryRun, count: results.length, errors, results });
     }
 
+    // ── switch_to_exam_first (safe track switch + step rebuild) ──
+    if (action === "switch_to_exam_first") {
+      const EXAM_FIRST_STEPS = [
+        "scaffold_learning_course",
+        "auto_seed_exam_blueprints",
+        "validate_blueprints",
+        "generate_exam_pool",
+        "validate_exam_pool",
+        "build_ai_tutor_index",
+        "validate_tutor_index",
+        "generate_oral_exam",
+        "validate_oral_exam",
+        "elite_harden",
+        "run_integrity_check",
+        "quality_council",
+        "auto_publish",
+      ];
+
+      const dryRun = Boolean(body.dry_run);
+      const maxTargets = clampInt(body.max_targets, 1, 50, 25);
+      const singleId = body.package_id ? String(body.package_id) : null;
+      const batchIds: string[] = Array.isArray(body.package_ids) ? body.package_ids : [];
+      const targets = (batchIds.length > 0 ? batchIds : singleId ? [singleId] : []).slice(0, maxTargets);
+      if (!targets.length) return json({ error: "package_id or package_ids required" }, 400);
+
+      async function switchOne(pkgId: string) {
+        const id = assertUuid(pkgId, "package_id");
+
+        const { data: pkg, error: pkgErr } = await sb
+          .from("course_packages")
+          .select("id, track, course_id, status, feature_flags, title")
+          .eq("id", id)
+          .single();
+        if (pkgErr || !pkg) throw new Error(`Package ${id} not found`);
+
+        if (pkg.track === "EXAM_FIRST" && !dryRun) {
+          return { package_id: id, title: pkg.title, skipped: true, reason: "already EXAM_FIRST" };
+        }
+
+        // Get existing steps
+        const { data: existingSteps } = await sb
+          .from("package_steps")
+          .select("step_key, status")
+          .eq("package_id", id);
+        const existingKeys = new Set((existingSteps ?? []).map((s: any) => s.step_key));
+
+        // Steps to remove (didaktik-only steps not in EXAM_FIRST)
+        const stepsToRemove = [...existingKeys].filter(k => !EXAM_FIRST_STEPS.includes(k));
+        const stepsToAdd = EXAM_FIRST_STEPS.filter(k => !existingKeys.has(k));
+
+        const newFlags = {
+          ...(pkg.feature_flags || {}),
+          has_learning_course: false,
+          has_minichecks: false,
+          has_handbook: false,
+          has_exam_trainer: true,
+          has_oral_exam_trainer: true,
+          has_ai_tutor: true,
+          _track_switch_authorized: true,
+        };
+
+        if (dryRun) {
+          return {
+            package_id: id,
+            title: pkg.title,
+            previous_track: pkg.track,
+            current_status: pkg.status,
+            steps_to_remove: stepsToRemove,
+            steps_to_add: stepsToAdd,
+            will_set_track: "EXAM_FIRST",
+          };
+        }
+
+        // 1) Cancel active lesson jobs for this package
+        await sb.from("job_queue")
+          .update({ status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("status", "pending")
+          .in("job_type", ["lesson_generate_content", "package_generate_learning_content", "package_generate_lesson_minichecks"])
+          .or(`payload->>package_id.eq.${id}`);
+
+        // 2) Remove didaktik-only steps
+        if (stepsToRemove.length > 0) {
+          for (const sk of stepsToRemove) {
+            await sb.from("package_steps").delete().eq("package_id", id).eq("step_key", sk);
+          }
+        }
+
+        // 3) Add missing EXAM_FIRST steps
+        if (stepsToAdd.length > 0) {
+          const rows = stepsToAdd.map((sk, i) => ({
+            package_id: id,
+            step_key: sk,
+            status: "queued",
+            sort_order: EXAM_FIRST_STEPS.indexOf(sk) + 1,
+            meta: { auto_created: true, reason: "switch_to_exam_first" },
+          }));
+          await sb.from("package_steps").upsert(rows, {
+            onConflict: "package_id,step_key",
+            ignoreDuplicates: true,
+          });
+        }
+
+        // 4) Reset all remaining steps to queued
+        await sb.from("package_steps")
+          .update({ status: "queued", meta: { reset_reason: "switch_to_exam_first" } })
+          .eq("package_id", id);
+
+        // 5) Update package (track + flags + status) — bypass trigger via flag
+        await sb.from("course_packages").update({
+          track: "EXAM_FIRST",
+          feature_flags: newFlags,
+          status: "building",
+          build_progress: 0,
+          updated_at: new Date().toISOString(),
+        }).eq("id", id);
+
+        // 6) Clear generation lock
+        if (pkg.course_id) {
+          await sb.from("course_generation_locks").delete().eq("course_id", pkg.course_id);
+        }
+
+        return {
+          package_id: id,
+          title: pkg.title,
+          previous_track: pkg.track,
+          new_track: "EXAM_FIRST",
+          removed_steps: stepsToRemove,
+          added_steps: stepsToAdd,
+        };
+      }
+
+      const results = [];
+      const errors = [];
+      for (const tid of targets) {
+        try {
+          results.push(await switchOne(tid));
+        } catch (e: any) {
+          errors.push({ package_id: tid, error: e.message });
+        }
+      }
+
+      await auditLog("switch_to_exam_first", targets[0], {
+        dry_run: dryRun,
+        target_count: targets.length,
+        success_count: results.length,
+        error_count: errors.length,
+        package_ids: targets,
+      });
+
+      console.log(`[admin-ops] switch_to_exam_first: ${results.length}/${targets.length} switched (dry=${dryRun}) by ${user!.id}`);
+      return json({ success: true, dry_run: dryRun, count: results.length, errors, results });
+    }
+
     return json({
       error: "Unknown action",
     }, 400);
