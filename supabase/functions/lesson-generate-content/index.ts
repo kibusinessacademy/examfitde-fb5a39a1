@@ -336,7 +336,7 @@ Deno.serve(async (req) => {
   // ── Autopilot: p95 latency check → model/token downgrade ──
   let maxTokensOverride: number | null = null;
   let autopilotAction: string | null = null;
-  const chain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
+  const fullChain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
 
   try {
     const { data: latencyStats } = await sb.rpc("get_provider_p95_latency", {
@@ -345,7 +345,6 @@ Deno.serve(async (req) => {
     }).maybeSingle();
 
     if (latencyStats?.p95_ms && latencyStats.p95_ms > 35_000) {
-      // Provider is slow — clamp tokens to reduce response time
       const originalMax = isMiniCheck ? 2200 : 3200;
       maxTokensOverride = Math.round(originalMax * 0.65);
       autopilotAction = `p95_clamp: ${latencyStats.p95_ms}ms → tokens ${originalMax}→${maxTokensOverride}`;
@@ -354,6 +353,38 @@ Deno.serve(async (req) => {
   } catch {
     // RPC doesn't exist yet or failed — proceed without autopilot
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // v9.2 CRITICAL FIX: Single-provider per edge run
+  //
+  // ROOT CAUSE: Sequential fallback chain (4 providers) shares 38s
+  // budget → each gets ~9s → ALL timeout → 100% failure rate.
+  //
+  // FIX: Use exactly 1 provider per edge invocation.
+  // On retry (next job attempt), rotate to next provider in chain.
+  // This gives each provider the FULL 38s budget.
+  // ═══════════════════════════════════════════════════════════════
+
+  // Rotate provider based on attempt number (from job payload)
+  const attemptNum = p.attempt ?? p.attempts ?? 0;
+  const providerIndex = attemptNum % fullChain.length;
+  const chain = [fullChain[providerIndex]];
+  console.log(`[lesson-gen] SINGLE_PROVIDER: using chain[${providerIndex}] = ${chain[0].provider}/${chain[0].model} (attempt=${attemptNum}, chain_size=${fullChain.length})`);
+
+  // ═══════════════════════════════════════════════════════════════
+  // v9.2 TOKEN CLAMP: Hard limit to fit within 38s LLM budget
+  //
+  // With 3200 tokens + tool-calling, providers consistently need >38s.
+  // Clamping to 1200 (lesson) / 600 (minicheck) ensures completion
+  // within the time budget while still producing quality content.
+  // ═══════════════════════════════════════════════════════════════
+
+  const TOKEN_CLAMP_LESSON = 1400;
+  const TOKEN_CLAMP_MINICHECK = 700;
+  const baseTokenClamp = isMiniCheck ? TOKEN_CLAMP_MINICHECK : TOKEN_CLAMP_LESSON;
+  const effectiveMaxTokens = maxTokensOverride
+    ? Math.min(maxTokensOverride, baseTokenClamp)
+    : baseTokenClamp;
 
   // ── Compute LLM timeout: platform-aware ──
   const llmBudgetMs = remainingPlatformMs - MIN_PERSIST_MS - MIN_CHECKPOINT_MS;
@@ -364,7 +395,7 @@ Deno.serve(async (req) => {
     setTimeout(() => reject(new Error(`LLM_TIMEOUT_${llmTimeoutMs}`)), llmTimeoutMs + 500);
   });
 
-  console.log(`[lesson-gen] Time budget: init=${elapsedMs}ms, llm_cap=${llmTimeoutMs}ms, remaining_platform=${remainingPlatformMs}ms${autopilotAction ? `, autopilot=${autopilotAction}` : ""}`);
+  console.log(`[lesson-gen] Time budget: init=${elapsedMs}ms, llm_cap=${llmTimeoutMs}ms, remaining=${remainingPlatformMs}ms, tokens=${effectiveMaxTokens}${autopilotAction ? `, autopilot=${autopilotAction}` : ""}`);
 
   let result: Awaited<ReturnType<typeof callAIWithFailover>>;
   let content: any = null;
@@ -404,7 +435,7 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
           ],
           tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,
           tool_choice: { type: "function", function: { name: isMiniCheck ? "create_mini_check" : "create_lesson_content" } },
-          max_tokens: maxTokensOverride || (isMiniCheck ? 2200 : 3200),
+          max_tokens: effectiveMaxTokens,
           signal: llmAbort.signal,
         },
       ),
@@ -471,15 +502,15 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     if (errMsg.includes("No parseable tool response") && !plainRetry) {
       plainRetry = true;
       try {
-        const plainChain = await getModelChainAsync("learning_content");
+        // Plain retry: also use single provider + clamped tokens
         const plainResult = await callAIWithFailover(
-          plainChain.map(c => ({ provider: c.provider, model: c.model })),
+          chain.map(c => ({ provider: c.provider, model: c.model })),
           {
             messages: [
               { role: "system", content: `Du bist ein IHK-Fachexperte. Erstelle Lerninhalt für "${professionName}". Antworte mit einem JSON-Objekt: {"html": "...", "objectives": [...], "key_terms": [...], "common_mistakes": [...], "exam_triggers": [...]}. NUR JSON, kein Markdown.` },
               { role: "user", content: userPrompt },
             ],
-            max_tokens: isMiniCheck ? 2200 : 3200,
+            max_tokens: effectiveMaxTokens,
           },
         );
 
