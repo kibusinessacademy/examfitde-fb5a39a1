@@ -32,7 +32,7 @@ const DEFAULTS: Record<BudgetKey, TimeBudget> = {
   exam_pool_fanout:   { ms: 45_000, softStopMs: 35_000 },
   learning_content:   { ms: 40_000, softStopMs: 25_000 },  // v10: tightened — init ~3s + LLM ~25s + persist ~5s = ~33s, hard cap 40s
   lesson_single:      { ms: 40_000, softStopMs: 25_000 },  // v10: tightened — prevents wasted wall-time on slow providers
-  handbook:           { ms: 150_000, softStopMs: 120_000 },  // v5.8: same rationale as learning_content
+  handbook:           { ms: 42_000, softStopMs: 30_000 },  // v6: aligned to content-runner 42s dispatch limit (was 150s — caused guaranteed timeouts)
   glossary:           { ms: 45_000, softStopMs: 35_000 },
   oral_exam:          { ms: 45_000, softStopMs: 35_000 },
   lesson_minichecks:  { ms: 45_000, softStopMs: 35_000 },

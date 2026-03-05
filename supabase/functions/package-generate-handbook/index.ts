@@ -233,17 +233,19 @@ async function generateSectionContent(
   wordTarget: number,
   packageId: string | null,
   startMs: number,
+  chain: Array<{ provider: string; model: string }>,
 ): Promise<{ content: string; provider: string; model: string }> {
   if (shouldSoftStop(startMs, "handbook")) {
     console.warn(`[generate-handbook] Soft-stop reached before LLM call for ${fieldCode}`);
     return { content: "", provider: "soft-stop", model: "none" };
   }
 
-  const chain = getModelChain("handbook");
+  // chain is passed as parameter now (v6: single-provider per invocation)
   const prompt = buildElitePrompt(professionName, fieldCode, fieldTitle, fieldDescription, subtopics, competencies, sampleQuestions, wordTarget);
   
   // Higher token budget for elite content
-  const maxTokens = Math.max(6000, Math.round(wordTarget * 5));
+  // v6: capped at 4096 — higher values trigger 90s fetchTimeout in ai-client (line 128-131)
+  const maxTokens = Math.min(4096, Math.max(3072, Math.round(wordTarget * 3)));
 
   try {
     const budget = getTimeBudget("handbook");
@@ -252,7 +254,7 @@ async function generateSectionContent(
       return { content: "", provider: "soft-stop", model: "none" };
     }
 
-    const llmTimeoutMs = Math.max(10_000, Math.min(40_000, remainingSoftMs - 2_000));
+    const llmTimeoutMs = Math.max(10_000, Math.min(25_000, remainingSoftMs - 2_000)); // v6: capped at 25s (was 40s)
     const llmAbort = new AbortController();
     const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs);
     
@@ -261,7 +263,7 @@ async function generateSectionContent(
         { role: "system", content: `Du bist ein IHK-Prüfungscoach mit 20 Jahren Erfahrung als Prüfer und Dozent für "${professionName}". Du schreibst das umfassendste und tiefgehendste Prüfungsvorbereitungs-Handbuch, das je für diesen Beruf erstellt wurde. Jeder Abschnitt muss so detailliert sein, dass ein Prüfling NUR mit diesem Handbuch die Prüfung bestehen könnte. Schreibe IMMER lang und ausführlich — niemals stichwortartig. Mindestens ${wordTarget} Wörter pro Abschnitt.` },
         { role: "user", content: prompt },
       ],
-      max_tokens: Math.min(8000, maxTokens),
+      max_tokens: maxTokens, // v6: already capped at 4096
       signal: llmAbort.signal,
     }).finally(() => clearTimeout(llmTimer));
 
@@ -287,20 +289,21 @@ async function generateSectionContent(
     }
 
     // ── Depth Expansion Pass: if content below threshold, request expansion ──
-    if (content.length > 500 && content.length < IDEAL_SECTION_CHARS && !shouldSoftStop(startMs, "handbook")) {
-      console.log(`[generate-handbook] Section ${fieldCode} below ideal (${content.length}/${IDEAL_SECTION_CHARS} chars). Expanding...`);
+    // v6: budget-aware — with 42s total, expansion is only viable if >12s remain after soft-stop check
+    const expandBudget = getTimeBudget("handbook");
+    const expandRemainingMs = expandBudget.softStopMs - (Date.now() - startMs);
+    if (content.length > 500 && content.length < IDEAL_SECTION_CHARS && expandRemainingMs > 12_000) {
+      console.log(`[generate-handbook] Section ${fieldCode} below ideal (${content.length}/${IDEAL_SECTION_CHARS} chars). Expanding... (${Math.round(expandRemainingMs/1000)}s remaining)`);
       try {
-        const expandBudget = getTimeBudget("handbook");
-        const remainingMs = expandBudget.softStopMs - (Date.now() - startMs);
-        if (remainingMs > 12_000) {
-          const expandAbort = new AbortController();
-          const expandTimeoutMs = Math.max(10_000, Math.min(25_000, remainingMs - 2_000));
-          const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
-          
-          const expandResult = await callAIWithFailover(chain, {
-            messages: [
-              { role: "system", content: "Du erweiterst IHK-Handbuch-Inhalte auf Elite-Niveau. Antworte NUR mit dem vollständigen, erweiterten Markdown-Text. Füge KEINE Meta-Kommentare hinzu." },
-              { role: "user", content: `Der folgende Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" muss DRINGEND erweitert werden.
+        const remainingMs = expandRemainingMs;
+        const expandAbort = new AbortController();
+        const expandTimeoutMs = Math.max(10_000, Math.min(25_000, remainingMs - 2_000));
+        const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
+        
+        const expandResult = await callAIWithFailover(chain, {
+          messages: [
+            { role: "system", content: "Du erweiterst IHK-Handbuch-Inhalte auf Elite-Niveau. Antworte NUR mit dem vollständigen, erweiterten Markdown-Text. Füge KEINE Meta-Kommentare hinzu." },
+            { role: "user", content: `Der folgende Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" muss DRINGEND erweitert werden.
 
 AKTUELLE SCHWÄCHEN:
 - Zu wenig Praxisbeispiele und Berechnungen
@@ -315,29 +318,28 @@ ERWEITERE den Text auf mindestens ${MIN_WORD_TARGET} Wörter. Füge hinzu:
 5. Detailliertere Erklärungen der Fachbegriffe
 
 BESTEHENDER TEXT:\n\n${content}` },
-            ],
-            max_tokens: Math.min(6000, maxTokens),
-            signal: expandAbort.signal,
-          }).finally(() => clearTimeout(expandTimer));
+          ],
+          max_tokens: Math.min(4096, maxTokens), // v6: capped same as primary call
+          signal: expandAbort.signal,
+        }).finally(() => clearTimeout(expandTimer));
 
-          try {
-            await logLLMCostEvent(sb, {
-              job_type: "generate_handbook_expand",
-              provider: expandResult.provider,
-              model: expandResult.model,
-              tokens_in: expandResult.usage?.input_tokens || 0,
-              tokens_out: expandResult.usage?.output_tokens || 0,
-              package_id: packageId,
-              estimatedUsage: expandResult.estimatedUsage,
-            });
-          } catch { /* non-blocking */ }
+        try {
+          await logLLMCostEvent(sb, {
+            job_type: "generate_handbook_expand",
+            provider: expandResult.provider,
+            model: expandResult.model,
+            tokens_in: expandResult.usage?.input_tokens || 0,
+            tokens_out: expandResult.usage?.output_tokens || 0,
+            package_id: packageId,
+            estimatedUsage: expandResult.estimatedUsage,
+          });
+        } catch { /* non-blocking */ }
 
-          let expanded = expandResult.content || "";
-          expanded = expanded.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
-          if (expanded.length > content.length * 1.2) {
-            console.log(`[generate-handbook] Expand OK: ${content.length} → ${expanded.length} chars`);
-            content = expanded;
-          }
+        let expanded = expandResult.content || "";
+        expanded = expanded.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
+        if (expanded.length > content.length * 1.2) {
+          console.log(`[generate-handbook] Expand OK: ${content.length} → ${expanded.length} chars`);
+          content = expanded;
         }
       } catch (expandErr) {
         console.warn(`[generate-handbook] Expand failed: ${(expandErr as Error).message}`);
@@ -431,6 +433,12 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id as string;
   const certificationId = p.certification_id || null;
   const forceRebuild = Boolean(p?.force_rebuild);
+  const attemptIndex = typeof p?.attempt_index === "number" ? p.attempt_index : 0;
+
+  // v6: single-provider per invocation — 4-provider cascade is impossible in 42s budget
+  // Rotate provider based on attempt_index (content-runner passes this on retries)
+  const fullChain = getModelChain("handbook");
+  const _handbookChain = [fullChain[attemptIndex % fullChain.length]];
 
   // ⚠️ Force rebuild: explicit admin action to hard-reset handbook for this curriculum.
   // Deletes all sections + chapters, then falls through to normal idempotent generation.
@@ -645,6 +653,7 @@ Deno.serve(async (req) => {
       wordTarget,
       packageId,
       startMs,
+      _handbookChain,
     );
 
     const hasRealContent = generated.content.length >= MIN_SECTION_CHARS;
