@@ -536,7 +536,9 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     }
 
     if (!content || (!content.html && !content.questions)) {
-      const isTransient = transient || e instanceof RateLimitError;
+      // v9.4: "No parseable tool response" IS retryable — rotation will try a different provider
+      const isParseFailure = errMsg.includes("No parseable tool response");
+      const isTransient = transient || e instanceof RateLimitError || isParseFailure;
       return json({
         ok: false, retry: isTransient, transient: isTransient,
         error: `${isTransient ? "TRANSIENT: " : ""}${errMsg.slice(0, 200)}`,
