@@ -231,7 +231,7 @@ Antworte NUR als JSON-Objekt:
     // v4: Use shared model routing (exam_questions intent)
     const chain = await getModelChainAsync("exam_questions");
     const provider = chain[0]?.provider || "lovable";
-    const model = chain[0]?.model || "google/gemini-2.5-flash";
+    const model = chain[0]?.model || "openai/gpt-5-mini"; // v11: hardcoded fallback was gemini → now GPT
 
     const result = await callAIJSON(
       {

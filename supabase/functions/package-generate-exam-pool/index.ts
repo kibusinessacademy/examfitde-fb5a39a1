@@ -343,8 +343,8 @@ async function loadExamProviderChain(): Promise<ModelChoice[]> {
   } catch (e) {
     console.warn(`[ExamPool-v5] DB routing failed, using hardcoded fallback: ${e}`);
     _examProviderChain = [
-      { provider: "lovable" as AIProvider, model: "google/gemini-2.5-flash" },
-      { provider: "lovable" as AIProvider, model: "google/gemini-2.5-pro" },
+      { provider: "lovable" as AIProvider, model: "openai/gpt-5-mini" },   // v11: was gemini-2.5-flash
+      { provider: "lovable" as AIProvider, model: "openai/gpt-5" },        // v11: was gemini-2.5-pro
     ];
   }
   return _examProviderChain;
