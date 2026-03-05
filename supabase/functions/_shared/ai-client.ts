@@ -12,6 +12,7 @@
 import {
   recordRequest,
   recordRateLimit,
+  recordServiceUnavailable,
   recordSuccess,
   getProviderHealth,
   pickAvailableProvider,
@@ -237,6 +238,8 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   // ── Record outcome for rate-limiter ──
   if (resp.status === 429) {
     recordRateLimit(opts.provider);
+  } else if (resp.status === 503 || resp.status === 502 || resp.status === 504) {
+    recordServiceUnavailable(opts.provider);
   } else if (resp.ok) {
     recordSuccess(opts.provider);
   }

@@ -172,7 +172,7 @@ export function recordRequest(provider: AIProvider): void {
 
 /**
  * Record a 429 (rate limit) response from a provider.
- * Only 429s trigger cooldown escalation (not 503/timeouts).
+ * 429s trigger cooldown escalation with progressive backoff.
  */
 export function recordRateLimit(provider: AIProvider): void {
   const s = state[provider];
@@ -196,6 +196,51 @@ export function recordRateLimit(provider: AIProvider): void {
       `${s.rateLimitTimestamps.length} 429s in ${COOLDOWN_WINDOW_MS / 1000}s)`
     );
     s.cooldownCount = nextCount;
+  }
+}
+
+// ── 503 tracking (separate from 429 but also triggers cooldown) ────
+
+/** Number of 503s within window to trigger cooldown */
+const SERVICE_UNAVAIL_TRIGGER = 4;
+const SERVICE_UNAVAIL_WINDOW_MS = 120_000; // 2 min
+/** Lighter cooldown steps for 503 (transient, shorter recovery) */
+const SERVICE_UNAVAIL_COOLDOWN_MS = [15_000, 30_000, 60_000, 120_000];
+
+const serviceUnavailTimestamps: Record<AIProvider, number[]> = {
+  openai: [], anthropic: [], google: [], lovable: [],
+};
+
+/**
+ * Record a 503/502/504 (service unavailable) from a provider.
+ * Triggers a lighter cooldown than 429 to reduce thundering-herd on overloaded providers.
+ */
+export function recordServiceUnavailable(provider: AIProvider): void {
+  const now = Date.now();
+  const ts = serviceUnavailTimestamps[provider];
+  ts.push(now);
+
+  // Prune old entries
+  const cutoff = now - SERVICE_UNAVAIL_WINDOW_MS;
+  while (ts.length > 0 && ts[0] < cutoff) ts.shift();
+  if (ts.length > 100) ts.splice(0, ts.length - 100);
+
+  if (ts.length >= SERVICE_UNAVAIL_TRIGGER) {
+    const s = state[provider];
+    // Only apply if not already in a harder cooldown
+    if (!s.cooldownUntil || s.cooldownUntil < now) {
+      const stepIdx = Math.min(s.cooldownCount, SERVICE_UNAVAIL_COOLDOWN_MS.length - 1);
+      const duration = SERVICE_UNAVAIL_COOLDOWN_MS[stepIdx];
+      s.cooldownUntil = now + duration;
+      const nextCount = s.cooldownCount + 1;
+      console.warn(
+        `[RATE-LIMITER] 🔴 Provider ${provider} 503-cooldown for ${duration / 1000}s ` +
+        `(${ts.length} 503s in ${SERVICE_UNAVAIL_WINDOW_MS / 1000}s, step ${nextCount})`
+      );
+      s.cooldownCount = nextCount;
+      // Clear the timestamps to prevent immediate re-trigger
+      ts.length = 0;
+    }
   }
 }
 
