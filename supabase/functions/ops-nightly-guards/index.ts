@@ -131,6 +131,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 4) Auto-revive transient-failed lesson jobs
+    let revivedCount = 0;
+    try {
+      const { data: revived } = await sb.rpc("revive_transient_failed_lesson_jobs", { p_limit: 200 });
+      revivedCount = Array.isArray(revived) ? revived.length : 0;
+      if (revivedCount > 0) {
+        console.log(`[nightly-guards] Auto-revived ${revivedCount} transient-failed lesson jobs`);
+      }
+    } catch (reviveErr) {
+      console.warn(`[nightly-guards] revive_transient_failed_lesson_jobs failed:`, reviveErr);
+    }
+
     const result = data as Record<string, unknown>;
     const allClear =
       result?.all_clear === true && missingTriggers.length === 0;
@@ -147,6 +159,7 @@ Deno.serve(async (req) => {
           enabled: AUTO_REBIND,
           ...rebindResult,
         },
+        auto_revive: { revived_count: revivedCount },
       }),
       {
         status: allClear ? 200 : 422,

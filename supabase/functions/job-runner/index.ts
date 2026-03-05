@@ -839,24 +839,49 @@ Deno.serve(async (req) => {
         // ── Hard failure ─────────────────────────────────────────────
         else {
           const maxAttempts = job.max_attempts || 3;
-          const newAttempts = (job.attempts || 0) + 1;
           const errStr = typeof parsed === "string" ? parsed.slice(0, 500) : JSON.stringify(parsed).slice(0, 500);
-          if (newAttempts >= maxAttempts) {
-            finalState = {
-              status: "failed",
-              patch: { error: `HTTP ${res.status}: ${errStr}`, completed_at: tsNow, attempts: newAttempts },
-              metricsAction: (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") ? "dlq" : undefined,
-            };
-          } else {
+
+          // v5.10: Transient-aware — if response body indicates transient error,
+          // do NOT burn attempt budget (same policy as 503 handler)
+          const bodyLooksTransient = typeof parsed === "object" && parsed && (
+            (parsed as any).transient === true ||
+            (parsed as any).retry === true ||
+            String((parsed as any).error || "").toLowerCase().includes("all providers failed") ||
+            String((parsed as any).error || "").toLowerCase().includes("timed out") ||
+            String((parsed as any).error || "").toLowerCase().includes("timeout")
+          );
+
+          if (bodyLooksTransient) {
+            console.warn(`[job-runner] ${fnName} HTTP ${res.status} body=transient → requeue WITHOUT attempt++ (+${BACKOFF_429_MS}ms)`);
+            const ta = Number((job.meta as any)?.transient_attempts ?? 0) + 1;
             finalState = {
               status: "pending",
               patch: {
-                run_after: new Date(Date.now() + computeErrorBackoffMs(newAttempts)).toISOString(),
-                error: `HTTP ${res.status} — attempt ${newAttempts}/${maxAttempts}`,
-                attempts: newAttempts,
-                meta: { ...(job.meta || {}), last_retry: tsNow },
+                run_after: new Date(Date.now() + BACKOFF_429_MS).toISOString(),
+                error: `HTTP ${res.status} transient: ${errStr.slice(0, 200)}`,
+                meta: { ...(job.meta || {}), last_retry: tsNow, transient_attempts: ta },
               },
+              metricsAction: "rateLimit",
             };
+          } else {
+            const newAttempts = (job.attempts || 0) + 1;
+            if (newAttempts >= maxAttempts) {
+              finalState = {
+                status: "failed",
+                patch: { error: `HTTP ${res.status}: ${errStr}`, completed_at: tsNow, attempts: newAttempts },
+                metricsAction: (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") ? "dlq" : undefined,
+              };
+            } else {
+              finalState = {
+                status: "pending",
+                patch: {
+                  run_after: new Date(Date.now() + computeErrorBackoffMs(newAttempts)).toISOString(),
+                  error: `HTTP ${res.status} — attempt ${newAttempts}/${maxAttempts}`,
+                  attempts: newAttempts,
+                  meta: { ...(job.meta || {}), last_retry: tsNow },
+                },
+              };
+            }
           }
         }
 
@@ -1112,34 +1137,52 @@ Deno.serve(async (req) => {
 
     } catch (err: unknown) {
       const msg = (err as Error)?.message || String(err);
-      const isTimeout = msg.includes("abort");
-      console.error(`[job-runner] ${fnName} error: ${msg}`);
+      const isTimeout = msg.includes("abort") || msg.includes("timeout") || msg.includes("TIMEOUT");
+      const isTransientCatch = isTimeout ||
+        msg.includes("fetch failed") || msg.includes("connection") ||
+        msg.includes("network") || msg.includes("ECONNRESET");
+      console.error(`[job-runner] ${fnName} error (transient=${isTransientCatch}): ${msg}`);
 
       if (isTimeout) tickMetrics.timeouts++;
 
-      const maxAttempts = job.max_attempts || 3;
-      const newAttempts = (job.attempts || 0) + 1;
-      if (newAttempts >= maxAttempts) {
-        finalState = {
-          status: "failed",
-          patch: {
-            error: isTimeout ? `Edge Function timeout (attempt ${newAttempts}/${maxAttempts})` : msg.slice(0, 1000),
-            completed_at: tsNow,
-            attempts: newAttempts,
-          },
-          metricsAction: (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") ? "dlq" : undefined,
-        };
-      } else {
-        const delay = isTimeout ? BACKOFF_429_MS : computeErrorBackoffMs((job.attempts || 0) + 1);
+      // v5.10: Transient catch errors (timeouts, network) do NOT burn attempt budget
+      if (isTransientCatch) {
+        const ta = Number((job.meta as any)?.transient_attempts ?? 0) + 1;
+        const delay = isTimeout ? BACKOFF_429_MS : computeErrorBackoffMs(ta);
+        console.warn(`[job-runner] ${fnName} transient catch → requeue WITHOUT attempt++ (ta=${ta}, +${delay}ms)`);
         finalState = {
           status: "pending",
           patch: {
             run_after: new Date(Date.now() + delay).toISOString(),
-            error: `Attempt ${newAttempts}/${maxAttempts} failed: ${msg.slice(0, 500)}`,
-            attempts: newAttempts,
-            meta: { ...(job.meta || {}), last_retry: tsNow },
+            error: `Transient: ${msg.slice(0, 500)}`,
+            meta: { ...(job.meta || {}), last_retry: tsNow, transient_attempts: ta },
           },
         };
+      } else {
+        const maxAttempts = job.max_attempts || 3;
+        const newAttempts = (job.attempts || 0) + 1;
+        if (newAttempts >= maxAttempts) {
+          finalState = {
+            status: "failed",
+            patch: {
+              error: msg.slice(0, 1000),
+              completed_at: tsNow,
+              attempts: newAttempts,
+            },
+            metricsAction: (job.job_type === "package_generate_exam_pool" || job.job_type === "generate_questions") ? "dlq" : undefined,
+          };
+        } else {
+          const delay = computeErrorBackoffMs(newAttempts);
+          finalState = {
+            status: "pending",
+            patch: {
+              run_after: new Date(Date.now() + delay).toISOString(),
+              error: `Attempt ${newAttempts}/${maxAttempts} failed: ${msg.slice(0, 500)}`,
+              attempts: newAttempts,
+              meta: { ...(job.meta || {}), last_retry: tsNow },
+            },
+          };
+        }
       }
     }
 
