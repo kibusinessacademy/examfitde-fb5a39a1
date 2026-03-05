@@ -1159,14 +1159,31 @@ async function processPackage(
         const currentStepForZombie = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
         const zombieMeta = (currentStepForZombie?.meta ?? {}) as Record<string, any>;
 
-        await safeQuery(
-          sb.from("job_queue").update({
-            status: "failed",
-            last_error: reason,
-            updated_at: new Date().toISOString(),
-          }).eq("id", jobId),
-          "force_fail_stuck_job",
-        );
+        // FIX 4: Transient zombies → reset job to pending (less noise) instead of failed
+        if (zombieIsTransient) {
+          await safeQuery(
+            sb.from("job_queue").update({
+              status: "pending",
+              locked_at: null,
+              locked_by: null,
+              last_error: `${reason} [transient — recycled]`,
+              updated_at: new Date().toISOString(),
+              run_after: new Date(Date.now() + 60_000).toISOString(),
+            }).eq("id", jobId),
+            "recycle_transient_zombie_job",
+          );
+        } else {
+          await safeQuery(
+            sb.from("job_queue").update({
+              status: "failed",
+              last_error: reason,
+              updated_at: new Date().toISOString(),
+            }).eq("id", jobId),
+            "force_fail_stuck_job",
+          );
+        }
+
+        const zombieBackoffRunAt = new Date(Date.now() + 60_000).toISOString();
         await safeQuery(
           sb.from("package_steps").update({
             status: "queued",
@@ -1179,13 +1196,16 @@ async function processPackage(
             meta: {
               ...zombieMeta,
               last_error_kind: zombieIsTransient ? "transient" : "zombie",
+              last_error_code: zombieIsTransient ? "STALE_LOCK_TRANSIENT_RESET" : "ZOMBIE_RESET",
+              next_run_at: zombieBackoffRunAt,
               ...(zombieIsTransient ? {
                 transient_attempts: (Number(zombieMeta.transient_attempts ?? 0) || 0) + 1,
                 first_transient_at: zombieMeta.first_transient_at ?? new Date().toISOString(),
                 last_transient_at: new Date().toISOString(),
               } : {}),
             },
-          }).eq("package_id", packageId).eq("step_key", stepKey),
+          }).eq("package_id", packageId).eq("step_key", stepKey)
+            .eq("job_id", jobId),  // FIX 1: Race guard
           "reset_stuck_step",
         );
         await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
@@ -1591,32 +1611,43 @@ async function processPackage(
       if (transient) {
         // ── TRANSIENT: do NOT consume step attempts budget ──
         const transientNext = (Number(stepMeta.transient_attempts ?? 0) || 0) + 1;
-        const firstTransientAt = stepMeta.first_transient_at ?? new Date().toISOString();
+        // FIX 2: Robust date parsing — never let NaN sneak through
+        const rawFta = stepMeta.first_transient_at;
+        const firstTransientAt =
+          typeof rawFta === "string" && !Number.isNaN(Date.parse(rawFta))
+            ? rawFta
+            : new Date().toISOString();
         const elapsedMs = Date.now() - new Date(firstTransientAt).getTime();
         const timedOut = elapsedMs > TRANSIENT_TIMEOUT_MS;
         const exhausted = transientNext >= TRANSIENT_STEP_MAX || timedOut;
+        // FIX 3: Effective backoff via meta.next_run_at (package_steps has no run_after column)
+        const nextRunAt = new Date(Date.now() + backoffSec * 1000).toISOString();
 
         if (exhausted) {
           // Transient budget exhausted — NOW consume a real attempt
           const nextAttempts = stepAttempts + 1;
           if (nextAttempts < MAX_STEP_RETRIES) {
             // Reset transient counter, give another real attempt
+            // FIX 2: omit first_transient_at entirely instead of setting null
+            const resetMeta = { ...stepMeta };
+            delete resetMeta.first_transient_at;
             await safeQuery(
               sb.from("package_steps").update({
                 status: "queued",
                 job_id: null, runner_id: null, started_at: null,
                 attempts: nextAttempts,
                 meta: {
-                  ...stepMeta,
+                  ...resetMeta,
                   transient_attempts: 0,
-                  first_transient_at: null,
                   last_error_kind: "transient_exhausted",
                   exhaust_reason: timedOut ? "ops_transient_timeout" : "max_transient_attempts",
                   retry_after_sec: backoffSec,
+                  next_run_at: nextRunAt,
                   last_fail_reason: errorMsg,
                 },
                 last_error: `Transient budget exhausted (${timedOut ? "20min timeout" : `${transientNext}/${TRANSIENT_STEP_MAX}`}) — attempt ${nextAttempts}/${MAX_STEP_RETRIES}: ${errorMsg.slice(0, 200)}`,
-              }).eq("package_id", packageId).eq("step_key", stepKey),
+              }).eq("package_id", packageId).eq("step_key", stepKey)
+                .eq("job_id", jobId),  // FIX 1: Race guard
               "transient_exhausted_retry",
             );
             await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
@@ -1645,10 +1676,12 @@ async function processPackage(
               last_transient_at: new Date().toISOString(),
               last_error_kind: "transient",
               retry_after_sec: backoffSec,
+              next_run_at: nextRunAt,
               last_fail_reason: errorMsg,
             },
             last_error: `Transient retry ${transientNext}/${TRANSIENT_STEP_MAX}: ${errorMsg.slice(0, 200)}`,
-          }).eq("package_id", packageId).eq("step_key", stepKey),
+          }).eq("package_id", packageId).eq("step_key", stepKey)
+            .eq("job_id", jobId),  // FIX 1: Race guard
           "transient_step_retry",
         );
         await safeQuery(sb.from("course_packages").update({ status: "building", last_error: `Step ${stepKey}: transient retry ${transientNext}/${TRANSIENT_STEP_MAX}` }).eq("id", packageId));
@@ -1661,14 +1694,18 @@ async function processPackage(
 
         if (nextAttempts < MAX_STEP_RETRIES) {
           console.warn(`[runner] ❌ ${stepKey} PERMANENT fail — attempt ${nextAttempts}/${MAX_STEP_RETRIES}`);
+          const permBackoffRunAt = new Date(Date.now() + backoffSec * 1000).toISOString();
+          const permResetMeta = { ...stepMeta };
+          delete permResetMeta.first_transient_at;
           await safeQuery(
             sb.from("package_steps").update({
               status: "queued",
               job_id: null, runner_id: null, started_at: null,
               attempts: nextAttempts,
-              meta: { ...stepMeta, retry_after_sec: backoffSec, last_fail_reason: errorMsg, last_error_kind: "permanent", transient_attempts: 0, first_transient_at: null },
+              meta: { ...permResetMeta, retry_after_sec: backoffSec, next_run_at: permBackoffRunAt, last_fail_reason: errorMsg, last_error_kind: "permanent", transient_attempts: 0 },
               last_error: `Permanent retry ${nextAttempts}/${MAX_STEP_RETRIES}: ${errorMsg.slice(0, 200)}`,
-            }).eq("package_id", packageId).eq("step_key", stepKey),
+            }).eq("package_id", packageId).eq("step_key", stepKey)
+              .eq("job_id", jobId),  // FIX 1: Race guard
             "permanent_step_retry",
           );
           await safeQuery(sb.from("auto_heal_log").insert({
