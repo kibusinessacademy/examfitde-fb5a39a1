@@ -274,8 +274,31 @@ Deno.serve(async (req) => {
               status: "queued",
               started_at: null,
               finished_at: null,
-              meta: { ...meta, note: `HOLLOW_GUARD: ${qCount ?? 0}/${minRequired} questions, reset by stuck-scan`, hollow_guard_at: new Date().toISOString() },
+              updated_at: new Date().toISOString(),
+              job_id: null,
+              runner_id: null,
+              last_error: `HOLLOW_COMPLETION: ${qCount ?? 0}/${minRequired} questions`,
+              meta: { ...meta, note: `HOLLOW_GUARD: ${qCount ?? 0}/${minRequired} questions, reset by stuck-scan`, hollow_guard_at: new Date().toISOString(), last_error_class: "permanent", last_error_kind: "hollow_completion" },
             }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
+
+            // Cancel blocking downstream jobs
+            await safeRpc(sb, "cancel_jobs_for_package", {
+              p_package_id: zs.package_id,
+              p_job_type: "package_validate_exam_pool",
+              p_statuses: ["pending", "processing"],
+              p_reason: `HOLLOW_GUARD: ${qCount ?? 0}/${minRequired} questions`,
+            });
+
+            await sb.from("auto_heal_log").insert({
+              action_type: "watchdog_postcondition_guard",
+              trigger_source: "stuck-scan",
+              target_type: "package_step",
+              target_id: zs.package_id,
+              result_status: "blocked_done_heal",
+              result_detail: `HOLLOW_COMPLETION: ${zs.step_key} has ${qCount ?? 0}/${minRequired} questions`,
+              metadata: { step_key: zs.step_key, curriculum_id: pkg.curriculum_id, question_count: qCount ?? 0, min_required: minRequired },
+            });
+
             zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: `HOLLOW GUARD: reset to queued (${qCount ?? 0}/${minRequired} questions)` });
             continue;
           }
@@ -294,8 +317,23 @@ Deno.serve(async (req) => {
               status: "queued",
               started_at: null,
               finished_at: null,
-              meta: { ...meta, note: "HOLLOW_GUARD: 0 blueprints, reset by stuck-scan", hollow_guard_at: new Date().toISOString() },
+              updated_at: new Date().toISOString(),
+              job_id: null,
+              runner_id: null,
+              last_error: "HOLLOW_COMPLETION: 0 blueprints",
+              meta: { ...meta, note: "HOLLOW_GUARD: 0 blueprints, reset by stuck-scan", hollow_guard_at: new Date().toISOString(), last_error_class: "permanent", last_error_kind: "hollow_completion" },
             }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
+
+            await sb.from("auto_heal_log").insert({
+              action_type: "watchdog_postcondition_guard",
+              trigger_source: "stuck-scan",
+              target_type: "package_step",
+              target_id: zs.package_id,
+              result_status: "blocked_done_heal",
+              result_detail: `HOLLOW_COMPLETION: ${zs.step_key} has 0 blueprints`,
+              metadata: { step_key: zs.step_key, curriculum_id: pkg.curriculum_id, blueprint_count: 0 },
+            });
+
             zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: "HOLLOW GUARD: reset to queued (0 blueprints)" });
             continue;
           }
