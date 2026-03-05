@@ -415,9 +415,9 @@ Deno.serve(async (req) => {
     ? Math.min(maxTokensOverride, baseTokenClamp)
     : baseTokenClamp;
 
-  // ── Compute LLM timeout: tightened to 25s to prevent wasted wall-time ──
+  // ── Compute LLM timeout: allow slower providers enough room without hitting platform hard-limit ──
   const llmBudgetMs = remainingPlatformMs - MIN_PERSIST_MS - MIN_CHECKPOINT_MS;
-  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(25_000, llmBudgetMs));  // v10: was 38s → 25s
+  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(38_000, llmBudgetMs));
   const llmAbort = new AbortController();
   const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs) as unknown as number;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -553,7 +553,7 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
               { role: "user", content: userPrompt },
             ],
             max_tokens: effectiveMaxTokens,
-            timeout_ms: Math.min(15_000, llmTimeoutMs),  // v10: tight timeout for retry
+            timeout_ms: Math.min(20_000, llmTimeoutMs),
           },
         );
 

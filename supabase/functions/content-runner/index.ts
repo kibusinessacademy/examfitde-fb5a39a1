@@ -6,8 +6,11 @@ import { isTransientLlmError } from "../_shared/llm/normalize.ts";
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
 const BASE_CONCURRENCY = 6;
+const CONTENT_LOCK_TIMEOUT_MINUTES = 5; // was 25: shorter stale-lock recovery for 42s dispatch jobs
+const STALE_LOCK_RECOVERY_MS = 3 * 60_000; // recover orphaned processing locks after 3 minutes
+const DISPATCH_TIMEOUT_MS = 42_000;
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v1.2-boot-guards";
+const FUNCTION_VERSION = "v1.3-stale-lock-recovery";
 
 // ── Boot-time guards (crash loudly on drift) ──────────────────────
 validatePipelineGraph(PIPELINE_GRAPH);
@@ -33,7 +36,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
 
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 42_000); // v10: was 55s → 42s (worker budget 40s + 2s margin)
+  const timeout = setTimeout(() => controller.abort(), DISPATCH_TIMEOUT_MS); // align with runner budget
 
   try {
     const res = await fetch(url, {
@@ -66,7 +69,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
     clearTimeout(timeout);
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("aborted")) {
-      return { ok: false, error: "TIMEOUT: edge function exceeded 55s" };
+      return { ok: false, error: `TIMEOUT: edge function exceeded ${Math.round(DISPATCH_TIMEOUT_MS / 1000)}s` };
     }
     return { ok: false, error: msg };
   }
@@ -84,12 +87,38 @@ Deno.serve(async (req) => {
   // Content concurrency: controlled via BASE_CONCURRENCY (env-overridable)
   const concurrency = BASE_CONCURRENCY;
 
+  // ── 0. Stale-lock recovery (orphaned processing jobs) ──
+  // If a previous worker died mid-run, those jobs block package-level dedup and stall progress.
+  const staleBefore = new Date(Date.now() - STALE_LOCK_RECOVERY_MS).toISOString();
+  const { data: staleRows } = await sb
+    .from("job_queue")
+    .select("id")
+    .eq("worker_pool", "content")
+    .eq("status", "processing")
+    .not("locked_by", "is", null)
+    .lt("locked_at", staleBefore)
+    .limit(50);
+
+  if (staleRows && staleRows.length > 0) {
+    const staleIds = staleRows.map((r: any) => r.id);
+    await sb.from("job_queue").update({
+      status: "pending",
+      run_after: new Date(Date.now() + 5_000).toISOString(),
+      locked_at: null,
+      locked_by: null,
+      updated_at: new Date().toISOString(),
+      last_error: `STALE_LOCK_RECOVERY: released by ${WORKER_ID}`,
+      meta: { recovered_by: WORKER_ID, recovered_at: new Date().toISOString(), reason: "stale_processing_lock" },
+    }).in("id", staleIds);
+    console.warn(`[content-runner] STALE_LOCK_RECOVERY: released ${staleIds.length} orphaned processing job(s)`);
+  }
+
   // ── 1. Claim content-pool jobs via v4 RPC (with auto-lease healing) ──
   // deno-lint-ignore no-explicit-any
   let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
     p_limit: concurrency,
     p_worker_id: WORKER_ID,
-    p_lock_timeout_minutes: 25, // content jobs need longer locks
+    p_lock_timeout_minutes: CONTENT_LOCK_TIMEOUT_MINUTES,
     p_worker_pool: "content",
   });
   jobs = ((jobs ?? []) as any[]).slice(0, concurrency);
@@ -122,9 +151,33 @@ Deno.serve(async (req) => {
   // ── 2. Process each job sequentially (heavy jobs = no parallel dispatch) ──
   // deno-lint-ignore no-explicit-any
   const results: any[] = [];
+  const runnerStartMs = Date.now();
+  const RUNNER_TIME_BUDGET_MS = 100_000;
 
-  for (const job of jobs) {
+  for (let jobIdx = 0; jobIdx < jobs.length; jobIdx++) {
+    const job = jobs[jobIdx];
     const shortId = String(job.id).slice(0, 8);
+    const elapsed = Date.now() - runnerStartMs;
+
+    if (elapsed > RUNNER_TIME_BUDGET_MS) {
+      const remaining = jobs.slice(jobIdx);
+      const releaseAt = new Date(Date.now() + 5_000).toISOString();
+      for (const rj of remaining) {
+        await sb.from("job_queue").update({
+          status: "pending",
+          run_after: releaseAt,
+          locked_at: null,
+          locked_by: null,
+          updated_at: new Date().toISOString(),
+          last_error: `RUNNER_TIME_GUARD: released by ${WORKER_ID}`,
+        }).eq("id", rj.id).eq("status", "processing");
+        results.push({ id: rj.id, ok: false, released: true, reason: "runner_time_guard" });
+      }
+      console.warn(`[content-runner] RUNNER_TIME_GUARD: released ${remaining.length} job(s) after ${elapsed}ms`);
+      break;
+    }
+
+
     const startMs = Date.now();
 
     try {
