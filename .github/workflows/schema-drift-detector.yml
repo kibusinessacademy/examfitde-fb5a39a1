@@ -1,0 +1,84 @@
+name: Database Schema Drift Detector
+
+on:
+  schedule:
+    - cron: '30 4 * * *' # Daily 04:30 UTC
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/schema-drift-check.mjs'
+
+jobs:
+  drift-check:
+    name: Schema Drift Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run schema drift check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/schema-drift-check.mjs
+
+  trigger-bindings:
+    name: Trigger Binding Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify trigger bindings
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/ci/trigger-binding-check.mjs
+
+  rls-policy-audit:
+    name: RLS Policy Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run RLS security checks
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/rls-security-check.mjs
+
+  critical-rpc-check:
+    name: Critical RPC Availability
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify critical RPCs exist
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/ci/critical-rpc-check.mjs
+
+  drift-gate:
+    name: Schema Drift Gate ✓
+    needs: [drift-check, trigger-bindings, rls-policy-audit, critical-rpc-check]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "✅ Schema Drift Detector — no drift detected."
