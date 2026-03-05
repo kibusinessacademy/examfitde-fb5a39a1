@@ -32,7 +32,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
 
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55_000); // 55s — safe under platform edge limit
+  const timeout = setTimeout(() => controller.abort(), 42_000); // v10: was 55s → 42s (worker budget 40s + 2s margin)
 
   try {
     const res = await fetch(url, {

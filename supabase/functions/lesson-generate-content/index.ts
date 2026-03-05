@@ -534,11 +534,12 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
       plainRetry = true;
       try {
         // v10: Use a non-Gemini provider for plain retry to avoid same parse issue
-        const plainChain = fullChain
+        const plainChainCandidates = fullChain
           .filter(c => !c.model.includes("gemini"))
           .slice(0, 1);
-        // Fallback: if ALL providers are Gemini, use original chain
-        const retryChain = plainChain.length > 0 ? plainChain : chain;
+        const retryChainResolved = plainChainCandidates.length > 0 ? plainChainCandidates : chain;
+        console.warn(`[lesson-gen] TOOL_PARSE_FAIL → plain retry provider=${retryChainResolved[0]?.provider} model=${retryChainResolved[0]?.model} lesson=${lessonId.slice(0,8)}`);
+        const retryChain = retryChainResolved;
 
         const plainResult = await callAIWithFailover(
           retryChain.map(c => ({ provider: c.provider, model: c.model })),
