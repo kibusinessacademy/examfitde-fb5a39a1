@@ -48,6 +48,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
         attempt_index: (job.meta?.transient_attempts ?? job.attempts ?? 0),  // v6: use transient counter for provider rotation (attempts stays 0 for transients)
         max_attempts: job.max_attempts ?? 8,
         job_id: job.id,
+        _meta_attempt_index: (job.meta?.transient_attempts ?? job.attempts ?? 0),  // v6.1: echo for forensic persistence
       }),
       signal: controller.signal,
     });
@@ -173,6 +174,7 @@ Deno.serve(async (req) => {
             meta: {
               ...(job.meta || {}),
               transient_attempts: transientNext,
+              attempt_index: transientNext,
               last_error_kind: "transient",
               last_error_class: "transient",
               last_transient_at: now,
@@ -254,6 +256,7 @@ Deno.serve(async (req) => {
             meta: {
               ...(job.meta || {}),
               transient_attempts: transientNext,
+              attempt_index: transientNext,
               last_error_kind: "transient",
               last_error_class: "transient",
               last_transient_at: now,
