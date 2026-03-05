@@ -2,6 +2,7 @@ import {
   LayoutDashboard, BookOpen, Shield, Activity, DollarSign,
   TrendingUp, Layers, Plus, FileText, Brain, Headphones,
   Users, Radio, Globe, Image, Search, HelpCircle, Sparkles,
+  ScanEye,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -83,6 +84,12 @@ export const adminNavModules: AdminNavItem[] = [
       { path: '/admin/work/licenses', label: 'Lizenzen' },
       { path: '/admin/work/commerce', label: 'Commerce & Coupons' },
       { path: '/admin/work/affiliates', label: 'Affiliate Dashboard' },
+    ],
+  },
+  {
+    path: '/admin/audit', label: 'System Audit', icon: ScanEye, group: 'navigation',
+    children: [
+      { path: '/admin/audit', label: 'Dashboard & Findings' },
     ],
   },
   {
