@@ -209,8 +209,14 @@ Deno.serve(async (req) => {
           // Transient errors (503, timeout, rate limit) use separate budget
           const prevTransient = (job.meta?.transient_attempts ?? 0);
           const transientNext = prevTransient + 1;
-          const TRANSIENT_MAX = 15; // much higher than regular attempts — these are infrastructure failures
-          const exhausted = transientNext >= TRANSIENT_MAX;
+          const TRANSIENT_MAX = 15;
+          const TRANSIENT_TIMEOUT_MS = 20 * 60 * 1000; // 20 min max transient window
+
+          // Track first transient occurrence for timeout guard
+          const firstTransientAt = job.meta?.first_transient_at ?? now;
+          const transientElapsedMs = Date.now() - new Date(firstTransientAt).getTime();
+          const timedOut = transientElapsedMs > TRANSIENT_TIMEOUT_MS;
+          const exhausted = transientNext >= TRANSIENT_MAX || timedOut;
 
           const update: Record<string, unknown> = {
             last_error: errorStr.slice(0, 2000),
@@ -222,13 +228,16 @@ Deno.serve(async (req) => {
               transient_attempts: transientNext,
               last_error_kind: "transient",
               last_transient_at: now,
+              first_transient_at: firstTransientAt,
             },
           };
 
           if (exhausted) {
             update.status = "failed";
             update.completed_at = now;
-            update.attempts = (job.attempts ?? 0) + 1; // only now count as real attempt
+            update.attempts = (job.attempts ?? 0) + 1;
+            (update.meta as Record<string, unknown>).transient_exhausted = true;
+            (update.meta as Record<string, unknown>).exhaust_reason = timedOut ? "ops_transient_timeout" : "max_transient_attempts";
           } else {
             update.status = "pending";
             update.run_after = new Date(Date.now() + backoffSec * 1000).toISOString();
