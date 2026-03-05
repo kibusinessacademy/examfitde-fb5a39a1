@@ -65,6 +65,7 @@ export async function getNeedsRegenCount(
     .from("lessons")
     .select("id", { head: true, count: "exact" })
     .in("module_id", moduleIds)
+    .neq("step", "mini_check") // learning_content phase must exclude minicheck artifacts
     .or(NEEDS_REGEN_OR_FILTER);
 
   if (error) {
@@ -100,6 +101,7 @@ export async function selectTargets(
     .from("lessons")
     .select("id, title, step, qc_status")
     .in("module_id", moduleIds)
+    .neq("step", "mini_check") // keep minicheck generation in dedicated step generate_lesson_minichecks
     .or(NEEDS_REGEN_OR_FILTER)
     .order("created_at", { ascending: true })  // v10.1: was updated_at which doesn't exist on lessons
     .limit(limit);
