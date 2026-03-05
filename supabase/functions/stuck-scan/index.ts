@@ -967,7 +967,19 @@ Deno.serve(async (req) => {
       console.warn(`[stuck-scan] Pool sweep error: ${(sweepErr as Error).message}`);
     }
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    // ── AUTO-REVIVE: reset transient-failed lesson jobs immediately ──
+    let revivedCount = 0;
+    try {
+      const { data: revived } = await sb.rpc("revive_transient_failed_lesson_jobs", { p_limit: 50 });
+      revivedCount = Array.isArray(revived) ? revived.length : 0;
+      if (revivedCount > 0) {
+        console.log(`[stuck-scan] 🔄 Auto-revived ${revivedCount} transient-failed lesson jobs`);
+      }
+    } catch (reviveErr) {
+      console.warn(`[stuck-scan] revive_transient_failed error: ${(reviveErr as Error).message}`);
+    }
+
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
     return json({
       ok: true,
@@ -984,6 +996,7 @@ Deno.serve(async (req) => {
       pool_mismatch_fixed: poolMismatchFixed,
       status_lag_healed: statusLagResults,
       enqueued_drift_healed: enqueuedDriftResults,
+      transient_revived: revivedCount,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
