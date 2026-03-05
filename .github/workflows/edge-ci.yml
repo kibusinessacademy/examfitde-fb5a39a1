@@ -58,6 +58,10 @@ jobs:
           fi
           echo "✅ No direct package_steps done writes outside SSOT"
 
+      - name: No-Gemini-in-Learning-Content Guard
+        run: |
+          node scripts/guards/no-gemini-learning-content-guard.mjs
+
       - name: Success summary
         run: |
-          echo "✅ Edge CI passed: deno check + deno lint + edge guards + SSOT guards"
+          echo "✅ Edge CI passed: deno check + deno lint + edge guards + SSOT guards + model guards"
