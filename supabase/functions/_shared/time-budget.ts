@@ -30,8 +30,8 @@ function envInt(name: string, fallback: number): number {
 const DEFAULTS: Record<BudgetKey, TimeBudget> = {
   runner_claim:       { ms: 55_000, softStopMs: 45_000 },
   exam_pool_fanout:   { ms: 45_000, softStopMs: 35_000 },
-  learning_content:   { ms: 240_000, softStopMs: 200_000 },  // v8.0: 4min hard / 3.3min soft — raised for complex AUSBILDUNG_VOLL batches
-  lesson_single:      { ms: 120_000, softStopMs: 100_000 },  // v8.0: 2min hard / 1.7min soft — raised from 75/60 for tool-call heavy lessons
+  learning_content:   { ms: 50_000, softStopMs: 38_000 },  // v9.0: aligned to 55s platform limit — 50s hard / 38s soft
+  lesson_single:      { ms: 50_000, softStopMs: 38_000 },  // v9.0: aligned to 55s platform limit — init ~5s + LLM ~35s + persist ~5s = ~45s
   handbook:           { ms: 150_000, softStopMs: 120_000 },  // v5.8: same rationale as learning_content
   glossary:           { ms: 45_000, softStopMs: 35_000 },
   oral_exam:          { ms: 45_000, softStopMs: 35_000 },
