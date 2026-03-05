@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType } from "../_shared/job-map.ts";
+import { isTransientLlmError } from "../_shared/llm/normalize.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
@@ -198,33 +199,74 @@ Deno.serve(async (req) => {
         console.error(`[content-runner] 🛑 TERMINAL ${job.job_type} (${shortId}): ${dispatchError}`);
         results.push({ id: job.id, ok: false, error: dispatchError, terminal: true });
       } else {
-        // ── Transient failure — retry with backoff ──
-        const attemptsNext = (job.attempts ?? 0) + 1;
-        const maxAttempts = job.max_attempts ?? 8;
-        const exhausted = attemptsNext >= maxAttempts;
+        // ── Transient failure — retry with backoff, DON'T consume attempts budget ──
+        const errorStr = dispatchError || "";
+        const isTransient = isTransientLlmError(errorStr);
         const now = new Date().toISOString();
-        const backoffSec = inferBackoffSeconds(dispatchError || "");
+        const backoffSec = inferBackoffSeconds(errorStr);
 
-        const update: Record<string, unknown> = {
-          attempts: attemptsNext,
-          last_error: (dispatchError || "unknown").slice(0, 2000),
-          updated_at: now,
-          locked_at: null,
-          locked_by: null,
-        };
+        if (isTransient) {
+          // Transient errors (503, timeout, rate limit) use separate budget
+          const prevTransient = (job.meta?.transient_attempts ?? 0);
+          const transientNext = prevTransient + 1;
+          const TRANSIENT_MAX = 15; // much higher than regular attempts — these are infrastructure failures
+          const exhausted = transientNext >= TRANSIENT_MAX;
 
-        if (exhausted) {
-          update.status = "failed";
-          update.completed_at = now;
+          const update: Record<string, unknown> = {
+            last_error: errorStr.slice(0, 2000),
+            updated_at: now,
+            locked_at: null,
+            locked_by: null,
+            meta: {
+              ...(job.meta || {}),
+              transient_attempts: transientNext,
+              last_error_kind: "transient",
+              last_transient_at: now,
+            },
+          };
+
+          if (exhausted) {
+            update.status = "failed";
+            update.completed_at = now;
+            update.attempts = (job.attempts ?? 0) + 1; // only now count as real attempt
+          } else {
+            update.status = "pending";
+            update.run_after = new Date(Date.now() + backoffSec * 1000).toISOString();
+          }
+
+          await sb.from("job_queue").update(update).eq("id", job.id);
+          console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT — backoff ${backoffSec}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
+          results.push({ id: job.id, ok: false, error: errorStr, exhausted, transient: true });
         } else {
-          update.status = "pending";
-          update.run_after = new Date(Date.now() + backoffSec * 1000).toISOString();
+          // Non-transient (permanent) failure — consume attempts budget
+          const attemptsNext = (job.attempts ?? 0) + 1;
+          const maxAttempts = job.max_attempts ?? 8;
+          const exhausted = attemptsNext >= maxAttempts;
+
+          const update: Record<string, unknown> = {
+            attempts: attemptsNext,
+            last_error: errorStr.slice(0, 2000),
+            updated_at: now,
+            locked_at: null,
+            locked_by: null,
+            meta: {
+              ...(job.meta || {}),
+              last_error_kind: "permanent",
+            },
+          };
+
+          if (exhausted) {
+            update.status = "failed";
+            update.completed_at = now;
+          } else {
+            update.status = "pending";
+            update.run_after = new Date(Date.now() + backoffSec * 1000).toISOString();
+          }
+
+          await sb.from("job_queue").update(update).eq("id", job.id);
+          console.warn(`[content-runner] ❌ ${job.job_type} (${shortId}) PERMANENT fail [${attemptsNext}/${maxAttempts}]: ${errorStr.slice(0, 200)}`);
+          results.push({ id: job.id, ok: false, error: errorStr, exhausted });
         }
-
-        await sb.from("job_queue").update(update).eq("id", job.id);
-
-        console.warn(`[content-runner] ❌ ${job.job_type} (${shortId}) failed [${attemptsNext}/${maxAttempts}]: ${(dispatchError || "").slice(0, 200)}`);
-        results.push({ id: job.id, ok: false, error: dispatchError, exhausted });
       }
     } catch (e) {
       // Unexpected error — release lock
