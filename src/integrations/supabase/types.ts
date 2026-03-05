@@ -28505,6 +28505,15 @@ export type Database = {
         Args: { p_area: string; p_title: string }
         Returns: undefined
       }
+      revive_transient_failed_lesson_jobs: {
+        Args: { p_limit?: number }
+        Returns: {
+          job_id: string
+          package_id: string
+          prev_attempts: number
+          reason: string
+        }[]
+      }
       revoke_qa_risk: { Args: { p_finding_id: string }; Returns: undefined }
       rollback_package_version: {
         Args: { p_product_id: string; p_target_package_id: string }

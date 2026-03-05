@@ -47,6 +47,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   ],
   learning_content: [
     { provider: "lovable", model: "google/gemini-2.5-flash" },        // v5.5: gemini-3-flash-preview caused persistent timeouts — reverted to proven model
+    { provider: "lovable", model: "openai/gpt-5-mini" },              // v5.10: diverse failover — Google down ≠ all down
     { provider: "lovable", model: "google/gemini-2.5-flash-lite" },
     { provider: "lovable", model: "google/gemini-2.5-pro", is_fallback: true },
   ],
@@ -61,6 +62,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   ],
   handbook: [
     { provider: "lovable", model: "google/gemini-2.5-flash" },        // v5.5: gemini-3-flash-preview caused persistent timeouts
+    { provider: "lovable", model: "openai/gpt-5-mini" },              // v5.10: diverse failover
     { provider: "lovable", model: "google/gemini-2.5-flash-lite" },
     { provider: "lovable", model: "google/gemini-2.5-pro", is_fallback: true },
   ],
