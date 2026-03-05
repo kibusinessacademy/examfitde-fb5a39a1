@@ -10748,6 +10748,33 @@ export type Database = {
           },
         ]
       }
+      lesson_content_backups: {
+        Row: {
+          backed_up_at: string
+          id: number
+          lesson_id: string
+          old_content: Json | null
+          old_qc_status: string | null
+          package_id: string
+        }
+        Insert: {
+          backed_up_at?: string
+          id?: number
+          lesson_id: string
+          old_content?: Json | null
+          old_qc_status?: string | null
+          package_id: string
+        }
+        Update: {
+          backed_up_at?: string
+          id?: number
+          lesson_id?: string
+          old_content?: Json | null
+          old_qc_status?: string | null
+          package_id?: string
+        }
+        Relationships: []
+      }
       lesson_improvement_suggestions: {
         Row: {
           applied: boolean

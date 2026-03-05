@@ -109,6 +109,37 @@ Deno.serve(async (req) => {
     return false;
   });
 
+  // ── PERMANENT FIX: Reject stale content_versions for tier1_failed lessons ──
+  // Without this, the idempotency check in both dispatcher and worker
+  // blocks regeneration → No-Op cycle (content exists but is garbage).
+  const tier1FailedIds = placeholderLessons
+    .filter((l: any) => (l as any).qc_status === "tier1_failed")
+    .map((l: any) => l.id);
+
+  if (tier1FailedIds.length > 0) {
+    let rejectedCount = 0;
+    for (let i = 0; i < tier1FailedIds.length; i += 200) {
+      const chunk = tier1FailedIds.slice(i, i + 200);
+      const { data: staleVersions } = await sb
+        .from("content_versions")
+        .select("id")
+        .in("lesson_id", chunk)
+        .neq("status", "rejected");
+
+      if (staleVersions && staleVersions.length > 0) {
+        const vIds = staleVersions.map((v: any) => v.id);
+        await sb
+          .from("content_versions")
+          .update({ status: "rejected", updated_at: new Date().toISOString() })
+          .in("id", vIds);
+        rejectedCount += vIds.length;
+      }
+    }
+    if (rejectedCount > 0) {
+      console.log(`[dispatcher] NEEDS_REGEN: Rejected ${rejectedCount} stale content_versions for ${tier1FailedIds.length} tier1_failed lessons`);
+    }
+  }
+
   // ── Build list of (lesson_id, step_key) targets ──
   const targets = placeholderLessons.map((l: any) => ({
     lesson_id: l.id,
