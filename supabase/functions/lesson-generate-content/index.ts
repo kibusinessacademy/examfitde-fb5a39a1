@@ -408,8 +408,8 @@ Deno.serve(async (req) => {
   // within the time budget while still producing quality content.
   // ═══════════════════════════════════════════════════════════════
 
-  const TOKEN_CLAMP_LESSON = 1400;
-  const TOKEN_CLAMP_MINICHECK = 700;
+  const TOKEN_CLAMP_LESSON = 3200;   // v10.3: was 1400 — far too low, models returned empty
+  const TOKEN_CLAMP_MINICHECK = 1200; // v10.3: was 700 — too tight for structured tool responses
   const baseTokenClamp = isMiniCheck ? TOKEN_CLAMP_MINICHECK : TOKEN_CLAMP_LESSON;
   const effectiveMaxTokens = maxTokensOverride
     ? Math.min(maxTokensOverride, baseTokenClamp)
@@ -458,12 +458,16 @@ ANTI-KI-REGELN:
 - KEINE Sätze wie "In der heutigen Geschäftswelt..."
 - Schreibe so, wie ein erfahrener Ausbilder erklärt
 
-Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
+ANTWORTFORMAT (PFLICHT):
+Antworte mit einem einzigen JSON-Objekt. KEIN Markdown, KEINE Code-Fences, NUR valides JSON.
+${isMiniCheck
+  ? '{"questions": [{"question": "...", "options": ["A","B","C","D"], "correct_answer": 0, "explanation": "..."}], "objectives": ["..."]}'
+  : '{"html": "<h3>...</h3><p>...</p>", "objectives": ["..."], "key_terms": [{"term": "...", "definition": "...", "exam_relevance": "..."}], "common_mistakes": [{"mistake": "...", "correction": "...", "trap_type": "..."}], "exam_triggers": ["..."]}'
+}
+KEINE Platzhalter. Vollständigen Inhalt generieren.`,
             },
             { role: "user", content: userPrompt },
           ],
-          tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,
-          tool_choice: { type: "function", function: { name: isMiniCheck ? "create_mini_check" : "create_lesson_content" } },
           max_tokens: effectiveMaxTokens,
           signal: llmAbort.signal,
         },
