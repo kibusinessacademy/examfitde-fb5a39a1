@@ -8972,6 +8972,24 @@ export type Database = {
         }
         Relationships: []
       }
+      forbidden_db_indexes: {
+        Row: {
+          created_at: string
+          index_name: string
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          index_name: string
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          index_name?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       german_certification_master: {
         Row: {
           case_study_required: boolean
@@ -28282,6 +28300,13 @@ export type Database = {
           last_progress_at: string
           lessons_completed: number
           user_id: string
+        }[]
+      }
+      guard_forbidden_indexes: {
+        Args: never
+        Returns: {
+          forbidden_found: Json
+          verdict: string
         }[]
       }
       guardian_fail_package_if_stale: {
