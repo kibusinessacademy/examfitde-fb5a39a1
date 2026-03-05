@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
     .eq("status", "processing")
     .not("locked_by", "is", null)
     .lt("locked_at", staleBefore)
+    .lt("updated_at", staleBefore)  // v1.4: require BOTH locked_at AND updated_at to be stale (prevents recovering legit long jobs)
     .limit(50);
 
   if (staleRows && staleRows.length > 0) {

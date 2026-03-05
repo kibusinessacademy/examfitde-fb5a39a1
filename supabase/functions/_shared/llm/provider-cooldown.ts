@@ -1,6 +1,7 @@
 // supabase/functions/_shared/llm/provider-cooldown.ts
 // Persistent provider cooldown tracking via DB (llm_provider_cooldowns)
 // Falls back to in-memory if DB write fails (best-effort)
+// IMPORTANT: This file is Edge-Function-only (Deno). Never import from client.
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
@@ -17,10 +18,13 @@ function key(provider: string, model: string): string {
 }
 
 function getSb() {
+  // Hard guard: prevent accidental client bundling
+  if (typeof Deno === "undefined") return null;
+
   const url = Deno.env.get("SUPABASE_URL");
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !key) return null;
-  return createClient(url, key);
+  const sKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !sKey) return null;
+  return createClient(url, sKey, { auth: { persistSession: false } });
 }
 
 /**
@@ -88,6 +92,7 @@ export async function isOnCooldown(provider: string, model: string): Promise<boo
 
 /**
  * Filter a model chain to skip cooled-down providers.
+ * Only queries DB for the specific provider+model pairs in the chain (no full-table scan).
  * Returns the filtered chain. If ALL are on cooldown, returns the
  * one with the shortest remaining cooldown (never returns empty).
  */
@@ -99,23 +104,36 @@ export async function filterCooledDownProviders(
   const sb = getSb();
   if (!sb) return chain;
 
+  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+
   try {
-    const { data: activeCooldowns } = await sb
+    // Targeted OR filter: only check chain members (no full-table scan)
+    const ors = chain
+      .map(c => `and(provider.eq.${c.provider},model.eq.${c.model})`)
+      .join(",");
+
+    const { data: activeCooldowns, error } = await sb
       .from("llm_provider_cooldowns")
-      .select("provider, model, until_at")
-      .gt("until_at", new Date().toISOString());
+      .select("provider, model, until_at, reason")
+      .gt("until_at", nowIso)
+      .or(ors);
 
-    if (!activeCooldowns || activeCooldowns.length === 0) return chain;
+    if (error || !activeCooldowns || activeCooldowns.length === 0) return chain;
 
-    const cooldownSet = new Set(
-      activeCooldowns.map((c: any) => key(c.provider, c.model))
+    const cooldownMap = new Map(
+      activeCooldowns.map((c: any) => [key(c.provider, c.model), c])
     );
 
-    const available = chain.filter(c => !cooldownSet.has(key(c.provider, c.model)));
+    const available = chain.filter(c => !cooldownMap.has(key(c.provider, c.model)));
     if (available.length > 0) {
       if (available.length < chain.length) {
-        const skipped = chain.filter(c => cooldownSet.has(key(c.provider, c.model)));
-        console.warn(`[COOLDOWN] Filtered ${skipped.length} cooled-down provider(s): ${skipped.map(s => `${s.provider}/${s.model}`).join(", ")}`);
+        const skipped = chain.filter(c => cooldownMap.has(key(c.provider, c.model)));
+        for (const s of skipped) {
+          const cd = cooldownMap.get(key(s.provider, s.model));
+          const remainSec = cd ? Math.round((new Date(cd.until_at).getTime() - nowMs) / 1000) : 0;
+          console.warn(`[COOLDOWN] SKIP ${s.provider}/${s.model} (${remainSec}s remaining, reason: ${cd?.reason ?? "?"})`);
+        }
       }
       return available;
     }
@@ -124,14 +142,15 @@ export async function filterCooledDownProviders(
     let best = chain[0];
     let bestUntil = Infinity;
     for (const c of chain) {
-      const cd = activeCooldowns.find((ac: any) => ac.provider === c.provider && ac.model === c.model);
+      const cd = cooldownMap.get(key(c.provider, c.model));
       const until = cd ? new Date(cd.until_at).getTime() : 0;
       if (until < bestUntil) {
         bestUntil = until;
         best = c;
       }
     }
-    console.warn(`[COOLDOWN] ALL providers on cooldown — using least-cooled: ${best.provider}/${best.model}`);
+    const remainSec = Math.round((bestUntil - nowMs) / 1000);
+    console.warn(`[COOLDOWN] ALL providers on cooldown — using least-cooled: ${best.provider}/${best.model} (${remainSec}s remaining)`);
     return [best];
   } catch (e) {
     console.warn(`[COOLDOWN] DB check failed (proceeding unfiltered): ${(e as Error)?.message?.slice(0, 100)}`);
@@ -139,18 +158,27 @@ export async function filterCooledDownProviders(
   }
 }
 
+// ── Probabilistic cleanup (max 1x per 10min per isolate) ──
+let _lastCleanupAt = 0;
+
 /**
- * Cleanup expired cooldowns (call periodically).
+ * Cleanup expired cooldowns. Throttled to max once per 10 minutes.
  */
 export async function cleanupExpiredCooldowns(): Promise<number> {
+  const now = Date.now();
+  if (now - _lastCleanupAt < 10 * 60_000) return 0;
+  _lastCleanupAt = now;
+
   const sb = getSb();
   if (!sb) return 0;
+
   try {
-    const { data } = await sb
+    const { data, error } = await sb
       .from("llm_provider_cooldowns")
       .delete()
       .lt("until_at", new Date().toISOString())
       .select("provider");
+    if (error) return 0;
     return data?.length ?? 0;
   } catch {
     return 0;
