@@ -1159,7 +1159,7 @@ async function processPackage(
         const currentStepForZombie = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
         const zombieMeta = (currentStepForZombie?.meta ?? {}) as Record<string, any>;
 
-        // FIX 4: Transient zombies → reset job to pending (less noise) instead of failed
+        // FIX 4+5: Transient zombies → reset job to pending with race guard
         if (zombieIsTransient) {
           await safeQuery(
             sb.from("job_queue").update({
@@ -1169,7 +1169,8 @@ async function processPackage(
               last_error: `${reason} [transient — recycled]`,
               updated_at: new Date().toISOString(),
               run_after: new Date(Date.now() + 60_000).toISOString(),
-            }).eq("id", jobId),
+            }).eq("id", jobId)
+              .eq("status", "processing"),  // FIX 5: Race guard — only recycle if still processing
             "recycle_transient_zombie_job",
           );
         } else {
@@ -1178,7 +1179,8 @@ async function processPackage(
               status: "failed",
               last_error: reason,
               updated_at: new Date().toISOString(),
-            }).eq("id", jobId),
+            }).eq("id", jobId)
+              .eq("status", "processing"),  // FIX 5: Race guard
             "force_fail_stuck_job",
           );
         }
@@ -1606,7 +1608,7 @@ async function processPackage(
       const stepAttempts = failedStep?.attempts ?? 0;
       const stepMeta = (failedStep?.meta ?? {}) as Record<string, any>;
       const transient = isTransientStepError(errorMsg);
-      const backoffSec = inferBackoffSeconds(errorMsg);
+      const backoffSec = Math.max(15, inferBackoffSeconds(errorMsg)); // FIX 3: clamp minimum 15s
 
       if (transient) {
         // ── TRANSIENT: do NOT consume step attempts budget ──
@@ -1675,6 +1677,7 @@ async function processPackage(
               first_transient_at: firstTransientAt,
               last_transient_at: new Date().toISOString(),
               last_error_kind: "transient",
+              last_error_class: "transient",  // FIX: consistent classification for audits
               retry_after_sec: backoffSec,
               next_run_at: nextRunAt,
               last_fail_reason: errorMsg,
@@ -1694,7 +1697,7 @@ async function processPackage(
 
         if (nextAttempts < MAX_STEP_RETRIES) {
           console.warn(`[runner] ❌ ${stepKey} PERMANENT fail — attempt ${nextAttempts}/${MAX_STEP_RETRIES}`);
-          const permBackoffRunAt = new Date(Date.now() + backoffSec * 1000).toISOString();
+          const permBackoffRunAt = new Date(Date.now() + Math.max(15, backoffSec) * 1000).toISOString();
           const permResetMeta = { ...stepMeta };
           delete permResetMeta.first_transient_at;
           await safeQuery(
