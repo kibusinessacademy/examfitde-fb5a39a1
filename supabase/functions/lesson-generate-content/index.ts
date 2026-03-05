@@ -304,28 +304,67 @@ Deno.serve(async (req) => {
     ? buildMiniCheckPrompt(professionName, contextBlock)
     : `${stepConfig.system}\n\n${contextBlock}`;
 
-  // ── Time budget check ──
+  // ═══════════════════════════════════════════════════════════════
+  // v9.1 HARDENING: Platform-aware time governance
+  // Platform hard-kills at 55s. All budgets must fit within this.
+  // ═══════════════════════════════════════════════════════════════
+
+  const PLATFORM_HARD_LIMIT_MS = 55_000;
+  const MIN_LLM_BUDGET_MS = 12_000;   // min time we need for a useful LLM call
+  const MIN_PERSIST_MS = 5_000;        // DB write + council + cost log
+  const MIN_CHECKPOINT_MS = 1_500;     // raw checkpoint write
+
+  // ── Gate 1: Soft-stop check ──
   if (shouldSoftStop(startMs, "lesson_single")) {
-    return json({ ok: false, retry: true, error: "budget_exhausted_pre", elapsed_ms: Date.now() - startMs }, 503);
+    return json({ ok: false, retry: true, error: "SOFTSTOP: budget_exhausted_pre", elapsed_ms: Date.now() - startMs }, 503);
   }
 
-  // ── LLM call with failover chain ──
+  // ── Gate 2: Remaining-time fast-fail ──
+  const elapsedMs = Date.now() - startMs;
+  const remainingPlatformMs = PLATFORM_HARD_LIMIT_MS - elapsedMs;
+  const requiredMinMs = MIN_LLM_BUDGET_MS + MIN_PERSIST_MS + MIN_CHECKPOINT_MS;
+
+  if (remainingPlatformMs < requiredMinMs) {
+    console.warn(`[lesson-gen] FAST_FAIL: only ${remainingPlatformMs}ms left (need ${requiredMinMs}ms). Init took ${elapsedMs}ms.`);
+    return json({
+      ok: false, retry: true,
+      error: `SOFTSTOP: insufficient_time_budget (remaining=${remainingPlatformMs}ms, need=${requiredMinMs}ms, init=${elapsedMs}ms)`,
+      elapsed_ms: elapsedMs,
+    }, 503);
+  }
+
+  // ── Autopilot: p95 latency check → model/token downgrade ──
+  let maxTokensOverride: number | null = null;
+  let autopilotAction: string | null = null;
   const chain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
 
-  const elapsedMs = Date.now() - startMs;
-  const remainingSoftMs = budget.softStopMs - elapsedMs;
-  const MIN_TIMEOUT_MS = 15_000;
-  const MIN_PERSIST_MS = 3_000;
-  if (remainingSoftMs < MIN_TIMEOUT_MS + MIN_PERSIST_MS) {
-    return json({ ok: false, retry: true, error: "budget_exhausted_after_init", elapsed_ms: Date.now() - startMs }, 503);
+  try {
+    const { data: latencyStats } = await sb.rpc("get_provider_p95_latency", {
+      p_job_type: "lesson_generate_content",
+      p_window_minutes: 30,
+    }).maybeSingle();
+
+    if (latencyStats?.p95_ms && latencyStats.p95_ms > 35_000) {
+      // Provider is slow — clamp tokens to reduce response time
+      const originalMax = isMiniCheck ? 2200 : 3200;
+      maxTokensOverride = Math.round(originalMax * 0.65);
+      autopilotAction = `p95_clamp: ${latencyStats.p95_ms}ms → tokens ${originalMax}→${maxTokensOverride}`;
+      console.log(`[lesson-gen] AUTOPILOT: ${autopilotAction}`);
+    }
+  } catch {
+    // RPC doesn't exist yet or failed — proceed without autopilot
   }
 
-  const llmTimeoutMs = Math.max(MIN_TIMEOUT_MS, Math.min(38_000, remainingSoftMs - MIN_PERSIST_MS));  // v9.0: capped at 38s — platform kills at 55s, need room for init (~8s) + persist (~5s)
+  // ── Compute LLM timeout: platform-aware ──
+  const llmBudgetMs = remainingPlatformMs - MIN_PERSIST_MS - MIN_CHECKPOINT_MS;
+  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(38_000, llmBudgetMs));
   const llmAbort = new AbortController();
   const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs) as unknown as number;
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error(`LLM_TIMEOUT_${llmTimeoutMs}`)), llmTimeoutMs + 500);
   });
+
+  console.log(`[lesson-gen] Time budget: init=${elapsedMs}ms, llm_cap=${llmTimeoutMs}ms, remaining_platform=${remainingPlatformMs}ms${autopilotAction ? `, autopilot=${autopilotAction}` : ""}`);
 
   let result: Awaited<ReturnType<typeof callAIWithFailover>>;
   let content: any = null;
@@ -365,12 +404,30 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
           ],
           tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,
           tool_choice: { type: "function", function: { name: isMiniCheck ? "create_mini_check" : "create_lesson_content" } },
-          max_tokens: isMiniCheck ? 2200 : 3200,
+          max_tokens: maxTokensOverride || (isMiniCheck ? 2200 : 3200),
           signal: llmAbort.signal,
         },
       ),
       timeoutPromise,
     ]) as Awaited<ReturnType<typeof callAIWithFailover>>;
+
+    // ── CHECKPOINT: Save raw LLM response immediately (before parse) ──
+    // If platform kills during parse/validate, we don't lose the expensive LLM result
+    const rawResponseText = result.toolCalls?.[0]?.function?.arguments || result.content || "";
+    if (rawResponseText.length > 100) {
+      try {
+        await sb.from("content_versions").insert({
+          course_id: courseId,
+          lesson_id: lessonId,
+          step_key: canonicalStepKey(stepKey),
+          content_json: { _checkpoint: true, raw: rawResponseText.slice(0, 15000), provider: result.provider, model: result.model, ts: Date.now() },
+          created_by_agent: "lesson-gen-checkpoint",
+          status: "draft",
+          entity_type: isMiniCheck ? "minicheck" : "lesson_step",
+        });
+        console.log(`[lesson-gen] CHECKPOINT saved: ${rawResponseText.length} chars for ${lessonId.slice(0,8)}`);
+      } catch { /* checkpoint is best-effort — don't block */ }
+    }
 
     // Parse tool call (timer cleared in finally)
     if (result.toolCalls?.length > 0) {
@@ -516,9 +573,11 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
         meta: { plain_retry: plainRetry },
       };
 
-  // ── Budget check before persist — prevent mid-write kills ──
-  if (shouldSoftStop(startMs, "lesson_single")) {
-    return json({ ok: false, retry: true, error: "budget_exhausted_pre_persist", elapsed_ms: Date.now() - startMs }, 503);
+  // ── Gate 3: Pre-persist platform budget check ──
+  const prePersistRemaining = PLATFORM_HARD_LIMIT_MS - (Date.now() - startMs);
+  if (prePersistRemaining < MIN_PERSIST_MS) {
+    console.warn(`[lesson-gen] SOFTSTOP pre-persist: only ${prePersistRemaining}ms left. Checkpoint should be saved.`);
+    return json({ ok: false, retry: true, error: `SOFTSTOP: pre_persist_budget (remaining=${prePersistRemaining}ms)`, elapsed_ms: Date.now() - startMs }, 503);
   }
 
   // ── Persist to content_versions (Council write path) ──
@@ -550,12 +609,21 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     }, isConstraint ? 500 : 503);
   }
 
+  // ── Cleanup checkpoint (best-effort, non-blocking) ──
+  sb.from("content_versions")
+    .delete()
+    .eq("lesson_id", lessonId)
+    .eq("step_key", stepKeyCanonical)
+    .eq("created_by_agent", "lesson-gen-checkpoint")
+    .eq("status", "draft")
+    .then(() => {});
+
   // ── Audit: council message ──
   await sb.from("council_messages").insert({
     content_version_id: newVersion!.id,
     agent_name: "lesson-generate-content",
     message_type: "proposal",
-    message_json: { source: "single-unit-worker", profession: professionName, used_provider: (result as any).provider, used_model: (result as any).model, plain_retry: plainRetry },
+    message_json: { source: "single-unit-worker", profession: professionName, used_provider: (result as any).provider, used_model: (result as any).model, plain_retry: plainRetry, autopilot: autopilotAction },
   });
 
   // ── Cost logging ──
@@ -569,7 +637,7 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     certification_id: certificationId,
     course_id: courseId,
     estimatedUsage: (result as any).estimatedUsage,
-    meta: { plain_retry: plainRetry, step_key: stepKey },
+    meta: { plain_retry: plainRetry, step_key: stepKey, autopilot: autopilotAction },
   });
 
   return json({
@@ -581,7 +649,9 @@ Nutze IMMER die bereitgestellte Funktion. KEINE Platzhalter.`,
     provider: (result as any).provider,
     model: (result as any).model,
     plain_retry: plainRetry,
+    autopilot: autopilotAction,
     elapsed_ms: Date.now() - startMs,
+    llm_timeout_ms: llmTimeoutMs,
     chars: isMiniCheck ? undefined : content.html?.length,
   });
 
