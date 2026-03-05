@@ -46,9 +46,9 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "lovable", model: "openai/gpt-5" },
   ],
   learning_content: [
-    { provider: "lovable", model: "openai/gpt-5-mini" },              // v11: Gemini fully removed — tool-parse fails 90%+ on Lovable proxy
-    { provider: "lovable", model: "openai/gpt-5" },                   // v11: GPT-5 as fallback (was gemini-2.5-flash)
-    { provider: "lovable", model: "openai/gpt-5-nano", is_fallback: true }, // v11: nano as last resort (was gemini-2.5-pro)
+    { provider: "lovable", model: "openai/gpt-5-mini" },              // v12: primary — best cost/quality ratio
+    { provider: "lovable", model: "openai/gpt-5" },                   // v12: GPT-5 as secondary
+    { provider: "lovable", model: "google/gemini-2.5-flash", is_fallback: true }, // v12: replaces gpt-5-nano (empty responses). Tool-calling is OFF for learning_content (plain JSON), so Gemini parse issue doesn't apply.
   ],
   exam_questions: [
     { provider: "lovable", model: "openai/gpt-5-mini" },
