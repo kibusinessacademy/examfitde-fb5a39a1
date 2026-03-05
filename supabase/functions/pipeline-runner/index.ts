@@ -38,6 +38,23 @@ function buildStepOrder(steps: { step_key: string }[]): StepKey[] {
 
 // STEP_TO_JOB_TYPE imported from _shared/job-map.ts
 
+/** Classify whether a job error is transient (503/timeout/rate-limit) — transient errors must NOT consume step attempts */
+function isTransientStepError(errorMsg: string): boolean {
+  const msg = (errorMsg ?? "").toLowerCase();
+  const TRANSIENT = [
+    "503", "502", "504", "service unavailable", "bad gateway",
+    "timeout", "timed out", "llm_timeout", "llm_empty_response",
+    "rate limit", "rate_limit", "429",
+    "all providers failed", "fetch failed", "network error",
+    "econnreset", "econnrefused", "socket hang up",
+    "connection closed", "connection reset",
+    "empty response", "transient",
+    "upstream", "temporarily unavailable", "overloaded",
+    "unknown_edge_failure",
+  ];
+  return TRANSIENT.some(p => msg.includes(p));
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -1135,6 +1152,13 @@ async function processPackage(
           ? `Zombie job: processing with no lock for ${Math.round(jobAge / 60000)}min`
           : `Stuck processing for ${Math.round(jobAge / 60000)}min`;
         console.warn(`[runner] ⚠️ Job ${jobId.slice(0, 8)} ${reason} — force-resetting`);
+
+        // Classify: zombie/stuck from transient causes should NOT consume attempts
+        const lastErr = String(job.last_error ?? "");
+        const zombieIsTransient = isTransientStepError(lastErr) || isTransientStepError(reason);
+        const currentStepForZombie = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
+        const zombieMeta = (currentStepForZombie?.meta ?? {}) as Record<string, any>;
+
         await safeQuery(
           sb.from("job_queue").update({
             status: "failed",
@@ -1149,12 +1173,23 @@ async function processPackage(
             job_id: null,
             runner_id: null,
             started_at: null,
-            last_error: reason,
+            // Transient zombies: don't touch attempts, track transient counter
+            ...(zombieIsTransient ? {} : { attempts: (currentStepForZombie?.attempts ?? 0) + 1 }),
+            last_error: `${reason}${zombieIsTransient ? " [transient — attempts preserved]" : ""}`,
+            meta: {
+              ...zombieMeta,
+              last_error_kind: zombieIsTransient ? "transient" : "zombie",
+              ...(zombieIsTransient ? {
+                transient_attempts: (Number(zombieMeta.transient_attempts ?? 0) || 0) + 1,
+                first_transient_at: zombieMeta.first_transient_at ?? new Date().toISOString(),
+                last_transient_at: new Date().toISOString(),
+              } : {}),
+            },
           }).eq("package_id", packageId).eq("step_key", stepKey),
           "reset_stuck_step",
         );
         await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-        return { packageId, stepKey, stuck_reset: true, zombie: isZombie, jobAge: Math.round(jobAge / 60000) };
+        return { packageId, stepKey, stuck_reset: true, zombie: isZombie, transient: zombieIsTransient, jobAge: Math.round(jobAge / 60000) };
       }
 
       if (currentStep?.status !== "running") {
@@ -1538,86 +1573,126 @@ async function processPackage(
       return { packageId, stepKey, mode, progress };
     }
 
-    // Job failed — auto-heal with up to 7 retries for ALL steps
+    // Job failed — transient-aware auto-heal
     if (job.status === "failed") {
       const rawErrorMsg = job.last_error || job.error || "Worker job failed";
-      // Normalize unknown errors for better classification + backoff
       const errorMsg = rawErrorMsg === "Job failed: unknown"
         ? "UNKNOWN_EDGE_FAILURE"
         : rawErrorMsg;
       const MAX_STEP_RETRIES = 7;
-      // FIX: currentStep must be resolved HERE (not from the "completed" block scope)
+      const TRANSIENT_STEP_MAX = 15;
+      const TRANSIENT_TIMEOUT_MS = 20 * 60 * 1000; // 20 min
       const failedStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
       const stepAttempts = failedStep?.attempts ?? 0;
+      const stepMeta = (failedStep?.meta ?? {}) as Record<string, any>;
+      const transient = isTransientStepError(errorMsg);
+      const backoffSec = inferBackoffSeconds(errorMsg);
 
-      if (stepAttempts < MAX_STEP_RETRIES) {
-        console.warn(`[runner] 🔄 Auto-heal: ${stepKey} job failed (attempt ${stepAttempts + 1}/${MAX_STEP_RETRIES}) — re-queuing`);
+      if (transient) {
+        // ── TRANSIENT: do NOT consume step attempts budget ──
+        const transientNext = (Number(stepMeta.transient_attempts ?? 0) || 0) + 1;
+        const firstTransientAt = stepMeta.first_transient_at ?? new Date().toISOString();
+        const elapsedMs = Date.now() - new Date(firstTransientAt).getTime();
+        const timedOut = elapsedMs > TRANSIENT_TIMEOUT_MS;
+        const exhausted = transientNext >= TRANSIENT_STEP_MAX || timedOut;
 
-        // Backoff: unknown/rate-limit/timeouts should not hot-loop
-        const backoffSec = inferBackoffSeconds(errorMsg);
+        if (exhausted) {
+          // Transient budget exhausted — NOW consume a real attempt
+          const nextAttempts = stepAttempts + 1;
+          if (nextAttempts < MAX_STEP_RETRIES) {
+            // Reset transient counter, give another real attempt
+            await safeQuery(
+              sb.from("package_steps").update({
+                status: "queued",
+                job_id: null, runner_id: null, started_at: null,
+                attempts: nextAttempts,
+                meta: {
+                  ...stepMeta,
+                  transient_attempts: 0,
+                  first_transient_at: null,
+                  last_error_kind: "transient_exhausted",
+                  exhaust_reason: timedOut ? "ops_transient_timeout" : "max_transient_attempts",
+                  retry_after_sec: backoffSec,
+                  last_fail_reason: errorMsg,
+                },
+                last_error: `Transient budget exhausted (${timedOut ? "20min timeout" : `${transientNext}/${TRANSIENT_STEP_MAX}`}) — attempt ${nextAttempts}/${MAX_STEP_RETRIES}: ${errorMsg.slice(0, 200)}`,
+              }).eq("package_id", packageId).eq("step_key", stepKey),
+              "transient_exhausted_retry",
+            );
+            await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+            return { packageId, stepKey, transient_exhausted: true, attempt: nextAttempts, maxRetries: MAX_STEP_RETRIES };
+          }
+          // All retries gone
+          console.error(`[runner] ❌ Step ${stepKey} failed: transient budget + real attempts exhausted: ${errorMsg}`);
+          await safeRpc(sb, "step_fail", { p_package_id: packageId, p_step_key: stepKey, p_error: `Exhausted after ${MAX_STEP_RETRIES} retries (transient): ${errorMsg}` });
+          await safeQuery(sb.from("package_steps").update({ job_id: null }).eq("package_id", packageId).eq("step_key", stepKey));
+          await safeQuery(sb.from("course_packages").update({ status: "quality_gate_failed", last_error: `Step ${stepKey}: failed after ${MAX_STEP_RETRIES} retries (transient)` }).eq("id", packageId));
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return { packageId, stepKey, job_failed: true, retries_exhausted: true, transient: true, error: errorMsg };
+        }
 
-        // Re-queue the step for retry
+        // Normal transient retry — no attempts increment
+        console.warn(`[runner] ⚡ ${stepKey} TRANSIENT fail — backoff ${backoffSec}s [transient ${transientNext}/${TRANSIENT_STEP_MAX}]`);
         await safeQuery(
-          sb.from("package_steps")
-            .update({
-              status: "queued",
-              job_id: null,
-              runner_id: null,
-              started_at: null,
-              meta: { ...(failedStep?.meta ?? {}), retry_after_sec: backoffSec, last_fail_reason: errorMsg },
-              last_error: `Auto-heal retry ${stepAttempts + 1}/${MAX_STEP_RETRIES}: ${errorMsg.slice(0, 200)}`,
-            })
-            .eq("package_id", packageId)
-            .eq("step_key", stepKey),
-          "auto_heal_retry_step",
+          sb.from("package_steps").update({
+            status: "queued",
+            job_id: null, runner_id: null, started_at: null,
+            // attempts stays unchanged!
+            meta: {
+              ...stepMeta,
+              transient_attempts: transientNext,
+              first_transient_at: firstTransientAt,
+              last_transient_at: new Date().toISOString(),
+              last_error_kind: "transient",
+              retry_after_sec: backoffSec,
+              last_fail_reason: errorMsg,
+            },
+            last_error: `Transient retry ${transientNext}/${TRANSIENT_STEP_MAX}: ${errorMsg.slice(0, 200)}`,
+          }).eq("package_id", packageId).eq("step_key", stepKey),
+          "transient_step_retry",
         );
+        await safeQuery(sb.from("course_packages").update({ status: "building", last_error: `Step ${stepKey}: transient retry ${transientNext}/${TRANSIENT_STEP_MAX}` }).eq("id", packageId));
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, transient_retry: true, transient_attempts: transientNext, maxTransient: TRANSIENT_STEP_MAX };
 
-        await safeQuery(
-          sb.from("auto_heal_log").insert({
+      } else {
+        // ── PERMANENT: consume attempts budget ──
+        const nextAttempts = stepAttempts + 1;
+
+        if (nextAttempts < MAX_STEP_RETRIES) {
+          console.warn(`[runner] ❌ ${stepKey} PERMANENT fail — attempt ${nextAttempts}/${MAX_STEP_RETRIES}`);
+          await safeQuery(
+            sb.from("package_steps").update({
+              status: "queued",
+              job_id: null, runner_id: null, started_at: null,
+              attempts: nextAttempts,
+              meta: { ...stepMeta, retry_after_sec: backoffSec, last_fail_reason: errorMsg, last_error_kind: "permanent", transient_attempts: 0, first_transient_at: null },
+              last_error: `Permanent retry ${nextAttempts}/${MAX_STEP_RETRIES}: ${errorMsg.slice(0, 200)}`,
+            }).eq("package_id", packageId).eq("step_key", stepKey),
+            "permanent_step_retry",
+          );
+          await safeQuery(sb.from("auto_heal_log").insert({
             action_type: "step_job_retry",
             trigger_source: "pipeline_runner",
             target_type: "package_step",
             target_id: packageId,
             result_status: "ok",
-            result_detail: `${stepKey} job failed → re-queued (attempt ${stepAttempts + 1}/${MAX_STEP_RETRIES})`,
-            metadata: { step: stepKey, attempt: stepAttempts + 1, error: errorMsg.slice(0, 500) },
-          }),
-        );
+            result_detail: `${stepKey} permanent fail → re-queued (attempt ${nextAttempts}/${MAX_STEP_RETRIES})`,
+            metadata: { step: stepKey, attempt: nextAttempts, error: errorMsg.slice(0, 500), kind: "permanent" },
+          }));
+          await safeQuery(sb.from("course_packages").update({ status: "building", last_error: `Step ${stepKey}: retry ${nextAttempts}/${MAX_STEP_RETRIES}` }).eq("id", packageId));
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return { packageId, stepKey, auto_heal_retry: true, attempt: nextAttempts, maxRetries: MAX_STEP_RETRIES, kind: "permanent" };
+        }
 
-        await safeQuery(
-          sb.from("course_packages")
-            .update({ status: "building", last_error: `Step ${stepKey}: retry ${stepAttempts + 1}/${MAX_STEP_RETRIES}` })
-            .eq("id", packageId),
-        );
-
+        // Retries exhausted
+        console.error(`[runner] ❌ Step ${stepKey} failed after ${MAX_STEP_RETRIES} retries: ${errorMsg}`);
+        await safeRpc(sb, "step_fail", { p_package_id: packageId, p_step_key: stepKey, p_error: `Exhausted after ${MAX_STEP_RETRIES} retries: ${errorMsg}` });
+        await safeQuery(sb.from("package_steps").update({ job_id: null }).eq("package_id", packageId).eq("step_key", stepKey));
+        await safeQuery(sb.from("course_packages").update({ status: "quality_gate_failed", last_error: `Step ${stepKey}: failed after ${MAX_STEP_RETRIES} retries` }).eq("id", packageId));
         await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-        return { packageId, stepKey, auto_heal_retry: true, attempt: stepAttempts + 1, maxRetries: MAX_STEP_RETRIES };
+        return { packageId, stepKey, job_failed: true, retries_exhausted: true, error: errorMsg };
       }
-
-      // Retries exhausted
-      console.error(`[runner] ❌ Step ${stepKey} failed after ${MAX_STEP_RETRIES} auto-heal retries: ${errorMsg}`);
-
-      await safeRpc(sb, "step_fail", {
-        p_package_id: packageId,
-        p_step_key: stepKey,
-        p_error: `Exhausted after ${MAX_STEP_RETRIES} retries: ${errorMsg}`,
-      });
-
-      await safeQuery(
-        sb.from("package_steps")
-          .update({ job_id: null })
-          .eq("package_id", packageId)
-          .eq("step_key", stepKey),
-      );
-
-      await safeQuery(
-        sb.from("course_packages")
-          .update({ status: "quality_gate_failed", last_error: `Step ${stepKey}: failed after ${MAX_STEP_RETRIES} retries` })
-          .eq("id", packageId),
-      );
-
-      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-      return { packageId, stepKey, job_failed: true, retries_exhausted: true, error: errorMsg };
     }
 
     // Unknown job status
