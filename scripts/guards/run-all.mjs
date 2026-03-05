@@ -12,6 +12,7 @@ const guards = [
   "edge-import-guard.mjs",
   "hard-literal-guard.mjs",
   "pipeline-contract-guard.mjs",
+  "integrity-track-aware-guard.mjs",
 ];
 
 function run(file) {

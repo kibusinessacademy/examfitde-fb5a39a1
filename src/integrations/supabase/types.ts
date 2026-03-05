@@ -27004,6 +27004,7 @@ export type Database = {
         Returns: {
           approved_q: number
           curriculum_id: string
+          integrity_passed: boolean
           package_id: string
         }[]
       }
@@ -27041,9 +27042,10 @@ export type Database = {
       check_trigger_bindings: {
         Args: never
         Returns: {
-          all_clear: boolean
-          missing: Json
-          missing_count: number
+          enabled: boolean
+          expected_table: string
+          expected_trigger: string
+          is_bound: boolean
         }[]
       }
       check_user_entitlement: {
@@ -28786,6 +28788,7 @@ export type Database = {
         Returns: number
       }
       resolve_current_rpc: { Args: { p_base_name: string }; Returns: string }
+      resolve_next_step: { Args: { p_package_id: string }; Returns: Json }
       resolve_qa_finding_if_exists: {
         Args: { p_area: string; p_title: string }
         Returns: undefined

@@ -598,16 +598,46 @@ Deno.serve(async (req) => {
   let packageId: string | null = null;
 
   try {
-    assertUuid("package_id", p?.package_id);
-    assertUuid("course_id", p?.course_id);
+    // ── Payload normalization: accept both camelCase and snake_case ──
+    const rawPackageId = p?.package_id || p?.packageId;
+    const rawCourseId = p?.course_id || p?.courseId;
 
-    packageId = p.package_id as string;
-    const courseId = p.course_id as string;
+    assertUuid("package_id", rawPackageId);
+    packageId = rawPackageId as string;
 
-    // Track-aware prerequisite: EXAM_FIRST requires validate_oral_exam,
-    // AUSBILDUNG_VOLL (full track) requires generate_handbook
-    const { data: pkgTrack } = await sb.from("course_packages").select("track").eq("id", packageId).maybeSingle();
-    const track = (pkgTrack as any)?.track ?? "AUSBILDUNG_VOLL";
+    // ── Guard: only run for building packages ──
+    const { data: pkgData } = await sb
+      .from("course_packages")
+      .select("track, status, course_id, published_at")
+      .eq("id", packageId)
+      .maybeSingle();
+
+    if (!pkgData) {
+      return json({ ok: false, error: "PACKAGE_NOT_FOUND", permanent: true }, 200);
+    }
+
+    const pkgStatus = (pkgData as any).status;
+    if (pkgStatus !== "building" && pkgStatus !== "done" && pkgStatus !== "published") {
+      // Package not in an active build state — skip gracefully (not a failure)
+      console.log(`[integrity-check] pkg=${packageId.slice(0, 8)} status=${pkgStatus} — skipping (not building/done/published)`);
+      return json({
+        ok: false,
+        skipped: true,
+        reason: `PACKAGE_STATUS_${pkgStatus?.toUpperCase() ?? "UNKNOWN"}`,
+        error: `Package status '${pkgStatus}' is not eligible for integrity check`,
+      }, 200);
+    }
+
+    // ── Auto-resolve course_id from package if not provided ──
+    let courseId = rawCourseId as string | null;
+    if (!courseId) {
+      courseId = (pkgData as any).course_id ?? null;
+    }
+    if (!courseId) {
+      return json({ ok: false, error: "MISSING_COURSE_ID", permanent: true }, 200);
+    }
+
+    const track = (pkgData as any)?.track ?? "AUSBILDUNG_VOLL";
 
     const INTEGRITY_PREREQ_BY_TRACK: Record<string, string> = {
       EXAM_FIRST: "validate_oral_exam",
@@ -707,6 +737,7 @@ Deno.serve(async (req) => {
     };
 
     // ── Depublish protection: published packages get report+notify only ──
+    // Re-fetch to get current status (may have changed since handler start)
     const { data: cpStatus } = await sb.from("course_packages").select("published_at, status").eq("id", packageId).maybeSingle();
     const isAlreadyPublished = Boolean((cpStatus as any)?.published_at) || (cpStatus as any)?.status === "published";
 
