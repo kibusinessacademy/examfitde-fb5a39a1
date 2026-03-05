@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType } from "../_shared/job-map.ts";
 import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
-import { setProviderCooldown } from "../_shared/llm/provider-cooldown.ts";
+import { setProviderCooldown, cleanupExpiredCooldowns } from "../_shared/llm/provider-cooldown.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
@@ -11,7 +11,7 @@ const CONTENT_LOCK_TIMEOUT_MINUTES = 5; // was 25: shorter stale-lock recovery f
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000; // recover orphaned processing locks after 3 minutes
 const DISPATCH_TIMEOUT_MS = 42_000;
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v1.3-stale-lock-recovery";
+const FUNCTION_VERSION = "v1.4-persistent-cooldown";
 
 // ── Boot-time guards (crash loudly on drift) ──────────────────────
 validatePipelineGraph(PIPELINE_GRAPH);
@@ -176,7 +176,13 @@ Deno.serve(async (req) => {
       }
       console.warn(`[content-runner] RUNNER_TIME_GUARD: released ${remaining.length} job(s) after ${elapsed}ms`);
       break;
-    }
+  }
+
+  // ── 0b. Cleanup expired provider cooldowns ──
+  try {
+    const cleaned = await cleanupExpiredCooldowns();
+    if (cleaned > 0) console.log(`[content-runner] Cleaned ${cleaned} expired provider cooldown(s)`);
+  } catch { /* best-effort */ }
 
 
     const startMs = Date.now();
@@ -351,7 +357,10 @@ Deno.serve(async (req) => {
           }
 
           await sb.from("job_queue").update(update).eq("id", job.id);
-          console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT [${classification.reason}] — backoff ${backoffSec}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
+          const logBackoff = classification.reason === "ops_empty_response"
+            ? Math.max(15, Math.min(backoffSec, 30))
+            : backoffSec;
+          console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT [${classification.reason}] — backoff ${logBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
           results.push({ id: job.id, ok: false, error: errorStr, exhausted, transient: true });
         } else {
           // Non-transient (permanent) failure — consume attempts budget
