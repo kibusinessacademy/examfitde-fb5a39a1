@@ -16,12 +16,6 @@ function json(body: unknown, status = 200) {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-/**
- * STEP_ARTIFACT_GUARDS
- * Maps step_key → artifact existence check.
- * If the check returns count < min, the step is HOLLOW and must be reset.
- * Uses curriculum_id resolved from course_packages.
- */
 const EXAM_CHAIN_STEPS = [
   "auto_seed_exam_blueprints",
   "validate_blueprints",
@@ -35,8 +29,54 @@ interface HealResult {
   blueprint_count: number;
   question_count: number;
   hollow_reason: string;
-  jobs_canceled: number;
+  jobs_cancelled: number;
   steps_reset: string[];
+}
+
+/** Authenticate: internal secret OR JWT with admin role */
+async function authenticate(req: Request): Promise<{ ok: boolean; error?: string }> {
+  // Path 1: internal edge-to-edge secret
+  const internalSecret = req.headers.get("x-internal-secret") ?? "";
+  const edgeSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
+  if (edgeSecret && internalSecret === edgeSecret) {
+    return { ok: true };
+  }
+
+  // Path 2: Bearer JWT → validate user + check admin role
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) {
+    return { ok: false, error: "missing_bearer_token" };
+  }
+
+  const jwt = authHeader.replace("Bearer ", "");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? SERVICE_ROLE;
+
+  // Use anon client with the user's JWT to validate
+  const userClient = createClient(SUPABASE_URL, anonKey, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+  });
+  const { data: { user }, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !user) {
+    return { ok: false, error: "unauthorized" };
+  }
+
+  // Check admin role via service-role client (bypasses RLS)
+  const adminSb = createClient(SUPABASE_URL, SERVICE_ROLE, {
+    auth: { persistSession: false },
+  });
+  const { data: role } = await adminSb
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  if (!role) {
+    return { ok: false, error: "forbidden" };
+  }
+
+  return { ok: true };
 }
 
 Deno.serve(async (req) => {
@@ -49,36 +89,11 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "method_not_allowed" }, 405);
     }
 
-    // Auth: require service-role or internal secret
-    const authHeader = req.headers.get("authorization") ?? "";
-    const internalSecret = req.headers.get("x-internal-secret") ?? "";
-    const edgeSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
-
-    // Allow service_role bearer OR internal secret
-    const isServiceRole = authHeader.includes(SERVICE_ROLE);
-    const isInternal = edgeSecret && internalSecret === edgeSecret;
-
-    if (!isServiceRole && !isInternal) {
-      // Also allow authenticated admin via JWT (check user_roles)
-      const sb = createClient(SUPABASE_URL, SERVICE_ROLE, {
-        auth: { persistSession: false },
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user } } = await sb.auth.getUser(
-        authHeader.replace("Bearer ", ""),
-      );
-      if (!user) return json({ ok: false, error: "unauthorized" }, 401);
-
-      const adminSb = createClient(SUPABASE_URL, SERVICE_ROLE, {
-        auth: { persistSession: false },
-      });
-      const { data: role } = await adminSb
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      if (!role) return json({ ok: false, error: "forbidden" }, 403);
+    // ── Auth ──
+    const auth = await authenticate(req);
+    if (!auth.ok) {
+      const status = auth.error === "forbidden" ? 403 : 401;
+      return json({ ok: false, error: auth.error }, status);
     }
 
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -90,13 +105,11 @@ Deno.serve(async (req) => {
     const minQuestions = body?.min_questions ?? 50;
 
     // ══════════════════════════════════════════════════════
-    // 1) Find HOLLOW packages: exam steps marked done but artifacts missing
+    // 1) Find HOLLOW packages
     // ══════════════════════════════════════════════════════
-
-    // Get all packages with exam-chain steps updated in last 30 days
     const { data: examSteps } = await sb
       .from("package_steps")
-      .select("package_id, step_key, status")
+      .select("package_id, step_key, status, meta")
       .in("step_key", [...EXAM_CHAIN_STEPS])
       .gte("updated_at", new Date(Date.now() - 30 * 86400000).toISOString());
 
@@ -104,15 +117,13 @@ Deno.serve(async (req) => {
       return json({ ok: true, dry_run: dryRun, healed: [], message: "No exam steps found in last 30 days" });
     }
 
-    // Unique package IDs
     const packageIds = [...new Set(examSteps.map((s) => s.package_id))];
 
-    // Resolve curriculum_id for each package
     const { data: packages } = await sb
       .from("course_packages")
       .select("id, curriculum_id, meta, status")
       .in("id", packageIds)
-      .in("status", ["building", "done"]); // Only active packages
+      .in("status", ["building", "done"]);
 
     if (!packages?.length) {
       return json({ ok: true, dry_run: dryRun, healed: [], message: "No active packages found" });
@@ -126,7 +137,7 @@ Deno.serve(async (req) => {
       const pkgSteps = examSteps.filter((s) => s.package_id === pkg.id);
       const stepMap = Object.fromEntries(pkgSteps.map((s) => [s.step_key, s.status]));
 
-      // Check artifact counts
+      // Check artifact counts using curriculum_id (confirmed FK)
       const [bpRes, qRes] = await Promise.all([
         sb.from("question_blueprints")
           .select("id", { count: "exact", head: true })
@@ -139,26 +150,19 @@ Deno.serve(async (req) => {
       const bpCount = bpRes.count ?? 0;
       const qCount = qRes.count ?? 0;
 
-      // Determine if HOLLOW
       let hollowReason = "";
 
-      // Case 1: Blueprint step done but no blueprints
       if (stepMap["auto_seed_exam_blueprints"] === "done" && bpCount === 0) {
         hollowReason = `HOLLOW_BLUEPRINTS: step=done but 0 blueprints`;
-      }
-      // Case 2: Exam pool step done but too few questions
-      else if (stepMap["generate_exam_pool"] === "done" && qCount < minQuestions) {
+      } else if (stepMap["generate_exam_pool"] === "done" && qCount < minQuestions) {
         hollowReason = `HOLLOW_EXAM_POOL: step=done but only ${qCount} questions (min=${minQuestions})`;
-      }
-      // Case 3: Validate step stuck on artifact missing (running/queued with no artifacts)
-      else if (
+      } else if (
         (stepMap["validate_exam_pool"] === "running" || stepMap["validate_exam_pool"] === "queued") &&
         qCount < minQuestions
       ) {
         hollowReason = `BLOCKED_VALIDATE: validate_exam_pool ${stepMap["validate_exam_pool"]} but only ${qCount} questions`;
-      }
-      // Case 4: Step running without active job (zombie)
-      else if (stepMap["generate_exam_pool"] === "running") {
+      } else if (stepMap["generate_exam_pool"] === "running") {
+        // Zombie check – read-only even in dry_run
         const { count: activeJobs } = await sb
           .from("job_queue")
           .select("id", { count: "exact", head: true })
@@ -173,12 +177,12 @@ Deno.serve(async (req) => {
       if (!hollowReason) continue;
 
       // ══════════════════════════════════════════════════════
-      // 2) Cancel blocking jobs
+      // 2) Cancel blocking jobs (use "cancelled" – matches system enum)
       // ══════════════════════════════════════════════════════
-      let jobsCanceled = 0;
+      let jobsCancelled = 0;
 
       if (!dryRun) {
-        const { data: canceledJobs } = await sb
+        const { data: cancelledJobs } = await sb
           .from("job_queue")
           .update({
             status: "cancelled",
@@ -197,29 +201,41 @@ Deno.serve(async (req) => {
           ])
           .select("id");
 
-        jobsCanceled = canceledJobs?.length ?? 0;
+        jobsCancelled = cancelledJobs?.length ?? 0;
       }
 
       // ══════════════════════════════════════════════════════
-      // 3) Reset exam chain steps back to queued
+      // 3) Reset exam chain steps – merge meta, null job_id/runner_id
       // ══════════════════════════════════════════════════════
       const stepsToReset = [...EXAM_CHAIN_STEPS];
 
       if (!dryRun) {
-        await sb
-          .from("package_steps")
-          .update({
-            status: "queued",
-            started_at: null,
-            finished_at: null,
-            meta: {
-              heal_reset_at: new Date().toISOString(),
-              heal_reason: hollowReason,
-              heal_source: "safe-global-heal",
-            },
-          })
-          .eq("package_id", pkg.id)
-          .in("step_key", stepsToReset);
+        // Load existing meta for each step to merge
+        for (const stepKey of stepsToReset) {
+          const existingStep = pkgSteps.find((s) => s.step_key === stepKey);
+          const existingMeta = (existingStep?.meta && typeof existingStep.meta === "object")
+            ? existingStep.meta as Record<string, unknown>
+            : {};
+
+          await sb
+            .from("package_steps")
+            .update({
+              status: "queued",
+              started_at: null,
+              finished_at: null,
+              job_id: null,
+              runner_id: null,
+              last_error: `SAFE_GLOBAL_HEAL: ${hollowReason}`,
+              meta: {
+                ...existingMeta,
+                heal_reset_at: new Date().toISOString(),
+                heal_reason: hollowReason,
+                heal_source: "safe-global-heal",
+              },
+            })
+            .eq("package_id", pkg.id)
+            .eq("step_key", stepKey);
+        }
       }
 
       // ══════════════════════════════════════════════════════
@@ -237,7 +253,7 @@ Deno.serve(async (req) => {
             curriculum_id: pkg.curriculum_id,
             blueprint_count: bpCount,
             question_count: qCount,
-            jobs_canceled: jobsCanceled,
+            jobs_cancelled: jobsCancelled,
             steps_reset: stepsToReset,
             min_questions: minQuestions,
           },
@@ -250,7 +266,7 @@ Deno.serve(async (req) => {
         blueprint_count: bpCount,
         question_count: qCount,
         hollow_reason: hollowReason,
-        jobs_canceled: jobsCanceled,
+        jobs_cancelled: jobsCancelled,
         steps_reset: [...stepsToReset],
       });
     }
