@@ -198,8 +198,8 @@ Deno.serve(async (req) => {
           const now = new Date().toISOString();
           const prevTransient = (job.meta?.transient_attempts ?? 0);
           const transientNext = prevTransient + 1;
-          const TRANSIENT_MAX = 15;
-          const TRANSIENT_TIMEOUT_MS = 20 * 60 * 1000; // 20 min max transient window
+          const TRANSIENT_MAX = 25;
+          const TRANSIENT_TIMEOUT_MS = 45 * 60 * 1000; // 45 min max transient window (was 20 — too short for extended provider outages)
 
           // Track first transient occurrence for timeout guard
           const firstTransientAtRaw = job.meta?.first_transient_at;
@@ -288,8 +288,8 @@ Deno.serve(async (req) => {
           // Transient errors (503, timeout, rate limit) use separate budget
           const prevTransient = (job.meta?.transient_attempts ?? 0);
           const transientNext = prevTransient + 1;
-          const TRANSIENT_MAX = 15;
-          const TRANSIENT_TIMEOUT_MS = 20 * 60 * 1000; // 20 min max transient window
+          const TRANSIENT_MAX = 25;
+          const TRANSIENT_TIMEOUT_MS = 45 * 60 * 1000; // 45 min max transient window (was 20 — too short for extended provider outages)
 
           // Track first transient occurrence for timeout guard (robust parsing)
           const firstTransientAtRaw = job.meta?.first_transient_at;
