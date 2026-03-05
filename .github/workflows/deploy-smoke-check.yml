@@ -1,0 +1,54 @@
+name: Deploy Smoke Check (Prod)
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "7 * * * *" # hourly at minute 7
+  # Trigger after edge deploy health gate passes
+  workflow_run:
+    workflows: ["Edge Deploy Health Gate"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  smoke:
+    name: Post-Deploy Model Drift Check
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Call admin-deploy-smoke-check
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          SMOKE_URL="${SUPABASE_URL}/functions/v1/admin-deploy-smoke-check"
+          echo "📡 Calling smoke check at ${SMOKE_URL}…"
+
+          resp="$(curl -sS -X POST "$SMOKE_URL" \
+            -H "content-type: application/json" \
+            -H "x-internal-secret: $SUPABASE_SERVICE_ROLE_KEY" \
+            -d '{ "require_deploy_rev": false }')"
+
+          echo "$resp" | python3 -m json.tool 2>/dev/null || echo "$resp"
+
+          ok="$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("ok",False))' 2>/dev/null || echo "false")"
+          if [ "$ok" != "True" ]; then
+            echo "❌ Deploy smoke check FAILED — model drift detected in production"
+            exit 1
+          fi
+
+          echo "✅ Deploy smoke check passed — no forbidden models in critical pipelines"
+
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_NAME: "Deploy Smoke Check (Prod)"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if command -v node &>/dev/null && [ -f scripts/ci/issue-on-fail.mjs ]; then
+            node scripts/ci/issue-on-fail.mjs
+          else
+            echo "⚠️ issue-on-fail.mjs not available, skipping issue creation"
+          fi
