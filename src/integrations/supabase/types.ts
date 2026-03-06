@@ -27542,6 +27542,21 @@ export type Database = {
         }
         Relationships: []
       }
+      v_revenue_health: {
+        Row: {
+          active_affiliates: number | null
+          high_churn_users: number | null
+          orders_30d: number | null
+          packages_blocked: number | null
+          packages_ready_unpublished: number | null
+          pending_affiliate_payouts: number | null
+          refunds_30d: number | null
+          revenue_30d_eur: number | null
+          revenue_7d_eur: number | null
+          revenue_today_eur: number | null
+        }
+        Relationships: []
+      }
       v_roi_certification: {
         Row: {
           certification_id: string | null
