@@ -55,6 +55,8 @@ type AlertItem = {
   ageMin: number;
   source: 'job_queue' | 'stuck' | 'runner';
   packageId?: string | null;
+  jobId?: string | null;
+  stepKey?: string | null;
 };
 
 const fmtEur = (v: number) =>
