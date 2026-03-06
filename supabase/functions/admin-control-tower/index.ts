@@ -62,28 +62,21 @@ async function getOverview(sb: SB) {
   const now = new Date();
   const h24 = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [
-    pendingQ,
-    processingQ,
-    completed24hQ,
-    failed24hQ,
-    stalledQ,
-    cooldownQ,
-    stepsQ,
-  ] = await Promise.all([
-    sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "processing"),
-    sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "completed").gte("updated_at", h24),
-    sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "failed").gte("updated_at", h24),
-    sb.from("ops_package_steps_stuck").select("*").limit(200),
-    sb.from("llm_provider_cooldowns").select("*").gt("cooldown_until", now.toISOString()),
-    sb.from("ops_course_build_progress").select("*").limit(300),
-  ]);
+  const [pendingQ, processingQ, completed24hQ, failed24hQ, stalledQ, cooldownQ, stepsQ] =
+    await Promise.all([
+      sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "processing"),
+      sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "completed").gte("updated_at", h24),
+      sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "failed").gte("updated_at", h24),
+      sb.from("ops_package_steps_stuck").select("*").limit(200),
+      sb.from("llm_provider_cooldowns").select("*").gt("cooldown_until", now.toISOString()),
+      sb.from("ops_course_build_progress").select("*").limit(300),
+    ]);
 
   const stalledCount = stalledQ.data?.length ?? 0;
   const cooldownCount = cooldownQ.data?.length ?? 0;
 
-  // Build pipeline step stats from build progress
+  // Build pipeline step stats
   const stepMap = new Map<string, { queued: number; running: number; blocked: number; done: number; failed: number }>();
   for (const row of (stepsQ.data ?? [])) {
     const statusJson = row.step_status_json;
@@ -107,7 +100,6 @@ async function getOverview(sb: SB) {
     ...counts,
   }));
 
-  // Build health indicators
   const health = [
     { key: "system", label: "System", tone: "green" as const, count: 0 },
     { key: "queue", label: "Queue", tone: (pendingQ.count ?? 0) > 50 ? "red" as const : (pendingQ.count ?? 0) > 20 ? "yellow" as const : "green" as const, count: pendingQ.count ?? 0 },
@@ -115,7 +107,6 @@ async function getOverview(sb: SB) {
     { key: "build", label: "Build", tone: stalledCount > 5 ? "red" as const : stalledCount > 0 ? "yellow" as const : "green" as const, count: stalledCount },
   ];
 
-  // Build alerts from stalled packages
   const alerts = (stalledQ.data ?? []).slice(0, 10).map((row: Record<string, unknown>, i: number) => ({
     id: `stalled-${i}`,
     severity: "high" as const,
@@ -186,32 +177,107 @@ async function getPackageRisk(sb: SB) {
     .select("*")
     .limit(50);
 
-  return (data ?? []).map((row: Record<string, unknown>, i: number) => ({
-    package_id: row.package_id ?? `unknown-${i}`,
-    package_title: row.package_id ? String(row.package_id).slice(0, 8) : "–",
-    curriculum_title: null,
-    track: null,
-    status: "building",
-    current_step: row.step_key ?? null,
-    blocked_reason: row.reason ?? "stuck",
-    stall_minutes: row.stall_minutes ?? null,
-    integrity_passed: null,
-    placeholder_count: null,
-    publish_ready: false,
-    risk_score: Math.min(100, ((row.stall_minutes as number) ?? 10) * 2),
-  }));
+  return (data ?? []).map((row: Record<string, unknown>, i: number) => {
+    const packageId =
+      typeof row.package_id === "string" && row.package_id.length > 0
+        ? row.package_id
+        : `unknown-${i}`;
+
+    const stallMinutes =
+      typeof row.stall_minutes === "number"
+        ? row.stall_minutes
+        : typeof row.minutes_stuck === "number"
+        ? row.minutes_stuck
+        : null;
+
+    const reason =
+      typeof row.reason === "string"
+        ? row.reason
+        : typeof row.blocked_reason === "string"
+        ? row.blocked_reason
+        : null;
+
+    const integrityPassed =
+      typeof row.integrity_passed === "boolean" ? row.integrity_passed : null;
+
+    const placeholderCount =
+      typeof row.placeholder_count === "number" ? row.placeholder_count : null;
+
+    const publishReady =
+      typeof row.publish_ready === "boolean" ? row.publish_ready : null;
+
+    const riskScore =
+      (stallMinutes != null
+        ? stallMinutes > 120 ? 40 : stallMinutes > 45 ? 25 : 10
+        : 10) +
+      (integrityPassed === false ? 20 : 0) +
+      ((placeholderCount ?? 0) > 0 ? 20 : 0) +
+      (publishReady === false ? 10 : 0);
+
+    return {
+      package_id: packageId,
+      package_title:
+        typeof row.package_title === "string" && row.package_title.length > 0
+          ? row.package_title
+          : packageId.slice(0, 8),
+      curriculum_title:
+        typeof row.curriculum_title === "string" ? row.curriculum_title : null,
+      track: typeof row.track === "string" ? row.track : null,
+      status: typeof row.status === "string" ? row.status : "building",
+      current_step: typeof row.step_key === "string" ? row.step_key : null,
+      blocked_reason: reason,
+      stall_minutes: stallMinutes,
+      integrity_passed: integrityPassed,
+      placeholder_count: placeholderCount,
+      publish_ready: publishReady,
+      risk_score: riskScore,
+    };
+  });
 }
 
-async function getRevenue(_sb: SB) {
-  // Placeholder – real implementation would query orders/payments tables
+async function getRevenue(sb: SB) {
+  const now = new Date();
+  const dayStart = new Date(now);
+  dayStart.setHours(0, 0, 0, 0);
+
+  const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const d24 = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+  const [ordersTodayQ, orders7dQ, orders30dQ, claimIssuesQ, seatsQ, checkoutFailQ] =
+    await Promise.all([
+      sb.from("orders").select("id,total_amount,amount,created_at").gte("created_at", dayStart.toISOString()),
+      sb.from("orders").select("id,total_amount,amount,created_at").gte("created_at", d7),
+      sb.from("orders").select("id,total_amount,amount,created_at").gte("created_at", d30),
+      sb.from("license_claims").select("id,status").in("status", ["failed", "conflict", "pending_manual_review"]),
+      sb.from("corporate_license_seats").select("id,learner_user_id"),
+      sb.from("checkout_events").select("id,status,created_at").eq("status", "failed").gte("created_at", d24),
+    ]);
+
+  const sumAmounts = (rows: Record<string, unknown>[]) =>
+    rows.reduce((sum, row) => {
+      const value =
+        typeof row.total_amount === "number" ? row.total_amount
+        : typeof row.amount === "number" ? row.amount
+        : 0;
+      return sum + value;
+    }, 0);
+
+  const ordersToday = (ordersTodayQ.data ?? []) as Record<string, unknown>[];
+  const orders7d = (orders7dQ.data ?? []) as Record<string, unknown>[];
+  const orders30d = (orders30dQ.data ?? []) as Record<string, unknown>[];
+  const claimIssues = (claimIssuesQ.data ?? []) as Record<string, unknown>[];
+  const seats = (seatsQ.data ?? []) as Record<string, unknown>[];
+  const checkoutFails = (checkoutFailQ.data ?? []) as Record<string, unknown>[];
+
   return {
-    orders_today: 0,
-    revenue_today: 0,
-    revenue_7d: 0,
-    revenue_30d: 0,
-    open_claim_issues: 0,
-    corporate_seats_total: 0,
-    corporate_seats_claimed: 0,
-    checkout_failures_24h: 0,
+    orders_today: ordersToday.length,
+    revenue_today: sumAmounts(ordersToday),
+    revenue_7d: sumAmounts(orders7d),
+    revenue_30d: sumAmounts(orders30d),
+    open_claim_issues: claimIssues.length,
+    corporate_seats_total: seats.length,
+    corporate_seats_claimed: seats.filter((row) => !!row.learner_user_id).length,
+    checkout_failures_24h: checkoutFails.length,
   };
 }
