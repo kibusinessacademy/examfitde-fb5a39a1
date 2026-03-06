@@ -545,9 +545,9 @@ export default function Leitstelle() {
             onOpenBottlenecks={() => setSheet('bottlenecks')}
             onOpenPackages={() => setSheet('packages')}
             onRefresh={refetch}
-            onRequeueFailed={() => requeueMutation.mutate()}
+            onRequeueFailed={() => setConfirmAction('requeue_failed_jobs')}
             onReleaseCooldowns={() => releaseCooldownMutation.mutate()}
-            onResetStuck={() => resetStepsMutation.mutate()}
+            onResetStuck={() => setConfirmAction('reset_stalled_steps')}
             busy={anyBusy}
           />
         </>
