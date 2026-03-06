@@ -281,12 +281,17 @@ export default function Leitstelle() {
     refetch();
   };
 
+  const onMutationError = (err: Error) => {
+    toast({ title: 'Aktion fehlgeschlagen', description: err.message || 'Unbekannter Fehler', variant: 'destructive' });
+  };
+
   const requeueMutation = useMutation({
     mutationFn: () => runAdminOpsAction('requeue_failed_jobs', { limit: 20 }),
     onSuccess: async (res: any) => {
       toast({ title: 'Failed Jobs neu eingeplant', description: `${res?.updated ?? 0} Jobs auf pending gesetzt.` });
       await invalidateAll();
     },
+    onError: onMutationError,
   });
 
   const releaseCooldownMutation = useMutation({
@@ -295,6 +300,7 @@ export default function Leitstelle() {
       toast({ title: 'Cooldowns freigegeben', description: `${res?.updated ?? 0} Provider-Cooldowns zurückgesetzt.` });
       await invalidateAll();
     },
+    onError: onMutationError,
   });
 
   const resetStepsMutation = useMutation({
@@ -303,6 +309,7 @@ export default function Leitstelle() {
       toast({ title: 'Stuck Steps zurückgesetzt', description: `${res?.updated ?? 0} Steps erneut auf queued.` });
       await invalidateAll();
     },
+    onError: onMutationError,
   });
 
   const cancelZombiesMutation = useMutation({
@@ -311,7 +318,24 @@ export default function Leitstelle() {
       toast({ title: 'Zombie-Pakete blockiert', description: `${res?.updated ?? 0} Pakete markiert.` });
       await invalidateAll();
     },
+    onError: onMutationError,
   });
+
+  const confirmLabels: Record<string, { title: string; desc: string }> = {
+    cancel_zombie_packages: { title: 'Zombie-Pakete blockieren?', desc: 'Bis zu 20 Pakete ohne aktive Jobs/Leases werden auf "blocked" gesetzt. Diese Aktion kann nicht automatisch rückgängig gemacht werden.' },
+    requeue_failed_jobs: { title: 'Failed Jobs requeue?', desc: 'Bis zu 20 fehlgeschlagene Jobs werden auf "pending" zurückgesetzt und erneut verarbeitet.' },
+    reset_stalled_steps: { title: 'Stuck Steps zurücksetzen?', desc: 'Bis zu 20 hängende Pipeline-Steps werden auf "queued" zurückgesetzt.' },
+  };
+
+  const executeConfirmedAction = () => {
+    if (!confirmAction) return;
+    switch (confirmAction) {
+      case 'cancel_zombie_packages': cancelZombiesMutation.mutate(); break;
+      case 'requeue_failed_jobs': requeueMutation.mutate(); break;
+      case 'reset_stalled_steps': resetStepsMutation.mutate(); break;
+    }
+    setConfirmAction(null);
+  };
 
   const anyBusy = requeueMutation.isPending || releaseCooldownMutation.isPending || resetStepsMutation.isPending || cancelZombiesMutation.isPending;
 
