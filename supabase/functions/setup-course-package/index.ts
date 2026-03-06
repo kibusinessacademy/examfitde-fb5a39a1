@@ -10,7 +10,30 @@ const corsHeaders = {
 
 /**
  * Setup Course Package – Creates course + package + approved plan for a frozen curriculum.
+ * Priority is resolved from beruf_market_data SSOT (v_beruf_priority view).
  */
+
+/** Resolve package priority from market SSOT. Falls back to 5 if no data. */
+async function getMarketPriority(sb: ReturnType<typeof createClient>, berufId: string | null): Promise<{ priority: number; tier: number | null; market_score: number | null }> {
+  const FALLBACK = { priority: 5, tier: null, market_score: null };
+  if (!berufId) return FALLBACK;
+  try {
+    const { data } = await sb
+      .from("v_beruf_priority")
+      .select("suggested_package_priority, tier, market_score")
+      .eq("beruf_id", berufId)
+      .maybeSingle();
+    if (!data) return FALLBACK;
+    return {
+      priority: Number(data.suggested_package_priority ?? 5),
+      tier: data.tier ?? null,
+      market_score: data.market_score ?? null,
+    };
+  } catch (e) {
+    console.warn("[SetupPkg] Market priority lookup failed, fallback=5", e);
+    return FALLBACK;
+  }
+}
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return jsonDomainError("INVALID_INPUT", "Use POST", 405);
