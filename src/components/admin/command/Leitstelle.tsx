@@ -503,7 +503,7 @@ export default function Leitstelle() {
       </div>
 
       <Tabs value={focus} onValueChange={(v) => setFocus(v as FocusMode)}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="priorities">Prioritäten</TabsTrigger>
           <TabsTrigger value="build">Build</TabsTrigger>
           <TabsTrigger value="bottlenecks">Bottlenecks</TabsTrigger>
