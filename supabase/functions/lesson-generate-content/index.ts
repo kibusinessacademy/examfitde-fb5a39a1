@@ -364,7 +364,11 @@ Deno.serve(async (req) => {
   // ── Autopilot: p95 latency check → model/token downgrade ──
   let maxTokensOverride: number | null = null;
   let autopilotAction: string | null = null;
-  const fullChain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
+  const rawChain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
+
+  // ── v9.5: Filter chain through persistent DB cooldowns ──
+  const { filterCooledDownProviders } = await import("../_shared/llm/provider-cooldown.ts");
+  const fullChain = await filterCooledDownProviders(rawChain);
 
   try {
     const { data: latencyStats } = await sb.rpc("get_provider_p95_latency", {
@@ -724,6 +728,8 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
     version_id: newVersion!.id,
     provider: (result as any).provider,
     model: (result as any).model,
+    used_provider: (result as any).provider,
+    used_model: (result as any).model,
     plain_retry: plainRetry,
     autopilot: autopilotAction,
     elapsed_ms: Date.now() - startMs,

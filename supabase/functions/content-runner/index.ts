@@ -3,15 +3,16 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType } from "../_shared/job-map.ts";
 import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
 import { setProviderCooldown, cleanupExpiredCooldowns } from "../_shared/llm/provider-cooldown.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
-const BASE_CONCURRENCY = 6;
+const BASE_CONCURRENCY = 2; // v1.5: was 6 — serial processing + 42s dispatch + 100s budget = only ~2 jobs fit safely
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5; // was 25: shorter stale-lock recovery for 42s dispatch jobs
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000; // recover orphaned processing locks after 3 minutes
 const DISPATCH_TIMEOUT_MS = 42_000;
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v1.4-persistent-cooldown";
+const FUNCTION_VERSION = "v1.5-forensic-fixes";
 
 // ── Boot-time guards (crash loudly on drift) ──────────────────────
 validatePipelineGraph(PIPELINE_GRAPH);
@@ -204,6 +205,10 @@ Deno.serve(async (req) => {
         if (isTransient || !hasRealResult) {
           // Transient or empty result → use SEPARATE transient budget (not main attempts)
           const now = new Date().toISOString();
+
+          // v1.5: Track provider/model from successful result for cooldown targeting
+          const usedProvider = result?.used_provider || result?.provider || "unknown";
+          const usedModel = result?.used_model || result?.model || "unknown";
           const prevTransient = (job.meta?.transient_attempts ?? 0);
           const transientNext = prevTransient + 1;
           const TRANSIENT_MAX = 25;
@@ -258,7 +263,7 @@ Deno.serve(async (req) => {
           console.warn(`[content-runner] ⚠️ ${job.job_type} (${shortId}) ${isTransient ? "TRANSIENT" : "EMPTY_RESULT"} — backoff ${stallBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
           results.push({ id: job.id, ok: false, error: errorLabel, exhausted, transient: true });
         } else {
-          // Real success
+          // Real success — v1.5: clear last_error on completion
           const now = new Date().toISOString();
           await sb.from("job_queue").update({
             status: "completed",
@@ -267,6 +272,12 @@ Deno.serve(async (req) => {
             updated_at: now,
             locked_at: null,
             locked_by: null,
+            last_error: null,
+            meta: {
+              ...(job.meta || {}),
+              last_provider: result?.used_provider || result?.provider || null,
+              last_model: result?.used_model || result?.model || null,
+            },
           }).eq("id", job.id);
 
           console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) completed in ${Date.now() - startMs}ms (gen=${result?.generated ?? "?"})`);
@@ -296,9 +307,19 @@ Deno.serve(async (req) => {
         // v13: Set provider cooldown if classification recommends it
         // This prevents the runner from re-dispatching to the same failing provider
         if (classification.providerCooldownMs) {
-          // Extract provider/model from job payload or error for cooldown tracking
-          const jobProvider = job.meta?.last_provider || job.payload?.provider || "unknown";
-          const jobModel = job.meta?.last_model || job.payload?.model || "unknown";
+          // v1.5: Compute provider/model from chain + attempt_index for accurate cooldown
+          const attemptIdx = job.meta?.transient_attempts ?? job.attempts ?? 0;
+          let jobProvider = "unknown";
+          let jobModel = "unknown";
+          try {
+            const chainForCooldown = await getModelChainAsync("learning_content");
+            const provIdx = attemptIdx % Math.max(1, chainForCooldown.length);
+            jobProvider = chainForCooldown[provIdx]?.provider || "unknown";
+            jobModel = chainForCooldown[provIdx]?.model || "unknown";
+          } catch { /* fallback to unknown */ }
+          // Override with meta if available (more accurate post-dispatch)
+          if (job.meta?.last_provider && job.meta.last_provider !== "unknown") jobProvider = job.meta.last_provider;
+          if (job.meta?.last_model && job.meta.last_model !== "unknown") jobModel = job.meta.last_model;
           setProviderCooldown({
             provider: jobProvider,
             model: jobModel,
