@@ -66,11 +66,13 @@ export const adminNavModules: AdminNavItem[] = [
       { path: '/admin/business/licenses', label: 'Lizenzen' },
     ],
   },
-  { path: '/admin/growth', label: 'Wachstum', icon: TrendingUp, group: 'navigation' },
   {
-    path: '/admin/social', label: 'Social & Videos', icon: Radio, group: 'navigation',
+    path: '/admin/growth', label: 'Growth & SEO', icon: TrendingUp, group: 'navigation',
     children: [
-      { path: '/admin/social', label: 'Content-Engine' },
+      { path: '/admin/growth', label: 'Command Center' },
+      { path: '/admin/growth/content', label: 'Seiten' },
+      { path: '/admin/growth/blog', label: 'Blog' },
+      { path: '/admin/growth/social', label: 'Social Engine' },
     ],
   },
   { path: '/admin/scale', label: 'Skalierung', icon: Layers, group: 'navigation' },
