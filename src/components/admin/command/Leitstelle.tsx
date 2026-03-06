@@ -585,7 +585,18 @@ export default function Leitstelle() {
               </div>
 
               <div>
-                <div className="mb-2 text-sm font-semibold">Zombie-Pakete</div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold">Zombie-Pakete</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancelZombiesMutation.mutate()}
+                    disabled={cancelZombiesMutation.isPending}
+                  >
+                    {cancelZombiesMutation.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                    Zombies blockieren
+                  </Button>
+                </div>
                 <div className="space-y-2">
                   {zombieRows.length === 0 ? (
                     <div className="text-sm text-muted-foreground">Keine Zombies gefunden.</div>
