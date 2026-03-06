@@ -28,11 +28,12 @@ const Loading = () => (
 );
 
 const tabs = [
-  { path: '/admin/business', label: 'LLM-Kosten' },
+  { path: '/admin/business', label: 'Revenue SSOT' },
+  { path: '/admin/business/costs', label: 'LLM-Kosten' },
   { path: '/admin/business/unit-economics', label: 'Unit Economics' },
   { path: '/admin/business/b2b', label: 'B2B Reporting' },
   { path: '/admin/business/monetization', label: 'Monetarisierung' },
-  { path: '/admin/business/revenue', label: 'Umsatz' },
+  { path: '/admin/business/revenue', label: 'Umsatz-Detail' },
   { path: '/admin/business/licenses', label: 'Lizenzen' },
   { path: '/admin/business/exports', label: 'Steuer-Export' },
 ];
