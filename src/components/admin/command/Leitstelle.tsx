@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 type JsonRow = Record<string, unknown>;
-type FocusMode = 'priorities' | 'build' | 'bottlenecks';
+type FocusMode = 'priorities' | 'build' | 'bottlenecks' | 'policies';
 
 type AlertItem = {
   id: string;
