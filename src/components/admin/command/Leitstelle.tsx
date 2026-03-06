@@ -9,10 +9,12 @@ import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
   ArrowRight,
+  Ban,
   CheckCircle2,
   Clock3,
   Package,
   RefreshCw,
+  RotateCcw,
   Server,
   Sparkles,
   Wrench,
@@ -23,6 +25,7 @@ import {
   Loader2,
   ShieldAlert,
 } from 'lucide-react';
+import { RootCausePanel } from './RootCausePanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -266,7 +269,7 @@ export default function Leitstelle() {
   const { packages, kpis, loading, lastRefresh, refetch } = useCommandData();
   const [focus, setFocus] = useState<FocusMode>('priorities');
   const [sheet, setSheet] = useState<'bottlenecks' | 'packages' | null>(null);
-  const [confirmAction, setConfirmAction] = useState<'cancel_zombie_packages' | 'requeue_failed_jobs' | 'reset_stalled_steps' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: string; payload?: Record<string, unknown>; label?: string } | null>(null);
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -276,6 +279,7 @@ export default function Leitstelle() {
       qc.invalidateQueries({ queryKey: ['leitstelle-stuck-live'] }),
       qc.invalidateQueries({ queryKey: ['leitstelle-zombies-live'] }),
       qc.invalidateQueries({ queryKey: ['leitstelle-recent-actions'] }),
+      qc.invalidateQueries({ queryKey: ['leitstelle-root-causes'] }),
       qc.invalidateQueries({ queryKey: ['command-data'] }),
     ]);
     refetch();
@@ -285,59 +289,51 @@ export default function Leitstelle() {
     toast({ title: 'Aktion fehlgeschlagen', description: err.message || 'Unbekannter Fehler', variant: 'destructive' });
   };
 
-  const requeueMutation = useMutation({
-    mutationFn: () => runAdminOpsAction('requeue_failed_jobs', { limit: 20 }),
-    onSuccess: async (res: any) => {
-      toast({ title: 'Failed Jobs neu eingeplant', description: `${res?.updated ?? 0} Jobs auf pending gesetzt.` });
+  const scopedMutation = useMutation({
+    mutationFn: (args: { action: string; payload?: Record<string, unknown> }) =>
+      runAdminOpsAction(args.action as any, args.payload),
+    onSuccess: async (res: any, vars) => {
+      const labels: Record<string, string> = {
+        requeue_failed_jobs: 'Jobs neu eingeplant',
+        release_provider_cooldowns: 'Cooldowns freigegeben',
+        reset_stalled_steps: 'Steps zurückgesetzt',
+        cancel_zombie_packages: 'Pakete blockiert',
+      };
+      toast({
+        title: labels[vars.action] || vars.action,
+        description: `${res?.updated ?? 0} betroffen${res?.scope ? ` (${res.scope})` : ''}.`,
+      });
       await invalidateAll();
     },
     onError: onMutationError,
   });
 
-  const releaseCooldownMutation = useMutation({
-    mutationFn: () => runAdminOpsAction('release_provider_cooldowns'),
-    onSuccess: async (res: any) => {
-      toast({ title: 'Cooldowns freigegeben', description: `${res?.updated ?? 0} Provider-Cooldowns zurückgesetzt.` });
-      await invalidateAll();
-    },
-    onError: onMutationError,
-  });
-
-  const resetStepsMutation = useMutation({
-    mutationFn: () => runAdminOpsAction('reset_stalled_steps', { limit: 20 }),
-    onSuccess: async (res: any) => {
-      toast({ title: 'Stuck Steps zurückgesetzt', description: `${res?.updated ?? 0} Steps erneut auf queued.` });
-      await invalidateAll();
-    },
-    onError: onMutationError,
-  });
-
-  const cancelZombiesMutation = useMutation({
-    mutationFn: () => runAdminOpsAction('cancel_zombie_packages', { limit: 20 }),
-    onSuccess: async (res: any) => {
-      toast({ title: 'Zombie-Pakete blockiert', description: `${res?.updated ?? 0} Pakete markiert.` });
-      await invalidateAll();
-    },
-    onError: onMutationError,
-  });
+  const doAction = (type: string, payload?: Record<string, unknown>) => {
+    scopedMutation.mutate({ action: type, payload });
+  };
 
   const confirmLabels: Record<string, { title: string; desc: string }> = {
-    cancel_zombie_packages: { title: 'Zombie-Pakete blockieren?', desc: 'Bis zu 20 Pakete ohne aktive Jobs/Leases werden auf "blocked" gesetzt. Diese Aktion kann nicht automatisch rückgängig gemacht werden.' },
-    requeue_failed_jobs: { title: 'Failed Jobs requeue?', desc: 'Bis zu 20 fehlgeschlagene Jobs werden auf "pending" zurückgesetzt und erneut verarbeitet.' },
-    reset_stalled_steps: { title: 'Stuck Steps zurücksetzen?', desc: 'Bis zu 20 hängende Pipeline-Steps werden auf "queued" zurückgesetzt.' },
+    cancel_zombie_packages: { title: 'Zombie-Pakete blockieren?', desc: 'Betroffene Pakete werden auf "blocked" gesetzt.' },
+    requeue_failed_jobs: { title: 'Failed Jobs requeue?', desc: 'Fehlgeschlagene Jobs werden auf "pending" zurückgesetzt.' },
+    reset_stalled_steps: { title: 'Stuck Steps zurücksetzen?', desc: 'Hängende Pipeline-Steps werden auf "queued" zurückgesetzt.' },
+    cancel_zombie_single: { title: 'Dieses Paket blockieren?', desc: 'Nur dieses einzelne Paket wird auf "blocked" gesetzt.' },
+    reset_step_single: { title: 'Diesen Step zurücksetzen?', desc: 'Nur dieser einzelne Step wird auf "queued" zurückgesetzt.' },
+    requeue_single: { title: 'Diesen Job requeue?', desc: 'Nur dieser einzelne Job wird auf "pending" zurückgesetzt.' },
   };
 
   const executeConfirmedAction = () => {
     if (!confirmAction) return;
-    switch (confirmAction) {
-      case 'cancel_zombie_packages': cancelZombiesMutation.mutate(); break;
-      case 'requeue_failed_jobs': requeueMutation.mutate(); break;
-      case 'reset_stalled_steps': resetStepsMutation.mutate(); break;
-    }
+    const { type, payload } = confirmAction;
+    const actionMap: Record<string, string> = {
+      cancel_zombie_single: 'cancel_zombie_packages',
+      reset_step_single: 'reset_stalled_steps',
+      requeue_single: 'requeue_failed_jobs',
+    };
+    doAction(actionMap[type] || type, payload);
     setConfirmAction(null);
   };
 
-  const anyBusy = requeueMutation.isPending || releaseCooldownMutation.isPending || resetStepsMutation.isPending || cancelZombiesMutation.isPending;
+  const anyBusy = scopedMutation.isPending;
 
   const { data: failedJobs = [] } = useQuery({
     queryKey: ['leitstelle-failed-jobs-live'],
@@ -545,9 +541,9 @@ export default function Leitstelle() {
             onOpenBottlenecks={() => setSheet('bottlenecks')}
             onOpenPackages={() => setSheet('packages')}
             onRefresh={refetch}
-            onRequeueFailed={() => setConfirmAction('requeue_failed_jobs')}
-            onReleaseCooldowns={() => releaseCooldownMutation.mutate()}
-            onResetStuck={() => setConfirmAction('reset_stalled_steps')}
+            onRequeueFailed={() => setConfirmAction({ type: 'requeue_failed_jobs', payload: { limit: 20 } })}
+            onReleaseCooldowns={() => doAction('release_provider_cooldowns')}
+            onResetStuck={() => setConfirmAction({ type: 'reset_stalled_steps', payload: { limit: 20 } })}
             busy={anyBusy}
           />
         </>
@@ -613,6 +609,9 @@ export default function Leitstelle() {
         </Card>
       )}
 
+      {/* Root Cause Panel */}
+      <RootCausePanel />
+
       {/* Action Result Panel */}
       {recentActions.length > 0 && (
         <Card className="border-border/70 bg-card/70">
@@ -663,16 +662,86 @@ export default function Leitstelle() {
 
           {sheet === 'bottlenecks' ? (
             <div className="mt-4 space-y-4">
+              {/* Failed Jobs with inline requeue */}
               <div>
-                <div className="mb-2 text-sm font-semibold">Frische Alerts</div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold">Failed Jobs (90 Min)</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmAction({ type: 'requeue_failed_jobs', payload: { limit: 20 } })}
+                    disabled={anyBusy}
+                  >
+                    Alle requeue
+                  </Button>
+                </div>
                 <div className="space-y-2">
-                  {alerts.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">Keine akuten Alerts.</div>
+                  {failedJobs.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">Keine Failed Jobs.</div>
                   ) : (
-                    alerts.map((alert) => (
-                      <div key={alert.id} className="rounded-xl border border-border p-3">
-                        <div className="font-medium">{alert.title}</div>
-                        <div className="mt-1 text-sm text-muted-foreground">{alert.detail}</div>
+                    failedJobs.slice(0, 15).map((row, i) => (
+                      <div key={`fj-${row.id ?? i}`} className="rounded-xl border border-border p-3 text-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium font-mono truncate">{String(row.job_type || 'Job')}</div>
+                            <div className="mt-1 text-xs text-destructive truncate">{String(row.last_error || '–').slice(0, 100)}</div>
+                          </div>
+                          {row.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 h-7 px-2 text-[11px]"
+                              onClick={() => setConfirmAction({ type: 'requeue_single', payload: { job_ids: [String(row.id)] } })}
+                              disabled={anyBusy}
+                            >
+                              <RotateCcw className="mr-1 h-3 w-3" /> Retry
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Stuck Steps with inline reset */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold">Stuck Steps</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmAction({ type: 'reset_stalled_steps', payload: { limit: 20 } })}
+                    disabled={anyBusy}
+                  >
+                    Alle resetten
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {stuckRows.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">Keine stuck Steps.</div>
+                  ) : (
+                    stuckRows.map((row, i) => (
+                      <div key={`stuck-${row.package_id ?? i}`} className="rounded-xl border border-border p-3 text-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium font-mono truncate">{String(row.step_key || '–')}</div>
+                            <div className="mt-1 text-xs text-muted-foreground truncate">
+                              {String(row.package_id || '–').slice(0, 8)} · {String(row.reason || '–')}
+                            </div>
+                          </div>
+                          {row.package_id && row.step_key && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 h-7 px-2 text-[11px]"
+                              onClick={() => setConfirmAction({ type: 'reset_step_single', payload: { package_id: String(row.package_id), step_key: String(row.step_key) } })}
+                              disabled={anyBusy}
+                            >
+                              <RotateCcw className="mr-1 h-3 w-3" /> Reset
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))
                   )}
@@ -685,11 +754,11 @@ export default function Leitstelle() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setConfirmAction('cancel_zombie_packages')}
-                    disabled={cancelZombiesMutation.isPending}
+                    onClick={() => setConfirmAction({ type: 'cancel_zombie_packages', payload: { limit: 20 } })}
+                    disabled={anyBusy}
                   >
-                    {cancelZombiesMutation.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                    Zombies blockieren
+                    {anyBusy && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                    Alle blockieren
                   </Button>
                 </div>
                 <div className="space-y-2">
@@ -698,9 +767,24 @@ export default function Leitstelle() {
                   ) : (
                     zombieRows.map((row, i) => (
                       <div key={`zombie-${row.package_id ?? i}`} className="rounded-xl border border-border p-3 text-sm">
-                        <div className="font-medium">{String(row.title || row.package_id || `Paket ${i + 1}`)}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          Step: {String(row.current_step || '–')} · Status: {String(row.status || '–')}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">{String(row.title || row.package_id || `Paket ${i + 1}`)}</div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Step: {String(row.current_step || '–')} · Status: {String(row.status || '–')}
+                            </div>
+                          </div>
+                          {row.package_id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 h-7 px-2 text-[11px]"
+                              onClick={() => setConfirmAction({ type: 'cancel_zombie_single', payload: { package_id: String(row.package_id) } })}
+                              disabled={anyBusy}
+                            >
+                              <Ban className="mr-1 h-3 w-3" /> Block
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -725,10 +809,10 @@ export default function Leitstelle() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-amber-500" />
-              {confirmAction ? confirmLabels[confirmAction]?.title : ''}
+              {confirmAction ? confirmLabels[confirmAction.type]?.title : ''}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmAction ? confirmLabels[confirmAction]?.desc : ''}
+              {confirmAction ? confirmLabels[confirmAction.type]?.desc : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
