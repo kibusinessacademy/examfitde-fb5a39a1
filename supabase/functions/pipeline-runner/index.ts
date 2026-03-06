@@ -2076,7 +2076,7 @@ async function backfillPipelinePool(
             title: cert.title,
             status: "draft",
             certification_type: cert.track || "ausbildung",
-            track: cert.track || "EXAM_FIRST",
+            track: "AUSBILDUNG_VOLL",
           })
           .select("id")
           .single();
