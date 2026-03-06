@@ -507,6 +507,7 @@ export default function Leitstelle() {
           <TabsTrigger value="priorities">Prioritäten</TabsTrigger>
           <TabsTrigger value="build">Build</TabsTrigger>
           <TabsTrigger value="bottlenecks">Bottlenecks</TabsTrigger>
+          <TabsTrigger value="policies">Auto-Heal</TabsTrigger>
         </TabsList>
       </Tabs>
 
