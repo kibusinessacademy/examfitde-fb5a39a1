@@ -269,7 +269,7 @@ export default function Leitstelle() {
   const { packages, kpis, loading, lastRefresh, refetch } = useCommandData();
   const [focus, setFocus] = useState<FocusMode>('priorities');
   const [sheet, setSheet] = useState<'bottlenecks' | 'packages' | null>(null);
-  const [confirmAction, setConfirmAction] = useState<'cancel_zombie_packages' | 'requeue_failed_jobs' | 'reset_stalled_steps' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: string; payload?: Record<string, unknown>; label?: string } | null>(null);
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -279,6 +279,7 @@ export default function Leitstelle() {
       qc.invalidateQueries({ queryKey: ['leitstelle-stuck-live'] }),
       qc.invalidateQueries({ queryKey: ['leitstelle-zombies-live'] }),
       qc.invalidateQueries({ queryKey: ['leitstelle-recent-actions'] }),
+      qc.invalidateQueries({ queryKey: ['leitstelle-root-causes'] }),
       qc.invalidateQueries({ queryKey: ['command-data'] }),
     ]);
     refetch();
@@ -288,59 +289,51 @@ export default function Leitstelle() {
     toast({ title: 'Aktion fehlgeschlagen', description: err.message || 'Unbekannter Fehler', variant: 'destructive' });
   };
 
-  const requeueMutation = useMutation({
-    mutationFn: () => runAdminOpsAction('requeue_failed_jobs', { limit: 20 }),
-    onSuccess: async (res: any) => {
-      toast({ title: 'Failed Jobs neu eingeplant', description: `${res?.updated ?? 0} Jobs auf pending gesetzt.` });
+  const scopedMutation = useMutation({
+    mutationFn: (args: { action: string; payload?: Record<string, unknown> }) =>
+      runAdminOpsAction(args.action as any, args.payload),
+    onSuccess: async (res: any, vars) => {
+      const labels: Record<string, string> = {
+        requeue_failed_jobs: 'Jobs neu eingeplant',
+        release_provider_cooldowns: 'Cooldowns freigegeben',
+        reset_stalled_steps: 'Steps zurückgesetzt',
+        cancel_zombie_packages: 'Pakete blockiert',
+      };
+      toast({
+        title: labels[vars.action] || vars.action,
+        description: `${res?.updated ?? 0} betroffen${res?.scope ? ` (${res.scope})` : ''}.`,
+      });
       await invalidateAll();
     },
     onError: onMutationError,
   });
 
-  const releaseCooldownMutation = useMutation({
-    mutationFn: () => runAdminOpsAction('release_provider_cooldowns'),
-    onSuccess: async (res: any) => {
-      toast({ title: 'Cooldowns freigegeben', description: `${res?.updated ?? 0} Provider-Cooldowns zurückgesetzt.` });
-      await invalidateAll();
-    },
-    onError: onMutationError,
-  });
-
-  const resetStepsMutation = useMutation({
-    mutationFn: () => runAdminOpsAction('reset_stalled_steps', { limit: 20 }),
-    onSuccess: async (res: any) => {
-      toast({ title: 'Stuck Steps zurückgesetzt', description: `${res?.updated ?? 0} Steps erneut auf queued.` });
-      await invalidateAll();
-    },
-    onError: onMutationError,
-  });
-
-  const cancelZombiesMutation = useMutation({
-    mutationFn: () => runAdminOpsAction('cancel_zombie_packages', { limit: 20 }),
-    onSuccess: async (res: any) => {
-      toast({ title: 'Zombie-Pakete blockiert', description: `${res?.updated ?? 0} Pakete markiert.` });
-      await invalidateAll();
-    },
-    onError: onMutationError,
-  });
+  const doAction = (type: string, payload?: Record<string, unknown>) => {
+    scopedMutation.mutate({ action: type, payload });
+  };
 
   const confirmLabels: Record<string, { title: string; desc: string }> = {
-    cancel_zombie_packages: { title: 'Zombie-Pakete blockieren?', desc: 'Bis zu 20 Pakete ohne aktive Jobs/Leases werden auf "blocked" gesetzt. Diese Aktion kann nicht automatisch rückgängig gemacht werden.' },
-    requeue_failed_jobs: { title: 'Failed Jobs requeue?', desc: 'Bis zu 20 fehlgeschlagene Jobs werden auf "pending" zurückgesetzt und erneut verarbeitet.' },
-    reset_stalled_steps: { title: 'Stuck Steps zurücksetzen?', desc: 'Bis zu 20 hängende Pipeline-Steps werden auf "queued" zurückgesetzt.' },
+    cancel_zombie_packages: { title: 'Zombie-Pakete blockieren?', desc: 'Betroffene Pakete werden auf "blocked" gesetzt.' },
+    requeue_failed_jobs: { title: 'Failed Jobs requeue?', desc: 'Fehlgeschlagene Jobs werden auf "pending" zurückgesetzt.' },
+    reset_stalled_steps: { title: 'Stuck Steps zurücksetzen?', desc: 'Hängende Pipeline-Steps werden auf "queued" zurückgesetzt.' },
+    cancel_zombie_single: { title: 'Dieses Paket blockieren?', desc: 'Nur dieses einzelne Paket wird auf "blocked" gesetzt.' },
+    reset_step_single: { title: 'Diesen Step zurücksetzen?', desc: 'Nur dieser einzelne Step wird auf "queued" zurückgesetzt.' },
+    requeue_single: { title: 'Diesen Job requeue?', desc: 'Nur dieser einzelne Job wird auf "pending" zurückgesetzt.' },
   };
 
   const executeConfirmedAction = () => {
     if (!confirmAction) return;
-    switch (confirmAction) {
-      case 'cancel_zombie_packages': cancelZombiesMutation.mutate(); break;
-      case 'requeue_failed_jobs': requeueMutation.mutate(); break;
-      case 'reset_stalled_steps': resetStepsMutation.mutate(); break;
-    }
+    const { type, payload } = confirmAction;
+    const actionMap: Record<string, string> = {
+      cancel_zombie_single: 'cancel_zombie_packages',
+      reset_step_single: 'reset_stalled_steps',
+      requeue_single: 'requeue_failed_jobs',
+    };
+    doAction(actionMap[type] || type, payload);
     setConfirmAction(null);
   };
 
-  const anyBusy = requeueMutation.isPending || releaseCooldownMutation.isPending || resetStepsMutation.isPending || cancelZombiesMutation.isPending;
+  const anyBusy = scopedMutation.isPending;
 
   const { data: failedJobs = [] } = useQuery({
     queryKey: ['leitstelle-failed-jobs-live'],
