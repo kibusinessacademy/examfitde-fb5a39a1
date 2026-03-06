@@ -152,17 +152,25 @@ function ActionStrip({
   onOpenBottlenecks,
   onOpenPackages,
   onRefresh,
+  onRequeueFailed,
+  onReleaseCooldowns,
+  onResetStuck,
+  busy,
 }: {
   onOpenBottlenecks: () => void;
   onOpenPackages: () => void;
   onRefresh: () => void;
+  onRequeueFailed: () => void;
+  onReleaseCooldowns: () => void;
+  onResetStuck: () => void;
+  busy?: boolean;
 }) {
   return (
     <Card className="border-border/70 bg-card/70">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Schnellaktionen</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
         <Button variant="outline" className="justify-between" onClick={onOpenBottlenecks}>
           Bottlenecks prüfen
           <ArrowRight className="h-4 w-4" />
@@ -174,6 +182,18 @@ function ActionStrip({
         <Button variant="outline" className="justify-between" onClick={onRefresh}>
           Neu laden
           <RefreshCw className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" className="justify-between" onClick={onRequeueFailed} disabled={busy}>
+          Failed Jobs requeue
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+        </Button>
+        <Button variant="outline" className="justify-between" onClick={onReleaseCooldowns} disabled={busy}>
+          Cooldowns freigeben
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+        </Button>
+        <Button variant="outline" className="justify-between" onClick={onResetStuck} disabled={busy}>
+          Stuck Steps reset
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
         </Button>
       </CardContent>
     </Card>
