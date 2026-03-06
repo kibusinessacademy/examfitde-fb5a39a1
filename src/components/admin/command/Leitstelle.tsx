@@ -575,6 +575,48 @@ export default function Leitstelle() {
         </Card>
       )}
 
+      {/* Action Result Panel */}
+      {recentActions.length > 0 && (
+        <Card className="border-border/70 bg-card/70">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between text-base">
+              <span>Letzte Admin-Eingriffe</span>
+              <Badge variant="outline" className="text-[11px]">{recentActions.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentActions.map((row: JsonRow, i: number) => {
+              const payload = (row.payload || {}) as Record<string, unknown>;
+              const updated = typeof payload.result === 'object' && payload.result !== null
+                ? (payload.result as Record<string, unknown>).updated
+                : undefined;
+              const actionLabels: Record<string, string> = {
+                requeue_failed_jobs: 'Requeue Failed Jobs',
+                release_provider_cooldowns: 'Cooldowns freigegeben',
+                reset_stalled_steps: 'Stuck Steps reset',
+                cancel_zombie_packages: 'Zombies blockiert',
+              };
+              const label = actionLabels[String(row.action)] || String(row.action);
+              const ts = row.created_at ? new Date(String(row.created_at)) : null;
+              return (
+                <div key={String(row.id ?? i)} className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="font-medium">{label}</span>
+                    {typeof updated === 'number' && (
+                      <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{updated} betroffen</Badge>
+                    )}
+                  </div>
+                  {ts && (
+                    <span className="text-xs text-muted-foreground">{ts.toLocaleTimeString('de-DE')}</span>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
       <Sheet open={sheet !== null} onOpenChange={(open) => !open && setSheet(null)}>
         <SheetContent side="right" className="w-[96vw] overflow-y-auto sm:w-[560px]">
           <SheetHeader>
