@@ -85,6 +85,7 @@ const AdminOpsQueuePage = lazy(() => import('@/pages/admin/AdminOpsQueuePage'));
 const AdminProviderHealthPage = lazy(() => import('@/pages/admin/AdminProviderHealthPage'));
 const AdminPackageRiskPage = lazy(() => import('@/pages/admin/AdminPackageRiskPage'));
 const AdminRevenuePage = lazy(() => import('@/pages/admin/AdminRevenuePage'));
+const AdminExecutiveHomePage = lazy(() => import('@/pages/admin/AdminExecutiveHomePage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazy(() => import('@/pages/work/WorkHomePage'));
