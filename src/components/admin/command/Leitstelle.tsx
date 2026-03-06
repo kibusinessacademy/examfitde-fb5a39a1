@@ -21,6 +21,7 @@ import {
   DollarSign,
   Filter,
   Loader2,
+  ShieldAlert,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,16 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type JsonRow = Record<string, unknown>;
 type FocusMode = 'priorities' | 'build' | 'bottlenecks';
@@ -255,6 +266,7 @@ export default function Leitstelle() {
   const { packages, kpis, loading, lastRefresh, refetch } = useCommandData();
   const [focus, setFocus] = useState<FocusMode>('priorities');
   const [sheet, setSheet] = useState<'bottlenecks' | 'packages' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'cancel_zombie_packages' | 'requeue_failed_jobs' | 'reset_stalled_steps' | null>(null);
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -269,12 +281,17 @@ export default function Leitstelle() {
     refetch();
   };
 
+  const onMutationError = (err: Error) => {
+    toast({ title: 'Aktion fehlgeschlagen', description: err.message || 'Unbekannter Fehler', variant: 'destructive' });
+  };
+
   const requeueMutation = useMutation({
     mutationFn: () => runAdminOpsAction('requeue_failed_jobs', { limit: 20 }),
     onSuccess: async (res: any) => {
       toast({ title: 'Failed Jobs neu eingeplant', description: `${res?.updated ?? 0} Jobs auf pending gesetzt.` });
       await invalidateAll();
     },
+    onError: onMutationError,
   });
 
   const releaseCooldownMutation = useMutation({
@@ -283,6 +300,7 @@ export default function Leitstelle() {
       toast({ title: 'Cooldowns freigegeben', description: `${res?.updated ?? 0} Provider-Cooldowns zurückgesetzt.` });
       await invalidateAll();
     },
+    onError: onMutationError,
   });
 
   const resetStepsMutation = useMutation({
@@ -291,6 +309,7 @@ export default function Leitstelle() {
       toast({ title: 'Stuck Steps zurückgesetzt', description: `${res?.updated ?? 0} Steps erneut auf queued.` });
       await invalidateAll();
     },
+    onError: onMutationError,
   });
 
   const cancelZombiesMutation = useMutation({
@@ -299,7 +318,24 @@ export default function Leitstelle() {
       toast({ title: 'Zombie-Pakete blockiert', description: `${res?.updated ?? 0} Pakete markiert.` });
       await invalidateAll();
     },
+    onError: onMutationError,
   });
+
+  const confirmLabels: Record<string, { title: string; desc: string }> = {
+    cancel_zombie_packages: { title: 'Zombie-Pakete blockieren?', desc: 'Bis zu 20 Pakete ohne aktive Jobs/Leases werden auf "blocked" gesetzt. Diese Aktion kann nicht automatisch rückgängig gemacht werden.' },
+    requeue_failed_jobs: { title: 'Failed Jobs requeue?', desc: 'Bis zu 20 fehlgeschlagene Jobs werden auf "pending" zurückgesetzt und erneut verarbeitet.' },
+    reset_stalled_steps: { title: 'Stuck Steps zurücksetzen?', desc: 'Bis zu 20 hängende Pipeline-Steps werden auf "queued" zurückgesetzt.' },
+  };
+
+  const executeConfirmedAction = () => {
+    if (!confirmAction) return;
+    switch (confirmAction) {
+      case 'cancel_zombie_packages': cancelZombiesMutation.mutate(); break;
+      case 'requeue_failed_jobs': requeueMutation.mutate(); break;
+      case 'reset_stalled_steps': resetStepsMutation.mutate(); break;
+    }
+    setConfirmAction(null);
+  };
 
   const anyBusy = requeueMutation.isPending || releaseCooldownMutation.isPending || resetStepsMutation.isPending || cancelZombiesMutation.isPending;
 
@@ -509,9 +545,9 @@ export default function Leitstelle() {
             onOpenBottlenecks={() => setSheet('bottlenecks')}
             onOpenPackages={() => setSheet('packages')}
             onRefresh={refetch}
-            onRequeueFailed={() => requeueMutation.mutate()}
+            onRequeueFailed={() => setConfirmAction('requeue_failed_jobs')}
             onReleaseCooldowns={() => releaseCooldownMutation.mutate()}
-            onResetStuck={() => resetStepsMutation.mutate()}
+            onResetStuck={() => setConfirmAction('reset_stalled_steps')}
             busy={anyBusy}
           />
         </>
@@ -649,7 +685,7 @@ export default function Leitstelle() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => cancelZombiesMutation.mutate()}
+                    onClick={() => setConfirmAction('cancel_zombie_packages')}
                     disabled={cancelZombiesMutation.isPending}
                   >
                     {cancelZombiesMutation.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
@@ -683,6 +719,24 @@ export default function Leitstelle() {
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-amber-500" />
+              {confirmAction ? confirmLabels[confirmAction]?.title : ''}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction ? confirmLabels[confirmAction]?.desc : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={executeConfirmedAction}>Ja, ausführen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
