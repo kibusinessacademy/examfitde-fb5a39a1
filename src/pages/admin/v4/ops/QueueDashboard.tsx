@@ -206,7 +206,15 @@ export default function QueueDashboard() {
                 <td className="py-2 px-3 font-mono text-muted-foreground truncate max-w-[120px]">
                   {j.payload?.package_id?.substring(0, 8) || j.package_id?.substring(0, 8) || '–'}
                 </td>
-                <td className="py-2 px-3 text-destructive truncate max-w-[200px]">{j.last_error || j.error || '–'}</td>
+                <td className={cn(
+                  "py-2 px-3 truncate max-w-[200px]",
+                  j.status === 'completed' ? 'text-muted-foreground/50 line-through' : 'text-destructive'
+                )}>
+                  {j.status === 'completed' && j.last_error
+                    ? <span className="text-muted-foreground/40 text-[10px]">(historisch) {j.last_error}</span>
+                    : (j.last_error || j.error || '–')
+                  }
+                </td>
                 <td className="py-2 px-3 text-muted-foreground">
                   {new Date(j.created_at).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
                 </td>
