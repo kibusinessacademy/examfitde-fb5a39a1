@@ -685,7 +685,7 @@ export default function Leitstelle() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => cancelZombiesMutation.mutate()}
+                    onClick={() => setConfirmAction('cancel_zombie_packages')}
                     disabled={cancelZombiesMutation.isPending}
                   >
                     {cancelZombiesMutation.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
