@@ -345,7 +345,22 @@ export default function Leitstelle() {
     staleTime: 10000,
   });
 
-  const alerts = useMemo<AlertItem[]>(() => {
+  const { data: recentActions = [] } = useQuery({
+    queryKey: ['leitstelle-recent-actions'],
+    queryFn: async () => {
+      const sb = supabase as any;
+      const { data, error } = await sb
+        .from('admin_actions')
+        .select('id, action, payload, user_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(8);
+      if (error) return [] as JsonRow[];
+      return (data ?? []) as JsonRow[];
+    },
+    refetchInterval: 15000,
+    staleTime: 5000,
+  });
+
     const now = Date.now();
 
     const fromFailed = failedJobs.map((row, i) => {
