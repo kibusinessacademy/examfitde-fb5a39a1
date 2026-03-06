@@ -83,6 +83,15 @@ Deno.serve(async (req) => {
           case "cancel_zombies":
             result = await healCancelZombies(sb, policy);
             break;
+          case "flag_seo_gaps":
+            result = await healFlagSeoGaps(sb, policy);
+            break;
+          case "archive_stale_drafts":
+            result = await healArchiveStaleDrafts(sb, policy);
+            break;
+          case "fix_broken_redirects":
+            result = await healFixBrokenRedirects(sb, policy);
+            break;
           default:
             result = { policy_key: policy.policy_key, updated: 0, affected_ids: [], skipped_reason: "unknown_policy" };
         }
@@ -219,5 +228,104 @@ async function healCancelZombies(sb: SB, policy: PolicyRow): Promise<HealResult>
     .in("id", ids);
 
   if (updErr) throw updErr;
+  return { policy_key: policy.policy_key, updated: ids.length, affected_ids: ids };
+}
+
+/* ── Heal: Flag SEO gaps and create notifications ── */
+async function healFlagSeoGaps(sb: SB, policy: PolicyRow): Promise<HealResult> {
+  // Find published content_pages missing meta_title or meta_description
+  const { data: pages } = await sb
+    .from("content_pages")
+    .select("id, title, slug")
+    .eq("status", "published")
+    .or("meta_title.is.null,meta_description.is.null")
+    .limit(policy.max_per_run);
+
+  // Find published blog_posts missing meta
+  const { data: blogs } = await sb
+    .from("blog_posts")
+    .select("id, title, slug")
+    .eq("status", "published")
+    .or("meta_title.is.null,meta_description.is.null")
+    .limit(policy.max_per_run);
+
+  const allGaps = [...(pages || []), ...(blogs || [])];
+  if (!allGaps.length) return { policy_key: policy.policy_key, updated: 0, affected_ids: [] };
+
+  // Create admin notification for the gaps
+  await sb.from("admin_notifications").insert({
+    title: `SEO-Lücken: ${allGaps.length} veröffentlichte Inhalte ohne Meta-Daten`,
+    body: `Betroffene: ${allGaps.slice(0, 5).map(g => g.title || g.slug).join(', ')}${allGaps.length > 5 ? ` und ${allGaps.length - 5} weitere` : ''}`,
+    severity: allGaps.length > 10 ? 'critical' : 'warning',
+    category: 'seo',
+    entity_type: 'content',
+    metadata: { gap_count: allGaps.length, sample_ids: allGaps.slice(0, 10).map(g => g.id) } as any,
+  });
+
+  return { policy_key: policy.policy_key, updated: allGaps.length, affected_ids: allGaps.map(g => g.id) };
+}
+
+/* ── Heal: Archive stale drafts ── */
+async function healArchiveStaleDrafts(sb: SB, policy: PolicyRow): Promise<HealResult> {
+  const thresholdDays = policy.threshold_minutes || 30; // reuse threshold_minutes as days for this policy
+  const cutoff = new Date(Date.now() - thresholdDays * 24 * 60 * 60_000).toISOString();
+
+  // Find draft pages not updated in threshold days
+  const { data: stalePages } = await sb
+    .from("content_pages")
+    .select("id, title")
+    .eq("status", "draft")
+    .lt("updated_at", cutoff)
+    .limit(policy.max_per_run);
+
+  if (!stalePages?.length) return { policy_key: policy.policy_key, updated: 0, affected_ids: [] };
+
+  const ids = stalePages.map(p => p.id);
+
+  // Don't auto-archive, just notify (safe approach)
+  await sb.from("admin_notifications").insert({
+    title: `${ids.length} Seiten-Entwürfe seit ${thresholdDays}+ Tagen unverändert`,
+    body: `Erwäge Archivierung: ${stalePages.slice(0, 5).map(p => p.title).join(', ')}`,
+    severity: 'info',
+    category: 'content',
+    entity_type: 'content_pages',
+    metadata: { stale_count: ids.length, stale_ids: ids.slice(0, 20) } as any,
+  });
+
+  return { policy_key: policy.policy_key, updated: ids.length, affected_ids: ids };
+}
+
+/* ── Heal: Deactivate broken redirects ── */
+async function healFixBrokenRedirects(sb: SB, policy: PolicyRow): Promise<HealResult> {
+  // Find redirects with empty or missing to_path
+  const { data: broken } = await sb
+    .from("seo_redirects")
+    .select("id, from_path, to_path")
+    .eq("is_active", true)
+    .or("to_path.is.null,to_path.eq.")
+    .limit(policy.max_per_run);
+
+  if (!broken?.length) return { policy_key: policy.policy_key, updated: 0, affected_ids: [] };
+
+  const ids = broken.map(r => r.id);
+
+  // Deactivate broken redirects
+  const { error } = await sb
+    .from("seo_redirects")
+    .update({ is_active: false, notes: "Auto-deactivated: missing target path", updated_at: new Date().toISOString() })
+    .in("id", ids);
+
+  if (error) throw error;
+
+  // Notify
+  await sb.from("admin_notifications").insert({
+    title: `${ids.length} kaputte Redirects deaktiviert`,
+    body: `Betroffene Pfade: ${broken.slice(0, 5).map(r => r.from_path).join(', ')}`,
+    severity: 'warning',
+    category: 'seo',
+    entity_type: 'seo_redirects',
+    metadata: { deactivated_ids: ids } as any,
+  });
+
   return { policy_key: policy.policy_key, updated: ids.length, affected_ids: ids };
 }
