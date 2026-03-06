@@ -87,7 +87,7 @@ export function PolicyCenter() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (patch: { id: string; threshold_minutes?: number; max_per_run?: number; cooldown_minutes?: number }) => {
+    mutationFn: async (patch: { id: string; threshold_minutes?: number; max_per_run?: number; cooldown_minutes?: number; dry_run?: boolean; max_per_hour?: number | null; max_per_day?: number | null; escalate_instead?: boolean }) => {
       const { id, ...fields } = patch;
       const { error } = await (supabase as any)
         .from('auto_heal_config')
@@ -97,7 +97,7 @@ export function PolicyCenter() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['auto-heal-policies'] });
-      toast({ title: 'Schwellenwerte gespeichert' });
+      toast({ title: 'Policy gespeichert' });
       setEditingId(null);
     },
     onError: (err: Error) => {
