@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { jsonOk, jsonDomainError } from "../_shared/domain-errors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,20 +8,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "content-type": "application/json" },
-  });
-}
-
 /**
  * Setup Course Package – Creates course + package + approved plan for a frozen curriculum.
- * Called by job-runner after generate_curriculum_content has frozen the curriculum.
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return json({ error: "Use POST" }, 405);
+  if (req.method !== "POST") return jsonDomainError("INVALID_INPUT", "Use POST", 405);
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -29,21 +22,20 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const curriculumId = body.curriculum_id || body.curriculumId;
 
-  if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
+  if (!curriculumId) return jsonDomainError("INVALID_INPUT", "curriculum_id required", 400);
 
   try {
-    // 1) Check curriculum is frozen (prereq)
+    // 1) Check curriculum is frozen
     const { data: curr } = await sb
       .from("curricula")
       .select("id, title, beruf_id, status")
       .eq("id", curriculumId)
       .single();
 
-    if (!curr) return json({ error: "Curriculum not found" }, 404);
+    if (!curr) return jsonDomainError("CURRICULUM_NOT_FOUND", "Curriculum not found", 404);
 
     if (curr.status !== "frozen") {
-      // Prereq not met – signal retry
-      return json({ error: "Curriculum not yet frozen", retry: true }, 409);
+      return jsonDomainError("CONFLICT", "Curriculum not yet frozen", 409, { retry: true });
     }
 
     // 2) Get beruf name
@@ -65,13 +57,16 @@ Deno.serve(async (req) => {
 
     if (activePackage) {
       console.log(`[SetupPkg] SSOT Guard: active package ${activePackage.id} (${activePackage.status}) already exists for curriculum ${curriculumId}`);
-      return json({
-        error: "duplicate_active_package",
-        message: `Für dieses Curriculum existiert bereits ein aktives Paket.`,
-        existing_package_id: activePackage.id,
-        existing_status: activePackage.status,
-        existing_title: activePackage.title,
-      }, 409);
+      return jsonDomainError(
+        "ACTIVE_PACKAGE_EXISTS",
+        "Für dieses Curriculum existiert bereits ein aktives Paket.",
+        409,
+        {
+          existing_package_id: activePackage.id,
+          existing_status: activePackage.status,
+          existing_title: activePackage.title,
+        },
+      );
     }
 
     // 4) Create or get course
@@ -110,7 +105,7 @@ Deno.serve(async (req) => {
     if (existingPkg) {
       packageId = existingPkg.id;
       if (existingPkg.status !== "planning") {
-        return json({ message: "Package already exists and is beyond planning", packageId, skipped: true });
+        return jsonOk({ message: "Package already exists and is beyond planning", packageId, skipped: true });
       }
     } else {
       const { data: maxQ } = await sb
@@ -207,23 +202,33 @@ Deno.serve(async (req) => {
 
     console.log(`[SetupPkg] Created package for ${berufName}: ${packageId} (lock: ${lockAcquired ? 'acquired' : 'queued'})`);
 
-    return json({
-      success: true,
-      packageId,
-      courseId,
-      beruf: berufName,
-    });
+    return jsonOk({ packageId, courseId, beruf: berufName });
   } catch (err: any) {
     const msg = err instanceof Error ? err.message : String(err);
     const code = err?.code || err?.details?.code;
+
     if (code === "23505" && msg.includes("uniq_active_package_per_curriculum")) {
       console.warn(`[SetupPkg] 23505 caught: duplicate active package race condition`);
-      return json({
-        error: "duplicate_active_package",
-        message: "Für dieses Curriculum existiert bereits ein aktives Paket (Concurrent Insert).",
-      }, 409);
+      const { data: winner } = await sb
+        .from("course_packages")
+        .select("id, status, title")
+        .eq("curriculum_id", curriculumId)
+        .in("status", ["building", "published"])
+        .maybeSingle();
+
+      return jsonDomainError(
+        "ACTIVE_PACKAGE_EXISTS",
+        "Für dieses Curriculum existiert bereits ein aktives Paket (Concurrent Insert).",
+        409,
+        {
+          existing_package_id: winner?.id ?? null,
+          existing_status: winner?.status ?? null,
+          existing_title: winner?.title ?? null,
+        },
+      );
     }
+
     console.error(`[SetupPkg] Error: ${msg}`);
-    return json({ error: msg }, 500);
+    return jsonDomainError("INTERNAL_ERROR", msg, 500);
   }
 });
