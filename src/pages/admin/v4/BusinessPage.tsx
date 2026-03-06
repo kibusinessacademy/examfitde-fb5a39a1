@@ -19,6 +19,7 @@ const AuditExportsPage = lazy(() => import('@/pages/admin/AuditExportsPage'));
 const UnitEconomicsDashboard = lazy(() => import('@/components/admin/UnitEconomicsDashboard'));
 const MonetizationDashboard = lazy(() => import('@/components/admin/MonetizationDashboard'));
 const B2BReportingDashboard = lazy(() => import('@/components/admin/B2BReportingDashboard'));
+const RevenueCommandCenter = lazy(() => import('@/components/admin/command/RevenueCommandCenter'));
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16">
