@@ -9,10 +9,12 @@ import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
   ArrowRight,
+  Ban,
   CheckCircle2,
   Clock3,
   Package,
   RefreshCw,
+  RotateCcw,
   Server,
   Sparkles,
   Wrench,
@@ -23,6 +25,7 @@ import {
   Loader2,
   ShieldAlert,
 } from 'lucide-react';
+import { RootCausePanel } from './RootCausePanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
