@@ -817,6 +817,7 @@ export default function Leitstelle() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction ? confirmLabels[confirmAction.type]?.desc : ''}
+              {confirmAction?.label ? ` (${confirmAction.label})` : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
