@@ -739,10 +739,10 @@ export default function Leitstelle() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-amber-500" />
-              {confirmAction ? confirmLabels[confirmAction]?.title : ''}
+              {confirmAction ? confirmLabels[confirmAction.type]?.title : ''}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmAction ? confirmLabels[confirmAction]?.desc : ''}
+              {confirmAction ? confirmLabels[confirmAction.type]?.desc : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
