@@ -55,7 +55,26 @@ Deno.serve(async (req) => {
 
     const berufName = beruf?.bezeichnung_kurz || curr.title;
 
-    // 3) Create or get course
+    // 3) SSOT Guard – check for existing active package before any write
+    const { data: activePackage } = await sb
+      .from("course_packages")
+      .select("id, status, title")
+      .eq("curriculum_id", curriculumId)
+      .in("status", ["building", "published"])
+      .maybeSingle();
+
+    if (activePackage) {
+      console.log(`[SetupPkg] SSOT Guard: active package ${activePackage.id} (${activePackage.status}) already exists for curriculum ${curriculumId}`);
+      return json({
+        error: "duplicate_active_package",
+        message: `Für dieses Curriculum existiert bereits ein aktives Paket.`,
+        existing_package_id: activePackage.id,
+        existing_status: activePackage.status,
+        existing_title: activePackage.title,
+      }, 409);
+    }
+
+    // 4) Create or get course
     const { data: existingCourse } = await sb
       .from("courses")
       .select("id")
@@ -80,7 +99,7 @@ Deno.serve(async (req) => {
       courseId = newCourse.id;
     }
 
-    // 4) Create or get package
+    // 5) Create or get package
     const { data: existingPkg } = await sb
       .from("course_packages")
       .select("id, status")
@@ -139,7 +158,7 @@ Deno.serve(async (req) => {
       packageId = newPkg.id;
     }
 
-    // 5) Create approved plan (if none exists)
+    // 6) Create approved plan (if none exists)
     const { data: existingPlan } = await sb
       .from("course_package_plans")
       .select("id")
@@ -164,7 +183,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 6) Acquire pipeline lock for this package
+    // 7) Acquire pipeline lock for this package
     const { data: lockRow } = await sb
       .from("pipeline_lock")
       .select("active_package_id")
@@ -179,7 +198,7 @@ Deno.serve(async (req) => {
         .eq("id", 1);
     }
 
-    // 7) Set to queued (build-course-package will pick it up)
+    // 8) Set to queued (build-course-package will pick it up)
     await sb
       .from("course_packages")
       .update({ status: "queued" })
@@ -194,8 +213,16 @@ Deno.serve(async (req) => {
       courseId,
       beruf: berufName,
     });
-  } catch (err) {
+  } catch (err: any) {
     const msg = err instanceof Error ? err.message : String(err);
+    const code = err?.code || err?.details?.code;
+    if (code === "23505" && msg.includes("uniq_active_package_per_curriculum")) {
+      console.warn(`[SetupPkg] 23505 caught: duplicate active package race condition`);
+      return json({
+        error: "duplicate_active_package",
+        message: "Für dieses Curriculum existiert bereits ein aktives Paket (Concurrent Insert).",
+      }, 409);
+    }
     console.error(`[SetupPkg] Error: ${msg}`);
     return json({ error: msg }, 500);
   }
