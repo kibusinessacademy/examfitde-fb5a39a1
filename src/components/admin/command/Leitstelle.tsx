@@ -541,9 +541,9 @@ export default function Leitstelle() {
             onOpenBottlenecks={() => setSheet('bottlenecks')}
             onOpenPackages={() => setSheet('packages')}
             onRefresh={refetch}
-            onRequeueFailed={() => setConfirmAction('requeue_failed_jobs')}
-            onReleaseCooldowns={() => releaseCooldownMutation.mutate()}
-            onResetStuck={() => setConfirmAction('reset_stalled_steps')}
+            onRequeueFailed={() => setConfirmAction({ type: 'requeue_failed_jobs', payload: { limit: 20 } })}
+            onReleaseCooldowns={() => doAction('release_provider_cooldowns')}
+            onResetStuck={() => setConfirmAction({ type: 'reset_stalled_steps', payload: { limit: 20 } })}
             busy={anyBusy}
           />
         </>
