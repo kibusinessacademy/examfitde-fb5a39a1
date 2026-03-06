@@ -17,30 +17,33 @@ function json(data: unknown, status = 200) {
 type SB = ReturnType<typeof createClient>;
 type JsonRow = Record<string, unknown>;
 
-async function assertAdmin(sb: ReturnType<typeof createClient>, userId: string) {
+async function assertAdmin(sb: SB, userId: string) {
   const { data, error } = await sb
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
     .eq("role", "admin")
     .maybeSingle();
-
-  if (error || !data) {
-    throw new Error("FORBIDDEN");
-  }
+  if (error || !data) throw new Error("FORBIDDEN");
 }
 
 async function auditLog(
-  sb: ReturnType<typeof createClient>,
+  sb: SB,
   userId: string,
   action: string,
   payload: JsonRow,
   result: JsonRow,
+  beforeState: unknown = null,
+  affectedIds: string[] = [],
 ) {
   await sb.from("admin_actions").insert({
     user_id: userId,
     action,
-    payload: { ...payload, result } as any,
+    payload: payload as any,
+    before_state: beforeState as any,
+    after_state: result as any,
+    affected_ids: affectedIds,
+    scope: (result as any)?.scope || "manual",
   }).then(() => {});
 }
 
@@ -55,10 +58,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-
-    if (!supabaseUrl || !serviceKey || !anonKey) {
-      return json({ error: "Missing env configuration" }, 500);
-    }
+    if (!supabaseUrl || !serviceKey || !anonKey) return json({ error: "Missing env configuration" }, 500);
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -68,32 +68,44 @@ Deno.serve(async (req) => {
     if (authErr || !user) return json({ error: "Unauthorized" }, 401);
 
     const sb = createClient(supabaseUrl, serviceKey);
-
-    // Admin role guard
-    try {
-      await assertAdmin(sb, user.id);
-    } catch {
-      return json({ error: "Forbidden – admin role required" }, 403);
-    }
+    try { await assertAdmin(sb, user.id); } catch { return json({ error: "Forbidden – admin role required" }, 403); }
 
     const body = (await req.json().catch(() => ({}))) as JsonRow;
     const action = String(body.action || "");
 
     let result: JsonRow;
+    let beforeState: unknown = null;
+    let affectedIds: string[] = [];
 
     switch (action) {
-      case "requeue_failed_jobs":
+      case "requeue_failed_jobs": {
+        const before = await captureBeforeState(sb, "requeue", body);
+        beforeState = before.state;
         result = await requeueFailedJobs(sb, body);
+        affectedIds = before.ids;
         break;
-      case "release_provider_cooldowns":
+      }
+      case "release_provider_cooldowns": {
+        const before = await captureBeforeState(sb, "cooldowns", body);
+        beforeState = before.state;
         result = await releaseProviderCooldowns(sb, body);
+        affectedIds = before.ids;
         break;
-      case "reset_stalled_steps":
+      }
+      case "reset_stalled_steps": {
+        const before = await captureBeforeState(sb, "stuck", body);
+        beforeState = before.state;
         result = await resetStalledSteps(sb, body);
+        affectedIds = before.ids;
         break;
-      case "cancel_zombie_packages":
+      }
+      case "cancel_zombie_packages": {
+        const before = await captureBeforeState(sb, "zombies", body);
+        beforeState = before.state;
         result = await cancelZombiePackages(sb, body);
+        affectedIds = before.ids;
         break;
+      }
       case "root_cause_summary":
         result = await rootCauseSummary(sb, body);
         break;
@@ -101,9 +113,9 @@ Deno.serve(async (req) => {
         return json({ error: `Unknown action: ${action}` }, 400);
     }
 
-    // Audit log (fire-and-forget) — skip read-only actions
+    // Audit log with before/after (fire-and-forget) — skip read-only
     if (action !== "root_cause_summary") {
-      auditLog(sb, user.id, action, body, result);
+      auditLog(sb, user.id, action, body, result, beforeState, affectedIds);
     }
 
     return json(result);
@@ -112,105 +124,115 @@ Deno.serve(async (req) => {
   }
 });
 
+/* ── Before-state capture ── */
+async function captureBeforeState(sb: SB, type: string, body: JsonRow) {
+  try {
+    switch (type) {
+      case "requeue": {
+        let q = sb.from("job_queue").select("id, status, last_error, attempts").eq("status", "failed");
+        if (typeof body.package_id === "string") q = q.eq("package_id", body.package_id);
+        if (Array.isArray(body.job_ids)) q = q.in("id", body.job_ids.map(String));
+        const { data } = await q.limit(100);
+        return { state: { failed_jobs: data?.length ?? 0, sample: data?.slice(0, 5) }, ids: (data || []).map((r: any) => r.id) };
+      }
+      case "cooldowns": {
+        let q = sb.from("llm_provider_cooldowns").select("id, provider, cooldown_until");
+        if (typeof body.provider === "string") q = q.eq("provider", body.provider);
+        const { data } = await q.limit(50);
+        return { state: { active_cooldowns: data?.length ?? 0 }, ids: (data || []).map((r: any) => r.id) };
+      }
+      case "stuck": {
+        if (typeof body.package_id === "string" && typeof body.step_key === "string") {
+          return { state: { single_step: true, package_id: body.package_id, step_key: body.step_key }, ids: [`${body.package_id}:${body.step_key}`] };
+        }
+        const { data } = await sb.from("ops_package_steps_stuck").select("package_id, step_key").limit(20);
+        return { state: { stuck_count: data?.length ?? 0 }, ids: (data || []).map((r: any) => `${r.package_id}:${r.step_key}`) };
+      }
+      case "zombies": {
+        if (typeof body.package_id === "string") {
+          return { state: { single_package: body.package_id }, ids: [body.package_id as string] };
+        }
+        const { data } = await sb.from("ops_building_without_job_or_lease").select("package_id").limit(20);
+        return { state: { zombie_count: data?.length ?? 0 }, ids: (data || []).map((r: any) => r.package_id) };
+      }
+      default:
+        return { state: null, ids: [] };
+    }
+  } catch {
+    return { state: null, ids: [] };
+  }
+}
+
 /* ── Scoped: requeue_failed_jobs ── */
-async function requeueFailedJobs(sb: ReturnType<typeof createClient>, body: JsonRow) {
+async function requeueFailedJobs(sb: SB, body: JsonRow) {
   const limit = typeof body.limit === "number" ? Math.max(1, Math.min(100, body.limit)) : 20;
 
-  // Scoped: specific job IDs
   if (Array.isArray(body.job_ids) && body.job_ids.length > 0) {
     const ids = body.job_ids.map(String).slice(0, 100);
-    const { error } = await sb
-      .from("job_queue")
+    const { error } = await sb.from("job_queue")
       .update({ status: "pending", last_error: null, updated_at: new Date().toISOString() })
-      .in("id", ids)
-      .eq("status", "failed");
+      .in("id", ids).eq("status", "failed");
     if (error) throw error;
     return { ok: true, updated: ids.length, scope: "job_ids" };
   }
 
-  // Scoped: by package_id
   let query = sb.from("job_queue").select("id").eq("status", "failed");
-  if (typeof body.package_id === "string") {
-    query = query.eq("package_id", body.package_id);
-  }
-  if (typeof body.job_type === "string") {
-    query = query.eq("job_type", body.job_type);
-  }
+  if (typeof body.package_id === "string") query = query.eq("package_id", body.package_id);
+  if (typeof body.job_type === "string") query = query.eq("job_type", body.job_type);
 
-  const { data: jobs, error: fetchErr } = await query
-    .order("updated_at", { ascending: false })
-    .limit(limit);
-
+  const { data: jobs, error: fetchErr } = await query.order("updated_at", { ascending: false }).limit(limit);
   if (fetchErr) throw fetchErr;
   if (!jobs?.length) return { ok: true, updated: 0 };
 
   const ids = jobs.map((j: any) => j.id);
-  const { error: updErr } = await sb
-    .from("job_queue")
+  const { error: updErr } = await sb.from("job_queue")
     .update({ status: "pending", last_error: null, updated_at: new Date().toISOString() })
     .in("id", ids);
-
   if (updErr) throw updErr;
   return { ok: true, updated: ids.length, scope: body.package_id ? "package" : body.job_type ? "job_type" : "global" };
 }
 
 /* ── Scoped: release_provider_cooldowns ── */
-async function releaseProviderCooldowns(sb: ReturnType<typeof createClient>, body: JsonRow) {
+async function releaseProviderCooldowns(sb: SB, body: JsonRow) {
   const provider = typeof body.provider === "string" ? body.provider : null;
-
-  let query = sb
-    .from("llm_provider_cooldowns")
+  let query = sb.from("llm_provider_cooldowns")
     .update({ cooldown_until: new Date(0).toISOString(), updated_at: new Date().toISOString() });
-
   if (provider) query = query.eq("provider", provider);
-
   const { data, error } = await query.select("id");
   if (error) throw error;
   return { ok: true, updated: data?.length ?? 0, scope: provider ? "provider" : "global" };
 }
 
 /* ── Scoped: reset_stalled_steps ── */
-async function resetStalledSteps(sb: ReturnType<typeof createClient>, body: JsonRow) {
-  // Scoped: single step
+async function resetStalledSteps(sb: SB, body: JsonRow) {
   if (typeof body.package_id === "string" && typeof body.step_key === "string") {
-    const { error } = await sb
-      .from("package_steps")
+    const { error } = await sb.from("package_steps")
       .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString() })
-      .eq("package_id", body.package_id)
-      .eq("step_key", body.step_key);
+      .eq("package_id", body.package_id).eq("step_key", body.step_key);
     if (error) throw error;
     return { ok: true, updated: 1, scope: "single_step" };
   }
 
   const limit = typeof body.limit === "number" ? Math.max(1, Math.min(100, body.limit)) : 20;
-
-  const { data: rows, error: fetchErr } = await sb
-    .from("ops_package_steps_stuck")
-    .select("package_id,step_key")
-    .limit(limit);
-
+  const { data: rows, error: fetchErr } = await sb.from("ops_package_steps_stuck").select("package_id,step_key").limit(limit);
   if (fetchErr) throw fetchErr;
   if (!rows?.length) return { ok: true, updated: 0 };
 
   let updated = 0;
   for (const row of rows as any[]) {
     if (!row.package_id || !row.step_key) continue;
-    const { error } = await sb
-      .from("package_steps")
+    const { error } = await sb.from("package_steps")
       .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString() })
-      .eq("package_id", row.package_id)
-      .eq("step_key", row.step_key);
+      .eq("package_id", row.package_id).eq("step_key", row.step_key);
     if (!error) updated += 1;
   }
   return { ok: true, updated, scope: "global" };
 }
 
 /* ── Scoped: cancel_zombie_packages ── */
-async function cancelZombiePackages(sb: ReturnType<typeof createClient>, body: JsonRow) {
-  // Scoped: single package
+async function cancelZombiePackages(sb: SB, body: JsonRow) {
   if (typeof body.package_id === "string") {
-    const { error } = await sb
-      .from("course_packages")
+    const { error } = await sb.from("course_packages")
       .update({ status: "blocked", blocked_reason: "admin_phase3_cancelled_zombie", updated_at: new Date().toISOString() })
       .eq("id", body.package_id);
     if (error) throw error;
@@ -218,64 +240,44 @@ async function cancelZombiePackages(sb: ReturnType<typeof createClient>, body: J
   }
 
   const limit = typeof body.limit === "number" ? Math.max(1, Math.min(100, body.limit)) : 20;
-
-  const { data: zombies, error: fetchErr } = await sb
-    .from("ops_building_without_job_or_lease")
-    .select("package_id")
-    .limit(limit);
-
+  const { data: zombies, error: fetchErr } = await sb.from("ops_building_without_job_or_lease").select("package_id").limit(limit);
   if (fetchErr) throw fetchErr;
   if (!zombies?.length) return { ok: true, updated: 0 };
 
-  const ids = (zombies as any[]).map((z) => z.package_id).filter(Boolean);
+  const ids = (zombies as any[]).map(z => z.package_id).filter(Boolean);
   if (!ids.length) return { ok: true, updated: 0 };
 
-  const { error } = await sb
-    .from("course_packages")
+  const { error } = await sb.from("course_packages")
     .update({ status: "blocked", blocked_reason: "admin_phase3_cancelled_zombie", updated_at: new Date().toISOString() })
     .in("id", ids);
-
   if (error) throw error;
   return { ok: true, updated: ids.length, scope: "global" };
 }
 
 /* ── Root Cause Summary (read-only) ── */
-async function rootCauseSummary(sb: ReturnType<typeof createClient>, body: JsonRow) {
+async function rootCauseSummary(sb: SB, body: JsonRow) {
   const hours = typeof body.hours === "number" ? Math.min(48, Math.max(1, body.hours)) : 24;
   const since = new Date(Date.now() - hours * 3600_000).toISOString();
 
-  const { data: rows, error } = await sb
-    .from("job_queue")
+  const { data: rows, error } = await sb.from("job_queue")
     .select("job_type, last_error, status, payload")
-    .eq("status", "failed")
-    .gte("updated_at", since)
-    .order("updated_at", { ascending: false })
-    .limit(500);
-
+    .eq("status", "failed").gte("updated_at", since)
+    .order("updated_at", { ascending: false }).limit(500);
   if (error) throw error;
   if (!rows?.length) return { ok: true, groups: [], total: 0 };
 
-  // Group by error pattern + job_type
   const buckets = new Map<string, { job_type: string; pattern: string; count: number; sample: string }>();
   for (const r of rows as any[]) {
     const rawErr = String(r.last_error || "unknown");
-    // Normalize error to a short pattern
     const pattern = rawErr
       .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<uuid>")
       .replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z?/g, "<ts>")
       .slice(0, 120);
     const key = `${r.job_type}||${pattern}`;
     const existing = buckets.get(key);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      buckets.set(key, { job_type: r.job_type, pattern, count: 1, sample: rawErr.slice(0, 200) });
-    }
+    if (existing) existing.count += 1;
+    else buckets.set(key, { job_type: r.job_type, pattern, count: 1, sample: rawErr.slice(0, 200) });
   }
 
-  const groups = [...buckets.values()]
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 15);
-
-  return { ok: true, groups, total: rows.length, hours };
+  return { ok: true, groups: [...buckets.values()].sort((a, b) => b.count - a.count).slice(0, 15), total: rows.length, hours };
 }
