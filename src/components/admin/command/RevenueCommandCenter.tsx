@@ -84,7 +84,7 @@ export default function RevenueCommandCenter() {
           { label: "7 Tage", value: `€${revenue.week.toFixed(0)}`, sub: `${revenue.orders_week} Orders` },
           { label: "30 Tage", value: `€${revenue.month.toFixed(0)}`, sub: `${revenue.orders_month} Orders` },
           { label: "Ø Order", value: `€${revenue.avg_order.toFixed(0)}`, sub: "pro Bestellung" },
-          { label: "Churn-Risiko", value: String(churn.high_risk), sub: `€${churn.estimated_revenue_at_risk.toFixed(0)} at risk`, tone: churn.high_risk > 5 ? "red" : churn.high_risk > 0 ? "yellow" : "green" },
+          { label: "Churn-Risiko", value: String(churn.high_risk), sub: `€${churn.estimated_revenue_at_risk.toFixed(0)} at risk`, tone: churn.high_risk > 5 ? "red" : churn.high_risk > 0 ? "yellow" : "green" as const },
           { label: "Refunds", value: String(refunds.count), sub: `€${refunds.total_eur.toFixed(0)}`, tone: refunds.count > 5 ? "red" : refunds.count > 0 ? "yellow" : "green" },
         ].map((kpi, i) => (
           <Card key={i} className={cn("border", kpi.tone ? toneColors[kpi.tone] : "")}>
