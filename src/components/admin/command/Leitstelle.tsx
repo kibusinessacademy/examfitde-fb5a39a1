@@ -681,11 +681,11 @@ export default function Leitstelle() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setConfirmAction('cancel_zombie_packages')}
-                    disabled={cancelZombiesMutation.isPending}
+                    onClick={() => setConfirmAction({ type: 'cancel_zombie_packages', payload: { limit: 20 } })}
+                    disabled={anyBusy}
                   >
-                    {cancelZombiesMutation.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                    Zombies blockieren
+                    {anyBusy && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                    Alle blockieren
                   </Button>
                 </div>
                 <div className="space-y-2">
@@ -694,9 +694,24 @@ export default function Leitstelle() {
                   ) : (
                     zombieRows.map((row, i) => (
                       <div key={`zombie-${row.package_id ?? i}`} className="rounded-xl border border-border p-3 text-sm">
-                        <div className="font-medium">{String(row.title || row.package_id || `Paket ${i + 1}`)}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          Step: {String(row.current_step || '–')} · Status: {String(row.status || '–')}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">{String(row.title || row.package_id || `Paket ${i + 1}`)}</div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Step: {String(row.current_step || '–')} · Status: {String(row.status || '–')}
+                            </div>
+                          </div>
+                          {row.package_id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 h-7 px-2 text-[11px]"
+                              onClick={() => setConfirmAction({ type: 'cancel_zombie_single', payload: { package_id: String(row.package_id) } })}
+                              disabled={anyBusy}
+                            >
+                              <Ban className="mr-1 h-3 w-3" /> Block
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))
