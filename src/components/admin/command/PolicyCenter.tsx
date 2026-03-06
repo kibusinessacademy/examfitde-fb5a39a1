@@ -32,6 +32,13 @@ interface PolicyConfig {
   last_run_at: string | null;
   last_run_result: Record<string, unknown> | null;
   updated_at: string;
+  // Safety Rails
+  dry_run: boolean;
+  max_per_hour: number | null;
+  max_per_day: number | null;
+  escalate_instead: boolean;
+  blacklist_ids: string[];
+  severity: string;
 }
 
 const POLICY_ICONS: Record<string, React.ReactNode> = {
@@ -39,6 +46,9 @@ const POLICY_ICONS: Record<string, React.ReactNode> = {
   release_expired_cooldowns: <Clock className="h-4 w-4 text-primary" />,
   reset_stuck_steps: <AlertTriangle className="h-4 w-4 text-destructive" />,
   cancel_zombies: <Shield className="h-4 w-4 text-muted-foreground" />,
+  flag_seo_gaps: <Settings2 className="h-4 w-4 text-primary" />,
+  archive_stale_drafts: <Clock className="h-4 w-4 text-muted-foreground" />,
+  fix_broken_redirects: <AlertTriangle className="h-4 w-4 text-amber-500" />,
 };
 
 export function PolicyCenter() {
