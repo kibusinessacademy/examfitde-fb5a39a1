@@ -13,6 +13,44 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// deno-lint-ignore no-explicit-any
+type SB = any;
+type JsonRow = Record<string, unknown>;
+
+/** Fail-soft query: returns empty array if table/view doesn't exist */
+async function safeFrom(sb: SB, table: string, query: string, filters?: (q: any) => any) {
+  try {
+    let q = sb.from(table).select(query);
+    if (filters) q = filters(q);
+    const { data, error } = await q;
+    if (error) {
+      console.warn(`[admin-control-tower] safeFrom(${table}) error:`, error.message);
+      return [];
+    }
+    return (data ?? []) as JsonRow[];
+  } catch (e) {
+    console.warn(`[admin-control-tower] safeFrom(${table}) exception:`, e);
+    return [];
+  }
+}
+
+/** Fail-soft count query */
+async function safeCount(sb: SB, table: string, filters?: (q: any) => any): Promise<number> {
+  try {
+    let q = sb.from(table).select("id", { count: "exact", head: true });
+    if (filters) q = filters(q);
+    const { count, error } = await q;
+    if (error) {
+      console.warn(`[admin-control-tower] safeCount(${table}) error:`, error.message);
+      return 0;
+    }
+    return count ?? 0;
+  } catch (e) {
+    console.warn(`[admin-control-tower] safeCount(${table}) exception:`, e);
+    return 0;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -55,30 +93,44 @@ Deno.serve(async (req) => {
   }
 });
 
-// deno-lint-ignore no-explicit-any
-type SB = any;
-
 async function getOverview(sb: SB) {
   const now = new Date();
   const h24 = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [pendingQ, processingQ, completed24hQ, failed24hQ, stalledQ, cooldownQ, stepsQ] =
-    await Promise.all([
-      sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "pending"),
-      sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "processing"),
-      sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "completed").gte("updated_at", h24),
-      sb.from("job_queue").select("id", { count: "exact", head: true }).eq("status", "failed").gte("updated_at", h24),
-      sb.from("ops_package_steps_stuck").select("*").limit(200),
-      sb.from("llm_provider_cooldowns").select("*").gt("cooldown_until", now.toISOString()),
-      sb.from("ops_course_build_progress").select("*").limit(300),
-    ]);
+  const [
+    pendingCount,
+    processingCount,
+    completed24hCount,
+    failed24hCount,
+    stalledRows,
+    cooldownRows,
+    stepsRows,
+    claimIssueRows,
+    blockedPubRows,
+  ] = await Promise.all([
+    safeCount(sb, "job_queue", (q: any) => q.eq("status", "pending")),
+    safeCount(sb, "job_queue", (q: any) => q.eq("status", "processing")),
+    safeCount(sb, "job_queue", (q: any) => q.eq("status", "completed").gte("updated_at", h24)),
+    safeCount(sb, "job_queue", (q: any) => q.eq("status", "failed").gte("updated_at", h24)),
+    safeFrom(sb, "ops_package_steps_stuck", "*", (q: any) => q.limit(200)),
+    safeFrom(sb, "llm_provider_cooldowns", "*", (q: any) => q.gt("cooldown_until", now.toISOString())),
+    safeFrom(sb, "ops_course_build_progress", "*", (q: any) => q.limit(300)),
+    safeFrom(sb, "license_claims", "id,status", (q: any) =>
+      q.in("status", ["failed", "conflict", "pending_manual_review"])
+    ),
+    safeFrom(sb, "v_package_publish_readiness", "package_id,publish_ready", (q: any) =>
+      q.eq("publish_ready", false).limit(200)
+    ),
+  ]);
 
-  const stalledCount = stalledQ.data?.length ?? 0;
-  const cooldownCount = cooldownQ.data?.length ?? 0;
+  const stalledCount = stalledRows.length;
+  const cooldownCount = cooldownRows.length;
+  const openClaimIssues = claimIssueRows.length;
+  const blockedPublishables = blockedPubRows.length;
 
   // Build pipeline step stats
   const stepMap = new Map<string, { queued: number; running: number; blocked: number; done: number; failed: number }>();
-  for (const row of (stepsQ.data ?? [])) {
+  for (const row of stepsRows) {
     const statusJson = row.step_status_json;
     if (statusJson && typeof statusJson === "object") {
       for (const [stepKey, status] of Object.entries(statusJson as Record<string, string>)) {
@@ -100,14 +152,20 @@ async function getOverview(sb: SB) {
     ...counts,
   }));
 
+  // Determine system health tone from aggregate signals
+  const systemIssues = (failed24hCount > 10 ? 1 : 0) + (stalledCount > 10 ? 1 : 0) + (cooldownCount > 3 ? 1 : 0);
+  const systemTone = systemIssues >= 2 ? "red" as const : systemIssues === 1 ? "yellow" as const : "green" as const;
+
   const health = [
-    { key: "system", label: "System", tone: "green" as const, count: 0 },
-    { key: "queue", label: "Queue", tone: (pendingQ.count ?? 0) > 50 ? "red" as const : (pendingQ.count ?? 0) > 20 ? "yellow" as const : "green" as const, count: pendingQ.count ?? 0 },
+    { key: "system", label: "System", tone: systemTone, count: systemIssues },
+    { key: "queue", label: "Queue", tone: pendingCount > 50 ? "red" as const : pendingCount > 20 ? "yellow" as const : "green" as const, count: pendingCount },
     { key: "ai", label: "AI", tone: cooldownCount > 3 ? "red" as const : cooldownCount > 0 ? "yellow" as const : "green" as const, count: cooldownCount },
     { key: "build", label: "Build", tone: stalledCount > 5 ? "red" as const : stalledCount > 0 ? "yellow" as const : "green" as const, count: stalledCount },
+    { key: "publish", label: "Publish", tone: blockedPublishables > 5 ? "red" as const : blockedPublishables > 0 ? "yellow" as const : "green" as const, count: blockedPublishables },
+    { key: "revenue", label: "Revenue", tone: openClaimIssues > 5 ? "red" as const : openClaimIssues > 0 ? "yellow" as const : "green" as const, count: openClaimIssues },
   ];
 
-  const alerts = (stalledQ.data ?? []).slice(0, 10).map((row: Record<string, unknown>, i: number) => ({
+  const alerts = stalledRows.slice(0, 10).map((row: JsonRow, i: number) => ({
     id: `stalled-${i}`,
     severity: "high" as const,
     domain: "ops" as const,
@@ -119,28 +177,28 @@ async function getOverview(sb: SB) {
     health,
     alerts,
     kpis: {
-      pending_jobs: pendingQ.count ?? 0,
-      processing_jobs: processingQ.count ?? 0,
-      completed_24h: completed24hQ.count ?? 0,
-      failed_24h: failed24hQ.count ?? 0,
+      pending_jobs: pendingCount,
+      processing_jobs: processingCount,
+      completed_24h: completed24hCount,
+      failed_24h: failed24hCount,
       stalled_packages: stalledCount,
       provider_cooldowns: cooldownCount,
-      blocked_publishables: 0,
-      open_claim_issues: 0,
+      blocked_publishables: blockedPublishables,
+      open_claim_issues: openClaimIssues,
     },
     pipeline,
   };
 }
 
 async function getOpsQueue(sb: SB) {
-  const { data } = await sb
-    .from("job_queue")
-    .select("id, job_type, status, attempts, max_attempts, package_id, last_error, created_at")
-    .in("status", ["pending", "processing", "failed"])
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const data = await safeFrom(
+    sb,
+    "job_queue",
+    "id, job_type, status, attempts, max_attempts, package_id, last_error, created_at",
+    (q: any) => q.in("status", ["pending", "processing", "failed"]).order("created_at", { ascending: false }).limit(100),
+  );
 
-  return (data ?? []).map((row: Record<string, unknown>) => ({
+  return data.map((row: JsonRow) => ({
     job_id: row.id,
     job_type: row.job_type,
     status: row.status,
@@ -153,12 +211,9 @@ async function getOpsQueue(sb: SB) {
 }
 
 async function getProviderHealth(sb: SB) {
-  const { data: cooldowns } = await sb
-    .from("llm_provider_cooldowns")
-    .select("*")
-    .limit(50);
+  const cooldowns = await safeFrom(sb, "llm_provider_cooldowns", "*", (q: any) => q.limit(50));
 
-  return (cooldowns ?? []).map((row: Record<string, unknown>) => ({
+  return cooldowns.map((row: JsonRow) => ({
     provider: row.provider ?? "unknown",
     model: row.model ?? "–",
     status: row.cooldown_until && new Date(row.cooldown_until as string) > new Date() ? "cooldown" : "healthy",
@@ -172,12 +227,9 @@ async function getProviderHealth(sb: SB) {
 }
 
 async function getPackageRisk(sb: SB) {
-  const { data } = await sb
-    .from("ops_package_steps_stuck")
-    .select("*")
-    .limit(50);
+  const data = await safeFrom(sb, "ops_package_steps_stuck", "*", (q: any) => q.limit(50));
 
-  return (data ?? []).map((row: Record<string, unknown>, i: number) => {
+  return data.map((row: JsonRow, i: number) => {
     const packageId =
       typeof row.package_id === "string" && row.package_id.length > 0
         ? row.package_id
@@ -244,17 +296,17 @@ async function getRevenue(sb: SB) {
   const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const d24 = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [ordersTodayQ, orders7dQ, orders30dQ, claimIssuesQ, seatsQ, checkoutFailQ] =
+  const [ordersToday, orders7d, orders30d, claimIssues, seats, checkoutFails] =
     await Promise.all([
-      sb.from("orders").select("id,total_amount,amount,created_at").gte("created_at", dayStart.toISOString()),
-      sb.from("orders").select("id,total_amount,amount,created_at").gte("created_at", d7),
-      sb.from("orders").select("id,total_amount,amount,created_at").gte("created_at", d30),
-      sb.from("license_claims").select("id,status").in("status", ["failed", "conflict", "pending_manual_review"]),
-      sb.from("corporate_license_seats").select("id,learner_user_id"),
-      sb.from("checkout_events").select("id,status,created_at").eq("status", "failed").gte("created_at", d24),
+      safeFrom(sb, "orders", "id,total_amount,amount,created_at", (q: any) => q.gte("created_at", dayStart.toISOString())),
+      safeFrom(sb, "orders", "id,total_amount,amount,created_at", (q: any) => q.gte("created_at", d7)),
+      safeFrom(sb, "orders", "id,total_amount,amount,created_at", (q: any) => q.gte("created_at", d30)),
+      safeFrom(sb, "license_claims", "id,status", (q: any) => q.in("status", ["failed", "conflict", "pending_manual_review"])),
+      safeFrom(sb, "corporate_license_seats", "id,learner_user_id"),
+      safeFrom(sb, "checkout_events", "id,status,created_at", (q: any) => q.eq("status", "failed").gte("created_at", d24)),
     ]);
 
-  const sumAmounts = (rows: Record<string, unknown>[]) =>
+  const sumAmounts = (rows: JsonRow[]) =>
     rows.reduce((sum, row) => {
       const value =
         typeof row.total_amount === "number" ? row.total_amount
@@ -263,13 +315,6 @@ async function getRevenue(sb: SB) {
       return sum + value;
     }, 0);
 
-  const ordersToday = (ordersTodayQ.data ?? []) as Record<string, unknown>[];
-  const orders7d = (orders7dQ.data ?? []) as Record<string, unknown>[];
-  const orders30d = (orders30dQ.data ?? []) as Record<string, unknown>[];
-  const claimIssues = (claimIssuesQ.data ?? []) as Record<string, unknown>[];
-  const seats = (seatsQ.data ?? []) as Record<string, unknown>[];
-  const checkoutFails = (checkoutFailQ.data ?? []) as Record<string, unknown>[];
-
   return {
     orders_today: ordersToday.length,
     revenue_today: sumAmounts(ordersToday),
@@ -277,7 +322,7 @@ async function getRevenue(sb: SB) {
     revenue_30d: sumAmounts(orders30d),
     open_claim_issues: claimIssues.length,
     corporate_seats_total: seats.length,
-    corporate_seats_claimed: seats.filter((row) => !!row.learner_user_id).length,
+    corporate_seats_claimed: seats.filter((row: JsonRow) => !!row.learner_user_id).length,
     checkout_failures_24h: checkoutFails.length,
   };
 }
