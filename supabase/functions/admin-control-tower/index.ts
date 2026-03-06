@@ -71,7 +71,15 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await userClient.auth.getUser();
     if (authErr || !user) return json({ error: "Unauthorized" }, 401);
 
+    // Admin role guard
     const sb = createClient(supabaseUrl, serviceKey);
+    const { data: roleRow } = await sb
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleRow) return json({ error: "Forbidden" }, 403);
     const { action } = await req.json();
 
     switch (action) {
@@ -133,16 +141,17 @@ async function getOverview(sb: SB) {
   for (const row of stepsRows) {
     const statusJson = row.step_status_json;
     if (statusJson && typeof statusJson === "object") {
-      for (const [stepKey, status] of Object.entries(statusJson as Record<string, string>)) {
+      for (const [stepKey, rawStatus] of Object.entries(statusJson as Record<string, string>)) {
         if (!stepMap.has(stepKey)) {
           stepMap.set(stepKey, { queued: 0, running: 0, blocked: 0, done: 0, failed: 0 });
         }
         const entry = stepMap.get(stepKey)!;
-        if (status === "queued") entry.queued++;
-        else if (status === "processing" || status === "running") entry.running++;
-        else if (status === "blocked") entry.blocked++;
-        else if (status === "done") entry.done++;
-        else if (status === "failed") entry.failed++;
+        const s = String(rawStatus).toLowerCase();
+        if (s === "queued") entry.queued++;
+        else if (s === "processing" || s === "running") entry.running++;
+        else if (s === "blocked") entry.blocked++;
+        else if (s === "done" || s === "completed") entry.done++;
+        else if (s === "failed" || s === "error") entry.failed++;
       }
     }
   }
@@ -165,13 +174,42 @@ async function getOverview(sb: SB) {
     { key: "revenue", label: "Revenue", tone: openClaimIssues > 5 ? "red" as const : openClaimIssues > 0 ? "yellow" as const : "green" as const, count: openClaimIssues },
   ];
 
-  const alerts = stalledRows.slice(0, 10).map((row: JsonRow, i: number) => ({
-    id: `stalled-${i}`,
-    severity: "high" as const,
-    domain: "ops" as const,
-    title: `Stalled: ${row.package_id ?? "unknown"}`,
-    detail: `Step stuck: ${row.step_key ?? "–"}`,
-  }));
+  const alerts = [
+    ...stalledRows.slice(0, 5).map((row: JsonRow, i: number) => ({
+      id: `stalled-${i}`,
+      severity: "high" as const,
+      domain: "ops" as const,
+      title: `Stalled: ${row.package_id ?? "unknown"}`,
+      detail: `Step stuck: ${row.step_key ?? "–"}`,
+    })),
+    ...(cooldownCount > 0
+      ? [{
+          id: "provider-cooldowns",
+          severity: (cooldownCount > 3 ? "critical" : "high") as "critical" | "high",
+          domain: "ops" as const,
+          title: `${cooldownCount} aktive Provider-Cooldowns`,
+          detail: "LLM-Provider sind im Cooldown oder Rate-Limit-Backoff.",
+        }]
+      : []),
+    ...(openClaimIssues > 0
+      ? [{
+          id: "claim-issues",
+          severity: (openClaimIssues > 5 ? "critical" : "medium") as "critical" | "medium",
+          domain: "revenue" as const,
+          title: `${openClaimIssues} offene Claim-/Lizenzprobleme`,
+          detail: "Zugriffs- oder Aktivierungsprobleme mit Umsatzwirkung.",
+        }]
+      : []),
+    ...(blockedPublishables > 3
+      ? [{
+          id: "blocked-publish",
+          severity: (blockedPublishables > 10 ? "high" : "medium") as "high" | "medium",
+          domain: "quality" as const,
+          title: `${blockedPublishables} Pakete nicht publish-ready`,
+          detail: "Integritäts- oder Qualitätsprüfungen blockieren die Veröffentlichung.",
+        }]
+      : []),
+  ];
 
   return {
     health,
