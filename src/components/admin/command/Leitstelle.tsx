@@ -255,6 +255,52 @@ export default function Leitstelle() {
   const { packages, kpis, loading, lastRefresh, refetch } = useCommandData();
   const [focus, setFocus] = useState<FocusMode>('priorities');
   const [sheet, setSheet] = useState<'bottlenecks' | 'packages' | null>(null);
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const invalidateAll = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['leitstelle-failed-jobs-live'] }),
+      qc.invalidateQueries({ queryKey: ['leitstelle-stuck-live'] }),
+      qc.invalidateQueries({ queryKey: ['leitstelle-zombies-live'] }),
+      qc.invalidateQueries({ queryKey: ['command-data'] }),
+    ]);
+    refetch();
+  };
+
+  const requeueMutation = useMutation({
+    mutationFn: () => runAdminOpsAction('requeue_failed_jobs', { limit: 20 }),
+    onSuccess: async (res: any) => {
+      toast({ title: 'Failed Jobs neu eingeplant', description: `${res?.updated ?? 0} Jobs auf pending gesetzt.` });
+      await invalidateAll();
+    },
+  });
+
+  const releaseCooldownMutation = useMutation({
+    mutationFn: () => runAdminOpsAction('release_provider_cooldowns'),
+    onSuccess: async (res: any) => {
+      toast({ title: 'Cooldowns freigegeben', description: `${res?.updated ?? 0} Provider-Cooldowns zurückgesetzt.` });
+      await invalidateAll();
+    },
+  });
+
+  const resetStepsMutation = useMutation({
+    mutationFn: () => runAdminOpsAction('reset_stalled_steps', { limit: 20 }),
+    onSuccess: async (res: any) => {
+      toast({ title: 'Stuck Steps zurückgesetzt', description: `${res?.updated ?? 0} Steps erneut auf queued.` });
+      await invalidateAll();
+    },
+  });
+
+  const cancelZombiesMutation = useMutation({
+    mutationFn: () => runAdminOpsAction('cancel_zombie_packages', { limit: 20 }),
+    onSuccess: async (res: any) => {
+      toast({ title: 'Zombie-Pakete blockiert', description: `${res?.updated ?? 0} Pakete markiert.` });
+      await invalidateAll();
+    },
+  });
+
+  const anyBusy = requeueMutation.isPending || releaseCooldownMutation.isPending || resetStepsMutation.isPending || cancelZombiesMutation.isPending;
 
   const { data: failedJobs = [] } = useQuery({
     queryKey: ['leitstelle-failed-jobs-live'],
