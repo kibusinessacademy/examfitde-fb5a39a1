@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { handleDomainError } from '@/lib/handleDomainError';
 
 export interface CoursePackage {
   id: string;
@@ -66,6 +68,7 @@ const BUILD_STEPS = TRACK_PIPELINE_STEPS;
 
 export function useCoursePackages() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const packagesQuery = useQuery({
@@ -118,7 +121,10 @@ export function useCoursePackages() {
       toast({ title: 'Produktpaket erstellt' });
     },
     onError: (err: any) => {
-      toast({ title: 'Fehler', description: err.message, variant: 'destructive' });
+      const handled = handleDomainError(err, { navigate, toast });
+      if (!handled) {
+        toast({ title: 'Fehler', description: err.message, variant: 'destructive' });
+      }
     },
   });
 
