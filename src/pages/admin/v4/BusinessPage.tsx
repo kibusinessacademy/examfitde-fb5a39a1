@@ -278,7 +278,8 @@ export default function BusinessPage() {
 
       <Suspense fallback={<Loading />}>
         <Routes>
-          <Route index element={<LLMCostDashboard />} />
+          <Route index element={<RevenueCommandCenter />} />
+          <Route path="costs" element={<LLMCostDashboard />} />
           <Route path="unit-economics" element={<UnitEconomicsDashboard />} />
           <Route path="b2b" element={<B2BReportingDashboard />} />
           <Route path="monetization" element={<MonetizationDashboard />} />
