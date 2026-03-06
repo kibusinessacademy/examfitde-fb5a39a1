@@ -93,12 +93,17 @@ Deno.serve(async (req) => {
       case "cancel_zombie_packages":
         result = await cancelZombiePackages(sb, body);
         break;
+      case "root_cause_summary":
+        result = await rootCauseSummary(sb, body);
+        break;
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
 
-    // Audit log (fire-and-forget)
-    auditLog(sb, user.id, action, body, result);
+    // Audit log (fire-and-forget) — skip read-only actions
+    if (action !== "root_cause_summary") {
+      auditLog(sb, user.id, action, body, result);
+    }
 
     return json(result);
   } catch (e) {
@@ -106,13 +111,32 @@ Deno.serve(async (req) => {
   }
 });
 
+/* ── Scoped: requeue_failed_jobs ── */
 async function requeueFailedJobs(sb: ReturnType<typeof createClient>, body: JsonRow) {
   const limit = typeof body.limit === "number" ? Math.max(1, Math.min(100, body.limit)) : 20;
 
-  const { data: jobs, error: fetchErr } = await sb
-    .from("job_queue")
-    .select("id")
-    .eq("status", "failed")
+  // Scoped: specific job IDs
+  if (Array.isArray(body.job_ids) && body.job_ids.length > 0) {
+    const ids = body.job_ids.map(String).slice(0, 100);
+    const { error } = await sb
+      .from("job_queue")
+      .update({ status: "pending", last_error: null, updated_at: new Date().toISOString() })
+      .in("id", ids)
+      .eq("status", "failed");
+    if (error) throw error;
+    return { ok: true, updated: ids.length, scope: "job_ids" };
+  }
+
+  // Scoped: by package_id
+  let query = sb.from("job_queue").select("id").eq("status", "failed");
+  if (typeof body.package_id === "string") {
+    query = query.eq("package_id", body.package_id);
+  }
+  if (typeof body.job_type === "string") {
+    query = query.eq("job_type", body.job_type);
+  }
+
+  const { data: jobs, error: fetchErr } = await query
     .order("updated_at", { ascending: false })
     .limit(limit);
 
@@ -126,9 +150,10 @@ async function requeueFailedJobs(sb: ReturnType<typeof createClient>, body: Json
     .in("id", ids);
 
   if (updErr) throw updErr;
-  return { ok: true, updated: ids.length };
+  return { ok: true, updated: ids.length, scope: body.package_id ? "package" : body.job_type ? "job_type" : "global" };
 }
 
+/* ── Scoped: release_provider_cooldowns ── */
 async function releaseProviderCooldowns(sb: ReturnType<typeof createClient>, body: JsonRow) {
   const provider = typeof body.provider === "string" ? body.provider : null;
 
@@ -140,10 +165,22 @@ async function releaseProviderCooldowns(sb: ReturnType<typeof createClient>, bod
 
   const { data, error } = await query.select("id");
   if (error) throw error;
-  return { ok: true, updated: data?.length ?? 0 };
+  return { ok: true, updated: data?.length ?? 0, scope: provider ? "provider" : "global" };
 }
 
+/* ── Scoped: reset_stalled_steps ── */
 async function resetStalledSteps(sb: ReturnType<typeof createClient>, body: JsonRow) {
+  // Scoped: single step
+  if (typeof body.package_id === "string" && typeof body.step_key === "string") {
+    const { error } = await sb
+      .from("package_steps")
+      .update({ status: "queued", started_at: null, finished_at: null, last_error: null, updated_at: new Date().toISOString() })
+      .eq("package_id", body.package_id)
+      .eq("step_key", body.step_key);
+    if (error) throw error;
+    return { ok: true, updated: 1, scope: "single_step" };
+  }
+
   const limit = typeof body.limit === "number" ? Math.max(1, Math.min(100, body.limit)) : 20;
 
   const { data: rows, error: fetchErr } = await sb
@@ -164,10 +201,21 @@ async function resetStalledSteps(sb: ReturnType<typeof createClient>, body: Json
       .eq("step_key", row.step_key);
     if (!error) updated += 1;
   }
-  return { ok: true, updated };
+  return { ok: true, updated, scope: "global" };
 }
 
+/* ── Scoped: cancel_zombie_packages ── */
 async function cancelZombiePackages(sb: ReturnType<typeof createClient>, body: JsonRow) {
+  // Scoped: single package
+  if (typeof body.package_id === "string") {
+    const { error } = await sb
+      .from("course_packages")
+      .update({ status: "blocked", blocked_reason: "admin_phase3_cancelled_zombie", updated_at: new Date().toISOString() })
+      .eq("id", body.package_id);
+    if (error) throw error;
+    return { ok: true, updated: 1, scope: "single_package" };
+  }
+
   const limit = typeof body.limit === "number" ? Math.max(1, Math.min(100, body.limit)) : 20;
 
   const { data: zombies, error: fetchErr } = await sb
@@ -187,5 +235,46 @@ async function cancelZombiePackages(sb: ReturnType<typeof createClient>, body: J
     .in("id", ids);
 
   if (error) throw error;
-  return { ok: true, updated: ids.length };
+  return { ok: true, updated: ids.length, scope: "global" };
+}
+
+/* ── Root Cause Summary (read-only) ── */
+async function rootCauseSummary(sb: ReturnType<typeof createClient>, body: JsonRow) {
+  const hours = typeof body.hours === "number" ? Math.min(48, Math.max(1, body.hours)) : 24;
+  const since = new Date(Date.now() - hours * 3600_000).toISOString();
+
+  const { data: rows, error } = await sb
+    .from("job_queue")
+    .select("job_type, last_error, status, payload")
+    .eq("status", "failed")
+    .gte("updated_at", since)
+    .order("updated_at", { ascending: false })
+    .limit(500);
+
+  if (error) throw error;
+  if (!rows?.length) return { ok: true, groups: [], total: 0 };
+
+  // Group by error pattern + job_type
+  const buckets = new Map<string, { job_type: string; pattern: string; count: number; sample: string }>();
+  for (const r of rows as any[]) {
+    const rawErr = String(r.last_error || "unknown");
+    // Normalize error to a short pattern
+    const pattern = rawErr
+      .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<uuid>")
+      .replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z?/g, "<ts>")
+      .slice(0, 120);
+    const key = `${r.job_type}||${pattern}`;
+    const existing = buckets.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      buckets.set(key, { job_type: r.job_type, pattern, count: 1, sample: rawErr.slice(0, 200) });
+    }
+  }
+
+  const groups = [...buckets.values()]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 15);
+
+  return { ok: true, groups, total: rows.length, hours };
 }

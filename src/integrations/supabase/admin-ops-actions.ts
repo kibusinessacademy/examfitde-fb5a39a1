@@ -4,11 +4,22 @@ type AdminOpsAction =
   | 'requeue_failed_jobs'
   | 'release_provider_cooldowns'
   | 'reset_stalled_steps'
-  | 'cancel_zombie_packages';
+  | 'cancel_zombie_packages'
+  | 'root_cause_summary';
+
+export interface ScopedPayload {
+  limit?: number;
+  package_id?: string;
+  step_key?: string;
+  provider?: string;
+  job_ids?: string[];
+  job_type?: string;
+  hours?: number;
+}
 
 export async function runAdminOpsAction(
   action: AdminOpsAction,
-  payload: Record<string, unknown> = {},
+  payload: ScopedPayload = {},
 ) {
   const { data, error } = await supabase.functions.invoke('admin-ops-actions', {
     body: { action, ...payload },
