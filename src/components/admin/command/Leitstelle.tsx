@@ -26,6 +26,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { RootCausePanel } from './RootCausePanel';
+import { PolicyCenter } from './PolicyCenter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,7 +46,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 type JsonRow = Record<string, unknown>;
-type FocusMode = 'priorities' | 'build' | 'bottlenecks';
+type FocusMode = 'priorities' | 'build' | 'bottlenecks' | 'policies';
 
 type AlertItem = {
   id: string;
@@ -502,10 +503,11 @@ export default function Leitstelle() {
       </div>
 
       <Tabs value={focus} onValueChange={(v) => setFocus(v as FocusMode)}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="priorities">Prioritäten</TabsTrigger>
           <TabsTrigger value="build">Build</TabsTrigger>
           <TabsTrigger value="bottlenecks">Bottlenecks</TabsTrigger>
+          <TabsTrigger value="policies">Auto-Heal</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -612,6 +614,8 @@ export default function Leitstelle() {
           </CardContent>
         </Card>
       )}
+
+      {focus === 'policies' && <PolicyCenter />}
 
       {/* Root Cause Panel */}
       <RootCausePanel />

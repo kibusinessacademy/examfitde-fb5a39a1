@@ -17,23 +17,35 @@ export type Database = {
       admin_actions: {
         Row: {
           action: string
+          affected_ids: string[] | null
+          after_state: Json | null
+          before_state: Json | null
           created_at: string | null
           id: string
           payload: Json | null
+          scope: string | null
           user_id: string | null
         }
         Insert: {
           action: string
+          affected_ids?: string[] | null
+          after_state?: Json | null
+          before_state?: Json | null
           created_at?: string | null
           id?: string
           payload?: Json | null
+          scope?: string | null
           user_id?: string | null
         }
         Update: {
           action?: string
+          affected_ids?: string[] | null
+          after_state?: Json | null
+          before_state?: Json | null
           created_at?: string | null
           id?: string
           payload?: Json | null
+          scope?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -1062,6 +1074,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      auto_heal_config: {
+        Row: {
+          config_json: Json | null
+          cooldown_minutes: number | null
+          description: string | null
+          enabled: boolean
+          id: string
+          label: string
+          last_run_at: string | null
+          last_run_result: Json | null
+          max_per_run: number | null
+          policy_key: string
+          threshold_minutes: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          config_json?: Json | null
+          cooldown_minutes?: number | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          label: string
+          last_run_at?: string | null
+          last_run_result?: Json | null
+          max_per_run?: number | null
+          policy_key: string
+          threshold_minutes?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          config_json?: Json | null
+          cooldown_minutes?: number | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          label?: string
+          last_run_at?: string | null
+          last_run_result?: Json | null
+          max_per_run?: number | null
+          policy_key?: string
+          threshold_minutes?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       auto_heal_log: {
         Row: {
