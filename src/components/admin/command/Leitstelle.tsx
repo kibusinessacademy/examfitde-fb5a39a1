@@ -609,6 +609,9 @@ export default function Leitstelle() {
         </Card>
       )}
 
+      {/* Root Cause Panel */}
+      <RootCausePanel />
+
       {/* Action Result Panel */}
       {recentActions.length > 0 && (
         <Card className="border-border/70 bg-card/70">
