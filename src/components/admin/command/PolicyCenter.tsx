@@ -32,6 +32,13 @@ interface PolicyConfig {
   last_run_at: string | null;
   last_run_result: Record<string, unknown> | null;
   updated_at: string;
+  // Safety Rails
+  dry_run: boolean;
+  max_per_hour: number | null;
+  max_per_day: number | null;
+  escalate_instead: boolean;
+  blacklist_ids: string[];
+  severity: string;
 }
 
 const POLICY_ICONS: Record<string, React.ReactNode> = {
@@ -39,6 +46,9 @@ const POLICY_ICONS: Record<string, React.ReactNode> = {
   release_expired_cooldowns: <Clock className="h-4 w-4 text-primary" />,
   reset_stuck_steps: <AlertTriangle className="h-4 w-4 text-destructive" />,
   cancel_zombies: <Shield className="h-4 w-4 text-muted-foreground" />,
+  flag_seo_gaps: <Settings2 className="h-4 w-4 text-primary" />,
+  archive_stale_drafts: <Clock className="h-4 w-4 text-muted-foreground" />,
+  fix_broken_redirects: <AlertTriangle className="h-4 w-4 text-amber-500" />,
 };
 
 export function PolicyCenter() {
@@ -77,7 +87,7 @@ export function PolicyCenter() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (patch: { id: string; threshold_minutes?: number; max_per_run?: number; cooldown_minutes?: number }) => {
+    mutationFn: async (patch: { id: string; threshold_minutes?: number; max_per_run?: number; cooldown_minutes?: number; dry_run?: boolean; max_per_hour?: number | null; max_per_day?: number | null; escalate_instead?: boolean }) => {
       const { id, ...fields } = patch;
       const { error } = await (supabase as any)
         .from('auto_heal_config')
@@ -87,7 +97,7 @@ export function PolicyCenter() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['auto-heal-policies'] });
-      toast({ title: 'Schwellenwerte gespeichert' });
+      toast({ title: 'Policy gespeichert' });
       setEditingId(null);
     },
     onError: (err: Error) => {
@@ -178,6 +188,13 @@ export function PolicyCenter() {
                       <span>Schwelle: {p.threshold_minutes} Min</span>
                       <span>Max: {p.max_per_run}/Lauf</span>
                       <span>Cooldown: {p.cooldown_minutes} Min</span>
+                      {p.max_per_hour && <span>Max/h: {p.max_per_hour}</span>}
+                      {p.max_per_day && <span>Max/d: {p.max_per_day}</span>}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {p.dry_run && <Badge variant="outline" className="text-[10px] h-4 px-1 border-amber-500/50 text-amber-600">DRY RUN</Badge>}
+                      {p.escalate_instead && <Badge variant="outline" className="text-[10px] h-4 px-1 border-orange-500/50 text-orange-600">ESKALATION</Badge>}
+                      <Badge variant="outline" className="text-[10px] h-4 px-1">{p.severity}</Badge>
                     </div>
                     {p.last_run_at && (
                       <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -229,55 +246,70 @@ function PolicyEditor({
   saving,
 }: {
   policy: PolicyConfig;
-  onSave: (patch: { threshold_minutes?: number; max_per_run?: number; cooldown_minutes?: number }) => void;
+  onSave: (patch: Record<string, unknown>) => void;
   saving: boolean;
 }) {
   const [threshold, setThreshold] = useState(String(policy.threshold_minutes));
   const [maxRun, setMaxRun] = useState(String(policy.max_per_run));
   const [cooldown, setCooldown] = useState(String(policy.cooldown_minutes));
+  const [dryRun, setDryRun] = useState(policy.dry_run);
+  const [escalate, setEscalate] = useState(policy.escalate_instead);
+  const [maxHour, setMaxHour] = useState(String(policy.max_per_hour ?? ''));
+  const [maxDay, setMaxDay] = useState(String(policy.max_per_day ?? ''));
 
   return (
-    <div className="mt-3 grid grid-cols-3 gap-3 border-t border-border/40 pt-3">
-      <div>
-        <Label className="text-[11px]">Schwelle (Min)</Label>
-        <Input
-          type="number"
-          min={0}
-          max={1440}
-          value={threshold}
-          onChange={(e) => setThreshold(e.target.value)}
-          className="h-8 text-sm mt-1"
-        />
+    <div className="mt-3 space-y-3 border-t border-border/40 pt-3">
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label className="text-[11px]">Schwelle (Min)</Label>
+          <Input type="number" min={0} max={1440} value={threshold} onChange={(e) => setThreshold(e.target.value)} className="h-8 text-sm mt-1" />
+        </div>
+        <div>
+          <Label className="text-[11px]">Max pro Lauf</Label>
+          <Input type="number" min={1} max={100} value={maxRun} onChange={(e) => setMaxRun(e.target.value)} className="h-8 text-sm mt-1" />
+        </div>
+        <div>
+          <Label className="text-[11px]">Cooldown (Min)</Label>
+          <Input type="number" min={1} max={120} value={cooldown} onChange={(e) => setCooldown(e.target.value)} className="h-8 text-sm mt-1" />
+        </div>
       </div>
-      <div>
-        <Label className="text-[11px]">Max pro Lauf</Label>
-        <Input
-          type="number"
-          min={1}
-          max={100}
-          value={maxRun}
-          onChange={(e) => setMaxRun(e.target.value)}
-          className="h-8 text-sm mt-1"
-        />
+
+      {/* Safety Rails */}
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+        <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1">
+          <Shield className="h-3 w-3" /> Safety Rails
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="flex items-center gap-2">
+            <Switch checked={dryRun} onCheckedChange={setDryRun} />
+            <Label className="text-[11px]">Dry Run</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={escalate} onCheckedChange={setEscalate} />
+            <Label className="text-[11px]">Eskalieren statt heilen</Label>
+          </div>
+          <div>
+            <Label className="text-[11px]">Max/Stunde</Label>
+            <Input type="number" min={0} value={maxHour} onChange={(e) => setMaxHour(e.target.value)} className="h-7 text-xs mt-1" placeholder="∞" />
+          </div>
+          <div>
+            <Label className="text-[11px]">Max/Tag</Label>
+            <Input type="number" min={0} value={maxDay} onChange={(e) => setMaxDay(e.target.value)} className="h-7 text-xs mt-1" placeholder="∞" />
+          </div>
+        </div>
       </div>
-      <div>
-        <Label className="text-[11px]">Cooldown (Min)</Label>
-        <Input
-          type="number"
-          min={1}
-          max={120}
-          value={cooldown}
-          onChange={(e) => setCooldown(e.target.value)}
-          className="h-8 text-sm mt-1"
-        />
-      </div>
-      <div className="col-span-3 flex justify-end">
+
+      <div className="flex justify-end">
         <Button
           size="sm"
           onClick={() => onSave({
             threshold_minutes: parseInt(threshold) || policy.threshold_minutes,
             max_per_run: parseInt(maxRun) || policy.max_per_run,
             cooldown_minutes: parseInt(cooldown) || policy.cooldown_minutes,
+            dry_run: dryRun,
+            escalate_instead: escalate,
+            max_per_hour: maxHour ? parseInt(maxHour) : null,
+            max_per_day: maxDay ? parseInt(maxDay) : null,
           })}
           disabled={saving}
         >
