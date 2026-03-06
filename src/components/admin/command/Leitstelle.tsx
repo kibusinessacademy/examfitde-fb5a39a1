@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
+import { useToast } from '@/hooks/use-toast';
 import { useCommandData, type PipelinePackage } from '@/hooks/useCommandData';
 import { deriveStepProgress } from '@/lib/pipeline-steps';
 import { cn } from '@/lib/utils';
@@ -18,6 +20,7 @@ import {
   Zap,
   DollarSign,
   Filter,
+  Loader2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -149,17 +152,25 @@ function ActionStrip({
   onOpenBottlenecks,
   onOpenPackages,
   onRefresh,
+  onRequeueFailed,
+  onReleaseCooldowns,
+  onResetStuck,
+  busy,
 }: {
   onOpenBottlenecks: () => void;
   onOpenPackages: () => void;
   onRefresh: () => void;
+  onRequeueFailed: () => void;
+  onReleaseCooldowns: () => void;
+  onResetStuck: () => void;
+  busy?: boolean;
 }) {
   return (
     <Card className="border-border/70 bg-card/70">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Schnellaktionen</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
         <Button variant="outline" className="justify-between" onClick={onOpenBottlenecks}>
           Bottlenecks prüfen
           <ArrowRight className="h-4 w-4" />
@@ -171,6 +182,18 @@ function ActionStrip({
         <Button variant="outline" className="justify-between" onClick={onRefresh}>
           Neu laden
           <RefreshCw className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" className="justify-between" onClick={onRequeueFailed} disabled={busy}>
+          Failed Jobs requeue
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+        </Button>
+        <Button variant="outline" className="justify-between" onClick={onReleaseCooldowns} disabled={busy}>
+          Cooldowns freigeben
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+        </Button>
+        <Button variant="outline" className="justify-between" onClick={onResetStuck} disabled={busy}>
+          Stuck Steps reset
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
         </Button>
       </CardContent>
     </Card>
@@ -232,6 +255,52 @@ export default function Leitstelle() {
   const { packages, kpis, loading, lastRefresh, refetch } = useCommandData();
   const [focus, setFocus] = useState<FocusMode>('priorities');
   const [sheet, setSheet] = useState<'bottlenecks' | 'packages' | null>(null);
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const invalidateAll = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['leitstelle-failed-jobs-live'] }),
+      qc.invalidateQueries({ queryKey: ['leitstelle-stuck-live'] }),
+      qc.invalidateQueries({ queryKey: ['leitstelle-zombies-live'] }),
+      qc.invalidateQueries({ queryKey: ['command-data'] }),
+    ]);
+    refetch();
+  };
+
+  const requeueMutation = useMutation({
+    mutationFn: () => runAdminOpsAction('requeue_failed_jobs', { limit: 20 }),
+    onSuccess: async (res: any) => {
+      toast({ title: 'Failed Jobs neu eingeplant', description: `${res?.updated ?? 0} Jobs auf pending gesetzt.` });
+      await invalidateAll();
+    },
+  });
+
+  const releaseCooldownMutation = useMutation({
+    mutationFn: () => runAdminOpsAction('release_provider_cooldowns'),
+    onSuccess: async (res: any) => {
+      toast({ title: 'Cooldowns freigegeben', description: `${res?.updated ?? 0} Provider-Cooldowns zurückgesetzt.` });
+      await invalidateAll();
+    },
+  });
+
+  const resetStepsMutation = useMutation({
+    mutationFn: () => runAdminOpsAction('reset_stalled_steps', { limit: 20 }),
+    onSuccess: async (res: any) => {
+      toast({ title: 'Stuck Steps zurückgesetzt', description: `${res?.updated ?? 0} Steps erneut auf queued.` });
+      await invalidateAll();
+    },
+  });
+
+  const cancelZombiesMutation = useMutation({
+    mutationFn: () => runAdminOpsAction('cancel_zombie_packages', { limit: 20 }),
+    onSuccess: async (res: any) => {
+      toast({ title: 'Zombie-Pakete blockiert', description: `${res?.updated ?? 0} Pakete markiert.` });
+      await invalidateAll();
+    },
+  });
+
+  const anyBusy = requeueMutation.isPending || releaseCooldownMutation.isPending || resetStepsMutation.isPending || cancelZombiesMutation.isPending;
 
   const { data: failedJobs = [] } = useQuery({
     queryKey: ['leitstelle-failed-jobs-live'],
@@ -423,6 +492,10 @@ export default function Leitstelle() {
             onOpenBottlenecks={() => setSheet('bottlenecks')}
             onOpenPackages={() => setSheet('packages')}
             onRefresh={refetch}
+            onRequeueFailed={() => requeueMutation.mutate()}
+            onReleaseCooldowns={() => releaseCooldownMutation.mutate()}
+            onResetStuck={() => resetStepsMutation.mutate()}
+            busy={anyBusy}
           />
         </>
       )}
@@ -512,7 +585,18 @@ export default function Leitstelle() {
               </div>
 
               <div>
-                <div className="mb-2 text-sm font-semibold">Zombie-Pakete</div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold">Zombie-Pakete</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancelZombiesMutation.mutate()}
+                    disabled={cancelZombiesMutation.isPending}
+                  >
+                    {cancelZombiesMutation.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                    Zombies blockieren
+                  </Button>
+                </div>
                 <div className="space-y-2">
                   {zombieRows.length === 0 ? (
                     <div className="text-sm text-muted-foreground">Keine Zombies gefunden.</div>
