@@ -285,7 +285,7 @@ export default function Leitstelle() {
       const errorText = String(row.last_error || 'Unbekannter Fehler');
       return {
         id: `job-${row.id ?? i}`,
-        kind: errorText.includes('STEP_EXHAUSTED') ? 'critical' : 'warning',
+        kind: (errorText.includes('STEP_EXHAUSTED') ? 'critical' : 'warning') as AlertItem['kind'],
         title: `${String(row.job_type || 'Job')} fehlgeschlagen`,
         detail: `${errorText.slice(0, 120)}${errorText.length > 120 ? '…' : ''}`,
         ageMin,
