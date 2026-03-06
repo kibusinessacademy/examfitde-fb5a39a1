@@ -430,6 +430,7 @@ export default function Leitstelle() {
         ageMin,
         source: 'stuck' as const,
         packageId: row.package_id ? String(row.package_id) : null,
+        stepKey: row.step_key ? String(row.step_key) : null,
       };
     });
 
