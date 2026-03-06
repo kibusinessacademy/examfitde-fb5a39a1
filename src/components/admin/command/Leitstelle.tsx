@@ -266,6 +266,7 @@ export default function Leitstelle() {
   const { packages, kpis, loading, lastRefresh, refetch } = useCommandData();
   const [focus, setFocus] = useState<FocusMode>('priorities');
   const [sheet, setSheet] = useState<'bottlenecks' | 'packages' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'cancel_zombie_packages' | 'requeue_failed_jobs' | 'reset_stalled_steps' | null>(null);
   const qc = useQueryClient();
   const { toast } = useToast();
 
