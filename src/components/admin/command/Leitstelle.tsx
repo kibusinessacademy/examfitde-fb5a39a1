@@ -492,6 +492,10 @@ export default function Leitstelle() {
             onOpenBottlenecks={() => setSheet('bottlenecks')}
             onOpenPackages={() => setSheet('packages')}
             onRefresh={refetch}
+            onRequeueFailed={() => requeueMutation.mutate()}
+            onReleaseCooldowns={() => releaseCooldownMutation.mutate()}
+            onResetStuck={() => resetStepsMutation.mutate()}
+            busy={anyBusy}
           />
         </>
       )}
