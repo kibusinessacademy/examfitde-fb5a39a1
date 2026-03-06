@@ -397,12 +397,13 @@ Deno.serve(async (req) => {
   // This gives each provider the FULL 38s budget.
   // ═══════════════════════════════════════════════════════════════
 
-  // ── v9.3: Explicit attempt_index for deterministic provider rotation ──
-  // attempt_index is 0-based, sent by content-runner. Falls back gracefully.
+  // ── v9.4: Fair provider distribution via job hash + attempt rotation ──
+  // _job_hash provides deterministic per-job seed; attempt_index rotates on retries
   const attemptIndex = Number.isFinite(p.attempt_index) ? p.attempt_index : (p.attempts ?? 0);
-  const providerIndex = attemptIndex % fullChain.length;
+  const jobHash = Number.isFinite(p._job_hash) ? p._job_hash : 0;
+  const providerIndex = (jobHash + attemptIndex) % fullChain.length;
   const chain = [fullChain[providerIndex]];
-  console.log(`[lesson-gen] SINGLE_PROVIDER: chain[${providerIndex}] = ${chain[0].provider}/${chain[0].model} (attempt_index=${attemptIndex}, chain_size=${fullChain.length}, job=${(p.job_id || 'unknown').slice(0,8)})`);
+  console.log(`[lesson-gen] SINGLE_PROVIDER: chain[${providerIndex}] = ${chain[0].provider}/${chain[0].model} (attempt=${attemptIndex}, hash=${jobHash}, chain_size=${fullChain.length}, job=${(p.job_id || 'unknown').slice(0,8)})`);
 
   // ═══════════════════════════════════════════════════════════════
   // v9.2 TOKEN CLAMP: Hard limit to fit within 38s LLM budget

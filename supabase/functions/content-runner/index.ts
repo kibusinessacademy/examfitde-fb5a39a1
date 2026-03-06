@@ -29,6 +29,15 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** Simple numeric hash from job UUID for fair provider distribution */
+function hashJobId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) {
+    h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
 // deno-lint-ignore no-explicit-any
 async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): Promise<{ ok: boolean; result?: any; error?: string; terminal?: boolean }> {
   const edgeFn = edgeFunctionForJobType(job.job_type);
@@ -50,10 +59,11 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
       body: JSON.stringify({
         ...(job.payload ?? {}),
         attempts: job.attempts ?? 0,
-        attempt_index: (job.meta?.transient_attempts ?? job.attempts ?? 0),  // v6: use transient counter for provider rotation (attempts stays 0 for transients)
+        attempt_index: (job.meta?.transient_attempts ?? job.attempts ?? 0),  // v6: use transient counter for provider rotation
         max_attempts: job.max_attempts ?? 8,
         job_id: job.id,
-        _meta_attempt_index: (job.meta?.transient_attempts ?? job.attempts ?? 0),  // v6.1: echo for forensic persistence
+        _meta_attempt_index: (job.meta?.transient_attempts ?? job.attempts ?? 0),
+        _job_hash: hashJobId(job.id),  // v1.6: deterministic seed for fair provider distribution
       }),
       signal: controller.signal,
     });
@@ -160,8 +170,10 @@ Deno.serve(async (req) => {
   // ── 2. Pre-dispatch Provider Health Gate ──
   // Check cooldowns BEFORE dispatching to avoid burst-failures across parallel runners
   let activeChain: { provider: string; model: string; [k: string]: unknown }[] = [];
+  let fullChainLength = 0;
   try {
     const fullChain = await getModelChainAsync("learning_content");
+    fullChainLength = fullChain.length;
     activeChain = await filterCooledDownProviders(fullChain);
     if (activeChain.length < fullChain.length) {
       console.log(`[content-runner] HEALTH_GATE: ${fullChain.length - activeChain.length} provider(s) on cooldown, ${activeChain.length} available`);
@@ -170,14 +182,14 @@ Deno.serve(async (req) => {
     console.warn(`[content-runner] HEALTH_GATE: chain fetch failed, proceeding without gate: ${(e as Error)?.message?.slice(0, 100)}`);
   }
 
-  // If ALL providers are on cooldown for >30s, defer ALL jobs instead of wasting attempts
-  if (activeChain.length === 1) {
-    // filterCooledDownProviders returns shortest-cooldown provider when all are cooled
-    // Check if even that one is still meaningfully cooled (>30s remaining)
+  // If ALL providers were filtered and the sole survivor is still on cooldown, defer everything
+  // filterCooledDownProviders never returns empty — when all are cooled it returns the shortest-cooldown one
+  const allProvidersCooled = fullChainLength > 1 && activeChain.length === 1;
+  if (allProvidersCooled) {
     const onlyProvider = activeChain[0];
     const stillCooled = await isOnCooldown(onlyProvider.provider, onlyProvider.model);
     if (stillCooled) {
-      console.warn(`[content-runner] HEALTH_GATE: ALL providers on cooldown — deferring ${jobs.length} job(s) by 30s`);
+      console.warn(`[content-runner] HEALTH_GATE: ALL ${fullChainLength} providers on cooldown — deferring ${jobs.length} job(s) by 30s`);
       const deferAt = new Date(Date.now() + 30_000).toISOString();
       for (const job of jobs) {
         await sb.from("job_queue").update({
