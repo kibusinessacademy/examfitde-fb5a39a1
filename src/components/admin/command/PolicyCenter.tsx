@@ -188,6 +188,13 @@ export function PolicyCenter() {
                       <span>Schwelle: {p.threshold_minutes} Min</span>
                       <span>Max: {p.max_per_run}/Lauf</span>
                       <span>Cooldown: {p.cooldown_minutes} Min</span>
+                      {p.max_per_hour && <span>Max/h: {p.max_per_hour}</span>}
+                      {p.max_per_day && <span>Max/d: {p.max_per_day}</span>}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {p.dry_run && <Badge variant="outline" className="text-[10px] h-4 px-1 border-amber-500/50 text-amber-600">DRY RUN</Badge>}
+                      {p.escalate_instead && <Badge variant="outline" className="text-[10px] h-4 px-1 border-orange-500/50 text-orange-600">ESKALATION</Badge>}
+                      <Badge variant="outline" className="text-[10px] h-4 px-1">{p.severity}</Badge>
                     </div>
                     {p.last_run_at && (
                       <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
