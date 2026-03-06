@@ -303,7 +303,7 @@ export default function Leitstelle() {
             : 0;
       return {
         id: `stuck-${row.package_id ?? i}`,
-        kind: ageMin > 60 ? 'critical' : 'warning',
+        kind: (ageMin > 60 ? 'critical' : 'warning') as AlertItem['kind'],
         title: `Step blockiert: ${String(row.step_key || 'unbekannt')}`,
         detail: `${String(row.package_id || 'ohne Paket')} · ${String(row.reason || 'ohne Grund')}`,
         ageMin,
