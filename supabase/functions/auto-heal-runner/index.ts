@@ -83,6 +83,15 @@ Deno.serve(async (req) => {
           case "cancel_zombies":
             result = await healCancelZombies(sb, policy);
             break;
+          case "flag_seo_gaps":
+            result = await healFlagSeoGaps(sb, policy);
+            break;
+          case "archive_stale_drafts":
+            result = await healArchiveStaleDrafts(sb, policy);
+            break;
+          case "fix_broken_redirects":
+            result = await healFixBrokenRedirects(sb, policy);
+            break;
           default:
             result = { policy_key: policy.policy_key, updated: 0, affected_ids: [], skipped_reason: "unknown_policy" };
         }
