@@ -85,6 +85,7 @@ const AdminOpsQueuePage = lazy(() => import('@/pages/admin/AdminOpsQueuePage'));
 const AdminProviderHealthPage = lazy(() => import('@/pages/admin/AdminProviderHealthPage'));
 const AdminPackageRiskPage = lazy(() => import('@/pages/admin/AdminPackageRiskPage'));
 const AdminRevenuePage = lazy(() => import('@/pages/admin/AdminRevenuePage'));
+const AdminExecutiveHomePage = lazy(() => import('@/pages/admin/AdminExecutiveHomePage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazy(() => import('@/pages/work/WorkHomePage'));
@@ -235,7 +236,8 @@ const AppRoutes = () => {
 
         {/* ====== ADMIN V4 ====== */}
         <Route path="/admin" element={<AdminV4Layout />}>
-          <Route index element={<Navigate to="control-tower" replace />} />
+          <Route index element={<Navigate to="home" replace />} />
+          <Route path="home" element={<AdminExecutiveHomePage />} />
           <Route path="command" element={<CommandPage />} />
           <Route path="studio/*" element={<StudioPage />} />
           <Route path="quality/*" element={<QualityPage />} />

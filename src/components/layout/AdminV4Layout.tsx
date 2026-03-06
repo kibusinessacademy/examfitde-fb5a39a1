@@ -54,6 +54,7 @@ export default function AdminV4Layout() {
   // Breadcrumbs
   const pathParts = location.pathname.replace('/admin/', '').split('/').filter(Boolean);
   const breadcrumbLabels: Record<string, string> = {
+    home: 'Startseite',
     command: 'Leitstelle',
     studio: 'Kurse',
     quality: 'Qualität',
