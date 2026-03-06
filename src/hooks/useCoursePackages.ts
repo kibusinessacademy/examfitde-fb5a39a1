@@ -82,6 +82,18 @@ export function useCoursePackages() {
 
   const createPackage = useMutation({
     mutationFn: async (params: { certificationId: string; curriculumId: string; title: string; components?: Record<string, boolean> }) => {
+      // UX-only pre-check (server is authoritative via SSOT guard + unique index)
+      const { data: existing } = await supabase
+        .from('course_packages')
+        .select('id, status, title')
+        .eq('curriculum_id', params.curriculumId)
+        .in('status', ['building', 'published'])
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error(`Für dieses Curriculum existiert bereits ein aktives Paket: "${existing.title}" (${existing.status})`);
+      }
+
       const { data, error } = await supabase
         .from('course_packages')
         .insert({
