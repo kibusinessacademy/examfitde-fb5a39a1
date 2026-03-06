@@ -236,7 +236,8 @@ const AppRoutes = () => {
 
         {/* ====== ADMIN V4 ====== */}
         <Route path="/admin" element={<AdminV4Layout />}>
-          <Route index element={<Navigate to="control-tower" replace />} />
+          <Route index element={<Navigate to="home" replace />} />
+          <Route path="home" element={<AdminExecutiveHomePage />} />
           <Route path="command" element={<CommandPage />} />
           <Route path="studio/*" element={<StudioPage />} />
           <Route path="quality/*" element={<QualityPage />} />
