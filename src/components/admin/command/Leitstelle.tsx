@@ -361,6 +361,7 @@ export default function Leitstelle() {
     staleTime: 5000,
   });
 
+  const alerts = useMemo<AlertItem[]>(() => {
     const now = Date.now();
 
     const fromFailed = failedJobs.map((row, i) => {
