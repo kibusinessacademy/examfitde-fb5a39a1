@@ -14,6 +14,7 @@ function json(data: unknown, status = 200) {
   });
 }
 
+type SB = ReturnType<typeof createClient>;
 type JsonRow = Record<string, unknown>;
 
 async function assertAdmin(sb: ReturnType<typeof createClient>, userId: string) {

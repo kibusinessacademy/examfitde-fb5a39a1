@@ -55,6 +55,8 @@ type AlertItem = {
   ageMin: number;
   source: 'job_queue' | 'stuck' | 'runner';
   packageId?: string | null;
+  jobId?: string | null;
+  stepKey?: string | null;
 };
 
 const fmtEur = (v: number) =>
@@ -409,6 +411,7 @@ export default function Leitstelle() {
         ageMin,
         source: 'job_queue' as const,
         packageId: row.package_id ? String(row.package_id) : null,
+        jobId: row.id ? String(row.id) : null,
       };
     });
 
@@ -427,6 +430,7 @@ export default function Leitstelle() {
         ageMin,
         source: 'stuck' as const,
         packageId: row.package_id ? String(row.package_id) : null,
+        stepKey: row.step_key ? String(row.step_key) : null,
       };
     });
 
@@ -813,6 +817,7 @@ export default function Leitstelle() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction ? confirmLabels[confirmAction.type]?.desc : ''}
+              {confirmAction?.label ? ` (${confirmAction.label})` : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
