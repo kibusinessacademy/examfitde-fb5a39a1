@@ -719,6 +719,24 @@ export default function Leitstelle() {
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-amber-500" />
+              {confirmAction ? confirmLabels[confirmAction]?.title : ''}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction ? confirmLabels[confirmAction]?.desc : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={executeConfirmedAction}>Ja, ausführen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
