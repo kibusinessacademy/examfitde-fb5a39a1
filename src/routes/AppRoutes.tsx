@@ -79,6 +79,13 @@ const WorkLicensesPage = lazy(() => import('@/pages/admin/v4/BerufsKILicensesPag
 const WorkCommercePage = lazy(() => import('@/pages/admin/v4/BerufsKICommercePage'));
 const WorkAffiliateDashboard = lazy(() => import('@/pages/admin/v4/BerufsKIAffiliateDashboard'));
 
+// Control Tower Pages (new SSOT Leitzentrale)
+const AdminControlTowerPage = lazy(() => import('@/pages/admin/AdminControlTowerPage'));
+const AdminOpsQueuePage = lazy(() => import('@/pages/admin/AdminOpsQueuePage'));
+const AdminProviderHealthPage = lazy(() => import('@/pages/admin/AdminProviderHealthPage'));
+const AdminPackageRiskPage = lazy(() => import('@/pages/admin/AdminPackageRiskPage'));
+const AdminRevenuePage = lazy(() => import('@/pages/admin/AdminRevenuePage'));
+
 // ExamFit@work public pages
 const WorkHomePage = lazy(() => import('@/pages/work/WorkHomePage'));
 const WorkSuccessPage = lazy(() => import('@/pages/work/WorkSuccessPage'));
@@ -219,9 +226,16 @@ const AppRoutes = () => {
           </Route>
         </Route>
 
+        {/* ====== Control Tower (neue Leitzentrale) ====== */}
+        <Route path="/admin/control-tower" element={<AdminControlTowerPage />} />
+        <Route path="/admin/ops/queue" element={<AdminOpsQueuePage />} />
+        <Route path="/admin/providers" element={<AdminProviderHealthPage />} />
+        <Route path="/admin/packages/risk" element={<AdminPackageRiskPage />} />
+        <Route path="/admin/revenue" element={<AdminRevenuePage />} />
+
         {/* ====== ADMIN V4 ====== */}
         <Route path="/admin" element={<AdminV4Layout />}>
-          <Route index element={<Navigate to="command" replace />} />
+          <Route index element={<Navigate to="control-tower" replace />} />
           <Route path="command" element={<CommandPage />} />
           <Route path="studio/*" element={<StudioPage />} />
           <Route path="quality/*" element={<QualityPage />} />
