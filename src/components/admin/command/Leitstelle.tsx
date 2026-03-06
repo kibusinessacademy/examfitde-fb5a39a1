@@ -615,6 +615,8 @@ export default function Leitstelle() {
         </Card>
       )}
 
+      {focus === 'policies' && <PolicyCenter />}
+
       {/* Root Cause Panel */}
       <RootCausePanel />
 
