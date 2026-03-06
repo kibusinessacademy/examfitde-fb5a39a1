@@ -1914,6 +1914,56 @@ export type Database = {
           },
         ]
       }
+      beruf_market_match_map: {
+        Row: {
+          beruf_id: string
+          created_at: string
+          match_type: string
+          source_occupation_name: string
+        }
+        Insert: {
+          beruf_id: string
+          created_at?: string
+          match_type?: string
+          source_occupation_name: string
+        }
+        Update: {
+          beruf_id?: string
+          created_at?: string
+          match_type?: string
+          source_occupation_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beruf_market_match_map_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "berufe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beruf_market_match_map_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "beruf_market_match_map_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_beruf_priority"
+            referencedColumns: ["beruf_id"]
+          },
+          {
+            foreignKeyName: "beruf_market_match_map_beruf_id_fkey"
+            columns: ["beruf_id"]
+            isOneToOne: false
+            referencedRelation: "v_berufe_public_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       berufe: {
         Row: {
           ausbildungsdauer_monate: number
@@ -29100,6 +29150,7 @@ export type Database = {
       }
       month_start: { Args: { p_any: string }; Returns: string }
       next_package_queue_position: { Args: never; Returns: number }
+      normalize_beruf_name: { Args: { input: string }; Returns: string }
       normalize_question_text: { Args: { p_text: string }; Returns: string }
       normalize_search_text: { Args: { input: string }; Returns: string }
       note_code_failure: {
@@ -29266,6 +29317,7 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: undefined
       }
+      recalculate_beruf_market_scores: { Args: never; Returns: undefined }
       recalculate_coverage_priorities: { Args: never; Returns: Json }
       recalculate_routing_scores: { Args: never; Returns: undefined }
       recompute_compliance_block: {
