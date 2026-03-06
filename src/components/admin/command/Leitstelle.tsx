@@ -263,6 +263,7 @@ export default function Leitstelle() {
       qc.invalidateQueries({ queryKey: ['leitstelle-failed-jobs-live'] }),
       qc.invalidateQueries({ queryKey: ['leitstelle-stuck-live'] }),
       qc.invalidateQueries({ queryKey: ['leitstelle-zombies-live'] }),
+      qc.invalidateQueries({ queryKey: ['leitstelle-recent-actions'] }),
       qc.invalidateQueries({ queryKey: ['command-data'] }),
     ]);
     refetch();
@@ -343,6 +344,22 @@ export default function Leitstelle() {
     },
     refetchInterval: 30000,
     staleTime: 10000,
+  });
+
+  const { data: recentActions = [] } = useQuery({
+    queryKey: ['leitstelle-recent-actions'],
+    queryFn: async () => {
+      const sb = supabase as any;
+      const { data, error } = await sb
+        .from('admin_actions')
+        .select('id, action, payload, user_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(8);
+      if (error) return [] as JsonRow[];
+      return (data ?? []) as JsonRow[];
+    },
+    refetchInterval: 15000,
+    staleTime: 5000,
   });
 
   const alerts = useMemo<AlertItem[]>(() => {
@@ -556,6 +573,48 @@ export default function Leitstelle() {
               <div className="text-3xl font-semibold">{zombieRows.length}</div>
               <div className="mt-1 text-xs text-muted-foreground">Build ohne Job oder Lease</div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Action Result Panel */}
+      {recentActions.length > 0 && (
+        <Card className="border-border/70 bg-card/70">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between text-base">
+              <span>Letzte Admin-Eingriffe</span>
+              <Badge variant="outline" className="text-[11px]">{recentActions.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentActions.map((row: JsonRow, i: number) => {
+              const payload = (row.payload || {}) as Record<string, unknown>;
+              const updated = typeof payload.result === 'object' && payload.result !== null
+                ? (payload.result as Record<string, unknown>).updated
+                : undefined;
+              const actionLabels: Record<string, string> = {
+                requeue_failed_jobs: 'Requeue Failed Jobs',
+                release_provider_cooldowns: 'Cooldowns freigegeben',
+                reset_stalled_steps: 'Stuck Steps reset',
+                cancel_zombie_packages: 'Zombies blockiert',
+              };
+              const label = actionLabels[String(row.action)] || String(row.action);
+              const ts = row.created_at ? new Date(String(row.created_at)) : null;
+              return (
+                <div key={String(row.id ?? i)} className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="font-medium">{label}</span>
+                    {typeof updated === 'number' && (
+                      <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{updated} betroffen</Badge>
+                    )}
+                  </div>
+                  {ts && (
+                    <span className="text-xs text-muted-foreground">{ts.toLocaleTimeString('de-DE')}</span>
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}

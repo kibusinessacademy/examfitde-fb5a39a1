@@ -16,6 +16,33 @@ function json(data: unknown, status = 200) {
 
 type JsonRow = Record<string, unknown>;
 
+async function assertAdmin(sb: ReturnType<typeof createClient>, userId: string) {
+  const { data, error } = await sb
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error("FORBIDDEN");
+  }
+}
+
+async function auditLog(
+  sb: ReturnType<typeof createClient>,
+  userId: string,
+  action: string,
+  payload: JsonRow,
+  result: JsonRow,
+) {
+  await sb.from("admin_actions").insert({
+    user_id: userId,
+    action,
+    payload: { ...payload, result } as any,
+  }).then(() => {});
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -40,21 +67,40 @@ Deno.serve(async (req) => {
     if (authErr || !user) return json({ error: "Unauthorized" }, 401);
 
     const sb = createClient(supabaseUrl, serviceKey);
+
+    // Admin role guard
+    try {
+      await assertAdmin(sb, user.id);
+    } catch {
+      return json({ error: "Forbidden – admin role required" }, 403);
+    }
+
     const body = (await req.json().catch(() => ({}))) as JsonRow;
     const action = String(body.action || "");
 
+    let result: JsonRow;
+
     switch (action) {
       case "requeue_failed_jobs":
-        return json(await requeueFailedJobs(sb, body));
+        result = await requeueFailedJobs(sb, body);
+        break;
       case "release_provider_cooldowns":
-        return json(await releaseProviderCooldowns(sb, body));
+        result = await releaseProviderCooldowns(sb, body);
+        break;
       case "reset_stalled_steps":
-        return json(await resetStalledSteps(sb, body));
+        result = await resetStalledSteps(sb, body);
+        break;
       case "cancel_zombie_packages":
-        return json(await cancelZombiePackages(sb, body));
+        result = await cancelZombiePackages(sb, body);
+        break;
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
+
+    // Audit log (fire-and-forget)
+    auditLog(sb, user.id, action, body, result);
+
+    return json(result);
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
