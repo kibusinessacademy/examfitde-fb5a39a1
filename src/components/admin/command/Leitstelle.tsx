@@ -662,16 +662,86 @@ export default function Leitstelle() {
 
           {sheet === 'bottlenecks' ? (
             <div className="mt-4 space-y-4">
+              {/* Failed Jobs with inline requeue */}
               <div>
-                <div className="mb-2 text-sm font-semibold">Frische Alerts</div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold">Failed Jobs (90 Min)</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmAction({ type: 'requeue_failed_jobs', payload: { limit: 20 } })}
+                    disabled={anyBusy}
+                  >
+                    Alle requeue
+                  </Button>
+                </div>
                 <div className="space-y-2">
-                  {alerts.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">Keine akuten Alerts.</div>
+                  {failedJobs.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">Keine Failed Jobs.</div>
                   ) : (
-                    alerts.map((alert) => (
-                      <div key={alert.id} className="rounded-xl border border-border p-3">
-                        <div className="font-medium">{alert.title}</div>
-                        <div className="mt-1 text-sm text-muted-foreground">{alert.detail}</div>
+                    failedJobs.slice(0, 15).map((row, i) => (
+                      <div key={`fj-${row.id ?? i}`} className="rounded-xl border border-border p-3 text-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium font-mono truncate">{String(row.job_type || 'Job')}</div>
+                            <div className="mt-1 text-xs text-destructive truncate">{String(row.last_error || '–').slice(0, 100)}</div>
+                          </div>
+                          {row.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 h-7 px-2 text-[11px]"
+                              onClick={() => setConfirmAction({ type: 'requeue_single', payload: { job_ids: [String(row.id)] } })}
+                              disabled={anyBusy}
+                            >
+                              <RotateCcw className="mr-1 h-3 w-3" /> Retry
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Stuck Steps with inline reset */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold">Stuck Steps</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmAction({ type: 'reset_stalled_steps', payload: { limit: 20 } })}
+                    disabled={anyBusy}
+                  >
+                    Alle resetten
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {stuckRows.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">Keine stuck Steps.</div>
+                  ) : (
+                    stuckRows.map((row, i) => (
+                      <div key={`stuck-${row.package_id ?? i}`} className="rounded-xl border border-border p-3 text-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium font-mono truncate">{String(row.step_key || '–')}</div>
+                            <div className="mt-1 text-xs text-muted-foreground truncate">
+                              {String(row.package_id || '–').slice(0, 8)} · {String(row.reason || '–')}
+                            </div>
+                          </div>
+                          {row.package_id && row.step_key && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 h-7 px-2 text-[11px]"
+                              onClick={() => setConfirmAction({ type: 'reset_step_single', payload: { package_id: String(row.package_id), step_key: String(row.step_key) } })}
+                              disabled={anyBusy}
+                            >
+                              <RotateCcw className="mr-1 h-3 w-3" /> Reset
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))
                   )}
