@@ -263,6 +263,7 @@ export default function Leitstelle() {
       qc.invalidateQueries({ queryKey: ['leitstelle-failed-jobs-live'] }),
       qc.invalidateQueries({ queryKey: ['leitstelle-stuck-live'] }),
       qc.invalidateQueries({ queryKey: ['leitstelle-zombies-live'] }),
+      qc.invalidateQueries({ queryKey: ['leitstelle-recent-actions'] }),
       qc.invalidateQueries({ queryKey: ['command-data'] }),
     ]);
     refetch();
