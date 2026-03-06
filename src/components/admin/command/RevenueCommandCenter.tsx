@@ -110,7 +110,7 @@ export default function RevenueCommandCenter() {
             <div className="flex gap-3 text-xs">
               <div className="flex-1 rounded-lg bg-destructive/10 p-2 text-center">
                 <p className="text-lg font-bold text-destructive">{churn.high_risk}</p>
-                <p className="text-muted-foreground">Hoch (>70%)</p>
+                <p className="text-muted-foreground">{"Hoch (>70%)"}</p>
               </div>
               <div className="flex-1 rounded-lg bg-yellow-500/10 p-2 text-center">
                 <p className="text-lg font-bold text-yellow-700">{churn.medium_risk}</p>
