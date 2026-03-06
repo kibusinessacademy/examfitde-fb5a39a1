@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
           queue_position: nextPosition,
           council_approved: true,
           track: "AUSBILDUNG_VOLL",
+          priority: 5,
           feature_flags: {
             has_learning_course: true,
             has_practice_course_h5p: false,
