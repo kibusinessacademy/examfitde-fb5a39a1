@@ -140,6 +140,10 @@ Deno.serve(async (req) => {
 
       const nextPosition = ((maxQ?.queue_position as number) || 0) + 1;
 
+      // Resolve priority from market SSOT
+      const market = await getMarketPriority(sb, curr.beruf_id);
+      console.log(`[SetupPkg] Market priority for ${berufName}: priority=${market.priority}, tier=${market.tier}, score=${market.market_score}`);
+
       const { data: newPkg, error: pkgErr } = await sb
         .from("course_packages")
         .insert({
@@ -150,7 +154,7 @@ Deno.serve(async (req) => {
           queue_position: nextPosition,
           council_approved: true,
           track: "AUSBILDUNG_VOLL",
-          priority: 5,
+          priority: market.priority,
           feature_flags: {
             has_learning_course: true,
             has_practice_course_h5p: false,
