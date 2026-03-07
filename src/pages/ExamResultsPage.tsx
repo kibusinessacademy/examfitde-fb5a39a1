@@ -17,6 +17,48 @@ import { CompetencyRadarChart } from '@/components/exam/CompetencyRadarChart';
 import { PassProbabilityBadge } from '@/components/exam/PassProbabilityBadge';
 import PageExplainer from '@/components/admin/PageExplainer';
 
+interface DiagnosticData {
+  readiness_pct: number;
+  confidence: number;
+  fail_risk_pct: number;
+  verdict: string;
+  total_skills: number;
+  mastered_count: number;
+  partial_count: number;
+  not_mastered_count: number;
+  session_weakest_skills: Array<{
+    skill_node_id: string;
+    lernfeld: string;
+    kompetenz: string;
+    session_accuracy: number | null;
+    session_correct: number | null;
+    session_total: number | null;
+    mastery_pct: number;
+    trend: string;
+  }>;
+  weakest_skills: Array<{
+    skill_node_id: string;
+    lernfeld: string;
+    kompetenz: string;
+    mastery_pct: number;
+    confidence: number;
+    mastery_status: string;
+    trend: string;
+    total_attempts: number;
+  }>;
+  strongest_skills: Array<{
+    skill_node_id: string;
+    kompetenz: string;
+    mastery_pct: number;
+  }>;
+  recommendations: Array<{ priority: string; text: string }>;
+  coaching_trigger: {
+    mode: string;
+    focus_skills: Array<{ kompetenz: string; mastery_pct: number; lernfeld: string; session_accuracy?: number | null }>;
+    readiness_verdict: string;
+  };
+}
+
 interface ExamSessionData {
   id: string;
   mode: string;
@@ -29,7 +71,8 @@ interface ExamSessionData {
   breakdown: {
     by_difficulty?: Record<string, { correct: number; total: number }>;
     by_learning_field?: Record<string, { correct: number; total: number }>;
-    by_competency?: Record<string, { correct: number; total: number; title?: string }>;
+    by_competency?: Record<string, { correct: number; total: number; title?: string; accuracy_pct?: number }>;
+    by_skill_node?: Record<string, { correct: number; total: number; kompetenz: string; lernfeld: string; accuracy_pct?: number }>;
   } | null;
   blueprint: { title: string; pass_threshold: number };
   curriculum: { title: string };
@@ -48,37 +91,6 @@ interface QuestionDetail {
     options: Array<{ text: string }>;
     correct_answer: number;
     explanation: string | null;
-  };
-}
-
-interface DiagnosticData {
-  readiness_pct: number;
-  confidence: number;
-  fail_risk_pct: number;
-  verdict: string;
-  total_skills: number;
-  mastered_count: number;
-  partial_count: number;
-  not_mastered_count: number;
-  weakest_skills: Array<{
-    skill_node_id: string;
-    lernfeld: string;
-    kompetenz: string;
-    mastery_pct: number;
-    confidence: number;
-    mastery_status: string;
-    trend: string;
-  }>;
-  strongest_skills: Array<{
-    skill_node_id: string;
-    kompetenz: string;
-    mastery_pct: number;
-  }>;
-  recommendations: string[];
-  coaching_trigger: {
-    mode: string;
-    focus_skills: Array<{ kompetenz: string; mastery_pct: number; lernfeld: string }>;
-    readiness_verdict: string;
   };
 }
 
@@ -197,6 +209,12 @@ export default function ExamResultsPage() {
     not_started: { label: 'Keine Daten', color: 'text-muted-foreground', icon: HelpCircle },
   };
 
+  const priorityStyles: Record<string, { icon: any; badgeClass: string }> = {
+    critical: { icon: AlertTriangle, badgeClass: 'bg-destructive/10 text-destructive border-destructive/20' },
+    recommended: { icon: Brain, badgeClass: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+    next_step: { icon: TrendingUp, badgeClass: 'bg-primary/10 text-primary border-primary/20' },
+  };
+
   return (
     <div className="container max-w-4xl py-8 space-y-6">
       {/* Header */}
@@ -277,7 +295,7 @@ export default function ExamResultsPage() {
         </CardContent>
       </Card>
 
-      {/* ─── NEW: Diagnostic Card ─── */}
+      {/* ─── Diagnostic Card (dual-layer) ─── */}
       {diagnostic && (
         <Card className="glass-card border-primary/20">
           <CardHeader>
@@ -287,7 +305,7 @@ export default function ExamResultsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            {/* Readiness + Fail Risk Row */}
+            {/* Readiness + Fail Risk + Confidence Row */}
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center p-3 rounded-xl bg-muted/50">
                 <div className="text-2xl font-bold">{diagnostic.readiness_pct.toFixed(0)}%</div>
@@ -313,7 +331,7 @@ export default function ExamResultsPage() {
               </div>
               <div className="text-center p-3 rounded-xl bg-muted/50">
                 <div className="text-2xl font-bold">{(diagnostic.confidence * 100).toFixed(0)}%</div>
-                <div className="text-xs text-muted-foreground">Datensicherheit</div>
+                <div className="text-xs text-muted-foreground">Aussagesicherheit</div>
                 <div className={cn(
                   "text-xs mt-1",
                   diagnostic.confidence >= 0.7 ? "text-primary" : diagnostic.confidence >= 0.3 ? "text-amber-500" : "text-muted-foreground"
@@ -339,21 +357,48 @@ export default function ExamResultsPage() {
               </span>
             </div>
 
-            {/* Weakest Skills */}
+            {/* Session-specific Weakest Skills */}
+            {diagnostic.session_weakest_skills.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                  In dieser Prüfung schwach
+                </h4>
+                <div className="space-y-2">
+                  {diagnostic.session_weakest_skills.slice(0, 4).map((skill) => (
+                    <div key={skill.skill_node_id} className="flex items-center gap-3 p-2.5 rounded-lg bg-destructive/5 border border-destructive/15">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{skill.kompetenz}</p>
+                        <p className="text-xs text-muted-foreground">
+                          LF {skill.lernfeld} • {skill.session_correct}/{skill.session_total} richtig
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-bold text-destructive">{skill.session_accuracy?.toFixed(0)}%</span>
+                        <div className="text-xs text-muted-foreground">
+                          Global: {skill.mastery_pct.toFixed(0)}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Global Weakest Skills */}
             {diagnostic.weakest_skills.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                  Schwächste Kompetenzen
+                  Langfristig schwache Kompetenzen
                 </h4>
                 <div className="space-y-2">
                   {diagnostic.weakest_skills.slice(0, 4).map((skill) => (
-                    <div key={skill.skill_node_id} className="flex items-center gap-3 p-2.5 rounded-lg bg-destructive/5 border border-destructive/15">
+                    <div key={skill.skill_node_id} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50 border border-border">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{skill.kompetenz}</p>
                         <p className="text-xs text-muted-foreground">LF {skill.lernfeld}</p>
                       </div>
                       <div className="text-right">
-                        <span className="text-sm font-bold text-destructive">{skill.mastery_pct.toFixed(0)}%</span>
+                        <span className="text-sm font-bold">{skill.mastery_pct.toFixed(0)}%</span>
                         <div className="text-xs text-muted-foreground">
                           {skill.trend === 'improving' ? '↑' : skill.trend === 'declining' ? '↓' : '→'}
                         </div>
@@ -380,29 +425,29 @@ export default function ExamResultsPage() {
               </div>
             )}
 
-            {/* Recommendations */}
+            {/* Prioritized Recommendations */}
             {diagnostic.recommendations.length > 0 && (
-              <div className="p-3 rounded-xl bg-primary/5 border border-primary/15">
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2 flex items-center gap-1">
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
                   <Brain className="h-3.5 w-3.5" />
                   Empfehlungen
                 </h4>
-                <ul className="space-y-1.5">
-                  {diagnostic.recommendations.map((rec, i) => (
-                    <li key={i} className="text-sm flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
-                        {i + 1}
-                      </span>
-                      {rec}
-                    </li>
-                  ))}
-                </ul>
+                {diagnostic.recommendations.map((rec, i) => {
+                  const style = priorityStyles[rec.priority] || priorityStyles.next_step;
+                  const PIcon = style.icon;
+                  return (
+                    <div key={i} className={cn("flex items-start gap-2 p-2.5 rounded-lg border text-sm", style.badgeClass)}>
+                      <PIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <span>{rec.text}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
             {/* Action CTAs */}
             <div className="flex gap-3">
-              {diagnostic.weakest_skills.length > 0 && (
+              {(diagnostic.session_weakest_skills.length > 0 || diagnostic.weakest_skills.length > 0) && (
                 <Button 
                   size="sm" 
                   variant="outline" 
