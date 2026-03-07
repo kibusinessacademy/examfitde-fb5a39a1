@@ -6,9 +6,9 @@ export function useCohortOverview(curriculumId: string | null, organizationId?: 
     queryKey: ["cohort-overview", curriculumId, organizationId],
     enabled: !!curriculumId,
     queryFn: async () => {
-      const params: Record<string, string> = { p_curriculum_id: curriculumId! };
-      if (organizationId) params.p_organization_id = organizationId;
-      const { data, error } = await supabase.rpc("get_cohort_competency_overview", params);
+      const args: { p_curriculum_id: string; p_organization_id?: string } = { p_curriculum_id: curriculumId! };
+      if (organizationId) args.p_organization_id = organizationId;
+      const { data, error } = await supabase.rpc("get_cohort_competency_overview", args);
       if (error) throw error;
       return data as any;
     },

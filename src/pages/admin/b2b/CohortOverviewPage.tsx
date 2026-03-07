@@ -26,11 +26,10 @@ export default function CohortOverviewPage() {
     (async () => {
       const { data } = await supabase
         .from("curricula")
-        .select("id, titel")
-        .order("titel");
-      setCurricula((data ?? []).map((c: any) => ({ id: c.id, title: c.titel })));
+        .select("id, title")
+        .order("title");
+      setCurricula((data ?? []).map((c) => ({ id: c.id, title: c.title })));
       setLoadingCurricula(false);
-      // Auto-select first if none
       if (!curriculumId && data && data.length > 0) {
         setSearchParams({ curriculum: data[0].id });
       }
