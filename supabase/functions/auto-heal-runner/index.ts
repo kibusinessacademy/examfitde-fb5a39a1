@@ -384,19 +384,29 @@ async function healFlagSeoGaps(sb: SB, policy: PolicyRow): Promise<HealResult> {
 
 /* ── Heal: Archive stale drafts ── */
 async function healArchiveStaleDrafts(sb: SB, policy: PolicyRow): Promise<HealResult> {
-  const thresholdDays = policy.threshold_minutes || 30;
+  const thresholdDays =
+    typeof (policy.config_json as any)?.threshold_days === 'number'
+      ? (policy.config_json as any).threshold_days
+      : 30;
+
   const cutoff = new Date(Date.now() - thresholdDays * 24 * 60 * 60_000).toISOString();
 
-  const { data: stalePages } = await sb
+  const { data: stalePages, error } = await sb
     .from("content_pages")
     .select("id, title")
     .eq("status", "draft")
     .lt("updated_at", cutoff)
     .limit(policy.max_per_run);
 
+  if (error) throw error;
   if (!stalePages?.length) return { policy_key: policy.policy_key, updated: 0, affected_ids: [] };
 
-  const ids = stalePages.map(p => p.id);
+  let ids = stalePages.map((p: any) => String(p.id)).filter(Boolean);
+  ids = filterBlacklist(ids, policy.blacklist_ids || []);
+
+  if (!ids.length) {
+    return { policy_key: policy.policy_key, updated: 0, affected_ids: [], skipped_reason: "all_blacklisted" };
+  }
 
   if (policy.dry_run) {
     return { policy_key: policy.policy_key, updated: ids.length, affected_ids: ids, was_dry_run: true };
@@ -404,11 +414,11 @@ async function healArchiveStaleDrafts(sb: SB, policy: PolicyRow): Promise<HealRe
 
   await sb.from("admin_notifications").insert({
     title: `${ids.length} Seiten-Entwürfe seit ${thresholdDays}+ Tagen unverändert`,
-    body: `Erwäge Archivierung: ${stalePages.slice(0, 5).map(p => p.title).join(', ')}`,
-    severity: 'info',
-    category: 'content',
-    entity_type: 'content_pages',
-    metadata: { stale_count: ids.length, stale_ids: ids.slice(0, 20) } as any,
+    body: `Erwäge Archivierung: ${stalePages.slice(0, 5).map((p: any) => p.title).join(", ")}`,
+    severity: "info",
+    category: "content",
+    entity_type: "content_pages",
+    metadata: { stale_count: ids.length, stale_ids: ids.slice(0, 20), threshold_days: thresholdDays } as any,
   });
 
   return { policy_key: policy.policy_key, updated: ids.length, affected_ids: ids };
