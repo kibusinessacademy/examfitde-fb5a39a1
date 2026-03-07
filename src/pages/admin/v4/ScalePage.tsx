@@ -84,6 +84,7 @@ function BerufeStatus() {
     const [pkgRes, berufRes, stepsRes] = await Promise.all([
       (supabase as any).from('course_packages')
         .select('id, title, status, integrity_passed, curriculum_id, certification_id, build_progress, created_at, track, certification_type, feature_flags')
+        .neq('status', 'archived')
         .order('title'),
       (supabase as any).from('berufe')
         .select('id, bezeichnung_kurz, ist_aktiv')
