@@ -106,6 +106,13 @@ Deno.serve(async (req) => {
         affectedIds = before.ids;
         break;
       }
+      case "recover_failed_packages": {
+        const before = await captureBeforeState(sb, "failed_packages", body);
+        beforeState = before.state;
+        result = await recoverFailedPackages(sb, body);
+        affectedIds = before.ids;
+        break;
+      }
       case "root_cause_summary":
         result = await rootCauseSummary(sb, body);
         break;
