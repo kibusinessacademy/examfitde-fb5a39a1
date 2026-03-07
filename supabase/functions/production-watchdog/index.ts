@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { getFanOutConfig, FAN_OUT_CONFIG, STEP_TO_JOB_TYPE as SSOT_STEP_TO_JOB } from "../_shared/job-map.ts";
 
 /**
  * production-watchdog – Unified proactive health sweep
