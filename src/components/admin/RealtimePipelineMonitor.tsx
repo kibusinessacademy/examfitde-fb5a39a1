@@ -144,6 +144,10 @@ function PackagePipeline({ pkg, steps }: { pkg: any; steps: any[] }) {
                   {step.status}
                 </Badge>
               </div>
+              {/* Show competency bundle progress for content generation step */}
+              {step.step_key === 'generate_learning_content' && (isRunning || isFailed) && (
+                <CompetencyBundleProgress packageId={pkg.id} />
+              )}
             );
           })}
 
