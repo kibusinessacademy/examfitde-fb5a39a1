@@ -197,6 +197,26 @@ Deno.serve(async (req) => {
   const targets = await selectTargets(sb, packageId, take);
 
   if (targets.length === 0) {
+    // ── Liveness Guard: needsRegen > 0 but no dispatchable targets ──
+    // This means stale failed jobs are blocking. Neutralize them and signal retry.
+    const neutralized = await neutralizeStaleTransientFailed(sb, packageId, 120);
+    if (neutralized > 0) {
+      console.warn(
+        `[dispatcher] LIVENESS_GUARD: neutralized ${neutralized} stale transient-failed jobs for ${packageId.slice(0, 8)}`,
+      );
+      // Revive the step so the pipeline-runner re-triggers us
+      await reviveLearningContentStepIfDead(sb, packageId, needsRegen);
+      return json({
+        ok: true,
+        batch_complete: false,
+        message: `♻️ Neutralized ${neutralized} stale failed jobs, step revived for redispatch.`,
+        needs_regen: needsRegen,
+        dispatched: 0,
+        neutralized,
+        liveness_guard: true,
+      });
+    }
+
     return json({
       ok: true,
       batch_complete: false,
