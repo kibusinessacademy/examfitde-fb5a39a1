@@ -39,6 +39,7 @@ export default function HealthTab() {
   const [queue, setQueue] = useState<QueueHealth>({ pending: 0, processing: 0, failed: 0, stuck: 0 });
   const [budget, setBudget] = useState<BudgetInfo>({ dailyCost: 0, monthBudget: 0, monthSpent: 0 });
   const [aiDiagnose, setAiDiagnose] = useState<AIDiagnose | null>(null);
+  const [disabledCriticalPolicies, setDisabledCriticalPolicies] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [lastAutoOps, setLastAutoOps] = useState<{ ts: string; failed_retried: number; stuck_recovered: number } | null>(null);
