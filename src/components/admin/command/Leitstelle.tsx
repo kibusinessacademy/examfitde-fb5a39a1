@@ -257,17 +257,30 @@ function BuildPackageCard({ pkg }: { pkg: PipelinePackage }) {
       </div>
 
       {/* Content generation progress indicator */}
-      {pkg.content_meta && (pkg.content_meta.remaining != null || pkg.content_meta.generated != null) && (
-        <div className="mb-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Sparkles className="h-3 w-3 text-primary/70" />
-          <span>Content:</span>
-          {pkg.content_meta.generated != null && pkg.content_meta.remaining != null ? (
-            <span className="font-medium text-foreground">
-              {pkg.content_meta.generated}/{pkg.content_meta.generated + pkg.content_meta.remaining} Lektionen
-            </span>
-          ) : pkg.content_meta.remaining != null ? (
-            <span className="text-yellow-500 font-medium">{pkg.content_meta.remaining} verbleibend</span>
-          ) : null}
+      {pkg.content_meta && (pkg.content_meta.remaining != null || pkg.content_meta.generated != null || pkg.content_meta.needs_regen != null) && (
+        <div className="mb-2 space-y-0.5">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Sparkles className="h-3 w-3 text-primary/70" />
+            <span>Content:</span>
+            {pkg.content_meta.generated != null && pkg.content_meta.remaining != null ? (
+              <span className="font-medium text-foreground">
+                {pkg.content_meta.generated}/{pkg.content_meta.generated + pkg.content_meta.remaining} Lektionen
+              </span>
+            ) : pkg.content_meta.needs_regen != null ? (
+              <span className="text-yellow-500 font-medium">{pkg.content_meta.needs_regen} offen</span>
+            ) : pkg.content_meta.remaining != null ? (
+              <span className="text-yellow-500 font-medium">{pkg.content_meta.remaining} verbleibend</span>
+            ) : null}
+            {pkg.content_meta.active_lesson_jobs != null && pkg.content_meta.active_lesson_jobs > 0 && (
+              <span className="text-primary/70">· {pkg.content_meta.active_lesson_jobs} Jobs</span>
+            )}
+          </div>
+          {pkg.content_meta.dispatch_blocked_reason && (
+            <div className="flex items-center gap-1 text-[10px] text-yellow-600 dark:text-yellow-400">
+              <Clock3 className="h-2.5 w-2.5" />
+              <span>{pkg.content_meta.dispatch_blocked_reason.replace(/_/g, ' ')}</span>
+            </div>
+          )}
         </div>
       )}
 
