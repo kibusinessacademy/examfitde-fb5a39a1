@@ -256,6 +256,21 @@ function BuildPackageCard({ pkg }: { pkg: PipelinePackage }) {
         <Badge variant={isActive ? 'default' : 'outline'}>{progress}%</Badge>
       </div>
 
+      {/* Content generation progress indicator */}
+      {pkg.content_meta && (pkg.content_meta.remaining != null || pkg.content_meta.generated != null) && (
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Sparkles className="h-3 w-3 text-primary/70" />
+          <span>Content:</span>
+          {pkg.content_meta.generated != null && pkg.content_meta.remaining != null ? (
+            <span className="font-medium text-foreground">
+              {pkg.content_meta.generated}/{pkg.content_meta.generated + pkg.content_meta.remaining} Lektionen
+            </span>
+          ) : pkg.content_meta.remaining != null ? (
+            <span className="text-yellow-500 font-medium">{pkg.content_meta.remaining} verbleibend</span>
+          ) : null}
+        </div>
+      )}
+
       <Progress value={progress} className="h-2" />
 
       <div className="mt-4 grid grid-cols-3 gap-3 text-center text-[11px] text-muted-foreground">
