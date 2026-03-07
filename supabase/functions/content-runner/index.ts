@@ -20,6 +20,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 8);
+const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 16);
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
 const DISPATCH_TIMEOUT_MS = 42_000;
@@ -381,13 +382,15 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
 
   // ── Claim content-pool jobs ──
   // deno-lint-ignore no-explicit-any
+  const claimCount = Math.min(CLAIM_LIMIT, BASE_CONCURRENCY * 2);
+  // deno-lint-ignore no-explicit-any
   let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
-    p_limit: BASE_CONCURRENCY,
+    p_limit: claimCount,
     p_worker_id: WORKER_ID,
     p_lock_timeout_minutes: CONTENT_LOCK_TIMEOUT_MINUTES,
     p_worker_pool: "content",
   });
-  jobs = ((jobs ?? []) as any[]).slice(0, BASE_CONCURRENCY);
+  jobs = ((jobs ?? []) as any[]).slice(0, claimCount);
 
   if (claimErr) {
     console.error(`[content-runner] claim error: ${claimErr.message}`);
@@ -412,7 +415,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     }
   }
 
-  console.log(`[content-runner] Claimed ${jobs.length} job(s) [concurrency=${BASE_CONCURRENCY}, worker=${WORKER_ID}]`);
+  console.log(`[content-runner] Claimed ${jobs.length} job(s) [concurrency=${BASE_CONCURRENCY}, claimLimit=${claimCount}, worker=${WORKER_ID}]`);
 
   // ── Cleanup expired cooldowns (once per first pass) ──
   if (isFirstPass) {

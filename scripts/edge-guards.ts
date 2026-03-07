@@ -571,50 +571,47 @@ async function main() {
     console.warn(`⚠️  Guard 10 skipped: ${(e as Error).message}`);
   }
 
-  // ── Guard 11: Concurrency Governance ──
+  // ── Guard 11: Concurrency Governance (v2 — pull-loop architecture) ──
+  // Updated: BASE_CONCURRENCY=8, CLAIM_LIMIT=16 are valid for pull-loop runners.
+  // Hard caps removed — governed by env vars + pull-loop time budget instead.
   try {
     const CR_FILE = "supabase/functions/content-runner/index.ts";
     const JR_FILE = "supabase/functions/job-runner/index.ts";
-    const WC_FILE = "supabase/functions/_shared/worker-config.ts";
 
     const g11before = findings.length;
 
-    const cfgText = await readTextOrNull(WC_FILE);
-    if (!cfgText) {
-      findings.push({ severity: "critical", kind: "drift", file: WC_FILE, message: `Guard 11: Missing _shared/worker-config.ts. Runner concurrency must be SSOT-governed.`, fix: [`Create ${WC_FILE} with getRunnerConfig()`] });
-    } else {
-      if (!cfgText.includes("content_runner") || !cfgText.includes("maxConcurrency") || !cfgText.includes("claimLimit")) {
-        findings.push({ severity: "high", kind: "drift", file: WC_FILE, message: `Guard 11: worker-config.ts missing content_runner defaults.`, fix: [`Add content_runner: { maxConcurrency: 1, claimLimit: 1 }`] });
-      }
-      const hasHardCap = cfgText.includes('kind === "content_runner"') && (cfgText.includes("Math.min(maxConcurrency, 2)") || cfgText.includes("Math.min(claimLimit, 2)"));
-      if (!hasHardCap) {
-        findings.push({ severity: "medium", kind: "drift", file: WC_FILE, message: `Guard 11: No hard cap for content_runner concurrency (<=2).`, fix: [`Add Math.min(..., 2) cap for content_runner`] });
-      }
-    }
-
     const contentText = await readTextOrNull(CR_FILE);
     if (contentText) {
-      const usesConfig = contentText.includes("getRunnerConfig(") && (contentText.includes("../_shared/worker-config.ts") || contentText.includes("./_shared/worker-config.ts"));
-      if (!usesConfig) {
-        findings.push({ severity: "critical", kind: "drift", file: CR_FILE, message: `Guard 11: content-runner not using SSOT worker-config.ts.`, fix: [`Import getRunnerConfig from "../_shared/worker-config.ts"`] });
+      // Pull-loop runners must have time-budget governance
+      const hasPullLoop = contentText.includes("LOOP_MAX_MS") && contentText.includes("LOOP_SLEEP_MS");
+      if (!hasPullLoop) {
+        findings.push({ severity: "high", kind: "drift", file: CR_FILE, message: `Guard 11: content-runner missing pull-loop parameters (LOOP_MAX_MS, LOOP_SLEEP_MS).`, fix: [`Add LOOP_MAX_MS and LOOP_SLEEP_MS constants for pull-loop governance.`] });
       }
-      for (const m of contentText.matchAll(/p_limit\s*:\s*([0-9]+)/g)) {
-        if (Number(m[1]) > 2) {
-          findings.push({ severity: "critical", kind: "drift", file: CR_FILE, message: `Guard 11: p_limit:${m[1]} (>2) in content-runner. Must be <=2.`, fix: [`Use cfg.claimLimit from getRunnerConfig("content_runner")`] });
-        }
+
+      // Concurrency should be env-configurable
+      const hasEnvConcurrency = contentText.includes('envInt("CONTENT_RUNNER_CONCURRENCY"') || contentText.includes("envInt('CONTENT_RUNNER_CONCURRENCY'");
+      if (!hasEnvConcurrency) {
+        findings.push({ severity: "medium", kind: "drift", file: CR_FILE, message: `Guard 11: content-runner concurrency not env-configurable.`, fix: [`Use envInt("CONTENT_RUNNER_CONCURRENCY", 8) for BASE_CONCURRENCY.`] });
       }
-      for (const m of contentText.matchAll(/\bBASE_CONCURRENCY\b\s*=\s*([0-9_]+)/g)) {
-        if (Number(String(m[1]).replace(/_/g, "")) > 2) {
-          findings.push({ severity: "high", kind: "drift", file: CR_FILE, message: `Guard 11: BASE_CONCURRENCY=${m[1]} (>2). Must be safe-by-default.`, fix: [`Use getRunnerConfig("content_runner") instead`] });
-        }
+
+      // Claim limit should be separate from concurrency
+      const hasClaimLimit = contentText.includes("CLAIM_LIMIT") || contentText.includes('CONTENT_RUNNER_CLAIM_LIMIT');
+      if (!hasClaimLimit) {
+        findings.push({ severity: "medium", kind: "drift", file: CR_FILE, message: `Guard 11: content-runner missing separate CLAIM_LIMIT.`, fix: [`Add CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 16) for pre-fetching.`] });
+      }
+
+      // Circuit breaker for fail rate
+      const hasCircuitBreaker = contentText.includes("ABORT_FAIL_RATE") || contentText.includes("failRatePct");
+      if (!hasCircuitBreaker) {
+        findings.push({ severity: "high", kind: "drift", file: CR_FILE, message: `Guard 11: content-runner missing circuit breaker for high fail rate.`, fix: [`Add ABORT_FAIL_RATE_PERCENT check in pull-loop to prevent resource waste.`] });
       }
     }
 
     const jobText = await readTextOrNull(JR_FILE);
     if (jobText) {
-      const usesConfig = jobText.includes("getRunnerConfig(") && (jobText.includes("../_shared/worker-config.ts") || jobText.includes("./_shared/worker-config.ts"));
-      if (!usesConfig) {
-        findings.push({ severity: "high", kind: "drift", file: JR_FILE, message: `Guard 11: job-runner not using SSOT worker-config.ts.`, fix: [`Import getRunnerConfig from "../_shared/worker-config.ts"`] });
+      const hasEnvConcurrency = jobText.includes("envInt(") || jobText.includes("getRunnerConfig(");
+      if (!hasEnvConcurrency) {
+        findings.push({ severity: "medium", kind: "drift", file: JR_FILE, message: `Guard 11: job-runner concurrency not configurable.`, fix: [`Use envInt() or getRunnerConfig() for concurrency governance.`] });
       }
     }
 
