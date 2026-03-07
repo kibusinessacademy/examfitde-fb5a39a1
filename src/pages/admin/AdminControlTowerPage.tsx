@@ -5,7 +5,7 @@ import { AlertListCard } from "@/components/admin/cards/AlertListCard";
 import { PipelineFlowCard } from "@/components/admin/cards/PipelineFlowCard";
 import { useAdminControlTower } from "@/components/admin/hooks/useAdminControlTower";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Clock, CheckCircle, XCircle, Package, Cpu, Lock, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, XCircle, Package, Cpu, Lock, ShieldAlert, Unplug } from "lucide-react";
 
 export default function AdminControlTowerPage() {
   const { data, isLoading, error } = useAdminControlTower();
@@ -50,6 +50,7 @@ export default function AdminControlTowerPage() {
         <KpiCard label="Provider Cooldowns" value={data.kpis.provider_cooldowns} icon={<AlertTriangle className="h-4 w-4 text-orange-400" />} />
         <KpiCard label="Blocked Publishables" value={data.kpis.blocked_publishables} icon={<Lock className="h-4 w-4 text-muted-foreground" />} />
         <KpiCard label="Claim Issues" value={data.kpis.open_claim_issues} icon={<ShieldAlert className="h-4 w-4 text-muted-foreground" />} />
+        <KpiCard label="Content Starvation" value={data.kpis.lc_starvation} icon={<Unplug className="h-4 w-4 text-destructive" />} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

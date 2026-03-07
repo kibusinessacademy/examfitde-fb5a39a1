@@ -39,6 +39,7 @@ export interface TowerKpis {
   provider_cooldowns: number;
   blocked_publishables: number;
   open_claim_issues: number;
+  lc_starvation: number;
 }
 
 export interface PipelineStepStat {
