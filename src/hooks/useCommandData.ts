@@ -10,6 +10,8 @@ export interface PipelinePackage {
   updated_at: string;
   /** SSOT – all step statuses live here */
   step_status_json: Record<string, string> | null;
+  /** Content step meta (remaining/generated hollow lessons) */
+  content_meta?: { remaining?: number; generated?: number; last_error?: string } | null;
 }
 
 export interface BuildingMetrics {
