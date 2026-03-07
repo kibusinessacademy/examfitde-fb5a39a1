@@ -114,12 +114,19 @@ export default function PipelineE2ERunbookPage() {
         };
       });
 
-      const best = candidates[0]?.id ?? null;
+      // Rank: building first, then lowest legacy_pct + legacy_count
+      const ranked = [...candidates].sort((a, b) => {
+        const scoreA = (a.status === 'building' ? 0 : 10) + (a.legacy_pct ?? 0) + (a.legacy_count ?? 0) * 0.5;
+        const scoreB = (b.status === 'building' ? 0 : 10) + (b.legacy_pct ?? 0) + (b.legacy_count ?? 0) * 0.5;
+        return scoreA - scoreB;
+      });
+
+      const best = ranked[0]?.id ?? null;
       if (best && !pkgRef.current) setPackageId(best);
 
       setCheckResult('select_package', {
-        status: candidates.length > 0 ? 'pass' : 'warn',
-        data: { candidates, suggested_package_id: best, audit_summary: audit?.length ?? 0 },
+        status: ranked.length > 0 ? 'pass' : 'warn',
+        data: { candidates: ranked, suggested_package_id: best, audit_summary: audit?.length ?? 0 },
       });
       return best;
     } catch (e) {
