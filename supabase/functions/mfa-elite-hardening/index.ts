@@ -265,6 +265,7 @@ Deno.serve(async (req) => {
       const gaps = audit.exams.competencies_under_5;
       let enqueued = 0;
       for (const gap of gaps) {
+        if (!gap.blueprint_ids || gap.blueprint_ids.length === 0) continue;
         await enqueueJob(sb, {
           job_type: "package_generate_exam_pool",
           package_id: MFA_PACKAGE_ID,
@@ -272,8 +273,9 @@ Deno.serve(async (req) => {
             package_id: MFA_PACKAGE_ID,
             curriculum_id: MFA_CURRICULUM_ID,
             course_id: MFA_COURSE_ID,
-            competency_id: gap.id,
-            target_count: Math.max(5, 10 - gap.approved),
+            blueprint_ids: gap.blueprint_ids,
+            _fan_out: true,
+            options: { exam_target: 1000 },
             reason: "mfa_elite_hardening_gap_fill",
           },
         });
