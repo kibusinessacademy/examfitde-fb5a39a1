@@ -1185,11 +1185,21 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Clear transient metadata on successful completion
+        const cleanedMeta = { ...(job.meta || {}) };
+        delete cleanedMeta.transient_attempts;
+        delete cleanedMeta.transient_first_at;
+        delete cleanedMeta.transient_exhausted;
+        delete cleanedMeta.last_transient_error;
+        delete cleanedMeta.last_transient_at;
+
         finalState = {
           status: "completed",
           patch: {
             result: typeof parsed === "object" ? parsed : { raw: parsed },
             completed_at: tsNow,
+            error: null,
+            meta: cleanedMeta,
           },
           metricsAction: "completed",
         };
