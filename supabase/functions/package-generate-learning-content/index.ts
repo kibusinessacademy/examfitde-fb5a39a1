@@ -11,6 +11,10 @@ import {
   getNeedsRegenCount,
   selectTargets,
 } from "../_shared/learning-content-scheduler.ts";
+import {
+  neutralizeStaleTransientFailed,
+  reviveLearningContentStepIfDead,
+} from "../_shared/learning-content-revive.ts";
 
 /**
  * package-generate-learning-content — SSOT Dispatcher (v8)
