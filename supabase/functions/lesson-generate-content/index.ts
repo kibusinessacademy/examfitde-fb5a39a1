@@ -505,23 +505,44 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
     if (result.toolCalls?.length > 0) {
       try { content = JSON.parse(result.toolCalls[0].function.arguments); } catch { /* fallthrough */ }
     }
+    // ── Fence-strip once, reuse across all fallbacks ──
+    const fenceStripped = result.content
+      ? result.content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim()
+      : "";
     // Fallback 1: parse content as JSON
-    if (!content && result.content) {
-      const raw = result.content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-      try { content = JSON.parse(raw); } catch { /* fallthrough */ }
+    if (!content && fenceStripped) {
+      try { content = JSON.parse(fenceStripped); } catch { /* fallthrough */ }
     }
-    // Fallback 2: extract JSON object
-    if (!content && result.content) {
-      const fb = result.content.indexOf("{");
-      const lb = result.content.lastIndexOf("}");
+    // Fallback 2: extract JSON object (from fence-stripped version)
+    if (!content && fenceStripped) {
+      const fb = fenceStripped.indexOf("{");
+      const lb = fenceStripped.lastIndexOf("}");
       if (fb !== -1 && lb > fb) {
-        try { content = JSON.parse(result.content.slice(fb, lb + 1)); } catch { /* noop */ }
+        try { content = JSON.parse(fenceStripped.slice(fb, lb + 1)); } catch { /* noop */ }
       }
     }
-    // Fallback 3: raw HTML wrap for non-minicheck
-    if (!content && !isMiniCheck && result.content && result.content.length > 200) {
-      if (result.content.includes("<h3") || result.content.includes("<p") || result.content.includes("<strong")) {
-        content = { html: result.content.trim(), objectives: [] };
+    // Fallback 3: raw HTML wrap for non-minicheck (fence-stripped to avoid JSON-in-html)
+    if (!content && !isMiniCheck && fenceStripped && fenceStripped.length > 200) {
+      if (fenceStripped.includes("<h3") || fenceStripped.includes("<p") || fenceStripped.includes("<strong")) {
+        content = { html: fenceStripped, objectives: [] };
+      }
+    }
+    // ── P0-A Sanitizer: ensure content.html is never JSON-as-string ──
+    if (content?.html && typeof content.html === "string") {
+      const trimmed = content.html.trim();
+      // Detect JSON-serialized-as-html: starts with { or ``` fence
+      if (trimmed.startsWith("{") || trimmed.startsWith("```")) {
+        const cleaned = trimmed.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        try {
+          const inner = JSON.parse(cleaned);
+          if (inner.html && typeof inner.html === "string") {
+            // Unwrap double-serialized html
+            content.html = inner.html;
+            content.objectives = content.objectives || inner.objectives || [];
+            content.key_terms = content.key_terms || inner.key_terms || [];
+            console.log(`[lesson-gen] P0-A: Unwrapped double-serialized content.html for ${lessonId.slice(0, 8)}`);
+          }
+        } catch { /* not JSON, leave as-is */ }
       }
     }
 

@@ -212,26 +212,8 @@ Deno.serve(async (req) => {
       tutorPolicies = data || [];
     }
 
-    // ── Questions summary ──
+    // ── Questions summary (deferred — computed AFTER question collection for SSOT consistency) ──
     let questionsSummary: Record<string, unknown> = { note: "no_summary" };
-    if (curriculumId) {
-      const { count: totalCount } = await sb
-        .from("exam_questions").select("id", { count: "exact", head: true })
-        .eq("curriculum_id", curriculumId);
-      const { count: approvedCount } = await sb
-        .from("exam_questions").select("id", { count: "exact", head: true })
-        .eq("curriculum_id", curriculumId).eq("qc_status", "approved");
-      const { count: pendingCount } = await sb
-        .from("exam_questions").select("id", { count: "exact", head: true })
-        .eq("curriculum_id", curriculumId).eq("qc_status", "pending");
-      questionsSummary = {
-        total_exam_questions: totalCount ?? 0,
-        approved_questions: approvedCount ?? 0,
-        pending_questions: pendingCount ?? 0,
-        curriculum_id: curriculumId,
-        note: "approved = production-ready, pending = awaiting QC",
-      };
-    }
 
     // ── Course snapshot ──
     let courseSnapshot: unknown = null;
