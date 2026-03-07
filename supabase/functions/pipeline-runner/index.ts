@@ -590,7 +590,12 @@ async function processPackage(
       if (!["queued", "running", "enqueued"].includes(step.status)) continue;
 
       // GHOST GUARD: Never finalize a step that was never started
-      if (!step.started_at) {
+      // EXCEPTION: generate_learning_content is driven by an external dispatcher
+      // (package-generate-learning-content) which updates step meta but doesn't set
+      // started_at. For this step, we rely on artifact truth (needs_regen/completion_gate)
+      // instead of started_at to confirm real work was done.
+      const DISPATCHER_DRIVEN_STEPS = new Set(["generate_learning_content"]);
+      if (!step.started_at && !DISPATCHER_DRIVEN_STEPS.has(rule.stepKey)) {
         continue;
       }
 
