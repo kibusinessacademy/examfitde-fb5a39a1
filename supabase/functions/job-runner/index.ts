@@ -52,6 +52,11 @@ const WORKER_ID = `job-runner-${crypto.randomUUID().slice(0, 8)}`;
 // Backoff delays (ms) for requeue scenarios
 const BACKOFF_409_MS = 30_000;
 const BACKOFF_429_MS = 60_000;
+
+// ── Transient exhaustion governance ──────────────────────────────────
+// Max transient retries before escalating to failed (prevents infinite loops)
+const MAX_TRANSIENT_ATTEMPTS = 25;
+const TRANSIENT_WINDOW_MS = 45 * 60_000; // 45 min window
 const BACKOFF_BATCH_MS = 3_000;
 const BACKOFF_PREREQ_MS = 20_000;
 
@@ -823,18 +828,48 @@ Deno.serve(async (req) => {
             };
           }
         }
-        // ── Rate-limited / transient ─────────────────────────────────
+        // ── Rate-limited / transient (503, 429) ─────────────────────
         else if (res.status === 429 || res.status === 503) {
-          console.warn(`[job-runner] ${fnName} ${res.status} → requeue +${BACKOFF_429_MS}ms`);
-          finalState = {
-            status: "pending",
-            patch: {
-              run_after: new Date(Date.now() + BACKOFF_429_MS).toISOString(),
-              error: `HTTP ${res.status} — will retry`,
-              meta: { ...(job.meta || {}), last_retry: tsNow },
-            },
-            metricsAction: "rateLimit",
-          };
+          const ta = Number((job.meta as any)?.transient_attempts ?? 0) + 1;
+          const transientFirstAt = (job.meta as any)?.transient_first_at ?? tsNow;
+          const windowElapsed = Date.now() - new Date(transientFirstAt).getTime();
+
+          // Transient exhaustion gate: too many transient retries → escalate
+          if (ta >= MAX_TRANSIENT_ATTEMPTS && windowElapsed < TRANSIENT_WINDOW_MS) {
+            console.error(`[job-runner] ${fnName} TRANSIENT_EXHAUSTED: ${ta} transient retries in ${Math.round(windowElapsed / 1000)}s → failed`);
+            finalState = {
+              status: "failed",
+              patch: {
+                error: `TRANSIENT_EXHAUSTED: ${ta} retries (${res.status}) in ${Math.round(windowElapsed / 60000)}min`,
+                completed_at: tsNow,
+                attempts: (job.attempts || 0) + 1,
+                meta: { ...(job.meta || {}), transient_attempts: ta, transient_exhausted: true, transient_first_at: transientFirstAt },
+              },
+              metricsAction: "dlq",
+            };
+          } else {
+            // Reset window if expired
+            const effectiveFirstAt = windowElapsed >= TRANSIENT_WINDOW_MS ? tsNow : transientFirstAt;
+            const effectiveTa = windowElapsed >= TRANSIENT_WINDOW_MS ? 1 : ta;
+
+            console.warn(`[job-runner] ${fnName} ${res.status} → requeue +${BACKOFF_429_MS}ms (ta=${effectiveTa}/${MAX_TRANSIENT_ATTEMPTS})`);
+            finalState = {
+              status: "pending",
+              patch: {
+                run_after: new Date(Date.now() + BACKOFF_429_MS).toISOString(),
+                error: `HTTP ${res.status} — transient retry ${effectiveTa}/${MAX_TRANSIENT_ATTEMPTS}`,
+                meta: {
+                  ...(job.meta || {}),
+                  last_retry: tsNow,
+                  transient_attempts: effectiveTa,
+                  transient_first_at: effectiveFirstAt,
+                  last_transient_error: `HTTP ${res.status}`,
+                  last_transient_at: tsNow,
+                },
+              },
+              metricsAction: "rateLimit",
+            };
+          }
         }
         // ── Hard failure ─────────────────────────────────────────────
         else {
@@ -852,17 +887,44 @@ Deno.serve(async (req) => {
           );
 
           if (bodyLooksTransient) {
-            console.warn(`[job-runner] ${fnName} HTTP ${res.status} body=transient → requeue WITHOUT attempt++ (+${BACKOFF_429_MS}ms)`);
             const ta = Number((job.meta as any)?.transient_attempts ?? 0) + 1;
-            finalState = {
-              status: "pending",
-              patch: {
-                run_after: new Date(Date.now() + BACKOFF_429_MS).toISOString(),
-                error: `HTTP ${res.status} transient: ${errStr.slice(0, 200)}`,
-                meta: { ...(job.meta || {}), last_retry: tsNow, transient_attempts: ta },
-              },
-              metricsAction: "rateLimit",
-            };
+            const transientFirstAt = (job.meta as any)?.transient_first_at ?? tsNow;
+            const windowElapsed = Date.now() - new Date(transientFirstAt).getTime();
+
+            if (ta >= MAX_TRANSIENT_ATTEMPTS && windowElapsed < TRANSIENT_WINDOW_MS) {
+              console.error(`[job-runner] ${fnName} TRANSIENT_EXHAUSTED (body): ${ta} retries in ${Math.round(windowElapsed / 1000)}s → failed`);
+              finalState = {
+                status: "failed",
+                patch: {
+                  error: `TRANSIENT_EXHAUSTED: ${ta} retries (HTTP ${res.status} body-transient) in ${Math.round(windowElapsed / 60000)}min`,
+                  completed_at: tsNow,
+                  attempts: (job.attempts || 0) + 1,
+                  meta: { ...(job.meta || {}), transient_attempts: ta, transient_exhausted: true, transient_first_at: transientFirstAt },
+                },
+                metricsAction: "dlq",
+              };
+            } else {
+              const effectiveFirstAt = windowElapsed >= TRANSIENT_WINDOW_MS ? tsNow : transientFirstAt;
+              const effectiveTa = windowElapsed >= TRANSIENT_WINDOW_MS ? 1 : ta;
+
+              console.warn(`[job-runner] ${fnName} HTTP ${res.status} body=transient → requeue WITHOUT attempt++ (ta=${effectiveTa}/${MAX_TRANSIENT_ATTEMPTS}, +${BACKOFF_429_MS}ms)`);
+              finalState = {
+                status: "pending",
+                patch: {
+                  run_after: new Date(Date.now() + BACKOFF_429_MS).toISOString(),
+                  error: `HTTP ${res.status} transient: ${errStr.slice(0, 200)}`,
+                  meta: {
+                    ...(job.meta || {}),
+                    last_retry: tsNow,
+                    transient_attempts: effectiveTa,
+                    transient_first_at: effectiveFirstAt,
+                    last_transient_error: errStr.slice(0, 200),
+                    last_transient_at: tsNow,
+                  },
+                },
+                metricsAction: "rateLimit",
+              };
+            }
           } else {
             const newAttempts = (job.attempts || 0) + 1;
             if (newAttempts >= maxAttempts) {
@@ -1123,11 +1185,21 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Clear transient metadata on successful completion
+        const cleanedMeta = { ...(job.meta || {}) };
+        delete cleanedMeta.transient_attempts;
+        delete cleanedMeta.transient_first_at;
+        delete cleanedMeta.transient_exhausted;
+        delete cleanedMeta.last_transient_error;
+        delete cleanedMeta.last_transient_at;
+
         finalState = {
           status: "completed",
           patch: {
             result: typeof parsed === "object" ? parsed : { raw: parsed },
             completed_at: tsNow,
+            error: null,
+            meta: cleanedMeta,
           },
           metricsAction: "completed",
         };
@@ -1145,19 +1217,47 @@ Deno.serve(async (req) => {
 
       if (isTimeout) tickMetrics.timeouts++;
 
-      // v5.10: Transient catch errors (timeouts, network) do NOT burn attempt budget
+      // v5.10+: Transient catch errors (timeouts, network) do NOT burn attempt budget
+      // v6.1: Transient exhaustion gate — cap at MAX_TRANSIENT_ATTEMPTS
       if (isTransientCatch) {
         const ta = Number((job.meta as any)?.transient_attempts ?? 0) + 1;
+        const transientFirstAt = (job.meta as any)?.transient_first_at ?? tsNow;
+        const windowElapsed = Date.now() - new Date(transientFirstAt).getTime();
         const delay = isTimeout ? BACKOFF_429_MS : computeErrorBackoffMs(ta);
-        console.warn(`[job-runner] ${fnName} transient catch → requeue WITHOUT attempt++ (ta=${ta}, +${delay}ms)`);
-        finalState = {
-          status: "pending",
-          patch: {
-            run_after: new Date(Date.now() + delay).toISOString(),
-            error: `Transient: ${msg.slice(0, 500)}`,
-            meta: { ...(job.meta || {}), last_retry: tsNow, transient_attempts: ta },
-          },
-        };
+
+        if (ta >= MAX_TRANSIENT_ATTEMPTS && windowElapsed < TRANSIENT_WINDOW_MS) {
+          console.error(`[job-runner] ${fnName} TRANSIENT_EXHAUSTED (catch): ${ta} retries in ${Math.round(windowElapsed / 1000)}s → failed`);
+          finalState = {
+            status: "failed",
+            patch: {
+              error: `TRANSIENT_EXHAUSTED: ${ta} retries (catch: ${msg.slice(0, 100)}) in ${Math.round(windowElapsed / 60000)}min`,
+              completed_at: tsNow,
+              attempts: (job.attempts || 0) + 1,
+              meta: { ...(job.meta || {}), transient_attempts: ta, transient_exhausted: true, transient_first_at: transientFirstAt },
+            },
+            metricsAction: "dlq",
+          };
+        } else {
+          const effectiveFirstAt = windowElapsed >= TRANSIENT_WINDOW_MS ? tsNow : transientFirstAt;
+          const effectiveTa = windowElapsed >= TRANSIENT_WINDOW_MS ? 1 : ta;
+
+          console.warn(`[job-runner] ${fnName} transient catch → requeue WITHOUT attempt++ (ta=${effectiveTa}/${MAX_TRANSIENT_ATTEMPTS}, +${delay}ms)`);
+          finalState = {
+            status: "pending",
+            patch: {
+              run_after: new Date(Date.now() + delay).toISOString(),
+              error: `Transient: ${msg.slice(0, 500)}`,
+              meta: {
+                ...(job.meta || {}),
+                last_retry: tsNow,
+                transient_attempts: effectiveTa,
+                transient_first_at: effectiveFirstAt,
+                last_transient_error: msg.slice(0, 200),
+                last_transient_at: tsNow,
+              },
+            },
+          };
+        }
       } else {
         const maxAttempts = job.max_attempts || 3;
         const newAttempts = (job.attempts || 0) + 1;

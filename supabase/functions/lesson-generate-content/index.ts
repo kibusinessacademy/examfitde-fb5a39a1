@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/ai-client.ts";
-import { isTransientLlmError } from "../_shared/llm/normalize.ts";
+import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
+import { setProviderCooldown } from "../_shared/llm/provider-cooldown.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { loadCachedGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
@@ -538,6 +539,22 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
     const errMsg = (e as Error).message || String(e);
     const transient = isTransientLlmError(e);
 
+    // ── v11: Record provider cooldown on transient errors ──
+    const classification = classifyError(e);
+    if (classification.isTransient && classification.providerCooldownMs && chain.length > 0) {
+      const usedProvider = chain[0];
+      try {
+        await setProviderCooldown({
+          provider: usedProvider.provider,
+          model: usedProvider.model,
+          ms: classification.providerCooldownMs,
+          reason: `lesson-gen: ${classification.reason} (${errMsg.slice(0, 80)})`,
+        });
+      } catch (_cdErr) {
+        // Best-effort — don't fail the response over cooldown persistence
+      }
+    }
+
     // ── Plain-JSON fallback: rotate to DIFFERENT provider (no tools) ──
     if (errMsg.includes("No parseable tool response") && !plainRetry) {
       plainRetry = true;
@@ -588,6 +605,7 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
         ok: false, retry: isTransient, transient: isTransient,
         error: `${isTransient ? "TRANSIENT: " : ""}${errMsg.slice(0, 200)}`,
         elapsed_ms: Date.now() - startMs,
+        provider_cooldown: classification.providerCooldownMs ? { provider: chain[0]?.provider, model: chain[0]?.model, ms: classification.providerCooldownMs, reason: classification.reason } : undefined,
       }, isTransient ? 503 : 500);
     }
   } finally {
