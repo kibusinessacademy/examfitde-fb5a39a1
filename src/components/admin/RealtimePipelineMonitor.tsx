@@ -147,7 +147,6 @@ function PackagePipeline({ pkg, steps }: { pkg: any; steps: any[] }) {
                 )}
               </div>
             );
-            );
           })}
 
           {currentStep && (
