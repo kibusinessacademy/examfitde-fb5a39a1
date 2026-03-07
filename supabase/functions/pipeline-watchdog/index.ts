@@ -916,21 +916,8 @@ Deno.serve(async (req) => {
         const jobState = await getLearningContentJobState(sb, pkgId);
         if (jobState.pending > 0 || jobState.processing > 0) continue;
 
-        // Count needs_regen via content_versions
-        const { count: needsRegen } = await sb
-          .from("lessons")
-          .select("id", { count: "exact", head: true })
-          .in("module_id", (await sb
-            .from("modules")
-            .select("id")
-            .eq("course_id", (await sb
-              .from("course_packages")
-              .select("course_id")
-              .eq("id", pkgId)
-              .maybeSingle()
-            ).data?.course_id)
-          ).data?.map((m: { id: string }) => m.id) || [])
-          .eq("qc_status", "needs_regen");
+        // Use SSOT needs_regen count from scheduler
+        const needsRegen = await getNeedsRegenCount(sb, pkgId);
 
         if (!needsRegen || needsRegen <= 0) continue;
 
