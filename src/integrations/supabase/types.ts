@@ -22277,10 +22277,20 @@ export type Database = {
       user_skill_scores: {
         Row: {
           attempts: number | null
+          confidence: number | null
           correct: number | null
+          decay_adjusted_mastery: number | null
+          exam_score: number | null
           id: string
           last_attempt_at: string | null
+          last_exam_at: string | null
+          last_minicheck_at: string | null
           mastery_pct: number | null
+          mastery_status: string | null
+          minicheck_attempts: number | null
+          minicheck_correct: number | null
+          minicheck_score: number | null
+          repetition_score: number | null
           skill_node_id: string
           trend: string | null
           updated_at: string
@@ -22288,10 +22298,20 @@ export type Database = {
         }
         Insert: {
           attempts?: number | null
+          confidence?: number | null
           correct?: number | null
+          decay_adjusted_mastery?: number | null
+          exam_score?: number | null
           id?: string
           last_attempt_at?: string | null
+          last_exam_at?: string | null
+          last_minicheck_at?: string | null
           mastery_pct?: number | null
+          mastery_status?: string | null
+          minicheck_attempts?: number | null
+          minicheck_correct?: number | null
+          minicheck_score?: number | null
+          repetition_score?: number | null
           skill_node_id: string
           trend?: string | null
           updated_at?: string
@@ -22299,10 +22319,20 @@ export type Database = {
         }
         Update: {
           attempts?: number | null
+          confidence?: number | null
           correct?: number | null
+          decay_adjusted_mastery?: number | null
+          exam_score?: number | null
           id?: string
           last_attempt_at?: string | null
+          last_exam_at?: string | null
+          last_minicheck_at?: string | null
           mastery_pct?: number | null
+          mastery_status?: string | null
+          minicheck_attempts?: number | null
+          minicheck_correct?: number | null
+          minicheck_score?: number | null
+          repetition_score?: number | null
           skill_node_id?: string
           trend?: string | null
           updated_at?: string
@@ -29928,8 +29958,13 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: undefined
       }
+      recalculate_all_mastery: { Args: { p_user_id: string }; Returns: Json }
       recalculate_beruf_market_scores: { Args: never; Returns: undefined }
       recalculate_coverage_priorities: { Args: never; Returns: Json }
+      recalculate_mastery: {
+        Args: { p_skill_node_id: string; p_user_id: string }
+        Returns: Json
+      }
       recalculate_routing_scores: { Args: never; Returns: undefined }
       recompute_compliance_block: {
         Args: { p_course_id: string }

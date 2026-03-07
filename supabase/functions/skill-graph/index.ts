@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const { action, user_id, curriculum_id, session_id } = await req.json();
+    const { action, user_id, curriculum_id, session_id, skill_node_id, minicheck_results } = await req.json();
 
     // ─── Seed skill nodes from curriculum topics ───
     if (action === "seed_skills") {
@@ -72,12 +72,10 @@ Deno.serve(async (req) => {
 
       let mapped = 0;
       for (const q of questions) {
-        // Find best matching skill node
         const lf = q.learning_field_code || "LF0";
-        const comp = q.competency_code || "";
         const topic = (q.topic || "").toLowerCase();
 
-        let bestSkill = skills.find(s =>
+        const bestSkill = skills.find(s =>
           s.lernfeld === lf && s.mikro_skill.toLowerCase().includes(topic.slice(0, 20))
         ) || skills.find(s => s.lernfeld === lf) || skills[0];
 
@@ -94,7 +92,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, mapped });
     }
 
-    // ─── Update user skill scores after exam session ───
+    // ─── Update user skill scores after exam session (multi-source) ───
     if (action === "update_scores") {
       if (!session_id) return json({ error: "session_id required" }, 400);
 
@@ -105,14 +103,12 @@ Deno.serve(async (req) => {
 
       if (!session) return json({ error: "Session not found" }, 404);
 
-      // Get session answers
       const { data: answers } = await sb.from("exam_session_questions")
         .select("question_id, is_correct")
         .eq("session_id", session_id);
 
       if (!answers?.length) return json({ ok: true, updated: 0 });
 
-      // Get skill mappings for these questions
       const qIds = answers.map(a => a.question_id);
       const { data: mappings } = await sb.from("question_skill_map")
         .select("question_id, skill_node_id")
@@ -132,41 +128,71 @@ Deno.serve(async (req) => {
 
       let updated = 0;
       for (const [skillId, agg] of Object.entries(skillAgg)) {
-        // Fetch existing
         const { data: existing } = await sb.from("user_skill_scores")
-          .select("attempts, correct, mastery_pct")
+          .select("attempts, correct")
           .eq("user_id", session.user_id)
           .eq("skill_node_id", skillId)
           .maybeSingle();
 
-        const prevAttempts = existing?.attempts || 0;
-        const prevCorrect = existing?.correct || 0;
-        const prevMastery = existing?.mastery_pct || 0;
-
-        const newAttempts = prevAttempts + agg.total;
-        const newCorrect = prevCorrect + agg.correct;
-        const newMastery = newAttempts > 0 ? (newCorrect / newAttempts) * 100 : 0;
-
-        const trend = newMastery > prevMastery + 2 ? 'improving'
-          : newMastery < prevMastery - 2 ? 'declining' : 'stable';
+        const newAttempts = (existing?.attempts || 0) + agg.total;
+        const newCorrect = (existing?.correct || 0) + agg.correct;
 
         await sb.from("user_skill_scores").upsert({
           user_id: session.user_id,
           skill_node_id: skillId,
-          mastery_pct: Math.round(newMastery * 100) / 100,
           attempts: newAttempts,
           correct: newCorrect,
           last_attempt_at: new Date().toISOString(),
-          trend,
+          last_exam_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id,skill_node_id" });
+
+        // Trigger central recalculate_mastery RPC
+        await sb.rpc("recalculate_mastery", {
+          p_user_id: session.user_id,
+          p_skill_node_id: skillId,
+        });
         updated++;
       }
 
       return json({ ok: true, updated });
     }
 
-    // ─── Get user skill radar ───
+    // ─── NEW: Update MiniCheck scores ───
+    if (action === "update_minicheck") {
+      if (!user_id || !skill_node_id) return json({ error: "user_id + skill_node_id required" }, 400);
+      if (!minicheck_results) return json({ error: "minicheck_results required" }, 400);
+
+      const { correct, total } = minicheck_results as { correct: number; total: number };
+
+      const { data: existing } = await sb.from("user_skill_scores")
+        .select("minicheck_attempts, minicheck_correct")
+        .eq("user_id", user_id)
+        .eq("skill_node_id", skill_node_id)
+        .maybeSingle();
+
+      const newAttempts = (existing?.minicheck_attempts || 0) + total;
+      const newCorrect = (existing?.minicheck_correct || 0) + correct;
+
+      await sb.from("user_skill_scores").upsert({
+        user_id,
+        skill_node_id,
+        minicheck_attempts: newAttempts,
+        minicheck_correct: newCorrect,
+        last_minicheck_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,skill_node_id" });
+
+      // Trigger central recalculate
+      const { data: result } = await sb.rpc("recalculate_mastery", {
+        p_user_id: user_id,
+        p_skill_node_id: skill_node_id,
+      });
+
+      return json({ ok: true, mastery: result });
+    }
+
+    // ─── Get user skill radar (enhanced with multi-source data) ───
     if (action === "radar") {
       if (!user_id || !curriculum_id) return json({ error: "user_id + curriculum_id required" }, 400);
 
@@ -178,46 +204,54 @@ Deno.serve(async (req) => {
 
       const skillIds = skills.map(s => s.id);
       const { data: scores } = await sb.from("user_skill_scores")
-        .select("skill_node_id, mastery_pct, attempts, trend")
+        .select("skill_node_id, mastery_pct, decay_adjusted_mastery, confidence, mastery_status, attempts, minicheck_attempts, trend, exam_score, minicheck_score")
         .eq("user_id", user_id)
         .in("skill_node_id", skillIds);
 
       // Aggregate by lernfeld
-      const byLF: Record<string, { mastery: number[]; skills: any[] }> = {};
+      const byLF: Record<string, { mastery: number[]; confidence: number[]; skills: any[] }> = {};
       for (const s of skills) {
-        if (!byLF[s.lernfeld]) byLF[s.lernfeld] = { mastery: [], skills: [] };
+        if (!byLF[s.lernfeld]) byLF[s.lernfeld] = { mastery: [], confidence: [], skills: [] };
         const score = scores?.find(sc => sc.skill_node_id === s.id);
-        const m = score?.mastery_pct || 0;
+        const m = score?.decay_adjusted_mastery || score?.mastery_pct || 0;
+        const c = score?.confidence || 0;
         byLF[s.lernfeld].mastery.push(m);
+        byLF[s.lernfeld].confidence.push(c);
         byLF[s.lernfeld].skills.push({
           ...s,
           mastery_pct: m,
-          mastery_status: m >= 80 ? 'mastered' : m >= 60 ? 'partial' : 'not_mastered',
-          attempts: score?.attempts || 0,
+          mastery_status: score?.mastery_status || (m >= 80 ? 'mastered' : m >= 60 ? 'partial' : 'not_mastered'),
+          confidence: c,
+          attempts: (score?.attempts || 0) + (score?.minicheck_attempts || 0),
+          exam_score: score?.exam_score || 0,
+          minicheck_score: score?.minicheck_score || 0,
           trend: score?.trend || 'stable',
         });
       }
 
-      const radar = Object.entries(byLF).map(([lf, data]) => ({
-        lernfeld: lf,
-        avg_mastery: data.mastery.length > 0
-          ? Math.round(data.mastery.reduce((a, b) => a + b, 0) / data.mastery.length * 10) / 10
-          : 0,
-        mastery_status: (() => {
-          const avg = data.mastery.length > 0 ? data.mastery.reduce((a, b) => a + b, 0) / data.mastery.length : 0;
-          return avg >= 80 ? 'mastered' : avg >= 60 ? 'partial' : 'not_mastered';
-        })(),
-        skill_count: data.skills.length,
-        mastered_count: data.skills.filter(s => s.mastery_status === 'mastered').length,
-        partial_count: data.skills.filter(s => s.mastery_status === 'partial').length,
-        not_mastered_count: data.skills.filter(s => s.mastery_status === 'not_mastered').length,
-        weakest: data.skills.sort((a, b) => a.mastery_pct - b.mastery_pct).slice(0, 3),
-      }));
+      const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+      const radar = Object.entries(byLF).map(([lf, data]) => {
+        const avgMastery = avg(data.mastery);
+        const avgConf = avg(data.confidence);
+        return {
+          lernfeld: lf,
+          avg_mastery: Math.round(avgMastery * 10) / 10,
+          avg_confidence: Math.round(avgConf * 100) / 100,
+          mastery_status: avgMastery >= 80 ? 'mastered' : avgMastery >= 60 ? 'partial' : 'not_mastered',
+          reliability: avgConf >= 0.7 ? 'high' : avgConf >= 0.3 ? 'medium' : 'low',
+          skill_count: data.skills.length,
+          mastered_count: data.skills.filter(s => s.mastery_status === 'mastered').length,
+          partial_count: data.skills.filter(s => s.mastery_status === 'partial').length,
+          not_mastered_count: data.skills.filter(s => s.mastery_status === 'not_mastered').length,
+          weakest: data.skills.sort((a, b) => a.mastery_pct - b.mastery_pct).slice(0, 3),
+        };
+      });
 
       return json({ ok: true, radar });
     }
 
-    // ─── Exam Readiness Score ───
+    // ─── Exam Readiness Score (enhanced with confidence + decay) ───
     if (action === "exam_readiness") {
       if (!user_id || !curriculum_id) return json({ error: "user_id + curriculum_id required" }, 400);
 
@@ -229,45 +263,55 @@ Deno.serve(async (req) => {
 
       const skillIds = skills.map(s => s.id);
       const { data: scores } = await sb.from("user_skill_scores")
-        .select("skill_node_id, mastery_pct, attempts, trend")
+        .select("skill_node_id, decay_adjusted_mastery, mastery_pct, confidence, attempts, minicheck_attempts, trend")
         .eq("user_id", user_id)
         .in("skill_node_id", skillIds);
 
-      // Load LF weights for proportional scoring
       const { data: lfs } = await sb.from("learning_fields")
         .select("id, code, weight_percent")
         .eq("curriculum_id", curriculum_id);
 
       const lfWeightMap = new Map((lfs || []).map((lf: any) => [lf.code, lf.weight_percent || (100 / (lfs?.length || 1))]));
 
-      // Group skills by LF
-      const byLF: Record<string, { totalMastery: number; count: number; weight: number }> = {};
+      const byLF: Record<string, { totalMastery: number; totalConfidence: number; count: number; weight: number }> = {};
       for (const s of skills) {
-        if (!byLF[s.lernfeld]) byLF[s.lernfeld] = { totalMastery: 0, count: 0, weight: lfWeightMap.get(s.lernfeld) || 10 };
+        if (!byLF[s.lernfeld]) byLF[s.lernfeld] = { totalMastery: 0, totalConfidence: 0, count: 0, weight: lfWeightMap.get(s.lernfeld) || 10 };
         const score = scores?.find(sc => sc.skill_node_id === s.id);
-        byLF[s.lernfeld].totalMastery += score?.mastery_pct || 0;
+        byLF[s.lernfeld].totalMastery += score?.decay_adjusted_mastery || score?.mastery_pct || 0;
+        byLF[s.lernfeld].totalConfidence += score?.confidence || 0;
         byLF[s.lernfeld].count++;
       }
 
-      // Weighted readiness calculation
       let weightedSum = 0;
       let totalWeight = 0;
+      let totalConfidenceSum = 0;
+      let totalSkillCount = 0;
       const lfReadiness: any[] = [];
       for (const [lf, data] of Object.entries(byLF)) {
         const avgMastery = data.count > 0 ? data.totalMastery / data.count : 0;
+        const avgConfidence = data.count > 0 ? data.totalConfidence / data.count : 0;
         weightedSum += avgMastery * data.weight;
         totalWeight += data.weight;
+        totalConfidenceSum += avgConfidence * data.count;
+        totalSkillCount += data.count;
         lfReadiness.push({
           lernfeld: lf,
           avg_mastery: Math.round(avgMastery * 10) / 10,
+          avg_confidence: Math.round(avgConfidence * 100) / 100,
           weight: data.weight,
           status: avgMastery >= 80 ? 'ready' : avgMastery >= 60 ? 'needs_review' : 'critical',
+          reliability: avgConfidence >= 0.7 ? 'high' : avgConfidence >= 0.3 ? 'medium' : 'low',
         });
       }
 
       const readinessPct = totalWeight > 0 ? Math.round((weightedSum / totalWeight) * 10) / 10 : 0;
+      const avgConfidence = totalSkillCount > 0 ? Math.round((totalConfidenceSum / totalSkillCount) * 100) / 100 : 0;
       const criticalLFs = lfReadiness.filter(lf => lf.status === 'critical').sort((a, b) => a.avg_mastery - b.avg_mastery);
-      const totalAttempts = (scores || []).reduce((s, sc) => s + (sc.attempts || 0), 0);
+      const totalAttempts = (scores || []).reduce((s, sc) => s + (sc.attempts || 0) + (sc.minicheck_attempts || 0), 0);
+
+      // Fail risk: inverse of readiness, weighted by confidence
+      const failRiskRaw = 100 - readinessPct;
+      const failRisk = Math.round(failRiskRaw * (1 + (1 - avgConfidence) * 0.3) * 10) / 10; // Low confidence increases risk
 
       const verdict = readinessPct >= 80 ? 'exam_ready'
         : readinessPct >= 60 ? 'almost_ready'
@@ -277,6 +321,8 @@ Deno.serve(async (req) => {
       return json({
         ok: true,
         readiness_pct: readinessPct,
+        confidence: avgConfidence,
+        fail_risk_pct: Math.min(failRisk, 100),
         verdict,
         total_skills: skills.length,
         skills_with_data: (scores || []).length,
@@ -289,6 +335,13 @@ Deno.serve(async (req) => {
           ? `Fast geschafft! Fokussiere dich auf: ${criticalLFs.slice(0, 2).map(lf => lf.lernfeld).join(', ')}`
           : `Kritische Lernfelder: ${criticalLFs.slice(0, 3).map(lf => lf.lernfeld).join(', ')}. Arbeite diese zuerst durch.`,
       });
+    }
+
+    // ─── Recalculate all mastery for a user ───
+    if (action === "recalculate_all") {
+      if (!user_id) return json({ error: "user_id required" }, 400);
+      const { data } = await sb.rpc("recalculate_all_mastery", { p_user_id: user_id });
+      return json({ ok: true, ...data });
     }
 
     return json({ error: "Unknown action" }, 400);
