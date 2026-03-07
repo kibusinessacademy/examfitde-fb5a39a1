@@ -886,6 +886,77 @@ Deno.serve(async (req) => {
           .ilike("message", "%PIPELINE_STALLED%");
       } catch (_) { /* non-critical */ }
     }
+
+    // ── 8) Learning-content liveness guard ──
+    // Detect building packages where generate_learning_content is stuck:
+    // step not done, needs_regen > 0, but no live jobs.
+    let lcRevivedCount = 0;
+    let lcNeutralizedCount = 0;
+    try {
+      const { data: buildingPkgs } = await sb
+        .from("course_packages")
+        .select("id")
+        .eq("status", "building");
+
+      for (const pkg of buildingPkgs || []) {
+        const pkgId = pkg.id as string;
+
+        // Check if step exists and is not done
+        const { data: step } = await sb
+          .from("package_steps")
+          .select("id, status, meta")
+          .eq("package_id", pkgId)
+          .eq("step_key", "generate_learning_content")
+          .maybeSingle();
+
+        if (!step || step.status === "done") continue;
+
+        // Check job state
+        const jobState = await getLearningContentJobState(sb, pkgId);
+        if (jobState.pending > 0 || jobState.processing > 0) continue;
+
+        // Count needs_regen via content_versions
+        const { count: needsRegen } = await sb
+          .from("lessons")
+          .select("id", { count: "exact", head: true })
+          .in("module_id", (await sb
+            .from("modules")
+            .select("id")
+            .eq("course_id", (await sb
+              .from("course_packages")
+              .select("course_id")
+              .eq("id", pkgId)
+              .maybeSingle()
+            ).data?.course_id)
+          ).data?.map((m: { id: string }) => m.id) || [])
+          .eq("qc_status", "needs_regen");
+
+        if (!needsRegen || needsRegen <= 0) continue;
+
+        // Dead: neutralize stale failed + revive step
+        const neutralized = await neutralizeStaleTransientFailed(sb, pkgId, 120);
+        lcNeutralizedCount += neutralized;
+
+        const revived = await reviveLearningContentStepIfDead(sb, pkgId, needsRegen);
+        if (revived) {
+          lcRevivedCount++;
+          actions.push(`LC liveness revive: pkg ${pkgId.slice(0, 8)} (needsRegen=${needsRegen}, neutralized=${neutralized})`);
+        }
+      }
+
+      if (lcRevivedCount > 0) {
+        console.warn(`[watchdog] LC liveness guard: revived=${lcRevivedCount} neutralized=${lcNeutralizedCount}`);
+        await sb.from("auto_heal_log").insert({
+          action_type: "lc_liveness_revive",
+          trigger_source: "pipeline-watchdog",
+          result_status: "applied",
+          result_detail: `Revived ${lcRevivedCount} dead learning-content step(s), neutralized ${lcNeutralizedCount} stale jobs`,
+        }).then(() => {});
+      }
+    } catch (lcErr) {
+      console.error("[watchdog] LC liveness guard error:", (lcErr as Error)?.message);
+    }
+
     // ── Log cycle ──
     const qgStats = { seen: qgSeenCount, healed: qgHealedCount, skipped: qgSkippedCount };
     try {
