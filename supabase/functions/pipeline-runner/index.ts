@@ -493,9 +493,24 @@ async function processPackage(
         actionType: "finalize_generate_learning_content",
         cancelStatuses: ["pending", "failed"],
         shouldFinalize: (meta) => {
-          const ok = meta?.batch_complete === true;
-          const reason = ok ? "meta.batch_complete=true" : "meta.batch_complete!=true";
-          return { ok, reason, snapshot: { batch_complete: meta?.batch_complete === true } };
+          // Artifact-based DONE gate: needs_regen===0 is the real SSOT signal
+          // batch_complete is set by the dispatcher response but may not propagate to step meta
+          const needsRegen = typeof meta?.needs_regen === "number" ? meta.needs_regen : null;
+          const completionGate = meta?.completion_gate as Record<string, unknown> | undefined;
+          const gateNeedsRegen = typeof completionGate?.needs_regen === "number" ? completionGate.needs_regen : null;
+          const batchComplete = meta?.batch_complete === true;
+          
+          // Primary: artifact truth (needs_regen from dispatcher or completion_gate)
+          const artifactDone = needsRegen === 0 || gateNeedsRegen === 0;
+          // Secondary: batch_complete flag
+          const ok = artifactDone || batchComplete;
+          
+          const reason = artifactDone
+            ? `needs_regen=0 (artifact-done)`
+            : batchComplete
+              ? "meta.batch_complete=true"
+              : `needs_regen=${needsRegen ?? "null"}, batch_complete=${meta?.batch_complete}`;
+          return { ok, reason, snapshot: { needs_regen: needsRegen, gate_needs_regen: gateNeedsRegen, batch_complete: batchComplete } };
         },
       },
       {
