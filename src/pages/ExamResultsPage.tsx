@@ -7,20 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { 
-  Trophy, 
-  XCircle, 
-  BarChart3, 
-  BookOpen, 
-  ArrowLeft, 
-  RotateCcw,
-  Target,
-  TrendingUp,
-  Clock,
-  Loader2,
-  ChevronRight,
-  Brain,
-  Sparkles,
-  Zap
+  Trophy, XCircle, BarChart3, BookOpen, ArrowLeft, RotateCcw,
+  Target, TrendingUp, Clock, Loader2, ChevronRight, Brain,
+  Sparkles, Zap, Shield, AlertTriangle, CheckCircle2, HelpCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LessonRecommendations } from '@/components/exam/LessonRecommendations';
@@ -42,13 +31,8 @@ interface ExamSessionData {
     by_learning_field?: Record<string, { correct: number; total: number }>;
     by_competency?: Record<string, { correct: number; total: number; title?: string }>;
   } | null;
-  blueprint: {
-    title: string;
-    pass_threshold: number;
-  };
-  curriculum: {
-    title: string;
-  };
+  blueprint: { title: string; pass_threshold: number };
+  curriculum: { title: string };
 }
 
 interface QuestionDetail {
@@ -67,6 +51,37 @@ interface QuestionDetail {
   };
 }
 
+interface DiagnosticData {
+  readiness_pct: number;
+  confidence: number;
+  fail_risk_pct: number;
+  verdict: string;
+  total_skills: number;
+  mastered_count: number;
+  partial_count: number;
+  not_mastered_count: number;
+  weakest_skills: Array<{
+    skill_node_id: string;
+    lernfeld: string;
+    kompetenz: string;
+    mastery_pct: number;
+    confidence: number;
+    mastery_status: string;
+    trend: string;
+  }>;
+  strongest_skills: Array<{
+    skill_node_id: string;
+    kompetenz: string;
+    mastery_pct: number;
+  }>;
+  recommendations: string[];
+  coaching_trigger: {
+    mode: string;
+    focus_skills: Array<{ kompetenz: string; mastery_pct: number; lernfeld: string }>;
+    readiness_verdict: string;
+  };
+}
+
 export default function ExamResultsPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { user } = useAuth();
@@ -74,6 +89,7 @@ export default function ExamResultsPage() {
   
   const [session, setSession] = useState<ExamSessionData | null>(null);
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
+  const [diagnostic, setDiagnostic] = useState<DiagnosticData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [coachFeedback, setCoachFeedback] = useState<any>(null);
@@ -93,6 +109,7 @@ export default function ExamResultsPage() {
 
         setSession((data?.session || null) as ExamSessionData | null);
         setQuestions((data?.questions || []) as QuestionDetail[]);
+        setDiagnostic((data?.diagnostic || null) as DiagnosticData | null);
       } catch (e) {
         setSession(null);
         setQuestions([]);
@@ -104,7 +121,7 @@ export default function ExamResultsPage() {
     fetchResults();
   }, [sessionId, user]);
 
-  // Auto-load coach feedback after results
+  // Auto-load coach feedback
   useEffect(() => {
     if (!session || !sessionId || !session.finished_at) return;
     loadCoachFeedback();
@@ -135,7 +152,6 @@ export default function ExamResultsPage() {
         body: { action: 'generate', session_id: sessionId },
       });
       if (!error && data?.remediation) {
-        // Navigate to remediation or show inline
         navigate(`/exam-trainer?remediation=${data.remediation.id}`);
       }
     } catch {
@@ -170,9 +186,15 @@ export default function ExamResultsPage() {
   const passed = session.passed ?? false;
 
   const difficultyLabels: Record<string, string> = {
-    easy: 'Leicht',
-    medium: 'Mittel',
-    hard: 'Schwer',
+    easy: 'Leicht', medium: 'Mittel', hard: 'Schwer', very_hard: 'Sehr schwer',
+  };
+
+  const verdictLabels: Record<string, { label: string; color: string; icon: any }> = {
+    exam_ready: { label: 'Prüfungsreif', color: 'text-primary', icon: CheckCircle2 },
+    almost_ready: { label: 'Fast bereit', color: 'text-amber-500', icon: TrendingUp },
+    needs_work: { label: 'Noch Arbeit nötig', color: 'text-orange-500', icon: AlertTriangle },
+    not_ready: { label: 'Nicht bereit', color: 'text-destructive', icon: XCircle },
+    not_started: { label: 'Keine Daten', color: 'text-muted-foreground', icon: HelpCircle },
   };
 
   return (
@@ -190,22 +212,22 @@ export default function ExamResultsPage() {
 
       <PageExplainer
         title="Was zeigt die Ergebnisseite?"
-        description="Hier siehst du deine komplette Prüfungsauswertung: Gesamtscore, Auswertung nach Schwierigkeit und Lernfeld, sowie eine detaillierte Fehleranalyse mit Erklärungen."
+        description="Hier siehst du deine komplette Prüfungsauswertung: Gesamtscore, Kompetenz-Diagnose, Prüfungsreife und personalisierte Empfehlungen."
         workflow={[
           { label: 'Prüfung' },
-          { label: 'Auswertung', active: true },
-          { label: 'Schwächenplan' },
+          { label: 'Diagnose', active: true },
+          { label: 'Coaching' },
           { label: 'Gezielt üben' },
         ]}
         actions={[
-          'Fehleranalyse → Zeigt jede falsch beantwortete Frage mit Erklärung',
-          'Schwächenplan → Empfiehlt Lernfelder, die du gezielt wiederholen solltest',
-          '"Neue Prüfung" → Starte eine weitere Simulation',
+          'Diagnose → Zeigt deine Stärken, Schwächen und Prüfungsreife',
+          'Coaching → KI-gestützte Empfehlungen für dein Training',
+          'Gezielt üben → Starte adaptive Übungen in schwachen Bereichen',
         ]}
         tips={[
-          'Lernfelder unter 50% werden als "Schwachstelle" markiert',
-          'Die Lektionsempfehlungen verlinken direkt zu passenden Lerneinheiten',
-          'Wiederhole die Prüfung nach dem Üben, um deinen Fortschritt zu sehen',
+          'Kompetenzen unter 60% werden als "kritisch" markiert',
+          'Das Durchfallrisiko sinkt, je mehr du übst und Confidence aufbaust',
+          'Der Tutor-Coach passt seinen Modus an deine Reife an',
         ]}
       />
 
@@ -255,6 +277,158 @@ export default function ExamResultsPage() {
         </CardContent>
       </Card>
 
+      {/* ─── NEW: Diagnostic Card ─── */}
+      {diagnostic && (
+        <Card className="glass-card border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              Kompetenz-Diagnose
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Readiness + Fail Risk Row */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-3 rounded-xl bg-muted/50">
+                <div className="text-2xl font-bold">{diagnostic.readiness_pct.toFixed(0)}%</div>
+                <div className="text-xs text-muted-foreground">Prüfungsreife</div>
+                {(() => {
+                  const v = verdictLabels[diagnostic.verdict] || verdictLabels.not_started;
+                  const Icon = v.icon;
+                  return (
+                    <div className={cn("flex items-center justify-center gap-1 mt-1 text-xs font-medium", v.color)}>
+                      <Icon className="h-3 w-3" />
+                      {v.label}
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="text-center p-3 rounded-xl bg-muted/50">
+                <div className="text-2xl font-bold">{diagnostic.fail_risk_pct.toFixed(0)}%</div>
+                <div className="text-xs text-muted-foreground">Durchfallrisiko</div>
+                <Progress 
+                  value={diagnostic.fail_risk_pct} 
+                  className={cn("h-1.5 mt-2", diagnostic.fail_risk_pct > 50 && "[&>div]:bg-destructive")} 
+                />
+              </div>
+              <div className="text-center p-3 rounded-xl bg-muted/50">
+                <div className="text-2xl font-bold">{(diagnostic.confidence * 100).toFixed(0)}%</div>
+                <div className="text-xs text-muted-foreground">Datensicherheit</div>
+                <div className={cn(
+                  "text-xs mt-1",
+                  diagnostic.confidence >= 0.7 ? "text-primary" : diagnostic.confidence >= 0.3 ? "text-amber-500" : "text-muted-foreground"
+                )}>
+                  {diagnostic.confidence >= 0.7 ? 'Hoch' : diagnostic.confidence >= 0.3 ? 'Mittel' : 'Niedrig'}
+                </div>
+              </div>
+            </div>
+
+            {/* Mastery Distribution */}
+            <div className="flex items-center gap-2 text-sm">
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-primary" />
+                {diagnostic.mastered_count} Sicher
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-amber-500" />
+                {diagnostic.partial_count} Teilweise
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-destructive" />
+                {diagnostic.not_mastered_count} Kritisch
+              </span>
+            </div>
+
+            {/* Weakest Skills */}
+            {diagnostic.weakest_skills.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                  Schwächste Kompetenzen
+                </h4>
+                <div className="space-y-2">
+                  {diagnostic.weakest_skills.slice(0, 4).map((skill) => (
+                    <div key={skill.skill_node_id} className="flex items-center gap-3 p-2.5 rounded-lg bg-destructive/5 border border-destructive/15">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{skill.kompetenz}</p>
+                        <p className="text-xs text-muted-foreground">LF {skill.lernfeld}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-bold text-destructive">{skill.mastery_pct.toFixed(0)}%</span>
+                        <div className="text-xs text-muted-foreground">
+                          {skill.trend === 'improving' ? '↑' : skill.trend === 'declining' ? '↓' : '→'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Strongest Skills */}
+            {diagnostic.strongest_skills.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                  Stärkste Kompetenzen
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {diagnostic.strongest_skills.slice(0, 5).map((skill) => (
+                    <Badge key={skill.skill_node_id} variant="outline" className="border-primary/50 text-primary">
+                      {skill.kompetenz} ({skill.mastery_pct.toFixed(0)}%)
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {diagnostic.recommendations.length > 0 && (
+              <div className="p-3 rounded-xl bg-primary/5 border border-primary/15">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2 flex items-center gap-1">
+                  <Brain className="h-3.5 w-3.5" />
+                  Empfehlungen
+                </h4>
+                <ul className="space-y-1.5">
+                  {diagnostic.recommendations.map((rec, i) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      {rec}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Action CTAs */}
+            <div className="flex gap-3">
+              {diagnostic.weakest_skills.length > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="flex-1 gap-1.5"
+                  onClick={startRemediation}
+                  disabled={remediationLoading}
+                >
+                  {remediationLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                  Schwächen trainieren
+                </Button>
+              )}
+              <Button 
+                size="sm" 
+                className="flex-1 gap-1.5"
+                asChild
+              >
+                <Link to="/exam-simulation">
+                  <RotateCcw className="h-4 w-4" />
+                  Adaptive Prüfung
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 🧠 KI-Coach Feedback */}
       {(coachFeedback || feedbackLoading) && (
         <Card className="glass-card border-primary/30 bg-primary/5">
@@ -262,6 +436,12 @@ export default function ExamResultsPage() {
             <CardTitle className="flex items-center gap-2 text-base">
               <Sparkles className="h-5 w-5 text-primary" />
               Dein KI-Prüfungscoach
+              {diagnostic?.coaching_trigger && (
+                <Badge variant="outline" className="text-xs ml-auto">
+                  Modus: {diagnostic.coaching_trigger.mode === 'explainer' ? 'Erklärer' : 
+                           diagnostic.coaching_trigger.mode === 'coach' ? 'Coach' : 'Prüfer'}
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -275,7 +455,6 @@ export default function ExamResultsPage() {
                 {coachFeedback.summary && (
                   <p className="text-sm leading-relaxed">{coachFeedback.summary}</p>
                 )}
-
                 {coachFeedback.strengths?.length > 0 && (
                   <div>
                     <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Stärken</h4>
@@ -288,7 +467,6 @@ export default function ExamResultsPage() {
                     </div>
                   </div>
                 )}
-
                 {coachFeedback.weaknesses?.length > 0 && (
                   <div>
                     <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Schwächen</h4>
@@ -301,7 +479,6 @@ export default function ExamResultsPage() {
                     </div>
                   </div>
                 )}
-
                 {coachFeedback.learning_plan?.length > 0 && (
                   <div>
                     <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
@@ -322,31 +499,6 @@ export default function ExamResultsPage() {
                 )}
               </>
             ) : null}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 🔁 Adaptive Remediation CTA */}
-      {!passed && incorrectQuestions.length > 0 && (
-        <Card className="glass-card border-amber-500/30 bg-amber-500/5">
-          <CardContent className="pt-5 pb-4 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-              <Zap className="h-5 w-5 text-amber-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Schwächen gezielt trainieren</p>
-              <p className="text-xs text-muted-foreground">
-                {incorrectQuestions.length} Fehler → gezielte Übungsfragen aus deinen schwachen Bereichen
-              </p>
-            </div>
-            <Button 
-              size="sm" 
-              onClick={startRemediation}
-              disabled={remediationLoading}
-              className="flex-shrink-0"
-            >
-              {remediationLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Starten'}
-            </Button>
           </CardContent>
         </Card>
       )}
@@ -405,29 +557,21 @@ export default function ExamResultsPage() {
                 .sort((a, b) => {
                   const percA = a[1].total > 0 ? a[1].correct / a[1].total : 0;
                   const percB = b[1].total > 0 ? b[1].correct / b[1].total : 0;
-                  return percA - percB; // Weakest first
+                  return percA - percB;
                 })
                 .map(([code, stats]) => {
                   const percentage = stats.total > 0 ? (stats.correct / stats.total) * 100 : 0;
                   const isWeak = percentage < 50;
-                  
                   return (
                     <div key={code}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="flex items-center gap-2">
                           Lernfeld {code}
-                          {isWeak && (
-                            <Badge variant="destructive" className="text-xs">
-                              Schwachstelle
-                            </Badge>
-                          )}
+                          {isWeak && <Badge variant="destructive" className="text-xs">Schwachstelle</Badge>}
                         </span>
                         <span>{stats.correct}/{stats.total} ({percentage.toFixed(0)}%)</span>
                       </div>
-                      <Progress 
-                        value={percentage} 
-                        className={cn("h-2", isWeak && "[&>div]:bg-destructive")} 
-                      />
+                      <Progress value={percentage} className={cn("h-2", isWeak && "[&>div]:bg-destructive")} />
                     </div>
                   );
                 })}
@@ -456,70 +600,28 @@ export default function ExamResultsPage() {
                     </Badge>
                   </div>
                   <p className="text-sm mb-3">{q.question?.question_text}</p>
-                  
                   <div className="space-y-1 text-sm">
                     <div className="flex items-start gap-2 text-destructive">
                       <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <span>Deine Antwort: {q.question?.options?.[q.user_answer ?? 0]?.text || 'Keine'}</span>
                     </div>
-                    <div className="flex items-start gap-2 text-success">
+                    <div className="flex items-start gap-2 text-primary">
                       <TrendingUp className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <span>Richtig: {q.question?.options?.[q.question?.correct_answer]?.text}</span>
                     </div>
                     {q.question?.explanation && (
-                      <p className="text-muted-foreground mt-2 pl-6">
-                        {q.question.explanation}
-                      </p>
+                      <p className="text-muted-foreground mt-2 pl-6">{q.question.explanation}</p>
                     )}
                   </div>
                 </div>
               ))}
-              
               {incorrectQuestions.length > 3 && !showAllQuestions && (
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => setShowAllQuestions(true)}
-                >
+                <Button variant="outline" className="w-full" onClick={() => setShowAllQuestions(true)}>
                   Alle {incorrectQuestions.length} Fehler anzeigen
                   <ChevronRight className="h-4 w-4 ml-2" />
                 </Button>
               )}
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Weakness Plan */}
-      {!passed && incorrectQuestions.length > 0 && (
-        <Card className="glass-card border-warning/30 bg-warning/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <BookOpen className="h-5 w-5 text-warning" />
-              Dein Schwächen-Plan
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Basierend auf deiner Analyse empfehlen wir diese Reihenfolge:
-            </p>
-            {Object.entries(session.breakdown?.by_learning_field || {})
-              .filter(([code, stats]) => code !== 'unknown' && stats.total > 0 && (stats.correct / stats.total) < 0.7)
-              .sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total))
-              .slice(0, 5)
-              .map(([code, stats], idx) => {
-                const pct = Math.round((stats.correct / stats.total) * 100);
-                return (
-                  <div key={code} className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border/50">
-                    <span className="w-6 h-6 rounded-full bg-warning/20 text-warning text-xs font-bold flex items-center justify-center">{idx + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">Lernfeld {code}</p>
-                      <Progress value={pct} className="h-1.5 mt-1 [&>div]:bg-warning" />
-                    </div>
-                    <span className="text-xs font-mono text-muted-foreground">{pct}%</span>
-                  </div>
-                );
-              })}
           </CardContent>
         </Card>
       )}
