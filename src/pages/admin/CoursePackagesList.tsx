@@ -48,6 +48,17 @@ export default function CoursePackagesList() {
   const { data: packages, isLoading } = useCoursePackages();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const queryClient = useQueryClient();
+
+  // Recovery mutation for failed packages
+  const recoverMutation = useMutation({
+    mutationFn: () => runAdminOpsAction('recover_failed_packages'),
+    onSuccess: (data: any) => {
+      toast.success(`${data.recovered || 0} fehlgeschlagene Pakete wiederhergestellt`);
+      queryClient.invalidateQueries({ queryKey: ['course-packages'] });
+    },
+    onError: (err: Error) => toast.error(`Recovery fehlgeschlagen: ${err.message}`),
+  });
 
   // Load real step-based progress for all packages (SSOT from package_steps)
   const { data: stepProgress } = useQuery({
