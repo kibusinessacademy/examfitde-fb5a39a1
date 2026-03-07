@@ -60,6 +60,25 @@ type AlertItem = {
   stepKey?: string | null;
 };
 
+const LIVE_ALERT_MAX_AGE_MIN = 180;
+
+function isStepStillProblematic(stepStatus?: string | null): boolean {
+  return ['failed', 'blocked', 'pending', 'queued', 'processing', 'running'].includes(String(stepStatus || ''));
+}
+
+function extractPkgIdFromDetail(detail?: string | null): string | null {
+  if (!detail) return null;
+  const m = String(detail).match(/\bpkg\s+([a-f0-9-]{6,})\b/i)
+    || String(detail).match(/([a-f0-9]{8,})/i);
+  return m?.[1] || null;
+}
+
+function extractStepKeyFromDetail(detail?: string | null): string | null {
+  if (!detail) return null;
+  const m = String(detail).match(/STEP_EXHAUSTED:\s*([a-zA-Z0-9_:-]+)/);
+  return m?.[1] || null;
+}
+
 const fmtEur = (v: number) =>
   new Intl.NumberFormat('de-DE', {
     style: 'currency',
