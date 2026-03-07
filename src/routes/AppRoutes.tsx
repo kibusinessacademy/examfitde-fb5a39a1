@@ -259,6 +259,10 @@ const AppRoutes = () => {
           <Route path="social" element={<SocialEnginePage />} />
           <Route path="audit" element={<AuditDashboardPage />} />
 
+          {/* B2B Competency Views */}
+          <Route path="b2b/cohort" element={<CohortOverviewPage />} />
+          <Route path="b2b/learner" element={<LearnerCompetencyPage />} />
+
           {/* ExamFit@work Admin (email-gated) */}
           <Route element={<AdminEmailGuard />}>
             <Route path="work" element={<WorkAdminPage />} />
