@@ -11,9 +11,10 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   Activity, Zap, RefreshCw, Radio, Play,
-  AlertTriangle, CheckCircle2, XCircle, Timer, Eye, Shield
+  AlertTriangle, CheckCircle2, XCircle, Timer, Eye, Shield, FlaskConical
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 export default function PipelineMonitorPage() {
   const { kpis, refetch } = useAdminKPIs();
