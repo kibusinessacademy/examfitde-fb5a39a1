@@ -167,11 +167,25 @@ export default function CoursePackagesList() {
             )}
           </p>
         </div>
-        <Button asChild size="sm">
-          <Link to="/admin/studio/new">
-            <Plus className="h-4 w-4 mr-1" /> Neues Paket
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {(statusCounts['failed'] || 0) > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => recoverMutation.mutate()}
+              disabled={recoverMutation.isPending}
+              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-1", recoverMutation.isPending && "animate-spin")} />
+              {statusCounts['failed']} Failed wiederherstellen
+            </Button>
+          )}
+          <Button asChild size="sm">
+            <Link to="/admin/studio/new">
+              <Plus className="h-4 w-4 mr-1" /> Neues Paket
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Stuck Alert Banner */}
