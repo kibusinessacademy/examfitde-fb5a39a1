@@ -654,6 +654,79 @@ export default function Leitstelle() {
               <div className="mt-1 text-xs text-muted-foreground">Build ohne Job oder Lease</div>
             </div>
           </CardContent>
+
+          {/* Transient Ops Health Monitor */}
+          {transientOps && (
+            <CardContent className="grid gap-3 border-t border-border/50 pt-4 md:grid-cols-2">
+              {/* Transient Exhaustion Card */}
+              <div className={cn(
+                'rounded-xl border p-4',
+                transientOps.exhausted24h >= 10
+                  ? 'border-destructive/40 bg-destructive/5'
+                  : 'border-border',
+              )}>
+                <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                  <ShieldAlert className={cn('h-4 w-4', transientOps.exhausted24h >= 10 ? 'text-destructive' : 'text-muted-foreground')} />
+                  Transient Exhaustion (24h)
+                </div>
+                <div className={cn('text-3xl font-semibold', transientOps.exhausted24h >= 10 && 'text-destructive')}>
+                  {transientOps.exhausted24h}
+                </div>
+                <div className="mt-3 space-y-1 text-sm">
+                  {transientOps.exhaustedByJobType.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">Keine erschöpften transienten Jobs</div>
+                  ) : (
+                    transientOps.exhaustedByJobType.slice(0, 5).map((row) => (
+                      <div key={row.job_type} className="flex items-center justify-between text-xs">
+                        <span className="truncate text-muted-foreground">{row.job_type.replace(/_/g, ' ')}</span>
+                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{row.cnt}</Badge>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {transientOps.exhausted24h >= 10 && (
+                  <div className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                    ⚠️ Viele transient erschöpfte Jobs. Provider-Stabilität und Timeouts prüfen.
+                  </div>
+                )}
+              </div>
+
+              {/* Provider Cooldowns Card */}
+              <div className={cn(
+                'rounded-xl border p-4',
+                transientOps.activeCooldowns.length > 3
+                  ? 'border-amber-400/40 bg-amber-50/5'
+                  : 'border-border',
+              )}>
+                <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                  <Clock3 className={cn('h-4 w-4', transientOps.activeCooldowns.length > 0 ? 'text-amber-500' : 'text-muted-foreground')} />
+                  Provider Cooldowns
+                </div>
+                <div className={cn('text-3xl font-semibold', transientOps.activeCooldowns.length > 3 && 'text-amber-500')}>
+                  {transientOps.activeCooldowns.length}
+                </div>
+                <div className="mt-3 space-y-2 text-sm">
+                  {transientOps.activeCooldowns.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">Keine aktiven Cooldowns</div>
+                  ) : (
+                    transientOps.activeCooldowns.slice(0, 5).map((cd) => (
+                      <div key={`${cd.provider}:${cd.model}`} className="rounded-lg border border-border/60 px-3 py-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium">{cd.provider} · {cd.model}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            bis {new Date(cd.until_at).toLocaleTimeString('de-DE')}
+                          </span>
+                        </div>
+                        {cd.reason && (
+                          <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{cd.reason}</div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 
