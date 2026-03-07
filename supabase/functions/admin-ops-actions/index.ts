@@ -162,6 +162,12 @@ async function captureBeforeState(sb: SB, type: string, body: JsonRow) {
         const { data } = await sb.from("ops_building_without_job_or_lease").select("package_id").limit(20);
         return { state: { zombie_count: data?.length ?? 0 }, ids: (data || []).map((r: any) => r.package_id) };
       }
+      case "failed_packages": {
+        let q = sb.from("course_packages").select("id, title, status, last_error").eq("status", "failed");
+        if (typeof body.package_id === "string") q = q.eq("id", body.package_id);
+        const { data } = await q.limit(20);
+        return { state: { failed_count: data?.length ?? 0, sample: data?.slice(0, 5) }, ids: (data || []).map((r: any) => r.id) };
+      }
       default:
         return { state: null, ids: [] };
     }
