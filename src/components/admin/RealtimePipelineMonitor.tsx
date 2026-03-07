@@ -11,6 +11,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useState } from 'react';
+import { CompetencyBundleProgress } from './CompetencyBundleProgress';
 
 import {
   FULL_STEP_ORDER,
@@ -87,61 +88,63 @@ function PackagePipeline({ pkg, steps }: { pkg: any; steps: any[] }) {
             const isFailed = step.status === 'failed' || step.status === 'timeout';
 
             return (
-              <div
-                key={step.step_key}
-                className={cn(
-                  "flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors",
-                  isRunning && "bg-primary/5 border border-primary/20",
-                  isFailed && "bg-destructive/5",
-                )}
-              >
-                <span className="text-sm">{meta.emoji}</span>
-                <StepStatusIcon status={step.status} />
-                <span className={cn("flex-1 truncate", isRunning && "font-medium text-primary")}>
-                  {meta.label}
-                </span>
+              <div key={step.step_key}>
+                <div
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors",
+                    isRunning && "bg-primary/5 border border-primary/20",
+                    isFailed && "bg-destructive/5",
+                  )}
+                >
+                  <span className="text-sm">{meta.emoji}</span>
+                  <StepStatusIcon status={step.status} />
+                  <span className={cn("flex-1 truncate", isRunning && "font-medium text-primary")}>
+                    {meta.label}
+                  </span>
 
-                {(isRunning || isFailed) && (() => {
-                  const m = step.meta as Record<string, unknown> | null;
-                  const remaining = m?.remaining != null ? Number(m.remaining) : null;
-                  const generated = m?.generated != null ? Number(m.generated) : null;
-                  const totalPh = m?.total_placeholders != null ? Number(m.total_placeholders) : null;
-                  // Show batch progress if available, otherwise show attempts
-                  if (remaining !== null && generated !== null) {
+                  {(isRunning || isFailed) && (() => {
+                    const m = step.meta as Record<string, unknown> | null;
+                    const remaining = m?.remaining != null ? Number(m.remaining) : null;
+                    const generated = m?.generated != null ? Number(m.generated) : null;
+                    if (remaining !== null && generated !== null) {
+                      return (
+                        <span className="text-[10px] text-muted-foreground">
+                          {generated}/{generated + remaining}
+                        </span>
+                      );
+                    }
                     return (
                       <span className="text-[10px] text-muted-foreground">
-                        {generated}/{generated + remaining}
+                        #{step.attempts}
                       </span>
                     );
-                  }
-                  return (
+                  })()}
+
+                  {isRunning && <HeartbeatAge ts={step.last_heartbeat_at} />}
+
+                  {step.status === 'done' && step.started_at && step.finished_at && (
                     <span className="text-[10px] text-muted-foreground">
-                      #{step.attempts}
+                      <Timer className="h-2.5 w-2.5 inline mr-0.5" />
+                      {Math.round((new Date(step.finished_at).getTime() - new Date(step.started_at).getTime()) / 1000)}s
                     </span>
-                  );
-                })()}
+                  )}
 
-                {isRunning && <HeartbeatAge ts={step.last_heartbeat_at} />}
+                  {isFailed && step.last_error && (
+                    <span className="text-[10px] text-destructive max-w-[180px] truncate">
+                      {step.last_error}
+                    </span>
+                  )}
 
-                {step.status === 'done' && step.started_at && step.finished_at && (
-                  <span className="text-[10px] text-muted-foreground">
-                    <Timer className="h-2.5 w-2.5 inline mr-0.5" />
-                    {Math.round((new Date(step.finished_at).getTime() - new Date(step.started_at).getTime()) / 1000)}s
-                  </span>
+                  <Badge
+                    variant={step.status === 'done' ? 'default' : isRunning ? 'secondary' : isFailed ? 'destructive' : 'outline'}
+                    className="text-[9px] shrink-0"
+                  >
+                    {step.status}
+                  </Badge>
+                </div>
+                {step.step_key === 'generate_learning_content' && (isRunning || isFailed) && (
+                  <CompetencyBundleProgress packageId={pkg.id} />
                 )}
-
-                {isFailed && step.last_error && (
-                  <span className="text-[10px] text-destructive max-w-[180px] truncate">
-                    {step.last_error}
-                  </span>
-                )}
-
-                <Badge
-                  variant={step.status === 'done' ? 'default' : isRunning ? 'secondary' : isFailed ? 'destructive' : 'outline'}
-                  className="text-[9px] shrink-0"
-                >
-                  {step.status}
-                </Badge>
               </div>
             );
           })}
