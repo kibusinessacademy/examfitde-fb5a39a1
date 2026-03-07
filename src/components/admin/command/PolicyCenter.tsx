@@ -51,6 +51,8 @@ const POLICY_ICONS: Record<string, React.ReactNode> = {
   fix_broken_redirects: <AlertTriangle className="h-4 w-4 text-amber-500" />,
 };
 
+const CRITICAL_POLICIES = new Set(['cancel_zombies', 'requeue_transient_failed', 'reset_stuck_steps']);
+
 export function PolicyCenter() {
   const { toast } = useToast();
   const qc = useQueryClient();
