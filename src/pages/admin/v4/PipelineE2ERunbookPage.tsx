@@ -456,11 +456,16 @@ export default function PipelineE2ERunbookPage() {
   const p0Fail = p0Results.filter(s => s === 'fail').length;
   const softResults = CHECKS.filter(c => c.gate === 'soft').map(c => results[c.id]?.status).filter(Boolean);
   const softPass = softResults.filter(s => s === 'pass').length;
-  const softWarn = softResults.filter(s => s === 'warn').length;
-  const totalRun = Object.values(results).filter(r => r.status !== 'idle').length;
+  const softWarn = softResults.filter(s => s === 'warn' || s === 'fail').length;
+
+  // P0-complete only when every P0 check has a terminal status
+  const p0Complete = P0_IDS.every(id => {
+    const s = results[id]?.status;
+    return s && s !== 'idle' && s !== 'running';
+  });
 
   const verdict: Verdict =
-    totalRun < 6 ? 'INCOMPLETE'
+    !p0Complete ? 'INCOMPLETE'
     : p0Fail > 0 ? 'NO_GO'
     : softWarn > 0 ? 'GO_WITH_WARNINGS'
     : p0Pass >= P0_IDS.length ? 'GO'
