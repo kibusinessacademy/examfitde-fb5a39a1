@@ -181,12 +181,42 @@ export default function LearnerCompetencyPage() {
       )}
 
       {/* Actions */}
-      {!isLoading && (
+      {!isLoading && learnerId && curriculumId && (
         <Card>
-          <CardContent className="p-4 flex flex-wrap gap-3">
-            <Button variant="default" disabled>Adaptive Prüfung starten</Button>
-            <Button variant="outline" disabled>Remediation starten</Button>
-            <Button variant="outline" disabled>Mit Tutor arbeiten</Button>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Maßnahmen</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            <Button
+              variant="default"
+              onClick={() => {
+                const link = `${window.location.origin}/exam-simulation?curriculum=${curriculumId}`;
+                navigator.clipboard.writeText(link);
+                toast.success("Link kopiert", { description: "Adaptive Prüfung – Link in der Zwischenablage" });
+              }}
+            >
+              <Play className="h-4 w-4 mr-1" /> Prüfungslink kopieren
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const link = `${window.location.origin}/spaced-repetition?curriculum=${curriculumId}`;
+                navigator.clipboard.writeText(link);
+                toast.success("Link kopiert", { description: "Remediation – Link in der Zwischenablage" });
+              }}
+            >
+              <BookOpen className="h-4 w-4 mr-1" /> Remediation-Link
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const link = `${window.location.origin}/exam-trainer?curriculum=${curriculumId}`;
+                navigator.clipboard.writeText(link);
+                toast.success("Link kopiert", { description: "Tutor – Link in der Zwischenablage" });
+              }}
+            >
+              <MessageSquare className="h-4 w-4 mr-1" /> Tutor-Link
+            </Button>
           </CardContent>
         </Card>
       )}
