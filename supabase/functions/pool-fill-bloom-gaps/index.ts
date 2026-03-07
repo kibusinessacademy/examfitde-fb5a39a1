@@ -158,13 +158,12 @@ Deno.serve(async (req) => {
     // 2a. Competency gaps — generate with the most needed bloom level
     for (const comp of compGaps) {
       if (remaining <= 0) break;
-      const count = Math.min(comp.gap, 5, remaining); // max 5 per competency per run
-      // Pick bloom level from the biggest bloom gap, fallback to "apply"
+      const count = Math.min(comp.gap, 5, remaining);
       const topBloom = bloomGaps.length > 0 ? bloomGaps[0].key : "apply";
       plan.push({
         bloom: topBloom,
         difficulty: BLOOM_DIFFICULTY_MAP[topBloom] || "medium",
-        competency_id: comp.key,
+        competency_id: comp.competency_id,
         count,
       });
       remaining -= count;
