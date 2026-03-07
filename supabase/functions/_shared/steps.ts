@@ -27,12 +27,58 @@ export async function markStepDone(sb: SB, args: {
     track: args.track,
   });
 
+  // ── P1-D: On heal-to-done, historize last_error into meta.previous_errors[] ──
+  // Fetch current step to capture existing last_error before clearing
+  let previousErrors: string[] = [];
+  try {
+    const { data: currentStep } = await sb
+      .from("package_steps")
+      .select("last_error, meta")
+      .eq("package_id", args.packageId)
+      .eq("step_key", args.stepKey)
+      .maybeSingle();
+    if (currentStep?.last_error) {
+      const existingHistory = Array.isArray((currentStep.meta as any)?.previous_errors)
+        ? (currentStep.meta as any).previous_errors
+        : [];
+      previousErrors = [
+        ...existingHistory,
+        `[${new Date().toISOString()}] ${String(currentStep.last_error).slice(0, 300)}`,
+      ].slice(-10); // Keep last 10 errors max
+    }
+  } catch (_e) { /* best-effort — don't block step completion */ }
+
+  const cleanedMeta = {
+    ...(args.meta ?? {}),
+    // Historize errors, clear transient fields
+    ...(previousErrors.length > 0 ? { previous_errors: previousErrors } : {}),
+    // Explicitly remove stale failure signals
+    last_error_class: undefined,
+    failed_at: undefined,
+    transient_attempts: undefined,
+    transient_first_at: undefined,
+    last_transient_error: undefined,
+    last_transient_at: undefined,
+    transient_exhausted: undefined,
+    escalated: undefined,
+    escalated_at: undefined,
+    blocked_reason: undefined,
+    reason: undefined,
+    sequence_guard: undefined,
+  };
+
+  // Remove undefined keys (Supabase jsonb doesn't like them)
+  for (const k of Object.keys(cleanedMeta)) {
+    if ((cleanedMeta as any)[k] === undefined) delete (cleanedMeta as any)[k];
+  }
+
   const { error } = await sb
     .from("package_steps")
     .update({
       status: "done",
       finished_at,
-      meta: { ...(args.meta ?? {}) },
+      last_error: null, // Always clear last_error on done
+      meta: cleanedMeta,
     })
     .eq("package_id", args.packageId)
     .eq("step_key", args.stepKey);

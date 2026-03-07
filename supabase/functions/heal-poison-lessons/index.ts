@@ -153,6 +153,15 @@ Deno.serve(async (req) => {
           throw new Error(`Content too short: ${content.html?.length || 0} chars`);
         }
 
+        // P0-A: Sanitize double-serialized html before persist
+        if (!isMiniCheck && content.html && typeof content.html === "string") {
+          const trimmed = content.html.trim();
+          if (trimmed.startsWith("{") || trimmed.startsWith("```")) {
+            const cleaned = trimmed.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+            try { const inner = JSON.parse(cleaned); if (inner.html) { content.html = inner.html; content.objectives = content.objectives || inner.objectives || []; } } catch { /* not JSON */ }
+          }
+        }
+
         const finalContent = isMiniCheck
           ? { type: "mini_check", questions: content.questions, objectives: content.objectives, generated_at: new Date().toISOString(), version: 3, healed: true }
           : { type: "text", html: content.html, objectives: content.objectives, generated_at: new Date().toISOString(), version: 3, healed: true };
