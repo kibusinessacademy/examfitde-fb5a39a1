@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useLearnerProfile } from "@/hooks/useB2bData";
-import KpiCard from "@/components/b2b/KpiCard";
+import { toast } from "sonner";
 import RiskBadge from "@/components/b2b/RiskBadge";
 import ReadinessBar from "@/components/b2b/ReadinessBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
