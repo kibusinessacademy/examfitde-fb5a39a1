@@ -1,12 +1,13 @@
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useLearnerProfile } from "@/hooks/useB2bData";
+import { toast } from "sonner";
 import KpiCard from "@/components/b2b/KpiCard";
 import RiskBadge from "@/components/b2b/RiskBadge";
 import ReadinessBar from "@/components/b2b/ReadinessBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, GraduationCap, Shield, TrendingUp, AlertTriangle } from "lucide-react";
+import { ArrowLeft, GraduationCap, Shield, TrendingUp, AlertTriangle, Copy, Play, BookOpen, MessageSquare } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 
@@ -15,6 +16,7 @@ export default function LearnerCompetencyPage() {
   const [searchParams] = useSearchParams();
   const learnerId = searchParams.get("id");
   const curriculumId = searchParams.get("curriculum");
+  const orgId = searchParams.get("org");
 
   const { data, isLoading, error } = useLearnerProfile(learnerId, curriculumId);
 
@@ -22,6 +24,14 @@ export default function LearnerCompetencyPage() {
   const strongestSkills: any[] = profile.strongest_skills ?? [];
   const weakestSkills: any[] = profile.weakest_skills ?? [];
   const recentSessions: any[] = profile.recent_sessions ?? [];
+
+  // Build back-navigation URL preserving org context
+  const buildBackUrl = () => {
+    const params = new URLSearchParams();
+    if (curriculumId) params.set("curriculum", curriculumId);
+    if (orgId) params.set("org", orgId);
+    return `/admin/b2b/cohort?${params.toString()}`;
+  };
 
   if (!learnerId || !curriculumId) {
     return (
@@ -35,7 +45,7 @@ export default function LearnerCompetencyPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/b2b/cohort?curriculum=${curriculumId}`)}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(buildBackUrl())}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -93,7 +103,6 @@ export default function LearnerCompetencyPage() {
       {/* Skills Grid */}
       {!isLoading && (weakestSkills.length > 0 || strongestSkills.length > 0) && (
         <div className="grid md:grid-cols-2 gap-4">
-          {/* Weakest */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-destructive">Schwächste Kompetenzen</CardTitle>
@@ -112,7 +121,6 @@ export default function LearnerCompetencyPage() {
             </CardContent>
           </Card>
 
-          {/* Strongest */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-success">Stärkste Kompetenzen</CardTitle>
@@ -173,12 +181,42 @@ export default function LearnerCompetencyPage() {
       )}
 
       {/* Actions */}
-      {!isLoading && (
+      {!isLoading && learnerId && curriculumId && (
         <Card>
-          <CardContent className="p-4 flex flex-wrap gap-3">
-            <Button variant="default" disabled>Adaptive Prüfung starten</Button>
-            <Button variant="outline" disabled>Remediation starten</Button>
-            <Button variant="outline" disabled>Mit Tutor arbeiten</Button>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Maßnahmen</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            <Button
+              variant="default"
+              onClick={() => {
+                const link = `${window.location.origin}/exam-simulation?curriculum=${curriculumId}`;
+                navigator.clipboard.writeText(link);
+                toast.success("Link kopiert", { description: "Adaptive Prüfung – Link in der Zwischenablage" });
+              }}
+            >
+              <Play className="h-4 w-4 mr-1" /> Prüfungslink kopieren
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const link = `${window.location.origin}/spaced-repetition?curriculum=${curriculumId}`;
+                navigator.clipboard.writeText(link);
+                toast.success("Link kopiert", { description: "Remediation – Link in der Zwischenablage" });
+              }}
+            >
+              <BookOpen className="h-4 w-4 mr-1" /> Remediation-Link
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const link = `${window.location.origin}/exam-trainer?curriculum=${curriculumId}`;
+                navigator.clipboard.writeText(link);
+                toast.success("Link kopiert", { description: "Tutor – Link in der Zwischenablage" });
+              }}
+            >
+              <MessageSquare className="h-4 w-4 mr-1" /> Tutor-Link
+            </Button>
           </CardContent>
         </Card>
       )}

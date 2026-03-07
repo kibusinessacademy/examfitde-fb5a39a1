@@ -29775,6 +29775,13 @@ export type Database = {
       is_user_blocked: { Args: { p_user: string }; Returns: boolean }
       job_maintenance: { Args: never; Returns: Json }
       job_recovery_worker: { Args: never; Returns: Json }
+      list_b2b_curricula: {
+        Args: never
+        Returns: {
+          id: string
+          title: string
+        }[]
+      }
       list_course_evidence_packs: {
         Args: {
           p_course_id?: string

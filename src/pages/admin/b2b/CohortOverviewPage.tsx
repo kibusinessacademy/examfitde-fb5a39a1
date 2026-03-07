@@ -1,17 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useCohortOverview } from "@/hooks/useB2bData";
+import { useCohortOverview, useB2bCurricula } from "@/hooks/useB2bData";
 import KpiCard from "@/components/b2b/KpiCard";
 import RiskBadge from "@/components/b2b/RiskBadge";
 import ReadinessBar from "@/components/b2b/ReadinessBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, AlertTriangle, CheckCircle, GraduationCap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, AlertTriangle, CheckCircle, GraduationCap, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface CurriculumOption { id: string; title: string }
 
 export default function CohortOverviewPage() {
   const navigate = useNavigate();
@@ -19,23 +17,22 @@ export default function CohortOverviewPage() {
   const curriculumId = searchParams.get("curriculum") || null;
   const orgId = searchParams.get("org") || undefined;
 
-  const [curricula, setCurricula] = useState<CurriculumOption[]>([]);
-  const [loadingCurricula, setLoadingCurricula] = useState(true);
+  const { data: curricula = [], isLoading: loadingCurricula } = useB2bCurricula();
 
-  // Load curricula list
+  // Auto-select first curriculum if none specified
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("curricula")
-        .select("id, title")
-        .order("title");
-      setCurricula((data ?? []).map((c) => ({ id: c.id, title: c.title })));
-      setLoadingCurricula(false);
-      if (!curriculumId && data && data.length > 0) {
-        setSearchParams({ curriculum: data[0].id });
-      }
-    })();
-  }, []);
+    if (!curriculumId && curricula.length > 0) {
+      const params: Record<string, string> = { curriculum: curricula[0].id };
+      if (orgId) params.org = orgId;
+      setSearchParams(params);
+    }
+  }, [curriculumId, curricula]);
+
+  const handleCurriculumChange = (v: string) => {
+    const params: Record<string, string> = { curriculum: v };
+    if (orgId) params.org = orgId;
+    setSearchParams(params);
+  };
 
   const { data, isLoading, error } = useCohortOverview(curriculumId, orgId);
 
@@ -46,22 +43,35 @@ export default function CohortOverviewPage() {
   const weakestSkills: any[] = data?.weakest_skills ?? [];
   const learners: any[] = data?.learners ?? [];
 
+  const buildLearnerUrl = (learnerId: string) => {
+    const params = new URLSearchParams({ id: learnerId, curriculum: curriculumId! });
+    if (orgId) params.set("org", orgId);
+    return `/admin/b2b/learner?${params.toString()}`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Kohortenübersicht</h1>
-          <p className="text-sm text-muted-foreground">Prüfungsreife, Risiken und schwache Kompetenzen auf Kursebene</p>
+        <div className="flex items-center gap-3">
+          {orgId && (
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/b2b/org?org=${orgId}`)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Kohortenübersicht</h1>
+            <p className="text-sm text-muted-foreground">Prüfungsreife, Risiken und schwache Kompetenzen auf Kursebene</p>
+          </div>
         </div>
         <Select
           value={curriculumId ?? ""}
-          onValueChange={(v) => setSearchParams({ curriculum: v })}
+          onValueChange={handleCurriculumChange}
         >
           <SelectTrigger className="w-full sm:w-[280px]">
             <SelectValue placeholder={loadingCurricula ? "Lade…" : "Curriculum wählen"} />
           </SelectTrigger>
           <SelectContent>
-            {curricula.map((c) => (
+            {curricula.map((c: any) => (
               <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
             ))}
           </SelectContent>
@@ -169,15 +179,13 @@ export default function CohortOverviewPage() {
                     <TableRow
                       key={l.learner_id}
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => navigate(`/admin/b2b/learner?id=${l.learner_id}&curriculum=${curriculumId}`)}
+                      onClick={() => navigate(buildLearnerUrl(l.learner_id))}
                     >
                       <TableCell>
                         <div>
                           <p className="font-medium text-sm">{l.display_name || l.learner_id?.slice(0, 8)}</p>
                           {l.weakest_skill && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              schwach: {l.weakest_skill}
-                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">schwach: {l.weakest_skill}</p>
                           )}
                         </div>
                       </TableCell>
