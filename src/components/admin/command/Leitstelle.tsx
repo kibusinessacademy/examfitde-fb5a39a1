@@ -219,11 +219,13 @@ function ActionStrip({
 
 function BuildPackageCard({ pkg }: { pkg: PipelinePackage }) {
   const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
-  const { progress, currentLabel, isActive } = deriveStepProgress(stepStatuses);
+  const { progress, currentLabel, isActive, doneCount, total } = deriveStepProgress(stepStatuses);
   const oral = getStepOk(stepStatuses, 'generate_oral_exam', 'validate_oral_exam');
   const tutor = getStepOk(stepStatuses, 'build_ai_tutor_index', 'validate_tutor_index');
   const handbook = getStepOk(stepStatuses, 'generate_handbook', 'validate_handbook');
   const hasFailed = Object.values(stepStatuses).some((s) => s === 'failed');
+  const track = (pkg as any).track || 'AUSBILDUNG_VOLL';
+  const isFullTrack = track === 'AUSBILDUNG_VOLL';
 
   return (
     <div
@@ -236,8 +238,20 @@ function BuildPackageCard({ pkg }: { pkg: PipelinePackage }) {
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate font-semibold">{pkg.name}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{currentLabel}</div>
+          <div className="flex items-center gap-1.5">
+            <span className="truncate font-semibold">{pkg.name}</span>
+            <Badge variant="outline" className={cn(
+              'text-[9px] px-1 py-0 shrink-0',
+              isFullTrack ? 'bg-primary/10 text-primary border-primary/30' : 'bg-accent/20 text-accent-foreground border-accent/40'
+            )}>
+              {isFullTrack ? 'Voll' : 'Exam'}
+            </Badge>
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>{currentLabel}</span>
+            <span className="text-muted-foreground/50">·</span>
+            <span>{doneCount}/{total} Steps</span>
+          </div>
         </div>
         <Badge variant={isActive ? 'default' : 'outline'}>{progress}%</Badge>
       </div>
