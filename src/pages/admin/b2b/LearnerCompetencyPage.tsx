@@ -1,12 +1,13 @@
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useLearnerProfile } from "@/hooks/useB2bData";
 import { toast } from "sonner";
+import KpiCard from "@/components/b2b/KpiCard";
 import RiskBadge from "@/components/b2b/RiskBadge";
 import ReadinessBar from "@/components/b2b/ReadinessBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, GraduationCap, Shield, TrendingUp, AlertTriangle } from "lucide-react";
+import { ArrowLeft, GraduationCap, Shield, TrendingUp, AlertTriangle, Copy, Play, BookOpen, MessageSquare } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 
