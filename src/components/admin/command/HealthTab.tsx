@@ -52,7 +52,8 @@ export default function HealthTab() {
       const sb = supabase as any;
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
       const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, todayCostRes, mtdCostRes, budgetRes, aiRes, autoOpsRes, escalationRes, opsHealthRes] = await Promise.all([
+      const CRITICAL_POLICIES = ['cancel_zombies', 'requeue_transient_failed', 'reset_stuck_steps'];
+      const [pkgRes, ticketRes, profileRes, seoRes, orderRes, todayCostRes, mtdCostRes, budgetRes, aiRes, autoOpsRes, escalationRes, opsHealthRes, policyRes] = await Promise.all([
         sb.from('course_packages').select('id, title, status, build_progress, priority, current_step, step_status_json, created_at, updated_at, track').neq('status', 'archived').order('priority').order('created_at'),
         sb.from('support_tickets').select('status'),
         sb.from('profiles').select('id', { count: 'exact', head: true }),
@@ -65,7 +66,12 @@ export default function HealthTab() {
         sb.from('auto_heal_log').select('created_at, metadata').eq('action_type', 'auto_ops_cycle').order('created_at', { ascending: false }).limit(1),
         sb.from('escalation_log').select('escalation_level, action_type, target, created_at').order('created_at', { ascending: false }).limit(1),
         sb.from('ops_health_summary').select('*').single(),
+        sb.from('auto_heal_config').select('policy_key, enabled').in('policy_key', CRITICAL_POLICIES),
       ]);
+      const disabledPolicies = ((policyRes.data || []) as { policy_key: string; enabled: boolean }[])
+        .filter(p => !p.enabled)
+        .map(p => p.policy_key);
+      setDisabledCriticalPolicies(disabledPolicies);
       setPackages((pkgRes.data || []) as PackageInfo[]);
       const tickets = (ticketRes.data || []) as { status: string }[];
       const orders = (orderRes.data || []) as { status: string; total_cents: number }[];
