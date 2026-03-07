@@ -29,3 +29,17 @@ export function useLearnerProfile(learnerId: string | null, curriculumId: string
     },
   });
 }
+
+export function useOrgCompetencyDashboard(organizationId: string | null) {
+  return useQuery({
+    queryKey: ["org-competency-dashboard", organizationId],
+    enabled: !!organizationId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_org_competency_dashboard", {
+        p_organization_id: organizationId!,
+      });
+      if (error) throw error;
+      return data as any;
+    },
+  });
+}

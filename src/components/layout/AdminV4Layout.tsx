@@ -91,6 +91,10 @@ export default function AdminV4Layout() {
     tickets: 'Tickets',
     faq: 'FAQ',
     handbook: 'Handbuch',
+    b2b: 'B2B',
+    org: 'Betriebsdashboard',
+    cohort: 'Kohortenübersicht',
+    learner: 'Kompetenzprofil',
   };
 
   return (

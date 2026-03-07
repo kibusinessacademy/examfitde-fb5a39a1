@@ -17,6 +17,7 @@ export default function CohortOverviewPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const curriculumId = searchParams.get("curriculum") || null;
+  const orgId = searchParams.get("org") || undefined;
 
   const [curricula, setCurricula] = useState<CurriculumOption[]>([]);
   const [loadingCurricula, setLoadingCurricula] = useState(true);
@@ -36,7 +37,7 @@ export default function CohortOverviewPage() {
     })();
   }, []);
 
-  const { data, isLoading, error } = useCohortOverview(curriculumId);
+  const { data, isLoading, error } = useCohortOverview(curriculumId, orgId);
 
   const avg = data?.avg_readiness_pct ?? 0;
   const atRisk = data?.at_risk_count ?? 0;

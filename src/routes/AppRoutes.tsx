@@ -88,6 +88,7 @@ const AdminRevenuePage = lazy(() => import('@/pages/admin/AdminRevenuePage'));
 const AdminExecutiveHomePage = lazy(() => import('@/pages/admin/AdminExecutiveHomePage'));
 const CohortOverviewPage = lazy(() => import('@/pages/admin/b2b/CohortOverviewPage'));
 const LearnerCompetencyPage = lazy(() => import('@/pages/admin/b2b/LearnerCompetencyPage'));
+const OrgDashboardPage = lazy(() => import('@/pages/admin/b2b/OrgDashboardPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazy(() => import('@/pages/work/WorkHomePage'));
@@ -260,6 +261,7 @@ const AppRoutes = () => {
           <Route path="audit" element={<AuditDashboardPage />} />
 
           {/* B2B Competency Views */}
+          <Route path="b2b/org" element={<OrgDashboardPage />} />
           <Route path="b2b/cohort" element={<CohortOverviewPage />} />
           <Route path="b2b/learner" element={<LearnerCompetencyPage />} />
 
