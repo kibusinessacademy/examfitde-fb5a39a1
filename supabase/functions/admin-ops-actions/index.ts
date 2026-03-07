@@ -294,3 +294,59 @@ async function rootCauseSummary(sb: SB, body: JsonRow) {
 
   return { ok: true, groups: [...buckets.values()].sort((a, b) => b.count - a.count).slice(0, 15), total: rows.length, hours };
 }
+
+/* ── Scoped: recover_failed_packages ── */
+async function recoverFailedPackages(sb: SB, body: JsonRow) {
+  const limit = typeof body.limit === "number" ? Math.max(1, Math.min(20, body.limit)) : 10;
+
+  // Build query for failed packages
+  let query = sb.from("course_packages").select("id, title, retry_count").eq("status", "failed");
+  if (typeof body.package_id === "string") query = query.eq("id", body.package_id);
+
+  const { data: pkgs, error: fetchErr } = await query.order("updated_at", { ascending: true }).limit(limit);
+  if (fetchErr) throw fetchErr;
+  if (!pkgs?.length) return { ok: true, recovered: 0, details: [] };
+
+  const details: { id: string; title: string; steps_reset: number }[] = [];
+
+  for (const pkg of pkgs as any[]) {
+    // Reset failed/timeout steps to queued
+    const { data: failedSteps } = await sb
+      .from("package_steps")
+      .select("step_key")
+      .eq("package_id", pkg.id)
+      .in("status", ["failed", "timeout"]);
+
+    let stepsReset = 0;
+    for (const step of (failedSteps || []) as any[]) {
+      const { error } = await sb.from("package_steps").update({
+        status: "queued",
+        attempts: 0,
+        job_id: null,
+        runner_id: null,
+        started_at: null,
+        last_error: "Admin manual recovery via recover_failed_packages",
+        updated_at: new Date().toISOString(),
+      }).eq("package_id", pkg.id).eq("step_key", step.step_key);
+      if (!error) stepsReset++;
+    }
+
+    // Cancel stale failed jobs
+    await sb.from("job_queue")
+      .update({ status: "cancelled", last_error: "Admin recover_failed_packages cleanup" })
+      .eq("package_id", pkg.id)
+      .eq("status", "failed");
+
+    // Reset package to building
+    await sb.from("course_packages").update({
+      status: "building",
+      retry_count: (pkg.retry_count ?? 0) + 1,
+      last_error: `Admin recovery: ${stepsReset} steps reset`,
+      updated_at: new Date().toISOString(),
+    }).eq("id", pkg.id);
+
+    details.push({ id: pkg.id, title: pkg.title || pkg.id.slice(0, 8), steps_reset: stepsReset });
+  }
+
+  return { ok: true, recovered: details.length, details, scope: body.package_id ? "single" : "global" };
+}
