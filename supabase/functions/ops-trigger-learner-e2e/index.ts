@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
   const packageId = String(body.package_id ?? body.packageId ?? "");
   const curriculumId = String(body.curriculum_id ?? body.curriculumId ?? "");
   const courseId = String(body.course_id ?? body.courseId ?? "");
-  const track = String(body.track ?? "EXAM_FIRST");
+  const track = String(body.track ?? "AUSBILDUNG_VOLL");
   const reason = String(body.reason ?? "post_publish");
 
   if (!packageId || !curriculumId) {

@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
           "x-job-runner-key": internalSecret,
         },
-        body: JSON.stringify({ package_id: packageId, curriculum_id: (pkgQ as any)?.curriculum_id ?? "", course_id: courseId, track: "EXAM_FIRST", reason: "post_publish" }),
+        body: JSON.stringify({ package_id: packageId, curriculum_id: (pkgQ as any)?.curriculum_id ?? "", course_id: courseId, track: (pkgQ as any)?.track ?? "AUSBILDUNG_VOLL", reason: "post_publish" }),
       });
       const triggerBody = await triggerRes.json().catch(() => ({}));
       console.log(`[auto-publish] E2E trigger: ${triggerRes.status}`, triggerBody);
