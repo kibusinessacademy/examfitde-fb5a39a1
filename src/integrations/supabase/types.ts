@@ -22076,6 +22076,47 @@ export type Database = {
         }
         Relationships: []
       }
+      user_exam_skill_events: {
+        Row: {
+          created_at: string
+          id: string
+          idempotency_key: string
+          is_correct: boolean
+          question_id: string
+          session_id: string
+          skill_node_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          is_correct: boolean
+          question_id: string
+          session_id: string
+          skill_node_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          is_correct?: boolean
+          question_id?: string
+          session_id?: string
+          skill_node_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_exam_skill_events_skill_node_id_fkey"
+            columns: ["skill_node_id"]
+            isOneToOne: false
+            referencedRelation: "skill_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_humor_preferences: {
         Row: {
           created_at: string
@@ -22171,6 +22212,50 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ops_curriculum_quality_dashboard_mv"
             referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
+      user_minicheck_skill_events: {
+        Row: {
+          correct_count: number
+          created_at: string
+          id: string
+          idempotency_key: string
+          lesson_id: string | null
+          skill_node_id: string
+          submission_id: string
+          total_count: number
+          user_id: string
+        }
+        Insert: {
+          correct_count?: number
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          lesson_id?: string | null
+          skill_node_id: string
+          submission_id?: string
+          total_count?: number
+          user_id: string
+        }
+        Update: {
+          correct_count?: number
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          lesson_id?: string | null
+          skill_node_id?: string
+          submission_id?: string
+          total_count?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_minicheck_skill_events_skill_node_id_fkey"
+            columns: ["skill_node_id"]
+            isOneToOne: false
+            referencedRelation: "skill_nodes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -29965,6 +30050,10 @@ export type Database = {
         Args: { p_skill_node_id: string; p_user_id: string }
         Returns: Json
       }
+      recalculate_mastery_for_skills: {
+        Args: { p_skill_node_ids: string[]; p_user_id: string }
+        Returns: Json
+      }
       recalculate_routing_scores: { Args: never; Returns: undefined }
       recompute_compliance_block: {
         Args: { p_course_id: string }
@@ -29999,6 +30088,10 @@ export type Database = {
       refresh_curriculum_quality_dashboard_mv: {
         Args: never
         Returns: undefined
+      }
+      refresh_user_skill_score_from_events: {
+        Args: { p_skill_node_id: string; p_user_id: string }
+        Returns: Json
       }
       register_cert_document: {
         Args: {
@@ -30231,6 +30324,10 @@ export type Database = {
       }
       seed_blueprint_targets_for_curriculum: {
         Args: { p_curriculum_id: string; p_mode?: string; p_track?: string }
+        Returns: Json
+      }
+      seed_skill_nodes_from_competencies: {
+        Args: { p_curriculum_id: string }
         Returns: Json
       }
       select_best_provider: {
