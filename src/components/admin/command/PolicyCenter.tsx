@@ -16,6 +16,7 @@ import {
   Play,
   Settings2,
   Shield,
+  ShieldAlert,
   Zap,
 } from 'lucide-react';
 import { useState } from 'react';
