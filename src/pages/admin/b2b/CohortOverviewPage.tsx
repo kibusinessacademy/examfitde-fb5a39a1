@@ -37,7 +37,7 @@ export default function CohortOverviewPage() {
     })();
   }, []);
 
-  const { data, isLoading, error } = useCohortOverview(curriculumId);
+  const { data, isLoading, error } = useCohortOverview(curriculumId, orgId);
 
   const avg = data?.avg_readiness_pct ?? 0;
   const atRisk = data?.at_risk_count ?? 0;
