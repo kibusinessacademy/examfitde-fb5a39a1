@@ -6,15 +6,6 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[EXAM-COACH-FEEDBACK] ${step}`, details ? JSON.stringify(details) : '');
 };
 
-/**
- * KI-Prüfer-Feedback Engine
- * 
- * After a completed exam simulation, generates personalized AI coaching:
- * - Strengths & weaknesses analysis
- * - 48h learning plan
- * - Encouragement tone adapted to score
- */
-
 serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
@@ -28,7 +19,6 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    // LOVABLE_API_KEY checked later for AI feedback
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -88,16 +78,30 @@ serve(async (req) => {
       });
     }
 
-    // Load question details for analysis
+    // Load questions for timing analysis
     const { data: questions } = await admin
       .from('exam_session_questions')
       .select('is_correct, difficulty, learning_field_code, competency_code, time_spent_seconds')
       .eq('exam_session_id', session_id);
 
+    // ─── Load coaching_trigger from get-exam-results diagnostic ───
+    let coachingTrigger: any = null;
+    try {
+      const { data: diagData } = await admin.functions.invoke('get-exam-results', {
+        body: { session_id },
+        headers: { Authorization: authHeader },
+      });
+      coachingTrigger = diagData?.diagnostic?.coaching_trigger || null;
+      logStep("Coaching trigger loaded", { mode: coachingTrigger?.mode, focus_skills: coachingTrigger?.focus_skills?.length });
+    } catch (trigErr) {
+      logStep("Coaching trigger load failed (non-blocking)", { error: String(trigErr) });
+    }
+
     // Build analysis data
     const breakdown = session.breakdown as any || {};
     const byLF = breakdown.by_learning_field || {};
     const byDiff = breakdown.by_difficulty || {};
+    const bySkillNode = breakdown.by_skill_node || {};
 
     const weakLFs = Object.entries(byLF)
       .filter(([code, stats]: [string, any]) => code !== 'unknown' && stats.total > 0 && (stats.correct / stats.total) < 0.6)
@@ -114,9 +118,25 @@ serve(async (req) => {
       : 0;
 
     const scorePercent = session.score_percentage ?? 0;
-    const coachTone = scorePercent >= 80 ? 'congratulatory' : scorePercent >= 60 ? 'encouraging' : 'supportive';
 
-    // Generate AI feedback via Lovable AI Gateway
+    // ─── Determine coaching mode and tone from trigger or fallback ───
+    const coachingMode = coachingTrigger?.mode || (scorePercent >= 80 ? 'examiner' : scorePercent >= 50 ? 'coach' : 'explainer');
+    const coachTone = coachingMode === 'explainer' ? 'supportive' 
+      : coachingMode === 'coach' ? 'encouraging' 
+      : 'congratulatory';
+
+    // Build focus skills context from coaching_trigger
+    const focusSkillsContext = coachingTrigger?.focus_skills?.length > 0
+      ? `\nFokus-Kompetenzen (aus Diagnose):\n${coachingTrigger.focus_skills.map((s: any) => 
+          `- ${s.kompetenz} (LF ${s.lernfeld}, Mastery: ${s.mastery_pct?.toFixed(0) ?? '?'}%${s.session_accuracy != null ? `, Session: ${s.session_accuracy}%` : ''})`
+        ).join('\n')}`
+      : '';
+
+    const readinessContext = coachingTrigger?.readiness_verdict
+      ? `\nPrüfungsreife-Einstufung: ${coachingTrigger.readiness_verdict}`
+      : '';
+
+    // ─── Generate AI feedback via Lovable AI Gateway ───
     let aiSummary = '';
     let aiPlan: string[] = [];
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -124,13 +144,25 @@ serve(async (req) => {
     if (LOVABLE_API_KEY) {
       try {
         const currTitle = (session.curriculum as any)?.title || 'Prüfung';
-        const prompt = `Du bist ein erfahrener IHK-Prüfungscoach für "${currTitle}". 
+        
+        const modeInstruction = coachingMode === 'explainer' 
+          ? 'Sei einfühlsam und erklärend. Der Lernende braucht grundlegende Unterstützung und klare Anleitungen.'
+          : coachingMode === 'coach'
+          ? 'Sei ermutigend und konkret. Der Lernende ist auf dem Weg, braucht aber gezielte Hilfe bei Schwachstellen.'
+          : 'Sei prüfungsfokussiert und anspruchsvoll. Der Lernende ist fast bereit — fokussiere auf Feinschliff und Prüfungsstrategie.';
+
+        const prompt = `Du bist ein erfahrener IHK-Prüfungscoach für "${currTitle}".
+Dein Coaching-Modus: ${coachingMode.toUpperCase()}
+${modeInstruction}
+
 Analysiere dieses Prüfungsergebnis und gib ein persönliches Coaching-Feedback auf Deutsch.
 
 Ergebnis: ${scorePercent.toFixed(1)}% (${session.passed ? 'bestanden' : 'nicht bestanden'})
 Bestehensgrenze: vermutlich 50%
 Fragen gesamt: ${session.total_questions}
 Ø Bearbeitungszeit pro Frage: ${avgTime}s
+${readinessContext}
+${focusSkillsContext}
 
 Schwache Lernfelder (< 60%):
 ${weakLFs.map(([code, stats]: [string, any]) => `- LF ${code}: ${Math.round((stats.correct / stats.total) * 100)}% (${stats.correct}/${stats.total})`).join('\n') || 'Keine'}
@@ -141,9 +173,11 @@ ${strongLFs.map(([code, stats]: [string, any]) => `- LF ${code}: ${Math.round((s
 Schwierigkeitsanalyse:
 ${Object.entries(byDiff).map(([d, s]: [string, any]) => `- ${d}: ${s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0}%`).join('\n')}
 
+${coachingTrigger?.prompt_context ? `\nDiagnostischer Kontext:\n${coachingTrigger.prompt_context}` : ''}
+
 Antworte im JSON-Format (kein Markdown, kein Code-Block):
 {
-  "summary": "2-3 Sätze persönliches Feedback (${coachTone} Tonfall)",
+  "summary": "2-3 Sätze persönliches Feedback (${coachTone} Tonfall, Modus: ${coachingMode})",
   "learning_plan": ["Schritt 1 für die nächsten 48h", "Schritt 2", "Schritt 3", "Schritt 4"]
 }`;
 
@@ -179,7 +213,6 @@ Antworte im JSON-Format (kein Markdown, kein Code-Block):
           const status = aiResponse.status;
           logStep("AI gateway error", { status });
           if (status === 429 || status === 402) {
-            // Fallback: generate without AI
             aiSummary = scorePercent >= 60
               ? `Gutes Ergebnis mit ${scorePercent.toFixed(0)}%! Konzentriere dich auf die markierten Schwachstellen.`
               : `${scorePercent.toFixed(0)}% – noch nicht bestanden. Fokussiere dich auf die schwächsten Lernfelder.`;
@@ -198,7 +231,14 @@ Antworte im JSON-Format (kein Markdown, kein Code-Block):
     }
 
     if (!aiPlan.length) {
-      aiPlan = weakLFs.slice(0, 3).map(([code]: [string, any]) => `Lernfeld ${code} gezielt wiederholen`);
+      // Use focus skills from coaching trigger for plan
+      if (coachingTrigger?.focus_skills?.length > 0) {
+        aiPlan = coachingTrigger.focus_skills.slice(0, 3).map((s: any) => 
+          `${s.kompetenz} (LF ${s.lernfeld}) gezielt wiederholen`
+        );
+      } else {
+        aiPlan = weakLFs.slice(0, 3).map(([code]: [string, any]) => `Lernfeld ${code} gezielt wiederholen`);
+      }
       if (avgTime > 120) aiPlan.push('Zeitmanagement üben: max. 90s pro Frage');
       if (!aiPlan.length) aiPlan.push('Nächste Simulation starten und Fortschritt messen');
     }
@@ -211,7 +251,7 @@ Antworte im JSON-Format (kein Markdown, kein Code-Block):
       errors: stats.total - stats.correct,
     }));
 
-    // Store feedback
+    // Store feedback with coaching mode
     const { data: feedback, error: fbError } = await admin
       .from('exam_ai_feedback')
       .insert({
@@ -229,7 +269,7 @@ Antworte im JSON-Format (kein Markdown, kein Code-Block):
 
     if (fbError) throw fbError;
 
-    logStep("Feedback generated", { id: feedback.id, tone: coachTone });
+    logStep("Feedback generated", { id: feedback.id, tone: coachTone, mode: coachingMode });
 
     return new Response(JSON.stringify({ feedback, cached: false }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
