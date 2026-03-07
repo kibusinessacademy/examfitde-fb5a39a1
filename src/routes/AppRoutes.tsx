@@ -270,6 +270,7 @@ const AppRoutes = () => {
         </Route>
 
         {/* Legacy admin redirects */}
+        <Route path="/admin/control-tower" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/dashboard" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/course-studio" element={<Navigate to="/admin/studio/new" replace />} />
