@@ -5,7 +5,7 @@ import { AlertListCard } from "@/components/admin/cards/AlertListCard";
 import { PipelineFlowCard } from "@/components/admin/cards/PipelineFlowCard";
 import { useAdminControlTower } from "@/components/admin/hooks/useAdminControlTower";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Clock, CheckCircle, XCircle, Package, Cpu, Lock, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, XCircle, Package, Cpu, Lock, ShieldAlert, Unplug } from "lucide-react";
 
 export default function AdminControlTowerPage() {
   const { data, isLoading, error } = useAdminControlTower();
