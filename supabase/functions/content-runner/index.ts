@@ -415,7 +415,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     }
   }
 
-  console.log(`[content-runner] Claimed ${jobs.length} job(s) [concurrency=${BASE_CONCURRENCY}, worker=${WORKER_ID}]`);
+  console.log(`[content-runner] Claimed ${jobs.length} job(s) [concurrency=${BASE_CONCURRENCY}, claimLimit=${claimCount}, worker=${WORKER_ID}]`);
 
   // ── Cleanup expired cooldowns (once per first pass) ──
   if (isFirstPass) {
