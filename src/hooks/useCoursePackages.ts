@@ -80,8 +80,62 @@ export function useCoursePackages() {
         .neq('status', 'archived')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []) as CoursePackage[];
+
+      const rows = (data || []) as (CoursePackage & { curriculum_id?: string | null })[];
+
+      // Defensive guard against duplicate versions leaking into admin lists
+      // (e.g. stale cache/status drift). Keep exactly one visible package per curriculum/title.
+      const statusPriority: Record<string, number> = {
+        building: 100,
+        queued: 90,
+        qa: 80,
+        council_review: 70,
+        planning: 60,
+        draft: 60,
+        published: 50,
+        done: 40,
+        failed: 30,
+        quality_gate_failed: 20,
+        archived: 0,
+      };
+
+      const deduped = new Map<string, CoursePackage & { curriculum_id?: string | null }>();
+
+      for (const pkg of rows) {
+        if (pkg.status === 'archived') continue;
+
+        const key = pkg.curriculum_id || (pkg.title || '').trim().toLowerCase() || pkg.id;
+        const current = deduped.get(key);
+
+        if (!current) {
+          deduped.set(key, pkg);
+          continue;
+        }
+
+        const currentScore = statusPriority[current.status] ?? 10;
+        const nextScore = statusPriority[pkg.status] ?? 10;
+
+        if (nextScore > currentScore) {
+          deduped.set(key, pkg);
+          continue;
+        }
+
+        if (nextScore === currentScore) {
+          const currentUpdated = new Date(current.updated_at).getTime();
+          const nextUpdated = new Date(pkg.updated_at).getTime();
+          if (nextUpdated > currentUpdated) {
+            deduped.set(key, pkg);
+          }
+        }
+      }
+
+      return Array.from(deduped.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ) as CoursePackage[];
     },
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const createPackage = useMutation({
