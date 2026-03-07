@@ -162,6 +162,7 @@ export function PolicyCenter() {
           const isEditing = editingId === p.id;
           const lastResult = p.last_run_result as any;
           const lastUpdated = lastResult?.updated;
+          const isCritical = CRITICAL_POLICIES.has(p.policy_key);
 
           return (
             <div
