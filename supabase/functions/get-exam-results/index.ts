@@ -98,7 +98,21 @@ serve(async (req) => {
       };
     });
 
-    // ─── DIAGNOSTIC: Mastery-enriched analysis ───
+    // ─── Build session-specific diagnostic from this session's questions ───
+    const sessionBreakdownBySkill: Record<string, { correct: number; total: number; kompetenz: string; lernfeld: string }> = {};
+    const breakdownData = session.breakdown as any;
+    if (breakdownData?.by_skill_node) {
+      for (const [skillId, data] of Object.entries(breakdownData.by_skill_node as Record<string, any>)) {
+        sessionBreakdownBySkill[skillId] = {
+          correct: data.correct || 0,
+          total: data.total || 0,
+          kompetenz: data.kompetenz || '',
+          lernfeld: data.lernfeld || '',
+        };
+      }
+    }
+
+    // ─── DIAGNOSTIC: Dual-layer — session + global mastery ───
     let diagnostic = null;
     try {
       const curriculumId = session.curriculum_id;
@@ -120,25 +134,41 @@ serve(async (req) => {
 
         const scoreMap = new Map((scores || []).map((sc: any) => [sc.skill_node_id, sc]));
 
-        // Build skill-level diagnostic
+        // Build skill-level diagnostic (global mastery)
         const skillDiagnostics = skills.map((s: any) => {
           const sc = scoreMap.get(s.id);
+          const sessionData = sessionBreakdownBySkill[s.id];
           return {
             skill_node_id: s.id,
             lernfeld: s.lernfeld,
             kompetenz: s.kompetenz,
+            // Global mastery
             mastery_pct: sc?.decay_adjusted_mastery || sc?.mastery_pct || 0,
             confidence: sc?.confidence || 0,
             mastery_status: sc?.mastery_status || 'not_mastered',
             trend: sc?.trend || 'stable',
             total_attempts: (sc?.attempts || 0) + (sc?.minicheck_attempts || 0),
+            // Session-specific performance
+            session_correct: sessionData?.correct ?? null,
+            session_total: sessionData?.total ?? null,
+            session_accuracy: sessionData ? (sessionData.total > 0 ? Math.round(sessionData.correct / sessionData.total * 100 * 10) / 10 : 0) : null,
           };
         });
 
-        // Weakest and strongest skills
-        const sorted = [...skillDiagnostics].sort((a, b) => a.mastery_pct - b.mastery_pct);
-        const weakest = sorted.filter(s => s.mastery_pct < 60).slice(0, 5);
-        const strongest = sorted.filter(s => s.mastery_pct >= 80).reverse().slice(0, 5);
+        // Session-specific weakest (from THIS session only)
+        const sessionSkills = skillDiagnostics.filter(s => s.session_total !== null && s.session_total > 0);
+        const sessionWeakest = [...sessionSkills]
+          .sort((a, b) => (a.session_accuracy ?? 100) - (b.session_accuracy ?? 100))
+          .filter(s => (s.session_accuracy ?? 100) < 70)
+          .slice(0, 5);
+
+        // Global weakest and strongest
+        const sortedByMastery = [...skillDiagnostics].sort((a, b) => a.mastery_pct - b.mastery_pct);
+        const globalWeakest = sortedByMastery.filter(s => s.mastery_pct < 60).slice(0, 5);
+        const globalStrongest = [...skillDiagnostics]
+          .sort((a, b) => b.mastery_pct - a.mastery_pct)
+          .filter(s => s.mastery_pct >= 80)
+          .slice(0, 5);
 
         // Overall readiness
         const avgMastery = skillDiagnostics.length > 0
@@ -156,40 +186,77 @@ serve(async (req) => {
           : avgMastery >= 40 ? 'needs_work'
           : 'not_ready';
 
-        // Recommended next steps
-        const recommendations: string[] = [];
-        if (weakest.length > 0) {
-          recommendations.push(`Fokussiere dich auf: ${weakest.slice(0, 3).map(w => w.kompetenz).join(', ')}`);
+        // ─── Smarter coaching mode ───
+        const sessionScore = session.score_percentage ?? 0;
+        const sessionPassed = session.passed ?? false;
+        let coachingMode: string;
+        if (avgMastery < 40 && avgConfidence < 0.4) {
+          coachingMode = 'explainer';
+        } else if (avgMastery < 40) {
+          coachingMode = 'coach';
+        } else if (avgMastery < 70) {
+          coachingMode = sessionPassed ? 'examiner' : 'coach';
+        } else if (!sessionPassed || sessionWeakest.length > 0) {
+          coachingMode = 'examiner';
+        } else {
+          coachingMode = 'examiner';
         }
+
+        // ─── Prioritized recommendations ───
+        const recommendations: Array<{ priority: string; text: string }> = [];
+        
+        // Critical
+        if (sessionWeakest.length > 0) {
+          recommendations.push({
+            priority: 'critical',
+            text: `In dieser Prüfung schwach: ${sessionWeakest.slice(0, 3).map(w => w.kompetenz).join(', ')}`,
+          });
+        }
+        if (globalWeakest.length > 0) {
+          recommendations.push({
+            priority: 'critical',
+            text: `Langfristig schwach: ${globalWeakest.slice(0, 3).map(w => `${w.kompetenz} (${w.mastery_pct.toFixed(0)}%)`).join(', ')}`,
+          });
+        }
+
+        // Recommended
         const lowConfSkills = skillDiagnostics.filter(s => s.confidence < 0.3 && s.total_attempts < 5);
         if (lowConfSkills.length > 0) {
-          recommendations.push(`Noch zu wenig Daten für ${lowConfSkills.length} Kompetenzen — trainiere mehr.`);
+          recommendations.push({
+            priority: 'recommended',
+            text: `Noch zu wenig Daten für ${lowConfSkills.length} Kompetenzen — trainiere mehr.`,
+          });
         }
+
+        // Next steps
         if (avgMastery >= 80) {
-          recommendations.push('Du bist prüfungsreif! Fokus auf Zeitmanagement und Wiederholung.');
+          recommendations.push({ priority: 'next_step', text: 'Du bist prüfungsreif! Fokus auf Zeitmanagement und Wiederholung.' });
         } else if (avgMastery >= 60) {
-          recommendations.push('Fast geschafft! Arbeite die schwachen Lernfelder gezielt durch.');
+          recommendations.push({ priority: 'next_step', text: 'Fast geschafft! Arbeite die schwachen Lernfelder gezielt durch.' });
         } else {
-          recommendations.push('Nutze den adaptiven Trainer, um deine Schwächen systematisch zu bearbeiten.');
+          recommendations.push({ priority: 'next_step', text: 'Nutze den adaptiven Trainer, um deine Schwächen systematisch zu bearbeiten.' });
         }
 
         // Tutor coaching payload
+        const focusSkills = (sessionWeakest.length > 0 ? sessionWeakest : globalWeakest).slice(0, 3);
         const coachingTrigger = {
-          mode: avgMastery < 40 ? 'explainer' : avgMastery < 70 ? 'coach' : 'examiner',
-          focus_skills: weakest.slice(0, 3).map(w => ({
+          mode: coachingMode,
+          focus_skills: focusSkills.map(w => ({
             skill_node_id: w.skill_node_id,
             kompetenz: w.kompetenz,
             lernfeld: w.lernfeld,
             mastery_pct: w.mastery_pct,
+            session_accuracy: w.session_accuracy,
           })),
-          session_score: session.score_percentage,
-          passed: session.passed,
+          session_score: sessionScore,
+          passed: sessionPassed,
           readiness_verdict: readinessVerdict,
-          prompt_context: weakest.length > 0
-            ? `Der Lernende hat ${session.score_percentage?.toFixed(1)}% erreicht (${session.passed ? 'bestanden' : 'nicht bestanden'}). ` +
-              `Schwächste Bereiche: ${weakest.slice(0, 3).map(w => `${w.kompetenz} (${w.mastery_pct.toFixed(0)}%)`).join(', ')}. ` +
+          prompt_context: focusSkills.length > 0
+            ? `Der Lernende hat ${sessionScore.toFixed(1)}% erreicht (${sessionPassed ? 'bestanden' : 'nicht bestanden'}). ` +
+              `Session-Schwächen: ${sessionWeakest.slice(0, 3).map(w => `${w.kompetenz} (${w.session_accuracy}%)`).join(', ')}. ` +
+              `Langfrist-Schwächen: ${globalWeakest.slice(0, 3).map(w => `${w.kompetenz} (${w.mastery_pct.toFixed(0)}%)`).join(', ')}. ` +
               `Prüfungsreife: ${readinessVerdict}. Confidence: ${(avgConfidence * 100).toFixed(0)}%.`
-            : `Der Lernende hat ${session.score_percentage?.toFixed(1)}% erreicht. Noch keine detaillierten Kompetenzdaten vorhanden.`,
+            : `Der Lernende hat ${sessionScore.toFixed(1)}% erreicht. Noch keine detaillierten Kompetenzdaten vorhanden.`,
         };
 
         diagnostic = {
@@ -201,8 +268,20 @@ serve(async (req) => {
           mastered_count: skillDiagnostics.filter(s => s.mastery_status === 'mastered').length,
           partial_count: skillDiagnostics.filter(s => s.mastery_status === 'partial').length,
           not_mastered_count: skillDiagnostics.filter(s => s.mastery_status === 'not_mastered').length,
-          weakest_skills: weakest,
-          strongest_skills: strongest,
+          // Dual-layer: session vs global
+          session_weakest_skills: sessionWeakest.map(s => ({
+            skill_node_id: s.skill_node_id, lernfeld: s.lernfeld, kompetenz: s.kompetenz,
+            session_accuracy: s.session_accuracy, session_correct: s.session_correct, session_total: s.session_total,
+            mastery_pct: s.mastery_pct, trend: s.trend,
+          })),
+          weakest_skills: globalWeakest.map(s => ({
+            skill_node_id: s.skill_node_id, lernfeld: s.lernfeld, kompetenz: s.kompetenz,
+            mastery_pct: s.mastery_pct, confidence: s.confidence, mastery_status: s.mastery_status, trend: s.trend,
+            total_attempts: s.total_attempts,
+          })),
+          strongest_skills: globalStrongest.map(s => ({
+            skill_node_id: s.skill_node_id, kompetenz: s.kompetenz, mastery_pct: s.mastery_pct,
+          })),
           recommendations,
           coaching_trigger: coachingTrigger,
         };
