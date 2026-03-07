@@ -130,7 +130,7 @@ export interface FanOutStepConfig {
 export const FAN_OUT_CONFIG: FanOutStepConfig[] = [
   {
     stepKey: "generate_learning_content",
-    subjobTypes: ["lesson_generate_content", "package_generate_learning_content"],
+    subjobTypes: ["lesson_generate_competency_bundle", "lesson_generate_content", "package_generate_learning_content"],
     completionMode: "hybrid",
     completionRpc: "get_learning_content_progress",
     wipPerPackage: 12,
