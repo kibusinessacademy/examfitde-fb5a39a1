@@ -64,6 +64,7 @@ const BusinessPage = lazy(() => import('@/pages/admin/v4/BusinessPage'));
 const GrowthPage = lazy(() => import('@/pages/admin/v4/GrowthPage'));
 const ScalePage = lazy(() => import('@/pages/admin/v4/ScalePage'));
 const PipelineMonitorPage = lazy(() => import('@/pages/admin/v4/PipelineMonitorPage'));
+const PipelineE2ERunbookPage = lazy(() => import('@/pages/admin/v4/PipelineE2ERunbookPage'));
 const WorkPipelinePage = lazy(() => import('@/pages/admin/v4/BerufsKIPipelinePage'));
 const LoadControlPage = lazy(() => import('@/pages/admin/v4/LoadControlPage'));
 const CRMPage = lazy(() => import('@/pages/admin/v4/CRMPage'));
@@ -243,6 +244,7 @@ const AppRoutes = () => {
           <Route path="growth/*" element={<GrowthPage />} />
           <Route path="scale/*" element={<ScalePage />} />
           <Route path="pipeline" element={<PipelineMonitorPage />} />
+          <Route path="pipeline/e2e" element={<PipelineE2ERunbookPage />} />
           <Route path="load-control" element={<LoadControlPage />} />
           {/* Content with nested routes */}
           <Route path="content" element={<ContentLayout />}>
