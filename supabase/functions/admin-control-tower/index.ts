@@ -115,6 +115,7 @@ async function getOverview(sb: SB) {
     stepsRows,
     claimIssueRows,
     blockedPubRows,
+    lcStarvationRows,
   ] = await Promise.all([
     safeCount(sb, "job_queue", (q: any) => q.eq("status", "pending")),
     safeCount(sb, "job_queue", (q: any) => q.eq("status", "processing")),
@@ -129,6 +130,36 @@ async function getOverview(sb: SB) {
     safeFrom(sb, "v_package_publish_readiness", "package_id,publish_ready", (q: any) =>
       q.eq("publish_ready", false).limit(200)
     ),
+    // LC starvation: building packages with generate_learning_content not done and no live jobs
+    (async () => {
+      try {
+        const { data: steps } = await sb
+          .from("package_steps")
+          .select("package_id, status, meta")
+          .eq("step_key", "generate_learning_content")
+          .neq("status", "done");
+        if (!steps || steps.length === 0) return [];
+
+        const pkgIds = steps.map((s: any) => s.package_id);
+        const { data: buildingPkgs } = await sb
+          .from("course_packages")
+          .select("id")
+          .in("id", pkgIds)
+          .eq("status", "building");
+        if (!buildingPkgs || buildingPkgs.length === 0) return [];
+
+        const buildingIds = buildingPkgs.map((p: any) => p.id);
+        const { data: liveJobs } = await sb
+          .from("job_queue")
+          .select("package_id")
+          .eq("job_type", "lesson_generate_content")
+          .in("status", ["pending", "queued", "processing"])
+          .in("package_id", buildingIds);
+
+        const liveSet = new Set((liveJobs || []).map((j: any) => j.package_id));
+        return buildingIds.filter((id: string) => !liveSet.has(id));
+      } catch { return []; }
+    })(),
   ]);
 
   const stalledCount = stalledRows.length;
