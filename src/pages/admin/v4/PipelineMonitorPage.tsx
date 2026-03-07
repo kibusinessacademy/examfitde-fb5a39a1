@@ -128,6 +128,11 @@ export default function PipelineMonitorPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link to="/admin/pipeline/e2e">
+            <Button variant="outline" size="sm">
+              <FlaskConical className="h-3 w-3 mr-1" /> E2E Runbook
+            </Button>
+          </Link>
           <Button variant="outline" size="sm" onClick={triggerRunner}>
             <Play className="h-3 w-3 mr-1" /> Runner
           </Button>
