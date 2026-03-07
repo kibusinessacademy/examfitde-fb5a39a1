@@ -5,6 +5,7 @@ type AdminOpsAction =
   | 'release_provider_cooldowns'
   | 'reset_stalled_steps'
   | 'cancel_zombie_packages'
+  | 'recover_failed_packages'
   | 'root_cause_summary';
 
 export interface ScopedPayload {

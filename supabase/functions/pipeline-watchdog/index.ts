@@ -706,6 +706,118 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── 4b) Failed-Package Auto-Heal ──
+    // Detect packages with status='failed' and attempt recovery by resetting
+    // failed/timeout steps to queued + setting package back to building.
+    // Uses same circuit-breaker pattern as QG-heal.
+    const FAILED_COOLDOWN_MINUTES = 60;
+    const FAILED_MAX_HEAL_CYCLES = 3;
+    const failedCooldownCutoff = new Date(Date.now() - FAILED_COOLDOWN_MINUTES * 60 * 1000).toISOString();
+
+    const { data: failedPkgs } = await sb
+      .from("course_packages")
+      .select("id, title, updated_at, curriculum_id, retry_count, blocked_reason, last_error")
+      .eq("status", "failed")
+      .lt("updated_at", failedCooldownCutoff)
+      .limit(5);
+
+    let failedHealedCount = 0;
+
+    for (const pkg of (failedPkgs || [])) {
+      const currentRetryCount = (pkg as any).retry_count ?? 0;
+
+      // Circuit breaker
+      if (currentRetryCount >= FAILED_MAX_HEAL_CYCLES) {
+        await sb.from("course_packages").update({
+          status: "blocked",
+          blocked_reason: `FAILED_HEAL_EXHAUSTED: ${currentRetryCount} heal cycles without resolution`,
+          updated_at: new Date().toISOString(),
+        }).eq("id", pkg.id);
+        await sb.from("admin_notifications").insert({
+          title: `Failed-Heal exhausted: ${(pkg.title as string || "").slice(0, 40)}`,
+          body: `Package ${(pkg.id as string).slice(0, 8)} blocked after ${currentRetryCount} failed-heal cycles. Manual review required.`,
+          severity: "error",
+          category: "pipeline",
+          entity_type: "course_package",
+          entity_id: pkg.id as string,
+        });
+        actions.push(`Failed-heal BLOCKED: pkg ${(pkg.id as string).slice(0, 8)} after ${currentRetryCount} cycles`);
+        continue;
+      }
+
+      // Get package steps – find failed/timeout ones to reset
+      const { data: stepRows } = await sb
+        .from("package_steps")
+        .select("step_key, status, attempts, max_attempts")
+        .eq("package_id", pkg.id);
+
+      if (!stepRows || stepRows.length === 0) continue;
+
+      const stepsToReset = stepRows.filter((s: any) =>
+        s.status === "failed" || s.status === "timeout"
+      );
+
+      if (stepsToReset.length === 0) {
+        // No failed steps – might be a package-level failure with all steps done
+        // Just reset the package to building so the runner can evaluate
+        await sb.from("course_packages").update({
+          status: "building",
+          retry_count: currentRetryCount + 1,
+          last_error: `Watchdog failed-heal: no failed steps found, resetting package (cycle ${currentRetryCount + 1}/${FAILED_MAX_HEAL_CYCLES})`,
+          updated_at: new Date().toISOString(),
+        }).eq("id", pkg.id);
+        failedHealedCount++;
+        actions.push(`Failed-heal (no failed steps): pkg ${(pkg.id as string).slice(0, 8)} → building`);
+        continue;
+      }
+
+      // Reset failed steps to queued
+      let stepsResetCount = 0;
+      for (const step of stepsToReset) {
+        const { data: updRows } = await sb
+          .from("package_steps")
+          .update({
+            status: "queued",
+            attempts: 0,
+            job_id: null,
+            runner_id: null,
+            started_at: null,
+            last_error: `Watchdog failed-heal: auto-reset (cycle ${currentRetryCount + 1})`,
+          })
+          .eq("package_id", pkg.id)
+          .eq("step_key", step.step_key)
+          .select("step_key");
+        stepsResetCount += updRows?.length ?? 0;
+      }
+
+      // Clean up failed jobs for this package
+      await sb.from("job_queue")
+        .update({ status: "cancelled", last_error: "Watchdog failed-heal cleanup" })
+        .eq("package_id", pkg.id)
+        .eq("status", "failed");
+
+      // Reset package to building
+      await sb.from("course_packages").update({
+        status: "building",
+        retry_count: currentRetryCount + 1,
+        last_error: `Watchdog failed-heal: ${stepsResetCount} steps reset → retry (cycle ${currentRetryCount + 1}/${FAILED_MAX_HEAL_CYCLES})`,
+        updated_at: new Date().toISOString(),
+      }).eq("id", pkg.id);
+
+      failedHealedCount++;
+      actions.push(`Failed-heal: pkg ${(pkg.id as string).slice(0, 8)} "${(pkg.title as string || "").slice(0, 30)}" — ${stepsResetCount} steps reset`);
+      console.log(`[watchdog] Failed-heal: pkg=${(pkg.id as string).slice(0, 8)} steps_reset=${stepsResetCount} cycle=${currentRetryCount + 1}`);
+    }
+
+    if (failedHealedCount > 0) {
+      await sb.from("auto_heal_log").insert({
+        action_type: "failed_package_auto_heal",
+        trigger_source: "pipeline-watchdog",
+        result_status: "applied",
+        result_detail: `Healed ${failedHealedCount} failed package(s)`,
+      }).then(() => {});
+    }
+
     // ── 5) Count active state ──
     const { count: activeLeases } = await sb
       .from("package_leases")

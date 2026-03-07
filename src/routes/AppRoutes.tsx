@@ -227,17 +227,11 @@ const AppRoutes = () => {
           </Route>
         </Route>
 
-        {/* ====== Control Tower (neue Leitzentrale) ====== */}
-        <Route path="/admin/control-tower" element={<AdminControlTowerPage />} />
-        <Route path="/admin/ops/queue" element={<AdminOpsQueuePage />} />
-        <Route path="/admin/providers" element={<AdminProviderHealthPage />} />
-        <Route path="/admin/packages/risk" element={<AdminPackageRiskPage />} />
-        <Route path="/admin/revenue" element={<AdminRevenuePage />} />
-
-        {/* ====== ADMIN V4 ====== */}
+        {/* ====== ADMIN (unified SSOT layout) ====== */}
         <Route path="/admin" element={<AdminV4Layout />}>
           <Route index element={<Navigate to="home" replace />} />
           <Route path="home" element={<AdminExecutiveHomePage />} />
+          <Route path="control-tower" element={<AdminControlTowerPage />} />
           <Route path="command" element={<CommandPage />} />
           <Route path="studio/*" element={<StudioPage />} />
           <Route path="quality/*" element={<QualityPage />} />
@@ -276,6 +270,7 @@ const AppRoutes = () => {
         </Route>
 
         {/* Legacy admin redirects */}
+        <Route path="/admin/control-tower" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/dashboard" element={<Navigate to="/admin/command" replace />} />
         <Route path="/admin/courses" element={<Navigate to="/admin/studio" replace />} />
         <Route path="/admin/course-studio" element={<Navigate to="/admin/studio/new" replace />} />

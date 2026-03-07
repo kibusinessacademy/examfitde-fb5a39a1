@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCoursePackages } from '@/hooks/useCoursePackages';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,11 +11,13 @@ import { Input } from '@/components/ui/input';
 import {
   ArrowRight, CheckCircle2, Clock, XCircle, Wrench, Shield,
   Brain, Package, Rocket, Plus, Filter, Search, AlertTriangle,
-  Zap, Eye
+  Zap, Eye, RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PageExplainer from '@/components/admin/PageExplainer';
 import { supabase } from '@/integrations/supabase/client';
+import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
+import { toast } from 'sonner';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   all: { label: 'Alle', color: 'bg-muted text-muted-foreground', icon: Filter },
@@ -46,6 +48,17 @@ export default function CoursePackagesList() {
   const { data: packages, isLoading } = useCoursePackages();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const queryClient = useQueryClient();
+
+  // Recovery mutation for failed packages
+  const recoverMutation = useMutation({
+    mutationFn: () => runAdminOpsAction('recover_failed_packages'),
+    onSuccess: (data: any) => {
+      toast.success(`${data.recovered || 0} fehlgeschlagene Pakete wiederhergestellt`);
+      queryClient.invalidateQueries({ queryKey: ['course-packages'] });
+    },
+    onError: (err: Error) => toast.error(`Recovery fehlgeschlagen: ${err.message}`),
+  });
 
   // Load real step-based progress for all packages (SSOT from package_steps)
   const { data: stepProgress } = useQuery({
@@ -154,11 +167,25 @@ export default function CoursePackagesList() {
             )}
           </p>
         </div>
-        <Button asChild size="sm">
-          <Link to="/admin/studio/new">
-            <Plus className="h-4 w-4 mr-1" /> Neues Paket
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {(statusCounts['failed'] || 0) > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => recoverMutation.mutate()}
+              disabled={recoverMutation.isPending}
+              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-1", recoverMutation.isPending && "animate-spin")} />
+              {statusCounts['failed']} Failed wiederherstellen
+            </Button>
+          )}
+          <Button asChild size="sm">
+            <Link to="/admin/studio/new">
+              <Plus className="h-4 w-4 mr-1" /> Neues Paket
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Stuck Alert Banner */}
