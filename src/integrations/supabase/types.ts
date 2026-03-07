@@ -29325,6 +29325,10 @@ export type Database = {
       is_admin: { Args: { p_uid: string }; Returns: boolean }
       is_admin_user: { Args: { check_uid: string }; Returns: boolean }
       is_code_locked: { Args: { p_code: string }; Returns: Json }
+      is_hollow_lesson: {
+        Args: { p_content: Json; p_step?: string }
+        Returns: boolean
+      }
       is_org_member: {
         Args: { p_org: string; p_user: string }
         Returns: boolean
