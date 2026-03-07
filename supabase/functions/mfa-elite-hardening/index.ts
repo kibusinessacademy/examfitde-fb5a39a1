@@ -76,24 +76,17 @@ async function runAudit(sb: ReturnType<typeof createClient>): Promise<AuditResul
 
   const compIds = (competencies || []).map((c: { id: string }) => c.id);
   
-  const { data: examCounts } = await sb.rpc("get_exam_counts_by_competency" as never, {
-    p_competency_ids: compIds,
-  }).catch(() => ({ data: null }));
-
-  // Fallback: direct query
   const compCoverage: Array<{ id: string; title: string; approved: number }> = [];
   const zeroComps: string[] = [];
 
-  if (!examCounts) {
-    for (const comp of competencies || []) {
-      const { count } = await sb.from("exam_questions")
-        .select("id", { count: "exact", head: true })
-        .eq("competency_id", comp.id)
-        .or("status.eq.approved,qc_status.eq.approved");
-      const approved = count || 0;
-      if (approved === 0) zeroComps.push(comp.title);
-      if (approved < 5) compCoverage.push({ id: comp.id, title: comp.title, approved });
-    }
+  for (const comp of competencies || []) {
+    const { count } = await sb.from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("competency_id", comp.id)
+      .or("status.eq.approved,qc_status.eq.approved");
+    const approved = count || 0;
+    if (approved === 0) zeroComps.push(comp.title);
+    if (approved < 5) compCoverage.push({ id: comp.id, title: comp.title, approved });
   }
 
   // Handbook
