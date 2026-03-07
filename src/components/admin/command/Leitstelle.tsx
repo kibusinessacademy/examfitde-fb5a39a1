@@ -491,14 +491,28 @@ export default function Leitstelle() {
           ]
         : [];
 
-    return [...runnerIdleAlert, ...fromFailed, ...fromStuck]
+    const transientAlert: AlertItem[] =
+      transientOps && transientOps.exhausted24h >= 5
+        ? [
+            {
+              id: 'transient-exhaustion',
+              kind: transientOps.exhausted24h >= 10 ? 'critical' : 'warning',
+              title: `${transientOps.exhausted24h} transient erschöpfte Jobs (24h)`,
+              detail: transientOps.exhaustedByJobType.slice(0, 3).map(r => `${r.job_type}: ${r.cnt}`).join(', '),
+              ageMin: 0,
+              source: 'ops',
+            },
+          ]
+        : [];
+
+    return [...runnerIdleAlert, ...transientAlert, ...fromFailed, ...fromStuck]
       .filter((a) => a.ageMin <= 180)
       .sort((a, b) => {
         const prio = { critical: 3, warning: 2, info: 1 };
         return prio[b.kind] - prio[a.kind] || a.ageMin - b.ageMin;
       })
       .slice(0, 8);
-  }, [failedJobs, stuckRows, kpis]);
+  }, [failedJobs, stuckRows, kpis, transientOps]);
 
   const visiblePackages = useMemo(() => {
     const rows = [...packages];
