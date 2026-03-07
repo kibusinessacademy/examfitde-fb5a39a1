@@ -10,6 +10,7 @@ import {
   countPackageInFlight,
   getNeedsRegenCount,
   selectTargets,
+  selectCompetencyTargets,
   computeFairShareBatch,
   countLeasedPackages,
 } from "../_shared/learning-content-scheduler.ts";
