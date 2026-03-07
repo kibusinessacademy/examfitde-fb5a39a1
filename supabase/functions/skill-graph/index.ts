@@ -22,37 +22,19 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const { action, user_id, curriculum_id, session_id, skill_node_id, minicheck_results } = await req.json();
+    const body = await req.json();
+    const { action, user_id, curriculum_id, session_id, skill_node_id, minicheck_results, submission_id, lesson_id } = body;
 
-    // ─── Seed skill nodes from curriculum topics ───
+    // ─── Seed skill nodes from competencies (SSOT) ───
     if (action === "seed_skills") {
       if (!curriculum_id) return json({ error: "curriculum_id required" }, 400);
 
-      const { data: topics } = await sb.from("curriculum_topics")
-        .select("id, topic_title, parent_topic_id, level, competency_area, learning_field_code")
-        .eq("curriculum_id", curriculum_id)
-        .order("sort_order");
+      const { data, error } = await sb.rpc("seed_skill_nodes_from_competencies", {
+        p_curriculum_id: curriculum_id,
+      });
 
-      if (!topics?.length) return json({ ok: true, seeded: 0, msg: "No topics found" });
-
-      let seeded = 0;
-      for (const t of topics) {
-        const lf = t.learning_field_code || "LF0";
-        const kompetenz = t.competency_area || t.topic_title || "Allgemein";
-        const mikro = t.topic_title || "Unbekannt";
-
-        const { error } = await sb.from("skill_nodes").upsert({
-          curriculum_id,
-          lernfeld: lf,
-          kompetenz,
-          mikro_skill: mikro,
-          description: `Topic: ${t.topic_title}`,
-        }, { onConflict: "curriculum_id,lernfeld,kompetenz,mikro_skill" });
-
-        if (!error) seeded++;
-      }
-
-      return json({ ok: true, seeded });
+      if (error) return json({ error: error.message }, 500);
+      return json(data ?? { ok: true, seeded: 0 });
     }
 
     // ─── Auto-map questions to skill nodes ───
@@ -92,7 +74,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, mapped });
     }
 
-    // ─── Update user skill scores after exam session (multi-source) ───
+    // ─── Update scores after exam (idempotent via events) ───
     if (action === "update_scores") {
       if (!session_id) return json({ error: "session_id required" }, 400);
 
@@ -116,75 +98,57 @@ Deno.serve(async (req) => {
 
       if (!mappings?.length) return json({ ok: true, updated: 0 });
 
-      // Aggregate by skill_node
-      const skillAgg: Record<string, { correct: number; total: number }> = {};
+      // Write idempotent events
+      const touchedSkills = new Set<string>();
       for (const m of mappings) {
         const answer = answers.find(a => a.question_id === m.question_id);
         if (!answer) continue;
-        if (!skillAgg[m.skill_node_id]) skillAgg[m.skill_node_id] = { correct: 0, total: 0 };
-        skillAgg[m.skill_node_id].total++;
-        if (answer.is_correct) skillAgg[m.skill_node_id].correct++;
+
+        const idempotencyKey = `exam:${session_id}:${m.question_id}:${m.skill_node_id}`;
+        touchedSkills.add(m.skill_node_id);
+
+        await sb.from("user_exam_skill_events").upsert({
+          user_id: session.user_id,
+          session_id,
+          question_id: m.question_id,
+          skill_node_id: m.skill_node_id,
+          is_correct: !!answer.is_correct,
+          idempotency_key: idempotencyKey,
+        }, { onConflict: "idempotency_key" });
       }
 
-      let updated = 0;
-      for (const [skillId, agg] of Object.entries(skillAgg)) {
-        const { data: existing } = await sb.from("user_skill_scores")
-          .select("attempts, correct")
-          .eq("user_id", session.user_id)
-          .eq("skill_node_id", skillId)
-          .maybeSingle();
-
-        const newAttempts = (existing?.attempts || 0) + agg.total;
-        const newCorrect = (existing?.correct || 0) + agg.correct;
-
-        await sb.from("user_skill_scores").upsert({
-          user_id: session.user_id,
-          skill_node_id: skillId,
-          attempts: newAttempts,
-          correct: newCorrect,
-          last_attempt_at: new Date().toISOString(),
-          last_exam_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id,skill_node_id" });
-
-        // Trigger central recalculate_mastery RPC
-        await sb.rpc("recalculate_mastery", {
+      // Batch refresh + recalculate
+      const touchedArray = Array.from(touchedSkills);
+      for (const skillId of touchedArray) {
+        await sb.rpc("refresh_user_skill_score_from_events", {
           p_user_id: session.user_id,
           p_skill_node_id: skillId,
         });
-        updated++;
       }
 
-      return json({ ok: true, updated });
+      return json({ ok: true, updated: touchedArray.length });
     }
 
-    // ─── NEW: Update MiniCheck scores ───
+    // ─── Update MiniCheck scores (idempotent via events) ───
     if (action === "update_minicheck") {
       if (!user_id || !skill_node_id) return json({ error: "user_id + skill_node_id required" }, 400);
       if (!minicheck_results) return json({ error: "minicheck_results required" }, 400);
 
       const { correct, total } = minicheck_results as { correct: number; total: number };
+      const subId = submission_id || crypto.randomUUID();
+      const idempotencyKey = `mc:${user_id}:${skill_node_id}:${subId}`;
 
-      const { data: existing } = await sb.from("user_skill_scores")
-        .select("minicheck_attempts, minicheck_correct")
-        .eq("user_id", user_id)
-        .eq("skill_node_id", skill_node_id)
-        .maybeSingle();
-
-      const newAttempts = (existing?.minicheck_attempts || 0) + total;
-      const newCorrect = (existing?.minicheck_correct || 0) + correct;
-
-      await sb.from("user_skill_scores").upsert({
+      await sb.from("user_minicheck_skill_events").upsert({
         user_id,
+        submission_id: subId,
+        lesson_id: lesson_id || null,
         skill_node_id,
-        minicheck_attempts: newAttempts,
-        minicheck_correct: newCorrect,
-        last_minicheck_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id,skill_node_id" });
+        correct_count: correct,
+        total_count: total,
+        idempotency_key: idempotencyKey,
+      }, { onConflict: "idempotency_key" });
 
-      // Trigger central recalculate
-      const { data: result } = await sb.rpc("recalculate_mastery", {
+      const { data: result } = await sb.rpc("refresh_user_skill_score_from_events", {
         p_user_id: user_id,
         p_skill_node_id: skill_node_id,
       });
@@ -192,7 +156,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, mastery: result });
     }
 
-    // ─── Get user skill radar (enhanced with multi-source data) ───
+    // ─── Skill radar (with scoreMap for O(1) lookups) ───
     if (action === "radar") {
       if (!user_id || !curriculum_id) return json({ error: "user_id + curriculum_id required" }, 400);
 
@@ -208,11 +172,12 @@ Deno.serve(async (req) => {
         .eq("user_id", user_id)
         .in("skill_node_id", skillIds);
 
-      // Aggregate by lernfeld
+      const scoreMap = new Map((scores || []).map((sc: any) => [sc.skill_node_id, sc]));
+
       const byLF: Record<string, { mastery: number[]; confidence: number[]; skills: any[] }> = {};
       for (const s of skills) {
         if (!byLF[s.lernfeld]) byLF[s.lernfeld] = { mastery: [], confidence: [], skills: [] };
-        const score = scores?.find(sc => sc.skill_node_id === s.id);
+        const score = scoreMap.get(s.id);
         const m = score?.decay_adjusted_mastery || score?.mastery_pct || 0;
         const c = score?.confidence || 0;
         byLF[s.lernfeld].mastery.push(m);
@@ -251,7 +216,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, radar });
     }
 
-    // ─── Exam Readiness Score (enhanced with confidence + decay) ───
+    // ─── Exam Readiness (with scoreMap + fail risk) ───
     if (action === "exam_readiness") {
       if (!user_id || !curriculum_id) return json({ error: "user_id + curriculum_id required" }, 400);
 
@@ -267,6 +232,8 @@ Deno.serve(async (req) => {
         .eq("user_id", user_id)
         .in("skill_node_id", skillIds);
 
+      const scoreMap = new Map((scores || []).map((sc: any) => [sc.skill_node_id, sc]));
+
       const { data: lfs } = await sb.from("learning_fields")
         .select("id, code, weight_percent")
         .eq("curriculum_id", curriculum_id);
@@ -276,7 +243,7 @@ Deno.serve(async (req) => {
       const byLF: Record<string, { totalMastery: number; totalConfidence: number; count: number; weight: number }> = {};
       for (const s of skills) {
         if (!byLF[s.lernfeld]) byLF[s.lernfeld] = { totalMastery: 0, totalConfidence: 0, count: 0, weight: lfWeightMap.get(s.lernfeld) || 10 };
-        const score = scores?.find(sc => sc.skill_node_id === s.id);
+        const score = scoreMap.get(s.id);
         byLF[s.lernfeld].totalMastery += score?.decay_adjusted_mastery || score?.mastery_pct || 0;
         byLF[s.lernfeld].totalConfidence += score?.confidence || 0;
         byLF[s.lernfeld].count++;
@@ -309,9 +276,8 @@ Deno.serve(async (req) => {
       const criticalLFs = lfReadiness.filter(lf => lf.status === 'critical').sort((a, b) => a.avg_mastery - b.avg_mastery);
       const totalAttempts = (scores || []).reduce((s, sc) => s + (sc.attempts || 0) + (sc.minicheck_attempts || 0), 0);
 
-      // Fail risk: inverse of readiness, weighted by confidence
       const failRiskRaw = 100 - readinessPct;
-      const failRisk = Math.round(failRiskRaw * (1 + (1 - avgConfidence) * 0.3) * 10) / 10; // Low confidence increases risk
+      const failRisk = Math.round(failRiskRaw * (1 + (1 - avgConfidence) * 0.3) * 10) / 10;
 
       const verdict = readinessPct >= 80 ? 'exam_ready'
         : readinessPct >= 60 ? 'almost_ready'
