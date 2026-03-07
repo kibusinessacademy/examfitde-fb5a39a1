@@ -60,11 +60,14 @@ function pickContext(bloom: string, index: number): string {
   return pool[index % pool.length];
 }
 
-interface GapReportRow {
-  dimension: string;
+interface GapEntry {
   key: string;
-  current_count: number;
-  target_count: number;
+  gap: number;
+}
+
+interface CompGapEntry {
+  competency_id: string;
+  approved_count: number;
   gap: number;
 }
 
@@ -91,8 +94,8 @@ Deno.serve(async (req) => {
   if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
 
   try {
-    // ── 1. Fetch gap report ──
-    const { data: gapRows, error: gapErr } = await sb.rpc(
+    // ── 1. Fetch gap report (returns single JSONB object, NOT a table) ──
+    const { data: report, error: gapErr } = await sb.rpc(
       "get_exam_pool_gap_report",
       { p_curriculum_id: curriculumId },
     );
@@ -102,15 +105,33 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: gapErr.message }, 500);
     }
 
-    const gaps = (gapRows || []) as GapReportRow[];
-    const bloomGaps = gaps.filter((g) => g.dimension === "bloom" && g.gap > 0);
-    const diffGaps = gaps.filter((g) => g.dimension === "difficulty" && g.gap > 0);
-    const compGaps = gaps
-      .filter((g) => g.dimension === "competency" && g.gap > 0)
+    if (!report || typeof report !== "object") {
+      console.log("[bloom-gap-fill] No report data returned");
+      return json({ ok: true, message: "no_report", generated: 0 });
+    }
+
+    // Parse JSONB object format: bloom_gaps: {"remember": 5, ...}, difficulty_gaps: {...}, competency_gaps: [...]
+    const bloomGapsObj = (report as Record<string, unknown>).bloom_gaps as Record<string, number> || {};
+    const diffGapsObj = (report as Record<string, unknown>).difficulty_gaps as Record<string, number> || {};
+    const compGapsArr = (report as Record<string, unknown>).competency_gaps as Array<{ competency_id: string; approved_count: number }> || [];
+
+    const bloomGaps: GapEntry[] = Object.entries(bloomGapsObj)
+      .filter(([_, gap]) => gap > 0)
+      .map(([key, gap]) => ({ key, gap }));
+
+    const diffGaps: GapEntry[] = Object.entries(diffGapsObj)
+      .filter(([_, gap]) => gap > 0)
+      .map(([key, gap]) => ({ key, gap }));
+
+    const compGaps: CompGapEntry[] = compGapsArr
+      .map((c) => ({ competency_id: c.competency_id, approved_count: c.approved_count, gap: Math.max(0, 3 - c.approved_count) }))
+      .filter((c) => c.gap > 0)
       .sort((a, b) => b.gap - a.gap)
       .slice(0, MAX_COMPETENCY_GAPS);
 
-    const totalGap = gaps.reduce((s, g) => s + Math.max(0, g.gap), 0);
+    const totalGap = bloomGaps.reduce((s, g) => s + g.gap, 0)
+      + diffGaps.reduce((s, g) => s + g.gap, 0)
+      + compGaps.reduce((s, g) => s + g.gap, 0);
 
     if (totalGap === 0) {
       console.log("[bloom-gap-fill] No gaps found — all targets met");
@@ -137,13 +158,12 @@ Deno.serve(async (req) => {
     // 2a. Competency gaps — generate with the most needed bloom level
     for (const comp of compGaps) {
       if (remaining <= 0) break;
-      const count = Math.min(comp.gap, 5, remaining); // max 5 per competency per run
-      // Pick bloom level from the biggest bloom gap, fallback to "apply"
+      const count = Math.min(comp.gap, 5, remaining);
       const topBloom = bloomGaps.length > 0 ? bloomGaps[0].key : "apply";
       plan.push({
         bloom: topBloom,
         difficulty: BLOOM_DIFFICULTY_MAP[topBloom] || "medium",
-        competency_id: comp.key,
+        competency_id: comp.competency_id,
         count,
       });
       remaining -= count;
