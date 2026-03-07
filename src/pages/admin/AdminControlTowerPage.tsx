@@ -50,6 +50,7 @@ export default function AdminControlTowerPage() {
         <KpiCard label="Provider Cooldowns" value={data.kpis.provider_cooldowns} icon={<AlertTriangle className="h-4 w-4 text-orange-400" />} />
         <KpiCard label="Blocked Publishables" value={data.kpis.blocked_publishables} icon={<Lock className="h-4 w-4 text-muted-foreground" />} />
         <KpiCard label="Claim Issues" value={data.kpis.open_claim_issues} icon={<ShieldAlert className="h-4 w-4 text-muted-foreground" />} />
+        <KpiCard label="Content Starvation" value={data.kpis.lc_starvation} icon={<Unplug className="h-4 w-4 text-destructive" />} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
