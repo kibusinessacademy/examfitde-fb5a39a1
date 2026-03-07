@@ -261,12 +261,3 @@ function formatDuration(seconds: number | null): string {
   const s = seconds % 60;
   return `${m}m ${s}s`;
 }
-
-async function getCurriculumId(packageId: string): Promise<string | null> {
-  const { data } = await (supabase as any)
-    .from('course_packages')
-    .select('courses!inner(curriculum_id)')
-    .eq('id', packageId)
-    .maybeSingle();
-  return data?.courses?.curriculum_id || null;
-}
