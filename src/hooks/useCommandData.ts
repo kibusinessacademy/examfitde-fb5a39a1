@@ -115,13 +115,19 @@ export function useCommandData() {
       const budgetRow = (budgetRes.data || [])[0];
 
       // Build content meta lookup from package_steps
-      const contentMetaByPkg = new Map<string, { remaining?: number; generated?: number; last_error?: string }>();
+      const contentMetaByPkg = new Map<string, {
+        remaining?: number; generated?: number; last_error?: string;
+        dispatch_blocked_reason?: string; needs_regen?: number; active_lesson_jobs?: number;
+      }>();
       for (const row of (contentStepMetaRes.data || []) as any[]) {
         const meta = row.meta as Record<string, unknown> | null;
         contentMetaByPkg.set(row.package_id, {
-          remaining: meta?.remaining != null ? Number(meta.remaining) : undefined,
+          remaining: meta?.remaining != null ? Number(meta.remaining) : (meta?.needs_regen != null ? Number(meta.needs_regen) : undefined),
           generated: meta?.generated != null ? Number(meta.generated) : undefined,
           last_error: row.last_error || undefined,
+          dispatch_blocked_reason: meta?.dispatch_blocked_reason as string | undefined,
+          needs_regen: meta?.needs_regen != null ? Number(meta.needs_regen) : undefined,
+          active_lesson_jobs: meta?.active_lesson_jobs != null ? Number(meta.active_lesson_jobs) : undefined,
         });
       }
 
