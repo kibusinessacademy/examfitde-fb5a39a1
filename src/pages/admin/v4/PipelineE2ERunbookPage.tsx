@@ -114,12 +114,19 @@ export default function PipelineE2ERunbookPage() {
         };
       });
 
-      const best = candidates[0]?.id ?? null;
+      // Rank: building first, then lowest legacy_pct + legacy_count
+      const ranked = [...candidates].sort((a, b) => {
+        const scoreA = (a.status === 'building' ? 0 : 10) + (a.legacy_pct ?? 0) + (a.legacy_count ?? 0) * 0.5;
+        const scoreB = (b.status === 'building' ? 0 : 10) + (b.legacy_pct ?? 0) + (b.legacy_count ?? 0) * 0.5;
+        return scoreA - scoreB;
+      });
+
+      const best = ranked[0]?.id ?? null;
       if (best && !pkgRef.current) setPackageId(best);
 
       setCheckResult('select_package', {
-        status: candidates.length > 0 ? 'pass' : 'warn',
-        data: { candidates, suggested_package_id: best, audit_summary: audit?.length ?? 0 },
+        status: ranked.length > 0 ? 'pass' : 'warn',
+        data: { candidates: ranked, suggested_package_id: best, audit_summary: audit?.length ?? 0 },
       });
       return best;
     } catch (e) {
@@ -449,11 +456,16 @@ export default function PipelineE2ERunbookPage() {
   const p0Fail = p0Results.filter(s => s === 'fail').length;
   const softResults = CHECKS.filter(c => c.gate === 'soft').map(c => results[c.id]?.status).filter(Boolean);
   const softPass = softResults.filter(s => s === 'pass').length;
-  const softWarn = softResults.filter(s => s === 'warn').length;
-  const totalRun = Object.values(results).filter(r => r.status !== 'idle').length;
+  const softWarn = softResults.filter(s => s === 'warn' || s === 'fail').length;
+
+  // P0-complete only when every P0 check has a terminal status
+  const p0Complete = P0_IDS.every(id => {
+    const s = results[id]?.status;
+    return s && s !== 'idle' && s !== 'running';
+  });
 
   const verdict: Verdict =
-    totalRun < 6 ? 'INCOMPLETE'
+    !p0Complete ? 'INCOMPLETE'
     : p0Fail > 0 ? 'NO_GO'
     : softWarn > 0 ? 'GO_WITH_WARNINGS'
     : p0Pass >= P0_IDS.length ? 'GO'
@@ -525,7 +537,10 @@ export default function PipelineE2ERunbookPage() {
                   : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium text-foreground">{check.label}</span>
-                  {isP0 && <Badge variant="outline" className="ml-2 text-[9px] h-4 border-primary/50 text-primary">P0</Badge>}
+                  {isP0
+                    ? <Badge variant="outline" className="ml-2 text-[9px] h-4 border-primary/50 text-primary">P0</Badge>
+                    : <Badge variant="outline" className="ml-2 text-[9px] h-4 border-muted-foreground/40 text-muted-foreground">SOFT</Badge>
+                  }
                   <span className="text-xs text-muted-foreground ml-2">{check.desc}</span>
                 </div>
                 <Button
