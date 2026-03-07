@@ -261,6 +261,7 @@ const AppRoutes = () => {
           <Route path="audit" element={<AuditDashboardPage />} />
 
           {/* B2B Competency Views */}
+          <Route path="b2b/org" element={<OrgDashboardPage />} />
           <Route path="b2b/cohort" element={<CohortOverviewPage />} />
           <Route path="b2b/learner" element={<LearnerCompetencyPage />} />
 

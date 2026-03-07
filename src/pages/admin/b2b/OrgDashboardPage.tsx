@@ -125,9 +125,6 @@ export default function OrgDashboardPage() {
             title="Ø Prüfungsreife"
             value={`${Math.round(overallReadiness)}%`}
             icon={GraduationCap}
-            subtitle={
-              <ReadinessBar value={overallReadiness} showPercent={false} size="sm" className="mt-1" />
-            }
             valueClassName={
               overallReadiness >= 70 ? "text-success" :
               overallReadiness >= 40 ? "text-warning" : "text-destructive"
