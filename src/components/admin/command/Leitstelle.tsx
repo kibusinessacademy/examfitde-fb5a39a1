@@ -458,6 +458,14 @@ export default function Leitstelle() {
     staleTime: 5000,
   });
 
+  const packageById = useMemo(() => {
+    const m = new Map<string, PipelinePackage>();
+    for (const p of packages || []) {
+      if (p?.id) m.set(String(p.id), p);
+    }
+    return m;
+  }, [packages]);
+
   const alerts = useMemo<AlertItem[]>(() => {
     const now = Date.now();
 
@@ -524,14 +532,43 @@ export default function Leitstelle() {
           ]
         : [];
 
-    return [...runnerIdleAlert, ...transientAlert, ...fromFailed, ...fromStuck]
-      .filter((a) => a.ageMin <= 180)
+    const raw = [...runnerIdleAlert, ...transientAlert, ...fromFailed, ...fromStuck];
+
+    // Smart filtering: remove stale/resolved STEP_EXHAUSTED alerts
+    return raw
+      .filter((a) => {
+        // 1) Only fresh alerts
+        if (a.ageMin > LIVE_ALERT_MAX_AGE_MIN) return false;
+
+        const combined = `${a.title} ${a.detail}`;
+
+        // 2) Smart STEP_EXHAUSTED filtering
+        if (combined.includes('STEP_EXHAUSTED')) {
+          const pkgId = a.packageId || extractPkgIdFromDetail(a.detail);
+          const stepKey = a.stepKey || extractStepKeyFromDetail(a.detail);
+
+          if (pkgId && stepKey) {
+            const pkg = packageById.get(pkgId);
+            if (pkg) {
+              const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
+              const current = stepStatuses[stepKey];
+              // Step already progressed past the problem → hide alert
+              if (!isStepStillProblematic(current)) return false;
+            }
+          } else {
+            // Can't resolve context → only show very fresh ones
+            if (a.ageMin > 60) return false;
+          }
+        }
+
+        return true;
+      })
       .sort((a, b) => {
         const prio = { critical: 3, warning: 2, info: 1 };
         return prio[b.kind] - prio[a.kind] || a.ageMin - b.ageMin;
       })
       .slice(0, 8);
-  }, [failedJobs, stuckRows, kpis, transientOps]);
+  }, [failedJobs, stuckRows, kpis, transientOps, packageById]);
 
   const visiblePackages = useMemo(() => {
     const rows = [...packages];
