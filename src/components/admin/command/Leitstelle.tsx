@@ -311,7 +311,7 @@ function BuildPackageCard({ pkg }: { pkg: PipelinePackage }) {
 }
 
 export default function Leitstelle() {
-  const { packages, kpis, loading, lastRefresh, refetch } = useCommandData();
+  const { packages, kpis, transientOps, loading, lastRefresh, refetch } = useCommandData();
   const [focus, setFocus] = useState<FocusMode>('priorities');
   const [sheet, setSheet] = useState<'bottlenecks' | 'packages' | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ type: string; payload?: Record<string, unknown>; label?: string } | null>(null);
