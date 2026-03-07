@@ -16,6 +16,7 @@ import {
   Play,
   Settings2,
   Shield,
+  ShieldAlert,
   Zap,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -50,6 +51,8 @@ const POLICY_ICONS: Record<string, React.ReactNode> = {
   archive_stale_drafts: <Clock className="h-4 w-4 text-muted-foreground" />,
   fix_broken_redirects: <AlertTriangle className="h-4 w-4 text-amber-500" />,
 };
+
+const CRITICAL_POLICIES = new Set(['cancel_zombies', 'requeue_transient_failed', 'reset_stuck_steps']);
 
 export function PolicyCenter() {
   const { toast } = useToast();
@@ -156,17 +159,42 @@ export function PolicyCenter() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {(() => {
+          const disabledCritical = policies.filter(p => CRITICAL_POLICIES.has(p.policy_key) && !p.enabled);
+          if (disabledCritical.length > 0) {
+            return (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex items-start gap-2">
+                <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-destructive">
+                    {disabledCritical.length} kritische {disabledCritical.length === 1 ? 'Policy' : 'Policies'} deaktiviert
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {disabledCritical.map(p => p.label).join(', ')} — Pipeline-Recovery eingeschränkt.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 flex items-center gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+              <p className="text-[11px] text-primary">Alle kritischen Policies aktiv — Self-Healing vollständig.</p>
+            </div>
+          );
+        })()}
         {policies.map((p) => {
           const isEditing = editingId === p.id;
           const lastResult = p.last_run_result as any;
           const lastUpdated = lastResult?.updated;
+          const isCritical = CRITICAL_POLICIES.has(p.policy_key);
 
           return (
             <div
               key={p.id}
               className={cn(
                 'rounded-xl border p-4 transition-colors',
-                p.enabled ? 'border-primary/20 bg-primary/5' : 'border-border/60 bg-card/50',
+                p.enabled ? 'border-primary/20 bg-primary/5' : isCritical ? 'border-destructive/40 bg-destructive/5' : 'border-border/60 bg-card/50',
               )}
             >
               <div className="flex items-start justify-between gap-3">
@@ -177,8 +205,14 @@ export function PolicyCenter() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">{p.label}</span>
+                      {isCritical && (
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-destructive/50 text-destructive">KRITISCH</Badge>
+                      )}
                       {p.enabled && (
                         <Badge variant="default" className="text-[10px] h-5 px-1.5">aktiv</Badge>
+                      )}
+                      {isCritical && !p.enabled && (
+                        <Badge variant="destructive" className="text-[10px] h-5 px-1.5 animate-pulse">DEAKTIVIERT</Badge>
                       )}
                     </div>
                     {p.description && (
