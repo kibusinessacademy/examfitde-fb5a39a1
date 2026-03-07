@@ -19,18 +19,18 @@ import {
 } from "../_shared/learning-content-revive.ts";
 
 /**
- * package-generate-learning-content — SSOT Dispatcher (v9 Adaptive Throughput)
+ * package-generate-learning-content — SSOT Dispatcher (v10 Adaptive + Lease Release)
  *
  * Fair, artifact-based scheduling with adaptive batch sizing:
  *   1. Adaptive global WIP throttle (fail-rate aware)
  *   2. Fair-share batch sizing across leased packages
  *   3. Per-package cap (prevents hotspotting)
  *   4. "DONE" ONLY when needs_regen === 0 (artifact truth)
- *   5. Idle lease release when no work dispatchable
+ *   5. **Idle lease release** on all non-dispatchable branches
  *   6. tier1_failed → reject stale content_versions before dispatching
  */
 
-const STAGGER_MS = 100; // reduced from 150ms for faster dispatch
+const STAGGER_MS = 100;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,6 +94,76 @@ async function rejectStaleVersionsForTier1Failed(
 }
 
 // ═══════════════════════════════════════════════════════════════
+// Lease release + meta telemetry helpers
+// ═══════════════════════════════════════════════════════════════
+
+async function updateLearningContentStepMeta(
+  // deno-lint-ignore no-explicit-any
+  sb: any,
+  packageId: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const { data: stepRow } = await sb
+      .from("package_steps")
+      .select("id, meta")
+      .eq("package_id", packageId)
+      .eq("step_key", "generate_learning_content")
+      .maybeSingle();
+
+    if (!stepRow?.id) return;
+
+    await sb
+      .from("package_steps")
+      .update({
+        meta: { ...(stepRow.meta ?? {}), ...patch },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", stepRow.id);
+  } catch (e) {
+    console.warn(
+      `[dispatcher] updateLearningContentStepMeta failed for ${packageId.slice(0, 8)}: ${(e as Error)?.message ?? String(e)}`,
+    );
+  }
+}
+
+async function releasePackageLease(
+  // deno-lint-ignore no-explicit-any
+  sb: any,
+  packageId: string,
+  reason: string,
+  extraMeta: Record<string, unknown> = {},
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+
+  // 1) Step meta first — survives even if delete fails transiently
+  await updateLearningContentStepMeta(sb, packageId, {
+    lease_released_at: nowIso,
+    lease_release_reason: reason,
+    dispatch_blocked_reason: extraMeta["dispatch_blocked_reason"] ?? null,
+    ...extraMeta,
+  });
+
+  // 2) Release lease on course_packages (primary lease storage)
+  try {
+    await sb
+      .from("course_packages")
+      .update({ lease_owner: null, lease_expires_at: null, updated_at: nowIso })
+      .eq("id", packageId)
+      .not("lease_owner", "is", null);
+  } catch (e) {
+    console.warn(`[dispatcher] release lease (course_packages) for ${packageId.slice(0, 8)}: ${(e as Error)?.message ?? String(e)}`);
+  }
+
+  // 3) Also try package_leases table if it exists
+  try {
+    await sb.from("package_leases").delete().eq("package_id", packageId);
+  } catch { /* table may not exist — non-critical */ }
+
+  console.log(`[dispatcher] Lease released for ${packageId.slice(0, 8)} reason=${reason}`);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // Main handler
 // ═══════════════════════════════════════════════════════════════
 
@@ -136,7 +206,6 @@ Deno.serve(async (req) => {
   const globalInFlight = await countGlobalInFlight(sb);
   const freeSlots = Math.max(0, effectiveWip - globalInFlight);
 
-  // Fair-share: count how many packages hold leases for even distribution
   const leasedPackageCount = await countLeasedPackages(sb);
 
   console.log(
@@ -148,7 +217,16 @@ Deno.serve(async (req) => {
 
   if (needsRegen === 0) {
     const pkgInFlight = await countPackageInFlight(sb, packageId);
+
     if (pkgInFlight > 0) {
+      // Jobs still running — keep lease, just update meta
+      await updateLearningContentStepMeta(sb, packageId, {
+        needs_regen: 0,
+        active_lesson_jobs: pkgInFlight,
+        dispatch_blocked_reason: "waiting_active_jobs",
+        last_probe_at: new Date().toISOString(),
+      });
+
       return json({
         ok: true,
         batch_complete: false,
@@ -157,6 +235,14 @@ Deno.serve(async (req) => {
         needs_regen: 0,
       });
     }
+
+    // Truly done — release lease
+    await releasePackageLease(sb, packageId, "content_done", {
+      needs_regen: 0,
+      active_lesson_jobs: 0,
+      dispatch_blocked_reason: null,
+      completion_gate: { needs_regen: 0, active_jobs: 0 },
+    });
 
     return json({
       ok: true,
@@ -167,8 +253,17 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── Capacity check ──
+  // ── Capacity check — release lease if no global slots ──
   if (freeSlots <= 0) {
+    await releasePackageLease(sb, packageId, "no_free_slots", {
+      needs_regen: needsRegen,
+      dispatched: 0,
+      effective_wip: effectiveWip,
+      global_in_flight: globalInFlight,
+      dispatch_blocked_reason: "no_free_slots",
+      last_probe_at: new Date().toISOString(),
+    });
+
     return json({
       ok: true,
       batch_complete: false,
@@ -179,11 +274,20 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── Per-package cap with fair-share ──
+  // ── Per-package cap — release lease if saturated ──
   const pkgInFlight = await countPackageInFlight(sb, packageId);
   const pkgFree = Math.max(0, caps.perPackageMax - pkgInFlight);
 
   if (pkgFree <= 0) {
+    await releasePackageLease(sb, packageId, "per_package_cap", {
+      needs_regen: needsRegen,
+      dispatched: 0,
+      pkg_in_flight: pkgInFlight,
+      per_package_max: caps.perPackageMax,
+      dispatch_blocked_reason: "per_package_cap",
+      last_probe_at: new Date().toISOString(),
+    });
+
     return json({
       ok: true,
       batch_complete: false,
@@ -211,6 +315,16 @@ Deno.serve(async (req) => {
       console.warn(
         `[dispatcher] LIVENESS_GUARD: neutralized ${neutralized} stale transient-failed jobs for ${packageId.slice(0, 8)}`,
       );
+
+      // Telemetry for liveness guard — do NOT release lease here
+      await updateLearningContentStepMeta(sb, packageId, {
+        needs_regen: needsRegen,
+        neutralized_stale_failed: neutralized,
+        liveness_guard: true,
+        dispatch_blocked_reason: "revived_after_stale_failed",
+        last_probe_at: new Date().toISOString(),
+      });
+
       await reviveLearningContentStepIfDead(sb, packageId, needsRegen);
       return json({
         ok: true,
@@ -222,6 +336,14 @@ Deno.serve(async (req) => {
         liveness_guard: true,
       });
     }
+
+    // No targets and no stale jobs to neutralize — release lease
+    await releasePackageLease(sb, packageId, "no_targets", {
+      needs_regen: needsRegen,
+      dispatched: 0,
+      dispatch_blocked_reason: "no_targets",
+      last_probe_at: new Date().toISOString(),
+    });
 
     return json({
       ok: true,
@@ -237,33 +359,6 @@ Deno.serve(async (req) => {
   let deduped = 0;
   const errors: string[] = [];
   const now = Date.now();
-
-  // Update dispatch progress in package_steps.meta
-  try {
-    const { data: stepRow } = await sb
-      .from("package_steps")
-      .select("id, meta")
-      .eq("package_id", packageId)
-      .eq("step_key", "generate_learning_content")
-      .maybeSingle();
-    if (stepRow) {
-      await sb.from("package_steps").update({
-        meta: {
-          ...(stepRow.meta ?? {}),
-          dispatcher_mode: true,
-          needs_regen: needsRegen,
-          enqueue_batch: targets.length,
-          fair_share_batch: fairBatch,
-          effective_wip: effectiveWip,
-          fail_rate: failRate,
-          leased_packages: leasedPackageCount,
-          global_in_flight: globalInFlight,
-          pkg_in_flight: pkgInFlight,
-          last_dispatch_at: new Date().toISOString(),
-        },
-      }).eq("id", stepRow.id);
-    }
-  } catch { /* non-critical */ }
 
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
@@ -299,6 +394,24 @@ Deno.serve(async (req) => {
       }
     }
   }
+
+  // ── Update meta with dispatch results (clears old blocked reasons) ──
+  await updateLearningContentStepMeta(sb, packageId, {
+    dispatcher_mode: true,
+    needs_regen: needsRegen,
+    enqueue_batch: targets.length,
+    last_enqueue_count: enqueued,
+    deduped_count: deduped,
+    fair_share_batch: fairBatch,
+    effective_wip: effectiveWip,
+    fail_rate: failRate,
+    leased_packages: leasedPackageCount,
+    global_in_flight: globalInFlight,
+    pkg_in_flight: pkgInFlight,
+    dispatch_blocked_reason: null,
+    lease_release_reason: null,
+    last_dispatch_at: new Date().toISOString(),
+  });
 
   console.log(
     `[dispatcher] ${packageId.slice(0, 8)}: enqueued=${enqueued} deduped=${deduped} needsRegen=${needsRegen} fairBatch=${fairBatch} errors=${errors.length}`
