@@ -77,6 +77,7 @@ export function useCoursePackages() {
       const { data, error } = await supabase
         .from('course_packages')
         .select('*')
+        .neq('status', 'archived')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data || []) as CoursePackage[];
