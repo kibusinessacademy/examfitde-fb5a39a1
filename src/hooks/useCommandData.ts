@@ -28,6 +28,17 @@ export interface BuildingMetrics {
   zombies: number;
 }
 
+export interface TransientOps {
+  exhausted24h: number;
+  exhaustedByJobType: Array<{ job_type: string; cnt: number }>;
+  activeCooldowns: Array<{
+    provider: string;
+    model: string;
+    reason: string | null;
+    until_at: string;
+  }>;
+}
+
 export interface CommandKPIs {
   total_packages: number;
   building: number;
@@ -45,9 +56,19 @@ export interface CommandKPIs {
   building_metrics: BuildingMetrics;
 }
 
+const RELEVANT_EXHAUSTION_JOB_TYPES = new Set([
+  'lesson_generate_content',
+  'package_generate_learning_content',
+  'package_generate_exam_pool',
+  'package_generate_handbook',
+  'package_generate_oral_exam',
+  'package_generate_lesson_minichecks',
+]);
+
 export function useCommandData() {
   const [packages, setPackages] = useState<PipelinePackage[]>([]);
   const [kpis, setKpis] = useState<CommandKPIs | null>(null);
+  const [transientOps, setTransientOps] = useState<TransientOps | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
@@ -59,6 +80,7 @@ export function useCommandData() {
       const monthStart = new Date();
       monthStart.setDate(1);
       monthStart.setHours(0, 0, 0, 0);
+      const h24Ago = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
       const [
         statusRes,
@@ -70,6 +92,8 @@ export function useCommandData() {
         budgetRes,
         buildingMetricsRes,
         contentStepMetaRes,
+        transientRes,
+        cooldownRes,
       ] = await Promise.all([
         sb.from('course_packages').select('status').then((r: any) => {
           const data = r.data || [];
@@ -100,6 +124,18 @@ export function useCommandData() {
         sb.from('package_steps')
           .select('package_id, meta, last_error')
           .eq('step_key', 'generate_learning_content'),
+        // Transient exhausted jobs (24h) — only failed with TRANSIENT_EXHAUSTED
+        sb.from('job_queue')
+          .select('job_type, last_error, meta')
+          .eq('status', 'failed')
+          .gte('updated_at', h24Ago)
+          .ilike('last_error', '%TRANSIENT_EXHAUSTED%'),
+        // Active provider cooldowns
+        sb.from('llm_provider_cooldowns')
+          .select('provider, model, reason, until_at')
+          .gt('until_at', new Date().toISOString())
+          .order('until_at', { ascending: true })
+          .limit(20),
       ]);
 
       const statuses = await statusRes;
@@ -131,6 +167,27 @@ export function useCommandData() {
         });
       }
 
+      // Transient exhaustion analysis
+      const exhaustedRows = ((transientRes.data || []) as any[]).filter((row) =>
+        RELEVANT_EXHAUSTION_JOB_TYPES.has(row.job_type) || !RELEVANT_EXHAUSTION_JOB_TYPES.size
+      );
+
+      const exhaustedByJobTypeMap = new Map<string, number>();
+      for (const row of exhaustedRows) {
+        const jt = row.job_type || 'unknown';
+        exhaustedByJobTypeMap.set(jt, (exhaustedByJobTypeMap.get(jt) || 0) + 1);
+      }
+      const exhaustedByJobType = Array.from(exhaustedByJobTypeMap.entries())
+        .map(([job_type, cnt]) => ({ job_type, cnt }))
+        .sort((a, b) => b.cnt - a.cnt);
+
+      const activeCooldowns = ((cooldownRes.data || []) as any[]).map((r) => ({
+        provider: r.provider as string,
+        model: r.model as string,
+        reason: (r.reason as string) || null,
+        until_at: r.until_at as string,
+      }));
+
       // Map packages — step_status_json is the SSOT, no extra queries needed
       const enrichedPackages: PipelinePackage[] = buildPkgs.map((pkg: any) => ({
         id: pkg.id,
@@ -161,6 +218,11 @@ export function useCommandData() {
         budget_eur: budgetRow?.budget_eur ?? 200,
         building_metrics: bm ?? { active_by_jobs: 0, active_by_leases: 0, status_building: 0, zombies: 0 },
       });
+      setTransientOps({
+        exhausted24h: exhaustedRows.length,
+        exhaustedByJobType,
+        activeCooldowns,
+      });
       setLastRefresh(new Date());
     } catch (e) {
       console.error('[CommandData] Error:', e);
@@ -183,5 +245,5 @@ export function useCommandData() {
     return () => { supabase.removeChannel(ch); };
   }, [load]);
 
-  return { packages, kpis, loading, lastRefresh, refetch: load };
+  return { packages, kpis, transientOps, loading, lastRefresh, refetch: load };
 }
