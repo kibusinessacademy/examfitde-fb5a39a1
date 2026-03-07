@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/ai-client.ts";
-import { isTransientLlmError } from "../_shared/llm/normalize.ts";
+import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
+import { setProviderCooldown } from "../_shared/llm/provider-cooldown.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { loadCachedGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
