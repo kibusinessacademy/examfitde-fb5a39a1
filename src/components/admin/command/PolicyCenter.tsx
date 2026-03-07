@@ -158,6 +158,30 @@ export function PolicyCenter() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {(() => {
+          const disabledCritical = policies.filter(p => CRITICAL_POLICIES.has(p.policy_key) && !p.enabled);
+          if (disabledCritical.length > 0) {
+            return (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex items-start gap-2">
+                <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-destructive">
+                    {disabledCritical.length} kritische {disabledCritical.length === 1 ? 'Policy' : 'Policies'} deaktiviert
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {disabledCritical.map(p => p.label).join(', ')} — Pipeline-Recovery eingeschränkt.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 flex items-center gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+              <p className="text-[11px] text-primary">Alle kritischen Policies aktiv — Self-Healing vollständig.</p>
+            </div>
+          );
+        })()}
         {policies.map((p) => {
           const isEditing = editingId === p.id;
           const lastResult = p.last_run_result as any;
