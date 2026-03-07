@@ -537,7 +537,10 @@ export default function PipelineE2ERunbookPage() {
                   : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium text-foreground">{check.label}</span>
-                  {isP0 && <Badge variant="outline" className="ml-2 text-[9px] h-4 border-primary/50 text-primary">P0</Badge>}
+                  {isP0
+                    ? <Badge variant="outline" className="ml-2 text-[9px] h-4 border-primary/50 text-primary">P0</Badge>
+                    : <Badge variant="outline" className="ml-2 text-[9px] h-4 border-muted-foreground/40 text-muted-foreground">SOFT</Badge>
+                  }
                   <span className="text-xs text-muted-foreground ml-2">{check.desc}</span>
                 </div>
                 <Button
