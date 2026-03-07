@@ -62,6 +62,7 @@ export function useCommandData() {
         costMtdRes,
         budgetRes,
         buildingMetricsRes,
+        contentStepMetaRes,
       ] = await Promise.all([
         sb.from('course_packages').select('status').then((r: any) => {
           const data = r.data || [];
@@ -88,6 +89,10 @@ export function useCommandData() {
         sb.from('llm_cost_events').select('cost_eur').gte('ts', monthStart.toISOString()),
         sb.from('ai_cost_budgets').select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1),
         sb.rpc('get_building_metrics'),
+        // Content step meta for remaining/generated display
+        sb.from('package_steps')
+          .select('package_id, meta, last_error')
+          .eq('step_key', 'generate_learning_content'),
       ]);
 
       const statuses = await statusRes;
