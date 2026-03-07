@@ -241,6 +241,15 @@ async function getOverview(sb: SB) {
           detail: "Integritäts- oder Qualitätsprüfungen blockieren die Veröffentlichung.",
         }]
       : []),
+    ...(lcStarvationCount > 0
+      ? [{
+          id: "lc-starvation",
+          severity: (lcStarvationCount > 3 ? "critical" : "high") as "critical" | "high",
+          domain: "ops" as const,
+          title: `${lcStarvationCount} Pakete mit Content-Starvation`,
+          detail: "Building-Pakete mit offenen Inhalten, aber ohne aktive Content-Jobs.",
+        }]
+      : []),
   ];
 
   return {
@@ -255,6 +264,7 @@ async function getOverview(sb: SB) {
       provider_cooldowns: cooldownCount,
       blocked_publishables: blockedPublishables,
       open_claim_issues: openClaimIssues,
+      lc_starvation: lcStarvationCount,
     },
     pipeline,
   };
