@@ -29264,6 +29264,10 @@ export type Database = {
         Args: { p_curriculum_id: string; p_organization_id?: string }
         Returns: Json
       }
+      get_competency_bundle_progress: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       get_content_quality_stats: {
         Args: never
         Returns: {
@@ -29414,6 +29418,17 @@ export type Database = {
       get_learning_content_progress: {
         Args: { p_min_chars?: number; p_package_id: string }
         Returns: Json
+      }
+      get_legacy_lesson_audit: {
+        Args: { p_package_id?: string }
+        Returns: {
+          legacy_pct: number
+          lessons_with_competency: number
+          lessons_without_competency: number
+          package_id: string
+          package_title: string
+          total_lessons: number
+        }[]
       }
       get_lesson_minichecks: { Args: { p_lesson_id: string }; Returns: Json }
       get_lessons_needing_review: {
