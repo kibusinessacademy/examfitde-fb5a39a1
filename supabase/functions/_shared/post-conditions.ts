@@ -19,7 +19,12 @@ export async function assertStepPostConditions(sb: SB, args: {
   // SSOT: "done" requires artifact-based validation, NOT job-based
   if (stepKey === "generate_learning_content") {
     const { data, error } = await sb.rpc("package_lessons_realness", { p_package_id: packageId });
-    if (error) throw error;
+    if (error) {
+      console.error(`[post-conditions] RPC package_lessons_realness error for ${packageId}:`, JSON.stringify(error));
+      throw new Error(`RPC_ERROR: ${error.message ?? JSON.stringify(error)}`);
+    }
+
+    console.log(`[post-conditions] realness for ${packageId.slice(0,8)}:`, JSON.stringify(data));
 
     const total = num(data?.lessons_total);
     const real  = num(data?.real_content);
