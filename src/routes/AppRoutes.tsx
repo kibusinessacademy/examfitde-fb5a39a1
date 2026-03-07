@@ -86,6 +86,8 @@ const AdminProviderHealthPage = lazy(() => import('@/pages/admin/AdminProviderHe
 const AdminPackageRiskPage = lazy(() => import('@/pages/admin/AdminPackageRiskPage'));
 const AdminRevenuePage = lazy(() => import('@/pages/admin/AdminRevenuePage'));
 const AdminExecutiveHomePage = lazy(() => import('@/pages/admin/AdminExecutiveHomePage'));
+const CohortOverviewPage = lazy(() => import('@/pages/admin/b2b/CohortOverviewPage'));
+const LearnerCompetencyPage = lazy(() => import('@/pages/admin/b2b/LearnerCompetencyPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazy(() => import('@/pages/work/WorkHomePage'));
@@ -256,6 +258,10 @@ const AppRoutes = () => {
           <Route path="queue" element={<QueueManagerPage />} />
           <Route path="social" element={<SocialEnginePage />} />
           <Route path="audit" element={<AuditDashboardPage />} />
+
+          {/* B2B Competency Views */}
+          <Route path="b2b/cohort" element={<CohortOverviewPage />} />
+          <Route path="b2b/learner" element={<LearnerCompetencyPage />} />
 
           {/* ExamFit@work Admin (email-gated) */}
           <Route element={<AdminEmailGuard />}>
