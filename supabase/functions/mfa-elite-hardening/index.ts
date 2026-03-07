@@ -125,7 +125,7 @@ async function runAudit(sb: ReturnType<typeof createClient>): Promise<AuditResul
   let score = 100;
   if (broken > 0) score -= broken * 5;
   if (too_short > 0) score -= too_short * 2;
-  if (mini_checks_failed > 0) score -= Math.min(30, mini_checks_failed);
+  if (mini_checks_failed > 0) score -= Math.min(15, Math.ceil(mini_checks_failed * 0.3));
   if (zeroComps.length > 0) score -= zeroComps.length * 10;
   score -= compCoverage.filter(c => c.approved > 0 && c.approved < 5).length * 3;
   if ((retrieval.lessons?.chunks || 0) === 0) score -= 10;
