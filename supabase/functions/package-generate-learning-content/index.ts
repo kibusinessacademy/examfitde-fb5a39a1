@@ -104,25 +104,33 @@ async function updateLearningContentStepMeta(
   patch: Record<string, unknown>,
 ): Promise<void> {
   try {
-    const { data: stepRow } = await sb
+    const { data: stepRow, error: selErr } = await sb
       .from("package_steps")
       .select("id, meta")
       .eq("package_id", packageId)
       .eq("step_key", "generate_learning_content")
       .maybeSingle();
 
+    if (selErr) {
+      console.warn(`[dispatcher] updateStepMeta select failed for ${packageId.slice(0, 8)}: ${selErr.message}`);
+      return;
+    }
     if (!stepRow?.id) return;
 
-    await sb
+    const { error: updErr } = await sb
       .from("package_steps")
       .update({
         meta: { ...(stepRow.meta ?? {}), ...patch },
         updated_at: new Date().toISOString(),
       })
       .eq("id", stepRow.id);
+
+    if (updErr) {
+      console.warn(`[dispatcher] updateStepMeta update failed for ${packageId.slice(0, 8)}: ${updErr.message}`);
+    }
   } catch (e) {
     console.warn(
-      `[dispatcher] updateLearningContentStepMeta failed for ${packageId.slice(0, 8)}: ${(e as Error)?.message ?? String(e)}`,
+      `[dispatcher] updateStepMeta exception for ${packageId.slice(0, 8)}: ${(e as Error)?.message ?? String(e)}`,
     );
   }
 }
@@ -146,12 +154,16 @@ async function releasePackageLease(
 
   // 2) Release lease in package_leases (primary lease storage)
   try {
-    await sb.from("package_leases").delete().eq("package_id", packageId);
+    const { error } = await sb.from("package_leases").delete().eq("package_id", packageId);
+    if (error) {
+      console.warn(`[dispatcher] release lease (package_leases) failed for ${packageId.slice(0, 8)}: ${error.message}`);
+    }
   } catch (e) {
-    console.warn(`[dispatcher] release lease (package_leases) for ${packageId.slice(0, 8)}: ${(e as Error)?.message ?? String(e)}`);
+    console.warn(`[dispatcher] release lease exception for ${packageId.slice(0, 8)}: ${(e as Error)?.message ?? String(e)}`);
   }
 
   console.log(`[dispatcher] Lease released for ${packageId.slice(0, 8)} reason=${reason}`);
+}
 }
 
 // ═══════════════════════════════════════════════════════════════
