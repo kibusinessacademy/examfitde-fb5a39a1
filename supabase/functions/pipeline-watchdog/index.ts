@@ -5,6 +5,7 @@ import {
   reviveLearningContentStepIfDead,
   getLearningContentJobState,
 } from "../_shared/learning-content-revive.ts";
+import { getNeedsRegenCount } from "../_shared/learning-content-scheduler.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
