@@ -86,15 +86,14 @@ export default function BenchmarkMonitor() {
     const stepsArr: StepState[] = stepData || [];
     setSteps(stepsArr);
 
-    // Load metrics
+    // Load metrics – package-scoped via curriculum_id from view
     const pkg = list.find((p: any) => p.id === pkgId);
-    const curriculumId = await getCurriculumId(pkgId);
 
     let blueprints = 0, questions = 0;
-    if (curriculumId) {
+    if (pkg?.curriculum_id) {
       const [bpRes, qRes] = await Promise.all([
-        (supabase as any).from('question_blueprints').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId),
-        (supabase as any).from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId),
+        (supabase as any).from('question_blueprints').select('id', { count: 'exact', head: true }).eq('curriculum_id', pkg.curriculum_id),
+        (supabase as any).from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', pkg.curriculum_id),
       ]);
       blueprints = bpRes.count || 0;
       questions = qRes.count || 0;

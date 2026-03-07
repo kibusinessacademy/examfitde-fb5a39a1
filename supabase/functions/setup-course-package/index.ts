@@ -142,11 +142,12 @@ Deno.serve(async (req) => {
       throw new Error("Course resolve failed");
     }
 
-    // 5) Create or get package
+    // 5) Create or get package (SSOT: curriculum_id based, not course_id)
     const { data: existingPkg } = await sb
       .from("course_packages")
       .select("id, status")
-      .eq("course_id", courseId)
+      .eq("curriculum_id", curriculumId)
+      .in("status", ["planning", "queued", "building", "failed", "draft", "published"])
       .maybeSingle();
 
     let packageId: string;
