@@ -52,6 +52,11 @@ const WORKER_ID = `job-runner-${crypto.randomUUID().slice(0, 8)}`;
 // Backoff delays (ms) for requeue scenarios
 const BACKOFF_409_MS = 30_000;
 const BACKOFF_429_MS = 60_000;
+
+// ── Transient exhaustion governance ──────────────────────────────────
+// Max transient retries before escalating to failed (prevents infinite loops)
+const MAX_TRANSIENT_ATTEMPTS = 25;
+const TRANSIENT_WINDOW_MS = 45 * 60_000; // 45 min window
 const BACKOFF_BATCH_MS = 3_000;
 const BACKOFF_PREREQ_MS = 20_000;
 
