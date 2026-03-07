@@ -15,6 +15,7 @@ export default function LearnerCompetencyPage() {
   const [searchParams] = useSearchParams();
   const learnerId = searchParams.get("id");
   const curriculumId = searchParams.get("curriculum");
+  const orgId = searchParams.get("org");
 
   const { data, isLoading, error } = useLearnerProfile(learnerId, curriculumId);
 
@@ -22,6 +23,14 @@ export default function LearnerCompetencyPage() {
   const strongestSkills: any[] = profile.strongest_skills ?? [];
   const weakestSkills: any[] = profile.weakest_skills ?? [];
   const recentSessions: any[] = profile.recent_sessions ?? [];
+
+  // Build back-navigation URL preserving org context
+  const buildBackUrl = () => {
+    const params = new URLSearchParams();
+    if (curriculumId) params.set("curriculum", curriculumId);
+    if (orgId) params.set("org", orgId);
+    return `/admin/b2b/cohort?${params.toString()}`;
+  };
 
   if (!learnerId || !curriculumId) {
     return (
@@ -35,7 +44,7 @@ export default function LearnerCompetencyPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/b2b/cohort?curriculum=${curriculumId}`)}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(buildBackUrl())}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -93,7 +102,6 @@ export default function LearnerCompetencyPage() {
       {/* Skills Grid */}
       {!isLoading && (weakestSkills.length > 0 || strongestSkills.length > 0) && (
         <div className="grid md:grid-cols-2 gap-4">
-          {/* Weakest */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-destructive">Schwächste Kompetenzen</CardTitle>
@@ -112,7 +120,6 @@ export default function LearnerCompetencyPage() {
             </CardContent>
           </Card>
 
-          {/* Strongest */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-success">Stärkste Kompetenzen</CardTitle>

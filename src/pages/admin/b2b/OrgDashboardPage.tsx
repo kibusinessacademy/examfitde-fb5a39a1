@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useOrgCompetencyDashboard } from "@/hooks/useB2bData";
+import { useOrgCompetencyDashboard, useB2bOrgList } from "@/hooks/useB2bData";
 import KpiCard from "@/components/b2b/KpiCard";
 import RiskBadge from "@/components/b2b/RiskBadge";
 import ReadinessBar from "@/components/b2b/ReadinessBar";
@@ -19,36 +18,25 @@ function verdictFromReadiness(pct: number): string {
   return "not_ready";
 }
 
-interface OrgOption { id: string; name: string }
-
 export default function OrgDashboardPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const orgIdParam = searchParams.get("org");
 
-  const [orgs, setOrgs] = useState<OrgOption[]>([]);
-  const [loadingOrgs, setLoadingOrgs] = useState(true);
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(orgIdParam);
+  const { data: orgs = [], isLoading: loadingOrgs } = useB2bOrgList();
 
-  // Load available organizations
+  // Auto-select first org if none specified
+  const selectedOrgId = orgIdParam && orgs.some((o) => o.id === orgIdParam)
+    ? orgIdParam
+    : orgs[0]?.id ?? null;
+
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("organizations")
-        .select("id, name")
-        .order("name");
-      const list = (data ?? []).map((o) => ({ id: o.id, name: o.name }));
-      setOrgs(list);
-      setLoadingOrgs(false);
-      if (!selectedOrgId && list.length > 0) {
-        setSelectedOrgId(list[0].id);
-        setSearchParams({ org: list[0].id });
-      }
-    })();
-  }, []);
+    if (selectedOrgId && selectedOrgId !== orgIdParam) {
+      setSearchParams({ org: selectedOrgId });
+    }
+  }, [selectedOrgId]);
 
   const handleOrgChange = (id: string) => {
-    setSelectedOrgId(id);
     setSearchParams({ org: id });
   };
 
@@ -60,12 +48,10 @@ export default function OrgDashboardPage() {
   const totalExamReady = data?.total_exam_ready ?? 0;
   const curricula: any[] = data?.curricula ?? [];
 
-  // Sort curricula by readiness ascending for priority list
   const criticalCurricula = [...curricula]
     .sort((a, b) => (a.avg_readiness_pct ?? 0) - (b.avg_readiness_pct ?? 0))
     .slice(0, 3);
 
-  // Distribution counts
   const dist = { green: 0, yellow: 0, orange: 0, red: 0 };
   curricula.forEach((c) => {
     const r = c.avg_readiness_pct ?? 0;
@@ -108,7 +94,7 @@ export default function OrgDashboardPage() {
       </div>
 
       {/* KPI Row */}
-      {isLoading ? (
+      {isLoading || loadingOrgs ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-lg" />
@@ -116,11 +102,7 @@ export default function OrgDashboardPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard
-            title="Lernende gesamt"
-            value={totalLearners}
-            icon={Users}
-          />
+          <KpiCard title="Lernende gesamt" value={totalLearners} icon={Users} />
           <KpiCard
             title="Ø Prüfungsreife"
             value={`${Math.round(overallReadiness)}%`}
@@ -149,12 +131,8 @@ export default function OrgDashboardPage() {
       {error && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="p-4 flex items-center justify-between">
-            <p className="text-sm text-destructive">
-              Fehler beim Laden: {(error as Error).message}
-            </p>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Erneut versuchen
-            </Button>
+            <p className="text-sm text-destructive">Fehler beim Laden: {(error as Error).message}</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>Erneut versuchen</Button>
           </CardContent>
         </Card>
       )}
@@ -245,29 +223,21 @@ export default function OrgDashboardPage() {
                       <TableCell className="font-medium text-sm max-w-[240px] truncate">
                         {c.title || c.curriculum_id?.slice(0, 8)}
                       </TableCell>
-                      <TableCell className="text-center tabular-nums text-sm">
-                        {c.learner_count ?? 0}
-                      </TableCell>
-                      <TableCell>
-                        <ReadinessBar value={c.avg_readiness_pct ?? 0} size="sm" />
-                      </TableCell>
+                      <TableCell className="text-center tabular-nums text-sm">{c.learner_count ?? 0}</TableCell>
+                      <TableCell><ReadinessBar value={c.avg_readiness_pct ?? 0} size="sm" /></TableCell>
                       <TableCell className="text-center">
                         <span className={`tabular-nums text-sm font-medium ${(c.at_risk_count ?? 0) > 0 ? "text-destructive" : "text-muted-foreground"}`}>
                           {c.at_risk_count ?? 0}
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
-                        <span className="tabular-nums text-sm font-medium text-success">
-                          {c.exam_ready_count ?? 0}
-                        </span>
+                        <span className="tabular-nums text-sm font-medium text-success">{c.exam_ready_count ?? 0}</span>
                       </TableCell>
                       <TableCell className="text-center">
                         <RiskBadge verdict={verdictFromReadiness(c.avg_readiness_pct ?? 0)} />
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
-                          Zur Kohorte <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                        </Button>
+                        <Button variant="ghost" size="sm">Zur Kohorte <ArrowRight className="h-3.5 w-3.5 ml-1" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
