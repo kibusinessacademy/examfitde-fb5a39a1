@@ -20,6 +20,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 8);
+const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 16);
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
 const DISPATCH_TIMEOUT_MS = 42_000;
