@@ -66,7 +66,7 @@ async function runAudit(sb: ReturnType<typeof createClient>): Promise<AuditResul
     }
   }
 
-  // Exam coverage
+  // Exam coverage — now also fetches blueprint_ids for gap-fill
   const { data: competencies } = await sb
     .from("competencies")
     .select("id, title, learning_field_id")
@@ -76,7 +76,7 @@ async function runAudit(sb: ReturnType<typeof createClient>): Promise<AuditResul
 
   const compIds = (competencies || []).map((c: { id: string }) => c.id);
   
-  const compCoverage: Array<{ id: string; title: string; approved: number }> = [];
+  const compCoverage: Array<{ id: string; title: string; approved: number; blueprint_ids: string[] }> = [];
   const zeroComps: string[] = [];
 
   for (const comp of competencies || []) {
@@ -85,8 +85,20 @@ async function runAudit(sb: ReturnType<typeof createClient>): Promise<AuditResul
       .eq("competency_id", comp.id)
       .or("status.eq.approved,qc_status.eq.approved");
     const approved = count || 0;
+    
+    // Fetch blueprint IDs for gap competencies
+    let bpIds: string[] = [];
+    if (approved < 5) {
+      const { data: bps } = await sb.from("question_blueprints")
+        .select("id")
+        .eq("competency_id", comp.id)
+        .eq("curriculum_id", MFA_CURRICULUM_ID)
+        .eq("status", "approved");
+      bpIds = (bps || []).map((b: { id: string }) => b.id);
+    }
+    
     if (approved === 0) zeroComps.push(comp.title);
-    if (approved < 5) compCoverage.push({ id: comp.id, title: comp.title, approved });
+    if (approved < 5) compCoverage.push({ id: comp.id, title: comp.title, approved, blueprint_ids: bpIds });
   }
 
   // Handbook
