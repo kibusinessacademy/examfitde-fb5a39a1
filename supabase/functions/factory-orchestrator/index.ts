@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Priority Refill: gestaffelter Rollout für queued Pakete ──
+    // ── Priority Refill: tier-aware Rollout für queued Pakete ──
     const { count: buildingCount } = await sb
       .from("course_packages")
       .select("id", { count: "exact", head: true })
@@ -185,13 +185,17 @@ Deno.serve(async (req) => {
 
     if ((queuedDefault ?? 0) > 0 && (buildingCount ?? 0) < 28) {
       const batchSize = Math.min(20, 28 - (buildingCount ?? 0));
-      const { data: refilled } = await sb.rpc("reprioritize_queued_exam_first", {
+      const { data: refilled } = await sb.rpc("reprioritize_queued_market_tier", {
         p_batch_size: batchSize,
         p_new_priority: 8,
       });
       const refilledCount = Array.isArray(refilled) ? refilled.length : 0;
       if (refilledCount > 0) {
-        actions.push(`Priority-refill: ${refilledCount} packages → priority=8 (building=${buildingCount})`);
+        const tierBreakdown = (refilled as any[]).reduce((acc: Record<number, number>, r: any) => {
+          acc[r.beruf_tier] = (acc[r.beruf_tier] || 0) + 1;
+          return acc;
+        }, {});
+        actions.push(`Priority-refill: ${refilledCount} packages → priority=8 (tiers: ${JSON.stringify(tierBreakdown)}, building=${buildingCount})`);
       }
     }
 
