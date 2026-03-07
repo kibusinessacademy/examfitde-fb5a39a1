@@ -1,12 +1,12 @@
-import { useState, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useCallback, useRef } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
-  CheckCircle2, XCircle, Loader2, Play, ClipboardList,
-  AlertTriangle, RefreshCw, ChevronDown, ChevronRight, FlaskConical
+  CheckCircle2, XCircle, Loader2, Play,
+  AlertTriangle, RefreshCw, ChevronDown, ChevronRight, FlaskConical, Eye
 } from 'lucide-react';
 
 type CheckStatus = 'idle' | 'running' | 'pass' | 'fail' | 'warn';
@@ -18,20 +18,24 @@ interface CheckResult {
   ts?: string;
 }
 
-const CHECKS = [
-  { id: 'select_package', label: '1. Testpaket auswählen', desc: 'Package mit niedrigem Legacy-Anteil finden' },
-  { id: 'baseline', label: '2. Ausgangszustand dokumentieren', desc: 'needs_regen, bundles, artifact status vor Start' },
-  { id: 'dispatcher', label: '3. Dispatcher prüfen', desc: 'Bundle-Jobs erzeugt? Dedup sauber?' },
-  { id: 'bundle_worker', label: '4. Bundle-Worker prüfen', desc: 'Lesson-Subjobs korrekt enqueued?' },
-  { id: 'lesson_subjobs', label: '5. Lesson-Subjobs prüfen', desc: 'Content erzeugt? Keine Hollow/Placeholder?' },
-  { id: 'monitor', label: '6. Bundle-Monitor prüfen', desc: 'Metriken plausibel und live?' },
-  { id: 'hybrid_completion', label: '7. Hybrid-Completion prüfen', desc: 'check_fan_out_completion korrekt?' },
-  { id: 'runner', label: '8. Runner-Verhalten prüfen', desc: 'Step sauber auf done? Kein Loop?' },
-  { id: 'watchdog', label: '9. Watchdog-Verhalten prüfen', desc: 'Keine unnötigen Statuswechsel?' },
-  { id: 'auto_heal', label: '10. Auto-Heal prüfen', desc: 'Recovery logisch? (optional)' },
-  { id: 'artifact_truth', label: '11. Artefakt-Truth final', desc: 'get_learning_content_progress grün?' },
-  { id: 'legacy_audit', label: '12. Legacy-Anteil prüfen', desc: 'Legacy messbar und nachvollziehbar?' },
-] as const;
+type CheckGate = 'p0' | 'soft';
+
+const CHECKS: readonly { id: string; label: string; desc: string; gate: CheckGate }[] = [
+  { id: 'select_package', label: '1. Testpaket auswählen', desc: 'Package mit niedrigem Legacy-Anteil finden', gate: 'soft' },
+  { id: 'baseline', label: '2. Ausgangszustand', desc: 'needs_regen, bundles, artifact status', gate: 'p0' },
+  { id: 'dispatcher', label: '3. Dispatcher', desc: 'Bundle-Jobs erzeugt? Dedup sauber?', gate: 'p0' },
+  { id: 'bundle_worker', label: '4. Bundle-Worker', desc: 'Lesson-Subjobs korrekt enqueued?', gate: 'p0' },
+  { id: 'lesson_subjobs', label: '5. Lesson-Subjobs', desc: 'Content valide? Kein Hollow?', gate: 'p0' },
+  { id: 'monitor', label: '6. Bundle-Monitor', desc: 'Metriken plausibel?', gate: 'soft' },
+  { id: 'hybrid_completion', label: '7. Hybrid-Completion', desc: 'check_fan_out_completion korrekt?', gate: 'p0' },
+  { id: 'runner', label: '8. Runner', desc: 'Step sauber auf done? Kein Loop?', gate: 'soft' },
+  { id: 'watchdog', label: '9. Watchdog', desc: 'Keine unnötigen Resets?', gate: 'soft' },
+  { id: 'auto_heal', label: '10. Auto-Heal', desc: 'Recovery logisch? (optional)', gate: 'soft' },
+  { id: 'artifact_truth', label: '11. Artefakt-Truth', desc: 'get_learning_content_progress grün?', gate: 'p0' },
+  { id: 'legacy_audit', label: '12. Legacy-Audit', desc: 'Legacy messbar?', gate: 'soft' },
+];
+
+const P0_IDS = CHECKS.filter(c => c.gate === 'p0').map(c => c.id);
 
 function StatusIcon({ status }: { status: CheckStatus }) {
   switch (status) {
@@ -43,26 +47,59 @@ function StatusIcon({ status }: { status: CheckStatus }) {
   }
 }
 
+type Verdict = 'GO' | 'GO_WITH_WARNINGS' | 'NO_GO' | 'INCOMPLETE';
+
+function VerdictBanner({ verdict, p0Pass, p0Fail, softPass, softWarn }: {
+  verdict: Verdict; p0Pass: number; p0Fail: number; softPass: number; softWarn: number;
+}) {
+  const config = {
+    GO: { icon: <CheckCircle2 className="h-6 w-6 text-emerald-500" />, label: '✅ GO für Phase B', border: 'border-emerald-500/50 bg-emerald-500/5' },
+    GO_WITH_WARNINGS: { icon: <AlertTriangle className="h-6 w-6 text-orange-500" />, label: '⚠️ GO MIT VORBEHALTEN', border: 'border-orange-500/50 bg-orange-500/5' },
+    NO_GO: { icon: <XCircle className="h-6 w-6 text-destructive" />, label: '❌ NO-GO — P0-Fails beheben', border: 'border-destructive/50 bg-destructive/5' },
+    INCOMPLETE: { icon: <Eye className="h-6 w-6 text-muted-foreground" />, label: '⏳ Checks unvollständig', border: 'border-border' },
+  };
+  const c = config[verdict];
+  return (
+    <Card className={cn("border-2", c.border)}>
+      <CardContent className="py-4">
+        <div className="flex items-center gap-3">
+          {c.icon}
+          <div>
+            <p className="font-semibold text-foreground">{c.label}</p>
+            <p className="text-sm text-muted-foreground">
+              P0: {p0Pass} Pass / {p0Fail} Fail · Soft: {softPass} Pass / {softWarn} Warn
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function PipelineE2ERunbookPage() {
   const [packageId, setPackageId] = useState('');
   const [results, setResults] = useState<Record<string, CheckResult>>({});
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
+  // Ref to pass packageId into runAll without stale closure
+  const pkgRef = useRef(packageId);
+  pkgRef.current = packageId;
 
   const setCheckResult = (id: string, result: CheckResult) => {
     setResults(prev => ({ ...prev, [id]: { ...result, ts: new Date().toISOString() } }));
   };
 
-  // ── Check 1: Find best test package ──
-  const runSelectPackage = useCallback(async () => {
+  const usePkg = (override?: string) => override || pkgRef.current;
+
+  // ── Check 1: Find best test package (returns selected ID) ──
+  const runSelectPackage = useCallback(async (): Promise<string | null> => {
     setCheckResult('select_package', { status: 'running' });
     try {
       const { data: audit, error } = await (supabase as any).rpc('get_legacy_lesson_audit');
       if (error) throw error;
 
-      // Also get building packages
       const { data: pkgs } = await (supabase as any)
         .from('course_packages')
-        .select('id,title,status,build_progress')
+        .select('id,title,status,build_progress,updated_at')
         .in('status', ['building', 'queued'])
         .order('updated_at', { ascending: false })
         .limit(20);
@@ -77,70 +114,64 @@ export default function PipelineE2ERunbookPage() {
         };
       });
 
+      const best = candidates[0]?.id ?? null;
+      if (best && !pkgRef.current) setPackageId(best);
+
       setCheckResult('select_package', {
         status: candidates.length > 0 ? 'pass' : 'warn',
-        data: { candidates, audit_summary: audit?.length ?? 0 },
+        data: { candidates, suggested_package_id: best, audit_summary: audit?.length ?? 0 },
       });
+      return best;
     } catch (e) {
       setCheckResult('select_package', { status: 'fail', error: (e as Error).message });
+      return null;
     }
   }, []);
 
   // ── Check 2: Baseline ──
-  const runBaseline = useCallback(async () => {
-    if (!packageId) { setCheckResult('baseline', { status: 'fail', error: 'Kein Paket ausgewählt' }); return; }
+  const runBaseline = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('baseline', { status: 'fail', error: 'Kein Paket ausgewählt' }); return; }
     setCheckResult('baseline', { status: 'running' });
     try {
       const [bundleRes, stepRes, progressRes] = await Promise.all([
-        (supabase as any).rpc('get_competency_bundle_progress', { p_package_id: packageId }),
+        (supabase as any).rpc('get_competency_bundle_progress', { p_package_id: pid }),
         (supabase as any).from('package_steps').select('status,meta,attempts')
-          .eq('package_id', packageId).eq('step_key', 'generate_learning_content').maybeSingle(),
-        (supabase as any).rpc('get_learning_content_progress', { p_package_id: packageId }),
+          .eq('package_id', pid).eq('step_key', 'generate_learning_content').maybeSingle(),
+        (supabase as any).rpc('get_learning_content_progress', { p_package_id: pid }),
       ]);
-
       setCheckResult('baseline', {
         status: 'pass',
-        data: {
-          bundle_progress: bundleRes.data,
-          step: stepRes.data,
-          artifact_progress: progressRes.data,
-        },
+        data: { bundle_progress: bundleRes.data, step: stepRes.data, artifact_progress: progressRes.data },
       });
     } catch (e) {
       setCheckResult('baseline', { status: 'fail', error: (e as Error).message });
     }
-  }, [packageId]);
+  }, []);
 
   // ── Check 3: Dispatcher ──
-  const runDispatcher = useCallback(async () => {
-    if (!packageId) { setCheckResult('dispatcher', { status: 'fail', error: 'Kein Paket' }); return; }
+  const runDispatcher = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('dispatcher', { status: 'fail', error: 'Kein Paket' }); return; }
     setCheckResult('dispatcher', { status: 'running' });
     try {
       const { data: bundleJobs, error } = await (supabase as any)
         .from('job_queue')
         .select('id,status,batch_cursor,idempotency_key,created_at')
-        .eq('package_id', packageId)
+        .eq('package_id', pid)
         .eq('job_type', 'lesson_generate_competency_bundle')
         .order('created_at', { ascending: false })
         .limit(100);
-
       if (error) throw error;
 
-      // Check dedup: unique competency_ids
-      const competencyIds = (bundleJobs || [])
-        .map((j: any) => j.batch_cursor?.competency_id)
-        .filter(Boolean);
+      const competencyIds = (bundleJobs || []).map((j: any) => j.batch_cursor?.competency_id).filter(Boolean);
       const uniqueCompetencies = new Set(competencyIds);
       const hasDupes = competencyIds.length !== uniqueCompetencies.size;
 
-      // Check for legacy jobs
       const { data: legacyJobs } = await (supabase as any)
-        .from('job_queue')
-        .select('id,status')
-        .eq('package_id', packageId)
-        .eq('job_type', 'lesson_generate_content')
-        .in('status', ['pending', 'processing', 'queued'])
-        .limit(50);
+        .from('job_queue').select('id,status')
+        .eq('package_id', pid).eq('job_type', 'lesson_generate_content')
+        .in('status', ['pending', 'processing', 'queued']).limit(50);
 
       setCheckResult('dispatcher', {
         status: hasDupes ? 'fail' : (bundleJobs?.length > 0 ? 'pass' : 'warn'),
@@ -150,50 +181,37 @@ export default function PipelineE2ERunbookPage() {
           has_duplicates: hasDupes,
           legacy_active: legacyJobs?.length ?? 0,
           sample_jobs: (bundleJobs || []).slice(0, 5).map((j: any) => ({
-            id: j.id.slice(0, 8),
-            status: j.status,
-            competency: j.batch_cursor?.competency_id?.slice(0, 8),
+            id: j.id.slice(0, 8), status: j.status, competency: j.batch_cursor?.competency_id?.slice(0, 8),
           })),
         },
       });
     } catch (e) {
       setCheckResult('dispatcher', { status: 'fail', error: (e as Error).message });
     }
-  }, [packageId]);
+  }, []);
 
   // ── Check 4: Bundle Worker ──
-  const runBundleWorker = useCallback(async () => {
-    if (!packageId) { setCheckResult('bundle_worker', { status: 'fail', error: 'Kein Paket' }); return; }
+  const runBundleWorker = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('bundle_worker', { status: 'fail', error: 'Kein Paket' }); return; }
     setCheckResult('bundle_worker', { status: 'running' });
     try {
-      // Get done bundles and their spawned lesson jobs
       const { data: doneBundles } = await (supabase as any)
-        .from('job_queue')
-        .select('id,batch_cursor,payload')
-        .eq('package_id', packageId)
-        .eq('job_type', 'lesson_generate_competency_bundle')
-        .eq('status', 'done')
-        .limit(5);
+        .from('job_queue').select('id,batch_cursor,payload')
+        .eq('package_id', pid).eq('job_type', 'lesson_generate_competency_bundle')
+        .eq('status', 'done').limit(5);
 
       const sampleCompetencies = (doneBundles || [])
         .map((b: any) => b.batch_cursor?.competency_id || b.payload?.competency_id)
-        .filter(Boolean)
-        .slice(0, 3);
+        .filter(Boolean).slice(0, 3);
 
-      // For each sample competency, check spawned lesson jobs
       const samples = [];
       for (const cid of sampleCompetencies) {
         const { data: lessonJobs } = await (supabase as any)
-          .from('job_queue')
-          .select('id,status,batch_cursor')
-          .eq('package_id', packageId)
-          .eq('job_type', 'lesson_generate_content')
-          .limit(200);
+          .from('job_queue').select('id,status,batch_cursor')
+          .eq('package_id', pid).eq('job_type', 'lesson_generate_content').limit(200);
 
-        const matching = (lessonJobs || []).filter(
-          (j: any) => j.batch_cursor?.competency_id === cid
-        );
-
+        const matching = (lessonJobs || []).filter((j: any) => j.batch_cursor?.competency_id === cid);
         samples.push({
           competency_id: cid.slice(0, 8),
           lesson_subjobs: matching.length,
@@ -202,59 +220,49 @@ export default function PipelineE2ERunbookPage() {
           pending: matching.filter((j: any) => ['pending', 'processing', 'queued'].includes(j.status)).length,
         });
       }
-
       setCheckResult('bundle_worker', {
         status: doneBundles?.length > 0 ? 'pass' : 'warn',
-        data: {
-          done_bundles: doneBundles?.length ?? 0,
-          samples,
-        },
+        data: { done_bundles: doneBundles?.length ?? 0, samples },
       });
     } catch (e) {
       setCheckResult('bundle_worker', { status: 'fail', error: (e as Error).message });
     }
-  }, [packageId]);
+  }, []);
 
-  // ── Check 5: Lesson Subjobs ──
-  const runLessonSubjobs = useCallback(async () => {
-    if (!packageId) { setCheckResult('lesson_subjobs', { status: 'fail', error: 'Kein Paket' }); return; }
+  // ── Check 5: Lesson Subjobs (SSOT: content.html check) ──
+  const runLessonSubjobs = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('lesson_subjobs', { status: 'fail', error: 'Kein Paket' }); return; }
     setCheckResult('lesson_subjobs', { status: 'running' });
     try {
       const { data: doneJobs } = await (supabase as any)
-        .from('job_queue')
-        .select('id,payload')
-        .eq('package_id', packageId)
-        .eq('job_type', 'lesson_generate_content')
-        .eq('status', 'done')
-        .limit(10);
+        .from('job_queue').select('id,payload')
+        .eq('package_id', pid).eq('job_type', 'lesson_generate_content')
+        .eq('status', 'done').limit(10);
 
-      const lessonIds = (doneJobs || [])
-        .map((j: any) => j.payload?.lesson_id)
-        .filter(Boolean)
-        .slice(0, 5);
+      const lessonIds = (doneJobs || []).map((j: any) => j.payload?.lesson_id).filter(Boolean).slice(0, 5);
 
       const samples = [];
       for (const lid of lessonIds) {
         const { data: lesson } = await (supabase as any)
-          .from('lessons')
-          .select('id,title,competency_id,content,qc_status')
-          .eq('id', lid)
-          .maybeSingle();
+          .from('lessons').select('id,title,competency_id,content,qc_status')
+          .eq('id', lid).maybeSingle();
 
         if (lesson) {
-          const contentStr = typeof lesson.content === 'string'
-            ? lesson.content
-            : JSON.stringify(lesson.content || '');
-          const isHollow = !contentStr || contentStr.length < 600
-            || contentStr.includes('_placeholder');
-          const hasJsonFence = contentStr.includes('```json');
+          // SSOT: check content.html specifically
+          const content = lesson.content;
+          const html = content && typeof content === 'object' ? (content.html || '') : '';
+          const isPlaceholder = String(content?._placeholder) === 'true';
+          const isHollow = !html || html.length < 600 || isPlaceholder;
+          const hasJsonFence = html.includes('```json');
 
           samples.push({
             id: lesson.id.slice(0, 8),
             title: lesson.title?.slice(0, 40),
             competency_id: lesson.competency_id?.slice(0, 8) ?? 'NULL',
-            content_length: contentStr.length,
+            html_length: html.length,
             is_hollow: isHollow,
+            is_placeholder: isPlaceholder,
             has_json_fence: hasJsonFence,
             qc_status: lesson.qc_status,
           });
@@ -269,41 +277,34 @@ export default function PipelineE2ERunbookPage() {
     } catch (e) {
       setCheckResult('lesson_subjobs', { status: 'fail', error: (e as Error).message });
     }
-  }, [packageId]);
+  }, []);
 
   // ── Check 6: Monitor metrics ──
-  const runMonitor = useCallback(async () => {
-    if (!packageId) { setCheckResult('monitor', { status: 'fail', error: 'Kein Paket' }); return; }
+  const runMonitor = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('monitor', { status: 'fail', error: 'Kein Paket' }); return; }
     setCheckResult('monitor', { status: 'running' });
     try {
-      const { data, error } = await (supabase as any).rpc('get_competency_bundle_progress', {
-        p_package_id: packageId,
-      });
+      const { data, error } = await (supabase as any).rpc('get_competency_bundle_progress', { p_package_id: pid });
       if (error) throw error;
-
       const d = data as any;
       const consistent = d.bundles_done + d.bundles_failed + d.bundles_active <= d.bundles_total;
-
-      setCheckResult('monitor', {
-        status: consistent ? 'pass' : 'fail',
-        data: { ...d, consistent },
-      });
+      setCheckResult('monitor', { status: consistent ? 'pass' : 'fail', data: { ...d, consistent } });
     } catch (e) {
       setCheckResult('monitor', { status: 'fail', error: (e as Error).message });
     }
-  }, [packageId]);
+  }, []);
 
   // ── Check 7: Hybrid Completion ──
-  const runHybridCompletion = useCallback(async () => {
-    if (!packageId) { setCheckResult('hybrid_completion', { status: 'fail', error: 'Kein Paket' }); return; }
+  const runHybridCompletion = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('hybrid_completion', { status: 'fail', error: 'Kein Paket' }); return; }
     setCheckResult('hybrid_completion', { status: 'running' });
     try {
       const { data, error } = await (supabase as any).rpc('check_fan_out_completion', {
-        p_package_id: packageId,
-        p_step_key: 'generate_learning_content',
+        p_package_id: pid, p_step_key: 'generate_learning_content',
       });
       if (error) throw error;
-
       const d = data as any;
       setCheckResult('hybrid_completion', {
         status: d?.ok ? 'pass' : (d?.active_subjobs > 0 ? 'warn' : 'fail'),
@@ -312,127 +313,96 @@ export default function PipelineE2ERunbookPage() {
     } catch (e) {
       setCheckResult('hybrid_completion', { status: 'fail', error: (e as Error).message });
     }
-  }, [packageId]);
+  }, []);
 
-  // ── Check 8: Runner (step status) ──
-  const runRunner = useCallback(async () => {
-    if (!packageId) { setCheckResult('runner', { status: 'fail', error: 'Kein Paket' }); return; }
+  // ── Check 8: Runner ──
+  const runRunner = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('runner', { status: 'fail', error: 'Kein Paket' }); return; }
     setCheckResult('runner', { status: 'running' });
     try {
       const { data: step } = await (supabase as any)
-        .from('package_steps')
-        .select('status,attempts,meta,last_error,finished_at')
-        .eq('package_id', packageId)
-        .eq('step_key', 'generate_learning_content')
-        .maybeSingle();
-
+        .from('package_steps').select('status,attempts,meta,last_error,finished_at')
+        .eq('package_id', pid).eq('step_key', 'generate_learning_content').maybeSingle();
       const isDone = step?.status === 'done';
       const isLooping = (step?.attempts ?? 0) > 10;
-
       setCheckResult('runner', {
         status: isDone ? 'pass' : (isLooping ? 'fail' : 'warn'),
         data: {
-          status: step?.status,
-          attempts: step?.attempts,
-          finished_at: step?.finished_at,
+          status: step?.status, attempts: step?.attempts, finished_at: step?.finished_at,
           is_looping: isLooping,
-          meta_snippet: step?.meta
-            ? { dispatcher_mode: step.meta.dispatcher_mode, needs_regen: step.meta.needs_regen }
-            : null,
+          meta_snippet: step?.meta ? { dispatcher_mode: step.meta.dispatcher_mode, needs_regen: step.meta.needs_regen } : null,
           last_error: step?.last_error?.slice(0, 200),
         },
       });
     } catch (e) {
       setCheckResult('runner', { status: 'fail', error: (e as Error).message });
     }
-  }, [packageId]);
+  }, []);
 
   // ── Check 9: Watchdog ──
-  const runWatchdog = useCallback(async () => {
-    if (!packageId) { setCheckResult('watchdog', { status: 'fail', error: 'Kein Paket' }); return; }
+  const runWatchdog = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('watchdog', { status: 'fail', error: 'Kein Paket' }); return; }
     setCheckResult('watchdog', { status: 'running' });
     try {
       const { data: events } = await (supabase as any)
-        .from('pipeline_health_events')
-        .select('event_type,message,created_at')
-        .eq('package_id', packageId)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
+        .from('pipeline_health_events').select('event_type,message,created_at')
+        .eq('package_id', pid).order('created_at', { ascending: false }).limit(20);
       const suspiciousResets = (events || []).filter(
         (e: any) => e.event_type === 'step_reset' || e.message?.includes('watchdog')
       );
-
       setCheckResult('watchdog', {
         status: suspiciousResets.length > 3 ? 'fail' : 'pass',
-        data: {
-          total_events: events?.length ?? 0,
-          suspicious_resets: suspiciousResets.length,
-          recent: (events || []).slice(0, 5),
-        },
+        data: { total_events: events?.length ?? 0, suspicious_resets: suspiciousResets.length, recent: (events || []).slice(0, 5) },
       });
-    } catch (e) {
-      // pipeline_health_events may not exist — that's OK
+    } catch {
       setCheckResult('watchdog', { status: 'warn', data: { note: 'Events-Tabelle nicht verfügbar' } });
     }
-  }, [packageId]);
+  }, []);
 
   // ── Check 10: Auto-Heal ──
-  const runAutoHeal = useCallback(async () => {
-    if (!packageId) { setCheckResult('auto_heal', { status: 'fail', error: 'Kein Paket' }); return; }
+  const runAutoHeal = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('auto_heal', { status: 'fail', error: 'Kein Paket' }); return; }
     setCheckResult('auto_heal', { status: 'running' });
     try {
       const { data: healLogs } = await (supabase as any)
-        .from('auto_heal_log')
-        .select('action_type,result_status,target_id,created_at')
-        .eq('target_id', packageId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
+        .from('auto_heal_log').select('action_type,result_status,target_id,created_at')
+        .eq('target_id', pid).order('created_at', { ascending: false }).limit(10);
       setCheckResult('auto_heal', {
         status: 'pass',
-        data: {
-          heal_events: healLogs?.length ?? 0,
-          recent: (healLogs || []).slice(0, 5),
-        },
+        data: { heal_events: healLogs?.length ?? 0, recent: (healLogs || []).slice(0, 5) },
       });
     } catch (e) {
       setCheckResult('auto_heal', { status: 'warn', error: (e as Error).message });
     }
-  }, [packageId]);
+  }, []);
 
   // ── Check 11: Artifact Truth ──
-  const runArtifactTruth = useCallback(async () => {
-    if (!packageId) { setCheckResult('artifact_truth', { status: 'fail', error: 'Kein Paket' }); return; }
+  const runArtifactTruth = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('artifact_truth', { status: 'fail', error: 'Kein Paket' }); return; }
     setCheckResult('artifact_truth', { status: 'running' });
     try {
-      const { data, error } = await (supabase as any).rpc('get_learning_content_progress', {
-        p_package_id: packageId,
-      });
+      const { data, error } = await (supabase as any).rpc('get_learning_content_progress', { p_package_id: pid });
       if (error) throw error;
-
       const d = data as any;
       const isGreen = d?.ok === true || (d?.real === d?.total && d?.total > 0);
-
-      setCheckResult('artifact_truth', {
-        status: isGreen ? 'pass' : 'warn',
-        data: d,
-      });
+      setCheckResult('artifact_truth', { status: isGreen ? 'pass' : 'warn', data: d });
     } catch (e) {
       setCheckResult('artifact_truth', { status: 'fail', error: (e as Error).message });
     }
-  }, [packageId]);
+  }, []);
 
   // ── Check 12: Legacy Audit ──
-  const runLegacyAudit = useCallback(async () => {
-    if (!packageId) { setCheckResult('legacy_audit', { status: 'fail', error: 'Kein Paket' }); return; }
+  const runLegacyAudit = useCallback(async (override?: string) => {
+    const pid = usePkg(override);
+    if (!pid) { setCheckResult('legacy_audit', { status: 'fail', error: 'Kein Paket' }); return; }
     setCheckResult('legacy_audit', { status: 'running' });
     try {
-      const { data, error } = await (supabase as any).rpc('get_legacy_lesson_audit', {
-        p_package_id: packageId,
-      });
+      const { data, error } = await (supabase as any).rpc('get_legacy_lesson_audit', { p_package_id: pid });
       if (error) throw error;
-
       const row = (data || [])[0];
       setCheckResult('legacy_audit', {
         status: row ? (row.legacy_pct > 20 ? 'warn' : 'pass') : 'pass',
@@ -441,9 +411,10 @@ export default function PipelineE2ERunbookPage() {
     } catch (e) {
       setCheckResult('legacy_audit', { status: 'fail', error: (e as Error).message });
     }
-  }, [packageId]);
+  }, []);
 
-  const checkRunners: Record<string, () => Promise<void>> = {
+  // ── Runner map (all accept optional override) ──
+  const checkRunners: Record<string, (override?: string) => Promise<any>> = {
     select_package: runSelectPackage,
     baseline: runBaseline,
     dispatcher: runDispatcher,
@@ -458,20 +429,39 @@ export default function PipelineE2ERunbookPage() {
     legacy_audit: runLegacyAudit,
   };
 
+  // ── Run All: uses ref or auto-selects ──
   const runAll = async () => {
-    await runSelectPackage();
-    if (!packageId) return;
+    let pid = pkgRef.current;
+    if (!pid) {
+      const selected = await runSelectPackage();
+      if (!selected) return;
+      pid = selected;
+      setPackageId(pid);
+    }
     for (const check of CHECKS.slice(1)) {
-      await checkRunners[check.id]();
+      await checkRunners[check.id](pid);
     }
   };
 
-  const passCount = Object.values(results).filter(r => r.status === 'pass').length;
-  const failCount = Object.values(results).filter(r => r.status === 'fail').length;
-  const warnCount = Object.values(results).filter(r => r.status === 'warn').length;
+  // ── Verdict calculation ──
+  const p0Results = P0_IDS.map(id => results[id]?.status).filter(Boolean);
+  const p0Pass = p0Results.filter(s => s === 'pass').length;
+  const p0Fail = p0Results.filter(s => s === 'fail').length;
+  const softResults = CHECKS.filter(c => c.gate === 'soft').map(c => results[c.id]?.status).filter(Boolean);
+  const softPass = softResults.filter(s => s === 'pass').length;
+  const softWarn = softResults.filter(s => s === 'warn').length;
+  const totalRun = Object.values(results).filter(r => r.status !== 'idle').length;
+
+  const verdict: Verdict =
+    totalRun < 6 ? 'INCOMPLETE'
+    : p0Fail > 0 ? 'NO_GO'
+    : softWarn > 0 ? 'GO_WITH_WARNINGS'
+    : p0Pass >= P0_IDS.length ? 'GO'
+    : 'INCOMPLETE';
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -483,11 +473,14 @@ export default function PipelineE2ERunbookPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {passCount > 0 && <Badge variant="default" className="bg-emerald-600">{passCount} Pass</Badge>}
-          {warnCount > 0 && <Badge variant="outline" className="text-orange-500 border-orange-500">{warnCount} Warn</Badge>}
-          {failCount > 0 && <Badge variant="destructive">{failCount} Fail</Badge>}
+          {p0Pass > 0 && <Badge variant="default" className="bg-emerald-600">P0: {p0Pass}/{P0_IDS.length}</Badge>}
+          {p0Fail > 0 && <Badge variant="destructive">P0 Fail: {p0Fail}</Badge>}
+          {softWarn > 0 && <Badge variant="outline" className="text-orange-500 border-orange-500">Soft: {softWarn} Warn</Badge>}
         </div>
       </div>
+
+      {/* Verdict (always visible) */}
+      <VerdictBanner verdict={verdict} p0Pass={p0Pass} p0Fail={p0Fail} softPass={softPass} softWarn={softWarn} />
 
       {/* Package selector */}
       <Card>
@@ -498,10 +491,10 @@ export default function PipelineE2ERunbookPage() {
               type="text"
               value={packageId}
               onChange={e => setPackageId(e.target.value.trim())}
-              placeholder="UUID des Testpakets"
+              placeholder="UUID des Testpakets (oder Check 1 wählt automatisch)"
               className="flex-1 px-3 py-1.5 text-sm rounded-md border border-border bg-background text-foreground"
             />
-            <Button variant="outline" size="sm" onClick={runAll} disabled={!packageId}>
+            <Button variant="outline" size="sm" onClick={runAll}>
               <Play className="h-3 w-3 mr-1" /> Alle Checks
             </Button>
           </div>
@@ -514,6 +507,7 @@ export default function PipelineE2ERunbookPage() {
           const result = results[check.id];
           const status = result?.status ?? 'idle';
           const isExpanded = expandedCheck === check.id;
+          const isP0 = check.gate === 'p0';
 
           return (
             <Card key={check.id} className={cn(
@@ -531,37 +525,28 @@ export default function PipelineE2ERunbookPage() {
                   : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium text-foreground">{check.label}</span>
+                  {isP0 && <Badge variant="outline" className="ml-2 text-[9px] h-4 border-primary/50 text-primary">P0</Badge>}
                   <span className="text-xs text-muted-foreground ml-2">{check.desc}</span>
                 </div>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs shrink-0"
-                  onClick={e => {
-                    e.stopPropagation();
-                    checkRunners[check.id]();
-                  }}
+                  variant="ghost" size="sm" className="h-7 text-xs shrink-0"
+                  onClick={e => { e.stopPropagation(); checkRunners[check.id](); }}
                   disabled={status === 'running' || (check.id !== 'select_package' && !packageId)}
                 >
-                  {status === 'running'
-                    ? <Loader2 className="h-3 w-3 animate-spin" />
-                    : <RefreshCw className="h-3 w-3" />}
+                  {status === 'running' ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                 </Button>
               </div>
 
               {isExpanded && result && (
                 <CardContent className="pt-0 pb-3">
                   {result.error && (
-                    <div className="text-xs text-destructive bg-destructive/10 rounded p-2 mb-2">
-                      {result.error}
-                    </div>
+                    <div className="text-xs text-destructive bg-destructive/10 rounded p-2 mb-2">{result.error}</div>
                   )}
                   {result.data && (
                     <pre className="text-[11px] text-muted-foreground bg-muted/50 rounded p-3 overflow-x-auto max-h-[400px] overflow-y-auto">
                       {JSON.stringify(result.data, null, 2)}
                     </pre>
                   )}
-                  {/* Package selection helper */}
                   {check.id === 'select_package' && result.data?.candidates && (
                     <div className="mt-2 space-y-1">
                       <p className="text-xs font-medium text-muted-foreground">Klicke ein Paket um es auszuwählen:</p>
@@ -577,10 +562,7 @@ export default function PipelineE2ERunbookPage() {
                           <Badge variant="outline" className="text-[9px]">{c.status}</Badge>
                           <span className="flex-1 truncate font-medium">{c.title || c.id.slice(0, 12)}</span>
                           <span className="text-muted-foreground">{c.build_progress ?? 0}%</span>
-                          <span className={cn(
-                            "text-[10px]",
-                            c.legacy_pct > 20 ? "text-orange-500" : "text-emerald-500"
-                          )}>
+                          <span className={cn("text-[10px]", c.legacy_pct > 20 ? "text-orange-500" : "text-emerald-500")}>
                             Legacy: {c.legacy_pct}%
                           </span>
                         </button>
@@ -598,30 +580,6 @@ export default function PipelineE2ERunbookPage() {
           );
         })}
       </div>
-
-      {/* Go/No-Go Summary */}
-      {passCount + failCount + warnCount >= 8 && (
-        <Card className={cn(
-          "border-2",
-          failCount === 0 ? "border-emerald-500/50 bg-emerald-500/5" : "border-destructive/50 bg-destructive/5"
-        )}>
-          <CardContent className="py-4">
-            <div className="flex items-center gap-3">
-              {failCount === 0
-                ? <CheckCircle2 className="h-6 w-6 text-emerald-500" />
-                : <XCircle className="h-6 w-6 text-destructive" />}
-              <div>
-                <p className="font-semibold text-foreground">
-                  {failCount === 0 ? '✅ GO für Phase B' : '❌ NO-GO — Fixes nötig'}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {passCount} Pass · {warnCount} Warn · {failCount} Fail
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
