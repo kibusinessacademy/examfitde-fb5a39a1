@@ -11,9 +11,10 @@ interface BenchmarkPackage {
   id: string;
   title: string;
   status: string;
-  priority: number;
+  priority: number | null;
   created_at: string;
   updated_at: string;
+  curriculum_id: string | null;
 }
 
 interface StepState {
@@ -59,12 +60,13 @@ export default function BenchmarkMonitor() {
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    // Load actively building packages
+    // Load actively building packages via SSOT view
     const { data: pkgs } = await (supabase as any)
-      .from('course_packages')
-      .select('id, title, status, priority, created_at, updated_at')
-      .in('status', ['building', 'queued'])
-      .order('priority', { ascending: true })
+      .from('v_admin_visible_course_packages')
+      .select('id, title, status, priority, created_at, updated_at, curriculum_id')
+      .in('status', ['building', 'queued', 'failed'])
+      .order('priority', { ascending: true, nullsFirst: false })
+      .order('updated_at', { ascending: false })
       .limit(10);
 
     const list = pkgs || [];
@@ -84,15 +86,14 @@ export default function BenchmarkMonitor() {
     const stepsArr: StepState[] = stepData || [];
     setSteps(stepsArr);
 
-    // Load metrics
+    // Load metrics – package-scoped via curriculum_id from view
     const pkg = list.find((p: any) => p.id === pkgId);
-    const curriculumId = await getCurriculumId(pkgId);
 
     let blueprints = 0, questions = 0;
-    if (curriculumId) {
+    if (pkg?.curriculum_id) {
       const [bpRes, qRes] = await Promise.all([
-        (supabase as any).from('question_blueprints').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId),
-        (supabase as any).from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', curriculumId),
+        (supabase as any).from('question_blueprints').select('id', { count: 'exact', head: true }).eq('curriculum_id', pkg.curriculum_id),
+        (supabase as any).from('exam_questions').select('id', { count: 'exact', head: true }).eq('curriculum_id', pkg.curriculum_id),
       ]);
       blueprints = bpRes.count || 0;
       questions = qRes.count || 0;
@@ -259,13 +260,4 @@ function formatDuration(seconds: number | null): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}m ${s}s`;
-}
-
-async function getCurriculumId(packageId: string): Promise<string | null> {
-  const { data } = await (supabase as any)
-    .from('course_packages')
-    .select('courses!inner(curriculum_id)')
-    .eq('id', packageId)
-    .maybeSingle();
-  return data?.courses?.curriculum_id || null;
 }

@@ -92,36 +92,62 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4) Create or get course
-    const { data: existingCourse } = await sb
+    // 4) Create or get course (SSOT-hardened: unique index on curriculum_id)
+    let courseId: string | null = null;
+
+    const { data: existingCourse, error: existingCourseErr } = await sb
       .from("courses")
       .select("id")
       .eq("curriculum_id", curriculumId)
       .maybeSingle();
 
-    let courseId: string;
-    if (existingCourse) {
+    if (existingCourseErr) {
+      throw new Error(`Course lookup: ${existingCourseErr.message}`);
+    }
+
+    if (existingCourse?.id) {
       courseId = existingCourse.id;
     } else {
       const { data: newCourse, error: courseErr } = await sb
         .from("courses")
         .insert({
           curriculum_id: curriculumId,
-          title: berufName,
-          description: `Prüfungsvorbereitung für ${berufName}`,
+          title: `ExamFit – ${berufName} Prüfungsvorbereitung`,
           status: "draft",
         })
         .select("id")
         .single();
-      if (courseErr) throw new Error(`Course create: ${courseErr.message}`);
-      courseId = newCourse.id;
+
+      if (courseErr) {
+        // Race condition: another request created the course first
+        if ((courseErr as any).code === "23505") {
+          const { data: winner, error: winnerErr } = await sb
+            .from("courses")
+            .select("id")
+            .eq("curriculum_id", curriculumId)
+            .single();
+          if (winnerErr || !winner?.id) {
+            throw new Error(`Course unique-race recovery failed: ${winnerErr?.message || 'winner missing'}`);
+          }
+          courseId = winner.id;
+        } else {
+          throw new Error(`Course create: ${courseErr.message}`);
+        }
+      } else {
+        courseId = newCourse.id;
+      }
     }
 
-    // 5) Create or get package
+    if (!courseId) {
+      throw new Error("Course resolve failed");
+    }
+
+    // 5) Create or get package (SSOT: curriculum_id based, not course_id)
     const { data: existingPkg } = await sb
       .from("course_packages")
       .select("id, status")
-      .eq("course_id", courseId)
+      .eq("curriculum_id", curriculumId)
+      .in("status", ["planning", "queued", "building", "failed", "draft", "published"])
       .maybeSingle();
 
     let packageId: string;
