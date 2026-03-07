@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { inferBackoffSeconds, poolForJobType } from "../_shared/job-map.ts";
+import { inferBackoffSeconds, poolForJobType, getFanOutConfig, FAN_OUT_STEP_KEYS } from "../_shared/job-map.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { markStepDone } from "../_shared/steps.ts";
 
@@ -1541,37 +1541,50 @@ async function processPackage(
         }
       }
 
-      // ── FAN-OUT COMPLETION GUARD ──
-      // Root orchestrator jobs (e.g. generate_exam_pool) may complete with
-      // fan_out_skipped=true when sub-jobs already exist. But if those sub-jobs
-      // are still pending, marking the step "done" would orphan them permanently.
-      // Check for pending sub-jobs before finalizing fan-out steps.
-      const FAN_OUT_STEPS: Set<string> = new Set([
-        "generate_exam_pool",
-        "auto_seed_exam_blueprints",
-        "generate_learning_content",
-        "generate_oral_exam",
-      ]);
-      if (FAN_OUT_STEPS.has(stepKey) && result.fan_out_skipped === true) {
-        const jobType = STEP_TO_JOB_TYPE[stepKey as StepKey];
-        const { data: pendingSubJobs } = await safeRpc(sb, "count_active_jobs", {
+      // ── FAN-OUT COMPLETION GUARD (SSOT-driven) ──
+      // Steps registered in FAN_OUT_CONFIG decompose into subjobs.
+      // Before marking done, verify all subjobs are finished using the
+      // hybrid check_fan_out_completion RPC.
+      const fanOutCfg = getFanOutConfig(stepKey);
+      if (fanOutCfg && result.fan_out_skipped === true) {
+        const { data: completion } = await safeRpc(sb, "check_fan_out_completion", {
           p_package_id: packageId,
-          p_job_type: jobType,
+          p_step_key: stepKey,
+          p_subjob_types: fanOutCfg.subjobTypes,
+          p_completion_mode: fanOutCfg.completionMode,
+          p_completion_rpc: fanOutCfg.completionRpc ?? null,
         });
-        if ((pendingSubJobs ?? 0) > 0) {
-          console.warn(`[runner] ⚠️ Fan-out guard: ${stepKey} root completed with fan_out_skipped but ${pendingSubJobs} sub-jobs still active — NOT marking done`);
-          // Reset step to queued so the runner picks up the sub-jobs on next tick
-          await safeQuery(
-            sb.from("package_steps").update({
-              status: "enqueued",
-              job_id: null,
-              runner_id: null,
-              last_error: `Fan-out guard: ${pendingSubJobs} sub-jobs still active`,
-            }).eq("package_id", packageId).eq("step_key", stepKey),
-            "fan_out_guard_reset",
-          );
+        const comp = completion as Record<string, unknown> | null;
+        if (comp && !comp.ok) {
+          const activeCount = Number(comp.active_subjobs ?? 0);
+          const failedCount = Number(comp.failed_subjobs ?? 0);
+          console.warn(`[runner] ⚠️ Fan-out guard (SSOT): ${stepKey} not complete — active:${activeCount} failed:${failedCount} artifact_ok:${comp.artifact_ok}`);
+          
+          if (failedCount > 0 && activeCount === 0) {
+            // All subjobs done but some failed — fail the step
+            await safeQuery(
+              sb.from("package_steps").update({
+                status: "failed",
+                job_id: null,
+                runner_id: null,
+                last_error: `Fan-out: ${failedCount} subjobs failed, ${comp.completed_subjobs} completed`,
+              }).eq("package_id", packageId).eq("step_key", stepKey),
+              "fan_out_failed",
+            );
+          } else {
+            // Still active subjobs — reset to enqueued
+            await safeQuery(
+              sb.from("package_steps").update({
+                status: "enqueued",
+                job_id: null,
+                runner_id: null,
+                last_error: `Fan-out guard: ${activeCount} subjobs active, artifact_ok=${comp.artifact_ok}`,
+              }).eq("package_id", packageId).eq("step_key", stepKey),
+              "fan_out_guard_reset",
+            );
+          }
           await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-          return { packageId, stepKey, fan_out_guard: true, pending_sub_jobs: pendingSubJobs };
+          return { packageId, stepKey, fan_out_guard: true, completion: comp };
         }
       }
 

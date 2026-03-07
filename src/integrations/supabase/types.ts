@@ -28405,6 +28405,16 @@ export type Database = {
           package_id: string
         }[]
       }
+      check_fan_out_completion: {
+        Args: {
+          p_completion_mode?: string
+          p_completion_rpc?: string
+          p_package_id: string
+          p_step_key: string
+          p_subjob_types: string[]
+        }
+        Returns: Json
+      }
       check_lesson_answer: {
         Args: { p_lesson_id: string; p_user_answer: string }
         Returns: Json

@@ -94,6 +94,104 @@ export const BLOOM_LEVELS = [
 export type BloomLevel = (typeof BLOOM_LEVELS)[number];
 
 // ═══════════════════════════════════════════════════════════════
+// Fan-Out SSOT — Centralized subjob decomposition config
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Completion mode for fan-out steps:
+ * - "artifact_truth": Step is done when artifact RPC confirms all items exist (e.g. all lessons real)
+ * - "subjob_count":   Step is done when all spawned subjobs are completed
+ * - "hybrid":         Both artifact truth AND zero active subjobs required (safest)
+ */
+export type FanOutCompletionMode = "artifact_truth" | "subjob_count" | "hybrid";
+
+export interface FanOutStepConfig {
+  /** The step_key this config applies to */
+  stepKey: PipelineStepKey;
+  /** Job type(s) spawned as subjobs for this step */
+  subjobTypes: string[];
+  /** How completion is determined */
+  completionMode: FanOutCompletionMode;
+  /** RPC name that returns { ok: boolean, total: number, done: number } for artifact truth */
+  completionRpc?: string;
+  /** Max concurrent subjobs per package for this step */
+  wipPerPackage: number;
+  /** Scheduling weight for subjob priority (higher = more critical) */
+  subjobPriority: number;
+  /** Whether the orchestrator root job should be re-enqueued to spawn more batches */
+  useBatchCursor: boolean;
+}
+
+/**
+ * SSOT: Fan-out step configurations.
+ * Every step that decomposes into subjobs MUST be registered here.
+ * The runner, watchdog, and stuck-scan all consume this config.
+ */
+export const FAN_OUT_CONFIG: FanOutStepConfig[] = [
+  {
+    stepKey: "generate_learning_content",
+    subjobTypes: ["lesson_generate_content", "package_generate_learning_content"],
+    completionMode: "hybrid",
+    completionRpc: "get_learning_content_progress",
+    wipPerPackage: 12,
+    subjobPriority: 15,
+    useBatchCursor: true,
+  },
+  {
+    stepKey: "auto_seed_exam_blueprints",
+    subjobTypes: ["package_auto_seed_exam_blueprints"],
+    completionMode: "subjob_count",
+    wipPerPackage: 8,
+    subjobPriority: 10,
+    useBatchCursor: false,
+  },
+  {
+    stepKey: "generate_exam_pool",
+    subjobTypes: ["package_generate_exam_pool"],
+    completionMode: "hybrid",
+    completionRpc: "get_exam_pool_progress",
+    wipPerPackage: 8,
+    subjobPriority: 10,
+    useBatchCursor: true,
+  },
+  {
+    stepKey: "generate_oral_exam",
+    subjobTypes: ["package_generate_oral_exam"],
+    completionMode: "subjob_count",
+    wipPerPackage: 4,
+    subjobPriority: 5,
+    useBatchCursor: false,
+  },
+  {
+    stepKey: "generate_lesson_minichecks",
+    subjobTypes: ["package_generate_lesson_minichecks"],
+    completionMode: "subjob_count",
+    wipPerPackage: 6,
+    subjobPriority: 5,
+    useBatchCursor: true,
+  },
+  {
+    stepKey: "generate_handbook",
+    subjobTypes: ["package_generate_handbook"],
+    completionMode: "subjob_count",
+    wipPerPackage: 4,
+    subjobPriority: 5,
+    useBatchCursor: true,
+  },
+];
+
+/** Lookup fan-out config by step key */
+export function getFanOutConfig(stepKey: string): FanOutStepConfig | undefined {
+  return FAN_OUT_CONFIG.find(c => c.stepKey === stepKey);
+}
+
+/** Set of all fan-out step keys (derived from SSOT) */
+export const FAN_OUT_STEP_KEYS = new Set(FAN_OUT_CONFIG.map(c => c.stepKey));
+
+/** All subjob types across all fan-out configs (for validation) */
+export const ALL_SUBJOB_TYPES = new Set(FAN_OUT_CONFIG.flatMap(c => c.subjobTypes));
+
+// ═══════════════════════════════════════════════════════════════
 // Unified Job Definitions (SSOT for pool + edge function dispatch)
 // ═══════════════════════════════════════════════════════════════
 

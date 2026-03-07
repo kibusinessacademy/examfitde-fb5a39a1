@@ -26,6 +26,18 @@ This file is the **Single Source of Truth** for pipeline step keys (`package_ste
 - `quality_council` — AI Quality Council review
 - `auto_publish` — Automated publish after all gates pass
 
+### Fan-Out Steps (SSOT: `_shared/job-map.ts` → `FAN_OUT_CONFIG`)
+These steps decompose into parallel subjobs. Completion is determined by hybrid check (subjob count + artifact truth).
+
+| step_key | Completion Mode | WIP/Package | Subjob Types |
+|---|---|---|---|
+| `generate_learning_content` | hybrid | 12 | `lesson_generate_content`, `package_generate_learning_content` |
+| `auto_seed_exam_blueprints` | subjob_count | 8 | `package_auto_seed_exam_blueprints` |
+| `generate_exam_pool` | hybrid | 8 | `package_generate_exam_pool` |
+| `generate_oral_exam` | subjob_count | 4 | `package_generate_oral_exam` |
+| `generate_lesson_minichecks` | subjob_count | 6 | `package_generate_lesson_minichecks` |
+| `generate_handbook` | subjob_count | 4 | `package_generate_handbook` |
+
 ### Support Steps
 - `setup_course_package` — Initial package scaffolding
 - `sync_content_versions` — Content version sync to lessons

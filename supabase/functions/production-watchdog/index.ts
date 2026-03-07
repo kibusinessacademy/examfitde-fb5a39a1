@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { getFanOutConfig, FAN_OUT_CONFIG, STEP_TO_JOB_TYPE as SSOT_STEP_TO_JOB } from "../_shared/job-map.ts";
 
 /**
  * production-watchdog – Unified proactive health sweep
@@ -200,18 +201,9 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // 3. FAN-OUT SYNC (all sub-jobs done but step still "running")
-    //    Maps step_key → job_type so we catch jobs that don't carry step_key in payload
+    // 3. FAN-OUT SYNC (SSOT-driven via check_fan_out_completion RPC)
+    //    Uses centralized FAN_OUT_CONFIG from job-map.ts
     // ═══════════════════════════════════════════════════════════
-    const STEP_TO_JOB_TYPE: Record<string, string> = {
-      generate_exam_pool: "package_generate_exam_pool",
-      generate_oral_exam: "package_generate_oral_exam",
-      generate_handbook: "package_generate_handbook",
-      build_ai_tutor_index: "package_build_ai_tutor_index",
-      scaffold_learning_course: "package_scaffold_learning_course",
-      run_integrity_check: "package_run_integrity_check",
-      auto_publish: "package_auto_publish",
-    };
 
     const { data: runningSteps } = await sb
       .from("course_package_build_steps")
@@ -220,90 +212,82 @@ Deno.serve(async (req) => {
 
     let fanOutSynced = 0;
     for (const step of runningSteps || []) {
-      // Build filter: match by step_key in payload OR by mapped job_type
-      const jobType = STEP_TO_JOB_TYPE[step.step_key];
+      const fanOutCfg = getFanOutConfig(step.step_key);
+      
+      if (fanOutCfg) {
+        // Use centralized RPC for fan-out steps
+        const { data: completion } = await sb.rpc("check_fan_out_completion", {
+          p_package_id: step.package_id,
+          p_step_key: step.step_key,
+          p_subjob_types: fanOutCfg.subjobTypes,
+          p_completion_mode: fanOutCfg.completionMode,
+          p_completion_rpc: fanOutCfg.completionRpc ?? null,
+        });
 
-      // Check active jobs: try both payload->>step_key and job_type matching
-      let activeCount = 0;
-      let failedCount = 0;
+        const comp = completion as Record<string, unknown> | null;
+        if (!comp) continue;
 
-      if (jobType) {
-        // Primary: match by job_type + package_id (covers exam-pool fan-out jobs)
+        const activeCount = Number(comp.active_subjobs ?? 0);
+        const failedCount = Number(comp.failed_subjobs ?? 0);
+
+        if (activeCount === 0) {
+          if (comp.ok) {
+            await sb.rpc("update_course_package_step", {
+              p_package_id: step.package_id,
+              p_step_key: step.step_key,
+              p_status: "done",
+              p_log: { synced_by: "production-watchdog", mode: "fan_out_ssot", completion: comp },
+            });
+            fanOutSynced++;
+            console.log(`[Watchdog] FAN_OUT_SYNC: ${step.step_key} for ${step.package_id.slice(0, 8)} → done`);
+          } else if (failedCount > 0) {
+            await sb.rpc("update_course_package_step", {
+              p_package_id: step.package_id,
+              p_step_key: step.step_key,
+              p_status: "failed",
+              p_log: { synced_by: "production-watchdog", failed_jobs: failedCount, completion: comp },
+            });
+            fanOutSynced++;
+            console.log(`[Watchdog] FAN_OUT_SYNC: ${step.step_key} for ${step.package_id.slice(0, 8)} → failed (${failedCount} failed)`);
+          }
+        }
+      } else {
+        // Non-fan-out steps: legacy check by job_type
+        const jobType = SSOT_STEP_TO_JOB[step.step_key as keyof typeof SSOT_STEP_TO_JOB];
+        if (!jobType) continue;
+
         const { count: activeByType } = await sb
           .from("job_queue")
           .select("id", { count: "exact", head: true })
           .in("status", ["pending", "processing"])
           .eq("job_type", jobType)
           .filter("payload->>package_id", "eq", step.package_id);
-        activeCount = activeByType ?? 0;
 
-        const { count: failedByType } = await sb
-          .from("job_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "failed")
-          .eq("job_type", jobType)
-          .filter("payload->>package_id", "eq", step.package_id);
-        failedCount = failedByType ?? 0;
-      } else {
-        // Fallback: match by step_key in payload
-        const { count: activeBySK } = await sb
-          .from("job_queue")
-          .select("id", { count: "exact", head: true })
-          .in("status", ["pending", "processing"])
-          .filter("payload->>package_id", "eq", step.package_id)
-          .filter("payload->>step_key", "eq", step.step_key);
-        activeCount = activeBySK ?? 0;
+        if ((activeByType ?? 0) === 0) {
+          const { count: failedByType } = await sb
+            .from("job_queue")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "failed")
+            .eq("job_type", jobType)
+            .filter("payload->>package_id", "eq", step.package_id);
 
-        const { count: failedBySK } = await sb
-          .from("job_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "failed")
-          .filter("payload->>package_id", "eq", step.package_id)
-          .filter("payload->>step_key", "eq", step.step_key);
-        failedCount = failedBySK ?? 0;
-      }
-
-      // Also count cancelled jobs — cancelled fan-out sub-jobs are NOT "done successfully"
-      let cancelledCount = 0;
-      if (jobType) {
-        const { count: cancelledByType } = await sb
-          .from("job_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "cancelled")
-          .eq("job_type", jobType)
-          .filter("payload->>package_id", "eq", step.package_id);
-        cancelledCount = cancelledByType ?? 0;
-      } else {
-        const { count: cancelledBySK } = await sb
-          .from("job_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "cancelled")
-          .filter("payload->>package_id", "eq", step.package_id)
-          .filter("payload->>step_key", "eq", step.step_key);
-        cancelledCount = cancelledBySK ?? 0;
-      }
-
-      if (activeCount === 0) {
-        if (failedCount === 0 && cancelledCount === 0) {
-          // All done successfully — no failed, no cancelled
-          await sb.rpc("update_course_package_step", {
-            p_package_id: step.package_id,
-            p_step_key: step.step_key,
-            p_status: "done",
-            p_log: { synced_by: "production-watchdog", note: "All fan-out jobs completed" },
-          });
-          fanOutSynced++;
-          console.log(`[Watchdog] FAN_OUT_SYNC: ${step.step_key} for ${step.package_id.slice(0, 8)} → done`);
-        } else {
-          // Some failed or cancelled — mark step as failed (cancelled sub-jobs = incomplete fan-out)
-          await sb.rpc("update_course_package_step", {
-            p_package_id: step.package_id,
-            p_step_key: step.step_key,
-            p_status: "failed",
-            p_log: { synced_by: "production-watchdog", failed_jobs: failedCount, cancelled_jobs: cancelledCount },
-          });
-          fanOutSynced++;
-          console.log(`[Watchdog] FAN_OUT_SYNC: ${step.step_key} for ${step.package_id.slice(0, 8)} → failed (${failedCount} failed, ${cancelledCount} cancelled)`);
+          if ((failedByType ?? 0) === 0) {
+            await sb.rpc("update_course_package_step", {
+              p_package_id: step.package_id,
+              p_step_key: step.step_key,
+              p_status: "done",
+              p_log: { synced_by: "production-watchdog", note: "All jobs completed (legacy path)" },
+            });
+            fanOutSynced++;
+          } else {
+            await sb.rpc("update_course_package_step", {
+              p_package_id: step.package_id,
+              p_step_key: step.step_key,
+              p_status: "failed",
+              p_log: { synced_by: "production-watchdog", failed_jobs: failedByType },
+            });
+            fanOutSynced++;
+          }
         }
       }
     }
