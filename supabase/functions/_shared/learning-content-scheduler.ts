@@ -1,10 +1,11 @@
 /**
  * SSOT Learning-Content Scheduler
  *
- * Provides artifact-based scheduling primitives:
+ * Provides artifact-based scheduling primitives via DB RPCs:
  *   - needs_regen count per package (content NULL / placeholder / tier1_failed)
  *   - target selection with oldest-first ordering
  *   - adaptive global WIP throttle based on recent fail rate
+ *   - SSOT inflight counts via RPCs (no fragile JSON-path filters)
  *
  * Used by the dispatcher (package-generate-learning-content) for
  * fair round-robin scheduling across building packages.
@@ -51,13 +52,23 @@ export function computeFairShareBatch(opts: {
 
 /**
  * Count currently leased (building) packages for fair-share distribution.
+ * Uses SSOT RPC — falls back to direct query if RPC not yet deployed.
  */
 export async function countLeasedPackages(sb: any): Promise<number> {
+  // Try RPC first (SSOT)
+  const { data: rpcData, error: rpcErr } = await sb.rpc("count_leased_building_packages");
+  if (!rpcErr && rpcData != null) {
+    return Math.max(1, Number(rpcData));
+  }
+
+  // Fallback: direct query
+  if (rpcErr) {
+    console.warn(`[scheduler] count_leased_building_packages RPC failed, using fallback: ${rpcErr.message}`);
+  }
   const { count, error } = await sb
-    .from("course_packages")
-    .select("id", { head: true, count: "exact" })
-    .eq("status", "building")
-    .not("lease_owner", "is", null);
+    .from("package_leases")
+    .select("package_id", { head: true, count: "exact" })
+    .gt("lease_until", new Date().toISOString());
   if (error) return 1;
   return Math.max(1, count ?? 1);
 }
@@ -96,7 +107,7 @@ export async function getNeedsRegenCount(
     .from("lessons")
     .select("id", { head: true, count: "exact" })
     .in("module_id", moduleIds)
-    .neq("step", "mini_check") // learning_content phase must exclude minicheck artifacts
+    .neq("step", "mini_check")
     .or(NEEDS_REGEN_OR_FILTER);
 
   if (error) {
@@ -132,9 +143,9 @@ export async function selectTargets(
     .from("lessons")
     .select("id, title, step, qc_status")
     .in("module_id", moduleIds)
-    .neq("step", "mini_check") // keep minicheck generation in dedicated step generate_lesson_minichecks
+    .neq("step", "mini_check")
     .or(NEEDS_REGEN_OR_FILTER)
-    .order("created_at", { ascending: true })  // v10.1: was updated_at which doesn't exist on lessons
+    .order("created_at", { ascending: true })
     .limit(limit);
 
   return lessons ?? [];
@@ -172,8 +183,19 @@ export async function computeAdaptiveWip(
 
 /**
  * Count global in-flight lesson_generate_content jobs.
+ * Uses SSOT RPC — falls back to direct query if RPC not yet deployed.
  */
 export async function countGlobalInFlight(sb: any): Promise<number> {
+  // Try RPC first (SSOT)
+  const { data: rpcData, error: rpcErr } = await sb.rpc("count_global_inflight_lesson_jobs");
+  if (!rpcErr && rpcData != null) {
+    return Number(rpcData);
+  }
+
+  // Fallback: direct query
+  if (rpcErr) {
+    console.warn(`[scheduler] count_global_inflight_lesson_jobs RPC failed, using fallback: ${rpcErr.message}`);
+  }
   const { count, error } = await sb
     .from("job_queue")
     .select("id", { head: true, count: "exact" })
@@ -185,8 +207,21 @@ export async function countGlobalInFlight(sb: any): Promise<number> {
 
 /**
  * Count per-package in-flight lesson jobs.
+ * Uses SSOT RPC — falls back to direct query if RPC not yet deployed.
  */
 export async function countPackageInFlight(sb: any, packageId: string): Promise<number> {
+  // Try RPC first (SSOT)
+  const { data: rpcData, error: rpcErr } = await sb.rpc("count_package_inflight_jobs", {
+    p_package_id: packageId,
+  });
+  if (!rpcErr && rpcData != null) {
+    return Number(rpcData);
+  }
+
+  // Fallback: direct query on top-level package_id column
+  if (rpcErr) {
+    console.warn(`[scheduler] count_package_inflight_jobs RPC failed for ${packageId.slice(0, 8)}, using fallback: ${rpcErr.message}`);
+  }
   const { count, error } = await sb
     .from("job_queue")
     .select("id", { head: true, count: "exact" })
