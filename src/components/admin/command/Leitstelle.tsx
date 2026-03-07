@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { runAdminOpsAction } from '@/integrations/supabase/admin-ops-actions';
 import { useToast } from '@/hooks/use-toast';
-import { useCommandData, type PipelinePackage } from '@/hooks/useCommandData';
+import { useCommandData, type PipelinePackage, type TransientOps } from '@/hooks/useCommandData';
 import { deriveStepProgress } from '@/lib/pipeline-steps';
 import { cn } from '@/lib/utils';
 import {
