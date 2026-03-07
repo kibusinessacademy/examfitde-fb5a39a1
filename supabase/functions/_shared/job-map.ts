@@ -130,7 +130,7 @@ export interface FanOutStepConfig {
 export const FAN_OUT_CONFIG: FanOutStepConfig[] = [
   {
     stepKey: "generate_learning_content",
-    subjobTypes: ["lesson_generate_content", "package_generate_learning_content"],
+    subjobTypes: ["lesson_generate_competency_bundle", "lesson_generate_content", "package_generate_learning_content"],
     completionMode: "hybrid",
     completionRpc: "get_learning_content_progress",
     wipPerPackage: 12,
@@ -219,6 +219,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   pool_fill_lf_gaps:                 { pool: "content", edgeFunction: "pool-fill-lf-gaps" },
   pool_fill_bloom_gaps:              { pool: "content", edgeFunction: "pool-fill-bloom-gaps" },
   lesson_generate_content:           { pool: "content", edgeFunction: "lesson-generate-content" },
+  lesson_generate_competency_bundle: { pool: "content", edgeFunction: "lesson-generate-competency-bundle" },
   package_generate_exam_pool:        { pool: "content", edgeFunction: "package-generate-exam-pool" },
 
   // ── core / orchestration + validation ───────────────────────

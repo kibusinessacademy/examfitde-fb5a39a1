@@ -10,6 +10,7 @@ import {
   countPackageInFlight,
   getNeedsRegenCount,
   selectTargets,
+  selectCompetencyTargets,
   computeFairShareBatch,
   countLeasedPackages,
 } from "../_shared/learning-content-scheduler.ts";
@@ -308,9 +309,20 @@ Deno.serve(async (req) => {
     perPackageMax: caps.perPackageMax,
   });
   const take = Math.min(fairBatch, pkgFree, caps.dispatchBatchMax);
-  const targets = await selectTargets(sb, packageId, take);
 
-  if (targets.length === 0) {
+  // ════════════════════════════════════════════════════════════════
+  // PHASE A: Competency-Bundle Fan-Out
+  // Instead of dispatching individual lesson jobs, group by competency
+  // and dispatch bundle orchestrators for better observability & recovery.
+  // Falls back to individual lessons for competency_id=NULL lessons.
+  // ════════════════════════════════════════════════════════════════
+
+  const competencyTargets = await selectCompetencyTargets(sb, packageId, take);
+  const legacyTargets = competencyTargets.length === 0
+    ? await selectTargets(sb, packageId, take)
+    : [];
+
+  if (competencyTargets.length === 0 && legacyTargets.length === 0) {
     // ── Liveness Guard: needsRegen > 0 but no dispatchable targets ──
     const neutralized = await neutralizeStaleTransientFailed(sb, packageId, 120);
     if (neutralized > 0) {
@@ -318,7 +330,6 @@ Deno.serve(async (req) => {
         `[dispatcher] LIVENESS_GUARD: neutralized ${neutralized} stale transient-failed jobs for ${packageId.slice(0, 8)}`,
       );
 
-      // Telemetry for liveness guard — do NOT release lease here
       await updateLearningContentStepMeta(sb, packageId, {
         needs_regen: needsRegen,
         neutralized_stale_failed: neutralized,
@@ -356,14 +367,55 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── Enqueue lesson jobs via SSOT enqueueJob helper ──
+  // ── Enqueue competency bundle jobs ──
   let enqueued = 0;
   let deduped = 0;
   const errors: string[] = [];
   const now = Date.now();
+  let bundlesEnqueued = 0;
+  let legacyEnqueued = 0;
 
-  for (let i = 0; i < targets.length; i++) {
-    const t = targets[i];
+  // Primary path: competency bundles
+  for (let i = 0; i < competencyTargets.length; i++) {
+    const ct = competencyTargets[i];
+    try {
+      const result = await enqueueJob(sb, {
+        job_type: "lesson_generate_competency_bundle",
+        package_id: packageId,
+        payload: {
+          package_id: packageId,
+          course_id: courseId,
+          curriculum_id: curriculumId,
+          certification_id: certificationId,
+          competency_id: ct.competency_id,
+          learning_field_id: ct.learning_field_id,
+          needs_regen: ct.needs_regen,
+        },
+        batch_cursor: { competency_id: ct.competency_id },
+        priority: 12,
+        run_after: new Date(now + i * STAGGER_MS).toISOString(),
+        max_attempts: 5,
+      });
+      if (result.revived) {
+        console.log(`[dispatcher] Revived bundle for competency ${ct.competency_id.slice(0, 8)}`);
+      }
+      enqueued++;
+      bundlesEnqueued++;
+    } catch (e) {
+      const msg = (e as Error).message || String(e);
+      if (msg.includes("DEDUP") || msg.includes("duplicate") || msg.includes("23505")) {
+        deduped++;
+      } else if (msg.includes("PACKAGE_NOT_EXECUTABLE")) {
+        return json({ ok: false, error: "Package not executable", enqueued, deduped }, 409);
+      } else {
+        errors.push(`bundle:${ct.competency_id.slice(0, 8)}: ${msg.slice(0, 100)}`);
+      }
+    }
+  }
+
+  // Fallback path: individual lessons (for lessons without competency_id)
+  for (let i = 0; i < legacyTargets.length; i++) {
+    const t = legacyTargets[i];
     try {
       const result = await enqueueJob(sb, {
         job_type: "lesson_generate_content",
@@ -378,13 +430,14 @@ Deno.serve(async (req) => {
         },
         batch_cursor: { lesson_id: t.id, step_key: canonicalStepKey(t.step) },
         priority: 12,
-        run_after: new Date(now + i * STAGGER_MS).toISOString(),
+        run_after: new Date(now + (bundlesEnqueued + i) * STAGGER_MS).toISOString(),
         max_attempts: 5,
       });
       if (result.revived) {
         console.log(`[dispatcher] Revived job for ${t.id.slice(0, 8)}:${canonicalStepKey(t.step)}`);
       }
       enqueued++;
+      legacyEnqueued++;
     } catch (e) {
       const msg = (e as Error).message || String(e);
       if (msg.includes("DEDUP") || msg.includes("duplicate") || msg.includes("23505")) {
@@ -397,11 +450,13 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Update meta with dispatch results (clears old blocked reasons) ──
+  // ── Update meta with dispatch results ──
   await updateLearningContentStepMeta(sb, packageId, {
-    dispatcher_mode: true,
+    dispatcher_mode: "competency_bundle",
     needs_regen: needsRegen,
-    enqueue_batch: targets.length,
+    competency_bundles: bundlesEnqueued,
+    legacy_lessons: legacyEnqueued,
+    enqueue_batch: competencyTargets.length + legacyTargets.length,
     last_enqueue_count: enqueued,
     deduped_count: deduped,
     fair_share_batch: fairBatch,
@@ -416,15 +471,18 @@ Deno.serve(async (req) => {
   });
 
   console.log(
-    `[dispatcher] ${packageId.slice(0, 8)}: enqueued=${enqueued} deduped=${deduped} needsRegen=${needsRegen} fairBatch=${fairBatch} errors=${errors.length}`
+    `[dispatcher] ${packageId.slice(0, 8)}: bundles=${bundlesEnqueued} legacy=${legacyEnqueued} deduped=${deduped} needsRegen=${needsRegen} fairBatch=${fairBatch} errors=${errors.length}`
   );
 
   return json({
     ok: true,
     batch_complete: false,
-    message: `📤 ${enqueued} jobs enqueued (${deduped} deduped), ${needsRegen} needs_regen, fair=${fairBatch}.`,
+    fan_out_skipped: false,
+    message: `📤 ${bundlesEnqueued} competency bundles + ${legacyEnqueued} legacy jobs enqueued (${deduped} deduped), ${needsRegen} needs_regen.`,
     needs_regen: needsRegen,
     enqueued,
+    competency_bundles: bundlesEnqueued,
+    legacy_lessons: legacyEnqueued,
     deduped,
     effective_wip: effectiveWip,
     fair_share_batch: fairBatch,
