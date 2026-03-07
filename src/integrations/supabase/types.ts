@@ -29337,6 +29337,10 @@ export type Database = {
         Args: { p_org: string; p_roles: string[]; p_user: string }
         Returns: boolean
       }
+      is_real_lesson_content: {
+        Args: { p_content: Json; p_step?: string }
+        Returns: boolean
+      }
       is_user_blocked: { Args: { p_user: string }; Returns: boolean }
       job_maintenance: { Args: never; Returns: Json }
       job_recovery_worker: { Args: never; Returns: Json }
