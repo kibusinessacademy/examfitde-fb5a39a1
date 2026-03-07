@@ -152,6 +152,69 @@ export async function selectTargets(
 }
 
 /**
+ * Select competencies that have lessons needing regeneration.
+ * Returns distinct competency_ids with their lesson counts, ordered by
+ * fewest remaining (almost-done-first for throughput optimization).
+ */
+export async function selectCompetencyTargets(
+  sb: any,
+  packageId: string,
+  limit: number,
+): Promise<Array<{ competency_id: string; learning_field_id: string | null; needs_regen: number }>> {
+  const { data: pkg } = await sb
+    .from("course_packages")
+    .select("course_id")
+    .eq("id", packageId)
+    .maybeSingle();
+  if (!pkg?.course_id) return [];
+
+  const { data: mods } = await sb
+    .from("modules")
+    .select("id, learning_field_id")
+    .eq("course_id", pkg.course_id);
+  const moduleIds = (mods ?? []).map((m: any) => m.id);
+  if (moduleIds.length === 0) return [];
+
+  // Build a module→learning_field lookup
+  const modToLf = new Map<string, string>();
+  for (const m of mods ?? []) {
+    if (m.learning_field_id) modToLf.set(m.id, m.learning_field_id);
+  }
+
+  // Get all lessons needing regen with their competency_id
+  const { data: lessons } = await sb
+    .from("lessons")
+    .select("id, competency_id, module_id")
+    .in("module_id", moduleIds)
+    .not("competency_id", "is", null)
+    .or(NEEDS_REGEN_OR_FILTER)
+    .order("created_at", { ascending: true });
+
+  if (!lessons || lessons.length === 0) return [];
+
+  // Group by competency_id, count needs_regen per competency
+  const byCompetency = new Map<string, { competency_id: string; learning_field_id: string | null; needs_regen: number }>();
+  for (const l of lessons) {
+    const cid = l.competency_id;
+    if (!cid) continue;
+    const existing = byCompetency.get(cid);
+    if (existing) {
+      existing.needs_regen++;
+    } else {
+      byCompetency.set(cid, {
+        competency_id: cid,
+        learning_field_id: modToLf.get(l.module_id) ?? null,
+        needs_regen: 1,
+      });
+    }
+  }
+
+  // Sort by fewest remaining (almost-done-first for throughput)
+  const sorted = [...byCompetency.values()].sort((a, b) => a.needs_regen - b.needs_regen);
+  return sorted.slice(0, limit);
+}
+
+/**
  * Adaptive throttle: reduce global WIP when recent fail rate is high.
  * Uses job_queue status in a 15-min window as proxy.
  */
