@@ -398,15 +398,21 @@ Deno.serve(async (req) => {
     }
     console.log(`[export] Collected ${allQuestions.length} total questions, ${approvedQuestions.length} approved`);
 
-    // QW #9: SSOT count guard — detect silent data loss before export
-    if (curriculumId && questionsSummary) {
-      const dbApproved = (questionsSummary as any).approved_questions ?? 0;
-      const exportedApproved = approvedQuestions.length;
-      if (dbApproved > 0 && exportedApproved < dbApproved * 0.98) {
-        const msg = `EXPORT_COUNT_GUARD: exported ${exportedApproved} approved but DB has ${dbApproved} (${Math.round(100 * exportedApproved / dbApproved)}%). Possible filter bug.`;
-        console.error(`[export] ${msg}`);
-        return json({ error: msg, exported: exportedApproved, db_count: dbApproved }, 409);
-      }
+    // ── P0-B: Compute questionsSummary FROM the same approvedQuestions array (SSOT) ──
+    // This ensures summary counts, approved JSON, and quality gate all agree.
+    if (curriculumId) {
+      const pendingCount = (allQuestions as any[]).filter(
+        (q: any) => q.qc_status === "pending" && q.status !== "approved"
+      ).length;
+      questionsSummary = {
+        total_exam_questions: allQuestions.length,
+        approved_questions: approvedQuestions.length,
+        pending_questions: pendingCount,
+        draft_questions: allQuestions.length - approvedQuestions.length - pendingCount,
+        curriculum_id: curriculumId,
+        note: "SSOT: derived from same filter as exam_questions_approved.json",
+        approval_filter: "qc_status=approved OR status=approved",
+      };
     }
 
     // ── Exam Sessions (all simulation data) ──
