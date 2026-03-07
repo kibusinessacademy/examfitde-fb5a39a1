@@ -406,6 +406,26 @@ async function processPackage(
   {
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
+
+    // ── Self-heal: clear stale "Sequence guard" last_errors ──
+    // If a step carries "predecessor X not done" but X IS now done → clear it
+    for (const s of (steps ?? []) as StepRow[]) {
+      if (!s.last_error || !s.last_error.includes("Sequence guard: predecessor")) continue;
+      const match = s.last_error.match(/predecessor (.+) not done/);
+      if (!match) continue;
+      const predKey = match[1];
+      const pred = byKey.get(predKey);
+      if (pred && (pred.status === "done" || pred.status === "skipped")) {
+        console.log(`[runner] 🩹 Stale guard heal: clearing last_error on ${s.step_key} (predecessor ${predKey} is now ${pred.status})`);
+        await safeQuery(
+          sb.from("package_steps").update({ last_error: null, updated_at: new Date().toISOString() })
+            .eq("package_id", packageId).eq("step_key", s.step_key),
+          "stale_sequence_guard_heal",
+        );
+        s.last_error = null;
+      }
+    }
+
     let lastIncompleteSeq = -1;
     const resetStepKeys: string[] = [];
     for (let i = 0; i < STEP_ORDER.length; i++) {
