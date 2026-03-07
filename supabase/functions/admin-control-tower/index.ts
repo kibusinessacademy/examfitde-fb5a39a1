@@ -166,6 +166,7 @@ async function getOverview(sb: SB) {
   const cooldownCount = cooldownRows.length;
   const openClaimIssues = claimIssueRows.length;
   const blockedPublishables = blockedPubRows.length;
+  const lcStarvationCount = lcStarvationRows.length;
 
   // Build pipeline step stats
   const stepMap = new Map<string, { queued: number; running: number; blocked: number; done: number; failed: number }>();
