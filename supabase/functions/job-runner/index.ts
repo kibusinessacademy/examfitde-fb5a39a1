@@ -887,17 +887,44 @@ Deno.serve(async (req) => {
           );
 
           if (bodyLooksTransient) {
-            console.warn(`[job-runner] ${fnName} HTTP ${res.status} body=transient → requeue WITHOUT attempt++ (+${BACKOFF_429_MS}ms)`);
             const ta = Number((job.meta as any)?.transient_attempts ?? 0) + 1;
-            finalState = {
-              status: "pending",
-              patch: {
-                run_after: new Date(Date.now() + BACKOFF_429_MS).toISOString(),
-                error: `HTTP ${res.status} transient: ${errStr.slice(0, 200)}`,
-                meta: { ...(job.meta || {}), last_retry: tsNow, transient_attempts: ta },
-              },
-              metricsAction: "rateLimit",
-            };
+            const transientFirstAt = (job.meta as any)?.transient_first_at ?? tsNow;
+            const windowElapsed = Date.now() - new Date(transientFirstAt).getTime();
+
+            if (ta >= MAX_TRANSIENT_ATTEMPTS && windowElapsed < TRANSIENT_WINDOW_MS) {
+              console.error(`[job-runner] ${fnName} TRANSIENT_EXHAUSTED (body): ${ta} retries in ${Math.round(windowElapsed / 1000)}s → failed`);
+              finalState = {
+                status: "failed",
+                patch: {
+                  error: `TRANSIENT_EXHAUSTED: ${ta} retries (HTTP ${res.status} body-transient) in ${Math.round(windowElapsed / 60000)}min`,
+                  completed_at: tsNow,
+                  attempts: (job.attempts || 0) + 1,
+                  meta: { ...(job.meta || {}), transient_attempts: ta, transient_exhausted: true, transient_first_at: transientFirstAt },
+                },
+                metricsAction: "dlq",
+              };
+            } else {
+              const effectiveFirstAt = windowElapsed >= TRANSIENT_WINDOW_MS ? tsNow : transientFirstAt;
+              const effectiveTa = windowElapsed >= TRANSIENT_WINDOW_MS ? 1 : ta;
+
+              console.warn(`[job-runner] ${fnName} HTTP ${res.status} body=transient → requeue WITHOUT attempt++ (ta=${effectiveTa}/${MAX_TRANSIENT_ATTEMPTS}, +${BACKOFF_429_MS}ms)`);
+              finalState = {
+                status: "pending",
+                patch: {
+                  run_after: new Date(Date.now() + BACKOFF_429_MS).toISOString(),
+                  error: `HTTP ${res.status} transient: ${errStr.slice(0, 200)}`,
+                  meta: {
+                    ...(job.meta || {}),
+                    last_retry: tsNow,
+                    transient_attempts: effectiveTa,
+                    transient_first_at: effectiveFirstAt,
+                    last_transient_error: errStr.slice(0, 200),
+                    last_transient_at: tsNow,
+                  },
+                },
+                metricsAction: "rateLimit",
+              };
+            }
           } else {
             const newAttempts = (job.attempts || 0) + 1;
             if (newAttempts >= maxAttempts) {
