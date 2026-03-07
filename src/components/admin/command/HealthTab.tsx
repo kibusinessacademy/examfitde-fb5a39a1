@@ -160,6 +160,25 @@ export default function HealthTab() {
         <Button variant="ghost" size="sm" onClick={load} className="min-h-[44px] lg:min-h-0 min-w-[44px]"><RefreshCw className="h-3.5 w-3.5" /></Button>
       </div>
 
+      {/* Critical Policy Health Guard */}
+      {disabledCriticalPolicies.length > 0 && (
+        <Card className="border-destructive/50 bg-destructive/10">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-start gap-2">
+              <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-destructive">Kritische Auto-Heal-Policies deaktiviert</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {disabledCriticalPolicies.map(p => p.replace(/_/g, ' ')).join(', ')} — Zombie-Steps und transiente Fehler werden nicht automatisch geheilt.
+                </p>
+                <Link to="/admin/command" className="text-xs text-destructive underline mt-1 inline-block">
+                  → Auto-Heal Policies aktivieren
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* Job Queue */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <KPICard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Pending" value={queue.pending} />
