@@ -11,6 +11,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useState } from 'react';
+import { CompetencyBundleProgress } from './CompetencyBundleProgress';
 
 import {
   FULL_STEP_ORDER,
