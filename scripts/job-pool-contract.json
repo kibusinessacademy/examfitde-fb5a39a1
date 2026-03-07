@@ -8,6 +8,7 @@
   "pool_fill_lf_gaps": "content",
   "pool_fill_bloom_gaps": "content",
   "package_generate_exam_pool": "content",
+  "lesson_generate_competency_bundle": "content",
   "pipeline_tick": "core",
   "stuck_scan": "core",
   "package_scaffold_learning_course": "core",
