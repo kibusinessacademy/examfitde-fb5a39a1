@@ -28155,6 +28155,7 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      audit_session_breakdown: { Args: { p_session_id: string }; Returns: Json }
       audit_track_plausibility: {
         Args: { p_limit?: number }
         Returns: {
