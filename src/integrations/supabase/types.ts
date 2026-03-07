@@ -29250,6 +29250,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_cohort_competency_overview: {
+        Args: { p_curriculum_id: string; p_organization_id?: string }
+        Returns: Json
+      }
       get_content_quality_stats: {
         Args: never
         Returns: {
@@ -29393,6 +29397,10 @@ export type Database = {
           total: number
         }[]
       }
+      get_learner_competency_profile: {
+        Args: { p_curriculum_id: string; p_learner_id: string }
+        Returns: Json
+      }
       get_learning_content_progress: {
         Args: { p_min_chars?: number; p_package_id: string }
         Returns: Json
@@ -29493,6 +29501,10 @@ export type Database = {
           packages_failed_24h: number
           packages_queued: number
         }[]
+      }
+      get_org_competency_dashboard: {
+        Args: { p_organization_id: string }
+        Returns: Json
       }
       get_package_question_counts: {
         Args: { p_curriculum_ids: string[] }
