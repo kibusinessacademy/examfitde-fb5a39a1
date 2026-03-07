@@ -7,7 +7,7 @@ import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
-const BASE_CONCURRENCY = 4; // v1.6: parallel dispatch via Promise.allSettled — budget now supports 4 concurrent jobs
+const BASE_CONCURRENCY = 8; // v2.0: raised from 4 to 8 for adaptive throughput — matches worker-config hard cap
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5; // was 25: shorter stale-lock recovery for 42s dispatch jobs
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000; // recover orphaned processing locks after 3 minutes
 const DISPATCH_TIMEOUT_MS = 42_000;
