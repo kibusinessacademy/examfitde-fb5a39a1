@@ -54,7 +54,7 @@ type AlertItem = {
   title: string;
   detail: string;
   ageMin: number;
-  source: 'job_queue' | 'stuck' | 'runner';
+  source: 'job_queue' | 'stuck' | 'runner' | 'ops';
   packageId?: string | null;
   jobId?: string | null;
   stepKey?: string | null;
