@@ -66,7 +66,7 @@ async function runAudit(sb: ReturnType<typeof createClient>): Promise<AuditResul
     }
   }
 
-  // Exam coverage
+  // Exam coverage — now also fetches blueprint_ids for gap-fill
   const { data: competencies } = await sb
     .from("competencies")
     .select("id, title, learning_field_id")
@@ -76,7 +76,7 @@ async function runAudit(sb: ReturnType<typeof createClient>): Promise<AuditResul
 
   const compIds = (competencies || []).map((c: { id: string }) => c.id);
   
-  const compCoverage: Array<{ id: string; title: string; approved: number }> = [];
+  const compCoverage: Array<{ id: string; title: string; approved: number; blueprint_ids: string[] }> = [];
   const zeroComps: string[] = [];
 
   for (const comp of competencies || []) {
@@ -85,8 +85,20 @@ async function runAudit(sb: ReturnType<typeof createClient>): Promise<AuditResul
       .eq("competency_id", comp.id)
       .or("status.eq.approved,qc_status.eq.approved");
     const approved = count || 0;
+    
+    // Fetch blueprint IDs for gap competencies
+    let bpIds: string[] = [];
+    if (approved < 5) {
+      const { data: bps } = await sb.from("question_blueprints")
+        .select("id")
+        .eq("competency_id", comp.id)
+        .eq("curriculum_id", MFA_CURRICULUM_ID)
+        .eq("status", "approved");
+      bpIds = (bps || []).map((b: { id: string }) => b.id);
+    }
+    
     if (approved === 0) zeroComps.push(comp.title);
-    if (approved < 5) compCoverage.push({ id: comp.id, title: comp.title, approved });
+    if (approved < 5) compCoverage.push({ id: comp.id, title: comp.title, approved, blueprint_ids: bpIds });
   }
 
   // Handbook
@@ -176,11 +188,12 @@ Deno.serve(async (req) => {
       // Full mode: audit then fix
       const results: Record<string, unknown> = { audit };
 
-      // Fix exams
+      // Fix exams — enqueue as fan-out sub-jobs with blueprint_ids
       if (audit.exams.competencies_with_zero.length > 0 || audit.exams.competencies_under_5.length > 0) {
         const gaps = audit.exams.competencies_under_5;
         let enqueued = 0;
         for (const gap of gaps) {
+          if (!gap.blueprint_ids || gap.blueprint_ids.length === 0) continue;
           try {
             await enqueueJob(sb, {
               job_type: "package_generate_exam_pool",
@@ -189,8 +202,9 @@ Deno.serve(async (req) => {
                 package_id: MFA_PACKAGE_ID,
                 curriculum_id: MFA_CURRICULUM_ID,
                 course_id: MFA_COURSE_ID,
-                competency_id: gap.id,
-                target_count: Math.max(5, 10 - gap.approved),
+                blueprint_ids: gap.blueprint_ids,
+                _fan_out: true,
+                options: { exam_target: 1000 },
                 reason: "mfa_elite_hardening_gap_fill",
               },
             });
@@ -251,6 +265,7 @@ Deno.serve(async (req) => {
       const gaps = audit.exams.competencies_under_5;
       let enqueued = 0;
       for (const gap of gaps) {
+        if (!gap.blueprint_ids || gap.blueprint_ids.length === 0) continue;
         await enqueueJob(sb, {
           job_type: "package_generate_exam_pool",
           package_id: MFA_PACKAGE_ID,
@@ -258,8 +273,9 @@ Deno.serve(async (req) => {
             package_id: MFA_PACKAGE_ID,
             curriculum_id: MFA_CURRICULUM_ID,
             course_id: MFA_COURSE_ID,
-            competency_id: gap.id,
-            target_count: Math.max(5, 10 - gap.approved),
+            blueprint_ids: gap.blueprint_ids,
+            _fan_out: true,
+            options: { exam_target: 1000 },
             reason: "mfa_elite_hardening_gap_fill",
           },
         });
