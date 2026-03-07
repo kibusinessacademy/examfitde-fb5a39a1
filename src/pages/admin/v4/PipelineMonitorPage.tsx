@@ -25,6 +25,7 @@ export default function PipelineMonitorPage() {
     const { data } = await (supabase as any)
       .from('course_packages')
       .select('id,title,status,build_progress,updated_at')
+      .neq('status', 'archived')
       .order('updated_at', { ascending: false })
       .limit(10);
     setRecentPkgs(data || []);
