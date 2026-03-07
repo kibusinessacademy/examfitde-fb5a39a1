@@ -11,21 +11,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Block hardcoded EXAM_FIRST defaults in pipeline functions
+      - name: Block hardcoded EXAM_FIRST defaults repo-wide
         run: |
           set -euo pipefail
           echo "🔍 Scanning for dangerous EXAM_FIRST defaults..."
 
-          # 1) Block hardcoded track: "EXAM_FIRST" in setup/build functions
-          if grep -RIn --include='*.ts' --exclude-dir=node_modules --exclude-dir=dist \
-            'track:\s*["'"'"']EXAM_FIRST["'"'"']' \
-            supabase/functions/setup-course-package \
-            supabase/functions/build-course-package 2>/dev/null; then
-            echo "::error::Found hardcoded track: 'EXAM_FIRST' in pipeline functions. Default must be AUSBILDUNG_VOLL."
+          # Allowlist: files that legitimately reference EXAM_FIRST as a value (not default)
+          ALLOW_PATTERN='(_shared/track-normalize\.ts|useTrackConfig\.ts|TrackBadge\.tsx|STEP_KEYS\.md|SSOT_STEP_ORDER|types\.ts|\.test\.|\.spec\.)'
+
+          # 1) Block hardcoded track: "EXAM_FIRST" as default/assignment in ALL edge functions
+          HITS=$(grep -RIn --include='*.ts' --exclude-dir=node_modules --exclude-dir=dist \
+            -E '(track:\s*["'"'"']EXAM_FIRST["'"'"']|\?\?\s*["'"'"']EXAM_FIRST["'"'"']|\|\|\s*["'"'"']EXAM_FIRST["'"'"'])' \
+            supabase/functions/ 2>/dev/null | grep -Ev "$ALLOW_PATTERN" || true)
+          if [ -n "$HITS" ]; then
+            echo "$HITS"
+            echo "::error::Found hardcoded EXAM_FIRST default in edge functions. Default must be AUSBILDUNG_VOLL."
             exit 1
           fi
 
-          # 2) Warn on explicit didaktik flags forced false in setup paths
+          # 2) Block hardcoded EXAM_FIRST defaults in src/ (frontend)
+          HITS_SRC=$(grep -RIn --include='*.ts' --include='*.tsx' --exclude-dir=node_modules --exclude-dir=dist \
+            -E '(\?\?\s*["'"'"']EXAM_FIRST["'"'"']|\|\|\s*["'"'"']EXAM_FIRST["'"'"'])' \
+            src/ 2>/dev/null | grep -Ev "$ALLOW_PATTERN" || true)
+          if [ -n "$HITS_SRC" ]; then
+            echo "$HITS_SRC"
+            echo "::error::Found hardcoded EXAM_FIRST default in frontend code. Default must be AUSBILDUNG_VOLL."
+            exit 1
+          fi
+
+          # 3) Warn on explicit didaktik flags forced false in setup paths
           if grep -RIn --include='*.ts' --exclude-dir=node_modules --exclude-dir=dist \
             'has_learning_course:\s*false' \
             supabase/functions/setup-course-package 2>/dev/null; then
@@ -33,7 +47,7 @@ jobs:
             exit 1
           fi
 
-          # 3) Block esm.sh imports (existing guard, included for completeness)
+          # 4) Block esm.sh imports
           if grep -RIn --include='*.ts' --exclude-dir=node_modules --exclude-dir=dist \
             'from\s*["'"'"']https://esm\.sh' \
             supabase/functions/ 2>/dev/null; then
