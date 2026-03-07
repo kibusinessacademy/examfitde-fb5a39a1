@@ -45,6 +45,7 @@ function IntegrityOverview() {
       const { data } = await (supabase as any).from('course_packages')
         .select('id, title, status, integrity_passed, integrity_report')
         .neq('status', 'planning')
+        .neq('status', 'archived')
         .order('created_at', { ascending: false });
       setPackages(data || []);
       setLoading(false);

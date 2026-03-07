@@ -544,6 +544,7 @@ function PipelineControllingTab() {
       const { data, error } = await supabase
         .from('course_packages')
         .select('id, title, status, priority, current_step, build_progress, created_at, started_at, published_at, updated_at, step_status_json, track')
+        .neq('status', 'archived')
         .lte('priority', 20)
         .order('priority')
         .order('created_at');

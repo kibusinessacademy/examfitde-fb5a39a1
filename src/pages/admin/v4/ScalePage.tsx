@@ -289,6 +289,7 @@ function ScaleReporting() {
     (async () => {
       const { data } = await (supabase as any).from('course_packages')
         .select('id, title, status, created_at, published_at')
+        .neq('status', 'archived')
         .order('created_at', { ascending: false });
       setPackages(data || []);
       setLoading(false);
