@@ -424,37 +424,37 @@ async function healArchiveStaleDrafts(sb: SB, policy: PolicyRow): Promise<HealRe
   return { policy_key: policy.policy_key, updated: ids.length, affected_ids: ids };
 }
 
-/* ── Heal: Deactivate broken redirects ── */
+/* ── Heal: Fix broken redirects ── */
 async function healFixBrokenRedirects(sb: SB, policy: PolicyRow): Promise<HealResult> {
-  const { data: broken } = await sb
+  const { data: broken, error } = await sb
     .from("seo_redirects")
     .select("id, from_path, to_path")
     .eq("is_active", true)
     .or("to_path.is.null,to_path.eq.")
     .limit(policy.max_per_run);
 
+  if (error) throw error;
   if (!broken?.length) return { policy_key: policy.policy_key, updated: 0, affected_ids: [] };
 
-  const ids = broken.map(r => r.id);
+  let ids = broken.map((r: any) => String(r.id)).filter(Boolean);
+  ids = filterBlacklist(ids, policy.blacklist_ids || []);
+
+  if (!ids.length) {
+    return { policy_key: policy.policy_key, updated: 0, affected_ids: [], skipped_reason: "all_blacklisted" };
+  }
 
   if (policy.dry_run) {
     return { policy_key: policy.policy_key, updated: ids.length, affected_ids: ids, was_dry_run: true };
   }
 
-  const { error } = await sb
-    .from("seo_redirects")
-    .update({ is_active: false, notes: "Auto-deactivated: missing target path", updated_at: new Date().toISOString() })
-    .in("id", ids);
-
-  if (error) throw error;
-
+  // Notify instead of blind auto-fix for broken redirects
   await sb.from("admin_notifications").insert({
-    title: `${ids.length} kaputte Redirects deaktiviert`,
-    body: `Betroffene Pfade: ${broken.slice(0, 5).map(r => r.from_path).join(', ')}`,
-    severity: 'warning',
-    category: 'seo',
-    entity_type: 'seo_redirects',
-    metadata: { deactivated_ids: ids } as any,
+    title: `${ids.length} fehlerhafte Redirects erkannt`,
+    body: `Bitte prüfen: ${broken.slice(0, 5).map((r: any) => `${r.from_path} → ${r.to_path || '(leer)'}`).join(", ")}`,
+    severity: ids.length > 10 ? "warning" : "info",
+    category: "seo",
+    entity_type: "seo_redirects",
+    metadata: { broken_redirect_ids: ids.slice(0, 20) } as any,
   });
 
   return { policy_key: policy.policy_key, updated: ids.length, affected_ids: ids };
