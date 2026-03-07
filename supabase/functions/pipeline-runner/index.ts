@@ -416,13 +416,22 @@ async function processPackage(
       const predKey = match[1];
       const pred = byKey.get(predKey);
       if (pred && (pred.status === "done" || pred.status === "skipped")) {
-        console.log(`[runner] 🩹 Stale guard heal: clearing last_error on ${s.step_key} (predecessor ${predKey} is now ${pred.status})`);
+        console.log(`[runner] 🩹 Stale guard heal: clearing last_error + stale meta on ${s.step_key} (predecessor ${predKey} is now ${pred.status})`);
+        // Clear stale meta fields that may linger from the same blockade
+        const cleanedMeta = { ...(s.meta as Record<string, unknown> ?? {}) };
+        for (const k of ["reason", "blocked_reason", "next_run_at", "sequence_guard"]) {
+          delete cleanedMeta[k];
+        }
         await safeQuery(
-          sb.from("package_steps").update({ last_error: null, updated_at: new Date().toISOString() })
-            .eq("package_id", packageId).eq("step_key", s.step_key),
+          sb.from("package_steps").update({
+            last_error: null,
+            meta: cleanedMeta,
+            updated_at: new Date().toISOString(),
+          }).eq("package_id", packageId).eq("step_key", s.step_key),
           "stale_sequence_guard_heal",
         );
         s.last_error = null;
+        (s as any).meta = cleanedMeta;
       }
     }
 
