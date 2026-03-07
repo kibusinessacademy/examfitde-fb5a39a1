@@ -29800,10 +29800,11 @@ export type Database = {
           tax_rate: number
         }[]
       }
-      reprioritize_queued_exam_first: {
+      reprioritize_queued_market_tier: {
         Args: { p_batch_size?: number; p_new_priority?: number }
         Returns: {
           applied_priority: number
+          beruf_tier: number
           old_priority: number
           package_id: string
         }[]
