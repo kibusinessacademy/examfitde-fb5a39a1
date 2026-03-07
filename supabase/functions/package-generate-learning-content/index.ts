@@ -144,21 +144,12 @@ async function releasePackageLease(
     ...extraMeta,
   });
 
-  // 2) Release lease on course_packages (primary lease storage)
-  try {
-    await sb
-      .from("course_packages")
-      .update({ lease_owner: null, lease_expires_at: null, updated_at: nowIso })
-      .eq("id", packageId)
-      .not("lease_owner", "is", null);
-  } catch (e) {
-    console.warn(`[dispatcher] release lease (course_packages) for ${packageId.slice(0, 8)}: ${(e as Error)?.message ?? String(e)}`);
-  }
-
-  // 3) Also try package_leases table if it exists
+  // 2) Release lease in package_leases (primary lease storage)
   try {
     await sb.from("package_leases").delete().eq("package_id", packageId);
-  } catch { /* table may not exist — non-critical */ }
+  } catch (e) {
+    console.warn(`[dispatcher] release lease (package_leases) for ${packageId.slice(0, 8)}: ${(e as Error)?.message ?? String(e)}`);
+  }
 
   console.log(`[dispatcher] Lease released for ${packageId.slice(0, 8)} reason=${reason}`);
 }

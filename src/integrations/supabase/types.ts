@@ -28513,6 +28513,12 @@ export type Database = {
           status: string
         }[]
       }
+      count_global_inflight_lesson_jobs: { Args: never; Returns: number }
+      count_leased_building_packages: { Args: never; Returns: number }
+      count_package_inflight_jobs: {
+        Args: { p_package_id: string }
+        Returns: number
+      }
       count_packages_by_status: {
         Args: never
         Returns: {
