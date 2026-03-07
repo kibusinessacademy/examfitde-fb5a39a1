@@ -28124,6 +28124,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      assemble_mastery_weighted_exam: {
+        Args: {
+          p_curriculum_id: string
+          p_min_per_lf?: number
+          p_total_questions?: number
+          p_user_id: string
+        }
+        Returns: string[]
+      }
       assemble_minicheck_weighted: {
         Args: { p_course_id: string; p_lesson_id: string; p_questions?: number }
         Returns: string
