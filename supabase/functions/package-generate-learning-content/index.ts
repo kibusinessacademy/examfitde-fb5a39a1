@@ -10,6 +10,8 @@ import {
   countPackageInFlight,
   getNeedsRegenCount,
   selectTargets,
+  computeFairShareBatch,
+  countLeasedPackages,
 } from "../_shared/learning-content-scheduler.ts";
 import {
   neutralizeStaleTransientFailed,
@@ -17,17 +19,18 @@ import {
 } from "../_shared/learning-content-revive.ts";
 
 /**
- * package-generate-learning-content — SSOT Dispatcher (v8)
+ * package-generate-learning-content — SSOT Dispatcher (v9 Adaptive Throughput)
  *
- * Fair, artifact-based scheduling:
+ * Fair, artifact-based scheduling with adaptive batch sizing:
  *   1. Adaptive global WIP throttle (fail-rate aware)
- *   2. Round-robin across all building packages
+ *   2. Fair-share batch sizing across leased packages
  *   3. Per-package cap (prevents hotspotting)
- *   4. "DONE" ONLY when needs_regen === 0 (artifact truth, not job truth)
- *   5. tier1_failed → reject stale content_versions before dispatching
+ *   4. "DONE" ONLY when needs_regen === 0 (artifact truth)
+ *   5. Idle lease release when no work dispatchable
+ *   6. tier1_failed → reject stale content_versions before dispatching
  */
 
-const STAGGER_MS = 150;
+const STAGGER_MS = 100; // reduced from 150ms for faster dispatch
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,7 +55,6 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
 
 // ═══════════════════════════════════════════════════════════════
 // Reject stale content_versions for tier1_failed lessons
-// (safety net — ensures both dispatcher and worker see "missing")
 // ═══════════════════════════════════════════════════════════════
 
 async function rejectStaleVersionsForTier1Failed(
@@ -64,7 +66,6 @@ async function rejectStaleVersionsForTier1Failed(
   const moduleIds = (mods ?? []).map((m: { id: string }) => m.id);
   if (moduleIds.length === 0) return 0;
 
-  // Find tier1_failed lesson IDs
   const { data: failedLessons } = await sb
     .from("lessons").select("id")
     .in("module_id", moduleIds)
@@ -127,7 +128,7 @@ Deno.serve(async (req) => {
   }
 
   // ════════════════════════════════════════════════════════════════
-  // SSOT Scheduler: fair, capped, adaptive
+  // SSOT Adaptive Scheduler: fair-share, capped, fail-rate aware
   // ════════════════════════════════════════════════════════════════
 
   const caps = getSchedulerCaps();
@@ -135,15 +136,17 @@ Deno.serve(async (req) => {
   const globalInFlight = await countGlobalInFlight(sb);
   const freeSlots = Math.max(0, effectiveWip - globalInFlight);
 
+  // Fair-share: count how many packages hold leases for even distribution
+  const leasedPackageCount = await countLeasedPackages(sb);
+
   console.log(
-    `[dispatcher] WIP: base=${caps.globalWipMax} effective=${effectiveWip} inFlight=${globalInFlight} free=${freeSlots} failRate=${failRate.toFixed(2)}`
+    `[dispatcher] WIP: base=${caps.globalWipMax} effective=${effectiveWip} inFlight=${globalInFlight} free=${freeSlots} failRate=${failRate.toFixed(2)} leasedPkgs=${leasedPackageCount}`
   );
 
   // ── Artifact-based DONE gate ──
   const needsRegen = await getNeedsRegenCount(sb, packageId);
 
   if (needsRegen === 0) {
-    // Check if any lesson jobs still running for this package
     const pkgInFlight = await countPackageInFlight(sb, packageId);
     if (pkgInFlight > 0) {
       return json({
@@ -155,7 +158,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── COMPLETION GATE: needs_regen=0 AND active=0 → step done ──
     return json({
       ok: true,
       batch_complete: true,
@@ -177,7 +179,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── Per-package cap ──
+  // ── Per-package cap with fair-share ──
   const pkgInFlight = await countPackageInFlight(sb, packageId);
   const pkgFree = Math.max(0, caps.perPackageMax - pkgInFlight);
 
@@ -192,19 +194,23 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── Select targets: min of free slots, per-package cap, batch max ──
-  const take = Math.min(pkgFree, freeSlots, caps.dispatchBatchMax);
+  // ── Adaptive batch: fair-share across leased packages ──
+  const fairBatch = computeFairShareBatch({
+    needsRegen,
+    freeGlobalSlots: freeSlots,
+    leasedPackageCount,
+    perPackageMax: caps.perPackageMax,
+  });
+  const take = Math.min(fairBatch, pkgFree, caps.dispatchBatchMax);
   const targets = await selectTargets(sb, packageId, take);
 
   if (targets.length === 0) {
     // ── Liveness Guard: needsRegen > 0 but no dispatchable targets ──
-    // This means stale failed jobs are blocking. Neutralize them and signal retry.
     const neutralized = await neutralizeStaleTransientFailed(sb, packageId, 120);
     if (neutralized > 0) {
       console.warn(
         `[dispatcher] LIVENESS_GUARD: neutralized ${neutralized} stale transient-failed jobs for ${packageId.slice(0, 8)}`,
       );
-      // Revive the step so the pipeline-runner re-triggers us
       await reviveLearningContentStepIfDead(sb, packageId, needsRegen);
       return json({
         ok: true,
@@ -247,8 +253,12 @@ Deno.serve(async (req) => {
           dispatcher_mode: true,
           needs_regen: needsRegen,
           enqueue_batch: targets.length,
+          fair_share_batch: fairBatch,
           effective_wip: effectiveWip,
           fail_rate: failRate,
+          leased_packages: leasedPackageCount,
+          global_in_flight: globalInFlight,
+          pkg_in_flight: pkgInFlight,
           last_dispatch_at: new Date().toISOString(),
         },
       }).eq("id", stepRow.id);
@@ -291,17 +301,19 @@ Deno.serve(async (req) => {
   }
 
   console.log(
-    `[dispatcher] ${packageId.slice(0, 8)}: enqueued=${enqueued} deduped=${deduped} needsRegen=${needsRegen} errors=${errors.length}`
+    `[dispatcher] ${packageId.slice(0, 8)}: enqueued=${enqueued} deduped=${deduped} needsRegen=${needsRegen} fairBatch=${fairBatch} errors=${errors.length}`
   );
 
   return json({
     ok: true,
     batch_complete: false,
-    message: `📤 ${enqueued} jobs enqueued (${deduped} deduped), ${needsRegen} needs_regen.`,
+    message: `📤 ${enqueued} jobs enqueued (${deduped} deduped), ${needsRegen} needs_regen, fair=${fairBatch}.`,
     needs_regen: needsRegen,
     enqueued,
     deduped,
     effective_wip: effectiveWip,
+    fair_share_batch: fairBatch,
+    leased_packages: leasedPackageCount,
     fail_rate: failRate,
     errors: errors.length > 0 ? errors : undefined,
   });

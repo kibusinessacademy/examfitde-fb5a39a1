@@ -25,10 +25,41 @@ function envInt(name: string, def: number): number {
 
 export function getSchedulerCaps(): SchedulerCaps {
   return {
-    globalWipMax: envInt("LC_GLOBAL_WIP_MAX", 40),
-    perPackageMax: envInt("LC_PER_PACKAGE_MAX", 3),
+    globalWipMax: envInt("LC_GLOBAL_WIP_MAX", 48),
+    perPackageMax: envInt("LC_PER_PACKAGE_MAX", 12),
     dispatchBatchMax: envInt("LC_DISPATCH_BATCH_MAX", 120),
   };
+}
+
+/**
+ * Compute fair-share quota for a single package.
+ * Distributes free global slots evenly across all leased packages,
+ * capped by per-package max and needs_regen.
+ */
+export function computeFairShareBatch(opts: {
+  needsRegen: number;
+  freeGlobalSlots: number;
+  leasedPackageCount: number;
+  perPackageMax: number;
+}): number {
+  const { needsRegen, freeGlobalSlots, leasedPackageCount, perPackageMax } = opts;
+  if (needsRegen <= 0 || freeGlobalSlots <= 0) return 0;
+  const divisor = Math.max(1, leasedPackageCount);
+  const fairShare = Math.ceil(freeGlobalSlots / divisor);
+  return Math.max(1, Math.min(needsRegen, perPackageMax, fairShare));
+}
+
+/**
+ * Count currently leased (building) packages for fair-share distribution.
+ */
+export async function countLeasedPackages(sb: any): Promise<number> {
+  const { count, error } = await sb
+    .from("course_packages")
+    .select("id", { head: true, count: "exact" })
+    .eq("status", "building")
+    .not("lease_owner", "is", null);
+  if (error) return 1;
+  return Math.max(1, count ?? 1);
 }
 
 // ── SSOT needs_regen filter ──
