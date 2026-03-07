@@ -11,7 +11,14 @@ export interface PipelinePackage {
   /** SSOT – all step statuses live here */
   step_status_json: Record<string, string> | null;
   /** Content step meta (remaining/generated hollow lessons) */
-  content_meta?: { remaining?: number; generated?: number; last_error?: string } | null;
+  content_meta?: {
+    remaining?: number;
+    generated?: number;
+    last_error?: string;
+    dispatch_blocked_reason?: string;
+    needs_regen?: number;
+    active_lesson_jobs?: number;
+  } | null;
 }
 
 export interface BuildingMetrics {
