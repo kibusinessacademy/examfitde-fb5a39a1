@@ -482,6 +482,7 @@ export default function Leitstelle() {
         source: 'job_queue' as const,
         packageId: row.package_id ? String(row.package_id) : null,
         jobId: row.id ? String(row.id) : null,
+        stepKey: extractStepKeyFromDetail(errorText),
       };
     });
 
