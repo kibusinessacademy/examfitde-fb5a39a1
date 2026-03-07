@@ -17,6 +17,7 @@ export default function CohortOverviewPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const curriculumId = searchParams.get("curriculum") || null;
+  const orgId = searchParams.get("org") || undefined;
 
   const [curricula, setCurricula] = useState<CurriculumOption[]>([]);
   const [loadingCurricula, setLoadingCurricula] = useState(true);
