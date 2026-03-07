@@ -28102,6 +28102,14 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: number
       }
+      backfill_clean_done_step_errors: {
+        Args: { p_dry_run?: boolean }
+        Returns: Json
+      }
+      backfill_fix_serialized_lessons: {
+        Args: { p_dry_run?: boolean }
+        Returns: Json
+      }
       bulk_sync_content_versions_to_lessons: { Args: never; Returns: number }
       calculate_authority_index: {
         Args: {
@@ -30146,6 +30154,7 @@ export type Database = {
       }
       run_health_checks: { Args: never; Returns: Json }
       run_nightly_pipeline_guards: { Args: never; Returns: Json }
+      run_system_integrity_audit: { Args: never; Returns: Json }
       search_berufe: {
         Args: { lim?: number; q: string }
         Returns: {
