@@ -164,7 +164,6 @@ async function releasePackageLease(
 
   console.log(`[dispatcher] Lease released for ${packageId.slice(0, 8)} reason=${reason}`);
 }
-}
 
 // ═══════════════════════════════════════════════════════════════
 // Main handler
