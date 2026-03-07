@@ -29034,6 +29034,7 @@ export type Database = {
         }[]
       }
       finish_exam_session: { Args: { p_session_id: string }; Returns: Json }
+      fix_zombie_packages: { Args: never; Returns: Json }
       generate_compliance_report: {
         Args: { p_report_type: string }
         Returns: string
