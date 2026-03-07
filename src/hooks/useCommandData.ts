@@ -107,6 +107,17 @@ export function useCommandData() {
       const costMtd = ((costMtdRes.data || []) as { cost_eur: number }[]).reduce((s, c) => s + (c.cost_eur || 0), 0);
       const budgetRow = (budgetRes.data || [])[0];
 
+      // Build content meta lookup from package_steps
+      const contentMetaByPkg = new Map<string, { remaining?: number; generated?: number; last_error?: string }>();
+      for (const row of (contentStepMetaRes.data || []) as any[]) {
+        const meta = row.meta as Record<string, unknown> | null;
+        contentMetaByPkg.set(row.package_id, {
+          remaining: meta?.remaining != null ? Number(meta.remaining) : undefined,
+          generated: meta?.generated != null ? Number(meta.generated) : undefined,
+          last_error: row.last_error || undefined,
+        });
+      }
+
       // Map packages — step_status_json is the SSOT, no extra queries needed
       const enrichedPackages: PipelinePackage[] = buildPkgs.map((pkg: any) => ({
         id: pkg.id,
@@ -116,6 +127,7 @@ export function useCommandData() {
         current_step: pkg.current_step,
         updated_at: pkg.updated_at,
         step_status_json: pkg.step_status_json,
+        content_meta: contentMetaByPkg.get(pkg.id) || null,
       }));
 
       setPackages(enrichedPackages);
