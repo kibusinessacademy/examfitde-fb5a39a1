@@ -828,18 +828,48 @@ Deno.serve(async (req) => {
             };
           }
         }
-        // ── Rate-limited / transient ─────────────────────────────────
+        // ── Rate-limited / transient (503, 429) ─────────────────────
         else if (res.status === 429 || res.status === 503) {
-          console.warn(`[job-runner] ${fnName} ${res.status} → requeue +${BACKOFF_429_MS}ms`);
-          finalState = {
-            status: "pending",
-            patch: {
-              run_after: new Date(Date.now() + BACKOFF_429_MS).toISOString(),
-              error: `HTTP ${res.status} — will retry`,
-              meta: { ...(job.meta || {}), last_retry: tsNow },
-            },
-            metricsAction: "rateLimit",
-          };
+          const ta = Number((job.meta as any)?.transient_attempts ?? 0) + 1;
+          const transientFirstAt = (job.meta as any)?.transient_first_at ?? tsNow;
+          const windowElapsed = Date.now() - new Date(transientFirstAt).getTime();
+
+          // Transient exhaustion gate: too many transient retries → escalate
+          if (ta >= MAX_TRANSIENT_ATTEMPTS && windowElapsed < TRANSIENT_WINDOW_MS) {
+            console.error(`[job-runner] ${fnName} TRANSIENT_EXHAUSTED: ${ta} transient retries in ${Math.round(windowElapsed / 1000)}s → failed`);
+            finalState = {
+              status: "failed",
+              patch: {
+                error: `TRANSIENT_EXHAUSTED: ${ta} retries (${res.status}) in ${Math.round(windowElapsed / 60000)}min`,
+                completed_at: tsNow,
+                attempts: (job.attempts || 0) + 1,
+                meta: { ...(job.meta || {}), transient_attempts: ta, transient_exhausted: true, transient_first_at: transientFirstAt },
+              },
+              metricsAction: "dlq",
+            };
+          } else {
+            // Reset window if expired
+            const effectiveFirstAt = windowElapsed >= TRANSIENT_WINDOW_MS ? tsNow : transientFirstAt;
+            const effectiveTa = windowElapsed >= TRANSIENT_WINDOW_MS ? 1 : ta;
+
+            console.warn(`[job-runner] ${fnName} ${res.status} → requeue +${BACKOFF_429_MS}ms (ta=${effectiveTa}/${MAX_TRANSIENT_ATTEMPTS})`);
+            finalState = {
+              status: "pending",
+              patch: {
+                run_after: new Date(Date.now() + BACKOFF_429_MS).toISOString(),
+                error: `HTTP ${res.status} — transient retry ${effectiveTa}/${MAX_TRANSIENT_ATTEMPTS}`,
+                meta: {
+                  ...(job.meta || {}),
+                  last_retry: tsNow,
+                  transient_attempts: effectiveTa,
+                  transient_first_at: effectiveFirstAt,
+                  last_transient_error: `HTTP ${res.status}`,
+                  last_transient_at: tsNow,
+                },
+              },
+              metricsAction: "rateLimit",
+            };
+          }
         }
         // ── Hard failure ─────────────────────────────────────────────
         else {
