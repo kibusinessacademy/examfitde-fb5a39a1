@@ -11,9 +11,10 @@ interface BenchmarkPackage {
   id: string;
   title: string;
   status: string;
-  priority: number;
+  priority: number | null;
   created_at: string;
   updated_at: string;
+  curriculum_id: string | null;
 }
 
 interface StepState {
