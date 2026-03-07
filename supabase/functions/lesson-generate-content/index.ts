@@ -690,6 +690,20 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
     }, isConstraint ? 500 : 503);
   }
 
+  // ── Belt-and-suspenders: also write to lessons.content directly ──
+  // The sync trigger on content_versions SHOULD handle this, but a timing gap
+  // on March 1-2 proved it can fail silently. This ensures lessons.content
+  // is always updated when content_versions persist succeeds.
+  try {
+    await sb.rpc("pipeline_write_lesson_content", {
+      p_lesson_id: lessonId,
+      p_content: finalContent,
+    }).then(() => {});
+  } catch (_syncErr) {
+    // Non-fatal: the trigger is the primary path, this is backup
+    console.warn(`[lesson-gen] direct sync fallback failed for ${lessonId.slice(0, 8)}: ${(_syncErr as Error)?.message?.slice(0, 100)}`);
+  }
+
   // ── Cleanup checkpoint (best-effort, non-blocking) ──
   sb.from("content_versions")
     .delete()
