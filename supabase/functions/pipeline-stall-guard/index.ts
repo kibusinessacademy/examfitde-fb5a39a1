@@ -75,12 +75,13 @@ Deno.serve(async (req) => {
     const placeholderStallRows: Array<{ package_id: string; placeholders: number; recent_jobs: number }> = [];
 
     for (const pkg of buildingPkgs ?? []) {
-      // Count current placeholders
+      // Count current placeholders (SSOT-aligned: exclude mini_check, use JSON field)
       const { count: phCount } = await sb
         .from("lessons")
-        .select("id", { count: "exact", head: true })
+        .select("id, modules!inner(course_id)", { count: "exact", head: true })
         .eq("modules.course_id", pkg.course_id)
-        .ilike("content", "%_placeholder%");
+        .neq("step", "mini_check")
+        .eq("content->_placeholder", "true");
 
       // Check recent completed jobs (last 30min)
       const { count: recentJobs } = await sb
