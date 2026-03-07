@@ -382,13 +382,15 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
 
   // ── Claim content-pool jobs ──
   // deno-lint-ignore no-explicit-any
+  const claimCount = Math.min(CLAIM_LIMIT, BASE_CONCURRENCY * 2);
+  // deno-lint-ignore no-explicit-any
   let { data: jobs, error: claimErr } = await sb.rpc("claim_pending_jobs_v4" as any, {
-    p_limit: BASE_CONCURRENCY,
+    p_limit: claimCount,
     p_worker_id: WORKER_ID,
     p_lock_timeout_minutes: CONTENT_LOCK_TIMEOUT_MINUTES,
     p_worker_pool: "content",
   });
-  jobs = ((jobs ?? []) as any[]).slice(0, BASE_CONCURRENCY);
+  jobs = ((jobs ?? []) as any[]).slice(0, claimCount);
 
   if (claimErr) {
     console.error(`[content-runner] claim error: ${claimErr.message}`);
