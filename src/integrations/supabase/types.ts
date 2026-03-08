@@ -35079,7 +35079,7 @@ export type Database = {
           learning_fields: number
           seeding_version: string
           title: string
-          track: string
+          track: Database["public"]["Enums"]["product_track"]
         }[]
       }
       get_reconcile_gaps: {
