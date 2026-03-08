@@ -42,7 +42,19 @@ Deno.serve(async (req) => {
     max_concurrent = 8,
     dry_run = false,
     auto_create_packages = true,
+    template_key = null,
   } = body;
+
+  // Server-side safety guards
+  if (seedLimit > 500) {
+    return json(400, { error: "Seed limit > 500 not allowed" }, origin);
+  }
+  if (max_concurrent > 20) {
+    return json(400, { error: "max_concurrent > 20 not allowed" }, origin);
+  }
+  if (seedLimit > 100 && max_concurrent > 15) {
+    return json(400, { error: "Unsafe: seed limit too high for max_concurrent" }, origin);
+  }
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -186,6 +198,7 @@ Deno.serve(async (req) => {
       meta: {
         total_eligible: candidates.length,
         seed_criteria: { track, priority_min, priority_max, limit: seedLimit },
+        template_key,
       },
     })
     .select("id")
