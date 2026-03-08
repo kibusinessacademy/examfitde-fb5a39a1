@@ -38,7 +38,6 @@ Deno.serve(async (req) => {
             headers: {
               "Content-Type": "application/json",
               "x-job-runner-key": serviceKey,
-              "Authorization": `Bearer ${serviceKey}`,
             },
             body: JSON.stringify({}),
           },
