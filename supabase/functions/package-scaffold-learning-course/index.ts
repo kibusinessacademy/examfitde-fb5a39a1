@@ -147,6 +147,24 @@ Deno.serve(async (req) => {
       await sb.from("courses").update({ status: "draft" }).eq("id", courseId);
 
       console.log(`[scaffold] Done: ${modulesCreated} modules, ${lessonsCreated} lessons for course ${courseId.slice(0, 8)}`);
+
+      // ── GUARD: 0 lessons is NOT success ──
+      // If modules were created but no lessons, competencies are likely missing.
+      // Return 422 (permanent) so pipeline does NOT proceed on empty scaffold.
+      if (lessonsCreated === 0) {
+        console.error(`[scaffold] PERMANENT: ${modulesCreated} modules created but 0 lessons — competencies likely missing for curriculum ${curriculumId}`);
+        return json({
+          ok: false,
+          batch_complete: false,
+          error: "SCAFFOLD_EMPTY_NO_LESSONS",
+          message: `${modulesCreated} Module erstellt, aber 0 Lektionen — Kompetenzen fehlen im Curriculum.`,
+          modules_created: modulesCreated,
+          lessons_created: 0,
+          permanent: true,
+          retry: false,
+        }, 422);
+      }
+
       return json({ ok: true, batch_complete: true, modules_created: modulesCreated, lessons_created: lessonsCreated });
 
     } finally {
