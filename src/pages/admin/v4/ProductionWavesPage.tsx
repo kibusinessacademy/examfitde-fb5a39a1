@@ -1,16 +1,18 @@
 import { useMemo, useState } from "react";
-import { RefreshCw, Play, Pause, RotateCw, CheckCircle2, Factory } from "lucide-react";
+import { RefreshCw, Play, Pause, RotateCw, CheckCircle2, Factory, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useProductionWaveStatus, useSeedProductionWave, useWaveAction } from "@/hooks/useProductionWaves";
+import { useRunProductionSupervisor } from "@/hooks/useProductionSupervisor";
 
 export default function ProductionWavesPage() {
   const { data, isLoading, refetch } = useProductionWaveStatus();
   const seedWave = useSeedProductionWave();
   const waveAction = useWaveAction();
+  const runSupervisor = useRunProductionSupervisor();
 
   const [name, setName] = useState(`Wave ${new Date().toISOString().slice(0, 10)}`);
   const [limit, setLimit] = useState(5);
@@ -39,10 +41,20 @@ export default function ProductionWavesPage() {
             Seed, activate, überwachen und finalisieren von Produktionswellen
           </p>
         </div>
-        <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Aktualisieren
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => runSupervisor.mutate()}
+            disabled={runSupervisor.isPending}
+          >
+            <Zap className="mr-2 h-4 w-4" />
+            Supervisor Run
+          </Button>
+          <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Aktualisieren
+          </Button>
+        </div>
       </div>
 
       {/* Global Health KPIs */}
@@ -228,6 +240,20 @@ export default function ProductionWavesPage() {
           <CardContent>
             <pre className="overflow-auto whitespace-pre-wrap text-sm rounded-lg border p-3">
               {JSON.stringify(waveAction.data, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Supervisor result */}
+      {runSupervisor.data && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Letzter Supervisor-Run</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="overflow-auto whitespace-pre-wrap text-xs rounded-lg border p-3">
+              {JSON.stringify(runSupervisor.data, null, 2)}
             </pre>
           </CardContent>
         </Card>
