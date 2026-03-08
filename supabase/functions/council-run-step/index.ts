@@ -478,7 +478,7 @@ Summary: ${critique.summary}
 
   if (error) throw error;
 
-  await logCouncilMessage(db, newVer!.id, "gpt-4.1", "revision", {
+  await logCouncilMessage(db, newVer!.id, "gpt-5-mini", "revision", {
     parent_version: parentVersionId,
     round,
     addressed_issues: critique.issues.map((i) => i.text),
