@@ -21664,7 +21664,7 @@ export type Database = {
           {
             foreignKeyName: "qualification_wave_candidates_qualification_catalog_id_fkey"
             columns: ["qualification_catalog_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "qualification_catalog"
             referencedColumns: ["id"]
           },
