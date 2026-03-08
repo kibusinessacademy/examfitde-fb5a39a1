@@ -10393,6 +10393,50 @@ export type Database = {
         }
         Relationships: []
       }
+      intake_raw_documents: {
+        Row: {
+          candidate_id: string
+          content_text: string | null
+          content_type: string | null
+          extracted_title: string | null
+          fetched_at: string
+          id: string
+          metadata: Json | null
+          source_hash: string | null
+          source_url: string | null
+        }
+        Insert: {
+          candidate_id: string
+          content_text?: string | null
+          content_type?: string | null
+          extracted_title?: string | null
+          fetched_at?: string
+          id?: string
+          metadata?: Json | null
+          source_hash?: string | null
+          source_url?: string | null
+        }
+        Update: {
+          candidate_id?: string
+          content_text?: string | null
+          content_type?: string | null
+          extracted_title?: string | null
+          fetched_at?: string
+          id?: string
+          metadata?: Json | null
+          source_hash?: string | null
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intake_raw_documents_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           billing_account_id: string | null
@@ -17715,6 +17759,487 @@ export type Database = {
           version?: string
         }
         Relationships: []
+      }
+      qualification_candidates: {
+        Row: {
+          award_type_hint: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          provider_family: string | null
+          source_type: string | null
+          source_url: string | null
+          status: string
+          title_raw: string
+          updated_at: string
+        }
+        Insert: {
+          award_type_hint?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          provider_family?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          status?: string
+          title_raw: string
+          updated_at?: string
+        }
+        Update: {
+          award_type_hint?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          provider_family?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          status?: string
+          title_raw?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qualification_catalog: {
+        Row: {
+          admission_rules: Json | null
+          award_type: string | null
+          candidate_id: string | null
+          canonical_title: string
+          competency_areas: Json | null
+          created_at: string
+          education_type: string | null
+          evidence: Json | null
+          exam_parts: Json | null
+          handlungsbereiche: Json | null
+          id: string
+          legal_basis: string | null
+          oral_components: Json | null
+          parser_version: string | null
+          pass_rules: Json | null
+          project_components: Json | null
+          provider_family: string | null
+          qualification_level: string | null
+          quality_score: number | null
+          regulation_reference: string | null
+          source_authority: string | null
+          status: string
+          title_aliases: string[] | null
+          updated_at: string
+          warnings: string[] | null
+        }
+        Insert: {
+          admission_rules?: Json | null
+          award_type?: string | null
+          candidate_id?: string | null
+          canonical_title: string
+          competency_areas?: Json | null
+          created_at?: string
+          education_type?: string | null
+          evidence?: Json | null
+          exam_parts?: Json | null
+          handlungsbereiche?: Json | null
+          id?: string
+          legal_basis?: string | null
+          oral_components?: Json | null
+          parser_version?: string | null
+          pass_rules?: Json | null
+          project_components?: Json | null
+          provider_family?: string | null
+          qualification_level?: string | null
+          quality_score?: number | null
+          regulation_reference?: string | null
+          source_authority?: string | null
+          status?: string
+          title_aliases?: string[] | null
+          updated_at?: string
+          warnings?: string[] | null
+        }
+        Update: {
+          admission_rules?: Json | null
+          award_type?: string | null
+          candidate_id?: string | null
+          canonical_title?: string
+          competency_areas?: Json | null
+          created_at?: string
+          education_type?: string | null
+          evidence?: Json | null
+          exam_parts?: Json | null
+          handlungsbereiche?: Json | null
+          id?: string
+          legal_basis?: string | null
+          oral_components?: Json | null
+          parser_version?: string | null
+          pass_rules?: Json | null
+          project_components?: Json | null
+          provider_family?: string | null
+          qualification_level?: string | null
+          quality_score?: number | null
+          regulation_reference?: string | null
+          source_authority?: string | null
+          status?: string
+          title_aliases?: string[] | null
+          updated_at?: string
+          warnings?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualification_catalog_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qualification_curriculum_drafts: {
+        Row: {
+          created_at: string
+          draft_title: string
+          id: string
+          promoted_curriculum_id: string | null
+          qualification_catalog_id: string
+          readiness_score: number | null
+          status: string
+          structure_json: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          draft_title: string
+          id?: string
+          promoted_curriculum_id?: string | null
+          qualification_catalog_id: string
+          readiness_score?: number | null
+          status?: string
+          structure_json?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          draft_title?: string
+          id?: string
+          promoted_curriculum_id?: string | null
+          qualification_catalog_id?: string
+          readiness_score?: number | null
+          status?: string
+          structure_json?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualification_curriculum_drafts_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qualification_discovery_patterns: {
+        Row: {
+          award_type: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          priority: number
+          provider_family: string | null
+          search_phrase: string
+        }
+        Insert: {
+          award_type?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          priority?: number
+          provider_family?: string | null
+          search_phrase: string
+        }
+        Update: {
+          award_type?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          priority?: number
+          provider_family?: string | null
+          search_phrase?: string
+        }
+        Relationships: []
+      }
+      qualification_fetch_queue: {
+        Row: {
+          attempts: number
+          candidate_id: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          last_http_status: number | null
+          lease_until: string | null
+          max_attempts: number
+          payload: Json | null
+          priority: number
+          source_registry_id: string
+          status: string
+          updated_at: string
+          worker_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          candidate_id?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          last_http_status?: number | null
+          lease_until?: string | null
+          max_attempts?: number
+          payload?: Json | null
+          priority?: number
+          source_registry_id: string
+          status?: string
+          updated_at?: string
+          worker_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          candidate_id?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          last_http_status?: number | null
+          lease_until?: string | null
+          max_attempts?: number
+          payload?: Json | null
+          priority?: number
+          source_registry_id?: string
+          status?: string
+          updated_at?: string
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualification_fetch_queue_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_source_registry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qualification_search_results: {
+        Row: {
+          content_type_hint: string | null
+          created_at: string
+          id: string
+          is_deduped: boolean | null
+          meta: Json | null
+          pattern_id: string | null
+          provider_family: string | null
+          result_rank: number | null
+          run_id: string
+          search_phrase: string | null
+          snippet: string | null
+          source_registry_id: string | null
+          source_score: number | null
+          source_url: string
+          title_raw: string | null
+        }
+        Insert: {
+          content_type_hint?: string | null
+          created_at?: string
+          id?: string
+          is_deduped?: boolean | null
+          meta?: Json | null
+          pattern_id?: string | null
+          provider_family?: string | null
+          result_rank?: number | null
+          run_id: string
+          search_phrase?: string | null
+          snippet?: string | null
+          source_registry_id?: string | null
+          source_score?: number | null
+          source_url: string
+          title_raw?: string | null
+        }
+        Update: {
+          content_type_hint?: string | null
+          created_at?: string
+          id?: string
+          is_deduped?: boolean | null
+          meta?: Json | null
+          pattern_id?: string | null
+          provider_family?: string | null
+          result_rank?: number | null
+          run_id?: string
+          search_phrase?: string | null
+          snippet?: string | null
+          source_registry_id?: string | null
+          source_score?: number | null
+          source_url?: string
+          title_raw?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualification_search_results_pattern_id_fkey"
+            columns: ["pattern_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_discovery_patterns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualification_search_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_search_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualification_search_results_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_source_registry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qualification_search_runs: {
+        Row: {
+          created_at: string
+          deduped_count: number | null
+          error_count: number | null
+          finished_at: string | null
+          id: string
+          meta: Json | null
+          result_count: number | null
+          search_pattern_count: number | null
+          started_at: string
+          status: string
+          trigger_source: string
+        }
+        Insert: {
+          created_at?: string
+          deduped_count?: number | null
+          error_count?: number | null
+          finished_at?: string | null
+          id?: string
+          meta?: Json | null
+          result_count?: number | null
+          search_pattern_count?: number | null
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Update: {
+          created_at?: string
+          deduped_count?: number | null
+          error_count?: number | null
+          finished_at?: string | null
+          id?: string
+          meta?: Json | null
+          result_count?: number | null
+          search_pattern_count?: number | null
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Relationships: []
+      }
+      qualification_source_registry: {
+        Row: {
+          canonical_url: string
+          content_type: string | null
+          first_seen_at: string
+          id: string
+          intake_candidate_id: string | null
+          last_seen_at: string
+          meta: Json | null
+          provider_family: string | null
+        }
+        Insert: {
+          canonical_url: string
+          content_type?: string | null
+          first_seen_at?: string
+          id?: string
+          intake_candidate_id?: string | null
+          last_seen_at?: string
+          meta?: Json | null
+          provider_family?: string | null
+        }
+        Update: {
+          canonical_url?: string
+          content_type?: string | null
+          first_seen_at?: string
+          id?: string
+          intake_candidate_id?: string | null
+          last_seen_at?: string
+          meta?: Json | null
+          provider_family?: string | null
+        }
+        Relationships: []
+      }
+      qualification_wave_candidates: {
+        Row: {
+          award_type: string | null
+          candidate_status: string
+          created_at: string
+          draft_id: string | null
+          id: string
+          market_score: number | null
+          promoted_at: string | null
+          promotion_priority: number | null
+          provider_family: string | null
+          qualification_catalog_id: string
+          readiness_score: number | null
+          updated_at: string
+        }
+        Insert: {
+          award_type?: string | null
+          candidate_status?: string
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          market_score?: number | null
+          promoted_at?: string | null
+          promotion_priority?: number | null
+          provider_family?: string | null
+          qualification_catalog_id: string
+          readiness_score?: number | null
+          updated_at?: string
+        }
+        Update: {
+          award_type?: string | null
+          candidate_status?: string
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          market_score?: number | null
+          promoted_at?: string | null
+          promotion_priority?: number | null
+          provider_family?: string | null
+          qualification_catalog_id?: string
+          readiness_score?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualification_wave_candidates_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_curriculum_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualification_wave_candidates_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quality_audit_snapshots: {
         Row: {
@@ -29090,6 +29615,22 @@ export type Database = {
       }
       claim_pipeline_slot: { Args: { p_package_id: string }; Returns: boolean }
       claim_provider_slot: { Args: { p_provider: string }; Returns: boolean }
+      claim_qualification_fetch_jobs: {
+        Args: {
+          p_lease_minutes?: number
+          p_limit?: number
+          p_worker_id?: string
+        }
+        Returns: {
+          attempts: number
+          candidate_id: string
+          id: string
+          max_attempts: number
+          payload: Json
+          priority: number
+          source_registry_id: string
+        }[]
+      }
       claim_referral_code: {
         Args: { p_invite_code: string; p_referred_user_id: string }
         Returns: Json
@@ -29346,6 +29887,15 @@ export type Database = {
       enqueue_integrity_rechecks: {
         Args: { p_cap?: number; p_reason?: string }
         Returns: Json
+      }
+      enqueue_qualification_fetch: {
+        Args: {
+          p_candidate_id?: string
+          p_payload?: Json
+          p_priority?: number
+          p_source_registry_id: string
+        }
+        Returns: string
       }
       enqueue_security_review: {
         Args: {
@@ -30501,6 +31051,22 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      register_qualification_search_result: {
+        Args: {
+          p_content_type_hint: string
+          p_meta?: Json
+          p_pattern_id: string
+          p_provider_family: string
+          p_result_rank: number
+          p_run_id: string
+          p_search_phrase: string
+          p_snippet: string
+          p_source_score: number
+          p_source_url: string
+          p_title_raw: string
+        }
+        Returns: Json
+      }
       release_package_lease: {
         Args: { p_package_id: string; p_runner_id: string }
         Returns: undefined
@@ -30892,6 +31458,10 @@ export type Database = {
         }
         Returns: Json
       }
+      sync_qualification_wave_candidates: {
+        Args: { p_min_readiness?: number }
+        Returns: Json
+      }
       sync_schema_contracts: { Args: never; Returns: Json }
       table_exists: { Args: { p_table: string }; Returns: boolean }
       trigger_pool_rework: { Args: never; Returns: undefined }
@@ -31038,6 +31608,31 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      upsert_parsed_qualification_model: {
+        Args: {
+          p_admission_rules?: Json
+          p_award_type?: string
+          p_candidate_id: string
+          p_canonical_title: string
+          p_competency_areas?: Json
+          p_education_type?: string
+          p_evidence?: Json
+          p_exam_parts?: Json
+          p_handlungsbereiche?: Json
+          p_legal_basis?: string
+          p_oral_components?: Json
+          p_parser_version: string
+          p_pass_rules?: Json
+          p_project_components?: Json
+          p_provider_family?: string
+          p_quality_score?: number
+          p_regulation_reference?: string
+          p_source_authority?: string
+          p_title_aliases?: string[]
+          p_warnings?: string[]
+        }
+        Returns: string
+      }
       upsert_qa_finding: {
         Args: {
           p_area: string
@@ -31070,6 +31665,17 @@ export type Database = {
           p_qa_run_id?: string
           p_severity: Database["public"]["Enums"]["qa_severity"]
           p_title: string
+        }
+        Returns: string
+      }
+      upsert_qualification_candidate: {
+        Args: {
+          p_award_type_hint?: string
+          p_metadata?: Json
+          p_provider_family?: string
+          p_source_type?: string
+          p_source_url: string
+          p_title_raw: string
         }
         Returns: string
       }
