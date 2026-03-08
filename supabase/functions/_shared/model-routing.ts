@@ -42,47 +42,47 @@ export interface ModelChoice {
 // ── Hardcoded Fallback Table ──────────────────────────────────
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   learning_course: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },           // v14: Gemini Flash primary (142/142 success in prod)
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   learning_content: [
-    { provider: "lovable", model: "openai/gpt-5.2" },                 // v13: gpt-5.2 primary for all intents
-    { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true }, // v13: Claude Sonnet 4.5 fallback
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   exam_questions: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   oral_exam: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   handbook: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   minicheck: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   seo_content: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   council_review: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   council_proposer: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   council_validator: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   quality_audit: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   embeddings: [
