@@ -158,6 +158,20 @@ export default function ProductionWaveDetailPage() {
                 </div>
               )}
 
+              {/* Publish gate */}
+              {item.publish_gate && (
+                <div className="grid gap-2 md:grid-cols-4 text-xs rounded border p-2 bg-muted/20">
+                  <div>publish_ok: <span className={item.publish_gate.ok ? "text-green-500" : "text-destructive"}>{String(item.publish_gate.ok)}</span></div>
+                  <div>failed_steps: {item.publish_gate.failed_steps ?? 0}</div>
+                  <div>open_jobs: {item.publish_gate.open_jobs ?? 0}</div>
+                  <div>build_progress: {item.publish_gate.build_progress ?? 0}</div>
+                  <div>placeholder: {item.publish_gate.placeholder_lessons ?? 0}</div>
+                  <div>hollow: {item.publish_gate.hollow_lessons ?? 0}</div>
+                  <div>tutor: {String(item.publish_gate.tutor_ok)}</div>
+                  <div>exam: {String(item.publish_gate.exam_ok)}</div>
+                </div>
+              )}
+
               <div className="text-xs text-muted-foreground">
                 started: {item.started_at || "–"} · finished: {item.finished_at || "–"} · published: {item.published_at || "–"}
               </div>

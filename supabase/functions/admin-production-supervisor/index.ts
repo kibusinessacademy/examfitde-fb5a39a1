@@ -173,6 +173,36 @@ Deno.serve(async (req) => {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // ACTION: publish_ready
+  // ═══════════════════════════════════════════════════════════════
+  if (action === "publish_ready") {
+    const { data, error } = await sb.rpc("publish_wave_ready_packages", {
+      p_wave_id: waveId,
+    });
+
+    if (error) {
+      return json(500, { ok: false, error: error.message }, origin);
+    }
+
+    // refresh counters after publish
+    const { data: summary } = await sb.rpc("get_wave_summary", { p_wave_id: waveId });
+    const s = summary as any;
+    const itemCounts = s?.items || {};
+
+    await sb
+      .from("production_waves")
+      .update({
+        completed_count: (itemCounts.quality_gate_passed ?? 0) + (itemCounts.published ?? 0),
+        failed_count: itemCounts.quality_gate_failed ?? 0,
+        published_count: itemCounts.published ?? 0,
+        blocked_count: itemCounts.blocked ?? 0,
+      })
+      .eq("id", waveId);
+
+    return json(200, { ok: true, result: data, summary: s }, origin);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // ACTION: tick
   // ═══════════════════════════════════════════════════════════════
   if (action === "tick") {

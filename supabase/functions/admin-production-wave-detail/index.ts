@@ -65,6 +65,37 @@ Deno.serve(async (req) => {
     byStatus[item.status] = (byStatus[item.status] || 0) + 1;
   }
 
+  // Enrich items with publish gate
+  const enrichedItems = [];
+  for (const i of (items || []) as any[]) {
+    let publishGate = null;
+    if (i.package_id && ["quality_gate_passed", "queued", "building", "published"].includes(i.status)) {
+      const { data: gate } = await sb.rpc("can_publish_package", {
+        p_package_id: i.package_id,
+      });
+      publishGate = gate;
+    }
+
+    enrichedItems.push({
+      id: i.id,
+      status: i.status,
+      priority: i.priority,
+      curriculum_id: i.curriculum_id,
+      curriculum_title: i.curricula?.title ?? i.curriculum_id,
+      package_id: i.package_id,
+      package_title: i.course_packages?.title ?? null,
+      package_status: i.course_packages?.status ?? null,
+      build_progress: i.course_packages?.build_progress ?? null,
+      published_at: i.course_packages?.published_at ?? null,
+      package_updated_at: i.course_packages?.updated_at ?? null,
+      quality_score: i.quality_score ?? null,
+      last_error: i.last_error ?? null,
+      started_at: i.started_at,
+      finished_at: i.finished_at,
+      publish_gate: publishGate,
+    });
+  }
+
   return json(200, {
     ok: true,
     wave: {
@@ -83,22 +114,6 @@ Deno.serve(async (req) => {
       meta: wave.meta,
     },
     by_status: byStatus,
-    items: (items || []).map((i: any) => ({
-      id: i.id,
-      status: i.status,
-      priority: i.priority,
-      curriculum_id: i.curriculum_id,
-      curriculum_title: i.curricula?.title ?? i.curriculum_id,
-      package_id: i.package_id,
-      package_title: i.course_packages?.title ?? null,
-      package_status: i.course_packages?.status ?? null,
-      build_progress: i.course_packages?.build_progress ?? null,
-      published_at: i.course_packages?.published_at ?? null,
-      package_updated_at: i.course_packages?.updated_at ?? null,
-      quality_score: i.quality_score ?? null,
-      last_error: i.last_error ?? null,
-      started_at: i.started_at,
-      finished_at: i.finished_at,
-    })),
+    items: enrichedItems,
   }, origin);
 });

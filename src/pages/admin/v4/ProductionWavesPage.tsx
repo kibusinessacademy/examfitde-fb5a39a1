@@ -222,6 +222,14 @@ export default function ProductionWavesPage() {
               </Button>
               <Button
                 size="sm"
+                variant="secondary"
+                onClick={() => waveAction.mutate({ action: "publish_ready", wave_id: activeWave.id })}
+                disabled={waveAction.isPending}
+              >
+                Publish Ready
+              </Button>
+              <Button
+                size="sm"
                 variant="outline"
                 onClick={() => navigate(`/admin/production/detail?wave=${activeWave.id}`)}
               >

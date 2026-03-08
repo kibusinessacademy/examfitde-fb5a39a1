@@ -28456,6 +28456,7 @@ export type Database = {
         Args: { p_course_id: string }
         Returns: boolean
       }
+      can_publish_package: { Args: { p_package_id: string }; Returns: Json }
       can_run_llm_job: { Args: { p_provider: string }; Returns: boolean }
       can_worker_claim: { Args: { p_job_type: string }; Returns: boolean }
       cancel_jobs_for_package: {
@@ -30198,6 +30199,10 @@ export type Database = {
       publish_tutor_asset: {
         Args: { p_asset_id: string; p_version_id: string }
         Returns: undefined
+      }
+      publish_wave_ready_packages: {
+        Args: { p_wave_id: string }
+        Returns: Json
       }
       purge_old_jobs: {
         Args: { p_older_than_days?: number; p_statuses?: string[] }
