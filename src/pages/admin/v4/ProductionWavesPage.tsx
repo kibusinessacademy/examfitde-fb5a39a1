@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useProductionWaveStatus, useSeedProductionWave, useWaveAction } from "@/hooks/useProductionWaves";
 import { useRunProductionSupervisor, useRunWaveBackpressure } from "@/hooks/useProductionSupervisor";
+import { PRODUCTION_WAVE_TEMPLATES, type ProductionWaveTemplate } from "@/config/productionWaveTemplates";
 
 export default function ProductionWavesPage() {
   const navigate = useNavigate();
@@ -31,6 +32,34 @@ export default function ProductionWavesPage() {
     () => waves.find((w: any) => ["active", "paused", "draft", "seeding"].includes(w.status)),
     [waves],
   );
+
+  const applyTemplate = (tpl: ProductionWaveTemplate) => {
+    setName(`${tpl.label} ${new Date().toISOString().slice(0, 10)}`);
+    setLimit(tpl.limit);
+    setMaxConcurrent(tpl.maxConcurrent);
+    setPriorityMin(tpl.priorityMin);
+    setPriorityMax(tpl.priorityMax);
+    setDryRun(tpl.dryRun);
+  };
+
+  const startFromTemplate = (tpl: ProductionWaveTemplate) => {
+    if (tpl.key === "bulk_500") {
+      const ok = window.confirm(
+        "Bulk 500 startet eine große Produktionswelle. Wirklich fortfahren?",
+      );
+      if (!ok) return;
+    }
+    seedWave.mutate({
+      name: `${tpl.label} ${new Date().toISOString().slice(0, 10)}`,
+      limit: tpl.limit,
+      max_concurrent: tpl.maxConcurrent,
+      priority_min: tpl.priorityMin,
+      priority_max: tpl.priorityMax,
+      dry_run: tpl.dryRun,
+      track: tpl.track,
+      template_key: tpl.key,
+    });
+  };
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -80,10 +109,46 @@ export default function ProductionWavesPage() {
         </Card>
       </div>
 
-      {/* Seed new wave */}
+      {/* Wave Templates */}
       <Card>
         <CardHeader>
-          <CardTitle>Neue Welle anlegen</CardTitle>
+          <CardTitle>Wave Templates</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {PRODUCTION_WAVE_TEMPLATES.map((tpl) => (
+            <div key={tpl.key} className="rounded-lg border p-3 space-y-3">
+              <div>
+                <div className="font-medium">{tpl.label}</div>
+                <div className="text-xs text-muted-foreground">{tpl.description}</div>
+              </div>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div>limit: {tpl.limit}</div>
+                <div>max concurrent: {tpl.maxConcurrent}</div>
+                <div>priority: {tpl.priorityMin}–{tpl.priorityMax}</div>
+                <div>track: {tpl.track || "all"}</div>
+                <div>dry run: {String(tpl.dryRun)}</div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => applyTemplate(tpl)}>
+                  Laden
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => startFromTemplate(tpl)}
+                  disabled={seedWave.isPending}
+                >
+                  Start
+                </Button>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Seed new wave (manual) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Neue Welle anlegen (manuell)</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
@@ -166,7 +231,6 @@ export default function ProductionWavesPage() {
               <Badge variant="outline">Blocked: {activeWave.blocked}</Badge>
             </div>
 
-            {/* Backpressure live stats */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs border rounded-lg p-3">
               <div><span className="text-muted-foreground">Max Concurrent:</span> {activeWave.max_concurrent ?? 0}</div>
               <div><span className="text-muted-foreground">Pending:</span> {activeWave.pending_items ?? 0}</div>
@@ -176,65 +240,26 @@ export default function ProductionWavesPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                onClick={() => waveAction.mutate({ action: "activate", wave_id: activeWave.id })}
-                disabled={waveAction.isPending}
-              >
-                <Play className="mr-2 h-4 w-4" />
-                Aktivieren
+              <Button size="sm" onClick={() => waveAction.mutate({ action: "activate", wave_id: activeWave.id })} disabled={waveAction.isPending}>
+                <Play className="mr-2 h-4 w-4" /> Aktivieren
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => runBackpressure.mutate(activeWave.id)}
-                disabled={runBackpressure.isPending}
-              >
-                <Zap className="mr-2 h-4 w-4" />
-                Backpressure
+              <Button size="sm" variant="outline" onClick={() => runBackpressure.mutate(activeWave.id)} disabled={runBackpressure.isPending}>
+                <Zap className="mr-2 h-4 w-4" /> Backpressure
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => waveAction.mutate({ action: "tick", wave_id: activeWave.id })}
-                disabled={waveAction.isPending}
-              >
-                <RotateCw className="mr-2 h-4 w-4" />
-                Tick
+              <Button size="sm" variant="outline" onClick={() => waveAction.mutate({ action: "tick", wave_id: activeWave.id })} disabled={waveAction.isPending}>
+                <RotateCw className="mr-2 h-4 w-4" /> Tick
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => waveAction.mutate({ action: "pause", wave_id: activeWave.id })}
-                disabled={waveAction.isPending}
-              >
-                <Pause className="mr-2 h-4 w-4" />
-                Pause
+              <Button size="sm" variant="outline" onClick={() => waveAction.mutate({ action: "pause", wave_id: activeWave.id })} disabled={waveAction.isPending}>
+                <Pause className="mr-2 h-4 w-4" /> Pause
               </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => waveAction.mutate({ action: "finalize", wave_id: activeWave.id })}
-                disabled={waveAction.isPending}
-              >
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Finalisieren
+              <Button size="sm" variant="secondary" onClick={() => waveAction.mutate({ action: "finalize", wave_id: activeWave.id })} disabled={waveAction.isPending}>
+                <CheckCircle2 className="mr-2 h-4 w-4" /> Finalisieren
               </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => waveAction.mutate({ action: "publish_ready", wave_id: activeWave.id })}
-                disabled={waveAction.isPending}
-              >
+              <Button size="sm" variant="secondary" onClick={() => waveAction.mutate({ action: "publish_ready", wave_id: activeWave.id })} disabled={waveAction.isPending}>
                 Publish Ready
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => navigate(`/admin/production/detail?wave=${activeWave.id}`)}
-              >
-                <Eye className="mr-2 h-4 w-4" />
-                Details
+              <Button size="sm" variant="outline" onClick={() => navigate(`/admin/production/detail?wave=${activeWave.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> Details
               </Button>
             </div>
           </CardContent>
@@ -258,6 +283,7 @@ export default function ProductionWavesPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium">{wave.name}</span>
                 <Badge variant="outline">{wave.status}</Badge>
+                {wave.template_key && <Badge variant="secondary">{wave.template_key}</Badge>}
               </div>
               <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
                 <span>Target: {wave.target}</span>
@@ -266,13 +292,8 @@ export default function ProductionWavesPage() {
                 <span>Published: {wave.published ?? 0}</span>
                 <span>Failed: {wave.failed}</span>
                 <span>Blocked: {wave.blocked ?? 0}</span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => navigate(`/admin/production/detail?wave=${wave.id}`)}
-                >
-                  <Eye className="mr-2 h-3 w-3" />
-                  Details
+                <Button size="sm" variant="outline" onClick={() => navigate(`/admin/production/detail?wave=${wave.id}`)}>
+                  <Eye className="mr-2 h-3 w-3" /> Details
                 </Button>
               </div>
             </div>
@@ -283,9 +304,7 @@ export default function ProductionWavesPage() {
       {/* Action result */}
       {waveAction.data && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Letztes Ergebnis</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-sm">Letztes Ergebnis</CardTitle></CardHeader>
           <CardContent>
             <pre className="overflow-auto whitespace-pre-wrap text-sm rounded-lg border p-3">
               {JSON.stringify(waveAction.data, null, 2)}
@@ -297,9 +316,7 @@ export default function ProductionWavesPage() {
       {/* Supervisor result */}
       {runSupervisor.data && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Letzter Supervisor-Run</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-sm">Letzter Supervisor-Run</CardTitle></CardHeader>
           <CardContent>
             <pre className="overflow-auto whitespace-pre-wrap text-xs rounded-lg border p-3">
               {JSON.stringify(runSupervisor.data, null, 2)}
