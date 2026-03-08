@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
   const doMaterialize = body.materialize !== false;
   const doWaveSync = body.wave_sync !== false;
   const doPromoteBlueprint = body.promote_blueprint !== false;
+  const doAutoWave = body.auto_wave !== false;
 
   const steps: any[] = [];
 
