@@ -307,7 +307,7 @@ async function aggregateVotesAndVerdict(
   const validatorVote = normalizeDecision(critique.verdict_recommendation);
   const validatorConfidence = critique.confidence;
 
-  // Generator vote: GPT-4.1 self-assessment based on quality score thresholds
+  // Generator vote: GPT-5-mini self-assessment based on quality score thresholds
   const generatorVote: "approved" | "revise" | "rejected" =
     score >= 80 ? "approved" : score >= 50 ? "revise" : "rejected";
   const generatorConfidence = score / 100;
