@@ -85,7 +85,7 @@ const FACETS: BlueprintFacet[] = [
     knowledge_type: "regulation",
     exam_context_type: "prioritization",
     question_types: ["mc_multi", "case_study"],
-    decision_structure: "ranking",
+    decision_structure: "tradeoff_evaluation",
     didactic_intent: "analysis",
     description: "Analyse komplexer Zusammenhänge, Priorisierung.",
   },
