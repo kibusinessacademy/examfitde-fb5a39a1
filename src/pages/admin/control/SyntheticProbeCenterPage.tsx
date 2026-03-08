@@ -16,15 +16,16 @@ export default function SyntheticProbeCenterPage() {
       supabase.from("system_probe_alerts").select("*").eq("status", "open").order("created_at", { ascending: false }).limit(50),
     ]);
 
-    setSummary(s.data);
+    const summaryData = s.data as any;
+    setSummary(summaryData);
     setDefinitions(d.data || []);
     setAlerts(a.data || []);
 
-    if (s.data?.last_run_id) {
+    if (summaryData?.last_run_id) {
       const { data } = await supabase
         .from("system_probe_results")
         .select("*")
-        .eq("probe_run_id", s.data.last_run_id)
+        .eq("probe_run_id", summaryData.last_run_id)
         .order("probe_scope");
       setResults(data || []);
     }
