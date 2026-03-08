@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, RefreshCw, Download } from "lucide-react";
+import { ArrowLeft, RefreshCw, Download, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +70,11 @@ export default function ProductionWaveDetailPage() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate(`/admin/production/triage?wave=${waveId}`)}>
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            Triage Center
+          </Button>
           <Button variant="outline" size="sm" onClick={handleExport} disabled={!data}>
             <Download className="mr-2 h-4 w-4" />
             Export
