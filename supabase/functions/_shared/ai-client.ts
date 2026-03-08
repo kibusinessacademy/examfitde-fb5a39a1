@@ -62,7 +62,7 @@ export interface AIResponse {
 const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv: string; format: "openai" | "anthropic" | "google" }> = {
   openai: {
     url: "https://api.openai.com/v1/chat/completions",
-    model: "gpt-5-mini",
+    model: "gpt-5.2",
     keyEnv: "OPENAI_API_KEY",
     format: "openai",
   },
