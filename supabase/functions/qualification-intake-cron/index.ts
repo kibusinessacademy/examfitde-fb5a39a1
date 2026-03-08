@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
   const doMaterialize = body.materialize !== false;
   const doWaveSync = body.wave_sync !== false;
   const doPromoteBlueprint = body.promote_blueprint !== false;
+  const doAutoWave = body.auto_wave !== false;
 
   const steps: any[] = [];
 
@@ -114,6 +115,16 @@ Deno.serve(async (req) => {
       step: "promote_blueprint",
       ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-promote-and-blueprint", {
         limit: 10, per_competency: 6,
+      })),
+    });
+  }
+
+  // NEW: Auto-seed production waves from ready candidates
+  if (doAutoWave) {
+    steps.push({
+      step: "auto_wave",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-auto-wave", {
+        limit: 10,
       })),
     });
   }
