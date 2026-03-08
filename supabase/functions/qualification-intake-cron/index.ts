@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const doDiscovery = body.discovery !== false;
+  const doFortbildungDiscovery = body.fortbildung_discovery !== false;
   const doFetch = body.fetch !== false;
   const doParse = body.parse !== false;
   const doDraft = body.draft !== false;
@@ -43,9 +44,10 @@ Deno.serve(async (req) => {
 
   const steps: any[] = [];
 
+  // Step 1a: Dual discovery (KMK/BIBB)
   if (doDiscovery) {
     steps.push({
-      step: "discovery",
+      step: "discovery_dual",
       ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-search-discovery", {
         trigger_source: "cron",
         limit: 50,
@@ -53,6 +55,17 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Step 1b: Fortbildung discovery (IHK/HWK/BIBB Fortbildungen)
+  if (doFortbildungDiscovery) {
+    steps.push({
+      step: "discovery_fortbildung",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-discover-fortbildungen", {
+        limit: 50,
+      })),
+    });
+  }
+
+  // Step 2: Fetch raw documents
   if (doFetch) {
     steps.push({
       step: "fetch",
@@ -63,6 +76,7 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Step 3: Parse documents
   if (doParse) {
     steps.push({
       step: "parse",
@@ -72,6 +86,7 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Step 4: Build drafts (catalog → draft)
   if (doDraft) {
     steps.push({
       step: "draft",
@@ -82,6 +97,7 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Step 5: Materialize (catalog + drafts + wave sync)
   if (doMaterialize) {
     steps.push({
       step: "materialize",
@@ -92,6 +108,7 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Step 6: Wave sync
   if (doWaveSync) {
     steps.push({
       step: "wave_sync",
