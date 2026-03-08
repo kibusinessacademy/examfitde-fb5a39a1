@@ -17,15 +17,39 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const { limit = 2 } = await req.json().catch(() => ({}));
+    const { limit = 2, run_factory = false } = await req.json().catch(() => ({}));
 
-    const { data, error } = await sb.rpc("promote_wave_candidates_to_factory", {
+    // Step 1: Promote wave candidates
+    const { data: promoted, error: promoteErr } = await sb.rpc("promote_wave_candidates_to_factory", {
       p_limit: limit,
     });
+    if (promoteErr) throw promoteErr;
 
-    if (error) throw error;
+    const result: Record<string, unknown> = { promoted };
 
-    return new Response(JSON.stringify(data), {
+    // Step 2: Optionally trigger autonomous factory
+    if (run_factory) {
+      try {
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const res = await fetch(
+          `${Deno.env.get("SUPABASE_URL")}/functions/v1/admin-run-autonomous-factory`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-job-runner-key": serviceKey,
+              "Authorization": `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({}),
+          },
+        );
+        result.factory = await res.json().catch(() => ({ status: res.status }));
+      } catch (e) {
+        result.factory = { error: String(e) };
+      }
+    }
+
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
   } catch (e) {
