@@ -128,5 +128,6 @@ Deno.serve(async (req) => {
     by_status: byStatus,
     items: enrichedItems,
     kpi_report: kpi,
+    budget_guard: budgetGuard,
   }, origin);
 });

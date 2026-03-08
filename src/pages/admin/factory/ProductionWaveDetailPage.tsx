@@ -35,6 +35,7 @@ export default function ProductionWaveDetailPage() {
   const items = data?.items ?? [];
   const byStatus = data?.by_status ?? {};
   const kpi = data?.kpi_report;
+  const budget = data?.budget_guard;
 
   const terminalCount = useMemo(
     () =>
