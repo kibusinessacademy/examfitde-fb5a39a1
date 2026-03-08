@@ -40,7 +40,6 @@ Deno.serve(async (req) => {
               "x-internal-secret": internalSecret,
               "x-job-runner-key": internalSecret,
             },
-            },
             body: JSON.stringify({}),
           },
         );
