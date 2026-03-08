@@ -535,11 +535,53 @@ export default function PipelineE2ERunbookPage() {
               className="flex-1 px-3 py-1.5 text-sm rounded-md border border-border bg-background text-foreground"
             />
             <Button variant="outline" size="sm" onClick={runAll}>
-              <Play className="h-3 w-3 mr-1" /> Alle Checks
+              <Play className="h-3 w-3 mr-1" /> Client-Checks
+            </Button>
+            <Button size="sm" onClick={runServerSide} disabled={serverRunning}
+              className="bg-primary text-primary-foreground">
+              {serverRunning
+                ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Läuft…</>
+                : <><Server className="h-3 w-3 mr-1" /> Server E2E</>}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Server Report */}
+      {serverReport && (
+        <Card className={cn(
+          "border-2",
+          serverReport.verdict === 'GO' && "border-emerald-500/50 bg-emerald-500/5",
+          serverReport.verdict === 'GO_WITH_WARNINGS' && "border-orange-500/50 bg-orange-500/5",
+          serverReport.verdict === 'NO_GO' && "border-destructive/50 bg-destructive/5",
+          serverReport.verdict === 'ERROR' && "border-destructive/50 bg-destructive/5",
+        )}>
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Server className="h-5 w-5 text-primary" />
+              <div className="flex-1">
+                <p className="font-semibold text-foreground">
+                  Server E2E: {serverReport.verdict}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {serverReport.summary} · {serverReport.duration_ms}ms · Paket: {serverReport.selected_package_id?.slice(0, 12)}
+                </p>
+              </div>
+              <Badge variant={serverReport.go_for_phase_b ? 'default' : 'destructive'}>
+                Phase B: {serverReport.go_for_phase_b ? 'GO' : 'NO-GO'}
+              </Badge>
+            </div>
+            <details>
+              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                Vollständiger Report anzeigen
+              </summary>
+              <pre className="text-[11px] text-muted-foreground bg-muted/50 rounded p-3 mt-2 overflow-x-auto max-h-[500px] overflow-y-auto">
+                {JSON.stringify(serverReport, null, 2)}
+              </pre>
+            </details>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Checks */}
       <div className="space-y-1.5">
