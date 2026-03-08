@@ -73,6 +73,17 @@ Deno.serve(async (req) => {
     }, 400);
   }
 
+  // ── Route-aware health gate ──
+  const route = await resolveAvailableRoute("competency_bundle");
+  if (!route?.ok) {
+    return json({
+      ok: true,
+      skipped: true,
+      reason: "all_candidates_on_cooldown",
+      competency_id: competencyId,
+    });
+  }
+
   // ── Load all lessons for this competency that need generation ──
   const { data: pkg } = await sb
     .from("course_packages")

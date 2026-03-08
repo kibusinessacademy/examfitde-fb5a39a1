@@ -195,6 +195,29 @@ Deno.serve(async (req) => {
     return json({ ok: false, retry: true, error: "PREREQ_NOT_DONE: scaffold_learning_course" }, 409);
   }
 
+  // ── Route-aware health gate (load balancer) ──
+  const route = await resolveAvailableRoute("competency_bundle");
+  if (!route?.ok) {
+    await updateLearningContentStepMeta(sb, packageId, {
+      dispatch_blocked_reason: "all_candidates_on_cooldown",
+      last_probe_at: new Date().toISOString(),
+    });
+
+    return json({
+      ok: true,
+      batch_complete: false,
+      fan_out_skipped: false,
+      message: "No healthy provider route for competency_bundle, dispatch deferred.",
+      deferred_by_health_gate: true,
+    });
+  }
+
+  await updateLearningContentStepMeta(sb, packageId, {
+    dispatcher_route_provider: route.provider,
+    dispatcher_route_model: route.model,
+    last_probe_at: new Date().toISOString(),
+  });
+
   // ── Reject stale content_versions for tier1_failed lessons ──
   const rejectedCount = await rejectStaleVersionsForTier1Failed(sb, courseId);
   if (rejectedCount > 0) {
