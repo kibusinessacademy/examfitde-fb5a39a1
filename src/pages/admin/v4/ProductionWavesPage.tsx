@@ -12,6 +12,7 @@ export default function ProductionWavesPage() {
   const { data, isLoading, refetch } = useProductionWaveStatus();
   const seedWave = useSeedProductionWave();
   const waveAction = useWaveAction();
+  const runSupervisor = useRunProductionSupervisor();
 
   const [name, setName] = useState(`Wave ${new Date().toISOString().slice(0, 10)}`);
   const [limit, setLimit] = useState(5);
