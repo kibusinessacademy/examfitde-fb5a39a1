@@ -25904,6 +25904,13 @@ export type Database = {
             referencedRelation: "system_probe_runs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "system_probe_results_probe_run_id_fkey"
+            columns: ["probe_run_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_probe_run"
+            referencedColumns: ["id"]
+          },
         ]
       }
       system_probe_runs: {
@@ -32294,6 +32301,45 @@ export type Database = {
         }
         Relationships: []
       }
+      v_latest_business_kpi: {
+        Row: {
+          active_campaigns: number | null
+          active_curricula: number | null
+          active_waves: number | null
+          blended_roi: number | null
+          blocked_waves: number | null
+          created_at: string | null
+          estimated_profit: number | null
+          id: string | null
+          monetized_curricula: number | null
+          snapshot_date: string | null
+          summary: Json | null
+          top_channel: string | null
+          top_curriculum_id: string | null
+          total_cost_estimate: number | null
+          total_revenue: number | null
+        }
+        Relationships: []
+      }
+      v_latest_control_plane_snapshot: {
+        Row: {
+          campaigns: Json | null
+          created_at: string | null
+          distribution: Json | null
+          finance: Json | null
+          health_score: number | null
+          id: string | null
+          intake: Json | null
+          optimization: Json | null
+          production: Json | null
+          revenue: Json | null
+          snapshot_key: string | null
+          snapshot_scope: string | null
+          status: string | null
+          summary: Json | null
+        }
+        Relationships: []
+      }
       v_latest_course_package: {
         Row: {
           archived: boolean | null
@@ -32442,6 +32488,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_latest_probe_run: {
+        Row: {
+          critical_failed_count: number | null
+          failed_count: number | null
+          finished_at: string | null
+          id: string | null
+          passed_count: number | null
+          run_type: string | null
+          started_at: string | null
+          status: string | null
+          summary: Json | null
+          total_probes: number | null
+          warned_count: number | null
+        }
+        Relationships: []
       }
       v_level_pricing: {
         Row: {
@@ -32811,6 +32873,20 @@ export type Database = {
           open_orphans: number | null
           running_crons: number | null
           stale_leases: number | null
+        }
+        Relationships: []
+      }
+      v_unified_open_alerts: {
+        Row: {
+          created_at: string | null
+          message: string | null
+          payload: Json | null
+          scope: string | null
+          severity: string | null
+          source_id: string | null
+          source_type: string | null
+          status: string | null
+          title: string | null
         }
         Relationships: []
       }
