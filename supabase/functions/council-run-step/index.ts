@@ -467,7 +467,7 @@ Summary: ${critique.summary}
       lesson_id: p.lesson_id,
       step_key: p.step_key,
       content_json: revisedJson,
-      created_by_agent: "gpt-4.1",
+      created_by_agent: "gpt-5-mini",
       created_by_job_id: p._job_id || null,
       status: "under_review",
       council_round: round,
