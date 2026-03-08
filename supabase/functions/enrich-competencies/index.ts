@@ -134,7 +134,7 @@ Antworte NUR als JSON: {"enrichments": [{...}, ...]}`;
       try {
         const aiResp = await callAI({
           provider: "lovable",
-          model: "openai/gpt-5-mini",
+          model: "openai/gpt-5.2",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },

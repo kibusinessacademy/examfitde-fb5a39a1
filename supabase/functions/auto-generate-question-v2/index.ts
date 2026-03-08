@@ -278,7 +278,7 @@ Deno.serve(async (req) => {
     if (LOVABLE_API_KEY) {
       aiHeaders["Authorization"] = `Bearer ${LOVABLE_API_KEY}`;
       aiBody = {
-        model: "google/gemini-2.5-flash",
+        model: "openai/gpt-5.2",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
