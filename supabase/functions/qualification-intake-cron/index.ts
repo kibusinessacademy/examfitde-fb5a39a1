@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
   const doIntelligence = body.intelligence !== false;
   const doRevenue = body.revenue !== false;
   const doCampaign = body.campaign !== false;
+  const doDistribution = body.distribution !== false;
 
   const steps: any[] = [];
 
