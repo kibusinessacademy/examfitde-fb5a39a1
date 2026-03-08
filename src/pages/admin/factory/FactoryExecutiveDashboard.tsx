@@ -128,6 +128,7 @@ export default function FactoryExecutiveDashboard() {
               <div className="font-medium">{w.name}</div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{w.status}</Badge>
+                {w.meta?.template_key && <Badge variant="secondary">{w.meta.template_key}</Badge>}
                 <Badge variant="outline">target: {w.target_count}</Badge>
                 <Badge variant="outline">published: {w.published_count ?? 0}</Badge>
                 <Badge variant="outline">blocked: {w.blocked_count ?? 0}</Badge>

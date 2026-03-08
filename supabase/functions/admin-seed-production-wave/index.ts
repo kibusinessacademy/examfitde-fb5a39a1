@@ -198,6 +198,7 @@ Deno.serve(async (req) => {
       meta: {
         total_eligible: candidates.length,
         seed_criteria: { track, priority_min, priority_max, limit: seedLimit },
+        template_key,
       },
     })
     .select("id")
