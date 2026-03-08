@@ -8863,6 +8863,404 @@ export type Database = {
           },
         ]
       }
+      distribution_channel_configs: {
+        Row: {
+          channel_key: string
+          channel_type: string
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          publish_mode: string
+          target_system: string
+          updated_at: string
+        }
+        Insert: {
+          channel_key: string
+          channel_type: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          publish_mode?: string
+          target_system: string
+          updated_at?: string
+        }
+        Update: {
+          channel_key?: string
+          channel_type?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          publish_mode?: string
+          target_system?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      distribution_delivery_logs: {
+        Row: {
+          channel_key: string
+          created_at: string
+          event_type: string
+          id: string
+          message: string | null
+          payload: Json
+          publication_id: string | null
+          queue_id: string | null
+          status: string
+          target_id: string | null
+        }
+        Insert: {
+          channel_key: string
+          created_at?: string
+          event_type: string
+          id?: string
+          message?: string | null
+          payload?: Json
+          publication_id?: string | null
+          queue_id?: string | null
+          status: string
+          target_id?: string | null
+        }
+        Update: {
+          channel_key?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          message?: string | null
+          payload?: Json
+          publication_id?: string | null
+          queue_id?: string | null
+          status?: string
+          target_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_delivery_logs_publication_id_fkey"
+            columns: ["publication_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_publications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_delivery_logs_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_delivery_logs_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distribution_publications: {
+        Row: {
+          asset_id: string
+          channel_key: string
+          created_at: string
+          external_ref: string | null
+          external_url: string | null
+          id: string
+          performance_meta: Json
+          publication_payload: Json
+          publication_status: string
+          published_at: string | null
+          published_slug: string | null
+          published_title: string | null
+          queue_id: string | null
+          target_id: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          channel_key: string
+          created_at?: string
+          external_ref?: string | null
+          external_url?: string | null
+          id?: string
+          performance_meta?: Json
+          publication_payload?: Json
+          publication_status?: string
+          published_at?: string | null
+          published_slug?: string | null
+          published_title?: string | null
+          queue_id?: string | null
+          target_id: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          channel_key?: string
+          created_at?: string
+          external_ref?: string | null
+          external_url?: string | null
+          id?: string
+          performance_meta?: Json
+          publication_payload?: Json
+          publication_status?: string
+          published_at?: string | null
+          published_slug?: string | null
+          published_title?: string | null
+          queue_id?: string | null
+          target_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_publications_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_publications_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_publications_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distribution_queue: {
+        Row: {
+          asset_id: string
+          attempts: number
+          channel_key: string
+          created_at: string
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          launch_plan_id: string
+          lease_owner: string | null
+          lease_until: string | null
+          max_attempts: number
+          payload: Json
+          priority: number
+          result_meta: Json
+          run_after: string
+          status: string
+          target_id: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          attempts?: number
+          channel_key: string
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          launch_plan_id: string
+          lease_owner?: string | null
+          lease_until?: string | null
+          max_attempts?: number
+          payload?: Json
+          priority?: number
+          result_meta?: Json
+          run_after?: string
+          status?: string
+          target_id: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          attempts?: number
+          channel_key?: string
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          launch_plan_id?: string
+          lease_owner?: string | null
+          lease_until?: string | null
+          max_attempts?: number
+          payload?: Json
+          priority?: number
+          result_meta?: Json
+          run_after?: string
+          status?: string
+          target_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_queue_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_queue_launch_plan_id_fkey"
+            columns: ["launch_plan_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_launch_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_queue_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distribution_runs: {
+        Row: {
+          created_count: number
+          delivered_count: number
+          error_count: number
+          finished_at: string | null
+          id: string
+          meta: Json
+          processed_count: number
+          run_type: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          created_count?: number
+          delivered_count?: number
+          error_count?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          processed_count?: number
+          run_type: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          created_count?: number
+          delivered_count?: number
+          error_count?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          processed_count?: number
+          run_type?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      distribution_targets: {
+        Row: {
+          asset_id: string
+          channel_key: string
+          created_at: string
+          curriculum_id: string | null
+          distribution_status: string
+          id: string
+          launch_plan_id: string
+          meta: Json
+          payload: Json
+          priority: number
+          qualification_catalog_id: string | null
+          target_identifier: string | null
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          channel_key: string
+          created_at?: string
+          curriculum_id?: string | null
+          distribution_status?: string
+          id?: string
+          launch_plan_id: string
+          meta?: Json
+          payload?: Json
+          priority?: number
+          qualification_catalog_id?: string | null
+          target_identifier?: string | null
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          channel_key?: string
+          created_at?: string
+          curriculum_id?: string | null
+          distribution_status?: string
+          id?: string
+          launch_plan_id?: string
+          meta?: Json
+          payload?: Json
+          priority?: number
+          qualification_catalog_id?: string | null
+          target_identifier?: string | null
+          target_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_targets_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "distribution_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "distribution_targets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "distribution_targets_launch_plan_id_fkey"
+            columns: ["launch_plan_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_launch_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_targets_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dom_blueprint_coverage: {
         Row: {
           blueprint_id: string
@@ -31059,6 +31457,39 @@ export type Database = {
           source_document_id: string
         }[]
       }
+      claim_distribution_jobs: {
+        Args: {
+          p_lease_minutes?: number
+          p_limit?: number
+          p_worker_id?: string
+        }
+        Returns: {
+          asset_id: string
+          attempts: number
+          channel_key: string
+          created_at: string
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          launch_plan_id: string
+          lease_owner: string | null
+          lease_until: string | null
+          max_attempts: number
+          payload: Json
+          priority: number
+          result_meta: Json
+          run_after: string
+          status: string
+          target_id: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "distribution_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_license_seat: { Args: { p_invite_code: string }; Returns: string }
       claim_next_job:
         | { Args: { p_worker_id: string }; Returns: Json }
@@ -31620,6 +32051,10 @@ export type Database = {
         Args: { p_offer_type: string; p_primary_channel: string }
         Returns: Json
       }
+      default_distribution_target_for_asset: {
+        Args: { p_asset_type: string; p_channel: string }
+        Returns: Json
+      }
       defer_job: {
         Args: { p_delay_seconds: number; p_job_id: string; p_reason: string }
         Returns: undefined
@@ -31658,6 +32093,7 @@ export type Database = {
         Args: { p_launch_plan_id: string }
         Returns: Json
       }
+      enqueue_distribution_targets: { Args: never; Returns: Json }
       enqueue_finance_export: {
         Args: { p_currency?: string; p_export_type: string; p_month: string }
         Returns: string
@@ -33287,6 +33723,7 @@ export type Database = {
       sync_campaign_launch_plans: { Args: never; Returns: Json }
       sync_curriculum_launch_recommendations: { Args: never; Returns: Json }
       sync_curriculum_priority_recommendations: { Args: never; Returns: Json }
+      sync_distribution_targets_from_assets: { Args: never; Returns: Json }
       sync_qualification_wave_candidates: {
         Args: { p_min_readiness?: number }
         Returns: Json
