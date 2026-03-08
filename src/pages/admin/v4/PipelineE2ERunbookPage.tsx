@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, Loader2, Play,
-  AlertTriangle, RefreshCw, ChevronDown, ChevronRight, FlaskConical, Eye
+  AlertTriangle, RefreshCw, ChevronDown, ChevronRight, FlaskConical, Eye, Server
 } from 'lucide-react';
 
 type CheckStatus = 'idle' | 'running' | 'pass' | 'fail' | 'warn';
@@ -80,6 +80,8 @@ export default function PipelineE2ERunbookPage() {
   const [packageId, setPackageId] = useState('');
   const [results, setResults] = useState<Record<string, CheckResult>>({});
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
+  const [serverReport, setServerReport] = useState<any>(null);
+  const [serverRunning, setServerRunning] = useState(false);
   // Ref to pass packageId into runAll without stale closure
   const pkgRef = useRef(packageId);
   pkgRef.current = packageId;
@@ -436,7 +438,7 @@ export default function PipelineE2ERunbookPage() {
     legacy_audit: runLegacyAudit,
   };
 
-  // ── Run All: uses ref or auto-selects ──
+  // ── Run All (client-side): uses ref or auto-selects ──
   const runAll = async () => {
     let pid = pkgRef.current;
     if (!pid) {
@@ -447,6 +449,32 @@ export default function PipelineE2ERunbookPage() {
     }
     for (const check of CHECKS.slice(1)) {
       await checkRunners[check.id](pid);
+    }
+  };
+
+  // ── Run All Server-Side via Edge Function ──
+  const runServerSide = async () => {
+    setServerRunning(true);
+    setServerReport(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-run-pipeline-e2e', {
+        body: { package_id: packageId || undefined, auto_select: true },
+      });
+      if (error) throw error;
+      setServerReport(data);
+      // Hydrate local check results from server report
+      if (data?.checks) {
+        for (const [id, check] of Object.entries(data.checks as Record<string, any>)) {
+          setCheckResult(id, { status: check.status, data: check.data, error: check.error });
+        }
+      }
+      if (data?.selected_package_id && !packageId) {
+        setPackageId(data.selected_package_id);
+      }
+    } catch (e) {
+      setServerReport({ verdict: 'ERROR', error: (e as Error).message });
+    } finally {
+      setServerRunning(false);
     }
   };
 
@@ -507,11 +535,53 @@ export default function PipelineE2ERunbookPage() {
               className="flex-1 px-3 py-1.5 text-sm rounded-md border border-border bg-background text-foreground"
             />
             <Button variant="outline" size="sm" onClick={runAll}>
-              <Play className="h-3 w-3 mr-1" /> Alle Checks
+              <Play className="h-3 w-3 mr-1" /> Client-Checks
+            </Button>
+            <Button size="sm" onClick={runServerSide} disabled={serverRunning}
+              className="bg-primary text-primary-foreground">
+              {serverRunning
+                ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Läuft…</>
+                : <><Server className="h-3 w-3 mr-1" /> Server E2E</>}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Server Report */}
+      {serverReport && (
+        <Card className={cn(
+          "border-2",
+          serverReport.verdict === 'GO' && "border-emerald-500/50 bg-emerald-500/5",
+          serverReport.verdict === 'GO_WITH_WARNINGS' && "border-orange-500/50 bg-orange-500/5",
+          serverReport.verdict === 'NO_GO' && "border-destructive/50 bg-destructive/5",
+          serverReport.verdict === 'ERROR' && "border-destructive/50 bg-destructive/5",
+        )}>
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Server className="h-5 w-5 text-primary" />
+              <div className="flex-1">
+                <p className="font-semibold text-foreground">
+                  Server E2E: {serverReport.verdict}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {serverReport.summary} · {serverReport.duration_ms}ms · Paket: {serverReport.selected_package_id?.slice(0, 12)}
+                </p>
+              </div>
+              <Badge variant={serverReport.go_for_phase_b ? 'default' : 'destructive'}>
+                Phase B: {serverReport.go_for_phase_b ? 'GO' : 'NO-GO'}
+              </Badge>
+            </div>
+            <details>
+              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                Vollständiger Report anzeigen
+              </summary>
+              <pre className="text-[11px] text-muted-foreground bg-muted/50 rounded p-3 mt-2 overflow-x-auto max-h-[500px] overflow-y-auto">
+                {JSON.stringify(serverReport, null, 2)}
+              </pre>
+            </details>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Checks */}
       <div className="space-y-1.5">

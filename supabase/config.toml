@@ -380,3 +380,6 @@ verify_jwt = false
 
 [functions.berufski-auto-pipeline]
 verify_jwt = false
+
+[functions.admin-run-pipeline-e2e]
+verify_jwt = false
