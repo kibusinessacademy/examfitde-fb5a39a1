@@ -7,6 +7,7 @@ import { callAIJSON } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import type { ModelChoice } from "../_shared/model-routing.ts";
+import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
