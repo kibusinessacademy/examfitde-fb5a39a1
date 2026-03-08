@@ -25466,6 +25466,90 @@ export type Database = {
         }
         Relationships: []
       }
+      system_cron_executions: {
+        Row: {
+          cron_key: string
+          duration_ms: number | null
+          error_message: string | null
+          execution_key: string
+          finished_at: string | null
+          id: string
+          result: Json
+          runner_id: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          cron_key: string
+          duration_ms?: number | null
+          error_message?: string | null
+          execution_key: string
+          finished_at?: string | null
+          id?: string
+          result?: Json
+          runner_id?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          cron_key?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          execution_key?: string
+          finished_at?: string | null
+          id?: string
+          result?: Json
+          runner_id?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      system_cron_registry: {
+        Row: {
+          cadence_key: string
+          config: Json
+          created_at: string
+          criticality: string
+          cron_key: string
+          edge_function_name: string
+          id: string
+          is_enabled: boolean
+          layer_key: string
+          max_parallel: number
+          timeout_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          cadence_key: string
+          config?: Json
+          created_at?: string
+          criticality?: string
+          cron_key: string
+          edge_function_name: string
+          id?: string
+          is_enabled?: boolean
+          layer_key: string
+          max_parallel?: number
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          cadence_key?: string
+          config?: Json
+          created_at?: string
+          criticality?: string
+          cron_key?: string
+          edge_function_name?: string
+          id?: string
+          is_enabled?: boolean
+          layer_key?: string
+          max_parallel?: number
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_cron_runs: {
         Row: {
           created_at: string
@@ -25513,6 +25597,48 @@ export type Database = {
           enum_scope?: string
           id?: string
           source_of_truth?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_execution_leases: {
+        Row: {
+          created_at: string
+          id: string
+          lease_key: string
+          lease_scope: string
+          lease_until: string
+          meta: Json
+          owner_key: string
+          released_at: string | null
+          scope_ref: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lease_key: string
+          lease_scope: string
+          lease_until: string
+          meta?: Json
+          owner_key: string
+          released_at?: string | null
+          scope_ref?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lease_key?: string
+          lease_scope?: string
+          lease_until?: string
+          meta?: Json
+          owner_key?: string
+          released_at?: string | null
+          scope_ref?: string | null
+          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -25615,6 +25741,42 @@ export type Database = {
           report_type?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      system_orphan_executions: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          object_ref: string
+          orphan_type: string
+          payload: Json
+          resolved_at: string | null
+          severity: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          object_ref: string
+          orphan_type: string
+          payload?: Json
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          object_ref?: string
+          orphan_type?: string
+          payload?: Json
+          resolved_at?: string | null
+          severity?: string
           status?: string
         }
         Relationships: []
@@ -25810,6 +25972,132 @@ export type Database = {
           snapshot_date?: string
           snapshot_key?: string
           snapshot_scope?: string
+        }
+        Relationships: []
+      }
+      system_retry_policies: {
+        Row: {
+          backoff_mode: string
+          base_delay_seconds: number
+          created_at: string
+          id: string
+          is_enabled: boolean
+          max_attempts: number
+          max_delay_seconds: number
+          policy_key: string
+          scope_ref: string
+          scope_type: string
+          updated_at: string
+        }
+        Insert: {
+          backoff_mode?: string
+          base_delay_seconds?: number
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          max_attempts?: number
+          max_delay_seconds?: number
+          policy_key: string
+          scope_ref: string
+          scope_type: string
+          updated_at?: string
+        }
+        Update: {
+          backoff_mode?: string
+          base_delay_seconds?: number
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          max_attempts?: number
+          max_delay_seconds?: number
+          policy_key?: string
+          scope_ref?: string
+          scope_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_runner_registry: {
+        Row: {
+          created_at: string
+          heartbeat_at: string | null
+          id: string
+          is_enabled: boolean
+          last_finished_at: string | null
+          last_started_at: string | null
+          layer_key: string
+          max_concurrency: number
+          meta: Json
+          runner_key: string
+          runner_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          heartbeat_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          last_finished_at?: string | null
+          last_started_at?: string | null
+          layer_key: string
+          max_concurrency?: number
+          meta?: Json
+          runner_key: string
+          runner_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          heartbeat_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          last_finished_at?: string | null
+          last_started_at?: string | null
+          layer_key?: string
+          max_concurrency?: number
+          meta?: Json
+          runner_key?: string
+          runner_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_scheduler_guardrails: {
+        Row: {
+          action_mode: string
+          created_at: string
+          guardrail_key: string
+          guardrail_type: string
+          id: string
+          is_enabled: boolean
+          layer_key: string
+          meta: Json
+          threshold_numeric: number
+          updated_at: string
+        }
+        Insert: {
+          action_mode?: string
+          created_at?: string
+          guardrail_key: string
+          guardrail_type: string
+          id?: string
+          is_enabled?: boolean
+          layer_key: string
+          meta?: Json
+          threshold_numeric?: number
+          updated_at?: string
+        }
+        Update: {
+          action_mode?: string
+          created_at?: string
+          guardrail_key?: string
+          guardrail_type?: string
+          id?: string
+          is_enabled?: boolean
+          layer_key?: string
+          meta?: Json
+          threshold_numeric?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -33091,6 +33379,14 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_cron_execution: {
+        Args: {
+          p_cron_key: string
+          p_runner_id?: string
+          p_timeout_seconds?: number
+        }
+        Returns: Json
+      }
       claim_curriculum_intake_jobs: {
         Args: { p_job_type: string; p_limit?: number; p_worker_id?: string }
         Returns: {
@@ -33471,6 +33767,17 @@ export type Database = {
       }
       claim_referral_code: {
         Args: { p_invite_code: string; p_referred_user_id: string }
+        Returns: Json
+      }
+      claim_system_execution_lease: {
+        Args: {
+          p_lease_key: string
+          p_lease_scope: string
+          p_meta?: Json
+          p_minutes?: number
+          p_owner_key: string
+          p_scope_ref: string
+        }
         Returns: Json
       }
       classify_job_error: { Args: { p_error: string }; Returns: string }
@@ -33879,6 +34186,15 @@ export type Database = {
           lesson_id: string
           lesson_title: string
         }[]
+      }
+      finish_cron_execution: {
+        Args: {
+          p_error_message?: string
+          p_execution_id: string
+          p_result?: Json
+          p_status: string
+        }
+        Returns: Json
       }
       finish_exam_session: { Args: { p_session_id: string }; Returns: Json }
       fix_zombie_packages: { Args: never; Returns: Json }
@@ -35001,6 +35317,10 @@ export type Database = {
         Returns: undefined
       }
       release_stale_slots: { Args: { p_age_minutes?: number }; Returns: number }
+      release_system_execution_lease: {
+        Args: { p_lease_key: string; p_owner_key?: string }
+        Returns: Json
+      }
       renew_package_lease: {
         Args: {
           p_lease_seconds?: number
@@ -35134,6 +35454,7 @@ export type Database = {
       }
       run_health_checks: { Args: never; Returns: Json }
       run_nightly_pipeline_guards: { Args: never; Returns: Json }
+      run_scheduler_governance_audit: { Args: never; Returns: Json }
       run_synthetic_probe_suite: { Args: never; Returns: Json }
       run_system_contract_audit: { Args: never; Returns: Json }
       run_system_integrity_audit: { Args: never; Returns: Json }

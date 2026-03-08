@@ -90,6 +90,7 @@ const CurriculumIntakePage = lazy(() => import('@/pages/admin/intake/CurriculumI
 const AdminControlTowerPage = lazy(() => import('@/pages/admin/AdminControlTowerPage'));
 const SystemContractAuditPage = lazy(() => import('@/pages/admin/control/SystemContractAuditPage'));
 const SyntheticProbeCenterPage = lazy(() => import('@/pages/admin/control/SyntheticProbeCenterPage'));
+const SchedulerGovernancePage = lazy(() => import('@/pages/admin/control/SchedulerGovernancePage'));
 const AdminOpsQueuePage = lazy(() => import('@/pages/admin/AdminOpsQueuePage'));
 const AdminProviderHealthPage = lazy(() => import('@/pages/admin/AdminProviderHealthPage'));
 const AdminPackageRiskPage = lazy(() => import('@/pages/admin/AdminPackageRiskPage'));
@@ -275,6 +276,7 @@ const AppRoutes = () => {
           <Route path="audit" element={<AuditDashboardPage />} />
           <Route path="contracts" element={<SystemContractAuditPage />} />
           <Route path="probes" element={<SyntheticProbeCenterPage />} />
+          <Route path="scheduler" element={<SchedulerGovernancePage />} />
           <Route path="intake/qualification-discovery" element={<QualificationDiscoveryPage />} />
           <Route path="intake/curriculum" element={<CurriculumIntakePage />} />
 
