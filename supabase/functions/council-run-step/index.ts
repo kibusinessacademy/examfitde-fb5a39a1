@@ -142,7 +142,7 @@ async function fetchLessonContext(db: ReturnType<typeof createClient>, lessonId:
   };
 }
 
-// ─── PROPOSE (GPT-4.1 only – generator role) ─────────────────────────────
+// ─── PROPOSE (GPT-5-mini only – generator role) ─────────────────────────────
 
 async function propose(
   db: ReturnType<typeof createClient>,
