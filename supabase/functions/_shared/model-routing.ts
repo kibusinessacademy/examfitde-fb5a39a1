@@ -308,13 +308,13 @@ export function getEscalationModel(
   if (validationScore >= threshold) return null;
 
   const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
-    exam_questions: { provider: "lovable", model: "google/gemini-2.5-pro" },
-    oral_exam: { provider: "lovable", model: "openai/gpt-5" },
-    minicheck: { provider: "lovable", model: "openai/gpt-5" },
-    support: { provider: "lovable", model: "openai/gpt-5" },
-    summary: { provider: "lovable", model: "openai/gpt-5" },
-    repair: { provider: "lovable", model: "openai/gpt-5" },
-    blooms_classify: { provider: "lovable", model: "openai/gpt-5" },
+    exam_questions: { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
+    oral_exam: { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
+    minicheck: { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
+    support: { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
+    summary: { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
+    repair: { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
+    blooms_classify: { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
   };
 
   return escalationMap[intent] || null;

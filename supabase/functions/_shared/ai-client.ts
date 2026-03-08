@@ -68,7 +68,7 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
   },
   anthropic: {
     url: "https://api.anthropic.com/v1/messages",
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5-20250929",
     keyEnv: "ANTHROPIC_API_KEY",
     format: "anthropic",
   },
