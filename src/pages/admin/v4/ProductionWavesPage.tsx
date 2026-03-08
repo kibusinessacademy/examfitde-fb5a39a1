@@ -258,6 +258,14 @@ export default function ProductionWavesPage() {
                 <span>Published: {wave.published ?? 0}</span>
                 <span>Failed: {wave.failed}</span>
                 <span>Blocked: {wave.blocked ?? 0}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate(`/admin/production/detail?wave=${wave.id}`)}
+                >
+                  <Eye className="mr-2 h-3 w-3" />
+                  Details
+                </Button>
               </div>
             </div>
           ))}
