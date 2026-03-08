@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
   const doCampaign = body.campaign !== false;
   const doDistribution = body.distribution !== false;
   const doOptimization = body.optimization !== false;
+  const doControlPlane = body.control_plane !== false;
 
   const steps: any[] = [];
 
