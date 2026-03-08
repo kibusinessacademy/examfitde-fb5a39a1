@@ -9443,6 +9443,96 @@ export type Database = {
           },
         ]
       }
+      factory_autonomy_policies: {
+        Row: {
+          auto_activate_wave: boolean
+          auto_detect: boolean
+          auto_plan: boolean
+          auto_publish: boolean
+          canary_first: boolean
+          created_at: string
+          id: string
+          is_enabled: boolean
+          max_auto_wave_size: number
+          max_new_curricula_per_day: number
+          policy_key: string
+          preferred_track: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_activate_wave?: boolean
+          auto_detect?: boolean
+          auto_plan?: boolean
+          auto_publish?: boolean
+          canary_first?: boolean
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          max_auto_wave_size?: number
+          max_new_curricula_per_day?: number
+          policy_key: string
+          preferred_track?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_activate_wave?: boolean
+          auto_detect?: boolean
+          auto_plan?: boolean
+          auto_publish?: boolean
+          canary_first?: boolean
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          max_auto_wave_size?: number
+          max_new_curricula_per_day?: number
+          policy_key?: string
+          preferred_track?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      factory_intake_queue: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          detected_at: string
+          evaluated_at: string | null
+          id: string
+          intake_status: string
+          planned_wave_id: string | null
+          planning_notes: Json | null
+          priority_score: number | null
+          readiness_snapshot: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          detected_at?: string
+          evaluated_at?: string | null
+          id?: string
+          intake_status?: string
+          planned_wave_id?: string | null
+          planning_notes?: Json | null
+          priority_score?: number | null
+          readiness_snapshot?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          detected_at?: string
+          evaluated_at?: string | null
+          id?: string
+          intake_status?: string
+          planned_wave_id?: string | null
+          planning_notes?: Json | null
+          priority_score?: number | null
+          readiness_snapshot?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       finance_exports: {
         Row: {
           created_at: string
@@ -29235,6 +29325,10 @@ export type Database = {
         Args: { p_minutes?: number; p_user_threshold?: number }
         Returns: Json
       }
+      detect_ready_curricula_for_factory: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       detect_seat_misuse: {
         Args: { p_device_threshold?: number; p_hours?: number }
         Returns: Json
@@ -29269,6 +29363,10 @@ export type Database = {
         Returns: Json
       }
       evaluate_cluster_dominance: { Args: never; Returns: Json }
+      evaluate_factory_intake_items: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       evaluate_portfolio_health: { Args: never; Returns: Json }
       evaluate_rollout_readiness: { Args: never; Returns: Json }
       expire_stale_leases: {
@@ -30237,6 +30335,10 @@ export type Database = {
       pipeline_write_lesson_content_v2: {
         Args: { p_content: Json; p_lesson_id: string; p_source?: string }
         Returns: undefined
+      }
+      plan_factory_wave_from_intake: {
+        Args: { p_limit?: number; p_name?: string }
+        Returns: Json
       }
       populate_admin_search_index: { Args: never; Returns: undefined }
       promote_exam_questions_from_council: {
