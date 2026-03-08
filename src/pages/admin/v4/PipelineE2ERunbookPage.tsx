@@ -438,7 +438,7 @@ export default function PipelineE2ERunbookPage() {
     legacy_audit: runLegacyAudit,
   };
 
-  // ── Run All: uses ref or auto-selects ──
+  // ── Run All (client-side): uses ref or auto-selects ──
   const runAll = async () => {
     let pid = pkgRef.current;
     if (!pid) {
@@ -449,6 +449,32 @@ export default function PipelineE2ERunbookPage() {
     }
     for (const check of CHECKS.slice(1)) {
       await checkRunners[check.id](pid);
+    }
+  };
+
+  // ── Run All Server-Side via Edge Function ──
+  const runServerSide = async () => {
+    setServerRunning(true);
+    setServerReport(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-run-pipeline-e2e', {
+        body: { package_id: packageId || undefined, auto_select: true },
+      });
+      if (error) throw error;
+      setServerReport(data);
+      // Hydrate local check results from server report
+      if (data?.checks) {
+        for (const [id, check] of Object.entries(data.checks as Record<string, any>)) {
+          setCheckResult(id, { status: check.status, data: check.data, error: check.error });
+        }
+      }
+      if (data?.selected_package_id && !packageId) {
+        setPackageId(data.selected_package_id);
+      }
+    } catch (e) {
+      setServerReport({ verdict: 'ERROR', error: (e as Error).message });
+    } finally {
+      setServerRunning(false);
     }
   };
 
