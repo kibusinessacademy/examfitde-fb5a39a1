@@ -35,21 +35,17 @@ Deno.serve(async (req) => {
 
   const steps: any[] = [];
 
-  // Step 1: Build system snapshot
-  steps.push({ step: "snapshot", ...(await invoke(url, key, "control-plane-snapshot")) });
+  // Step 1: ROI per curriculum
+  steps.push({ step: "roi_sync", ...(await invoke(url, key, "control-plane-roi-sync")) });
 
-  // Step 2: Evaluate policies against current state
-  steps.push({ step: "policy_eval", ...(await invoke(url, key, "control-plane-policy-eval")) });
+  // Step 2: Channel unit economics
+  steps.push({ step: "unit_economics", ...(await invoke(url, key, "control-plane-unit-economics")) });
 
-  // Step 3: Execute queued actions
-  steps.push({ step: "action_executor", ...(await invoke(url, key, "control-plane-action-executor")) });
+  // Step 3: Wave governance
+  steps.push({ step: "wave_governance", ...(await invoke(url, key, "control-plane-wave-governance")) });
 
-  // Step 4: Phase 2 — ROI, Unit Economics, Wave Governance, Business Snapshot
-  steps.push({ step: "phase2", ...(await invoke(url, key, "control-plane-phase2-cron")) });
+  // Step 4: Business KPI snapshot
+  steps.push({ step: "business_snapshot", ...(await invoke(url, key, "control-plane-business-snapshot")) });
 
-  return json(200, {
-    ok: true,
-    steps,
-    ran_at: new Date().toISOString(),
-  });
+  return json(200, { ok: true, steps, ran_at: new Date().toISOString() });
 });
