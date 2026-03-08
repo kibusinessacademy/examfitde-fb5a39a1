@@ -247,7 +247,7 @@ export default function PipelineE2ERunbookPage() {
       const { data: doneJobs } = await (supabase as any)
         .from('job_queue').select('id,payload')
         .eq('package_id', pid).eq('job_type', 'lesson_generate_content')
-        .eq('status', 'done').limit(10);
+        .in('status', ['done', 'completed']).limit(10);
 
       const lessonIds = (doneJobs || []).map((j: any) => j.payload?.lesson_id).filter(Boolean).slice(0, 5);
 
