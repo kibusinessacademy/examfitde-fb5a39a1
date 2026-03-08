@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { RefreshCw, Play, Pause, RotateCw, CheckCircle2, Factory, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { RefreshCw, Play, Pause, RotateCw, CheckCircle2, Factory, Zap, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { useProductionWaveStatus, useSeedProductionWave, useWaveAction } from "@
 import { useRunProductionSupervisor, useRunWaveBackpressure } from "@/hooks/useProductionSupervisor";
 
 export default function ProductionWavesPage() {
+  const navigate = useNavigate();
   const { data, isLoading, refetch } = useProductionWaveStatus();
   const seedWave = useSeedProductionWave();
   const waveAction = useWaveAction();
@@ -218,6 +220,14 @@ export default function ProductionWavesPage() {
                 <CheckCircle2 className="mr-2 h-4 w-4" />
                 Finalisieren
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/admin/production/detail?wave=${activeWave.id}`)}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Details
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -248,6 +258,14 @@ export default function ProductionWavesPage() {
                 <span>Published: {wave.published ?? 0}</span>
                 <span>Failed: {wave.failed}</span>
                 <span>Blocked: {wave.blocked ?? 0}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate(`/admin/production/detail?wave=${wave.id}`)}
+                >
+                  <Eye className="mr-2 h-3 w-3" />
+                  Details
+                </Button>
               </div>
             </div>
           ))}
