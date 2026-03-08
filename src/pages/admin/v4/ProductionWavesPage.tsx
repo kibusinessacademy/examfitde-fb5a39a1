@@ -13,6 +13,7 @@ export default function ProductionWavesPage() {
   const seedWave = useSeedProductionWave();
   const waveAction = useWaveAction();
   const runSupervisor = useRunProductionSupervisor();
+  const runBackpressure = useRunWaveBackpressure();
 
   const [name, setName] = useState(`Wave ${new Date().toISOString().slice(0, 10)}`);
   const [limit, setLimit] = useState(5);
