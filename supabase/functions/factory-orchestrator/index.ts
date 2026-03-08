@@ -92,11 +92,13 @@ Deno.serve(async (req) => {
           if (curriculum?.status !== "frozen") continue;
         }
 
-        // ── Gate 2: Package Setup ──
+        // ── Gate 2: Package Setup (curriculum-level dedup) ──
+        // Check for ANY existing visible package for this curriculum + track
         const { data: pkg } = await sb
           .from("course_packages")
           .select("id, status")
-          .eq("course_id", course.id)
+          .eq("curriculum_id", course.curriculum_id)
+          .in("status", ["planning", "queued", "building", "failed", "published", "draft", "setup_complete"])
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
