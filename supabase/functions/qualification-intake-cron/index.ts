@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
   const doPromoteBlueprint = body.promote_blueprint !== false;
   const doAutoWave = body.auto_wave !== false;
   const doIntelligence = body.intelligence !== false;
+  const doRevenue = body.revenue !== false;
 
   const steps: any[] = [];
 
