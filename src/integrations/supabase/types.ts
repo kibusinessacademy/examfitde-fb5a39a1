@@ -25382,6 +25382,90 @@ export type Database = {
         }
         Relationships: []
       }
+      system_contract_registry: {
+        Row: {
+          contract_key: string
+          contract_name: string
+          contract_type: string
+          created_at: string
+          expected_shape: Json
+          id: string
+          is_active: boolean
+          notes: string | null
+          owner_layer: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          contract_key: string
+          contract_name: string
+          contract_type: string
+          created_at?: string
+          expected_shape?: Json
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          owner_layer: string
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          contract_key?: string
+          contract_name?: string
+          contract_type?: string
+          created_at?: string
+          expected_shape?: Json
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          owner_layer?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      system_contract_violations: {
+        Row: {
+          contract_key: string | null
+          created_at: string
+          details: Json
+          id: string
+          mapping_key: string | null
+          message: string
+          object_ref: string | null
+          resolved_at: string | null
+          severity: string
+          status: string
+          violation_type: string
+        }
+        Insert: {
+          contract_key?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          mapping_key?: string | null
+          message: string
+          object_ref?: string | null
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          violation_type: string
+        }
+        Update: {
+          contract_key?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          mapping_key?: string | null
+          message?: string
+          object_ref?: string | null
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          violation_type?: string
+        }
+        Relationships: []
+      }
       system_cron_runs: {
         Row: {
           created_at: string
@@ -25400,6 +25484,69 @@ export type Database = {
           id?: number
           job_name?: string
           result?: Json
+        }
+        Relationships: []
+      }
+      system_enum_registry: {
+        Row: {
+          allowed_values: Json
+          created_at: string
+          enum_key: string
+          enum_scope: string
+          id: string
+          source_of_truth: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_values?: Json
+          created_at?: string
+          enum_key: string
+          enum_scope: string
+          id?: string
+          source_of_truth?: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_values?: Json
+          created_at?: string
+          enum_key?: string
+          enum_scope?: string
+          id?: string
+          source_of_truth?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_health_assertions: {
+        Row: {
+          assertion_key: string
+          assertion_scope: string
+          config: Json
+          created_at: string
+          id: string
+          is_enabled: boolean
+          severity: string
+          updated_at: string
+        }
+        Insert: {
+          assertion_key: string
+          assertion_scope: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          severity?: string
+          updated_at?: string
+        }
+        Update: {
+          assertion_key?: string
+          assertion_scope?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          severity?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -25469,6 +25616,45 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+        }
+        Relationships: []
+      }
+      system_ssot_mappings: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_required: boolean
+          mapping_key: string
+          mapping_type: string
+          meta: Json
+          source_key: string
+          target_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          mapping_key: string
+          mapping_type: string
+          meta?: Json
+          source_key: string
+          target_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          mapping_key?: string
+          mapping_type?: string
+          meta?: Json
+          source_key?: string
+          target_key?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -32287,10 +32473,14 @@ export type Database = {
         Returns: string
       }
       assert_compliance_release_ok: { Args: never; Returns: undefined }
+      assert_contract_registry_consistency: { Args: never; Returns: Json }
+      assert_enum_registry_consistency: { Args: never; Returns: Json }
       assert_job_payload: { Args: { job: Json }; Returns: undefined }
+      assert_pipeline_status_integrity: { Args: never; Returns: Json }
       assert_profiles_rls_secure: { Args: never; Returns: undefined }
       assert_publish_unlock: { Args: never; Returns: undefined }
       assert_qa_release_ok: { Args: never; Returns: undefined }
+      assert_ssot_mapping_complete: { Args: never; Returns: Json }
       attach_finding_remediation: {
         Args: {
           p_council_version_id: string
@@ -34749,6 +34939,7 @@ export type Database = {
       }
       run_health_checks: { Args: never; Returns: Json }
       run_nightly_pipeline_guards: { Args: never; Returns: Json }
+      run_system_contract_audit: { Args: never; Returns: Json }
       run_system_integrity_audit: { Args: never; Returns: Json }
       search_berufe: {
         Args: { lim?: number; q: string }
