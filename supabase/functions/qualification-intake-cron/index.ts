@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
   const doWaveSync = body.wave_sync !== false;
   const doPromoteBlueprint = body.promote_blueprint !== false;
   const doAutoWave = body.auto_wave !== false;
+  const doIntelligence = body.intelligence !== false;
 
   const steps: any[] = [];
 
@@ -125,6 +126,16 @@ Deno.serve(async (req) => {
       step: "auto_wave",
       ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-auto-wave", {
         limit: 10,
+      })),
+    });
+  }
+
+  // NEW: Intelligence scoring + priority sync
+  if (doIntelligence) {
+    steps.push({
+      step: "intelligence",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-priority-sync", {
+        limit: 100,
       })),
     });
   }
