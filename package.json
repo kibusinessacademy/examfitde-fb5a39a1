@@ -16,7 +16,11 @@
     "ci:guards:changed": "node scripts/guards/run-changed.mjs",
     "ci:schema:offline": "node scripts/schema-drift/offline.mjs",
     "ci:schema:online": "node scripts/schema-drift/online.mjs",
-    "ci:audit": "npm audit --audit-level=high"
+    "ci:audit": "npm audit --audit-level=high",
+    "audit:master": "node scripts/master-platform-audit.mjs",
+    "audit:master:full": "node scripts/master-platform-audit.mjs --full",
+    "audit:master:json": "node scripts/master-platform-audit.mjs --full --json",
+    "audit:master:strict": "node scripts/master-platform-audit.mjs --full --fail-on-warn"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
