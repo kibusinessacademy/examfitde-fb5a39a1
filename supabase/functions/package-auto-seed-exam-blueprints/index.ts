@@ -229,10 +229,20 @@ Antworte NUR als JSON-Objekt:
 }`;
 
   try {
-    // v4: Use shared model routing (exam_questions intent)
-    const chain = await getModelChainAsync("exam_questions");
-    const provider = chain[0]?.provider || "lovable";
-    const model = chain[0]?.model || "openai/gpt-5-mini"; // v11: hardcoded fallback was gemini → now GPT
+    // v10.5: DB-driven routing via llm_provider_routing_policies
+    let provider: string;
+    let model: string;
+    const policyRoute = await resolveAvailableRoute("exam_blueprint");
+    if (policyRoute.ok && policyRoute.provider && policyRoute.model) {
+      provider = policyRoute.provider;
+      model = policyRoute.model;
+      console.log(`[SeedV4] POLICY_ROUTE: exam_blueprint → ${provider}/${model}`);
+    } else {
+      const chain = await getModelChainAsync("exam_questions");
+      provider = chain[0]?.provider || "lovable";
+      model = chain[0]?.model || "openai/gpt-5-mini";
+      console.log(`[SeedV4] POLICY_MISS: exam_blueprint (${policyRoute.reason}) → ${provider}/${model}`);
+    }
 
     const result = await callAIJSON(
       {
