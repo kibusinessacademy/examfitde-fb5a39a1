@@ -560,28 +560,14 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
     // timer cleared in finally
     const errMsg = (e as Error).message || String(e);
     const transient = isTransientLlmError(e);
-
-    // ── v11: Record provider cooldown on transient errors ──
     const classification = classifyError(e);
-    if (classification.isTransient && classification.providerCooldownMs && chain.length > 0) {
-      const usedProvider = chain[0];
-      try {
-        await setProviderCooldown({
-          provider: usedProvider.provider,
-          model: usedProvider.model,
-          ms: classification.providerCooldownMs,
-          reason: `lesson-gen: ${classification.reason} (${errMsg.slice(0, 80)})`,
-        });
-      } catch (_cdErr) {
-        // Best-effort — don't fail the response over cooldown persistence
-      }
-    }
 
-    // ── Plain-JSON fallback: rotate to DIFFERENT provider (no tools) ──
+    // ── v12: Plain-JSON fallback FIRST, cooldown AFTER ──
+    // Previously cooldown was set before the fallback attempt, causing all providers
+    // to be quarantined even when the fallback would have succeeded.
     if (errMsg.includes("No parseable tool response") && !plainRetry) {
       plainRetry = true;
       try {
-        // v10: Use a non-Gemini provider for plain retry to avoid same parse issue
         const plainChainCandidates = fullChain
           .filter(c => !c.model.includes("gemini"))
           .slice(0, 1);
@@ -613,14 +599,29 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
           content = plainContent;
           result = plainResult as any;
           console.log(`[lesson-gen] Plain JSON fallback SUCCESS (${retryChain[0].model}) for ${lessonId.slice(0, 8)} (${plainContent.html.length} chars)`);
+          // SUCCESS — no cooldown needed, skip the error path entirely
         }
       } catch (plainErr) {
         console.warn(`[lesson-gen] Plain retry also failed: ${(plainErr as Error).message?.slice(0, 100)}`);
       }
     }
 
+    // Only set cooldown if BOTH original call AND plain-JSON fallback failed
     if (!content || (!content.html && !content.questions)) {
-      // v9.4: "No parseable tool response" IS retryable — rotation will try a different provider
+      if (classification.isTransient && classification.providerCooldownMs && chain.length > 0) {
+        const usedProvider = chain[0];
+        try {
+          await setProviderCooldown({
+            provider: usedProvider.provider,
+            model: usedProvider.model,
+            ms: classification.providerCooldownMs,
+            reason: `lesson-gen: ${classification.reason} (${errMsg.slice(0, 80)})`,
+          });
+        } catch (_cdErr) {
+          // Best-effort
+        }
+      }
+
       const isParseFailure = errMsg.includes("No parseable tool response");
       const isTransient = transient || e instanceof RateLimitError || isParseFailure;
       return json({
