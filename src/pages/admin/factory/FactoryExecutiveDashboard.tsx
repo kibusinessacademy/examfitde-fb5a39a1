@@ -1,13 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { RefreshCw, Factory, Eye } from "lucide-react";
+import { RefreshCw, Factory, Eye, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFactoryExecutiveReport } from "@/hooks/useFactoryExecutiveReport";
+import { useRunAutonomousFactory } from "@/hooks/useAutonomousFactory";
 
 export default function FactoryExecutiveDashboard() {
   const navigate = useNavigate();
   const { data, isLoading, refetch } = useFactoryExecutiveReport();
+  const autonomousRun = useRunAutonomousFactory();
 
   if (!data?.ok) {
     return (
@@ -31,11 +33,34 @@ export default function FactoryExecutiveDashboard() {
             Gesamtübersicht der Produktionspipeline
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => autonomousRun.mutate()}
+            disabled={autonomousRun.isPending}
+          >
+            <Zap className="mr-2 h-4 w-4" />
+            Autonomous Run
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
+
+      {/* Autonomous run result */}
+      {autonomousRun.data && (
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Letzter Autonomous Run</CardTitle></CardHeader>
+          <CardContent>
+            <pre className="overflow-auto whitespace-pre-wrap text-xs rounded-lg border p-3">
+              {JSON.stringify(autonomousRun.data, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Top KPIs */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -58,6 +83,31 @@ export default function FactoryExecutiveDashboard() {
           <CardContent className="text-2xl font-semibold">€{k.ai_cost_24h_eur}</CardContent>
         </Card>
       </div>
+
+      {/* Intake Pipeline */}
+      <Card>
+        <CardHeader><CardTitle>Intake Pipeline</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="rounded border p-3 text-center">
+              <div className="text-2xl font-semibold">{k.intake_detected ?? 0}</div>
+              <div className="text-xs text-muted-foreground">Detected</div>
+            </div>
+            <div className="rounded border p-3 text-center">
+              <div className="text-2xl font-semibold">{k.intake_evaluated ?? 0}</div>
+              <div className="text-xs text-muted-foreground">Evaluated</div>
+            </div>
+            <div className="rounded border p-3 text-center">
+              <div className="text-2xl font-semibold">{k.intake_planned ?? 0}</div>
+              <div className="text-xs text-muted-foreground">Planned</div>
+            </div>
+            <div className="rounded border p-3 text-center">
+              <div className="text-2xl font-semibold">{k.intake_rejected ?? 0}</div>
+              <div className="text-xs text-muted-foreground">Rejected</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Pipeline Load */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -135,6 +185,7 @@ export default function FactoryExecutiveDashboard() {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{w.status}</Badge>
                 {w.meta?.template_key && <Badge variant="secondary">{w.meta.template_key}</Badge>}
+                {w.meta?.source === "autonomous_factory" && <Badge variant="secondary">auto</Badge>}
                 <Badge variant="outline">target: {w.target_count}</Badge>
                 <Badge variant="outline">published: {w.published_count ?? 0}</Badge>
                 <Badge variant="outline">blocked: {w.blocked_count ?? 0}</Badge>
