@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
     auto_published: 0,
     finalized: 0,
     skipped: 0,
+    budget_paused: 0,
+    budget_warnings: 0,
     errors: [] as Array<{ wave_id?: string; action: string; error: string }>,
     duration_ms: 0,
   };
