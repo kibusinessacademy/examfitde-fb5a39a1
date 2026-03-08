@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
         titel: `${titel} (${tierLabel})`,
         content_json: contentJson,
         status: "generated",
-        generation_model: "google/gemini-2.5-flash",
+        generation_model: "openai/gpt-5.2",
         landing_headline: `KI-${tierLabel} für ${bkBeruf.name}`,
         landing_subline: `Spare 3–7 Stunden pro Woche durch berufsspezifische KI-Workflows`,
         meta_title: `KI für ${bkBeruf.name} – ${tierLabel} | ExamFit@work`,

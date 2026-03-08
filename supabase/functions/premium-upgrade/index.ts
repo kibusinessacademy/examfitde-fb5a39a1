@@ -54,7 +54,7 @@ function nowIso(): string {
 async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 4096): Promise<string> {
   const result = await callAIJSON({
     provider: "lovable" as AIProvider,
-    model: "google/gemini-2.5-flash",
+    model: "openai/gpt-5.2",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },

@@ -372,7 +372,7 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
             try {
               const singleResp = await callAIJSON({
                 provider: "lovable",
-                model: "google/gemini-2.5-flash",
+                model: "openai/gpt-5.2",
                 messages: [
                   { role: "system", content: `${systemPrompt}\n\nGib genau 1 Enrichment-Objekt zurück, nur JSON.` },
                   {

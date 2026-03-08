@@ -167,7 +167,7 @@ Antworte NUR als JSON: {"enrichments": [{...}]}`;
       try {
         const aiResp = await callAIJSON({
           provider: "lovable",
-          model: "google/gemini-2.5-flash",
+          model: "openai/gpt-5.2",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: `Enriche diese ${batch.length} Kompetenzen:\n${JSON.stringify(compList)}` },
