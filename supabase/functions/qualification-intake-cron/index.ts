@@ -179,6 +179,14 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Master Control Plane: Snapshot → Policy Eval → Action Executor
+  if (doControlPlane) {
+    steps.push({
+      step: "control_plane",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "control-plane-cron", {})),
+    });
+  }
+
   return jsonRes(200, {
     ok: true,
     steps,
