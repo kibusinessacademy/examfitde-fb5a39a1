@@ -156,6 +156,34 @@ Deno.serve(async (req) => {
         }
         result.ticked++;
 
+        // Auto-publish ready packages
+        const publishRes = await fetch(
+          `${supabaseUrl}/functions/v1/admin-production-supervisor`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${serviceKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              action: "publish_ready",
+              wave_id: wave.id,
+            }),
+          },
+        );
+        const publishBody = await publishRes.text();
+        const publishJson = (() => { try { return JSON.parse(publishBody); } catch { return {}; } })();
+
+        if (!publishRes.ok) {
+          result.errors.push({
+            wave_id: wave.id,
+            action: "publish_ready",
+            error: publishJson?.error || `HTTP ${publishRes.status}`,
+          });
+        } else {
+          result.auto_published += Number(publishJson?.result?.published ?? 0);
+        }
+
         // Check if wave should be auto-finalized
         const { data: freshWave } = await sb
           .from("production_waves")
