@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnifiedLeitstelleFeed, useUnifiedLeitstelleSnapshot } from "@/hooks/useUnifiedLeitstelle";
+import { usePipelinePerformance } from "@/hooks/usePipelinePerformance";
 import HealthHero from "@/components/control/HealthHero";
 import MetricCard from "@/components/control/MetricCard";
 import RailCard from "@/components/control/RailCard";
+import PipelinePerformanceBoard from "@/components/control/PipelinePerformanceBoard";
 
 export default function UnifiedLeitstellePage() {
   const { data: snapshot, isLoading: snapshotLoading, refetch: refetchSnapshot } = useUnifiedLeitstelleSnapshot();
