@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { canonicalStepKey } from "../_shared/step-keys.ts";
+import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
 
 /**
  * lesson-generate-competency-bundle — Competency-Level Fan-Out Orchestrator
