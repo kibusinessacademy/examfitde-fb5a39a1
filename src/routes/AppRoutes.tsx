@@ -79,6 +79,7 @@ const WorkBundlesPage = lazy(() => import('@/pages/admin/v4/BerufsKIBundlesPage'
 const WorkLicensesPage = lazy(() => import('@/pages/admin/v4/BerufsKILicensesPage'));
 const WorkCommercePage = lazy(() => import('@/pages/admin/v4/BerufsKICommercePage'));
 const WorkAffiliateDashboard = lazy(() => import('@/pages/admin/v4/BerufsKIAffiliateDashboard'));
+const ProductionWavesPage = lazy(() => import('@/pages/admin/v4/ProductionWavesPage'));
 
 // Control Tower Pages (new SSOT Leitzentrale)
 const AdminControlTowerPage = lazy(() => import('@/pages/admin/AdminControlTowerPage'));
@@ -246,6 +247,7 @@ const AppRoutes = () => {
           <Route path="pipeline" element={<PipelineMonitorPage />} />
           <Route path="pipeline/e2e" element={<PipelineE2ERunbookPage />} />
           <Route path="load-control" element={<LoadControlPage />} />
+          <Route path="production" element={<ProductionWavesPage />} />
           {/* Content with nested routes */}
           <Route path="content" element={<ContentLayout />}>
             <Route index element={<ContentPagesList />} />
