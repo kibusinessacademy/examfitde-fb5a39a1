@@ -10,8 +10,8 @@ import { canonicalStepKey } from "../_shared/step-keys.ts";
  * for ONE lesson-step. Called by job-runner with job_type = "council_run_step".
  *
  * Governance invariants enforced:
- * - GPT-4.1 may ONLY propose/revise (never critique/vote)
- * - Claude Sonnet 4 may ONLY critique (never propose/revise)
+  * - GPT-5-mini may ONLY propose/revise (never critique/vote)
+  * - Claude Sonnet 4 may ONLY critique (never propose/revise)
  * - Claude has HARD VETO power (rejected = rejected, no override)
  * - Votes are aggregated via structured function, not read from critique
  * - Publish requires approved council_verdict (DB trigger enforced)
@@ -75,7 +75,7 @@ async function runCouncilLoop(db: ReturnType<typeof createClient>, p: StepPayloa
   const maxRounds = p.max_rounds ?? MAX_ROUNDS_DEFAULT;
   const lessonCtx = await fetchLessonContext(db, p.lesson_id);
 
-  // Phase 1: PROPOSE (GPT-4.1 – generator role ONLY)
+  // Phase 1: PROPOSE (GPT-5-mini – generator role ONLY)
   let versionId = await propose(db, p, lessonCtx);
   let round = 1;
   let finalDecision: "approved" | "revise" | "rejected" = "revise";
@@ -112,7 +112,7 @@ async function runCouncilLoop(db: ReturnType<typeof createClient>, p: StepPayloa
       return { version_id: versionId, decision: finalDecision, rounds: round, score: critique.overall_score };
     }
 
-    // Phase 4: REVISE (GPT-4.1 – generator role ONLY, incorporates critique)
+    // Phase 4: REVISE (GPT-5-mini – generator role ONLY, incorporates critique)
     versionId = await revise(db, p, versionId, critique, lessonCtx, round + 1);
     round++;
   }
@@ -142,7 +142,7 @@ async function fetchLessonContext(db: ReturnType<typeof createClient>, lessonId:
   };
 }
 
-// ─── PROPOSE (GPT-4.1 only – generator role) ─────────────────────────────
+// ─── PROPOSE (GPT-5-mini only – generator role) ─────────────────────────────
 
 async function propose(
   db: ReturnType<typeof createClient>,
@@ -151,7 +151,7 @@ async function propose(
 ): Promise<string> {
   const { content } = await callAIJSON({
     provider: "openai",
-    model: "gpt-4.1",
+    model: "gpt-5-mini",
     temperature: 0.7,
     max_tokens: 4096,
     messages: [
@@ -190,7 +190,7 @@ Erstelle hochwertigen, IHK-prüfungsrelevanten Content für diesen Step.`,
       lesson_id: p.lesson_id,
       step_key: p.step_key,
       content_json: contentJson,
-      created_by_agent: "gpt-4.1",
+      created_by_agent: "gpt-5-mini",
       created_by_job_id: p._job_id || null,
       status: "under_review",
       council_round: 1,
@@ -200,7 +200,7 @@ Erstelle hochwertigen, IHK-prüfungsrelevanten Content für diesen Step.`,
 
   if (error) throw error;
 
-  await logCouncilMessage(db, ver!.id, "gpt-4.1", "proposal", contentJson);
+  await logCouncilMessage(db, ver!.id, "gpt-5-mini", "proposal", contentJson);
   return ver!.id;
 }
 
@@ -307,7 +307,7 @@ async function aggregateVotesAndVerdict(
   const validatorVote = normalizeDecision(critique.verdict_recommendation);
   const validatorConfidence = critique.confidence;
 
-  // Generator vote: GPT-4.1 self-assessment based on quality score thresholds
+  // Generator vote: GPT-5-mini self-assessment based on quality score thresholds
   const generatorVote: "approved" | "revise" | "rejected" =
     score >= 80 ? "approved" : score >= 50 ? "revise" : "rejected";
   const generatorConfidence = score / 100;
@@ -317,7 +317,7 @@ async function aggregateVotesAndVerdict(
     [
       {
         content_version_id: versionId,
-        agent_name: "gpt-4.1",
+        agent_name: "gpt-5-mini",
         vote: generatorVote,
         confidence: generatorConfidence,
         rationale: `Self-assessment: score=${score}, threshold=80/50`,
@@ -409,7 +409,7 @@ function computeConsensusScore(
   return Math.max(0.0, avgConfidence - 0.2);
 }
 
-// ─── REVISE (GPT-4.1 only – generator role) ──────────────────────────────
+// ─── REVISE (GPT-5-mini only – generator role) ──────────────────────────────
 
 async function revise(
   db: ReturnType<typeof createClient>,
@@ -427,7 +427,7 @@ async function revise(
 
   const { content } = await callAIJSON({
     provider: "openai",
-    model: "gpt-4.1",
+    model: "gpt-5-mini",
     temperature: 0.5,
     max_tokens: 4096,
     messages: [
@@ -467,7 +467,7 @@ Summary: ${critique.summary}
       lesson_id: p.lesson_id,
       step_key: p.step_key,
       content_json: revisedJson,
-      created_by_agent: "gpt-4.1",
+      created_by_agent: "gpt-5-mini",
       created_by_job_id: p._job_id || null,
       status: "under_review",
       council_round: round,
@@ -478,7 +478,7 @@ Summary: ${critique.summary}
 
   if (error) throw error;
 
-  await logCouncilMessage(db, newVer!.id, "gpt-4.1", "revision", {
+  await logCouncilMessage(db, newVer!.id, "gpt-5-mini", "revision", {
     parent_version: parentVersionId,
     round,
     addressed_issues: critique.issues.map((i) => i.text),
