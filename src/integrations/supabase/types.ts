@@ -419,6 +419,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_budget_policies: {
+        Row: {
+          created_at: string
+          daily_limit_eur: number
+          hard_stop: boolean
+          id: string
+          is_enabled: boolean
+          package_limit_eur: number
+          policy_key: string
+          updated_at: string
+          warn_threshold_pct: number
+          wave_limit_eur: number
+        }
+        Insert: {
+          created_at?: string
+          daily_limit_eur?: number
+          hard_stop?: boolean
+          id?: string
+          is_enabled?: boolean
+          package_limit_eur?: number
+          policy_key: string
+          updated_at?: string
+          warn_threshold_pct?: number
+          wave_limit_eur?: number
+        }
+        Update: {
+          created_at?: string
+          daily_limit_eur?: number
+          hard_stop?: boolean
+          id?: string
+          is_enabled?: boolean
+          package_limit_eur?: number
+          policy_key?: string
+          updated_at?: string
+          warn_threshold_pct?: number
+          wave_limit_eur?: number
+        }
+        Relationships: []
+      }
       ai_cost_budgets: {
         Row: {
           alert_sent_at: string | null
@@ -28482,6 +28521,14 @@ export type Database = {
         }[]
       }
       cents_to_de_decimal: { Args: { p_cents: number }; Returns: string }
+      check_ai_budget_guard: {
+        Args: {
+          p_package_id?: string
+          p_policy_key?: string
+          p_wave_id?: string
+        }
+        Returns: Json
+      }
       check_blueprint_quality_kpis:
         | {
             Args: {
@@ -30096,6 +30143,10 @@ export type Database = {
       ops_run_integrity_checks: { Args: never; Returns: Json }
       package_lessons_realness: {
         Args: { p_package_id: string }
+        Returns: Json
+      }
+      pause_wave_for_budget: {
+        Args: { p_reason: string; p_wave_id: string }
         Returns: Json
       }
       pick_minicheck_elite: {
