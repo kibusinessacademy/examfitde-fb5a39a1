@@ -30,14 +30,16 @@ Deno.serve(async (req) => {
     // Step 2: Optionally trigger autonomous factory
     if (run_factory) {
       try {
-        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || serviceKey;
         const res = await fetch(
           `${Deno.env.get("SUPABASE_URL")}/functions/v1/admin-run-autonomous-factory`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-job-runner-key": serviceKey,
+              "x-internal-secret": internalSecret,
+              "x-job-runner-key": internalSecret,
+            },
             },
             body: JSON.stringify({}),
           },
