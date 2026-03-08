@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
           target_user_id: u.user_id,
           title: actionPlan.title ?? "Kurz zurück ins Training",
           payload_json: actionPlan.payload ?? {},
-          rationale_json: { signals, score, label, model: "lovable/gemini-2.5-flash" },
+          rationale_json: { signals, score, label, model: "lovable/openai/gpt-5.2" },
           status: "proposed",
           dedupe_key: `inactive_${Math.min(30, Math.max(7, Number(signals.days_inactive ?? 0)))}d`,
           cooldown_until: null,
@@ -120,7 +120,7 @@ async function proposeActionLLM(signals: Record<string, unknown>) {
   try {
     const result = await callAIJSON({
       provider: "lovable",
-      model: "google/gemini-2.5-flash",
+      model: "openai/gpt-5.2",
       messages: [
         {
           role: "system",

@@ -240,7 +240,7 @@ async function postValidateTutorResponse(
     const startTime = Date.now();
     const valResult = await callAI({
       provider: "lovable",
-      model: "google/gemini-2.5-flash",
+      model: "openai/gpt-5.2",
       messages: [
         { role: "system", content: `Du prüfst eine KI-Tutor-Antwort für ${professionName} auf fachliche Korrektheit. SCHNELL und PRÄZISE.
 Kontext: ${JSON.stringify(resolvedContext).slice(0, 3000)}
@@ -363,7 +363,7 @@ serve(async (req) => {
     // Stream from OpenAI directly
     const { raw: aiResponse, ok, status } = await callAI({
       provider: "lovable",
-      model: "openai/gpt-5",
+      model: "openai/gpt-5.2",
       messages: aiMessages,
       stream: true,
     });

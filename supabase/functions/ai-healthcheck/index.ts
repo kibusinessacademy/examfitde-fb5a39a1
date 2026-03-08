@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  const model = "google/gemini-2.5-flash";
+  const model = "openai/gpt-5.2";
 
   // Probe 1: Plain text completion
   const p1 = probe("plain_text", apiKey, {

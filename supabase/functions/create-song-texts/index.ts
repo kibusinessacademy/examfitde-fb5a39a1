@@ -143,7 +143,7 @@ Antworte NUR mit dem Songtext.`;
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
+              model: "openai/gpt-5.2",
               messages: [
                 { role: "system", content: "Du erstellst Lernsongs für deutsche Auszubildende. Antworte nur mit dem Songtext." },
                 { role: "user", content: prompt },

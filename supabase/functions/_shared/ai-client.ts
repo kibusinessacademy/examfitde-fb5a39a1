@@ -62,13 +62,13 @@ export interface AIResponse {
 const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv: string; format: "openai" | "anthropic" | "google" }> = {
   openai: {
     url: "https://api.openai.com/v1/chat/completions",
-    model: "gpt-5-mini",
+    model: "gpt-5.2",
     keyEnv: "OPENAI_API_KEY",
     format: "openai",
   },
   anthropic: {
     url: "https://api.anthropic.com/v1/messages",
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5-20250929",
     keyEnv: "ANTHROPIC_API_KEY",
     format: "anthropic",
   },
@@ -80,7 +80,7 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
   },
   lovable: {
     url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    model: "google/gemini-2.5-flash",
+    model: "openai/gpt-5.2",
     keyEnv: "LOVABLE_API_KEY",
     format: "openai",
   },
