@@ -409,7 +409,7 @@ function computeConsensusScore(
   return Math.max(0.0, avgConfidence - 0.2);
 }
 
-// ─── REVISE (GPT-4.1 only – generator role) ──────────────────────────────
+// ─── REVISE (GPT-5-mini only – generator role) ──────────────────────────────
 
 async function revise(
   db: ReturnType<typeof createClient>,
