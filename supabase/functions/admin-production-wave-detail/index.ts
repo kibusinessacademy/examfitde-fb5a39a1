@@ -101,6 +101,13 @@ Deno.serve(async (req) => {
     p_wave_id: waveId,
   });
 
+  // Load budget guard
+  const { data: budgetGuard } = await sb.rpc("check_ai_budget_guard", {
+    p_wave_id: waveId,
+    p_package_id: null,
+    p_policy_key: "factory_default",
+  });
+
   return json(200, {
     ok: true,
     wave: {
@@ -121,5 +128,6 @@ Deno.serve(async (req) => {
     by_status: byStatus,
     items: enrichedItems,
     kpi_report: kpi,
+    budget_guard: budgetGuard,
   }, origin);
 });

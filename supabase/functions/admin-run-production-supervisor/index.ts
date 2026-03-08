@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
     auto_published: 0,
     finalized: 0,
     skipped: 0,
+    budget_paused: 0,
+    budget_warnings: 0,
     errors: [] as Array<{ wave_id?: string; action: string; error: string }>,
     duration_ms: 0,
   };
@@ -110,6 +112,34 @@ Deno.serve(async (req) => {
             continue;
           }
           result.activated++;
+        }
+
+        // Budget guard check before proceeding
+        const { data: budget, error: budgetErr } = await sb.rpc("check_ai_budget_guard", {
+          p_wave_id: wave.id,
+          p_package_id: null,
+          p_policy_key: "factory_default",
+        });
+
+        if (budgetErr) {
+          result.errors.push({ wave_id: wave.id, action: "budget_guard", error: budgetErr.message });
+        } else {
+          if ((budget as any)?.warn_daily || (budget as any)?.warn_wave) {
+            result.budget_warnings++;
+          }
+          if ((budget as any)?.blocked) {
+            const { error: pauseErr } = await sb.rpc("pause_wave_for_budget", {
+              p_wave_id: wave.id,
+              p_reason: (budget as any)?.reason || "budget_blocked",
+            });
+            if (pauseErr) {
+              result.errors.push({ wave_id: wave.id, action: "pause_wave_for_budget", error: pauseErr.message });
+            } else {
+              result.budget_paused++;
+              result.skipped++;
+              continue;
+            }
+          }
         }
 
         // Enforce wave backpressure before tick

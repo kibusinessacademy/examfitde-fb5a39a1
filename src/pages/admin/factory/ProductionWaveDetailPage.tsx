@@ -35,6 +35,7 @@ export default function ProductionWaveDetailPage() {
   const items = data?.items ?? [];
   const byStatus = data?.by_status ?? {};
   const kpi = data?.kpi_report;
+  const budget = data?.budget_guard;
 
   const terminalCount = useMemo(
     () =>
@@ -113,6 +114,35 @@ export default function ProductionWaveDetailPage() {
             <CardContent className="text-lg font-semibold">{wave.max_concurrent ?? 0}</CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Budget Guard */}
+      {budget?.ok && budget?.policy_found && (
+        <Card>
+          <CardHeader><CardTitle>Budget Guard</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-4">
+            <div className="rounded border p-3 text-sm">
+              <div className="text-muted-foreground">Daily</div>
+              <div className="font-semibold">€{budget.daily_spend_eur} / €{budget.daily_limit_eur}</div>
+              <div className={budget.warn_daily ? "text-destructive" : ""}>{budget.daily_pct}%</div>
+            </div>
+            <div className="rounded border p-3 text-sm">
+              <div className="text-muted-foreground">Wave</div>
+              <div className="font-semibold">€{budget.wave_spend_eur} / €{budget.wave_limit_eur}</div>
+              <div className={budget.warn_wave ? "text-destructive" : ""}>{budget.wave_pct}%</div>
+            </div>
+            <div className="rounded border p-3 text-sm">
+              <div className="text-muted-foreground">Blocked</div>
+              <div className={`font-semibold ${budget.blocked ? "text-destructive" : ""}`}>{String(budget.blocked)}</div>
+              <div>{budget.reason || "–"}</div>
+            </div>
+            <div className="rounded border p-3 text-sm">
+              <div className="text-muted-foreground">Warn Threshold</div>
+              <div className="font-semibold">{budget.warn_threshold_pct}%</div>
+              <div>{(budget.warn_daily || budget.warn_wave || budget.warn_package) ? "⚠️ Warning active" : "✓ OK"}</div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* KPI Report Board */}
