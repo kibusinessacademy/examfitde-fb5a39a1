@@ -91,6 +91,7 @@ const AdminControlTowerPage = lazy(() => import('@/pages/admin/AdminControlTower
 const SystemContractAuditPage = lazy(() => import('@/pages/admin/control/SystemContractAuditPage'));
 const SyntheticProbeCenterPage = lazy(() => import('@/pages/admin/control/SyntheticProbeCenterPage'));
 const SchedulerGovernancePage = lazy(() => import('@/pages/admin/control/SchedulerGovernancePage'));
+const UnifiedLeitstellePage = lazy(() => import('@/pages/admin/control/UnifiedLeitstellePage'));
 const AdminOpsQueuePage = lazy(() => import('@/pages/admin/AdminOpsQueuePage'));
 const AdminProviderHealthPage = lazy(() => import('@/pages/admin/AdminProviderHealthPage'));
 const AdminPackageRiskPage = lazy(() => import('@/pages/admin/AdminPackageRiskPage'));

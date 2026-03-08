@@ -31776,6 +31776,15 @@ export type Database = {
         }
         Relationships: []
       }
+      v_contract_integrity_summary: {
+        Row: {
+          active_contracts: number | null
+          active_mappings: number | null
+          enum_sets: number | null
+          open_violations: number | null
+        }
+        Relationships: []
+      }
       v_cost_per_package: {
         Row: {
           avg_latency_ms: number | null
@@ -32223,6 +32232,15 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_executive_decision_summary: {
+        Row: {
+          done_decisions: number | null
+          failed_decisions: number | null
+          processing_decisions: number | null
+          queued_decisions: number | null
+        }
+        Relationships: []
       }
       v_failed_job_clusters: {
         Row: {
@@ -32786,6 +32804,16 @@ export type Database = {
         }
         Relationships: []
       }
+      v_scheduler_summary: {
+        Row: {
+          active_leases: number | null
+          enabled_crons: number | null
+          open_orphans: number | null
+          running_crons: number | null
+          stale_leases: number | null
+        }
+        Relationships: []
+      }
       v_unit_economics_package: {
         Row: {
           avg_quality_score: number | null
@@ -32842,6 +32870,14 @@ export type Database = {
           tax_cents: number | null
           tax_country: string | null
           tax_rate: number | null
+        }
+        Relationships: []
+      }
+      v_wave_ops_summary: {
+        Row: {
+          active_waves: number | null
+          blocked_waves: number | null
+          completed_waves: number | null
         }
         Relationships: []
       }
@@ -34741,6 +34777,8 @@ export type Database = {
           zustaendigkeit: string
         }[]
       }
+      get_unified_leitstelle_feed: { Args: { p_limit?: number }; Returns: Json }
+      get_unified_leitstelle_snapshot: { Args: never; Returns: Json }
       get_user_dashboard_stats: { Args: never; Returns: Json }
       get_user_entitlements: {
         Args: { p_curriculum_id?: string; p_user_id: string }
