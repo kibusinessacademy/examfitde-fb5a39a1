@@ -92,27 +92,27 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-image-1" },
   ],
   support: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   summary: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   repair: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   repair_content: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   blooms_classify: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   curriculum_import: [
-    { provider: "lovable", model: "openai/gpt-5.2" },
+    { provider: "lovable", model: "google/gemini-2.5-flash" },
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
 };
