@@ -51,6 +51,8 @@ Deno.serve(async (req) => {
     ok: true,
     checked_waves: 0,
     activated: 0,
+    backpressure_runs: 0,
+    promoted_items: 0,
     ticked: 0,
     finalized: 0,
     skipped: 0,
