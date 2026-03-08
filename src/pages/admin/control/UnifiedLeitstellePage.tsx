@@ -10,6 +10,7 @@ import PipelinePerformanceBoard from "@/components/control/PipelinePerformanceBo
 export default function UnifiedLeitstellePage() {
   const { data: snapshot, isLoading: snapshotLoading, refetch: refetchSnapshot } = useUnifiedLeitstelleSnapshot();
   const { data: feed, isLoading: feedLoading, refetch: refetchFeed } = useUnifiedLeitstelleFeed(30);
+  const { data: perfData, refetch: refetchPerf } = usePipelinePerformance();
   const [log, setLog] = useState<any>(null);
   const [running, setRunning] = useState(false);
 
