@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { searchProviders } from "../_shared/search-providers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,9 +112,25 @@ Deno.serve(async (req) => {
   let dedupedCount = 0;
 
   for (const pattern of patterns || []) {
-    const syntheticResults = buildSyntheticResults(pattern.search_phrase, pattern.provider_family);
+    // Try real search providers first, fall back to synthetic
+    let searchResults: { rank: number; source_url: string; title_raw: string; snippet: string; content_type_hint: string }[] = [];
 
-    for (const result of syntheticResults) {
+    const realResults = await searchProviders(pattern.search_phrase);
+
+    if (realResults.length > 0) {
+      searchResults = realResults.map((r, idx) => ({
+        rank: idx + 1,
+        source_url: r.url,
+        title_raw: r.title,
+        snippet: r.snippet || "",
+        content_type_hint: detectContentTypeFromUrl(r.url),
+      }));
+    } else {
+      // Fallback to synthetic results when no search API keys are configured
+      searchResults = buildSyntheticResults(pattern.search_phrase, pattern.provider_family);
+    }
+
+    for (const result of searchResults) {
       const sourceScore = scoreResult({
         providerFamily: pattern.provider_family,
         url: result.source_url,
@@ -133,7 +150,7 @@ Deno.serve(async (req) => {
         p_content_type_hint: result.content_type_hint,
         p_source_score: sourceScore,
         p_meta: {
-          synthetic: true,
+          real_search: realResults.length > 0,
           award_type: pattern.award_type,
         },
       });
@@ -170,5 +187,6 @@ Deno.serve(async (req) => {
     patterns: patterns?.length || 0,
     result_count: resultCount,
     deduped_count: dedupedCount,
+    real_search: true,
   });
 });
