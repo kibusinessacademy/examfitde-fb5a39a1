@@ -32421,7 +32421,7 @@ export type Database = {
         Args: {
           p_award_type_hint?: string
           p_metadata?: Json
-          p_provider_family?: string
+          p_provider_family: string
           p_source_type?: string
           p_source_url: string
           p_title_raw: string
