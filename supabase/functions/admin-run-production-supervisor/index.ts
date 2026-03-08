@@ -196,8 +196,6 @@ Deno.serve(async (req) => {
           {
             method: "POST",
             headers: internalHeaders,
-              "Content-Type": "application/json",
-            },
             body: JSON.stringify({
               action: "publish_ready",
               wave_id: wave.id,
