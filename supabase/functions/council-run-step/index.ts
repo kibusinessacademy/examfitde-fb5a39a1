@@ -231,8 +231,8 @@ async function critiqueStep(
   const contentStr = JSON.stringify(ver?.content_json || {}).substring(0, 6000);
 
   const { content } = await callAIJSON({
-    provider: "google",
-    model: "gemini-2.5-flash",
+    provider: "lovable",
+    model: "openai/gpt-5.2",
     temperature: 0.3,
     max_tokens: 2048,
     messages: [

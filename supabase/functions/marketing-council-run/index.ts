@@ -112,7 +112,7 @@ serve(async (req) => {
 // ── Critique + Verdict Pipeline ──
 async function runCritique(sb: ReturnType<typeof createClient>, asset: Record<string, unknown>, ssot: Record<string, unknown>, proposal: unknown, versionId: string, round: number, maxRounds: number) {
   const critiqueResult = await callAIJSON({
-    provider: "google",
+    provider: "lovable",
     messages: [
       { role: "system", content: buildCriticSystem() },
       { role: "user", content: buildCriticUser(asset, ssot, proposal) },

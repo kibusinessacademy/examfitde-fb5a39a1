@@ -242,7 +242,7 @@ async function callLLM(opts: { model: string; system: string; user: string }): P
 async function validateDraft(input: { ssot: Record<string, unknown>; role: Role; draft: Record<string, unknown> }) {
   try {
     const result = await callAI({
-      provider: "google",
+      provider: "lovable",
       messages: [
         { role: "system", content: `Du bist Validator für Tutor-Antworten. Output STRICT JSON:\n{ "decision":"approved"|"rejected", "issues":[], "rationale":"..." }\nReject wenn: keine source_refs, falsche Fakten, erfundene Normen/Paragraphen.` },
         { role: "user", content: JSON.stringify(input).slice(0, 12000) },
