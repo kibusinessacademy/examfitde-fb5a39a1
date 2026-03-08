@@ -413,3 +413,12 @@ verify_jwt = false
 
 [functions.pipeline-watchdog]
 verify_jwt = false
+
+[functions.generate-curriculum-content]
+verify_jwt = false
+
+[functions.get-curriculum-structure]
+verify_jwt = false
+
+[functions.package-scaffold-learning-course]
+verify_jwt = false
