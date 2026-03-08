@@ -12,6 +12,7 @@ export interface PackageInfo {
   created_at: string;
   updated_at: string;
   track: string | null;
+  curriculum_id: string | null;
 }
 
 // Re-export from SSOT
