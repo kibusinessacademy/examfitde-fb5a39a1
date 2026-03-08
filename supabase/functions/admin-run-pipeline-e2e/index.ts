@@ -266,8 +266,13 @@ Deno.serve(async (req) => {
 
   // ─── Check 7: Hybrid Completion ───
   checks.hybrid_completion = await runCheck("hybrid_completion", async () => {
+    const fanOutCfg = getFanOutConfig("generate_learning_content");
     const { data, error } = await sb.rpc("check_fan_out_completion", {
-      p_package_id: packageId, p_step_key: "generate_learning_content",
+      p_package_id: packageId,
+      p_step_key: "generate_learning_content",
+      p_subjob_types: fanOutCfg?.subjobTypes ?? ["lesson_generate_competency_bundle", "lesson_generate_content"],
+      p_completion_mode: fanOutCfg?.completionMode ?? "hybrid",
+      p_completion_rpc: fanOutCfg?.completionRpc ?? "get_learning_content_progress",
     });
     if (error) throw new Error(error.message);
     const d = data as any;
