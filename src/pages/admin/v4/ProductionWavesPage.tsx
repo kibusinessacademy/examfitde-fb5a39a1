@@ -10,6 +10,7 @@ import { useProductionWaveStatus, useSeedProductionWave, useWaveAction } from "@
 import { useRunProductionSupervisor, useRunWaveBackpressure } from "@/hooks/useProductionSupervisor";
 
 export default function ProductionWavesPage() {
+  const navigate = useNavigate();
   const { data, isLoading, refetch } = useProductionWaveStatus();
   const seedWave = useSeedProductionWave();
   const waveAction = useWaveAction();
