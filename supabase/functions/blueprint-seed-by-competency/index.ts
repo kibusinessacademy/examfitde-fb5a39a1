@@ -168,30 +168,30 @@ Regeln:
 - NUR das JSON-Array zurückgeben, KEIN Markdown`;
 
   let provider = "lovable";
-  let model = "openai/gpt-5-mini";
+  let model = "google/gemini-2.5-flash";
 
   try {
     const policyRoute = await resolveAvailableRoute("exam_questions");
     if (policyRoute) {
       provider = policyRoute.provider;
       model = policyRoute.model;
-    } else {
-      const chain = await getModelChainAsync("exam_questions");
-      provider = chain[0]?.provider || "lovable";
-      model = chain[0]?.model || "openai/gpt-5-mini";
     }
   } catch (_) { /* use defaults */ }
 
-  const result = await callAIJSON({
-    provider: provider as any,
-    model,
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.7,
-    intent: "exam_questions",
-  });
+  try {
+    const result = await callAIJSON({
+      provider: provider as any,
+      model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      intent: "exam_questions",
+    });
 
-  if (Array.isArray(result) && result.length >= facets.length) {
-    return result.slice(0, facets.length);
+    if (Array.isArray(result) && result.length >= facets.length) {
+      return result.slice(0, facets.length);
+    }
+  } catch (aiErr) {
+    console.warn(`[BP-Seed] AI call failed (${provider}/${model}): ${aiErr}, using fallback`);
   }
 
   // Fallback: generate deterministic templates
