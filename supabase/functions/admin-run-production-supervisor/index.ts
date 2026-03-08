@@ -114,6 +114,34 @@ Deno.serve(async (req) => {
           result.activated++;
         }
 
+        // Budget guard check before proceeding
+        const { data: budget, error: budgetErr } = await sb.rpc("check_ai_budget_guard", {
+          p_wave_id: wave.id,
+          p_package_id: null,
+          p_policy_key: "factory_default",
+        });
+
+        if (budgetErr) {
+          result.errors.push({ wave_id: wave.id, action: "budget_guard", error: budgetErr.message });
+        } else {
+          if ((budget as any)?.warn_daily || (budget as any)?.warn_wave) {
+            result.budget_warnings++;
+          }
+          if ((budget as any)?.blocked) {
+            const { error: pauseErr } = await sb.rpc("pause_wave_for_budget", {
+              p_wave_id: wave.id,
+              p_reason: (budget as any)?.reason || "budget_blocked",
+            });
+            if (pauseErr) {
+              result.errors.push({ wave_id: wave.id, action: "pause_wave_for_budget", error: pauseErr.message });
+            } else {
+              result.budget_paused++;
+              result.skipped++;
+              continue;
+            }
+          }
+        }
+
         // Enforce wave backpressure before tick
         const { data: bp, error: bpErr } = await sb.rpc("enforce_wave_backpressure", {
           p_wave_id: wave.id,
