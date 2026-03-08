@@ -203,10 +203,16 @@ function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepAction {
 // ══════════════════════════════════════════════════════════════
 // Process a single acquired package — returns result summary
 // ══════════════════════════════════════════════════════════════
+interface StepClassContext {
+  limits: import("../_shared/step-weight.ts").StepClassLimits;
+  load: Record<StepWeightClass, Set<string>>;
+}
+
 async function processPackage(
   sb: ReturnType<typeof createClient>,
   packageId: string,
   runnerId: string,
+  stepClassCtx?: StepClassContext,
 ): Promise<Record<string, unknown>> {
   const shortId = packageId.slice(0, 8);
 
@@ -1805,6 +1811,22 @@ async function processPackage(
   // ── ENQUEUE: Create a worker job ──
   if (nextAction.action === "enqueue") {
     const stepKey = nextAction.stepKey;
+
+    // ── STEP-CLASS CAPACITY GATE ──
+    // Enforce per-class concurrency limits (Phase B Claiming Gate)
+    if (stepClassCtx) {
+      const cls = classifyStep(stepKey);
+      const currentLoad = stepClassCtx.load[cls]?.size ?? 0;
+      const limit = stepClassCtx.limits[cls] ?? 99;
+      if (currentLoad >= limit && !stepClassCtx.load[cls]?.has(packageId)) {
+        console.log(`[runner] ⏸️ Step-class gate: ${cls} at capacity (${currentLoad}/${limit}) — deferring ${stepKey} for ${shortId}`);
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, deferred: true, reason: "step_class_at_capacity", class: cls, load: currentLoad, limit };
+      }
+      // Track this package as using this class
+      stepClassCtx.load[cls]?.add(packageId);
+    }
+
     const jobType = STEP_TO_JOB_TYPE[stepKey];
     const currentStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
     const stepMeta = currentStep?.meta;
@@ -2252,6 +2274,9 @@ Deno.serve(async (req) => {
 
   console.log(`[runner] 📊 Step-class load: heavy=${classLoad.heavy.size}/${stepClassLimits.heavy} medium=${classLoad.medium.size}/${stepClassLimits.medium} validation=${classLoad.validation.size}/${stepClassLimits.validation} light=${classLoad.light.size}/${stepClassLimits.light}`);
 
+  // ── Step-class context for enforcement in processPackage ──
+  const stepClassCtx: StepClassContext = { limits: stepClassLimits, load: classLoad };
+
   const results: Record<string, unknown>[] = [];
   const processedPackageIds = new Set<string>();
 
@@ -2348,7 +2373,7 @@ Deno.serve(async (req) => {
         totalAcquired++;
 
         console.log(`[runner] Acquired ${track} slot ${i + 1}/${claimCount}: package ${packageId.slice(0, 8)}`);
-        const result = await processPackage(sb, packageId, runnerId);
+        const result = await processPackage(sb, packageId, runnerId, stepClassCtx);
         results.push({ slot: totalAcquired, track, ...result });
       }
     }
@@ -2375,7 +2400,7 @@ Deno.serve(async (req) => {
         totalAcquired++;
 
         console.log(`[runner] Borrow slot: package ${packageId.slice(0, 8)}`);
-        const result = await processPackage(sb, packageId, runnerId);
+        const result = await processPackage(sb, packageId, runnerId, stepClassCtx);
         results.push({ slot: totalAcquired, track: "borrow", ...result });
       }
     }
