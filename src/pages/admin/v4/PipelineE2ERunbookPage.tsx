@@ -80,6 +80,8 @@ export default function PipelineE2ERunbookPage() {
   const [packageId, setPackageId] = useState('');
   const [results, setResults] = useState<Record<string, CheckResult>>({});
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
+  const [serverReport, setServerReport] = useState<any>(null);
+  const [serverRunning, setServerRunning] = useState(false);
   // Ref to pass packageId into runAll without stale closure
   const pkgRef = useRef(packageId);
   pkgRef.current = packageId;
