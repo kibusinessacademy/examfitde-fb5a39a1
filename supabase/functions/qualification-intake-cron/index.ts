@@ -161,6 +161,14 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Distribution: Sync Targets → Enqueue → Worker → Status Sync
+  if (doDistribution) {
+    steps.push({
+      step: "distribution_pipeline",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "distribution-cron", {})),
+    });
+  }
+
   return jsonRes(200, {
     ok: true,
     steps,
