@@ -6,20 +6,7 @@ import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cor
 /**
  * admin-seed-production-wave — Creates a production wave and seeds curricula into it.
  *
- * Input:
- *   name:          string (wave name, e.g. "Canary Wave 1")
- *   track?:        string (default "AUSBILDUNG_VOLL")
- *   priority_min?: number (default 1)
- *   priority_max?: number (default 10)
- *   limit:         number (how many curricula to seed)
- *   max_concurrent?: number (default 8)
- *   dry_run?:      boolean (default false — preview without creating)
- *
- * Logic:
- *   1. Finds production-ready curricula (enrichment >= 100%, no active visible package)
- *   2. Ranks by market tier / priority
- *   3. Creates wave + wave_items
- *   4. Optionally creates course_packages for items that don't have one
+ * Now uses get_ready_curricula() RPC for the Curriculum Readiness Gate (Patch 10).
  */
 
 Deno.serve(async (req) => {
@@ -61,12 +48,26 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // ── Step 1: Find production-ready curricula ──
-  // A curriculum is ready when:
-  //   - It has a beruf with market data
-  //   - enrichment_progress >= 100%
-  //   - No existing visible package (building/queued/published/draft)
-  let query = sb
+  // ── Step 1: Get production-ready curricula via Readiness Gate ──
+  const { data: readyCurricula, error: rErr } = await sb.rpc(
+    "get_ready_curricula",
+    { p_limit: 500 },
+  );
+
+  if (rErr) return json(500, { error: rErr.message }, origin);
+
+  if (!readyCurricula || readyCurricula.length === 0) {
+    return json(200, {
+      ok: false,
+      error: "No production-ready curricula found (readiness gate)",
+      readiness_gate: true,
+    }, origin);
+  }
+
+  // Get market data for ranking
+  const readyIds = readyCurricula.map((c: any) => c.curriculum_id);
+
+  let curricQuery = sb
     .from("curricula")
     .select(`
       id,
@@ -80,15 +81,13 @@ Deno.serve(async (req) => {
         beruf_market_data(fit_score, demand_percentile)
       )
     `)
-    .gte("enrichment_progress", 100)
-    .order("created_at", { ascending: true })
-    .limit(500);
+    .in("id", readyIds);
 
   if (track) {
-    query = query.eq("track", track);
+    curricQuery = curricQuery.eq("track", track);
   }
 
-  const { data: curricula, error: cErr } = await query;
+  const { data: curricula, error: cErr } = await curricQuery;
   if (cErr) return json(500, { error: cErr.message }, origin);
 
   // Filter out curricula that already have a visible package
@@ -104,7 +103,6 @@ Deno.serve(async (req) => {
     courseByC.set(c.curriculum_id, c.id);
   }
 
-  // Check existing visible packages
   const courseIds = [...courseByC.values()];
   const { data: existingPackages } = await sb
     .from("course_packages")
@@ -130,7 +128,7 @@ Deno.serve(async (req) => {
   const candidates: Candidate[] = [];
   for (const c of curricula || []) {
     const courseId = courseByC.get(c.id) ?? null;
-    if (courseId && busyCourseIds.has(courseId)) continue; // Skip busy ones
+    if (courseId && busyCourseIds.has(courseId)) continue;
 
     const marketData = (c as any).berufe?.beruf_market_data?.[0];
     const fitScore = marketData?.fit_score ?? 0;
@@ -153,7 +151,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Sort by priority (highest first)
   candidates.sort((a, b) => b.priority_score - a.priority_score);
   const selected = candidates.slice(0, seedLimit);
 
@@ -161,6 +158,8 @@ Deno.serve(async (req) => {
     return json(200, {
       dry_run: true,
       wave_name: name,
+      readiness_gate: true,
+      total_ready: readyCurricula.length,
       total_eligible: candidates.length,
       selected_count: selected.length,
       selected: selected.map((c) => ({
@@ -177,8 +176,9 @@ Deno.serve(async (req) => {
   if (selected.length === 0) {
     return json(200, {
       ok: false,
-      error: "No eligible curricula found",
-      total_checked: curricula?.length ?? 0,
+      error: "No eligible curricula found after readiness + market filter",
+      readiness_gate: true,
+      total_ready: readyCurricula.length,
       candidates_after_filter: candidates.length,
     }, origin);
   }
@@ -197,8 +197,10 @@ Deno.serve(async (req) => {
       created_by: auth.userId,
       meta: {
         total_eligible: candidates.length,
+        total_ready: readyCurricula.length,
         seed_criteria: { track, priority_min, priority_max, limit: seedLimit },
         template_key,
+        readiness_gate: true,
       },
     })
     .select("id")
@@ -224,7 +226,6 @@ Deno.serve(async (req) => {
     let packageId: string | null = null;
 
     if (auto_create_packages) {
-      // Create course if needed
       if (!courseId) {
         const { data: newCourse, error: courseErr } = await sb
           .from("courses")
@@ -244,14 +245,13 @@ Deno.serve(async (req) => {
         coursesCreated++;
       }
 
-      // Create package
       const { data: newPkg, error: pkgErr } = await sb
         .from("course_packages")
         .insert({
           course_id: courseId,
           title: cand.title || cand.beruf_titel,
           status: "queued",
-          priority: 100, // factory queue priority
+          priority: 100,
           track: cand.track,
           version: 1,
           build_progress: 0,
@@ -281,7 +281,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Bulk insert wave items
   if (items.length > 0) {
     const { error: iErr } = await sb.from("production_wave_items").insert(items);
     if (iErr) {
@@ -289,12 +288,11 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Update wave counts
   await sb
     .from("production_waves")
     .update({
       seeded_count: items.length,
-      status: "draft", // ready for activation
+      status: "draft",
     })
     .eq("id", wave.id);
 
@@ -302,6 +300,8 @@ Deno.serve(async (req) => {
     ok: true,
     wave_id: wave.id,
     wave_name: name,
+    readiness_gate: true,
+    total_ready: readyCurricula.length,
     seeded: items.length,
     courses_created: coursesCreated,
     packages_created: packagesCreated,
