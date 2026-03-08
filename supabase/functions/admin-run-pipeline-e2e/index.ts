@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
     const { data: doneBundles } = await sb
       .from("job_queue").select("id,batch_cursor,payload")
       .eq("package_id", packageId!).eq("job_type", "lesson_generate_competency_bundle")
-      .eq("status", "done").limit(5);
+      .in("status", ["done", "completed"]).limit(5);
 
     const sampleCids = (doneBundles || [])
       .map((b: any) => b.batch_cursor?.competency_id || b.payload?.competency_id)
@@ -180,10 +180,11 @@ Deno.serve(async (req) => {
         .eq("package_id", packageId!).eq("job_type", "lesson_generate_content").limit(200);
 
       const matching = (lessonJobs || []).filter((j: any) => j.batch_cursor?.competency_id === cid);
+      const terminalStatuses = ["done", "completed"];
       samples.push({
         competency_id: cid.slice(0, 8),
         lesson_subjobs: matching.length,
-        done: matching.filter((j: any) => j.status === "done").length,
+        done: matching.filter((j: any) => terminalStatuses.includes(j.status)).length,
         failed: matching.filter((j: any) => j.status === "failed").length,
         pending: matching.filter((j: any) => ["pending", "processing", "queued"].includes(j.status)).length,
       });
@@ -200,7 +201,7 @@ Deno.serve(async (req) => {
     const { data: doneJobs } = await sb
       .from("job_queue").select("id,payload")
       .eq("package_id", packageId!).eq("job_type", "lesson_generate_content")
-      .eq("status", "done").limit(10);
+      .in("status", ["done", "completed"]).limit(10);
 
     const lessonIds = (doneJobs || []).map((j: any) => j.payload?.lesson_id).filter(Boolean).slice(0, 5);
     const samples = [];
