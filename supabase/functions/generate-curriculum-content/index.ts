@@ -108,7 +108,7 @@ Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
     let provider = providerOverride || "";
     let model = "";
     if (provider) {
-      model = provider === "google" ? "google/gemini-2.5-flash" : "openai/gpt-5-mini";
+      model = provider === "google" ? "gemini-2.5-flash" : "gpt-4.1";
     } else {
       // Try policy-based route first (timeout-optimized)
       const policyRoute = await resolveAvailableRoute("curriculum_enrichment");
