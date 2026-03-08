@@ -215,8 +215,24 @@ Deno.serve(async (req) => {
   const placeholderCount = totalLessons - lessons.length;
 
   if (lessons.length === 0) {
-    // CRITICAL FIX: Return 500 (not 409!) so job-runner does NOT treat this as "idempotent completed".
-    // 409 was being misinterpreted as "already done" → pipeline skipped content generation entirely.
+    // ── Distinguish: 0 total lessons (predecessor failure) vs all placeholders (retriable) ──
+    if (totalLessons === 0) {
+      // PERMANENT FAILURE: No lessons exist at all → scaffold_learning_course failed silently.
+      // Return 422 so job-runner treats this as a non-retriable error.
+      // Retrying will never help — the predecessor step must be re-run first.
+      console.error(`[validate-lessons] PERMANENT: 0 total lessons for course ${courseId} — scaffold_learning_course likely failed. Predecessor must be re-run.`);
+      return json({
+        ok: false,
+        batch_complete: false,
+        error: "PREDECESSOR_FAILURE_NO_LESSONS",
+        message: `❌ PERMANENT: Kein einziges Lesson existiert für diesen Kurs. scaffold_learning_course muss erneut ausgeführt werden.`,
+        placeholders: 0,
+        total: 0,
+        permanent: true,
+      }, 422);
+    }
+
+    // RETRIABLE: Lessons exist but all are placeholders → content gen incomplete
     console.error(`[validate-lessons] BLOCKING: ${placeholderCount}/${totalLessons} lessons are still placeholders — content generation incomplete`);
     return json({
       ok: false,
