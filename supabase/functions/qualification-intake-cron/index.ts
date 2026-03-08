@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-function json(status: number, body: unknown) {
+function jsonRes(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -28,7 +28,7 @@ async function invokeSelf(url: string, serviceKey: string, fn: string, body: unk
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return json(405, { error: "POST only" });
+  if (req.method !== "POST") return jsonRes(405, { error: "POST only" });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -41,21 +41,19 @@ Deno.serve(async (req) => {
   const doDraft = body.draft !== false;
   const doMaterialize = body.materialize !== false;
   const doWaveSync = body.wave_sync !== false;
+  const doPromoteBlueprint = body.promote_blueprint !== false;
 
   const steps: any[] = [];
 
-  // Step 1a: Dual discovery (KMK/BIBB)
   if (doDiscovery) {
     steps.push({
       step: "discovery_dual",
       ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-search-discovery", {
-        trigger_source: "cron",
-        limit: 50,
+        trigger_source: "cron", limit: 50,
       })),
     });
   }
 
-  // Step 1b: Fortbildung discovery (IHK/HWK/BIBB Fortbildungen)
   if (doFortbildungDiscovery) {
     steps.push({
       step: "discovery_fortbildung",
@@ -65,18 +63,15 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Step 2: Fetch raw documents
   if (doFetch) {
     steps.push({
       step: "fetch",
       ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-fetch-documents", {
-        worker_id: "qualification-intake-cron",
-        limit: 20,
+        worker_id: "qualification-intake-cron", limit: 20,
       })),
     });
   }
 
-  // Step 3: Parse documents
   if (doParse) {
     steps.push({
       step: "parse",
@@ -86,29 +81,24 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Step 4: Build drafts (catalog → draft)
   if (doDraft) {
     steps.push({
       step: "draft",
       ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-intake-admin", {
-        action: "build_drafts",
-        limit: 20,
+        action: "build_drafts", limit: 20,
       })),
     });
   }
 
-  // Step 5: Materialize (catalog + drafts + wave sync)
   if (doMaterialize) {
     steps.push({
       step: "materialize",
       ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-materialize", {
-        min_readiness: 70,
-        per_competency: 6,
+        min_readiness: 70, per_competency: 6,
       })),
     });
   }
 
-  // Step 6: Wave sync
   if (doWaveSync) {
     steps.push({
       step: "wave_sync",
@@ -118,7 +108,17 @@ Deno.serve(async (req) => {
     });
   }
 
-  return json(200, {
+  // NEW: Promote ready drafts → curricula + exam_blueprints + question_blueprints
+  if (doPromoteBlueprint) {
+    steps.push({
+      step: "promote_blueprint",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-promote-and-blueprint", {
+        limit: 10, per_competency: 6,
+      })),
+    });
+  }
+
+  return jsonRes(200, {
     ok: true,
     steps,
     ran_at: new Date().toISOString(),

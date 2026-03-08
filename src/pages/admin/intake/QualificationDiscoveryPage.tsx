@@ -4,37 +4,45 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Play, RefreshCw, BookOpen, GraduationCap, Award } from "lucide-react";
+import { Loader2, Play, RefreshCw, BookOpen, GraduationCap, Award, Zap } from "lucide-react";
 
 export default function QualificationDiscoveryPage() {
   const [state, setState] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [cronRunning, setCronRunning] = useState(false);
+  const [promoteRunning, setPromoteRunning] = useState(false);
 
   async function load() {
     setLoading(true);
-    const [statusRes, waveRes, catalogRes, draftsRes] = await Promise.all([
+    const [statusRes, waveRes, catalogRes, draftsRes, promotedRes] = await Promise.all([
       supabase.functions.invoke("qualification-intake-admin", { body: { action: "status" } }),
       supabase.functions.invoke("qualification-intake-admin", { body: { action: "wave_candidates" } }),
       supabase.functions.invoke("qualification-intake-admin", { body: { action: "catalog" } }),
       supabase.functions.invoke("qualification-intake-admin", { body: { action: "ready_drafts" } }),
+      supabase.functions.invoke("qualification-intake-admin", { body: { action: "promoted" } }),
     ]);
     setState({
       status: statusRes.data,
       waveCandidates: waveRes.data?.candidates || [],
       catalog: catalogRes.data?.catalog || [],
       drafts: draftsRes.data?.drafts || [],
+      promoted: promotedRes.data?.promoted || [],
     });
     setLoading(false);
   }
 
   async function runCron() {
     setCronRunning(true);
-    await supabase.functions.invoke("qualification-intake-admin", {
-      body: { action: "run_cron" },
-    });
+    await supabase.functions.invoke("qualification-intake-admin", { body: { action: "run_cron" } });
     await load();
     setCronRunning(false);
+  }
+
+  async function runPromote() {
+    setPromoteRunning(true);
+    await supabase.functions.invoke("qualification-intake-admin", { body: { action: "promote_blueprint" } });
+    await load();
+    setPromoteRunning(false);
   }
 
   useEffect(() => { load(); }, []);
@@ -47,13 +55,17 @@ export default function QualificationDiscoveryPage() {
         <div>
           <h1 className="text-xl font-semibold">Qualification Intake Pipeline</h1>
           <p className="text-sm text-muted-foreground">
-            Dual + Fortbildung · Discovery → Parse → Catalog → Draft → Wave
+            Dual + Fortbildung · Discovery → Parse → Catalog → Draft → Curriculum → Blueprint → Questions
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
             Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={runPromote} disabled={promoteRunning}>
+            {promoteRunning ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Zap className="h-4 w-4 mr-1" />}
+            Promote & Blueprint
           </Button>
           <Button size="sm" onClick={runCron} disabled={cronRunning}>
             {cronRunning ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Play className="h-4 w-4 mr-1" />}
@@ -63,7 +75,7 @@ export default function QualificationDiscoveryPage() {
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" /> Search Runs</CardTitle></CardHeader>
           <CardContent><div className="text-2xl font-semibold">{s.search_runs ?? "–"}</div></CardContent>
@@ -71,10 +83,6 @@ export default function QualificationDiscoveryPage() {
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Candidates</CardTitle></CardHeader>
           <CardContent><div className="text-2xl font-semibold">{s.candidates ?? "–"}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Pending Fetches</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{s.pending_fetches ?? "–"}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5" /> Catalog</CardTitle></CardHeader>
@@ -85,12 +93,24 @@ export default function QualificationDiscoveryPage() {
           <CardContent><div className="text-2xl font-semibold">{s.fortbildung_catalog ?? "–"}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Drafts</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{s.curriculum_drafts ?? "–"}</div></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Drafts Ready</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.drafts_ready ?? "–"}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Ready</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{s.drafts_ready ?? "–"}</div></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1"><Zap className="h-3.5 w-3.5" /> Promoted</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.promoted_curricula ?? "–"}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Blueprinted</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.blueprinted ?? "–"}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Seed Runs</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.seed_runs_done ?? "–"}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Pending Fetches</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.pending_fetches ?? "–"}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Wave Candidates</CardTitle></CardHeader>
@@ -99,12 +119,34 @@ export default function QualificationDiscoveryPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="catalog">
+      <Tabs defaultValue="promoted">
         <TabsList>
+          <TabsTrigger value="promoted">Promoted Curricula</TabsTrigger>
           <TabsTrigger value="catalog">Qualification Catalog</TabsTrigger>
           <TabsTrigger value="drafts">Ready Drafts</TabsTrigger>
           <TabsTrigger value="wave">Wave Candidates</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="promoted" className="space-y-2 mt-3">
+          {(state.promoted || []).length === 0 && (
+            <p className="text-sm text-muted-foreground">Keine promoted Curricula vorhanden.</p>
+          )}
+          {(state.promoted || []).map((p: any) => (
+            <div key={p.id} className="rounded-lg border p-3">
+              <div className="font-medium text-sm">{p.draft?.draft_title || p.curriculum?.title}</div>
+              <div className="flex gap-2 mt-1 flex-wrap">
+                <Badge variant={p.promotion_status === "question_seeded" ? "default" : "outline"}>
+                  {p.promotion_status}
+                </Badge>
+                {p.draft?.award_type && <Badge variant="secondary">{p.draft.award_type}</Badge>}
+                {p.draft?.education_type && <Badge variant="outline">{p.draft.education_type}</Badge>}
+                <span className="text-xs text-muted-foreground">
+                  Readiness {p.draft?.readiness_score} · Curriculum: {p.curriculum?.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </TabsContent>
 
         <TabsContent value="catalog" className="space-y-2 mt-3">
           {(state.catalog || []).length === 0 && (
@@ -153,9 +195,6 @@ export default function QualificationDiscoveryPage() {
               <div className="flex gap-2 mt-1 flex-wrap">
                 {c.award_type && <Badge variant="outline">{c.award_type}</Badge>}
                 {c.provider_family && <Badge variant="secondary">{c.provider_family}</Badge>}
-                {c.qualification_catalog?.education_type && (
-                  <Badge>{c.qualification_catalog.education_type}</Badge>
-                )}
                 <span className="text-xs text-muted-foreground">
                   Readiness {c.readiness_score} · Priority {c.promotion_priority}
                 </span>

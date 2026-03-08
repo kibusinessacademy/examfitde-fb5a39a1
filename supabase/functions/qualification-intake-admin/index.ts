@@ -18,19 +18,21 @@ Deno.serve(async (req) => {
 
   // --- STATUS ---
   if (action === "status") {
-    const [runs, candidates, queue, catalog, drafts, waveCands] = await Promise.all([
+    const [runs, candidates, queue, catalog, drafts, waveCands, promoted, seedRuns] = await Promise.all([
       sb.from("qualification_search_runs").select("id", { count: "exact", head: true }),
       sb.from("qualification_candidates").select("id", { count: "exact", head: true }),
       sb.from("qualification_fetch_queue").select("id", { count: "exact", head: true }).eq("status", "pending"),
       sb.from("qualification_catalog").select("id", { count: "exact", head: true }),
       sb.from("qualification_curriculum_drafts").select("id", { count: "exact", head: true }),
       sb.from("qualification_wave_candidates").select("id", { count: "exact", head: true }),
+      sb.from("qualification_curriculum_map").select("id", { count: "exact", head: true }),
+      sb.from("qualification_question_seed_runs").select("id", { count: "exact", head: true }).eq("status", "done"),
     ]);
 
-    // Fortbildung-specific counts
-    const [fortCatalog, fortDraftsReady] = await Promise.all([
+    const [fortCatalog, draftsReady, blueprinted] = await Promise.all([
       sb.from("qualification_catalog").select("id", { count: "exact", head: true }).neq("education_type", "dual_ausbildung"),
-      sb.from("qualification_curriculum_drafts").select("id", { count: "exact", head: true }).in("status", ["ready", "promoted"]),
+      sb.from("qualification_curriculum_drafts").select("id", { count: "exact", head: true }).in("status", ["ready"]),
+      sb.from("qualification_curriculum_map").select("id", { count: "exact", head: true }).in("promotion_status", ["blueprinted", "question_seeded"]),
     ]);
 
     return json(200, {
@@ -42,7 +44,10 @@ Deno.serve(async (req) => {
       curriculum_drafts: drafts.count ?? 0,
       wave_candidates: waveCands.count ?? 0,
       fortbildung_catalog: fortCatalog.count ?? 0,
-      drafts_ready: fortDraftsReady.count ?? 0,
+      drafts_ready: draftsReady.count ?? 0,
+      promoted_curricula: promoted.count ?? 0,
+      blueprinted: blueprinted.count ?? 0,
+      seed_runs_done: seedRuns.count ?? 0,
     }, origin);
   }
 
@@ -53,8 +58,21 @@ Deno.serve(async (req) => {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(100);
-
     return json(200, { ok: !error, catalog: data || [] }, origin);
+  }
+
+  // --- PROMOTED MAP ---
+  if (action === "promoted") {
+    const { data, error } = await sb
+      .from("qualification_curriculum_map")
+      .select(`
+        *,
+        draft:draft_id(draft_title, award_type, education_type, readiness_score),
+        curriculum:curriculum_id(id, title, status)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    return json(200, { ok: !error, promoted: data || [] }, origin);
   }
 
   // --- READY DRAFTS ---
@@ -63,18 +81,9 @@ Deno.serve(async (req) => {
     const { data, error } = await sb
       .from("qualification_curriculum_drafts")
       .select(`
-        id,
-        draft_title,
-        readiness_score,
-        status,
-        structure_json,
+        id, draft_title, readiness_score, status,
         qualification_catalog:qualification_catalog_id(
-          id,
-          canonical_title,
-          award_type,
-          provider_family,
-          education_type,
-          qualification_level
+          id, canonical_title, award_type, provider_family, education_type, qualification_level
         )
       `)
       .gte("readiness_score", minReadiness)
@@ -85,10 +94,8 @@ Deno.serve(async (req) => {
     return json(200, {
       ok: !error,
       drafts: (data || []).map((d: any) => ({
-        draft_id: d.id,
-        draft_title: d.draft_title,
-        readiness_score: d.readiness_score,
-        status: d.status,
+        draft_id: d.id, draft_title: d.draft_title,
+        readiness_score: d.readiness_score, status: d.status,
         award_type: d.qualification_catalog?.award_type,
         provider_family: d.qualification_catalog?.provider_family,
         education_type: d.qualification_catalog?.education_type,
@@ -108,7 +115,6 @@ Deno.serve(async (req) => {
       `)
       .order("promotion_priority", { ascending: false })
       .limit(100);
-
     return json(200, { ok: !error, candidates: data || [] }, origin);
   }
 
@@ -119,21 +125,13 @@ Deno.serve(async (req) => {
 
     const res = await fetch(`${supabaseUrl}/functions/v1/qualification-intake-cron`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceKey}`,
-      },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
       body: JSON.stringify({
-        discovery: true,
-        fortbildung_discovery: true,
-        fetch: true,
-        parse: true,
-        draft: true,
-        materialize: true,
-        wave_sync: true,
+        discovery: true, fortbildung_discovery: true,
+        fetch: true, parse: true, draft: true,
+        materialize: true, wave_sync: true, promote_blueprint: true,
       }),
     });
-
     const data = await res.json().catch(() => null);
     return json(200, { ok: res.ok, result: data }, origin);
   }
@@ -143,7 +141,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Catalog build
     const catRes = await fetch(`${supabaseUrl}/functions/v1/qualification-build-catalog-entry`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
@@ -151,7 +148,6 @@ Deno.serve(async (req) => {
     });
     const catData = await catRes.json().catch(() => ({}));
 
-    // Draft build
     const draftRes = await fetch(`${supabaseUrl}/functions/v1/qualification-build-curriculum-draft`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
@@ -160,6 +156,20 @@ Deno.serve(async (req) => {
     const draftData = await draftRes.json().catch(() => ({}));
 
     return json(200, { ok: true, catalog: catData, drafts: draftData }, origin);
+  }
+
+  // --- PROMOTE + BLUEPRINT ---
+  if (action === "promote_blueprint") {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const res = await fetch(`${supabaseUrl}/functions/v1/qualification-promote-and-blueprint`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+      body: JSON.stringify({ limit: body.limit ?? 10, per_competency: body.per_competency ?? 6 }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return json(200, { ok: res.ok, result: data }, origin);
   }
 
   return json(400, { error: `Unknown action: ${action}` }, origin);
