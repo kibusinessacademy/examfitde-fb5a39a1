@@ -719,6 +719,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -5661,6 +5668,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -6366,6 +6380,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -6495,6 +6516,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -6651,6 +6679,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -6795,6 +6830,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -6957,6 +6999,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -10494,6 +10543,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -16804,6 +16860,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -17050,6 +17113,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -17908,6 +17978,13 @@ export type Database = {
             foreignKeyName: "package_leases_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -18222,6 +18299,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -18351,6 +18435,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -18824,6 +18915,13 @@ export type Database = {
             columns: ["active_package_id"]
             isOneToOne: false
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -19326,6 +19424,13 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -19797,6 +19902,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -29282,6 +29394,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -30669,6 +30788,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -30835,6 +30961,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -30961,6 +31094,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -31179,6 +31319,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -31451,6 +31598,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -31667,6 +31821,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_publish_readiness"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_step_load"
             referencedColumns: ["package_id"]
           },
           {
@@ -32920,6 +33081,18 @@ export type Database = {
             referencedColumns: ["course_id"]
           },
         ]
+      }
+      v_package_step_load: {
+        Row: {
+          package_id: string | null
+          package_status: string | null
+          package_title: string | null
+          step_class: string | null
+          step_key: string | null
+          step_status: Database["public"]["Enums"]["step_status"] | null
+          track: Database["public"]["Enums"]["product_track"] | null
+        }
+        Relationships: []
       }
       v_pipeline_alerts: {
         Row: {
@@ -35038,6 +35211,7 @@ export type Database = {
           title: string
         }[]
       }
+      get_pipeline_capacity_snapshot: { Args: never; Returns: Json }
       get_pipeline_performance_snapshot: { Args: never; Returns: Json }
       get_placeholder_lessons: {
         Args: { p_course_id?: string; p_limit?: number }
