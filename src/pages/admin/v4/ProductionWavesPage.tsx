@@ -244,6 +244,20 @@ export default function ProductionWavesPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Supervisor result */}
+      {runSupervisor.data && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Letzter Supervisor-Run</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="overflow-auto whitespace-pre-wrap text-xs rounded-lg border p-3">
+              {JSON.stringify(runSupervisor.data, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
