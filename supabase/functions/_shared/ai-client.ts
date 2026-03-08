@@ -80,7 +80,7 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
   },
   lovable: {
     url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    model: "google/gemini-2.5-flash",
+    model: "openai/gpt-5.2",
     keyEnv: "LOVABLE_API_KEY",
     format: "openai",
   },
