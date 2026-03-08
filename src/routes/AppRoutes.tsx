@@ -81,6 +81,7 @@ const WorkCommercePage = lazy(() => import('@/pages/admin/v4/BerufsKICommercePag
 const WorkAffiliateDashboard = lazy(() => import('@/pages/admin/v4/BerufsKIAffiliateDashboard'));
 const ProductionWavesPage = lazy(() => import('@/pages/admin/v4/ProductionWavesPage'));
 const ProductionWaveDetailPage = lazy(() => import('@/pages/admin/factory/ProductionWaveDetailPage'));
+const ProductionWaveTriagePage = lazy(() => import('@/pages/admin/factory/ProductionWaveTriagePage'));
 
 // Control Tower Pages (new SSOT Leitzentrale)
 const AdminControlTowerPage = lazy(() => import('@/pages/admin/AdminControlTowerPage'));
