@@ -36510,7 +36510,12 @@ export type Database = {
         | "audit"
       course_status: "draft" | "generating" | "published" | "archived"
       coverage_tier: "BLOCK" | "PASS" | "STRONG" | "DOMINANT"
-      curriculum_status: "draft" | "extracting" | "normalizing" | "frozen"
+      curriculum_status:
+        | "draft"
+        | "extracting"
+        | "normalizing"
+        | "frozen"
+        | "archived"
       decision_structure_type:
         | "single_best_answer"
         | "multiple_valid_options"
@@ -36851,7 +36856,13 @@ export const Constants = {
       ],
       course_status: ["draft", "generating", "published", "archived"],
       coverage_tier: ["BLOCK", "PASS", "STRONG", "DOMINANT"],
-      curriculum_status: ["draft", "extracting", "normalizing", "frozen"],
+      curriculum_status: [
+        "draft",
+        "extracting",
+        "normalizing",
+        "frozen",
+        "archived",
+      ],
       decision_structure_type: [
         "single_best_answer",
         "multiple_valid_options",
