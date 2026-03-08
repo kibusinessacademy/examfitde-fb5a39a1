@@ -7190,6 +7190,258 @@ export type Database = {
           },
         ]
       }
+      curriculum_intelligence_scores: {
+        Row: {
+          competition_gap_score: number
+          created_at: string
+          curriculum_id: string | null
+          demand_score: number
+          exam_relevance_score: number
+          id: string
+          last_computed_at: string
+          monetization_score: number
+          overall_priority_score: number
+          qualification_catalog_id: string | null
+          readiness_score: number
+          reasoning: Json
+          recommendation: string
+          strategic_fit_score: number
+          updated_at: string
+        }
+        Insert: {
+          competition_gap_score?: number
+          created_at?: string
+          curriculum_id?: string | null
+          demand_score?: number
+          exam_relevance_score?: number
+          id?: string
+          last_computed_at?: string
+          monetization_score?: number
+          overall_priority_score?: number
+          qualification_catalog_id?: string | null
+          readiness_score?: number
+          reasoning?: Json
+          recommendation?: string
+          strategic_fit_score?: number
+          updated_at?: string
+        }
+        Update: {
+          competition_gap_score?: number
+          created_at?: string
+          curriculum_id?: string | null
+          demand_score?: number
+          exam_relevance_score?: number
+          id?: string
+          last_computed_at?: string
+          monetization_score?: number
+          overall_priority_score?: number
+          qualification_catalog_id?: string | null
+          readiness_score?: number
+          reasoning?: Json
+          recommendation?: string
+          strategic_fit_score?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_intelligence_scores_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_intelligence_scores_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_intelligence_scores_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_intelligence_scores_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_intelligence_scores_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_market_signals: {
+        Row: {
+          created_at: string
+          curriculum_id: string | null
+          id: string
+          meta: Json
+          observed_at: string
+          qualification_catalog_id: string | null
+          signal_key: string
+          signal_source: string
+          signal_unit: string | null
+          signal_value: number
+          signal_weight: number
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          meta?: Json
+          observed_at?: string
+          qualification_catalog_id?: string | null
+          signal_key: string
+          signal_source: string
+          signal_unit?: string | null
+          signal_value?: number
+          signal_weight?: number
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          meta?: Json
+          observed_at?: string
+          qualification_catalog_id?: string | null
+          signal_key?: string
+          signal_source?: string
+          signal_unit?: string | null
+          signal_value?: number
+          signal_weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_market_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_market_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_market_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_market_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_market_signals_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_priority_recommendations: {
+        Row: {
+          blocking_reasons: Json
+          created_at: string
+          curriculum_id: string | null
+          id: string
+          meta: Json
+          qualification_catalog_id: string | null
+          recommendations: Json
+          recommended_for_wave: boolean
+          recommended_priority: number
+          recommended_track: string
+          score_snapshot: Json
+          updated_at: string
+          wave_status: string
+        }
+        Insert: {
+          blocking_reasons?: Json
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          meta?: Json
+          qualification_catalog_id?: string | null
+          recommendations?: Json
+          recommended_for_wave?: boolean
+          recommended_priority?: number
+          recommended_track?: string
+          score_snapshot?: Json
+          updated_at?: string
+          wave_status?: string
+        }
+        Update: {
+          blocking_reasons?: Json
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          meta?: Json
+          qualification_catalog_id?: string | null
+          recommendations?: Json
+          recommended_for_wave?: boolean
+          recommended_priority?: number
+          recommended_track?: string
+          score_snapshot?: Json
+          updated_at?: string
+          wave_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_priority_recommendatio_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_priority_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_priority_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_priority_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_priority_recommendations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
       curriculum_products: {
         Row: {
           blueprint_id: string | null
@@ -7317,6 +7569,42 @@ export type Database = {
             referencedColumns: ["product_id"]
           },
         ]
+      }
+      curriculum_signal_runs: {
+        Row: {
+          error_count: number
+          finished_at: string | null
+          id: string
+          meta: Json
+          processed_count: number
+          run_type: string
+          started_at: string
+          status: string
+          updated_count: number
+        }
+        Insert: {
+          error_count?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          processed_count?: number
+          run_type: string
+          started_at?: string
+          status?: string
+          updated_count?: number
+        }
+        Update: {
+          error_count?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          processed_count?: number
+          run_type?: string
+          started_at?: string
+          status?: string
+          updated_count?: number
+        }
+        Relationships: []
       }
       curriculum_source_documents: {
         Row: {
@@ -30411,6 +30699,10 @@ export type Database = {
         Args: { p_certification_id: string }
         Returns: Json
       }
+      compute_curriculum_intelligence_score: {
+        Args: { p_qualification_catalog_id: string }
+        Returns: Json
+      }
       compute_elite_score: {
         Args: {
           p_cognitive_level: string
@@ -30965,6 +31257,10 @@ export type Database = {
           last_n: number
           total: number
         }[]
+      }
+      get_latest_signal_value: {
+        Args: { p_qualification_catalog_id: string; p_signal_key: string }
+        Returns: number
       }
       get_learner_competency_profile: {
         Args: { p_curriculum_id: string; p_learner_id: string }
@@ -32207,6 +32503,7 @@ export type Database = {
         }
         Returns: Json
       }
+      sync_curriculum_priority_recommendations: { Args: never; Returns: Json }
       sync_qualification_wave_candidates: {
         Args: { p_min_readiness?: number }
         Returns: Json
@@ -32356,6 +32653,19 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      upsert_curriculum_market_signal: {
+        Args: {
+          p_curriculum_id: string
+          p_meta?: Json
+          p_qualification_catalog_id: string
+          p_signal_key: string
+          p_signal_source: string
+          p_signal_unit?: string
+          p_signal_value: number
+          p_signal_weight?: number
+        }
+        Returns: string
       }
       upsert_parsed_qualification_model: {
         Args: {
