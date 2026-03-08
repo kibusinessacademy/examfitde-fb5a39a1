@@ -37,6 +37,22 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(20);
 
+    // Load per-wave item counts
+    const waveIds = (waves || []).map((w: any) => w.id);
+    const { data: allWaveItems } = waveIds.length > 0
+      ? await sb
+          .from("production_wave_items")
+          .select("wave_id, status")
+          .in("wave_id", waveIds)
+      : { data: [] };
+
+    const byWave = new Map<string, Record<string, number>>();
+    for (const item of allWaveItems || []) {
+      const row = byWave.get(item.wave_id) || {};
+      row[item.status] = (row[item.status] || 0) + 1;
+      byWave.set(item.wave_id, row);
+    }
+
     const { count: buildingCount } = await sb
       .from("course_packages")
       .select("id", { count: "exact", head: true })
@@ -59,20 +75,28 @@ Deno.serve(async (req) => {
       .gte("updated_at", new Date(Date.now() - 3600_000).toISOString());
 
     return json(200, {
-      waves: (waves || []).map((w: any) => ({
-        id: w.id,
-        name: w.name,
-        status: w.status,
-        target: w.target_count,
-        seeded: w.seeded_count,
-        completed: w.completed_count,
-        failed: w.failed_count,
-        published: w.published_count,
-        blocked: w.blocked_count,
-        max_concurrent: w.max_concurrent,
-        started_at: w.started_at,
-        finished_at: w.finished_at,
-      })),
+      waves: (waves || []).map((w: any) => {
+        const counts = byWave.get(w.id) || {};
+        return {
+          id: w.id,
+          name: w.name,
+          status: w.status,
+          target: w.target_count,
+          seeded: w.seeded_count,
+          completed: w.completed_count,
+          failed: w.failed_count,
+          published: w.published_count,
+          blocked: w.blocked_count,
+          max_concurrent: w.max_concurrent,
+          pending_items: counts.pending || 0,
+          queued_items: counts.queued || 0,
+          building_items: counts.building || 0,
+          quality_gate_passed_items: counts.quality_gate_passed || 0,
+          quality_gate_failed_items: counts.quality_gate_failed || 0,
+          started_at: w.started_at,
+          finished_at: w.finished_at,
+        };
+      }),
       global_health: {
         packages_building: buildingCount ?? 0,
         packages_queued: queuedCount ?? 0,
@@ -108,34 +132,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { data: pendingItems } = await sb
-      .from("production_wave_items")
-      .select("id, package_id")
-      .eq("wave_id", waveId)
-      .eq("status", "pending");
-
-    let activated = 0;
-
-    for (const item of pendingItems || []) {
-      if (item.package_id) {
-        await sb
-          .from("course_packages")
-          .update({ status: "queued", priority: 8 })
-          .eq("id", item.package_id)
-          .in("status", ["queued", "planning", "draft"]);
-      }
-
-      await sb
-        .from("production_wave_items")
-        .update({
-          status: "queued",
-          started_at: new Date().toISOString(),
-        })
-        .eq("id", item.id);
-
-      activated++;
-    }
-
+    // Set wave to active first, then use backpressure to promote only max_concurrent items
     await sb
       .from("production_waves")
       .update({
@@ -144,7 +141,35 @@ Deno.serve(async (req) => {
       })
       .eq("id", waveId);
 
-    return json(200, { ok: true, activated, wave_status: "active" }, origin);
+    const { data: bp, error: bpErr } = await sb.rpc("enforce_wave_backpressure", {
+      p_wave_id: waveId,
+    });
+
+    if (bpErr) {
+      return json(500, { ok: false, error: bpErr.message }, origin);
+    }
+
+    return json(200, {
+      ok: true,
+      wave_status: "active",
+      promoted: (bp as any)?.promoted ?? 0,
+      backpressure: bp,
+    }, origin);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACTION: backpressure
+  // ═══════════════════════════════════════════════════════════════
+  if (action === "backpressure") {
+    const { data, error } = await sb.rpc("enforce_wave_backpressure", {
+      p_wave_id: waveId,
+    });
+
+    if (error) {
+      return json(500, { ok: false, error: error.message }, origin);
+    }
+
+    return json(200, { ok: true, result: data }, origin);
   }
 
   // ═══════════════════════════════════════════════════════════════

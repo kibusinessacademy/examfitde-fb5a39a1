@@ -18,3 +18,26 @@ export function useRunProductionSupervisor() {
     },
   });
 }
+
+export function useRunWaveBackpressure() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (waveId: string) => {
+      const { data, error } = await supabase.functions.invoke(
+        "admin-production-supervisor",
+        {
+          body: {
+            action: "backpressure",
+            wave_id: waveId,
+          },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["production-wave-status"] });
+    },
+  });
+}

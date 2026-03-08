@@ -29188,6 +29188,7 @@ export type Database = {
         Returns: Json
       }
       enforce_priority_gate: { Args: never; Returns: undefined }
+      enforce_wave_backpressure: { Args: { p_wave_id: string }; Returns: Json }
       enqueue_blueprint_gap_jobs: {
         Args: { p_cap?: number; p_curriculum_id: string; p_reason?: string }
         Returns: Json

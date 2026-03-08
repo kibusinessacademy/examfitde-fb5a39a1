@@ -51,6 +51,8 @@ Deno.serve(async (req) => {
     ok: true,
     checked_waves: 0,
     activated: 0,
+    backpressure_runs: 0,
+    promoted_items: 0,
     ticked: 0,
     finalized: 0,
     skipped: 0,
@@ -107,6 +109,22 @@ Deno.serve(async (req) => {
             continue;
           }
           result.activated++;
+        }
+
+        // Enforce wave backpressure before tick
+        const { data: bp, error: bpErr } = await sb.rpc("enforce_wave_backpressure", {
+          p_wave_id: wave.id,
+        });
+
+        if (bpErr) {
+          result.errors.push({
+            wave_id: wave.id,
+            action: "backpressure",
+            error: bpErr.message,
+          });
+        } else {
+          result.backpressure_runs++;
+          result.promoted_items += Number((bp as any)?.promoted ?? 0);
         }
 
         // Tick active waves
