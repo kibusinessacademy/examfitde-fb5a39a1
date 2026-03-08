@@ -16507,6 +16507,134 @@ export type Database = {
           },
         ]
       }
+      production_wave_items: {
+        Row: {
+          course_id: string | null
+          created_at: string
+          curriculum_id: string
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          meta: Json | null
+          package_id: string | null
+          priority: number | null
+          publish_blocked_reason: string | null
+          quality_score: number | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["wave_item_status"]
+          updated_at: string
+          wave_id: string
+        }
+        Insert: {
+          course_id?: string | null
+          created_at?: string
+          curriculum_id: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          meta?: Json | null
+          package_id?: string | null
+          priority?: number | null
+          publish_blocked_reason?: string | null
+          quality_score?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["wave_item_status"]
+          updated_at?: string
+          wave_id: string
+        }
+        Update: {
+          course_id?: string | null
+          created_at?: string
+          curriculum_id?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          meta?: Json | null
+          package_id?: string | null
+          priority?: number | null
+          publish_blocked_reason?: string | null
+          quality_score?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["wave_item_status"]
+          updated_at?: string
+          wave_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_wave_items_wave_id_fkey"
+            columns: ["wave_id"]
+            isOneToOne: false
+            referencedRelation: "production_waves"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_waves: {
+        Row: {
+          blocked_count: number
+          completed_count: number
+          created_at: string
+          created_by: string | null
+          failed_count: number
+          finished_at: string | null
+          id: string
+          max_concurrent: number
+          meta: Json | null
+          name: string
+          priority_max: number | null
+          priority_min: number | null
+          published_count: number
+          seeded_count: number
+          started_at: string | null
+          status: Database["public"]["Enums"]["wave_status"]
+          target_count: number
+          track: string | null
+          updated_at: string
+        }
+        Insert: {
+          blocked_count?: number
+          completed_count?: number
+          created_at?: string
+          created_by?: string | null
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          max_concurrent?: number
+          meta?: Json | null
+          name: string
+          priority_max?: number | null
+          priority_min?: number | null
+          published_count?: number
+          seeded_count?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["wave_status"]
+          target_count?: number
+          track?: string | null
+          updated_at?: string
+        }
+        Update: {
+          blocked_count?: number
+          completed_count?: number
+          created_at?: string
+          created_by?: string | null
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          max_concurrent?: number
+          meta?: Json | null
+          name?: string
+          priority_max?: number | null
+          priority_min?: number | null
+          published_count?: number
+          seeded_count?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["wave_status"]
+          target_count?: number
+          track?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           active_package_id: string | null
@@ -29718,6 +29846,7 @@ export type Database = {
           valid_until: string
         }[]
       }
+      get_wave_summary: { Args: { p_wave_id: string }; Returns: Json }
       growth_user_candidates: {
         Args: { p_cutoff: string; p_limit?: number }
         Returns: {
@@ -31010,6 +31139,22 @@ export type Database = {
         | "contextual"
         | "distractor_rotation"
       vark_type: "visual" | "auditory" | "reading" | "kinesthetic"
+      wave_item_status:
+        | "pending"
+        | "queued"
+        | "building"
+        | "quality_gate_passed"
+        | "quality_gate_failed"
+        | "published"
+        | "blocked"
+        | "skipped"
+      wave_status:
+        | "draft"
+        | "seeding"
+        | "active"
+        | "paused"
+        | "completed"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -31346,6 +31491,24 @@ export const Constants = {
         "distractor_rotation",
       ],
       vark_type: ["visual", "auditory", "reading", "kinesthetic"],
+      wave_item_status: [
+        "pending",
+        "queued",
+        "building",
+        "quality_gate_passed",
+        "quality_gate_failed",
+        "published",
+        "blocked",
+        "skipped",
+      ],
+      wave_status: [
+        "draft",
+        "seeding",
+        "active",
+        "paused",
+        "completed",
+        "cancelled",
+      ],
     },
   },
 } as const
