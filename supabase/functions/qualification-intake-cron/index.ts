@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
   const doCampaign = body.campaign !== false;
   const doDistribution = body.distribution !== false;
   const doOptimization = body.optimization !== false;
+  const doControlPlane = body.control_plane !== false;
 
   const steps: any[] = [];
 
@@ -175,6 +176,14 @@ Deno.serve(async (req) => {
     steps.push({
       step: "optimization_pipeline",
       ...(await invokeSelf(supabaseUrl, serviceKey, "optimization-cron", {})),
+    });
+  }
+
+  // Master Control Plane: Snapshot → Policy Eval → Action Executor
+  if (doControlPlane) {
+    steps.push({
+      step: "control_plane",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "control-plane-cron", {})),
     });
   }
 
