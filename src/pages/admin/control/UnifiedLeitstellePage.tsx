@@ -100,6 +100,8 @@ export default function UnifiedLeitstellePage() {
         <MetricCard title="Probe Fails" value={snapshot?.probes?.failed_count ?? 0} subtitle={`Critical: ${snapshot?.probes?.critical_failed_count ?? 0}`} />
       </div>
 
+      <PipelinePerformanceBoard data={perfData} />
+
       {(snapshotLoading || feedLoading) && (
         <div className="text-sm text-muted-foreground animate-pulse">Leitstelle lädt…</div>
       )}
