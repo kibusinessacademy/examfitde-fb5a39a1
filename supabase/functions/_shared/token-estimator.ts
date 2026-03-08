@@ -19,6 +19,7 @@ const PRICING_EUR_PER_M: Record<string, { input: number; output: number }> = {
   "openai/gpt-5-nano":            { input: 0.09,  output: 0.37 },
   "openai/gpt-5.2":               { input: 2.76,  output: 11.0 },
   // Direct provider models
+  "gpt-5-mini":                   { input: 0.37,  output: 1.47 },
   "gpt-4.1":                      { input: 1.84,  output: 7.36 },
   "gpt-4o-mini":                  { input: 0.14,  output: 0.55 },
   "claude-sonnet-4-20250514":     { input: 2.76,  output: 13.8 },

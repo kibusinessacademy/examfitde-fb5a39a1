@@ -10,8 +10,8 @@ import { canonicalStepKey } from "../_shared/step-keys.ts";
  * for ONE lesson-step. Called by job-runner with job_type = "council_run_step".
  *
  * Governance invariants enforced:
- * - GPT-4.1 may ONLY propose/revise (never critique/vote)
- * - Claude Sonnet 4 may ONLY critique (never propose/revise)
+  * - GPT-5-mini may ONLY propose/revise (never critique/vote)
+  * - Claude Sonnet 4 may ONLY critique (never propose/revise)
  * - Claude has HARD VETO power (rejected = rejected, no override)
  * - Votes are aggregated via structured function, not read from critique
  * - Publish requires approved council_verdict (DB trigger enforced)
