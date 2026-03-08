@@ -141,6 +141,16 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Revenue Intelligence: Signal Ingest → GTM Score → Launch Recommendations
+  if (doRevenue) {
+    steps.push({
+      step: "revenue_pipeline",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-revenue-cron", {
+        limit: 200,
+      })),
+    });
+  }
+
   return jsonRes(200, {
     ok: true,
     steps,
