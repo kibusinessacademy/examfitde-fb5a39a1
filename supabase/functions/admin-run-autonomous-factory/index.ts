@@ -123,14 +123,19 @@ Deno.serve(async (req) => {
     if (plannedWaveId && plannedItems > 0 && policy.auto_activate_wave) {
       // Activate via supervisor
       try {
+        const activateHeaders: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (edgeSecret) {
+          activateHeaders["x-internal-secret"] = edgeSecret;
+        } else {
+          activateHeaders["Authorization"] = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+        }
         const res = await fetch(
           `${Deno.env.get("SUPABASE_URL")}/functions/v1/admin-production-supervisor`,
           {
             method: "POST",
-            headers: {
-              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-              "Content-Type": "application/json",
-            },
+            headers: activateHeaders,
             body: JSON.stringify({
               action: "activate",
               wave_id: plannedWaveId,

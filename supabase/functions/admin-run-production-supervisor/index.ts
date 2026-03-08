@@ -47,6 +47,16 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+  // Build internal headers for all sub-calls
+  const internalHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (edgeSecret) {
+    internalHeaders["x-internal-secret"] = edgeSecret;
+  } else {
+    internalHeaders["Authorization"] = `Bearer ${serviceKey}`;
+  }
+
   const result = {
     ok: true,
     checked_waves: 0,
@@ -90,10 +100,7 @@ Deno.serve(async (req) => {
             `${supabaseUrl}/functions/v1/admin-production-supervisor`,
             {
               method: "POST",
-              headers: {
-                Authorization: `Bearer ${serviceKey}`,
-                "Content-Type": "application/json",
-              },
+              headers: internalHeaders,
               body: JSON.stringify({
                 action: "activate",
                 wave_id: wave.id,
@@ -163,10 +170,7 @@ Deno.serve(async (req) => {
           `${supabaseUrl}/functions/v1/admin-production-supervisor`,
           {
             method: "POST",
-            headers: {
-              Authorization: `Bearer ${serviceKey}`,
-              "Content-Type": "application/json",
-            },
+            headers: internalHeaders,
             body: JSON.stringify({
               action: "tick",
               wave_id: wave.id,
@@ -191,10 +195,7 @@ Deno.serve(async (req) => {
           `${supabaseUrl}/functions/v1/admin-production-supervisor`,
           {
             method: "POST",
-            headers: {
-              Authorization: `Bearer ${serviceKey}`,
-              "Content-Type": "application/json",
-            },
+            headers: internalHeaders,
             body: JSON.stringify({
               action: "publish_ready",
               wave_id: wave.id,
@@ -240,10 +241,7 @@ Deno.serve(async (req) => {
             `${supabaseUrl}/functions/v1/admin-production-supervisor`,
             {
               method: "POST",
-              headers: {
-                Authorization: `Bearer ${serviceKey}`,
-                "Content-Type": "application/json",
-              },
+              headers: internalHeaders,
               body: JSON.stringify({
                 action: "finalize",
                 wave_id: wave.id,
