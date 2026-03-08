@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, Loader2, Play,
-  AlertTriangle, RefreshCw, ChevronDown, ChevronRight, FlaskConical, Eye
+  AlertTriangle, RefreshCw, ChevronDown, ChevronRight, FlaskConical, Eye, Server
 } from 'lucide-react';
 
 type CheckStatus = 'idle' | 'running' | 'pass' | 'fail' | 'warn';
