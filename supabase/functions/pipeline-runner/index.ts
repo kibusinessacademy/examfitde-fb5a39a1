@@ -2274,6 +2274,9 @@ Deno.serve(async (req) => {
 
   console.log(`[runner] 📊 Step-class load: heavy=${classLoad.heavy.size}/${stepClassLimits.heavy} medium=${classLoad.medium.size}/${stepClassLimits.medium} validation=${classLoad.validation.size}/${stepClassLimits.validation} light=${classLoad.light.size}/${stepClassLimits.light}`);
 
+  // ── Step-class context for enforcement in processPackage ──
+  const stepClassCtx: StepClassContext = { limits: stepClassLimits, load: classLoad };
+
   const results: Record<string, unknown>[] = [];
   const processedPackageIds = new Set<string>();
 
