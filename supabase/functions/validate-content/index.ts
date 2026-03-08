@@ -255,7 +255,7 @@ serve(async (req) => {
       }
     }
 
-    const generatorLabel = generatorProvider === "anthropic" ? "Claude Opus" : "GPT-5.2";
+    const generatorLabel = generatorProvider === "anthropic" ? "Claude Sonnet 4.5" : "GPT-5.2";
     const userPrompt = `${contextStr ? `SSOT-KONTEXT:${contextStr}\n\n` : ""}ZU VALIDIERENDER INHALT (generiert von ${generatorLabel}):\n${JSON.stringify(content, null, 2)}`;
 
     // Use routed model for validation (e.g. Claude Sonnet 4 via Gateway)
