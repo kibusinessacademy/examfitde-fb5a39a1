@@ -224,7 +224,7 @@ export default function PipelineE2ERunbookPage() {
         samples.push({
           competency_id: cid.slice(0, 8),
           lesson_subjobs: matching.length,
-          done: matching.filter((j: any) => j.status === 'done').length,
+          done: matching.filter((j: any) => j.status === 'done' || j.status === 'completed').length,
           failed: matching.filter((j: any) => j.status === 'failed').length,
           pending: matching.filter((j: any) => ['pending', 'processing', 'queued'].includes(j.status)).length,
         });
