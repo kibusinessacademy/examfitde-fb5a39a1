@@ -44,6 +44,9 @@ Deno.serve(async (req) => {
   // Step 3: Execute queued actions
   steps.push({ step: "action_executor", ...(await invoke(url, key, "control-plane-action-executor")) });
 
+  // Step 4: Phase 2 — ROI, Unit Economics, Wave Governance, Business Snapshot
+  steps.push({ step: "phase2", ...(await invoke(url, key, "control-plane-phase2-cron")) });
+
   return json(200, {
     ok: true,
     steps,
