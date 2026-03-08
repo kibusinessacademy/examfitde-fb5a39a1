@@ -151,7 +151,7 @@ async function propose(
 ): Promise<string> {
   const { content } = await callAIJSON({
     provider: "openai",
-    model: "gpt-4.1",
+    model: "gpt-5-mini",
     temperature: 0.7,
     max_tokens: 4096,
     messages: [
