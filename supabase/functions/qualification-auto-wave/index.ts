@@ -80,14 +80,14 @@ Deno.serve(async (req) => {
         courseId = course.id;
       }
 
-      // Check if package already exists
+      // Check if package already exists (curriculum-level dedup)
       const { data: existingPkg } = await sb
         .from("course_packages")
         .select("id")
-        .eq("course_id", courseId)
-        .in("status", ["queued", "building", "published"])
+        .eq("curriculum_id", c.curriculum_id)
+        .in("status", ["planning", "queued", "building", "failed", "published", "draft"])
         .limit(1)
-        .single();
+        .maybeSingle();
 
       let packageId: string;
       if (existingPkg) {
