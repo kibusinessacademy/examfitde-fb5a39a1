@@ -13,7 +13,7 @@ const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
  * - Hard blocks missing source_refs in model output
  */
 
-const GENERATOR_MODEL = "openai/gpt-4.1";
+const GENERATOR_MODEL = "openai/gpt-5-mini";
 const VALIDATOR_MODEL = "google/gemini-2.5-flash";
 
 type SB = ReturnType<typeof createClient>;
