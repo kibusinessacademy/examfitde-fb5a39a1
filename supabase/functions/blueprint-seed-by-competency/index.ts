@@ -86,7 +86,7 @@ const FACETS: BlueprintFacet[] = [
     exam_context_type: "prioritization",
     question_types: ["mc_multi", "case_study"],
     decision_structure: "tradeoff_evaluation",
-    didactic_intent: "analysis",
+    didactic_intent: "comparison",
     description: "Analyse komplexer Zusammenhänge, Priorisierung.",
   },
   {
@@ -96,7 +96,7 @@ const FACETS: BlueprintFacet[] = [
     exam_context_type: "error_detection",
     question_types: ["mc_single", "mc_multi"],
     decision_structure: "single_best_answer",
-    didactic_intent: "evaluation",
+    didactic_intent: "error_detection",
     description: "Fehler erkennen, bewerten, Korrekturmaßnahmen benennen.",
   },
 ];
