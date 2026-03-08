@@ -14956,6 +14956,42 @@ export type Database = {
         }
         Relationships: []
       }
+      llm_provider_routing_policies: {
+        Row: {
+          created_at: string
+          fallback_mode: string
+          id: string
+          is_enabled: boolean
+          meta: Json
+          provider_chain: Json
+          route_key: string
+          updated_at: string
+          workload_key: string
+        }
+        Insert: {
+          created_at?: string
+          fallback_mode?: string
+          id?: string
+          is_enabled?: boolean
+          meta?: Json
+          provider_chain?: Json
+          route_key: string
+          updated_at?: string
+          workload_key: string
+        }
+        Update: {
+          created_at?: string
+          fallback_mode?: string
+          id?: string
+          is_enabled?: boolean
+          meta?: Json
+          provider_chain?: Json
+          route_key?: string
+          updated_at?: string
+          workload_key?: string
+        }
+        Relationships: []
+      }
       llm_rate_limits: {
         Row: {
           cooldown_seconds: number
@@ -28554,6 +28590,54 @@ export type Database = {
           },
         ]
       }
+      worker_scaling_policies: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          max_workers: number
+          meta: Json
+          min_workers: number
+          policy_key: string
+          scale_down_cooldown_seconds: number
+          scale_down_pending_threshold: number
+          scale_up_cooldown_seconds: number
+          scale_up_pending_threshold: number
+          updated_at: string
+          worker_key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          max_workers?: number
+          meta?: Json
+          min_workers?: number
+          policy_key: string
+          scale_down_cooldown_seconds?: number
+          scale_down_pending_threshold?: number
+          scale_up_cooldown_seconds?: number
+          scale_up_pending_threshold?: number
+          updated_at?: string
+          worker_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          max_workers?: number
+          meta?: Json
+          min_workers?: number
+          policy_key?: string
+          scale_down_cooldown_seconds?: number
+          scale_down_pending_threshold?: number
+          scale_up_cooldown_seconds?: number
+          scale_up_pending_threshold?: number
+          updated_at?: string
+          worker_key?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       admin_elite_matrix_curriculum_v: {
@@ -32716,6 +32800,15 @@ export type Database = {
         }
         Relationships: []
       }
+      v_provider_routing_health: {
+        Row: {
+          model: string | null
+          on_cooldown: boolean | null
+          provider: string | null
+          workload_key: string | null
+        }
+        Relationships: []
+      }
       v_pruefungsreife_index: {
         Row: {
           curriculum_id: string | null
@@ -34897,6 +34990,7 @@ export type Database = {
         Args: { p_status_filter?: string; p_wave_id: string }
         Returns: Json
       }
+      get_worker_scaling_recommendations: { Args: never; Returns: Json }
       growth_user_candidates: {
         Args: { p_cutoff: string; p_limit?: number }
         Returns: {
@@ -35530,6 +35624,10 @@ export type Database = {
       reset_failed_jobs_for_package: {
         Args: { p_job_types?: string[]; p_package_id: string }
         Returns: number
+      }
+      resolve_available_llm_route: {
+        Args: { p_workload_key: string }
+        Returns: Json
       }
       resolve_control_plane_alerts_by_prefix: {
         Args: { p_alert_key_prefix: string }
