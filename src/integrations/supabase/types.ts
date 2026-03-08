@@ -29850,6 +29850,10 @@ export type Database = {
       }
       get_wave_kpi_report: { Args: { p_wave_id: string }; Returns: Json }
       get_wave_summary: { Args: { p_wave_id: string }; Returns: Json }
+      get_wave_triage_items: {
+        Args: { p_status_filter?: string; p_wave_id: string }
+        Returns: Json
+      }
       growth_user_candidates: {
         Args: { p_cutoff: string; p_limit?: number }
         Returns: {
@@ -30945,6 +30949,10 @@ export type Database = {
       }
       verify_evidence_pack_integrity: {
         Args: { p_pack_id: string }
+        Returns: Json
+      }
+      wave_item_retry_action: {
+        Args: { p_action: string; p_wave_item_id: string }
         Returns: Json
       }
       work_increment_coupon_redeemed: {
