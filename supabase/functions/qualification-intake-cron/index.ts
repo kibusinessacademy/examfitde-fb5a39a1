@@ -130,6 +130,16 @@ Deno.serve(async (req) => {
     });
   }
 
+  // NEW: Intelligence scoring + priority sync
+  if (doIntelligence) {
+    steps.push({
+      step: "intelligence",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-priority-sync", {
+        limit: 100,
+      })),
+    });
+  }
+
   return jsonRes(200, {
     ok: true,
     steps,
