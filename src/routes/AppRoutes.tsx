@@ -82,6 +82,7 @@ const WorkAffiliateDashboard = lazy(() => import('@/pages/admin/v4/BerufsKIAffil
 const ProductionWavesPage = lazy(() => import('@/pages/admin/v4/ProductionWavesPage'));
 const ProductionWaveDetailPage = lazy(() => import('@/pages/admin/factory/ProductionWaveDetailPage'));
 const ProductionWaveTriagePage = lazy(() => import('@/pages/admin/factory/ProductionWaveTriagePage'));
+const FactoryExecutiveDashboard = lazy(() => import('@/pages/admin/factory/FactoryExecutiveDashboard'));
 
 // Control Tower Pages (new SSOT Leitzentrale)
 const AdminControlTowerPage = lazy(() => import('@/pages/admin/AdminControlTowerPage'));
@@ -250,6 +251,7 @@ const AppRoutes = () => {
           <Route path="pipeline/e2e" element={<PipelineE2ERunbookPage />} />
           <Route path="load-control" element={<LoadControlPage />} />
           <Route path="production" element={<ProductionWavesPage />} />
+          <Route path="production/executive" element={<FactoryExecutiveDashboard />} />
           <Route path="production/detail" element={<ProductionWaveDetailPage />} />
           <Route path="production/triage" element={<ProductionWaveTriagePage />} />
           {/* Content with nested routes */}

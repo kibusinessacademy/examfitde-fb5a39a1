@@ -29528,6 +29528,7 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
+      get_factory_executive_report: { Args: never; Returns: Json }
       get_idempotency_response: {
         Args: { p_endpoint: string; p_idem_key: string; p_user_id: string }
         Returns: Json
