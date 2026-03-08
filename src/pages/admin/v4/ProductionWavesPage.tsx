@@ -1,383 +1,234 @@
-import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useMemo, useState } from "react";
+import { RefreshCw, Play, Pause, RotateCw, CheckCircle2, Factory } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import {
-  Rocket, Play, Pause, RotateCw, CheckCircle2, XCircle,
-  AlertTriangle, Factory, Loader2, Eye, Package, Zap,
-} from "lucide-react";
-
-type Wave = {
-  id: string;
-  name: string;
-  status: string;
-  target: number;
-  seeded: number;
-  completed: number;
-  failed: number;
-  published: number;
-  blocked: number;
-  max_concurrent: number;
-  started_at: string | null;
-  finished_at: string | null;
-};
-
-type GlobalHealth = {
-  packages_building: number;
-  packages_queued: number;
-  pending_jobs: number;
-  failed_jobs_1h: number;
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  seeding: "bg-blue-500/20 text-blue-400",
-  active: "bg-green-500/20 text-green-400",
-  paused: "bg-yellow-500/20 text-yellow-400",
-  completed: "bg-primary/20 text-primary",
-  cancelled: "bg-destructive/20 text-destructive",
-};
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { useProductionWaveStatus, useSeedProductionWave, useWaveAction } from "@/hooks/useProductionWaves";
 
 export default function ProductionWavesPage() {
-  const { toast } = useToast();
-  const [waves, setWaves] = useState<Wave[]>([]);
-  const [health, setHealth] = useState<GlobalHealth | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { data, isLoading, refetch } = useProductionWaveStatus();
+  const seedWave = useSeedProductionWave();
+  const waveAction = useWaveAction();
 
-  // Seed form
-  const [seedName, setSeedName] = useState("");
-  const [seedLimit, setSeedLimit] = useState(5);
-  const [seedTrack, setSeedTrack] = useState("AUSBILDUNG_VOLL");
-  const [seedMaxConcurrent, setSeedMaxConcurrent] = useState(8);
-  const [seedDryRun, setSeedDryRun] = useState(false);
-  const [seedResult, setSeedResult] = useState<any>(null);
+  const [name, setName] = useState(`Wave ${new Date().toISOString().slice(0, 10)}`);
+  const [limit, setLimit] = useState(5);
+  const [maxConcurrent, setMaxConcurrent] = useState(8);
+  const [priorityMin, setPriorityMin] = useState(1);
+  const [priorityMax, setPriorityMax] = useState(10);
+  const [dryRun, setDryRun] = useState(true);
 
-  const callSupervisor = useCallback(async (action: string, waveId?: string) => {
-    const { data, error } = await supabase.functions.invoke("admin-production-supervisor", {
-      body: { action, wave_id: waveId },
-    });
-    if (error) throw error;
-    return data;
-  }, []);
+  const waves = data?.waves ?? [];
+  const health = data?.global_health ?? {};
 
-  const loadStatus = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await callSupervisor("status");
-      setWaves(data.waves || []);
-      setHealth(data.global_health || null);
-    } catch (e: any) {
-      toast({ title: "Fehler", description: e.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  }, [callSupervisor, toast]);
-
-  const handleWaveAction = useCallback(async (action: string, waveId: string, label: string) => {
-    setActionLoading(`${action}-${waveId}`);
-    try {
-      const data = await callSupervisor(action, waveId);
-      toast({ title: `${label} erfolgreich`, description: JSON.stringify(data).slice(0, 200) });
-      await loadStatus();
-    } catch (e: any) {
-      toast({ title: "Fehler", description: e.message, variant: "destructive" });
-    } finally {
-      setActionLoading(null);
-    }
-  }, [callSupervisor, toast, loadStatus]);
-
-  const handleSeed = useCallback(async () => {
-    setActionLoading("seed");
-    try {
-      const { data, error } = await supabase.functions.invoke("admin-seed-production-wave", {
-        body: {
-          name: seedName || `Wave ${new Date().toISOString().slice(0, 10)}`,
-          limit: seedLimit,
-          track: seedTrack || null,
-          max_concurrent: seedMaxConcurrent,
-          dry_run: seedDryRun,
-        },
-      });
-      if (error) throw error;
-      setSeedResult(data);
-      if (!seedDryRun) {
-        toast({ title: "Wave erstellt", description: `${data.seeded} Kurse geseeded` });
-        await loadStatus();
-      }
-    } catch (e: any) {
-      toast({ title: "Fehler", description: e.message, variant: "destructive" });
-    } finally {
-      setActionLoading(null);
-    }
-  }, [seedName, seedLimit, seedTrack, seedMaxConcurrent, seedDryRun, toast, loadStatus]);
+  const activeWave = useMemo(
+    () => waves.find((w: any) => ["active", "paused", "draft", "seeding"].includes(w.status)),
+    [waves],
+  );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Factory className="h-7 w-7 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold">Produktionswellen</h1>
-            <p className="text-sm text-muted-foreground">Mass Course Factory — Orchestrierung & Monitoring</p>
-          </div>
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <Factory className="h-6 w-6" />
+            Production Waves
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Seed, activate, überwachen und finalisieren von Produktionswellen
+          </p>
         </div>
-        <Button onClick={loadStatus} disabled={loading} variant="outline">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
-          <span className="ml-2">Laden</span>
+        <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Aktualisieren
         </Button>
       </div>
 
-      {/* Global Health */}
-      {health && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card>
-            <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold">{health.packages_building}</div>
-              <div className="text-xs text-muted-foreground">Building</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold">{health.packages_queued}</div>
-              <div className="text-xs text-muted-foreground">Queued</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold">{health.pending_jobs}</div>
-              <div className="text-xs text-muted-foreground">Pending Jobs</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3 text-center">
-              <div className={`text-2xl font-bold ${health.failed_jobs_1h > 10 ? "text-destructive" : ""}`}>
-                {health.failed_jobs_1h}
-              </div>
-              <div className="text-xs text-muted-foreground">Failed (1h)</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Global Health KPIs */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Building</CardTitle></CardHeader>
+          <CardContent className="text-2xl font-semibold">{health.packages_building ?? 0}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Queued</CardTitle></CardHeader>
+          <CardContent className="text-2xl font-semibold">{health.packages_queued ?? 0}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Pending Jobs</CardTitle></CardHeader>
+          <CardContent className="text-2xl font-semibold">{health.pending_jobs ?? 0}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Failed Jobs 1h</CardTitle></CardHeader>
+          <CardContent className="text-2xl font-semibold">{health.failed_jobs_1h ?? 0}</CardContent>
+        </Card>
+      </div>
 
-      {/* Seed New Wave */}
+      {/* Seed new wave */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Rocket className="h-5 w-5" />
-            Neue Produktionswelle erstellen
-          </CardTitle>
+          <CardTitle>Neue Welle anlegen</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground">Name</label>
-              <Input
-                placeholder="Canary Wave 1"
-                value={seedName}
-                onChange={(e) => setSeedName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Limit</label>
-              <Input
-                type="number"
-                value={seedLimit}
-                onChange={(e) => setSeedLimit(Number(e.target.value))}
-                min={1}
-                max={500}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Track</label>
-              <Input
-                value={seedTrack}
-                onChange={(e) => setSeedTrack(e.target.value)}
-                placeholder="AUSBILDUNG_VOLL"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Max parallel</label>
-              <Input
-                type="number"
-                value={seedMaxConcurrent}
-                onChange={(e) => setSeedMaxConcurrent(Number(e.target.value))}
-                min={1}
-                max={30}
-              />
-            </div>
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
-
-          <div className="flex gap-2">
+          <div className="space-y-2">
+            <Label>Limit</Label>
+            <Input type="number" value={limit} onChange={(e) => setLimit(Number(e.target.value))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Max Concurrent</Label>
+            <Input type="number" value={maxConcurrent} onChange={(e) => setMaxConcurrent(Number(e.target.value))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Priority Min</Label>
+            <Input type="number" value={priorityMin} onChange={(e) => setPriorityMin(Number(e.target.value))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Priority Max</Label>
+            <Input type="number" value={priorityMax} onChange={(e) => setPriorityMax(Number(e.target.value))} />
+          </div>
+          <div className="flex items-end gap-2">
             <Button
-              onClick={() => { setSeedDryRun(true); handleSeed(); }}
               variant="outline"
-              disabled={actionLoading === "seed"}
+              onClick={() =>
+                seedWave.mutate({
+                  name,
+                  limit,
+                  max_concurrent: maxConcurrent,
+                  priority_min: priorityMin,
+                  priority_max: priorityMax,
+                  dry_run: true,
+                })
+              }
+              disabled={seedWave.isPending}
             >
-              <Eye className="h-4 w-4 mr-1" />
-              Preview
+              Dry Run
             </Button>
             <Button
-              onClick={() => { setSeedDryRun(false); handleSeed(); }}
-              disabled={actionLoading === "seed"}
+              onClick={() =>
+                seedWave.mutate({
+                  name,
+                  limit,
+                  max_concurrent: maxConcurrent,
+                  priority_min: priorityMin,
+                  priority_max: priorityMax,
+                  dry_run: false,
+                })
+              }
+              disabled={seedWave.isPending}
             >
-              {actionLoading === "seed"
-                ? <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                : <Zap className="h-4 w-4 mr-1" />}
-              Wave erstellen
+              Wave anlegen
             </Button>
           </div>
 
-          {seedResult && (
-            <pre className="mt-3 p-3 bg-muted rounded-md text-xs overflow-auto max-h-60">
-              {JSON.stringify(seedResult, null, 2)}
-            </pre>
+          {seedWave.data && (
+            <div className="md:col-span-3 rounded-lg border p-3 text-sm">
+              <pre className="overflow-auto whitespace-pre-wrap">
+                {JSON.stringify(seedWave.data, null, 2)}
+              </pre>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Active Waves */}
-      {waves.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Wellen ({waves.length})</h2>
-          {waves.map((w) => (
-            <Card key={w.id} className="border-border">
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-semibold">{w.name}</span>
-                    <Badge className={STATUS_COLORS[w.status] ?? "bg-muted"}>
-                      {w.status}
-                    </Badge>
-                  </div>
-                  <div className="flex gap-1">
-                    {w.status === "draft" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleWaveAction("activate", w.id, "Aktiviert")}
-                        disabled={!!actionLoading}
-                      >
-                        <Play className="h-3 w-3 mr-1" /> Start
-                      </Button>
-                    )}
-                    {w.status === "active" && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleWaveAction("tick", w.id, "Sync")}
-                          disabled={!!actionLoading}
-                        >
-                          <RotateCw className="h-3 w-3 mr-1" /> Sync
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleWaveAction("pause", w.id, "Pausiert")}
-                          disabled={!!actionLoading}
-                        >
-                          <Pause className="h-3 w-3 mr-1" /> Pause
-                        </Button>
-                      </>
-                    )}
-                    {w.status === "paused" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleWaveAction("activate", w.id, "Fortgesetzt")}
-                        disabled={!!actionLoading}
-                      >
-                        <Play className="h-3 w-3 mr-1" /> Fortsetzen
-                      </Button>
-                    )}
-                    {(w.status === "active" || w.status === "paused") && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleWaveAction("finalize", w.id, "Finalisiert")}
-                        disabled={!!actionLoading}
-                      >
-                        <CheckCircle2 className="h-3 w-3 mr-1" /> Abschließen
-                      </Button>
-                    )}
-                  </div>
-                </div>
+      {/* Active wave controls */}
+      {activeWave && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Aktive / letzte Welle</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Badge>{activeWave.name}</Badge>
+            <Badge variant="outline">{activeWave.status}</Badge>
+            <Badge variant="outline">Target: {activeWave.target}</Badge>
+            <Badge variant="outline">Seeded: {activeWave.seeded}</Badge>
+            <Badge variant="outline">Published: {activeWave.published}</Badge>
+            <Badge variant="outline">Blocked: {activeWave.blocked}</Badge>
 
-                {/* Progress bar */}
-                <div className="mb-2">
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>{w.completed + w.published + w.failed + w.blocked} / {w.seeded || w.target}</span>
-                    <span>
-                      {w.seeded > 0
-                        ? Math.round(((w.completed + w.published + w.failed + w.blocked) / w.seeded) * 100)
-                        : 0}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden flex">
-                    {w.published > 0 && (
-                      <div
-                        className="h-full bg-green-500"
-                        style={{ width: `${(w.published / Math.max(w.seeded, 1)) * 100}%` }}
-                      />
-                    )}
-                    {w.completed > 0 && (
-                      <div
-                        className="h-full bg-primary"
-                        style={{ width: `${(w.completed / Math.max(w.seeded, 1)) * 100}%` }}
-                      />
-                    )}
-                    {w.failed > 0 && (
-                      <div
-                        className="h-full bg-yellow-500"
-                        style={{ width: `${(w.failed / Math.max(w.seeded, 1)) * 100}%` }}
-                      />
-                    )}
-                    {w.blocked > 0 && (
-                      <div
-                        className="h-full bg-destructive"
-                        style={{ width: `${(w.blocked / Math.max(w.seeded, 1)) * 100}%` }}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="flex gap-4 text-xs">
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    {w.published} published
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-primary" />
-                    {w.completed} passed
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3 text-yellow-500" />
-                    {w.failed} failed
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <XCircle className="h-3 w-3 text-destructive" />
-                    {w.blocked} blocked
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+            <Button
+              size="sm"
+              onClick={() => waveAction.mutate({ action: "activate", wave_id: activeWave.id })}
+              disabled={waveAction.isPending}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Aktivieren
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => waveAction.mutate({ action: "tick", wave_id: activeWave.id })}
+              disabled={waveAction.isPending}
+            >
+              <RotateCw className="mr-2 h-4 w-4" />
+              Tick
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => waveAction.mutate({ action: "pause", wave_id: activeWave.id })}
+              disabled={waveAction.isPending}
+            >
+              <Pause className="mr-2 h-4 w-4" />
+              Pause
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => waveAction.mutate({ action: "finalize", wave_id: activeWave.id })}
+              disabled={waveAction.isPending}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Finalisieren
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Empty state */}
-      {!loading && waves.length === 0 && health === null && (
+      {/* Wave history */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Wellenhistorie</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {waves.length === 0 && (
+            <p className="text-sm text-muted-foreground">Keine Wellen vorhanden.</p>
+          )}
+          {waves.map((wave: any) => (
+            <div
+              key={wave.id}
+              className="rounded-lg border p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium">{wave.name}</span>
+                <Badge variant="outline">{wave.status}</Badge>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                <span>Target: {wave.target}</span>
+                <span>Seeded: {wave.seeded}</span>
+                <span>Completed: {wave.completed}</span>
+                <span>Published: {wave.published ?? 0}</span>
+                <span>Failed: {wave.failed}</span>
+                <span>Blocked: {wave.blocked ?? 0}</span>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Action result */}
+      {waveAction.data && (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Factory className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>Klicke auf "Laden" um den aktuellen Status zu sehen</p>
+          <CardHeader>
+            <CardTitle className="text-sm">Letztes Ergebnis</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="overflow-auto whitespace-pre-wrap text-sm rounded-lg border p-3">
+              {JSON.stringify(waveAction.data, null, 2)}
+            </pre>
           </CardContent>
         </Card>
       )}
