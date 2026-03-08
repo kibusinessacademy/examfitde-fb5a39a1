@@ -11675,6 +11675,310 @@ export type Database = {
           },
         ]
       }
+      executive_budget_caps: {
+        Row: {
+          action_on_critical: string
+          action_on_warning: string
+          budget_limit: number
+          cap_key: string
+          created_at: string
+          critical_threshold: number
+          id: string
+          is_enabled: boolean
+          meta: Json
+          period_type: string
+          scope_ref: string | null
+          scope_type: string
+          updated_at: string
+          warning_threshold: number
+        }
+        Insert: {
+          action_on_critical?: string
+          action_on_warning?: string
+          budget_limit?: number
+          cap_key: string
+          created_at?: string
+          critical_threshold?: number
+          id?: string
+          is_enabled?: boolean
+          meta?: Json
+          period_type?: string
+          scope_ref?: string | null
+          scope_type?: string
+          updated_at?: string
+          warning_threshold?: number
+        }
+        Update: {
+          action_on_critical?: string
+          action_on_warning?: string
+          budget_limit?: number
+          cap_key?: string
+          created_at?: string
+          critical_threshold?: number
+          id?: string
+          is_enabled?: boolean
+          meta?: Json
+          period_type?: string
+          scope_ref?: string | null
+          scope_type?: string
+          updated_at?: string
+          warning_threshold?: number
+        }
+        Relationships: []
+      }
+      executive_kill_switches: {
+        Row: {
+          activated_by: string
+          activated_reason: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          meta: Json
+          scope_ref: string | null
+          scope_type: string
+          switch_key: string
+          updated_at: string
+        }
+        Insert: {
+          activated_by?: string
+          activated_reason?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          meta?: Json
+          scope_ref?: string | null
+          scope_type: string
+          switch_key: string
+          updated_at?: string
+        }
+        Update: {
+          activated_by?: string
+          activated_reason?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          meta?: Json
+          scope_ref?: string | null
+          scope_type?: string
+          switch_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      executive_portfolio_allocations: {
+        Row: {
+          actual_share: number
+          allocation_key: string
+          created_at: string
+          id: string
+          meta: Json
+          score: number
+          segment_type: string
+          segment_value: string
+          status: string
+          target_share: number
+          updated_at: string
+        }
+        Insert: {
+          actual_share?: number
+          allocation_key: string
+          created_at?: string
+          id?: string
+          meta?: Json
+          score?: number
+          segment_type: string
+          segment_value: string
+          status?: string
+          target_share?: number
+          updated_at?: string
+        }
+        Update: {
+          actual_share?: number
+          allocation_key?: string
+          created_at?: string
+          id?: string
+          meta?: Json
+          score?: number
+          segment_type?: string
+          segment_value?: string
+          status?: string
+          target_share?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      executive_portfolio_decisions: {
+        Row: {
+          channel_key: string | null
+          created_at: string
+          curriculum_id: string | null
+          decision_scope: string
+          decision_status: string
+          decision_type: string
+          executed_at: string | null
+          id: string
+          payload: Json
+          priority: number
+          qualification_catalog_id: string | null
+          reason: string | null
+          result: Json
+          updated_at: string
+          wave_id: string | null
+        }
+        Insert: {
+          channel_key?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          decision_scope: string
+          decision_status?: string
+          decision_type: string
+          executed_at?: string | null
+          id?: string
+          payload?: Json
+          priority?: number
+          qualification_catalog_id?: string | null
+          reason?: string | null
+          result?: Json
+          updated_at?: string
+          wave_id?: string | null
+        }
+        Update: {
+          channel_key?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          decision_scope?: string
+          decision_status?: string
+          decision_type?: string
+          executed_at?: string | null
+          id?: string
+          payload?: Json
+          priority?: number
+          qualification_catalog_id?: string | null
+          reason?: string | null
+          result?: Json
+          updated_at?: string
+          wave_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "executive_portfolio_decisions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "executive_portfolio_decisions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "executive_portfolio_decisions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "executive_portfolio_decisions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "executive_portfolio_decisions_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "executive_portfolio_decisions_wave_id_fkey"
+            columns: ["wave_id"]
+            isOneToOne: false
+            referencedRelation: "production_waves"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      executive_rebalance_runs: {
+        Row: {
+          decisions_created: number
+          finished_at: string | null
+          id: string
+          meta: Json
+          processed_count: number
+          run_period: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          decisions_created?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          processed_count?: number
+          run_period?: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          decisions_created?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          processed_count?: number
+          run_period?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      executive_summary_reports: {
+        Row: {
+          created_at: string
+          decisions_summary: Json
+          finance_summary: Json
+          headline: string | null
+          health_summary: Json
+          id: string
+          portfolio_summary: Json
+          recommendations: Json
+          report_date: string
+          report_period: string
+          wave_summary: Json
+        }
+        Insert: {
+          created_at?: string
+          decisions_summary?: Json
+          finance_summary?: Json
+          headline?: string | null
+          health_summary?: Json
+          id?: string
+          portfolio_summary?: Json
+          recommendations?: Json
+          report_date?: string
+          report_period?: string
+          wave_summary?: Json
+        }
+        Update: {
+          created_at?: string
+          decisions_summary?: Json
+          finance_summary?: Json
+          headline?: string | null
+          health_summary?: Json
+          id?: string
+          portfolio_summary?: Json
+          recommendations?: Json
+          report_date?: string
+          report_period?: string
+          wave_summary?: Json
+        }
+        Relationships: []
+      }
       expected_trigger_bindings: {
         Row: {
           created_at: string
