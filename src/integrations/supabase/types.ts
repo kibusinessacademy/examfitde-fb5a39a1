@@ -2963,6 +2963,60 @@ export type Database = {
           },
         ]
       }
+      business_kpi_snapshots: {
+        Row: {
+          active_campaigns: number
+          active_curricula: number
+          active_waves: number
+          blended_roi: number
+          blocked_waves: number
+          created_at: string
+          estimated_profit: number
+          id: string
+          monetized_curricula: number
+          snapshot_date: string
+          summary: Json
+          top_channel: string | null
+          top_curriculum_id: string | null
+          total_cost_estimate: number
+          total_revenue: number
+        }
+        Insert: {
+          active_campaigns?: number
+          active_curricula?: number
+          active_waves?: number
+          blended_roi?: number
+          blocked_waves?: number
+          created_at?: string
+          estimated_profit?: number
+          id?: string
+          monetized_curricula?: number
+          snapshot_date?: string
+          summary?: Json
+          top_channel?: string | null
+          top_curriculum_id?: string | null
+          total_cost_estimate?: number
+          total_revenue?: number
+        }
+        Update: {
+          active_campaigns?: number
+          active_curricula?: number
+          active_waves?: number
+          blended_roi?: number
+          blocked_waves?: number
+          created_at?: string
+          estimated_profit?: number
+          id?: string
+          monetized_curricula?: number
+          snapshot_date?: string
+          summary?: Json
+          top_channel?: string | null
+          top_curriculum_id?: string | null
+          total_cost_estimate?: number
+          total_revenue?: number
+        }
+        Relationships: []
+      }
       campaign_asset_queue: {
         Row: {
           asset_key: string
@@ -3872,6 +3926,60 @@ export type Database = {
           id?: string
           updated_at?: string
           worst_asset_types?: Json
+        }
+        Relationships: []
+      }
+      channel_unit_economics: {
+        Row: {
+          attributed_cost: number
+          attributed_revenue: number
+          channel_key: string
+          conversion_rate: number
+          created_at: string
+          ctr: number
+          decision: string
+          id: string
+          last_computed_at: string
+          lead_rate: number
+          reasoning: Json
+          revenue_per_asset: number
+          revenue_per_lead: number
+          roi: number
+          updated_at: string
+        }
+        Insert: {
+          attributed_cost?: number
+          attributed_revenue?: number
+          channel_key: string
+          conversion_rate?: number
+          created_at?: string
+          ctr?: number
+          decision?: string
+          id?: string
+          last_computed_at?: string
+          lead_rate?: number
+          reasoning?: Json
+          revenue_per_asset?: number
+          revenue_per_lead?: number
+          roi?: number
+          updated_at?: string
+        }
+        Update: {
+          attributed_cost?: number
+          attributed_revenue?: number
+          channel_key?: string
+          conversion_rate?: number
+          created_at?: string
+          ctr?: number
+          decision?: string
+          id?: string
+          last_computed_at?: string
+          lead_rate?: number
+          reasoning?: Json
+          revenue_per_asset?: number
+          revenue_per_lead?: number
+          roi?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -8957,6 +9065,111 @@ export type Database = {
             columns: ["source_document_id"]
             isOneToOne: false
             referencedRelation: "certification_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_unit_economics: {
+        Row: {
+          attributed_revenue: number
+          cac_estimate: number
+          campaign_cost_estimate: number
+          contribution_margin: number
+          created_at: string
+          curriculum_id: string | null
+          decision: string
+          distribution_cost_estimate: number
+          gross_margin: number
+          id: string
+          last_computed_at: string
+          ltv_estimate: number
+          optimization_cost_estimate: number
+          payback_days: number | null
+          production_cost_estimate: number
+          qualification_catalog_id: string | null
+          reasoning: Json
+          roi: number
+          total_cost_estimate: number
+          updated_at: string
+        }
+        Insert: {
+          attributed_revenue?: number
+          cac_estimate?: number
+          campaign_cost_estimate?: number
+          contribution_margin?: number
+          created_at?: string
+          curriculum_id?: string | null
+          decision?: string
+          distribution_cost_estimate?: number
+          gross_margin?: number
+          id?: string
+          last_computed_at?: string
+          ltv_estimate?: number
+          optimization_cost_estimate?: number
+          payback_days?: number | null
+          production_cost_estimate?: number
+          qualification_catalog_id?: string | null
+          reasoning?: Json
+          roi?: number
+          total_cost_estimate?: number
+          updated_at?: string
+        }
+        Update: {
+          attributed_revenue?: number
+          cac_estimate?: number
+          campaign_cost_estimate?: number
+          contribution_margin?: number
+          created_at?: string
+          curriculum_id?: string | null
+          decision?: string
+          distribution_cost_estimate?: number
+          gross_margin?: number
+          id?: string
+          last_computed_at?: string
+          ltv_estimate?: number
+          optimization_cost_estimate?: number
+          payback_days?: number | null
+          production_cost_estimate?: number
+          qualification_catalog_id?: string | null
+          reasoning?: Json
+          roi?: number
+          total_cost_estimate?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_unit_economics_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_unit_economics_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_unit_economics_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_unit_economics_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_unit_economics_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
             referencedColumns: ["id"]
           },
         ]
@@ -22257,6 +22470,45 @@ export type Database = {
         }
         Relationships: []
       }
+      roi_decision_rules: {
+        Row: {
+          action_on_fail: string
+          action_on_pass: string
+          created_at: string
+          description: string | null
+          id: string
+          is_enabled: boolean
+          rule_key: string
+          threshold_json: Json
+          threshold_numeric: number | null
+          updated_at: string
+        }
+        Insert: {
+          action_on_fail?: string
+          action_on_pass?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          rule_key: string
+          threshold_json?: Json
+          threshold_numeric?: number | null
+          updated_at?: string
+        }
+        Update: {
+          action_on_fail?: string
+          action_on_pass?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          rule_key?: string
+          threshold_json?: Json
+          threshold_numeric?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       rollout_control: {
         Row: {
           authority_thresholds: Json | null
@@ -26095,6 +26347,65 @@ export type Database = {
           visual_score?: number
         }
         Relationships: []
+      }
+      wave_governance_decisions: {
+        Row: {
+          approved_by: string
+          avg_priority_score: number
+          avg_readiness_score: number
+          blocked_item_count: number
+          created_at: string
+          decision_reason: string | null
+          decision_status: string
+          expected_roi: number
+          id: string
+          projected_cost: number
+          projected_revenue: number
+          rule_results: Json
+          updated_at: string
+          wave_id: string | null
+        }
+        Insert: {
+          approved_by?: string
+          avg_priority_score?: number
+          avg_readiness_score?: number
+          blocked_item_count?: number
+          created_at?: string
+          decision_reason?: string | null
+          decision_status?: string
+          expected_roi?: number
+          id?: string
+          projected_cost?: number
+          projected_revenue?: number
+          rule_results?: Json
+          updated_at?: string
+          wave_id?: string | null
+        }
+        Update: {
+          approved_by?: string
+          avg_priority_score?: number
+          avg_readiness_score?: number
+          blocked_item_count?: number
+          created_at?: string
+          decision_reason?: string | null
+          decision_status?: string
+          expected_roi?: number
+          id?: string
+          projected_cost?: number
+          projected_revenue?: number
+          rule_results?: Json
+          updated_at?: string
+          wave_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wave_governance_decisions_wave_id_fkey"
+            columns: ["wave_id"]
+            isOneToOne: false
+            referencedRelation: "production_waves"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       weakness_assignments: {
         Row: {
@@ -32540,6 +32851,10 @@ export type Database = {
         }
         Returns: string
       }
+      compute_channel_unit_economics: {
+        Args: { p_channel_key: string }
+        Returns: Json
+      }
       compute_compliance_release_gate: { Args: never; Returns: Json }
       compute_curriculum_coverage: {
         Args: { p_certification_id: string }
@@ -32554,6 +32869,10 @@ export type Database = {
         Returns: Json
       }
       compute_curriculum_scaling_signal: {
+        Args: { p_qualification_catalog_id: string }
+        Returns: Json
+      }
+      compute_curriculum_unit_economics: {
         Args: { p_qualification_catalog_id: string }
         Returns: Json
       }
@@ -33371,6 +33690,7 @@ export type Database = {
         }[]
       }
       get_roi_dashboard: { Args: never; Returns: Json }
+      get_roi_rule_threshold: { Args: { p_rule_key: string }; Returns: number }
       get_security_report: {
         Args: { p_from: string; p_limit?: number; p_to: string }
         Returns: {
