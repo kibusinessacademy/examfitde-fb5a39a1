@@ -3,6 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { validateAuth } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
+import { getFanOutConfig } from "../_shared/job-map.ts";
 
 type CheckStatus = "pass" | "fail" | "warn" | "skip";
 
