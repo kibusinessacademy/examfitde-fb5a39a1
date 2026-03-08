@@ -339,13 +339,25 @@ let _examProviderChain: ModelChoice[] | null = null;
 async function loadExamProviderChain(): Promise<ModelChoice[]> {
   if (_examProviderChain) return _examProviderChain;
   try {
-    _examProviderChain = await getModelChainAsync("exam_questions");
+    // v10.5: DB-driven routing via llm_provider_routing_policies
+    const policyRoute = await resolveAvailableRoute("exam_blueprint");
+    if (policyRoute.ok && policyRoute.provider && policyRoute.model) {
+      console.log(`[ExamPool-v5] POLICY_ROUTE: exam_blueprint → ${policyRoute.provider}/${policyRoute.model}`);
+      const hardcodedChain = await getModelChainAsync("exam_questions");
+      _examProviderChain = [
+        { provider: policyRoute.provider as AIProvider, model: policyRoute.model },
+        ...hardcodedChain.filter(c => c.model !== policyRoute.model),
+      ];
+    } else {
+      console.log(`[ExamPool-v5] POLICY_MISS: exam_blueprint (${policyRoute.reason}) → hardcoded chain`);
+      _examProviderChain = await getModelChainAsync("exam_questions");
+    }
     console.log(`[ExamPool-v5] Provider chain: ${_examProviderChain.map(m => m.model).join(" → ")}`);
   } catch (e) {
     console.warn(`[ExamPool-v5] DB routing failed, using hardcoded fallback: ${e}`);
     _examProviderChain = [
-      { provider: "lovable" as AIProvider, model: "openai/gpt-5-mini" },   // v11: was gemini-2.5-flash
-      { provider: "lovable" as AIProvider, model: "openai/gpt-5" },        // v11: was gemini-2.5-pro
+      { provider: "lovable" as AIProvider, model: "openai/gpt-5-mini" },
+      { provider: "lovable" as AIProvider, model: "openai/gpt-5" },
     ];
   }
   return _examProviderChain;
