@@ -41,10 +41,20 @@ export default function ProductionWavesPage() {
             Seed, activate, überwachen und finalisieren von Produktionswellen
           </p>
         </div>
-        <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Aktualisieren
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => runSupervisor.mutate()}
+            disabled={runSupervisor.isPending}
+          >
+            <Zap className="mr-2 h-4 w-4" />
+            Supervisor Run
+          </Button>
+          <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Aktualisieren
+          </Button>
+        </div>
       </div>
 
       {/* Global Health KPIs */}
