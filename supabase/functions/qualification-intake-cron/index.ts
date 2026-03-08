@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
   const doAutoWave = body.auto_wave !== false;
   const doIntelligence = body.intelligence !== false;
   const doRevenue = body.revenue !== false;
+  const doCampaign = body.campaign !== false;
 
   const steps: any[] = [];
 
@@ -148,6 +149,14 @@ Deno.serve(async (req) => {
       ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-revenue-cron", {
         limit: 200,
       })),
+    });
+  }
+
+  // Campaign Automation: Plan Sync → Enqueue → Worker → Performance
+  if (doCampaign) {
+    steps.push({
+      step: "campaign_automation",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "campaign-automation-cron", {})),
     });
   }
 
