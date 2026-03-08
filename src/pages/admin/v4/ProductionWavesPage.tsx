@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { RefreshCw, Play, Pause, RotateCw, CheckCircle2, Factory } from "lucide-react";
+import { RefreshCw, Play, Pause, RotateCw, CheckCircle2, Factory, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useProductionWaveStatus, useSeedProductionWave, useWaveAction } from "@/hooks/useProductionWaves";
+import { useRunProductionSupervisor } from "@/hooks/useProductionSupervisor";
 
 export default function ProductionWavesPage() {
   const { data, isLoading, refetch } = useProductionWaveStatus();
