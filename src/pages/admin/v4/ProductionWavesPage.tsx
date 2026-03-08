@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { RefreshCw, Play, Pause, RotateCw, CheckCircle2, Factory, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { RefreshCw, Play, Pause, RotateCw, CheckCircle2, Factory, Zap, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
