@@ -1,7 +1,20 @@
 # Wave-C Rollout Runbook
 
 **Scope:** Campaign → Distribution → Optimization  
-**Ziel:** Aktivierung der operativen Growth-Layer nach erfolgreichem Plattform-GO.
+**Ziel:** Aktivierung der operativen Growth-Layer nach erfolgreichem Plattform-GO.  
+**Status:** ✅ ABGESCHLOSSEN (2026-03-08)
+
+---
+
+## Rollout-Status
+
+| Step | Komponente | Status | Datum |
+|------|-----------|--------|-------|
+| 1 | Campaign Engine | ✅ Grün | 2026-03-08 |
+| 2 | Campaign Assets | ✅ Grün | 2026-03-08 |
+| 3 | Distribution | ✅ Grün | 2026-03-08 |
+| 4 | Optimization | ✅ Grün (Scores=0, erwartbar ohne Engagement-Daten) | 2026-03-08 |
+| 5 | GTM Scoring | ⏳ Abhängig von Wave D (qualification_catalog leer) | — |
 
 ---
 
