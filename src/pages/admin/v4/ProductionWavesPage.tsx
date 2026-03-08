@@ -154,49 +154,71 @@ export default function ProductionWavesPage() {
           <CardHeader>
             <CardTitle>Aktive / letzte Welle</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Badge>{activeWave.name}</Badge>
-            <Badge variant="outline">{activeWave.status}</Badge>
-            <Badge variant="outline">Target: {activeWave.target}</Badge>
-            <Badge variant="outline">Seeded: {activeWave.seeded}</Badge>
-            <Badge variant="outline">Published: {activeWave.published}</Badge>
-            <Badge variant="outline">Blocked: {activeWave.blocked}</Badge>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Badge>{activeWave.name}</Badge>
+              <Badge variant="outline">{activeWave.status}</Badge>
+              <Badge variant="outline">Target: {activeWave.target}</Badge>
+              <Badge variant="outline">Seeded: {activeWave.seeded}</Badge>
+              <Badge variant="outline">Published: {activeWave.published}</Badge>
+              <Badge variant="outline">Blocked: {activeWave.blocked}</Badge>
+            </div>
 
-            <Button
-              size="sm"
-              onClick={() => waveAction.mutate({ action: "activate", wave_id: activeWave.id })}
-              disabled={waveAction.isPending}
-            >
-              <Play className="mr-2 h-4 w-4" />
-              Aktivieren
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => waveAction.mutate({ action: "tick", wave_id: activeWave.id })}
-              disabled={waveAction.isPending}
-            >
-              <RotateCw className="mr-2 h-4 w-4" />
-              Tick
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => waveAction.mutate({ action: "pause", wave_id: activeWave.id })}
-              disabled={waveAction.isPending}
-            >
-              <Pause className="mr-2 h-4 w-4" />
-              Pause
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => waveAction.mutate({ action: "finalize", wave_id: activeWave.id })}
-              disabled={waveAction.isPending}
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Finalisieren
-            </Button>
+            {/* Backpressure live stats */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs border rounded-lg p-3">
+              <div><span className="text-muted-foreground">Max Concurrent:</span> {activeWave.max_concurrent ?? 0}</div>
+              <div><span className="text-muted-foreground">Pending:</span> {activeWave.pending_items ?? 0}</div>
+              <div><span className="text-muted-foreground">Queued:</span> {activeWave.queued_items ?? 0}</div>
+              <div><span className="text-muted-foreground">Building:</span> {activeWave.building_items ?? 0}</div>
+              <div><span className="text-muted-foreground">QG Passed:</span> {activeWave.quality_gate_passed_items ?? 0}</div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={() => waveAction.mutate({ action: "activate", wave_id: activeWave.id })}
+                disabled={waveAction.isPending}
+              >
+                <Play className="mr-2 h-4 w-4" />
+                Aktivieren
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => runBackpressure.mutate(activeWave.id)}
+                disabled={runBackpressure.isPending}
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                Backpressure
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => waveAction.mutate({ action: "tick", wave_id: activeWave.id })}
+                disabled={waveAction.isPending}
+              >
+                <RotateCw className="mr-2 h-4 w-4" />
+                Tick
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => waveAction.mutate({ action: "pause", wave_id: activeWave.id })}
+                disabled={waveAction.isPending}
+              >
+                <Pause className="mr-2 h-4 w-4" />
+                Pause
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => waveAction.mutate({ action: "finalize", wave_id: activeWave.id })}
+                disabled={waveAction.isPending}
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Finalisieren
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
