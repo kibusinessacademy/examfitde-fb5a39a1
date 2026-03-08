@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useProductionWaveStatus, useSeedProductionWave, useWaveAction } from "@/hooks/useProductionWaves";
-import { useRunProductionSupervisor } from "@/hooks/useProductionSupervisor";
+import { useRunProductionSupervisor, useRunWaveBackpressure } from "@/hooks/useProductionSupervisor";
 
 export default function ProductionWavesPage() {
   const { data, isLoading, refetch } = useProductionWaveStatus();
