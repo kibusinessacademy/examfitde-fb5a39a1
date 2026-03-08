@@ -4718,6 +4718,225 @@ export type Database = {
           },
         ]
       }
+      control_plane_actions: {
+        Row: {
+          action_scope: string
+          action_type: string
+          created_at: string
+          executed_at: string | null
+          executed_by: string
+          id: string
+          payload: Json
+          reason: string | null
+          result: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action_scope?: string
+          action_type: string
+          created_at?: string
+          executed_at?: string | null
+          executed_by?: string
+          id?: string
+          payload?: Json
+          reason?: string | null
+          result?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action_scope?: string
+          action_type?: string
+          created_at?: string
+          executed_at?: string | null
+          executed_by?: string
+          id?: string
+          payload?: Json
+          reason?: string | null
+          result?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      control_plane_alerts: {
+        Row: {
+          alert_key: string
+          created_at: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          message: string | null
+          payload: Json
+          resolved_at: string | null
+          severity: string
+          source_layer: string
+          source_ref: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          alert_key: string
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          message?: string | null
+          payload?: Json
+          resolved_at?: string | null
+          severity?: string
+          source_layer: string
+          source_ref?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          alert_key?: string
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          message?: string | null
+          payload?: Json
+          resolved_at?: string | null
+          severity?: string
+          source_layer?: string
+          source_ref?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      control_plane_cost_signals: {
+        Row: {
+          created_at: string
+          id: string
+          layer_key: string
+          meta: Json
+          metric_key: string
+          metric_unit: string | null
+          metric_value: number
+          signal_date: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          layer_key: string
+          meta?: Json
+          metric_key: string
+          metric_unit?: string | null
+          metric_value?: number
+          signal_date?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          layer_key?: string
+          meta?: Json
+          metric_key?: string
+          metric_unit?: string | null
+          metric_value?: number
+          signal_date?: string
+        }
+        Relationships: []
+      }
+      control_plane_policies: {
+        Row: {
+          action_mode: string
+          created_at: string
+          description: string | null
+          id: string
+          is_enabled: boolean
+          meta: Json
+          policy_key: string
+          severity: string
+          threshold_json: Json
+          threshold_numeric: number | null
+          updated_at: string
+        }
+        Insert: {
+          action_mode?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          meta?: Json
+          policy_key: string
+          severity?: string
+          threshold_json?: Json
+          threshold_numeric?: number | null
+          updated_at?: string
+        }
+        Update: {
+          action_mode?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          meta?: Json
+          policy_key?: string
+          severity?: string
+          threshold_json?: Json
+          threshold_numeric?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      control_plane_snapshots: {
+        Row: {
+          campaigns: Json
+          created_at: string
+          distribution: Json
+          finance: Json
+          health_score: number
+          id: string
+          intake: Json
+          optimization: Json
+          production: Json
+          revenue: Json
+          snapshot_key: string
+          snapshot_scope: string
+          status: string
+          summary: Json
+        }
+        Insert: {
+          campaigns?: Json
+          created_at?: string
+          distribution?: Json
+          finance?: Json
+          health_score?: number
+          id?: string
+          intake?: Json
+          optimization?: Json
+          production?: Json
+          revenue?: Json
+          snapshot_key?: string
+          snapshot_scope?: string
+          status?: string
+          summary?: Json
+        }
+        Update: {
+          campaigns?: Json
+          created_at?: string
+          distribution?: Json
+          finance?: Json
+          health_score?: number
+          id?: string
+          intake?: Json
+          optimization?: Json
+          production?: Json
+          revenue?: Json
+          snapshot_key?: string
+          snapshot_scope?: string
+          status?: string
+          summary?: Json
+        }
+        Relationships: []
+      }
       controlling_snapshots: {
         Row: {
           created_at: string
@@ -33869,6 +34088,10 @@ export type Database = {
         Args: { p_job_types?: string[]; p_package_id: string }
         Returns: number
       }
+      resolve_control_plane_alerts_by_prefix: {
+        Args: { p_alert_key_prefix: string }
+        Returns: number
+      }
       resolve_current_rpc: { Args: { p_base_name: string }; Returns: string }
       resolve_next_step: { Args: { p_package_id: string }; Returns: Json }
       resolve_qa_finding_if_exists: {
@@ -34248,6 +34471,18 @@ export type Database = {
           p_description: string
           p_evidence: Json
           p_severity: Database["public"]["Enums"]["compliance_severity"]
+          p_title: string
+        }
+        Returns: string
+      }
+      upsert_control_plane_alert: {
+        Args: {
+          p_alert_key: string
+          p_message: string
+          p_payload?: Json
+          p_severity: string
+          p_source_layer: string
+          p_source_ref: string
           p_title: string
         }
         Returns: string
