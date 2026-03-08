@@ -270,6 +270,7 @@ const AppRoutes = () => {
           <Route path="queue" element={<QueueManagerPage />} />
           <Route path="social" element={<SocialEnginePage />} />
           <Route path="audit" element={<AuditDashboardPage />} />
+          <Route path="intake/qualification-discovery" element={<QualificationDiscoveryPage />} />
 
           {/* B2B Competency Views */}
           <Route path="b2b/org" element={<OrgDashboardPage />} />
