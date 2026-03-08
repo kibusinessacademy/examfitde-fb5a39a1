@@ -203,10 +203,16 @@ function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepAction {
 // ══════════════════════════════════════════════════════════════
 // Process a single acquired package — returns result summary
 // ══════════════════════════════════════════════════════════════
+interface StepClassContext {
+  limits: import("../_shared/step-weight.ts").StepClassLimits;
+  load: Record<StepWeightClass, Set<string>>;
+}
+
 async function processPackage(
   sb: ReturnType<typeof createClient>,
   packageId: string,
   runnerId: string,
+  stepClassCtx?: StepClassContext,
 ): Promise<Record<string, unknown>> {
   const shortId = packageId.slice(0, 8);
 
