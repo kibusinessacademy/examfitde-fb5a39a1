@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
     backpressure_runs: 0,
     promoted_items: 0,
     ticked: 0,
+    auto_published: 0,
     finalized: 0,
     skipped: 0,
     errors: [] as Array<{ wave_id?: string; action: string; error: string }>,
