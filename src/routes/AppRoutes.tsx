@@ -249,6 +249,7 @@ const AppRoutes = () => {
           <Route path="pipeline/e2e" element={<PipelineE2ERunbookPage />} />
           <Route path="load-control" element={<LoadControlPage />} />
           <Route path="production" element={<ProductionWavesPage />} />
+          <Route path="production/detail" element={<ProductionWaveDetailPage />} />
           {/* Content with nested routes */}
           <Route path="content" element={<ContentLayout />}>
             <Route index element={<ContentPagesList />} />
