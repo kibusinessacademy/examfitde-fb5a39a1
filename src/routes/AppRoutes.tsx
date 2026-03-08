@@ -276,6 +276,7 @@ const AppRoutes = () => {
           <Route path="audit" element={<AuditDashboardPage />} />
           <Route path="contracts" element={<SystemContractAuditPage />} />
           <Route path="probes" element={<SyntheticProbeCenterPage />} />
+          <Route path="scheduler" element={<SchedulerGovernancePage />} />
           <Route path="intake/qualification-discovery" element={<QualificationDiscoveryPage />} />
           <Route path="intake/curriculum" element={<CurriculumIntakePage />} />
 
