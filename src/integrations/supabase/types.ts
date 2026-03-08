@@ -29848,6 +29848,7 @@ export type Database = {
           valid_until: string
         }[]
       }
+      get_wave_kpi_report: { Args: { p_wave_id: string }; Returns: Json }
       get_wave_summary: { Args: { p_wave_id: string }; Returns: Json }
       growth_user_candidates: {
         Args: { p_cutoff: string; p_limit?: number }
