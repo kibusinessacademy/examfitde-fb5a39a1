@@ -150,8 +150,8 @@ async function propose(
   ctx: LessonContext,
 ): Promise<string> {
   const { content } = await callAIJSON({
-    provider: "openai",
-    model: "gpt-5-mini",
+    provider: "lovable",
+    model: "openai/gpt-5.2",
     temperature: 0.7,
     max_tokens: 4096,
     messages: [
