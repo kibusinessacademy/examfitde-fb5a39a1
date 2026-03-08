@@ -21016,6 +21016,7 @@ export type Database = {
           admission_rules: Json | null
           award_type: string | null
           candidate_id: string | null
+          canonical_slug: string | null
           canonical_title: string
           competency_areas: Json | null
           created_at: string
@@ -21025,6 +21026,7 @@ export type Database = {
           handlungsbereiche: Json | null
           id: string
           legal_basis: string | null
+          metadata: Json | null
           oral_components: Json | null
           parser_version: string | null
           pass_rules: Json | null
@@ -21037,12 +21039,15 @@ export type Database = {
           status: string
           title_aliases: string[] | null
           updated_at: string
+          version_date: string | null
+          version_label: string | null
           warnings: string[] | null
         }
         Insert: {
           admission_rules?: Json | null
           award_type?: string | null
           candidate_id?: string | null
+          canonical_slug?: string | null
           canonical_title: string
           competency_areas?: Json | null
           created_at?: string
@@ -21052,6 +21057,7 @@ export type Database = {
           handlungsbereiche?: Json | null
           id?: string
           legal_basis?: string | null
+          metadata?: Json | null
           oral_components?: Json | null
           parser_version?: string | null
           pass_rules?: Json | null
@@ -21064,12 +21070,15 @@ export type Database = {
           status?: string
           title_aliases?: string[] | null
           updated_at?: string
+          version_date?: string | null
+          version_label?: string | null
           warnings?: string[] | null
         }
         Update: {
           admission_rules?: Json | null
           award_type?: string | null
           candidate_id?: string | null
+          canonical_slug?: string | null
           canonical_title?: string
           competency_areas?: Json | null
           created_at?: string
@@ -21079,6 +21088,7 @@ export type Database = {
           handlungsbereiche?: Json | null
           id?: string
           legal_basis?: string | null
+          metadata?: Json | null
           oral_components?: Json | null
           parser_version?: string | null
           pass_rules?: Json | null
@@ -21091,6 +21101,8 @@ export type Database = {
           status?: string
           title_aliases?: string[] | null
           updated_at?: string
+          version_date?: string | null
+          version_label?: string | null
           warnings?: string[] | null
         }
         Relationships: [
