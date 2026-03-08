@@ -35555,6 +35555,10 @@ export type Database = {
         Args: { p_admin_id?: string; p_portfolio_id: string }
         Returns: Json
       }
+      promote_wave_candidates_to_factory: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       publish_admin_version: {
         Args: {
           p_admin_agent?: string
