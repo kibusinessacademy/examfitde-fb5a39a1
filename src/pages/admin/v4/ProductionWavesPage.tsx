@@ -220,6 +220,14 @@ export default function ProductionWavesPage() {
                 <CheckCircle2 className="mr-2 h-4 w-4" />
                 Finalisieren
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/admin/production/detail?wave=${activeWave.id}`)}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Details
+              </Button>
             </div>
           </CardContent>
         </Card>
