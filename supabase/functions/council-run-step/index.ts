@@ -112,7 +112,7 @@ async function runCouncilLoop(db: ReturnType<typeof createClient>, p: StepPayloa
       return { version_id: versionId, decision: finalDecision, rounds: round, score: critique.overall_score };
     }
 
-    // Phase 4: REVISE (GPT-4.1 – generator role ONLY, incorporates critique)
+    // Phase 4: REVISE (GPT-5-mini – generator role ONLY, incorporates critique)
     versionId = await revise(db, p, versionId, critique, lessonCtx, round + 1);
     round++;
   }
