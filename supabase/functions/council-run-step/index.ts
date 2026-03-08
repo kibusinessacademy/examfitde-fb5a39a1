@@ -317,7 +317,7 @@ async function aggregateVotesAndVerdict(
     [
       {
         content_version_id: versionId,
-        agent_name: "gpt-4.1",
+        agent_name: "gpt-5-mini",
         vote: generatorVote,
         confidence: generatorConfidence,
         rationale: `Self-assessment: score=${score}, threshold=80/50`,
