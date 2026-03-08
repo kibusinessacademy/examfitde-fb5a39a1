@@ -366,7 +366,24 @@ Deno.serve(async (req) => {
   // ── Autopilot: p95 latency check → model/token downgrade ──
   let maxTokensOverride: number | null = null;
   let autopilotAction: string | null = null;
-  const rawChain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
+
+  // ── v10.5: DB-driven routing via llm_provider_routing_policies ──
+  // Try policy-based route first (timeout-optimized), fall back to hardcoded chain
+  const workloadKey = isMiniCheck ? "minicheck" : "learning_content";
+  let rawChain: Awaited<ReturnType<typeof getModelChainAsync>>;
+  const policyRoute = await resolveAvailableRoute(workloadKey);
+  if (policyRoute.ok && policyRoute.provider && policyRoute.model) {
+    console.log(`[lesson-gen] POLICY_ROUTE: ${workloadKey} → ${policyRoute.provider}/${policyRoute.model}`);
+    // Use policy-resolved model as primary, keep hardcoded chain as fallback
+    const hardcodedChain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
+    rawChain = [
+      { provider: policyRoute.provider as any, model: policyRoute.model },
+      ...hardcodedChain.filter(c => c.model !== policyRoute.model),
+    ];
+  } else {
+    console.log(`[lesson-gen] POLICY_MISS: ${workloadKey} (${policyRoute.reason}) → hardcoded chain`);
+    rawChain = await getModelChainAsync(isMiniCheck ? "minicheck" : "learning_content");
+  }
 
   // ── v9.5: Filter chain through persistent DB cooldowns ──
   const { filterCooledDownProviders } = await import("../_shared/llm/provider-cooldown.ts");
