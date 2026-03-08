@@ -3,6 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { validateAuth } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
+import { getFanOutConfig } from "../_shared/job-map.ts";
 
 type CheckStatus = "pass" | "fail" | "warn" | "skip";
 
@@ -138,18 +139,30 @@ Deno.serve(async (req) => {
 
   // ─── Check 3: Dispatcher ───
   checks.dispatcher = await runCheck("dispatcher", async () => {
-    const { data: bundleJobs, error } = await sb
+    // Fetch ALL bundle jobs for total count
+    const { data: allBundleJobs, error } = await sb
       .from("job_queue")
       .select("id,status,batch_cursor,idempotency_key,created_at")
       .eq("package_id", packageId!)
       .eq("job_type", "lesson_generate_competency_bundle")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
     if (error) throw new Error(error.message);
 
-    const competencyIds = (bundleJobs || []).map((j: any) => j.batch_cursor?.competency_id).filter(Boolean);
-    const unique = new Set(competencyIds);
-    const hasDupes = competencyIds.length !== unique.size;
+    // Dedup check: only flag duplicates among ACTIVE jobs (pending/queued/processing).
+    // Completed + re-dispatched for retry is valid and should not trigger a fail.
+    const activeJobs = (allBundleJobs || []).filter(
+      (j: any) => ["pending", "queued", "processing"].includes(j.status)
+    );
+    const activeCompetencyIds = activeJobs
+      .map((j: any) => j.batch_cursor?.competency_id)
+      .filter(Boolean);
+    const uniqueActive = new Set(activeCompetencyIds);
+    const hasActiveDupes = activeCompetencyIds.length !== uniqueActive.size;
+
+    // Total unique competencies across all jobs (for observability)
+    const allCompetencyIds = (allBundleJobs || []).map((j: any) => j.batch_cursor?.competency_id).filter(Boolean);
+    const uniqueAll = new Set(allCompetencyIds);
 
     const { data: legacyJobs } = await sb
       .from("job_queue").select("id,status")
@@ -157,8 +170,15 @@ Deno.serve(async (req) => {
       .in("status", ["pending", "processing", "queued"]).limit(50);
 
     return {
-      status: hasDupes ? "fail" : (bundleJobs?.length ? "pass" : "warn"),
-      data: { bundle_jobs: bundleJobs?.length ?? 0, unique_competencies: unique.size, has_duplicates: hasDupes, legacy_active: legacyJobs?.length ?? 0 },
+      status: hasActiveDupes ? "fail" : (allBundleJobs?.length ? "pass" : "warn"),
+      data: {
+        bundle_jobs: allBundleJobs?.length ?? 0,
+        unique_competencies: uniqueAll.size,
+        active_jobs: activeJobs.length,
+        active_unique_competencies: uniqueActive.size,
+        has_active_duplicates: hasActiveDupes,
+        legacy_active: legacyJobs?.length ?? 0,
+      },
     };
   });
 
@@ -246,8 +266,13 @@ Deno.serve(async (req) => {
 
   // ─── Check 7: Hybrid Completion ───
   checks.hybrid_completion = await runCheck("hybrid_completion", async () => {
+    const fanOutCfg = getFanOutConfig("generate_learning_content");
     const { data, error } = await sb.rpc("check_fan_out_completion", {
-      p_package_id: packageId, p_step_key: "generate_learning_content",
+      p_package_id: packageId,
+      p_step_key: "generate_learning_content",
+      p_subjob_types: fanOutCfg?.subjobTypes ?? ["lesson_generate_competency_bundle", "lesson_generate_content"],
+      p_completion_mode: fanOutCfg?.completionMode ?? "hybrid",
+      p_completion_rpc: fanOutCfg?.completionRpc ?? "get_learning_content_progress",
     });
     if (error) throw new Error(error.message);
     const d = data as any;
