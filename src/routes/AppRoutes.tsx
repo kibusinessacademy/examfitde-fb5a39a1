@@ -251,6 +251,7 @@ const AppRoutes = () => {
           <Route path="load-control" element={<LoadControlPage />} />
           <Route path="production" element={<ProductionWavesPage />} />
           <Route path="production/detail" element={<ProductionWaveDetailPage />} />
+          <Route path="production/triage" element={<ProductionWaveTriagePage />} />
           {/* Content with nested routes */}
           <Route path="content" element={<ContentLayout />}>
             <Route index element={<ContentPagesList />} />
