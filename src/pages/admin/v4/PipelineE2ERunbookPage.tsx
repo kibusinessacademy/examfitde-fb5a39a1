@@ -208,7 +208,7 @@ export default function PipelineE2ERunbookPage() {
       const { data: doneBundles } = await (supabase as any)
         .from('job_queue').select('id,batch_cursor,payload')
         .eq('package_id', pid).eq('job_type', 'lesson_generate_competency_bundle')
-        .eq('status', 'done').limit(5);
+        .in('status', ['done', 'completed']).limit(5);
 
       const sampleCompetencies = (doneBundles || [])
         .map((b: any) => b.batch_cursor?.competency_id || b.payload?.competency_id)
