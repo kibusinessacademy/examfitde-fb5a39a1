@@ -4,6 +4,7 @@ import { callAIWithFailover, logLLMCostEvent, RateLimitError } from "../_shared/
 import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
 import { setProviderCooldown } from "../_shared/llm/provider-cooldown.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
+import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { loadCachedGlossary, formatGlossaryForPrompt } from "../_shared/glossary-loader.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, buildMiniCheckPrompt, runV2QualityGate, loadMasteryContext, buildMasteryFeedbackSuffix, adjustDifficultyByMastery, mapToDifficultyLevel, getRequiredDepth } from "../_shared/prompt-kit.ts";

@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { canonicalStepKey } from "../_shared/step-keys.ts";
+import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
 
 /**
  * lesson-generate-competency-bundle — Competency-Level Fan-Out Orchestrator
@@ -70,6 +71,17 @@ Deno.serve(async (req) => {
     return json({
       error: "Missing required fields: package_id, competency_id, course_id, curriculum_id",
     }, 400);
+  }
+
+  // ── Route-aware health gate ──
+  const route = await resolveAvailableRoute("competency_bundle");
+  if (!route?.ok) {
+    return json({
+      ok: true,
+      skipped: true,
+      reason: "all_candidates_on_cooldown",
+      competency_id: competencyId,
+    });
   }
 
   // ── Load all lessons for this competency that need generation ──

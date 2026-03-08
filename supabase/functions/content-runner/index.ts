@@ -4,6 +4,7 @@ import { inferBackoffSeconds, edgeFunctionForJobType, poolForJobType } from "../
 import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts";
 import { setProviderCooldown, cleanupExpiredCooldowns, filterCooledDownProviders, isOnCooldown } from "../_shared/llm/provider-cooldown.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
+import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
@@ -425,40 +426,30 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     } catch { /* best-effort */ }
   }
 
-  // ── Provider Health Gate ──
-  let activeChain: { provider: string; model: string; [k: string]: unknown }[] = [];
-  let fullChainLength = 0;
-  try {
-    const fullChain = await getModelChainAsync("learning_content");
-    fullChainLength = fullChain.length;
-    activeChain = await filterCooledDownProviders(fullChain);
-    if (activeChain.length < fullChain.length) {
-      console.log(`[content-runner] HEALTH_GATE: ${fullChain.length - activeChain.length} provider(s) on cooldown, ${activeChain.length} available`);
+  // ── Provider Health Gate (route-aware via load balancer) ──
+  const resolvedRoute = await resolveAvailableRoute("learning_content");
+
+  if (!resolvedRoute?.ok) {
+    console.warn(
+      `[content-runner] HEALTH_GATE: no healthy route for learning_content — deferring ${jobs.length} job(s) by 30s (reason: ${resolvedRoute?.reason ?? "unknown"})`,
+    );
+    const deferAt = new Date(Date.now() + 30_000).toISOString();
+    for (const job of jobs) {
+      await sb.from("job_queue").update({
+        status: "pending",
+        run_after: deferAt,
+        locked_at: null,
+        locked_by: null,
+        updated_at: new Date().toISOString(),
+        last_error: `HEALTH_GATE: all candidates on cooldown, deferred by ${WORKER_ID}`,
+      }).eq("id", job.id).eq("status", "processing");
     }
-  } catch (e) {
-    console.warn(`[content-runner] HEALTH_GATE: chain fetch failed, proceeding: ${(e as Error)?.message?.slice(0, 100)}`);
+    return { claimed: jobs.length, succeeded: 0, failed: 0, deferred: jobs.length };
   }
 
-  const allProvidersCooled = fullChainLength > 1 && activeChain.length === 1;
-  if (allProvidersCooled) {
-    const onlyProvider = activeChain[0];
-    const stillCooled = await isOnCooldown(onlyProvider.provider, onlyProvider.model);
-    if (stillCooled) {
-      console.warn(`[content-runner] HEALTH_GATE: ALL ${fullChainLength} providers on cooldown — deferring ${jobs.length} job(s) by 30s`);
-      const deferAt = new Date(Date.now() + 30_000).toISOString();
-      for (const job of jobs) {
-        await sb.from("job_queue").update({
-          status: "pending",
-          run_after: deferAt,
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-          last_error: `HEALTH_GATE: all providers on cooldown, deferred by ${WORKER_ID}`,
-        }).eq("id", job.id).eq("status", "processing");
-      }
-      return { claimed: jobs.length, succeeded: 0, failed: 0, deferred: jobs.length };
-    }
-  }
+  console.log(
+    `[content-runner] ROUTE: using ${resolvedRoute.provider}/${resolvedRoute.model} for learning_content`,
+  );
 
   // ── Process jobs in parallel ──
   // deno-lint-ignore no-explicit-any

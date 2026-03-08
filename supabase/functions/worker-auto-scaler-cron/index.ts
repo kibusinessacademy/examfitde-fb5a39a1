@@ -1,6 +1,7 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -16,7 +17,7 @@ async function invoke(url: string, key: string, fn: string, body: unknown) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${key}`,
+      Authorization: `Bearer ${key}`,
     },
     body: JSON.stringify(body),
   });
@@ -25,7 +26,8 @@ async function invoke(url: string, key: string, fn: string, body: unknown) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS")
+    return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "POST only" });
 
   const url = Deno.env.get("SUPABASE_URL")!;
@@ -33,17 +35,11 @@ Deno.serve(async (req) => {
 
   const steps = [];
 
-  // 1. Run synthetic probes
-  steps.push(await invoke(url, key, "system-synthetic-probe-runner", { run_type: "scheduled" }));
-
-  // 2. Regression snapshot
-  steps.push(await invoke(url, key, "system-regression-snapshot", {}));
-
-  // 3. Contract audit
-  steps.push(await invoke(url, key, "system-contract-audit", {}));
-
-  // 4. Worker auto-scaler
+  // 1. Worker auto-scaler
   steps.push(await invoke(url, key, "worker-auto-scaler", {}));
+
+  // 2. Scheduler guardrails (orphan reaper + cron governance)
+  steps.push(await invoke(url, key, "system-scheduler-guardrail-cron", {}));
 
   return json(200, {
     ok: true,
