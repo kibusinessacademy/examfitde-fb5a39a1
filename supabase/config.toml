@@ -383,3 +383,33 @@ verify_jwt = false
 
 [functions.admin-run-pipeline-e2e]
 verify_jwt = false
+
+[functions.wave-candidate-promote]
+verify_jwt = false
+
+[functions.admin-run-autonomous-factory]
+verify_jwt = false
+
+[functions.admin-run-production-supervisor]
+verify_jwt = false
+
+[functions.pipeline-runner]
+verify_jwt = false
+
+[functions.factory-orchestrator]
+verify_jwt = false
+
+[functions.admin-production-supervisor-cron]
+verify_jwt = false
+
+[functions.content-runner]
+verify_jwt = false
+
+[functions.cron-trigger]
+verify_jwt = false
+
+[functions.production-guardian]
+verify_jwt = false
+
+[functions.pipeline-watchdog]
+verify_jwt = false
