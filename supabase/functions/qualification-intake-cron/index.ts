@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
   const doIntelligence = body.intelligence !== false;
   const doRevenue = body.revenue !== false;
   const doCampaign = body.campaign !== false;
+  const doDistribution = body.distribution !== false;
 
   const steps: any[] = [];
 
@@ -157,6 +158,14 @@ Deno.serve(async (req) => {
     steps.push({
       step: "campaign_automation",
       ...(await invokeSelf(supabaseUrl, serviceKey, "campaign-automation-cron", {})),
+    });
+  }
+
+  // Distribution: Sync Targets → Enqueue → Worker → Status Sync
+  if (doDistribution) {
+    steps.push({
+      step: "distribution_pipeline",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "distribution-cron", {})),
     });
   }
 
