@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
   const doPromoteBlueprint = body.promote_blueprint !== false;
   const doAutoWave = body.auto_wave !== false;
   const doIntelligence = body.intelligence !== false;
+  const doRevenue = body.revenue !== false;
 
   const steps: any[] = [];
 
@@ -136,6 +137,16 @@ Deno.serve(async (req) => {
       step: "intelligence",
       ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-priority-sync", {
         limit: 100,
+      })),
+    });
+  }
+
+  // Revenue Intelligence: Signal Ingest → GTM Score → Launch Recommendations
+  if (doRevenue) {
+    steps.push({
+      step: "revenue_pipeline",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "curriculum-revenue-cron", {
+        limit: 200,
       })),
     });
   }
