@@ -3,6 +3,7 @@ import { AdminSectionHeader } from "@/components/admin/layout/AdminSectionHeader
 import { KpiCard } from "@/components/admin/cards/KpiCard";
 import { AlertListCard } from "@/components/admin/cards/AlertListCard";
 import { PipelineFlowCard } from "@/components/admin/cards/PipelineFlowCard";
+import { CapacityCard } from "@/components/admin/cards/CapacityCard";
 import { useAdminControlTower } from "@/components/admin/hooks/useAdminControlTower";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, Clock, CheckCircle, XCircle, Package, Cpu, Lock, ShieldAlert, Unplug } from "lucide-react";
@@ -56,6 +57,10 @@ export default function AdminControlTowerPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <AlertListCard alerts={data.alerts} />
         <PipelineFlowCard items={data.pipeline} />
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <CapacityCard />
       </div>
     </>
   );
