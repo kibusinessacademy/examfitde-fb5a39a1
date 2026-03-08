@@ -2891,6 +2891,433 @@ export type Database = {
           },
         ]
       }
+      campaign_asset_queue: {
+        Row: {
+          asset_key: string
+          asset_type: string
+          attempts: number
+          channel: string
+          created_at: string
+          curriculum_id: string | null
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          launch_plan_id: string
+          lease_owner: string | null
+          lease_until: string | null
+          max_attempts: number
+          payload: Json
+          priority: number
+          qualification_catalog_id: string | null
+          result_meta: Json
+          run_after: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          asset_key: string
+          asset_type: string
+          attempts?: number
+          channel: string
+          created_at?: string
+          curriculum_id?: string | null
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          launch_plan_id: string
+          lease_owner?: string | null
+          lease_until?: string | null
+          max_attempts?: number
+          payload?: Json
+          priority?: number
+          qualification_catalog_id?: string | null
+          result_meta?: Json
+          run_after?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_key?: string
+          asset_type?: string
+          attempts?: number
+          channel?: string
+          created_at?: string
+          curriculum_id?: string | null
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          launch_plan_id?: string
+          lease_owner?: string | null
+          lease_until?: string | null
+          max_attempts?: number
+          payload?: Json
+          priority?: number
+          qualification_catalog_id?: string | null
+          result_meta?: Json
+          run_after?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_asset_queue_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_asset_queue_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_asset_queue_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_asset_queue_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_asset_queue_launch_plan_id_fkey"
+            columns: ["launch_plan_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_launch_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_asset_queue_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_assets: {
+        Row: {
+          asset_key: string
+          asset_type: string
+          channel: string
+          content_json: Json | null
+          content_markdown: string | null
+          created_at: string
+          curriculum_id: string | null
+          id: string
+          launch_plan_id: string
+          performance_meta: Json
+          publication_status: string
+          publication_target: string | null
+          qualification_catalog_id: string | null
+          queue_id: string | null
+          slug: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          asset_key: string
+          asset_type: string
+          channel: string
+          content_json?: Json | null
+          content_markdown?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          launch_plan_id: string
+          performance_meta?: Json
+          publication_status?: string
+          publication_target?: string | null
+          qualification_catalog_id?: string | null
+          queue_id?: string | null
+          slug?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          asset_key?: string
+          asset_type?: string
+          channel?: string
+          content_json?: Json | null
+          content_markdown?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          launch_plan_id?: string
+          performance_meta?: Json
+          publication_status?: string
+          publication_target?: string | null
+          qualification_catalog_id?: string | null
+          queue_id?: string | null
+          slug?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_assets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_assets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_assets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_assets_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_assets_launch_plan_id_fkey"
+            columns: ["launch_plan_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_launch_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_assets_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_assets_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_asset_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_automation_runs: {
+        Row: {
+          created_count: number
+          error_count: number
+          finished_at: string | null
+          id: string
+          meta: Json
+          processed_count: number
+          run_type: string
+          started_at: string
+          status: string
+          updated_count: number
+        }
+        Insert: {
+          created_count?: number
+          error_count?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          processed_count?: number
+          run_type: string
+          started_at?: string
+          status?: string
+          updated_count?: number
+        }
+        Update: {
+          created_count?: number
+          error_count?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          processed_count?: number
+          run_type?: string
+          started_at?: string
+          status?: string
+          updated_count?: number
+        }
+        Relationships: []
+      }
+      campaign_launch_plans: {
+        Row: {
+          asset_plan: Json
+          campaign_priority: number
+          created_at: string
+          curriculum_id: string | null
+          generated_asset_count: number
+          id: string
+          launch_angle: string | null
+          launch_recommendation_id: string | null
+          meta: Json
+          offer_type: string
+          price_tier: string
+          primary_channel: string
+          published_asset_count: number
+          qualification_catalog_id: string | null
+          seo_slug: string | null
+          status: string
+          target_persona: string | null
+          updated_at: string
+        }
+        Insert: {
+          asset_plan?: Json
+          campaign_priority?: number
+          created_at?: string
+          curriculum_id?: string | null
+          generated_asset_count?: number
+          id?: string
+          launch_angle?: string | null
+          launch_recommendation_id?: string | null
+          meta?: Json
+          offer_type?: string
+          price_tier?: string
+          primary_channel?: string
+          published_asset_count?: number
+          qualification_catalog_id?: string | null
+          seo_slug?: string | null
+          status?: string
+          target_persona?: string | null
+          updated_at?: string
+        }
+        Update: {
+          asset_plan?: Json
+          campaign_priority?: number
+          created_at?: string
+          curriculum_id?: string | null
+          generated_asset_count?: number
+          id?: string
+          launch_angle?: string | null
+          launch_recommendation_id?: string | null
+          meta?: Json
+          offer_type?: string
+          price_tier?: string
+          primary_channel?: string
+          published_asset_count?: number
+          qualification_catalog_id?: string | null
+          seo_slug?: string | null
+          status?: string
+          target_persona?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_launch_plans_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_launch_plans_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_launch_plans_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_launch_plans_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "campaign_launch_plans_launch_recommendation_id_fkey"
+            columns: ["launch_recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_launch_recommendations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_launch_plans_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_performance_snapshots: {
+        Row: {
+          asset_id: string | null
+          channel: string
+          clicks: number
+          created_at: string
+          id: string
+          impressions: number
+          launch_plan_id: string
+          leads: number
+          meta: Json
+          metric_date: string
+          purchases: number
+          revenue: number
+        }
+        Insert: {
+          asset_id?: string | null
+          channel: string
+          clicks?: number
+          created_at?: string
+          id?: string
+          impressions?: number
+          launch_plan_id: string
+          leads?: number
+          meta?: Json
+          metric_date?: string
+          purchases?: number
+          revenue?: number
+        }
+        Update: {
+          asset_id?: string | null
+          channel?: string
+          clicks?: number
+          created_at?: string
+          id?: string
+          impressions?: number
+          launch_plan_id?: string
+          leads?: number
+          meta?: Json
+          metric_date?: string
+          purchases?: number
+          revenue?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_performance_snapshots_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_performance_snapshots_launch_plan_id_fkey"
+            columns: ["launch_plan_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_launch_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       canary_releases: {
         Row: {
           auto_promote_threshold: number | null
@@ -30586,6 +31013,41 @@ export type Database = {
           worker_version: string
         }[]
       }
+      claim_campaign_asset_jobs: {
+        Args: {
+          p_lease_minutes?: number
+          p_limit?: number
+          p_worker_id?: string
+        }
+        Returns: {
+          asset_key: string
+          asset_type: string
+          attempts: number
+          channel: string
+          created_at: string
+          curriculum_id: string | null
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          launch_plan_id: string
+          lease_owner: string | null
+          lease_until: string | null
+          max_attempts: number
+          payload: Json
+          priority: number
+          qualification_catalog_id: string | null
+          result_meta: Json
+          run_after: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "campaign_asset_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_curriculum_intake_jobs: {
         Args: { p_job_type: string; p_limit?: number; p_worker_id?: string }
         Returns: {
@@ -31154,6 +31616,10 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      default_asset_plan_for_channel: {
+        Args: { p_offer_type: string; p_primary_channel: string }
+        Returns: Json
+      }
       defer_job: {
         Args: { p_delay_seconds: number; p_job_id: string; p_reason: string }
         Returns: undefined
@@ -31186,6 +31652,10 @@ export type Database = {
       enforce_wave_backpressure: { Args: { p_wave_id: string }; Returns: Json }
       enqueue_blueprint_gap_jobs: {
         Args: { p_cap?: number; p_curriculum_id: string; p_reason?: string }
+        Returns: Json
+      }
+      enqueue_campaign_assets_from_plan: {
+        Args: { p_launch_plan_id: string }
         Returns: Json
       }
       enqueue_finance_export: {
@@ -32814,6 +33284,7 @@ export type Database = {
         }
         Returns: Json
       }
+      sync_campaign_launch_plans: { Args: never; Returns: Json }
       sync_curriculum_launch_recommendations: { Args: never; Returns: Json }
       sync_curriculum_priority_recommendations: { Args: never; Returns: Json }
       sync_qualification_wave_candidates: {
