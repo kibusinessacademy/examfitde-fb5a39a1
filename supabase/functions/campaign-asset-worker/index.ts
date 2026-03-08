@@ -138,10 +138,8 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).eq("id", job.id);
 
-      // Update plan counters
-      await sb.rpc("", {}).catch(() => null); // no-op, use direct update
+      // Update plan timestamp
       await sb.from("campaign_launch_plans").update({
-        generated_asset_count: sb.rpc ? undefined : undefined, // handled below
         updated_at: new Date().toISOString(),
       }).eq("id", job.launch_plan_id);
 
