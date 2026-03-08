@@ -6872,6 +6872,296 @@ export type Database = {
           },
         ]
       }
+      curriculum_intake_candidates: {
+        Row: {
+          canonical_title: string | null
+          category: string
+          discovered_at: string
+          document_url: string | null
+          id: string
+          intake_status: string
+          language: string | null
+          last_seen_at: string
+          metadata: Json | null
+          provider_name: string | null
+          rejection_reason: string | null
+          source_hash: string | null
+          source_key: string
+          source_registry_id: string | null
+          title_raw: string
+          url: string
+          version_date: string | null
+          version_label: string | null
+        }
+        Insert: {
+          canonical_title?: string | null
+          category: string
+          discovered_at?: string
+          document_url?: string | null
+          id?: string
+          intake_status?: string
+          language?: string | null
+          last_seen_at?: string
+          metadata?: Json | null
+          provider_name?: string | null
+          rejection_reason?: string | null
+          source_hash?: string | null
+          source_key: string
+          source_registry_id?: string | null
+          title_raw: string
+          url: string
+          version_date?: string | null
+          version_label?: string | null
+        }
+        Update: {
+          canonical_title?: string | null
+          category?: string
+          discovered_at?: string
+          document_url?: string | null
+          id?: string
+          intake_status?: string
+          language?: string | null
+          last_seen_at?: string
+          metadata?: Json | null
+          provider_name?: string | null
+          rejection_reason?: string | null
+          source_hash?: string | null
+          source_key?: string
+          source_registry_id?: string | null
+          title_raw?: string
+          url?: string
+          version_date?: string | null
+          version_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_intake_candidates_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_source_registry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_intake_jobs: {
+        Row: {
+          attempts: number
+          candidate_id: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          idempotency_key: string | null
+          job_type: string
+          last_error: string | null
+          max_attempts: number
+          payload: Json
+          run_after: string
+          source_document_id: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          candidate_id?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          job_type: string
+          last_error?: string | null
+          max_attempts?: number
+          payload?: Json
+          run_after?: string
+          source_document_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          candidate_id?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          job_type?: string
+          last_error?: string | null
+          max_attempts?: number
+          payload?: Json
+          run_after?: string
+          source_document_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_intake_jobs_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_intake_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_intake_jobs_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_source_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_intake_parsed: {
+        Row: {
+          admission_rules: Json | null
+          award_type: string | null
+          candidate_id: string
+          certification_body: string | null
+          competency_areas: Json | null
+          created_at: string
+          curriculum_date: string | null
+          curriculum_version: string | null
+          education_type: string
+          exam_structure: Json | null
+          id: string
+          learning_fields: Json | null
+          parsed_payload: Json
+          regulation_reference: string | null
+          source_authority: string | null
+          source_confidence: number | null
+          title_normalized: string | null
+          updated_at: string
+          weighting_rules: Json | null
+        }
+        Insert: {
+          admission_rules?: Json | null
+          award_type?: string | null
+          candidate_id: string
+          certification_body?: string | null
+          competency_areas?: Json | null
+          created_at?: string
+          curriculum_date?: string | null
+          curriculum_version?: string | null
+          education_type: string
+          exam_structure?: Json | null
+          id?: string
+          learning_fields?: Json | null
+          parsed_payload: Json
+          regulation_reference?: string | null
+          source_authority?: string | null
+          source_confidence?: number | null
+          title_normalized?: string | null
+          updated_at?: string
+          weighting_rules?: Json | null
+        }
+        Update: {
+          admission_rules?: Json | null
+          award_type?: string | null
+          candidate_id?: string
+          certification_body?: string | null
+          competency_areas?: Json | null
+          created_at?: string
+          curriculum_date?: string | null
+          curriculum_version?: string | null
+          education_type?: string
+          exam_structure?: Json | null
+          id?: string
+          learning_fields?: Json | null
+          parsed_payload?: Json
+          regulation_reference?: string | null
+          source_authority?: string | null
+          source_confidence?: number | null
+          title_normalized?: string | null
+          updated_at?: string
+          weighting_rules?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_intake_parsed_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: true
+            referencedRelation: "curriculum_intake_candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_intake_promotion_log: {
+        Row: {
+          action: string
+          candidate_id: string
+          created_at: string
+          curriculum_id: string | null
+          details: Json | null
+          id: string
+          parsed_id: string
+          reason: string | null
+        }
+        Insert: {
+          action: string
+          candidate_id: string
+          created_at?: string
+          curriculum_id?: string | null
+          details?: Json | null
+          id?: string
+          parsed_id: string
+          reason?: string | null
+        }
+        Update: {
+          action?: string
+          candidate_id?: string
+          created_at?: string
+          curriculum_id?: string | null
+          details?: Json | null
+          id?: string
+          parsed_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_intake_promotion_log_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_intake_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_intake_promotion_log_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_intake_promotion_log_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_intake_promotion_log_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_intake_promotion_log_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_intake_promotion_log_parsed_id_fkey"
+            columns: ["parsed_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_intake_parsed"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curriculum_products: {
         Row: {
           blueprint_id: string | null
@@ -6999,6 +7289,110 @@ export type Database = {
             referencedColumns: ["product_id"]
           },
         ]
+      }
+      curriculum_source_documents: {
+        Row: {
+          candidate_id: string
+          checksum_sha256: string | null
+          content_length: number | null
+          document_type: string
+          extracted_text: Json | null
+          fetched_at: string
+          http_status: number | null
+          id: string
+          parse_error: string | null
+          parse_status: string
+          parser_name: string | null
+          parser_version: string | null
+          source_url: string
+          storage_path: string | null
+        }
+        Insert: {
+          candidate_id: string
+          checksum_sha256?: string | null
+          content_length?: number | null
+          document_type: string
+          extracted_text?: Json | null
+          fetched_at?: string
+          http_status?: number | null
+          id?: string
+          parse_error?: string | null
+          parse_status?: string
+          parser_name?: string | null
+          parser_version?: string | null
+          source_url: string
+          storage_path?: string | null
+        }
+        Update: {
+          candidate_id?: string
+          checksum_sha256?: string | null
+          content_length?: number | null
+          document_type?: string
+          extracted_text?: Json | null
+          fetched_at?: string
+          http_status?: number | null
+          id?: string
+          parse_error?: string | null
+          parse_status?: string
+          parser_name?: string | null
+          parser_version?: string | null
+          source_url?: string
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_source_documents_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_intake_candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_source_registry: {
+        Row: {
+          category: string
+          created_at: string
+          domain: string
+          id: string
+          is_enabled: boolean
+          notes: Json | null
+          parser_strategy: string
+          priority: number
+          robots_checked: boolean
+          source_key: string
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          domain: string
+          id?: string
+          is_enabled?: boolean
+          notes?: Json | null
+          parser_strategy: string
+          priority?: number
+          robots_checked?: boolean
+          source_key: string
+          source_type: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          domain?: string
+          id?: string
+          is_enabled?: boolean
+          notes?: Json | null
+          parser_strategy?: string
+          priority?: number
+          robots_checked?: boolean
+          source_key?: string
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       curriculum_topic_coverage: {
         Row: {
@@ -29210,6 +29604,10 @@ export type Database = {
         }
         Returns: Json
       }
+      check_intake_candidate_readiness: {
+        Args: { p_candidate_id: string }
+        Returns: Json
+      }
       check_lesson_answer: {
         Args: { p_lesson_id: string; p_user_answer: string }
         Returns: Json
@@ -29295,6 +29693,17 @@ export type Database = {
           processed_count: number
           worker_name: string
           worker_version: string
+        }[]
+      }
+      claim_curriculum_intake_jobs: {
+        Args: { p_job_type: string; p_limit?: number; p_worker_id?: string }
+        Returns: {
+          attempts: number
+          candidate_id: string
+          id: string
+          job_type: string
+          payload: Json
+          source_document_id: string
         }[]
       }
       claim_license_seat: { Args: { p_invite_code: string }; Returns: string }
@@ -29968,6 +30377,10 @@ export type Database = {
       fail_job: {
         Args: { p_allow_retry?: boolean; p_error: string; p_job_id: string }
         Returns: undefined
+      }
+      find_existing_curriculum_match: {
+        Args: { p_category: string; p_title: string; p_version_label?: string }
+        Returns: Json
       }
       find_ghost_published_courses: {
         Args: never
@@ -30893,6 +31306,10 @@ export type Database = {
       populate_admin_search_index: { Args: never; Returns: undefined }
       promote_exam_questions_from_council: {
         Args: { p_curriculum_id: string; p_limit?: number }
+        Returns: Json
+      }
+      promote_intake_candidate_to_curriculum: {
+        Args: { p_candidate_id: string }
         Returns: Json
       }
       promote_to_authority: {
