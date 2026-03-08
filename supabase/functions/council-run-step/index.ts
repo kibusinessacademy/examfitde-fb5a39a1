@@ -75,7 +75,7 @@ async function runCouncilLoop(db: ReturnType<typeof createClient>, p: StepPayloa
   const maxRounds = p.max_rounds ?? MAX_ROUNDS_DEFAULT;
   const lessonCtx = await fetchLessonContext(db, p.lesson_id);
 
-  // Phase 1: PROPOSE (GPT-4.1 – generator role ONLY)
+  // Phase 1: PROPOSE (GPT-5-mini – generator role ONLY)
   let versionId = await propose(db, p, lessonCtx);
   let round = 1;
   let finalDecision: "approved" | "revise" | "rejected" = "revise";
