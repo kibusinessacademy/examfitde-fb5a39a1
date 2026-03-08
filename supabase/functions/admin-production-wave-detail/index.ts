@@ -96,6 +96,11 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Load KPI report
+  const { data: kpi } = await sb.rpc("get_wave_kpi_report", {
+    p_wave_id: waveId,
+  });
+
   return json(200, {
     ok: true,
     wave: {
@@ -115,5 +120,6 @@ Deno.serve(async (req) => {
     },
     by_status: byStatus,
     items: enrichedItems,
+    kpi_report: kpi,
   }, origin);
 });
