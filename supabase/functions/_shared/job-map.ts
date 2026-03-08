@@ -362,7 +362,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   security_botnet_gate:              { pool: "core", edgeFunction: "security-botnet-gate" },
 
   // ── blueprint seeding ───────────────────────────────────────
-  blueprint_generate_variants:       { pool: "content", edgeFunction: "generate-blueprint-questions" },
+  blueprint_generate_variants:       { pool: "content", edgeFunction: "blueprint-seed-by-competency" },
 };
 
 // ── Backward-compatible derived maps (used by existing code) ──
