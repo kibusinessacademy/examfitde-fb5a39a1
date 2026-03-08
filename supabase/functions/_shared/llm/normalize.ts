@@ -68,7 +68,7 @@ export function classifyError(err: unknown): ErrorClassification {
   const rawStr = String(raw ?? "");
   const msg = rawStr.toLowerCase();
 
-  // Empty response / blank output = transient + hard cooldown (10min)
+  // Empty response / blank output = transient + SHORT cooldown (2 min)
   if (
     rawStr.trim().length === 0 ||
     msg.includes("empty response") ||
@@ -80,7 +80,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_empty_response",
-      providerCooldownMs: 10 * 60_000, // 10 min cooldown for that provider+model
+      providerCooldownMs: 2 * 60_000, // 2 min (was 10 min — too aggressive)
     };
   }
 
@@ -89,7 +89,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_rate_limited",
-      providerCooldownMs: 5 * 60_000, // 5 min
+      providerCooldownMs: 3 * 60_000, // 3 min (was 5 min)
     };
   }
 
@@ -103,7 +103,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_transient_timeout",
-      providerCooldownMs: 5 * 60_000,
+      providerCooldownMs: 3 * 60_000, // 3 min (was 5 min)
     };
   }
 
@@ -121,7 +121,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_all_providers_failed",
-      providerCooldownMs: 3 * 60_000,
+      providerCooldownMs: 2 * 60_000, // 2 min (was 3 min)
     };
   }
 
