@@ -2400,7 +2400,7 @@ Deno.serve(async (req) => {
         totalAcquired++;
 
         console.log(`[runner] Borrow slot: package ${packageId.slice(0, 8)}`);
-        const result = await processPackage(sb, packageId, runnerId);
+        const result = await processPackage(sb, packageId, runnerId, stepClassCtx);
         results.push({ slot: totalAcquired, track: "borrow", ...result });
       }
     }
