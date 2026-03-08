@@ -33,6 +33,7 @@ export default function UnifiedLeitstellePage() {
     setRunning(false);
     await refetchSnapshot();
     await refetchFeed();
+    await refetchPerf();
   }
 
   const alerts = useMemo(() => feed?.alerts ?? [], [feed]);
