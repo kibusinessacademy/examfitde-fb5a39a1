@@ -25619,6 +25619,200 @@ export type Database = {
         }
         Relationships: []
       }
+      system_probe_alerts: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          payload: Json
+          probe_key: string
+          resolved_at: string | null
+          severity: string
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          payload?: Json
+          probe_key: string
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          payload?: Json
+          probe_key?: string
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      system_probe_definitions: {
+        Row: {
+          config: Json
+          created_at: string
+          expected_result: Json
+          id: string
+          is_enabled: boolean
+          probe_key: string
+          probe_scope: string
+          probe_type: string
+          severity: string
+          timeout_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          expected_result?: Json
+          id?: string
+          is_enabled?: boolean
+          probe_key: string
+          probe_scope: string
+          probe_type: string
+          severity?: string
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          expected_result?: Json
+          id?: string
+          is_enabled?: boolean
+          probe_key?: string
+          probe_scope?: string
+          probe_type?: string
+          severity?: string
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_probe_results: {
+        Row: {
+          created_at: string
+          id: string
+          latency_ms: number | null
+          message: string | null
+          probe_key: string
+          probe_run_id: string
+          probe_scope: string
+          result: Json
+          severity: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          message?: string | null
+          probe_key: string
+          probe_run_id: string
+          probe_scope: string
+          result?: Json
+          severity?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          message?: string | null
+          probe_key?: string
+          probe_run_id?: string
+          probe_scope?: string
+          result?: Json
+          severity?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_probe_results_probe_run_id_fkey"
+            columns: ["probe_run_id"]
+            isOneToOne: false
+            referencedRelation: "system_probe_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_probe_runs: {
+        Row: {
+          critical_failed_count: number
+          failed_count: number
+          finished_at: string | null
+          id: string
+          passed_count: number
+          run_type: string
+          started_at: string
+          status: string
+          summary: Json
+          total_probes: number
+          warned_count: number
+        }
+        Insert: {
+          critical_failed_count?: number
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          passed_count?: number
+          run_type?: string
+          started_at?: string
+          status?: string
+          summary?: Json
+          total_probes?: number
+          warned_count?: number
+        }
+        Update: {
+          critical_failed_count?: number
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          passed_count?: number
+          run_type?: string
+          started_at?: string
+          status?: string
+          summary?: Json
+          total_probes?: number
+          warned_count?: number
+        }
+        Relationships: []
+      }
+      system_regression_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          metrics: Json
+          snapshot_date: string
+          snapshot_key: string
+          snapshot_scope: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metrics?: Json
+          snapshot_date?: string
+          snapshot_key: string
+          snapshot_scope: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metrics?: Json
+          snapshot_date?: string
+          snapshot_key?: string
+          snapshot_scope?: string
+        }
+        Relationships: []
+      }
       system_ssot_mappings: {
         Row: {
           created_at: string
@@ -34124,6 +34318,7 @@ export type Database = {
         }[]
       }
       get_priority_ceiling: { Args: never; Returns: number }
+      get_probe_health_summary: { Args: never; Returns: Json }
       get_production_kpis: { Args: never; Returns: Json }
       get_profiles_security_status: { Args: never; Returns: Json }
       get_provider_p95_latency: {
@@ -34939,6 +35134,7 @@ export type Database = {
       }
       run_health_checks: { Args: never; Returns: Json }
       run_nightly_pipeline_guards: { Args: never; Returns: Json }
+      run_synthetic_probe_suite: { Args: never; Returns: Json }
       run_system_contract_audit: { Args: never; Returns: Json }
       run_system_integrity_audit: { Args: never; Returns: Json }
       search_berufe: {
