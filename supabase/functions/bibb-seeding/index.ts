@@ -291,9 +291,9 @@ Deno.serve(async (req) => {
       if (!beruf) return new Response(JSON.stringify({ success: false, error: 'Beruf not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       if (!beruf.rahmenlehrplan_url) return new Response(JSON.stringify({ success: false, error: 'No rahmenlehrplan_url for this Beruf' }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-      // Check if already has frozen curriculum
-      const { data: existing } = await supabase.from('curricula').select('id').eq('beruf_id', berufId).eq('status', 'frozen').maybeSingle();
-      if (existing) return new Response(JSON.stringify({ success: true, message: 'Already has frozen curriculum', curriculumId: existing.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      // Beruf-first dedup: check if ANY active (non-archived) curriculum exists for this beruf
+      const { data: existing } = await supabase.from('curricula').select('id, status').eq('beruf_id', berufId).not('status', 'eq', 'archived').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (existing) return new Response(JSON.stringify({ success: true, message: `Already has ${existing.status} curriculum for this Beruf`, curriculumId: existing.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
       // Create curriculum
       const { data: curr, error: cErr } = await supabase.from('curricula').insert({
