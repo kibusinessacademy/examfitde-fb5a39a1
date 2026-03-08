@@ -113,11 +113,11 @@ export default function CurriculumIntakePage() {
           </Card>
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-xs">Promoted</CardTitle></CardHeader>
-            <CardContent><div className="text-xl font-semibold flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" />{stats.promoted}</div></CardContent>
+            <CardContent><div className="text-xl font-semibold flex items-center gap-1"><CheckCircle className="h-4 w-4 text-primary" />{stats.promoted}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-xs">Rejected</CardTitle></CardHeader>
-            <CardContent><div className="text-xl font-semibold flex items-center gap-1"><XCircle className="h-4 w-4 text-red-500" />{stats.rejected}</div></CardContent>
+            <CardContent><div className="text-xl font-semibold flex items-center gap-1"><XCircle className="h-4 w-4 text-destructive" />{stats.rejected}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-xs">Pending Jobs</CardTitle></CardHeader>
