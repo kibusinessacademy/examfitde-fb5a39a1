@@ -119,6 +119,16 @@ Deno.serve(async (req) => {
     });
   }
 
+  // NEW: Auto-seed production waves from ready candidates
+  if (doAutoWave) {
+    steps.push({
+      step: "auto_wave",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "qualification-auto-wave", {
+        limit: 10,
+      })),
+    });
+  }
+
   return jsonRes(200, {
     ok: true,
     steps,
