@@ -170,6 +170,14 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Optimization: Score Assets → Score Curricula → Action Sync → Executor
+  if (doOptimization) {
+    steps.push({
+      step: "optimization_pipeline",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "optimization-cron", {})),
+    });
+  }
+
   return jsonRes(200, {
     ok: true,
     steps,
