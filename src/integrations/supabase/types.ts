@@ -35076,8 +35076,8 @@ export type Database = {
           blueprints: number
           competencies: number
           curriculum_id: string
-          enrichment_progress: number
           learning_fields: number
+          seeding_version: string
           title: string
           track: string
         }[]
