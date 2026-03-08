@@ -47,6 +47,16 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+  // Build internal headers for all sub-calls
+  const internalHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (edgeSecret) {
+    internalHeaders["x-internal-secret"] = edgeSecret;
+  } else {
+    internalHeaders["Authorization"] = `Bearer ${serviceKey}`;
+  }
+
   const result = {
     ok: true,
     checked_waves: 0,
