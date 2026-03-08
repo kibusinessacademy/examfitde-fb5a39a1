@@ -26,9 +26,9 @@ function envInt(name: string, def: number): number {
 
 export function getSchedulerCaps(): SchedulerCaps {
   return {
-    globalWipMax: envInt("LC_GLOBAL_WIP_MAX", 48),
-    perPackageMax: envInt("LC_PER_PACKAGE_MAX", 12),
-    dispatchBatchMax: envInt("LC_DISPATCH_BATCH_MAX", 120),
+    globalWipMax: envInt("LC_GLOBAL_WIP_MAX", 60),       // Phase A: was 48 → +25%
+    perPackageMax: envInt("LC_PER_PACKAGE_MAX", 15),      // Phase A: was 12 → +25%
+    dispatchBatchMax: envInt("LC_DISPATCH_BATCH_MAX", 150), // Phase A: was 120 → +25%
   };
 }
 
