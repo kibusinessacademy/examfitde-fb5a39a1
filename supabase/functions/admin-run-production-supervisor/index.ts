@@ -195,8 +195,7 @@ Deno.serve(async (req) => {
           `${supabaseUrl}/functions/v1/admin-production-supervisor`,
           {
             method: "POST",
-            headers: {
-              Authorization: `Bearer ${serviceKey}`,
+            headers: internalHeaders,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
