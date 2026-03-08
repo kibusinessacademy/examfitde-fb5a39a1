@@ -18182,6 +18182,69 @@ export type Database = {
         }
         Relationships: []
       }
+      qualification_blueprint_profiles: {
+        Row: {
+          active: boolean
+          award_type: string
+          created_at: string
+          default_bloom_mix: Json
+          default_difficulty_mix: Json
+          default_pass_threshold: number
+          default_question_types: Json
+          default_total_questions: number
+          education_type: string | null
+          exam_mode: string
+          id: string
+          metadata: Json
+          oral_exam_enabled: boolean
+          practical_exam_enabled: boolean
+          profile_key: string
+          project_exam_enabled: boolean
+          provider_family: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          award_type: string
+          created_at?: string
+          default_bloom_mix?: Json
+          default_difficulty_mix?: Json
+          default_pass_threshold?: number
+          default_question_types?: Json
+          default_total_questions?: number
+          education_type?: string | null
+          exam_mode?: string
+          id?: string
+          metadata?: Json
+          oral_exam_enabled?: boolean
+          practical_exam_enabled?: boolean
+          profile_key: string
+          project_exam_enabled?: boolean
+          provider_family?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          award_type?: string
+          created_at?: string
+          default_bloom_mix?: Json
+          default_difficulty_mix?: Json
+          default_pass_threshold?: number
+          default_question_types?: Json
+          default_total_questions?: number
+          education_type?: string | null
+          exam_mode?: string
+          id?: string
+          metadata?: Json
+          oral_exam_enabled?: boolean
+          practical_exam_enabled?: boolean
+          profile_key?: string
+          project_exam_enabled?: boolean
+          provider_family?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       qualification_candidates: {
         Row: {
           award_type_hint: string | null
@@ -18357,6 +18420,82 @@ export type Database = {
           },
         ]
       }
+      qualification_curriculum_map: {
+        Row: {
+          blueprint_id: string | null
+          created_at: string
+          curriculum_id: string
+          draft_id: string
+          id: string
+          metadata: Json
+          promotion_status: string
+          updated_at: string
+        }
+        Insert: {
+          blueprint_id?: string | null
+          created_at?: string
+          curriculum_id: string
+          draft_id: string
+          id?: string
+          metadata?: Json
+          promotion_status?: string
+          updated_at?: string
+        }
+        Update: {
+          blueprint_id?: string | null
+          created_at?: string
+          curriculum_id?: string
+          draft_id?: string
+          id?: string
+          metadata?: Json
+          promotion_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualification_curriculum_map_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "exam_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualification_curriculum_map_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualification_curriculum_map_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "qualification_curriculum_map_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "qualification_curriculum_map_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "qualification_curriculum_map_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: true
+            referencedRelation: "qualification_curriculum_drafts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qualification_discovery_patterns: {
         Row: {
           award_type: string | null
@@ -18389,6 +18528,50 @@ export type Database = {
           search_phrase?: string
         }
         Relationships: []
+      }
+      qualification_draft_sections: {
+        Row: {
+          created_at: string
+          draft_id: string
+          id: string
+          section_key: string
+          section_title: string
+          section_type: string
+          sort_order: number
+          source_payload: Json
+          weight_percent: number | null
+        }
+        Insert: {
+          created_at?: string
+          draft_id: string
+          id?: string
+          section_key: string
+          section_title: string
+          section_type: string
+          sort_order?: number
+          source_payload?: Json
+          weight_percent?: number | null
+        }
+        Update: {
+          created_at?: string
+          draft_id?: string
+          id?: string
+          section_key?: string
+          section_title?: string
+          section_type?: string
+          sort_order?: number
+          source_payload?: Json
+          weight_percent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualification_draft_sections_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_curriculum_drafts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       qualification_fetch_queue: {
         Row: {
@@ -18448,6 +18631,91 @@ export type Database = {
             columns: ["source_registry_id"]
             isOneToOne: false
             referencedRelation: "qualification_source_registry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qualification_question_seed_runs: {
+        Row: {
+          blueprint_id: string | null
+          created_at: string
+          created_blueprints: number
+          created_questions: number
+          curriculum_id: string | null
+          draft_id: string | null
+          failed_items: number
+          finished_at: string | null
+          id: string
+          meta: Json
+          status: string
+        }
+        Insert: {
+          blueprint_id?: string | null
+          created_at?: string
+          created_blueprints?: number
+          created_questions?: number
+          curriculum_id?: string | null
+          draft_id?: string | null
+          failed_items?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          status?: string
+        }
+        Update: {
+          blueprint_id?: string | null
+          created_at?: string
+          created_blueprints?: number
+          created_questions?: number
+          curriculum_id?: string | null
+          draft_id?: string | null
+          failed_items?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualification_question_seed_runs_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "exam_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualification_question_seed_runs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualification_question_seed_runs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "qualification_question_seed_runs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "qualification_question_seed_runs_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "qualification_question_seed_runs_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_curriculum_drafts"
             referencedColumns: ["id"]
           },
         ]
@@ -30360,6 +30628,10 @@ export type Database = {
       }
       evaluate_portfolio_health: { Args: never; Returns: Json }
       evaluate_rollout_readiness: { Args: never; Returns: Json }
+      expand_qualification_draft_sections: {
+        Args: { p_draft_id: string }
+        Returns: Json
+      }
       expire_stale_leases: {
         Args: never
         Returns: {
@@ -30447,6 +30719,14 @@ export type Database = {
       generate_compliance_report: {
         Args: { p_report_type: string }
         Returns: string
+      }
+      generate_curriculum_from_qualification_draft: {
+        Args: { p_draft_id: string }
+        Returns: Json
+      }
+      generate_exam_blueprint_from_qualification_draft: {
+        Args: { p_curriculum_id: string; p_draft_id: string }
+        Returns: Json
       }
       generate_exam_questions: {
         Args: { p_blueprint_id: string; p_seed: number }
@@ -31300,6 +31580,14 @@ export type Database = {
         Args: { max_active?: number }
         Returns: string
       }
+      pick_qualification_blueprint_profile: {
+        Args: {
+          p_award_type: string
+          p_education_type: string
+          p_provider_family: string
+        }
+        Returns: string
+      }
       pipeline_health_duplicate_jobs: {
         Args: { p_since: string }
         Returns: number
@@ -31707,6 +31995,14 @@ export type Database = {
       }
       seed_blueprint_targets_for_curriculum: {
         Args: { p_curriculum_id: string; p_mode?: string; p_track?: string }
+        Returns: Json
+      }
+      seed_question_blueprints_from_qualification: {
+        Args: {
+          p_blueprint_id: string
+          p_curriculum_id: string
+          p_per_competency?: number
+        }
         Returns: Json
       }
       seed_skill_nodes_from_competencies: {
