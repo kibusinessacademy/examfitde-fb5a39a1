@@ -42,6 +42,9 @@ Deno.serve(async (req) => {
   // 3. Contract audit
   steps.push(await invoke(url, key, "system-contract-audit", {}));
 
+  // 4. Worker auto-scaler
+  steps.push(await invoke(url, key, "worker-auto-scaler", {}));
+
   return json(200, {
     ok: true,
     steps,
