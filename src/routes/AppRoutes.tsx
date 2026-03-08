@@ -88,6 +88,7 @@ const CurriculumIntakePage = lazy(() => import('@/pages/admin/intake/CurriculumI
 
 // Control Tower Pages (new SSOT Leitzentrale)
 const AdminControlTowerPage = lazy(() => import('@/pages/admin/AdminControlTowerPage'));
+const SystemContractAuditPage = lazy(() => import('@/pages/admin/control/SystemContractAuditPage'));
 const AdminOpsQueuePage = lazy(() => import('@/pages/admin/AdminOpsQueuePage'));
 const AdminProviderHealthPage = lazy(() => import('@/pages/admin/AdminProviderHealthPage'));
 const AdminPackageRiskPage = lazy(() => import('@/pages/admin/AdminPackageRiskPage'));
