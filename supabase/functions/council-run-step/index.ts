@@ -200,7 +200,7 @@ Erstelle hochwertigen, IHK-prüfungsrelevanten Content für diesen Step.`,
 
   if (error) throw error;
 
-  await logCouncilMessage(db, ver!.id, "gpt-4.1", "proposal", contentJson);
+  await logCouncilMessage(db, ver!.id, "gpt-5-mini", "proposal", contentJson);
   return ver!.id;
 }
 
