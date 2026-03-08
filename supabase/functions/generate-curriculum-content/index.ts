@@ -104,15 +104,25 @@ Deno.serve(async (req) => {
 Zuständigkeit: ${beruf.zustaendigkeit}
 Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
 
+    // v10.5: DB-driven routing via llm_provider_routing_policies
     let provider = providerOverride || "";
     let model = "";
     if (provider) {
-      model = provider === "google" ? "google/gemini-2.5-flash" : "openai/gpt-5-mini"; // v11: gpt-4.1 → gpt-5-mini
+      model = provider === "google" ? "google/gemini-2.5-flash" : "openai/gpt-5-mini";
     } else {
-      const { getModelAsync } = await import("../_shared/model-routing.ts");
-      const routed = await getModelAsync("curriculum_import");
-      provider = routed.provider;
-      model = routed.model;
+      // Try policy-based route first (timeout-optimized)
+      const policyRoute = await resolveAvailableRoute("curriculum_enrichment");
+      if (policyRoute.ok && policyRoute.provider && policyRoute.model) {
+        provider = policyRoute.provider;
+        model = policyRoute.model;
+        console.log(`[GenContent] POLICY_ROUTE: curriculum_enrichment → ${provider}/${model}`);
+      } else {
+        console.log(`[GenContent] POLICY_MISS: curriculum_enrichment (${policyRoute.reason}) → hardcoded`);
+        const { getModelAsync } = await import("../_shared/model-routing.ts");
+        const routed = await getModelAsync("curriculum_import");
+        provider = routed.provider;
+        model = routed.model;
+      }
     }
     console.log(`[GenContent] Using ${provider}/${model}`);
 

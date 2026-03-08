@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { callAIJSON } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
+import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
 
 // ═══════════════════════════════════════════════════════════════════════
 // Blueprint Seeder v4 — "Premium Elite" Grade
