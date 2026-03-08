@@ -47,6 +47,9 @@ Deno.serve(async (req) => {
   // Step 4: Phase 2 — ROI, Unit Economics, Wave Governance, Business Snapshot
   steps.push({ step: "phase2", ...(await invoke(url, key, "control-plane-phase2-cron")) });
 
+  // Step 5: Phase 3 — Executive Autonomy, Budget Guardrails, Portfolio Steering
+  steps.push({ step: "phase3", ...(await invoke(url, key, "executive-phase3-cron")) });
+
   return json(200, {
     ok: true,
     steps,
