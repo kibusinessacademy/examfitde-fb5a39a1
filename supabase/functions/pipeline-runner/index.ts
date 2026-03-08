@@ -1811,6 +1811,22 @@ async function processPackage(
   // ── ENQUEUE: Create a worker job ──
   if (nextAction.action === "enqueue") {
     const stepKey = nextAction.stepKey;
+
+    // ── STEP-CLASS CAPACITY GATE ──
+    // Enforce per-class concurrency limits (Phase B Claiming Gate)
+    if (stepClassCtx) {
+      const cls = classifyStep(stepKey);
+      const currentLoad = stepClassCtx.load[cls]?.size ?? 0;
+      const limit = stepClassCtx.limits[cls] ?? 99;
+      if (currentLoad >= limit && !stepClassCtx.load[cls]?.has(packageId)) {
+        console.log(`[runner] ⏸️ Step-class gate: ${cls} at capacity (${currentLoad}/${limit}) — deferring ${stepKey} for ${shortId}`);
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, deferred: true, reason: "step_class_at_capacity", class: cls, load: currentLoad, limit };
+      }
+      // Track this package as using this class
+      stepClassCtx.load[cls]?.add(packageId);
+    }
+
     const jobType = STEP_TO_JOB_TYPE[stepKey];
     const currentStep = (steps ?? []).find((s: StepRow) => s.step_key === stepKey);
     const stepMeta = currentStep?.meta;
