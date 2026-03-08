@@ -1084,6 +1084,78 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_optimization_scores: {
+        Row: {
+          asset_id: string
+          channel_key: string | null
+          conversion_score: number
+          created_at: string
+          ctr_score: number
+          efficiency_score: number
+          id: string
+          last_computed_at: string
+          launch_plan_id: string | null
+          lead_score: number
+          optimization_status: string
+          overall_score: number
+          reasoning: Json
+          recommended_action: string
+          revenue_score: number
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          channel_key?: string | null
+          conversion_score?: number
+          created_at?: string
+          ctr_score?: number
+          efficiency_score?: number
+          id?: string
+          last_computed_at?: string
+          launch_plan_id?: string | null
+          lead_score?: number
+          optimization_status?: string
+          overall_score?: number
+          reasoning?: Json
+          recommended_action?: string
+          revenue_score?: number
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          channel_key?: string | null
+          conversion_score?: number
+          created_at?: string
+          ctr_score?: number
+          efficiency_score?: number
+          id?: string
+          last_computed_at?: string
+          launch_plan_id?: string | null
+          lead_score?: number
+          optimization_status?: string
+          overall_score?: number
+          reasoning?: Json
+          recommended_action?: string
+          revenue_score?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_optimization_scores_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_optimization_scores_launch_plan_id_fkey"
+            columns: ["launch_plan_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_launch_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       authority_decisions: {
         Row: {
           authority_index_at: number | null
@@ -3763,6 +3835,45 @@ export type Database = {
             referencedColumns: ["certification_id"]
           },
         ]
+      }
+      channel_performance_profiles: {
+        Row: {
+          avg_conversion_rate: number
+          avg_ctr: number
+          avg_lead_rate: number
+          avg_revenue_per_asset: number
+          best_asset_types: Json
+          channel_fit_score: number
+          channel_key: string
+          id: string
+          updated_at: string
+          worst_asset_types: Json
+        }
+        Insert: {
+          avg_conversion_rate?: number
+          avg_ctr?: number
+          avg_lead_rate?: number
+          avg_revenue_per_asset?: number
+          best_asset_types?: Json
+          channel_fit_score?: number
+          channel_key: string
+          id?: string
+          updated_at?: string
+          worst_asset_types?: Json
+        }
+        Update: {
+          avg_conversion_rate?: number
+          avg_ctr?: number
+          avg_lead_rate?: number
+          avg_revenue_per_asset?: number
+          best_asset_types?: Json
+          channel_fit_score?: number
+          channel_key?: string
+          id?: string
+          updated_at?: string
+          worst_asset_types?: Json
+        }
+        Relationships: []
       }
       churn_predictions: {
         Row: {
@@ -8293,6 +8404,87 @@ export type Database = {
           },
           {
             foreignKeyName: "curriculum_revenue_signals_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_scaling_signals: {
+        Row: {
+          avg_asset_score: number
+          avg_channel_fit_score: number
+          created_at: string
+          curriculum_id: string | null
+          id: string
+          last_computed_at: string
+          qualification_catalog_id: string | null
+          reasoning: Json
+          replication_score: number
+          revenue_signal_score: number
+          scale_decision: string
+          updated_at: string
+        }
+        Insert: {
+          avg_asset_score?: number
+          avg_channel_fit_score?: number
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          last_computed_at?: string
+          qualification_catalog_id?: string | null
+          reasoning?: Json
+          replication_score?: number
+          revenue_signal_score?: number
+          scale_decision?: string
+          updated_at?: string
+        }
+        Update: {
+          avg_asset_score?: number
+          avg_channel_fit_score?: number
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          last_computed_at?: string
+          qualification_catalog_id?: string | null
+          reasoning?: Json
+          replication_score?: number
+          revenue_signal_score?: number
+          scale_decision?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_scaling_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_scaling_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_scaling_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_scaling_signals_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "curriculum_scaling_signals_qualification_catalog_id_fkey"
             columns: ["qualification_catalog_id"]
             isOneToOne: false
             referencedRelation: "qualification_catalog"
@@ -15185,6 +15377,241 @@ export type Database = {
           processed_count?: number
           worker_name?: string
           worker_version?: string
+        }
+        Relationships: []
+      }
+      optimization_actions: {
+        Row: {
+          action_payload: Json
+          action_scope: string
+          action_type: string
+          asset_id: string | null
+          created_at: string
+          curriculum_id: string | null
+          executed_at: string | null
+          id: string
+          last_error: string | null
+          launch_plan_id: string | null
+          priority: number
+          qualification_catalog_id: string | null
+          result_payload: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action_payload?: Json
+          action_scope: string
+          action_type: string
+          asset_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          executed_at?: string | null
+          id?: string
+          last_error?: string | null
+          launch_plan_id?: string | null
+          priority?: number
+          qualification_catalog_id?: string | null
+          result_payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action_payload?: Json
+          action_scope?: string
+          action_type?: string
+          asset_id?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          executed_at?: string | null
+          id?: string
+          last_error?: string | null
+          launch_plan_id?: string | null
+          priority?: number
+          qualification_catalog_id?: string | null
+          result_payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "optimization_actions_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "optimization_actions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "optimization_actions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "optimization_actions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "optimization_actions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "optimization_actions_launch_plan_id_fkey"
+            columns: ["launch_plan_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_launch_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "optimization_actions_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      optimization_observations: {
+        Row: {
+          asset_id: string | null
+          channel_key: string | null
+          created_at: string
+          curriculum_id: string | null
+          id: string
+          launch_plan_id: string | null
+          observation_label: string | null
+          observation_score: number
+          observation_type: string
+          payload: Json
+          qualification_catalog_id: string | null
+        }
+        Insert: {
+          asset_id?: string | null
+          channel_key?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          launch_plan_id?: string | null
+          observation_label?: string | null
+          observation_score?: number
+          observation_type: string
+          payload?: Json
+          qualification_catalog_id?: string | null
+        }
+        Update: {
+          asset_id?: string | null
+          channel_key?: string | null
+          created_at?: string
+          curriculum_id?: string | null
+          id?: string
+          launch_plan_id?: string | null
+          observation_label?: string | null
+          observation_score?: number
+          observation_type?: string
+          payload?: Json
+          qualification_catalog_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "optimization_observations_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "optimization_observations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "optimization_observations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "optimization_observations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "optimization_observations_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "optimization_observations_launch_plan_id_fkey"
+            columns: ["launch_plan_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_launch_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "optimization_observations_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      optimization_runs: {
+        Row: {
+          created_count: number
+          error_count: number
+          finished_at: string | null
+          id: string
+          meta: Json
+          processed_count: number
+          run_type: string
+          started_at: string
+          status: string
+          updated_count: number
+        }
+        Insert: {
+          created_count?: number
+          error_count?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          processed_count?: number
+          run_type: string
+          started_at?: string
+          status?: string
+          updated_count?: number
+        }
+        Update: {
+          created_count?: number
+          error_count?: number
+          finished_at?: string | null
+          id?: string
+          meta?: Json
+          processed_count?: number
+          run_type?: string
+          started_at?: string
+          status?: string
+          updated_count?: number
         }
         Relationships: []
       }
@@ -31878,6 +32305,10 @@ export type Database = {
         Args: { p: Database["public"]["Enums"]["compliance_severity"] }
         Returns: number
       }
+      compute_asset_optimization_score: {
+        Args: { p_asset_id: string }
+        Returns: Json
+      }
       compute_canonical_hash: {
         Args: {
           p_blueprint_id: string
@@ -31900,6 +32331,10 @@ export type Database = {
         Returns: Json
       }
       compute_curriculum_intelligence_score: {
+        Args: { p_qualification_catalog_id: string }
+        Returns: Json
+      }
+      compute_curriculum_scaling_signal: {
         Args: { p_qualification_catalog_id: string }
         Returns: Json
       }

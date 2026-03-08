@@ -47,6 +47,7 @@ Deno.serve(async (req) => {
   const doRevenue = body.revenue !== false;
   const doCampaign = body.campaign !== false;
   const doDistribution = body.distribution !== false;
+  const doOptimization = body.optimization !== false;
 
   const steps: any[] = [];
 
@@ -166,6 +167,14 @@ Deno.serve(async (req) => {
     steps.push({
       step: "distribution_pipeline",
       ...(await invokeSelf(supabaseUrl, serviceKey, "distribution-cron", {})),
+    });
+  }
+
+  // Optimization: Score Assets → Score Curricula → Action Sync → Executor
+  if (doOptimization) {
+    steps.push({
+      step: "optimization_pipeline",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "optimization-cron", {})),
     });
   }
 
