@@ -132,34 +132,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { data: pendingItems } = await sb
-      .from("production_wave_items")
-      .select("id, package_id")
-      .eq("wave_id", waveId)
-      .eq("status", "pending");
-
-    let activated = 0;
-
-    for (const item of pendingItems || []) {
-      if (item.package_id) {
-        await sb
-          .from("course_packages")
-          .update({ status: "queued", priority: 8 })
-          .eq("id", item.package_id)
-          .in("status", ["queued", "planning", "draft"]);
-      }
-
-      await sb
-        .from("production_wave_items")
-        .update({
-          status: "queued",
-          started_at: new Date().toISOString(),
-        })
-        .eq("id", item.id);
-
-      activated++;
-    }
-
+    // Set wave to active first, then use backpressure to promote only max_concurrent items
     await sb
       .from("production_waves")
       .update({
@@ -168,7 +141,35 @@ Deno.serve(async (req) => {
       })
       .eq("id", waveId);
 
-    return json(200, { ok: true, activated, wave_status: "active" }, origin);
+    const { data: bp, error: bpErr } = await sb.rpc("enforce_wave_backpressure", {
+      p_wave_id: waveId,
+    });
+
+    if (bpErr) {
+      return json(500, { ok: false, error: bpErr.message }, origin);
+    }
+
+    return json(200, {
+      ok: true,
+      wave_status: "active",
+      promoted: (bp as any)?.promoted ?? 0,
+      backpressure: bp,
+    }, origin);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACTION: backpressure
+  // ═══════════════════════════════════════════════════════════════
+  if (action === "backpressure") {
+    const { data, error } = await sb.rpc("enforce_wave_backpressure", {
+      p_wave_id: waveId,
+    });
+
+    if (error) {
+      return json(500, { ok: false, error: error.message }, origin);
+    }
+
+    return json(200, { ok: true, result: data }, origin);
   }
 
   // ═══════════════════════════════════════════════════════════════

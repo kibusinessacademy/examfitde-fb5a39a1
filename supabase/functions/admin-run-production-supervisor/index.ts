@@ -111,6 +111,22 @@ Deno.serve(async (req) => {
           result.activated++;
         }
 
+        // Enforce wave backpressure before tick
+        const { data: bp, error: bpErr } = await sb.rpc("enforce_wave_backpressure", {
+          p_wave_id: wave.id,
+        });
+
+        if (bpErr) {
+          result.errors.push({
+            wave_id: wave.id,
+            action: "backpressure",
+            error: bpErr.message,
+          });
+        } else {
+          result.backpressure_runs++;
+          result.promoted_items += Number((bp as any)?.promoted ?? 0);
+        }
+
         // Tick active waves
         const tickRes = await fetch(
           `${supabaseUrl}/functions/v1/admin-production-supervisor`,
