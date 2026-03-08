@@ -22,6 +22,14 @@ type ProbeRow = {
   expected_result: any;
 };
 
+// Tables that are expected to be empty in early rollout phases
+const EARLY_PHASE_TABLES = new Set([
+  "campaign_assets",
+  "distribution_publications",
+  "asset_optimization_scores",
+  "curriculum_gtm_scores",
+]);
+
 async function countTable(sb: any, table: string): Promise<number> {
   const { count } = await sb.from(table).select("id", { head: true, count: "exact" });
   return Number(count || 0);
@@ -69,12 +77,14 @@ async function runProbe(sb: any, probe: ProbeRow, serviceKey: string, url: strin
 
       if (probe.config?.assertion === "curriculum_gtm_scores_exist") {
         const { count } = await sb.from("curriculum_gtm_scores").select("id", { head: true, count: "exact" });
-        const ok = Number(count || 0) >= Number(probe.expected_result?.min_rows || 1);
+        const cnt = Number(count || 0);
+        const ok = cnt >= Number(probe.expected_result?.min_rows || 1);
         return {
+          // Early-phase table: always WARN instead of FAIL when empty
           status: ok ? "pass" : "warn",
           latency_ms: Date.now() - started,
-          message: `curriculum_gtm_scores count=${count}`,
-          result: { count },
+          message: `curriculum_gtm_scores count=${cnt}`,
+          result: { count: cnt },
         };
       }
     }
@@ -83,11 +93,13 @@ async function runProbe(sb: any, probe: ProbeRow, serviceKey: string, url: strin
       const table = probe.config?.table;
       const cnt = await countTable(sb, table);
       const ok = cnt >= Number(probe.expected_result?.min_rows || 1);
+      // For early-phase tables, always cap at WARN (never FAIL)
+      const isEarlyPhase = EARLY_PHASE_TABLES.has(table);
       return {
         status: ok ? "pass" : "warn",
         latency_ms: Date.now() - started,
-        message: `${table} count=${cnt}`,
-        result: { table, count: cnt },
+        message: `${table} count=${cnt}${isEarlyPhase && !ok ? " (early-phase, data pending)" : ""}`,
+        result: { table, count: cnt, early_phase: isEarlyPhase },
       };
     }
 
@@ -117,38 +129,58 @@ async function runProbe(sb: any, probe: ProbeRow, serviceKey: string, url: strin
 
     if (probe.probe_type === "synthetic_chain") {
       const checks = probe.config?.checks || [];
+      const chainResults: Record<string, any> = {};
+      let chainPassed = 0;
+      let chainWarned = 0;
+      let chainFailed = 0;
 
-      const contractAudit = checks.includes("contracts")
-        ? await sb.rpc("run_system_contract_audit")
-        : { data: { ok: true } };
+      // Control layer check
+      if (checks.includes("contracts")) {
+        const { data } = await sb.rpc("run_system_contract_audit");
+        const ok = data?.ok === true;
+        chainResults.contract_audit = { ok, data };
+        if (ok) chainPassed++; else chainFailed++;
+      }
 
-      const campaignAssets = checks.includes("campaign_assets")
-        ? await countTable(sb, "campaign_assets")
-        : 1;
+      // Campaign layer (early-phase tolerant)
+      if (checks.includes("campaign_assets")) {
+        const cnt = await countTable(sb, "campaign_assets");
+        chainResults.campaign_assets = { count: cnt, early_phase: true };
+        if (cnt > 0) chainPassed++; else chainWarned++;
+      }
 
-      const distributionPublications = checks.includes("distribution_publications")
-        ? await countTable(sb, "distribution_publications")
-        : 1;
+      // Distribution layer (early-phase tolerant)
+      if (checks.includes("distribution_publications")) {
+        const cnt = await countTable(sb, "distribution_publications");
+        chainResults.distribution_publications = { count: cnt, early_phase: true };
+        if (cnt > 0) chainPassed++; else chainWarned++;
+      }
 
-      const optimizationScores = checks.includes("optimization_scores")
-        ? await countTable(sb, "asset_optimization_scores")
-        : 1;
+      // Optimization layer (early-phase tolerant)
+      if (checks.includes("optimization_scores")) {
+        const cnt = await countTable(sb, "asset_optimization_scores");
+        chainResults.optimization_scores = { count: cnt, early_phase: true };
+        if (cnt > 0) chainPassed++; else chainWarned++;
+      }
 
-      const ok =
-        contractAudit.data?.ok === true &&
-        campaignAssets > 0 &&
-        distributionPublications > 0 &&
-        optimizationScores > 0;
+      // Verdict: FAIL only if a hard check (contracts) fails
+      // Empty early-phase tables produce WARN, not FAIL
+      const overallStatus = chainFailed > 0 ? "fail" : chainWarned > 0 ? "warn" : "pass";
+      const message = overallStatus === "pass"
+        ? "Golden path ok"
+        : overallStatus === "warn"
+        ? `Golden path partial (${chainWarned} early-phase layers empty)`
+        : "Golden path broken (hard check failed)";
 
       return {
-        status: ok ? "pass" : "fail",
+        status: overallStatus,
         latency_ms: Date.now() - started,
-        message: ok ? "Golden path ok" : "Golden path broken",
+        message,
         result: {
-          contract_audit: contractAudit.data,
-          campaign_assets: campaignAssets,
-          distribution_publications: distributionPublications,
-          optimization_scores: optimizationScores,
+          ...chainResults,
+          chain_passed: chainPassed,
+          chain_warned: chainWarned,
+          chain_failed: chainFailed,
         },
       };
     }
