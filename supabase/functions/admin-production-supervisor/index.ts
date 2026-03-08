@@ -37,6 +37,22 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(20);
 
+    // Load per-wave item counts
+    const waveIds = (waves || []).map((w: any) => w.id);
+    const { data: allWaveItems } = waveIds.length > 0
+      ? await sb
+          .from("production_wave_items")
+          .select("wave_id, status")
+          .in("wave_id", waveIds)
+      : { data: [] };
+
+    const byWave = new Map<string, Record<string, number>>();
+    for (const item of allWaveItems || []) {
+      const row = byWave.get(item.wave_id) || {};
+      row[item.status] = (row[item.status] || 0) + 1;
+      byWave.set(item.wave_id, row);
+    }
+
     const { count: buildingCount } = await sb
       .from("course_packages")
       .select("id", { count: "exact", head: true })
@@ -59,20 +75,28 @@ Deno.serve(async (req) => {
       .gte("updated_at", new Date(Date.now() - 3600_000).toISOString());
 
     return json(200, {
-      waves: (waves || []).map((w: any) => ({
-        id: w.id,
-        name: w.name,
-        status: w.status,
-        target: w.target_count,
-        seeded: w.seeded_count,
-        completed: w.completed_count,
-        failed: w.failed_count,
-        published: w.published_count,
-        blocked: w.blocked_count,
-        max_concurrent: w.max_concurrent,
-        started_at: w.started_at,
-        finished_at: w.finished_at,
-      })),
+      waves: (waves || []).map((w: any) => {
+        const counts = byWave.get(w.id) || {};
+        return {
+          id: w.id,
+          name: w.name,
+          status: w.status,
+          target: w.target_count,
+          seeded: w.seeded_count,
+          completed: w.completed_count,
+          failed: w.failed_count,
+          published: w.published_count,
+          blocked: w.blocked_count,
+          max_concurrent: w.max_concurrent,
+          pending_items: counts.pending || 0,
+          queued_items: counts.queued || 0,
+          building_items: counts.building || 0,
+          quality_gate_passed_items: counts.quality_gate_passed || 0,
+          quality_gate_failed_items: counts.quality_gate_failed || 0,
+          started_at: w.started_at,
+          finished_at: w.finished_at,
+        };
+      }),
       global_health: {
         packages_building: buildingCount ?? 0,
         packages_queued: queuedCount ?? 0,
