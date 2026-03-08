@@ -2225,13 +2225,32 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Read max slots from config
+  // Read max slots from config (Phase A=6, env-overridable)
   const { data: configRow } = await sb
     .from("ops_pipeline_config")
     .select("value")
     .eq("key", "max_concurrent_packages")
     .maybeSingle();
-  const maxSlots = parseInt(configRow?.value ?? "5", 10);
+  const maxSlots = Math.min(
+    parseInt(configRow?.value ?? "6", 10),
+    getMaxActivePackages(),
+  );
+
+  // ── Step-class capacity snapshot ──
+  const stepClassLimits = getStepClassLimits();
+  const { data: loadRows } = await sb
+    .from("v_package_step_load")
+    .select("package_id, step_class");
+
+  const classLoad: Record<StepWeightClass, Set<string>> = {
+    heavy: new Set(), medium: new Set(), validation: new Set(), light: new Set(),
+  };
+  for (const r of (loadRows ?? []) as { package_id: string; step_class: string }[]) {
+    const cls = r.step_class as StepWeightClass;
+    if (classLoad[cls]) classLoad[cls].add(r.package_id);
+  }
+
+  console.log(`[runner] 📊 Step-class load: heavy=${classLoad.heavy.size}/${stepClassLimits.heavy} medium=${classLoad.medium.size}/${stepClassLimits.medium} validation=${classLoad.validation.size}/${stepClassLimits.validation} light=${classLoad.light.size}/${stepClassLimits.light}`);
 
   const results: Record<string, unknown>[] = [];
   const processedPackageIds = new Set<string>();
