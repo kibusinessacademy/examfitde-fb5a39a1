@@ -2179,7 +2179,7 @@ async function backfillPipelinePool(
 
 // ══════════════════════════════════════════════════════════════
 // ── Runner version & instance ID (for heartbeat + health) ──
-const RUNNER_VERSION = "v4.0-track-fair";
+const RUNNER_VERSION = "v5.0-step-weighted";
 const RUNNER_INSTANCE_ID = `runner_${crypto.randomUUID().slice(0, 8)}`;
 
 // MAIN: Multi-Slot Acquisition Loop (v4: Track-Fair Scheduling)
