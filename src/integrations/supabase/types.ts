@@ -7023,13 +7023,20 @@ export type Database = {
           curriculum_date: string | null
           curriculum_version: string | null
           education_type: string
+          exam_parts: Json | null
           exam_structure: Json | null
+          handlungsbereiche: Json | null
           id: string
           learning_fields: Json | null
+          oral_components: Json | null
           parsed_payload: Json
+          pass_rules: Json | null
+          project_components: Json | null
+          qualification_catalog_id: string | null
           regulation_reference: string | null
           source_authority: string | null
           source_confidence: number | null
+          title_aliases: Json | null
           title_normalized: string | null
           updated_at: string
           weighting_rules: Json | null
@@ -7044,13 +7051,20 @@ export type Database = {
           curriculum_date?: string | null
           curriculum_version?: string | null
           education_type: string
+          exam_parts?: Json | null
           exam_structure?: Json | null
+          handlungsbereiche?: Json | null
           id?: string
           learning_fields?: Json | null
+          oral_components?: Json | null
           parsed_payload: Json
+          pass_rules?: Json | null
+          project_components?: Json | null
+          qualification_catalog_id?: string | null
           regulation_reference?: string | null
           source_authority?: string | null
           source_confidence?: number | null
+          title_aliases?: Json | null
           title_normalized?: string | null
           updated_at?: string
           weighting_rules?: Json | null
@@ -7065,13 +7079,20 @@ export type Database = {
           curriculum_date?: string | null
           curriculum_version?: string | null
           education_type?: string
+          exam_parts?: Json | null
           exam_structure?: Json | null
+          handlungsbereiche?: Json | null
           id?: string
           learning_fields?: Json | null
+          oral_components?: Json | null
           parsed_payload?: Json
+          pass_rules?: Json | null
+          project_components?: Json | null
+          qualification_catalog_id?: string | null
           regulation_reference?: string | null
           source_authority?: string | null
           source_confidence?: number | null
+          title_aliases?: Json | null
           title_normalized?: string | null
           updated_at?: string
           weighting_rules?: Json | null
@@ -7082,6 +7103,13 @@ export type Database = {
             columns: ["candidate_id"]
             isOneToOne: true
             referencedRelation: "curriculum_intake_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_intake_parsed_qualification_catalog_id_fkey"
+            columns: ["qualification_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "qualification_catalog"
             referencedColumns: ["id"]
           },
         ]
@@ -29411,6 +29439,10 @@ export type Database = {
         Args: { p_dry_run?: boolean }
         Returns: Json
       }
+      build_qualification_curriculum_draft: {
+        Args: { p_catalog_id: string }
+        Returns: Json
+      }
       bulk_sync_content_versions_to_lessons: { Args: never; Returns: number }
       calculate_authority_index: {
         Args: {
@@ -31192,6 +31224,10 @@ export type Database = {
       month_start: { Args: { p_any: string }; Returns: string }
       next_package_queue_position: { Args: never; Returns: number }
       normalize_beruf_name: { Args: { input: string }; Returns: string }
+      normalize_qualification_title: {
+        Args: { p_title: string }
+        Returns: string
+      }
       normalize_question_text: { Args: { p_text: string }; Returns: string }
       normalize_search_text: { Args: { input: string }; Returns: string }
       note_code_failure: {
@@ -32095,6 +32131,10 @@ export type Database = {
           p_title_raw: string
         }
         Returns: string
+      }
+      upsert_qualification_catalog_from_candidate: {
+        Args: { p_candidate_id: string }
+        Returns: Json
       }
       upsert_worker_heartbeat: {
         Args: {

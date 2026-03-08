@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Play, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Play, RefreshCw, BookOpen, GraduationCap, Award } from "lucide-react";
 
 export default function QualificationDiscoveryPage() {
   const [state, setState] = useState<any>({});
@@ -12,13 +13,17 @@ export default function QualificationDiscoveryPage() {
 
   async function load() {
     setLoading(true);
-    const [statusRes, waveRes] = await Promise.all([
+    const [statusRes, waveRes, catalogRes, draftsRes] = await Promise.all([
       supabase.functions.invoke("qualification-intake-admin", { body: { action: "status" } }),
       supabase.functions.invoke("qualification-intake-admin", { body: { action: "wave_candidates" } }),
+      supabase.functions.invoke("qualification-intake-admin", { body: { action: "catalog" } }),
+      supabase.functions.invoke("qualification-intake-admin", { body: { action: "ready_drafts" } }),
     ]);
     setState({
       status: statusRes.data,
       waveCandidates: waveRes.data?.candidates || [],
+      catalog: catalogRes.data?.catalog || [],
+      drafts: draftsRes.data?.drafts || [],
     });
     setLoading(false);
   }
@@ -34,13 +39,15 @@ export default function QualificationDiscoveryPage() {
 
   useEffect(() => { load(); }, []);
 
+  const s = state.status || {};
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Qualification Discovery & Promotion</h1>
+          <h1 className="text-xl font-semibold">Qualification Intake Pipeline</h1>
           <p className="text-sm text-muted-foreground">
-            Search → Fetch → Parse → Draft → Materialize → Wave Candidate
+            Dual + Fortbildung · Discovery → Parse → Catalog → Draft → Wave
           </p>
         </div>
         <div className="flex gap-2">
@@ -50,35 +57,91 @@ export default function QualificationDiscoveryPage() {
           </Button>
           <Button size="sm" onClick={runCron} disabled={cronRunning}>
             {cronRunning ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Play className="h-4 w-4 mr-1" />}
-            Intake-Cron ausführen
+            Full Intake Run
           </Button>
         </div>
       </div>
 
+      {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Search Runs</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{state.status?.search_runs ?? "–"}</div></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" /> Search Runs</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.search_runs ?? "–"}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Candidates</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{state.status?.candidates ?? "–"}</div></CardContent>
+          <CardContent><div className="text-2xl font-semibold">{s.candidates ?? "–"}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Pending Fetches</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{state.status?.pending_fetches ?? "–"}</div></CardContent>
+          <CardContent><div className="text-2xl font-semibold">{s.pending_fetches ?? "–"}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Catalog Entries</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{state.status?.catalog_entries ?? "–"}</div></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5" /> Catalog</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.catalog_entries ?? "–"}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1"><Award className="h-3.5 w-3.5" /> Fortbildung</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.fortbildung_catalog ?? "–"}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Drafts</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.curriculum_drafts ?? "–"}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Ready</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.drafts_ready ?? "–"}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Wave Candidates</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-semibold">{s.wave_candidates ?? "–"}</div></CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Wave Candidates ({state.waveCandidates?.length ?? 0})</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      {/* Tabs */}
+      <Tabs defaultValue="catalog">
+        <TabsList>
+          <TabsTrigger value="catalog">Qualification Catalog</TabsTrigger>
+          <TabsTrigger value="drafts">Ready Drafts</TabsTrigger>
+          <TabsTrigger value="wave">Wave Candidates</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="catalog" className="space-y-2 mt-3">
+          {(state.catalog || []).length === 0 && (
+            <p className="text-sm text-muted-foreground">Keine Catalog-Einträge vorhanden.</p>
+          )}
+          {(state.catalog || []).map((c: any) => (
+            <div key={c.id} className="rounded-lg border p-3">
+              <div className="font-medium text-sm">{c.canonical_title}</div>
+              <div className="flex gap-2 mt-1 flex-wrap">
+                <Badge variant="outline">{c.education_type}</Badge>
+                <Badge variant="secondary">{c.award_type}</Badge>
+                {c.provider_family && <Badge>{c.provider_family}</Badge>}
+                {c.qualification_level && <Badge variant="outline">{c.qualification_level}</Badge>}
+              </div>
+            </div>
+          ))}
+        </TabsContent>
+
+        <TabsContent value="drafts" className="space-y-2 mt-3">
+          {(state.drafts || []).length === 0 && (
+            <p className="text-sm text-muted-foreground">Keine Ready Drafts vorhanden.</p>
+          )}
+          {(state.drafts || []).map((d: any) => (
+            <div key={d.draft_id} className="rounded-lg border p-3">
+              <div className="font-medium text-sm">{d.draft_title}</div>
+              <div className="flex gap-2 mt-1 flex-wrap">
+                <Badge variant="outline">{d.education_type}</Badge>
+                {d.award_type && <Badge variant="secondary">{d.award_type}</Badge>}
+                <span className="text-xs text-muted-foreground">
+                  Readiness {d.readiness_score} · {d.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </TabsContent>
+
+        <TabsContent value="wave" className="space-y-2 mt-3">
           {(state.waveCandidates || []).length === 0 && (
             <p className="text-sm text-muted-foreground">Keine Wave-Kandidaten vorhanden.</p>
           )}
@@ -90,14 +153,17 @@ export default function QualificationDiscoveryPage() {
               <div className="flex gap-2 mt-1 flex-wrap">
                 {c.award_type && <Badge variant="outline">{c.award_type}</Badge>}
                 {c.provider_family && <Badge variant="secondary">{c.provider_family}</Badge>}
+                {c.qualification_catalog?.education_type && (
+                  <Badge>{c.qualification_catalog.education_type}</Badge>
+                )}
                 <span className="text-xs text-muted-foreground">
-                  Readiness {c.readiness_score} · Market {c.market_score} · Priority {c.promotion_priority}
+                  Readiness {c.readiness_score} · Priority {c.promotion_priority}
                 </span>
               </div>
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
