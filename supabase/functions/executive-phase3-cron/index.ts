@@ -35,24 +35,17 @@ Deno.serve(async (req) => {
 
   const steps: any[] = [];
 
-  // Step 1: Build system snapshot
-  steps.push({ step: "snapshot", ...(await invoke(url, key, "control-plane-snapshot")) });
+  // Step 1: Budget guardrails
+  steps.push({ step: "budget_eval", ...(await invoke(url, key, "executive-budget-eval")) });
 
-  // Step 2: Evaluate policies against current state
-  steps.push({ step: "policy_eval", ...(await invoke(url, key, "control-plane-policy-eval")) });
+  // Step 2: Portfolio scoring & rebalancing
+  steps.push({ step: "portfolio_score", ...(await invoke(url, key, "executive-portfolio-score")) });
 
-  // Step 3: Execute queued actions
-  steps.push({ step: "action_executor", ...(await invoke(url, key, "control-plane-action-executor")) });
+  // Step 3: Decision sync (curriculum, wave, channel)
+  steps.push({ step: "decision_sync", ...(await invoke(url, key, "executive-decision-sync")) });
 
-  // Step 4: Phase 2 — ROI, Unit Economics, Wave Governance, Business Snapshot
-  steps.push({ step: "phase2", ...(await invoke(url, key, "control-plane-phase2-cron")) });
+  // Step 4: Executive summary report
+  steps.push({ step: "summary_report", ...(await invoke(url, key, "executive-summary-report")) });
 
-  // Step 5: Phase 3 — Executive Autonomy, Budget Guardrails, Portfolio Steering
-  steps.push({ step: "phase3", ...(await invoke(url, key, "executive-phase3-cron")) });
-
-  return json(200, {
-    ok: true,
-    steps,
-    ran_at: new Date().toISOString(),
-  });
+  return json(200, { ok: true, steps, ran_at: new Date().toISOString() });
 });
