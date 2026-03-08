@@ -152,6 +152,14 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Campaign Automation: Plan Sync → Enqueue → Worker → Performance
+  if (doCampaign) {
+    steps.push({
+      step: "campaign_automation",
+      ...(await invokeSelf(supabaseUrl, serviceKey, "campaign-automation-cron", {})),
+    });
+  }
+
   return jsonRes(200, {
     ok: true,
     steps,
