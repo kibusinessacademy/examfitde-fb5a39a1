@@ -79,8 +79,14 @@ export default function FactoryExecutiveDashboard() {
         </Card>
       </div>
 
-      {/* Auto-Heal + Totals */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Readiness + Auto-Heal + Totals */}
+      <div className="grid gap-4 md:grid-cols-5">
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Ready Curricula</CardTitle></CardHeader>
+          <CardContent className="text-lg font-semibold">
+            {k.curricula_ready ?? 0} <span className="text-sm text-muted-foreground">/ {k.curricula_enriched ?? 0} enriched</span>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader><CardTitle className="text-sm">Items Total</CardTitle></CardHeader>
           <CardContent className="text-lg font-semibold">{k.items_total}</CardContent>

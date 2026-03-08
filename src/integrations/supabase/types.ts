@@ -28573,6 +28573,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_curriculum_readiness: {
+        Args: { p_curriculum_id: string }
+        Returns: Json
+      }
       check_duplicate_active_jobs: {
         Args: never
         Returns: {
@@ -29781,6 +29785,18 @@ export type Database = {
       get_quality_public_summary: {
         Args: { p_certification_id: string }
         Returns: Json
+      }
+      get_ready_curricula: {
+        Args: { p_limit?: number }
+        Returns: {
+          blueprints: number
+          competencies: number
+          curriculum_id: string
+          enrichment_progress: number
+          learning_fields: number
+          title: string
+          track: string
+        }[]
       }
       get_reconcile_gaps: {
         Args: { p_limit?: number }
