@@ -360,6 +360,9 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   claim_license_secure:              { pool: "core", edgeFunction: "claim-license-secure" },
   security_gate_check:               { pool: "core", edgeFunction: "security-gate-check" },
   security_botnet_gate:              { pool: "core", edgeFunction: "security-botnet-gate" },
+
+  // ── blueprint seeding ───────────────────────────────────────
+  blueprint_generate_variants:       { pool: "content", edgeFunction: "generate-blueprint-questions" },
 };
 
 // ── Backward-compatible derived maps (used by existing code) ──
