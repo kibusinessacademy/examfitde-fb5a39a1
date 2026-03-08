@@ -2186,6 +2186,7 @@ const RUNNER_INSTANCE_ID = `runner_${crypto.randomUUID().slice(0, 8)}`;
 // ══════════════════════════════════════════════════════════════
 
 import { getTrackQuota, TRACK_ACQUISITION_ORDER, WIP_TOTAL_CAP, rebalanceQuotas, type TrackKey as WipTrackKey, type TrackStats } from "../_shared/worker-config.ts";
+import { classifyStep, getStepClassLimits, getMaxActivePackages, type StepWeightClass } from "../_shared/step-weight.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
