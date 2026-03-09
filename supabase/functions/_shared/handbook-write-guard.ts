@@ -169,7 +169,7 @@ export async function verifyHandbookCoverage(
   // Load all sections
   const { data: sections, error: secErr } = await sb
     .from("handbook_sections")
-    .select("chapter_id, content_markdown")
+    .select("chapter_id, content_markdown, title, section_key")
     .in("chapter_id", chapterIds);
 
   if (secErr) {
