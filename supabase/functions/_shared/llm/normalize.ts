@@ -89,7 +89,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_rate_limited",
-      providerCooldownMs: 3 * 60_000, // 3 min (was 5 min)
+      providerCooldownMs: 45_000, // 45s (was 3 min — prevents all-provider lockout)
     };
   }
 
