@@ -371,47 +371,7 @@ BESTEHENDER TEXT:\n\n${content}` },
   }
 }
 
-// ── Fallback Builder ─────────────────────────────────────────
-
-function buildFallbackContent(lf: any, subtopics: string[], competencies: any[]): string {
-  const parts: string[] = [
-    `## ${lf.code}: ${lf.title}`,
-    "",
-    lf.description || `Dieses Lernfeld behandelt zentrale Aspekte von ${lf.title}.`,
-    "",
-  ];
-
-  if (subtopics.length > 0) {
-    parts.push("### Kernthemen aus dem Rahmenplan");
-    for (const t of subtopics) parts.push(`- ${t}`);
-    parts.push("");
-  }
-
-  if (competencies.length > 0) {
-    parts.push("### Kompetenzen");
-    for (const c of competencies.slice(0, 10)) {
-      parts.push(`- **${c.name}** [${c.bloom}]`);
-      if (c.misconceptions.length > 0) {
-        parts.push(`  - Typischer Fehler: ${c.misconceptions[0]}`);
-      }
-    }
-    parts.push("");
-  }
-
-  parts.push(
-    "### Prüfungsrelevanz",
-    `Dieses Lernfeld ist fester Bestandteil der IHK-Abschlussprüfung.`,
-    "",
-    "### Lernhinweise",
-    "- Fachbegriffe und Definitionen sicher beherrschen",
-    "- Zusammenhänge zwischen Theorie und Praxis herstellen",
-    "- Typische Rechenaufgaben und Fallstudien üben",
-    "",
-    "_Dieser Abschnitt wird durch die nächste Generierungs-Iteration mit Tiefeninhalt angereichert._",
-  );
-
-  return parts.join("\n");
-}
+// buildFallbackContent removed in v4 — write-guard prevents placeholder commits
 
 // ── Main Handler ─────────────────────────────────────────────
 
