@@ -945,6 +945,65 @@ Deno.serve(async (req) => {
       console.error("[watchdog] LC liveness guard error:", (lcErr as Error)?.message);
     }
 
+    // ── WIP HARD ENFORCEMENT RECONCILER ──
+    // Periodically check that building count <= wip_limit.
+    // If exceeded, demote lowest-priority packages back to queued.
+    let wipDemotedCount = 0;
+    try {
+      const { data: wipRow } = await sb
+        .from("ops_pipeline_config")
+        .select("value")
+        .eq("key", "wip_limit")
+        .maybeSingle();
+      const wipLimit = wipRow?.value ? Number(JSON.parse(JSON.stringify(wipRow.value))) : 1;
+
+      const { data: buildingPkgsAll } = await sb
+        .from("course_packages")
+        .select("id, priority, build_progress, updated_at")
+        .eq("status", "building")
+        .order("priority", { ascending: true })
+        .order("build_progress", { ascending: false });
+
+      const allBuilding = buildingPkgsAll || [];
+      if (allBuilding.length > wipLimit) {
+        // Keep the top N (lowest priority number = highest importance, then highest progress)
+        const toKeep = allBuilding.slice(0, wipLimit);
+        const toDemote = allBuilding.slice(wipLimit);
+
+        for (const pkg of toDemote) {
+          await sb.from("course_packages")
+            .update({ status: "queued", updated_at: new Date().toISOString() })
+            .eq("id", pkg.id)
+            .eq("status", "building"); // safety: only demote if still building
+
+          // Cancel active jobs for demoted package
+          await sb.from("job_queue")
+            .update({
+              status: "cancelled",
+              last_error: `WIP reconciler: demoted pkg ${(pkg.id as string).slice(0, 8)} (prio=${pkg.priority}, progress=${pkg.build_progress}%)`,
+              completed_at: new Date().toISOString(),
+            })
+            .in("status", ["pending", "processing"])
+            .eq("package_id", pkg.id);
+
+          wipDemotedCount++;
+          actions.push(`WIP reconciler: demoted pkg ${(pkg.id as string).slice(0, 8)} (prio=${pkg.priority}) from building→queued (kept ${toKeep.length}/${allBuilding.length})`);
+        }
+
+        if (wipDemotedCount > 0) {
+          await sb.from("auto_heal_log").insert({
+            action_type: "wip_reconciler",
+            trigger_source: "pipeline-watchdog",
+            result_status: "applied",
+            result_detail: `Demoted ${wipDemotedCount} excess building packages (wip_limit=${wipLimit}, was=${allBuilding.length})`,
+            metadata: { wip_limit: wipLimit, total_building: allBuilding.length, demoted: wipDemotedCount, kept: toKeep.map((p: any) => p.id.slice(0, 8)) },
+          }).then(() => {});
+        }
+      }
+    } catch (wipErr) {
+      console.error("[watchdog] WIP reconciler error:", (wipErr as Error)?.message);
+    }
+
     // ── Log cycle ──
     const qgStats = { seen: qgSeenCount, healed: qgHealedCount, skipped: qgSkippedCount };
     try {
