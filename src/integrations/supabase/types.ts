@@ -726,6 +726,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -5682,6 +5689,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -6401,6 +6415,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -6544,6 +6565,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -6714,6 +6742,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -6872,6 +6907,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -7048,6 +7090,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -10599,6 +10648,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -16923,6 +16979,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -17183,6 +17246,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -18055,6 +18125,13 @@ export type Database = {
             foreignKeyName: "package_leases_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -18383,6 +18460,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -18526,6 +18610,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -19013,6 +19104,13 @@ export type Database = {
             columns: ["active_package_id"]
             isOneToOne: false
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -19529,6 +19627,13 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -20014,6 +20119,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -29513,6 +29625,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -30914,6 +31033,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -31094,6 +31220,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -31234,6 +31367,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -31466,6 +31606,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -31752,6 +31899,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_pipeline_stalled_packages"
             referencedColumns: ["package_id"]
           },
@@ -31982,6 +32136,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_package_step_load"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_content_integrity"
             referencedColumns: ["package_id"]
           },
           {
@@ -33273,6 +33434,27 @@ export type Database = {
         }
         Relationships: []
       }
+      v_pipeline_content_integrity: {
+        Row: {
+          hollow_lessons: number | null
+          package_id: string | null
+          priority: number | null
+          real_lessons: number | null
+          real_pct: number | null
+          status: string | null
+          title: string | null
+          total_lessons: number | null
+        }
+        Relationships: []
+      }
+      v_pipeline_error_class: {
+        Row: {
+          error_class: string | null
+          failed_cnt: number | null
+          job_type: string | null
+        }
+        Relationships: []
+      }
       v_pipeline_execution_health: {
         Row: {
           avg_duration_sec: number | null
@@ -33284,6 +33466,17 @@ export type Database = {
           p95_duration_sec: number | null
           pending_now: number | null
           processing_now: number | null
+        }
+        Relationships: []
+      }
+      v_pipeline_queue_latency: {
+        Row: {
+          avg_wait_seconds: number | null
+          job_type: string | null
+          max_wait_seconds: number | null
+          p50_wait_seconds: number | null
+          p90_wait_seconds: number | null
+          pending_jobs: number | null
         }
         Relationships: []
       }
@@ -33305,6 +33498,15 @@ export type Database = {
           step_key: string | null
           step_updated_at: string | null
           title: string | null
+        }
+        Relationships: []
+      }
+      v_pipeline_stuck_processing: {
+        Row: {
+          avg_stale_seconds: number | null
+          job_type: string | null
+          max_stale_seconds: number | null
+          stuck_jobs: number | null
         }
         Relationships: []
       }
