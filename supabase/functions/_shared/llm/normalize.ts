@@ -80,7 +80,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_empty_response",
-      providerCooldownMs: 2 * 60_000, // 2 min (was 10 min — too aggressive)
+      providerCooldownMs: 30_000, // 30s (was 2 min — too aggressive when all providers affected)
     };
   }
 
