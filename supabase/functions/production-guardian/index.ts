@@ -125,8 +125,9 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════
     // 3b. LEASE-AWARE STALE PACKAGE DETECTION
     // ═══════════════════════════════════════════════════════════════
-    // Packages in 'building' with no active lease AND no active jobs for > 20min
+    // Packages in 'building' with no active lease AND no active jobs
     // are genuinely stuck — mark them as failed.
+    // The RPC uses priority-aware dynamic thresholds (30min–6h).
     const { data: buildingPkgs } = await sb
       .from("course_packages")
       .select("id, title, updated_at")
