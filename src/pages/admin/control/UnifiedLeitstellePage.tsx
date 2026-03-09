@@ -6,6 +6,7 @@ import HealthHero from "@/components/control/HealthHero";
 import MetricCard from "@/components/control/MetricCard";
 import RailCard from "@/components/control/RailCard";
 import PipelinePerformanceBoard from "@/components/control/PipelinePerformanceBoard";
+import PipelineHealthBoard from "@/components/admin/cards/PipelineHealthBoard";
 
 export default function UnifiedLeitstellePage() {
   const { data: snapshot, isLoading: snapshotLoading, refetch: refetchSnapshot } = useUnifiedLeitstelleSnapshot();
