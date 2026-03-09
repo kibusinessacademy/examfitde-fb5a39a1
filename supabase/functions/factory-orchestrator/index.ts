@@ -173,32 +173,48 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Priority Refill: tier-aware Rollout für queued Pakete ──
+    // ── Priority Refill: WIP-aware, Finish-First ──
+    // Only promote next package when current building count < WIP limit
+    const { data: wipConfig } = await sb
+      .from("ops_pipeline_config")
+      .select("value")
+      .eq("key", "wip_limit")
+      .maybeSingle();
+    const wipLimit = wipConfig?.value ? Number(JSON.parse(JSON.stringify(wipConfig.value))) : 1;
+
     const { count: buildingCount } = await sb
       .from("course_packages")
       .select("id", { count: "exact", head: true })
       .eq("status", "building");
 
-    const { count: queuedDefault } = await sb
-      .from("course_packages")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "queued")
-      .gt("priority", 10);
+    const currentBuilding = buildingCount ?? 0;
+    const freeSlots = Math.max(0, wipLimit - currentBuilding);
 
-    if ((queuedDefault ?? 0) > 0 && (buildingCount ?? 0) < 28) {
-      const batchSize = Math.min(20, 28 - (buildingCount ?? 0));
-      const { data: refilled } = await sb.rpc("reprioritize_queued_market_tier", {
-        p_batch_size: batchSize,
-        p_new_priority: 8,
-      });
-      const refilledCount = Array.isArray(refilled) ? refilled.length : 0;
-      if (refilledCount > 0) {
-        const tierBreakdown = (refilled as any[]).reduce((acc: Record<number, number>, r: any) => {
-          acc[r.beruf_tier] = (acc[r.beruf_tier] || 0) + 1;
-          return acc;
-        }, {});
-        actions.push(`Priority-refill: ${refilledCount} packages → priority=8 (tiers: ${JSON.stringify(tierBreakdown)}, building=${buildingCount})`);
+    if (freeSlots > 0) {
+      const { count: queuedDefault } = await sb
+        .from("course_packages")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "queued")
+        .gt("priority", 10);
+
+      if ((queuedDefault ?? 0) > 0) {
+        // Only promote exactly as many as we have free WIP slots (usually 1)
+        const batchSize = Math.min(freeSlots, queuedDefault ?? 0);
+        const { data: refilled } = await sb.rpc("reprioritize_queued_market_tier", {
+          p_batch_size: batchSize,
+          p_new_priority: 8,
+        });
+        const refilledCount = Array.isArray(refilled) ? refilled.length : 0;
+        if (refilledCount > 0) {
+          const tierBreakdown = (refilled as any[]).reduce((acc: Record<number, number>, r: any) => {
+            acc[r.beruf_tier] = (acc[r.beruf_tier] || 0) + 1;
+            return acc;
+          }, {});
+          actions.push(`Finish-First refill: ${refilledCount}/${freeSlots} free slots → priority=8 (tiers: ${JSON.stringify(tierBreakdown)}, building=${currentBuilding}, wip_limit=${wipLimit})`);
+        }
       }
+    } else {
+      actions.push(`WIP full: ${currentBuilding}/${wipLimit} building — no new promotions`);
     }
 
     // Log
