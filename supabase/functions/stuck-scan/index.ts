@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
 
     const { data: processingJobs } = await sb
       .from("job_queue")
-      .select("id, attempts, max_attempts, job_type, locked_at")
+      .select("id, attempts, max_attempts, job_type, locked_at, last_error, meta")
       .eq("status", "processing")
       .lt("locked_at", minCutoffIso);
 
@@ -131,16 +131,25 @@ Deno.serve(async (req) => {
     let staleCount = 0;
     let failedFromStale = 0;
     const toFail: Array<{ id: string; attempts: number; max_attempts: number; job_type: string; threshold: number }> = [];
-    const toPending: Array<{ id: string; attempts: number; max_attempts: number; job_type: string; threshold: number }> = [];
+    const toPending: Array<{ id: string; attempts: number; max_attempts: number; job_type: string; threshold: number; isTransient: boolean }> = [];
 
+    // FIX: Stale locks caused by transient errors (503/timeout/rate-limit) must NOT consume attempts
     for (const sj of staleJobs) {
-      const newAttempts = (sj.attempts || 0) + 1;
+      const lastErr = String(sj.last_error ?? sj.meta?.last_error ?? "").toLowerCase();
+      const isTransientStale = lastErr.includes("503") || lastErr.includes("504") || lastErr.includes("502")
+        || lastErr.includes("timeout") || lastErr.includes("service unavailable")
+        || lastErr.includes("rate limit") || lastErr.includes("rate_limit")
+        || lastErr.includes("llm_empty") || lastErr.includes("empty_response")
+        || lastErr.includes("transient") || lastErr.includes("all providers failed")
+        || lastErr.includes("health_gate") || lastErr.includes("cooldown");
+
+      const newAttempts = isTransientStale ? (sj.attempts || 0) : (sj.attempts || 0) + 1;
       const maxAttempts = sj.max_attempts || 3;
       const effectiveThreshold = JOB_TYPE_STALE_OVERRIDES[sj.job_type] ?? heartbeatTimeout;
-      if (newAttempts >= maxAttempts) {
+      if (!isTransientStale && newAttempts >= maxAttempts) {
         toFail.push({ id: sj.id, attempts: newAttempts, max_attempts: maxAttempts, job_type: sj.job_type, threshold: effectiveThreshold });
       } else {
-        toPending.push({ id: sj.id, attempts: newAttempts, max_attempts: maxAttempts, job_type: sj.job_type, threshold: effectiveThreshold });
+        toPending.push({ id: sj.id, attempts: newAttempts, max_attempts: maxAttempts, job_type: sj.job_type, threshold: effectiveThreshold, isTransient: isTransientStale });
       }
       staleCount++;
     }
@@ -148,15 +157,16 @@ Deno.serve(async (req) => {
     // Chunked updates — use run_after (not scheduled_at) for correct claim delay
     for (const c of chunk(toPending, 25)) {
       await Promise.all(c.map((sj) => {
-        // Derive backoff from job_type: heavy generators get longer cooldown
-        const typeBackoff = inferBackoffSeconds(sj.job_type);
+        const typeBackoff = sj.isTransient ? 15 : inferBackoffSeconds(sj.job_type);
         return sb.from("job_queue").update({
           status: "pending",
           locked_at: null,
           locked_by: null,
           run_after: new Date(Date.now() + typeBackoff * 1000).toISOString(),
-          last_error: `Stale lock (>${sj.threshold}s, type=${sj.job_type}) — attempt ${sj.attempts}/${sj.max_attempts}`,
-          last_error_code: "STALE_LOCK",
+          last_error: sj.isTransient
+            ? `Stale lock (>${sj.threshold}s, type=${sj.job_type}) — transient reset (no attempts consumed)`
+            : `Stale lock (>${sj.threshold}s, type=${sj.job_type}) — attempt ${sj.attempts}/${sj.max_attempts}`,
+          last_error_code: sj.isTransient ? "STALE_LOCK_TRANSIENT_RESET" : "STALE_LOCK",
           attempts: sj.attempts,
         }).eq("id", sj.id);
       }));

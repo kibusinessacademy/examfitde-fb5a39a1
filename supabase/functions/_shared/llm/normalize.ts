@@ -121,7 +121,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_all_providers_failed",
-      providerCooldownMs: 2 * 60_000, // 2 min (was 3 min)
+      providerCooldownMs: 20_000, // 20s (was 2 min — shortest, since all already failed)
     };
   }
 
