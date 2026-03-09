@@ -133,24 +133,21 @@ Deno.serve(async (req) => {
     const toFail: Array<{ id: string; attempts: number; max_attempts: number; job_type: string; threshold: number }> = [];
     const toPending: Array<{ id: string; attempts: number; max_attempts: number; job_type: string; threshold: number; isTransient: boolean }> = [];
 
-    // FIX: Stale locks caused by transient errors (503/timeout/rate-limit) must NOT consume attempts
+    // FIX v5: ALL stale locks are inherently transient — a job timing out is never a permanent failure.
+    // Previously, stale locks without a recognizable error string would burn attempts → 3/3 → failed.
+    // Now: every stale lock resets to pending without consuming attempts.
     for (const sj of staleJobs) {
-      const lastErr = String(sj.last_error ?? sj.meta?.last_error ?? "").toLowerCase();
-      const isTransientStale = lastErr.includes("503") || lastErr.includes("504") || lastErr.includes("502")
-        || lastErr.includes("timeout") || lastErr.includes("service unavailable")
-        || lastErr.includes("rate limit") || lastErr.includes("rate_limit")
-        || lastErr.includes("llm_empty") || lastErr.includes("empty_response")
-        || lastErr.includes("transient") || lastErr.includes("all providers failed")
-        || lastErr.includes("health_gate") || lastErr.includes("cooldown");
-
-      const newAttempts = isTransientStale ? (sj.attempts || 0) : (sj.attempts || 0) + 1;
       const maxAttempts = sj.max_attempts || 3;
       const effectiveThreshold = JOB_TYPE_STALE_OVERRIDES[sj.job_type] ?? heartbeatTimeout;
-      if (!isTransientStale && newAttempts >= maxAttempts) {
-        toFail.push({ id: sj.id, attempts: newAttempts, max_attempts: maxAttempts, job_type: sj.job_type, threshold: effectiveThreshold });
-      } else {
-        toPending.push({ id: sj.id, attempts: newAttempts, max_attempts: maxAttempts, job_type: sj.job_type, threshold: effectiveThreshold, isTransient: isTransientStale });
-      }
+      // Stale locks NEVER consume attempts — they always go back to pending
+      toPending.push({
+        id: sj.id,
+        attempts: sj.attempts || 0, // preserve current attempts, do NOT increment
+        max_attempts: maxAttempts,
+        job_type: sj.job_type,
+        threshold: effectiveThreshold,
+        isTransient: true, // ALL stale locks are transient by definition
+      });
       staleCount++;
     }
 
