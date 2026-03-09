@@ -224,14 +224,15 @@ async function artifactExists(
       const coveredChapters = coveredChapterIds.size;
       const totalChapters = chapters.length;
 
-      // Prereq gate: 60% of expected chapters must have content (liveness check).
+      // Prereq gate: 60% of actual chapters must have content (liveness check).
+      // Bound to totalChapters (real structure), not expectedLF (theory).
       // The stricter 80-100% check lives in validate_handbook (quality gate).
       const minCoverage = 0.6;
-      const minChaptersNeeded = Math.max(3, Math.ceil((expectedLF ?? totalChapters) * minCoverage));
+      const minChaptersNeeded = Math.max(1, Math.ceil(totalChapters * minCoverage));
       const ok = coveredChapters >= minChaptersNeeded;
 
       console.log(
-        `[artifact-resolver] handbook: ${coveredChapters}/${totalChapters} chapters with content (need ${minChaptersNeeded}, ${expectedLF ?? '?'} LFs), curriculum=${currId.slice(0, 8)} → ${ok ? 'READY' : 'NOT READY'}`,
+        `[artifact-resolver] handbook: ${coveredChapters}/${totalChapters} chapters with content (need ${minChaptersNeeded}), curriculum=${currId.slice(0, 8)} → ${ok ? 'READY' : 'NOT READY'}`,
       );
 
       if (!ok) {
