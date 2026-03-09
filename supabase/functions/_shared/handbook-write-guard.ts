@@ -169,7 +169,7 @@ export async function verifyHandbookCoverage(
   // Load all sections
   const { data: sections, error: secErr } = await sb
     .from("handbook_sections")
-    .select("chapter_id, content_markdown")
+    .select("chapter_id, content_markdown, title, section_key")
     .in("chapter_id", chapterIds);
 
   if (secErr) {
@@ -183,13 +183,17 @@ export async function verifyHandbookCoverage(
     };
   }
 
-  // Count distinct chapters with real content
+  // Count distinct chapters with VALIDATED content (same guard as pre-write)
   let totalChars = 0;
   const coveredChapterIds = new Set<string>();
   for (const sec of (sections || [])) {
     const md = (sec.content_markdown || "").trim();
     totalChars += md.length;
-    if (md.length >= MIN_SECTION_CONTENT_CHARS && sec.chapter_id) {
+    const result = validateGeneratedSection({
+      title: sec.title ?? sec.section_key ?? "section",
+      content_markdown: sec.content_markdown,
+    });
+    if (result.ok && sec.chapter_id) {
       coveredChapterIds.add(sec.chapter_id);
     }
   }

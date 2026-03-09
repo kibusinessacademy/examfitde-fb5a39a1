@@ -574,21 +574,45 @@ Deno.serve(async (req) => {
   const chapterIds = chapters.map((c: any) => c.id);
   const { data: existingSections } = await sb
     .from("handbook_sections")
-    .select("id, learning_field_id, content_markdown, chapter_id")
+    .select("id, learning_field_id, content_markdown, chapter_id, title, section_key")
     .in("chapter_id", chapterIds);
 
+  // ── Revalidate existing sections with the SAME guard logic ──
+  // Invalid existing sections are deleted so they get regenerated.
   const populatedLfIds = new Set<string>();
+  const invalidSectionIds: string[] = [];
+  const invalidReasons: Array<{ lfId: string; reason: string }> = [];
+
   for (const sec of (existingSections || [])) {
-    // Only count as populated if content is substantial (not fallback/placeholder)
-    const md = sec.content_markdown || "";
-    if (md.length >= MIN_SECTION_CHARS && sec.learning_field_id) {
+    const result = validateGeneratedSection({
+      title: sec.title ?? (sec as any).section_key ?? "",
+      content_markdown: sec.content_markdown as string,
+    });
+
+    if (result.ok && sec.learning_field_id) {
       populatedLfIds.add(sec.learning_field_id);
+    } else if (sec.id) {
+      invalidSectionIds.push(sec.id as string);
+      invalidReasons.push({
+        lfId: sec.learning_field_id || "unknown",
+        reason: result.reason || "unknown",
+      });
     }
+  }
+
+  // ── Purge invalid existing sections so they don't block regeneration ──
+  if (invalidSectionIds.length > 0) {
+    console.warn(`[generate-handbook] REVALIDATION: ${invalidSectionIds.length} existing sections INVALID — deleting for regen. Reasons: ${invalidReasons.map(r => `${r.lfId.slice(0,8)}:${r.reason}`).join("; ")}`);
+    const { error: delErr } = await sb
+      .from("handbook_sections")
+      .delete()
+      .in("id", invalidSectionIds);
+    if (delErr) console.error(`[generate-handbook] Failed to delete invalid sections: ${delErr.message}`);
   }
 
   // Filter fields to only those that still need generation
   const fieldsNeedingGeneration = fields.filter((lf: any) => !populatedLfIds.has(lf.id));
-  console.log(`[generate-handbook] ${populatedLfIds.size}/${fields.length} LFs already have sections. ${fieldsNeedingGeneration.length} remaining.`);
+  console.log(`[generate-handbook] ${populatedLfIds.size}/${fields.length} LFs valid. ${invalidSectionIds.length} purged. ${fieldsNeedingGeneration.length} remaining.`);
 
   if (fieldsNeedingGeneration.length === 0) {
     // All sections already generated — report complete
