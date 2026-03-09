@@ -4,6 +4,7 @@ import { callAIWithFailover, logLLMCostEvent } from "../_shared/ai-client.ts";
 import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 import { getModelChain } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
+import { validateGeneratedSection, filterValidSections, verifyHandbookCoverage } from "../_shared/handbook-write-guard.ts";
 
 /**
  * package-generate-handbook — Elite Handbook Generator v3
