@@ -661,21 +661,25 @@ Deno.serve(async (req) => {
     if (hasRealContent) llmSuccessCount++;
     else llmFailCount++;
 
-    const contentMarkdown = hasRealContent
-      ? generated.content
-      : buildFallbackContent(lf, subtopics, competencies);
+    // ── WRITE GUARD: Skip fallback content entirely ──
+    // If the LLM didn't produce real content, do NOT write a placeholder.
+    // The field stays "ungenerated" and will be retried on the next invocation.
+    if (!hasRealContent) {
+      console.warn(`[generate-handbook] WRITE_GUARD: Skipping ${lf.code} — LLM output too short (${generated.content.length}/${MIN_SECTION_CHARS} chars). Will retry next invocation.`);
+      continue;
+    }
 
-    sectionRows.push({
+    const candidateRow = {
       chapter_id: chapter.id,
       section_key: `lf-${String(lf.code).toLowerCase().replace(/\s+/g, '-')}-${curriculumId.slice(0, 8)}`,
       title: `${lf.code}: ${lf.title}`,
-      content_markdown: contentMarkdown,
+      content_markdown: generated.content,
       content_type: "text",
       sort_order: sectionOrder++,
       learning_field_id: lf.id,
       metadata: {
         depth_enriched: subtopics.length > 0,
-        llm_generated: hasRealContent,
+        llm_generated: true,
         llm_provider: generated.provider,
         llm_model: generated.model,
         word_target: wordTarget,
@@ -684,33 +688,77 @@ Deno.serve(async (req) => {
         competency_count: competencies.length,
         version: "elite_v3",
       },
+    };
+
+    // ── PRE-WRITE VALIDATION ──
+    const validation = validateGeneratedSection({
+      title: candidateRow.title as string,
+      content_markdown: candidateRow.content_markdown as string,
     });
+
+    if (!validation.ok) {
+      console.warn(`[generate-handbook] WRITE_GUARD: Section ${lf.code} rejected: ${validation.reason}`);
+      llmSuccessCount--;
+      llmFailCount++;
+      continue;
+    }
+
+    sectionRows.push(candidateRow);
   }
 
+  // ── ATOMIC WRITE: Only validated sections reach the DB ──
   if (sectionRows.length > 0) {
-    const { error: secErr } = await sb.from("handbook_sections").upsert(sectionRows, {
-      onConflict: "chapter_id,section_key",
-      ignoreDuplicates: false,
-    });
-    if (secErr) throw new Error(`Section upsert: ${secErr.message}`);
+    // Double-check with filterValidSections (belt + suspenders)
+    const { valid, rejected } = filterValidSections(sectionRows);
+
+    if (rejected.length > 0) {
+      console.warn(`[generate-handbook] filterValidSections caught ${rejected.length} additional rejects: ${rejected.map(r => r.reason).join("; ")}`);
+    }
+
+    if (valid.length > 0) {
+      const { error: secErr } = await sb.from("handbook_sections").upsert(valid, {
+        onConflict: "chapter_id,section_key",
+        ignoreDuplicates: false,
+      });
+      if (secErr) throw new Error(`Section upsert: ${secErr.message}`);
+      console.log(`[generate-handbook] Committed ${valid.length} validated sections to DB.`);
+    }
   }
 
   // Check remaining after this batch
-  const remainingAfterBatch = fieldsNeedingGeneration.length - batchFields.length;
-  const totalPopulated = populatedLfIds.size + sectionRows.length;
+  const writtenCount = sectionRows.length;
+  const remainingAfterBatch = fieldsNeedingGeneration.length - batchFields.length + (batchFields.length - writtenCount);
+  const totalPopulated = populatedLfIds.size + writtenCount;
   const isComplete = remainingAfterBatch <= 0;
   const progress = Math.round((totalPopulated / fields.length) * 100);
 
-  console.log(`[generate-handbook] Batch: ${sectionRows.length} sections generated, ${llmSuccessCount} LLM, ${llmFailCount} fallback. Total: ${totalPopulated}/${fields.length} (${progress}%)${isComplete ? ' — COMPLETE' : ''}`);
+  console.log(`[generate-handbook] Batch: ${writtenCount} sections written (${llmFailCount} rejected), Total: ${totalPopulated}/${fields.length} (${progress}%)${isComplete ? ' — COMPLETE' : ''}`);
 
   if (!isComplete) {
     return json({
       ok: true,
       batch_complete: false,
       progress,
-      sections_this_batch: sectionRows.length,
+      sections_this_batch: writtenCount,
+      sections_rejected: llmFailCount,
       total_populated: totalPopulated,
       remaining: remainingAfterBatch,
+    });
+  }
+
+  // ── POST-WRITE COVERAGE VERIFICATION ──
+  // Before reporting batch_complete=true, verify actual DB state
+  const coverage = await verifyHandbookCoverage(sb, curriculumId);
+  console.log(`[generate-handbook] Post-write coverage: ${coverage.coveredChapters}/${coverage.totalChapters} chapters (need ${coverage.minNeeded}), ${coverage.totalChars} total chars → ${coverage.ok ? 'READY' : 'NOT READY'}`);
+
+  if (!coverage.ok) {
+    return json({
+      ok: true,
+      batch_complete: false,
+      coverage_check_failed: true,
+      coverage,
+      progress,
+      message: `Coverage verification failed: ${coverage.coveredChapters}/${coverage.totalChapters} chapters with content (need ${coverage.minNeeded})`,
     });
   }
 
@@ -720,7 +768,8 @@ Deno.serve(async (req) => {
     chapters: chapters.length,
     sections: totalPopulated,
     llm_generated: llmSuccessCount,
-    llm_fallback: llmFailCount,
-    version: "elite_v3",
+    llm_rejected: llmFailCount,
+    coverage,
+    version: "elite_v3_guarded",
   });
 });
