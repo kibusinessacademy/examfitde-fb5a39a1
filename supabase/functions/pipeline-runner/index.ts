@@ -1301,7 +1301,38 @@ async function processPackage(
         return { packageId, stepKey, already_done: true };
       }
 
-      if (result.batch_complete === false && result.batch_cursor) {
+      // ── BATCH CONTINUATION GUARD ──
+      // batch_complete === false means the step is NOT finished yet.
+      // Some steps use batch_cursor (learning content), others are idempotent (handbook).
+      // Both cases must requeue — never fall through to step_done.
+      if (result.batch_complete === false) {
+        // Steps without batch_cursor use idempotent re-invocation (e.g. handbook)
+        if (!result.batch_cursor) {
+          console.log(`[runner] 🔄 Step ${stepKey} batch incomplete (cursorless/idempotent) — re-queued`);
+          await safeQuery(
+            sb.from("package_steps")
+              .update({
+                status: "queued",
+                job_id: null,
+                runner_id: null,
+                last_error: null,
+                meta: {
+                  ...(currentStep?.meta ?? {}),
+                  last_batch_at: new Date().toISOString(),
+                  progress: result.progress ?? null,
+                  total_populated: result.total_populated ?? null,
+                  remaining: result.remaining ?? null,
+                },
+              })
+              .eq("package_id", packageId)
+              .eq("step_key", stepKey),
+            "batch_cursorless_requeue",
+          );
+          await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+          return { packageId, stepKey, batch_continue: true, cursorless: true, progress: result.progress };
+        }
+        // Steps with batch_cursor — existing logic below
+        if (result.batch_cursor) {
         if (stepKey === "generate_learning_content") {
           const beforeReal = Number(currentStep?.meta?.last_real_count ?? 0);
           const progress = await getLearningContentProgress(sb, packageId);

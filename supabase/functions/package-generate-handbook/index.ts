@@ -362,13 +362,30 @@ Deno.serve(async (req) => {
   console.log(`[generate-handbook] ${populatedLfIds.size}/${fields.length} LFs valid. ${invalidSectionIds.length} purged. ${fieldsNeedingGeneration.length} remaining.`);
 
   if (fieldsNeedingGeneration.length === 0) {
-    // All sections already generated — report complete
+    // All sections already generated — but verify actual DB coverage before reporting complete
+    const coverage = await verifyHandbookCoverage(sb, curriculumId);
+    console.log(`[generate-handbook] Early-exit coverage: ${coverage.coveredChapters}/${coverage.totalChapters} chapters (need ${coverage.minNeeded}), ${coverage.totalChars} chars → ${coverage.ok ? 'READY' : 'NOT READY'}`);
+
+    if (!coverage.ok) {
+      // All LFs passed validation but coverage is insufficient — force re-evaluation
+      return json({
+        ok: true,
+        batch_complete: false,
+        coverage_check_failed: true,
+        coverage,
+        chapters: chapters.length,
+        sections: existingSections?.length || 0,
+        message: `Coverage verification failed at early exit: ${coverage.coveredChapters}/${coverage.totalChapters} chapters`,
+      });
+    }
+
     return json({
       ok: true,
       batch_complete: true,
       chapters: chapters.length,
       sections: existingSections?.length || 0,
       already_populated: populatedLfIds.size,
+      coverage,
       version: "elite_v3",
     });
   }
