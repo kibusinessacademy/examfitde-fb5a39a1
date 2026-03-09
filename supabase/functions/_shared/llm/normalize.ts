@@ -46,6 +46,12 @@ export function isTransientLlmError(err: unknown): boolean {
     "empty/timeout result", "transient",
     // v13: Empty response patterns (gpt-5-nano killer)
     "no content returned", "empty_response", "no parseable tool response",
+    // v14: Operational guards — NOT content failures, must not consume attempts
+    "stale lock", "state lock", "stale_lock",
+    "health_gate", "health gate",
+    "ops_guard", "non_building_package",
+    "edge function exceeded",
+    "deferred", "all candidates on cooldown",
   ];
 
   return TRANSIENT_PATTERNS.some(p => msg.includes(p));
