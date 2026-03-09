@@ -7173,6 +7173,7 @@ export type Database = {
           published_at: string | null
           quality_report: Json | null
           queue_position: number | null
+          ready_since: string | null
           retry_count: number | null
           started_at: string | null
           status: string
@@ -7221,6 +7222,7 @@ export type Database = {
           published_at?: string | null
           quality_report?: Json | null
           queue_position?: number | null
+          ready_since?: string | null
           retry_count?: number | null
           started_at?: string | null
           status?: string
@@ -7269,6 +7271,7 @@ export type Database = {
           published_at?: string | null
           quality_report?: Json | null
           queue_position?: number | null
+          ready_since?: string | null
           retry_count?: number | null
           started_at?: string | null
           status?: string
@@ -36546,6 +36549,7 @@ export type Database = {
           published_at: string | null
           quality_report: Json | null
           queue_position: number | null
+          ready_since: string | null
           retry_count: number | null
           started_at: string | null
           status: string
@@ -36838,6 +36842,7 @@ export type Database = {
           published_at: string | null
           quality_report: Json | null
           queue_position: number | null
+          ready_since: string | null
           retry_count: number | null
           started_at: string | null
           status: string
