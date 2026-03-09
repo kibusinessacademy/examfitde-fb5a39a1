@@ -103,7 +103,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_transient_timeout",
-      providerCooldownMs: 3 * 60_000, // 3 min (was 5 min)
+      providerCooldownMs: 30_000, // 30s (was 3 min — 503s recover fast)
     };
   }
 
