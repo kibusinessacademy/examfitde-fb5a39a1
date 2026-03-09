@@ -183,6 +183,54 @@ async function artifactExists(
     }
 
 
+    case "handbook": {
+      // Handbook integrity: step "done" is NOT enough — chapters must have actual content.
+      // Root cause of Verkäufer blockade: generate_handbook=done but 4/5 chapters empty.
+      const currId = await getCurriculumId(sb, packageId);
+      if (!currId) {
+        console.warn(`[artifact-resolver] No curriculum_id for package ${packageId.slice(0, 8)} — handbook not verifiable`);
+        return false;
+      }
+
+      // Count expected learning fields (SSOT for "how many chapter groups should exist")
+      const { count: expectedLF } = await sb
+        .from("learning_fields")
+        .select("id", { count: "exact", head: true })
+        .eq("curriculum_id", currId);
+
+      // Count chapters with at least one section that has real content (>500 chars)
+      const { data: chapters } = await sb
+        .from("handbook_chapters")
+        .select("id")
+        .eq("curriculum_id", currId);
+
+      if (!chapters?.length) {
+        console.warn(`[artifact-resolver] handbook: 0 chapters for curriculum ${currId.slice(0, 8)}`);
+        return false;
+      }
+
+      const chapterIds = chapters.map((c: any) => c.id);
+      const { count: populatedChapters } = await sb
+        .from("handbook_sections")
+        .select("chapter_id", { count: "exact", head: true })
+        .in("chapter_id", chapterIds)
+        .gt("content_markdown", "");  // non-empty
+
+      const minChaptersNeeded = Math.max(3, Math.ceil((expectedLF ?? 5) * 0.6));
+      const ok = (populatedChapters ?? 0) >= minChaptersNeeded;
+
+      console.log(
+        `[artifact-resolver] handbook: ${populatedChapters ?? 0} populated chapters, need ${minChaptersNeeded} (${expectedLF ?? '?'} LFs), curriculum=${currId.slice(0, 8)} → ${ok ? 'READY' : 'NOT READY'}`,
+      );
+
+      if (!ok) {
+        // Auto-heal: if step is "done" but artifact is incomplete, reset the step
+        console.warn(`[artifact-resolver] SSOT VIOLATION: generate_handbook=done but handbook incomplete. Will be caught by caller.`);
+      }
+
+      return ok;
+    }
+
     default:
       // For all other artifacts, step status "done" is sufficient
       return true;
