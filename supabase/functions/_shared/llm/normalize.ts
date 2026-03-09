@@ -46,6 +46,12 @@ export function isTransientLlmError(err: unknown): boolean {
     "empty/timeout result", "transient",
     // v13: Empty response patterns (gpt-5-nano killer)
     "no content returned", "empty_response", "no parseable tool response",
+    // v14: Operational guards — NOT content failures, must not consume attempts
+    "stale lock", "state lock", "stale_lock",
+    "health_gate", "health gate",
+    "ops_guard", "non_building_package",
+    "edge function exceeded",
+    "deferred", "all candidates on cooldown",
   ];
 
   return TRANSIENT_PATTERNS.some(p => msg.includes(p));
@@ -123,6 +129,17 @@ export function classifyError(err: unknown): ErrorClassification {
       reason: "ops_all_providers_failed",
       providerCooldownMs: 20_000, // 20s (was 2 min — shortest, since all already failed)
     };
+  }
+
+  // Operational guards (stale locks, health gate, OPS_GUARD) = transient, no cooldown needed
+  if (
+    msg.includes("stale lock") || msg.includes("state lock") || msg.includes("stale_lock") ||
+    msg.includes("health_gate") || msg.includes("health gate") ||
+    msg.includes("ops_guard") || msg.includes("non_building_package") ||
+    msg.includes("edge function exceeded") ||
+    msg.includes("deferred") || msg.includes("all candidates on cooldown")
+  ) {
+    return { isTransient: true, reason: "ops_guard_or_lock" };
   }
 
   // Check generic transient (catch-all for patterns in isTransientLlmError)
