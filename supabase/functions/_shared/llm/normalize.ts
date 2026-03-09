@@ -80,7 +80,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_empty_response",
-      providerCooldownMs: 2 * 60_000, // 2 min (was 10 min — too aggressive)
+      providerCooldownMs: 30_000, // 30s (was 2 min — too aggressive when all providers affected)
     };
   }
 
@@ -89,7 +89,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_rate_limited",
-      providerCooldownMs: 3 * 60_000, // 3 min (was 5 min)
+      providerCooldownMs: 45_000, // 45s (was 3 min — prevents all-provider lockout)
     };
   }
 
@@ -103,7 +103,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_transient_timeout",
-      providerCooldownMs: 3 * 60_000, // 3 min (was 5 min)
+      providerCooldownMs: 30_000, // 30s (was 3 min — 503s recover fast)
     };
   }
 
@@ -121,7 +121,7 @@ export function classifyError(err: unknown): ErrorClassification {
     return {
       isTransient: true,
       reason: "ops_all_providers_failed",
-      providerCooldownMs: 2 * 60_000, // 2 min (was 3 min)
+      providerCooldownMs: 20_000, // 20s (was 2 min — shortest, since all already failed)
     };
   }
 

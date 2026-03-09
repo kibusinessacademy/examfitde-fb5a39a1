@@ -36,11 +36,11 @@ export async function ensureNonEmptyText(opts: {
     return retryText;
   }
 
-  // Both attempts failed — short cooldown (2 min, not 3 min)
+  // Both attempts failed — short cooldown (30s, was 2 min)
   await setProviderCooldown({
     provider: opts.provider,
     model: opts.model,
-    ms: 120_000,
+    ms: 30_000,
     reason: "ops_empty_response",
   });
 

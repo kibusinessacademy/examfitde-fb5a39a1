@@ -426,14 +426,18 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     } catch { /* best-effort */ }
   }
 
-  // ── Provider Health Gate (route-aware via load balancer) ──
+  // ── Provider Health Gate (soft: warn but proceed if all on cooldown) ──
   const resolvedRoute = await resolveAvailableRoute("learning_content");
 
   if (!resolvedRoute?.ok) {
+    // SOFT GATE: short defer (10s) instead of hard block (30s)
+    // Individual jobs will rotate providers and handle failures naturally.
+    // Only defer briefly to give cooldowns a chance to expire.
+    const deferMs = 10_000;
     console.warn(
-      `[content-runner] HEALTH_GATE: no healthy route for learning_content — deferring ${jobs.length} job(s) by 30s (reason: ${resolvedRoute?.reason ?? "unknown"})`,
+      `[content-runner] HEALTH_GATE: no healthy route — soft-deferring ${jobs.length} job(s) by ${deferMs / 1000}s (reason: ${resolvedRoute?.reason ?? "unknown"})`,
     );
-    const deferAt = new Date(Date.now() + 30_000).toISOString();
+    const deferAt = new Date(Date.now() + deferMs).toISOString();
     for (const job of jobs) {
       await sb.from("job_queue").update({
         status: "pending",
@@ -441,7 +445,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
         locked_at: null,
         locked_by: null,
         updated_at: new Date().toISOString(),
-        last_error: `HEALTH_GATE: all candidates on cooldown, deferred by ${WORKER_ID}`,
+        last_error: `HEALTH_GATE: all candidates on cooldown, deferred ${deferMs / 1000}s by ${WORKER_ID}`,
       }).eq("id", job.id).eq("status", "processing");
     }
     return { claimed: jobs.length, succeeded: 0, failed: 0, deferred: jobs.length };
