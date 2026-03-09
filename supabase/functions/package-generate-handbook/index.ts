@@ -574,7 +574,7 @@ Deno.serve(async (req) => {
   const chapterIds = chapters.map((c: any) => c.id);
   const { data: existingSections } = await sb
     .from("handbook_sections")
-    .select("id, learning_field_id, content_markdown, chapter_id")
+    .select("id, learning_field_id, content_markdown, chapter_id, title, section_key")
     .in("chapter_id", chapterIds);
 
   // ── Revalidate existing sections with the SAME guard logic ──
