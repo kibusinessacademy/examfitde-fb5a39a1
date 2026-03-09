@@ -136,13 +136,11 @@ Deno.serve(async (req) => {
       .limit(20);
 
     for (const bPkg of buildingPkgs ?? []) {
-      const buildAge = Date.now() - new Date(bPkg.updated_at).getTime();
-      if (buildAge < 20 * 60_000) continue; // give 20 min grace
-
-      // Centralized SSOT RPC: checks lease/jobs/steps guards atomically in SQL
+      // The RPC handles all threshold logic (priority-aware, grace-aware, queued-step-aware)
+      // Pass a low base min_age; the RPC will compute the real dynamic threshold
       const { data: failResult } = await sb.rpc("guardian_fail_package_if_stale", {
         p_package_id: bPkg.id,
-        p_min_age_minutes: 20,
+        p_min_age_minutes: 15,
       });
 
       const fr = failResult as Record<string, unknown> | null;
