@@ -131,6 +131,17 @@ export function classifyError(err: unknown): ErrorClassification {
     };
   }
 
+  // Operational guards (stale locks, health gate, OPS_GUARD) = transient, no cooldown needed
+  if (
+    msg.includes("stale lock") || msg.includes("state lock") || msg.includes("stale_lock") ||
+    msg.includes("health_gate") || msg.includes("health gate") ||
+    msg.includes("ops_guard") || msg.includes("non_building_package") ||
+    msg.includes("edge function exceeded") ||
+    msg.includes("deferred") || msg.includes("all candidates on cooldown")
+  ) {
+    return { isTransient: true, reason: "ops_guard_or_lock" };
+  }
+
   // Check generic transient (catch-all for patterns in isTransientLlmError)
   if (isTransientLlmError(err)) {
     return { isTransient: true, reason: "ops_transient_generic" };
