@@ -6,6 +6,7 @@ import HealthHero from "@/components/control/HealthHero";
 import MetricCard from "@/components/control/MetricCard";
 import RailCard from "@/components/control/RailCard";
 import PipelinePerformanceBoard from "@/components/control/PipelinePerformanceBoard";
+import PipelineHealthBoard from "@/components/admin/cards/PipelineHealthBoard";
 
 export default function UnifiedLeitstellePage() {
   const { data: snapshot, isLoading: snapshotLoading, refetch: refetchSnapshot } = useUnifiedLeitstelleSnapshot();
@@ -99,6 +100,8 @@ export default function UnifiedLeitstellePage() {
         <MetricCard title="Queued Decisions" value={snapshot?.decisions?.queued_decisions ?? 0} subtitle="Executive Portfolio" />
         <MetricCard title="Probe Fails" value={snapshot?.probes?.failed_count ?? 0} subtitle={`Critical: ${snapshot?.probes?.critical_failed_count ?? 0}`} />
       </div>
+
+      <PipelineHealthBoard />
 
       <PipelinePerformanceBoard data={perfData} />
 
