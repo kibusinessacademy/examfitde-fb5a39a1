@@ -1461,6 +1461,7 @@ async function processPackage(
         console.log(`[runner] 🔄 Step ${stepKey} batch incomplete — re-queued`);
         await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
         return { packageId, stepKey, batch_continue: true };
+        }
       }
 
       // ══ AUTO-HEAL: Validation steps that complete with ok=false ══
