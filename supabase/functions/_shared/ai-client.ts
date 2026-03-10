@@ -77,13 +77,8 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
     keyEnv: "GOOGLE_AI_API_KEY",
     format: "google",
   },
-  lovable: {
-    url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    model: "openai/gpt-5.2",
-    keyEnv: "LOVABLE_API_KEY",
-    format: "openai",
-  },
 };
+
 
 /**
  * Token Param Adapter: determines if a model needs max_completion_tokens
