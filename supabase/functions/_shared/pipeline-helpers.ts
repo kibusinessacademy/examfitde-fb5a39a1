@@ -112,6 +112,7 @@ export type StepAction =
   | { action: "poll"; stepKey: StepKey; jobId: string }
   | { action: "exhausted"; stepKey: StepKey }
   | { action: "timed_out"; stepKey: StepKey }
+  | { action: "wait"; stepKey: StepKey }
   | null;
 
 export function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepAction {
