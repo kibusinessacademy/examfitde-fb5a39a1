@@ -41,8 +41,12 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
 const MIN_WORD_TARGET = 800;
 const MAX_WORD_TARGET = 2500;
 const TARGET_CHAPTERS = 8;
-const BATCH_SIZE = 6;
+// v7: BATCH_SIZE=1 — with 42s wall-clock and 25s LLM timeout, only 1 section
+// can realistically complete per invocation. Previous BATCH_SIZE=6 caused
+// sections 2-6 to hit soft-stop and produce empty content → 100% rejection.
+const BATCH_SIZE = 1;
 const MIN_SECTION_CHARS = 500;
+const IDEAL_SECTION_CHARS = 2000;  // v7: was UNDEFINED — expansion pass never fired
 
 // ── Section Generator ────────────────────────────────────────
 
