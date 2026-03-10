@@ -951,67 +951,58 @@ async function handlePoll(
     return { packageId, stepKey, waiting: true, jobStatus: "pending" };
   }
 
-  // Job processing
+  // Job processing — enhanced with liveness guard
   if (job.status === "processing") {
     const currentStep = steps.find((s: StepRow) => s.step_key === stepKey);
-    const jobAge = job.updated_at ? Date.now() - new Date(job.updated_at as string).getTime() : 0;
+    // Use last_heartbeat_at as primary liveness signal
+    const heartbeatRef = job.last_heartbeat_at || job.updated_at || job.locked_at;
+    const jobAge = heartbeatRef ? Date.now() - new Date(heartbeatRef as string).getTime() : 0;
 
     const ZOMBIE_THRESHOLD_MS = 5 * 60 * 1000;
-    const STUCK_THRESHOLD_MS = 30 * 60 * 1000;
+    const STUCK_THRESHOLD_MS = 10 * 60 * 1000; // tightened from 30m to 10m with heartbeat
     const isZombie = !job.locked_at && jobAge > ZOMBIE_THRESHOLD_MS;
+    const isStaleHeartbeat = jobAge > STUCK_THRESHOLD_MS;
 
-    if (isZombie || jobAge > STUCK_THRESHOLD_MS) {
+    if (isZombie || isStaleHeartbeat) {
       const reason = isZombie
         ? `Zombie job: processing with no lock for ${Math.round(jobAge / 60000)}min`
-        : `Stuck processing for ${Math.round(jobAge / 60000)}min`;
+        : `Liveness guard: no heartbeat for ${Math.round(jobAge / 60000)}min`;
       console.warn(`[runner] ⚠️ Job ${jobId.slice(0, 8)} ${reason}`);
 
-      const lastErr = String(job.last_error ?? "");
-      const zombieIsTransient = isTransientStepError(lastErr) || isTransientStepError(reason);
+      // Use kill_stale_processing_jobs_v2 for the specific package
+      await safeRpc(sb, "kill_stale_processing_jobs_v2", {
+        p_package_id: packageId,
+        p_heartbeat_timeout_seconds: Math.round(STUCK_THRESHOLD_MS / 1000),
+        p_reason: `pipeline-process: ${reason}`,
+        p_requeue: true,
+      });
+
+      // Release lease if no alive work remains
+      await safeRpc(sb, "release_stale_package_lease_v2", {
+        p_package_id: packageId,
+        p_reason: `pipeline-process: liveness guard triggered for ${stepKey}`,
+      });
+
       const zombieMeta = (currentStep?.meta ?? {}) as Record<string, any>;
-
-      if (zombieIsTransient) {
-        await safeQuery(
-          sb.from("job_queue").update({
-            status: "pending", locked_at: null, locked_by: null,
-            last_error: `${reason} [transient — recycled]`,
-            updated_at: new Date().toISOString(),
-            run_after: new Date(Date.now() + 60_000).toISOString(),
-          }).eq("id", jobId).eq("status", "processing"),
-          "recycle_transient_zombie_job",
-        );
-      } else {
-        await safeQuery(
-          sb.from("job_queue").update({
-            status: "failed", last_error: reason,
-            updated_at: new Date().toISOString(),
-          }).eq("id", jobId).eq("status", "processing"),
-          "force_fail_stuck_job",
-        );
-      }
-
       const zombieBackoffRunAt = new Date(Date.now() + 60_000).toISOString();
       await safeQuery(
         sb.from("package_steps").update({
           status: "queued", job_id: null, runner_id: null, started_at: null,
-          ...(zombieIsTransient ? {} : { attempts: (currentStep?.attempts ?? 0) + 1 }),
-          last_error: `${reason}${zombieIsTransient ? " [transient — attempts preserved]" : ""}`,
+          last_error: `${reason} [liveness guard — requeued]`,
           meta: {
             ...zombieMeta,
-            last_error_kind: zombieIsTransient ? "transient" : "zombie",
-            last_error_code: zombieIsTransient ? "STALE_LOCK_TRANSIENT_RESET" : "ZOMBIE_RESET",
+            last_error_kind: "transient",
+            last_error_code: "JOB_LIVENESS_GUARD",
             next_run_at: zombieBackoffRunAt,
-            ...(zombieIsTransient ? {
-              transient_attempts: (Number(zombieMeta.transient_attempts ?? 0) || 0) + 1,
-              first_transient_at: zombieMeta.first_transient_at ?? new Date().toISOString(),
-              last_transient_at: new Date().toISOString(),
-            } : {}),
+            liveness_intervened: true,
+            liveness_last_run_at: new Date().toISOString(),
           },
-        }).eq("package_id", packageId).eq("step_key", stepKey).eq("job_id", jobId),
-        "reset_stuck_step",
+        }).eq("package_id", packageId).eq("step_key", stepKey),
+        "liveness_guard_reset_step",
       );
+
       await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-      return { packageId, stepKey, stuck_reset: true, zombie: isZombie, transient: zombieIsTransient };
+      return { packageId, stepKey, stuck_reset: true, zombie: isZombie, liveness_guard: true };
     }
 
     if (currentStep?.status !== "running") {
