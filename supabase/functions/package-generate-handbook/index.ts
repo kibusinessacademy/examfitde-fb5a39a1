@@ -70,8 +70,8 @@ async function generateSectionContent(
   // chain is passed as parameter now (v6: single-provider per invocation)
   const prompt = buildElitePrompt(professionName, fieldCode, fieldTitle, fieldDescription, subtopics, competencies, sampleQuestions, wordTarget);
   
-  // v8: raised to 12288 — Elite Pro model with expanded budget can produce long-form output
-  const maxTokens = Math.min(12288, Math.max(6144, Math.round(wordTarget * 5)));
+  // v15: reduced from 12288 — basis pass needs less output, expand adds depth
+  const maxTokens = Math.min(6144, Math.max(3072, Math.round(wordTarget * 4)));
 
   try {
     const budget = getTimeBudget("handbook");
