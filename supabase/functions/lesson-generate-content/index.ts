@@ -517,14 +517,13 @@ Deno.serve(async (req) => {
   let plainRetry = false;
 
   try {
-    result = await Promise.race([
-      callAIWithFailover(
-        chain.map(c => ({ provider: c.provider, model: c.model })),
-        {
-          messages: [
-            {
-              role: "system",
-              content: `Du bist ein erfahrener IHK-Fachexperte mit 20 Jahren Berufserfahrung als ${professionName}. Du erstellst Lerninhalte die sich anfühlen, als wären sie von einem Fachlehrer geschrieben — NICHT von einer KI.
+    result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          {
+            role: "system",
+            content: `Du bist ein erfahrener IHK-Fachexperte mit 20 Jahren Berufserfahrung als ${professionName}. Du erstellst Lerninhalte die sich anfühlen, als wären sie von einem Fachlehrer geschrieben — NICHT von einer KI.
 
 QUALITÄTSSTANDARD:
 - Jeder Lernschritt MUSS die fachliche Tiefe des offiziellen Rahmenplans abbilden
@@ -551,15 +550,13 @@ ${isMiniCheck
   : '{"html": "<h3>...</h3><p>...</p>", "objectives": ["..."], "key_terms": [{"term": "...", "definition": "...", "exam_relevance": "..."}], "common_mistakes": [{"mistake": "...", "correction": "...", "trap_type": "..."}], "exam_triggers": ["..."]}'
 }
 KEINE Platzhalter. Vollständigen Inhalt generieren.`,
-            },
-            { role: "user", content: userPrompt },
-          ],
-          max_tokens: effectiveMaxTokens,
-          signal: llmAbort.signal,
-        },
-      ),
-      timeoutPromise,
-    ]) as Awaited<ReturnType<typeof callAIWithFailover>>;
+          },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: effectiveMaxTokens,
+        timeout_ms: llmTimeoutMs,
+      },
+    );
 
     // ── CHECKPOINT: Save raw LLM response immediately (before parse) ──
     // If platform kills during parse/validate, we don't lose the expensive LLM result
