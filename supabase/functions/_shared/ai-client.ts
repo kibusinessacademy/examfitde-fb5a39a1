@@ -3,8 +3,7 @@
  *
  * Strategy:
  *   - OpenAI GPT-5.2:  Complex reasoning, course generation, tutoring
- *   - Anthropic Claude: Quality validation, post-hoc checks
- *   - Lovable Gateway:  Cost-efficient routing (Gemini, GPT-5)
+ *   - Anthropic Claude: Quality validation, content generation
  *
  * All calls go directly to provider APIs using stored API keys.
  */
@@ -78,18 +77,13 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
     keyEnv: "GOOGLE_AI_API_KEY",
     format: "google",
   },
-  lovable: {
-    url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    model: "openai/gpt-5.2",
-    keyEnv: "LOVABLE_API_KEY",
-    format: "openai",
-  },
 };
+
 
 /**
  * Token Param Adapter: determines if a model needs max_completion_tokens
  * instead of the legacy max_tokens parameter (and fixed temperature=1).
- * Covers: GPT-5 family, o1/o3 reasoning models, Lovable gateway variants.
+ * Covers: GPT-5 family, o1/o3 reasoning models.
  */
 const MAX_COMPLETION_TOKEN_PREFIXES = [
   "gpt-5", "o1", "o1-", "o3", "o3-",
@@ -97,10 +91,6 @@ const MAX_COMPLETION_TOKEN_PREFIXES = [
 export function needsMaxCompletionTokens(model: string): boolean {
   // Direct model names: gpt-5, gpt-5-mini, gpt-5.2, o1, o1-mini, o3, o3-mini
   if (MAX_COMPLETION_TOKEN_PREFIXES.some(p => model === p || model.startsWith(p))) return true;
-  // Lovable gateway format: openai/gpt-5, openai/o1-mini, google/gemini-*, etc.
-  if (model.includes("/gpt-5") || model.includes("/o1") || model.includes("/o3")) return true;
-  // Lovable gateway requires max_completion_tokens for ALL models (including Gemini)
-  if (model.includes("google/") || model.includes("gemini")) return true;
   return false;
 }
 
@@ -108,7 +98,7 @@ export function needsMaxCompletionTokens(model: string): boolean {
  * Call an AI provider directly. Returns the raw Response for streaming or JSON parsing.
  */
 /** Default fetch timeout for AI calls — prevents Edge Function hard-timeout */
-const AI_FETCH_TIMEOUT_MS = 38_000;  // v10: was 55s — now 38s to leave persist headroom
+const AI_FETCH_TIMEOUT_MS = 48_000;  // v15: was 38s — raised to 48s. 38s was killing Anthropic responses mid-flight. Callers with tighter budgets pass explicit timeout_ms.
 
 export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const cfg = PROVIDER_DEFAULTS[opts.provider];
@@ -199,7 +189,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       signal: combinedSignal,
     });
   } else {
-    // OpenAI-compatible (OpenAI, Lovable)
+    // OpenAI-compatible (OpenAI direct)
     const body: Record<string, unknown> = {
       model,
       messages: opts.messages,
@@ -341,7 +331,7 @@ export async function logLLMCostEvent(
   }
 ): Promise<void> {
   try {
-    // CRITICAL FIX: If provider returned 0 tokens (Lovable Gateway), use estimated values
+    // FIX: If provider returned 0 tokens, use estimated values
     let tokensIn = opts.tokens_in;
     let tokensOut = opts.tokens_out;
     let isEstimated = opts.estimated ?? false;
@@ -408,11 +398,10 @@ export async function callAIWithFailover(
     openai: "OPENAI_API_KEY",
     anthropic: "ANTHROPIC_API_KEY",
     google: "GOOGLE_AI_API_KEY",
-    lovable: "LOVABLE_API_KEY",
   };
 
   const keyAvailability: Record<string, boolean> = {};
-  for (const p of ["openai", "anthropic", "google", "lovable"]) {
+  for (const p of ["openai", "anthropic", "google"]) {
     keyAvailability[p] = !!Deno.env.get(PROVIDER_KEYS[p]);
   }
 

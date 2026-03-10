@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const OPENAI_API_KEY_V2 = Deno.env.get("OPENAI_API_KEY");
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
   let body: GenerateRequest;
@@ -267,18 +267,19 @@ Deno.serve(async (req) => {
     const systemPrompt = buildSystemPrompt(body.profession_name);
     const userPrompt = buildUserPrompt(body, count);
 
-    // Call AI via Lovable Gateway (Google-First strategy)
-    const aiUrl = LOVABLE_API_KEY
-      ? "https://ai.gateway.lovable.dev/v1/chat/completions"
+    // Call AI via OpenAI direct API
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const aiUrl = OPENAI_API_KEY
+      ? "https://api.openai.com/v1/chat/completions"
       : `${SUPABASE_URL}/functions/v1/ai-tutor`;
 
     const aiHeaders: Record<string, string> = { "Content-Type": "application/json" };
     let aiBody: any;
 
-    if (LOVABLE_API_KEY) {
-      aiHeaders["Authorization"] = `Bearer ${LOVABLE_API_KEY}`;
+    if (OPENAI_API_KEY) {
+      aiHeaders["Authorization"] = `Bearer ${OPENAI_API_KEY}`;
       aiBody = {
-        model: "openai/gpt-5.2",
+        model: "gpt-5.2",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -290,7 +291,7 @@ Deno.serve(async (req) => {
       aiBody = {
         _direct_ai_call: true,
         provider: "openai",
-        model: "gpt-5",
+        model: "gpt-5.2",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -313,7 +314,7 @@ Deno.serve(async (req) => {
     }
 
     const aiData = await aiResp.json();
-    const content = LOVABLE_API_KEY
+    const content = OPENAI_API_KEY_V2
       ? aiData.choices?.[0]?.message?.content || ""
       : aiData.content || aiData.choices?.[0]?.message?.content || "";
 

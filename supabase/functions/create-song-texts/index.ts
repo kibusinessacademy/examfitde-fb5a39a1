@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
@@ -134,16 +134,16 @@ Antworte NUR mit dem Songtext.`;
         stylePrompt = "LoFi Study Beat, German vocals, calm, 75 BPM, soft piano, minimal production, relaxing, focus on memorization";
       }
 
-      if (LOVABLE_API_KEY) {
+      if (OPENAI_API_KEY) {
         try {
-          const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "openai/gpt-5.2",
+              model: "gpt-5.2",
               messages: [
                 { role: "system", content: "Du erstellst Lernsongs für deutsche Auszubildende. Antworte nur mit dem Songtext." },
                 { role: "user", content: prompt },

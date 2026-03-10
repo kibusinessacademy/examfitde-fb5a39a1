@@ -52,8 +52,8 @@ function assertUuid(name: string, v: unknown) {
 
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const result = await callAIJSON({
-    provider: "lovable" as AIProvider,
-    model: "openai/gpt-5.2",
+    provider: "openai" as AIProvider,
+    model: "gpt-5.2",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },

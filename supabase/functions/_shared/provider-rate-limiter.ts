@@ -13,7 +13,7 @@
  * providing distributed backpressure without DB overhead.
  */
 
-export type AIProvider = "openai" | "anthropic" | "google" | "lovable";
+export type AIProvider = "openai" | "anthropic" | "google";
 
 // ── Configuration ───────────────────────────────────────────────────
 
@@ -285,7 +285,7 @@ export function pickAvailableProvider(
  * Get health summary for all providers (for monitoring/logging).
  */
 export function getAllProviderHealth(): ProviderHealth[] {
-  return (["openai", "anthropic", "google", "lovable"] as AIProvider[]).map(getProviderHealth);
+  return (["openai", "anthropic", "google"] as AIProvider[]).map(getProviderHealth);
 }
 
 /**

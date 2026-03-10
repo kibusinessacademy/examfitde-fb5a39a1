@@ -44,7 +44,7 @@ async function probe(
 ): Promise<ProbeResult> {
   const start = Date.now();
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -89,8 +89,8 @@ async function probe(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
 
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) return json({ ok: false, error: "LOVABLE_API_KEY not set" }, 500);
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) return json({ ok: false, error: "OPENAI_API_KEY not set" }, 500);
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  const model = "openai/gpt-5.2";
+  const model = "gpt-5.2";
 
   // Probe 1: Plain text completion
   const p1 = probe("plain_text", apiKey, {
@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
     kind = "provider_tool_empty";
     severity = "P1";
   } else if (!plainOk && !toolOk && !fallbackOk) {
-    diagnosis = "PROXY_DOWN — all probes failed. Check LOVABLE_API_KEY, rate limits, or provider outage.";
+    diagnosis = "PROXY_DOWN — all probes failed. Check OPENAI_API_KEY, rate limits, or provider outage.";
     kind = "provider_down";
     severity = "P0";
   } else if (r1.content_length === 0 && r2.content_length === 0 && r3.content_length === 0) {

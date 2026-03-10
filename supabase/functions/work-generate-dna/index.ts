@@ -17,8 +17,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
 
     const systemPrompt = `Du bist ein Experte für deutsche Ausbildungsberufe und KI-Workflows im Berufsalltag.
 Deine Aufgabe: Generiere eine vollständige "Berufs-DNA" für den Beruf "${name}"${branche ? ` (Branche: ${branche})` : ""}.
@@ -41,14 +41,14 @@ Regeln:
 - Alle Einträge auf Deutsch
 - Spezifisch für den Beruf, keine generischen Einträge`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-5.2",
+        model: "gpt-5.2",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Generiere die Berufs-DNA für: ${name}${branche ? ` (${branche})` : ""}` },

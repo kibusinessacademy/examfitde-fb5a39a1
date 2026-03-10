@@ -119,8 +119,8 @@ async function upsertRisk(
 async function proposeActionLLM(signals: Record<string, unknown>) {
   try {
     const result = await callAIJSON({
-      provider: "lovable",
-      model: "openai/gpt-5.2",
+      provider: "openai",
+      model: "gpt-5.2",
       messages: [
         {
           role: "system",

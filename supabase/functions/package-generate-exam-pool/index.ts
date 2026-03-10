@@ -356,7 +356,7 @@ async function loadExamProviderChain(): Promise<ModelChoice[]> {
   } catch (e) {
     console.warn(`[ExamPool-v5] DB routing failed, using hardcoded fallback: ${e}`);
     _examProviderChain = [
-      { provider: "lovable" as AIProvider, model: "openai/gpt-5.2" },
+      { provider: "openai" as AIProvider, model: "gpt-5.2" },
       { provider: "anthropic" as AIProvider, model: "claude-sonnet-4-5-20250929" },
     ];
   }
@@ -370,7 +370,6 @@ function pickProvider(chain: ModelChoice[], exclude: string[] = []): { provider:
       openai: "OPENAI_API_KEY",
       anthropic: "ANTHROPIC_API_KEY",
       google: "GOOGLE_AI_API_KEY",
-      lovable: "LOVABLE_API_KEY",
     };
     const keyEnv = keyMap[entry.provider];
     if (keyEnv && !Deno.env.get(keyEnv)) continue;

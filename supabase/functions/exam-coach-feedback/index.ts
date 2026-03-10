@@ -139,9 +139,9 @@ Deno.serve(async (req) => {
     // ─── Generate AI feedback via Lovable AI Gateway ───
     let aiSummary = '';
     let aiPlan: string[] = [];
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
-    if (LOVABLE_API_KEY) {
+    if (OPENAI_API_KEY) {
       try {
         const currTitle = (session.curriculum as any)?.title || 'Prüfung';
         
@@ -181,14 +181,14 @@ Antworte im JSON-Format (kein Markdown, kein Code-Block):
   "learning_plan": ["Schritt 1 für die nächsten 48h", "Schritt 2", "Schritt 3", "Schritt 4"]
 }`;
 
-        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
+            model: "gpt-5.2",
             messages: [
               { role: "system", content: "Du bist ein empathischer IHK-Prüfungscoach. Antworte ausschließlich als valides JSON." },
               { role: "user", content: prompt },
