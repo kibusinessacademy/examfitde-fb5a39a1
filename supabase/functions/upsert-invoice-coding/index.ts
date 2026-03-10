@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+// Deno.serve is built-in
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
@@ -19,7 +19,7 @@ function clampStr(s: unknown, max: number): string | null {
   return t.length > max ? t.slice(0, max) : t || null;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   const preflight = handleCorsPreflightRequest(req);
   if (preflight) return preflight;

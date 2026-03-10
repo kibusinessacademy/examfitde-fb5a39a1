@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+// Deno.serve is built-in
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const corsHeaders: Record<string, string> = {
@@ -46,7 +46,7 @@ const VALID_LINK_TYPES = [
   "LICENSE", "COMPANY", "CERTIFICATION", "LESSON", "QUESTION", "BLUEPRINT", "SEAT",
 ] as const;
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
