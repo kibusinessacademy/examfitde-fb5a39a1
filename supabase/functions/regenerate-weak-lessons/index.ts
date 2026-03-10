@@ -85,11 +85,8 @@ Deno.serve(async (req) => {
       .eq("package_id", packageId)
       .eq("step_key", "generate_learning_content");
 
-    await sb
-      .from("course_package_build_steps")
-      .update({ status: "pending", started_at: null, completed_at: null, error: null })
-      .eq("package_id", packageId)
-      .eq("step_key", "generate_learning_content");
+    // NOTE: Removed redundant write to course_package_build_steps VIEW.
+    // package_steps (line 82-86) is the SSOT table; the view is read-only.
 
     // 5. Also reset downstream steps that depend on content
     const downstreamSteps = [

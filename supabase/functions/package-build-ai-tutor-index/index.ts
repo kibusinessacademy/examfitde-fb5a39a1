@@ -146,11 +146,18 @@ Deno.serve(async (req) => {
     .eq("certification_id", topicLookupId)
     .not("parent_topic_id", "is", null);
 
-  // ═══ NEW: LF coverage stats ═══
+  // ═══ LF + Chapter coverage stats ═══
   const { data: lfData } = await sb
-    .from("learning_fields").select("id, code, title")
+    .from("learning_fields").select("id")
     .eq("curriculum_id", curriculumId);
-  const lfCount = lfData?.length || 0;
+  const lfTotal = lfData?.length || 0;
+
+  // Actual handbook coverage: count chapters with real content (SSOT = chapters, not LFs)
+  const { data: hbChapters } = await sb
+    .from("handbook_chapters").select("id")
+    .eq("curriculum_id", curriculumId);
+  const chapterTotal = hbChapters?.length || 0;
+  const lfCoverage = Math.min(lfTotal, chapterTotal); // chapters cover LFs
 
   // ═══ DEPTH GATE: Warn if no subtopics exist ═══
   const depthStatus = (subtopicCount ?? 0) > 0 ? "deep" : "shallow";
@@ -159,7 +166,6 @@ Deno.serve(async (req) => {
   }
 
   // Context index (idempotent)
-  // Each lesson with content = 1 chunk; each topic = 1 chunk; each handbook chapter = 1 chunk
   const lessonContentChunks = lessonChunks.length;
   const totalChunks = lessonContentChunks + (topicCount ?? 0) + handbookChunkCount;
   const totalTokensEst = lessonChunks.reduce((s, c) => s + c.tokens_est, 0) + handbookTotalTokens + (topicCount ?? 0) * 300;
@@ -169,20 +175,19 @@ Deno.serve(async (req) => {
     handbookChunkCount,
     topicCount: topicCount ?? 0,
     subtopicCount: subtopicCount ?? 0,
-    lfCount,
+    lfTotal,
+    chapterTotal,
     depthStatus,
     policyVersion,
-    // Retrieval source breakdown
     retrieval_sources: {
       lessons: { chunks: lessonContentChunks, tokens_est: lessonChunks.reduce((s, c) => s + c.tokens_est, 0) },
       handbook: { chunks: handbookChunkCount, tokens_est: handbookTotalTokens },
       topics: { chunks: topicCount ?? 0, tokens_est: (topicCount ?? 0) * 300 },
     },
-    // Fields required by validate_tutor_index
     total_chunks: totalChunks,
     total_tokens_est: totalTokensEst,
-    lf_coverage: lfCount,
-    lf_total: lfCount,
+    lf_coverage: lfCoverage,
+    lf_total: lfTotal,
     avg_tokens_per_chunk: totalChunks > 0 ? Math.round(totalTokensEst / totalChunks) : 0,
   };
 
