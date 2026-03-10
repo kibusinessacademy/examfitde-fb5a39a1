@@ -529,14 +529,30 @@ Deno.serve(async (req) => {
     // ── Auto-publish readiness gate ─────────────────────────────────────
     // Prevent noise: don't dispatch auto_publish until integrity_passed=true.
     // This eliminates premature 422/guard failures that inflate error metrics.
+    // RECONCILIATION: Also checks integrity_report as fallback for write-race conditions.
     if (job.job_type === "package_auto_publish" && jobPackageId) {
       const { data: pubGate } = await sb
         .from("course_packages")
-        .select("integrity_passed")
+        .select("integrity_passed, integrity_report")
         .eq("id", jobPackageId)
         .maybeSingle();
 
-      if (!pubGate?.integrity_passed) {
+      let integrityOk = !!pubGate?.integrity_passed;
+
+      // Reconciliation: if integrity_passed=false but integrity_report confirms passing,
+      // auto-heal the flag (race condition between integrity-check write and pipeline-process)
+      if (!integrityOk && pubGate?.integrity_report) {
+        const report = pubGate.integrity_report as Record<string, unknown>;
+        const score = typeof report.score === "number" ? report.score : 0;
+        const hardFails = (report as any)?.v3?.hard_fail_reasons ?? [];
+        if (score >= 85 && Array.isArray(hardFails) && hardFails.length === 0) {
+          console.warn(`[job-runner] 🔧 RECONCILE: integrity_passed=false but report.score=${score}, hardFails=0 — auto-fixing`);
+          await sb.from("course_packages").update({ integrity_passed: true }).eq("id", jobPackageId);
+          integrityOk = true;
+        }
+      }
+
+      if (!integrityOk) {
         const gateReason = `AUTO_PUBLISH_GATE: integrity_passed=${pubGate?.integrity_passed ?? "null"} — not ready`;
         console.log(`[job-runner] ${gateReason} (pkg ${jobPackageId.slice(0, 8)})`);
         // Long backoff (5 min) — integrity won't flip in seconds
