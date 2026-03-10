@@ -422,3 +422,12 @@ verify_jwt = false
 
 [functions.package-scaffold-learning-course]
 verify_jwt = false
+
+[functions.expand-handbook-section]
+verify_jwt = false
+
+[functions.package-enqueue-handbook-expand]
+verify_jwt = false
+
+[functions.package-validate-handbook-depth]
+verify_jwt = false

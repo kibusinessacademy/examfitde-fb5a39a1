@@ -23,6 +23,9 @@ export type PipelineStepKey =
   | "validate_lesson_minichecks"
   | "generate_handbook"
   | "validate_handbook"
+  | "enqueue_handbook_expand"
+  | "expand_handbook"
+  | "validate_handbook_depth"
   | "elite_harden"
   | "run_integrity_check"
   | "quality_council"
@@ -54,6 +57,9 @@ export const FULL_STEP_ORDER: PipelineStepKey[] = [
   "validate_lesson_minichecks",
   "generate_handbook",
   "validate_handbook",
+  "enqueue_handbook_expand",
+  "expand_handbook",
+  "validate_handbook_depth",
   "elite_harden",
   "run_integrity_check",
   "quality_council",
@@ -76,8 +82,11 @@ export const PIPELINE_STEP_LABELS: Record<PipelineStepKey, string> = {
   validate_oral_exam: "QG Mündliche",
   generate_lesson_minichecks: "MiniChecks",
   validate_lesson_minichecks: "QG MiniChecks",
-  generate_handbook: "Handbuch",
+  generate_handbook: "Handbuch (Basis)",
   validate_handbook: "QG Handbuch",
+  enqueue_handbook_expand: "Handbuch Expand Queue",
+  expand_handbook: "Handbuch Vertiefung",
+  validate_handbook_depth: "QG Handbuch Tiefe",
   elite_harden: "Elite Harden",
   run_integrity_check: "Integritätsprüfung",
   quality_council: "QA Council",
@@ -100,8 +109,11 @@ export const PIPELINE_STEP_SHORT_LABELS: Record<PipelineStepKey, string> = {
   validate_oral_exam: "QG Mündl.",
   generate_lesson_minichecks: "MiniChecks",
   validate_lesson_minichecks: "QG MC",
-  generate_handbook: "Handbuch",
+  generate_handbook: "HB Basis",
   validate_handbook: "QG HB",
+  enqueue_handbook_expand: "HB Expand Q",
+  expand_handbook: "HB Tiefe",
+  validate_handbook_depth: "QG HB Tiefe",
   elite_harden: "Harden",
   run_integrity_check: "Integrität",
   quality_council: "Council",
@@ -126,6 +138,9 @@ export const PIPELINE_STEP_EMOJI: Record<PipelineStepKey, string> = {
   validate_lesson_minichecks: "✅",
   generate_handbook: "📖",
   validate_handbook: "✅",
+  enqueue_handbook_expand: "📤",
+  expand_handbook: "🔬",
+  validate_handbook_depth: "✅",
   elite_harden: "🛡️",
   run_integrity_check: "🔍",
   quality_council: "🛡️",

@@ -15,7 +15,11 @@ This file is the **Single Source of Truth** for pipeline step keys (`package_ste
 - `scaffold_learning_course` — Create lesson structure from curriculum
 - `generate_learning_content` — AI-generated lesson content
 - `generate_minichecks` — Mini-quiz generation per lesson
-- `generate_handbook` — Comprehensive study handbook
+- `generate_handbook` — Handbook basis content (Flash-first, section completeness)
+- `validate_handbook` — Structural validation of handbook basis
+- `enqueue_handbook_expand` — Queue expand jobs for expandable sections
+- `expand_handbook` — Depth expansion of handbook sections (heavy models)
+- `validate_handbook_depth` — Optional quality/depth validation (soft gate)
 - `generate_exam_blueprints` — Exam question blueprints from curriculum
 - `generate_exam_pool` — Full exam question generation from blueprints
 - `validate_exam_questions` — AI quality validation of exam questions
@@ -24,6 +28,7 @@ This file is the **Single Source of Truth** for pipeline step keys (`package_ste
 - `run_integrity_check` — Content completeness & consistency check
 - `run_elite_hardening` — Elite quality hardening pass
 - `quality_council` — AI Quality Council review
+- `auto_publish` — Automated publish after all gates pass
 - `auto_publish` — Automated publish after all gates pass
 
 ### Fan-Out Steps (SSOT: `_shared/job-map.ts` → `FAN_OUT_CONFIG`)
@@ -37,6 +42,7 @@ These steps decompose into parallel subjobs. Completion is determined by hybrid 
 | `generate_oral_exam` | subjob_count | 4 | `package_generate_oral_exam` |
 | `generate_lesson_minichecks` | subjob_count | 6 | `package_generate_lesson_minichecks` |
 | `generate_handbook` | subjob_count | 4 | `package_generate_handbook` |
+| `expand_handbook` | subjob_count | 4 | `handbook_expand_section` |
 
 ### Support Steps
 - `setup_course_package` — Initial package scaffolding

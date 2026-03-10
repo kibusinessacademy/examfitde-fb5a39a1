@@ -37,15 +37,13 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done" || d2?.status === "skipped";
 }
 
-// ── Handbook Constants (Elite v8) ─────────────────────────────
-const MIN_WORD_TARGET = 1200;     // v8: raised from 800 — Elite minimum
-const MAX_WORD_TARGET = 3500;     // v8: raised from 2500 — Elite allows deep sections
+// ── Handbook Constants (v10 — Basis-Only) ─────────────────────
+const MIN_WORD_TARGET = 1200;
+const MAX_WORD_TARGET = 3500;
 const TARGET_CHAPTERS = 8;
-// v8: BATCH_SIZE=1 remains — with Pro model and expanded budget, 1 section
-// per invocation ensures maximum quality and no timeout cascades.
+// v10: BATCH_SIZE=1 — one section per invocation for reliability
 const BATCH_SIZE = 1;
-const MIN_SECTION_CHARS = 1800;   // v8: raised from 500 — Elite quality floor
-const IDEAL_SECTION_CHARS = 6000; // v8: raised from 2000 — triggers expand pass for real depth
+const MIN_SECTION_CHARS = 1800;   // Basis quality floor
 
 // ── Section Generator ────────────────────────────────────────
 
@@ -116,63 +114,8 @@ async function generateSectionContent(
       } catch { /* use as-is */ }
     }
 
-    // ── Depth Expansion Pass: if content below ideal, request expansion ──
-    // v8: with expanded budget (95s soft-stop), expansion is viable if >20s remain
-    const expandBudget = getTimeBudget("handbook");
-    const expandRemainingMs = expandBudget.softStopMs - (Date.now() - startMs);
-    if (content.length > MIN_SECTION_CHARS && content.length < IDEAL_SECTION_CHARS && expandRemainingMs > 20_000) {
-      console.log(`[generate-handbook] Section ${fieldCode} below ideal (${content.length}/${IDEAL_SECTION_CHARS} chars). Expanding... (${Math.round(expandRemainingMs/1000)}s remaining)`);
-      try {
-        const remainingMs = expandRemainingMs;
-        const expandAbort = new AbortController();
-        const expandTimeoutMs = Math.max(15_000, Math.min(60_000, remainingMs - 5_000));  // v8: raised caps for Elite expansion
-        const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
-        
-        const expandResult = await callAIWithFailover(expandChain || chain, {
-          messages: [
-            { role: "system", content: "Du erweiterst IHK-Handbuch-Inhalte auf Elite-Niveau. Antworte NUR mit dem vollständigen, erweiterten Markdown-Text. Füge KEINE Meta-Kommentare hinzu." },
-            { role: "user", content: `Der folgende Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" muss DRINGEND erweitert werden.
-
-AKTUELLE SCHWÄCHEN:
-- Zu wenig Praxisbeispiele und Berechnungen
-- Prüfungsfallen fehlen oder sind zu oberflächlich
-- Keine konkreten Musteraufgaben mit Lösungsweg
-
-ERWEITERE den Text auf mindestens ${MIN_WORD_TARGET} Wörter. Füge hinzu:
-1. Mindestens 3 weitere durchgerechnete Beispiele
-2. Mindestens 3 weitere Prüfungsfallen mit Erklärung
-3. Eine zusätzliche Musteraufgabe mit vollständigem Lösungsweg
-4. Mehr "So denkt der Prüfer"-Hinweise
-5. Detailliertere Erklärungen der Fachbegriffe
-
-BESTEHENDER TEXT:\n\n${content}` },
-          ],
-          max_tokens: Math.min(12288, maxTokens), // v8: match primary call limit
-          signal: expandAbort.signal,
-        }).finally(() => clearTimeout(expandTimer));
-
-        try {
-          await logLLMCostEvent(sb, {
-            job_type: "generate_handbook_expand",
-            provider: expandResult.provider,
-            model: expandResult.model,
-            tokens_in: expandResult.usage?.input_tokens || 0,
-            tokens_out: expandResult.usage?.output_tokens || 0,
-            package_id: packageId,
-            estimatedUsage: expandResult.estimatedUsage,
-          });
-        } catch { /* non-blocking */ }
-
-        let expanded = expandResult.content || "";
-        expanded = expanded.replace(/^```(?:markdown)?\n?/g, "").replace(/\n?```$/g, "").trim();
-        if (expanded.length > content.length * 1.2) {
-          console.log(`[generate-handbook] Expand OK: ${content.length} → ${expanded.length} chars`);
-          content = expanded;
-        }
-      } catch (expandErr) {
-        console.warn(`[generate-handbook] Expand failed: ${(expandErr as Error).message}`);
-      }
-    }
+    // v10: Expansion pass REMOVED — now handled by separate expand_handbook step
+    // generate_handbook is basis-only (Flash-first, fast, robust)
 
     const hasRealContent = content.length >= MIN_SECTION_CHARS;
     if (content.length > 0 && !hasRealContent) {
@@ -509,6 +452,10 @@ Deno.serve(async (req) => {
       section_key: `lf-${String(lf.code).toLowerCase().replace(/\s+/g, '-')}-${curriculumId.slice(0, 8)}`,
       title: `${lf.code}: ${lf.title}`,
       content_markdown: generated.content,
+      basis_content: generated.content,
+      basis_generated_at: new Date().toISOString(),
+      content_tier: "basis",
+      expand_status: generated.content.length >= 800 ? "pending" : "not_ready",
       content_type: "text",
       sort_order: sectionOrder++,
       learning_field_id: lf.id,
@@ -521,7 +468,7 @@ Deno.serve(async (req) => {
         actual_chars: generated.content.length,
         exam_weight_pct: weightByLf.get(lf.id) || null,
         competency_count: competencies.length,
-        version: "elite_v3",
+        version: "v10_basis_only",
       },
     };
 

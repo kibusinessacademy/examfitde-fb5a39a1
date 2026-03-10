@@ -22,6 +22,9 @@ export type PipelineStepKey =
   | "validate_lesson_minichecks"
   | "generate_handbook"
   | "validate_handbook"
+  | "enqueue_handbook_expand"
+  | "expand_handbook"
+  | "validate_handbook_depth"
   | "elite_harden"
   | "run_integrity_check"
   | "quality_council"
@@ -45,6 +48,9 @@ export const STEP_TO_JOB_TYPE: Record<PipelineStepKey, string> = {
   validate_lesson_minichecks: "package_validate_lesson_minichecks",
   generate_handbook: "package_generate_handbook",
   validate_handbook: "package_validate_handbook",
+  enqueue_handbook_expand: "package_enqueue_handbook_expand",
+  expand_handbook: "handbook_expand_section",
+  validate_handbook_depth: "package_validate_handbook_depth",
   elite_harden: "package_elite_harden",
   run_integrity_check: "package_run_integrity_check",
   quality_council: "package_quality_council",
@@ -72,6 +78,9 @@ export const FULL_STEP_ORDER: PipelineStepKey[] = [
   "validate_lesson_minichecks",
   "generate_handbook",
   "validate_handbook",
+  "enqueue_handbook_expand",
+  "expand_handbook",
+  "validate_handbook_depth",
   "elite_harden",
   "run_integrity_check",
   "quality_council",
@@ -178,6 +187,14 @@ export const FAN_OUT_CONFIG: FanOutStepConfig[] = [
     subjobPriority: 5,
     useBatchCursor: true,
   },
+  {
+    stepKey: "expand_handbook",
+    subjobTypes: ["handbook_expand_section"],
+    completionMode: "subjob_count",
+    wipPerPackage: 4,
+    subjobPriority: 3,
+    useBatchCursor: false,
+  },
 ];
 
 /** Lookup fan-out config by step key */
@@ -233,6 +250,9 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   package_validate_tutor_index:      { pool: "core", edgeFunction: "package-validate-tutor-index" },
   package_validate_lesson_minichecks:{ pool: "core", edgeFunction: "package-validate-lesson-minichecks" },
   package_validate_handbook:         { pool: "core", edgeFunction: "package-validate-handbook" },
+  package_enqueue_handbook_expand:   { pool: "core", edgeFunction: "package-enqueue-handbook-expand" },
+  handbook_expand_section:           { pool: "content", edgeFunction: "expand-handbook-section" },
+  package_validate_handbook_depth:   { pool: "core", edgeFunction: "package-validate-handbook-depth" },
   package_auto_seed_exam_blueprints: { pool: "core", edgeFunction: "package-auto-seed-exam-blueprints" },
   package_build_ai_tutor_index:      { pool: "core", edgeFunction: "package-build-ai-tutor-index" },
   package_elite_harden:              { pool: "core", edgeFunction: "package-elite-harden" },
@@ -447,8 +467,11 @@ export const PIPELINE_GRAPH: PipelineNode[] = [
   { key: "validate_oral_exam", dependsOn: ["generate_oral_exam"], requires: ["oral_exam"], produces: ["validated_oral_exam"], weight: 2 },
   { key: "generate_lesson_minichecks", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["lesson_minichecks"], weight: 5 },
   { key: "validate_lesson_minichecks", dependsOn: ["generate_lesson_minichecks"], requires: ["lesson_minichecks"], produces: ["validated_minichecks"], weight: 2 },
-  { key: "generate_handbook", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["handbook"], weight: 7 },
-  { key: "validate_handbook", dependsOn: ["generate_handbook"], requires: ["handbook"], produces: ["validated_handbook"], weight: 2 },
+  { key: "generate_handbook", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["handbook_basis"], weight: 7 },
+  { key: "validate_handbook", dependsOn: ["generate_handbook"], requires: ["handbook_basis"], produces: ["validated_handbook"], weight: 2 },
+  { key: "enqueue_handbook_expand", dependsOn: ["validate_handbook"], requires: ["validated_handbook"], produces: ["handbook_expand_queued"], weight: 1 },
+  { key: "expand_handbook", dependsOn: ["enqueue_handbook_expand"], requires: ["handbook_expand_queued"], produces: ["handbook_expanded"], weight: 5 },
+  { key: "validate_handbook_depth", dependsOn: ["expand_handbook"], requires: ["handbook_expanded"], produces: ["validated_handbook_depth"], weight: 2 },
   { key: "elite_harden", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["elite_ready"], weight: 6 },
   { key: "run_integrity_check", dependsOn: ["elite_harden"], requires: ["elite_ready"], produces: ["integrity_passed"], weight: 3 },
   { key: "quality_council", dependsOn: ["run_integrity_check"], requires: ["integrity_passed"], produces: ["council_approved"], weight: 4 },
