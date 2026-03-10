@@ -30,8 +30,8 @@ function envInt(name: string, fallback: number): number {
 const DEFAULTS: Record<BudgetKey, TimeBudget> = {
   runner_claim:       { ms: 55_000, softStopMs: 45_000 },
   exam_pool_fanout:   { ms: 45_000, softStopMs: 35_000 },
-  learning_content:   { ms: 40_000, softStopMs: 25_000 },  // v10: tightened — init ~3s + LLM ~25s + persist ~5s = ~33s, hard cap 40s
-  lesson_single:      { ms: 40_000, softStopMs: 25_000 },  // v10: tightened — prevents wasted wall-time on slow providers
+  learning_content:   { ms: 50_000, softStopMs: 38_000 },  // v11: raised — Anthropic/OpenAI are reliable, maximize LLM window
+  lesson_single:      { ms: 50_000, softStopMs: 38_000 },  // v11: raised — aligned with learning_content
   handbook:           { ms: 55_000, softStopMs: 48_000 }, // v17: single provider per call — maximize available time
   glossary:           { ms: 45_000, softStopMs: 35_000 },
   oral_exam:          { ms: 45_000, softStopMs: 35_000 },

@@ -343,9 +343,9 @@ Deno.serve(async (req) => {
   // ═══════════════════════════════════════════════════════════════
 
   const PLATFORM_HARD_LIMIT_MS = 55_000;
-  const MIN_LLM_BUDGET_MS = 12_000;   // min time we need for a useful LLM call
-  const MIN_PERSIST_MS = 5_000;        // DB write + council + cost log
-  const MIN_CHECKPOINT_MS = 1_500;     // raw checkpoint write
+  const MIN_LLM_BUDGET_MS = 15_000;   // v11: raised — more room for complex lessons
+  const MIN_PERSIST_MS = 4_000;        // v11: tightened — Anthropic responds faster, less DB overhead
+  const MIN_CHECKPOINT_MS = 1_000;     // v11: tightened — checkpoint is a single upsert
 
   // ── Gate 1: Soft-stop check ──
   if (shouldSoftStop(startMs, "lesson_single")) {
@@ -435,8 +435,8 @@ Deno.serve(async (req) => {
   // within the time budget while still producing quality content.
   // ═══════════════════════════════════════════════════════════════
 
-  const TOKEN_CLAMP_LESSON = 2400;   // v10.4: was 3200 — reduced to fit within 38s LLM budget during provider slowdowns
-  const TOKEN_CLAMP_MINICHECK = 1200; // v10.3: was 700 — too tight for structured tool responses
+  const TOKEN_CLAMP_LESSON = 3200;   // v11: restored — 45s LLM cap gives enough headroom for full content
+  const TOKEN_CLAMP_MINICHECK = 1200; // v10.3: stable
   const baseTokenClamp = isMiniCheck ? TOKEN_CLAMP_MINICHECK : TOKEN_CLAMP_LESSON;
   const effectiveMaxTokens = maxTokensOverride
     ? Math.min(maxTokensOverride, baseTokenClamp)
@@ -444,7 +444,7 @@ Deno.serve(async (req) => {
 
   // ── Compute LLM timeout: allow slower providers enough room without hitting platform hard-limit ──
   const llmBudgetMs = remainingPlatformMs - MIN_PERSIST_MS - MIN_CHECKPOINT_MS;
-  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(38_000, llmBudgetMs));
+  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(45_000, llmBudgetMs));  // v11: raised cap from 38s → 45s
   const llmAbort = new AbortController();
   const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs) as unknown as number;
   const timeoutPromise = new Promise<never>((_, reject) => {
