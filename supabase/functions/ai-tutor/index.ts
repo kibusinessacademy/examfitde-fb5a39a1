@@ -239,8 +239,8 @@ async function postValidateTutorResponse(
   try {
     const startTime = Date.now();
     const valResult = await callAI({
-      provider: "lovable",
-      model: "openai/gpt-5.2",
+      provider: "openai",
+      model: "gpt-5.2",
       messages: [
         { role: "system", content: `Du prüfst eine KI-Tutor-Antwort für ${professionName} auf fachliche Korrektheit. SCHNELL und PRÄZISE.
 Kontext: ${JSON.stringify(resolvedContext).slice(0, 3000)}
