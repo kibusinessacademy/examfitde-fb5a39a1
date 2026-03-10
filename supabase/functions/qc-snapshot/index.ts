@@ -25,7 +25,7 @@ const ACTIONS = [
   "full_audit",        // all of the above combined
 ] as const;
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

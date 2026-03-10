@@ -18,7 +18,7 @@ function isAuthorized(req: Request): boolean {
   return !!(token && srk && token === srk);
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

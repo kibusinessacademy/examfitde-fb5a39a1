@@ -27,7 +27,7 @@ function parseRange(r: string | null, defMin: number, defMax: number) {
   return { min: Math.min(a, b), max: Math.max(a, b) };
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

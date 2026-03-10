@@ -127,7 +127,7 @@ async function updateRun(sb: ReturnType<typeof createClient>, runId: string, fie
   await sb.from("curriculum_ingest_runs").update(fields).eq("id", runId);
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get("origin");

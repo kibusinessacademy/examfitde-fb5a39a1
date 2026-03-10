@@ -54,7 +54,7 @@ interface SanitizedQuestion {
   // NOTE: correct_answer and explanation are NEVER sent to client
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

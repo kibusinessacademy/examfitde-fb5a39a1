@@ -11,7 +11,7 @@ function json(data: unknown, status = 200) {
   });
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
 
   // Internal auth (fail-hard)
