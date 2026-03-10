@@ -441,15 +441,28 @@ async function runCourseReadyGate(
     // Competency coverage: how many of the total competencies have questions?
     const coveredCompetencies = new Set((approvedQs ?? []).map((q: any) => q.competency_id).filter(Boolean));
     const compCoveragePct = pctOrNA(coveredCompetencies.size, totalCompetencies);
-    const compCoveragePassed = compCoveragePct >= 60; // min 60% competency coverage
+    // Track-aware thresholds: AUSBILDUNG_VOLL requires 85% (BLOCKER), others 60% (warning)
+    const COMP_COVERAGE_THRESHOLDS: Record<string, { min: number; severity: "blocker" | "warning" }> = {
+      AUSBILDUNG_VOLL: { min: 85, severity: "blocker" },
+      ELITE:           { min: 90, severity: "blocker" },
+      EXAM_FIRST:      { min: 60, severity: "warning" },
+    };
+    const compTh = COMP_COVERAGE_THRESHOLDS[trackEarly] ?? COMP_COVERAGE_THRESHOLDS["AUSBILDUNG_VOLL"];
+    const compCoveragePassed = compCoveragePct >= compTh.min;
     results.push({
       gate: "competency_coverage",
       passed: compCoveragePassed,
-      severity: "warning",
-      detail: `${coveredCompetencies.size}/${totalCompetencies} competencies covered (${compCoveragePct.toFixed(1)}%, min 60%)`,
+      severity: compTh.severity,
+      detail: `${coveredCompetencies.size}/${totalCompetencies} competencies covered (${compCoveragePct.toFixed(1)}%, min ${compTh.min}%) [track=${trackEarly}]`,
     });
-    if (!compCoveragePassed) warnings.push(`COMPETENCY_COVERAGE: Only ${coveredCompetencies.size}/${totalCompetencies} competencies have questions (${compCoveragePct.toFixed(1)}%<60%)`);
-    if (compCoveragePct >= 90) excellence.push(`COMPETENCY_COVERAGE_EXCELLENT: ${compCoveragePct.toFixed(0)}%`);
+    if (!compCoveragePassed) {
+      if (compTh.severity === "blocker") {
+        hardFails.push(`COMPETENCY_COVERAGE: Only ${coveredCompetencies.size}/${totalCompetencies} competencies have questions (${compCoveragePct.toFixed(1)}%<${compTh.min}%)`);
+      } else {
+        warnings.push(`COMPETENCY_COVERAGE: Only ${coveredCompetencies.size}/${totalCompetencies} competencies have questions (${compCoveragePct.toFixed(1)}%<${compTh.min}%)`);
+      }
+    }
+    if (compCoveragePct >= 95) excellence.push(`COMPETENCY_COVERAGE_EXCELLENT: ${compCoveragePct.toFixed(0)}%`);
   }
 
   // ═══════════════════════════════════════════════
