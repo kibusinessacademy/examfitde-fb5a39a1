@@ -16,7 +16,7 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

@@ -126,7 +126,7 @@ PRÜFE DEN GESAMTEN KURS:
 Antworte NUR mit JSON: {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {...}, "critical_issues": [...], "improvements": [...]}`,
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get("origin");

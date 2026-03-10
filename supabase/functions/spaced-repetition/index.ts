@@ -84,7 +84,7 @@ function calculateSM2(
   };
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

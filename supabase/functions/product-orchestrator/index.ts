@@ -235,7 +235,7 @@ async function scaffoldMissingCompetencies(supabase: ReturnType<typeof createCli
   return created;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get('origin');

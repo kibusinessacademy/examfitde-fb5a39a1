@@ -5,7 +5,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 type Action = "list" | "create" | "update_status" | "assign" | "track" | "stats";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

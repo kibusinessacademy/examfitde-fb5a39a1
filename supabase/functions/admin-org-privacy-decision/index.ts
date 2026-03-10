@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { handleCorsPreflightRequest, json } from "../_shared/cors.ts";
 import { isUuid, clampInt, clampStr } from "../_shared/org_privacy.ts";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   const preflight = handleCorsPreflightRequest(req);
   if (preflight) return preflight;
