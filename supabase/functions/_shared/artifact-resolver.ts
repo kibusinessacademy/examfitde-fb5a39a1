@@ -224,10 +224,9 @@ async function artifactExists(
       const coveredChapters = coveredChapterIds.size;
       const totalChapters = chapters.length;
 
-      // Prereq gate: 60% of actual chapters must have content (liveness check).
-      // Bound to totalChapters (real structure), not expectedLF (theory).
-      // The stricter 80-100% check lives in validate_handbook (quality gate).
-      const minCoverage = 0.6;
+      // Completion gate: 100% of actual chapters must have content (hardened v8).
+      // Every chapter needs ≥1 section with real content (>500 chars).
+      const minCoverage = 1.0;
       const minChaptersNeeded = Math.max(1, Math.ceil(totalChapters * minCoverage));
       const ok = coveredChapters >= minChaptersNeeded;
 
