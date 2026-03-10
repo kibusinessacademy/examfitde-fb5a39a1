@@ -134,11 +134,10 @@ Deno.serve(async (req) => {
   }
 
   // ── INCOMPLETE GUARD: Check if handbook generation is still in progress ──
-  // Count expected sections from learning_fields (SSOT for "how many sections should exist")
-  const { count: expectedSections } = await sb
-    .from("learning_fields")
-    .select("id", { count: "exact", head: true })
-    .eq("curriculum_id", curriculumId);
+  // SSOT: Use chapters as expected count, NOT learning_fields.
+  // A handbook may have fewer chapters than learning fields (e.g. 5 chapters for 10 LFs,
+  // where each chapter covers 2 LFs). Using learning_fields would create an unreachable threshold.
+  // Chapters are the structural unit; sections belong to chapters.
 
   // Load chapters
   const { data: chapters, error: chErr } = await sb
