@@ -169,12 +169,15 @@ async function gateMiniCheckParser(admin: any, lessons: any[]) {
     let questions: any[] = [];
     
     if (structuredQuestions.length > 0) {
-      // Parse structured JSON format: { question, options[], correct_answer|correct_index, explanation }
+      // Parse structured JSON format with full SSOT metadata
       questions = structuredQuestions.map((sq: any) => ({
         question: sq.question || sq.question_text || "",
         options: Array.isArray(sq.options) ? sq.options : [],
         correctIndex: sq.correct_answer ?? sq.correct_index ?? sq.correctIndex ?? 0,
         explanation: sq.explanation || sq.explanation_correct || null,
+        difficulty: sq.difficulty || null,
+        bloom_level: sq.bloom_level || sq.cognitive_level || null,
+        trap_type: sq.trap_type || null,
       })).filter((q: any) => q.question.length > 10 && q.options.length >= 3);
     } else {
       // ── Priority 2: Legacy HTML extraction ──
