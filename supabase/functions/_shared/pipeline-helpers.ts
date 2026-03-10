@@ -126,11 +126,13 @@ export function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepActi
     if (s.status === "done" || s.status === "skipped") continue;
     if (s.status === "blocked") continue;
 
-    // Respect next_run_at — skip steps with future backoff
+    // Respect next_run_at — step in backoff BLOCKS later steps (strict sequencing)
     const nra = (s.meta as Record<string, unknown>)?.next_run_at;
     if (typeof nra === "string") {
       const nraMs = Date.parse(nra);
-      if (!Number.isNaN(nraMs) && nraMs > Date.now()) continue;
+      if (!Number.isNaN(nraMs) && nraMs > Date.now()) {
+        return { action: "wait", stepKey: k };
+      }
     }
 
     // Poll if step has a linked job
