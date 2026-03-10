@@ -446,20 +446,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   }
 
   // ── Intent-aware Provider Health Gate ──
-  // Map job_type to workload key for provider routing (not all jobs use learning_content route)
-  const WORKLOAD_KEY_MAP: Record<string, string> = {
-    package_generate_learning_content: "learning_content",
-    lesson_generate_content: "learning_content",
-    package_generate_handbook: "handbook",
-    package_generate_exam_pool: "exam_pool",
-    package_generate_oral_exam: "oral_exam",
-    package_generate_lesson_minichecks: "minichecks",
-    package_generate_glossary: "glossary",
-    lesson_generate_competency_bundle: "competency_bundle",
-    mass_enrich_competencies_v2: "enrichment",
-    pool_fill_lf_gaps: "enrichment",
-    pool_fill_bloom_gaps: "enrichment",
-  };
+  // Uses top-level WORKLOAD_KEY_MAP for provider routing
 
   // Group jobs by workload key for per-intent health checking
   const jobsByWorkload = new Map<string, typeof jobs>();
