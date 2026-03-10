@@ -57,7 +57,7 @@ const exerciseTypeConfig: Record<string, {
   },
 };
 
-export function HandbookExercise({ exercise, index, savedResponse }: HandbookExerciseProps) {
+export function HandbookExercise({ exercise, index, chapterId, savedResponse }: HandbookExerciseProps) {
   const [response, setResponse] = useState(savedResponse?.response_text || '');
   const [showHint, setShowHint] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
