@@ -137,8 +137,8 @@ ${comp.description ? `Beschreibung: ${comp.description.slice(0, 1500)}` : ""}`;
 
       try {
         const result = await callAIJSON({
-          provider: "lovable" as AIProvider,
-          model: "openai/gpt-5.2",
+          provider: "openai" as AIProvider,
+          model: "gpt-5.2",
           messages: [
             { role: "system", content: system },
             { role: "user", content: user },

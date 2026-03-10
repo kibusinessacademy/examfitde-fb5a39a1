@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
     kind = "provider_tool_empty";
     severity = "P1";
   } else if (!plainOk && !toolOk && !fallbackOk) {
-    diagnosis = "PROXY_DOWN — all probes failed. Check LOVABLE_API_KEY, rate limits, or provider outage.";
+    diagnosis = "PROXY_DOWN — all probes failed. Check OPENAI_API_KEY, rate limits, or provider outage.";
     kind = "provider_down";
     severity = "P0";
   } else if (r1.content_length === 0 && r2.content_length === 0 && r3.content_length === 0) {
