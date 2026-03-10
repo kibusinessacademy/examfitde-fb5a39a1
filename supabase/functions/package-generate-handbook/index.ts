@@ -37,16 +37,15 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done" || d2?.status === "skipped";
 }
 
-// ── Handbook Constants ───────────────────────────────────────
-const MIN_WORD_TARGET = 800;
-const MAX_WORD_TARGET = 2500;
+// ── Handbook Constants (Elite v8) ─────────────────────────────
+const MIN_WORD_TARGET = 1200;     // v8: raised from 800 — Elite minimum
+const MAX_WORD_TARGET = 3500;     // v8: raised from 2500 — Elite allows deep sections
 const TARGET_CHAPTERS = 8;
-// v7: BATCH_SIZE=1 — with 42s wall-clock and 25s LLM timeout, only 1 section
-// can realistically complete per invocation. Previous BATCH_SIZE=6 caused
-// sections 2-6 to hit soft-stop and produce empty content → 100% rejection.
+// v8: BATCH_SIZE=1 remains — with Pro model and expanded budget, 1 section
+// per invocation ensures maximum quality and no timeout cascades.
 const BATCH_SIZE = 1;
-const MIN_SECTION_CHARS = 500;
-const IDEAL_SECTION_CHARS = 2000;  // v7: was UNDEFINED — expansion pass never fired
+const MIN_SECTION_CHARS = 1800;   // v8: raised from 500 — Elite quality floor
+const IDEAL_SECTION_CHARS = 6000; // v8: raised from 2000 — triggers expand pass for real depth
 
 // ── Section Generator ────────────────────────────────────────
 
