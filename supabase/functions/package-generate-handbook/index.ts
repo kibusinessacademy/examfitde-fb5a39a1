@@ -80,8 +80,8 @@ async function generateSectionContent(
       return { content: "", provider: "soft-stop", model: "none" };
     }
 
-    // v16: 30s per provider — GPT-5 and Claude need time for quality output
-    const perProviderMs = 30_000;
+    // v17: Single provider per invocation — give it the full soft-stop budget (~45s)
+    const perProviderMs = 45_000;
     
     const systemMsg = `IHK-Prüfungscoach, ${professionName}. Handbuch-Abschnitt, ${wordTarget} Wörter. Pflicht: Grundlagen, Formeln, Prüfungsfallen, Merkschemata. Markdown, keine Meta-Kommentare.`;
     
