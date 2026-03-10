@@ -1095,7 +1095,7 @@ Deno.serve(async (req) => {
       console.warn(`[stuck-scan] revive_transient_failed error: ${(reviveErr as Error).message}`);
     }
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
     return json({
       ok: true,
@@ -1103,7 +1103,7 @@ Deno.serve(async (req) => {
       stuck_packages: results,
       orphan_packages: orphanResults,
       building_pkg_results: buildingPkgResults,
-      stale_jobs_reset: staleCount,
+      stale_jobs_killed: staleCount,
       stale_jobs_permanently_failed: failedFromStale,
       zombie_steps_fixed: zombieResults,
       escalation_loops: escalationResults,
@@ -1113,6 +1113,7 @@ Deno.serve(async (req) => {
       status_lag_healed: statusLagResults,
       enqueued_drift_healed: enqueuedDriftResults,
       transient_revived: revivedCount,
+      lease_no_progress_healed: leaseNoProgressHealed,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
