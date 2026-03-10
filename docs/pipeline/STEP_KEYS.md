@@ -15,7 +15,11 @@ This file is the **Single Source of Truth** for pipeline step keys (`package_ste
 - `scaffold_learning_course` — Create lesson structure from curriculum
 - `generate_learning_content` — AI-generated lesson content
 - `generate_minichecks` — Mini-quiz generation per lesson
-- `generate_handbook` — Comprehensive study handbook
+- `generate_handbook` — Handbook basis content (Flash-first, section completeness)
+- `validate_handbook` — Structural validation of handbook basis
+- `enqueue_handbook_expand` — Queue expand jobs for expandable sections
+- `expand_handbook` — Depth expansion of handbook sections (heavy models)
+- `validate_handbook_depth` — Optional quality/depth validation (soft gate)
 - `generate_exam_blueprints` — Exam question blueprints from curriculum
 - `generate_exam_pool` — Full exam question generation from blueprints
 - `validate_exam_questions` — AI quality validation of exam questions
@@ -24,6 +28,7 @@ This file is the **Single Source of Truth** for pipeline step keys (`package_ste
 - `run_integrity_check` — Content completeness & consistency check
 - `run_elite_hardening` — Elite quality hardening pass
 - `quality_council` — AI Quality Council review
+- `auto_publish` — Automated publish after all gates pass
 - `auto_publish` — Automated publish after all gates pass
 
 ### Fan-Out Steps (SSOT: `_shared/job-map.ts` → `FAN_OUT_CONFIG`)
