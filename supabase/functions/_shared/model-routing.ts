@@ -308,13 +308,13 @@ export function getEscalationModel(
   if (validationScore >= threshold) return null;
 
   const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
-    exam_questions: { provider: "lovable", model: "google/gemini-2.5-pro" },
-    oral_exam: { provider: "lovable", model: "google/gemini-2.5-pro" },
-    minicheck: { provider: "lovable", model: "google/gemini-2.5-pro" },
-    support: { provider: "lovable", model: "google/gemini-2.5-pro" },
-    summary: { provider: "lovable", model: "google/gemini-2.5-pro" },
-    repair: { provider: "lovable", model: "google/gemini-2.5-pro" },
-    blooms_classify: { provider: "lovable", model: "google/gemini-2.5-pro" },
+    exam_questions: { provider: "lovable", model: "openai/gpt-5" },
+    oral_exam: { provider: "lovable", model: "openai/gpt-5" },
+    minicheck: { provider: "lovable", model: "openai/gpt-5" },
+    support: { provider: "lovable", model: "openai/gpt-5" },
+    summary: { provider: "lovable", model: "openai/gpt-5" },
+    repair: { provider: "lovable", model: "openai/gpt-5" },
+    blooms_classify: { provider: "lovable", model: "openai/gpt-5" },
   };
 
   return escalationMap[intent] || null;
