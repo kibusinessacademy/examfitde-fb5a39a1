@@ -32,7 +32,7 @@ export default function HandbookPage() {
   const totalChapters = chapters?.length || 0;
   const overallProgress = totalChapters > 0 ? (completedCount / totalChapters) * 100 : 0;
 
-  const totalReadingTime = chapters?.reduce((sum, ch) => sum + ch.estimated_reading_minutes, 0) || 0;
+  const totalReadingTime = chapters?.reduce((sum, ch) => sum + (ch.estimated_reading_minutes ?? 0), 0) || 0;
 
   if (chaptersLoading) {
     return (
