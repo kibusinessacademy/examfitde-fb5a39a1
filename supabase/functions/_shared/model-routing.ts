@@ -58,8 +58,8 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   handbook: [
-    { provider: "lovable", model: "openai/gpt-5" },                      // v16: GPT-5 primary — 30s per provider
-    { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },  // v16: Claude fallback — 2 providers only, no Gemini
+    { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },       // v18: Claude primary
+    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },    // v18: GPT-5 fallback
   ],
   minicheck: [
     { provider: "lovable", model: "google/gemini-2.5-flash" },
