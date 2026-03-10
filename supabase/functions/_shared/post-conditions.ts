@@ -78,34 +78,54 @@ export async function assertStepPostConditions(sb: SB, args: {
     }
   }
 
-  // ── generate_handbook: must have real chapter content (via course_id lookup) ──
+  // ── generate_handbook: must have real section content (via curriculum_id → handbook_chapters → handbook_sections) ──
   if (stepKey === "generate_handbook") {
-    // Resolve course_id from package (handbook_chapters uses course_id, not package_id)
+    // Resolve curriculum_id from package (handbook_chapters uses curriculum_id)
     const { data: pkg, error: pErr } = await sb
       .from("course_packages")
-      .select("course_id")
+      .select("curriculum_id")
       .eq("id", packageId)
       .single();
     if (pErr) throw pErr;
 
-    const courseId = pkg?.course_id;
-    const { data, error } = await sb
-      .from("handbook_chapters")
-      .select("id, content", { count: "exact" })
-      .eq("course_id", courseId);
-    if (error) throw error;
+    const curriculumId = pkg?.curriculum_id;
+    if (!curriculumId) throw new Error("HOLLOW_HANDBOOK: no curriculum_id on package");
 
-    const total = data?.length ?? 0;
-    const realChapters = (data ?? []).filter(
-      (ch: any) => typeof ch.content === "string" && ch.content.length > 500
+    // Get chapters for this curriculum
+    const { data: chapters, error: chErr } = await sb
+      .from("handbook_chapters")
+      .select("id")
+      .eq("curriculum_id", curriculumId);
+    if (chErr) throw chErr;
+
+    const chapterIds = (chapters ?? []).map((c: any) => c.id);
+    const totalChapters = chapterIds.length;
+
+    if (totalChapters === 0) {
+      const e: any = new Error("HOLLOW_HANDBOOK: post-condition failed");
+      e.__meta = { verdict: "HOLLOW_HANDBOOK", chapters_total: 0, sections_total: 0, sections_real: 0 };
+      throw e;
+    }
+
+    // Get sections with real content (content_markdown is the SSOT field)
+    const { data: sections, error: sErr } = await sb
+      .from("handbook_sections")
+      .select("id, content_markdown, chapter_id")
+      .in("chapter_id", chapterIds);
+    if (sErr) throw sErr;
+
+    const totalSections = sections?.length ?? 0;
+    const realSections = (sections ?? []).filter(
+      (s: any) => typeof s.content_markdown === "string" && s.content_markdown.length > 500
     ).length;
 
-    if (total === 0 || realChapters < Math.max(1, Math.floor(total * 0.9))) {
+    if (totalSections === 0 || realSections < Math.max(1, Math.floor(totalSections * 0.9))) {
       const e: any = new Error("HOLLOW_HANDBOOK: post-condition failed");
       e.__meta = {
         verdict: "HOLLOW_HANDBOOK",
-        chapters_total: total,
-        chapters_real: realChapters,
+        chapters_total: totalChapters,
+        sections_total: totalSections,
+        sections_real: realSections,
       };
       throw e;
     }
