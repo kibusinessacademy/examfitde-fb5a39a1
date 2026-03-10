@@ -128,7 +128,7 @@ async function generateSectionContent(
         const expandTimeoutMs = Math.max(15_000, Math.min(60_000, remainingMs - 5_000));  // v8: raised caps for Elite expansion
         const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
         
-        const expandResult = await callAIWithFailover(chain, {
+        const expandResult = await callAIWithFailover(expandChain || chain, {
           messages: [
             { role: "system", content: "Du erweiterst IHK-Handbuch-Inhalte auf Elite-Niveau. Antworte NUR mit dem vollständigen, erweiterten Markdown-Text. Füge KEINE Meta-Kommentare hinzu." },
             { role: "user", content: `Der folgende Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" muss DRINGEND erweitert werden.
