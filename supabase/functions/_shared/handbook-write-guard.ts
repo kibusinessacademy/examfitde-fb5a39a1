@@ -12,7 +12,7 @@ type SB = any;
 // ── Guard thresholds ──
 const MIN_SECTION_CONTENT_CHARS = 500;   // Generator guard: absolute minimum
 const MIN_SECTION_PROSE_CHARS = 300;     // Prose only (excl. headings)
-const COVERAGE_MIN_RATIO = 0.6;          // 60% of chapters must have content
+const COVERAGE_MIN_RATIO = 1.0;          // 100% of chapters must have content (hardened v8)
 
 // ── Placeholder patterns (shared with validate-handbook) ──
 const PLACEHOLDER_PATTERNS = [

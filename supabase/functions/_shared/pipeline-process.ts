@@ -1350,28 +1350,41 @@ async function handleJobCompleted(
     const hbCurrId = pkgForHandbook?.curriculum_id;
 
     if (hbCurrId) {
-      // Count chapters with populated sections (>500 chars)
+      // Count chapters with populated sections — per-chapter quality check
       const { data: hbChapters } = await sb
         .from("handbook_chapters")
         .select("id")
         .eq("curriculum_id", hbCurrId);
 
-      let coveredChapters = 0;
       const totalChapters = hbChapters?.length ?? 0;
+      let coveredChapters = 0;
+      const emptyChapterIds: string[] = [];
 
       if (hbChapters?.length) {
         const chIds = hbChapters.map((c: any) => c.id);
-        const { data: populatedSections } = await sb
+        // Load all sections with content to check per-chapter coverage
+        const { data: allSections } = await sb
           .from("handbook_sections")
-          .select("chapter_id")
-          .in("chapter_id", chIds)
-          .gt("content_markdown", "");
+          .select("chapter_id, content_markdown")
+          .in("chapter_id", chIds);
 
-        const coveredSet = new Set((populatedSections ?? []).map((s: any) => s.chapter_id));
-        coveredChapters = coveredSet.size;
+        // Per-chapter: at least 1 section with ≥500 chars real content
+        for (const ch of hbChapters) {
+          const chSections = (allSections ?? []).filter(
+            (s: any) => s.chapter_id === ch.id
+              && typeof s.content_markdown === "string"
+              && s.content_markdown.trim().length >= 500
+          );
+          if (chSections.length > 0) {
+            coveredChapters++;
+          } else {
+            emptyChapterIds.push(ch.id);
+          }
+        }
       }
 
-      const minCoverage = 0.6;
+      // Hardened v8: 100% chapter coverage required
+      const minCoverage = 1.0;
       const minNeeded = Math.max(1, Math.ceil(totalChapters * minCoverage));
       const handbookReady = coveredChapters >= minNeeded;
 
