@@ -3,8 +3,7 @@
  *
  * Strategy:
  *   - OpenAI GPT-5.2:  Complex reasoning, course generation, tutoring
- *   - Anthropic Claude: Quality validation, post-hoc checks
- *   - Lovable Gateway:  Cost-efficient routing (Gemini, GPT-5)
+ *   - Anthropic Claude: Quality validation, content generation
  *
  * All calls go directly to provider APIs using stored API keys.
  */
