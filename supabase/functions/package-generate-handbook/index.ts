@@ -352,32 +352,42 @@ Deno.serve(async (req) => {
   const fieldsNeedingGeneration = fields.filter((lf: any) => !populatedLfIds.has(lf.id));
   console.log(`[generate-handbook] ${populatedLfIds.size}/${fields.length} LFs valid. ${invalidSectionIds.length} purged. ${fieldsNeedingGeneration.length} remaining.`);
 
-  if (fieldsNeedingGeneration.length === 0) {
-    // All sections already generated — but verify actual DB coverage before reporting complete
-    const coverage = await verifyHandbookCoverage(sb, curriculumId);
-    console.log(`[generate-handbook] Early-exit coverage: ${coverage.coveredChapters}/${coverage.totalChapters} chapters (need ${coverage.minNeeded}), ${coverage.totalChars} chars → ${coverage.ok ? 'READY' : 'NOT READY'}`);
+  // ── COVERAGE-FIRST COMPLETION CHECK ──
+  // Handbook sections often cover multiple LFs per section (e.g., one section for LF01+LF02).
+  // This means populatedLfIds may not contain all LF IDs even when coverage is complete.
+  // Check actual chapter coverage BEFORE attempting further generation to prevent
+  // the "never-done" loop where the generator finds LFs to generate but can't write
+  // new sections because the chapters are already fully covered.
+  const preGenCoverage = await verifyHandbookCoverage(sb, curriculumId);
+  console.log(`[generate-handbook] Pre-gen coverage: ${preGenCoverage.coveredChapters}/${preGenCoverage.totalChapters} chapters (need ${preGenCoverage.minNeeded}), ${preGenCoverage.totalChars} chars → ${preGenCoverage.ok ? 'COMPLETE' : 'INCOMPLETE'}`);
 
-    if (!coverage.ok) {
-      // All LFs passed validation but coverage is insufficient — force re-evaluation
-      return json({
-        ok: true,
-        batch_complete: false,
-        coverage_check_failed: true,
-        coverage,
-        chapters: chapters.length,
-        sections: existingSections?.length || 0,
-        message: `Coverage verification failed at early exit: ${coverage.coveredChapters}/${coverage.totalChapters} chapters`,
-      });
-    }
-
+  if (preGenCoverage.ok) {
+    // Coverage is complete — all chapters have real content.
+    // Even if some individual LF IDs aren't tracked (multi-LF sections), the handbook is done.
+    console.log(`[generate-handbook] ✅ Coverage complete despite ${fieldsNeedingGeneration.length} unmapped LF IDs — marking batch_complete=true`);
     return json({
       ok: true,
       batch_complete: true,
       chapters: chapters.length,
       sections: existingSections?.length || 0,
       already_populated: populatedLfIds.size,
-      coverage,
+      unmapped_lf_ids: fieldsNeedingGeneration.length,
+      coverage: preGenCoverage,
       version: "elite_v3",
+    });
+  }
+
+  if (fieldsNeedingGeneration.length === 0) {
+    // All LFs individually tracked but coverage check failed — unusual state
+    console.warn(`[generate-handbook] All LFs populated but coverage failed — forcing re-evaluation`);
+    return json({
+      ok: true,
+      batch_complete: false,
+      coverage_check_failed: true,
+      coverage: preGenCoverage,
+      chapters: chapters.length,
+      sections: existingSections?.length || 0,
+      message: `Coverage verification failed at early exit: ${preGenCoverage.coveredChapters}/${preGenCoverage.totalChapters} chapters`,
     });
   }
 
