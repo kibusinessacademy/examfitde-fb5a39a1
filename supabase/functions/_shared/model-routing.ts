@@ -46,7 +46,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   learning_content: [
-    { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
+    { provider: "anthropic", model: "claude-4-5-haiku-20250929" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   exam_questions: [
@@ -62,7 +62,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   minicheck: [
-    { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
+    { provider: "anthropic", model: "claude-4-5-haiku-20250929" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   seo_content: [
