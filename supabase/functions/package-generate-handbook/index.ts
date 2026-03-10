@@ -454,6 +454,10 @@ Deno.serve(async (req) => {
       section_key: `lf-${String(lf.code).toLowerCase().replace(/\s+/g, '-')}-${curriculumId.slice(0, 8)}`,
       title: `${lf.code}: ${lf.title}`,
       content_markdown: generated.content,
+      basis_content: generated.content,
+      basis_generated_at: new Date().toISOString(),
+      content_tier: "basis",
+      expand_status: generated.content.length >= 800 ? "pending" : "not_ready",
       content_type: "text",
       sort_order: sectionOrder++,
       learning_field_id: lf.id,
@@ -466,7 +470,7 @@ Deno.serve(async (req) => {
         actual_chars: generated.content.length,
         exam_weight_pct: weightByLf.get(lf.id) || null,
         competency_count: competencies.length,
-        version: "elite_v3",
+        version: "v10_basis_only",
       },
     };
 
