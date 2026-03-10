@@ -508,7 +508,7 @@ Deno.serve(async (req) => {
 
   // ── Compute LLM timeout: allow slower providers enough room without hitting platform hard-limit ──
   const llmBudgetMs = remainingPlatformMs - MIN_PERSIST_MS - MIN_CHECKPOINT_MS;
-  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(48_000, llmBudgetMs));  // v14: raised cap to 48s, passed as timeout_ms to override ai-client's internal 38s default
+  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(50_000, llmBudgetMs));  // v15: raised cap to 50s (platform=55s - persist=4s - checkpoint=1s). Anthropic regularly needs >48s for complex lessons.
 
   console.log(`[lesson-gen] Time budget: init=${elapsedMs}ms, llm_cap=${llmTimeoutMs}ms, remaining=${remainingPlatformMs}ms, tokens=${effectiveMaxTokens}${autopilotAction ? `, autopilot=${autopilotAction}` : ""}`);
 

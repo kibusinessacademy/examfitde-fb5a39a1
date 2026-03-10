@@ -408,11 +408,10 @@ export async function callAIWithFailover(
     openai: "OPENAI_API_KEY",
     anthropic: "ANTHROPIC_API_KEY",
     google: "GOOGLE_AI_API_KEY",
-    lovable: "LOVABLE_API_KEY",
   };
 
   const keyAvailability: Record<string, boolean> = {};
-  for (const p of ["openai", "anthropic", "google", "lovable"]) {
+  for (const p of ["openai", "anthropic", "google"]) {
     keyAvailability[p] = !!Deno.env.get(PROVIDER_KEYS[p]);
   }
 
