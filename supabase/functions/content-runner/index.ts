@@ -244,7 +244,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         let jobProvider = "unknown";
         let jobModel = "unknown";
         try {
-          const chainForCooldown = await getModelChainAsync("learning_content");
+          const chainForCooldown = await getModelChainAsync(workloadKeyForJob(job.job_type));
           const provIdx = attemptIdx % Math.max(1, chainForCooldown.length);
           jobProvider = chainForCooldown[provIdx]?.provider || "unknown";
           jobModel = chainForCooldown[provIdx]?.model || "unknown";
