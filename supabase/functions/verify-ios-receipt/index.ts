@@ -17,7 +17,7 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
  * 3. Check for duplicate transaction
  * 4. Create store_receipt + entitlement
  */
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

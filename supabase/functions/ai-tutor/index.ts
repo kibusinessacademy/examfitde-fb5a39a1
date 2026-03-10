@@ -299,7 +299,7 @@ Antworte NUR mit JSON:
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

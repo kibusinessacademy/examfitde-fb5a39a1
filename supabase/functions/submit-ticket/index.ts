@@ -46,7 +46,7 @@ const VALID_LINK_TYPES = [
   "LICENSE", "COMPANY", "CERTIFICATION", "LESSON", "QUESTION", "BLUEPRINT", "SEAT",
 ] as const;
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 

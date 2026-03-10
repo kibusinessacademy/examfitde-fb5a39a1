@@ -7,7 +7,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  * Returns learning fields + competencies for a curriculum (server-side only).
  * Replaces client-side DB reads to enforce SSOT.
  */
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

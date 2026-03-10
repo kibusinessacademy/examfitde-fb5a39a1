@@ -93,7 +93,7 @@ function extractToolArgs(result: { toolCalls?: Array<{ function: { name: string;
   try { return JSON.parse(args); } catch { return null; }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get("origin");

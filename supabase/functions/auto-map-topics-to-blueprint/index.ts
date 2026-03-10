@@ -25,7 +25,7 @@ Regeln:
 - Nur Topics mit confidence >= 0.7 als "mapped" markieren
 - Reasoning max 20 Wörter`;
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get("origin");

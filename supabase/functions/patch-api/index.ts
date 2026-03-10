@@ -13,7 +13,7 @@ type Action =
   | "list_proposals"
   | "list_revisions";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

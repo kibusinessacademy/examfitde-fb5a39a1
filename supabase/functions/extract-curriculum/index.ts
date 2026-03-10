@@ -45,7 +45,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt in folgendem Format:
   ]
 }`;
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

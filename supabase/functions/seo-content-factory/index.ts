@@ -11,7 +11,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  * - single: Generate pages for one certification (certification_id required)
  * - batch:  Generate for all certifications missing pages (limit = batch_size)
  */
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get("origin");
