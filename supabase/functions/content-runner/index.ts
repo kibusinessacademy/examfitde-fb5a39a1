@@ -139,7 +139,15 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
     const { ok, result, error: dispatchError, terminal } = await dispatchJob(job, supabaseUrl, serviceKey);
 
     if (ok) {
-      const hasRealResult = result && typeof result === "object" && (
+      // ── ZERO-PROGRESS GUARD ──
+      // A job that returns ok=true but batch_complete=false with 0 sections written
+      // is NOT a real success — it must be treated as transient to allow retry.
+      const isZeroProgressBatch = result && typeof result === "object"
+        && result.batch_complete === false
+        && (result.sections_this_batch === 0 || result.generated === 0)
+        && result.remaining !== undefined && result.remaining > 0;
+
+      const hasRealResult = !isZeroProgressBatch && result && typeof result === "object" && (
         (result.generated !== undefined && result.generated > 0) ||
         result.batch_complete === true ||
         result.ok === true

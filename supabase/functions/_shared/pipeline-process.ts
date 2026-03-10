@@ -1338,7 +1338,63 @@ async function handleJobCompleted(
     }
   }
 
-  await sb.rpc("step_done", {
+  // ── GENERATE_HANDBOOK COMPLETION GUARD ──
+  // Mirrors generate_learning_content guard: verify actual artifact coverage before marking done.
+  // Prevents premature step_done when batch_complete=false slips through.
+  if (stepKey === "generate_handbook") {
+    const { data: pkgForHandbook } = await sb
+      .from("course_packages")
+      .select("curriculum_id")
+      .eq("id", packageId)
+      .maybeSingle();
+    const hbCurrId = pkgForHandbook?.curriculum_id;
+
+    if (hbCurrId) {
+      // Count chapters with populated sections (>500 chars)
+      const { data: hbChapters } = await sb
+        .from("handbook_chapters")
+        .select("id")
+        .eq("curriculum_id", hbCurrId);
+
+      let coveredChapters = 0;
+      const totalChapters = hbChapters?.length ?? 0;
+
+      if (hbChapters?.length) {
+        const chIds = hbChapters.map((c: any) => c.id);
+        const { data: populatedSections } = await sb
+          .from("handbook_sections")
+          .select("chapter_id")
+          .in("chapter_id", chIds)
+          .gt("content_markdown", "");
+
+        const coveredSet = new Set((populatedSections ?? []).map((s: any) => s.chapter_id));
+        coveredChapters = coveredSet.size;
+      }
+
+      const minCoverage = 0.6;
+      const minNeeded = Math.max(1, Math.ceil(totalChapters * minCoverage));
+      const handbookReady = coveredChapters >= minNeeded;
+
+      if (!handbookReady) {
+        console.warn(`[runner] 📚 Handbook completion guard: ${coveredChapters}/${totalChapters} chapters (need ${minNeeded}) — requeuing ${shortId}`);
+        await safeQuery(
+          sb.from("package_steps").update({
+            status: "queued", job_id: null, runner_id: null,
+            meta: {
+              ...(currentStep?.meta ?? {}),
+              last_coverage_check: { covered: coveredChapters, total: totalChapters, needed: minNeeded },
+              last_coverage_at: new Date().toISOString(),
+            },
+            last_error: `Handbook completion guard: ${coveredChapters}/${totalChapters} chapters with content (need ${minNeeded})`,
+          }).eq("package_id", packageId).eq("step_key", stepKey),
+          "handbook_completion_guard",
+        );
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, handbook_completion_guard: true, covered: coveredChapters, total: totalChapters };
+      }
+    }
+  }
+
     p_package_id: packageId,
     p_step_key: stepKey,
     p_meta: result,
