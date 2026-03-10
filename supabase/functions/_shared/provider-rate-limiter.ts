@@ -205,7 +205,7 @@ export function recordRateLimit(provider: AIProvider): void {
 const SERVICE_UNAVAIL_TRIGGER = 4;
 const SERVICE_UNAVAIL_WINDOW_MS = 120_000; // 2 min
 /** Lighter cooldown steps for 503 (transient, shorter recovery) */
-const SERVICE_UNAVAIL_COOLDOWN_MS = [15_000, 30_000, 60_000, 120_000];
+const SERVICE_UNAVAIL_COOLDOWN_MS = [10_000, 20_000, 45_000, 120_000];
 
 const serviceUnavailTimestamps: Record<AIProvider, number[]> = {
   openai: [], anthropic: [], google: [], lovable: [],
