@@ -344,8 +344,8 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
         };
 
         const aiResp = await callAIJSON({
-          provider: "lovable",
-           model: "openai/gpt-5.2",
+          provider: "openai",
+           model: "gpt-5.2",
           messages: [
             { role: "system", content: `${systemPrompt}\n\nHalte die Ausgabe kompakt und valide JSON-only.` },
             {
