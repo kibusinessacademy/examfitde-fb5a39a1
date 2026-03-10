@@ -41,6 +41,7 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
 const MIN_WORD_TARGET = 800;
 const MAX_WORD_TARGET = 2500;
 const TARGET_CHAPTERS = 8;
+const BATCH_SIZE = 6;
 
 // ── Section Generator ────────────────────────────────────────
 
