@@ -42,6 +42,7 @@ These steps decompose into parallel subjobs. Completion is determined by hybrid 
 | `generate_oral_exam` | subjob_count | 4 | `package_generate_oral_exam` |
 | `generate_lesson_minichecks` | subjob_count | 6 | `package_generate_lesson_minichecks` |
 | `generate_handbook` | subjob_count | 4 | `package_generate_handbook` |
+| `expand_handbook` | subjob_count | 4 | `handbook_expand_section` |
 
 ### Support Steps
 - `setup_course_package` — Initial package scaffolding
