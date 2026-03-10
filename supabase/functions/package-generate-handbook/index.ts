@@ -72,18 +72,18 @@ async function generateSectionContent(
   // chain is passed as parameter now (v6: single-provider per invocation)
   const prompt = buildElitePrompt(professionName, fieldCode, fieldTitle, fieldDescription, subtopics, competencies, sampleQuestions, wordTarget);
   
-  // Higher token budget for elite content
-  // v6: capped at 4096 — higher values trigger 90s fetchTimeout in ai-client (line 128-131)
-  const maxTokens = Math.min(4096, Math.max(3072, Math.round(wordTarget * 3)));
+  // v7: raised to 8192 — with Pro model and BATCH_SIZE=1, we can afford longer output
+  // ai-client uses 90s fetchTimeout for max_tokens>4096, which is fine with our 50s budget
+  const maxTokens = Math.min(8192, Math.max(4096, Math.round(wordTarget * 4)));
 
   try {
     const budget = getTimeBudget("handbook");
     const remainingSoftMs = budget.softStopMs - (Date.now() - startMs);
-    if (remainingSoftMs <= 9_500) {
+    if (remainingSoftMs <= 12_000) {  // v7: raised from 9.5s to 12s — give persist buffer
       return { content: "", provider: "soft-stop", model: "none" };
     }
 
-    const llmTimeoutMs = Math.max(10_000, Math.min(25_000, remainingSoftMs - 2_000)); // v6: capped at 25s (was 40s)
+    const llmTimeoutMs = Math.max(15_000, Math.min(38_000, remainingSoftMs - 3_000)); // v7: cap raised from 25s to 38s
     const llmAbort = new AbortController();
     const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs);
     
