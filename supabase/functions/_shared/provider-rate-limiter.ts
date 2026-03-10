@@ -30,7 +30,7 @@ const COOLDOWN_TRIGGER_COUNT = 6;
 /** Window in which COOLDOWN_TRIGGER_COUNT 429s trigger a cooldown */
 const COOLDOWN_WINDOW_MS = 60_000;
 /** Progressive cooldown durations — each consecutive trigger escalates */
-const COOLDOWN_STEPS_MS = [30_000, 60_000, 120_000, 300_000];
+const COOLDOWN_STEPS_MS = [15_000, 30_000, 60_000, 120_000];
 
 /** Hard caps to prevent unbounded memory growth */
 const MAX_REQUEST_TIMESTAMPS = 500;
