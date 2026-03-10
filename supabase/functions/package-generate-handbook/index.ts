@@ -62,6 +62,7 @@ async function generateSectionContent(
   packageId: string | null,
   startMs: number,
   chain: Array<{ provider: string; model: string }>,
+  expandChain?: Array<{ provider: string; model: string }>,
 ): Promise<{ content: string; provider: string; model: string }> {
   if (shouldSoftStop(startMs, "handbook")) {
     console.warn(`[generate-handbook] Soft-stop reached before LLM call for ${fieldCode}`);
@@ -127,7 +128,7 @@ async function generateSectionContent(
         const expandTimeoutMs = Math.max(15_000, Math.min(60_000, remainingMs - 5_000));  // v8: raised caps for Elite expansion
         const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
         
-        const expandResult = await callAIWithFailover(chain, {
+        const expandResult = await callAIWithFailover(expandChain || chain, {
           messages: [
             { role: "system", content: "Du erweiterst IHK-Handbuch-Inhalte auf Elite-Niveau. Antworte NUR mit dem vollständigen, erweiterten Markdown-Text. Füge KEINE Meta-Kommentare hinzu." },
             { role: "user", content: `Der folgende Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" muss DRINGEND erweitert werden.
@@ -222,10 +223,16 @@ Deno.serve(async (req) => {
   const forceRebuild = Boolean(p?.force_rebuild);
   const attemptIndex = typeof p?.attempt_index === "number" ? p.attempt_index : 0;
 
-  // v6: single-provider per invocation — 4-provider cascade is impossible in 42s budget
-  // Rotate provider based on attempt_index (content-runner passes this on retries)
+  // v9: Two-tier strategy — Flash for initial generation (proven fast + reliable),
+  // Pro/GPT-5 reserved for expand pass only. Fixes timeout deadlock where all
+  // heavyweight models time out on initial generation but Flash succeeds consistently.
   const fullChain = getModelChain("handbook");
-  const _handbookChain = [fullChain[attemptIndex % fullChain.length]];
+  // Primary generation: always use the fastest reliable model (Flash or last in chain)
+  const flashCandidate = fullChain.find(c => c.model.includes("flash")) || fullChain[fullChain.length - 1];
+  const _handbookChain = [flashCandidate];
+  // Expand pass chain: heavyweight models for depth expansion (used in generateSectionContent)
+  const _expandChain = fullChain.filter(c => !c.model.includes("flash")).slice(0, 2);
+  if (_expandChain.length === 0) _expandChain.push(flashCandidate);
 
   // ⚠️ Force rebuild: explicit admin action to hard-reset handbook for this curriculum.
   // Deletes all sections + chapters, then falls through to normal idempotent generation.
@@ -482,6 +489,7 @@ Deno.serve(async (req) => {
       packageId,
       startMs,
       _handbookChain,
+      _expandChain,
     );
 
     const hasRealContent = generated.content.length >= MIN_SECTION_CHARS;
