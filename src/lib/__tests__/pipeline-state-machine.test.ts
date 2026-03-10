@@ -391,20 +391,20 @@ describe("Sequence Integrity — Critical Invariants", () => {
 });
 
 describe("Edge Cases & Regression Guards", () => {
-  it("handles a step with future next_run_at correctly — advances past it", () => {
-    // This is the actual behavior: backed-off steps are skipped by pickNextAction
-    // The runner will come back to them on the next invocation
+  it("CRITICAL: future next_run_at on an earlier step blocks all later steps", () => {
+    const futureDate = new Date(Date.now() + 3600_000).toISOString();
     const steps = [
       makeStep("scaffold_learning_course", "done"),
       makeStep("generate_glossary", "queued", {
-        meta: { next_run_at: new Date(Date.now() + 999999).toISOString() },
+        meta: { next_run_at: futureDate },
       }),
       makeStep("generate_learning_content", "queued"),
+      makeStep("validate_learning_content", "queued"),
     ];
     const order = buildStepOrder(steps);
     const action = pickNextAction(steps, order);
-    // Glossary is backed off → skipped → picks learning content
-    expect(action?.stepKey).toBe("generate_learning_content");
+    // Must NOT advance to generate_learning_content — glossary blocks
+    expect(action).toEqual({ action: "wait", stepKey: "generate_glossary" });
   });
 
   it("backed-off step with past next_run_at is actionable", () => {
