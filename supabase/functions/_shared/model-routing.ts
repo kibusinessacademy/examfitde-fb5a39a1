@@ -7,7 +7,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
-export type AIProvider = "openai" | "anthropic" | "google" | "lovable";
+export type AIProvider = "openai" | "anthropic" | "google";
 
 export type PipelineIntent =
   | "learning_course"
