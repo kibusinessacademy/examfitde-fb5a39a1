@@ -21,6 +21,7 @@ import type { HandbookExercise as ExerciseType, HandbookExerciseResponse } from 
 interface HandbookExerciseProps {
   exercise: ExerciseType;
   index: number;
+  chapterId?: string;
   savedResponse?: HandbookExerciseResponse;
 }
 
