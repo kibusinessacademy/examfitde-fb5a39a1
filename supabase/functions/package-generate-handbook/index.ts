@@ -474,14 +474,14 @@ Deno.serve(async (req) => {
       },
     };
 
-    // ── PRE-WRITE VALIDATION ──
+    // ── PRE-WRITE VALIDATION (basis phase — relaxed structural markers) ──
     const validation = validateGeneratedSection({
       title: candidateRow.title as string,
       content_markdown: candidateRow.content_markdown as string,
-    });
+    }, { phase: "basis" });
 
     if (!validation.ok) {
-      console.warn(`[generate-handbook] WRITE_GUARD: Section ${lf.code} rejected: ${validation.reason}`);
+      console.warn(`[generate-handbook] REJECT_FORENSIC: section_key=${candidateRow.section_key} chapter_id=${chapter.id} raw_chars=${generated.content.length} guard=validateGeneratedSection reason="${validation.reason}" provider=${generated.provider} model=${generated.model}`);
       llmSuccessCount--;
       llmFailCount++;
       continue;
