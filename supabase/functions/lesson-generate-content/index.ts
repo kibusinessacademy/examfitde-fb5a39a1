@@ -444,7 +444,7 @@ Deno.serve(async (req) => {
 
   // ── Compute LLM timeout: allow slower providers enough room without hitting platform hard-limit ──
   const llmBudgetMs = remainingPlatformMs - MIN_PERSIST_MS - MIN_CHECKPOINT_MS;
-  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(38_000, llmBudgetMs));
+  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(45_000, llmBudgetMs));  // v11: raised cap from 38s → 45s
   const llmAbort = new AbortController();
   const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs) as unknown as number;
   const timeoutPromise = new Promise<never>((_, reject) => {
