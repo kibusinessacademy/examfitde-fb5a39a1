@@ -129,6 +129,13 @@ export interface FanOutStepConfig {
   subjobPriority: number;
   /** Whether the orchestrator root job should be re-enqueued to spawn more batches */
   useBatchCursor: boolean;
+  /**
+   * If true, failed subjobs do NOT block step completion.
+   * The step will be marked "done" even if some subjobs failed,
+   * because the step is a quality layer, not a completeness gate.
+   * Default: false (failed subjobs block the step).
+   */
+  softFailOnSubjobError?: boolean;
 }
 
 /**
