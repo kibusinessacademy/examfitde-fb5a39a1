@@ -117,16 +117,16 @@ async function generateSectionContent(
       } catch { /* use as-is */ }
     }
 
-    // ── Depth Expansion Pass: if content below threshold, request expansion ──
-    // v6: budget-aware — with 42s total, expansion is only viable if >12s remain after soft-stop check
+    // ── Depth Expansion Pass: if content below ideal, request expansion ──
+    // v7: with BATCH_SIZE=1 and 50s budget, expansion is viable if >15s remain
     const expandBudget = getTimeBudget("handbook");
     const expandRemainingMs = expandBudget.softStopMs - (Date.now() - startMs);
-    if (content.length > 500 && content.length < IDEAL_SECTION_CHARS && expandRemainingMs > 12_000) {
+    if (content.length > 500 && content.length < IDEAL_SECTION_CHARS && expandRemainingMs > 15_000) {
       console.log(`[generate-handbook] Section ${fieldCode} below ideal (${content.length}/${IDEAL_SECTION_CHARS} chars). Expanding... (${Math.round(expandRemainingMs/1000)}s remaining)`);
       try {
         const remainingMs = expandRemainingMs;
         const expandAbort = new AbortController();
-        const expandTimeoutMs = Math.max(10_000, Math.min(25_000, remainingMs - 2_000));
+        const expandTimeoutMs = Math.max(12_000, Math.min(35_000, remainingMs - 3_000));  // v7: raised caps
         const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
         
         const expandResult = await callAIWithFailover(chain, {
