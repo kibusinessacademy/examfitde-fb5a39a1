@@ -107,6 +107,25 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
   }
 }
 
+// ── Intent-aware workload key mapping (used by health gate + cooldown) ──
+const WORKLOAD_KEY_MAP: Record<string, string> = {
+  package_generate_learning_content: "learning_content",
+  lesson_generate_content: "learning_content",
+  package_generate_handbook: "handbook",
+  package_generate_exam_pool: "exam_pool",
+  package_generate_oral_exam: "oral_exam",
+  package_generate_lesson_minichecks: "minichecks",
+  package_generate_glossary: "glossary",
+  lesson_generate_competency_bundle: "competency_bundle",
+  mass_enrich_competencies_v2: "enrichment",
+  pool_fill_lf_gaps: "enrichment",
+  pool_fill_bloom_gaps: "enrichment",
+};
+
+function workloadKeyForJob(jobType: string): string {
+  return WORKLOAD_KEY_MAP[jobType] ?? "learning_content";
+}
+
 // ═══════════════════════════════════════════════════════════════
 // processOneJob — identical to previous version
 // ═══════════════════════════════════════════════════════════════
