@@ -492,7 +492,7 @@ async function runCourseReadyGate(
   if (moduleIds.length > 0 && !isExamFirstEarly) {
     const { data: miniCheckLessons } = await sb
       .from("lessons")
-      .select("module_id, step")
+      .select("id, module_id, step, minicheck_parsed, content")
       .in("module_id", moduleIds)
       .eq("step", "mini_check");
 
@@ -506,6 +506,29 @@ async function runCourseReadyGate(
       detail: `${modulesWithMiniCheck.size}/${moduleIds.length} modules have MiniChecks. Missing: ${modulesWithout.length}`,
     });
     if (!miniCheckPassed) hardFails.push(`MINICHECK_MISSING: ${modulesWithout.length}/${moduleIds.length} modules without MiniCheck`);
+
+    // ── GATE 5b: MiniCheck Parsed — all mini_check lessons must have parsed questions ──
+    const totalMC = miniCheckLessons?.length ?? 0;
+    const unparsedMC = (miniCheckLessons ?? []).filter((l: any) => !l.minicheck_parsed).length;
+    // Also check for placeholder-only MiniChecks (content has _placeholder: true or no questions)
+    const emptyMC = (miniCheckLessons ?? []).filter((l: any) => {
+      const c = l.content;
+      if (!c) return true;
+      if (c._placeholder) return true;
+      // Structured JSON must have questions array with items
+      if (Array.isArray(c.questions) && c.questions.length >= 3) return false;
+      // HTML-based must have substantial content
+      if (typeof c.html === "string" && c.html.length > 200) return false;
+      return true;
+    }).length;
+    const mcParsedPassed = unparsedMC === 0 && emptyMC === 0;
+    results.push({
+      gate: "minicheck_parsed",
+      passed: mcParsedPassed,
+      severity: "blocker",
+      detail: `${totalMC} MiniCheck lessons: ${unparsedMC} unparsed, ${emptyMC} empty/placeholder`,
+    });
+    if (!mcParsedPassed) hardFails.push(`MINICHECK_UNPARSED: ${unparsedMC} unparsed, ${emptyMC} empty of ${totalMC} MiniCheck lessons`);
   } else if (isExamFirstEarly) {
     results.push({
       gate: "minicheck_coverage",
@@ -513,6 +536,27 @@ async function runCourseReadyGate(
       severity: "blocker",
       detail: "Skipped (EXAM_FIRST track — no learning content)",
     });
+  }
+
+  // ═══════════════════════════════════════════════
+  // GATE 5c: Competency Lesson Coverage — all competencies must have lessons
+  // ═══════════════════════════════════════════════
+  if (moduleIds.length > 0 && !isExamFirstEarly && totalCompetencies > 0) {
+    const { data: lessonComps } = await sb
+      .from("lessons")
+      .select("competency_id")
+      .in("module_id", moduleIds)
+      .not("competency_id", "is", null);
+    const compsWithLessons = new Set((lessonComps ?? []).map((l: any) => l.competency_id));
+    const compLessonCoveragePct = pctOrNA(compsWithLessons.size, totalCompetencies);
+    const compLessonPassed = compLessonCoveragePct >= 90;
+    results.push({
+      gate: "competency_lesson_coverage",
+      passed: compLessonPassed,
+      severity: "blocker",
+      detail: `${compsWithLessons.size}/${totalCompetencies} competencies have lessons (${compLessonCoveragePct.toFixed(1)}%, min 90%)`,
+    });
+    if (!compLessonPassed) hardFails.push(`COMPETENCY_LESSON_GAP: Only ${compsWithLessons.size}/${totalCompetencies} competencies have lessons (${compLessonCoveragePct.toFixed(1)}%<90%)`);
   }
 
   // ═══════════════════════════════════════════════
