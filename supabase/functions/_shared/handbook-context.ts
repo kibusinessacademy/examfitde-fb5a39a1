@@ -1,6 +1,7 @@
 /**
  * handbook-context.ts — Context loaders & prompt builder for handbook generation
- * Extracted from package-generate-handbook to reduce bundle size.
+ * v15: Lean basis pass — reduced context injection, compact prompt.
+ * Depth (examples, transfer, muster tasks) handled by expand_handbook step.
  */
 
 type SB = any;
@@ -11,6 +12,13 @@ export interface CompetencyContext {
   misconceptions: string[];
 }
 
+// v15: Cap at 10 competencies (from 30) — reduce prompt size
+const MAX_COMPETENCIES = 10;
+// v15: Cap at 8 subtopics (from 50) — only core topics
+const MAX_SUBTOPICS = 8;
+// v15: Cap at 2 sample questions (from 5)
+const MAX_SAMPLE_QUESTIONS = 2;
+
 export async function loadFieldCompetencies(
   sb: SB,
   fieldId: string,
@@ -20,11 +28,11 @@ export async function loadFieldCompetencies(
       .from("competencies")
       .select("competency_name, bloom_level, typical_misconceptions")
       .eq("learning_field_id", fieldId)
-      .limit(30);
+      .limit(MAX_COMPETENCIES);
     return (data || []).map((c: any) => ({
       name: c.competency_name || "",
       bloom: c.bloom_level || "understand",
-      misconceptions: Array.isArray(c.typical_misconceptions) ? c.typical_misconceptions : [],
+      misconceptions: Array.isArray(c.typical_misconceptions) ? c.typical_misconceptions.slice(0, 1) : [],
     }));
   } catch { return []; }
 }
@@ -52,16 +60,16 @@ export async function loadFieldTopicDepth(
         .select("id, topic_name")
         .eq("certification_id", curriculumId)
         .is("parent_topic_id", null)
-        .limit(50);
+        .limit(20);  // v15: reduced from 50
       if (!allParents?.length) return [];
       parentIds = allParents.map((p: any) => p.id);
     }
 
     const { data: subtopics } = await sb
       .from("curriculum_topics")
-      .select("topic_name, difficulty_level")
+      .select("topic_name")
       .in("parent_topic_id", parentIds)
-      .limit(50);
+      .limit(MAX_SUBTOPICS);  // v15: capped at 8
 
     return subtopics?.map((s: any) => s.topic_name) || [];
   } catch { return []; }
@@ -79,11 +87,15 @@ export async function loadExamQuestionSample(
       .eq("curriculum_id", curriculumId)
       .eq("learning_field_id", fieldId)
       .in("status", ["approved"])
-      .limit(5);
-    return (data || []).map((q: any) => q.question_text || "").filter(Boolean);
+      .limit(MAX_SAMPLE_QUESTIONS);  // v15: reduced from 5
+    return (data || []).map((q: any) => (q.question_text || "").slice(0, 150)).filter(Boolean);
   } catch { return []; }
 }
 
+/**
+ * v15: Lean basis prompt — focuses on solid structure and core content.
+ * Elite depth (examples, transfer, Musteraufgaben) is added by expand_handbook.
+ */
 export function buildElitePrompt(
   professionName: string,
   fieldCode: string,
@@ -94,89 +106,36 @@ export function buildElitePrompt(
   sampleQuestions: string[],
   wordTarget: number,
 ): string {
-  const minWords = Math.round(wordTarget * 0.9);
-  
-  const topicContext = subtopics.length > 0
-    ? `\n**Kernthemen aus dem Rahmenplan:**\n${subtopics.map(t => `- ${t}`).join("\n")}`
-    : "";
+  const parts: string[] = [];
 
-  const compContext = competencies.length > 0
-    ? `\n**Kompetenzen (mit Bloom-Niveau):**\n${competencies.slice(0, 15).map(c => 
-        `- ${c.name} [${c.bloom}]${c.misconceptions.length > 0 ? ` — Typische Fehler: ${c.misconceptions.slice(0, 2).join("; ")}` : ""}`
-      ).join("\n")}`
-    : "";
+  parts.push(`Erstelle einen Handbuch-Abschnitt für "${fieldCode}: ${fieldTitle}" (${professionName}).`);
 
-  const questionContext = sampleQuestions.length > 0
-    ? `\n**Beispiel-Prüfungsfragen aus dem Pool (zum Einbetten als Übungsaufgaben):**\n${sampleQuestions.slice(0, 3).map((q, i) => `${i + 1}. ${q.slice(0, 200)}`).join("\n")}`
-    : "";
+  if (fieldDescription) {
+    parts.push(`Beschreibung: ${fieldDescription.slice(0, 300)}`);
+  }
 
-  return `Du bist ein erfahrener IHK-Prüfungscoach und Fachexperte für "${professionName}".
-Erstelle einen UMFASSENDEN, TIEFGEHENDEN Handbuch-Abschnitt für das Lernfeld "${fieldCode}: ${fieldTitle}".
+  if (subtopics.length > 0) {
+    parts.push(`Kernthemen: ${subtopics.join(", ")}`);
+  }
 
-${fieldDescription ? `**Lernfeld-Beschreibung:** ${fieldDescription}` : ""}
-${topicContext}
-${compContext}
-${questionContext}
+  if (competencies.length > 0) {
+    const compList = competencies.map(c => `${c.name} [${c.bloom}]`).join(", ");
+    parts.push(`Kompetenzen: ${compList}`);
+  }
 
-## QUALITÄTSANFORDERUNGEN (ELITE-STANDARD):
+  if (sampleQuestions.length > 0) {
+    parts.push(`Prüfungsfragen-Beispiele:\n${sampleQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`);
+  }
 
-### 1. UMFANG & TIEFE
-- Mindestumfang: **${minWords} Wörter** — schreibe AUSFÜHRLICH, nicht stichwortartig!
-- Jedes Unterthema braucht 3–5 Absätze mit konkreten Erklärungen
-- Verwende Fachbegriffe UND erkläre sie verständlich
-- KEINE Platzhalter, KEINE "wird ergänzt", KEINE leeren Abschnitte
+  parts.push(`
+## Pflichtstruktur (Markdown):
+1. **Fachliche Grundlagen** — Kernthemen systematisch erklären, Definitionen, Zusammenhänge
+2. **Formeln & Berechnungen** — falls relevant, mit je einem Beispiel
+3. **Prüfungsfallen** — mind. 3 typische Fehler mit Erklärung
+4. **Merkschemata** — Eselsbrücken, Checklisten
+5. **Zusammenfassung** — 5–8 wichtigste Fakten
 
-### 2. PFLICHT-STRUKTUR (alle Abschnitte MÜSSEN vorhanden sein):
+Umfang: ca. ${wordTarget} Wörter. Nur Markdown, keine Meta-Kommentare.`);
 
-#### 📚 Fachliche Grundlagen
-- Systematische Erklärung aller Kernthemen des Lernfelds
-- Definitionen mit Kontext (nicht nur Lexikon-Einträge)
-- Zusammenhänge zwischen den Themen aufzeigen
-- Rechtliche Grundlagen und Vorschriften (Paragraphen, Verordnungen)
-
-#### 🔢 Formeln, Berechnungen & Methoden
-- Alle relevanten Formeln mit AUSFÜHRLICHER Herleitung
-- Mindestens 2 durchgerechnete Beispiele pro Formel
-- Schritt-für-Schritt-Rechenweg zeigen
-- Einheiten und typische Wertebereiche nennen
-
-#### 🎯 Prüfungsstrategische Analyse
-- "So denkt der IHK-Prüfer" — was wird erwartet?
-- Welche Formulierungen bringen Punkte? Welche kosten Punkte?
-- Typische Aufgabenformate in der schriftlichen Prüfung
-- Zeitmanagement-Tipps für dieses Themengebiet
-
-#### ⚠️ Prüfungsfallen & Typische Fehler (mindestens 5)
-Für JEDE Falle detailliert:
-| Falle | Warum passiert das? | Korrekte Antwort |
-Format: Tabelle oder ausführliche Aufzählung mit konkreten Zahlen/Paragraphen
-
-#### 📋 Merkschemata & Checklisten
-- Mindestens 2 Merkregeln/Eselsbrücken
-- Checklisten für typische Aufgabentypen (Schritt 1 → Schritt 2 → ...)
-- Vergleichstabellen bei ähnlichen Konzepten
-- "Wenn X, dann Y" — Entscheidungsbäume
-
-#### 📝 Musteraufgaben mit Musterlösung (mindestens 2)
-- 1× Berechnungsaufgabe (falls quantitatives Thema)
-- 1× Fallstudie / Situationsaufgabe
-- Jeweils: vollständiger Lösungsweg + Bewertungshinweise + häufige Fehler
-
-#### 🔄 Transfer & Vertiefung
-- "Was ändert sich, wenn...?" — 2–3 Variationsaufgaben
-- Verbindungen zu anderen Lernfeldern
-- Praxisbezug: Wie begegnet man diesem Thema im Berufsalltag?
-
-#### 💡 Zusammenfassung & Schnell-Wiederholung
-- Die 10 wichtigsten Fakten als nummerierte Liste
-- "Das MUSS sitzen" — absolute Kernpunkte für die Prüfung
-
-### 3. FORMATIERUNG
-- Markdown mit ## und ### Überschriften
-- Tabellen für Vergleiche und Übersichten
-- Aufzählungen mit Spiegelstrichen für Strukturierung
-- **Fettdruck** für Schlüsselbegriffe
-- Formeln klar abgesetzt
-
-Antworte NUR mit dem Markdown-Inhalt. Keine Meta-Kommentare.`;
+  return parts.join("\n\n");
 }

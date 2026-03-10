@@ -37,13 +37,13 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done" || d2?.status === "skipped";
 }
 
-// ── Handbook Constants (v10 — Basis-Only) ─────────────────────
-const MIN_WORD_TARGET = 1200;
-const MAX_WORD_TARGET = 3500;
+// ── Handbook Constants (v15 — Lean Basis Pass) ────────────────
+const MIN_WORD_TARGET = 600;      // v15: halved — depth comes in expand pass
+const MAX_WORD_TARGET = 1500;     // v15: halved — basis = solid structure, not elite depth
 const TARGET_CHAPTERS = 8;
 // v10: BATCH_SIZE=1 — one section per invocation for reliability
 const BATCH_SIZE = 1;
-const MIN_SECTION_CHARS = 1800;   // Basis quality floor
+const MIN_SECTION_CHARS = 800;    // v15: lowered from 1800 — lean basis floor
 
 // ── Section Generator ────────────────────────────────────────
 
@@ -70,8 +70,8 @@ async function generateSectionContent(
   // chain is passed as parameter now (v6: single-provider per invocation)
   const prompt = buildElitePrompt(professionName, fieldCode, fieldTitle, fieldDescription, subtopics, competencies, sampleQuestions, wordTarget);
   
-  // v8: raised to 12288 — Elite Pro model with expanded budget can produce long-form output
-  const maxTokens = Math.min(12288, Math.max(6144, Math.round(wordTarget * 5)));
+  // v15: reduced from 12288 — basis pass needs less output, expand adds depth
+  const maxTokens = Math.min(6144, Math.max(3072, Math.round(wordTarget * 4)));
 
   try {
     const budget = getTimeBudget("handbook");
@@ -80,16 +80,16 @@ async function generateSectionContent(
       return { content: "", provider: "soft-stop", model: "none" };
     }
 
-    const llmTimeoutMs = Math.max(20_000, Math.min(70_000, remainingSoftMs - 5_000)); // v8: cap raised from 38s to 70s — Elite needs time
+    const llmTimeoutMs = Math.max(20_000, Math.min(55_000, remainingSoftMs - 5_000)); // v15: cap 55s — lean prompt finishes faster
     const llmAbort = new AbortController();
     const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs);
     
     const result = await callAIWithFailover(chain, {
       messages: [
-        { role: "system", content: `Du bist ein IHK-Prüfungscoach mit 20 Jahren Erfahrung als Prüfer und Dozent für "${professionName}". Du schreibst das umfassendste und tiefgehendste Prüfungsvorbereitungs-Handbuch, das je für diesen Beruf erstellt wurde. Jeder Abschnitt muss so detailliert sein, dass ein Prüfling NUR mit diesem Handbuch die Prüfung bestehen könnte. Schreibe IMMER lang und ausführlich — niemals stichwortartig. Mindestens ${wordTarget} Wörter pro Abschnitt. Du MUSST jeden der folgenden Pflichtbausteine abdecken: Fachliche Grundlagen, Formeln/Berechnungen, Prüfungsstrategische Analyse, mindestens 5 Prüfungsfallen, Merkschemata, mindestens 2 Musteraufgaben mit Lösung, Transfer & Vertiefung, Zusammenfassung.` },
+        { role: "system", content: `Du bist ein IHK-Prüfungscoach für "${professionName}". Schreibe einen soliden, strukturierten Handbuch-Abschnitt. Ziel: ${wordTarget} Wörter. Pflichtbausteine: Fachliche Grundlagen, Formeln/Berechnungen (falls relevant), Prüfungsfallen, Merkschemata. Schreibe in Markdown. Keine Meta-Kommentare.` },
         { role: "user", content: prompt },
       ],
-      max_tokens: maxTokens, // v6: already capped at 4096
+      max_tokens: maxTokens,
       signal: llmAbort.signal,
     }).finally(() => clearTimeout(llmTimer));
 
