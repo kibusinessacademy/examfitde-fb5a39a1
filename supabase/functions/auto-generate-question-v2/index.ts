@@ -314,7 +314,7 @@ Deno.serve(async (req) => {
     }
 
     const aiData = await aiResp.json();
-    const content = LOVABLE_API_KEY
+    const content = OPENAI_API_KEY_V2
       ? aiData.choices?.[0]?.message?.content || ""
       : aiData.content || aiData.choices?.[0]?.message?.content || "";
 
