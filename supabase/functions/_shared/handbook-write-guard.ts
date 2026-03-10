@@ -5,13 +5,25 @@
  * 1. validateGeneratedSection() — pre-write quality gate per section
  * 2. persistSectionsAtomic() — only writes validated sections
  * 3. verifyHandbookCoverage() — post-write coverage check before step=done
+ *
+ * SSOT shared function:
+ *   isRealHandbookSection() — phase-aware section realness check
+ *   Used by: post-conditions, validate-handbook, pipeline-process, integrity-check
  */
 
 type SB = any;
 
+// ── SSOT Phase Thresholds (v18 — shared across ALL layers) ──
+export const HANDBOOK_THRESHOLDS = {
+  basis: { minChars: 800, minProse: 500 },
+  expanded: { minChars: 1800, minProse: 1200 },
+} as const;
+
+export type HandbookPhase = keyof typeof HANDBOOK_THRESHOLDS;
+
 // ── Guard thresholds (v15 — Lean Basis) ──
-const MIN_SECTION_CONTENT_CHARS = 800;   // v15: lowered from 1800 — lean basis, depth in expand pass
-const MIN_SECTION_PROSE_CHARS = 500;     // v15: lowered from 1200 — prose only (excl. headings)
+const MIN_SECTION_CONTENT_CHARS = HANDBOOK_THRESHOLDS.basis.minChars;
+const MIN_SECTION_PROSE_CHARS = HANDBOOK_THRESHOLDS.basis.minProse;
 const COVERAGE_MIN_RATIO = 1.0;          // 100% of chapters must have content (hardened v8)
 
 // ── Structural quality markers (Elite v8) ──
@@ -63,6 +75,26 @@ function isHeadingOnly(md: string): boolean {
 export interface SectionValidationResult {
   ok: boolean;
   reason?: string;
+}
+
+/**
+ * SSOT: Phase-aware section realness check.
+ * ALL layers (post-conditions, validate-handbook, pipeline-process, integrity-check)
+ * MUST use this instead of inline length checks.
+ *
+ * @param section - must have content_markdown and optionally content_tier
+ * @param defaultPhase - fallback if content_tier is not set (default: "basis")
+ */
+export function isRealHandbookSection(
+  section: { content_markdown?: string | null; content_tier?: string | null },
+  defaultPhase: HandbookPhase = "basis",
+): boolean {
+  const md = section.content_markdown;
+  if (typeof md !== "string") return false;
+  const phase: HandbookPhase =
+    section.content_tier === "expanded" ? "expanded" : defaultPhase;
+  const threshold = HANDBOOK_THRESHOLDS[phase];
+  return md.length >= threshold.minChars;
 }
 
 /**
@@ -189,10 +221,10 @@ export async function verifyHandbookCoverage(
 
   const chapterIds = chapters.map((c: any) => c.id);
 
-  // Load all sections
+  // Load all sections (include content_tier for SSOT realness check)
   const { data: sections, error: secErr } = await sb
     .from("handbook_sections")
-    .select("chapter_id, content_markdown, title, section_key")
+    .select("chapter_id, content_markdown, content_tier, title, section_key")
     .in("chapter_id", chapterIds);
 
   if (secErr) {
@@ -206,17 +238,15 @@ export async function verifyHandbookCoverage(
     };
   }
 
-  // Count distinct chapters with VALIDATED content (same guard as pre-write)
+  // Count distinct chapters with VALIDATED content using SSOT realness check
   let totalChars = 0;
   const coveredChapterIds = new Set<string>();
   for (const sec of (sections || [])) {
     const md = (sec.content_markdown || "").trim();
     totalChars += md.length;
-    const result = validateGeneratedSection({
-      title: sec.title ?? sec.section_key ?? "section",
-      content_markdown: sec.content_markdown,
-    });
-    if (result.ok && sec.chapter_id) {
+    // Use SSOT isRealHandbookSection instead of full validateGeneratedSection
+    // This aligns coverage check with the same thresholds used by post-conditions & validators
+    if (isRealHandbookSection(sec) && sec.chapter_id) {
       coveredChapterIds.add(sec.chapter_id);
     }
   }
