@@ -70,7 +70,7 @@ export function HandbookExercise({ exercise, index, chapterId, savedResponse }: 
 
   const handleSave = () => {
     saveResponse(
-      { exerciseId: exercise.id, responseText: response },
+      { exerciseId: exercise.id, chapterId, responseText: response },
       { onSuccess: () => setIsSaved(true) },
     );
   };
