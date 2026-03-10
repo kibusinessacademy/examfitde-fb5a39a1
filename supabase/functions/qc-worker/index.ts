@@ -162,12 +162,29 @@ async function gateMiniCheckParser(admin: any, lessons: any[]) {
   const miniCheckLessons = lessons.filter((l: any) => l.step === "mini_check" && !l.minicheck_parsed);
 
   for (const lesson of miniCheckLessons) {
-    const html = lesson.content?.html || "";
-    if (!html || html.length < 50) { skipped++; continue; }
+    // ── Priority 1: Structured JSON questions (content.questions[]) ──
+    // The pipeline generates MiniChecks as structured JSON, NOT HTML.
+    const structuredQuestions = Array.isArray(lesson.content?.questions) ? lesson.content.questions : [];
+    
+    let questions: any[] = [];
+    
+    if (structuredQuestions.length > 0) {
+      // Parse structured JSON format: { question, options[], correct_answer|correct_index, explanation }
+      questions = structuredQuestions.map((sq: any) => ({
+        question: sq.question || sq.question_text || "",
+        options: Array.isArray(sq.options) ? sq.options : [],
+        correctIndex: sq.correct_answer ?? sq.correct_index ?? sq.correctIndex ?? 0,
+        explanation: sq.explanation || sq.explanation_correct || null,
+      })).filter((q: any) => q.question.length > 10 && q.options.length >= 3);
+    } else {
+      // ── Priority 2: Legacy HTML extraction ──
+      const html = lesson.content?.html || "";
+      if (!html || html.length < 50) { skipped++; continue; }
+      questions = extractQuestionsFromHTML(html);
+    }
 
-    const questions = extractQuestionsFromHTML(html);
     if (questions.length === 0) {
-      issues.push({ gate: "minicheck", severity: "warning", lessonId: lesson.id, title: lesson.title, message: "MiniCheck HTML vorhanden, aber keine Fragen extrahierbar" });
+      issues.push({ gate: "minicheck", severity: "warning", lessonId: lesson.id, title: lesson.title, message: "MiniCheck vorhanden, aber keine Fragen extrahierbar (weder JSON noch HTML)" });
       failed++;
       continue;
     }
@@ -193,7 +210,7 @@ async function gateMiniCheckParser(admin: any, lessons: any[]) {
       failed++;
     } else {
       await admin.from("lessons").update({ minicheck_parsed: true }).eq("id", lesson.id);
-      fixes.push({ gate: "minicheck", lessonId: lesson.id, action: "parsed", questionCount: questions.length });
+      fixes.push({ gate: "minicheck", lessonId: lesson.id, action: "parsed", questionCount: questions.length, source: structuredQuestions.length > 0 ? "json" : "html" });
       parsed++;
     }
   }

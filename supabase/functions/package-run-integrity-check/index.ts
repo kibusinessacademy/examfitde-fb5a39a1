@@ -239,11 +239,9 @@ async function runCourseReadyGate(
 
   const noMonoCognitive = understandPct <= 80 && applyPct >= 10 && analyzePct >= 10;
   const bloomPassed = cognitiveLevels.size >= 3 && hasUnderstand && hasApply && hasAnalyze && noMonoCognitive;
-  // FIX: Downgrade BLOOM_GATE from "blocker" to "warning" during initial seeding phase.
-  // Many curricula lack analyze blueprints, causing a hard deadlock. The generator now
-  // correctly assigns cognitive levels, so new questions will be diverse. Existing courses
-  // shouldn't be blocked from publishing because of missing blueprint diversity.
-  const bloomSeverity = bloomPassed ? "blocker" : "warning";
+  // v2: Bloom gate is BLOCKER for AUSBILDUNG_VOLL (understand=0% is unacceptable for a full learning course).
+  // Only downgraded to warning for EXAM_FIRST where question diversity is less critical.
+  const bloomSeverity: "blocker" | "warning" = (trackEarly === "EXAM_FIRST") ? "warning" : "blocker";
   results.push({
     gate: "bloom_cognitive_levels",
     passed: bloomPassed,
@@ -253,12 +251,17 @@ async function runCourseReadyGate(
   if (!bloomPassed) {
     const bloomReasons: string[] = [];
     if (cognitiveLevels.size < 3) bloomReasons.push(`ONLY_${cognitiveLevels.size}_LEVELS`);
+    if (!hasUnderstand) bloomReasons.push("MISSING_UNDERSTAND");
     if (!hasApply) bloomReasons.push("MISSING_APPLY");
     if (!hasAnalyze) bloomReasons.push("MISSING_ANALYZE");
     if (understandPct > 80) bloomReasons.push(`UNDERSTAND_MONO(${understandPct.toFixed(0)}%>80%)`);
     if (applyPct < 10) bloomReasons.push(`APPLY_TOO_LOW(${applyPct.toFixed(0)}%<10%)`);
     if (analyzePct < 10) bloomReasons.push(`ANALYZE_TOO_LOW(${analyzePct.toFixed(0)}%<10%)`);
-    warnings.push(`BLOOM_GATE: ${bloomReasons.join(", ")}`);
+    if (bloomSeverity === "blocker") {
+      hardFails.push(`BLOOM_GATE: ${bloomReasons.join(", ")}`);
+    } else {
+      warnings.push(`BLOOM_GATE: ${bloomReasons.join(", ")}`);
+    }
   }
 
   if (cognitiveLevels.size >= 4) excellence.push(`BLOOM_EXCELLENT: ${cognitiveLevels.size} cognitive levels`);
@@ -441,15 +444,28 @@ async function runCourseReadyGate(
     // Competency coverage: how many of the total competencies have questions?
     const coveredCompetencies = new Set((approvedQs ?? []).map((q: any) => q.competency_id).filter(Boolean));
     const compCoveragePct = pctOrNA(coveredCompetencies.size, totalCompetencies);
-    const compCoveragePassed = compCoveragePct >= 60; // min 60% competency coverage
+    // Track-aware thresholds: AUSBILDUNG_VOLL requires 85% (BLOCKER), others 60% (warning)
+    const COMP_COVERAGE_THRESHOLDS: Record<string, { min: number; severity: "blocker" | "warning" }> = {
+      AUSBILDUNG_VOLL: { min: 85, severity: "blocker" },
+      ELITE:           { min: 90, severity: "blocker" },
+      EXAM_FIRST:      { min: 60, severity: "warning" },
+    };
+    const compTh = COMP_COVERAGE_THRESHOLDS[trackEarly] ?? COMP_COVERAGE_THRESHOLDS["AUSBILDUNG_VOLL"];
+    const compCoveragePassed = compCoveragePct >= compTh.min;
     results.push({
       gate: "competency_coverage",
       passed: compCoveragePassed,
-      severity: "warning",
-      detail: `${coveredCompetencies.size}/${totalCompetencies} competencies covered (${compCoveragePct.toFixed(1)}%, min 60%)`,
+      severity: compTh.severity,
+      detail: `${coveredCompetencies.size}/${totalCompetencies} competencies covered (${compCoveragePct.toFixed(1)}%, min ${compTh.min}%) [track=${trackEarly}]`,
     });
-    if (!compCoveragePassed) warnings.push(`COMPETENCY_COVERAGE: Only ${coveredCompetencies.size}/${totalCompetencies} competencies have questions (${compCoveragePct.toFixed(1)}%<60%)`);
-    if (compCoveragePct >= 90) excellence.push(`COMPETENCY_COVERAGE_EXCELLENT: ${compCoveragePct.toFixed(0)}%`);
+    if (!compCoveragePassed) {
+      if (compTh.severity === "blocker") {
+        hardFails.push(`COMPETENCY_COVERAGE: Only ${coveredCompetencies.size}/${totalCompetencies} competencies have questions (${compCoveragePct.toFixed(1)}%<${compTh.min}%)`);
+      } else {
+        warnings.push(`COMPETENCY_COVERAGE: Only ${coveredCompetencies.size}/${totalCompetencies} competencies have questions (${compCoveragePct.toFixed(1)}%<${compTh.min}%)`);
+      }
+    }
+    if (compCoveragePct >= 95) excellence.push(`COMPETENCY_COVERAGE_EXCELLENT: ${compCoveragePct.toFixed(0)}%`);
   }
 
   // ═══════════════════════════════════════════════
@@ -479,7 +495,7 @@ async function runCourseReadyGate(
   if (moduleIds.length > 0 && !isExamFirstEarly) {
     const { data: miniCheckLessons } = await sb
       .from("lessons")
-      .select("module_id, step")
+      .select("id, module_id, step, minicheck_parsed, content")
       .in("module_id", moduleIds)
       .eq("step", "mini_check");
 
@@ -493,6 +509,29 @@ async function runCourseReadyGate(
       detail: `${modulesWithMiniCheck.size}/${moduleIds.length} modules have MiniChecks. Missing: ${modulesWithout.length}`,
     });
     if (!miniCheckPassed) hardFails.push(`MINICHECK_MISSING: ${modulesWithout.length}/${moduleIds.length} modules without MiniCheck`);
+
+    // ── GATE 5b: MiniCheck Parsed — all mini_check lessons must have parsed questions ──
+    const totalMC = miniCheckLessons?.length ?? 0;
+    const unparsedMC = (miniCheckLessons ?? []).filter((l: any) => !l.minicheck_parsed).length;
+    // Also check for placeholder-only MiniChecks (content has _placeholder: true or no questions)
+    const emptyMC = (miniCheckLessons ?? []).filter((l: any) => {
+      const c = l.content;
+      if (!c) return true;
+      if (c._placeholder) return true;
+      // Structured JSON must have questions array with items
+      if (Array.isArray(c.questions) && c.questions.length >= 3) return false;
+      // HTML-based must have substantial content
+      if (typeof c.html === "string" && c.html.length > 200) return false;
+      return true;
+    }).length;
+    const mcParsedPassed = unparsedMC === 0 && emptyMC === 0;
+    results.push({
+      gate: "minicheck_parsed",
+      passed: mcParsedPassed,
+      severity: "blocker",
+      detail: `${totalMC} MiniCheck lessons: ${unparsedMC} unparsed, ${emptyMC} empty/placeholder`,
+    });
+    if (!mcParsedPassed) hardFails.push(`MINICHECK_UNPARSED: ${unparsedMC} unparsed, ${emptyMC} empty of ${totalMC} MiniCheck lessons`);
   } else if (isExamFirstEarly) {
     results.push({
       gate: "minicheck_coverage",
@@ -500,6 +539,27 @@ async function runCourseReadyGate(
       severity: "blocker",
       detail: "Skipped (EXAM_FIRST track — no learning content)",
     });
+  }
+
+  // ═══════════════════════════════════════════════
+  // GATE 5c: Competency Lesson Coverage — all competencies must have lessons
+  // ═══════════════════════════════════════════════
+  if (moduleIds.length > 0 && !isExamFirstEarly && totalCompetencies > 0) {
+    const { data: lessonComps } = await sb
+      .from("lessons")
+      .select("competency_id")
+      .in("module_id", moduleIds)
+      .not("competency_id", "is", null);
+    const compsWithLessons = new Set((lessonComps ?? []).map((l: any) => l.competency_id));
+    const compLessonCoveragePct = pctOrNA(compsWithLessons.size, totalCompetencies);
+    const compLessonPassed = compLessonCoveragePct >= 90;
+    results.push({
+      gate: "competency_lesson_coverage",
+      passed: compLessonPassed,
+      severity: "blocker",
+      detail: `${compsWithLessons.size}/${totalCompetencies} competencies have lessons (${compLessonCoveragePct.toFixed(1)}%, min 90%)`,
+    });
+    if (!compLessonPassed) hardFails.push(`COMPETENCY_LESSON_GAP: Only ${compsWithLessons.size}/${totalCompetencies} competencies have lessons (${compLessonCoveragePct.toFixed(1)}%<90%)`);
   }
 
   // ═══════════════════════════════════════════════
