@@ -239,11 +239,9 @@ async function runCourseReadyGate(
 
   const noMonoCognitive = understandPct <= 80 && applyPct >= 10 && analyzePct >= 10;
   const bloomPassed = cognitiveLevels.size >= 3 && hasUnderstand && hasApply && hasAnalyze && noMonoCognitive;
-  // FIX: Downgrade BLOOM_GATE from "blocker" to "warning" during initial seeding phase.
-  // Many curricula lack analyze blueprints, causing a hard deadlock. The generator now
-  // correctly assigns cognitive levels, so new questions will be diverse. Existing courses
-  // shouldn't be blocked from publishing because of missing blueprint diversity.
-  const bloomSeverity = bloomPassed ? "blocker" : "warning";
+  // v2: Bloom gate is BLOCKER for AUSBILDUNG_VOLL (understand=0% is unacceptable for a full learning course).
+  // Only downgraded to warning for EXAM_FIRST where question diversity is less critical.
+  const bloomSeverity: "blocker" | "warning" = (trackEarly === "EXAM_FIRST") ? "warning" : "blocker";
   results.push({
     gate: "bloom_cognitive_levels",
     passed: bloomPassed,
@@ -253,12 +251,17 @@ async function runCourseReadyGate(
   if (!bloomPassed) {
     const bloomReasons: string[] = [];
     if (cognitiveLevels.size < 3) bloomReasons.push(`ONLY_${cognitiveLevels.size}_LEVELS`);
+    if (!hasUnderstand) bloomReasons.push("MISSING_UNDERSTAND");
     if (!hasApply) bloomReasons.push("MISSING_APPLY");
     if (!hasAnalyze) bloomReasons.push("MISSING_ANALYZE");
     if (understandPct > 80) bloomReasons.push(`UNDERSTAND_MONO(${understandPct.toFixed(0)}%>80%)`);
     if (applyPct < 10) bloomReasons.push(`APPLY_TOO_LOW(${applyPct.toFixed(0)}%<10%)`);
     if (analyzePct < 10) bloomReasons.push(`ANALYZE_TOO_LOW(${analyzePct.toFixed(0)}%<10%)`);
-    warnings.push(`BLOOM_GATE: ${bloomReasons.join(", ")}`);
+    if (bloomSeverity === "blocker") {
+      hardFails.push(`BLOOM_GATE: ${bloomReasons.join(", ")}`);
+    } else {
+      warnings.push(`BLOOM_GATE: ${bloomReasons.join(", ")}`);
+    }
   }
 
   if (cognitiveLevels.size >= 4) excellence.push(`BLOOM_EXCELLENT: ${cognitiveLevels.size} cognitive levels`);
