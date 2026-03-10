@@ -523,25 +523,29 @@ async function runCourseReadyGate(
   if (!isExamFirst) {
     const { data: hbSections } = await sb
       .from("handbook_chapters")
-      .select("id, handbook_sections(content_markdown)")
+      .select("id, handbook_sections(content_markdown, content_tier)")
       .eq("curriculum_id", curriculumId ?? courseId);
 
     let handbookTotalChars = 0;
+    let hasExpandedContent = false;
     for (const chapter of hbSections ?? []) {
       const sections = (chapter as any).handbook_sections || [];
       for (const s of sections) {
         if (typeof s.content_markdown === "string") handbookTotalChars += s.content_markdown.length;
+        if (s.content_tier === "expanded") hasExpandedContent = true;
       }
     }
-    const handbookPassed = handbookTotalChars >= 25000;
+    // v17: Phase-aware threshold — basis needs 8000, expanded needs 25000
+    const handbookMinChars = hasExpandedContent ? 25000 : 8000;
+    const handbookPassed = handbookTotalChars >= handbookMinChars;
     results.push({
       gate: "handbook_depth",
       passed: handbookPassed,
       severity: "blocker",
-      detail: `${handbookTotalChars} chars (min 25,000)`,
+      detail: `${handbookTotalChars} chars (min ${handbookMinChars}, phase: ${hasExpandedContent ? "expanded" : "basis"})`,
       value: handbookTotalChars,
     });
-    if (!handbookPassed) hardFails.push(`HANDBOOK_TOO_THIN: ${handbookTotalChars} chars (min 25,000)`);
+    if (!handbookPassed) hardFails.push(`HANDBOOK_TOO_THIN: ${handbookTotalChars} chars (min ${handbookMinChars})`);
   } else {
     results.push({
       gate: "handbook_depth",
