@@ -192,11 +192,8 @@ async function artifactExists(
         return false;
       }
 
-      // Expected chapters from learning_fields (SSOT)
-      const { count: expectedLF } = await sb
-        .from("learning_fields")
-        .select("id", { count: "exact", head: true })
-        .eq("curriculum_id", currId);
+      // NOTE: Chapter count is the SSOT for handbook completeness, NOT learning_fields count.
+      // A handbook may have fewer chapters than learning fields (multi-LF chapters).
 
       // Load all chapters
       const { data: chapters } = await sb
