@@ -78,6 +78,26 @@ export interface SectionValidationResult {
 }
 
 /**
+ * SSOT: Phase-aware section realness check.
+ * ALL layers (post-conditions, validate-handbook, pipeline-process, integrity-check)
+ * MUST use this instead of inline length checks.
+ *
+ * @param section - must have content_markdown and optionally content_tier
+ * @param defaultPhase - fallback if content_tier is not set (default: "basis")
+ */
+export function isRealHandbookSection(
+  section: { content_markdown?: string | null; content_tier?: string | null },
+  defaultPhase: HandbookPhase = "basis",
+): boolean {
+  const md = section.content_markdown;
+  if (typeof md !== "string") return false;
+  const phase: HandbookPhase =
+    section.content_tier === "expanded" ? "expanded" : defaultPhase;
+  const threshold = HANDBOOK_THRESHOLDS[phase];
+  return md.length >= threshold.minChars;
+}
+
+/**
  * Layer 1: Pre-write validation for a single section.
  * MUST pass before any DB write is attempted.
  */
