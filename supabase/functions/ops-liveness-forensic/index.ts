@@ -159,13 +159,45 @@ Deno.serve(async (req) => {
     frozen: frozenSince ? frozenSince.getTime() < now.getTime() - 2 * 60 * 60_000 : false,
   };
 
-  // 11. Zombie steps (running/enqueued with no active jobs > 10min)
-  const { count: zombieSteps } = await sb
+  // 11. Zombie steps — job-aware: step is running/enqueued but its job_id
+  //     either doesn't exist, or is not pending/processing, or has no recent heartbeat
+  const { data: candidateSteps } = await sb
     .from("package_steps")
-    .select("step_key", { count: "exact", head: true })
+    .select("id, step_key, package_id, job_id, started_at")
     .in("status", ["running", "enqueued"])
-    .lt("started_at", min10Ago);
-  results.potential_zombie_steps = zombieSteps ?? 0;
+    .lt("started_at", min10Ago)
+    .limit(100);
+
+  let confirmedZombieSteps = 0;
+  const zombieStepDetails: { step_key: string; package_id: string; reason: string }[] = [];
+  for (const step of candidateSteps || []) {
+    if (!step.job_id) {
+      // No job_id at all — definitely a zombie
+      confirmedZombieSteps++;
+      zombieStepDetails.push({ step_key: step.step_key, package_id: step.package_id?.slice(0, 8), reason: "no_job_id" });
+      continue;
+    }
+    const { data: ownerJob } = await sb
+      .from("job_queue")
+      .select("id, status, last_heartbeat_at, updated_at")
+      .eq("id", step.job_id)
+      .maybeSingle();
+    if (!ownerJob) {
+      confirmedZombieSteps++;
+      zombieStepDetails.push({ step_key: step.step_key, package_id: step.package_id?.slice(0, 8), reason: "job_not_found" });
+    } else if (!["pending", "processing"].includes(ownerJob.status)) {
+      confirmedZombieSteps++;
+      zombieStepDetails.push({ step_key: step.step_key, package_id: step.package_id?.slice(0, 8), reason: `job_status_${ownerJob.status}` });
+    } else if (ownerJob.status === "processing") {
+      const ref = ownerJob.last_heartbeat_at || ownerJob.updated_at;
+      if (ref && new Date(ref).getTime() < now.getTime() - 10 * 60_000) {
+        confirmedZombieSteps++;
+        zombieStepDetails.push({ step_key: step.step_key, package_id: step.package_id?.slice(0, 8), reason: "job_stale_heartbeat" });
+      }
+    }
+  }
+  results.confirmed_zombie_steps = confirmedZombieSteps;
+  results.zombie_step_details = zombieStepDetails.slice(0, 10);
 
   // 12. Auto-heal effectiveness (last 24h)
   const { data: healStats } = await sb
