@@ -43,47 +43,47 @@ export interface ModelChoice {
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   learning_course: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   learning_content: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   exam_questions: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   oral_exam: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   handbook: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   minicheck: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   seo_content: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   council_review: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   council_proposer: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   council_validator: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   quality_audit: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   embeddings: [
     { provider: "openai", model: "text-embedding-3-large" },
@@ -93,27 +93,27 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
   ],
   support: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   summary: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   repair: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   repair_content: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   blooms_classify: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
   curriculum_import: [
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    { provider: "lovable", model: "openai/gpt-5", is_fallback: true },
+    { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
 };
 
@@ -308,13 +308,13 @@ export function getEscalationModel(
   if (validationScore >= threshold) return null;
 
   const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
-    exam_questions: { provider: "lovable", model: "openai/gpt-5" },
-    oral_exam: { provider: "lovable", model: "openai/gpt-5" },
-    minicheck: { provider: "lovable", model: "openai/gpt-5" },
-    support: { provider: "lovable", model: "openai/gpt-5" },
-    summary: { provider: "lovable", model: "openai/gpt-5" },
-    repair: { provider: "lovable", model: "openai/gpt-5" },
-    blooms_classify: { provider: "lovable", model: "openai/gpt-5" },
+    exam_questions: { provider: "openai", model: "gpt-5.2" },
+    oral_exam: { provider: "openai", model: "gpt-5.2" },
+    minicheck: { provider: "openai", model: "gpt-5.2" },
+    support: { provider: "openai", model: "gpt-5.2" },
+    summary: { provider: "openai", model: "gpt-5.2" },
+    repair: { provider: "openai", model: "gpt-5.2" },
+    blooms_classify: { provider: "openai", model: "gpt-5.2" },
   };
 
   return escalationMap[intent] || null;

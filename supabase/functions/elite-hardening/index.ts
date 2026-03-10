@@ -22,9 +22,9 @@ async function callAI(
   _supabase: any,
   systemPrompt: string,
   userPrompt: string,
-  model = "google/gemini-2.5-flash"
+  model = "gpt-5.2"
 ): Promise<string> {
-  const provider: AIProvider = model.startsWith("google/") ? "lovable" : "lovable";
+  const provider: AIProvider = "openai";
   const result = await callAIJSON({
     provider,
     model,
