@@ -37,7 +37,70 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "content-type": "application/json" } });
 }
 
-// ═══════════════════════════════════════════════════════════════
+/**
+ * Balanced-brace JSON extraction: finds the first { and counts braces to find matching }.
+ * Handles nested objects and strings with escaped braces correctly.
+ * Much more robust than indexOf/lastIndexOf for LLM responses with preamble/postamble.
+ */
+function extractBalancedJson(text: string): any | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === "\\") { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        try { return JSON.parse(text.slice(start, i + 1)); } catch { return null; }
+      }
+    }
+  }
+  // Truncated JSON — try to repair by closing open braces/brackets
+  const partial = text.slice(start);
+  // Count unmatched [ and { outside strings
+  let openBraces = 0, openBrackets = 0;
+  inString = false; escape = false;
+  for (const ch of partial) {
+    if (escape) { escape = false; continue; }
+    if (ch === "\\") { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") openBraces++;
+    else if (ch === "}") openBraces--;
+    else if (ch === "[") openBrackets++;
+    else if (ch === "]") openBrackets--;
+  }
+  if (openBraces > 0 || openBrackets > 0) {
+    // Try to close with the right number of brackets/braces
+    let repaired = partial;
+    // Trim trailing comma or incomplete value
+    repaired = repaired.replace(/,\s*$/, "");
+    // If we're inside a string, close it
+    let strOpen = false; escape = false;
+    for (const ch of repaired) {
+      if (escape) { escape = false; continue; }
+      if (ch === "\\") { escape = true; continue; }
+      if (ch === '"') strOpen = !strOpen;
+    }
+    if (strOpen) repaired += '"';
+    for (let b = 0; b < openBrackets; b++) repaired += "]";
+    for (let b = 0; b < openBraces; b++) repaired += "}";
+    try {
+      const parsed = JSON.parse(repaired);
+      console.log(`[lesson-gen] extractBalancedJson: repaired truncated JSON (closed ${openBraces} braces, ${openBrackets} brackets)`);
+      return parsed;
+    } catch { /* noop */ }
+  }
+  return null;
+}
+
 // Step prompts (same SSOT as the original batch generator)
 // ═══════════════════════════════════════════════════════════════
 
