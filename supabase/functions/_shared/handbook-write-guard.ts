@@ -72,7 +72,8 @@ export interface SectionValidationResult {
 export function validateGeneratedSection(section: {
   title?: string;
   content_markdown?: string;
-}): SectionValidationResult {
+}, opts?: { phase?: "basis" | "expand" }): SectionValidationResult {
+  const phase = opts?.phase || "expand"; // default=expand keeps existing behavior strict
   if (!isNonEmptyText(section.title)) {
     return { ok: false, reason: "section title missing" };
   }
