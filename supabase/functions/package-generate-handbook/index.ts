@@ -325,7 +325,7 @@ Deno.serve(async (req) => {
     const result = validateGeneratedSection({
       title: sec.title ?? (sec as any).section_key ?? "",
       content_markdown: sec.content_markdown as string,
-    });
+    }, { phase: "basis" });
 
     if (result.ok && sec.learning_field_id) {
       populatedLfIds.add(sec.learning_field_id);
