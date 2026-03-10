@@ -273,8 +273,10 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         console.warn(`[content-runner] ⚠️ ${job.job_type} (${shortId}) ${isTransient ? "TRANSIENT" : "EMPTY_RESULT"} — backoff ${stallBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
         return { id: job.id, ok: false, error: errorLabel, exhausted, transient: true };
       } else {
-        // Real success
+        // Real success — reset provider transient meta
         const now = new Date().toISOString();
+        const successProvider = result?.used_provider || result?.provider || jobProvider || null;
+        const successModel = result?.used_model || result?.model || jobModel || null;
         await sb.from("job_queue").update({
           status: "completed",
           result: result ?? {},
@@ -283,11 +285,9 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           locked_at: null,
           locked_by: null,
           last_error: null,
-          meta: {
-            ...(job.meta || {}),
-            last_provider: result?.used_provider || result?.provider || null,
-            last_model: result?.used_model || result?.model || null,
-          },
+          last_heartbeat_at: now,
+          liveness_status: "healthy",
+          meta: resetProviderTransientMeta(job, successProvider, successModel),
         }).eq("id", job.id);
 
         console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) completed in ${Date.now() - startMs}ms (gen=${result?.generated ?? "?"})`);
