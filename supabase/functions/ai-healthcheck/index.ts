@@ -44,7 +44,7 @@ async function probe(
 ): Promise<ProbeResult> {
   const start = Date.now();
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
