@@ -80,16 +80,16 @@ async function generateSectionContent(
       return { content: "", provider: "soft-stop", model: "none" };
     }
 
-    const llmTimeoutMs = Math.max(20_000, Math.min(70_000, remainingSoftMs - 5_000)); // v8: cap raised from 38s to 70s — Elite needs time
+    const llmTimeoutMs = Math.max(20_000, Math.min(55_000, remainingSoftMs - 5_000)); // v15: cap 55s — lean prompt finishes faster
     const llmAbort = new AbortController();
     const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs);
     
     const result = await callAIWithFailover(chain, {
       messages: [
-        { role: "system", content: `Du bist ein IHK-Prüfungscoach mit 20 Jahren Erfahrung als Prüfer und Dozent für "${professionName}". Du schreibst das umfassendste und tiefgehendste Prüfungsvorbereitungs-Handbuch, das je für diesen Beruf erstellt wurde. Jeder Abschnitt muss so detailliert sein, dass ein Prüfling NUR mit diesem Handbuch die Prüfung bestehen könnte. Schreibe IMMER lang und ausführlich — niemals stichwortartig. Mindestens ${wordTarget} Wörter pro Abschnitt. Du MUSST jeden der folgenden Pflichtbausteine abdecken: Fachliche Grundlagen, Formeln/Berechnungen, Prüfungsstrategische Analyse, mindestens 5 Prüfungsfallen, Merkschemata, mindestens 2 Musteraufgaben mit Lösung, Transfer & Vertiefung, Zusammenfassung.` },
+        { role: "system", content: `Du bist ein IHK-Prüfungscoach für "${professionName}". Schreibe einen soliden, strukturierten Handbuch-Abschnitt. Ziel: ${wordTarget} Wörter. Pflichtbausteine: Fachliche Grundlagen, Formeln/Berechnungen (falls relevant), Prüfungsfallen, Merkschemata. Schreibe in Markdown. Keine Meta-Kommentare.` },
         { role: "user", content: prompt },
       ],
-      max_tokens: maxTokens, // v6: already capped at 4096
+      max_tokens: maxTokens,
       signal: llmAbort.signal,
     }).finally(() => clearTimeout(llmTimer));
 
