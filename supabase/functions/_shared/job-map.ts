@@ -187,6 +187,14 @@ export const FAN_OUT_CONFIG: FanOutStepConfig[] = [
     subjobPriority: 5,
     useBatchCursor: true,
   },
+  {
+    stepKey: "expand_handbook",
+    subjobTypes: ["handbook_expand_section"],
+    completionMode: "subjob_count",
+    wipPerPackage: 4,
+    subjobPriority: 3,
+    useBatchCursor: false,
+  },
 ];
 
 /** Lookup fan-out config by step key */
