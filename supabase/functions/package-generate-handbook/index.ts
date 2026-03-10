@@ -41,8 +41,12 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
 const MIN_WORD_TARGET = 800;
 const MAX_WORD_TARGET = 2500;
 const TARGET_CHAPTERS = 8;
-const BATCH_SIZE = 6;
+// v7: BATCH_SIZE=1 — with 42s wall-clock and 25s LLM timeout, only 1 section
+// can realistically complete per invocation. Previous BATCH_SIZE=6 caused
+// sections 2-6 to hit soft-stop and produce empty content → 100% rejection.
+const BATCH_SIZE = 1;
 const MIN_SECTION_CHARS = 500;
+const IDEAL_SECTION_CHARS = 2000;  // v7: was UNDEFINED — expansion pass never fired
 
 // ── Section Generator ────────────────────────────────────────
 
@@ -68,18 +72,18 @@ async function generateSectionContent(
   // chain is passed as parameter now (v6: single-provider per invocation)
   const prompt = buildElitePrompt(professionName, fieldCode, fieldTitle, fieldDescription, subtopics, competencies, sampleQuestions, wordTarget);
   
-  // Higher token budget for elite content
-  // v6: capped at 4096 — higher values trigger 90s fetchTimeout in ai-client (line 128-131)
-  const maxTokens = Math.min(4096, Math.max(3072, Math.round(wordTarget * 3)));
+  // v7: raised to 8192 — with Pro model and BATCH_SIZE=1, we can afford longer output
+  // ai-client uses 90s fetchTimeout for max_tokens>4096, which is fine with our 50s budget
+  const maxTokens = Math.min(8192, Math.max(4096, Math.round(wordTarget * 4)));
 
   try {
     const budget = getTimeBudget("handbook");
     const remainingSoftMs = budget.softStopMs - (Date.now() - startMs);
-    if (remainingSoftMs <= 9_500) {
+    if (remainingSoftMs <= 12_000) {  // v7: raised from 9.5s to 12s — give persist buffer
       return { content: "", provider: "soft-stop", model: "none" };
     }
 
-    const llmTimeoutMs = Math.max(10_000, Math.min(25_000, remainingSoftMs - 2_000)); // v6: capped at 25s (was 40s)
+    const llmTimeoutMs = Math.max(15_000, Math.min(38_000, remainingSoftMs - 3_000)); // v7: cap raised from 25s to 38s
     const llmAbort = new AbortController();
     const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs);
     
@@ -113,16 +117,16 @@ async function generateSectionContent(
       } catch { /* use as-is */ }
     }
 
-    // ── Depth Expansion Pass: if content below threshold, request expansion ──
-    // v6: budget-aware — with 42s total, expansion is only viable if >12s remain after soft-stop check
+    // ── Depth Expansion Pass: if content below ideal, request expansion ──
+    // v7: with BATCH_SIZE=1 and 50s budget, expansion is viable if >15s remain
     const expandBudget = getTimeBudget("handbook");
     const expandRemainingMs = expandBudget.softStopMs - (Date.now() - startMs);
-    if (content.length > 500 && content.length < IDEAL_SECTION_CHARS && expandRemainingMs > 12_000) {
+    if (content.length > 500 && content.length < IDEAL_SECTION_CHARS && expandRemainingMs > 15_000) {
       console.log(`[generate-handbook] Section ${fieldCode} below ideal (${content.length}/${IDEAL_SECTION_CHARS} chars). Expanding... (${Math.round(expandRemainingMs/1000)}s remaining)`);
       try {
         const remainingMs = expandRemainingMs;
         const expandAbort = new AbortController();
-        const expandTimeoutMs = Math.max(10_000, Math.min(25_000, remainingMs - 2_000));
+        const expandTimeoutMs = Math.max(12_000, Math.min(35_000, remainingMs - 3_000));  // v7: raised caps
         const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
         
         const expandResult = await callAIWithFailover(chain, {
@@ -144,7 +148,7 @@ ERWEITERE den Text auf mindestens ${MIN_WORD_TARGET} Wörter. Füge hinzu:
 
 BESTEHENDER TEXT:\n\n${content}` },
           ],
-          max_tokens: Math.min(4096, maxTokens), // v6: capped same as primary call
+          max_tokens: Math.min(8192, maxTokens), // v7: match primary call limit
           signal: expandAbort.signal,
         }).finally(() => clearTimeout(expandTimer));
 

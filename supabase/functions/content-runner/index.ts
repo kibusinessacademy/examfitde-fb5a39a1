@@ -24,7 +24,7 @@ const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 8);
 const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 16);
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
-const DISPATCH_TIMEOUT_MS = 42_000;
+const DISPATCH_TIMEOUT_MS = 52_000;  // v7: raised from 42s to 52s — handbook needs 50s budget (BATCH_SIZE=1 with Pro model)
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
 const FUNCTION_VERSION = "v2.0-pull-loop";
 
