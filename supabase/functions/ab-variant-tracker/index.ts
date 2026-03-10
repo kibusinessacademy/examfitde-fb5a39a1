@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// Deno.serve is built-in, no import needed
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
@@ -18,7 +18,7 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 const MIN_ATTEMPTS_FOR_EVALUATION = 30;
 const WIN_MARGIN = 0.10; // 10% difference to declare winner
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 
