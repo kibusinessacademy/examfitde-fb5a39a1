@@ -118,13 +118,16 @@ export async function assertStepPostConditions(sb: SB, args: {
 
     const totalSections = sections?.length ?? 0;
 
-    // v16: Phase-aware threshold — basis content accepted at 800 chars (matching write-guard)
-    // Expanded content validated at 1800 chars by validate_handbook_depth later
-    const REAL_SECTION_MIN_CHARS = 800;  // Aligned with handbook-write-guard MIN_SECTION_CONTENT_CHARS
+    // v17: Content-tier-aware thresholds — basis at 800, expanded at 1800
+    // Prevents thin expanded content from passing while keeping basis unblocked
+    const REAL_BASIS_MIN_CHARS = 800;     // Aligned with handbook-write-guard MIN_SECTION_CONTENT_CHARS
+    const REAL_EXPANDED_MIN_CHARS = 1800; // Elite/expand threshold
 
-    const realSections = (sections ?? []).filter(
-      (s: any) => typeof s.content_markdown === "string" && s.content_markdown.length >= REAL_SECTION_MIN_CHARS
-    ).length;
+    const realSections = (sections ?? []).filter((s: any) => {
+      if (typeof s.content_markdown !== "string") return false;
+      const minChars = s.content_tier === "expanded" ? REAL_EXPANDED_MIN_CHARS : REAL_BASIS_MIN_CHARS;
+      return s.content_markdown.length >= minChars;
+    }).length;
 
     // v16: Require 90% of sections to be real (100% was too strict for basis pass)
     const MIN_REAL_RATIO = 0.9;
@@ -138,7 +141,8 @@ export async function assertStepPostConditions(sb: SB, args: {
         sections_total: totalSections,
         sections_real: realSections,
         min_real_needed: minRealNeeded,
-        threshold_chars: REAL_SECTION_MIN_CHARS,
+        threshold_basis: REAL_BASIS_MIN_CHARS,
+        threshold_expanded: REAL_EXPANDED_MIN_CHARS,
       };
       throw e;
     }
