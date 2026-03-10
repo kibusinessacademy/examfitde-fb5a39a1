@@ -13208,40 +13208,76 @@ export type Database = {
       }
       handbook_sections: {
         Row: {
+          basis_content: string | null
+          basis_generated_at: string | null
           chapter_id: string
           competency_id: string | null
           content_markdown: string
+          content_tier: string | null
           content_type: string | null
           created_at: string | null
+          depth_markers: Json | null
+          expand_attempts: number | null
+          expand_last_error: string | null
+          expand_model: string | null
+          expand_provider: string | null
+          expand_status: string | null
+          expanded_at: string | null
+          expanded_content: string | null
           id: string
           learning_field_id: string | null
           metadata: Json | null
+          quality_score: number | null
           section_key: string
           sort_order: number
           title: string
         }
         Insert: {
+          basis_content?: string | null
+          basis_generated_at?: string | null
           chapter_id: string
           competency_id?: string | null
           content_markdown: string
+          content_tier?: string | null
           content_type?: string | null
           created_at?: string | null
+          depth_markers?: Json | null
+          expand_attempts?: number | null
+          expand_last_error?: string | null
+          expand_model?: string | null
+          expand_provider?: string | null
+          expand_status?: string | null
+          expanded_at?: string | null
+          expanded_content?: string | null
           id?: string
           learning_field_id?: string | null
           metadata?: Json | null
+          quality_score?: number | null
           section_key: string
           sort_order?: number
           title: string
         }
         Update: {
+          basis_content?: string | null
+          basis_generated_at?: string | null
           chapter_id?: string
           competency_id?: string | null
           content_markdown?: string
+          content_tier?: string | null
           content_type?: string | null
           created_at?: string | null
+          depth_markers?: Json | null
+          expand_attempts?: number | null
+          expand_last_error?: string | null
+          expand_model?: string | null
+          expand_provider?: string | null
+          expand_status?: string | null
+          expanded_at?: string | null
+          expanded_content?: string | null
           id?: string
           learning_field_id?: string | null
           metadata?: Json | null
+          quality_score?: number | null
           section_key?: string
           sort_order?: number
           title?: string
