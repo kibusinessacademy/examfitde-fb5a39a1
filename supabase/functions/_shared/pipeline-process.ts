@@ -6,7 +6,6 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { inferBackoffSeconds, getFanOutConfig, STEP_TO_JOB_TYPE, type PipelineStepKey } from "./job-map.ts";
-import { enqueueJob } from "./enqueue.ts";
 import { markStepDone } from "./steps.ts";
 import { classifyStep } from "./step-weight.ts";
 import {
@@ -14,6 +13,9 @@ import {
   safeRpc, safeQuery, getLearningContentProgress,
   isTransientStepError, buildStepOrder, pickNextAction,
 } from "./pipeline-helpers.ts";
+import { handleJobFailed } from "./pipeline-handlers.ts";
+import { handleEnqueue } from "./pipeline-handlers.ts";
+import { backfillPipelinePool } from "./pipeline-backfill.ts";
 
 // ══════════════════════════════════════════════════════════════
 // Process a single acquired package — returns result summary
