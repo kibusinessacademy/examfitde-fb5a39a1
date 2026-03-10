@@ -563,6 +563,55 @@ async function runCourseReadyGate(
   }
 
   // ═══════════════════════════════════════════════
+  // GATE 5d: Competency Full Step Coverage — every competency needs all 5 didactic steps
+  // SSOT: einstieg, verstehen, anwenden, wiederholen, mini_check
+  // ═══════════════════════════════════════════════
+  const REQUIRED_STEPS = ["einstieg", "verstehen", "anwenden", "wiederholen", "mini_check"];
+  if (moduleIds.length > 0 && !isExamFirstEarly && totalCompetencies > 0) {
+    const { data: stepLessons } = await sb
+      .from("lessons")
+      .select("competency_id, step")
+      .in("module_id", moduleIds)
+      .not("competency_id", "is", null);
+
+    // Build per-competency step set
+    const compStepMap = new Map<string, Set<string>>();
+    for (const l of stepLessons ?? []) {
+      if (!l.competency_id || !l.step) continue;
+      if (!compStepMap.has(l.competency_id)) compStepMap.set(l.competency_id, new Set());
+      compStepMap.get(l.competency_id)!.add(l.step);
+    }
+
+    let fullCoverageCount = 0;
+    const incompleteComps: string[] = [];
+    for (const [compId, steps] of compStepMap) {
+      const hasAll = REQUIRED_STEPS.every(s => steps.has(s));
+      if (hasAll) fullCoverageCount++;
+      else incompleteComps.push(compId);
+    }
+
+    // Also count competencies with NO lessons at all
+    const compsWithAnyLesson = compStepMap.size;
+    const compsWithNoLesson = totalCompetencies - compsWithAnyLesson;
+    const totalIncomplete = incompleteComps.length + compsWithNoLesson;
+
+    const fullStepCoveragePct = pctOrNA(fullCoverageCount, totalCompetencies);
+    // AUSBILDUNG_VOLL: 100% blocker (every competency must have 5/5 steps)
+    const fullStepThreshold = trackEarly === "ELITE" ? 100 : trackEarly === "AUSBILDUNG_VOLL" ? 95 : 80;
+    const fullStepPassed = fullStepCoveragePct >= fullStepThreshold;
+    results.push({
+      gate: "competency_full_step_coverage",
+      passed: fullStepPassed,
+      severity: "blocker",
+      detail: `${fullCoverageCount}/${totalCompetencies} competencies have all 5 steps (${fullStepCoveragePct.toFixed(1)}%, min ${fullStepThreshold}%). ${totalIncomplete} incomplete.`,
+    });
+    if (!fullStepPassed) {
+      hardFails.push(`COMPETENCY_STEP_GAP: Only ${fullCoverageCount}/${totalCompetencies} competencies have full 5-step coverage (${fullStepCoveragePct.toFixed(1)}%<${fullStepThreshold}%)`);
+    }
+    if (fullStepCoveragePct >= 98) excellence.push(`COMPETENCY_STEPS_EXCELLENT: ${fullStepCoveragePct.toFixed(0)}% full coverage`);
+  }
+
+  // ═══════════════════════════════════════════════
   // GATE 6: Snapshot-Integrity
   // ═══════════════════════════════════════════════
   results.push({

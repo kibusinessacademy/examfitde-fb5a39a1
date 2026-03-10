@@ -209,107 +209,65 @@ Deno.serve(async (req) => {
     let targets: Array<{ id: string; title: string; content: string; competencyTitle: string; competencyId: string | null; lessonId: string | null }> = [];
 
     if (mode === "lesson") {
-      // Lesson MODE: collect targets via lessons + learning_fields
+      // Lesson MODE: SSOT path — always modules → lessons (never direct .eq on course_id/module_id)
       if (!effectiveCourseId) throw new Error("course_id required for lesson mode");
 
-      const { data: lessons } = await sb
-        .from("lessons")
-        .select("id, title, content, competency_id")
-        .eq("module_id", effectiveCourseId)
-        .not("content", "is", null)
-        .order("sort_order", { ascending: true })
-        .order("id", { ascending: true });
+      const { data: modules } = await sb
+        .from("modules")
+        .select("id")
+        .eq("course_id", effectiveCourseId);
 
-      if (!lessons?.length) {
-        // Fallback: try via modules
-        const { data: modules } = await sb
-          .from("modules")
-          .select("id")
-          .eq("course_id", effectiveCourseId);
+      const moduleIds = (modules || []).map(m => m.id);
+      if (moduleIds.length > 0) {
+        const { data: allLessons } = await sb
+          .from("lessons")
+          .select("id, title, content, competency_id, step")
+          .in("module_id", moduleIds)
+          .not("content", "is", null)
+          .neq("step", "mini_check")
+          .order("sort_order", { ascending: true })
+          .order("id", { ascending: true });
 
-        const moduleIds = (modules || []).map(m => m.id);
-        if (moduleIds.length > 0) {
-          const { data: modLessons } = await sb
-            .from("lessons")
-            .select("id, title, content, competency_id")
-            .in("module_id", moduleIds)
-            .not("content", "is", null)
-            .order("sort_order", { ascending: true })
-            .order("id", { ascending: true });
+        if (allLessons?.length) {
+          const compIds = [...new Set(allLessons.filter(l => l.competency_id).map(l => l.competency_id))];
+          const compMap: Record<string, string> = {};
+          if (compIds.length > 0) {
+            const { data: comps } = await sb.from("competencies").select("id, title").in("id", compIds);
+            for (const c of comps || []) compMap[c.id] = c.title;
+          }
 
-          if (modLessons?.length) {
-            const compIds = [...new Set(modLessons.filter(l => l.competency_id).map(l => l.competency_id))];
-            const compMap: Record<string, string> = {};
-            if (compIds.length > 0) {
-              const { data: comps } = await sb.from("competencies").select("id, title").in("id", compIds);
-              for (const c of comps || []) compMap[c.id] = c.title;
-            }
+          const lessonIds = allLessons.map(l => l.id);
+          const { data: existing } = await sb
+            .from("minicheck_questions")
+            .select("lesson_id")
+            .in("lesson_id", lessonIds)
+            .eq("curriculum_id", curriculumId)
+            .eq("mode", "lesson");
+          const existingSet = new Set((existing || []).map(e => e.lesson_id));
 
-            const lessonIds = modLessons.map(l => l.id);
-            const { data: existing } = await sb
-              .from("minicheck_questions")
-              .select("lesson_id")
-              .in("lesson_id", lessonIds)
-              .eq("curriculum_id", curriculumId)
-              .eq("mode", "lesson");
-            const existingSet = new Set((existing || []).map(e => e.lesson_id));
+          for (const lesson of allLessons) {
+            if (existingSet.has(lesson.id)) continue;
+            const contentText = typeof lesson.content === "string"
+              ? lesson.content
+              : JSON.stringify(lesson.content || {});
+            // Skip placeholders and very short content
+            if (contentText.length < 200) continue;
+            if (contentText.includes('"_placeholder":true') || contentText.includes('"_placeholder": true')) continue;
 
-            for (const lesson of modLessons) {
-              if (existingSet.has(lesson.id)) continue;
-              const contentText = typeof lesson.content === "string"
-                ? lesson.content
-                : JSON.stringify(lesson.content || {});
-              if (contentText.length < 50) continue;
-
-              targets.push({
-                id: lesson.id,
-                title: lesson.title,
-                content: contentText,
-                competencyTitle: compMap[lesson.competency_id] || "Allgemein",
-                competencyId: lesson.competency_id,
-                lessonId: lesson.id,
-              });
-            }
+            targets.push({
+              id: lesson.id,
+              title: lesson.title,
+              content: contentText,
+              competencyTitle: compMap[lesson.competency_id] || "Allgemein",
+              competencyId: lesson.competency_id,
+              lessonId: lesson.id,
+            });
           }
         }
+      }
 
-        if (targets.length === 0) {
-          // No lessons found at all — fall back to drill mode
-          console.log(`[MiniChecks] No lessons found for course ${effectiveCourseId} — falling back to drill mode`);
-        }
-      } else {
-        const compIds = [...new Set(lessons.filter(l => l.competency_id).map(l => l.competency_id))];
-        const compMap: Record<string, string> = {};
-        if (compIds.length > 0) {
-          const { data: comps } = await sb.from("competencies").select("id, title").in("id", compIds);
-          for (const c of comps || []) compMap[c.id] = c.title;
-        }
-
-        const lessonIds = lessons.map(l => l.id);
-        const { data: existing } = await sb
-          .from("minicheck_questions")
-          .select("lesson_id")
-          .in("lesson_id", lessonIds)
-          .eq("curriculum_id", curriculumId)
-          .eq("mode", "lesson");
-        const existingSet = new Set((existing || []).map(e => e.lesson_id));
-
-        for (const lesson of lessons) {
-          if (existingSet.has(lesson.id)) continue;
-          const contentText = typeof lesson.content === "string"
-            ? lesson.content
-            : JSON.stringify(lesson.content || {});
-          if (contentText.length < 50) continue;
-
-          targets.push({
-            id: lesson.id,
-            title: lesson.title,
-            content: contentText,
-            competencyTitle: compMap[lesson.competency_id] || "Allgemein",
-            competencyId: lesson.competency_id,
-            lessonId: lesson.id,
-          });
-        }
+      if (targets.length === 0) {
+        console.log(`[MiniChecks] No eligible lessons found for course ${effectiveCourseId} — falling back to drill mode`);
       }
     }
 
