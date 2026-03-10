@@ -37,6 +37,11 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done" || d2?.status === "skipped";
 }
 
+// ── Handbook Constants ───────────────────────────────────────
+const MIN_WORD_TARGET = 800;
+const MAX_WORD_TARGET = 2500;
+const TARGET_CHAPTERS = 8;
+
 // ── Section Generator ────────────────────────────────────────
 
 async function generateSectionContent(
