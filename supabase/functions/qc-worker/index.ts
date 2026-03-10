@@ -189,16 +189,24 @@ async function gateMiniCheckParser(admin: any, lessons: any[]) {
       continue;
     }
 
-    // Insert into minicheck_questions
+    // Insert into minicheck_questions — persist full SSOT metadata from LLM
+    const DIFFICULTY_MAP: Record<string, string> = {
+      leicht: "easy", mittel: "medium", anspruchsvoll: "hard",
+      easy: "easy", medium: "medium", hard: "hard",
+    };
     const rows = questions.map((q: any, idx: number) => ({
       lesson_id: lesson.id,
       question_text: q.question,
       options: q.options,
       correct_answer: q.correctIndex,
       explanation: q.explanation || null,
-      difficulty: "medium",
+      difficulty: DIFFICULTY_MAP[q.difficulty] || DIFFICULTY_MAP[q.difficulty?.toLowerCase?.()] || "medium",
+      cognitive_level: q.bloom_level || q.cognitive_level || "apply",
+      trap_tags: q.trap_type ? [q.trap_type] : [],
       competency_id: lesson.competency_id || null,
       sort_order: idx,
+      mode: "lesson",
+      status: "draft",
     }));
 
     // Delete old entries first

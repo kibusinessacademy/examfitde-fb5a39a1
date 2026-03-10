@@ -102,15 +102,26 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Coverage check for lesson mode
+    // Coverage check for lesson mode — SSOT: modules → lessons (NOT .eq("course_id"))
     if (mode === "lesson" && effectiveCourseId) {
-      const { data: lessons } = await sb
-        .from("lessons")
+      const { data: modules } = await sb
+        .from("modules")
         .select("id")
-        .eq("course_id", effectiveCourseId)
-        .not("content", "is", null);
+        .eq("course_id", effectiveCourseId);
+      const moduleIds = (modules || []).map((m: any) => m.id);
 
-      const totalLessons = lessons?.length || 0;
+      let lessons: any[] = [];
+      if (moduleIds.length > 0) {
+        const { data: modLessons } = await sb
+          .from("lessons")
+          .select("id")
+          .in("module_id", moduleIds)
+          .not("content", "is", null)
+          .neq("step", "mini_check");
+        lessons = modLessons || [];
+      }
+
+      const totalLessons = lessons.length;
       if (totalLessons > 0) {
         const lessonIds = lessons!.map(l => l.id);
 

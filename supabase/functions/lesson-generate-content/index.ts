@@ -684,17 +684,30 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
     Math.round((lfWeightPct > 15 ? 4 : lfWeightPct > 10 ? 3 : 2) + (difficultyLevel === "hard" ? 1 : 0))
   ));
 
+  // Enrich MiniCheck questions with per-item metadata from LLM response
+  const enrichedQuestions = isMiniCheck && Array.isArray(content.questions)
+    ? content.questions.map((q: any) => ({
+        question: q.question || q.question_text || "",
+        options: q.options || [],
+        correct_answer: q.correct_answer ?? q.correctIndex ?? 0,
+        explanation: q.explanation || "",
+        difficulty: q.difficulty || "mittel",
+        bloom_level: q.bloom_level || "apply",
+        trap_type: q.trap_type || null,
+      }))
+    : content.questions;
+
   const finalContent = isMiniCheck
     ? {
         type: "mini_check",
-        questions: content.questions,
+        questions: enrichedQuestions,
         objectives: content.objectives,
         bloom_level: "apply",
         exam_relevance_score: examRelevanceScore,
         competency_id: (lesson as any).competency_id || null,
         learning_field_id: lfId || null,
         generated_at: new Date().toISOString(),
-        version: 5,
+        version: 6,
       }
     : {
         type: "text",
