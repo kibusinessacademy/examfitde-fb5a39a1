@@ -31,7 +31,8 @@ export default function HandbookChapterPage() {
   const { data: allChapters } = useHandbookChapters();
   const { data: progress } = useHandbookProgress();
   const { data: entitlements } = useUserEntitlements();
-  const { data: exerciseResponses } = useExerciseResponses(chapterData?.chapter.id);
+  const exerciseIds = chapterData?.exercises.map(e => e.id);
+  const { data: exerciseResponses } = useExerciseResponses(chapterData?.chapter?.id, exerciseIds);
   const { mutate: updateProgress } = useUpdateHandbookProgress();
 
   // Check if user has access (bundle or any product)
@@ -208,6 +209,7 @@ export default function HandbookChapterPage() {
                     key={exercise.id}
                     exercise={exercise}
                     index={index}
+                    chapterId={chapter.id}
                     savedResponse={exerciseResponses?.find(r => r.exercise_id === exercise.id)}
                   />
                 ))}

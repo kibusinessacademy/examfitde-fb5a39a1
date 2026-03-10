@@ -2,6 +2,20 @@
  * Handbook module types — derived from DB schema (handbook_* tables)
  * SSOT: src/integrations/supabase/types.ts
  */
+import type { Json } from '@/integrations/supabase/types';
+
+// ── Allowed enum unions (drift protection) ──
+
+export type ExerciseType = 'reflection' | 'decision' | 'analysis' | 'structure' | 'self_check';
+export type ContentType = 'text' | 'checklist' | 'tip' | 'warning' | 'example' | 'quote';
+export type ContentTier = 'basis' | 'expanded';
+export type ExpandStatus = 'pending' | 'expanding' | 'done' | 'failed_soft' | 'not_ready';
+
+export type HandbookIcon =
+  | 'building-2' | 'brain' | 'target' | 'alert-triangle'
+  | 'mic' | 'calendar-check' | 'book-open';
+
+// ── Table interfaces (explicit fields, no select('*')) ──
 
 export interface HandbookChapter {
   id: string;
@@ -19,6 +33,14 @@ export interface HandbookChapter {
   updated_at: string | null;
 }
 
+/** Fields selected in chapter list queries (lightweight) */
+export const CHAPTER_LIST_FIELDS =
+  'id, chapter_key, title, subtitle, description, icon, sort_order, estimated_reading_minutes, is_premium, is_published, curriculum_id' as const;
+
+/** Fields selected in chapter detail queries */
+export const CHAPTER_DETAIL_FIELDS =
+  'id, chapter_key, title, subtitle, description, icon, sort_order, estimated_reading_minutes, is_premium, is_published, curriculum_id, created_at, updated_at' as const;
+
 export interface HandbookSection {
   id: string;
   chapter_id: string;
@@ -28,14 +50,14 @@ export interface HandbookSection {
   content_type: string | null;
   sort_order: number;
   content_tier: string | null;
-  basis_content: string | null;
-  expanded_content: string | null;
-  expand_status: string | null;
   quality_score: number | null;
   learning_field_id: string | null;
   competency_id: string | null;
-  metadata: Record<string, unknown> | null;
 }
+
+/** Fields selected for section content display */
+export const SECTION_DISPLAY_FIELDS =
+  'id, chapter_id, section_key, title, content_markdown, content_type, sort_order, content_tier, quality_score' as const;
 
 export interface HandbookExercise {
   id: string;
@@ -50,6 +72,9 @@ export interface HandbookExercise {
   is_active: boolean | null;
 }
 
+export const EXERCISE_FIELDS =
+  'id, chapter_id, section_id, exercise_type, question_text, hint_text, explanation_text, example_answer, sort_order, is_active' as const;
+
 export interface HandbookExerciseResponse {
   id: string;
   user_id: string;
@@ -58,6 +83,9 @@ export interface HandbookExerciseResponse {
   self_rating: number | null;
   responded_at: string | null;
 }
+
+export const EXERCISE_RESPONSE_FIELDS =
+  'id, user_id, exercise_id, response_text, self_rating, responded_at' as const;
 
 export interface HandbookProgress {
   id: string;
@@ -69,6 +97,9 @@ export interface HandbookProgress {
   last_section_id: string | null;
 }
 
+export const PROGRESS_FIELDS =
+  'id, user_id, chapter_id, started_at, completed_at, reading_time_minutes, last_section_id' as const;
+
 export interface HandbookRecommendation {
   id: string;
   chapter_id: string;
@@ -76,9 +107,6 @@ export interface HandbookRecommendation {
   recommendation_text: string;
   priority: number | null;
   is_active: boolean | null;
-  trigger_condition: Record<string, unknown> | null;
+  trigger_condition: Json | null;
   chapter?: HandbookChapter;
 }
-
-export type ExerciseType = 'reflection' | 'decision' | 'analysis' | 'structure' | 'self_check';
-export type ContentType = 'text' | 'checklist' | 'tip' | 'warning' | 'example' | 'quote';

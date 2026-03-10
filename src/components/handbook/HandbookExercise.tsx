@@ -21,6 +21,7 @@ import type { HandbookExercise as ExerciseType, HandbookExerciseResponse } from 
 interface HandbookExerciseProps {
   exercise: ExerciseType;
   index: number;
+  chapterId?: string;
   savedResponse?: HandbookExerciseResponse;
 }
 
@@ -56,7 +57,7 @@ const exerciseTypeConfig: Record<string, {
   },
 };
 
-export function HandbookExercise({ exercise, index, savedResponse }: HandbookExerciseProps) {
+export function HandbookExercise({ exercise, index, chapterId, savedResponse }: HandbookExerciseProps) {
   const [response, setResponse] = useState(savedResponse?.response_text || '');
   const [showHint, setShowHint] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -69,7 +70,7 @@ export function HandbookExercise({ exercise, index, savedResponse }: HandbookExe
 
   const handleSave = () => {
     saveResponse(
-      { exerciseId: exercise.id, responseText: response },
+      { exerciseId: exercise.id, chapterId, responseText: response },
       { onSuccess: () => setIsSaved(true) },
     );
   };

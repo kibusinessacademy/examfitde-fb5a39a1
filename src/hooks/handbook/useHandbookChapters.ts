@@ -1,15 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { HandbookChapter, HandbookSection, HandbookExercise } from './types';
+import {
+  CHAPTER_LIST_FIELDS,
+  CHAPTER_DETAIL_FIELDS,
+  SECTION_DISPLAY_FIELDS,
+  EXERCISE_FIELDS,
+} from './types';
 
-/** Fetch all published chapters */
+/** Fetch all published chapters (lightweight list) */
 export function useHandbookChapters() {
   return useQuery({
     queryKey: ['handbook-chapters'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('handbook_chapters')
-        .select('*')
+        .select(CHAPTER_LIST_FIELDS)
         .eq('is_published', true)
         .order('sort_order');
 
@@ -26,25 +32,27 @@ export function useHandbookChapter(chapterKey: string | undefined) {
     queryFn: async () => {
       if (!chapterKey) return null;
 
+      // maybeSingle() → returns null instead of throwing on 0 rows
       const { data: chapter, error: chapterError } = await supabase
         .from('handbook_chapters')
-        .select('*')
+        .select(CHAPTER_DETAIL_FIELDS)
         .eq('chapter_key', chapterKey)
         .eq('is_published', true)
-        .single();
+        .maybeSingle();
 
       if (chapterError) throw chapterError;
+      if (!chapter) return null;
 
       // Parallel fetch sections + exercises
       const [sectionsRes, exercisesRes] = await Promise.all([
         supabase
           .from('handbook_sections')
-          .select('*')
+          .select(SECTION_DISPLAY_FIELDS)
           .eq('chapter_id', chapter.id)
           .order('sort_order'),
         supabase
           .from('handbook_exercises')
-          .select('*')
+          .select(EXERCISE_FIELDS)
           .eq('chapter_id', chapter.id)
           .eq('is_active', true)
           .order('sort_order'),
