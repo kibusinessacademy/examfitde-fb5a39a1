@@ -485,6 +485,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
     return { id: job.id, ok: false, error: msg };
   } finally {
     clearInterval(hbInterval);
+    heartbeatFailures.delete(job.id);
   }
 }
 
