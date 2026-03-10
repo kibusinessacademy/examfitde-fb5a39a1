@@ -166,16 +166,14 @@ Deno.serve(async (req) => {
   const forceRebuild = Boolean(p?.force_rebuild);
   const attemptIndex = typeof p?.attempt_index === "number" ? p.attempt_index : 0;
 
-  // v9: Two-tier strategy — Flash for initial generation (proven fast + reliable),
-  // Pro/GPT-5 reserved for expand pass only. Fixes timeout deadlock where all
-  // heavyweight models time out on initial generation but Flash succeeds consistently.
+  // v15: Full chain routing — GPT-5 primary, Claude Sonnet 4.5 fallback, Pro + Flash last resort.
+  // Previous Flash-only strategy caused systematic timeouts on large handbook prompts.
   const fullChain = getModelChain("handbook");
-  // Primary generation: always use the fastest reliable model (Flash or last in chain)
-  const flashCandidate = fullChain.find(c => c.model.includes("flash")) || fullChain[fullChain.length - 1];
-  const _handbookChain = [flashCandidate];
-  // Expand pass chain: heavyweight models for depth expansion (used in generateSectionContent)
-  const _expandChain = fullChain.filter(c => !c.model.includes("flash")).slice(0, 2);
-  if (_expandChain.length === 0) _expandChain.push(flashCandidate);
+  // Use the full chain for basis generation — failover handles provider issues
+  const _handbookChain = fullChain;
+  // Expand pass chain: heavyweight models only (exclude Flash for depth quality)
+  const _expandChain = fullChain.filter(c => !c.model.includes("flash"));
+  if (_expandChain.length === 0) _expandChain.push(fullChain[fullChain.length - 1]);
 
   // ⚠️ Force rebuild: explicit admin action to hard-reset handbook for this curriculum.
   // Deletes all sections + chapters, then falls through to normal idempotent generation.
