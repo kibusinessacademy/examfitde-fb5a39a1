@@ -52,8 +52,8 @@ describe("Critical Hooks - Module Integrity", () => {
     expect(mod).toBeDefined();
   });
 
-  it("useHandbook exports correctly", async () => {
-    const mod = await import("@/hooks/useHandbook");
+  it("handbook hooks export correctly", async () => {
+    const mod = await import("@/hooks/handbook");
     expect(mod).toBeDefined();
   });
 
