@@ -239,8 +239,8 @@ Antworte NUR als JSON-Objekt:
       console.log(`[SeedV4] POLICY_ROUTE: exam_blueprint → ${provider}/${model}`);
     } else {
       const chain = await getModelChainAsync("exam_questions");
-      provider = chain[0]?.provider || "lovable";
-      model = chain[0]?.model || "openai/gpt-5-mini";
+      provider = chain[0]?.provider || "openai";
+      model = chain[0]?.model || "gpt-5.2";
       console.log(`[SeedV4] POLICY_MISS: exam_blueprint (${policyRoute.reason}) → ${provider}/${model}`);
     }
 

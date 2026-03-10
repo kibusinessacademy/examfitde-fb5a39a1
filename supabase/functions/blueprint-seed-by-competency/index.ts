@@ -167,8 +167,8 @@ Regeln:
 - Realistischer IHK-Prüfungsbezug
 - NUR das JSON-Array zurückgeben, KEIN Markdown`;
 
-  let provider = "lovable";
-  let model = "google/gemini-2.5-flash";
+  let provider = "google";
+  let model = "gemini-2.5-flash";
 
   try {
     const policyRoute = await resolveAvailableRoute("exam_questions");

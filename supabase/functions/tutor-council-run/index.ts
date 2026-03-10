@@ -273,7 +273,7 @@ async function callLLM(
   opts: { model: string; system: string; user: string }
 ): Promise<Record<string, unknown>> {
   try {
-    const provider = opts.model.includes("/") ? "lovable" : opts.model.startsWith("anthropic") ? "anthropic" : "openai";
+    const provider = opts.model.startsWith("claude") || opts.model.startsWith("anthropic") ? "anthropic" : opts.model.startsWith("google") || opts.model.startsWith("gemini") ? "google" : "openai";
     const result = await callAI({
       provider,
       messages: [

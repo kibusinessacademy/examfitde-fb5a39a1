@@ -300,7 +300,7 @@ Antworte NUR als JSON:
       try {
         const result = await callAIJSON({
           model: model.model,
-          provider: model.provider as "lovable" | "openai" | "anthropic" | "google",
+          provider: model.provider as "openai" | "anthropic" | "google",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: `Generiere jetzt die ${questionsSpec.length} Prüfungsfragen.` },
