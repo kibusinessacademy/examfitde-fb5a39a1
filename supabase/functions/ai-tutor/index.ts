@@ -362,8 +362,8 @@ Deno.serve(async (req) => {
 
     // Stream from OpenAI directly
     const { raw: aiResponse, ok, status } = await callAI({
-      provider: "lovable",
-      model: "openai/gpt-5.2",
+      provider: "openai",
+      model: "gpt-5.2",
       messages: aiMessages,
       stream: true,
     });
