@@ -130,6 +130,9 @@ function workloadKeyForJob(jobType: string): string {
 // Job Liveness Guard helpers
 // ═══════════════════════════════════════════════════════════════
 
+// Track consecutive heartbeat failures per job to detect RPC instability
+const heartbeatFailures = new Map<string, number>();
+
 async function heartbeatJob(
   sb: any,
   jobId: string,
@@ -143,10 +146,32 @@ async function heartbeatJob(
       p_worker_id: WORKER_ID,
       p_provider: provider ?? null,
       p_model: model ?? null,
-      p_meta: extra,
+      p_meta: {
+        ...extra,
+        consecutive_heartbeat_failures: heartbeatFailures.get(jobId) ?? 0,
+      },
     });
+    // Reset on success
+    heartbeatFailures.delete(jobId);
   } catch (e) {
-    console.warn(`[content-runner] heartbeat failed for ${String(jobId).slice(0, 8)}: ${(e as Error).message}`);
+    const prev = heartbeatFailures.get(jobId) ?? 0;
+    const next = prev + 1;
+    heartbeatFailures.set(jobId, next);
+    console.warn(`[content-runner] heartbeat failed for ${String(jobId).slice(0, 8)} (consecutive: ${next}): ${(e as Error).message}`);
+    // After 3 consecutive failures, write a fallback updated_at so the job
+    // doesn't get killed by stuck-scan while the RPC endpoint recovers
+    if (next >= 3) {
+      try {
+        await sb.from("job_queue").update({
+          updated_at: new Date().toISOString(),
+          meta: {
+            ...(extra || {}),
+            heartbeat_rpc_failures: next,
+            heartbeat_fallback_at: new Date().toISOString(),
+          },
+        }).eq("id", jobId).eq("status", "processing");
+      } catch { /* last resort fallback */ }
+    }
   }
 }
 
