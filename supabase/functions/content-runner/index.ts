@@ -179,6 +179,28 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
   const shortId = String(job.id).slice(0, 8);
   const startMs = Date.now();
 
+  // Resolve provider route for heartbeat tracking
+  let jobProvider: string | null = null;
+  let jobModel: string | null = null;
+  try {
+    const route = await resolveAvailableRoute(workloadKeyForJob(job.job_type));
+    jobProvider = route?.provider ?? job.meta?.last_provider ?? null;
+    jobModel = route?.model ?? job.meta?.last_model ?? null;
+  } catch { /* fallback to null */ }
+
+  // Initial heartbeat
+  await heartbeatJob(sb, job.id, jobProvider, jobModel, {
+    liveness_status: "healthy",
+    processing_started_by: WORKER_ID,
+  });
+
+  // Periodic heartbeat ticker (every 20s)
+  const hbInterval = setInterval(() => {
+    heartbeatJob(sb, job.id, jobProvider, jobModel, {
+      processing_tick_at: new Date().toISOString(),
+    });
+  }, 20_000);
+
   try {
     const { ok, result, error: dispatchError, terminal } = await dispatchJob(job, supabaseUrl, serviceKey);
 
