@@ -43,6 +43,16 @@ jobs:
           fi
           echo "✅ No esm.sh imports for critical packages"
 
+      - name: Deno.land/std Guard — block legacy serve imports
+        run: |
+          HITS=$(grep -rn 'deno\.land/std.*http/server\.ts' supabase/functions/ --include='*.ts' || true)
+          if [ -n "$HITS" ]; then
+            echo "❌ DENO.LAND/STD VIOLATION: Use built-in Deno.serve() instead:"
+            echo "$HITS"
+            exit 1
+          fi
+          echo "✅ No deno.land/std server imports"
+
       - name: SSOT Guard — block direct package_steps done writes
         run: |
           # Only _shared/steps.ts may write status='done' to package_steps
