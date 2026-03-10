@@ -4,27 +4,31 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { 
-  Lightbulb, 
-  PenLine, 
-  Brain, 
-  Target, 
+import {
+  Lightbulb,
+  PenLine,
+  Brain,
+  Target,
   CheckCircle,
   ChevronDown,
   Sparkles,
-  MessageSquare
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSaveExerciseResponse } from '@/hooks/useHandbook';
-import type { HandbookExercise as ExerciseType } from '@/hooks/useHandbook';
+import { useSaveExerciseResponse } from '@/hooks/handbook';
+import type { HandbookExercise as ExerciseType, HandbookExerciseResponse } from '@/hooks/handbook';
 
 interface HandbookExerciseProps {
   exercise: ExerciseType;
   index: number;
-  savedResponse?: { response_text?: string; self_rating?: number };
+  savedResponse?: HandbookExerciseResponse;
 }
 
-const exerciseTypeConfig = {
+const exerciseTypeConfig: Record<string, {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  color: string;
+}> = {
   reflection: {
     icon: Brain,
     label: 'Reflexionsfrage',
@@ -57,29 +61,27 @@ export function HandbookExercise({ exercise, index, savedResponse }: HandbookExe
   const [showHint, setShowHint] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [isSaved, setIsSaved] = useState(!!savedResponse);
-  
+
   const { mutate: saveResponse, isPending } = useSaveExerciseResponse();
 
-  const config = exerciseTypeConfig[exercise.exercise_type];
+  const config = exerciseTypeConfig[exercise.exercise_type] ?? exerciseTypeConfig.reflection;
   const IconComponent = config.icon;
 
   const handleSave = () => {
-    saveResponse({
-      exerciseId: exercise.id,
-      responseText: response,
-    }, {
-      onSuccess: () => setIsSaved(true),
-    });
+    saveResponse(
+      { exerciseId: exercise.id, responseText: response },
+      { onSuccess: () => setIsSaved(true) },
+    );
   };
 
   return (
     <Card className={cn(
-      "border-l-4 transition-all",
-      isSaved ? "border-l-green-500 bg-green-50/30 dark:bg-green-950/10" : "border-l-primary"
+      'border-l-4 transition-all',
+      isSaved ? 'border-l-green-500 bg-green-50/30 dark:bg-green-950/10' : 'border-l-primary',
     )}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <Badge variant="outline" className={cn("gap-1", config.color)}>
+          <Badge variant="outline" className={cn('gap-1', config.color)}>
             <IconComponent className="h-3 w-3" />
             {config.label}
           </Badge>
@@ -90,7 +92,7 @@ export function HandbookExercise({ exercise, index, savedResponse }: HandbookExe
         </CardTitle>
         {exercise.hint_text && (
           <CardDescription className="text-sm">
-            <button 
+            <button
               onClick={() => setShowHint(!showHint)}
               className="text-primary hover:underline flex items-center gap-1"
             >
@@ -127,7 +129,7 @@ export function HandbookExercise({ exercise, index, savedResponse }: HandbookExe
             onClick={handleSave}
             disabled={isPending || !response.trim()}
             size="sm"
-            variant={isSaved ? "outline" : "default"}
+            variant={isSaved ? 'outline' : 'default'}
           >
             {isSaved ? (
               <>
@@ -146,8 +148,8 @@ export function HandbookExercise({ exercise, index, savedResponse }: HandbookExe
                   <Sparkles className="h-4 w-4" />
                   Erklärung & Beispiel
                   <ChevronDown className={cn(
-                    "h-4 w-4 transition-transform",
-                    showExplanation && "rotate-180"
+                    'h-4 w-4 transition-transform',
+                    showExplanation && 'rotate-180',
                   )} />
                 </Button>
               </CollapsibleTrigger>

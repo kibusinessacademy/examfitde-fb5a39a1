@@ -17,8 +17,8 @@ import {
   useHandbookChapters,
   useHandbookProgress,
   useUpdateHandbookProgress,
-  useExerciseResponses
-} from '@/hooks/useHandbook';
+  useExerciseResponses,
+} from '@/hooks/handbook';
 import { useUserEntitlements } from '@/hooks/useShop';
 import { HandbookSectionContent } from '@/components/handbook/HandbookSectionContent';
 import { HandbookExercise } from '@/components/handbook/HandbookExercise';
