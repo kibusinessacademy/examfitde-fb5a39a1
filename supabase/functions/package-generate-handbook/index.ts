@@ -37,16 +37,15 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done" || d2?.status === "skipped";
 }
 
-// ── Handbook Constants ───────────────────────────────────────
-const MIN_WORD_TARGET = 800;
-const MAX_WORD_TARGET = 2500;
+// ── Handbook Constants (Elite v8) ─────────────────────────────
+const MIN_WORD_TARGET = 1200;     // v8: raised from 800 — Elite minimum
+const MAX_WORD_TARGET = 3500;     // v8: raised from 2500 — Elite allows deep sections
 const TARGET_CHAPTERS = 8;
-// v7: BATCH_SIZE=1 — with 42s wall-clock and 25s LLM timeout, only 1 section
-// can realistically complete per invocation. Previous BATCH_SIZE=6 caused
-// sections 2-6 to hit soft-stop and produce empty content → 100% rejection.
+// v8: BATCH_SIZE=1 remains — with Pro model and expanded budget, 1 section
+// per invocation ensures maximum quality and no timeout cascades.
 const BATCH_SIZE = 1;
-const MIN_SECTION_CHARS = 500;
-const IDEAL_SECTION_CHARS = 2000;  // v7: was UNDEFINED — expansion pass never fired
+const MIN_SECTION_CHARS = 1800;   // v8: raised from 500 — Elite quality floor
+const IDEAL_SECTION_CHARS = 6000; // v8: raised from 2000 — triggers expand pass for real depth
 
 // ── Section Generator ────────────────────────────────────────
 
@@ -72,24 +71,23 @@ async function generateSectionContent(
   // chain is passed as parameter now (v6: single-provider per invocation)
   const prompt = buildElitePrompt(professionName, fieldCode, fieldTitle, fieldDescription, subtopics, competencies, sampleQuestions, wordTarget);
   
-  // v7: raised to 8192 — with Pro model and BATCH_SIZE=1, we can afford longer output
-  // ai-client uses 90s fetchTimeout for max_tokens>4096, which is fine with our 50s budget
-  const maxTokens = Math.min(8192, Math.max(4096, Math.round(wordTarget * 4)));
+  // v8: raised to 12288 — Elite Pro model with expanded budget can produce long-form output
+  const maxTokens = Math.min(12288, Math.max(6144, Math.round(wordTarget * 5)));
 
   try {
     const budget = getTimeBudget("handbook");
     const remainingSoftMs = budget.softStopMs - (Date.now() - startMs);
-    if (remainingSoftMs <= 12_000) {  // v7: raised from 9.5s to 12s — give persist buffer
+    if (remainingSoftMs <= 15_000) {  // v8: raised from 12s — give persist buffer for larger content
       return { content: "", provider: "soft-stop", model: "none" };
     }
 
-    const llmTimeoutMs = Math.max(15_000, Math.min(38_000, remainingSoftMs - 3_000)); // v7: cap raised from 25s to 38s
+    const llmTimeoutMs = Math.max(20_000, Math.min(70_000, remainingSoftMs - 5_000)); // v8: cap raised from 38s to 70s — Elite needs time
     const llmAbort = new AbortController();
     const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs);
     
     const result = await callAIWithFailover(chain, {
       messages: [
-        { role: "system", content: `Du bist ein IHK-Prüfungscoach mit 20 Jahren Erfahrung als Prüfer und Dozent für "${professionName}". Du schreibst das umfassendste und tiefgehendste Prüfungsvorbereitungs-Handbuch, das je für diesen Beruf erstellt wurde. Jeder Abschnitt muss so detailliert sein, dass ein Prüfling NUR mit diesem Handbuch die Prüfung bestehen könnte. Schreibe IMMER lang und ausführlich — niemals stichwortartig. Mindestens ${wordTarget} Wörter pro Abschnitt.` },
+        { role: "system", content: `Du bist ein IHK-Prüfungscoach mit 20 Jahren Erfahrung als Prüfer und Dozent für "${professionName}". Du schreibst das umfassendste und tiefgehendste Prüfungsvorbereitungs-Handbuch, das je für diesen Beruf erstellt wurde. Jeder Abschnitt muss so detailliert sein, dass ein Prüfling NUR mit diesem Handbuch die Prüfung bestehen könnte. Schreibe IMMER lang und ausführlich — niemals stichwortartig. Mindestens ${wordTarget} Wörter pro Abschnitt. Du MUSST jeden der folgenden Pflichtbausteine abdecken: Fachliche Grundlagen, Formeln/Berechnungen, Prüfungsstrategische Analyse, mindestens 5 Prüfungsfallen, Merkschemata, mindestens 2 Musteraufgaben mit Lösung, Transfer & Vertiefung, Zusammenfassung.` },
         { role: "user", content: prompt },
       ],
       max_tokens: maxTokens, // v6: already capped at 4096
@@ -118,15 +116,15 @@ async function generateSectionContent(
     }
 
     // ── Depth Expansion Pass: if content below ideal, request expansion ──
-    // v7: with BATCH_SIZE=1 and 50s budget, expansion is viable if >15s remain
+    // v8: with expanded budget (95s soft-stop), expansion is viable if >20s remain
     const expandBudget = getTimeBudget("handbook");
     const expandRemainingMs = expandBudget.softStopMs - (Date.now() - startMs);
-    if (content.length > 500 && content.length < IDEAL_SECTION_CHARS && expandRemainingMs > 15_000) {
+    if (content.length > MIN_SECTION_CHARS && content.length < IDEAL_SECTION_CHARS && expandRemainingMs > 20_000) {
       console.log(`[generate-handbook] Section ${fieldCode} below ideal (${content.length}/${IDEAL_SECTION_CHARS} chars). Expanding... (${Math.round(expandRemainingMs/1000)}s remaining)`);
       try {
         const remainingMs = expandRemainingMs;
         const expandAbort = new AbortController();
-        const expandTimeoutMs = Math.max(12_000, Math.min(35_000, remainingMs - 3_000));  // v7: raised caps
+        const expandTimeoutMs = Math.max(15_000, Math.min(60_000, remainingMs - 5_000));  // v8: raised caps for Elite expansion
         const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
         
         const expandResult = await callAIWithFailover(chain, {
@@ -148,7 +146,7 @@ ERWEITERE den Text auf mindestens ${MIN_WORD_TARGET} Wörter. Füge hinzu:
 
 BESTEHENDER TEXT:\n\n${content}` },
           ],
-          max_tokens: Math.min(8192, maxTokens), // v7: match primary call limit
+          max_tokens: Math.min(12288, maxTokens), // v8: match primary call limit
           signal: expandAbort.signal,
         }).finally(() => clearTimeout(expandTimer));
 

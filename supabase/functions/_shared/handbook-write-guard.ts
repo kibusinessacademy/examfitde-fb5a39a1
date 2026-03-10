@@ -9,10 +9,19 @@
 
 type SB = any;
 
-// ── Guard thresholds ──
-const MIN_SECTION_CONTENT_CHARS = 500;   // Generator guard: absolute minimum
-const MIN_SECTION_PROSE_CHARS = 300;     // Prose only (excl. headings)
+// ── Guard thresholds (Elite v8) ──
+const MIN_SECTION_CONTENT_CHARS = 1800;  // v8: raised from 500 — Elite quality floor
+const MIN_SECTION_PROSE_CHARS = 1200;    // v8: raised from 300 — prose only (excl. headings)
 const COVERAGE_MIN_RATIO = 1.0;          // 100% of chapters must have content (hardened v8)
+
+// ── Structural quality markers (Elite v8) ──
+// Sections must contain at least some of these didactic building blocks
+const STRUCTURAL_MARKERS = [
+  { pattern: /prüfungsfalle|prüfungsfallen|typische fehler|häufige fehler/i, label: "Prüfungsfallen" },
+  { pattern: /beispiel|berechnungsbeispiel|praxisbeispiel|fallbeispiel/i, label: "Beispiele" },
+  { pattern: /musteraufgabe|musterlösung|lösungsweg|aufgabe.*lösung/i, label: "Musteraufgaben" },
+  { pattern: /merke|merkregel|eselsbrücke|checkliste|zusammenfassung/i, label: "Merkschemata" },
+];
 
 // ── Placeholder patterns (shared with validate-handbook) ──
 const PLACEHOLDER_PATTERNS = [
@@ -98,6 +107,17 @@ export function validateGeneratedSection(section: {
     if (md.includes(pattern)) {
       return { ok: false, reason: `placeholder detected: "${pattern}"` };
     }
+  }
+
+  // ── Elite v8: Structural quality check ──
+  // At least 2 of 4 didactic building blocks must be present
+  const markerHits = STRUCTURAL_MARKERS.filter(m => m.pattern.test(md));
+  if (markerHits.length < 2) {
+    const missing = STRUCTURAL_MARKERS.filter(m => !m.pattern.test(md)).map(m => m.label);
+    return {
+      ok: false,
+      reason: `structural quality: only ${markerHits.length}/4 didactic markers (missing: ${missing.join(", ")})`,
+    };
   }
 
   return { ok: true };

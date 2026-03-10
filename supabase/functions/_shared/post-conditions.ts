@@ -116,10 +116,10 @@ export async function assertStepPostConditions(sb: SB, args: {
 
     const totalSections = sections?.length ?? 0;
     const realSections = (sections ?? []).filter(
-      (s: any) => typeof s.content_markdown === "string" && s.content_markdown.length > 500
+      (s: any) => typeof s.content_markdown === "string" && s.content_markdown.length > 1800  // v8: raised from 500 to match Elite write-guard
     ).length;
 
-    if (totalSections === 0 || realSections < Math.max(1, Math.floor(totalSections * 0.9))) {
+    if (totalSections === 0 || realSections < totalSections) {  // v8: 100% sections must be real (was 90%)
       const e: any = new Error("HOLLOW_HANDBOOK: post-condition failed");
       e.__meta = {
         verdict: "HOLLOW_HANDBOOK",
