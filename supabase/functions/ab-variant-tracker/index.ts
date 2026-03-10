@@ -18,7 +18,7 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 const MIN_ATTEMPTS_FOR_EVALUATION = 30;
 const WIN_MARGIN = 0.10; // 10% difference to declare winner
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 
