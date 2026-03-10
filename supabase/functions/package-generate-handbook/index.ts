@@ -37,13 +37,13 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done" || d2?.status === "skipped";
 }
 
-// ── Handbook Constants (v10 — Basis-Only) ─────────────────────
-const MIN_WORD_TARGET = 1200;
-const MAX_WORD_TARGET = 3500;
+// ── Handbook Constants (v15 — Lean Basis Pass) ────────────────
+const MIN_WORD_TARGET = 600;      // v15: halved — depth comes in expand pass
+const MAX_WORD_TARGET = 1500;     // v15: halved — basis = solid structure, not elite depth
 const TARGET_CHAPTERS = 8;
 // v10: BATCH_SIZE=1 — one section per invocation for reliability
 const BATCH_SIZE = 1;
-const MIN_SECTION_CHARS = 1800;   // Basis quality floor
+const MIN_SECTION_CHARS = 800;    // v15: lowered from 1800 — lean basis floor
 
 // ── Section Generator ────────────────────────────────────────
 
