@@ -518,6 +518,25 @@ Deno.serve(async (req) => {
 
   console.log(`[generate-handbook] Batch: ${writtenCount} sections written (${llmFailCount} rejected), Total: ${totalPopulated}/${fields.length} (${progress}%)${isComplete ? ' — COMPLETE' : ''}`);
 
+  // ── P1: Prevent completed-without-writes ──
+  // If we attempted generation but wrote nothing, signal blocked_by_guard / provider_empty
+  if (writtenCount === 0 && batchFields.length > 0) {
+    const failReason = llmFailCount > 0 ? "blocked_by_guard" : "provider_empty";
+    console.warn(`[generate-handbook] ZERO_WRITE_BATCH: ${batchFields.length} attempted, 0 written. Reason: ${failReason}`);
+    return json({
+      ok: false,
+      retry: true,
+      batch_complete: false,
+      zero_write: true,
+      fail_reason: failReason,
+      progress,
+      sections_attempted: batchFields.length,
+      sections_rejected: llmFailCount,
+      remaining: remainingAfterBatch,
+      message: `Zero-write batch: ${failReason}. ${llmFailCount} rejected, ${remainingAfterBatch} remaining.`,
+    });
+  }
+
   if (!isComplete) {
     return json({
       ok: true,
