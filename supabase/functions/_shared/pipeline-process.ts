@@ -911,7 +911,7 @@ async function handlePoll(
 
   const { data: job } = await sb
     .from("job_queue")
-    .select("status,result,error,last_error,batch_cursor,updated_at,locked_at")
+    .select("status,result,error,last_error,batch_cursor,updated_at,locked_at,last_heartbeat_at")
     .eq("id", jobId)
     .single();
 
