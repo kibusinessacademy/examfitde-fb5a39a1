@@ -459,6 +459,8 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       run_after: new Date(Date.now() + 30_000).toISOString(),
     }).eq("id", job.id);
     return { id: job.id, ok: false, error: msg };
+  } finally {
+    clearInterval(hbInterval);
   }
 }
 
