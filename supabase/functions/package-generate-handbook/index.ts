@@ -116,15 +116,15 @@ async function generateSectionContent(
     }
 
     // ── Depth Expansion Pass: if content below ideal, request expansion ──
-    // v7: with BATCH_SIZE=1 and 50s budget, expansion is viable if >15s remain
+    // v8: with expanded budget (95s soft-stop), expansion is viable if >20s remain
     const expandBudget = getTimeBudget("handbook");
     const expandRemainingMs = expandBudget.softStopMs - (Date.now() - startMs);
-    if (content.length > 500 && content.length < IDEAL_SECTION_CHARS && expandRemainingMs > 15_000) {
+    if (content.length > MIN_SECTION_CHARS && content.length < IDEAL_SECTION_CHARS && expandRemainingMs > 20_000) {
       console.log(`[generate-handbook] Section ${fieldCode} below ideal (${content.length}/${IDEAL_SECTION_CHARS} chars). Expanding... (${Math.round(expandRemainingMs/1000)}s remaining)`);
       try {
         const remainingMs = expandRemainingMs;
         const expandAbort = new AbortController();
-        const expandTimeoutMs = Math.max(12_000, Math.min(35_000, remainingMs - 3_000));  // v7: raised caps
+        const expandTimeoutMs = Math.max(15_000, Math.min(60_000, remainingMs - 5_000));  // v8: raised caps for Elite expansion
         const expandTimer = setTimeout(() => expandAbort.abort(), expandTimeoutMs);
         
         const expandResult = await callAIWithFailover(chain, {
