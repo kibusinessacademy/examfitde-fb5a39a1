@@ -325,7 +325,7 @@ Deno.serve(async (req) => {
     const result = validateGeneratedSection({
       title: sec.title ?? (sec as any).section_key ?? "",
       content_markdown: sec.content_markdown as string,
-    });
+    }, { phase: "basis" });
 
     if (result.ok && sec.learning_field_id) {
       populatedLfIds.add(sec.learning_field_id);
@@ -474,14 +474,14 @@ Deno.serve(async (req) => {
       },
     };
 
-    // ── PRE-WRITE VALIDATION ──
+    // ── PRE-WRITE VALIDATION (basis phase — relaxed structural markers) ──
     const validation = validateGeneratedSection({
       title: candidateRow.title as string,
       content_markdown: candidateRow.content_markdown as string,
-    });
+    }, { phase: "basis" });
 
     if (!validation.ok) {
-      console.warn(`[generate-handbook] WRITE_GUARD: Section ${lf.code} rejected: ${validation.reason}`);
+      console.warn(`[generate-handbook] REJECT_FORENSIC: section_key=${candidateRow.section_key} chapter_id=${chapter.id} raw_chars=${generated.content.length} guard=validateGeneratedSection reason="${validation.reason}" provider=${generated.provider} model=${generated.model}`);
       llmSuccessCount--;
       llmFailCount++;
       continue;
@@ -517,6 +517,25 @@ Deno.serve(async (req) => {
   const progress = Math.round((totalPopulated / fields.length) * 100);
 
   console.log(`[generate-handbook] Batch: ${writtenCount} sections written (${llmFailCount} rejected), Total: ${totalPopulated}/${fields.length} (${progress}%)${isComplete ? ' — COMPLETE' : ''}`);
+
+  // ── P1: Prevent completed-without-writes ──
+  // If we attempted generation but wrote nothing, signal blocked_by_guard / provider_empty
+  if (writtenCount === 0 && batchFields.length > 0) {
+    const failReason = llmFailCount > 0 ? "blocked_by_guard" : "provider_empty";
+    console.warn(`[generate-handbook] ZERO_WRITE_BATCH: ${batchFields.length} attempted, 0 written. Reason: ${failReason}`);
+    return json({
+      ok: false,
+      retry: true,
+      batch_complete: false,
+      zero_write: true,
+      fail_reason: failReason,
+      progress,
+      sections_attempted: batchFields.length,
+      sections_rejected: llmFailCount,
+      remaining: remainingAfterBatch,
+      message: `Zero-write batch: ${failReason}. ${llmFailCount} rejected, ${remainingAfterBatch} remaining.`,
+    });
+  }
 
   if (!isComplete) {
     return json({
