@@ -37,15 +37,13 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
   return d2?.status === "done" || d2?.status === "skipped";
 }
 
-// ── Handbook Constants (Elite v8) ─────────────────────────────
-const MIN_WORD_TARGET = 1200;     // v8: raised from 800 — Elite minimum
-const MAX_WORD_TARGET = 3500;     // v8: raised from 2500 — Elite allows deep sections
+// ── Handbook Constants (v10 — Basis-Only) ─────────────────────
+const MIN_WORD_TARGET = 1200;
+const MAX_WORD_TARGET = 3500;
 const TARGET_CHAPTERS = 8;
-// v8: BATCH_SIZE=1 remains — with Pro model and expanded budget, 1 section
-// per invocation ensures maximum quality and no timeout cascades.
+// v10: BATCH_SIZE=1 — one section per invocation for reliability
 const BATCH_SIZE = 1;
-const MIN_SECTION_CHARS = 1800;   // v8: raised from 500 — Elite quality floor
-const IDEAL_SECTION_CHARS = 6000; // v8: raised from 2000 — triggers expand pass for real depth
+const MIN_SECTION_CHARS = 1800;   // Basis quality floor
 
 // ── Section Generator ────────────────────────────────────────
 
