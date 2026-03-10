@@ -107,6 +107,25 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
   }
 }
 
+// ── Intent-aware workload key mapping (used by health gate + cooldown) ──
+const WORKLOAD_KEY_MAP: Record<string, string> = {
+  package_generate_learning_content: "learning_content",
+  lesson_generate_content: "learning_content",
+  package_generate_handbook: "handbook",
+  package_generate_exam_pool: "exam_pool",
+  package_generate_oral_exam: "oral_exam",
+  package_generate_lesson_minichecks: "minichecks",
+  package_generate_glossary: "glossary",
+  lesson_generate_competency_bundle: "competency_bundle",
+  mass_enrich_competencies_v2: "enrichment",
+  pool_fill_lf_gaps: "enrichment",
+  pool_fill_bloom_gaps: "enrichment",
+};
+
+function workloadKeyForJob(jobType: string): string {
+  return WORKLOAD_KEY_MAP[jobType] ?? "learning_content";
+}
+
 // ═══════════════════════════════════════════════════════════════
 // processOneJob — identical to previous version
 // ═══════════════════════════════════════════════════════════════
@@ -225,7 +244,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         let jobProvider = "unknown";
         let jobModel = "unknown";
         try {
-          const chainForCooldown = await getModelChainAsync("learning_content");
+          const chainForCooldown = await getModelChainAsync(workloadKeyForJob(job.job_type));
           const provIdx = attemptIdx % Math.max(1, chainForCooldown.length);
           jobProvider = chainForCooldown[provIdx]?.provider || "unknown";
           jobModel = chainForCooldown[provIdx]?.model || "unknown";
@@ -426,34 +445,63 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
     } catch { /* best-effort */ }
   }
 
-  // ── Provider Health Gate (soft: warn but proceed if all on cooldown) ──
-  const resolvedRoute = await resolveAvailableRoute("learning_content");
+  // ── Intent-aware Provider Health Gate ──
+  // Uses top-level WORKLOAD_KEY_MAP for provider routing
 
-  if (!resolvedRoute?.ok) {
-    // SOFT GATE: short defer (10s) instead of hard block (30s)
-    // Individual jobs will rotate providers and handle failures naturally.
-    // Only defer briefly to give cooldowns a chance to expire.
-    const deferMs = 10_000;
-    console.warn(
-      `[content-runner] HEALTH_GATE: no healthy route — soft-deferring ${jobs.length} job(s) by ${deferMs / 1000}s (reason: ${resolvedRoute?.reason ?? "unknown"})`,
-    );
-    const deferAt = new Date(Date.now() + deferMs).toISOString();
-    for (const job of jobs) {
-      await sb.from("job_queue").update({
-        status: "pending",
-        run_after: deferAt,
-        locked_at: null,
-        locked_by: null,
-        updated_at: new Date().toISOString(),
-        last_error: `HEALTH_GATE: all candidates on cooldown, deferred ${deferMs / 1000}s by ${WORKER_ID}`,
-      }).eq("id", job.id).eq("status", "processing");
-    }
-    return { claimed: jobs.length, succeeded: 0, failed: 0, deferred: jobs.length };
+  // Group jobs by workload key for per-intent health checking
+  const jobsByWorkload = new Map<string, typeof jobs>();
+  for (const job of jobs) {
+    const wk = workloadKeyForJob(job.job_type);
+    if (!jobsByWorkload.has(wk)) jobsByWorkload.set(wk, []);
+    jobsByWorkload.get(wk)!.push(job);
   }
 
-  console.log(
-    `[content-runner] ROUTE: using ${resolvedRoute.provider}/${resolvedRoute.model} for learning_content`,
-  );
+  // Check health per workload; defer only unhealthy intents
+  const healthyJobs: typeof jobs = [];
+  let totalDeferred = 0;
+
+  for (const [workloadKey, wkJobs] of jobsByWorkload) {
+    const route = await resolveAvailableRoute(workloadKey);
+    if (!route?.ok) {
+      // Fallback: try generic "learning_content" route before deferring
+      const fallbackRoute = workloadKey !== "learning_content"
+        ? await resolveAvailableRoute("learning_content")
+        : null;
+
+      if (fallbackRoute?.ok) {
+        console.log(`[content-runner] ROUTE_FALLBACK: ${workloadKey} unhealthy, using learning_content route for ${wkJobs.length} job(s)`);
+        healthyJobs.push(...wkJobs);
+        continue;
+      }
+
+      const deferMs = 10_000;
+      console.warn(
+        `[content-runner] HEALTH_GATE: no healthy route for ${workloadKey} — deferring ${wkJobs.length} job(s) by ${deferMs / 1000}s`,
+      );
+      const deferAt = new Date(Date.now() + deferMs).toISOString();
+      for (const job of wkJobs) {
+        await sb.from("job_queue").update({
+          status: "pending",
+          run_after: deferAt,
+          locked_at: null,
+          locked_by: null,
+          updated_at: new Date().toISOString(),
+          last_error: `HEALTH_GATE: ${workloadKey} on cooldown, deferred ${deferMs / 1000}s by ${WORKER_ID}`,
+        }).eq("id", job.id).eq("status", "processing");
+      }
+      totalDeferred += wkJobs.length;
+    } else {
+      console.log(`[content-runner] ROUTE: ${workloadKey} → ${route.provider}/${route.model} for ${wkJobs.length} job(s)`);
+      healthyJobs.push(...wkJobs);
+    }
+  }
+
+  // Replace jobs with only healthy ones
+  jobs = healthyJobs;
+
+  if (jobs.length === 0) {
+    return { claimed: totalDeferred, succeeded: 0, failed: 0, deferred: totalDeferred };
+  }
 
   // ── Process jobs in parallel ──
   // deno-lint-ignore no-explicit-any
