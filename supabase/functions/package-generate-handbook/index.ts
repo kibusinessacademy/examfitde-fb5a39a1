@@ -70,28 +70,30 @@ async function generateSectionContent(
   // chain is passed as parameter now (v6: single-provider per invocation)
   const prompt = buildElitePrompt(professionName, fieldCode, fieldTitle, fieldDescription, subtopics, competencies, sampleQuestions, wordTarget);
   
-  // v15: reduced from 12288 — basis pass needs less output, expand adds depth
-  const maxTokens = Math.min(6144, Math.max(3072, Math.round(wordTarget * 4)));
+  // v16: reduced max_tokens for lean basis — 2048-4096 range
+  const maxTokens = Math.min(4096, Math.max(2048, Math.round(wordTarget * 3)));
 
   try {
     const budget = getTimeBudget("handbook");
     const remainingSoftMs = budget.softStopMs - (Date.now() - startMs);
-    if (remainingSoftMs <= 15_000) {  // v8: raised from 12s — give persist buffer for larger content
+    if (remainingSoftMs <= 10_000) {
       return { content: "", provider: "soft-stop", model: "none" };
     }
 
-    const llmTimeoutMs = Math.max(20_000, Math.min(55_000, remainingSoftMs - 5_000)); // v15: cap 55s — lean prompt finishes faster
-    const llmAbort = new AbortController();
-    const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs);
+    // v16: Per-provider timeout — each provider gets ~12s so fallbacks actually work
+    // within the 55s edge function wall-clock limit
+    const perProviderMs = Math.max(8_000, Math.min(15_000, Math.floor((remainingSoftMs - 5_000) / Math.max(chain.length, 1))));
+    
+    const systemMsg = `IHK-Prüfungscoach, ${professionName}. Handbuch-Abschnitt, ${wordTarget} Wörter. Pflicht: Grundlagen, Formeln, Prüfungsfallen, Merkschemata. Markdown, keine Meta-Kommentare.`;
     
     const result = await callAIWithFailover(chain, {
       messages: [
-        { role: "system", content: `Du bist ein IHK-Prüfungscoach für "${professionName}". Schreibe einen soliden, strukturierten Handbuch-Abschnitt. Ziel: ${wordTarget} Wörter. Pflichtbausteine: Fachliche Grundlagen, Formeln/Berechnungen (falls relevant), Prüfungsfallen, Merkschemata. Schreibe in Markdown. Keine Meta-Kommentare.` },
+        { role: "system", content: systemMsg },
         { role: "user", content: prompt },
       ],
       max_tokens: maxTokens,
-      signal: llmAbort.signal,
-    }).finally(() => clearTimeout(llmTimer));
+      timeout_ms: perProviderMs,
+    });
 
     try {
       await logLLMCostEvent(sb, {

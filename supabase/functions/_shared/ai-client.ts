@@ -395,7 +395,7 @@ export {
  */
 export async function callAIWithFailover(
   chain: Array<{ provider: AIProvider; model: string }>,
-  opts: Omit<AIRequestOptions, "provider" | "model">,
+  opts: Omit<AIRequestOptions, "provider" | "model"> & { timeout_ms?: number },
 ): Promise<{
   content: string;
   toolCalls?: Array<{ function: { name: string; arguments: string } }>;
@@ -431,10 +431,21 @@ export async function callAIWithFailover(
     }
 
     try {
-      const result = await callAIJSON({
+      // v16: Per-provider timeout support — each provider gets its own AbortController
+      let perProviderAbort: AbortController | undefined;
+      let perProviderTimer: number | undefined;
+      const callOpts: AIRequestOptions = {
         ...opts,
         provider: candidate.provider,
         model: candidate.model,
+      };
+      if (opts.timeout_ms && !opts.signal) {
+        perProviderAbort = new AbortController();
+        perProviderTimer = setTimeout(() => perProviderAbort!.abort(), opts.timeout_ms) as unknown as number;
+        callOpts.signal = perProviderAbort.signal;
+      }
+      const result = await callAIJSON(callOpts).finally(() => {
+        if (perProviderTimer) clearTimeout(perProviderTimer);
       });
 
       // v5.4: Detect empty AI responses (HTTP 200 but no usable content)
