@@ -32,7 +32,7 @@ const DEFAULTS: Record<BudgetKey, TimeBudget> = {
   exam_pool_fanout:   { ms: 45_000, softStopMs: 35_000 },
   learning_content:   { ms: 40_000, softStopMs: 25_000 },  // v10: tightened — init ~3s + LLM ~25s + persist ~5s = ~33s, hard cap 40s
   lesson_single:      { ms: 40_000, softStopMs: 25_000 },  // v10: tightened — prevents wasted wall-time on slow providers
-  handbook:           { ms: 50_000, softStopMs: 38_000 },  // v7: raised from 42/30 — BATCH_SIZE=1 needs full 38s for LLM + 12s for persist/init
+  handbook:           { ms: 120_000, softStopMs: 95_000 }, // v8: Elite — Pro model needs full budget for 1200-3500 word sections + expand pass
   glossary:           { ms: 45_000, softStopMs: 35_000 },
   oral_exam:          { ms: 45_000, softStopMs: 35_000 },
   lesson_minichecks:  { ms: 45_000, softStopMs: 35_000 },

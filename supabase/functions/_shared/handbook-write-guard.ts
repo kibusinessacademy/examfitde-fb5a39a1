@@ -109,6 +109,17 @@ export function validateGeneratedSection(section: {
     }
   }
 
+  // ── Elite v8: Structural quality check ──
+  // At least 2 of 4 didactic building blocks must be present
+  const markerHits = STRUCTURAL_MARKERS.filter(m => m.pattern.test(md));
+  if (markerHits.length < 2) {
+    const missing = STRUCTURAL_MARKERS.filter(m => !m.pattern.test(md)).map(m => m.label);
+    return {
+      ok: false,
+      reason: `structural quality: only ${markerHits.length}/4 didactic markers (missing: ${missing.join(", ")})`,
+    };
+  }
+
   return { ok: true };
 }
 

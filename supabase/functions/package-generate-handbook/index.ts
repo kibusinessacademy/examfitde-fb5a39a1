@@ -146,7 +146,7 @@ ERWEITERE den Text auf mindestens ${MIN_WORD_TARGET} Wörter. Füge hinzu:
 
 BESTEHENDER TEXT:\n\n${content}` },
           ],
-          max_tokens: Math.min(8192, maxTokens), // v7: match primary call limit
+          max_tokens: Math.min(12288, maxTokens), // v8: match primary call limit
           signal: expandAbort.signal,
         }).finally(() => clearTimeout(expandTimer));
 
