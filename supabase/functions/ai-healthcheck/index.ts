@@ -89,8 +89,8 @@ async function probe(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
 
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) return json({ ok: false, error: "LOVABLE_API_KEY not set" }, 500);
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) return json({ ok: false, error: "OPENAI_API_KEY not set" }, 500);
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  const model = "openai/gpt-5.2";
+  const model = "gpt-5.2";
 
   // Probe 1: Plain text completion
   const p1 = probe("plain_text", apiKey, {

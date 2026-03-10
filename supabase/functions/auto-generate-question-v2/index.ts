@@ -267,18 +267,19 @@ Deno.serve(async (req) => {
     const systemPrompt = buildSystemPrompt(body.profession_name);
     const userPrompt = buildUserPrompt(body, count);
 
-    // Call AI via Lovable Gateway (Google-First strategy)
-    const aiUrl = LOVABLE_API_KEY
-      ? "https://ai.gateway.lovable.dev/v1/chat/completions"
+    // Call AI via OpenAI direct API
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const aiUrl = OPENAI_API_KEY
+      ? "https://api.openai.com/v1/chat/completions"
       : `${SUPABASE_URL}/functions/v1/ai-tutor`;
 
     const aiHeaders: Record<string, string> = { "Content-Type": "application/json" };
     let aiBody: any;
 
-    if (LOVABLE_API_KEY) {
-      aiHeaders["Authorization"] = `Bearer ${LOVABLE_API_KEY}`;
+    if (OPENAI_API_KEY) {
+      aiHeaders["Authorization"] = `Bearer ${OPENAI_API_KEY}`;
       aiBody = {
-        model: "openai/gpt-5.2",
+        model: "gpt-5.2",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -290,7 +291,7 @@ Deno.serve(async (req) => {
       aiBody = {
         _direct_ai_call: true,
         provider: "openai",
-        model: "gpt-5",
+        model: "gpt-5.2",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
