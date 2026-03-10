@@ -603,7 +603,7 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
               { role: "user", content: userPrompt },
             ],
             max_tokens: effectiveMaxTokens,
-            timeout_ms: Math.min(20_000, llmTimeoutMs),
+            timeout_ms: Math.min(35_000, Math.max(15_000, llmTimeoutMs - 10_000)),
           },
         );
 
