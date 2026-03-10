@@ -7,7 +7,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Link } from 'react-router-dom';
 import { Clock, Loader2, Pause, Snowflake, ChevronDown, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PackageInfo, STEP_LABELS, STEP_ORDER } from './types';
+import { PackageInfo } from './types';
+import { PIPELINE_STEP_SHORT_LABELS, FULL_STEP_ORDER } from '@/lib/pipeline-steps';
+const STEP_LABELS = PIPELINE_STEP_SHORT_LABELS as Record<string, string>;
+const STEP_ORDER = FULL_STEP_ORDER as readonly string[];
 import { deriveStepProgress } from '@/lib/pipeline-steps';
 
 function getStatusBadge(status: string, priority?: number) {
