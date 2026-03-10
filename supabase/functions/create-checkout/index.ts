@@ -21,7 +21,7 @@ interface CheckoutRequest {
   buyer_is_licensee?: boolean;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

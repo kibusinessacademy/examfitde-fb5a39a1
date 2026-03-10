@@ -7,7 +7,7 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[SEND-LICENSE-EMAILS] ${step}`, details ? JSON.stringify(details) : '');
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

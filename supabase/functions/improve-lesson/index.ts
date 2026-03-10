@@ -117,7 +117,7 @@ async function loadProfessionFromCourse(supabase: any, courseId: string): Promis
   return result.professionName;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get('origin');

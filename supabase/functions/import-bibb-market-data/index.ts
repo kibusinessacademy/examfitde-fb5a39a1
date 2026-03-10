@@ -372,7 +372,7 @@ function computeFitScore(azubiCount: number, malePct: number): number {
   return Math.round(Math.max(0, Math.min(10, volumeFit + Math.max(0, balanceFit))) * 100) / 100;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get("origin");

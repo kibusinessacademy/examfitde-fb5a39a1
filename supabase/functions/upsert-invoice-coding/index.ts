@@ -19,7 +19,7 @@ function clampStr(s: unknown, max: number): string | null {
   return t.length > max ? t.slice(0, max) : t || null;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   const preflight = handleCorsPreflightRequest(req);
   if (preflight) return preflight;
