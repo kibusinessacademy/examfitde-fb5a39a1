@@ -32,6 +32,7 @@ type StepAction =
   | { action: "enqueue"; stepKey: string }
   | { action: "poll"; stepKey: string; jobId: string }
   | { action: "exhausted"; stepKey: string }
+  | { action: "wait"; stepKey: string }
   | null;
 
 function buildStepOrder(steps: { step_key: string }[]): PipelineStepKey[] {
@@ -49,10 +50,13 @@ function pickNextAction(steps: StepRow[], stepOrder: PipelineStepKey[]): StepAct
     if (s.status === "done" || s.status === "skipped") continue;
     if (s.status === "blocked") continue;
 
+    // Strict sequencing: backoff BLOCKS later steps
     const nra = s.meta?.next_run_at;
     if (typeof nra === "string") {
       const nraMs = Date.parse(nra);
-      if (!Number.isNaN(nraMs) && nraMs > Date.now()) continue;
+      if (!Number.isNaN(nraMs) && nraMs > Date.now()) {
+        return { action: "wait", stepKey: k };
+      }
     }
 
     if ((s.status === "enqueued" || s.status === "running") && s.job_id) {
@@ -196,17 +200,14 @@ describe("pickNextAction — Sequential Step Handoff", () => {
     expect(action!.stepKey).not.toBe("generate_learning_content");
   });
 
-  it("respects next_run_at backoff — skips backed-off step", () => {
+  it("does NOT advance past a backed-off earlier step (strict sequencing)", () => {
     const futureDate = new Date(Date.now() + 3600_000).toISOString();
     const steps = makeFullPipeline({ scaffold_learning_course: "done" });
     steps.find(s => s.step_key === "generate_glossary")!.meta = { next_run_at: futureDate };
     const order = buildStepOrder(steps);
     const action = pickNextAction(steps, order);
-    // Should skip glossary (backed off) and NOT pick generate_learning_content
-    // because glossary is still blocking (queued, just deferred)
-    // Actually: pickNextAction skips backed-off steps via `continue`, so it WILL advance
-    // This tests the actual behavior
-    expect(action?.stepKey).toBe("generate_learning_content");
+    // Glossary is in backoff → BLOCKS all later steps, returns "wait"
+    expect(action).toEqual({ action: "wait", stepKey: "generate_glossary" });
   });
 
   it("skips blocked steps", () => {
@@ -390,20 +391,20 @@ describe("Sequence Integrity — Critical Invariants", () => {
 });
 
 describe("Edge Cases & Regression Guards", () => {
-  it("handles a step with future next_run_at correctly — advances past it", () => {
-    // This is the actual behavior: backed-off steps are skipped by pickNextAction
-    // The runner will come back to them on the next invocation
+  it("CRITICAL: future next_run_at on an earlier step blocks all later steps", () => {
+    const futureDate = new Date(Date.now() + 3600_000).toISOString();
     const steps = [
       makeStep("scaffold_learning_course", "done"),
       makeStep("generate_glossary", "queued", {
-        meta: { next_run_at: new Date(Date.now() + 999999).toISOString() },
+        meta: { next_run_at: futureDate },
       }),
       makeStep("generate_learning_content", "queued"),
+      makeStep("validate_learning_content", "queued"),
     ];
     const order = buildStepOrder(steps);
     const action = pickNextAction(steps, order);
-    // Glossary is backed off → skipped → picks learning content
-    expect(action?.stepKey).toBe("generate_learning_content");
+    // Must NOT advance to generate_learning_content — glossary blocks
+    expect(action).toEqual({ action: "wait", stepKey: "generate_glossary" });
   });
 
   it("backed-off step with past next_run_at is actionable", () => {

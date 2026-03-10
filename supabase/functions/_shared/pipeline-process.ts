@@ -670,6 +670,13 @@ export async function processPackage(
 
   const nextAction = pickNextAction((steps ?? []) as StepRow[], STEP_ORDER);
 
+  // ── Handle: step in backoff — idle without blocking/erroring ──
+  if (nextAction?.action === "wait") {
+    console.log(`[runner] ⏳ Step ${nextAction.stepKey} in backoff for ${shortId} — waiting (strict sequencing)`);
+    await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+    return { packageId, waiting: true, stepKey: nextAction.stepKey, reason: "backoff" };
+  }
+
   // ── All steps done / no actionable step ──
   if (!nextAction) {
     const statuses = (steps ?? []).map((s: StepRow) => s.status);
