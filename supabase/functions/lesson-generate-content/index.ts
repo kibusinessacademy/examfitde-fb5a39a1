@@ -62,26 +62,25 @@ function extractBalancedJson(text: string): any | null {
       }
     }
   }
-  // Truncated JSON — try to repair by closing open braces/brackets
+  // Truncated JSON — repair using nesting stack (correct closure order)
   const partial = text.slice(start);
-  // Count unmatched [ and { outside strings
-  let openBraces = 0, openBrackets = 0;
+  const nestStack: string[] = []; // tracks '{' and '[' in nesting order
   inString = false; escape = false;
   for (const ch of partial) {
     if (escape) { escape = false; continue; }
     if (ch === "\\") { escape = true; continue; }
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
-    if (ch === "{") openBraces++;
-    else if (ch === "}") openBraces--;
-    else if (ch === "[") openBrackets++;
-    else if (ch === "]") openBrackets--;
+    if (ch === "{") nestStack.push("{");
+    else if (ch === "}") nestStack.pop();
+    else if (ch === "[") nestStack.push("[");
+    else if (ch === "]") nestStack.pop();
   }
-  if (openBraces > 0 || openBrackets > 0) {
-    // Try to close with the right number of brackets/braces
+  if (nestStack.length > 0 || inString) {
     let repaired = partial;
-    // Trim trailing comma or incomplete value
+    // Trim trailing comma or incomplete key/value
     repaired = repaired.replace(/,\s*$/, "");
+    repaired = repaired.replace(/:\s*$/, ': null');
     // If we're inside a string, close it
     let strOpen = false; escape = false;
     for (const ch of repaired) {
@@ -90,11 +89,13 @@ function extractBalancedJson(text: string): any | null {
       if (ch === '"') strOpen = !strOpen;
     }
     if (strOpen) repaired += '"';
-    for (let b = 0; b < openBrackets; b++) repaired += "]";
-    for (let b = 0; b < openBraces; b++) repaired += "}";
+    // Close in REVERSE nesting order (stack pop)
+    for (let i = nestStack.length - 1; i >= 0; i--) {
+      repaired += nestStack[i] === "{" ? "}" : "]";
+    }
     try {
       const parsed = JSON.parse(repaired);
-      console.log(`[lesson-gen] extractBalancedJson: repaired truncated JSON (closed ${openBraces} braces, ${openBrackets} brackets)`);
+      console.log(`[lesson-gen] extractBalancedJson: repaired truncated JSON (stack depth=${nestStack.length})`);
       return parsed;
     } catch { /* noop */ }
   }
