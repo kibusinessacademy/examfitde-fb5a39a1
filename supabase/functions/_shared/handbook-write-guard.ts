@@ -110,14 +110,16 @@ export function validateGeneratedSection(section: {
     }
   }
 
-  // ── Elite v8: Structural quality check ──
-  // At least 2 of 4 didactic building blocks must be present
+  // ── Elite v8 / v16-basis: Structural quality check ──
+  // Expand phase: at least 2 of 4 didactic building blocks must be present
+  // Basis phase: at least 1 of 4 — lean skeleton gets depth in expand pass
   const markerHits = STRUCTURAL_MARKERS.filter(m => m.pattern.test(md));
-  if (markerHits.length < 2) {
+  const minMarkers = phase === "basis" ? 1 : 2;
+  if (markerHits.length < minMarkers) {
     const missing = STRUCTURAL_MARKERS.filter(m => !m.pattern.test(md)).map(m => m.label);
     return {
       ok: false,
-      reason: `structural quality: only ${markerHits.length}/4 didactic markers (missing: ${missing.join(", ")})`,
+      reason: `structural quality: only ${markerHits.length}/4 didactic markers, need ${minMarkers} for ${phase} (missing: ${missing.join(", ")})`,
     };
   }
 
