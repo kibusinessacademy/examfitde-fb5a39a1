@@ -343,9 +343,9 @@ Deno.serve(async (req) => {
   // ═══════════════════════════════════════════════════════════════
 
   const PLATFORM_HARD_LIMIT_MS = 55_000;
-  const MIN_LLM_BUDGET_MS = 12_000;   // min time we need for a useful LLM call
-  const MIN_PERSIST_MS = 5_000;        // DB write + council + cost log
-  const MIN_CHECKPOINT_MS = 1_500;     // raw checkpoint write
+  const MIN_LLM_BUDGET_MS = 15_000;   // v11: raised — more room for complex lessons
+  const MIN_PERSIST_MS = 4_000;        // v11: tightened — Anthropic responds faster, less DB overhead
+  const MIN_CHECKPOINT_MS = 1_000;     // v11: tightened — checkpoint is a single upsert
 
   // ── Gate 1: Soft-stop check ──
   if (shouldSoftStop(startMs, "lesson_single")) {
