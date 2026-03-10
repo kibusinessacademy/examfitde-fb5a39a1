@@ -732,8 +732,6 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
         provider_cooldown: classification.providerCooldownMs ? { provider: chain[0]?.provider, model: chain[0]?.model, ms: classification.providerCooldownMs, reason: classification.reason } : undefined,
       }, isTransient ? 503 : 500);
     }
-  } finally {
-    clearTimeout(llmTimer);
   }
 
   // ── Quality gate (depth + hallucination) ──
