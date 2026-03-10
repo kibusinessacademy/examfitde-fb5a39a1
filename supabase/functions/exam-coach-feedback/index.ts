@@ -6,7 +6,7 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[EXAM-COACH-FEEDBACK] ${step}`, details ? JSON.stringify(details) : '');
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

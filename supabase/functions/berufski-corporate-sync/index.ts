@@ -13,7 +13,7 @@ const PLAN_DEFAULTS: Record<string, number> = {
   site: 79900,
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get('origin');

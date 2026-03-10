@@ -14,7 +14,7 @@ const ANSWER_TYPES: Record<string, string> = {
   abrechnung: "billing_help",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   if (req.method === "OPTIONS") {
     return handleCorsPreflightRequest(req);

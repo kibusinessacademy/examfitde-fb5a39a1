@@ -373,7 +373,7 @@ function shuffleWithSeed<T>(array: T[], seed: number): T[] {
 
 // ─── Main Handler ──────────────────────────────────────────────────────────────
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 
