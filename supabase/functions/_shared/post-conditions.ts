@@ -79,6 +79,8 @@ export async function assertStepPostConditions(sb: SB, args: {
   }
 
   // ── generate_handbook: must have real section content (via curriculum_id → handbook_chapters → handbook_sections) ──
+  // v16: Phase-aware thresholds — basis pass accepts 800-char sections.
+  //       Post-condition must align with write-guard to prevent infinite loop.
   if (stepKey === "generate_handbook") {
     // Resolve curriculum_id from package (handbook_chapters uses curriculum_id)
     const { data: pkg, error: pErr } = await sb
@@ -110,22 +112,33 @@ export async function assertStepPostConditions(sb: SB, args: {
     // Get sections with real content (content_markdown is the SSOT field)
     const { data: sections, error: sErr } = await sb
       .from("handbook_sections")
-      .select("id, content_markdown, chapter_id")
+      .select("id, content_markdown, chapter_id, content_tier")
       .in("chapter_id", chapterIds);
     if (sErr) throw sErr;
 
     const totalSections = sections?.length ?? 0;
+
+    // v16: Phase-aware threshold — basis content accepted at 800 chars (matching write-guard)
+    // Expanded content validated at 1800 chars by validate_handbook_depth later
+    const REAL_SECTION_MIN_CHARS = 800;  // Aligned with handbook-write-guard MIN_SECTION_CONTENT_CHARS
+
     const realSections = (sections ?? []).filter(
-      (s: any) => typeof s.content_markdown === "string" && s.content_markdown.length > 1800  // v8: raised from 500 to match Elite write-guard
+      (s: any) => typeof s.content_markdown === "string" && s.content_markdown.length >= REAL_SECTION_MIN_CHARS
     ).length;
 
-    if (totalSections === 0 || realSections < totalSections) {  // v8: 100% sections must be real (was 90%)
+    // v16: Require 90% of sections to be real (100% was too strict for basis pass)
+    const MIN_REAL_RATIO = 0.9;
+    const minRealNeeded = Math.max(1, Math.ceil(totalSections * MIN_REAL_RATIO));
+
+    if (totalSections === 0 || realSections < minRealNeeded) {
       const e: any = new Error("HOLLOW_HANDBOOK: post-condition failed");
       e.__meta = {
         verdict: "HOLLOW_HANDBOOK",
         chapters_total: totalChapters,
         sections_total: totalSections,
         sections_real: realSections,
+        min_real_needed: minRealNeeded,
+        threshold_chars: REAL_SECTION_MIN_CHARS,
       };
       throw e;
     }

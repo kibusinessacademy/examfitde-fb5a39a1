@@ -15,11 +15,17 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
  * it resets generate_handbook to 'queued' to force re-generation.
  */
 
+/**
+ * v4: Phase-aware thresholds — aligned with write-guard and post-conditions.
+ * Basis pass validates at write-guard thresholds (800/500).
+ * Sections that pass basis validation unlock the expand pipeline.
+ * Elite thresholds (2000/1500) are enforced by validate_handbook_depth AFTER expansion.
+ */
 const MIN_CHAPTERS = 3;
-const MIN_SECTION_LENGTH = 2000;       // v3: elite minimum (was 200)
-const MIN_PROSE_LENGTH = 1500;         // v3: elite prose minimum (was 120)
-const MIN_SECTION_WORD_COUNT = 400;    // v3: elite word count (was 80)
-const MIN_HANDBOOK_TOTAL_CHARS = 60000; // v3: elite total (was 30000)
+const MIN_SECTION_LENGTH = 800;         // v4: aligned with write-guard MIN_SECTION_CONTENT_CHARS (was 2000)
+const MIN_PROSE_LENGTH = 500;           // v4: aligned with write-guard MIN_SECTION_PROSE_CHARS (was 1500)
+const MIN_SECTION_WORD_COUNT = 120;     // v4: realistic for basis (was 400)
+const MIN_HANDBOOK_TOTAL_CHARS = 8000;  // v4: basis floor for ~10 sections × 800 (was 60000)
 const MAX_RETRIES_BEFORE_REGEN = 10;
 const PLACEHOLDER_PATTERNS = [
   "_Wird durch Council",
