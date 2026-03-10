@@ -108,7 +108,7 @@ export function needsMaxCompletionTokens(model: string): boolean {
  * Call an AI provider directly. Returns the raw Response for streaming or JSON parsing.
  */
 /** Default fetch timeout for AI calls — prevents Edge Function hard-timeout */
-const AI_FETCH_TIMEOUT_MS = 38_000;  // v10: was 55s — now 38s to leave persist headroom
+const AI_FETCH_TIMEOUT_MS = 48_000;  // v15: was 38s — raised to 48s. 38s was killing Anthropic responses mid-flight. Callers with tighter budgets pass explicit timeout_ms.
 
 export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const cfg = PROVIDER_DEFAULTS[opts.provider];
