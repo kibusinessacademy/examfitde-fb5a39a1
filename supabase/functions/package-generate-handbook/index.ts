@@ -489,6 +489,7 @@ Deno.serve(async (req) => {
       packageId,
       startMs,
       _handbookChain,
+      _expandChain,
     );
 
     const hasRealContent = generated.content.length >= MIN_SECTION_CHARS;
