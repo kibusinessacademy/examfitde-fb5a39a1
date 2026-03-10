@@ -62,6 +62,7 @@ async function generateSectionContent(
   packageId: string | null,
   startMs: number,
   chain: Array<{ provider: string; model: string }>,
+  expandChain?: Array<{ provider: string; model: string }>,
 ): Promise<{ content: string; provider: string; model: string }> {
   if (shouldSoftStop(startMs, "handbook")) {
     console.warn(`[generate-handbook] Soft-stop reached before LLM call for ${fieldCode}`);
