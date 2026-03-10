@@ -13,7 +13,7 @@
  * providing distributed backpressure without DB overhead.
  */
 
-export type AIProvider = "openai" | "anthropic" | "google" | "lovable";
+export type AIProvider = "openai" | "anthropic" | "google";
 
 // ── Configuration ───────────────────────────────────────────────────
 
