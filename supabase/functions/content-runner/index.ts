@@ -334,7 +334,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         console.warn(`[content-runner] 🔄 COOLDOWN SET: ${jobProvider}/${jobModel} for ${Math.round(classification.providerCooldownMs / 1000)}s — reason: ${classification.reason}`);
       }
 
-      if (isTransientErr) {
+        if (isTransientErr) {
         const prevTransient = (job.meta?.transient_attempts ?? 0);
         const transientNext = prevTransient + 1;
         const TRANSIENT_MAX = 25;
@@ -349,11 +349,19 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         const timedOut = transientElapsedMs > TRANSIENT_TIMEOUT_MS;
         const exhausted = transientNext >= TRANSIENT_MAX || timedOut;
 
+        // ── PROVIDER LOOP GUARD ──
+        const sameProviderTransientAttempts = incrementSameProviderTransient(job, jobProvider, jobModel);
+        const providerLoopExhausted = sameProviderTransientAttempts >= 5;
+
         const update: Record<string, unknown> = {
-          last_error: errorStr.slice(0, 2000),
+          last_error: providerLoopExhausted
+            ? `PROVIDER_LOOP_GUARD: ${jobProvider}/${jobModel} transient x${sameProviderTransientAttempts} — reroute`
+            : errorStr.slice(0, 2000),
+          last_error_code: providerLoopExhausted ? "PROVIDER_LOOP_GUARD" : "TRANSIENT",
           updated_at: now,
           locked_at: null,
           locked_by: null,
+          liveness_status: providerLoopExhausted ? "cooldown_exhausted" : "healthy",
           meta: {
             ...(job.meta || {}),
             transient_attempts: transientNext,
@@ -363,6 +371,14 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
             last_error_reason: classification.reason,
             last_transient_at: now,
             first_transient_at: firstTransientAt,
+            same_provider_transient_attempts: sameProviderTransientAttempts,
+            last_provider: jobProvider,
+            last_model: jobModel,
+            ...(providerLoopExhausted ? {
+              quarantined_provider: jobProvider,
+              quarantined_model: jobModel,
+              quarantined_until: new Date(Date.now() + 10 * 60_000).toISOString(),
+            } : {}),
           },
         };
 
@@ -374,18 +390,31 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           (update.meta as Record<string, unknown>).exhaust_reason = timedOut ? "ops_transient_timeout" : "max_transient_attempts";
         } else {
           update.status = "pending";
-          const effectiveBackoff = classification.reason === "ops_empty_response"
-            ? Math.max(15, Math.min(backoffSec, 30))
-            : backoffSec;
+          const effectiveBackoff = providerLoopExhausted
+            ? 120  // 2 min cooldown before reroute
+            : classification.reason === "ops_empty_response"
+              ? Math.max(15, Math.min(backoffSec, 30))
+              : backoffSec;
           update.run_after = new Date(Date.now() + effectiveBackoff * 1000).toISOString();
         }
 
+        // Set provider cooldown if loop exhausted
+        if (providerLoopExhausted && jobProvider && jobProvider !== "unknown") {
+          setProviderCooldown({
+            provider: jobProvider,
+            model: jobModel ?? "unknown",
+            ms: 10 * 60_000,
+            reason: `PROVIDER_LOOP_GUARD: ${sameProviderTransientAttempts}x transient on same route`,
+          });
+          console.warn(`[content-runner] 🔒 PROVIDER_LOOP_GUARD: ${jobProvider}/${jobModel} quarantined for 10min after ${sameProviderTransientAttempts}x transient`);
+        }
+
         await sb.from("job_queue").update(update).eq("id", job.id);
-        const logBackoff = classification.reason === "ops_empty_response"
+        const logBackoff = providerLoopExhausted ? 120 : (classification.reason === "ops_empty_response"
           ? Math.max(15, Math.min(backoffSec, 30))
-          : backoffSec;
-        console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT [${classification.reason}] — backoff ${logBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
-        return { id: job.id, ok: false, error: errorStr, exhausted, transient: true };
+          : backoffSec);
+        console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT [${classification.reason}] — backoff ${logBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]${providerLoopExhausted ? " [PROVIDER_LOOP_GUARD]" : ""}`);
+        return { id: job.id, ok: false, error: errorStr, exhausted, transient: true, providerLoopExhausted };
       } else {
         const attemptsNext = (job.attempts ?? 0) + 1;
         const maxAttempts = job.max_attempts ?? 8;
