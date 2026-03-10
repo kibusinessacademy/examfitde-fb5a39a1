@@ -30,7 +30,7 @@ const COOLDOWN_TRIGGER_COUNT = 6;
 /** Window in which COOLDOWN_TRIGGER_COUNT 429s trigger a cooldown */
 const COOLDOWN_WINDOW_MS = 60_000;
 /** Progressive cooldown durations — each consecutive trigger escalates */
-const COOLDOWN_STEPS_MS = [30_000, 60_000, 120_000, 300_000];
+const COOLDOWN_STEPS_MS = [15_000, 30_000, 60_000, 120_000];
 
 /** Hard caps to prevent unbounded memory growth */
 const MAX_REQUEST_TIMESTAMPS = 500;
@@ -205,7 +205,7 @@ export function recordRateLimit(provider: AIProvider): void {
 const SERVICE_UNAVAIL_TRIGGER = 4;
 const SERVICE_UNAVAIL_WINDOW_MS = 120_000; // 2 min
 /** Lighter cooldown steps for 503 (transient, shorter recovery) */
-const SERVICE_UNAVAIL_COOLDOWN_MS = [15_000, 30_000, 60_000, 120_000];
+const SERVICE_UNAVAIL_COOLDOWN_MS = [10_000, 20_000, 45_000, 120_000];
 
 const serviceUnavailTimestamps: Record<AIProvider, number[]> = {
   openai: [], anthropic: [], google: [], lovable: [],
