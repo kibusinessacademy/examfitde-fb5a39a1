@@ -25,6 +25,18 @@ function assertUuid(label: string, val: unknown) {
   }
 }
 
+async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string, stepKey: string) {
+  const { data: d1 } = await sb
+    .from("package_steps").select("status")
+    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
+  if (d1?.status === "done" || d1?.status === "skipped") return true;
+  // Fallback: legacy table
+  const { data: d2 } = await sb
+    .from("course_package_build_steps").select("status")
+    .eq("package_id", packageId).eq("step_key", stepKey).maybeSingle();
+  return d2?.status === "done" || d2?.status === "skipped";
+}
+
 // ── Section Generator ────────────────────────────────────────
 
 async function generateSectionContent(
