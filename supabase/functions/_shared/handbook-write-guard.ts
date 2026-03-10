@@ -5,13 +5,25 @@
  * 1. validateGeneratedSection() — pre-write quality gate per section
  * 2. persistSectionsAtomic() — only writes validated sections
  * 3. verifyHandbookCoverage() — post-write coverage check before step=done
+ *
+ * SSOT shared function:
+ *   isRealHandbookSection() — phase-aware section realness check
+ *   Used by: post-conditions, validate-handbook, pipeline-process, integrity-check
  */
 
 type SB = any;
 
+// ── SSOT Phase Thresholds (v18 — shared across ALL layers) ──
+export const HANDBOOK_THRESHOLDS = {
+  basis: { minChars: 800, minProse: 500 },
+  expanded: { minChars: 1800, minProse: 1200 },
+} as const;
+
+export type HandbookPhase = keyof typeof HANDBOOK_THRESHOLDS;
+
 // ── Guard thresholds (v15 — Lean Basis) ──
-const MIN_SECTION_CONTENT_CHARS = 800;   // v15: lowered from 1800 — lean basis, depth in expand pass
-const MIN_SECTION_PROSE_CHARS = 500;     // v15: lowered from 1200 — prose only (excl. headings)
+const MIN_SECTION_CONTENT_CHARS = HANDBOOK_THRESHOLDS.basis.minChars;
+const MIN_SECTION_PROSE_CHARS = HANDBOOK_THRESHOLDS.basis.minProse;
 const COVERAGE_MIN_RATIO = 1.0;          // 100% of chapters must have content (hardened v8)
 
 // ── Structural quality markers (Elite v8) ──
