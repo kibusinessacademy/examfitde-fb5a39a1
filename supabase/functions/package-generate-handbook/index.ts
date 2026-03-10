@@ -80,9 +80,8 @@ async function generateSectionContent(
       return { content: "", provider: "soft-stop", model: "none" };
     }
 
-    // v16: Per-provider timeout — each provider gets ~12s so fallbacks actually work
-    // within the 55s edge function wall-clock limit
-    const perProviderMs = Math.max(8_000, Math.min(15_000, Math.floor((remainingSoftMs - 5_000) / Math.max(chain.length, 1))));
+    // v16: 30s per provider — GPT-5 and Claude need time for quality output
+    const perProviderMs = 30_000;
     
     const systemMsg = `IHK-Prüfungscoach, ${professionName}. Handbuch-Abschnitt, ${wordTarget} Wörter. Pflicht: Grundlagen, Formeln, Prüfungsfallen, Merkschemata. Markdown, keine Meta-Kommentare.`;
     
