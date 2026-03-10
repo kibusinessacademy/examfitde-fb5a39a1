@@ -6,7 +6,9 @@ type AdminOpsAction =
   | 'reset_stalled_steps'
   | 'cancel_zombie_packages'
   | 'recover_failed_packages'
-  | 'root_cause_summary';
+  | 'root_cause_summary'
+  | 'kill_stale_processing_jobs'
+  | 'release_stale_leases';
 
 export interface ScopedPayload {
   limit?: number;
