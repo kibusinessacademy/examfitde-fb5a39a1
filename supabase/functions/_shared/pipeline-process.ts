@@ -1408,6 +1408,7 @@ async function handleJobCompleted(
     }
   }
 
+  await safeRpc(sb, "mark_step_done", {
     p_package_id: packageId,
     p_step_key: stepKey,
     p_meta: result,
