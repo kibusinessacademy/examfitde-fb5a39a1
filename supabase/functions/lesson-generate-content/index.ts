@@ -435,8 +435,8 @@ Deno.serve(async (req) => {
   // within the time budget while still producing quality content.
   // ═══════════════════════════════════════════════════════════════
 
-  const TOKEN_CLAMP_LESSON = 2400;   // v10.4: was 3200 — reduced to fit within 38s LLM budget during provider slowdowns
-  const TOKEN_CLAMP_MINICHECK = 1200; // v10.3: was 700 — too tight for structured tool responses
+  const TOKEN_CLAMP_LESSON = 3200;   // v11: restored — 45s LLM cap gives enough headroom for full content
+  const TOKEN_CLAMP_MINICHECK = 1200; // v10.3: stable
   const baseTokenClamp = isMiniCheck ? TOKEN_CLAMP_MINICHECK : TOKEN_CLAMP_LESSON;
   const effectiveMaxTokens = maxTokensOverride
     ? Math.min(maxTokensOverride, baseTokenClamp)
