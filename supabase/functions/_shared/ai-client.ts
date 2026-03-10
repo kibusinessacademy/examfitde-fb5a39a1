@@ -331,7 +331,7 @@ export async function logLLMCostEvent(
   }
 ): Promise<void> {
   try {
-    // CRITICAL FIX: If provider returned 0 tokens (Lovable Gateway), use estimated values
+    // FIX: If provider returned 0 tokens, use estimated values
     let tokensIn = opts.tokens_in;
     let tokensOut = opts.tokens_out;
     let isEstimated = opts.estimated ?? false;
