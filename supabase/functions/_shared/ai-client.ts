@@ -189,7 +189,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       signal: combinedSignal,
     });
   } else {
-    // OpenAI-compatible (OpenAI, Lovable)
+    // OpenAI-compatible (OpenAI direct)
     const body: Record<string, unknown> = {
       model,
       messages: opts.messages,
