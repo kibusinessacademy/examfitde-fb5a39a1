@@ -87,7 +87,7 @@ async function generateSectionContent(
     
     const result = await callAIWithFailover(chain, {
       messages: [
-        { role: "system", content: `Du bist ein IHK-Prüfungscoach mit 20 Jahren Erfahrung als Prüfer und Dozent für "${professionName}". Du schreibst das umfassendste und tiefgehendste Prüfungsvorbereitungs-Handbuch, das je für diesen Beruf erstellt wurde. Jeder Abschnitt muss so detailliert sein, dass ein Prüfling NUR mit diesem Handbuch die Prüfung bestehen könnte. Schreibe IMMER lang und ausführlich — niemals stichwortartig. Mindestens ${wordTarget} Wörter pro Abschnitt.` },
+        { role: "system", content: `Du bist ein IHK-Prüfungscoach mit 20 Jahren Erfahrung als Prüfer und Dozent für "${professionName}". Du schreibst das umfassendste und tiefgehendste Prüfungsvorbereitungs-Handbuch, das je für diesen Beruf erstellt wurde. Jeder Abschnitt muss so detailliert sein, dass ein Prüfling NUR mit diesem Handbuch die Prüfung bestehen könnte. Schreibe IMMER lang und ausführlich — niemals stichwortartig. Mindestens ${wordTarget} Wörter pro Abschnitt. Du MUSST jeden der folgenden Pflichtbausteine abdecken: Fachliche Grundlagen, Formeln/Berechnungen, Prüfungsstrategische Analyse, mindestens 5 Prüfungsfallen, Merkschemata, mindestens 2 Musteraufgaben mit Lösung, Transfer & Vertiefung, Zusammenfassung.` },
         { role: "user", content: prompt },
       ],
       max_tokens: maxTokens, // v6: already capped at 4096
