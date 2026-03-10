@@ -127,7 +127,51 @@ function workloadKeyForJob(jobType: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// processOneJob — identical to previous version
+// Job Liveness Guard helpers
+// ═══════════════════════════════════════════════════════════════
+
+async function heartbeatJob(
+  sb: any,
+  jobId: string,
+  provider?: string | null,
+  model?: string | null,
+  extra: Record<string, unknown> = {},
+) {
+  try {
+    await sb.rpc("heartbeat_job_processing", {
+      p_job_id: jobId,
+      p_worker_id: WORKER_ID,
+      p_provider: provider ?? null,
+      p_model: model ?? null,
+      p_meta: extra,
+    });
+  } catch (e) {
+    console.warn(`[content-runner] heartbeat failed for ${String(jobId).slice(0, 8)}: ${(e as Error).message}`);
+  }
+}
+
+function incrementSameProviderTransient(job: any, provider?: string | null, model?: string | null): number {
+  const meta = (job.meta || {}) as Record<string, any>;
+  const prevProvider = meta.last_provider || null;
+  const prevModel = meta.last_model || null;
+  const prevCount = Number(meta.same_provider_transient_attempts || 0) || 0;
+  const sameRoute = prevProvider === (provider ?? null) && prevModel === (model ?? null);
+  return sameRoute ? prevCount + 1 : 1;
+}
+
+function resetProviderTransientMeta(job: any, provider?: string | null, model?: string | null): Record<string, unknown> {
+  return {
+    ...(job.meta || {}),
+    same_provider_transient_attempts: 0,
+    last_provider: provider ?? null,
+    last_model: model ?? null,
+    last_success_at: new Date().toISOString(),
+    liveness_status: "healthy",
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// processOneJob — with heartbeat ticker + provider-loop guard
 // ═══════════════════════════════════════════════════════════════
 
 // deno-lint-ignore no-explicit-any
