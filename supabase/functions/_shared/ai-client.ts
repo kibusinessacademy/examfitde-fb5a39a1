@@ -395,7 +395,7 @@ export {
  */
 export async function callAIWithFailover(
   chain: Array<{ provider: AIProvider; model: string }>,
-  opts: Omit<AIRequestOptions, "provider" | "model">,
+  opts: Omit<AIRequestOptions, "provider" | "model"> & { timeout_ms?: number },
 ): Promise<{
   content: string;
   toolCalls?: Array<{ function: { name: string; arguments: string } }>;
