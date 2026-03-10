@@ -7,6 +7,24 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { validateGeneratedSection, filterValidSections, verifyHandbookCoverage } from "../_shared/handbook-write-guard.ts";
 import { loadFieldCompetencies, loadFieldTopicDepth, loadExamQuestionSample, buildElitePrompt, type CompetencyContext } from "../_shared/handbook-context.ts";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+}
+
+function assertUuid(label: string, val: unknown) {
+  if (typeof val !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) {
+    throw new Error(`${label} must be a valid UUID, got: ${String(val)}`);
+  }
+}
+
 // ── Section Generator ────────────────────────────────────────
 
 async function generateSectionContent(
