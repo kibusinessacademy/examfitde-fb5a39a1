@@ -137,8 +137,8 @@ export async function assertStepPostConditions(sb: SB, args: {
         sections_total: totalSections,
         sections_real: realSections,
         min_real_needed: minRealNeeded,
-        threshold_basis: REAL_BASIS_MIN_CHARS,
-        threshold_expanded: REAL_EXPANDED_MIN_CHARS,
+        threshold_basis: HANDBOOK_THRESHOLDS.basis.minChars,
+        threshold_expanded: HANDBOOK_THRESHOLDS.expanded.minChars,
       };
       throw e;
     }

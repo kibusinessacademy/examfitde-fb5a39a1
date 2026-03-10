@@ -221,10 +221,10 @@ export async function verifyHandbookCoverage(
 
   const chapterIds = chapters.map((c: any) => c.id);
 
-  // Load all sections
+  // Load all sections (include content_tier for SSOT realness check)
   const { data: sections, error: secErr } = await sb
     .from("handbook_sections")
-    .select("chapter_id, content_markdown, title, section_key")
+    .select("chapter_id, content_markdown, content_tier, title, section_key")
     .in("chapter_id", chapterIds);
 
   if (secErr) {
@@ -238,17 +238,15 @@ export async function verifyHandbookCoverage(
     };
   }
 
-  // Count distinct chapters with VALIDATED content (same guard as pre-write)
+  // Count distinct chapters with VALIDATED content using SSOT realness check
   let totalChars = 0;
   const coveredChapterIds = new Set<string>();
   for (const sec of (sections || [])) {
     const md = (sec.content_markdown || "").trim();
     totalChars += md.length;
-    const result = validateGeneratedSection({
-      title: sec.title ?? sec.section_key ?? "section",
-      content_markdown: sec.content_markdown,
-    });
-    if (result.ok && sec.chapter_id) {
+    // Use SSOT isRealHandbookSection instead of full validateGeneratedSection
+    // This aligns coverage check with the same thresholds used by post-conditions & validators
+    if (isRealHandbookSection(sec) && sec.chapter_id) {
       coveredChapterIds.add(sec.chapter_id);
     }
   }

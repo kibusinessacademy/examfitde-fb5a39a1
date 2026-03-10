@@ -1381,12 +1381,13 @@ async function handleJobCompleted(
           .select("chapter_id, content_markdown")
           .in("chapter_id", chIds);
 
-        // Per-chapter: at least 1 section with ≥500 chars real content
+        // v18: Use SSOT threshold from handbook-write-guard (800 chars for basis)
+        // Was hardcoded 500 — caused drift vs. post-conditions/validate-handbook
         for (const ch of hbChapters) {
           const chSections = (allSections ?? []).filter(
             (s: any) => s.chapter_id === ch.id
               && typeof s.content_markdown === "string"
-              && s.content_markdown.trim().length >= 500
+              && s.content_markdown.trim().length >= 800
           );
           if (chSections.length > 0) {
             coveredChapters++;
