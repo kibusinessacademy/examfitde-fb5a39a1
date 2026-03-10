@@ -451,7 +451,7 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
   // Group jobs by workload key for per-intent health checking
   const jobsByWorkload = new Map<string, typeof jobs>();
   for (const job of jobs) {
-    const wk = WORKLOAD_KEY_MAP[job.job_type] ?? "learning_content";
+    const wk = workloadKeyForJob(job.job_type);
     if (!jobsByWorkload.has(wk)) jobsByWorkload.set(wk, []);
     jobsByWorkload.get(wk)!.push(job);
   }
