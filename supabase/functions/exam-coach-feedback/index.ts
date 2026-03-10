@@ -139,9 +139,9 @@ Deno.serve(async (req) => {
     // ─── Generate AI feedback via Lovable AI Gateway ───
     let aiSummary = '';
     let aiPlan: string[] = [];
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
-    if (LOVABLE_API_KEY) {
+    if (OPENAI_API_KEY) {
       try {
         const currTitle = (session.curriculum as any)?.title || 'Prüfung';
         
