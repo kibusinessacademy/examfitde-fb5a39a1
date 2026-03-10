@@ -32,6 +32,7 @@ type StepAction =
   | { action: "enqueue"; stepKey: string }
   | { action: "poll"; stepKey: string; jobId: string }
   | { action: "exhausted"; stepKey: string }
+  | { action: "wait"; stepKey: string }
   | null;
 
 function buildStepOrder(steps: { step_key: string }[]): PipelineStepKey[] {
