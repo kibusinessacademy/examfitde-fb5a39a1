@@ -31,7 +31,8 @@ export default function HandbookChapterPage() {
   const { data: allChapters } = useHandbookChapters();
   const { data: progress } = useHandbookProgress();
   const { data: entitlements } = useUserEntitlements();
-  const { data: exerciseResponses } = useExerciseResponses(chapterData?.chapter.id);
+  const exerciseIds = chapterData?.exercises.map(e => e.id);
+  const { data: exerciseResponses } = useExerciseResponses(chapterData?.chapter?.id, exerciseIds);
   const { mutate: updateProgress } = useUpdateHandbookProgress();
 
   // Check if user has access (bundle or any product)
