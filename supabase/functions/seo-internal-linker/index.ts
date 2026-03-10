@@ -7,7 +7,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  * Builds link graph between SEO documents, Berufe pages, and product pages.
  * Inserts relevant internal links into content_md.
  */
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get("origin");

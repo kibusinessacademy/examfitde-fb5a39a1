@@ -31,7 +31,7 @@ const STEP_KEYS = [
   "step_5_minicheck",
 ] as const;
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get("origin");

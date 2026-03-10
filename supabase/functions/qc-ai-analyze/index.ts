@@ -8,7 +8,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  * Admin-only. Streams response.
  */
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

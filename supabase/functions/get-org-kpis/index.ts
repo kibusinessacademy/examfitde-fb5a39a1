@@ -13,7 +13,7 @@ import {
 
 type SeatCounts = Record<string, number>;
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   const preflight = handleCorsPreflightRequest(req);
   if (preflight) return preflight;

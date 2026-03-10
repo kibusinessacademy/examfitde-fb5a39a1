@@ -7,7 +7,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  * Only publishes if qc_score >= 85 and status = "in_review"
  * Then triggers sitemap regeneration.
  */
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get("origin");

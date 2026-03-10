@@ -90,7 +90,7 @@ function generateSlug(text: string): string {
     .substring(0, 80);
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

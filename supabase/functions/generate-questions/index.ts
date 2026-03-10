@@ -6,7 +6,7 @@ import { callAIJSON, aiErrorResponse } from "../_shared/ai-client.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { assertNoContamination } from "../_shared/contamination-guard.ts";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 

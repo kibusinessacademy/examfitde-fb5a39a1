@@ -16,7 +16,7 @@ interface QCResult {
   detail: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
   const origin = req.headers.get("origin");

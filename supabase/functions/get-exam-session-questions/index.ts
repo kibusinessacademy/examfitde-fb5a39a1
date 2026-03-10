@@ -12,7 +12,7 @@ interface RequestBody {
   session_id: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 
