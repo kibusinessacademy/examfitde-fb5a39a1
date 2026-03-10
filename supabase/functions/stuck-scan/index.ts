@@ -106,8 +106,8 @@ Deno.serve(async (req) => {
     };
 
     // ══════════════════════════════════════════════════════
-    // 1) Clean stale processing jobs (no heartbeat)
-    //    Filter server-side by minimum threshold to reduce data transfer
+    // 1) Clean stale processing jobs (heartbeat-based liveness guard)
+    //    Uses last_heartbeat_at as primary signal, falls back to updated_at/locked_at
     // ══════════════════════════════════════════════════════
     const now = Date.now();
     const minThreshold = Math.min(
@@ -118,67 +118,63 @@ Deno.serve(async (req) => {
 
     const { data: processingJobs } = await sb
       .from("job_queue")
-      .select("id, attempts, max_attempts, job_type, locked_at, last_error, meta")
+      .select("id, package_id, attempts, max_attempts, job_type, worker_pool, locked_at, updated_at, last_heartbeat_at, last_error, meta")
       .eq("status", "processing")
-      .lt("locked_at", minCutoffIso);
+      .or(`last_heartbeat_at.lt.${minCutoffIso},last_heartbeat_at.is.null`);
 
     const staleJobs = (processingJobs || []).filter((job) => {
       const threshold = JOB_TYPE_STALE_OVERRIDES[job.job_type] ?? heartbeatTimeout;
       const cutoff = now - threshold * 1000;
-      return job.locked_at && new Date(job.locked_at).getTime() < cutoff;
+      // Use last_heartbeat_at as primary, fall back to updated_at, then locked_at
+      const refTs = job.last_heartbeat_at || job.updated_at || job.locked_at;
+      if (!refTs) return false;
+      return new Date(refTs).getTime() < cutoff;
     });
 
     let staleCount = 0;
     let failedFromStale = 0;
-    const toFail: Array<{ id: string; attempts: number; max_attempts: number; job_type: string; threshold: number }> = [];
-    const toPending: Array<{ id: string; attempts: number; max_attempts: number; job_type: string; threshold: number; isTransient: boolean }> = [];
 
-    // FIX v5: ALL stale locks are inherently transient — a job timing out is never a permanent failure.
-    // Previously, stale locks without a recognizable error string would burn attempts → 3/3 → failed.
-    // Now: every stale lock resets to pending without consuming attempts.
-    for (const sj of staleJobs) {
-      const maxAttempts = sj.max_attempts || 3;
-      const effectiveThreshold = JOB_TYPE_STALE_OVERRIDES[sj.job_type] ?? heartbeatTimeout;
-      // Stale locks NEVER consume attempts — they always go back to pending
-      toPending.push({
-        id: sj.id,
-        attempts: sj.attempts || 0, // preserve current attempts, do NOT increment
-        max_attempts: maxAttempts,
-        job_type: sj.job_type,
-        threshold: effectiveThreshold,
-        isTransient: true, // ALL stale locks are transient by definition
+    // Use the new kill_stale_processing_jobs_v2 RPC for efficient batch processing
+    if (staleJobs.length > 0) {
+      const packageIds = [...new Set(staleJobs.map((j: any) => j.package_id).filter(Boolean))];
+
+      // Kill stale jobs via RPC (requeues them as pending)
+      const { data: killedJobs } = await safeRpc(sb, "kill_stale_processing_jobs_v2", {
+        p_heartbeat_timeout_seconds: heartbeatTimeout,
+        p_reason: "stuck-scan: stale processing heartbeat",
+        p_requeue: true,
       });
-      staleCount++;
-    }
+      staleCount = Array.isArray(killedJobs) ? killedJobs.length : staleJobs.length;
 
-    // Chunked updates — use run_after (not scheduled_at) for correct claim delay
-    for (const c of chunk(toPending, 25)) {
-      await Promise.all(c.map((sj) => {
-        const typeBackoff = sj.isTransient ? 15 : inferBackoffSeconds(sj.job_type);
-        return sb.from("job_queue").update({
-          status: "pending",
-          locked_at: null,
-          locked_by: null,
-          run_after: new Date(Date.now() + typeBackoff * 1000).toISOString(),
-          last_error: sj.isTransient
-            ? `Stale lock (>${sj.threshold}s, type=${sj.job_type}) — transient reset (no attempts consumed)`
-            : `Stale lock (>${sj.threshold}s, type=${sj.job_type}) — attempt ${sj.attempts}/${sj.max_attempts}`,
-          last_error_code: sj.isTransient ? "STALE_LOCK_TRANSIENT_RESET" : "STALE_LOCK",
-          attempts: sj.attempts,
-        }).eq("id", sj.id);
-      }));
-    }
-    for (const c of chunk(toFail, 25)) {
-      await Promise.all(c.map((sj) => sb.from("job_queue").update({
-        status: "failed",
-        locked_at: null,
-        locked_by: null,
-        last_error: `Stale lock (>${sj.threshold}s, type=${sj.job_type}) — max attempts (${sj.max_attempts}) reached`,
-        last_error_code: "STALE_LOCK_EXHAUSTED",
-        attempts: sj.attempts,
-        completed_at: new Date().toISOString(),
-      }).eq("id", sj.id)));
-      failedFromStale += c.length;
+      if (staleCount > 0) {
+        console.warn(`[stuck-scan] 🔪 Liveness guard killed ${staleCount} stale processing job(s)`);
+      }
+
+      // Release leases for packages with no alive work
+      for (const pkgId of packageIds) {
+        const { data: released } = await safeRpc(sb, "release_stale_package_lease_v2", {
+          p_package_id: pkgId,
+          p_reason: "stuck-scan: stale processing killed → lease released",
+        });
+        if (released) {
+          console.warn(`[stuck-scan] 🔓 Released stale lease for package ${String(pkgId).slice(0, 8)}`);
+        }
+      }
+
+      // Log to auto_heal_log
+      await sb.from("auto_heal_log").insert({
+        action_type: "job_liveness_guard",
+        trigger_source: "stuck-scan",
+        target_type: "job_queue",
+        target_id: null,
+        result_status: "applied",
+        result_detail: `Killed ${staleCount} stale processing jobs, checked ${packageIds.length} package leases`,
+        metadata: {
+          killed_count: staleCount,
+          package_ids: packageIds.slice(0, 10),
+          heartbeat_timeout: heartbeatTimeout,
+        },
+      });
     }
 
     // ══════════════════════════════════════════════════════
@@ -986,6 +982,58 @@ Deno.serve(async (req) => {
     }
 
     // ══════════════════════════════════════════════════════
+    // 5b) LEASE-NO-PROGRESS HEAL
+    // Active leases where ALL processing jobs are stale → release lease
+    // This prevents WIP-slot blockage when zombie jobs hold a lease
+    // ══════════════════════════════════════════════════════
+    let leaseNoProgressHealed = 0;
+    try {
+      const { data: activeLeases } = await sb
+        .from("package_leases")
+        .select("package_id, runner_id, lease_until")
+        .gt("lease_until", new Date().toISOString());
+
+      for (const lease of activeLeases || []) {
+        const { data: pkgJobs } = await sb
+          .from("job_queue")
+          .select("id, status, updated_at, last_heartbeat_at")
+          .eq("package_id", lease.package_id)
+          .in("status", ["pending", "processing"]);
+
+        const hasAliveWork = (pkgJobs || []).some((j: any) => {
+          if (j.status === "pending") return true;
+          const refTs = j.last_heartbeat_at || j.updated_at;
+          return refTs && new Date(refTs).getTime() > (Date.now() - 10 * 60_000);
+        });
+
+        if (!hasAliveWork) {
+          const { data: released } = await safeRpc(sb, "release_stale_package_lease_v2", {
+            p_package_id: lease.package_id,
+            p_reason: "stuck-scan: lease without alive work",
+          });
+          if (released) {
+            leaseNoProgressHealed++;
+            console.warn(`[stuck-scan] 🔓 LEASE_NO_PROGRESS: released lease for ${String(lease.package_id).slice(0, 8)} (no alive work)`);
+            await sb.from("auto_heal_log").insert({
+              action_type: "lease_no_progress_heal",
+              trigger_source: "stuck-scan",
+              target_type: "package_lease",
+              target_id: lease.package_id,
+              result_status: "applied",
+              result_detail: `Released lease: no alive processing/pending jobs`,
+              metadata: { runner_id: lease.runner_id, total_jobs: (pkgJobs || []).length },
+            });
+          }
+        }
+      }
+      if (leaseNoProgressHealed > 0) {
+        console.log(`[stuck-scan] 🔓 Lease-no-progress healed: ${leaseNoProgressHealed} lease(s) released`);
+      }
+    } catch (leaseErr) {
+      console.warn(`[stuck-scan] Lease-no-progress check error: ${(leaseErr as Error).message}`);
+    }
+
+    // ══════════════════════════════════════════════════════
     // NIGHTLY POOL-MISMATCH SWEEP
     // Auto-fix jobs where worker_pool doesn't match SSOT and alert
     // ══════════════════════════════════════════════════════
@@ -1047,7 +1095,7 @@ Deno.serve(async (req) => {
       console.warn(`[stuck-scan] revive_transient_failed error: ${(reviveErr as Error).message}`);
     }
 
-    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs reset (${failedFromStale} permanently failed), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
+    console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
     return json({
       ok: true,
@@ -1055,7 +1103,7 @@ Deno.serve(async (req) => {
       stuck_packages: results,
       orphan_packages: orphanResults,
       building_pkg_results: buildingPkgResults,
-      stale_jobs_reset: staleCount,
+      stale_jobs_killed: staleCount,
       stale_jobs_permanently_failed: failedFromStale,
       zombie_steps_fixed: zombieResults,
       escalation_loops: escalationResults,
@@ -1065,6 +1113,7 @@ Deno.serve(async (req) => {
       status_lag_healed: statusLagResults,
       enqueued_drift_healed: enqueuedDriftResults,
       transient_revived: revivedCount,
+      lease_no_progress_healed: leaseNoProgressHealed,
     });
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);

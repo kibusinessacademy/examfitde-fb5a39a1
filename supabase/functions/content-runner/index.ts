@@ -127,13 +127,79 @@ function workloadKeyForJob(jobType: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// processOneJob — identical to previous version
+// Job Liveness Guard helpers
+// ═══════════════════════════════════════════════════════════════
+
+async function heartbeatJob(
+  sb: any,
+  jobId: string,
+  provider?: string | null,
+  model?: string | null,
+  extra: Record<string, unknown> = {},
+) {
+  try {
+    await sb.rpc("heartbeat_job_processing", {
+      p_job_id: jobId,
+      p_worker_id: WORKER_ID,
+      p_provider: provider ?? null,
+      p_model: model ?? null,
+      p_meta: extra,
+    });
+  } catch (e) {
+    console.warn(`[content-runner] heartbeat failed for ${String(jobId).slice(0, 8)}: ${(e as Error).message}`);
+  }
+}
+
+function incrementSameProviderTransient(job: any, provider?: string | null, model?: string | null): number {
+  const meta = (job.meta || {}) as Record<string, any>;
+  const prevProvider = meta.last_provider || null;
+  const prevModel = meta.last_model || null;
+  const prevCount = Number(meta.same_provider_transient_attempts || 0) || 0;
+  const sameRoute = prevProvider === (provider ?? null) && prevModel === (model ?? null);
+  return sameRoute ? prevCount + 1 : 1;
+}
+
+function resetProviderTransientMeta(job: any, provider?: string | null, model?: string | null): Record<string, unknown> {
+  return {
+    ...(job.meta || {}),
+    same_provider_transient_attempts: 0,
+    last_provider: provider ?? null,
+    last_model: model ?? null,
+    last_success_at: new Date().toISOString(),
+    liveness_status: "healthy",
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// processOneJob — with heartbeat ticker + provider-loop guard
 // ═══════════════════════════════════════════════════════════════
 
 // deno-lint-ignore no-explicit-any
 async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey: string): Promise<any> {
   const shortId = String(job.id).slice(0, 8);
   const startMs = Date.now();
+
+  // Resolve provider route for heartbeat tracking
+  let jobProvider: string | null = null;
+  let jobModel: string | null = null;
+  try {
+    const route = await resolveAvailableRoute(workloadKeyForJob(job.job_type));
+    jobProvider = route?.provider ?? job.meta?.last_provider ?? null;
+    jobModel = route?.model ?? job.meta?.last_model ?? null;
+  } catch { /* fallback to null */ }
+
+  // Initial heartbeat
+  await heartbeatJob(sb, job.id, jobProvider, jobModel, {
+    liveness_status: "healthy",
+    processing_started_by: WORKER_ID,
+  });
+
+  // Periodic heartbeat ticker (every 20s)
+  const hbInterval = setInterval(() => {
+    heartbeatJob(sb, job.id, jobProvider, jobModel, {
+      processing_tick_at: new Date().toISOString(),
+    });
+  }, 20_000);
 
   try {
     const { ok, result, error: dispatchError, terminal } = await dispatchJob(job, supabaseUrl, serviceKey);
@@ -207,8 +273,10 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         console.warn(`[content-runner] ⚠️ ${job.job_type} (${shortId}) ${isTransient ? "TRANSIENT" : "EMPTY_RESULT"} — backoff ${stallBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
         return { id: job.id, ok: false, error: errorLabel, exhausted, transient: true };
       } else {
-        // Real success
+        // Real success — reset provider transient meta
         const now = new Date().toISOString();
+        const successProvider = result?.used_provider || result?.provider || jobProvider || null;
+        const successModel = result?.used_model || result?.model || jobModel || null;
         await sb.from("job_queue").update({
           status: "completed",
           result: result ?? {},
@@ -217,11 +285,9 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           locked_at: null,
           locked_by: null,
           last_error: null,
-          meta: {
-            ...(job.meta || {}),
-            last_provider: result?.used_provider || result?.provider || null,
-            last_model: result?.used_model || result?.model || null,
-          },
+          last_heartbeat_at: now,
+          liveness_status: "healthy",
+          meta: resetProviderTransientMeta(job, successProvider, successModel),
         }).eq("id", job.id);
 
         console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) completed in ${Date.now() - startMs}ms (gen=${result?.generated ?? "?"})`);
@@ -268,7 +334,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         console.warn(`[content-runner] 🔄 COOLDOWN SET: ${jobProvider}/${jobModel} for ${Math.round(classification.providerCooldownMs / 1000)}s — reason: ${classification.reason}`);
       }
 
-      if (isTransientErr) {
+        if (isTransientErr) {
         const prevTransient = (job.meta?.transient_attempts ?? 0);
         const transientNext = prevTransient + 1;
         const TRANSIENT_MAX = 25;
@@ -283,11 +349,19 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         const timedOut = transientElapsedMs > TRANSIENT_TIMEOUT_MS;
         const exhausted = transientNext >= TRANSIENT_MAX || timedOut;
 
+        // ── PROVIDER LOOP GUARD ──
+        const sameProviderTransientAttempts = incrementSameProviderTransient(job, jobProvider, jobModel);
+        const providerLoopExhausted = sameProviderTransientAttempts >= 5;
+
         const update: Record<string, unknown> = {
-          last_error: errorStr.slice(0, 2000),
+          last_error: providerLoopExhausted
+            ? `PROVIDER_LOOP_GUARD: ${jobProvider}/${jobModel} transient x${sameProviderTransientAttempts} — reroute`
+            : errorStr.slice(0, 2000),
+          last_error_code: providerLoopExhausted ? "PROVIDER_LOOP_GUARD" : "TRANSIENT",
           updated_at: now,
           locked_at: null,
           locked_by: null,
+          liveness_status: providerLoopExhausted ? "cooldown_exhausted" : "healthy",
           meta: {
             ...(job.meta || {}),
             transient_attempts: transientNext,
@@ -297,6 +371,14 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
             last_error_reason: classification.reason,
             last_transient_at: now,
             first_transient_at: firstTransientAt,
+            same_provider_transient_attempts: sameProviderTransientAttempts,
+            last_provider: jobProvider,
+            last_model: jobModel,
+            ...(providerLoopExhausted ? {
+              quarantined_provider: jobProvider,
+              quarantined_model: jobModel,
+              quarantined_until: new Date(Date.now() + 10 * 60_000).toISOString(),
+            } : {}),
           },
         };
 
@@ -308,18 +390,31 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           (update.meta as Record<string, unknown>).exhaust_reason = timedOut ? "ops_transient_timeout" : "max_transient_attempts";
         } else {
           update.status = "pending";
-          const effectiveBackoff = classification.reason === "ops_empty_response"
-            ? Math.max(15, Math.min(backoffSec, 30))
-            : backoffSec;
+          const effectiveBackoff = providerLoopExhausted
+            ? 120  // 2 min cooldown before reroute
+            : classification.reason === "ops_empty_response"
+              ? Math.max(15, Math.min(backoffSec, 30))
+              : backoffSec;
           update.run_after = new Date(Date.now() + effectiveBackoff * 1000).toISOString();
         }
 
+        // Set provider cooldown if loop exhausted
+        if (providerLoopExhausted && jobProvider && jobProvider !== "unknown") {
+          setProviderCooldown({
+            provider: jobProvider,
+            model: jobModel ?? "unknown",
+            ms: 10 * 60_000,
+            reason: `PROVIDER_LOOP_GUARD: ${sameProviderTransientAttempts}x transient on same route`,
+          });
+          console.warn(`[content-runner] 🔒 PROVIDER_LOOP_GUARD: ${jobProvider}/${jobModel} quarantined for 10min after ${sameProviderTransientAttempts}x transient`);
+        }
+
         await sb.from("job_queue").update(update).eq("id", job.id);
-        const logBackoff = classification.reason === "ops_empty_response"
+        const logBackoff = providerLoopExhausted ? 120 : (classification.reason === "ops_empty_response"
           ? Math.max(15, Math.min(backoffSec, 30))
-          : backoffSec;
-        console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT [${classification.reason}] — backoff ${logBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]`);
-        return { id: job.id, ok: false, error: errorStr, exhausted, transient: true };
+          : backoffSec);
+        console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT [${classification.reason}] — backoff ${logBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]${providerLoopExhausted ? " [PROVIDER_LOOP_GUARD]" : ""}`);
+        return { id: job.id, ok: false, error: errorStr, exhausted, transient: true, providerLoopExhausted };
       } else {
         const attemptsNext = (job.attempts ?? 0) + 1;
         const maxAttempts = job.max_attempts ?? 8;
@@ -364,6 +459,8 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       run_after: new Date(Date.now() + 30_000).toISOString(),
     }).eq("id", job.id);
     return { id: job.id, ok: false, error: msg };
+  } finally {
+    clearInterval(hbInterval);
   }
 }
 

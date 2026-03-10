@@ -13656,7 +13656,9 @@ export type Database = {
           last_error_code: string | null
           last_error_hint: string | null
           last_error_severity: string | null
+          last_heartbeat_at: string | null
           last_http_status: number | null
+          liveness_status: string
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
@@ -13692,7 +13694,9 @@ export type Database = {
           last_error_code?: string | null
           last_error_hint?: string | null
           last_error_severity?: string | null
+          last_heartbeat_at?: string | null
           last_http_status?: number | null
+          liveness_status?: string
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
@@ -13728,7 +13732,9 @@ export type Database = {
           last_error_code?: string | null
           last_error_hint?: string | null
           last_error_severity?: string | null
+          last_heartbeat_at?: string | null
           last_http_status?: number | null
+          liveness_status?: string
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
@@ -34685,7 +34691,9 @@ export type Database = {
               last_error_code: string | null
               last_error_hint: string | null
               last_error_severity: string | null
+              last_heartbeat_at: string | null
               last_http_status: number | null
+              liveness_status: string
               locked_at: string | null
               locked_by: string | null
               max_attempts: number
@@ -34734,7 +34742,9 @@ export type Database = {
               last_error_code: string | null
               last_error_hint: string | null
               last_error_severity: string | null
+              last_heartbeat_at: string | null
               last_http_status: number | null
+              liveness_status: string
               locked_at: string | null
               locked_by: string | null
               max_attempts: number
@@ -34783,7 +34793,9 @@ export type Database = {
           last_error_code: string | null
           last_error_hint: string | null
           last_error_severity: string | null
+          last_heartbeat_at: string | null
           last_http_status: number | null
+          liveness_status: string
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
@@ -34832,7 +34844,9 @@ export type Database = {
           last_error_code: string | null
           last_error_hint: string | null
           last_error_severity: string | null
+          last_heartbeat_at: string | null
           last_http_status: number | null
+          liveness_status: string
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
@@ -34882,7 +34896,9 @@ export type Database = {
           last_error_code: string | null
           last_error_hint: string | null
           last_error_severity: string | null
+          last_heartbeat_at: string | null
           last_http_status: number | null
+          liveness_status: string
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
@@ -34932,7 +34948,9 @@ export type Database = {
           last_error_code: string | null
           last_error_hint: string | null
           last_error_severity: string | null
+          last_heartbeat_at: string | null
           last_http_status: number | null
+          liveness_status: string
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
@@ -36041,6 +36059,16 @@ export type Database = {
           step_key: string
         }[]
       }
+      heartbeat_job_processing: {
+        Args: {
+          p_job_id: string
+          p_meta?: Json
+          p_model?: string
+          p_provider?: string
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
       heartbeat_pipeline_lock: {
         Args: { p_package_id: string }
         Returns: undefined
@@ -36082,6 +36110,23 @@ export type Database = {
       is_user_blocked: { Args: { p_user: string }; Returns: boolean }
       job_maintenance: { Args: never; Returns: Json }
       job_recovery_worker: { Args: never; Returns: Json }
+      kill_stale_processing_jobs_v2: {
+        Args: {
+          p_heartbeat_timeout_seconds?: number
+          p_package_id?: string
+          p_reason?: string
+          p_requeue?: boolean
+          p_worker_pool?: string
+        }
+        Returns: {
+          job_id: string
+          job_type: string
+          new_status: string
+          old_status: string
+          package_id: string
+          reason: string
+        }[]
+      }
       list_b2b_curricula: {
         Args: never
         Returns: {
@@ -36537,6 +36582,10 @@ export type Database = {
       release_provider_slot: {
         Args: { p_provider: string }
         Returns: undefined
+      }
+      release_stale_package_lease_v2: {
+        Args: { p_package_id: string; p_reason?: string }
+        Returns: boolean
       }
       release_stale_slots: { Args: { p_age_minutes?: number }; Returns: number }
       release_system_execution_lease: {
