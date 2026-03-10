@@ -62,26 +62,25 @@ function extractBalancedJson(text: string): any | null {
       }
     }
   }
-  // Truncated JSON — try to repair by closing open braces/brackets
+  // Truncated JSON — repair using nesting stack (correct closure order)
   const partial = text.slice(start);
-  // Count unmatched [ and { outside strings
-  let openBraces = 0, openBrackets = 0;
+  const nestStack: string[] = []; // tracks '{' and '[' in nesting order
   inString = false; escape = false;
   for (const ch of partial) {
     if (escape) { escape = false; continue; }
     if (ch === "\\") { escape = true; continue; }
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
-    if (ch === "{") openBraces++;
-    else if (ch === "}") openBraces--;
-    else if (ch === "[") openBrackets++;
-    else if (ch === "]") openBrackets--;
+    if (ch === "{") nestStack.push("{");
+    else if (ch === "}") nestStack.pop();
+    else if (ch === "[") nestStack.push("[");
+    else if (ch === "]") nestStack.pop();
   }
-  if (openBraces > 0 || openBrackets > 0) {
-    // Try to close with the right number of brackets/braces
+  if (nestStack.length > 0 || inString) {
     let repaired = partial;
-    // Trim trailing comma or incomplete value
+    // Trim trailing comma or incomplete key/value
     repaired = repaired.replace(/,\s*$/, "");
+    repaired = repaired.replace(/:\s*$/, ': null');
     // If we're inside a string, close it
     let strOpen = false; escape = false;
     for (const ch of repaired) {
@@ -90,11 +89,13 @@ function extractBalancedJson(text: string): any | null {
       if (ch === '"') strOpen = !strOpen;
     }
     if (strOpen) repaired += '"';
-    for (let b = 0; b < openBrackets; b++) repaired += "]";
-    for (let b = 0; b < openBraces; b++) repaired += "}";
+    // Close in REVERSE nesting order (stack pop)
+    for (let i = nestStack.length - 1; i >= 0; i--) {
+      repaired += nestStack[i] === "{" ? "}" : "]";
+    }
     try {
       const parsed = JSON.parse(repaired);
-      console.log(`[lesson-gen] extractBalancedJson: repaired truncated JSON (closed ${openBraces} braces, ${openBrackets} brackets)`);
+      console.log(`[lesson-gen] extractBalancedJson: repaired truncated JSON (stack depth=${nestStack.length})`);
       return parsed;
     } catch { /* noop */ }
   }
@@ -507,12 +508,7 @@ Deno.serve(async (req) => {
 
   // ── Compute LLM timeout: allow slower providers enough room without hitting platform hard-limit ──
   const llmBudgetMs = remainingPlatformMs - MIN_PERSIST_MS - MIN_CHECKPOINT_MS;
-  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(45_000, llmBudgetMs));  // v11: raised cap from 38s → 45s
-  const llmAbort = new AbortController();
-  const llmTimer = setTimeout(() => llmAbort.abort(), llmTimeoutMs) as unknown as number;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error(`LLM_TIMEOUT_${llmTimeoutMs}`)), llmTimeoutMs + 500);
-  });
+  const llmTimeoutMs = Math.max(MIN_LLM_BUDGET_MS, Math.min(48_000, llmBudgetMs));  // v14: raised cap to 48s, passed as timeout_ms to override ai-client's internal 38s default
 
   console.log(`[lesson-gen] Time budget: init=${elapsedMs}ms, llm_cap=${llmTimeoutMs}ms, remaining=${remainingPlatformMs}ms, tokens=${effectiveMaxTokens}${autopilotAction ? `, autopilot=${autopilotAction}` : ""}`);
 
@@ -521,14 +517,13 @@ Deno.serve(async (req) => {
   let plainRetry = false;
 
   try {
-    result = await Promise.race([
-      callAIWithFailover(
-        chain.map(c => ({ provider: c.provider, model: c.model })),
-        {
-          messages: [
-            {
-              role: "system",
-              content: `Du bist ein erfahrener IHK-Fachexperte mit 20 Jahren Berufserfahrung als ${professionName}. Du erstellst Lerninhalte die sich anfühlen, als wären sie von einem Fachlehrer geschrieben — NICHT von einer KI.
+    result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          {
+            role: "system",
+            content: `Du bist ein erfahrener IHK-Fachexperte mit 20 Jahren Berufserfahrung als ${professionName}. Du erstellst Lerninhalte die sich anfühlen, als wären sie von einem Fachlehrer geschrieben — NICHT von einer KI.
 
 QUALITÄTSSTANDARD:
 - Jeder Lernschritt MUSS die fachliche Tiefe des offiziellen Rahmenplans abbilden
@@ -555,15 +550,13 @@ ${isMiniCheck
   : '{"html": "<h3>...</h3><p>...</p>", "objectives": ["..."], "key_terms": [{"term": "...", "definition": "...", "exam_relevance": "..."}], "common_mistakes": [{"mistake": "...", "correction": "...", "trap_type": "..."}], "exam_triggers": ["..."]}'
 }
 KEINE Platzhalter. Vollständigen Inhalt generieren.`,
-            },
-            { role: "user", content: userPrompt },
-          ],
-          max_tokens: effectiveMaxTokens,
-          signal: llmAbort.signal,
-        },
-      ),
-      timeoutPromise,
-    ]) as Awaited<ReturnType<typeof callAIWithFailover>>;
+          },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: effectiveMaxTokens,
+        timeout_ms: llmTimeoutMs,
+      },
+    );
 
     // ── CHECKPOINT: Save raw LLM response immediately (before parse) ──
     // If platform kills during parse/validate, we don't lose the expensive LLM result
@@ -739,8 +732,6 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
         provider_cooldown: classification.providerCooldownMs ? { provider: chain[0]?.provider, model: chain[0]?.model, ms: classification.providerCooldownMs, reason: classification.reason } : undefined,
       }, isTransient ? 503 : 500);
     }
-  } finally {
-    clearTimeout(llmTimer);
   }
 
   // ── Quality gate (depth + hallucination) ──
