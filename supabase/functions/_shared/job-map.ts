@@ -201,6 +201,9 @@ export const FAN_OUT_CONFIG: FanOutStepConfig[] = [
     wipPerPackage: 4,
     subjobPriority: 3,
     useBatchCursor: false,
+    // CRITICAL: Expand is a quality layer — failed sections must NOT block the step.
+    // Sections track their own expand_status (failed_soft) for retry via enqueue_handbook_expand.
+    softFailOnSubjobError: true,
   },
 ];
 
