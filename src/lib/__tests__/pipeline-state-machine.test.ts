@@ -200,17 +200,14 @@ describe("pickNextAction — Sequential Step Handoff", () => {
     expect(action!.stepKey).not.toBe("generate_learning_content");
   });
 
-  it("respects next_run_at backoff — skips backed-off step", () => {
+  it("does NOT advance past a backed-off earlier step (strict sequencing)", () => {
     const futureDate = new Date(Date.now() + 3600_000).toISOString();
     const steps = makeFullPipeline({ scaffold_learning_course: "done" });
     steps.find(s => s.step_key === "generate_glossary")!.meta = { next_run_at: futureDate };
     const order = buildStepOrder(steps);
     const action = pickNextAction(steps, order);
-    // Should skip glossary (backed off) and NOT pick generate_learning_content
-    // because glossary is still blocking (queued, just deferred)
-    // Actually: pickNextAction skips backed-off steps via `continue`, so it WILL advance
-    // This tests the actual behavior
-    expect(action?.stepKey).toBe("generate_learning_content");
+    // Glossary is in backoff → BLOCKS all later steps, returns "wait"
+    expect(action).toEqual({ action: "wait", stepKey: "generate_glossary" });
   });
 
   it("skips blocked steps", () => {
