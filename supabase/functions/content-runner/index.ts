@@ -158,18 +158,17 @@ async function heartbeatJob(
     const next = prev + 1;
     heartbeatFailures.set(jobId, next);
     console.warn(`[content-runner] heartbeat failed for ${String(jobId).slice(0, 8)} (consecutive: ${next}): ${(e as Error).message}`);
-    // After 3 consecutive failures, write a fallback updated_at so the job
-    // doesn't get killed by stuck-scan while the RPC endpoint recovers
+    // After 3 consecutive failures, use merge_job_meta RPC to patch meta
+    // without overwriting existing keys, and update updated_at as fallback
     if (next >= 3) {
       try {
-        await sb.from("job_queue").update({
-          updated_at: new Date().toISOString(),
-          meta: {
-            ...(extra || {}),
+        await sb.rpc("merge_job_meta", {
+          p_job_id: jobId,
+          p_patch: {
             heartbeat_rpc_failures: next,
             heartbeat_fallback_at: new Date().toISOString(),
           },
-        }).eq("id", jobId).eq("status", "processing");
+        });
       } catch { /* last resort fallback */ }
     }
   }
