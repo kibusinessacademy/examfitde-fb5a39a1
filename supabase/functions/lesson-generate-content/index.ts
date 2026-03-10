@@ -147,21 +147,24 @@ const MINICHECK_TOOL = {
   type: "function" as const,
   function: {
     name: "create_mini_check",
-    description: "Erstelle 4 Multiple-Choice-Fragen zur Wissensüberprüfung.",
+    description: "Erstelle 7-8 MiniCheck-Fragen zur Wissensüberprüfung mit Schwierigkeitsverteilung.",
     parameters: {
       type: "object",
       properties: {
         questions: {
-          type: "array", minItems: 4, maxItems: 4,
+          type: "array", minItems: 7, maxItems: 8,
           items: {
             type: "object",
             properties: {
-              question: { type: "string" },
+              question: { type: "string", description: "Fragetext mit konkretem Szenario" },
               options: { type: "array", minItems: 4, maxItems: 4, items: { type: "string" } },
               correct_answer: { type: "integer", minimum: 0, maximum: 3 },
-              explanation: { type: "string" },
+              explanation: { type: "string", description: "Erklärung: warum richtig + warum jeder Distraktor falsch ist (mind. 80 Zeichen)" },
+              difficulty: { type: "string", enum: ["leicht", "mittel", "anspruchsvoll"], description: "Verteilung: 2 leicht, 3 mittel, 2-3 anspruchsvoll" },
+              bloom_level: { type: "string", enum: ["remember", "understand", "apply", "analyze", "evaluate"], description: "Kognitive Stufe nach Bloom" },
+              trap_type: { type: "string", description: "Art der Prüfungsfalle (z.B. 'Normverwechslung', 'Rechenfehler', 'False Friend'). Mind. 8 Zeichen wenn vorhanden." },
             },
-            required: ["question", "options", "correct_answer", "explanation"],
+            required: ["question", "options", "correct_answer", "explanation", "difficulty", "bloom_level"],
           },
         },
         objectives: { type: "array", items: { type: "string" } },
