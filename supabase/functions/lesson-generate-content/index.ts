@@ -499,7 +499,7 @@ Deno.serve(async (req) => {
   // ═══════════════════════════════════════════════════════════════
 
   const TOKEN_CLAMP_LESSON = 3200;   // v11: restored — 45s LLM cap gives enough headroom for full content
-  const TOKEN_CLAMP_MINICHECK = 1200; // v10.3: stable
+  const TOKEN_CLAMP_MINICHECK = 2400; // v13: doubled from 1200 — 7-8 questions with explanations needs ~2400 tokens to avoid truncation
   const baseTokenClamp = isMiniCheck ? TOKEN_CLAMP_MINICHECK : TOKEN_CLAMP_LESSON;
   const effectiveMaxTokens = maxTokensOverride
     ? Math.min(maxTokensOverride, baseTokenClamp)
