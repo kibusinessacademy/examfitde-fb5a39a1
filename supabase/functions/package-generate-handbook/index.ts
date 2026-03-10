@@ -491,6 +491,7 @@ Deno.serve(async (req) => {
   }
 
   // ── ATOMIC WRITE: Only validated sections reach the DB ──
+  let actualWrittenCount = 0;
   if (sectionRows.length > 0) {
     // Double-check with filterValidSections (belt + suspenders)
     const { valid, rejected } = filterValidSections(sectionRows);
@@ -505,12 +506,13 @@ Deno.serve(async (req) => {
         ignoreDuplicates: false,
       });
       if (secErr) throw new Error(`Section upsert: ${secErr.message}`);
+      actualWrittenCount = valid.length;
       console.log(`[generate-handbook] Committed ${valid.length} validated sections to DB.`);
     }
   }
 
-  // Check remaining after this batch
-  const writtenCount = sectionRows.length;
+  // Check remaining after this batch — use ACTUAL written count, not pre-filter count
+  const writtenCount = actualWrittenCount;
   const remainingAfterBatch = fieldsNeedingGeneration.length - batchFields.length + (batchFields.length - writtenCount);
   const totalPopulated = populatedLfIds.size + writtenCount;
   const isComplete = remainingAfterBatch <= 0;
