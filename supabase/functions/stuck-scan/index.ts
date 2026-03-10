@@ -982,6 +982,58 @@ Deno.serve(async (req) => {
     }
 
     // ══════════════════════════════════════════════════════
+    // 5b) LEASE-NO-PROGRESS HEAL
+    // Active leases where ALL processing jobs are stale → release lease
+    // This prevents WIP-slot blockage when zombie jobs hold a lease
+    // ══════════════════════════════════════════════════════
+    let leaseNoProgressHealed = 0;
+    try {
+      const { data: activeLeases } = await sb
+        .from("package_leases")
+        .select("package_id, runner_id, lease_until")
+        .gt("lease_until", new Date().toISOString());
+
+      for (const lease of activeLeases || []) {
+        const { data: pkgJobs } = await sb
+          .from("job_queue")
+          .select("id, status, updated_at, last_heartbeat_at")
+          .eq("package_id", lease.package_id)
+          .in("status", ["pending", "processing"]);
+
+        const hasAliveWork = (pkgJobs || []).some((j: any) => {
+          if (j.status === "pending") return true;
+          const refTs = j.last_heartbeat_at || j.updated_at;
+          return refTs && new Date(refTs).getTime() > (Date.now() - 10 * 60_000);
+        });
+
+        if (!hasAliveWork) {
+          const { data: released } = await safeRpc(sb, "release_stale_package_lease_v2", {
+            p_package_id: lease.package_id,
+            p_reason: "stuck-scan: lease without alive work",
+          });
+          if (released) {
+            leaseNoProgressHealed++;
+            console.warn(`[stuck-scan] 🔓 LEASE_NO_PROGRESS: released lease for ${String(lease.package_id).slice(0, 8)} (no alive work)`);
+            await sb.from("auto_heal_log").insert({
+              action_type: "lease_no_progress_heal",
+              trigger_source: "stuck-scan",
+              target_type: "package_lease",
+              target_id: lease.package_id,
+              result_status: "applied",
+              result_detail: `Released lease: no alive processing/pending jobs`,
+              metadata: { runner_id: lease.runner_id, total_jobs: (pkgJobs || []).length },
+            });
+          }
+        }
+      }
+      if (leaseNoProgressHealed > 0) {
+        console.log(`[stuck-scan] 🔓 Lease-no-progress healed: ${leaseNoProgressHealed} lease(s) released`);
+      }
+    } catch (leaseErr) {
+      console.warn(`[stuck-scan] Lease-no-progress check error: ${(leaseErr as Error).message}`);
+    }
+
+    // ══════════════════════════════════════════════════════
     // NIGHTLY POOL-MISMATCH SWEEP
     // Auto-fix jobs where worker_pool doesn't match SSOT and alert
     // ══════════════════════════════════════════════════════
