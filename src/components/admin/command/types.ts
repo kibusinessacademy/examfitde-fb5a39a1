@@ -1,6 +1,3 @@
-import type { PipelineStepKey } from '@/lib/pipeline-steps';
-import { FULL_STEP_ORDER, PIPELINE_STEP_SHORT_LABELS, PACKAGE_STATUS_CONFIG } from '@/lib/pipeline-steps';
-
 export interface PackageInfo {
   id: string;
   title: string | null;
@@ -14,15 +11,6 @@ export interface PackageInfo {
   track: string | null;
   curriculum_id: string | null;
 }
-
-// Re-export from SSOT
-export { PACKAGE_STATUS_CONFIG };
-
-/** @deprecated Use PIPELINE_STEP_SHORT_LABELS from '@/lib/pipeline-steps' */
-export const STEP_LABELS = PIPELINE_STEP_SHORT_LABELS as Record<string, string>;
-
-/** @deprecated Use FULL_STEP_ORDER from '@/lib/pipeline-steps' */
-export const STEP_ORDER = FULL_STEP_ORDER as readonly string[];
 
 export interface PlatformKPIs {
   seoPages: number;
