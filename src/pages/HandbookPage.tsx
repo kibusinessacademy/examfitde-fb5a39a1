@@ -12,7 +12,7 @@ import {
   Shield,
   Sparkles
 } from 'lucide-react';
-import { useHandbookChapters, useHandbookProgress } from '@/hooks/useHandbook';
+import { useHandbookChapters, useHandbookProgress } from '@/hooks/handbook';
 import { useUserEntitlements } from '@/hooks/useShop';
 import { HandbookChapterCard } from '@/components/handbook/HandbookChapterCard';
 import { SEOHead } from '@/components/seo/SEOHead';
