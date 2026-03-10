@@ -1292,15 +1292,25 @@ async function handleJobCompleted(
     if (comp && !comp.ok) {
       const activeCount = Number(comp.active_subjobs ?? 0);
       const failedCount = Number(comp.failed_subjobs ?? 0);
+      const completedCount = Number(comp.completed_subjobs ?? 0);
 
-      if (failedCount > 0 && activeCount === 0) {
+      // SOFT-FAIL GATE: Steps with softFailOnSubjobError=true (e.g. expand_handbook)
+      // treat failed subjobs as non-blocking. If no active jobs remain, the step
+      // is done regardless of failures — quality is tracked at the artifact level
+      // (e.g. handbook_sections.expand_status), not at the job level.
+      if (fanOutCfg.softFailOnSubjobError && activeCount === 0) {
+        console.log(`[pipeline] ${stepKey}: soft-fail gate — ${completedCount} completed, ${failedCount} failed (non-blocking). Marking done.`);
+        // Fall through to normal step completion below
+      } else if (failedCount > 0 && activeCount === 0) {
         await safeQuery(
           sb.from("package_steps").update({
             status: "failed", job_id: null, runner_id: null,
-            last_error: `Fan-out: ${failedCount} subjobs failed, ${comp.completed_subjobs} completed`,
+            last_error: `Fan-out: ${failedCount} subjobs failed, ${completedCount} completed`,
           }).eq("package_id", packageId).eq("step_key", stepKey),
           "fan_out_failed",
         );
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, fan_out_guard: true, completion: comp };
       } else {
         await safeQuery(
           sb.from("package_steps").update({
@@ -1309,9 +1319,9 @@ async function handleJobCompleted(
           }).eq("package_id", packageId).eq("step_key", stepKey),
           "fan_out_guard_reset",
         );
+        await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+        return { packageId, stepKey, fan_out_guard: true, completion: comp };
       }
-      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-      return { packageId, stepKey, fan_out_guard: true, completion: comp };
     }
   }
 

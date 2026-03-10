@@ -247,10 +247,16 @@ Deno.serve(async (req) => {
       expand_last_error: msg.slice(0, 500),
     }).eq("id", sectionId);
 
+    // CRITICAL: Return 200 so the JOB completes successfully in job_queue.
+    // The section is marked failed_soft and can be retried via enqueue_handbook_expand.
+    // Returning 500 would mark the job as "failed" in job_queue, which blocks
+    // the fan-out completion guard and prevents expand_handbook from ever finishing.
     return json({
-      ok: false,
+      ok: true,
+      expanded: false,
+      soft_fail: true,
       error: msg.slice(0, 300),
       section_id: sectionId,
-    }, 500);
+    });
   }
 });
