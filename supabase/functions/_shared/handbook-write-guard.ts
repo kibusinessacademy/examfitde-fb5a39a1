@@ -105,7 +105,7 @@ export function validateGeneratedSection(section: {
   title?: string;
   content_markdown?: string;
 }, opts?: { phase?: "basis" | "expand" }): SectionValidationResult {
-  const phase = opts?.phase || "expand"; // default=expand keeps existing behavior strict
+  const phase = opts?.phase || "basis"; // v19: default=basis — lean content must pass; expand checks are explicit
   if (!isNonEmptyText(section.title)) {
     return { ok: false, reason: "section title missing" };
   }
