@@ -36255,6 +36255,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      merge_job_meta: {
+        Args: { p_job_id: string; p_patch: Json }
+        Returns: boolean
+      }
       month_start: { Args: { p_any: string }; Returns: string }
       next_package_queue_position: { Args: never; Returns: number }
       normalize_beruf_name: { Args: { input: string }; Returns: string }

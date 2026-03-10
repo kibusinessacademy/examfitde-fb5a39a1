@@ -158,18 +158,17 @@ async function heartbeatJob(
     const next = prev + 1;
     heartbeatFailures.set(jobId, next);
     console.warn(`[content-runner] heartbeat failed for ${String(jobId).slice(0, 8)} (consecutive: ${next}): ${(e as Error).message}`);
-    // After 3 consecutive failures, write a fallback updated_at so the job
-    // doesn't get killed by stuck-scan while the RPC endpoint recovers
+    // After 3 consecutive failures, use merge_job_meta RPC to patch meta
+    // without overwriting existing keys, and update updated_at as fallback
     if (next >= 3) {
       try {
-        await sb.from("job_queue").update({
-          updated_at: new Date().toISOString(),
-          meta: {
-            ...(extra || {}),
+        await sb.rpc("merge_job_meta", {
+          p_job_id: jobId,
+          p_patch: {
             heartbeat_rpc_failures: next,
             heartbeat_fallback_at: new Date().toISOString(),
           },
-        }).eq("id", jobId).eq("status", "processing");
+        });
       } catch { /* last resort fallback */ }
     }
   }
@@ -486,6 +485,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
     return { id: job.id, ok: false, error: msg };
   } finally {
     clearInterval(hbInterval);
+    heartbeatFailures.delete(job.id);
   }
 }
 
@@ -524,8 +524,14 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
         locked_by: null,
         updated_at: new Date().toISOString(),
         last_error: `STALE_LOCK_RECOVERY: released by ${WORKER_ID}`,
-        meta: { recovered_by: WORKER_ID, recovered_at: new Date().toISOString(), reason: "stale_processing_lock" },
       }).in("id", staleIds);
+      // Merge recovery meta without overwriting existing meta
+      for (const sid of staleIds) {
+        await sb.rpc("merge_job_meta", {
+          p_job_id: sid,
+          p_patch: { recovered_by: WORKER_ID, recovered_at: new Date().toISOString(), reason: "stale_processing_lock" },
+        }).catch(() => {});
+      }
       console.warn(`[content-runner] STALE_LOCK_RECOVERY: released ${staleIds.length} orphaned processing job(s)`);
     }
   }
