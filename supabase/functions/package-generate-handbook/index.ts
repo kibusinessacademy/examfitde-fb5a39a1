@@ -167,12 +167,15 @@ Deno.serve(async (req) => {
   const forceRebuild = Boolean(p?.force_rebuild);
   const attemptIndex = typeof p?.attempt_index === "number" ? p.attempt_index : 0;
 
-  // v15: Full chain routing — GPT-5 primary, Claude Sonnet 4.5 fallback, Pro + Flash last resort.
-  // Previous Flash-only strategy caused systematic timeouts on large handbook prompts.
+  // v17: Single-provider-per-invocation strategy.
+  // The 55s Edge Function wall-clock limit cannot fit 2×30s provider calls.
+  // Instead, each job attempt uses ONE provider. On timeout/failure, the job
+  // retries (via job_queue attempts) and rotates to the next provider.
   const fullChain = getModelChain("handbook");
-  // Use the full chain for basis generation — failover handles provider issues
-  const _handbookChain = fullChain;
-  // Expand pass chain: heavyweight models only (exclude Flash for depth quality)
+  const providerIndex = attemptIndex % fullChain.length;
+  const _handbookChain = [fullChain[providerIndex]];
+  console.log(`[generate-handbook] v17: attempt=${attemptIndex} → provider ${providerIndex}/${fullChain.length}: ${fullChain[providerIndex].provider}/${fullChain[providerIndex].model}`);
+  // Expand pass chain: heavyweight models only
   const _expandChain = fullChain.filter(c => !c.model.includes("flash"));
   if (_expandChain.length === 0) _expandChain.push(fullChain[fullChain.length - 1]);
 
