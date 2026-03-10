@@ -105,7 +105,7 @@ export function validateGeneratedSection(section: {
   title?: string;
   content_markdown?: string;
 }, opts?: { phase?: "basis" | "expand" }): SectionValidationResult {
-  const phase = opts?.phase || "expand"; // default=expand keeps existing behavior strict
+  const phase = opts?.phase || "basis"; // v19: default=basis — lean content must pass; expand checks are explicit
   if (!isNonEmptyText(section.title)) {
     return { ok: false, reason: "section title missing" };
   }
@@ -172,10 +172,13 @@ export function filterValidSections(
   const rejected: Array<{ row: Record<string, unknown>; reason: string }> = [];
 
   for (const row of sectionRows) {
+    // Respect content_tier from the row — basis content uses basis thresholds
+    const tier = (row.content_tier as string) || "basis";
+    const phase = tier === "expanded" ? "expand" : "basis";
     const result = validateGeneratedSection({
       title: row.title as string,
       content_markdown: row.content_markdown as string,
-    });
+    }, { phase });
     if (result.ok) {
       valid.push(row);
     } else {
