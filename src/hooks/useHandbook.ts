@@ -1,14 +1,17 @@
 /**
  * @deprecated — Use imports from '@/hooks/handbook' instead.
- * This file re-exports for backward compatibility.
+ * Re-exports for backward compatibility.
  */
+export type {
+  HandbookChapter,
+  HandbookSection,
+  HandbookExercise,
+  HandbookExerciseResponse,
+  HandbookProgress,
+  HandbookRecommendation,
+} from './handbook';
+
 export {
-  type HandbookChapter,
-  type HandbookSection,
-  type HandbookExercise,
-  type HandbookProgress,
-  type HandbookRecommendation,
-  type HandbookExerciseResponse,
   useHandbookChapters,
   useHandbookChapter,
   useHandbookProgress,
