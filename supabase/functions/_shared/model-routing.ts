@@ -58,7 +58,8 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   handbook: [
-    { provider: "lovable", model: "google/gemini-2.5-flash" },
+    { provider: "lovable", model: "google/gemini-2.5-pro" },             // v7: upgraded to Pro — handbook needs long-form quality (800-2500 words)
+    { provider: "lovable", model: "google/gemini-2.5-flash", is_fallback: true },  // v7: Flash as fallback (faster but shorter output)
     { provider: "anthropic", model: "claude-sonnet-4-5-20250929", is_fallback: true },
   ],
   minicheck: [
