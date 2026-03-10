@@ -357,37 +357,25 @@ async function buildOralExamSnapshot(sb: any, curriculumId?: string) {
 }
 
 async function buildHandbookSnapshot(sb: any, curriculumId?: string) {
-  // Handbook is currently client-side data, so we provide the structure
-  // If there's a handbook_chapters table, we'd query it
-  const { data: chapters } = await sb
-    .from("handbook_chapters")
-    .select("*")
-    .order("sort_order")
-    .limit(50)
-    .then((res: any) => res)
-    .catch(() => ({ data: null }));
-
-  if (chapters && chapters.length > 0) {
-    return {
-      curriculumId: curriculumId || "all",
-      totalChapters: chapters.length,
-      chapters: chapters.map((c: any) => ({
-        id: c.id,
-        title: c.title,
-        key: c.key,
-        sortOrder: c.sort_order,
-        contentPreview: (c.content || "").substring(0, 300),
-      })),
-    };
+  if (!curriculumId) {
+    return { curriculumId: "all", totalChapters: 0, chapters: [], note: "No curriculum_id provided — cannot query handbook chapters" };
   }
 
-  // Fallback: handbook is client-side
+  const { data: chapters } = await sb
+    .from("handbook_chapters")
+    .select("id, title, key, sort_order")
+    .eq("curriculum_id", curriculumId)
+    .order("sort_order")
+    .limit(50);
+
   return {
-    curriculumId: curriculumId || "all",
-    note: "Handbook content is currently managed client-side. Consider migrating to database for full QC coverage.",
-    availableChapters: [
-      "pruefungsformat", "zeitmanagement", "lernstrategien",
-      "pruefungsangst", "antwortstrategien", "pruefungstag",
-    ],
+    curriculumId,
+    totalChapters: (chapters || []).length,
+    chapters: (chapters || []).map((c: any) => ({
+      id: c.id,
+      title: c.title,
+      key: c.key,
+      sortOrder: c.sort_order,
+    })),
   };
 }
