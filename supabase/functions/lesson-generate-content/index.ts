@@ -534,18 +534,29 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
     if (!content && fenceStripped) {
       try { content = JSON.parse(fenceStripped); } catch { /* fallthrough */ }
     }
-    // Fallback 2: extract JSON object (from fence-stripped version)
+    // Fallback 2: extract JSON object via balanced-brace extraction
     if (!content && fenceStripped) {
-      const fb = fenceStripped.indexOf("{");
-      const lb = fenceStripped.lastIndexOf("}");
-      if (fb !== -1 && lb > fb) {
-        try { content = JSON.parse(fenceStripped.slice(fb, lb + 1)); } catch { /* noop */ }
-      }
+      content = extractBalancedJson(fenceStripped);
     }
     // Fallback 3: raw HTML wrap for non-minicheck (fence-stripped to avoid JSON-in-html)
     if (!content && !isMiniCheck && fenceStripped && fenceStripped.length > 200) {
       if (fenceStripped.includes("<h3") || fenceStripped.includes("<p") || fenceStripped.includes("<strong")) {
         content = { html: fenceStripped, objectives: [] };
+      }
+    }
+    // Fallback 4 (minicheck): extract questions array from unstructured text
+    if (!content && isMiniCheck && fenceStripped && fenceStripped.length > 200) {
+      // Try to find a "questions" array anywhere in the text
+      const qMatch = fenceStripped.match(/"questions"\s*:\s*\[/);
+      if (qMatch && qMatch.index !== undefined) {
+        // Find the enclosing { before "questions"
+        let searchStart = fenceStripped.lastIndexOf("{", qMatch.index);
+        if (searchStart === -1) searchStart = 0;
+        const candidate = extractBalancedJson(fenceStripped.slice(searchStart));
+        if (candidate?.questions && Array.isArray(candidate.questions)) {
+          content = candidate;
+          console.log(`[lesson-gen] Fallback4: extracted questions array (${candidate.questions.length} items) for ${lessonId.slice(0, 8)}`);
+        }
       }
     }
     // ── P0-A Sanitizer: ensure content.html is never JSON-as-string ──
@@ -569,6 +580,10 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
 
     if (!content || (!content.html && !content.questions)) {
       const cLen = result.content?.length || 0;
+      // ── DIAGNOSTIC: Log first 300 chars of unparseable response ──
+      if (cLen > 0) {
+        console.error(`[lesson-gen] PARSE_FAIL_DIAGNOSTIC: provider=${result.provider} model=${result.model} len=${cLen} first300=${JSON.stringify(fenceStripped.slice(0, 300))} last100=${JSON.stringify(fenceStripped.slice(-100))}`);
+      }
       if (cLen === 0) {
         const err = new Error(`LLM_EMPTY_RESPONSE: empty (provider=${result.provider}, model=${result.model})`);
         (err as any).name = "LLM_EMPTY_RESPONSE";
