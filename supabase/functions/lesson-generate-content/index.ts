@@ -592,14 +592,19 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
           .filter(c => !c.model.includes("gemini"))
           .slice(0, 1);
         const retryChainResolved = plainChainCandidates.length > 0 ? plainChainCandidates : chain;
-        console.warn(`[lesson-gen] TOOL_PARSE_FAIL → plain retry provider=${retryChainResolved[0]?.provider} model=${retryChainResolved[0]?.model} lesson=${lessonId.slice(0,8)}`);
+        console.warn(`[lesson-gen] TOOL_PARSE_FAIL → plain retry provider=${retryChainResolved[0]?.provider} model=${retryChainResolved[0]?.model} lesson=${lessonId.slice(0,8)} isMiniCheck=${isMiniCheck}`);
         const retryChain = retryChainResolved;
+
+        // v12.1: MiniCheck-aware plain retry — use correct schema per content type
+        const plainRetrySystemPrompt = isMiniCheck
+          ? `Du bist ein IHK-Fachexperte. Erstelle einen MiniCheck (Quiz) für "${professionName}". Antworte mit einem JSON-Objekt: {"questions": [{"question": "...", "options": ["A","B","C","D"], "correct_answer": 0, "explanation": "..."}], "objectives": ["..."]}. NUR JSON, kein Markdown.`
+          : `Du bist ein IHK-Fachexperte. Erstelle Lerninhalt für "${professionName}". Antworte mit einem JSON-Objekt: {"html": "...", "objectives": [...], "key_terms": [...], "common_mistakes": [...], "exam_triggers": [...]}. NUR JSON, kein Markdown.`;
 
         const plainResult = await callAIWithFailover(
           retryChain.map(c => ({ provider: c.provider, model: c.model })),
           {
             messages: [
-              { role: "system", content: `Du bist ein IHK-Fachexperte. Erstelle Lerninhalt für "${professionName}". Antworte mit einem JSON-Objekt: {"html": "...", "objectives": [...], "key_terms": [...], "common_mistakes": [...], "exam_triggers": [...]}. NUR JSON, kein Markdown.` },
+              { role: "system", content: plainRetrySystemPrompt },
               { role: "user", content: userPrompt },
             ],
             max_tokens: effectiveMaxTokens,
@@ -615,10 +620,15 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
           try { plainContent = JSON.parse(rawPlain.slice(fb, lb + 1)); } catch { /* noop */ }
         }
 
-        if (plainContent?.html && plainContent.html.length > 200) {
+        // v12.1: Check correct field based on content type
+        const plainSuccess = isMiniCheck
+          ? (plainContent?.questions && Array.isArray(plainContent.questions) && plainContent.questions.length > 0)
+          : (plainContent?.html && plainContent.html.length > 200);
+
+        if (plainSuccess) {
           content = plainContent;
           result = plainResult as any;
-          console.log(`[lesson-gen] Plain JSON fallback SUCCESS (${retryChain[0].model}) for ${lessonId.slice(0, 8)} (${plainContent.html.length} chars)`);
+          console.log(`[lesson-gen] Plain JSON fallback SUCCESS (${retryChain[0].model}) for ${lessonId.slice(0, 8)} (${isMiniCheck ? plainContent.questions.length + ' questions' : plainContent.html.length + ' chars'})`);
           // SUCCESS — no cooldown needed, skip the error path entirely
         }
       } catch (plainErr) {
