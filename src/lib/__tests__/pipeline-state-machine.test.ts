@@ -50,10 +50,13 @@ function pickNextAction(steps: StepRow[], stepOrder: PipelineStepKey[]): StepAct
     if (s.status === "done" || s.status === "skipped") continue;
     if (s.status === "blocked") continue;
 
+    // Strict sequencing: backoff BLOCKS later steps
     const nra = s.meta?.next_run_at;
     if (typeof nra === "string") {
       const nraMs = Date.parse(nra);
-      if (!Number.isNaN(nraMs) && nraMs > Date.now()) continue;
+      if (!Number.isNaN(nraMs) && nraMs > Date.now()) {
+        return { action: "wait", stepKey: k };
+      }
     }
 
     if ((s.status === "enqueued" || s.status === "running") && s.job_id) {
