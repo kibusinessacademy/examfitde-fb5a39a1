@@ -1,0 +1,1 @@
+UPDATE ops_pipeline_config SET value = '3' WHERE key = 'wip_limit';
