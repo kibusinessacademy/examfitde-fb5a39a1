@@ -24,6 +24,7 @@ const STEP_WEIGHT_MAP: Record<PipelineStepKey, StepWeightClass> = {
   generate_oral_exam:           "heavy",
   generate_lesson_minichecks:   "heavy",
   elite_harden:                 "heavy",
+  expand_handbook:              "heavy",     // LLM-intensive per-section expansion
 
   // ── Medium: moderate LLM or orchestration ──
   scaffold_learning_course:     "medium",
@@ -39,12 +40,14 @@ const STEP_WEIGHT_MAP: Record<PipelineStepKey, StepWeightClass> = {
   validate_oral_exam:           "validation",
   validate_lesson_minichecks:   "validation",
   validate_handbook:            "validation",
+  validate_handbook_depth:      "validation",
   quality_council:              "validation",
 
   // ── Light: minimal pressure ──
   build_ai_tutor_index:         "light",
   run_integrity_check:          "light",
   auto_publish:                 "light",
+  enqueue_handbook_expand:      "light",     // Pure orchestration, no LLM
 };
 
 /** Classify a step_key into its weight class. Unknown steps default to "medium". */
