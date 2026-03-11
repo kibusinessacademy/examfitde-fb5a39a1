@@ -11,10 +11,11 @@ import { classifyStep } from "./step-weight.ts";
 import {
   type StepKey, type StepRow, type StepAction, type StepClassContext,
   safeRpc, safeQuery, getLearningContentProgress,
-  isTransientStepError, buildStepOrder, pickNextAction,
+  isTransientStepError, buildStepOrder, pickNextAction, pickParallelActions,
 } from "./pipeline-helpers.ts";
 import { handleJobFailed } from "./pipeline-handlers.ts";
 import { handleEnqueue } from "./pipeline-handlers.ts";
+import { enqueueJob } from "./enqueue.ts";
 import { backfillPipelinePool } from "./pipeline-backfill.ts";
 export { backfillPipelinePool } from "./pipeline-backfill.ts";
 
