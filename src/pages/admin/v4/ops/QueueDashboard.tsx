@@ -219,8 +219,12 @@ export default function QueueDashboard() {
                   <JobBadge status={j.status} meta={j.meta} lastError={j.last_error || j.error} />
                 </td>
                 <td className="py-2 px-3">{j.attempts}/{j.max_attempts}</td>
-                <td className="py-2 px-3 font-mono text-muted-foreground truncate max-w-[120px]">
-                  {j.payload?.package_id?.substring(0, 8) || j.package_id?.substring(0, 8) || '–'}
+                <td className="py-2 px-3 truncate max-w-[160px]" title={j.package_id || j.payload?.package_id || ''}>
+                  {(() => {
+                    const pid = j.package_id || j.payload?.package_id;
+                    const name = pid ? pkgNames[pid] : null;
+                    return name || pid?.substring(0, 8) || '–';
+                  })()}
                 </td>
                 <td className={cn(
                   "py-2 px-3 truncate max-w-[200px]",
