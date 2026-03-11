@@ -193,10 +193,18 @@ Deno.serve(async (req) => {
     }
   } catch (e: unknown) {
     const msg = (e as Error)?.message || String(e);
-    // Idempotency: if unique constraint violation, the scaffold already ran
+    // Idempotency: if unique constraint violation, verify artifacts before declaring success
     if (msg.includes("23505") || msg.includes("duplicate") || msg.includes("already exists")) {
-      console.log(`[scaffold] Idempotent hit: ${msg}`);
-      return json({ ok: true, skipped: true, reason: "already_exists" });
+      const { count: modCheck } = await sb
+        .from("modules")
+        .select("id", { count: "exact", head: true })
+        .eq("course_id", courseId);
+      if ((modCheck ?? 0) > 0) {
+        console.log(`[scaffold] Idempotent hit (${msg.slice(0, 60)}) — ${modCheck} modules exist, treating as success`);
+        return json({ ok: true, skipped: true, reason: "already_exists", modules: modCheck });
+      }
+      // Constraint hit but no artifacts — this is a real failure
+      console.error(`[scaffold] Constraint hit but 0 modules — NOT treating as success: ${msg.slice(0, 100)}`);
     }
     console.error(`[scaffold] Error: ${msg}`);
     return json({ ok: false, error: msg }, 500);
