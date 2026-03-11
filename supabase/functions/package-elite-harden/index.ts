@@ -395,9 +395,11 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
 
       upgraded++;
     } catch (err) {
-      await sb.from("elite_hardening_items").insert({
-        run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "failed", reason: String(err),
-      }).then(() => {}, () => {});
+      try {
+        await sb.from("elite_hardening_items").insert({
+          run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "failed", reason: String(err),
+        });
+      } catch (_e) { /* best-effort */ }
       failed++;
     }
   }
