@@ -373,14 +373,14 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
           for (const single of compList) {
             if (Date.now() - startTime > TIME_BUDGET_MS) break;
             try {
-              const singleResp = await callAIJSON({
-                provider: "openai",
-                model: "gpt-5.2",
-                messages: [
-                  { role: "system", content: `${systemPrompt}\n\nGib genau 1 Enrichment-Objekt zurück, nur JSON.` },
-                  {
-                    role: "user",
-                    content: `Enriche genau diese eine Kompetenz für "${cur.beruf_kurz}":\n${JSON.stringify([single])}`,
+              const singleResp = await callAIWithFailover(
+                enrichChain.map(c => ({ provider: c.provider, model: c.model })),
+                {
+                  messages: [
+                    { role: "system", content: `${systemPrompt}\n\nGib genau 1 Enrichment-Objekt zurück, nur JSON.` },
+                    {
+                      role: "user",
+                      content: `Enriche genau diese eine Kompetenz für "${cur.beruf_kurz}":\n${JSON.stringify([single])}`,
                   },
                 ],
                 tools: [ENRICHMENT_TOOL],

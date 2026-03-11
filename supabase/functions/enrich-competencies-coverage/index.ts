@@ -262,9 +262,10 @@ Deno.serve(async (req) => {
       for (let i = 0; i < needsAI.length && i < AI_BATCH * 3; i += AI_BATCH) {
         const batch = needsAI.slice(i, i + AI_BATCH);
         try {
-          const aiResp = await callAIJSON({
-            provider: "openai",
-            model: "gpt-5.2",
+          const coverageChain = await getModelChainAsync("blooms_classify");
+          const aiResp = await callAIWithFailover(
+            coverageChain.map(c => ({ provider: c.provider, model: c.model })),
+            {
             messages: [
               {
                 role: "system",
