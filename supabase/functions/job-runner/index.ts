@@ -331,7 +331,7 @@ Deno.serve(async (req) => {
   // Max 1 heavy LF-job per package per tick, max GLOBAL_HEAVY_LIMIT globally.
   // Root orchestrator jobs (no learning_field_filter) are treated as non-heavy
   // since they only fan-out and complete fast.
-  const HEAVY_JOB_TYPES_ARR = ["package_generate_exam_pool", "package_generate_learning_content", "package_generate_handbook"];
+  const HEAVY_JOB_TYPES_ARR = ["package_generate_exam_pool", "package_generate_learning_content", "package_generate_handbook", "package_auto_seed_exam_blueprints", "package_elite_harden"];
   const HEAVY_JOB_TYPES = new Set(HEAVY_JOB_TYPES_ARR);
   const GLOBAL_HEAVY_LIMIT = 3;
 
