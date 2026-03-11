@@ -150,17 +150,20 @@ Deno.serve(async (req) => {
       const professionName = await loadProfessionForLesson(supabase, lesson);
 
       try {
-        // STEP 1: GENERATE via Gateway with profession context
-        const genResult = await callAIJSON({
-          provider: GENERATOR_PROVIDER,
-          messages: [
-            { role: "system", content: `Du bist ein erfahrener IHK-Prüfungsexperte für ${professionName}. Erstelle ausschließlich fachlich korrekte, prüfungsrelevante Fragen mit konkretem Bezug zum Berufsalltag von ${professionName}. Nutze IMMER die bereitgestellte Funktion.` },
-            { role: "user", content: `Erstelle einen Mini-Check Quiz für ${professionName}:\n**Kompetenz:** ${code} – ${title}\n**Beschreibung:** ${desc}\n\nEXAKT 4 Multiple-Choice-Fragen mit je 4 Optionen.\nJede Frage muss ein berufsspezifisches Szenario für ${professionName} enthalten.\nDistraktoren müssen typische Denkfehler von ${professionName} abbilden.\nNutze die Funktion create_mini_check.` }
-          ],
-          tools: [MINICHECK_TOOL],
-          tool_choice: { type: "function", function: { name: "create_mini_check" } },
-          temperature: 0.7,
-        });
+        // STEP 1: GENERATE via failover chain with profession context
+        const genChain = await getModelChainAsync("minicheck");
+        const genResult = await callAIWithFailover(
+          genChain.map(c => ({ provider: c.provider, model: c.model })),
+          {
+            messages: [
+              { role: "system", content: `Du bist ein erfahrener IHK-Prüfungsexperte für ${professionName}. Erstelle ausschließlich fachlich korrekte, prüfungsrelevante Fragen mit konkretem Bezug zum Berufsalltag von ${professionName}. Nutze IMMER die bereitgestellte Funktion.` },
+              { role: "user", content: `Erstelle einen Mini-Check Quiz für ${professionName}:\n**Kompetenz:** ${code} – ${title}\n**Beschreibung:** ${desc}\n\nEXAKT 4 Multiple-Choice-Fragen mit je 4 Optionen.\nJede Frage muss ein berufsspezifisches Szenario für ${professionName} enthalten.\nDistraktoren müssen typische Denkfehler von ${professionName} abbilden.\nNutze die Funktion create_mini_check.` }
+            ],
+            tools: [MINICHECK_TOOL],
+            tool_choice: { type: "function", function: { name: "create_mini_check" } },
+            temperature: 0.7,
+          },
+        );
 
         const genArgs = genResult.toolCalls?.[0]?.function?.arguments;
         const parsed = genArgs ? JSON.parse(genArgs) : null;
