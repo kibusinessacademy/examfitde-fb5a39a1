@@ -64,6 +64,8 @@ const HEAVY_JOB_TYPES = new Set([
   "package_generate_handbook", "handbook_expand_section",
   "package_generate_exam_pool", "package_generate_oral_exam",
   "package_elite_harden", "package_quality_council",
+  "package_validate_learning_content", // v2.2: 200 lessons + 4 parallel LLM calls → needs 90s+
+  "package_validate_exam_pool", "package_validate_oral_exam",
 ]);
 
 // deno-lint-ignore no-explicit-any
