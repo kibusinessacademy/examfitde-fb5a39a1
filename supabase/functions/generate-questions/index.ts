@@ -128,14 +128,17 @@ ${cogBlock}
 WICHTIG: Jede Frage braucht ein konkretes Szenario aus dem Arbeitsalltag von ${professionName}. Keine generischen "Was ist...?"-Fragen.
 PFLICHT: correct_answer muss 0, 1, 2 oder 3 sein. Prüfe vor Ausgabe, ob die richtige Antwort an der richtigen Position steht.`;
 
-    const result = await callAIJSON({
-      provider: "openai",
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.7,
-    });
+    const chain = await getModelChainAsync("exam_questions");
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+      },
+    );
 
     if (!result.content) {
       throw new Error('No content in AI response');

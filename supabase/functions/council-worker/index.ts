@@ -286,12 +286,12 @@ async function reviseStep(
 
   const latestCritique = critiques?.[0]?.message_json || {};
 
-  const reviserModel = await getModelAsync("council_proposer");
-  const agentName = `${reviserModel.provider}/${reviserModel.model}`;
+  const reviserChain = await getModelChainAsync("council_proposer");
+  const agentName = `${reviserChain[0].provider}/${reviserChain[0].model}`;
 
-  const { content: revisedContent } = await callAIJSON({
-    provider: reviserModel.provider,
-    model: reviserModel.model,
+  const { content: revisedContent } = await callAIWithFailover(
+    reviserChain.map(c => ({ provider: c.provider, model: c.model })),
+    {
     messages: [
       {
         role: "system",

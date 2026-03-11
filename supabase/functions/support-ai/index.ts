@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
       context_course_id: contextCourseId || null,
       context_lesson_id: contextLessonId || null,
       context_competency_id: contextCompetencyId || null,
-      model_used: routed.model,
+      model_used: aiResult.model,
       tokens_used: aiResult.usage?.total_tokens || 0,
       guardrail_flags: guardrailFlags,
     });
