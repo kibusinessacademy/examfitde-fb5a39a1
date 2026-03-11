@@ -447,6 +447,103 @@ export async function processPackage(
           return { ok, reason, snapshot: { ok: !!meta?.ok, basis_pass: !!meta?.basis_pass, quality_tier: meta?.quality_tier } };
         },
       },
+      // ── NEW: Previously missing finalization rules (were relying on 5-min zombie timeout) ──
+      {
+        stepKey: "generate_glossary",
+        jobType: "package_generate_glossary",
+        actionType: "finalize_generate_glossary",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "generate_lesson_minichecks",
+        jobType: "package_generate_lesson_minichecks",
+        actionType: "finalize_generate_lesson_minichecks",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.batch_complete === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.batch_complete ? "meta.batch_complete=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, batch_complete: !!meta?.batch_complete } };
+        },
+      },
+      {
+        stepKey: "elite_harden",
+        jobType: "package_elite_harden",
+        actionType: "finalize_elite_harden",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "build_ai_tutor_index",
+        jobType: "package_build_ai_tutor_index",
+        actionType: "finalize_build_ai_tutor_index",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "run_integrity_check",
+        jobType: "package_run_integrity_check",
+        actionType: "finalize_run_integrity_check",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.integrity_passed === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.integrity_passed ? "meta.integrity_passed=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, integrity_passed: !!meta?.integrity_passed } };
+        },
+      },
+      {
+        stepKey: "quality_council",
+        jobType: "package_quality_council",
+        actionType: "finalize_quality_council",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.approved === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.approved ? "meta.approved=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, approved: !!meta?.approved } };
+        },
+      },
+      {
+        stepKey: "auto_publish",
+        jobType: "package_auto_publish",
+        actionType: "finalize_auto_publish",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.published === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.published ? "meta.published=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, published: !!meta?.published } };
+        },
+      },
+      {
+        stepKey: "enqueue_handbook_expand",
+        jobType: "package_enqueue_handbook_expand",
+        actionType: "finalize_enqueue_handbook_expand",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.enqueued === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.enqueued ? "meta.enqueued=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, enqueued: !!meta?.enqueued } };
+        },
+      },
+      {
+        stepKey: "expand_handbook",
+        jobType: "handbook_expand_section",
+        actionType: "finalize_expand_handbook",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.batch_complete === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.batch_complete ? "meta.batch_complete=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, batch_complete: !!meta?.batch_complete } };
+        },
+      },
     ];
 
     const byKey = new Map<string, StepRow>();
