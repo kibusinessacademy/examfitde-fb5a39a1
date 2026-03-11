@@ -381,13 +381,14 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
                     {
                       role: "user",
                       content: `Enriche genau diese eine Kompetenz für "${cur.beruf_kurz}":\n${JSON.stringify([single])}`,
-                  },
-                ],
-                tools: [ENRICHMENT_TOOL],
-                tool_choice: { type: "function", function: { name: "submit_enrichments" } },
-                max_tokens: 2600,
-                timeout_ms: 16_000,
-              });
+                    },
+                  ],
+                  tools: [ENRICHMENT_TOOL],
+                  tool_choice: { type: "function", function: { name: "submit_enrichments" } },
+                  max_tokens: 2600,
+                  timeout_ms: 16_000,
+                },
+              );
 
               const singleEnrichments = parseEnrichmentsFromAIResponse(singleResp);
               if (!singleEnrichments?.length) {
