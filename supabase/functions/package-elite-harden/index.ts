@@ -363,11 +363,13 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
       const validationErr = validateAIExamOutput(parsed);
       if (validationErr) throw new Error(`AI_VALIDATION: ${validationErr}`);
 
-      await sb.from("elite_hardening_items").insert({
-        run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "upgraded",
-        original_data: { question_text: q.question_text, options: q.options, explanation: q.explanation, cognitive_level: q.cognitive_level },
-        upgraded_data: parsed,
-      }).then(() => {}, () => {});
+      try {
+        await sb.from("elite_hardening_items").insert({
+          run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "upgraded",
+          original_data: { question_text: q.question_text, options: q.options, explanation: q.explanation, cognitive_level: q.cognitive_level },
+          upgraded_data: parsed,
+        });
+      } catch (_e) { /* best-effort */ }
 
       const upgradedInput = buildAnnotationInput(
         { ...q, trap_tags: parsed.trap_tags || q.trap_tags, distractor_meta: parsed.distractor_meta || q.distractor_meta, cognitive_level: parsed.cognitive_level || q.cognitive_level },
@@ -393,9 +395,11 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
 
       upgraded++;
     } catch (err) {
-      await sb.from("elite_hardening_items").insert({
-        run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "failed", reason: String(err),
-      }).then(() => {}, () => {});
+      try {
+        await sb.from("elite_hardening_items").insert({
+          run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "failed", reason: String(err),
+        });
+      } catch (_e) { /* best-effort */ }
       failed++;
     }
   }
@@ -436,11 +440,13 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
       const parsed = parseJSON(await callAI(systemPrompt, userPrompt));
       if (!parsed.question_text || !parsed.options) continue;
 
-      await sb.from("elite_hardening_items").insert({
-        run_id: runId, entity_type: "minicheck", entity_id: mc.id, action: "upgraded",
-        original_data: { question_text: mc.question_text, options: mc.options, explanation: mc.explanation },
-        upgraded_data: parsed,
-      }).then(() => {}, () => {});
+      try {
+        await sb.from("elite_hardening_items").insert({
+          run_id: runId, entity_type: "minicheck", entity_id: mc.id, action: "upgraded",
+          original_data: { question_text: mc.question_text, options: mc.options, explanation: mc.explanation },
+          upgraded_data: parsed,
+        });
+      } catch (_e) { /* best-effort */ }
 
       await sb.from("minicheck_questions").update({
         question_text: parsed.question_text,
@@ -492,11 +498,13 @@ JSON: {"scenario":"...","lead_questions":["..."],"followups":["..."],"rubric":{"
       const parsed = parseJSON(await callAI(systemPrompt, userPrompt));
       if (!parsed.scenario) continue;
 
-      await sb.from("elite_hardening_items").insert({
-        run_id: runId, entity_type: "oral_blueprint", entity_id: bp.id, action: "upgraded",
-        original_data: { scenario: bp.scenario, rubric: bp.rubric },
-        upgraded_data: parsed,
-      }).then(() => {}, () => {});
+      try {
+        await sb.from("elite_hardening_items").insert({
+          run_id: runId, entity_type: "oral_blueprint", entity_id: bp.id, action: "upgraded",
+          original_data: { scenario: bp.scenario, rubric: bp.rubric },
+          upgraded_data: parsed,
+        });
+      } catch (_e) { /* best-effort */ }
 
       await sb.from("oral_exam_blueprints").update({
         scenario: parsed.scenario,
@@ -743,11 +751,13 @@ Deno.serve(async (req) => {
 
       // Step 2: Enqueue ALL follow-up phases as separate jobs (never inline)
       // BUG FIX: Previously missing drafts_upgrade — weak drafts were never AI-upgraded
-      await sb.from("job_queue").insert([
-        { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "drafts_upgrade" } },
-        { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "minichecks_only" } },
-        { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, phase: "oral_only" } },
-      ]).then(() => {}, () => {});
+      try {
+        await sb.from("job_queue").insert([
+          { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "drafts_upgrade" } },
+          { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "minichecks_only" } },
+          { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, phase: "oral_only" } },
+        ]);
+      } catch (_e) { /* best-effort */ }
 
       // Finalize THIS run as done (follow-ups are independent)
       await sb.from("elite_hardening_runs").update({

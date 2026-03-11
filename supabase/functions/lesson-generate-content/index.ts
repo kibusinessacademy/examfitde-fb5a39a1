@@ -851,20 +851,21 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
     await sb.rpc("pipeline_write_lesson_content", {
       p_lesson_id: lessonId,
       p_content: finalContent,
-    }).then(() => {});
+    });
   } catch (_syncErr) {
     // Non-fatal: the trigger is the primary path, this is backup
     console.warn(`[lesson-gen] direct sync fallback failed for ${lessonId.slice(0, 8)}: ${(_syncErr as Error)?.message?.slice(0, 100)}`);
   }
 
   // ── Cleanup checkpoint (best-effort, non-blocking) ──
-  sb.from("content_versions")
-    .delete()
-    .eq("lesson_id", lessonId)
-    .eq("step_key", stepKeyCanonical)
-    .eq("created_by_agent", "lesson-gen-checkpoint")
-    .eq("status", "draft")
-    .then(() => {});
+  try {
+    await sb.from("content_versions")
+      .delete()
+      .eq("lesson_id", lessonId)
+      .eq("step_key", stepKeyCanonical)
+      .eq("created_by_agent", "lesson-gen-checkpoint")
+      .eq("status", "draft");
+  } catch (_e) { /* best-effort */ }
 
   // ── Audit: council message ──
   await sb.from("council_messages").insert({

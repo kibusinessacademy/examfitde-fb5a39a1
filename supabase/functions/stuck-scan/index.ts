@@ -1070,13 +1070,15 @@ Deno.serve(async (req) => {
           console.warn(`[stuck-scan] 🔧 POOL_SWEEP: Fixed ${mismatched.length} job(s) from core→content | types=${mismatchJobTypes.join(",")} | samples=${mismatchSampleIds.join(",")}`);
 
           // Alert if mismatch found (indicates upstream drift)
-          await sb.from("admin_notifications").insert({
-            title: "Pool Mismatch Sweep: jobs auto-fixed",
-            body: `${mismatched.length} job(s) were on wrong pool (core instead of content). Auto-fixed. Job types: ${mismatchJobTypes.join(", ")}`,
-            category: "ops",
-            severity: "warn",
-            metadata: { fixed_count: mismatched.length, job_types: mismatchJobTypes, sample_ids: mismatchSampleIds },
-          }).then(() => {}, () => {});
+          try {
+            await sb.from("admin_notifications").insert({
+              title: "Pool Mismatch Sweep: jobs auto-fixed",
+              body: `${mismatched.length} job(s) were on wrong pool (core instead of content). Auto-fixed. Job types: ${mismatchJobTypes.join(", ")}`,
+              category: "ops",
+              severity: "warn",
+              metadata: { fixed_count: mismatched.length, job_types: mismatchJobTypes, sample_ids: mismatchSampleIds },
+            });
+          } catch (_e) { /* best-effort */ }
         }
       }
     } catch (sweepErr) {

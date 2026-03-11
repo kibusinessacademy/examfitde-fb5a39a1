@@ -599,12 +599,14 @@ Deno.serve(async (req) => {
   }).eq("id", packageId);
 
   if (!overallPass) {
-    await sb.from("ops_alerts").insert({
-      source: "validate-exam-pool-v3",
-      severity: "warning",
-      message: `Exam QC v3 failed for pkg ${packageId.slice(0, 8)}: avg=${avgScore.toFixed(0)}, bloom=${bloomGatePass}, ctx=${contextGatePass}, dist=${distractorGatePass}`,
-      payload: { packageId, tier1_pass_rate: t1PassRate, tier2_avg_score: avgScore, bloom: bloomGatePass, context: contextGatePass, distractor: distractorGatePass },
-    }).then(() => {}, () => {});
+    try {
+      await sb.from("ops_alerts").insert({
+        source: "validate-exam-pool-v3",
+        severity: "warning",
+        message: `Exam QC v3 failed for pkg ${packageId.slice(0, 8)}: avg=${avgScore.toFixed(0)}, bloom=${bloomGatePass}, ctx=${contextGatePass}, dist=${distractorGatePass}`,
+        payload: { packageId, tier1_pass_rate: t1PassRate, tier2_avg_score: avgScore, bloom: bloomGatePass, context: contextGatePass, distractor: distractorGatePass },
+      });
+    } catch (_e) { /* best-effort */ }
   }
 
   timings.total = Date.now() - t0;

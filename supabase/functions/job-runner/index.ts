@@ -196,16 +196,18 @@ async function writeSnapshot(
     ? Math.round(metrics.totalLatencyMs / metrics.completed)
     : null;
 
-  await sb.from("concurrency_snapshots").insert({
-    timeouts_5min: metrics.timeouts,
-    rate_limits_5min: metrics.rateLimits,
-    escalations_5min: metrics.escalations,
-    dlq_count_5min: metrics.dlqItems,
-    jobs_per_min: metrics.completed,
-    median_latency_ms: medianLatency,
-    active_concurrency: activeConcurrency,
-    action_taken: action,
-  }).then(() => {}, () => {});
+  try {
+    await sb.from("concurrency_snapshots").insert({
+      timeouts_5min: metrics.timeouts,
+      rate_limits_5min: metrics.rateLimits,
+      escalations_5min: metrics.escalations,
+      dlq_count_5min: metrics.dlqItems,
+      jobs_per_min: metrics.completed,
+      median_latency_ms: medianLatency,
+      active_concurrency: activeConcurrency,
+      action_taken: action,
+    });
+  } catch (_e) { /* best-effort */ }
 }
 
 /** Write failed job to Dead-Letter Queue */
@@ -1070,15 +1072,17 @@ Deno.serve(async (req) => {
                 .eq("step_key", validationStepKey);
             }
 
-            await sb.from("auto_heal_log").insert({
-              action_type: "qg_heal_kill_switch",
-              trigger_source: "job-runner",
-              target_type: "package_step",
-              target_id: packageId,
-              result_status: "escalated",
-              result_detail: `${job.job_type} failed ${healCycles}x heal cycles — stopping`,
-              metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles, missing_lf_ids: missingLfIds, issues: parsed.issues?.slice(0, 5) },
-            }).then(() => {}, () => {});
+            try {
+              await sb.from("auto_heal_log").insert({
+                action_type: "qg_heal_kill_switch",
+                trigger_source: "job-runner",
+                target_type: "package_step",
+                target_id: packageId,
+                result_status: "escalated",
+                result_detail: `${job.job_type} failed ${healCycles}x heal cycles — stopping`,
+                metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles, missing_lf_ids: missingLfIds, issues: parsed.issues?.slice(0, 5) },
+              });
+            } catch (_e) { /* best-effort */ }
 
             finalState = {
               status: "failed",
@@ -1129,15 +1133,17 @@ Deno.serve(async (req) => {
                 .in("status", ["done", "failed", "queued", "enqueued"]);
             }
 
-            await sb.from("auto_heal_log").insert({
-              action_type: "qg_auto_heal_reseed",
-              trigger_source: "job-runner",
-              target_type: "package_step",
-              target_id: packageId,
-              result_status: "ok",
-              result_detail: `${job.job_type} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1})`,
-              metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds, trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : "max_attempts", issues: parsed.issues?.slice(0, 5) },
-            }).then(() => {}, () => {});
+            try {
+              await sb.from("auto_heal_log").insert({
+                action_type: "qg_auto_heal_reseed",
+                trigger_source: "job-runner",
+                target_type: "package_step",
+                target_id: packageId,
+                result_status: "ok",
+                result_detail: `${job.job_type} QG fail → reset ${predecessorStep} (cycle ${healCycles + 1})`,
+                metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles + 1, missing_lf_ids: missingLfIds, trigger: hasMissingCoverage ? "MISSING_LF_COVERAGE" : "max_attempts", issues: parsed.issues?.slice(0, 5) },
+              });
+            } catch (_e) { /* best-effort */ }
 
             // Complete the job (not requeue) — the step system handles the rest
             finalState = {
@@ -1324,9 +1330,11 @@ Deno.serve(async (req) => {
 
       // Update last_progress_at on batch_incomplete to prevent false stuck alerts
       if (finalState.status === "pending" && finalState.patch.batch_cursor !== undefined && job.payload?.package_id) {
-        await sb.from("course_packages").update({
-          last_progress_at: tsNow,
-        }).eq("id", job.payload.package_id).then(() => {}, () => {});
+        try {
+          await sb.from("course_packages").update({
+            last_progress_at: tsNow,
+          }).eq("id", job.payload.package_id);
+        } catch (_e) { /* best-effort */ }
       }
 
       results.push({

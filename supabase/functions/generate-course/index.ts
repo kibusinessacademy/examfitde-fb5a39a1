@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
           if (insertError.code === "23505") {
             console.warn(`[Chunk ${i}] Partial duplicate, inserting individually`);
             for (const row of chunk) {
-              await supabase.from("lessons").insert(row).catch(() => {});
+              try { await supabase.from("lessons").insert(row); } catch (_e) { /* skip duplicate */ }
             }
           } else {
             throw insertError;
