@@ -389,6 +389,23 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         console.warn(`[content-runner] 🔄 COOLDOWN SET: ${jobProvider}/${jobModel} for ${Math.round(classification.providerCooldownMs / 1000)}s — reason: ${classification.reason}`);
       }
 
+      // Circuit breaker: detect permanent failures even in transient-classified errors
+      // (e.g. "All providers failed: anthropic: credit balance too low")
+      if (isPermanentProviderError(errorStr)) {
+        const tripped = await recordPermanentProviderFailure(errorStr.slice(0, 200));
+        if (tripped) {
+          const now2 = new Date().toISOString();
+          await sb.from("job_queue").update({
+            status: "pending",
+            run_after: new Date(Date.now() + 10 * 60_000).toISOString(),
+            locked_at: null, locked_by: null,
+            updated_at: now2,
+            last_error: `CIRCUIT_BREAKER: ${errorStr.slice(0, 200)}`,
+          }).eq("id", job.id);
+          return { id: job.id, ok: false, error: "CIRCUIT_BREAKER_TRIPPED", terminal: true };
+        }
+      }
+
         if (isTransientErr) {
         const prevTransient = (job.meta?.transient_attempts ?? 0);
         const transientNext = prevTransient + 1;
