@@ -1322,18 +1322,17 @@ async function handleJobCompleted(
           const boostRows = Array.isArray(existingBoost) ? existingBoost : (existingBoost as any)?.data ?? [];
           if (!Array.isArray(boostRows) || boostRows.length === 0) {
             console.log(`[runner] ⚡ Low-progress boost: only ${deltaReal} lessons this run`);
-            await safeQuery(
-              sb.from("job_queue").insert({
+            try {
+              await enqueueJob(sb, {
                 job_type: boostJobType,
                 package_id: packageId,
-                status: "pending",
                 priority: 70,
                 payload: { package_id: packageId, reason: "low_progress_boost", real: afterReal, total: afterTotal },
-                worker_pool: "content",
                 max_attempts: 8,
-              }),
-              "enqueue_low_progress_boost",
-            );
+              });
+            } catch (boostErr) {
+              console.warn(`[runner] Low-progress boost enqueue failed: ${(boostErr as Error).message}`);
+            }
           }
         }
 
