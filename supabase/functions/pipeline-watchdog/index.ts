@@ -816,12 +816,14 @@ Deno.serve(async (req) => {
     }
 
     if (failedHealedCount > 0) {
-      await sb.from("auto_heal_log").insert({
-        action_type: "failed_package_auto_heal",
-        trigger_source: "pipeline-watchdog",
-        result_status: "applied",
-        result_detail: `Healed ${failedHealedCount} failed package(s)`,
-      }).then(() => {});
+      try {
+        await sb.from("auto_heal_log").insert({
+          action_type: "failed_package_auto_heal",
+          trigger_source: "pipeline-watchdog",
+          result_status: "applied",
+          result_detail: `Healed ${failedHealedCount} failed package(s)`,
+        });
+      } catch (_e) { /* best-effort */ }
     }
 
     // ── 5) Count active state ──
