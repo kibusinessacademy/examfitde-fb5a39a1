@@ -468,27 +468,28 @@ async function generateFromScenario(
   const bloomRule = BLOOM_MATRIX[competency.bloom_level] || BLOOM_MATRIX.apply;
 
   try {
-    const routed = getModel("oral_exam");
-    const result = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        { role: "system", content: buildSystemPrompt(professionName, mode as any) },
-        {
-          role: "user",
-          content: JSON.stringify({
-            instruction: "Erstelle aus dem Szenario eine präzise mündliche IHK-Prüfungsfrage.",
-            scenario,
-            competency: competency.title,
-            bloom_level: competency.bloom_level,
-            bloom_rule: bloomRule,
-            profession: professionName,
-            output_format: { question: "Die Prüfungsfrage basierend auf dem Szenario" },
-          }),
-        },
-      ],
-      max_tokens: 500,
-    });
+    const chain2 = await getModelChainAsync("oral_exam");
+    const result = await callAIWithFailover(
+      chain2.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: buildSystemPrompt(professionName, mode as any) },
+          {
+            role: "user",
+            content: JSON.stringify({
+              instruction: "Erstelle aus dem Szenario eine präzise mündliche IHK-Prüfungsfrage.",
+              scenario,
+              competency: competency.title,
+              bloom_level: competency.bloom_level,
+              bloom_rule: bloomRule,
+              profession: professionName,
+              output_format: { question: "Die Prüfungsfrage basierend auf dem Szenario" },
+            }),
+          },
+        ],
+        max_tokens: 500,
+      },
+    );
 
     const parsed = parseAIJSON(result.content);
     if (parsed?.question) return { question: parsed.question, model: routed.model };
