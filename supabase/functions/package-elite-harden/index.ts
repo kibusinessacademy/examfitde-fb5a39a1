@@ -52,16 +52,18 @@ function assertUuid(name: string, v: unknown) {
 }
 
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
-  const result = await callAIJSON({
-    provider: "openai" as AIProvider,
-    model: "gpt-5.2",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    temperature: 0.4,
-    max_tokens: 4096,
-  });
+  const chain = await getModelChainAsync("exam_questions");
+  const result = await callAIWithFailover(
+    chain.map(c => ({ provider: c.provider, model: c.model })),
+    {
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.4,
+      max_tokens: 4096,
+    },
+  );
   return result.content || "";
 }
 

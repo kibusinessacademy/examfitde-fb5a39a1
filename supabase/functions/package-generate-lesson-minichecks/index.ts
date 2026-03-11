@@ -49,16 +49,18 @@ async function prereqDone(sb: ReturnType<typeof createClient>, packageId: string
  * but we need {messages: [{role, content}], ...} (OpenAI-compatible).
  */
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
-  const result = await callAIJSON({
-    provider: "openai" as AIProvider,
-    model: "gpt-5.2",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    temperature: 0.4,
-    max_tokens: 4000,
-  });
+  const chain = await getModelChainAsync("minicheck");
+  const result = await callAIWithFailover(
+    chain.map(c => ({ provider: c.provider, model: c.model })),
+    {
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.4,
+      max_tokens: 4000,
+    },
+  );
   return result.content || "";
 }
 
