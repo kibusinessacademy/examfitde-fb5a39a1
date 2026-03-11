@@ -12,8 +12,8 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { callAIJSON } from "./ai-client.ts";
-import { getModel } from "./model-routing.ts";
+import { callAIWithFailover } from "./ai-client.ts";
+import { getModelChainAsync } from "./model-routing.ts";
 
 type SB = ReturnType<typeof createClient>;
 
