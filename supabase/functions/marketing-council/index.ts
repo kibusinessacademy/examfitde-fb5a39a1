@@ -76,13 +76,13 @@ Antworte NUR mit validem JSON:
 
       // ── VALIDATE with Council Review model ──
       try {
-        const validationRouted = getModel("council_review");
-        const valResult = await callAIJSON({
-          provider: validationRouted.provider,
-          model: validationRouted.model,
-          messages: [{
-            role: "user",
-            content: `Du bist der Validation & ROI Controller im Marketing Council.
+        const valChain = await getModelChainAsync("council_review");
+        const valResult = await callAIWithFailover(
+          valChain.map(c => ({ provider: c.provider, model: c.model })),
+          {
+            messages: [{
+              role: "user",
+              content: `Du bist der Validation & ROI Controller im Marketing Council.
 Prüfe diesen Marketing-Plan auf:
 1. Zielgruppen-Passung
 2. Rechtliche Risiken (KEINE IHK-offiziell Claims!)
@@ -95,9 +95,10 @@ ${JSON.stringify(strategyJson, null, 2)}
 
 Antworte NUR mit JSON:
 {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {}, "critical_issues": [], "suggestions": []}`
-          }],
-          max_tokens: 2000,
-        });
+            }],
+            max_tokens: 2000,
+          },
+        );
 
         let validationReport;
         try {
