@@ -132,15 +132,18 @@ Deno.serve(async (req) => {
       for (const comp of batch) {
         const lf = (comp as any).learning_fields;
         try {
-          const res = await callAIJSON({
-            provider,
-            messages: [
-              { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Erstelle strukturierte Prüfungs-Blueprints." },
-              { role: "user", content: `Erstelle einen IHK-Prüfungs-Blueprint für:\nKompetenz: ${comp.code} – ${comp.title}\nLernfeld: ${lf.title}\nTaxonomie: ${comp.taxonomy_level || "Anwenden"}\n\nNutze die Funktion create_blueprint.` }
-            ],
-            tools: [BLUEPRINT_TOOL],
-            tool_choice: { type: "function", function: { name: "create_blueprint" } },
-          });
+          const bpChain = await getModelChainAsync("exam_questions");
+          const res = await callAIWithFailover(
+            bpChain.map(c => ({ provider: c.provider, model: c.model })),
+            {
+              messages: [
+                { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Erstelle strukturierte Prüfungs-Blueprints." },
+                { role: "user", content: `Erstelle einen IHK-Prüfungs-Blueprint für:\nKompetenz: ${comp.code} – ${comp.title}\nLernfeld: ${lf.title}\nTaxonomie: ${comp.taxonomy_level || "Anwenden"}\n\nNutze die Funktion create_blueprint.` }
+              ],
+              tools: [BLUEPRINT_TOOL],
+              tool_choice: { type: "function", function: { name: "create_blueprint" } },
+            },
+          );
 
           const args = extractToolArgs(res);
           if (!args) { results.errors.push(`${comp.code}: No blueprint output`); continue; }
