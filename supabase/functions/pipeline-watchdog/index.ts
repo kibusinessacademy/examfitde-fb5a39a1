@@ -936,12 +936,14 @@ Deno.serve(async (req) => {
 
       if (lcRevivedCount > 0) {
         console.warn(`[watchdog] LC liveness guard: revived=${lcRevivedCount} neutralized=${lcNeutralizedCount}`);
-        await sb.from("auto_heal_log").insert({
-          action_type: "lc_liveness_revive",
-          trigger_source: "pipeline-watchdog",
-          result_status: "applied",
-          result_detail: `Revived ${lcRevivedCount} dead learning-content step(s), neutralized ${lcNeutralizedCount} stale jobs`,
-        }).then(() => {});
+        try {
+          await sb.from("auto_heal_log").insert({
+            action_type: "lc_liveness_revive",
+            trigger_source: "pipeline-watchdog",
+            result_status: "applied",
+            result_detail: `Revived ${lcRevivedCount} dead learning-content step(s), neutralized ${lcNeutralizedCount} stale jobs`,
+          });
+        } catch (_e) { /* best-effort */ }
       }
     } catch (lcErr) {
       console.error("[watchdog] LC liveness guard error:", (lcErr as Error)?.message);
