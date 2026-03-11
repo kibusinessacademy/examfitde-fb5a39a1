@@ -102,7 +102,10 @@ Deno.serve(async (req) => {
           .select("id", { count: "exact", head: true })
           .eq("module_id", modId);
 
-        if ((existingLessons ?? 0) > 0) continue; // already scaffolded
+        if ((existingLessons ?? 0) > 0) {
+          lessonsCreated += existingLessons!; // count existing as success for idempotency guard
+          continue;
+        }
 
         const rows = [];
         for (const comp of comps) {
