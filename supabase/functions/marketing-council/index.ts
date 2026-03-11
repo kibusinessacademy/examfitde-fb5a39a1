@@ -1,7 +1,7 @@
 // Deno.serve is built-in
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { callAIJSON } from "../_shared/ai-client.ts";
-import { getModel } from "../_shared/model-routing.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
