@@ -718,6 +718,22 @@ Deno.serve(async (req) => {
   let totalFailed = 0;
   let totalDeferred = 0;
 
+  // ── Circuit Breaker check before starting loop ──
+  const cbStatus = await checkCircuitBreaker();
+  if (cbStatus.paused) {
+    console.warn(
+      `[content-runner] 🔴 CIRCUIT_BREAKER: pipeline paused — ${cbStatus.reason} ` +
+      `(${Math.round((cbStatus.remainingMs ?? 0) / 1000)}s remaining)`,
+    );
+    return json({
+      ok: false,
+      circuit_breaker: true,
+      reason: cbStatus.reason,
+      expires_at: cbStatus.expiresAt,
+      remaining_ms: cbStatus.remainingMs,
+    });
+  }
+
   while (Date.now() < deadline) {
     passes++;
 
