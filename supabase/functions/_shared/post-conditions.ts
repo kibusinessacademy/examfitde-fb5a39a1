@@ -1,6 +1,7 @@
 // supabase/functions/_shared/post-conditions.ts
 // SSOT Post-Condition Guards: prevents "done" status on hollow content
 import { isRealHandbookSection, HANDBOOK_THRESHOLDS } from "./handbook-write-guard.ts";
+import { assertExtendedPostConditions } from "./post-conditions-extended.ts";
 type SB = any;
 
 function num(x: any): number {
