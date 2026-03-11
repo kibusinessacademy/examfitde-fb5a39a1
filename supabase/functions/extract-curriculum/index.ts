@@ -1,8 +1,8 @@
 // Deno.serve is built-in
 import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { callAIJSON, aiErrorResponse } from "../_shared/ai-client.ts";
-import { getModel } from "../_shared/model-routing.ts";
+import { callAIWithFailover, aiErrorResponse } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 const systemPrompt = `Du bist ein Experte für die Analyse von Berufsausbildungs-Rahmenlehrplänen (Curricula). 
 Deine Aufgabe ist es, aus dem bereitgestellten Dokument strukturierte Daten zu extrahieren.
