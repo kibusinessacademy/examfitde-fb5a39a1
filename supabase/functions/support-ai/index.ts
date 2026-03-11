@@ -113,18 +113,19 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `${guardrailRules.join("\n")}\n\nAntworttyp: ${answerType}${professionContext}${contextStr}${emotionalContext}`;
 
-    // Route through model-routing.ts (support intent)
-    const routed = getModel("support");
+    // Route through model-routing.ts (support intent) with failover chain
+    const chain = await getModelChainAsync("support");
 
-    const aiResult = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: question },
-      ],
-      max_tokens: 500,
-    });
+    const aiResult = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: question },
+        ],
+        max_tokens: 500,
+      },
+    );
 
     const answer = aiResult.content || "Leider konnte ich keine Antwort generieren. Bitte versuche es erneut.";
 
