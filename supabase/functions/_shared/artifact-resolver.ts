@@ -145,13 +145,24 @@ async function artifactExists(
         return false; // surface the issue instead of silently trusting step status
       }
 
-      // IMPORTANT: exam questions are quality-staged via qc_status; status='approved'
-      // is not the canonical success marker for this pipeline.
-      const { count: readyCount } = await sb
+      // CRITICAL FIX: "exam_questions" artifact = questions EXIST (any status).
+      // "validated_exam_pool" artifact = questions are QC-approved/tier1_passed.
+      // Previously both used the approved filter, causing a deadlock when
+      // generate_exam_pool creates draft questions and validate_exam_pool
+      // (which is supposed to DO the validation) can't start because the
+      // artifact check demands already-validated questions.
+      let readyQuery = sb
         .from("exam_questions")
         .select("id", { count: "exact", head: true })
-        .eq("curriculum_id", curriculumId)
-        .or("status.eq.approved,qc_status.eq.approved,qc_status.eq.tier1_passed");
+        .eq("curriculum_id", curriculumId);
+
+      if (artifact === "validated_exam_pool") {
+        // Only validated_exam_pool needs the strict QC filter
+        readyQuery = readyQuery.or("status.eq.approved,qc_status.eq.approved,qc_status.eq.tier1_passed");
+      }
+      // For "exam_questions" artifact: count ALL questions (draft included)
+
+      const { count: readyCount } = await readyQuery;
 
       // Dynamic threshold: if generator stored a target, respect it, but never
       // require more than actually generated in this package run (loop-capped safety).
