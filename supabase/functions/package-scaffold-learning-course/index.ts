@@ -33,8 +33,25 @@ Deno.serve(async (req) => {
 
     if (lockError) {
       if (lockError.code === "23505") {
-        console.log(`[scaffold] Course ${courseId} already locked — treating as idempotent success`);
-        return json({ ok: true, skipped: true, reason: "GENERATION_LOCKED" });
+        // Lock exists — but verify artifacts before declaring success
+        const { count: moduleCount } = await sb
+          .from("modules")
+          .select("id", { count: "exact", head: true })
+          .eq("course_id", courseId);
+        const { count: lessonCount } = await sb
+          .from("lessons")
+          .select("id", { count: "exact", head: true })
+          .in("module_id", (await sb.from("modules").select("id").eq("course_id", courseId)).data?.map((m: any) => m.id) || []);
+
+        if ((moduleCount ?? 0) > 0 && (lessonCount ?? 0) > 0) {
+          console.log(`[scaffold] Course ${courseId} locked AND has ${moduleCount} modules, ${lessonCount} lessons — idempotent success`);
+          return json({ ok: true, skipped: true, reason: "GENERATION_LOCKED", modules: moduleCount, lessons: lessonCount });
+        }
+
+        // Lock exists but NO artifacts — previous run failed mid-flight. Clear lock and re-run.
+        console.warn(`[scaffold] STALE LOCK: Course ${courseId} locked but has ${moduleCount} modules, ${lessonCount} lessons — clearing lock and re-running`);
+        await sb.from("course_generation_locks").delete().eq("course_id", courseId);
+        // Fall through to re-run scaffold below
       }
       // Non-lock error: continue anyway (table might not exist for some setups)
       console.warn(`[scaffold] Lock warning: ${lockError.message}`);
