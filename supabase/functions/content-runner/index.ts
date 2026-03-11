@@ -342,6 +342,9 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           meta: resetProviderTransientMeta(job, successProvider, successModel),
         }).eq("id", job.id);
 
+        // Signal provider success to circuit breaker
+        recordProviderSuccess();
+
         console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) completed in ${Date.now() - startMs}ms (gen=${result?.generated ?? "?"})`);
         return { id: job.id, ok: true, latency_ms: Date.now() - startMs };
       }
