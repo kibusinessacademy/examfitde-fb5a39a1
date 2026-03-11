@@ -177,6 +177,102 @@ export function pickNextAction(steps: StepRow[], stepOrder: StepKey[]): StepActi
   return null;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Parallel Branch Awareness — DAG-based multi-action selection
+// ═══════════════════════════════════════════════════════════════
+
+import { PIPELINE_GRAPH, type PipelineStepKey } from "./job-map.ts";
+
+/**
+ * Returns ALL independently actionable steps (parallel branches).
+ * After validate_learning_content, three branches can run in parallel:
+ *   - auto_seed_exam_blueprints → ... → elite_harden → ...
+ *   - generate_lesson_minichecks → validate_lesson_minichecks
+ *   - generate_handbook → ... → validate_handbook_depth
+ *
+ * A step is independently actionable if ALL its DAG predecessors are done/skipped.
+ */
+export function pickParallelActions(steps: StepRow[], stepOrder: StepKey[]): StepAction[] {
+  const byKey = new Map<string, StepRow>();
+  for (const s of steps) byKey.set(s.step_key, s);
+
+  // Build DAG dependency lookup
+  const dagDeps = new Map<string, string[]>();
+  for (const node of PIPELINE_GRAPH) {
+    dagDeps.set(node.key, node.dependsOn ?? []);
+  }
+
+  function areDependenciesMet(key: string): boolean {
+    const deps = dagDeps.get(key) ?? [];
+    return deps.every(dep => {
+      const s = byKey.get(dep);
+      return s && (s.status === "done" || s.status === "skipped");
+    });
+  }
+
+  const actions: StepAction[] = [];
+  const blockedByBackoff = new Set<string>();
+
+  for (const k of stepOrder) {
+    const s = byKey.get(k);
+    if (!s) continue;
+    if (s.status === "done" || s.status === "skipped") continue;
+    if (s.status === "blocked") continue;
+
+    // Check DAG dependencies are met
+    if (!areDependenciesMet(k)) continue;
+
+    // Check if any dependency is in backoff (blocks this branch)
+    const deps = dagDeps.get(k) ?? [];
+    if (deps.some(d => blockedByBackoff.has(d))) {
+      blockedByBackoff.add(k);
+      continue;
+    }
+
+    // Respect next_run_at
+    const nra = (s.meta as Record<string, unknown>)?.next_run_at;
+    if (typeof nra === "string") {
+      const nraMs = Date.parse(nra);
+      if (!Number.isNaN(nraMs) && nraMs > Date.now()) {
+        blockedByBackoff.add(k);
+        continue;
+      }
+    }
+
+    // Poll
+    if ((s.status === "enqueued" || s.status === "running" || s.status === "timeout") && s.job_id) {
+      actions.push({ action: "poll", stepKey: k, jobId: s.job_id });
+      continue;
+    }
+
+    // Orphaned
+    if ((s.status === "running" || s.status === "enqueued") && !s.job_id) {
+      actions.push({ action: "enqueue", stepKey: k });
+      continue;
+    }
+
+    if (s.status === "running") continue;
+
+    if (s.status === "timeout" && !s.job_id) {
+      if (s.attempts < s.max_attempts) {
+        actions.push({ action: "enqueue", stepKey: k });
+      } else {
+        actions.push({ action: "exhausted", stepKey: k });
+      }
+      continue;
+    }
+
+    const retryable = s.status === "queued" || s.status === "failed" || s.status === "timeout";
+    if (retryable && s.attempts < s.max_attempts) {
+      actions.push({ action: "enqueue", stepKey: k });
+    } else if (retryable && s.attempts >= s.max_attempts) {
+      actions.push({ action: "exhausted", stepKey: k });
+    }
+  }
+
+  return actions;
+}
+
 export interface StepClassContext {
   limits: Record<string, number>;
   load: Record<string, Set<string>>;
