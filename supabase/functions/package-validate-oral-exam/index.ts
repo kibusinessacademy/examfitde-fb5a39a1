@@ -192,12 +192,14 @@ Deno.serve(async (req) => {
       .limit(1);
 
     if (!existingAlert || existingAlert.length === 0) {
-      await sb.from("ops_alerts").insert({
-        source: "validate-oral-exam",
-        severity: "warning",
-        message: `Oral Exam QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed`,
-        payload: { packageId, pass_rate: passRate, failures: failed },
-      }).then(() => {}).catch(() => {});
+      try {
+        await sb.from("ops_alerts").insert({
+          source: "validate-oral-exam",
+          severity: "warning",
+          message: `Oral Exam QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed`,
+          payload: { packageId, pass_rate: passRate, failures: failed },
+        });
+      } catch (_e) { /* best-effort */ }
     }
   }
 

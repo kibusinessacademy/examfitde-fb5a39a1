@@ -375,11 +375,13 @@ Deno.serve(async (req) => {
   };
   console.log(`[pool-rework] DONE: ${JSON.stringify(summary)}`);
 
-  await sb.from("ops_alerts").insert({
-    source: "pool-rework", severity: "info",
-    message: `Rework: ${summary.packagesProcessed} pkgs, +${summary.totalCalcBackfills} calc, ${summary.totalDiffDeleted} diff-del, ${summary.totalQcDeleted} qc-del, ${summary.totalTrapEnqueued} trap-q`,
-    payload: { summary, reports },
-  }).then(() => {}).catch(() => {});
+  try {
+    await sb.from("ops_alerts").insert({
+      source: "pool-rework", severity: "info",
+      message: `Rework: ${summary.packagesProcessed} pkgs, +${summary.totalCalcBackfills} calc, ${summary.totalDiffDeleted} diff-del, ${summary.totalQcDeleted} qc-del, ${summary.totalTrapEnqueued} trap-q`,
+      payload: { summary, reports },
+    });
+  } catch (_e) { /* best-effort */ }
 
   return json({ ok: true, summary, reports });
 });

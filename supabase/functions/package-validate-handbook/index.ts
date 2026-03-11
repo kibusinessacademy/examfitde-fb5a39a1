@@ -306,12 +306,14 @@ Deno.serve(async (req) => {
       .limit(1);
 
     if (!recentAlerts?.length) {
-      await sb.from("ops_alerts").insert({
-        source: "validate-handbook",
-        severity: headingOnlyRate > 50 || !handbookSizePass ? "critical" : "warning",
-        message: `Handbook QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed, ${placeholderCount} placeholders, ${headingOnlyCount} heading-only, total=${totalHandbookChars} chars (min ${MIN_HANDBOOK_TOTAL_CHARS}) (attempt ${attempts})`,
-        payload: { packageId, pass_rate: passRate, placeholder_count: placeholderCount, heading_only_count: headingOnlyCount, total_chars: totalHandbookChars, chapter_issues: chapterIssues, attempt: attempts },
-      }).then(() => {}).catch(() => {});
+      try {
+        await sb.from("ops_alerts").insert({
+          source: "validate-handbook",
+          severity: headingOnlyRate > 50 || !handbookSizePass ? "critical" : "warning",
+          message: `Handbook QC failed for pkg ${packageId.slice(0, 8)}: ${passed}/${results.length} passed, ${placeholderCount} placeholders, ${headingOnlyCount} heading-only, total=${totalHandbookChars} chars (min ${MIN_HANDBOOK_TOTAL_CHARS}) (attempt ${attempts})`,
+          payload: { packageId, pass_rate: passRate, placeholder_count: placeholderCount, heading_only_count: headingOnlyCount, total_chars: totalHandbookChars, chapter_issues: chapterIssues, attempt: attempts },
+        });
+      } catch (_e) { /* best-effort */ }
     }
   }
 

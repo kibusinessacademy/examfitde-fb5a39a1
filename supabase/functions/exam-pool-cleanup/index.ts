@@ -118,12 +118,14 @@ Deno.serve(async (req) => {
     }
 
     // Log to ops_alerts
-    await sb.from("ops_alerts").insert({
-      source: "exam-pool-cleanup",
-      severity: "warning",
-      message: `Cleanup: ${unapproved} broken approved questions → needs_revision`,
-      payload: { flagged_count: flagged.length, sample_ids: ids.slice(0, 10) },
-    }).then(() => {}).catch(() => {});
+    try {
+      await sb.from("ops_alerts").insert({
+        source: "exam-pool-cleanup",
+        severity: "warning",
+        message: `Cleanup: ${unapproved} broken approved questions → needs_revision`,
+        payload: { flagged_count: flagged.length, sample_ids: ids.slice(0, 10) },
+      });
+    } catch (_e) { /* best-effort */ }
   }
 
   return json({
