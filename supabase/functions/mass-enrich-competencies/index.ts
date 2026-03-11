@@ -344,21 +344,23 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
           }
         };
 
-        const aiResp = await callAIJSON({
-          provider: "openai",
-           model: "gpt-5.2",
-          messages: [
-            { role: "system", content: `${systemPrompt}\n\nHalte die Ausgabe kompakt und valide JSON-only.` },
-            {
-              role: "user",
-              content: `Enriche diese ${comps.length} Kompetenzen für "${cur.beruf_kurz}":\n${JSON.stringify(compList)}`,
-            },
-          ],
-          tools: [ENRICHMENT_TOOL],
-          tool_choice: { type: "function", function: { name: "submit_enrichments" } },
-          max_tokens: Math.max(5000, comps.length * 1100),
-          timeout_ms: 22_000,
-        });
+        const enrichChain = await getModelChainAsync("blooms_classify");
+        const aiResp = await callAIWithFailover(
+          enrichChain.map(c => ({ provider: c.provider, model: c.model })),
+          {
+            messages: [
+              { role: "system", content: `${systemPrompt}\n\nHalte die Ausgabe kompakt und valide JSON-only.` },
+              {
+                role: "user",
+                content: `Enriche diese ${comps.length} Kompetenzen für "${cur.beruf_kurz}":\n${JSON.stringify(compList)}`,
+              },
+            ],
+            tools: [ENRICHMENT_TOOL],
+            tool_choice: { type: "function", function: { name: "submit_enrichments" } },
+            max_tokens: Math.max(5000, comps.length * 1100),
+            timeout_ms: 22_000,
+          },
+        );
 
         let enrichments = parseEnrichmentsFromAIResponse(aiResp);
 
