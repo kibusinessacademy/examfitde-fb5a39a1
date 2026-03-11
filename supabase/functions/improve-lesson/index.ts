@@ -1,7 +1,8 @@
 // Deno.serve is built-in
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { callAIJSON } from "../_shared/ai-client.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 import { measureDepth } from "../_shared/prompt-kit.ts";
 import { canonicalStepKey } from "../_shared/step-keys.ts";
