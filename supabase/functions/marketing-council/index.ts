@@ -129,20 +129,21 @@ Antworte NUR mit JSON:
       const { data: asset } = await supabase.from("marketing_assets").select("*").eq("id", asset_id).single();
       if (!asset) throw new Error("Asset not found");
 
-      const validationRouted = getModel("council_review");
-      const valResult = await callAIJSON({
-        provider: validationRouted.provider,
-        model: validationRouted.model,
-        messages: [{
-          role: "user",
-          content: `Du bist der Validation & ROI Controller.
+      const assetValChain = await getModelChainAsync("council_review");
+      const valResult = await callAIWithFailover(
+        assetValChain.map(c => ({ provider: c.provider, model: c.model })),
+        {
+          messages: [{
+            role: "user",
+            content: `Du bist der Validation & ROI Controller.
 Prüfe diesen Marketing-Content:
 Typ: ${asset.asset_type}, Zielgruppe: ${asset.target_group}, Titel: ${asset.title}, Content: ${asset.content}
 Prüfkriterien: 1. Zielgruppen-Passung 2. Rechtlich (KEINE IHK-offiziell Claims) 3. SEO-Qualität 4. Conversion-Logik 5. Sprachqualität
 JSON-Antwort: {"overall_score": 0-100, "decision": "approve|revise|reject", "legal_check_passed": true|false, "seo_score": 0-100, "issues": [], "suggestions": []}`
-        }],
-        max_tokens: 1500,
-      });
+          }],
+          max_tokens: 1500,
+        },
+      );
 
       let report;
       try {

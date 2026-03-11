@@ -602,43 +602,44 @@ async function evaluateAnswer(sbUser: any, sbAdmin: any, userId: string, params:
   }
 
   // LLM evaluation
-  const routed = getModel("oral_exam");
-  const result = await callAIJSON({
-    provider: routed.provider,
-    model: routed.model,
-    messages: [
-      { role: "system", content: buildSystemPrompt(professionName, session.mode || "practice") },
-      {
-        role: "user",
-        content: JSON.stringify({
-          instruction: "Bewerte die mündliche Prüfungsantwort als IHK-Prüfer.",
-          rules: [
-            "Bewerte NUR anhand der übergebenen expected_points und rubric.",
-            "Jede Bewertungsdimension 1-5 Punkte (1=mangelhaft, 5=sehr gut).",
-            "Liefere NUR die Einzelscores – der Server berechnet overall_score.",
-            "Stärken und Schwächen müssen konkret und berufsspezifisch sein.",
-            "Musterantwort max 180-220 Wörter.",
-          ],
-          context: {
-            profession: professionName,
-            competency: competency.title,
-            bloom_level: competency.bloom_level,
-            question: question.question_text,
-            learner_answer: user_answer,
-            expected_points: question.expected_answer_points || [],
-            rubric: blueprintData.rubric || null,
-          },
-          output_schema: {
-            scores: { fachlichkeit: "1-5", struktur: "1-5", begriffssicherheit: "1-5", praxisbezug: "1-5" },
-            covered_points: [], missed_points: [], detected_errors: [],
-            feedback: "", strengths: [], improvements: [],
-            sample_answer: "", follow_up_question: "",
-          },
-        }),
-      },
-    ],
-    max_tokens: 1200,
-  });
+  const evalChain = await getModelChainAsync("oral_exam");
+  const result = await callAIWithFailover(
+    evalChain.map(c => ({ provider: c.provider, model: c.model })),
+    {
+      messages: [
+        { role: "system", content: buildSystemPrompt(professionName, session.mode || "practice") },
+        {
+          role: "user",
+          content: JSON.stringify({
+            instruction: "Bewerte die mündliche Prüfungsantwort als IHK-Prüfer.",
+            rules: [
+              "Bewerte NUR anhand der übergebenen expected_points und rubric.",
+              "Jede Bewertungsdimension 1-5 Punkte (1=mangelhaft, 5=sehr gut).",
+              "Liefere NUR die Einzelscores – der Server berechnet overall_score.",
+              "Stärken und Schwächen müssen konkret und berufsspezifisch sein.",
+              "Musterantwort max 180-220 Wörter.",
+            ],
+            context: {
+              profession: professionName,
+              competency: competency.title,
+              bloom_level: competency.bloom_level,
+              question: question.question_text,
+              learner_answer: user_answer,
+              expected_points: question.expected_answer_points || [],
+              rubric: blueprintData.rubric || null,
+            },
+            output_schema: {
+              scores: { fachlichkeit: "1-5", struktur: "1-5", begriffssicherheit: "1-5", praxisbezug: "1-5" },
+              covered_points: [], missed_points: [], detected_errors: [],
+              feedback: "", strengths: [], improvements: [],
+              sample_answer: "", follow_up_question: "",
+            },
+          }),
+        },
+      ],
+      max_tokens: 1200,
+    },
+  );
 
   let evaluation = parseAIJSON(result.content);
 

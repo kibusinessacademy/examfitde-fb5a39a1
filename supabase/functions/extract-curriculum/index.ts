@@ -70,16 +70,17 @@ Deno.serve(async (req) => {
 
     console.log(`[User: ${auth.user?.id}] Extracting curriculum from file: ${fileName}`);
 
-    const routed = getModel("curriculum_import");
-    const result = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\nDateiname: ${fileName}\n\nInhalt:\n${fileContent}` },
-      ],
-      temperature: 0.1,
-    });
+    const chain = await getModelChainAsync("curriculum_import");
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Analysiere das folgende Curriculum-Dokument und extrahiere die strukturierten Daten:\n\nDateiname: ${fileName}\n\nInhalt:\n${fileContent}` },
+        ],
+        temperature: 0.1,
+      },
+    );
 
     if (!result.content) throw new Error('No content in AI response');
 

@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
 
     const BATCH_SIZE = 30;
     let totalMapped = 0, totalUnsure = 0;
-    const routed = getModel("summary"); // cheap + fast for mapping
+    const chain = await getModelChainAsync("summary");
 
     for (let i = 0; i < topics.length; i += BATCH_SIZE) {
       const batch = topics.slice(i, i + BATCH_SIZE);
@@ -88,16 +88,17 @@ Deno.serve(async (req) => {
       });
 
       try {
-        const aiResult = await callAIJSON({
-          provider: routed.provider,
-          model: routed.model,
-          messages: [
-            { role: "system", content: MAPPING_PROMPT },
-            { role: "user", content: userContent },
-          ],
-          temperature: 0.1,
-          max_tokens: 4000,
-        });
+        const aiResult = await callAIWithFailover(
+          chain.map(c => ({ provider: c.provider, model: c.model })),
+          {
+            messages: [
+              { role: "system", content: MAPPING_PROMPT },
+              { role: "user", content: userContent },
+            ],
+            temperature: 0.1,
+            max_tokens: 4000,
+          },
+        );
 
         const cleaned = aiResult.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
         let result;
