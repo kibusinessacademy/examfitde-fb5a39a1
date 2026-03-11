@@ -301,27 +301,44 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── Per-package cap — release lease if saturated ──
+  // ── Per-package cap — now uses QUEUE DEPTH (pending+processing) not just in-flight ──
+  // Phase B: pre-fill queue with 2x perPackageMax to eliminate cron-gap starvation
   const pkgInFlight = await countPackageInFlight(sb, packageId);
-  const pkgFree = Math.max(0, caps.perPackageMax - pkgInFlight);
+
+  // Count pending jobs too (queued but not yet processing)
+  const { count: pkgPendingCount } = await sb
+    .from("job_queue")
+    .select("id", { head: true, count: "exact" })
+    .eq("job_type", "lesson_generate_competency_bundle")
+    .eq("package_id", packageId)
+    .in("status", ["pending", "queued"]);
+  const pkgPending = pkgPendingCount ?? 0;
+
+  const queueDepth = pkgInFlight + pkgPending;
+  const queueTarget = caps.perPackageMax * 2; // Phase B: pre-fill 2x to avoid cron-gap starvation
+  const pkgFree = Math.max(0, queueTarget - queueDepth);
 
   if (pkgFree <= 0) {
-    await releasePackageLease(sb, packageId, "per_package_cap", {
+    // Queue is sufficiently filled — don't release lease, just wait
+    await updateLearningContentStepMeta(sb, packageId, {
       needs_regen: needsRegen,
       dispatched: 0,
       pkg_in_flight: pkgInFlight,
+      pkg_pending: pkgPending,
+      queue_depth: queueDepth,
+      queue_target: queueTarget,
       per_package_max: caps.perPackageMax,
-      dispatch_blocked_reason: "per_package_cap",
+      dispatch_blocked_reason: "queue_prefilled",
       last_probe_at: new Date().toISOString(),
     });
 
     return json({
       ok: true,
       batch_complete: false,
-      message: `🔒 Per-package cap reached (max=${caps.perPackageMax}, inFlight=${pkgInFlight}).`,
+      message: `✅ Queue pre-filled (depth=${queueDepth}, target=${queueTarget}, inFlight=${pkgInFlight}, pending=${pkgPending}).`,
       needs_regen: needsRegen,
       dispatched: 0,
-      reason: "per_package_cap",
+      reason: "queue_prefilled",
     });
   }
 
@@ -330,7 +347,7 @@ Deno.serve(async (req) => {
     needsRegen,
     freeGlobalSlots: freeSlots,
     leasedPackageCount,
-    perPackageMax: caps.perPackageMax,
+    perPackageMax: queueTarget, // Phase B: use queueTarget instead of perPackageMax for fair-share
   });
   const take = Math.min(fairBatch, pkgFree, caps.dispatchBatchMax);
 
