@@ -2,8 +2,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { callAIJSON } from "../_shared/ai-client.ts";
-import { getModel } from "../_shared/model-routing.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
