@@ -552,12 +552,22 @@ async function runOnePass(sb: any, supabaseUrl: string, serviceKey: string, isFi
         updated_at: new Date().toISOString(),
         last_error: `STALE_LOCK_RECOVERY: released by ${WORKER_ID}`,
       }).in("id", staleIds);
-      // Merge recovery meta without overwriting existing meta
+      // Best-effort: update job meta with recovery info (no RPC dependency)
       for (const sid of staleIds) {
-        await sb.rpc("merge_job_meta", {
-          p_job_id: sid,
-          p_patch: { recovered_by: WORKER_ID, recovered_at: new Date().toISOString(), reason: "stale_processing_lock" },
-        }).catch(() => {});
+        try {
+          const { data: existingJob } = await sb
+            .from("job_queue")
+            .select("meta")
+            .eq("id", sid)
+            .maybeSingle();
+          const merged = {
+            ...(existingJob?.meta ?? {}),
+            recovered_by: WORKER_ID,
+            recovered_at: new Date().toISOString(),
+            reason: "stale_processing_lock",
+          };
+          await sb.from("job_queue").update({ meta: merged }).eq("id", sid);
+        } catch (_e) { /* best-effort */ }
       }
       console.warn(`[content-runner] STALE_LOCK_RECOVERY: released ${staleIds.length} orphaned processing job(s)`);
     }
