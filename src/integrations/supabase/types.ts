@@ -7213,6 +7213,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           is_published: boolean
+          is_rebuild: boolean
           last_error: string | null
           last_progress_at: string | null
           locked_at: string | null
@@ -7262,6 +7263,7 @@ export type Database = {
           integrity_passed?: boolean
           integrity_report?: Json | null
           is_published?: boolean
+          is_rebuild?: boolean
           last_error?: string | null
           last_progress_at?: string | null
           locked_at?: string | null
@@ -7311,6 +7313,7 @@ export type Database = {
           integrity_passed?: boolean
           integrity_report?: Json | null
           is_published?: boolean
+          is_rebuild?: boolean
           last_error?: string | null
           last_progress_at?: string | null
           locked_at?: string | null
@@ -36835,6 +36838,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           is_published: boolean
+          is_rebuild: boolean
           last_error: string | null
           last_progress_at: string | null
           locked_at: string | null
@@ -37128,6 +37132,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           is_published: boolean
+          is_rebuild: boolean
           last_error: string | null
           last_progress_at: string | null
           locked_at: string | null
