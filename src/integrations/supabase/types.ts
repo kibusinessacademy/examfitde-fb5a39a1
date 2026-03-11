@@ -34552,6 +34552,10 @@ export type Database = {
         Args: { p_curriculum_id: string; p_feature: string; p_user_id: string }
         Returns: boolean
       }
+      check_wip_allows_build: {
+        Args: { p_package_id?: string }
+        Returns: boolean
+      }
       check_worker_health: {
         Args: { p_stale_minutes?: number; p_worker_name?: string }
         Returns: {
