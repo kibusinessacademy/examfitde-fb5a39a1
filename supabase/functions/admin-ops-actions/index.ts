@@ -36,15 +36,17 @@ async function auditLog(
   beforeState: unknown = null,
   affectedIds: string[] = [],
 ) {
-  await sb.from("admin_actions").insert({
-    user_id: userId,
-    action,
-    payload: payload as any,
-    before_state: beforeState as any,
-    after_state: result as any,
-    affected_ids: affectedIds,
-    scope: (result as any)?.scope || "manual",
-  }).then(() => {});
+  try {
+    await sb.from("admin_actions").insert({
+      user_id: userId,
+      action,
+      payload: payload as any,
+      before_state: beforeState as any,
+      after_state: result as any,
+      affected_ids: affectedIds,
+      scope: (result as any)?.scope || "manual",
+    });
+  } catch (_e) { /* best-effort */ }
 }
 
 Deno.serve(async (req) => {

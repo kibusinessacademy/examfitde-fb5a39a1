@@ -81,15 +81,17 @@ Deno.serve(async (req) => {
     }
 
     // Log the QC request
-    await sb.from("ai_usage_log").insert({
-      job_type: `qc_snapshot_${action}`,
-      model: "snapshot",
-      input_tokens: 0,
-      output_tokens: JSON.stringify(snapshot).length,
-      cost_eur: 0,
-      success: true,
-      metadata: { action, courseId, curriculumId: resolvedCurriculumId, userId: auth.user!.id },
-    }).then(() => {});
+    try {
+      await sb.from("ai_usage_log").insert({
+        job_type: `qc_snapshot_${action}`,
+        model: "snapshot",
+        input_tokens: 0,
+        output_tokens: JSON.stringify(snapshot).length,
+        cost_eur: 0,
+        success: true,
+        metadata: { action, courseId, curriculumId: resolvedCurriculumId, userId: auth.user!.id },
+      });
+    } catch (_e) { /* best-effort */ }
 
     return new Response(JSON.stringify(snapshot), { headers });
   } catch (error) {

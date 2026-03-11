@@ -81,15 +81,17 @@ export async function enqueueJob(
       const reason = pkg.published_at
         ? `already_published`
         : `status_${pkg.status}`;
-      sb.from("admin_notifications").insert({
-        title: "Immutability Guard: enqueue blocked",
-        body: `Job ${opts.job_type} for package ${packageId} blocked (${reason}).`,
-        category: "ops",
-        severity: "warn",
-        entity_type: "package",
-        entity_id: packageId as unknown as string, // UUID string — matches uuid column type
-        metadata: { job_type: opts.job_type, reason, package_status: pkg.status },
-      }).then(() => {/* fire-and-forget */});
+      try {
+        await sb.from("admin_notifications").insert({
+          title: "Immutability Guard: enqueue blocked",
+          body: `Job ${opts.job_type} for package ${packageId} blocked (${reason}).`,
+          category: "ops",
+          severity: "warn",
+          entity_type: "package",
+          entity_id: packageId as unknown as string,
+          metadata: { job_type: opts.job_type, reason, package_status: pkg.status },
+        });
+      } catch (_e) { /* fire-and-forget */ }
 
       throw new Error(`PACKAGE_NOT_EXECUTABLE:${reason}:${packageId}`);
     }

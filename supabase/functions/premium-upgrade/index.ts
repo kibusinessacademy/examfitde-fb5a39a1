@@ -566,15 +566,17 @@ Deno.serve(async (req) => {
     await finalizeRun(sb, runId, status, metrics, result.failed > 0 ? `${result.failed} items failed` : null);
 
     // Audit log (fire-and-forget)
-    sb.from("auto_heal_log").insert({
-      action_type: `premium_upgrade_${layer}`,
-      trigger_source: "premium-upgrade",
-      target_type: "course_package",
-      target_id: package_id,
-      result_status: status,
-      result_detail: `Layer ${layer}: ${result.upgraded}/${result.total} upgraded, ${result.failed} failed${timedOut ? " (timed out)" : ""}`,
-      metadata: { layer, run_id: runId, ...metrics },
-    }).then(() => {}, () => {});
+    try {
+      await sb.from("auto_heal_log").insert({
+        action_type: `premium_upgrade_${layer}`,
+        trigger_source: "premium-upgrade",
+        target_type: "course_package",
+        target_id: package_id,
+        result_status: status,
+        result_detail: `Layer ${layer}: ${result.upgraded}/${result.total} upgraded, ${result.failed} failed${timedOut ? " (timed out)" : ""}`,
+        metadata: { layer, run_id: runId, ...metrics },
+      });
+    } catch (_e) { /* best-effort */ }
 
     console.log(`[PremiumUpgrade] ✅ ${layer} ${status} in ${metrics.elapsed_ms}ms — ${result.upgraded}/${result.total}`);
 
