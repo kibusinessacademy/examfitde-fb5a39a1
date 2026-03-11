@@ -173,49 +173,32 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Priority Refill: WIP-aware, Finish-First ──
-    // Only promote next package when current building count < WIP limit
-    const { data: wipConfig } = await sb
-      .from("ops_pipeline_config")
-      .select("value")
-      .eq("key", "wip_limit")
-      .maybeSingle();
-    const wipLimit = wipConfig?.value ? Number(JSON.parse(JSON.stringify(wipConfig.value))) : 1;
-
-    const { count: buildingCount } = await sb
+    // ── Strict Priority Tier Gating ──
+    // Only allow packages whose priority equals the minimum incomplete priority.
+    // Prio 1 must ALL finish before Prio 2 starts, etc.
+    const { data: minPrioRow } = await sb
       .from("course_packages")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "building");
-
-    const currentBuilding = buildingCount ?? 0;
-    const freeSlots = Math.max(0, wipLimit - currentBuilding);
-
-    if (freeSlots > 0) {
-      const { count: queuedDefault } = await sb
-        .from("course_packages")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "queued")
-        .gt("priority", 10);
-
-      if ((queuedDefault ?? 0) > 0) {
-        // Only promote exactly as many as we have free WIP slots (usually 1)
-        const batchSize = Math.min(freeSlots, queuedDefault ?? 0);
-        const { data: refilled } = await sb.rpc("reprioritize_queued_market_tier", {
-          p_batch_size: batchSize,
-          p_new_priority: 8,
-        });
-        const refilledCount = Array.isArray(refilled) ? refilled.length : 0;
-        if (refilledCount > 0) {
-          const tierBreakdown = (refilled as any[]).reduce((acc: Record<number, number>, r: any) => {
-            acc[r.beruf_tier] = (acc[r.beruf_tier] || 0) + 1;
-            return acc;
-          }, {});
-          actions.push(`Finish-First refill: ${refilledCount}/${freeSlots} free slots → priority=8 (tiers: ${JSON.stringify(tierBreakdown)}, building=${currentBuilding}, wip_limit=${wipLimit})`);
-        }
-      }
-    } else {
-      actions.push(`WIP full: ${currentBuilding}/${wipLimit} building — no new promotions`);
+      .select("priority")
+      .in("status", ["queued", "building", "failed", "setup_complete"])
+      .order("priority", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    
+    const minIncompletePrio = minPrioRow?.priority ?? 999;
+    
+    // Demote any queued packages that have a higher priority number than the min
+    // (they shouldn't start until all lower-number priority packages are done)
+    const { data: wrongTierQueued } = await sb
+      .from("course_packages")
+      .select("id, priority")
+      .eq("status", "queued")
+      .gt("priority", minIncompletePrio);
+    
+    if (wrongTierQueued && wrongTierQueued.length > 0) {
+      actions.push(`Tier gate: ${wrongTierQueued.length} packages queued but blocked (min incomplete prio=${minIncompletePrio})`);
     }
+    
+    actions.push(`Priority tier gate: active tier = Prio ${minIncompletePrio}`);
 
     // Log
     await sb.from("auto_heal_log").insert({
