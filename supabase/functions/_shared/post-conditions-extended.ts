@@ -222,6 +222,166 @@ export async function assertExtendedPostConditions(sb: SB, args: {
     return true;
   }
 
+  // ── validate_handbook: verify the validator actually inspected sections ──
+  if (stepKey === "validate_handbook") {
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("curriculum_id")
+      .eq("id", packageId)
+      .single();
+    if (!pkg?.curriculum_id) throw hollowError("HOLLOW_VALIDATE_HANDBOOK", { reason: "no curriculum_id" });
+
+    const { data: chapters } = await sb
+      .from("handbook_chapters")
+      .select("id")
+      .eq("curriculum_id", pkg.curriculum_id);
+    const chapterIds = (chapters ?? []).map((c: any) => c.id);
+
+    if (chapterIds.length < 3) {
+      throw hollowError("HOLLOW_VALIDATE_HANDBOOK", { chapters: chapterIds.length, min: 3 });
+    }
+
+    const { count: sectionCount } = await sb
+      .from("handbook_sections")
+      .select("id", { count: "exact", head: true })
+      .in("chapter_id", chapterIds);
+
+    if ((sectionCount ?? 0) < 1) {
+      throw hollowError("HOLLOW_VALIDATE_HANDBOOK", { chapters: chapterIds.length, sections: 0 });
+    }
+
+    return true;
+  }
+
+  // ── validate_blueprints: must have blueprints to validate ──
+  if (stepKey === "validate_blueprints") {
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("curriculum_id")
+      .eq("id", packageId)
+      .single();
+    if (!pkg?.curriculum_id) throw hollowError("HOLLOW_VALIDATE_BLUEPRINTS", { reason: "no curriculum_id" });
+
+    const { count } = await sb
+      .from("question_blueprints")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", pkg.curriculum_id);
+
+    if ((count ?? 0) < 10) {
+      throw hollowError("HOLLOW_VALIDATE_BLUEPRINTS", { blueprint_count: count ?? 0, min: 10 });
+    }
+
+    return true;
+  }
+
+  // ── validate_oral_exam: must have oral exam blueprints to validate ──
+  if (stepKey === "validate_oral_exam") {
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("curriculum_id")
+      .eq("id", packageId)
+      .single();
+    if (!pkg?.curriculum_id) throw hollowError("HOLLOW_VALIDATE_ORAL_EXAM", { reason: "no curriculum_id" });
+
+    const { count } = await sb
+      .from("oral_exam_blueprints")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", pkg.curriculum_id);
+
+    if ((count ?? 0) < 10) {
+      throw hollowError("HOLLOW_VALIDATE_ORAL_EXAM", { blueprint_count: count ?? 0, min: 10 });
+    }
+
+    return true;
+  }
+
+  // ── validate_lesson_minichecks: must have minichecks to validate ──
+  if (stepKey === "validate_lesson_minichecks") {
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("curriculum_id")
+      .eq("id", packageId)
+      .single();
+    if (!pkg?.curriculum_id) throw hollowError("HOLLOW_VALIDATE_MINICHECKS", { reason: "no curriculum_id" });
+
+    const { count } = await sb
+      .from("minicheck_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", pkg.curriculum_id);
+
+    if ((count ?? 0) < 1) {
+      throw hollowError("HOLLOW_VALIDATE_MINICHECKS", { minicheck_count: count ?? 0 });
+    }
+
+    return true;
+  }
+
+  // ── validate_tutor_index: must have index rows ──
+  if (stepKey === "validate_tutor_index") {
+    const { count } = await sb
+      .from("ai_tutor_context_index")
+      .select("id", { count: "exact", head: true })
+      .eq("package_id", packageId);
+
+    if ((count ?? 0) < 1) {
+      throw hollowError("HOLLOW_VALIDATE_TUTOR_INDEX", { index_rows: count ?? 0 });
+    }
+
+    return true;
+  }
+
+  // ── validate_exam_pool: must have exam questions to validate ──
+  if (stepKey === "validate_exam_pool") {
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("curriculum_id")
+      .eq("id", packageId)
+      .single();
+    if (!pkg?.curriculum_id) throw hollowError("HOLLOW_VALIDATE_EXAM_POOL", { reason: "no curriculum_id" });
+
+    const { count } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", pkg.curriculum_id);
+
+    if ((count ?? 0) < 50) {
+      throw hollowError("HOLLOW_VALIDATE_EXAM_POOL", { question_count: count ?? 0, min: 50 });
+    }
+
+    return true;
+  }
+
+  // ── validate_learning_content: must have real lessons ──
+  if (stepKey === "validate_learning_content") {
+    const { data: pkg } = await sb
+      .from("course_packages")
+      .select("course_id")
+      .eq("id", packageId)
+      .single();
+    if (!pkg?.course_id) throw hollowError("HOLLOW_VALIDATE_LEARNING", { reason: "no course_id" });
+
+    const { data: modules } = await sb
+      .from("modules")
+      .select("id")
+      .eq("course_id", pkg.course_id);
+
+    if (!modules?.length) {
+      throw hollowError("HOLLOW_VALIDATE_LEARNING", { modules: 0 });
+    }
+
+    const { count: lessonCount } = await sb
+      .from("lessons")
+      .select("id", { count: "exact", head: true })
+      .in("module_id", modules.map((m: any) => m.id))
+      .neq("lesson_type", "mini_check");
+
+    if ((lessonCount ?? 0) < 1) {
+      throw hollowError("HOLLOW_VALIDATE_LEARNING", { lessons: lessonCount ?? 0 });
+    }
+
+    return true;
+  }
+
   // Not handled by this module
   return false;
 }
