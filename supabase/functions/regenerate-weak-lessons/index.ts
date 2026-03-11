@@ -105,11 +105,21 @@ Deno.serve(async (req) => {
         .eq("step_key", step);
     }
 
-    // 6. Set package back to "building" so pipeline picks it up
-    await sb
-      .from("course_packages")
-      .update({ status: "building" })
-      .eq("id", packageId);
+    // 6. Set package back to "building" so pipeline picks it up — with WIP guard
+    const { data: wipOk } = await sb.rpc("check_wip_allows_build", { p_package_id: packageId });
+    if (wipOk === false) {
+      // WIP full — queue instead of force-building (runner will pick it up when slot opens)
+      await sb
+        .from("course_packages")
+        .update({ status: "queued" })
+        .eq("id", packageId);
+      console.warn(`[RegenerateWeak] WIP limit reached — queued ${packageId.slice(0, 8)} instead of building`);
+    } else {
+      await sb
+        .from("course_packages")
+        .update({ status: "building" })
+        .eq("id", packageId);
+    }
 
     return json({
       ok: true,

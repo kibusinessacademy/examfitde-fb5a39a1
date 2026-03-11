@@ -39,12 +39,17 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
-  // ── Pipeline Lock Guard: REMOVED ──
-  // The pipeline-runner uses package_leases for concurrency control.
-  // The old single-lock model blocked ALL packages except the lock holder,
-  // preventing multi-slot processing. Lock checks are now skipped during
-  // bootstrap — the runner's lease system ensures safe concurrency.
-  console.log(`[BuildPkg] Bootstrapping package ${packageId.slice(0, 8)} (no lock check)`);
+  // ── WIP Guard: Prevent priority bypass ──
+  // Check if the system has capacity before allowing a new build.
+  // Already-building packages (re-bootstrap) and rebuilds are always allowed.
+  const { data: wipAllowed, error: wipErr } = await sb.rpc("check_wip_allows_build", { p_package_id: packageId });
+  if (wipErr) {
+    console.warn(`[BuildPkg] WIP check failed (non-fatal): ${wipErr.message}`);
+  } else if (wipAllowed === false) {
+    console.log(`[BuildPkg] ⛔ WIP limit reached — rejecting build for ${packageId.slice(0, 8)}`);
+    return json({ ok: false, error: "WIP_LIMIT_REACHED", detail: "System is at capacity. Package will be built when a slot opens." }, 429);
+  }
+  console.log(`[BuildPkg] Bootstrapping package ${packageId.slice(0, 8)} (WIP check passed)`);
   
   // Update pipeline_lock heartbeat if we happen to be the active package (backwards compat)
   try { await sb.rpc("heartbeat_pipeline_lock", { p_package_id: packageId }); } catch (_) { /* ignore */ }
