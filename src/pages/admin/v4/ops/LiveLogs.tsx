@@ -83,6 +83,11 @@ export default function LiveLogs() {
                 log.status === 'processing' ? 'text-primary' : 'text-muted-foreground'
               )}>{log.status}</span>
               <span className="text-foreground">{log.job_type}</span>
+              {(() => {
+                const pid = log.package_id || log.payload?.package_id;
+                const name = pid ? pkgNames[pid] : null;
+                return name ? <span className="text-muted-foreground/70 truncate max-w-[120px]">[{name.split('–')[0].trim()}]</span> : null;
+              })()}
               {log.last_error && <span className="text-destructive truncate max-w-[300px]">– {log.last_error}</span>}
             </div>
           ))}
