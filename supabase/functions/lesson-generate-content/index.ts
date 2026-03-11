@@ -851,7 +851,7 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
     await sb.rpc("pipeline_write_lesson_content", {
       p_lesson_id: lessonId,
       p_content: finalContent,
-    }).then(() => {});
+    });
   } catch (_syncErr) {
     // Non-fatal: the trigger is the primary path, this is backup
     console.warn(`[lesson-gen] direct sync fallback failed for ${lessonId.slice(0, 8)}: ${(_syncErr as Error)?.message?.slice(0, 100)}`);

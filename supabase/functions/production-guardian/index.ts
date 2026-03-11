@@ -147,15 +147,17 @@ Deno.serve(async (req) => {
       const applied = fr?.applied === true;
 
       // Structured log for forensics — always log
-      await sb.from("auto_heal_log").insert({
-        action_type: "guardian_stale_fail",
-        target_type: "course_package",
-        target_id: bPkg.id,
-        trigger_source: "production-guardian",
-        result_status: applied ? "applied" : "skipped",
-        result_detail: JSON.stringify(fr),
-        metadata: fr,
-      }).then(() => {}, () => {/* non-critical */});
+      try {
+        await sb.from("auto_heal_log").insert({
+          action_type: "guardian_stale_fail",
+          target_type: "course_package",
+          target_id: bPkg.id,
+          trigger_source: "production-guardian",
+          result_status: applied ? "applied" : "skipped",
+          result_detail: JSON.stringify(fr),
+          metadata: fr,
+        });
+      } catch (_e) { /* non-critical */ }
 
       if (applied) {
         actions.push(`fail pkg ${bPkg.id.slice(0, 8)}: age=${fr?.age_min}m lease=${fr?.active_leases} jobs=${fr?.active_jobs} steps=${fr?.active_steps}`);

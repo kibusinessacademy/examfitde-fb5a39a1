@@ -751,11 +751,13 @@ Deno.serve(async (req) => {
 
       // Step 2: Enqueue ALL follow-up phases as separate jobs (never inline)
       // BUG FIX: Previously missing drafts_upgrade — weak drafts were never AI-upgraded
-      await sb.from("job_queue").insert([
-        { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "drafts_upgrade" } },
-        { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "minichecks_only" } },
-        { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, phase: "oral_only" } },
-      ]).then(() => {}, () => {});
+      try {
+        await sb.from("job_queue").insert([
+          { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "drafts_upgrade" } },
+          { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, course_id: courseId, phase: "minichecks_only" } },
+          { job_type: "package_elite_harden", status: "pending", payload: { package_id: packageId, curriculum_id: curriculumId, phase: "oral_only" } },
+        ]);
+      } catch (_e) { /* best-effort */ }
 
       // Finalize THIS run as done (follow-ups are independent)
       await sb.from("elite_hardening_runs").update({

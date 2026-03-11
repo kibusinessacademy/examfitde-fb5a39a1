@@ -995,13 +995,15 @@ Deno.serve(async (req) => {
         }
 
         if (wipDemotedCount > 0) {
-          await sb.from("auto_heal_log").insert({
-            action_type: "wip_reconciler",
-            trigger_source: "pipeline-watchdog",
-            result_status: "applied",
-            result_detail: `Demoted ${wipDemotedCount} excess building packages (wip_limit=${wipLimit}, was=${allBuilding.length})`,
-            metadata: { wip_limit: wipLimit, total_building: allBuilding.length, demoted: wipDemotedCount, kept: toKeep.map((p: any) => p.id.slice(0, 8)) },
-          }).then(() => {});
+          try {
+            await sb.from("auto_heal_log").insert({
+              action_type: "wip_reconciler",
+              trigger_source: "pipeline-watchdog",
+              result_status: "applied",
+              result_detail: `Demoted ${wipDemotedCount} excess building packages (wip_limit=${wipLimit}, was=${allBuilding.length})`,
+              metadata: { wip_limit: wipLimit, total_building: allBuilding.length, demoted: wipDemotedCount, kept: toKeep.map((p: any) => p.id.slice(0, 8)) },
+            });
+          } catch (_e) { /* best-effort */ }
         }
       }
     } catch (wipErr) {
