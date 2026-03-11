@@ -30,8 +30,8 @@ export function getRunnerConfig(kind: RunnerKind): RunnerConfig {
   // Hard safety caps (non-negotiable)
   if (kind === "content_runner") {
     return {
-      maxConcurrency: Math.min(maxConcurrency, 8),
-      claimLimit: Math.min(claimLimit, 16),
+      maxConcurrency: Math.min(maxConcurrency, 12),   // Phase B: hard cap 8→12
+      claimLimit: Math.min(claimLimit, 25),            // Phase B: hard cap 16→25
     };
   }
   return {
