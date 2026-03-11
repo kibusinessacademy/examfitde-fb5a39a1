@@ -229,32 +229,30 @@ Antworte NUR als JSON-Objekt:
 }`;
 
   try {
-    // v10.5: DB-driven routing via llm_provider_routing_policies
-    let provider: string;
-    let model: string;
+    // v11: Failover chain — policy-first, then model-routing chain
+    let chain: Array<{ provider: string; model: string }> = [];
     const policyRoute = await resolveAvailableRoute("exam_blueprint");
     if (policyRoute.ok && policyRoute.provider && policyRoute.model) {
-      provider = policyRoute.provider;
-      model = policyRoute.model;
-      console.log(`[SeedV4] POLICY_ROUTE: exam_blueprint → ${provider}/${model}`);
-    } else {
-      const chain = await getModelChainAsync("exam_questions");
-      provider = chain[0]?.provider || "openai";
-      model = chain[0]?.model || "gpt-5.2";
-      console.log(`[SeedV4] POLICY_MISS: exam_blueprint (${policyRoute.reason}) → ${provider}/${model}`);
+      chain.push({ provider: policyRoute.provider, model: policyRoute.model });
+      console.log(`[SeedV4] POLICY_ROUTE: exam_blueprint → ${policyRoute.provider}/${policyRoute.model}`);
+    }
+    // Always append full model-routing chain as fallback
+    const routingChain = await getModelChainAsync("exam_questions");
+    for (const c of routingChain) {
+      if (!chain.some(x => x.provider === c.provider && x.model === c.model)) {
+        chain.push({ provider: c.provider, model: c.model });
+      }
     }
 
-    const result = await callAIJSON(
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider as any, model: c.model })),
       {
-        provider,
-        model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Erstelle ${facets.length} Elite-Blueprint-Facetten für die Kompetenz "${comp.title}" im Beruf "${berufName}".` },
         ],
         temperature: 0.6,
       },
-      { type: "blueprint_seed", entity: comp.id },
     );
 
     const blueprints = result?.blueprints || [];
