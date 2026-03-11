@@ -363,11 +363,13 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
       const validationErr = validateAIExamOutput(parsed);
       if (validationErr) throw new Error(`AI_VALIDATION: ${validationErr}`);
 
-      await sb.from("elite_hardening_items").insert({
-        run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "upgraded",
-        original_data: { question_text: q.question_text, options: q.options, explanation: q.explanation, cognitive_level: q.cognitive_level },
-        upgraded_data: parsed,
-      }).then(() => {}, () => {});
+      try {
+        await sb.from("elite_hardening_items").insert({
+          run_id: runId, entity_type: "exam_question", entity_id: q.id, action: "upgraded",
+          original_data: { question_text: q.question_text, options: q.options, explanation: q.explanation, cognitive_level: q.cognitive_level },
+          upgraded_data: parsed,
+        });
+      } catch (_e) { /* best-effort */ }
 
       const upgradedInput = buildAnnotationInput(
         { ...q, trap_tags: parsed.trap_tags || q.trap_tags, distractor_meta: parsed.distractor_meta || q.distractor_meta, cognitive_level: parsed.cognitive_level || q.cognitive_level },
