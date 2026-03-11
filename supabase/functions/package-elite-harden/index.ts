@@ -498,11 +498,13 @@ JSON: {"scenario":"...","lead_questions":["..."],"followups":["..."],"rubric":{"
       const parsed = parseJSON(await callAI(systemPrompt, userPrompt));
       if (!parsed.scenario) continue;
 
-      await sb.from("elite_hardening_items").insert({
-        run_id: runId, entity_type: "oral_blueprint", entity_id: bp.id, action: "upgraded",
-        original_data: { scenario: bp.scenario, rubric: bp.rubric },
-        upgraded_data: parsed,
-      }).then(() => {}, () => {});
+      try {
+        await sb.from("elite_hardening_items").insert({
+          run_id: runId, entity_type: "oral_blueprint", entity_id: bp.id, action: "upgraded",
+          original_data: { scenario: bp.scenario, rubric: bp.rubric },
+          upgraded_data: parsed,
+        });
+      } catch (_e) { /* best-effort */ }
 
       await sb.from("oral_exam_blueprints").update({
         scenario: parsed.scenario,
