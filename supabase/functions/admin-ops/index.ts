@@ -133,6 +133,13 @@ Deno.serve(async (req) => {
         if (!scope || !VALID_SCOPES.includes(scope)) {
           return json({ error: `scope must be one of: ${VALID_SCOPES.join(", ")}` }, 400);
         }
+
+        // ── REBUILD WIP BOOST: Mark package as rebuild so it gets a separate WIP slot ──
+        await sb
+          .from("course_packages")
+          .update({ is_rebuild: true, priority: 1, updated_at: new Date().toISOString() })
+          .eq("id", packageId);
+        console.log(`[admin-ops] Marked package ${packageId} as rebuild (WIP boost + Prio 1)`);
       }
 
       const maxAttempts = Math.max(1, Math.min(body.max_attempts ?? 3, 10));
@@ -152,7 +159,7 @@ Deno.serve(async (req) => {
 
       if (err) return json({ error: err.message }, 500);
       console.log(`[admin-ops] enqueue_job: ${jobType} job=${data?.id} pkg=${packageId} by ${user.id}`);
-      return json({ success: true, job_id: data?.id });
+      return json({ success: true, job_id: data?.id, is_rebuild: jobType === "package_rebuild_learning" });
     }
 
     // ── set_provider_pause ───────────────────────────────────
