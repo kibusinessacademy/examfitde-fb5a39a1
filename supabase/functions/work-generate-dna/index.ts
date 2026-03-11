@@ -1,4 +1,6 @@
 // Deno.serve is built-in
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,9 +18,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
 
     const systemPrompt = `Du bist ein Experte für deutsche Ausbildungsberufe und KI-Workflows im Berufsalltag.
 Deine Aufgabe: Generiere eine vollständige "Berufs-DNA" für den Beruf "${name}"${branche ? ` (Branche: ${branche})` : ""}.
@@ -41,39 +40,18 @@ Regeln:
 - Alle Einträge auf Deutsch
 - Spezifisch für den Beruf, keine generischen Einträge`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-5.2",
+    const chain = await getModelChainAsync("seo_content");
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Generiere die Berufs-DNA für: ${name}${branche ? ` (${branche})` : ""}` },
         ],
-      }),
-    });
+      },
+    );
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit – bitte kurz warten." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Credits aufgebraucht." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const aiData = await response.json();
-    const raw = aiData.choices?.[0]?.message?.content || "";
+    const raw = result.content || "";
 
     // Parse JSON from response
     const jsonStart = raw.indexOf("{");
@@ -83,7 +61,7 @@ Regeln:
     const dna = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
 
     // Validate structure
-    const result = {
+    const validated = {
       typische_aufgaben: Array.isArray(dna.typische_aufgaben) ? dna.typische_aufgaben : [],
       dokumenttypen: Array.isArray(dna.dokumenttypen) ? dna.dokumenttypen : [],
       pain_points: Array.isArray(dna.pain_points) ? dna.pain_points : [],
@@ -91,7 +69,7 @@ Regeln:
       seo_keywords: Array.isArray(dna.seo_keywords) ? dna.seo_keywords : [],
     };
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify(validated), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
