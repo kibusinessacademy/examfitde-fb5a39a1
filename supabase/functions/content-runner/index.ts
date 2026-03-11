@@ -24,14 +24,15 @@ const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 8);
 const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 16);
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
-const DISPATCH_TIMEOUT_MS = 130_000;  // v8: raised from 52s to 130s — handbook Elite budget is 120s
+const DISPATCH_TIMEOUT_MS = 55_000;   // v9: lowered from 130s→55s for content jobs (safe within loop budget)
+const DISPATCH_TIMEOUT_HANDBOOK_MS = 130_000; // handbook Elite budget stays at 120s
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
-const FUNCTION_VERSION = "v2.0-pull-loop";
+const FUNCTION_VERSION = "v2.1-turbo-loop";
 
-// Pull-loop parameters
-const LOOP_MAX_MS = envInt("CONTENT_RUNNER_LOOP_MAX_MS", 30_000);
-const LOOP_SLEEP_MS = envInt("CONTENT_RUNNER_LOOP_SLEEP_MS", 2_000);
-const MAX_EMPTY_POLLS = envInt("CONTENT_RUNNER_MAX_EMPTY_POLLS", 2);
+// Pull-loop parameters — TUNED for max throughput
+const LOOP_MAX_MS = envInt("CONTENT_RUNNER_LOOP_MAX_MS", 50_000);    // v2.1: 30s→50s (edge fn limit ~60s)
+const LOOP_SLEEP_MS = envInt("CONTENT_RUNNER_LOOP_SLEEP_MS", 1_500); // v2.1: 2s→1.5s (faster polling)
+const MAX_EMPTY_POLLS = envInt("CONTENT_RUNNER_MAX_EMPTY_POLLS", 3); // v2.1: 2→3 (wait longer for new jobs)
 const ABORT_FAIL_RATE_PERCENT = envInt("CONTENT_RUNNER_ABORT_FAIL_RATE_PERCENT", 80);
 
 // ── Boot-time guards ──────────────────────────────────────────
@@ -58,6 +59,13 @@ function hashJobId(id: string): number {
   return Math.abs(h);
 }
 
+// Heavy job types that need longer timeouts
+const HEAVY_JOB_TYPES = new Set([
+  "package_generate_handbook", "handbook_expand_section",
+  "package_generate_exam_pool", "package_generate_oral_exam",
+  "package_elite_harden", "package_quality_council",
+]);
+
 // deno-lint-ignore no-explicit-any
 async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): Promise<{ ok: boolean; result?: any; error?: string; terminal?: boolean }> {
   const edgeFn = edgeFunctionForJobType(job.job_type);
@@ -65,9 +73,10 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
     return { ok: false, error: `NO_EDGE_FUNCTION_MAPPING:${job.job_type}`, terminal: true };
   }
 
+  const timeoutMs = HEAVY_JOB_TYPES.has(job.job_type) ? DISPATCH_TIMEOUT_HANDBOOK_MS : DISPATCH_TIMEOUT_MS;
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DISPATCH_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(url, {
@@ -101,7 +110,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
     clearTimeout(timeout);
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("aborted")) {
-      return { ok: false, error: `TIMEOUT: edge function exceeded ${Math.round(DISPATCH_TIMEOUT_MS / 1000)}s` };
+      return { ok: false, error: `TIMEOUT: edge function exceeded ${Math.round(timeoutMs / 1000)}s` };
     }
     return { ok: false, error: msg };
   }
