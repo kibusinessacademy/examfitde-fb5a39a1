@@ -196,16 +196,18 @@ async function writeSnapshot(
     ? Math.round(metrics.totalLatencyMs / metrics.completed)
     : null;
 
-  await sb.from("concurrency_snapshots").insert({
-    timeouts_5min: metrics.timeouts,
-    rate_limits_5min: metrics.rateLimits,
-    escalations_5min: metrics.escalations,
-    dlq_count_5min: metrics.dlqItems,
-    jobs_per_min: metrics.completed,
-    median_latency_ms: medianLatency,
-    active_concurrency: activeConcurrency,
-    action_taken: action,
-  }).then(() => {}, () => {});
+  try {
+    await sb.from("concurrency_snapshots").insert({
+      timeouts_5min: metrics.timeouts,
+      rate_limits_5min: metrics.rateLimits,
+      escalations_5min: metrics.escalations,
+      dlq_count_5min: metrics.dlqItems,
+      jobs_per_min: metrics.completed,
+      median_latency_ms: medianLatency,
+      active_concurrency: activeConcurrency,
+      action_taken: action,
+    });
+  } catch (_e) { /* best-effort */ }
 }
 
 /** Write failed job to Dead-Letter Queue */
