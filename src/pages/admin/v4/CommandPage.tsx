@@ -66,6 +66,7 @@ export default function CommandPage() {
         <TabsContent value="errors" className="mt-4"><Suspense fallback={<Fallback />}><ErrorsTab /></Suspense></TabsContent>
         <TabsContent value="ceo" className="mt-4"><Suspense fallback={<Fallback />}><CEODailyKPIs /></Suspense></TabsContent>
         <TabsContent value="mastery" className="mt-4"><Suspense fallback={<Fallback />}><QualityCockpitTab /></Suspense></TabsContent>
+        <TabsContent value="forensik" className="mt-4"><Suspense fallback={<Fallback />}><ForensicMonitorPanel /></Suspense></TabsContent>
       </Tabs>
     </div>
   );
