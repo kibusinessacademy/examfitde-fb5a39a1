@@ -404,6 +404,48 @@ export async function processPackage(
           return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
         },
       },
+      {
+        stepKey: "validate_handbook",
+        jobType: "package_validate_handbook",
+        actionType: "finalize_validate_handbook",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "validate_lesson_minichecks",
+        jobType: "package_validate_lesson_minichecks",
+        actionType: "finalize_validate_lesson_minichecks",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "validate_tutor_index",
+        jobType: "package_validate_tutor_index",
+        actionType: "finalize_validate_tutor_index",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "validate_handbook_depth",
+        jobType: "package_validate_handbook_depth",
+        actionType: "finalize_validate_handbook_depth",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          // validate_handbook_depth is a soft gate — always ok=true
+          const ok = meta?.ok === true || meta?.basis_pass === true;
+          const reason = meta?.ok === true ? "meta.ok=true" : meta?.basis_pass === true ? "meta.basis_pass=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, basis_pass: !!meta?.basis_pass, quality_tier: meta?.quality_tier } };
+        },
+      },
     ];
 
     const byKey = new Map<string, StepRow>();
