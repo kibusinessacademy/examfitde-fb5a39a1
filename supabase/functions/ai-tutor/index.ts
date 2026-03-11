@@ -361,26 +361,43 @@ Deno.serve(async (req) => {
 
     const generationId = genRecord?.id;
 
-    // Stream from OpenAI directly
-    const { raw: aiResponse, ok, status } = await callAI({
-      provider: "openai",
-      model: "gpt-5.2",
-      messages: aiMessages,
-      stream: true,
-    });
+    // Stream with manual failover: try primary, fallback to secondary
+    const streamChain = await getModelChainAsync("support");
+    let aiResponse: Response | null = null;
+    let streamOk = false;
+    let streamStatus = 0;
 
-    if (!ok) {
-      if (status === 429) {
+    for (const candidate of streamChain) {
+      try {
+        const attempt = await callAI({
+          provider: candidate.provider,
+          model: candidate.model,
+          messages: aiMessages,
+          stream: true,
+        });
+        aiResponse = attempt.raw;
+        streamOk = attempt.ok;
+        streamStatus = attempt.status;
+        if (streamOk) break;
+        console.warn(`[ai-tutor] Provider ${candidate.provider}/${candidate.model} returned ${streamStatus}, trying next...`);
+      } catch (e) {
+        console.warn(`[ai-tutor] Provider ${candidate.provider}/${candidate.model} failed:`, e);
+        continue;
+      }
+    }
+
+    if (!streamOk || !aiResponse) {
+      if (streamStatus === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Bitte später erneut versuchen." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-      if (status === 402) {
+      if (streamStatus === 402) {
         return new Response(JSON.stringify({ error: "AI-Kontingent erschöpft." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-      throw new Error(`Lovable AI error: ${status}`);
+      throw new Error(`All AI providers failed: ${streamStatus}`);
     }
 
     // Stream through + collect for post-validation
