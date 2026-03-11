@@ -24,8 +24,9 @@ const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 12);  // Phase B: 
 const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 25);      // Phase B: 16→25 — match perPackageMax for single-package WIP=1
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
-const DISPATCH_TIMEOUT_MS = 55_000;   // v9: lowered from 130s→55s for content jobs (safe within loop budget)
-const DISPATCH_TIMEOUT_HANDBOOK_MS = 130_000; // handbook Elite budget stays at 120s
+const DISPATCH_TIMEOUT_MS = 55_000;          // Tier 3: structural/DB-only jobs
+const DISPATCH_TIMEOUT_HEAVY_MS = 90_000;    // Tier 2: LLM-validation + DB-heavy jobs
+const DISPATCH_TIMEOUT_GENERATION_MS = 130_000; // Tier 1: LLM-generation jobs (full budget)
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
 const FUNCTION_VERSION = "v2.1-turbo-loop";
 
@@ -59,14 +60,25 @@ function hashJobId(id: string): number {
   return Math.abs(h);
 }
 
-// Heavy job types that need longer timeouts
-const HEAVY_JOB_TYPES = new Set([
+// ── 3-Tier Timeout Classification ──────────────────────────────
+// Tier 1 (130s): LLM generation — full AI budget needed
+const GENERATION_JOB_TYPES = new Set([
   "package_generate_handbook", "handbook_expand_section",
   "package_generate_exam_pool", "package_generate_oral_exam",
-  "package_elite_harden", "package_quality_council",
-  "package_validate_learning_content", // v2.2: 200 lessons + 4 parallel LLM calls → needs 90s+
-  "package_validate_exam_pool", "package_validate_oral_exam",
+  "package_elite_harden",
+  "package_auto_seed_exam_blueprints",  // 741 lines, callAIJSON — was MISSING → caused 504!
 ]);
+
+// Tier 2 (90s): LLM validation / DB-heavy — needs more than 55s but not full 130s
+const HEAVY_JOB_TYPES = new Set([
+  "package_validate_learning_content",  // parallel LLM tier 2
+  "package_validate_exam_pool",         // LLM tier 2, internal budget 50s
+  "package_build_ai_tutor_index",       // DB-heavy, 200+ lesson index build
+]);
+
+// Everything else: Tier 3 (55s) — structural validation, DB queries only
+// Includes: package_validate_oral_exam, package_validate_blueprints,
+//   package_validate_handbook, package_quality_council, etc.
 
 // deno-lint-ignore no-explicit-any
 async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): Promise<{ ok: boolean; result?: any; error?: string; terminal?: boolean }> {
@@ -75,7 +87,11 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
     return { ok: false, error: `NO_EDGE_FUNCTION_MAPPING:${job.job_type}`, terminal: true };
   }
 
-  const timeoutMs = HEAVY_JOB_TYPES.has(job.job_type) ? DISPATCH_TIMEOUT_HANDBOOK_MS : DISPATCH_TIMEOUT_MS;
+  const timeoutMs = GENERATION_JOB_TYPES.has(job.job_type)
+    ? DISPATCH_TIMEOUT_GENERATION_MS
+    : HEAVY_JOB_TYPES.has(job.job_type)
+      ? DISPATCH_TIMEOUT_HEAVY_MS
+      : DISPATCH_TIMEOUT_MS;
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
