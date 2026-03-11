@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
