@@ -5,6 +5,7 @@ import { isTransientLlmError, classifyError } from "../_shared/llm/normalize.ts"
 import { setProviderCooldown, cleanupExpiredCooldowns, filterCooledDownProviders, isOnCooldown } from "../_shared/llm/provider-cooldown.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
+import { checkCircuitBreaker, recordPermanentProviderFailure, recordProviderSuccess, isPermanentProviderError } from "../_shared/llm/provider-circuit-breaker.ts";
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
@@ -341,6 +342,9 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           meta: resetProviderTransientMeta(job, successProvider, successModel),
         }).eq("id", job.id);
 
+        // Signal provider success to circuit breaker
+        recordProviderSuccess();
+
         console.log(`[content-runner] ✅ ${job.job_type} (${shortId}) completed in ${Date.now() - startMs}ms (gen=${result?.generated ?? "?"})`);
         return { id: job.id, ok: true, latency_ms: Date.now() - startMs };
       }
@@ -383,6 +387,23 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
           reason: classification.reason,
         });
         console.warn(`[content-runner] 🔄 COOLDOWN SET: ${jobProvider}/${jobModel} for ${Math.round(classification.providerCooldownMs / 1000)}s — reason: ${classification.reason}`);
+      }
+
+      // Circuit breaker: detect permanent failures even in transient-classified errors
+      // (e.g. "All providers failed: anthropic: credit balance too low")
+      if (isPermanentProviderError(errorStr)) {
+        const tripped = await recordPermanentProviderFailure(errorStr.slice(0, 200));
+        if (tripped) {
+          const now2 = new Date().toISOString();
+          await sb.from("job_queue").update({
+            status: "pending",
+            run_after: new Date(Date.now() + 10 * 60_000).toISOString(),
+            locked_at: null, locked_by: null,
+            updated_at: now2,
+            last_error: `CIRCUIT_BREAKER: ${errorStr.slice(0, 200)}`,
+          }).eq("id", job.id);
+          return { id: job.id, ok: false, error: "CIRCUIT_BREAKER_TRIPPED", terminal: true };
+        }
       }
 
         if (isTransientErr) {
@@ -467,6 +488,27 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT [${classification.reason}] — backoff ${logBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]${providerLoopExhausted ? " [PROVIDER_LOOP_GUARD]" : ""}`);
         return { id: job.id, ok: false, error: errorStr, exhausted, transient: true, providerLoopExhausted };
       } else {
+        // ── PERMANENT FAILURE — check for provider-level permanent errors ──
+        const errorStr = dispatchError || "";
+
+        // Circuit breaker: detect permanent provider failures (credits, auth)
+        if (isPermanentProviderError(errorStr)) {
+          const tripped = await recordPermanentProviderFailure(errorStr.slice(0, 200));
+          if (tripped) {
+            // Abort immediately — circuit breaker tripped
+            const now2 = new Date().toISOString();
+            await sb.from("job_queue").update({
+              status: "pending",
+              run_after: new Date(Date.now() + 10 * 60_000).toISOString(),
+              locked_at: null,
+              locked_by: null,
+              updated_at: now2,
+              last_error: `CIRCUIT_BREAKER: all providers permanently down — ${errorStr.slice(0, 200)}`,
+            }).eq("id", job.id);
+            return { id: job.id, ok: false, error: "CIRCUIT_BREAKER_TRIPPED", terminal: true };
+          }
+        }
+
         const attemptsNext = (job.attempts ?? 0) + 1;
         const maxAttempts = job.max_attempts ?? 8;
         const exhausted = attemptsNext >= maxAttempts;
@@ -716,6 +758,22 @@ Deno.serve(async (req) => {
   let totalSucceeded = 0;
   let totalFailed = 0;
   let totalDeferred = 0;
+
+  // ── Circuit Breaker check before starting loop ──
+  const cbStatus = await checkCircuitBreaker();
+  if (cbStatus.paused) {
+    console.warn(
+      `[content-runner] 🔴 CIRCUIT_BREAKER: pipeline paused — ${cbStatus.reason} ` +
+      `(${Math.round((cbStatus.remainingMs ?? 0) / 1000)}s remaining)`,
+    );
+    return json({
+      ok: false,
+      circuit_breaker: true,
+      reason: cbStatus.reason,
+      expires_at: cbStatus.expiresAt,
+      remaining_ms: cbStatus.remainingMs,
+    });
+  }
 
   while (Date.now() < deadline) {
     passes++;
