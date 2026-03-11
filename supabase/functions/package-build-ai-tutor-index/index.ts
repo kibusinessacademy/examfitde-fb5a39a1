@@ -147,17 +147,53 @@ Deno.serve(async (req) => {
     .not("parent_topic_id", "is", null);
 
   // ═══ LF + Chapter coverage stats ═══
+  // SSOT: Count LFs that have real lesson content (via modules join), NOT chapters
   const { data: lfData } = await sb
     .from("learning_fields").select("id")
     .eq("curriculum_id", curriculumId);
   const lfTotal = lfData?.length || 0;
 
-  // Actual handbook coverage: count chapters with real content (SSOT = chapters, not LFs)
+  // Count LFs with at least one real lesson (content > 600 chars = not hollow)
+  let lfCoverage = 0;
+  if (lfData && lfData.length > 0) {
+    const { data: coveredLfs } = await sb.rpc("count_lfs_with_real_content" as any, {
+      p_curriculum_id: curriculumId,
+      p_course_id: courseId,
+    });
+    lfCoverage = coveredLfs ?? 0;
+
+    // Fallback: if RPC doesn't exist, count manually via modules
+    if (lfCoverage === 0 && lfData.length > 0) {
+      for (const lf of lfData) {
+        const { count } = await sb
+          .from("modules").select("id", { count: "exact", head: true })
+          .eq("learning_field_id", lf.id)
+          .eq("course_id", courseId);
+        if ((count ?? 0) > 0) {
+          // Check if any lesson in these modules has real content
+          const { data: mods } = await sb
+            .from("modules").select("id")
+            .eq("learning_field_id", lf.id)
+            .eq("course_id", courseId);
+          if (mods && mods.length > 0) {
+            const modIds = mods.map((m: any) => m.id);
+            const { count: realCount } = await sb
+              .from("lessons").select("id", { count: "exact", head: true })
+              .in("module_id", modIds)
+              .not("content", "is", null)
+              .gt("content", "{}"); // non-empty JSON
+            if ((realCount ?? 0) > 0) lfCoverage++;
+          }
+        }
+      }
+    }
+  }
+
+  // Handbook chapter count (for stats only, NOT for lf_coverage)
   const { data: hbChapters } = await sb
     .from("handbook_chapters").select("id")
     .eq("curriculum_id", curriculumId);
   const chapterTotal = hbChapters?.length || 0;
-  const lfCoverage = Math.min(lfTotal, chapterTotal); // chapters cover LFs
 
   // ═══ DEPTH GATE: Warn if no subtopics exist ═══
   const depthStatus = (subtopicCount ?? 0) > 0 ? "deep" : "shallow";
