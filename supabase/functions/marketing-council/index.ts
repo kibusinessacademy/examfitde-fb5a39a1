@@ -37,15 +37,16 @@ Antworte NUR mit validem JSON:
   "campaigns": [{ "name": "...", "channel": "seo|paid_google|paid_meta|email|social|content", "target_groups": ["azubi"], "budget": 20, "hypothesis": "...", "kill_switch": { "max_days": 7, "min_ctr": 0.5 } }]
 }`;
 
-      const routed = getModel("seo_content");
-      const result = await callAIJSON({
-        provider: routed.provider,
-        model: routed.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Erstelle den Marketing-Plan für ${targetMonth}. Fokus auf organisches Wachstum und kosteneffiziente Paid-Tests.` },
-        ],
-      });
+      const chain = await getModelChainAsync("seo_content");
+      const result = await callAIWithFailover(
+        chain.map(c => ({ provider: c.provider, model: c.model })),
+        {
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Erstelle den Marketing-Plan für ${targetMonth}. Fokus auf organisches Wachstum und kosteneffiziente Paid-Tests.` },
+          ],
+        },
+      );
 
       let strategyJson;
       try {
