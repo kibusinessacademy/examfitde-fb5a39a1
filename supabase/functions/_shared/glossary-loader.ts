@@ -113,7 +113,7 @@ export async function loadOrGenerateGlossary(
 
   // 3) Generate glossary with explicit timeout
   console.log(`[glossary-loader] Generating glossary for "${professionName}"...`);
-  const routed = getModel("learning_content"); // Fast model
+  const chain = await getModelChainAsync("learning_content");
   const prompt = GLOSSARY_PROMPT
     .replace("{PROFESSION}", professionName)
     .replace("{CURRICULUM_CONTEXT}", curriculumContext);
@@ -123,16 +123,16 @@ export async function loadOrGenerateGlossary(
 
   let aiResult: any;
   try {
-    aiResult = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        { role: "system", content: prompt },
-        { role: "user", content: `Glossar für: ${professionName}` },
-      ],
-      max_tokens: 2048,
-      signal: controller.signal,
-    });
+    aiResult = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: prompt },
+          { role: "user", content: `Glossar für: ${professionName}` },
+        ],
+        max_tokens: 2048,
+      },
+    );
   } catch (e) {
     clearTimeout(timeout);
     const msg = (e as Error).message || String(e);

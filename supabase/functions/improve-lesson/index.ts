@@ -346,16 +346,19 @@ Liefere den VOLLSTÄNDIGEN verbesserten Inhalt (nicht nur die Änderungen).`;
     const tool = ctx.isMiniCheck ? IMPROVE_MINICHECK_TOOL : IMPROVE_CONTENT_TOOL;
     const toolName = ctx.isMiniCheck ? "submit_improved_minicheck" : "submit_improved_content";
 
-    const result = await callAIJSON({
-      provider: "openai",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      tools: [tool] as any,
-      tool_choice: { type: "function", function: { name: toolName } },
-      temperature: 0.4,
-    });
+    const improveChain = await getModelChainAsync("learning_content");
+    const result = await callAIWithFailover(
+      improveChain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        tools: [tool] as any,
+        tool_choice: { type: "function", function: { name: toolName } },
+        temperature: 0.4,
+      },
+    );
 
     const args = result.toolCalls?.[0]?.function?.arguments;
     if (!args) return null;

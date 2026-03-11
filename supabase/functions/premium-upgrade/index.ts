@@ -53,16 +53,18 @@ function nowIso(): string {
 }
 
 async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 4096): Promise<string> {
-  const result = await callAIJSON({
-    provider: "openai" as AIProvider,
-    model: "gpt-5.2",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    temperature: 0.4,
-    max_tokens: maxTokens,
-  });
+  const chain = await getModelChainAsync("exam_questions");
+  const result = await callAIWithFailover(
+    chain.map(c => ({ provider: c.provider, model: c.model })),
+    {
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.4,
+      max_tokens: maxTokens,
+    },
+  );
   return result.content || "";
 }
 

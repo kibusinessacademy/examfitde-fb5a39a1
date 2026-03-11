@@ -172,17 +172,20 @@ Deno.serve(async (req) => {
         const structValid = parsed.questions.every((q: any) => q?.question && q?.options?.length === 4 && typeof q?.correct_answer === "number");
         if (!structValid) { errors.push(`${code}: Structural validation failed`); failed++; continue; }
 
-        // STEP 2: VALIDATE via Gateway (Anthropic) with profession context
-        const valResult = await callAIJSON({
-          provider: VALIDATOR_PROVIDER,
-          messages: [
-            { role: "system", content: `Du bist ein unabhängiger Qualitätsprüfer für IHK-Prüfungsinhalte im Bereich ${professionName}. Prüfe ob die Fragen fachlich korrekt, berufsspezifisch und auf IHK-Prüfungsniveau für ${professionName} sind. Sei streng aber fair. Nutze IMMER die bereitgestellte Funktion.` },
-            { role: "user", content: `Bewerte den folgenden Mini-Check Quiz für "${professionName}" (${code} – ${title}):\n${JSON.stringify(parsed.questions, null, 2)}\n\nNutze validate_mini_check.` }
-          ],
-          tools: [VALIDATION_TOOL],
-          tool_choice: { type: "function", function: { name: "validate_mini_check" } },
-          max_tokens: 3000,
-        });
+        // STEP 2: VALIDATE via failover chain with profession context
+        const valChain = await getModelChainAsync("council_review");
+        const valResult = await callAIWithFailover(
+          valChain.map(c => ({ provider: c.provider, model: c.model })),
+          {
+            messages: [
+              { role: "system", content: `Du bist ein unabhängiger Qualitätsprüfer für IHK-Prüfungsinhalte im Bereich ${professionName}. Prüfe ob die Fragen fachlich korrekt, berufsspezifisch und auf IHK-Prüfungsniveau für ${professionName} sind. Sei streng aber fair. Nutze IMMER die bereitgestellte Funktion.` },
+              { role: "user", content: `Bewerte den folgenden Mini-Check Quiz für "${professionName}" (${code} – ${title}):\n${JSON.stringify(parsed.questions, null, 2)}\n\nNutze validate_mini_check.` }
+            ],
+            tools: [VALIDATION_TOOL],
+            tool_choice: { type: "function", function: { name: "validate_mini_check" } },
+            max_tokens: 3000,
+          },
+        );
 
         const valArgs = valResult.toolCalls?.[0]?.function?.arguments;
         const valParsed = valArgs ? JSON.parse(valArgs) : null;
