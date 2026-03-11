@@ -677,7 +677,7 @@ async function generateTurboQuestions(
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
         temperature: 0.85,
         max_tokens: maxTokens,
-        timeout_ms: 25_000,
+        timeout_ms: 45_000,
       });
       break;
     } catch (e: unknown) {
