@@ -1,8 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { callAIJSON } from "../_shared/ai-client.ts";
-import { getModel } from "../_shared/model-routing.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 
 /**
@@ -425,28 +425,29 @@ async function enhanceLeadQuestion(
   const bloomRule = BLOOM_MATRIX[competency.bloom_level] || BLOOM_MATRIX.apply;
 
   try {
-    const routed = getModel("oral_exam");
-    const result = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        { role: "system", content: buildSystemPrompt(professionName, mode as any) },
-        {
-          role: "user",
-          content: JSON.stringify({
-            instruction: "Formuliere die folgende Prüfungsfrage für eine mündliche IHK-Prüfung um. Behalte den fachlichen Kern exakt bei, aber mache sie prüfungstypisch und berufsspezifisch.",
-            lead_question: leadQuestion,
-            scenario: scenario || null,
-            competency: competency.title,
-            bloom_level: competency.bloom_level,
-            bloom_rule: bloomRule,
-            profession: professionName,
-            output_format: { question: "Die umformulierte Prüfungsfrage" },
-          }),
-        },
-      ],
-      max_tokens: 400,
-    });
+    const chain = await getModelChainAsync("oral_exam");
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: buildSystemPrompt(professionName, mode as any) },
+          {
+            role: "user",
+            content: JSON.stringify({
+              instruction: "Formuliere die folgende Prüfungsfrage für eine mündliche IHK-Prüfung um. Behalte den fachlichen Kern exakt bei, aber mache sie prüfungstypisch und berufsspezifisch.",
+              lead_question: leadQuestion,
+              scenario: scenario || null,
+              competency: competency.title,
+              bloom_level: competency.bloom_level,
+              bloom_rule: bloomRule,
+              profession: professionName,
+              output_format: { question: "Die umformulierte Prüfungsfrage" },
+            }),
+          },
+        ],
+        max_tokens: 400,
+      },
+    );
 
     const parsed = parseAIJSON(result.content);
     if (parsed?.question) return { question: parsed.question, model: routed.model };
@@ -467,27 +468,28 @@ async function generateFromScenario(
   const bloomRule = BLOOM_MATRIX[competency.bloom_level] || BLOOM_MATRIX.apply;
 
   try {
-    const routed = getModel("oral_exam");
-    const result = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        { role: "system", content: buildSystemPrompt(professionName, mode as any) },
-        {
-          role: "user",
-          content: JSON.stringify({
-            instruction: "Erstelle aus dem Szenario eine präzise mündliche IHK-Prüfungsfrage.",
-            scenario,
-            competency: competency.title,
-            bloom_level: competency.bloom_level,
-            bloom_rule: bloomRule,
-            profession: professionName,
-            output_format: { question: "Die Prüfungsfrage basierend auf dem Szenario" },
-          }),
-        },
-      ],
-      max_tokens: 500,
-    });
+    const chain2 = await getModelChainAsync("oral_exam");
+    const result = await callAIWithFailover(
+      chain2.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: buildSystemPrompt(professionName, mode as any) },
+          {
+            role: "user",
+            content: JSON.stringify({
+              instruction: "Erstelle aus dem Szenario eine präzise mündliche IHK-Prüfungsfrage.",
+              scenario,
+              competency: competency.title,
+              bloom_level: competency.bloom_level,
+              bloom_rule: bloomRule,
+              profession: professionName,
+              output_format: { question: "Die Prüfungsfrage basierend auf dem Szenario" },
+            }),
+          },
+        ],
+        max_tokens: 500,
+      },
+    );
 
     const parsed = parseAIJSON(result.content);
     if (parsed?.question) return { question: parsed.question, model: routed.model };
@@ -600,43 +602,44 @@ async function evaluateAnswer(sbUser: any, sbAdmin: any, userId: string, params:
   }
 
   // LLM evaluation
-  const routed = getModel("oral_exam");
-  const result = await callAIJSON({
-    provider: routed.provider,
-    model: routed.model,
-    messages: [
-      { role: "system", content: buildSystemPrompt(professionName, session.mode || "practice") },
-      {
-        role: "user",
-        content: JSON.stringify({
-          instruction: "Bewerte die mündliche Prüfungsantwort als IHK-Prüfer.",
-          rules: [
-            "Bewerte NUR anhand der übergebenen expected_points und rubric.",
-            "Jede Bewertungsdimension 1-5 Punkte (1=mangelhaft, 5=sehr gut).",
-            "Liefere NUR die Einzelscores – der Server berechnet overall_score.",
-            "Stärken und Schwächen müssen konkret und berufsspezifisch sein.",
-            "Musterantwort max 180-220 Wörter.",
-          ],
-          context: {
-            profession: professionName,
-            competency: competency.title,
-            bloom_level: competency.bloom_level,
-            question: question.question_text,
-            learner_answer: user_answer,
-            expected_points: question.expected_answer_points || [],
-            rubric: blueprintData.rubric || null,
-          },
-          output_schema: {
-            scores: { fachlichkeit: "1-5", struktur: "1-5", begriffssicherheit: "1-5", praxisbezug: "1-5" },
-            covered_points: [], missed_points: [], detected_errors: [],
-            feedback: "", strengths: [], improvements: [],
-            sample_answer: "", follow_up_question: "",
-          },
-        }),
-      },
-    ],
-    max_tokens: 1200,
-  });
+  const evalChain = await getModelChainAsync("oral_exam");
+  const result = await callAIWithFailover(
+    evalChain.map(c => ({ provider: c.provider, model: c.model })),
+    {
+      messages: [
+        { role: "system", content: buildSystemPrompt(professionName, session.mode || "practice") },
+        {
+          role: "user",
+          content: JSON.stringify({
+            instruction: "Bewerte die mündliche Prüfungsantwort als IHK-Prüfer.",
+            rules: [
+              "Bewerte NUR anhand der übergebenen expected_points und rubric.",
+              "Jede Bewertungsdimension 1-5 Punkte (1=mangelhaft, 5=sehr gut).",
+              "Liefere NUR die Einzelscores – der Server berechnet overall_score.",
+              "Stärken und Schwächen müssen konkret und berufsspezifisch sein.",
+              "Musterantwort max 180-220 Wörter.",
+            ],
+            context: {
+              profession: professionName,
+              competency: competency.title,
+              bloom_level: competency.bloom_level,
+              question: question.question_text,
+              learner_answer: user_answer,
+              expected_points: question.expected_answer_points || [],
+              rubric: blueprintData.rubric || null,
+            },
+            output_schema: {
+              scores: { fachlichkeit: "1-5", struktur: "1-5", begriffssicherheit: "1-5", praxisbezug: "1-5" },
+              covered_points: [], missed_points: [], detected_errors: [],
+              feedback: "", strengths: [], improvements: [],
+              sample_answer: "", follow_up_question: "",
+            },
+          }),
+        },
+      ],
+      max_tokens: 1200,
+    },
+  );
 
   let evaluation = parseAIJSON(result.content);
 

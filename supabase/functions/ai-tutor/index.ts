@@ -1,7 +1,8 @@
 // Deno.serve is built-in
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { callAI } from "../_shared/ai-client.ts";
+import { callAI, callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { getTutorOutputFormat, SOURCE_CITATION_RULE } from "../_shared/prompt-kit.ts";
 
@@ -238,11 +239,13 @@ async function postValidateTutorResponse(
 ) {
   try {
     const startTime = Date.now();
-    const valResult = await callAI({
-      provider: "openai",
-      model: "gpt-5.2",
-      messages: [
-        { role: "system", content: `Du prüfst eine KI-Tutor-Antwort für ${professionName} auf fachliche Korrektheit. SCHNELL und PRÄZISE.
+    // Use failover chain for validation (non-streaming)
+    const valChain = await getModelChainAsync("council_review");
+    const valResult = await callAIWithFailover(
+      valChain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: `Du prüfst eine KI-Tutor-Antwort für ${professionName} auf fachliche Korrektheit. SCHNELL und PRÄZISE.
 Kontext: ${JSON.stringify(resolvedContext).slice(0, 3000)}
 
 PRÜFE:
@@ -253,16 +256,14 @@ PRÜFE:
 
 Antworte NUR mit JSON:
 {"score": 0-100, "decision": "approve|revise|reject", "correction_needed": false, "correction": null, "issues": []}` },
-        { role: "user", content: `FRAGE: ${prompt}\n\nTUTOR-ANTWORT: ${response}` }
-      ],
-      temperature: 0.2,
-    });
+          { role: "user", content: `FRAGE: ${prompt}\n\nTUTOR-ANTWORT: ${response}` }
+        ],
+        temperature: 0.2,
+      },
+    );
 
     const latencyMs = Date.now() - startTime;
-    if (!valResult.ok) return;
-
-    const data = await valResult.raw.json();
-    const rawText = data.content?.[0]?.text ?? data.choices?.[0]?.message?.content ?? "";
+    const rawText = valResult.content || "";
     
     let result;
     try {
@@ -360,26 +361,43 @@ Deno.serve(async (req) => {
 
     const generationId = genRecord?.id;
 
-    // Stream from OpenAI directly
-    const { raw: aiResponse, ok, status } = await callAI({
-      provider: "openai",
-      model: "gpt-5.2",
-      messages: aiMessages,
-      stream: true,
-    });
+    // Stream with manual failover: try primary, fallback to secondary
+    const streamChain = await getModelChainAsync("support");
+    let aiResponse: Response | null = null;
+    let streamOk = false;
+    let streamStatus = 0;
 
-    if (!ok) {
-      if (status === 429) {
+    for (const candidate of streamChain) {
+      try {
+        const attempt = await callAI({
+          provider: candidate.provider,
+          model: candidate.model,
+          messages: aiMessages,
+          stream: true,
+        });
+        aiResponse = attempt.raw;
+        streamOk = attempt.ok;
+        streamStatus = attempt.status;
+        if (streamOk) break;
+        console.warn(`[ai-tutor] Provider ${candidate.provider}/${candidate.model} returned ${streamStatus}, trying next...`);
+      } catch (e) {
+        console.warn(`[ai-tutor] Provider ${candidate.provider}/${candidate.model} failed:`, e);
+        continue;
+      }
+    }
+
+    if (!streamOk || !aiResponse) {
+      if (streamStatus === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Bitte später erneut versuchen." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-      if (status === 402) {
+      if (streamStatus === 402) {
         return new Response(JSON.stringify({ error: "AI-Kontingent erschöpft." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-      throw new Error(`Lovable AI error: ${status}`);
+      throw new Error(`All AI providers failed: ${streamStatus}`);
     }
 
     // Stream through + collect for post-validation

@@ -1,6 +1,7 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { callAI } from "../_shared/ai-client.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -218,22 +219,19 @@ function buildTutorUserPrompt(p: TutorAnswerPayload, assets: Record<string, unkn
 
 async function callLLM(opts: { model: string; system: string; user: string }): Promise<Record<string, unknown>> {
   try {
-    const result = await callAI({
-      provider: opts.model.startsWith("google") ? "google" : "openai",
-      messages: [
-        { role: "system", content: opts.system },
-        { role: "user", content: opts.user },
-      ],
-      temperature: 0.3,
-    });
-
-    if (result.ok) {
-      const data = await result.raw.json();
-      const content = data.choices?.[0]?.message?.content ?? "";
-      const clean = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      return JSON.parse(clean);
-    }
-    return { answer_html: "", source_refs: [], next_steps: [], confidence: 0.1 };
+    const chain = await getModelChainAsync("support");
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: opts.system },
+          { role: "user", content: opts.user },
+        ],
+        temperature: 0.3,
+      },
+    );
+    const clean = (result.content || "").replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    return JSON.parse(clean);
   } catch {
     return { answer_html: "", source_refs: [], next_steps: [], confidence: 0.1 };
   }
@@ -241,22 +239,19 @@ async function callLLM(opts: { model: string; system: string; user: string }): P
 
 async function validateDraft(input: { ssot: Record<string, unknown>; role: Role; draft: Record<string, unknown> }) {
   try {
-    const result = await callAI({
-      provider: "openai",
-      messages: [
-        { role: "system", content: `Du bist Validator für Tutor-Antworten. Output STRICT JSON:\n{ "decision":"approved"|"rejected", "issues":[], "rationale":"..." }\nReject wenn: keine source_refs, falsche Fakten, erfundene Normen/Paragraphen.` },
-        { role: "user", content: JSON.stringify(input).slice(0, 12000) },
-      ],
-      temperature: 0.2,
-    });
-
-    if (result.ok) {
-      const data = await result.raw.json();
-      const content = data.content?.[0]?.text ?? "";
-      const clean = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      return JSON.parse(clean);
-    }
-    return { decision: "approved", issues: [{ severity: "low", text: "validator_failed" }], rationale: "validator unavailable" };
+    const valChain = await getModelChainAsync("council_review");
+    const result = await callAIWithFailover(
+      valChain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: `Du bist Validator für Tutor-Antworten. Output STRICT JSON:\n{ "decision":"approved"|"rejected", "issues":[], "rationale":"..." }\nReject wenn: keine source_refs, falsche Fakten, erfundene Normen/Paragraphen.` },
+          { role: "user", content: JSON.stringify(input).slice(0, 12000) },
+        ],
+        temperature: 0.2,
+      },
+    );
+    const clean = (result.content || "").replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    return JSON.parse(clean);
   } catch {
     return { decision: "approved", issues: [{ severity: "low", text: "validator_failed" }], rationale: "validator unavailable" };
   }

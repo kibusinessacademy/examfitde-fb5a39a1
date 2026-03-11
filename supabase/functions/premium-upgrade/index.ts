@@ -1,8 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
-import { callAIJSON } from "../_shared/ai-client.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 /**
  * premium-upgrade — 4-Layer Quality Densification Engine (v3 hardened)
@@ -52,16 +53,18 @@ function nowIso(): string {
 }
 
 async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 4096): Promise<string> {
-  const result = await callAIJSON({
-    provider: "openai" as AIProvider,
-    model: "gpt-5.2",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    temperature: 0.4,
-    max_tokens: maxTokens,
-  });
+  const chain = await getModelChainAsync("exam_questions");
+  const result = await callAIWithFailover(
+    chain.map(c => ({ provider: c.provider, model: c.model })),
+    {
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.4,
+      max_tokens: maxTokens,
+    },
+  );
   return result.content || "";
 }
 

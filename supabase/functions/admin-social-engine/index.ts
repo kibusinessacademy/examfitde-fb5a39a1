@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -118,31 +120,20 @@ function buildSystemPrompt(variant: PlatformVariant, intent?: string): string {
 }
 
 async function callAI(systemPrompt: string, userMessage: string): Promise<unknown> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) throw new Error("OPENAI_API_KEY not set");
-
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-5.2",
+  const chain = await getModelChainAsync("seo_content");
+  const result = await callAIWithFailover(
+    chain.map(c => ({ provider: c.provider, model: c.model })),
+    {
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
       temperature: 0.8,
-      response_format: { type: "json_object" },
-    }),
-  });
+    },
+  );
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenAI error: ${res.status} ${errText}`);
-  }
-
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content;
-  return JSON.parse(content);
+  const content = result.content || "";
+  return JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
 }
 
 Deno.serve(async (req) => {

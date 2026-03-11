@@ -1,7 +1,9 @@
 // Deno.serve is built-in
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { callAIJSON, type AIProvider } from "../_shared/ai-client.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import type { AIProvider } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { canonicalStepKey } from "../_shared/step-keys.ts";
 
 /**
@@ -130,15 +132,18 @@ Deno.serve(async (req) => {
       for (const comp of batch) {
         const lf = (comp as any).learning_fields;
         try {
-          const res = await callAIJSON({
-            provider,
-            messages: [
-              { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Erstelle strukturierte Prüfungs-Blueprints." },
-              { role: "user", content: `Erstelle einen IHK-Prüfungs-Blueprint für:\nKompetenz: ${comp.code} – ${comp.title}\nLernfeld: ${lf.title}\nTaxonomie: ${comp.taxonomy_level || "Anwenden"}\n\nNutze die Funktion create_blueprint.` }
-            ],
-            tools: [BLUEPRINT_TOOL],
-            tool_choice: { type: "function", function: { name: "create_blueprint" } },
-          });
+          const bpChain = await getModelChainAsync("exam_questions");
+          const res = await callAIWithFailover(
+            bpChain.map(c => ({ provider: c.provider, model: c.model })),
+            {
+              messages: [
+                { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Erstelle strukturierte Prüfungs-Blueprints." },
+                { role: "user", content: `Erstelle einen IHK-Prüfungs-Blueprint für:\nKompetenz: ${comp.code} – ${comp.title}\nLernfeld: ${lf.title}\nTaxonomie: ${comp.taxonomy_level || "Anwenden"}\n\nNutze die Funktion create_blueprint.` }
+              ],
+              tools: [BLUEPRINT_TOOL],
+              tool_choice: { type: "function", function: { name: "create_blueprint" } },
+            },
+          );
 
           const args = extractToolArgs(res);
           if (!args) { results.errors.push(`${comp.code}: No blueprint output`); continue; }
@@ -173,15 +178,18 @@ Deno.serve(async (req) => {
         const lf = (comp as any).learning_fields;
 
         try {
-          const res = await callAIJSON({
-            provider,
-            messages: [
-              { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Erstelle prüfungsnahe Aufgabenblöcke." },
-              { role: "user", content: `Erstelle einen IHK-Prüfungsblock für:\nKompetenz: ${comp.code} – ${comp.title}\nLernfeld: ${lf.title}\n\nNutze die Funktion create_exam_block.` }
-            ],
-            tools: [EXAM_BLOCK_TOOL],
-            tool_choice: { type: "function", function: { name: "create_exam_block" } },
-          });
+          const ebChain = await getModelChainAsync("exam_questions");
+          const res = await callAIWithFailover(
+            ebChain.map(c => ({ provider: c.provider, model: c.model })),
+            {
+              messages: [
+                { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Erstelle prüfungsnahe Aufgabenblöcke." },
+                { role: "user", content: `Erstelle einen IHK-Prüfungsblock für:\nKompetenz: ${comp.code} – ${comp.title}\nLernfeld: ${lf.title}\n\nNutze die Funktion create_exam_block.` }
+              ],
+              tools: [EXAM_BLOCK_TOOL],
+              tool_choice: { type: "function", function: { name: "create_exam_block" } },
+            },
+          );
 
           const args = extractToolArgs(res);
           if (!args) { results.errors.push(`Exam ${comp.code}: No output`); continue; }

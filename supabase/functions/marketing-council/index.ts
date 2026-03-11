@@ -1,7 +1,7 @@
 // Deno.serve is built-in
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { callAIJSON } from "../_shared/ai-client.ts";
-import { getModel } from "../_shared/model-routing.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,15 +37,16 @@ Antworte NUR mit validem JSON:
   "campaigns": [{ "name": "...", "channel": "seo|paid_google|paid_meta|email|social|content", "target_groups": ["azubi"], "budget": 20, "hypothesis": "...", "kill_switch": { "max_days": 7, "min_ctr": 0.5 } }]
 }`;
 
-      const routed = getModel("seo_content");
-      const result = await callAIJSON({
-        provider: routed.provider,
-        model: routed.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Erstelle den Marketing-Plan für ${targetMonth}. Fokus auf organisches Wachstum und kosteneffiziente Paid-Tests.` },
-        ],
-      });
+      const chain = await getModelChainAsync("seo_content");
+      const result = await callAIWithFailover(
+        chain.map(c => ({ provider: c.provider, model: c.model })),
+        {
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Erstelle den Marketing-Plan für ${targetMonth}. Fokus auf organisches Wachstum und kosteneffiziente Paid-Tests.` },
+          ],
+        },
+      );
 
       let strategyJson;
       try {
@@ -75,13 +76,13 @@ Antworte NUR mit validem JSON:
 
       // ── VALIDATE with Council Review model ──
       try {
-        const validationRouted = getModel("council_review");
-        const valResult = await callAIJSON({
-          provider: validationRouted.provider,
-          model: validationRouted.model,
-          messages: [{
-            role: "user",
-            content: `Du bist der Validation & ROI Controller im Marketing Council.
+        const valChain = await getModelChainAsync("council_review");
+        const valResult = await callAIWithFailover(
+          valChain.map(c => ({ provider: c.provider, model: c.model })),
+          {
+            messages: [{
+              role: "user",
+              content: `Du bist der Validation & ROI Controller im Marketing Council.
 Prüfe diesen Marketing-Plan auf:
 1. Zielgruppen-Passung
 2. Rechtliche Risiken (KEINE IHK-offiziell Claims!)
@@ -94,9 +95,10 @@ ${JSON.stringify(strategyJson, null, 2)}
 
 Antworte NUR mit JSON:
 {"overall_score": 0-100, "decision": "approve|revise|reject", "dimension_scores": {}, "critical_issues": [], "suggestions": []}`
-          }],
-          max_tokens: 2000,
-        });
+            }],
+            max_tokens: 2000,
+          },
+        );
 
         let validationReport;
         try {
@@ -127,20 +129,21 @@ Antworte NUR mit JSON:
       const { data: asset } = await supabase.from("marketing_assets").select("*").eq("id", asset_id).single();
       if (!asset) throw new Error("Asset not found");
 
-      const validationRouted = getModel("council_review");
-      const valResult = await callAIJSON({
-        provider: validationRouted.provider,
-        model: validationRouted.model,
-        messages: [{
-          role: "user",
-          content: `Du bist der Validation & ROI Controller.
+      const assetValChain = await getModelChainAsync("council_review");
+      const valResult = await callAIWithFailover(
+        assetValChain.map(c => ({ provider: c.provider, model: c.model })),
+        {
+          messages: [{
+            role: "user",
+            content: `Du bist der Validation & ROI Controller.
 Prüfe diesen Marketing-Content:
 Typ: ${asset.asset_type}, Zielgruppe: ${asset.target_group}, Titel: ${asset.title}, Content: ${asset.content}
 Prüfkriterien: 1. Zielgruppen-Passung 2. Rechtlich (KEINE IHK-offiziell Claims) 3. SEO-Qualität 4. Conversion-Logik 5. Sprachqualität
 JSON-Antwort: {"overall_score": 0-100, "decision": "approve|revise|reject", "legal_check_passed": true|false, "seo_score": 0-100, "issues": [], "suggestions": []}`
-        }],
-        max_tokens: 1500,
-      });
+          }],
+          max_tokens: 1500,
+        },
+      );
 
       let report;
       try {

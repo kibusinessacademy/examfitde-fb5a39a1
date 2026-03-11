@@ -1,6 +1,8 @@
 // Deno.serve is built-in
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[EXAM-COACH-FEEDBACK] ${step}`, details ? JSON.stringify(details) : '');
@@ -136,22 +138,20 @@ Deno.serve(async (req) => {
       ? `\nPrüfungsreife-Einstufung: ${coachingTrigger.readiness_verdict}`
       : '';
 
-    // ─── Generate AI feedback via Lovable AI Gateway ───
+    // ─── Generate AI feedback via failover chain ───
     let aiSummary = '';
     let aiPlan: string[] = [];
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
-    if (OPENAI_API_KEY) {
-      try {
-        const currTitle = (session.curriculum as any)?.title || 'Prüfung';
-        
-        const modeInstruction = coachingMode === 'explainer' 
-          ? 'Sei einfühlsam und erklärend. Der Lernende braucht grundlegende Unterstützung und klare Anleitungen.'
-          : coachingMode === 'coach'
-          ? 'Sei ermutigend und konkret. Der Lernende ist auf dem Weg, braucht aber gezielte Hilfe bei Schwachstellen.'
-          : 'Sei prüfungsfokussiert und anspruchsvoll. Der Lernende ist fast bereit — fokussiere auf Feinschliff und Prüfungsstrategie.';
+    try {
+      const currTitle = (session.curriculum as any)?.title || 'Prüfung';
+      
+      const modeInstruction = coachingMode === 'explainer' 
+        ? 'Sei einfühlsam und erklärend. Der Lernende braucht grundlegende Unterstützung und klare Anleitungen.'
+        : coachingMode === 'coach'
+        ? 'Sei ermutigend und konkret. Der Lernende ist auf dem Weg, braucht aber gezielte Hilfe bei Schwachstellen.'
+        : 'Sei prüfungsfokussiert und anspruchsvoll. Der Lernende ist fast bereit — fokussiere auf Feinschliff und Prüfungsstrategie.';
 
-        const prompt = `Du bist ein erfahrener IHK-Prüfungscoach für "${currTitle}".
+      const prompt = `Du bist ein erfahrener IHK-Prüfungscoach für "${currTitle}".
 Dein Coaching-Modus: ${coachingMode.toUpperCase()}
 ${modeInstruction}
 
@@ -181,46 +181,30 @@ Antworte im JSON-Format (kein Markdown, kein Code-Block):
   "learning_plan": ["Schritt 1 für die nächsten 48h", "Schritt 2", "Schritt 3", "Schritt 4"]
 }`;
 
-        const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${OPENAI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gpt-5.2",
-            messages: [
-              { role: "system", content: "Du bist ein empathischer IHK-Prüfungscoach. Antworte ausschließlich als valides JSON." },
-              { role: "user", content: prompt },
-            ],
-            temperature: 0.7,
-            max_tokens: 800,
-          }),
-        });
+      const chain = await getModelChainAsync("support");
+      const aiResult = await callAIWithFailover(
+        chain.map(c => ({ provider: c.provider, model: c.model })),
+        {
+          messages: [
+            { role: "system", content: "Du bist ein empathischer IHK-Prüfungscoach. Antworte ausschließlich als valides JSON." },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 800,
+        },
+      );
 
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          const content = aiData.choices?.[0]?.message?.content || '';
-          try {
-            const cleaned = content.replace(/```json\s*/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(cleaned);
-            aiSummary = parsed.summary || '';
-            aiPlan = Array.isArray(parsed.learning_plan) ? parsed.learning_plan : [];
-          } catch {
-            aiSummary = content.slice(0, 500);
-          }
-        } else {
-          const status = aiResponse.status;
-          logStep("AI gateway error", { status });
-          if (status === 429 || status === 402) {
-            aiSummary = scorePercent >= 60
-              ? `Gutes Ergebnis mit ${scorePercent.toFixed(0)}%! Konzentriere dich auf die markierten Schwachstellen.`
-              : `${scorePercent.toFixed(0)}% – noch nicht bestanden. Fokussiere dich auf die schwächsten Lernfelder.`;
-          }
-        }
-      } catch (aiErr) {
-        logStep("AI error (non-blocking)", { error: String(aiErr) });
+      const content = aiResult.content || '';
+      try {
+        const cleaned = content.replace(/```json\s*/g, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        aiSummary = parsed.summary || '';
+        aiPlan = Array.isArray(parsed.learning_plan) ? parsed.learning_plan : [];
+      } catch {
+        aiSummary = content.slice(0, 500);
       }
+    } catch (aiErr) {
+      logStep("AI error (non-blocking)", { error: String(aiErr) });
     }
 
     // Fallback if no AI

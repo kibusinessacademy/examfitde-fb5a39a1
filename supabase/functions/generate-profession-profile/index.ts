@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { callAIJSON } from "../_shared/ai-client.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 /**
  * Phase 3b: Generate PROFESSION_PROFILE v1 per beruf
@@ -91,13 +92,14 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const aiResp = await callAIJSON({
-          provider: "openai",
-          model: "gpt-5.2",
-          messages: [
-            {
-              role: "system",
-              content: `Du bist ein IHK-Prüfungsexperte. Erstelle ein PROFESSION_PROFILE für "${beruf.bezeichnung_kurz}".
+        const profChain = await getModelChainAsync("seo_content");
+        const aiResp = await callAIWithFailover(
+          profChain.map(c => ({ provider: c.provider, model: c.model })),
+          {
+            messages: [
+              {
+                role: "system",
+                content: `Du bist ein IHK-Prüfungsexperte. Erstelle ein PROFESSION_PROFILE für "${beruf.bezeichnung_kurz}".
 ${beruf.taetigkeitsprofil ? `Tätigkeitsprofil: ${beruf.taetigkeitsprofil.slice(0, 500)}` : ""}
 ${lfContext}
 
@@ -127,11 +129,12 @@ Liefere ein JSON-Objekt:
 }
 
 Sei SPEZIFISCH für den Beruf. Keine generischen Antworten.`,
-            },
-            { role: "user", content: `Profession Profile für: ${beruf.bezeichnung_kurz} (${beruf.zustaendigkeit}, ${beruf.ausbildungsdauer_monate} Monate)` },
-          ],
-          max_tokens: 2048,
-        });
+              },
+              { role: "user", content: `Profession Profile für: ${beruf.bezeichnung_kurz} (${beruf.zustaendigkeit}, ${beruf.ausbildungsdauer_monate} Monate)` },
+            ],
+            max_tokens: 2048,
+          },
+        );
 
         let profile: any;
         try {
