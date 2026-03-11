@@ -628,7 +628,7 @@ Deno.serve(async (req) => {
             if (purchase) {
               if (meta.couponCode) {
                 await adminClient.from('work_coupon_redemptions').insert({ coupon_code: meta.couponCode, purchase_id: purchase.id });
-                await adminClient.rpc('work_increment_coupon_redeemed', { p_code: meta.couponCode }).catch(() => null);
+                try { await adminClient.rpc('work_increment_coupon_redeemed', { p_code: meta.couponCode }); } catch { /* best-effort */ }
               }
 
               // Build download links with token
