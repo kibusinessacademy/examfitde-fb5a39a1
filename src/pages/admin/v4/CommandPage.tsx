@@ -52,6 +52,9 @@ export default function CommandPage() {
           <TabsTrigger value="mastery" className="flex items-center gap-1.5 text-xs lg:text-sm py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
             <Shield className="h-3.5 w-3.5" /><span className="hidden sm:inline">Mastery</span>
           </TabsTrigger>
+          <TabsTrigger value="forensik" className="flex items-center gap-1.5 text-xs lg:text-sm py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
+            <HeartPulse className="h-3.5 w-3.5" /><span className="hidden sm:inline">Forensik</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="briefing" className="mt-4"><Suspense fallback={<Fallback />}><DailyCommandBriefing /></Suspense></TabsContent>
