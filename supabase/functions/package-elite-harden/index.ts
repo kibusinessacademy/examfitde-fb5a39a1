@@ -440,11 +440,13 @@ JSON: {"question_text":"...","options":[{"text":"A"},{"text":"B"},{"text":"C"},{
       const parsed = parseJSON(await callAI(systemPrompt, userPrompt));
       if (!parsed.question_text || !parsed.options) continue;
 
-      await sb.from("elite_hardening_items").insert({
-        run_id: runId, entity_type: "minicheck", entity_id: mc.id, action: "upgraded",
-        original_data: { question_text: mc.question_text, options: mc.options, explanation: mc.explanation },
-        upgraded_data: parsed,
-      }).then(() => {}, () => {});
+      try {
+        await sb.from("elite_hardening_items").insert({
+          run_id: runId, entity_type: "minicheck", entity_id: mc.id, action: "upgraded",
+          original_data: { question_text: mc.question_text, options: mc.options, explanation: mc.explanation },
+          upgraded_data: parsed,
+        });
+      } catch (_e) { /* best-effort */ }
 
       await sb.from("minicheck_questions").update({
         question_text: parsed.question_text,
