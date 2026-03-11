@@ -96,6 +96,7 @@ export interface OpsJobItem {
   attempts: number;
   max_attempts: number;
   package_ref: string | null;
+  package_title: string | null;
   error: string | null;
   created_at: string;
 }

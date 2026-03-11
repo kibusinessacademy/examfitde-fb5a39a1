@@ -278,16 +278,30 @@ async function getOpsQueue(sb: SB) {
     (q: any) => q.in("status", ["pending", "processing", "failed"]).order("created_at", { ascending: false }).limit(100),
   );
 
-  return data.map((row: JsonRow) => ({
-    job_id: row.id,
-    job_type: row.job_type,
-    status: row.status,
-    attempts: row.attempts ?? 0,
-    max_attempts: row.max_attempts ?? 5,
-    package_ref: row.package_id ? String(row.package_id).slice(0, 8) : null,
-    error: row.last_error ? String(row.last_error).slice(0, 200) : null,
-    created_at: row.created_at,
-  }));
+  // Resolve package titles
+  const pkgIds = [...new Set(data.map((r: JsonRow) => r.package_id).filter(Boolean))] as string[];
+  const pkgMap: Record<string, string> = {};
+  if (pkgIds.length > 0) {
+    const pkgs = await safeFrom(sb, "course_packages", "id, title", (q: any) => q.in("id", pkgIds));
+    for (const p of pkgs) {
+      pkgMap[String(p.id)] = String(p.title ?? "");
+    }
+  }
+
+  return data.map((row: JsonRow) => {
+    const pid = row.package_id ? String(row.package_id) : null;
+    return {
+      job_id: row.id,
+      job_type: row.job_type,
+      status: row.status,
+      attempts: row.attempts ?? 0,
+      max_attempts: row.max_attempts ?? 5,
+      package_ref: pid ? pid.slice(0, 8) : null,
+      package_title: pid && pkgMap[pid] ? pkgMap[pid] : null,
+      error: row.last_error ? String(row.last_error).slice(0, 200) : null,
+      created_at: row.created_at,
+    };
+  });
 }
 
 async function getProviderHealth(sb: SB) {
