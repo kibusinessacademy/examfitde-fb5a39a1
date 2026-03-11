@@ -94,6 +94,7 @@ function JobBadge({ status, meta, lastError }: { status: string; meta: any; last
 export default function QueueDashboard() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [rollup, setRollup] = useState<RollupRow[]>([]);
+  const [pkgNames, setPkgNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -103,8 +104,23 @@ export default function QueueDashboard() {
       (supabase as any).from('ops_job_queue_rollup')
         .select('*').limit(50),
     ]);
-    setJobs(jobsRes.data || []);
+    const jobData = jobsRes.data || [];
+    setJobs(jobData);
     setRollup(rollupRes.data || []);
+
+    // Resolve package_id → course title
+    const pkgIds = [...new Set(jobData.map((j: any) => j.package_id || j.payload?.package_id).filter(Boolean))] as string[];
+    if (pkgIds.length > 0) {
+      const { data: pkgs } = await (supabase as any)
+        .from('course_packages')
+        .select('id, courses(title)')
+        .in('id', pkgIds);
+      const map: Record<string, string> = {};
+      for (const p of (pkgs || [])) {
+        map[p.id] = p.courses?.title || p.id.substring(0, 8);
+      }
+      setPkgNames(map);
+    }
     setLoading(false);
   };
 
@@ -203,8 +219,12 @@ export default function QueueDashboard() {
                   <JobBadge status={j.status} meta={j.meta} lastError={j.last_error || j.error} />
                 </td>
                 <td className="py-2 px-3">{j.attempts}/{j.max_attempts}</td>
-                <td className="py-2 px-3 font-mono text-muted-foreground truncate max-w-[120px]">
-                  {j.payload?.package_id?.substring(0, 8) || j.package_id?.substring(0, 8) || '–'}
+                <td className="py-2 px-3 truncate max-w-[160px]" title={j.package_id || j.payload?.package_id || ''}>
+                  {(() => {
+                    const pid = j.package_id || j.payload?.package_id;
+                    const name = pid ? pkgNames[pid] : null;
+                    return name || pid?.substring(0, 8) || '–';
+                  })()}
                 </td>
                 <td className={cn(
                   "py-2 px-3 truncate max-w-[200px]",
