@@ -628,12 +628,13 @@ export async function processPackage(
 
   // ── ZOMBIE STEP AUTO-FINALIZATION ──
   {
-    const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
+    const ZOMBIE_MIN_AGE_MS = 3 * 60 * 1000; // Phase B: 5m→3m (finalization rules now handle most cases)
     const ZOMBIFIABLE_STEPS = new Set([
       "validate_learning_content", "validate_exam_pool", "validate_blueprints",
       "validate_oral_exam", "validate_handbook", "validate_lesson_minichecks",
-      "validate_tutor_index", "run_integrity_check", "quality_council",
-      "auto_publish",
+      "validate_tutor_index", "validate_handbook_depth",
+      "run_integrity_check", "quality_council",
+      "auto_publish", "enqueue_handbook_expand",
     ]);
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
