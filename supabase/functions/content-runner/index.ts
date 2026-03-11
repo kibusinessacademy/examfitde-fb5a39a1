@@ -24,8 +24,9 @@ const BASE_CONCURRENCY = envInt("CONTENT_RUNNER_CONCURRENCY", 12);  // Phase B: 
 const CLAIM_LIMIT = envInt("CONTENT_RUNNER_CLAIM_LIMIT", 25);      // Phase B: 16→25 — match perPackageMax for single-package WIP=1
 const CONTENT_LOCK_TIMEOUT_MINUTES = 5;
 const STALE_LOCK_RECOVERY_MS = 3 * 60_000;
-const DISPATCH_TIMEOUT_MS = 55_000;   // v9: lowered from 130s→55s for content jobs (safe within loop budget)
-const DISPATCH_TIMEOUT_HANDBOOK_MS = 130_000; // handbook Elite budget stays at 120s
+const DISPATCH_TIMEOUT_MS = 55_000;          // Tier 3: structural/DB-only jobs
+const DISPATCH_TIMEOUT_HEAVY_MS = 90_000;    // Tier 2: LLM-validation + DB-heavy jobs
+const DISPATCH_TIMEOUT_GENERATION_MS = 130_000; // Tier 1: LLM-generation jobs (full budget)
 const WORKER_ID = `content-runner-${crypto.randomUUID().slice(0, 8)}`;
 const FUNCTION_VERSION = "v2.1-turbo-loop";
 
