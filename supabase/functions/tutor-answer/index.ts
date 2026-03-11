@@ -239,22 +239,19 @@ async function callLLM(opts: { model: string; system: string; user: string }): P
 
 async function validateDraft(input: { ssot: Record<string, unknown>; role: Role; draft: Record<string, unknown> }) {
   try {
-    const result = await callAI({
-      provider: "openai",
-      messages: [
-        { role: "system", content: `Du bist Validator für Tutor-Antworten. Output STRICT JSON:\n{ "decision":"approved"|"rejected", "issues":[], "rationale":"..." }\nReject wenn: keine source_refs, falsche Fakten, erfundene Normen/Paragraphen.` },
-        { role: "user", content: JSON.stringify(input).slice(0, 12000) },
-      ],
-      temperature: 0.2,
-    });
-
-    if (result.ok) {
-      const data = await result.raw.json();
-      const content = data.content?.[0]?.text ?? "";
-      const clean = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      return JSON.parse(clean);
-    }
-    return { decision: "approved", issues: [{ severity: "low", text: "validator_failed" }], rationale: "validator unavailable" };
+    const valChain = await getModelChainAsync("council_review");
+    const result = await callAIWithFailover(
+      valChain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: `Du bist Validator für Tutor-Antworten. Output STRICT JSON:\n{ "decision":"approved"|"rejected", "issues":[], "rationale":"..." }\nReject wenn: keine source_refs, falsche Fakten, erfundene Normen/Paragraphen.` },
+          { role: "user", content: JSON.stringify(input).slice(0, 12000) },
+        ],
+        temperature: 0.2,
+      },
+    );
+    const clean = (result.content || "").replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    return JSON.parse(clean);
   } catch {
     return { decision: "approved", issues: [{ severity: "low", text: "validator_failed" }], rationale: "validator unavailable" };
   }
