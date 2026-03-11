@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Activity, DollarSign, AlertTriangle, Sparkles, Shield, LayoutDashboard, Radio, CalendarDays } from 'lucide-react';
+import { Activity, DollarSign, AlertTriangle, Sparkles, Shield, LayoutDashboard, Radio, CalendarDays, HeartPulse } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 import Leitstelle from '@/components/admin/command/Leitstelle';
