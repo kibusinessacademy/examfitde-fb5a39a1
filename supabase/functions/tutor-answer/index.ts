@@ -219,22 +219,19 @@ function buildTutorUserPrompt(p: TutorAnswerPayload, assets: Record<string, unkn
 
 async function callLLM(opts: { model: string; system: string; user: string }): Promise<Record<string, unknown>> {
   try {
-    const result = await callAI({
-      provider: opts.model.startsWith("google") ? "google" : "openai",
-      messages: [
-        { role: "system", content: opts.system },
-        { role: "user", content: opts.user },
-      ],
-      temperature: 0.3,
-    });
-
-    if (result.ok) {
-      const data = await result.raw.json();
-      const content = data.choices?.[0]?.message?.content ?? "";
-      const clean = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      return JSON.parse(clean);
-    }
-    return { answer_html: "", source_refs: [], next_steps: [], confidence: 0.1 };
+    const chain = await getModelChainAsync("support");
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: opts.system },
+          { role: "user", content: opts.user },
+        ],
+        temperature: 0.3,
+      },
+    );
+    const clean = (result.content || "").replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    return JSON.parse(clean);
   } catch {
     return { answer_html: "", source_refs: [], next_steps: [], confidence: 0.1 };
   }
