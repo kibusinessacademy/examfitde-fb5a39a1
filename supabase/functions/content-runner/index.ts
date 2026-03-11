@@ -471,6 +471,27 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         console.warn(`[content-runner] ⚡ ${job.job_type} (${shortId}) TRANSIENT [${classification.reason}] — backoff ${logBackoff}s [transient ${transientNext}/${TRANSIENT_MAX}]${providerLoopExhausted ? " [PROVIDER_LOOP_GUARD]" : ""}`);
         return { id: job.id, ok: false, error: errorStr, exhausted, transient: true, providerLoopExhausted };
       } else {
+        // ── PERMANENT FAILURE — check for provider-level permanent errors ──
+        const errorStr = dispatchError || "";
+
+        // Circuit breaker: detect permanent provider failures (credits, auth)
+        if (isPermanentProviderError(errorStr)) {
+          const tripped = await recordPermanentProviderFailure(errorStr.slice(0, 200));
+          if (tripped) {
+            // Abort immediately — circuit breaker tripped
+            const now2 = new Date().toISOString();
+            await sb.from("job_queue").update({
+              status: "pending",
+              run_after: new Date(Date.now() + 10 * 60_000).toISOString(),
+              locked_at: null,
+              locked_by: null,
+              updated_at: now2,
+              last_error: `CIRCUIT_BREAKER: all providers permanently down — ${errorStr.slice(0, 200)}`,
+            }).eq("id", job.id);
+            return { id: job.id, ok: false, error: "CIRCUIT_BREAKER_TRIPPED", terminal: true };
+          }
+        }
+
         const attemptsNext = (job.attempts ?? 0) + 1;
         const maxAttempts = job.max_attempts ?? 8;
         const exhausted = attemptsNext >= maxAttempts;
