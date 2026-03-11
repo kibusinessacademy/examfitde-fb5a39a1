@@ -397,17 +397,19 @@ Deno.serve(async (req) => {
 
   // Log to ops_alerts on failure
   if (!overallPass) {
-    await sb.from("ops_alerts").insert({
-      source: "validate-learning-content",
-      severity: "warning",
-      message: `Lesson QC failed for pkg ${packageId.slice(0, 8)}: avg_score=${avgScore.toFixed(0)}, t1_pass=${t1PassRate.toFixed(0)}%`,
-      payload: {
-        packageId,
-        tier1_pass_rate: t1PassRate,
-        tier2_avg_score: avgScore,
-        tier2_rejected: rejected.length,
-      },
-    }).then(() => {}).catch(() => {});
+    try {
+      await sb.from("ops_alerts").insert({
+        source: "validate-learning-content",
+        severity: "warning",
+        message: `Lesson QC failed for pkg ${packageId.slice(0, 8)}: avg_score=${avgScore.toFixed(0)}, t1_pass=${t1PassRate.toFixed(0)}%`,
+        payload: {
+          packageId,
+          tier1_pass_rate: t1PassRate,
+          tier2_avg_score: avgScore,
+          tier2_rejected: rejected.length,
+        },
+      });
+    } catch (_e) { /* best-effort */ }
   }
 
   const errorSummary = overallPass

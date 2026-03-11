@@ -220,10 +220,12 @@ Deno.serve(async (req) => {
 
         await supabase.from("council_messages").insert({ content_version_id: newVersion!.id, agent_name: `dual-llm:${GENERATOR_PROVIDER}`, message_type: "proposal", message_json: { source: "regenerate-minichecks", generator: GENERATOR_PROVIDER, validator: VALIDATOR_PROVIDER, validation_score: valParsed?.score, issues_count: valParsed?.issues?.length ?? 0, profession: professionName } });
 
-        supabase.from("minicheck_questions").upsert(
-          playerContent.questions.map((pq: any) => ({ lesson_id: lesson.id, question_text: pq.text, options: pq.options.map((o: any) => o.text), correct_option_index: pq.options.findIndex((o: any) => o.is_correct), explanation: pq.explanation_correct, difficulty: "medium", competency_id: lesson.competency_id })),
-          { onConflict: "lesson_id,question_text" }
-        ).then(() => {}).catch(e => console.warn(`[AUDIT] ${code}: minicheck_questions upsert failed:`, e));
+        try {
+          await supabase.from("minicheck_questions").upsert(
+            playerContent.questions.map((pq: any) => ({ lesson_id: lesson.id, question_text: pq.text, options: pq.options.map((o: any) => o.text), correct_option_index: pq.options.findIndex((o: any) => o.is_correct), explanation: pq.explanation_correct, difficulty: "medium", competency_id: lesson.competency_id })),
+            { onConflict: "lesson_id,question_text" }
+          );
+        } catch (e) { console.warn(`[AUDIT] ${code}: minicheck_questions upsert failed:`, e); }
 
         versionsCreated++;
       } catch (e) {

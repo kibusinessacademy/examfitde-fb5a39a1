@@ -97,11 +97,13 @@ Verwende NUR Tags aus diesem Vokabular: ${ERROR_TAG_VOCABULARY.join(", ")}`,
   console.log(`[trap-retrofit] Done: ${retrofitted} tagged, ${failed} failed / ${questions.length}`);
 
   if (failed > questions.length * 0.5) {
-    await sb.from("ops_alerts").insert({
-      source: "pool-rework-trap-retrofit", severity: "warn",
-      message: `Trap retrofit: ${failed}/${questions.length} failed`,
-      payload: { retrofitted, failed, total: questions.length },
-    }).then(() => {}).catch(() => {});
+    try {
+      await sb.from("ops_alerts").insert({
+        source: "pool-rework-trap-retrofit", severity: "warn",
+        message: `Trap retrofit: ${failed}/${questions.length} failed`,
+        payload: { retrofitted, failed, total: questions.length },
+      });
+    } catch (_e) { /* best-effort */ }
   }
 
   return json({ ok: true, retrofitted, failed, total: questions.length });
