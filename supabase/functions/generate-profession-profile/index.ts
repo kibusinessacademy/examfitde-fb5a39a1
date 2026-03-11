@@ -92,9 +92,10 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const aiResp = await callAIJSON({
-          provider: "openai",
-          model: "gpt-5.2",
+        const profChain = await getModelChainAsync("seo_content");
+        const aiResp = await callAIWithFailover(
+          profChain.map(c => ({ provider: c.provider, model: c.model })),
+          {
           messages: [
             {
               role: "system",

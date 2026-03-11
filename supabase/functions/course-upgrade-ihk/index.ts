@@ -178,15 +178,18 @@ Deno.serve(async (req) => {
         const lf = (comp as any).learning_fields;
 
         try {
-          const res = await callAIJSON({
-            provider,
-            messages: [
-              { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Erstelle prüfungsnahe Aufgabenblöcke." },
-              { role: "user", content: `Erstelle einen IHK-Prüfungsblock für:\nKompetenz: ${comp.code} – ${comp.title}\nLernfeld: ${lf.title}\n\nNutze die Funktion create_exam_block.` }
-            ],
-            tools: [EXAM_BLOCK_TOOL],
-            tool_choice: { type: "function", function: { name: "create_exam_block" } },
-          });
+          const ebChain = await getModelChainAsync("exam_questions");
+          const res = await callAIWithFailover(
+            ebChain.map(c => ({ provider: c.provider, model: c.model })),
+            {
+              messages: [
+                { role: "system", content: "Du bist ein IHK-Prüfungsexperte. Erstelle prüfungsnahe Aufgabenblöcke." },
+                { role: "user", content: `Erstelle einen IHK-Prüfungsblock für:\nKompetenz: ${comp.code} – ${comp.title}\nLernfeld: ${lf.title}\n\nNutze die Funktion create_exam_block.` }
+              ],
+              tools: [EXAM_BLOCK_TOOL],
+              tool_choice: { type: "function", function: { name: "create_exam_block" } },
+            },
+          );
 
           const args = extractToolArgs(res);
           if (!args) { results.errors.push(`Exam ${comp.code}: No output`); continue; }

@@ -60,16 +60,18 @@ Deno.serve(async (req) => {
     const userPrompt = buildUserPrompt(bkBeruf, tier);
 
     // ── 4) Generate structured content ──
-    const aiResp = await callAIJSON({
-      provider: "openai",
-      model: "gpt-5.2",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_tokens: tier === "29" ? 8192 : tier === "19" ? 6144 : 4096,
-      temperature: 0.7,
-    });
+    const prodChain = await getModelChainAsync("seo_content");
+    const aiResp = await callAIWithFailover(
+      prodChain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: tier === "29" ? 8192 : tier === "19" ? 6144 : 4096,
+        temperature: 0.7,
+      },
+    );
 
     // ── 5) Parse JSON response ──
     let contentJson: unknown;
