@@ -46,8 +46,14 @@ export function OpsJobsTable({ items }: { items: OpsJobItem[] }) {
                 <td className="px-4 py-3 text-muted-foreground">
                   {item.attempts}/{item.max_attempts}
                 </td>
-                <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
-                  {item.package_ref ?? "–"}
+                <td className="px-4 py-3 text-muted-foreground text-xs">
+                  {item.package_title ? (
+                    <span title={item.package_ref ?? undefined}>
+                      {item.package_title.replace(/^ExamFit\s*–\s*/, '').split('–')[0].trim()}
+                    </span>
+                  ) : (
+                    <span className="font-mono">{item.package_ref ?? "–"}</span>
+                  )}
                 </td>
                 <td className="max-w-[200px] truncate px-4 py-3 text-muted-foreground" title={item.error ?? undefined}>
                   {item.error ?? "–"}
