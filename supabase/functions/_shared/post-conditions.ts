@@ -17,6 +17,10 @@ export async function assertStepPostConditions(sb: SB, args: {
 }) {
   const { packageId, stepKey } = args;
 
+  // ── Delegate to extended guards for steps not handled here ──
+  const handled = await assertExtendedPostConditions(sb, { packageId, stepKey });
+  if (handled) return;
+
   // ── generate_learning_content: lessons must be real, not placeholder shells ──
   // SSOT: "done" requires artifact-based validation, NOT job-based
   if (stepKey === "generate_learning_content") {
