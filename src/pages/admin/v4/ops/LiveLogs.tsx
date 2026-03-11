@@ -23,11 +23,11 @@ export default function LiveLogs() {
     if (pkgIds.length > 0) {
       const { data: pkgs } = await (supabase as any)
         .from('course_packages')
-        .select('id, courses(title)')
+        .select('id, title')
         .in('id', pkgIds);
       const map: Record<string, string> = {};
       for (const p of (pkgs || [])) {
-        map[p.id] = p.courses?.title || p.id.substring(0, 8);
+        map[p.id] = p.title || p.id.substring(0, 8);
       }
       setPkgNames(map);
     }
