@@ -24,6 +24,7 @@ const STEP_WEIGHT_MAP: Record<PipelineStepKey, StepWeightClass> = {
   generate_oral_exam:           "heavy",
   generate_lesson_minichecks:   "heavy",
   elite_harden:                 "heavy",
+  expand_handbook:              "heavy",     // LLM-intensive per-section expansion
 
   // ── Medium: moderate LLM or orchestration ──
   scaffold_learning_course:     "medium",
@@ -39,12 +40,14 @@ const STEP_WEIGHT_MAP: Record<PipelineStepKey, StepWeightClass> = {
   validate_oral_exam:           "validation",
   validate_lesson_minichecks:   "validation",
   validate_handbook:            "validation",
+  validate_handbook_depth:      "validation",
   quality_council:              "validation",
 
   // ── Light: minimal pressure ──
   build_ai_tutor_index:         "light",
   run_integrity_check:          "light",
   auto_publish:                 "light",
+  enqueue_handbook_expand:      "light",     // Pure orchestration, no LLM
 };
 
 /** Classify a step_key into its weight class. Unknown steps default to "medium". */
@@ -75,13 +78,13 @@ export interface StepClassLimits {
   light: number;
 }
 
-/** Phase A defaults: conservative. Env-overridable. */
+/** Phase B defaults: parallel-branch-aware. Env-overridable. */
 export function getStepClassLimits(): StepClassLimits {
   return {
-    heavy:      envInt("STEP_CLASS_HEAVY_MAX", 2),
+    heavy:      envInt("STEP_CLASS_HEAVY_MAX", 3),   // Phase B: 2→3 (parallel branches need concurrent heavy slots)
     medium:     envInt("STEP_CLASS_MEDIUM_MAX", 3),
-    validation: envInt("STEP_CLASS_VALIDATION_MAX", 1),
-    light:      envInt("STEP_CLASS_LIGHT_MAX", 2),
+    validation: envInt("STEP_CLASS_VALIDATION_MAX", 2), // Phase B: 1→2 (was bottleneck for parallel validations)
+    light:      envInt("STEP_CLASS_LIGHT_MAX", 3),   // Phase B: 2→3 (more light steps with handbook expand)
   };
 }
 

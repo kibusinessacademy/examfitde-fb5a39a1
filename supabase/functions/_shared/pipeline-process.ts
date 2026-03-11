@@ -11,10 +11,11 @@ import { classifyStep } from "./step-weight.ts";
 import {
   type StepKey, type StepRow, type StepAction, type StepClassContext,
   safeRpc, safeQuery, getLearningContentProgress,
-  isTransientStepError, buildStepOrder, pickNextAction,
+  isTransientStepError, buildStepOrder, pickNextAction, pickParallelActions,
 } from "./pipeline-helpers.ts";
 import { handleJobFailed } from "./pipeline-handlers.ts";
 import { handleEnqueue } from "./pipeline-handlers.ts";
+import { enqueueJob } from "./enqueue.ts";
 import { backfillPipelinePool } from "./pipeline-backfill.ts";
 export { backfillPipelinePool } from "./pipeline-backfill.ts";
 
@@ -446,6 +447,103 @@ export async function processPackage(
           return { ok, reason, snapshot: { ok: !!meta?.ok, basis_pass: !!meta?.basis_pass, quality_tier: meta?.quality_tier } };
         },
       },
+      // ── NEW: Previously missing finalization rules (were relying on 5-min zombie timeout) ──
+      {
+        stepKey: "generate_glossary",
+        jobType: "package_generate_glossary",
+        actionType: "finalize_generate_glossary",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "generate_lesson_minichecks",
+        jobType: "package_generate_lesson_minichecks",
+        actionType: "finalize_generate_lesson_minichecks",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.batch_complete === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.batch_complete ? "meta.batch_complete=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, batch_complete: !!meta?.batch_complete } };
+        },
+      },
+      {
+        stepKey: "elite_harden",
+        jobType: "package_elite_harden",
+        actionType: "finalize_elite_harden",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "build_ai_tutor_index",
+        jobType: "package_build_ai_tutor_index",
+        actionType: "finalize_build_ai_tutor_index",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true;
+          return { ok, reason: ok ? "meta.ok=true" : "meta.ok!=true", snapshot: { ok: !!ok } };
+        },
+      },
+      {
+        stepKey: "run_integrity_check",
+        jobType: "package_run_integrity_check",
+        actionType: "finalize_run_integrity_check",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.integrity_passed === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.integrity_passed ? "meta.integrity_passed=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, integrity_passed: !!meta?.integrity_passed } };
+        },
+      },
+      {
+        stepKey: "quality_council",
+        jobType: "package_quality_council",
+        actionType: "finalize_quality_council",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.approved === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.approved ? "meta.approved=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, approved: !!meta?.approved } };
+        },
+      },
+      {
+        stepKey: "auto_publish",
+        jobType: "package_auto_publish",
+        actionType: "finalize_auto_publish",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.published === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.published ? "meta.published=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, published: !!meta?.published } };
+        },
+      },
+      {
+        stepKey: "enqueue_handbook_expand",
+        jobType: "package_enqueue_handbook_expand",
+        actionType: "finalize_enqueue_handbook_expand",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.enqueued === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.enqueued ? "meta.enqueued=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, enqueued: !!meta?.enqueued } };
+        },
+      },
+      {
+        stepKey: "expand_handbook",
+        jobType: "handbook_expand_section",
+        actionType: "finalize_expand_handbook",
+        cancelStatuses: ["pending", "failed"],
+        shouldFinalize: (meta) => {
+          const ok = meta?.ok === true || meta?.batch_complete === true;
+          const reason = meta?.ok ? "meta.ok=true" : meta?.batch_complete ? "meta.batch_complete=true" : "not_ready";
+          return { ok, reason, snapshot: { ok: !!meta?.ok, batch_complete: !!meta?.batch_complete } };
+        },
+      },
     ];
 
     const byKey = new Map<string, StepRow>();
@@ -530,12 +628,13 @@ export async function processPackage(
 
   // ── ZOMBIE STEP AUTO-FINALIZATION ──
   {
-    const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
+    const ZOMBIE_MIN_AGE_MS = 3 * 60 * 1000; // Phase B: 5m→3m (finalization rules now handle most cases)
     const ZOMBIFIABLE_STEPS = new Set([
       "validate_learning_content", "validate_exam_pool", "validate_blueprints",
       "validate_oral_exam", "validate_handbook", "validate_lesson_minichecks",
-      "validate_tutor_index", "run_integrity_check", "quality_council",
-      "auto_publish",
+      "validate_tutor_index", "validate_handbook_depth",
+      "run_integrity_check", "quality_council",
+      "auto_publish", "enqueue_handbook_expand",
     ]);
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
@@ -713,13 +812,43 @@ export async function processPackage(
     }
   }
 
-  const nextAction = pickNextAction((steps ?? []) as StepRow[], STEP_ORDER);
+  // ═══════════════════════════════════════════════════════
+  // PARALLEL BRANCH SCHEDULING (DAG-aware)
+  // ═══════════════════════════════════════════════════════
+  const parallelActions = pickParallelActions((steps ?? []) as StepRow[], STEP_ORDER);
+  const nextAction = parallelActions.length > 0 ? parallelActions[0] : pickNextAction((steps ?? []) as StepRow[], STEP_ORDER);
+
+  // If we have multiple parallel enqueue actions, fire them all (not just the first)
+  if (parallelActions.length > 1) {
+    const enqueueActions = parallelActions.filter(a => a?.action === "enqueue");
+    if (enqueueActions.length > 1) {
+      console.log(`[runner] 🔀 Parallel branches detected: ${enqueueActions.map(a => (a as any).stepKey).join(", ")}`);
+      // Enqueue all parallel branches beyond the first (first is handled normally below)
+      for (let i = 1; i < enqueueActions.length; i++) {
+        const pa = enqueueActions[i] as { action: "enqueue"; stepKey: StepKey };
+        try {
+          await handleEnqueue(sb, packageId, runnerId, shortId, pa, steps as StepRow[], STEP_ORDER, pkg, mode, stepClassCtx);
+          console.log(`[runner] 🔀 Parallel-enqueued: ${pa.stepKey}`);
+        } catch (e) {
+          console.warn(`[runner] Parallel enqueue failed for ${pa.stepKey}: ${(e as Error).message}`);
+        }
+      }
+    }
+  }
 
   // ── Handle: step in backoff — idle without blocking/erroring ──
   if (nextAction?.action === "wait") {
-    console.log(`[runner] ⏳ Step ${nextAction.stepKey} in backoff for ${shortId} — waiting (strict sequencing)`);
-    await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-    return { packageId, waiting: true, stepKey: nextAction.stepKey, reason: "backoff" };
+    // Check if any parallel action is NOT a wait (other branches can proceed)
+    const nonWaitAction = parallelActions.find(a => a?.action !== "wait");
+    if (nonWaitAction) {
+      console.log(`[runner] ⏳ Step ${nextAction.stepKey} in backoff, but parallel branch ${(nonWaitAction as any).stepKey} available`);
+      // Fall through to handle the non-wait action below by reassigning
+      // (handled by parallelActions[0] logic above)
+    } else {
+      console.log(`[runner] ⏳ Step ${nextAction.stepKey} in backoff for ${shortId} — waiting (strict sequencing)`);
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return { packageId, waiting: true, stepKey: nextAction.stepKey, reason: "backoff" };
+    }
   }
 
   // ── All steps done / no actionable step ──
@@ -1194,18 +1323,17 @@ async function handleJobCompleted(
           const boostRows = Array.isArray(existingBoost) ? existingBoost : (existingBoost as any)?.data ?? [];
           if (!Array.isArray(boostRows) || boostRows.length === 0) {
             console.log(`[runner] ⚡ Low-progress boost: only ${deltaReal} lessons this run`);
-            await safeQuery(
-              sb.from("job_queue").insert({
+            try {
+              await enqueueJob(sb, {
                 job_type: boostJobType,
                 package_id: packageId,
-                status: "pending",
                 priority: 70,
                 payload: { package_id: packageId, reason: "low_progress_boost", real: afterReal, total: afterTotal },
-                worker_pool: "content",
                 max_attempts: 8,
-              }),
-              "enqueue_low_progress_boost",
-            );
+              });
+            } catch (boostErr) {
+              console.warn(`[runner] Low-progress boost enqueue failed: ${(boostErr as Error).message}`);
+            }
           }
         }
 
