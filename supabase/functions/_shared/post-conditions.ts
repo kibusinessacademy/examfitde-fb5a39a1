@@ -1,6 +1,7 @@
 // supabase/functions/_shared/post-conditions.ts
 // SSOT Post-Condition Guards: prevents "done" status on hollow content
 import { isRealHandbookSection, HANDBOOK_THRESHOLDS } from "./handbook-write-guard.ts";
+import { assertExtendedPostConditions } from "./post-conditions-extended.ts";
 type SB = any;
 
 function num(x: any): number {
@@ -15,6 +16,10 @@ export async function assertStepPostConditions(sb: SB, args: {
   track?: string | null;
 }) {
   const { packageId, stepKey } = args;
+
+  // ── Delegate to extended guards for steps not handled here ──
+  const handled = await assertExtendedPostConditions(sb, { packageId, stepKey });
+  if (handled) return;
 
   // ── generate_learning_content: lessons must be real, not placeholder shells ──
   // SSOT: "done" requires artifact-based validation, NOT job-based
