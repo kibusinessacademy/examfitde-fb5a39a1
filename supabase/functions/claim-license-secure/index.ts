@@ -373,7 +373,8 @@ async function upsertDeviceBinding(sb: ReturnType<typeof createClient>, userId: 
 async function tryBindSeat(sb: ReturnType<typeof createClient>, seatId: string, userId: string) {
   const candidates = ["license_seats", "license_package_seats", "seats"];
   for (const t of candidates) {
-    const exists = await sb.rpc("table_exists", { p_table: t }).catch(() => null);
+    let exists: any = null;
+    try { exists = await sb.rpc("table_exists", { p_table: t }); } catch { /* skip */ }
     if (exists?.data !== true) continue;
 
     const upd = await sb.from(t).update({ learner_user_id: userId }).eq("id", seatId).is("learner_user_id", null).select("id").maybeSingle();

@@ -100,7 +100,8 @@ async function checkJobs(sb: ReturnType<typeof createClient>, runId: string) {
 }
 
 async function checkPayments(sb: ReturnType<typeof createClient>, runId: string) {
-  const gaps = await sb.rpc("get_reconcile_gaps_details", { p_limit: 50 }).catch(() => ({ data: null, error: null }));
+  let gaps: any = { data: null, error: null };
+  try { gaps = await sb.rpc("get_reconcile_gaps_details", { p_limit: 50 }); } catch { gaps = { data: null, error: null }; }
   if (gaps?.error || !gaps?.data) return;
 
   const count = (gaps.data as unknown[]).length;
