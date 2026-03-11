@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Activity, DollarSign, AlertTriangle, Sparkles, Shield, LayoutDashboard, Radio, CalendarDays } from 'lucide-react';
+import { Activity, DollarSign, AlertTriangle, Sparkles, Shield, LayoutDashboard, Radio, CalendarDays, HeartPulse } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 import Leitstelle from '@/components/admin/command/Leitstelle';
@@ -14,6 +14,7 @@ const RealtimePipelineMonitor = lazy(() => import('@/components/admin/RealtimePi
 const QualityCockpitTab = lazy(() => import('@/components/admin/command/QualityCockpitTab'));
 const OpsMonitoringTab = lazy(() => import('@/pages/admin/v4/OpsMonitoringTab'));
 const DailyCommandBriefing = lazy(() => import('@/components/admin/command/DailyCommandBriefing'));
+const ForensicMonitorPanel = lazy(() => import('@/components/admin/command/ForensicMonitorPanel'));
 
 const Fallback = () => <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
 
@@ -51,6 +52,9 @@ export default function CommandPage() {
           <TabsTrigger value="mastery" className="flex items-center gap-1.5 text-xs lg:text-sm py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
             <Shield className="h-3.5 w-3.5" /><span className="hidden sm:inline">Mastery</span>
           </TabsTrigger>
+          <TabsTrigger value="forensik" className="flex items-center gap-1.5 text-xs lg:text-sm py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
+            <HeartPulse className="h-3.5 w-3.5" /><span className="hidden sm:inline">Forensik</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="briefing" className="mt-4"><Suspense fallback={<Fallback />}><DailyCommandBriefing /></Suspense></TabsContent>
@@ -62,6 +66,7 @@ export default function CommandPage() {
         <TabsContent value="errors" className="mt-4"><Suspense fallback={<Fallback />}><ErrorsTab /></Suspense></TabsContent>
         <TabsContent value="ceo" className="mt-4"><Suspense fallback={<Fallback />}><CEODailyKPIs /></Suspense></TabsContent>
         <TabsContent value="mastery" className="mt-4"><Suspense fallback={<Fallback />}><QualityCockpitTab /></Suspense></TabsContent>
+        <TabsContent value="forensik" className="mt-4"><Suspense fallback={<Fallback />}><ForensicMonitorPanel /></Suspense></TabsContent>
       </Tabs>
     </div>
   );
