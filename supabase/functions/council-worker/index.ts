@@ -1,8 +1,8 @@
 // Deno.serve is built-in
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { callAIJSON } from "../_shared/ai-client.ts";
-import { getModelAsync } from "../_shared/model-routing.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 /**
  * Council Worker v3 – Consolidated Governance Layer
@@ -117,22 +117,22 @@ async function proposeStep(
 
   if (!lesson) throw new Error(`Lesson ${lesson_id} not found`);
 
-  const proposerModel = await getModelAsync("council_proposer");
-  const agentName = `${proposerModel.provider}/${proposerModel.model}`;
+  const proposerChain = await getModelChainAsync("council_proposer");
+  const agentName = `${proposerChain[0].provider}/${proposerChain[0].model}`;
 
-  const { content: aiContent } = await callAIJSON({
-    provider: proposerModel.provider,
-    model: proposerModel.model,
-    messages: [
-      {
-        role: "system",
-        content: `Du bist ein didaktischer Experte für IHK-Prüfungsvorbereitung.
+  const { content: aiContent } = await callAIWithFailover(
+    proposerChain.map(c => ({ provider: c.provider, model: c.model })),
+    {
+      messages: [
+        {
+          role: "system",
+          content: `Du bist ein didaktischer Experte für IHK-Prüfungsvorbereitung.
 Erstelle hochwertigen Lerninhalt für den Step "${step_key}" der Lesson "${lesson.title}".
 Antworte als JSON mit: { "html": "...", "objectives": [...], "key_concepts": [...], "examples": [...] }`,
-      },
-      {
-        role: "user",
-        content: `Lesson: ${lesson.title}\nStep: ${step_key}\nBisheriger Content: ${(lesson.content || "").substring(0, 2000)}`,
+        },
+        {
+          role: "user",
+          content: `Lesson: ${lesson.title}\nStep: ${step_key}\nBisheriger Content: ${(lesson.content || "").substring(0, 2000)}`,
       },
     ],
     temperature: 0.7,
@@ -201,12 +201,12 @@ async function critiqueStep(
 
   const contentStr = JSON.stringify(version.content_json);
 
-  const validatorModel = await getModelAsync("council_validator");
-  const agentName = `${validatorModel.provider}/${validatorModel.model}`;
+  const validatorChain = await getModelChainAsync("council_validator");
+  const agentName = `${validatorChain[0].provider}/${validatorChain[0].model}`;
 
-  const { content: critiqueContent } = await callAIJSON({
-    provider: validatorModel.provider,
-    model: validatorModel.model,
+  const { content: critiqueContent } = await callAIWithFailover(
+    validatorChain.map(c => ({ provider: c.provider, model: c.model })),
+    {
     messages: [
       {
         role: "system",
@@ -286,12 +286,12 @@ async function reviseStep(
 
   const latestCritique = critiques?.[0]?.message_json || {};
 
-  const reviserModel = await getModelAsync("council_proposer");
-  const agentName = `${reviserModel.provider}/${reviserModel.model}`;
+  const reviserChain = await getModelChainAsync("council_proposer");
+  const agentName = `${reviserChain[0].provider}/${reviserChain[0].model}`;
 
-  const { content: revisedContent } = await callAIJSON({
-    provider: reviserModel.provider,
-    model: reviserModel.model,
+  const { content: revisedContent } = await callAIWithFailover(
+    reviserChain.map(c => ({ provider: c.provider, model: c.model })),
+    {
     messages: [
       {
         role: "system",

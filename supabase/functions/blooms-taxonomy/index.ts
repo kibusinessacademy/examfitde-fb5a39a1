@@ -2,8 +2,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { validateAuth, unauthorizedResponse } from "../_shared/auth.ts";
-import { callAIJSON } from "../_shared/ai-client.ts";
-import { getModel } from "../_shared/model-routing.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 /**
  * Bloom's Taxonomy Service
@@ -132,16 +132,17 @@ Antworte NUR mit einem JSON-Objekt:
 { "level": "understand", "confidence": 0.85, "reasoning": "Kurze Begründung" }`;
 
   try {
-    const routed = getModel("blooms_classify");
-    const result = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        { role: "system", content: "Du bist ein Experte für Didaktik und Bloom's Taxonomy. Klassifiziere Prüfungsfragen präzise." },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 200,
-    });
+    const chain = await getModelChainAsync("blooms_classify");
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: "Du bist ein Experte für Didaktik und Bloom's Taxonomy. Klassifiziere Prüfungsfragen präzise." },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: 200,
+      },
+    );
 
     try {
       const jsonMatch = result.content.match(/\{[\s\S]*\}/);

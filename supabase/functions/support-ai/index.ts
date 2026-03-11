@@ -1,8 +1,8 @@
 // Deno.serve is built-in
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { callAIJSON } from "../_shared/ai-client.ts";
-import { getModel } from "../_shared/model-routing.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfessionFromCourse } from "../_shared/profession-resolver.ts";
 import { getSupportMaxLength, SUPPORT_CONTEXT_REQUEST, SOURCE_CITATION_RULE } from "../_shared/prompt-kit.ts";
 
@@ -113,18 +113,19 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `${guardrailRules.join("\n")}\n\nAntworttyp: ${answerType}${professionContext}${contextStr}${emotionalContext}`;
 
-    // Route through model-routing.ts (support intent)
-    const routed = getModel("support");
+    // Route through model-routing.ts (support intent) with failover chain
+    const chain = await getModelChainAsync("support");
 
-    const aiResult = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: question },
-      ],
-      max_tokens: 500,
-    });
+    const aiResult = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: question },
+        ],
+        max_tokens: 500,
+      },
+    );
 
     const answer = aiResult.content || "Leider konnte ich keine Antwort generieren. Bitte versuche es erneut.";
 
@@ -142,7 +143,7 @@ Deno.serve(async (req) => {
       context_course_id: contextCourseId || null,
       context_lesson_id: contextLessonId || null,
       context_competency_id: contextCompetencyId || null,
-      model_used: routed.model,
+      model_used: aiResult.model,
       tokens_used: aiResult.usage?.total_tokens || 0,
       guardrail_flags: guardrailFlags,
     });

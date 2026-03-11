@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { callAIJSON } from "../_shared/ai-client.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 /**
  * Mass Competency Enrichment v2 — RPC-only, no nested joins
@@ -343,21 +344,23 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
           }
         };
 
-        const aiResp = await callAIJSON({
-          provider: "openai",
-           model: "gpt-5.2",
-          messages: [
-            { role: "system", content: `${systemPrompt}\n\nHalte die Ausgabe kompakt und valide JSON-only.` },
-            {
-              role: "user",
-              content: `Enriche diese ${comps.length} Kompetenzen für "${cur.beruf_kurz}":\n${JSON.stringify(compList)}`,
-            },
-          ],
-          tools: [ENRICHMENT_TOOL],
-          tool_choice: { type: "function", function: { name: "submit_enrichments" } },
-          max_tokens: Math.max(5000, comps.length * 1100),
-          timeout_ms: 22_000,
-        });
+        const enrichChain = await getModelChainAsync("blooms_classify");
+        const aiResp = await callAIWithFailover(
+          enrichChain.map(c => ({ provider: c.provider, model: c.model })),
+          {
+            messages: [
+              { role: "system", content: `${systemPrompt}\n\nHalte die Ausgabe kompakt und valide JSON-only.` },
+              {
+                role: "user",
+                content: `Enriche diese ${comps.length} Kompetenzen für "${cur.beruf_kurz}":\n${JSON.stringify(compList)}`,
+              },
+            ],
+            tools: [ENRICHMENT_TOOL],
+            tool_choice: { type: "function", function: { name: "submit_enrichments" } },
+            max_tokens: Math.max(5000, comps.length * 1100),
+            timeout_ms: 22_000,
+          },
+        );
 
         let enrichments = parseEnrichmentsFromAIResponse(aiResp);
 
@@ -370,21 +373,22 @@ Antworte NUR als JSON: {"enrichments": [{id, context_conditions, misconceptions,
           for (const single of compList) {
             if (Date.now() - startTime > TIME_BUDGET_MS) break;
             try {
-              const singleResp = await callAIJSON({
-                provider: "openai",
-                model: "gpt-5.2",
-                messages: [
-                  { role: "system", content: `${systemPrompt}\n\nGib genau 1 Enrichment-Objekt zurück, nur JSON.` },
-                  {
-                    role: "user",
-                    content: `Enriche genau diese eine Kompetenz für "${cur.beruf_kurz}":\n${JSON.stringify([single])}`,
-                  },
-                ],
-                tools: [ENRICHMENT_TOOL],
-                tool_choice: { type: "function", function: { name: "submit_enrichments" } },
-                max_tokens: 2600,
-                timeout_ms: 16_000,
-              });
+              const singleResp = await callAIWithFailover(
+                enrichChain.map(c => ({ provider: c.provider, model: c.model })),
+                {
+                  messages: [
+                    { role: "system", content: `${systemPrompt}\n\nGib genau 1 Enrichment-Objekt zurück, nur JSON.` },
+                    {
+                      role: "user",
+                      content: `Enriche genau diese eine Kompetenz für "${cur.beruf_kurz}":\n${JSON.stringify([single])}`,
+                    },
+                  ],
+                  tools: [ENRICHMENT_TOOL],
+                  tool_choice: { type: "function", function: { name: "submit_enrichments" } },
+                  max_tokens: 2600,
+                  timeout_ms: 16_000,
+                },
+              );
 
               const singleEnrichments = parseEnrichmentsFromAIResponse(singleResp);
               if (!singleEnrichments?.length) {

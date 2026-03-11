@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { callAI } from "../_shared/ai-client.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 /**
  * Legacy enrichment function (Phase 0 / general enrichment).
@@ -132,24 +133,19 @@ Antworte NUR als JSON: {"enrichments": [{...}, ...]}`;
       const userPrompt = `Enriche diese ${batch.length} Kompetenzen:\n${JSON.stringify(compList)}`;
 
       try {
-        const aiResp = await callAI({
-          provider: "openai",
-          model: "gpt-5.2",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          temperature: 0.5,
-        });
+        const enrichChain = await getModelChainAsync("blooms_classify");
+        const aiResult = await callAIWithFailover(
+          enrichChain.map(c => ({ provider: c.provider, model: c.model })),
+          {
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.5,
+          },
+        );
 
-        if (!aiResp.ok) {
-          const errText = await aiResp.raw.text();
-          results.push({ batch: i / batchSize + 1, status: "ai_error", error: errText.slice(0, 200) });
-          continue;
-        }
-
-        const aiData = await aiResp.raw.json();
-        const content = aiData.choices?.[0]?.message?.content || aiData.content?.[0]?.text || "";
+        const content = aiResult.content || "";
 
         // Patch 7: Tolerant JSON parser
         const parsed = safeJsonParse(content);

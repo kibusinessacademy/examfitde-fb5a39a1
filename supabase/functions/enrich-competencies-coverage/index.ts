@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { callAIJSON } from "../_shared/ai-client.ts";
+import { callAIWithFailover } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 
 /**
  * Phase 1: Deterministic + AI-assisted coverage enrichment
@@ -261,29 +262,31 @@ Deno.serve(async (req) => {
       for (let i = 0; i < needsAI.length && i < AI_BATCH * 3; i += AI_BATCH) {
         const batch = needsAI.slice(i, i + AI_BATCH);
         try {
-          const aiResp = await callAIJSON({
-            provider: "openai",
-            model: "gpt-5.2",
-            messages: [
-              {
-                role: "system",
-                content: `Extrahiere das zentrale Handlungsverb aus Kompetenzformulierungen.
+          const coverageChain = await getModelChainAsync("blooms_classify");
+          const aiResp = await callAIWithFailover(
+            coverageChain.map(c => ({ provider: c.provider, model: c.model })),
+            {
+              messages: [
+                {
+                  role: "system",
+                  content: `Extrahiere das zentrale Handlungsverb aus Kompetenzformulierungen.
 Antworte NUR als JSON: {"verbs": [{"id": "uuid", "verb": "handlungsverb"}]}
 Verwende die 3. Person Singular (z.B. "berechnet", "analysiert", "konfiguriert").
 NICHT verwenden: ist, wird, hat, kann, soll, muss, darf, enthält, umfasst.`,
-              },
-              {
-                role: "user",
-                // Patch 9: Truncate to reduce token cost
-                content: JSON.stringify(batch.map(c => ({
-                  id: c.id,
-                  title: (c.title || "").slice(0, 80),
-                  desc: (c.description || "").slice(0, 160),
-                }))),
-              },
-            ],
-            max_tokens: 1024,
-          });
+                },
+                {
+                  role: "user",
+                  // Patch 9: Truncate to reduce token cost
+                  content: JSON.stringify(batch.map(c => ({
+                    id: c.id,
+                    title: (c.title || "").slice(0, 80),
+                    desc: (c.description || "").slice(0, 160),
+                  }))),
+                },
+              ],
+              max_tokens: 1024,
+            },
+          );
 
           // Patch 7: Tolerant JSON parser
           const parsed = safeJsonParse(aiResp.content);

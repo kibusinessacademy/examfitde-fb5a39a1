@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { callAIJSON, RateLimitError, logLLMCostEvent } from "../_shared/ai-client.ts";
+import { callAIWithFailover, RateLimitError, logLLMCostEvent } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveAvailableRoute } from "../_shared/llm/provider-load-balancer.ts";
 
 const corsHeaders = {
@@ -104,44 +105,44 @@ Deno.serve(async (req) => {
 Zuständigkeit: ${beruf.zustaendigkeit}
 Ausbildungsdauer: ${beruf.ausbildungsdauer_monate} Monate`;
 
-    // v10.5: DB-driven routing via llm_provider_routing_policies
-    let provider = providerOverride || "";
-    let model = "";
-    if (provider) {
-      model = provider === "google" ? "gemini-2.5-flash" : "gpt-5-mini";
+    // v11: Failover chain — policy-first, then model-routing chain
+    let chain: Array<{ provider: string; model: string }> = [];
+    if (providerOverride) {
+      const overrideModel = providerOverride === "google" ? "gemini-2.5-flash" : "gpt-5-mini";
+      chain.push({ provider: providerOverride, model: overrideModel });
     } else {
-      // Try policy-based route first (timeout-optimized)
       const policyRoute = await resolveAvailableRoute("curriculum_enrichment");
       if (policyRoute.ok && policyRoute.provider && policyRoute.model) {
-        provider = policyRoute.provider;
-        model = policyRoute.model;
-        console.log(`[GenContent] POLICY_ROUTE: curriculum_enrichment → ${provider}/${model}`);
-      } else {
-        console.log(`[GenContent] POLICY_MISS: curriculum_enrichment (${policyRoute.reason}) → hardcoded`);
-        const { getModelAsync } = await import("../_shared/model-routing.ts");
-        const routed = await getModelAsync("curriculum_import");
-        provider = routed.provider;
-        model = routed.model;
+        chain.push({ provider: policyRoute.provider, model: policyRoute.model });
+        console.log(`[GenContent] POLICY_ROUTE: curriculum_enrichment → ${policyRoute.provider}/${policyRoute.model}`);
       }
     }
-    console.log(`[GenContent] Using ${provider}/${model}`);
+    // Always append full model-routing chain as fallback
+    const routingChain = await getModelChainAsync("curriculum_import");
+    for (const c of routingChain) {
+      if (!chain.some(x => x.provider === c.provider && x.model === c.model)) {
+        chain.push({ provider: c.provider, model: c.model });
+      }
+    }
+    console.log(`[GenContent] Chain: ${chain.map(c => `${c.provider}/${c.model}`).join(" → ")}`);
 
-    const aiResult = await callAIJSON({
-      provider,
-      model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.3,
-      max_tokens: 8000,
-    });
+    const aiResult = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider as any, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 8000,
+      },
+    );
 
     // Log cost event (success)
     await logLLMCostEvent(sb, {
       job_type: "generate_curriculum_content",
-      provider,
-      model,
+      provider: aiResult.provider,
+      model: aiResult.model,
       tokens_in: aiResult.usage?.input_tokens ?? 0,
       tokens_out: aiResult.usage?.output_tokens ?? 0,
       certification_id: curr.beruf_id,

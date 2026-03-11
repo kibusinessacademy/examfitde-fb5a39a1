@@ -2,7 +2,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { callAIJSON, aiErrorResponse } from "../_shared/ai-client.ts";
+import { callAIWithFailover, aiErrorResponse } from "../_shared/ai-client.ts";
+import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { assertNoContamination } from "../_shared/contamination-guard.ts";
 
@@ -127,14 +128,17 @@ ${cogBlock}
 WICHTIG: Jede Frage braucht ein konkretes Szenario aus dem Arbeitsalltag von ${professionName}. Keine generischen "Was ist...?"-Fragen.
 PFLICHT: correct_answer muss 0, 1, 2 oder 3 sein. Prüfe vor Ausgabe, ob die richtige Antwort an der richtigen Position steht.`;
 
-    const result = await callAIJSON({
-      provider: "openai",
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.7,
-    });
+    const chain = await getModelChainAsync("exam_questions");
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+      },
+    );
 
     if (!result.content) {
       throw new Error('No content in AI response');
