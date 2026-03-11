@@ -96,10 +96,10 @@ Deno.serve(async (req) => {
         const aiResp = await callAIWithFailover(
           profChain.map(c => ({ provider: c.provider, model: c.model })),
           {
-          messages: [
-            {
-              role: "system",
-              content: `Du bist ein IHK-Prüfungsexperte. Erstelle ein PROFESSION_PROFILE für "${beruf.bezeichnung_kurz}".
+            messages: [
+              {
+                role: "system",
+                content: `Du bist ein IHK-Prüfungsexperte. Erstelle ein PROFESSION_PROFILE für "${beruf.bezeichnung_kurz}".
 ${beruf.taetigkeitsprofil ? `Tätigkeitsprofil: ${beruf.taetigkeitsprofil.slice(0, 500)}` : ""}
 ${lfContext}
 
@@ -129,11 +129,12 @@ Liefere ein JSON-Objekt:
 }
 
 Sei SPEZIFISCH für den Beruf. Keine generischen Antworten.`,
-            },
-            { role: "user", content: `Profession Profile für: ${beruf.bezeichnung_kurz} (${beruf.zustaendigkeit}, ${beruf.ausbildungsdauer_monate} Monate)` },
-          ],
-          max_tokens: 2048,
-        });
+              },
+              { role: "user", content: `Profession Profile für: ${beruf.bezeichnung_kurz} (${beruf.zustaendigkeit}, ${beruf.ausbildungsdauer_monate} Monate)` },
+            ],
+            max_tokens: 2048,
+          },
+        );
 
         let profile: any;
         try {
