@@ -811,13 +811,43 @@ export async function processPackage(
     }
   }
 
-  const nextAction = pickNextAction((steps ?? []) as StepRow[], STEP_ORDER);
+  // ═══════════════════════════════════════════════════════
+  // PARALLEL BRANCH SCHEDULING (DAG-aware)
+  // ═══════════════════════════════════════════════════════
+  const parallelActions = pickParallelActions((steps ?? []) as StepRow[], STEP_ORDER);
+  const nextAction = parallelActions.length > 0 ? parallelActions[0] : pickNextAction((steps ?? []) as StepRow[], STEP_ORDER);
+
+  // If we have multiple parallel enqueue actions, fire them all (not just the first)
+  if (parallelActions.length > 1) {
+    const enqueueActions = parallelActions.filter(a => a?.action === "enqueue");
+    if (enqueueActions.length > 1) {
+      console.log(`[runner] 🔀 Parallel branches detected: ${enqueueActions.map(a => (a as any).stepKey).join(", ")}`);
+      // Enqueue all parallel branches beyond the first (first is handled normally below)
+      for (let i = 1; i < enqueueActions.length; i++) {
+        const pa = enqueueActions[i] as { action: "enqueue"; stepKey: StepKey };
+        try {
+          await handleEnqueue(sb, packageId, runnerId, shortId, pa, steps as StepRow[], STEP_ORDER, pkg, mode, stepClassCtx);
+          console.log(`[runner] 🔀 Parallel-enqueued: ${pa.stepKey}`);
+        } catch (e) {
+          console.warn(`[runner] Parallel enqueue failed for ${pa.stepKey}: ${(e as Error).message}`);
+        }
+      }
+    }
+  }
 
   // ── Handle: step in backoff — idle without blocking/erroring ──
   if (nextAction?.action === "wait") {
-    console.log(`[runner] ⏳ Step ${nextAction.stepKey} in backoff for ${shortId} — waiting (strict sequencing)`);
-    await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
-    return { packageId, waiting: true, stepKey: nextAction.stepKey, reason: "backoff" };
+    // Check if any parallel action is NOT a wait (other branches can proceed)
+    const nonWaitAction = parallelActions.find(a => a?.action !== "wait");
+    if (nonWaitAction) {
+      console.log(`[runner] ⏳ Step ${nextAction.stepKey} in backoff, but parallel branch ${(nonWaitAction as any).stepKey} available`);
+      // Fall through to handle the non-wait action below by reassigning
+      // (handled by parallelActions[0] logic above)
+    } else {
+      console.log(`[runner] ⏳ Step ${nextAction.stepKey} in backoff for ${shortId} — waiting (strict sequencing)`);
+      await safeRpc(sb, "release_package_lease", { p_package_id: packageId, p_runner_id: runnerId });
+      return { packageId, waiting: true, stepKey: nextAction.stepKey, reason: "backoff" };
+    }
   }
 
   // ── All steps done / no actionable step ──
