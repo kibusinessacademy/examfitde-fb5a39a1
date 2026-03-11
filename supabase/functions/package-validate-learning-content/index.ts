@@ -323,18 +323,11 @@ Deno.serve(async (req) => {
 
   console.log(`[validate-lessons] Tier 2: Sampling ${sample.length} lessons for LLM validation`);
 
-  const t2Results: Array<{ lessonId: string; score: number; decision: string; issues: string[] }> = [];
-  let consecutiveRateLimits = 0;
-
-  for (const lessonId of sample) {
-    // Early exit: if first 2 consecutive calls are rate-limited, skip remaining
-    if (consecutiveRateLimits >= 2) {
-      console.log(`[validate-lessons] Tier 2: Early exit after ${consecutiveRateLimits} consecutive rate limits — trusting Tier 1`);
-      break;
-    }
-
+  // ── Run Tier 2 LLM calls IN PARALLEL to stay within edge function timeout ──
+  // Previous sequential approach with 8-12s delays caused 504 timeouts (4×40s > 150s limit)
+  const t2Promises = sample.map(async (lessonId) => {
     const lesson = lessons.find((l: any) => l.id === lessonId);
-    if (!lesson) continue;
+    if (!lesson) return null;
 
     const result = await tier2Validate(sb, {
       id: lesson.id,
@@ -344,13 +337,8 @@ Deno.serve(async (req) => {
       moduleName: (lesson as any).modules?.title || "",
     }, professionName);
 
-    t2Results.push(result);
-
-    if (result.score === -1) {
-      consecutiveRateLimits++;
-    } else {
-      consecutiveRateLimits = 0;
-      // Only update individual lesson qc_status for scored results
+    // Update individual lesson qc_status for scored results
+    if (result.score >= 0) {
       await sb.from("lessons").update({
         qc_status: result.decision === "approve" ? "approved" : result.decision === "reject" ? "rejected" : "needs_revision",
         quality_flags: {
@@ -371,9 +359,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Longer delay to avoid rate limits (8-12s between calls)
-    await new Promise(r => setTimeout(r, 8000 + Math.random() * 4000));
-  }
+    return result;
+  });
+
+  const t2ResultsRaw = await Promise.all(t2Promises);
+  const t2Results = t2ResultsRaw.filter(Boolean) as Array<{ lessonId: string; score: number; decision: string; issues: string[] }>;
 
   // Filter out rate-limited results (score=-1) from average calculation
   const scoredResults = t2Results.filter(r => r.score >= 0);
