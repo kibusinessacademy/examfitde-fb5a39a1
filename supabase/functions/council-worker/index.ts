@@ -201,12 +201,12 @@ async function critiqueStep(
 
   const contentStr = JSON.stringify(version.content_json);
 
-  const validatorModel = await getModelAsync("council_validator");
-  const agentName = `${validatorModel.provider}/${validatorModel.model}`;
+  const validatorChain = await getModelChainAsync("council_validator");
+  const agentName = `${validatorChain[0].provider}/${validatorChain[0].model}`;
 
-  const { content: critiqueContent } = await callAIJSON({
-    provider: validatorModel.provider,
-    model: validatorModel.model,
+  const { content: critiqueContent } = await callAIWithFailover(
+    validatorChain.map(c => ({ provider: c.provider, model: c.model })),
+    {
     messages: [
       {
         role: "system",
