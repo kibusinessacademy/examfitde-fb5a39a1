@@ -117,22 +117,22 @@ async function proposeStep(
 
   if (!lesson) throw new Error(`Lesson ${lesson_id} not found`);
 
-  const proposerModel = await getModelAsync("council_proposer");
-  const agentName = `${proposerModel.provider}/${proposerModel.model}`;
+  const proposerChain = await getModelChainAsync("council_proposer");
+  const agentName = `${proposerChain[0].provider}/${proposerChain[0].model}`;
 
-  const { content: aiContent } = await callAIJSON({
-    provider: proposerModel.provider,
-    model: proposerModel.model,
-    messages: [
-      {
-        role: "system",
-        content: `Du bist ein didaktischer Experte für IHK-Prüfungsvorbereitung.
+  const { content: aiContent } = await callAIWithFailover(
+    proposerChain.map(c => ({ provider: c.provider, model: c.model })),
+    {
+      messages: [
+        {
+          role: "system",
+          content: `Du bist ein didaktischer Experte für IHK-Prüfungsvorbereitung.
 Erstelle hochwertigen Lerninhalt für den Step "${step_key}" der Lesson "${lesson.title}".
 Antworte als JSON mit: { "html": "...", "objectives": [...], "key_concepts": [...], "examples": [...] }`,
-      },
-      {
-        role: "user",
-        content: `Lesson: ${lesson.title}\nStep: ${step_key}\nBisheriger Content: ${(lesson.content || "").substring(0, 2000)}`,
+        },
+        {
+          role: "user",
+          content: `Lesson: ${lesson.title}\nStep: ${step_key}\nBisheriger Content: ${(lesson.content || "").substring(0, 2000)}`,
       },
     ],
     temperature: 0.7,
