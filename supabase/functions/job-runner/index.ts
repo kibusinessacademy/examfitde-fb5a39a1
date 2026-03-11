@@ -1330,9 +1330,11 @@ Deno.serve(async (req) => {
 
       // Update last_progress_at on batch_incomplete to prevent false stuck alerts
       if (finalState.status === "pending" && finalState.patch.batch_cursor !== undefined && job.payload?.package_id) {
-        await sb.from("course_packages").update({
-          last_progress_at: tsNow,
-        }).eq("id", job.payload.package_id).then(() => {}, () => {});
+        try {
+          await sb.from("course_packages").update({
+            last_progress_at: tsNow,
+          }).eq("id", job.payload.package_id);
+        } catch (_e) { /* best-effort */ }
       }
 
       results.push({
