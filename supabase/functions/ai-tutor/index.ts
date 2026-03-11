@@ -239,11 +239,13 @@ async function postValidateTutorResponse(
 ) {
   try {
     const startTime = Date.now();
-    const valResult = await callAI({
-      provider: "openai",
-      model: "gpt-5.2",
-      messages: [
-        { role: "system", content: `Du prüfst eine KI-Tutor-Antwort für ${professionName} auf fachliche Korrektheit. SCHNELL und PRÄZISE.
+    // Use failover chain for validation (non-streaming)
+    const valChain = await getModelChainAsync("council_review");
+    const valResult = await callAIWithFailover(
+      valChain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: `Du prüfst eine KI-Tutor-Antwort für ${professionName} auf fachliche Korrektheit. SCHNELL und PRÄZISE.
 Kontext: ${JSON.stringify(resolvedContext).slice(0, 3000)}
 
 PRÜFE:
@@ -254,16 +256,14 @@ PRÜFE:
 
 Antworte NUR mit JSON:
 {"score": 0-100, "decision": "approve|revise|reject", "correction_needed": false, "correction": null, "issues": []}` },
-        { role: "user", content: `FRAGE: ${prompt}\n\nTUTOR-ANTWORT: ${response}` }
-      ],
-      temperature: 0.2,
-    });
+          { role: "user", content: `FRAGE: ${prompt}\n\nTUTOR-ANTWORT: ${response}` }
+        ],
+        temperature: 0.2,
+      },
+    );
 
     const latencyMs = Date.now() - startTime;
-    if (!valResult.ok) return;
-
-    const data = await valResult.raw.json();
-    const rawText = data.content?.[0]?.text ?? data.choices?.[0]?.message?.content ?? "";
+    const rawText = valResult.content || "";
     
     let result;
     try {
