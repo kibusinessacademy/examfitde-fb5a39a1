@@ -87,7 +87,11 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
     return { ok: false, error: `NO_EDGE_FUNCTION_MAPPING:${job.job_type}`, terminal: true };
   }
 
-  const timeoutMs = HEAVY_JOB_TYPES.has(job.job_type) ? DISPATCH_TIMEOUT_HANDBOOK_MS : DISPATCH_TIMEOUT_MS;
+  const timeoutMs = GENERATION_JOB_TYPES.has(job.job_type)
+    ? DISPATCH_TIMEOUT_GENERATION_MS
+    : HEAVY_JOB_TYPES.has(job.job_type)
+      ? DISPATCH_TIMEOUT_HEAVY_MS
+      : DISPATCH_TIMEOUT_MS;
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
