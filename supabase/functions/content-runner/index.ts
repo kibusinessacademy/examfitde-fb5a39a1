@@ -59,6 +59,13 @@ function hashJobId(id: string): number {
   return Math.abs(h);
 }
 
+// Heavy job types that need longer timeouts
+const HEAVY_JOB_TYPES = new Set([
+  "package_generate_handbook", "handbook_expand_section",
+  "package_generate_exam_pool", "package_generate_oral_exam",
+  "package_elite_harden", "package_quality_council",
+]);
+
 // deno-lint-ignore no-explicit-any
 async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): Promise<{ ok: boolean; result?: any; error?: string; terminal?: boolean }> {
   const edgeFn = edgeFunctionForJobType(job.job_type);
@@ -66,9 +73,10 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
     return { ok: false, error: `NO_EDGE_FUNCTION_MAPPING:${job.job_type}`, terminal: true };
   }
 
+  const timeoutMs = HEAVY_JOB_TYPES.has(job.job_type) ? DISPATCH_TIMEOUT_HANDBOOK_MS : DISPATCH_TIMEOUT_MS;
   const url = `${supabaseUrl}/functions/v1/${edgeFn}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DISPATCH_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(url, {
