@@ -285,17 +285,19 @@ Deno.serve(async (req) => {
         report.qcReplace.deletedIds = ids;
 
         // Snapshot before delete
-        await sb.from("ops_alerts").insert({
-          source: "pool-rework", severity: "info",
-          message: `QC_SNAPSHOT: ${ids.length} questions to delete from pkg ${pkg.id.slice(0, 8)}`,
-          payload: {
-            action: "qc_delete_snapshot", package_id: pkg.id,
-            questions: failedQs.map((q) => ({
-              id: q.id, qc_status: q.qc_status, difficulty: q.difficulty,
-              question_type: q.question_type, text_preview: q.question_text?.slice(0, 100),
-            })),
-          },
-        }).then(() => {}).catch(() => {});
+        try {
+          await sb.from("ops_alerts").insert({
+            source: "pool-rework", severity: "info",
+            message: `QC_SNAPSHOT: ${ids.length} questions to delete from pkg ${pkg.id.slice(0, 8)}`,
+            payload: {
+              action: "qc_delete_snapshot", package_id: pkg.id,
+              questions: failedQs.map((q) => ({
+                id: q.id, qc_status: q.qc_status, difficulty: q.difficulty,
+                question_type: q.question_type, text_preview: q.question_text?.slice(0, 100),
+              })),
+            },
+          });
+        } catch (_e) { /* best-effort */ }
 
         for (let i = 0; i < ids.length; i += 50) {
           const { error: delErr } = await sb.from("exam_questions").delete().in("id", ids.slice(i, i + 50));
