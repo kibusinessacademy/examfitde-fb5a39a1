@@ -356,8 +356,8 @@ async function loadExamProviderChain(): Promise<ModelChoice[]> {
   } catch (e) {
     console.warn(`[ExamPool-v5] DB routing failed, using hardcoded fallback: ${e}`);
     _examProviderChain = [
+      { provider: "anthropic" as AIProvider, model: "claude-haiku-4-5-20251001" },
       { provider: "openai" as AIProvider, model: "gpt-5.2" },
-      { provider: "anthropic" as AIProvider, model: "claude-sonnet-4-5-20250929" },
     ];
   }
   return _examProviderChain;
@@ -677,7 +677,7 @@ async function generateTurboQuestions(
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
         temperature: 0.85,
         max_tokens: maxTokens,
-        timeout_ms: 25_000,
+        timeout_ms: 45_000,
       });
       break;
     } catch (e: unknown) {
