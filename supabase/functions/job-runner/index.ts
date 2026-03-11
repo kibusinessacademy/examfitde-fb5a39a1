@@ -1072,15 +1072,17 @@ Deno.serve(async (req) => {
                 .eq("step_key", validationStepKey);
             }
 
-            await sb.from("auto_heal_log").insert({
-              action_type: "qg_heal_kill_switch",
-              trigger_source: "job-runner",
-              target_type: "package_step",
-              target_id: packageId,
-              result_status: "escalated",
-              result_detail: `${job.job_type} failed ${healCycles}x heal cycles — stopping`,
-              metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles, missing_lf_ids: missingLfIds, issues: parsed.issues?.slice(0, 5) },
-            }).then(() => {}, () => {});
+            try {
+              await sb.from("auto_heal_log").insert({
+                action_type: "qg_heal_kill_switch",
+                trigger_source: "job-runner",
+                target_type: "package_step",
+                target_id: packageId,
+                result_status: "escalated",
+                result_detail: `${job.job_type} failed ${healCycles}x heal cycles — stopping`,
+                metadata: { step: job.job_type, step_key: validationStepKey, predecessor: predecessorStep, heal_cycles: healCycles, missing_lf_ids: missingLfIds, issues: parsed.issues?.slice(0, 5) },
+              });
+            } catch (_e) { /* best-effort */ }
 
             finalState = {
               status: "failed",
