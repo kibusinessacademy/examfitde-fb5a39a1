@@ -266,26 +266,27 @@ Deno.serve(async (req) => {
           const aiResp = await callAIWithFailover(
             coverageChain.map(c => ({ provider: c.provider, model: c.model })),
             {
-            messages: [
-              {
-                role: "system",
-                content: `Extrahiere das zentrale Handlungsverb aus Kompetenzformulierungen.
+              messages: [
+                {
+                  role: "system",
+                  content: `Extrahiere das zentrale Handlungsverb aus Kompetenzformulierungen.
 Antworte NUR als JSON: {"verbs": [{"id": "uuid", "verb": "handlungsverb"}]}
 Verwende die 3. Person Singular (z.B. "berechnet", "analysiert", "konfiguriert").
 NICHT verwenden: ist, wird, hat, kann, soll, muss, darf, enthält, umfasst.`,
-              },
-              {
-                role: "user",
-                // Patch 9: Truncate to reduce token cost
-                content: JSON.stringify(batch.map(c => ({
-                  id: c.id,
-                  title: (c.title || "").slice(0, 80),
-                  desc: (c.description || "").slice(0, 160),
-                }))),
-              },
-            ],
-            max_tokens: 1024,
-          });
+                },
+                {
+                  role: "user",
+                  // Patch 9: Truncate to reduce token cost
+                  content: JSON.stringify(batch.map(c => ({
+                    id: c.id,
+                    title: (c.title || "").slice(0, 80),
+                    desc: (c.description || "").slice(0, 160),
+                  }))),
+                },
+              ],
+              max_tokens: 1024,
+            },
+          );
 
           // Patch 7: Tolerant JSON parser
           const parsed = safeJsonParse(aiResp.content);
