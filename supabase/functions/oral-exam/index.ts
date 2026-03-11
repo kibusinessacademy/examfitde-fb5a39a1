@@ -425,28 +425,29 @@ async function enhanceLeadQuestion(
   const bloomRule = BLOOM_MATRIX[competency.bloom_level] || BLOOM_MATRIX.apply;
 
   try {
-    const routed = getModel("oral_exam");
-    const result = await callAIJSON({
-      provider: routed.provider,
-      model: routed.model,
-      messages: [
-        { role: "system", content: buildSystemPrompt(professionName, mode as any) },
-        {
-          role: "user",
-          content: JSON.stringify({
-            instruction: "Formuliere die folgende Prüfungsfrage für eine mündliche IHK-Prüfung um. Behalte den fachlichen Kern exakt bei, aber mache sie prüfungstypisch und berufsspezifisch.",
-            lead_question: leadQuestion,
-            scenario: scenario || null,
-            competency: competency.title,
-            bloom_level: competency.bloom_level,
-            bloom_rule: bloomRule,
-            profession: professionName,
-            output_format: { question: "Die umformulierte Prüfungsfrage" },
-          }),
-        },
-      ],
-      max_tokens: 400,
-    });
+    const chain = await getModelChainAsync("oral_exam");
+    const result = await callAIWithFailover(
+      chain.map(c => ({ provider: c.provider, model: c.model })),
+      {
+        messages: [
+          { role: "system", content: buildSystemPrompt(professionName, mode as any) },
+          {
+            role: "user",
+            content: JSON.stringify({
+              instruction: "Formuliere die folgende Prüfungsfrage für eine mündliche IHK-Prüfung um. Behalte den fachlichen Kern exakt bei, aber mache sie prüfungstypisch und berufsspezifisch.",
+              lead_question: leadQuestion,
+              scenario: scenario || null,
+              competency: competency.title,
+              bloom_level: competency.bloom_level,
+              bloom_rule: bloomRule,
+              profession: professionName,
+              output_format: { question: "Die umformulierte Prüfungsfrage" },
+            }),
+          },
+        ],
+        max_tokens: 400,
+      },
+    );
 
     const parsed = parseAIJSON(result.content);
     if (parsed?.question) return { question: parsed.question, model: routed.model };
