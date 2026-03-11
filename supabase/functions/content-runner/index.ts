@@ -110,7 +110,7 @@ async function dispatchJob(job: any, supabaseUrl: string, serviceKey: string): P
     clearTimeout(timeout);
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("aborted")) {
-      return { ok: false, error: `TIMEOUT: edge function exceeded ${Math.round(DISPATCH_TIMEOUT_MS / 1000)}s` };
+      return { ok: false, error: `TIMEOUT: edge function exceeded ${Math.round(timeoutMs / 1000)}s` };
     }
     return { ok: false, error: msg };
   }
