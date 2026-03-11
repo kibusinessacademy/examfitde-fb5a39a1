@@ -858,13 +858,14 @@ KEINE Platzhalter. Vollständigen Inhalt generieren.`,
   }
 
   // ── Cleanup checkpoint (best-effort, non-blocking) ──
-  sb.from("content_versions")
-    .delete()
-    .eq("lesson_id", lessonId)
-    .eq("step_key", stepKeyCanonical)
-    .eq("created_by_agent", "lesson-gen-checkpoint")
-    .eq("status", "draft")
-    .then(() => {});
+  try {
+    await sb.from("content_versions")
+      .delete()
+      .eq("lesson_id", lessonId)
+      .eq("step_key", stepKeyCanonical)
+      .eq("created_by_agent", "lesson-gen-checkpoint")
+      .eq("status", "draft");
+  } catch (_e) { /* best-effort */ }
 
   // ── Audit: council message ──
   await sb.from("council_messages").insert({
