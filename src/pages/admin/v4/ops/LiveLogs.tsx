@@ -9,13 +9,28 @@ import { toast } from 'sonner';
 export default function LiveLogs() {
   const [logs, setLogs] = useState<any[]>([]);
   const [filter, setFilter] = useState<string>('all');
+  const [pkgNames, setPkgNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
     const { data } = await (supabase as any).from('job_queue')
-      .select('id, job_type, status, last_error, created_at, payload')
+      .select('id, job_type, status, last_error, created_at, payload, package_id')
       .order('created_at', { ascending: false }).limit(200);
-    setLogs(data || []);
+    const logData = data || [];
+    setLogs(logData);
+
+    const pkgIds = [...new Set(logData.map((j: any) => j.package_id || j.payload?.package_id).filter(Boolean))] as string[];
+    if (pkgIds.length > 0) {
+      const { data: pkgs } = await (supabase as any)
+        .from('course_packages')
+        .select('id, courses(title)')
+        .in('id', pkgIds);
+      const map: Record<string, string> = {};
+      for (const p of (pkgs || [])) {
+        map[p.id] = p.courses?.title || p.id.substring(0, 8);
+      }
+      setPkgNames(map);
+    }
   };
 
   useEffect(() => { load(); const i = setInterval(load, 2000); return () => clearInterval(i); }, []);
