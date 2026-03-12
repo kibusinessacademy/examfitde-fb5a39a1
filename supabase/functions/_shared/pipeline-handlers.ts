@@ -12,6 +12,19 @@ import {
   safeRpc, safeQuery, isTransientStepError,
 } from "./pipeline-helpers.ts";
 
+// ── Sanitize error messages (strip HTML from 502/503 Cloudflare pages) ──
+function sanitizeErrorMsg(msg: string): string {
+  if (!msg) return msg;
+  // Detect Cloudflare/proxy HTML error pages
+  if (msg.includes("<!DOCTYPE") || msg.includes("<html")) {
+    // Extract HTTP status if present
+    const statusMatch = msg.match(/^HTTP (\d{3})/);
+    const status = statusMatch ? statusMatch[1] : "502";
+    return `HTTP ${status}: upstream proxy error (Cloudflare HTML page stripped)`;
+  }
+  return msg;
+}
+
 // ══════════════════════════════════════════════════════════════
 // Handle job failed
 // ══════════════════════════════════════════════════════════════
