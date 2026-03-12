@@ -5,7 +5,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { inferBackoffSeconds, getFanOutConfig, STEP_TO_JOB_TYPE, type PipelineStepKey } from "./job-map.ts";
+import { inferBackoffSeconds, getFanOutConfig, STEP_TO_JOB_TYPE, PIPELINE_GRAPH, type PipelineStepKey } from "./job-map.ts";
 import { markStepDone } from "./steps.ts";
 import { classifyStep } from "./step-weight.ts";
 import {
@@ -214,9 +214,18 @@ export async function processPackage(
     }
   }
 
-  // ── Sequence integrity guard ──
+  // ── DAG-aware sequence integrity guard ──
+  // Instead of linear STEP_ORDER, use the PIPELINE_GRAPH DAG to check:
+  // A step should only be "done" if ALL its DAG predecessors are done/skipped.
+  // This prevents false resets of parallel branches.
   const STEP_ORDER = buildStepOrder((steps ?? []) as { step_key: string }[]);
   {
+    // Build DAG dependency lookup
+    const dagDeps = new Map<string, string[]>();
+    for (const node of PIPELINE_GRAPH) {
+      dagDeps.set(node.key, node.dependsOn ?? []);
+    }
+
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
 
@@ -246,43 +255,47 @@ export async function processPackage(
       }
     }
 
-    let lastIncompleteSeq = -1;
+    // DAG-aware integrity: A "done" step whose DAG predecessors are NOT all done/skipped
+    // must be reset. This replaces the old linear check that destroyed parallel branches.
     const resetStepKeys: string[] = [];
-    for (let i = 0; i < STEP_ORDER.length; i++) {
-      const s = byKey.get(STEP_ORDER[i]);
-      if (!s) continue;
-      if (s.status !== "done" && s.status !== "skipped") {
-        lastIncompleteSeq = i;
-      } else if (s.status === "done" && lastIncompleteSeq >= 0) {
-        console.warn(`[runner] 🔧 Sequence fix: resetting ${STEP_ORDER[i]} to queued`);
+    for (const k of STEP_ORDER) {
+      const s = byKey.get(k);
+      if (!s || s.status !== "done") continue;
+
+      const deps = dagDeps.get(k) ?? [];
+      const unmetDeps = deps.filter(dep => {
+        const depStep = byKey.get(dep);
+        return depStep && depStep.status !== "done" && depStep.status !== "skipped";
+      });
+
+      if (unmetDeps.length > 0) {
+        console.warn(`[runner] 🔧 DAG sequence fix: resetting ${k} to queued (unmet DAG deps: ${unmetDeps.join(", ")})`);
         await safeQuery(
           sb.from("package_steps").update({
             status: "queued", job_id: null, runner_id: null,
             started_at: null, finished_at: null,
-            last_error: `Sequence guard: predecessor ${STEP_ORDER[lastIncompleteSeq]} not done`,
-          }).eq("package_id", packageId).eq("step_key", STEP_ORDER[i]),
-          "sequence_guard_reset",
+            last_error: `Sequence guard: predecessor ${unmetDeps[0]} not done`,
+          }).eq("package_id", packageId).eq("step_key", k),
+          "dag_sequence_guard_reset",
         );
         s.status = "queued";
-        resetStepKeys.push(STEP_ORDER[i]);
+        resetStepKeys.push(k);
       }
     }
 
     if (resetStepKeys.length > 0) {
-      const firstResetIdx = STEP_ORDER.indexOf(resetStepKeys[0] as StepKey);
-      for (let j = firstResetIdx; j < STEP_ORDER.length; j++) {
-        const laterKey = STEP_ORDER[j] as StepKey;
-        const laterJobType = STEP_TO_JOB_TYPE[laterKey];
-        if (laterJobType) {
+      for (const rk of resetStepKeys) {
+        const jobType = STEP_TO_JOB_TYPE[rk as StepKey];
+        if (jobType) {
           await safeRpc(sb, "cancel_jobs_for_package", {
             p_package_id: packageId,
-            p_job_type: laterJobType,
+            p_job_type: jobType,
             p_statuses: ["pending", "failed"],
-            p_reason: `sequence_guard: predecessor reset invalidated this job`,
+            p_reason: `dag_sequence_guard: predecessor reset invalidated this job`,
           });
         }
       }
-      console.log(`[runner] 🧹 Sequence fix: cancelled stale jobs for ${STEP_ORDER.length - firstResetIdx} steps after reset point`);
+      console.log(`[runner] 🧹 DAG sequence fix: cancelled stale jobs for ${resetStepKeys.length} reset steps`);
     }
   }
 
@@ -626,9 +639,9 @@ export async function processPackage(
     }
   }
 
-  // ── ZOMBIE STEP AUTO-FINALIZATION ──
+  // ── ZOMBIE STEP AUTO-FINALIZATION (DAG-aware) ──
   {
-    const ZOMBIE_MIN_AGE_MS = 3 * 60 * 1000; // Phase B: 5m→3m (finalization rules now handle most cases)
+    const ZOMBIE_MIN_AGE_MS = 3 * 60 * 1000;
     const ZOMBIFIABLE_STEPS = new Set([
       "validate_learning_content", "validate_exam_pool", "validate_blueprints",
       "validate_oral_exam", "validate_handbook", "validate_lesson_minichecks",
@@ -636,6 +649,11 @@ export async function processPackage(
       "run_integrity_check", "quality_council",
       "auto_publish", "enqueue_handbook_expand",
     ]);
+    // Build DAG dependency lookup for zombie check
+    const dagDepsZombie = new Map<string, string[]>();
+    for (const node of PIPELINE_GRAPH) {
+      dagDepsZombie.set(node.key, node.dependsOn ?? []);
+    }
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
 
@@ -657,14 +675,15 @@ export async function processPackage(
       const age = Date.now() - startedAt;
       if (age <= ZOMBIE_MIN_AGE_MS) continue;
 
-      const stepIdx = STEP_ORDER.indexOf(k as StepKey);
-      if (stepIdx > 0) {
-        const prevKey = STEP_ORDER[stepIdx - 1];
-        const prev = byKey.get(prevKey);
-        if (!prev || !isTerminalStatus(prev.status)) {
-          console.warn(`[runner] 🧟 ZOMBIE blocked: step ${k} predecessor ${prevKey} is ${prev?.status ?? 'missing'}`);
-          continue;
-        }
+      // DAG-aware predecessor check: ALL DAG predecessors must be done/skipped
+      const deps = dagDepsZombie.get(k) ?? [];
+      const unmetDeps = deps.filter(dep => {
+        const depStep = byKey.get(dep);
+        return !depStep || !isTerminalStatus(depStep.status);
+      });
+      if (unmetDeps.length > 0) {
+        console.warn(`[runner] 🧟 ZOMBIE blocked: step ${k} DAG predecessors not done: ${unmetDeps.join(", ")}`);
+        continue;
       }
 
       console.warn(`[runner] 🧟 ZOMBIE auto-fix: step ${k} for ${shortId} — forcing to done`);

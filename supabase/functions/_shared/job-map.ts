@@ -483,7 +483,7 @@ export const PIPELINE_GRAPH: PipelineNode[] = [
   { key: "expand_handbook", dependsOn: ["enqueue_handbook_expand"], requires: ["handbook_expand_queued"], produces: ["handbook_expanded"], weight: 5 },
   { key: "validate_handbook_depth", dependsOn: ["expand_handbook"], requires: ["handbook_expanded"], produces: ["validated_handbook_depth"], weight: 2 },
   { key: "elite_harden", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["elite_ready"], weight: 6 },
-  { key: "run_integrity_check", dependsOn: ["elite_harden"], requires: ["elite_ready"], produces: ["integrity_passed"], weight: 3 },
+  { key: "run_integrity_check", dependsOn: ["elite_harden", "validate_lesson_minichecks", "validate_handbook_depth", "validate_oral_exam", "validate_tutor_index"], requires: ["elite_ready", "validated_minichecks", "validated_handbook_depth", "validated_oral_exam", "validated_tutor_index"], produces: ["integrity_passed"], weight: 3 },
   { key: "quality_council", dependsOn: ["run_integrity_check"], requires: ["integrity_passed"], produces: ["council_approved"], weight: 4 },
   { key: "auto_publish", dependsOn: ["quality_council"], requires: ["council_approved"], produces: ["published"], weight: 1 },
 ];
