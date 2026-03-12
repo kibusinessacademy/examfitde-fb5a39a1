@@ -5,7 +5,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { inferBackoffSeconds, getFanOutConfig, STEP_TO_JOB_TYPE, type PipelineStepKey } from "./job-map.ts";
+import { inferBackoffSeconds, getFanOutConfig, STEP_TO_JOB_TYPE, PIPELINE_GRAPH, type PipelineStepKey } from "./job-map.ts";
 import { markStepDone } from "./steps.ts";
 import { classifyStep } from "./step-weight.ts";
 import {
