@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { STEP_ORDER, STEP_LABELS } from '@/lib/pipeline-steps';
+import { FULL_STEP_ORDER as STEP_ORDER, PIPELINE_STEP_LABELS as STEP_LABELS } from '@/lib/pipeline-steps';
 import type { DashboardKpis, DashboardBuildingPackage, GlobalHealthItem } from '@/components/admin/lib/admin-types';
 
 function fmtEur(v: number) {
