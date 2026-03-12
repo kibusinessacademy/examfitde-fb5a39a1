@@ -9,6 +9,16 @@ import { checkCircuitBreaker, recordPermanentProviderFailure, recordProviderSucc
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
+// ── Sanitize HTML error pages (Cloudflare 502/503) ──
+function sanitizeError(msg: string): string {
+  if (!msg) return msg;
+  if (msg.includes("<!DOCTYPE") || msg.includes("<html")) {
+    const m = msg.match(/^HTTP (\d{3})/);
+    return `HTTP ${m?.[1] ?? "502"}: upstream proxy error (HTML stripped)`;
+  }
+  return msg;
+}
+
 // ── Config ────────────────────────────────────────────────────
 function envInt(name: string, fallback: number): number {
   const raw = Deno.env.get(name);
@@ -283,8 +293,9 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         const TRANSIENT_TIMEOUT_MS = 45 * 60 * 1000;
 
         const firstTransientAtRaw = job.meta?.first_transient_at;
+        const wasLivenessKilled2 = !!job.meta?.liveness_requeued || !!job.meta?.liveness_killed_at;
         const firstTransientAt =
-          typeof firstTransientAtRaw === "string" && !Number.isNaN(Date.parse(firstTransientAtRaw))
+          (typeof firstTransientAtRaw === "string" && !Number.isNaN(Date.parse(firstTransientAtRaw)) && !wasLivenessKilled2)
             ? firstTransientAtRaw
             : now;
         const transientElapsedMs = Date.now() - new Date(firstTransientAt).getTime();
@@ -355,7 +366,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       const now = new Date().toISOString();
       await sb.from("job_queue").update({
         status: "failed",
-        last_error: (dispatchError || "terminal").slice(0, 2000),
+        last_error: sanitizeError(dispatchError || "terminal").slice(0, 2000),
         completed_at: now,
         updated_at: now,
         locked_at: null,
@@ -365,7 +376,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       return { id: job.id, ok: false, error: dispatchError, terminal: true };
     } else {
       // Transient or permanent failure
-      const errorStr = dispatchError || "";
+      const errorStr = sanitizeError(dispatchError || "");
       const classification = classifyError(errorStr);
       const isTransientErr = classification.isTransient;
       const now = new Date().toISOString();
@@ -416,8 +427,9 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         const TRANSIENT_TIMEOUT_MS = 45 * 60 * 1000;
 
         const firstTransientAtRaw = job.meta?.first_transient_at;
+        const wasLivenessKilled = !!job.meta?.liveness_requeued || !!job.meta?.liveness_killed_at;
         const firstTransientAt =
-          typeof firstTransientAtRaw === "string" && !Number.isNaN(Date.parse(firstTransientAtRaw))
+          (typeof firstTransientAtRaw === "string" && !Number.isNaN(Date.parse(firstTransientAtRaw)) && !wasLivenessKilled)
             ? firstTransientAtRaw
             : now;
         const transientElapsedMs = Date.now() - new Date(firstTransientAt).getTime();

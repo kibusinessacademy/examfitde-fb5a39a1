@@ -12,6 +12,19 @@ import {
   safeRpc, safeQuery, isTransientStepError,
 } from "./pipeline-helpers.ts";
 
+// ── Sanitize error messages (strip HTML from 502/503 Cloudflare pages) ──
+function sanitizeErrorMsg(msg: string): string {
+  if (!msg) return msg;
+  // Detect Cloudflare/proxy HTML error pages
+  if (msg.includes("<!DOCTYPE") || msg.includes("<html")) {
+    // Extract HTTP status if present
+    const statusMatch = msg.match(/^HTTP (\d{3})/);
+    const status = statusMatch ? statusMatch[1] : "502";
+    return `HTTP ${status}: upstream proxy error (Cloudflare HTML page stripped)`;
+  }
+  return msg;
+}
+
 // ══════════════════════════════════════════════════════════════
 // Handle job failed
 // ══════════════════════════════════════════════════════════════
@@ -27,10 +40,10 @@ export async function handleJobFailed(
   steps: StepRow[],
 ): Promise<Record<string, unknown>> {
   const rawErrorMsg = job.last_error || job.error || "Worker job failed";
-  const errorMsg = rawErrorMsg === "Job failed: unknown" ? "UNKNOWN_EDGE_FAILURE" : rawErrorMsg;
+  const errorMsg = sanitizeErrorMsg(rawErrorMsg === "Job failed: unknown" ? "UNKNOWN_EDGE_FAILURE" : rawErrorMsg);
   const MAX_STEP_RETRIES = 7;
   const TRANSIENT_STEP_MAX = 15;
-  const TRANSIENT_TIMEOUT_MS = 20 * 60 * 1000;
+  const TRANSIENT_TIMEOUT_MS = 45 * 60 * 1000; // Must match content-runner (was 20 min — caused premature exhaustion after liveness kills)
   const failedStep = steps.find((s: StepRow) => s.step_key === stepKey);
   const stepAttempts = failedStep?.attempts ?? 0;
   const stepMeta = (failedStep?.meta ?? {}) as Record<string, any>;
@@ -40,8 +53,10 @@ export async function handleJobFailed(
   if (transient) {
     const transientNext = (Number(stepMeta.transient_attempts ?? 0) || 0) + 1;
     const rawFta = stepMeta.first_transient_at;
+    // Reset transient timer if job was liveness-killed (stuck-scan requeue adds dead time)
+    const wasLivenessKilled = !!stepMeta.liveness_requeued || !!stepMeta.liveness_killed_at;
     const firstTransientAt =
-      typeof rawFta === "string" && !Number.isNaN(Date.parse(rawFta))
+      (typeof rawFta === "string" && !Number.isNaN(Date.parse(rawFta)) && !wasLivenessKilled)
         ? rawFta
         : new Date().toISOString();
     const elapsedMs = Date.now() - new Date(firstTransientAt).getTime();
