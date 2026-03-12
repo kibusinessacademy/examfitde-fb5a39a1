@@ -236,9 +236,12 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
   let jobModel: string | null = null;
   try {
     const route = await resolveAvailableRoute(workloadKeyForJob(job.job_type));
-    jobProvider = route?.provider ?? job.meta?.last_provider ?? null;
-    jobModel = route?.model ?? job.meta?.last_model ?? null;
-  } catch { /* fallback to null */ }
+    jobProvider = route?.provider ?? job.meta?.last_provider ?? "unknown";
+    jobModel = route?.model ?? job.meta?.last_model ?? "unknown";
+  } catch {
+    jobProvider = job.meta?.last_provider ?? "unknown";
+    jobModel = job.meta?.last_model ?? "unknown";
+  }
 
   // Initial heartbeat
   await heartbeatJob(sb, job.id, jobProvider, jobModel, {
