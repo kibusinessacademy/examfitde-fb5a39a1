@@ -26,6 +26,7 @@ import IntegrityReportCard from './workspace/IntegrityReportCard';
 import AutoGapCloserPanel from './workspace/AutoGapCloserPanel';
 import ExportTab from './workspace/ExportTab';
 import { ALL_PIPELINE_STEPS, diagnoseError } from './workspace/workspaceConfig';
+import { useQuery } from '@tanstack/react-query';
 
 export default function CourseWorkspace() {
   const { packageId } = useParams<{ packageId: string }>();
@@ -39,6 +40,33 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const { package: pkg, packageLoading, buildSteps, councils, startBuild, initCouncils, approveCouncils, invalidate } = useCoursePackageDetail(packageId);
   const { track, certType, flags } = useTrackConfig(pkg as any);
   const PIPELINE_STEPS = ALL_PIPELINE_STEPS.filter(s => s.flag === null || (flags as any)[s.flag] === true);
+
+  // Real-time content progress from lessons table
+  const contentProgressQuery = useQuery({
+    queryKey: ['content-progress', packageId],
+    queryFn: async () => {
+      const { data: pkgData } = await supabase.from('course_packages').select('course_id').eq('id', packageId).single();
+      if (!pkgData?.course_id) return null;
+      const { data } = await (supabase as any).rpc('get_package_content_progress', { p_package_id: packageId });
+      if (data) return data as { total_lessons: number; content_done: number; tier1_failed: number; placeholder: number; regenerating: number; exam_questions: number; oral_scenarios: number; handbook_chapters: number };
+      // Fallback: direct query
+      const { data: lessons } = await (supabase as any)
+        .from('lessons')
+        .select('content, qc_status, step')
+        .in('module_id', (await (supabase as any).from('modules').select('id').eq('course_id', pkgData.course_id)).data?.map((m: any) => m.id) || []);
+      const ls = lessons || [];
+      return {
+        total_lessons: ls.filter((l: any) => l.step !== 'mini_check').length,
+        content_done: ls.filter((l: any) => l.step !== 'mini_check' && l.content && l.content?._placeholder !== 'true' && l.qc_status !== 'tier1_failed').length,
+        tier1_failed: ls.filter((l: any) => l.step !== 'mini_check' && l.qc_status === 'tier1_failed').length,
+        placeholder: ls.filter((l: any) => l.step !== 'mini_check' && (!l.content || l.content?._placeholder === 'true')).length,
+        regenerating: ls.filter((l: any) => l.step !== 'mini_check' && l.content?._regenerating === 'true').length,
+        exam_questions: 0, oral_scenarios: 0, handbook_chapters: 0,
+      };
+    },
+    enabled: !!packageId && pkg?.status === 'building',
+    refetchInterval: pkg?.status === 'building' ? 10000 : false,
+  });
 
   const [resetting, setResetting] = useState(false);
   const [showDanger, setShowDanger] = useState(false);
@@ -297,7 +325,50 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
             </Card>
           )}
 
-          {/* One-click pipeline — hide for published, done, and quality_gate_failed */}
+          {/* Content Progress Card - shows actual data from lessons table */}
+          {isBuilding && contentProgressQuery.data && (
+            <Card className="border-border/50">
+              <CardContent className="py-3 px-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-foreground">Inhalts-Fortschritt (Live)</span>
+                  <span className="text-xs font-mono text-muted-foreground">
+                    {contentProgressQuery.data.content_done}/{contentProgressQuery.data.total_lessons} Lektionen
+                  </span>
+                </div>
+                <Progress 
+                  value={contentProgressQuery.data.total_lessons > 0 
+                    ? Math.round(contentProgressQuery.data.content_done / contentProgressQuery.data.total_lessons * 100) 
+                    : 0} 
+                  className="h-1.5 mb-2" 
+                />
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                    {contentProgressQuery.data.content_done} fertig
+                  </span>
+                  {contentProgressQuery.data.tier1_failed > 0 && (
+                    <span className="flex items-center gap-1 text-destructive">
+                      <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+                      {contentProgressQuery.data.tier1_failed} QC fehlgeschlagen
+                    </span>
+                  )}
+                  {contentProgressQuery.data.placeholder > 0 && (
+                    <span className="flex items-center gap-1 text-warning">
+                      <span className="w-1.5 h-1.5 rounded-full bg-warning" />
+                      {contentProgressQuery.data.placeholder} ausstehend
+                    </span>
+                  )}
+                  {contentProgressQuery.data.regenerating > 0 && (
+                    <span className="flex items-center gap-1 text-primary">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      {contentProgressQuery.data.regenerating} regenerierend
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {!['published', 'done', 'quality_gate_failed'].includes(pkg.status) && !isBuilding && (
             <Card className="border-primary/30 bg-primary/5">
               <CardContent className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
