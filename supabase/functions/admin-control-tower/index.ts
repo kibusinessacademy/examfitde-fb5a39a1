@@ -422,3 +422,158 @@ async function getRevenue(sb: SB) {
     checkout_failures_24h: checkoutFails.length,
   };
 }
+
+async function getDashboard(sb: SB) {
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const h24 = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [
+    pkgStatuses,
+    buildingPkgs,
+    jobsPending,
+    jobsProcessing,
+    jobsCompletedToday,
+    jobsFailed24h,
+    costToday,
+    budgetRow,
+    stalledRows,
+    cooldownRows,
+    claimIssues,
+    blockedPubRows,
+    lcStarvation,
+    orders30d,
+    buildMetrics,
+    stepsRows,
+  ] = await Promise.all([
+    safeFrom(sb, "course_packages", "id,status,build_progress,title,step_status_json,current_step,updated_at"),
+    safeFrom(sb, "course_packages", "id,title,status,build_progress,step_status_json,current_step,updated_at", (q: any) => q.eq("status", "building").order("updated_at", { ascending: false })),
+    safeCount(sb, "job_queue", (q: any) => q.eq("status", "pending")),
+    safeCount(sb, "job_queue", (q: any) => q.eq("status", "processing")),
+    safeCount(sb, "job_queue", (q: any) => q.eq("status", "completed").gte("completed_at", todayStart.toISOString())),
+    safeCount(sb, "job_queue", (q: any) => q.eq("status", "failed").gte("updated_at", h24)),
+    safeFrom(sb, "llm_cost_events", "cost_eur", (q: any) => q.gte("ts", todayStart.toISOString())),
+    safeFrom(sb, "ai_cost_budgets", "budget_eur,spent_eur", (q: any) => q.order("month", { ascending: false }).limit(1)),
+    safeFrom(sb, "ops_package_steps_stuck", "*", (q: any) => q.limit(200)),
+    safeFrom(sb, "llm_provider_cooldowns", "provider,model,reason,until_at", (q: any) => q.gt("until_at", now.toISOString())),
+    safeFrom(sb, "license_claims", "id,status", (q: any) => q.in("status", ["failed", "conflict", "pending_manual_review"])),
+    safeFrom(sb, "v_package_publish_readiness", "package_id,publish_ready", (q: any) => q.eq("publish_ready", false).limit(200)),
+    // LC starvation check
+    (async () => {
+      try {
+        const { data: steps } = await sb.from("package_steps").select("package_id,status").eq("step_key", "generate_learning_content").neq("status", "done");
+        if (!steps?.length) return 0;
+        const pkgIds = steps.map((s: any) => s.package_id);
+        const { data: bpkgs } = await sb.from("course_packages").select("id").in("id", pkgIds).eq("status", "building");
+        if (!bpkgs?.length) return 0;
+        const bIds = bpkgs.map((p: any) => p.id);
+        const { data: liveJobs } = await sb.from("job_queue").select("package_id").eq("job_type", "lesson_generate_content").in("status", ["pending", "processing"]).in("package_id", bIds);
+        const liveSet = new Set((liveJobs || []).map((j: any) => j.package_id));
+        return bIds.filter((id: string) => !liveSet.has(id)).length;
+      } catch { return 0; }
+    })(),
+    safeFrom(sb, "orders", "id,total_amount,amount", (q: any) => q.gte("created_at", d30)),
+    (async () => {
+      try {
+        const { data } = await sb.rpc("get_building_metrics");
+        return data ?? { active_by_jobs: 0, active_by_leases: 0, status_building: 0, zombies: 0 };
+      } catch { return { active_by_jobs: 0, active_by_leases: 0, status_building: 0, zombies: 0 }; }
+    })(),
+    safeFrom(sb, "package_steps", "package_id,step_key,status,started_at,finished_at,last_error,meta", (q: any) => q.limit(1000)),
+  ]);
+
+  const dailyCost = (costToday as JsonRow[]).reduce((s, c) => s + (Number(c.cost_eur) || 0), 0);
+  const budget = (budgetRow as JsonRow[])[0];
+  const revenue30dTotal = (orders30d as JsonRow[]).reduce((s, r) => s + (Number(r.total_amount) || Number(r.amount) || 0), 0);
+
+  const statusCounts = { total: 0, building: 0, queued: 0, published: 0, done: 0, failed: 0 };
+  for (const p of pkgStatuses) {
+    statusCounts.total++;
+    const st = String(p.status);
+    if (st === "building") statusCounts.building++;
+    else if (st === "queued") statusCounts.queued++;
+    else if (st === "published") statusCounts.published++;
+    else if (st === "done") statusCounts.done++;
+    else if (st === "failed" || st === "quality_gate_failed") statusCounts.failed++;
+  }
+
+  // Build pipeline step aggregation from actual steps
+  const stepAgg = new Map<string, { queued: number; running: number; done: number; failed: number }>();
+  for (const row of stepsRows) {
+    const key = String(row.step_key);
+    if (!stepAgg.has(key)) stepAgg.set(key, { queued: 0, running: 0, done: 0, failed: 0 });
+    const entry = stepAgg.get(key)!;
+    const s = String(row.status);
+    if (s === "queued") entry.queued++;
+    else if (s === "running" || s === "processing" || s === "enqueued") entry.running++;
+    else if (s === "done" || s === "skipped") entry.done++;
+    else if (s === "failed" || s === "timeout") entry.failed++;
+  }
+  const pipelineSteps = Array.from(stepAgg.entries()).map(([step_key, c]) => ({ step_key, ...c }));
+
+  // Health signals
+  const stalledCount = (stalledRows as JsonRow[]).length;
+  const cooldownCount = (cooldownRows as JsonRow[]).length;
+  const claimCount = (claimIssues as JsonRow[]).length;
+  const blockedPubCount = (blockedPubRows as JsonRow[]).length;
+  const starvationCount = lcStarvation as number;
+
+  const systemIssues = (jobsFailed24h > 10 ? 1 : 0) + (stalledCount > 5 ? 1 : 0) + (cooldownCount > 3 ? 1 : 0);
+  const systemTone = systemIssues >= 2 ? "red" : systemIssues === 1 ? "yellow" : "green";
+
+  const health = [
+    { key: "system", label: "System", tone: systemTone, count: systemIssues },
+    { key: "queue", label: "Queue", tone: jobsPending > 50 ? "red" : jobsPending > 20 ? "yellow" : "green", count: jobsPending },
+    { key: "ai", label: "AI", tone: cooldownCount > 3 ? "red" : cooldownCount > 0 ? "yellow" : "green", count: cooldownCount },
+    { key: "build", label: "Build", tone: stalledCount > 5 ? "red" : stalledCount > 0 ? "yellow" : "green", count: stalledCount },
+    { key: "publish", label: "Publish", tone: blockedPubCount > 5 ? "red" : blockedPubCount > 0 ? "yellow" : "green", count: blockedPubCount },
+    { key: "revenue", label: "Revenue", tone: claimCount > 5 ? "red" : claimCount > 0 ? "yellow" : "green", count: claimCount },
+  ];
+
+  // Building packages with step details
+  const enrichedBuilding = (buildingPkgs as JsonRow[]).map((pkg: JsonRow) => ({
+    id: pkg.id,
+    title: String(pkg.title || "").replace("ExamFit – ", ""),
+    status: pkg.status,
+    build_progress: Number(pkg.build_progress) || 0,
+    current_step: pkg.current_step,
+    step_status_json: pkg.step_status_json,
+    updated_at: pkg.updated_at,
+  }));
+
+  return {
+    health,
+    kpis: {
+      total_packages: statusCounts.total,
+      building: statusCounts.building,
+      queued: statusCounts.queued,
+      published: statusCounts.published,
+      done: statusCounts.done,
+      failed: statusCounts.failed,
+      jobs_pending: jobsPending,
+      jobs_processing: jobsProcessing,
+      jobs_completed_today: jobsCompletedToday,
+      jobs_failed_24h: jobsFailed24h,
+      cost_today_eur: dailyCost,
+      budget_eur: Number(budget?.budget_eur) || 200,
+      stalled_packages: stalledCount,
+      provider_cooldowns: cooldownCount,
+      blocked_publishables: blockedPubCount,
+      open_claim_issues: claimCount,
+      lc_starvation: starvationCount,
+      revenue_30d: revenue30dTotal,
+      building_metrics: buildMetrics,
+    },
+    building_packages: enrichedBuilding,
+    pipeline: pipelineSteps,
+    cooldowns: (cooldownRows as JsonRow[]).map((r) => ({
+      provider: r.provider,
+      model: r.model,
+      reason: r.reason,
+      until_at: r.until_at,
+    })),
+  };
+}
