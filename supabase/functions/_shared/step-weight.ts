@@ -81,10 +81,10 @@ export interface StepClassLimits {
 /** Phase B defaults: parallel-branch-aware. Env-overridable. */
 export function getStepClassLimits(): StepClassLimits {
   return {
-    heavy:      envInt("STEP_CLASS_HEAVY_MAX", 3),   // Phase B: 2→3 (parallel branches need concurrent heavy slots)
+    heavy:      envInt("STEP_CLASS_HEAVY_MAX", 4),   // Phase C: 3→4 (5 building packages need more heavy slots to avoid starvation)
     medium:     envInt("STEP_CLASS_MEDIUM_MAX", 3),
-    validation: envInt("STEP_CLASS_VALIDATION_MAX", 2), // Phase B: 1→2 (was bottleneck for parallel validations)
-    light:      envInt("STEP_CLASS_LIGHT_MAX", 3),   // Phase B: 2→3 (more light steps with handbook expand)
+    validation: envInt("STEP_CLASS_VALIDATION_MAX", 3), // Phase C: 2→3 (5 packages hitting parallel validation branches)
+    light:      envInt("STEP_CLASS_LIGHT_MAX", 3),
   };
 }
 
