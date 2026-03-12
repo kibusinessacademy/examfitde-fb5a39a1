@@ -375,7 +375,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       return { id: job.id, ok: false, error: dispatchError, terminal: true };
     } else {
       // Transient or permanent failure
-      const errorStr = dispatchError || "";
+      const errorStr = sanitizeError(dispatchError || "");
       const classification = classifyError(errorStr);
       const isTransientErr = classification.isTransient;
       const now = new Date().toISOString();
