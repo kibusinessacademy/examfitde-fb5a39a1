@@ -35,7 +35,7 @@ const DEFAULTS: Record<BudgetKey, TimeBudget> = {
   handbook:           { ms: 55_000, softStopMs: 48_000 }, // v17: single provider per call — maximize available time
   glossary:           { ms: 45_000, softStopMs: 35_000 },
   oral_exam:          { ms: 45_000, softStopMs: 35_000 },
-  lesson_minichecks:  { ms: 45_000, softStopMs: 35_000 },
+  lesson_minichecks:  { ms: 50_000, softStopMs: 38_000 },  // v3: raised — 3 targets × ~12s = ~36s, needs headroom
 };
 
 export function getTimeBudget(key: BudgetKey): TimeBudget {
