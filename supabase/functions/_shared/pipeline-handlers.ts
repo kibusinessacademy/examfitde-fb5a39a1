@@ -27,10 +27,10 @@ export async function handleJobFailed(
   steps: StepRow[],
 ): Promise<Record<string, unknown>> {
   const rawErrorMsg = job.last_error || job.error || "Worker job failed";
-  const errorMsg = rawErrorMsg === "Job failed: unknown" ? "UNKNOWN_EDGE_FAILURE" : rawErrorMsg;
+  const errorMsg = sanitizeErrorMsg(rawErrorMsg === "Job failed: unknown" ? "UNKNOWN_EDGE_FAILURE" : rawErrorMsg);
   const MAX_STEP_RETRIES = 7;
   const TRANSIENT_STEP_MAX = 15;
-  const TRANSIENT_TIMEOUT_MS = 20 * 60 * 1000;
+  const TRANSIENT_TIMEOUT_MS = 45 * 60 * 1000; // Must match content-runner (was 20 min — caused premature exhaustion after liveness kills)
   const failedStep = steps.find((s: StepRow) => s.step_key === stepKey);
   const stepAttempts = failedStep?.attempts ?? 0;
   const stepMeta = (failedStep?.meta ?? {}) as Record<string, any>;
