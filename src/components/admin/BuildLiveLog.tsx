@@ -171,31 +171,32 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
         <ScrollArea className="h-[280px] rounded-md border border-border/30 bg-muted/20 p-0" ref={scrollRef}>
           <div className="font-mono text-xs p-3 space-y-1.5">
             {logs.map((entry, i) => (
-              <div key={`${entry.id}-${i}`} className={cn(
-                "flex gap-2 py-1 px-2 rounded transition-colors",
-                entry.status === 'failed' ? 'bg-destructive/5' :
-                entry.status === 'running' ? 'bg-primary/5' : ''
-              )}>
-                <span className="text-muted-foreground shrink-0 w-[52px]">
-                  {new Date(entry.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </span>
-                <span className={cn(
-                  "flex-1",
-                  entry.status === 'failed' ? 'text-destructive' :
-                  entry.status === 'done' ? 'text-foreground' :
-                  entry.status === 'running' ? 'text-primary' : 'text-muted-foreground'
+              <div key={`${entry.id}-${i}`}>
+                <div className={cn(
+                  "flex gap-2 py-1 px-2 rounded transition-colors",
+                  entry.status === 'failed' ? 'bg-destructive/5' :
+                  entry.status === 'running' ? 'bg-primary/5' : ''
                 )}>
-                  {entry.message}
-                  {entry.duration_ms && entry.status === 'done' && (
-                    <span className="text-muted-foreground ml-1">({(entry.duration_ms / 1000).toFixed(1)}s)</span>
-                  )}
-                </span>
-              </div>
-            ))}
-            {/* Detail lines */}
-            {logs.filter(e => e.detail).map((entry, i) => (
-              <div key={`detail-${entry.id}-${i}`} className="flex gap-2 py-0.5 px-2 pl-[68px]">
-                <span className="text-muted-foreground text-[10px]">↳ {entry.detail}</span>
+                  <span className="text-muted-foreground shrink-0 w-[52px]">
+                    {new Date(entry.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                  <span className={cn(
+                    "flex-1",
+                    entry.status === 'failed' ? 'text-destructive' :
+                    entry.status === 'done' ? 'text-foreground' :
+                    entry.status === 'running' ? 'text-primary' : 'text-muted-foreground'
+                  )}>
+                    {entry.message}
+                    {entry.duration_ms && entry.status === 'done' && (
+                      <span className="text-muted-foreground ml-1">({(entry.duration_ms / 1000).toFixed(1)}s)</span>
+                    )}
+                  </span>
+                </div>
+                {entry.detail && (
+                  <div className="flex gap-2 py-0.5 px-2 pl-[68px]">
+                    <span className="text-muted-foreground text-[10px]">↳ {entry.detail}</span>
+                  </div>
+                )}
               </div>
             ))}
             {isBuilding && !paused && (
