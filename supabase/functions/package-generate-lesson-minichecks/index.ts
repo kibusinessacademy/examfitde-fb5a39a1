@@ -21,7 +21,7 @@ import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 
 const ITEMS_PER_LESSON = 7;
 const ITEMS_PER_DRILL = 5;
-const MAX_TARGETS_PER_RUN = 5;
+const MAX_TARGETS_PER_RUN = 3;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
