@@ -325,7 +325,50 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
             </Card>
           )}
 
-          {/* One-click pipeline — hide for published, done, and quality_gate_failed */}
+          {/* Content Progress Card - shows actual data from lessons table */}
+          {isBuilding && contentProgressQuery.data && (
+            <Card className="border-border/50">
+              <CardContent className="py-3 px-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-foreground">Inhalts-Fortschritt (Live)</span>
+                  <span className="text-xs font-mono text-muted-foreground">
+                    {contentProgressQuery.data.content_done}/{contentProgressQuery.data.total_lessons} Lektionen
+                  </span>
+                </div>
+                <Progress 
+                  value={contentProgressQuery.data.total_lessons > 0 
+                    ? Math.round(contentProgressQuery.data.content_done / contentProgressQuery.data.total_lessons * 100) 
+                    : 0} 
+                  className="h-1.5 mb-2" 
+                />
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                    {contentProgressQuery.data.content_done} fertig
+                  </span>
+                  {contentProgressQuery.data.tier1_failed > 0 && (
+                    <span className="flex items-center gap-1 text-destructive">
+                      <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+                      {contentProgressQuery.data.tier1_failed} QC fehlgeschlagen
+                    </span>
+                  )}
+                  {contentProgressQuery.data.placeholder > 0 && (
+                    <span className="flex items-center gap-1 text-warning">
+                      <span className="w-1.5 h-1.5 rounded-full bg-warning" />
+                      {contentProgressQuery.data.placeholder} ausstehend
+                    </span>
+                  )}
+                  {contentProgressQuery.data.regenerating > 0 && (
+                    <span className="flex items-center gap-1 text-primary">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      {contentProgressQuery.data.regenerating} regenerierend
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {!['published', 'done', 'quality_gate_failed'].includes(pkg.status) && !isBuilding && (
             <Card className="border-primary/30 bg-primary/5">
               <CardContent className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
