@@ -30,4 +30,7 @@ export const adminRpc = {
 
   revenueOverview: () =>
     callEdge<RevenueOverview>("admin-control-tower", { action: "revenue" }),
+
+  dashboard: () =>
+    callEdge<DashboardResponse>("admin-control-tower", { action: "dashboard" }),
 };
