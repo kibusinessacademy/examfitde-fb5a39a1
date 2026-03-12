@@ -9,6 +9,16 @@ import { checkCircuitBreaker, recordPermanentProviderFailure, recordProviderSucc
 
 import { PIPELINE_GRAPH, validatePipelineGraph } from "../_shared/job-map.ts";
 
+// ── Sanitize HTML error pages (Cloudflare 502/503) ──
+function sanitizeError(msg: string): string {
+  if (!msg) return msg;
+  if (msg.includes("<!DOCTYPE") || msg.includes("<html")) {
+    const m = msg.match(/^HTTP (\d{3})/);
+    return `HTTP ${m?.[1] ?? "502"}: upstream proxy error (HTML stripped)`;
+  }
+  return msg;
+}
+
 // ── Config ────────────────────────────────────────────────────
 function envInt(name: string, fallback: number): number {
   const raw = Deno.env.get(name);
