@@ -41,6 +41,33 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
   const { track, certType, flags } = useTrackConfig(pkg as any);
   const PIPELINE_STEPS = ALL_PIPELINE_STEPS.filter(s => s.flag === null || (flags as any)[s.flag] === true);
 
+  // Real-time content progress from lessons table
+  const contentProgressQuery = useQuery({
+    queryKey: ['content-progress', packageId],
+    queryFn: async () => {
+      const { data: pkgData } = await supabase.from('course_packages').select('course_id').eq('id', packageId).single();
+      if (!pkgData?.course_id) return null;
+      const { data } = await (supabase as any).rpc('get_package_content_progress', { p_package_id: packageId });
+      if (data) return data as { total_lessons: number; content_done: number; tier1_failed: number; placeholder: number; regenerating: number; exam_questions: number; oral_scenarios: number; handbook_chapters: number };
+      // Fallback: direct query
+      const { data: lessons } = await (supabase as any)
+        .from('lessons')
+        .select('content, qc_status, step')
+        .in('module_id', (await (supabase as any).from('modules').select('id').eq('course_id', pkgData.course_id)).data?.map((m: any) => m.id) || []);
+      const ls = lessons || [];
+      return {
+        total_lessons: ls.filter((l: any) => l.step !== 'mini_check').length,
+        content_done: ls.filter((l: any) => l.step !== 'mini_check' && l.content && l.content?._placeholder !== 'true' && l.qc_status !== 'tier1_failed').length,
+        tier1_failed: ls.filter((l: any) => l.step !== 'mini_check' && l.qc_status === 'tier1_failed').length,
+        placeholder: ls.filter((l: any) => l.step !== 'mini_check' && (!l.content || l.content?._placeholder === 'true')).length,
+        regenerating: ls.filter((l: any) => l.step !== 'mini_check' && l.content?._regenerating === 'true').length,
+        exam_questions: 0, oral_scenarios: 0, handbook_chapters: 0,
+      };
+    },
+    enabled: !!packageId && pkg?.status === 'building',
+    refetchInterval: pkg?.status === 'building' ? 10000 : false,
+  });
+
   const [resetting, setResetting] = useState(false);
   const [showDanger, setShowDanger] = useState(false);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
