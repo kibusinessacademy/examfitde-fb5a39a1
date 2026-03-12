@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
     const { data: minPrioRow } = await sb
       .from("course_packages")
       .select("priority")
-      .in("status", ["queued", "building", "failed", "setup_complete"])
+      .in("status", ["queued", "building", "failed", "setup_complete", "blocked"])
       .order("priority", { ascending: true })
       .limit(1)
       .maybeSingle();
