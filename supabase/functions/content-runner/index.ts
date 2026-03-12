@@ -426,8 +426,9 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         const TRANSIENT_TIMEOUT_MS = 45 * 60 * 1000;
 
         const firstTransientAtRaw = job.meta?.first_transient_at;
+        const wasLivenessKilled = !!job.meta?.liveness_requeued || !!job.meta?.liveness_killed_at;
         const firstTransientAt =
-          typeof firstTransientAtRaw === "string" && !Number.isNaN(Date.parse(firstTransientAtRaw))
+          (typeof firstTransientAtRaw === "string" && !Number.isNaN(Date.parse(firstTransientAtRaw)) && !wasLivenessKilled)
             ? firstTransientAtRaw
             : now;
         const transientElapsedMs = Date.now() - new Date(firstTransientAt).getTime();
