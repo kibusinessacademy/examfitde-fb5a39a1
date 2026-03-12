@@ -365,7 +365,7 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
       const now = new Date().toISOString();
       await sb.from("job_queue").update({
         status: "failed",
-        last_error: (dispatchError || "terminal").slice(0, 2000),
+        last_error: sanitizeError(dispatchError || "terminal").slice(0, 2000),
         completed_at: now,
         updated_at: now,
         locked_at: null,
