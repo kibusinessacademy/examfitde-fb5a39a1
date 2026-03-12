@@ -38,30 +38,39 @@ function formatLogMessage(step: any): LogEntry {
   const log = step.meta || step.log;
   const errorMessage = step.last_error || step.error_message;
 
+  // Keys that are internal metadata, not user-visible log info
+  const META_NOISE_KEYS = new Set([
+    'reset_reason', 'status_healed_at', 'status_lag_healed_at', 'last_progress_note',
+    'previous_errors', 'needs_regen', 'active_lesson_jobs', 'dispatch_blocked_reason',
+    'batch_complete', 'ok', 'note', 'reset_count', 'healed_count',
+  ]);
+
   if (step.status === 'running') {
     message = `⏳ ${stepLabel} wird ausgeführt…`;
   } else if (step.status === 'done') {
     message = `✅ ${stepLabel} abgeschlossen`;
     if (log) {
-      const parsed = typeof log === 'string' ? JSON.parse(log) : log;
-      if (parsed.target && parsed.blueprints) {
-        detail = `${parsed.blueprints} Blueprints → Ziel ${parsed.target} Fragen`;
-      } else if (parsed.lessons_created) {
-        detail = `${parsed.lessons_created} Lektionen erstellt`;
-      } else if (parsed.score !== undefined) {
-        detail = `Score: ${parsed.score}/100 · ${parsed.issues || 0} Issues · ${parsed.warnings || 0} Warnungen`;
-      } else if (parsed.scenarios_generated) {
-        detail = `${parsed.scenarios_generated} Szenarien generiert`;
-      } else if (parsed.chapters_generated) {
-        detail = `${parsed.chapters_generated} Kapitel generiert`;
-      } else if (parsed.note) {
-        detail = parsed.note;
-      } else {
-        const keys = Object.keys(parsed).filter(k => k !== 'ok' && k !== 'note' && k !== 'batch_complete');
-        if (keys.length > 0 && keys.length <= 4) {
-          detail = keys.map(k => `${k}: ${JSON.stringify(parsed[k])}`).join(' · ');
+      try {
+        const parsed = typeof log === 'string' ? JSON.parse(log) : log;
+        if (parsed.target && parsed.blueprints) {
+          detail = `${parsed.blueprints} Blueprints → Ziel ${parsed.target} Fragen`;
+        } else if (parsed.lessons_created) {
+          detail = `${parsed.lessons_created} Lektionen erstellt`;
+        } else if (parsed.score !== undefined) {
+          detail = `Score: ${parsed.score}/100 · ${parsed.issues || 0} Issues · ${parsed.warnings || 0} Warnungen`;
+        } else if (parsed.scenarios_generated) {
+          detail = `${parsed.scenarios_generated} Szenarien generiert`;
+        } else if (parsed.chapters_generated) {
+          detail = `${parsed.chapters_generated} Kapitel generiert`;
+        } else if (parsed.note) {
+          detail = parsed.note;
+        } else {
+          const keys = Object.keys(parsed).filter(k => !META_NOISE_KEYS.has(k));
+          if (keys.length > 0 && keys.length <= 4) {
+            detail = keys.map(k => `${k}: ${JSON.stringify(parsed[k])}`).join(' · ');
+          }
         }
-      }
+      } catch { /* ignore parse errors */ }
     }
   } else if (step.status === 'failed') {
     message = `❌ ${stepLabel} fehlgeschlagen`;
