@@ -430,7 +430,7 @@ export function inferBackoffSeconds(reason: string | number): number {
   }
   const r = (reason || "").toLowerCase();
   if (!r) return 30;
-  if (r.includes("rate limit") || r.includes("429")) return 120;
+  if (r.includes("rate limit") || r.includes("429")) return 45;
   if (r.includes("timeout") || r.includes("504") || r.includes("deadline")) return 90;
   if (r.includes("unknown") || r.includes("edge") || r.includes("worker job failed")) return 60;
   // Job-type aware: heavy generators get longer cooldown
