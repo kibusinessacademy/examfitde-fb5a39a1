@@ -53,8 +53,10 @@ export async function handleJobFailed(
   if (transient) {
     const transientNext = (Number(stepMeta.transient_attempts ?? 0) || 0) + 1;
     const rawFta = stepMeta.first_transient_at;
+    // Reset transient timer if job was liveness-killed (stuck-scan requeue adds dead time)
+    const wasLivenessKilled = !!stepMeta.liveness_requeued || !!stepMeta.liveness_killed_at;
     const firstTransientAt =
-      typeof rawFta === "string" && !Number.isNaN(Date.parse(rawFta))
+      (typeof rawFta === "string" && !Number.isNaN(Date.parse(rawFta)) && !wasLivenessKilled)
         ? rawFta
         : new Date().toISOString();
     const elapsedMs = Date.now() - new Date(firstTransientAt).getTime();
