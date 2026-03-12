@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type {
   AdminControlTowerResponse,
+  DashboardResponse,
   OpsJobItem,
   PackageRiskItem,
   ProviderHealthItem,
@@ -30,4 +31,7 @@ export const adminRpc = {
 
   revenueOverview: () =>
     callEdge<RevenueOverview>("admin-control-tower", { action: "revenue" }),
+
+  dashboard: () =>
+    callEdge<DashboardResponse>("admin-control-tower", { action: "dashboard" }),
 };

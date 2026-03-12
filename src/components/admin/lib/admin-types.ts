@@ -107,3 +107,55 @@ export interface AdminControlTowerResponse {
   kpis: TowerKpis;
   pipeline: PipelineStepStat[];
 }
+
+export interface DashboardBuildingPackage {
+  id: string;
+  title: string;
+  status: string;
+  build_progress: number;
+  current_step: string | null;
+  step_status_json: Record<string, string> | null;
+  updated_at: string;
+}
+
+export interface DashboardKpis {
+  total_packages: number;
+  building: number;
+  queued: number;
+  published: number;
+  done: number;
+  failed: number;
+  jobs_pending: number;
+  jobs_processing: number;
+  jobs_completed_today: number;
+  jobs_failed_24h: number;
+  cost_today_eur: number;
+  budget_eur: number;
+  stalled_packages: number;
+  provider_cooldowns: number;
+  blocked_publishables: number;
+  open_claim_issues: number;
+  lc_starvation: number;
+  revenue_30d: number;
+  building_metrics: {
+    active_by_jobs: number;
+    active_by_leases: number;
+    status_building: number;
+    zombies: number;
+  };
+}
+
+export interface DashboardCooldown {
+  provider: string;
+  model: string;
+  reason: string | null;
+  until_at: string;
+}
+
+export interface DashboardResponse {
+  health: GlobalHealthItem[];
+  kpis: DashboardKpis;
+  building_packages: DashboardBuildingPackage[];
+  pipeline: PipelineStepStat[];
+  cooldowns: DashboardCooldown[];
+}
