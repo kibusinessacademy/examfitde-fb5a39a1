@@ -14,9 +14,8 @@ import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
  * 
  * SSOT: minicheck_questions table with mode='lesson' | 'drill'
  * 
- * v2: Uses SSOT time-budget with shouldSoftStop() instead of hardcoded timeout.
- *     Reduced MAX_TARGETS_PER_RUN from 40→5 to stay within 55s edge limit.
- *     Each AI call takes ~8-12s, so 5 targets ≈ 40-50s (within soft-stop window).
+ * v3: MAX_TARGETS_PER_RUN 5→3 to prevent timeouts. Budget raised to 50s/38s soft-stop.
+ *     3 targets × ~12s = ~36s (within soft-stop window with margin).
  */
 
 const ITEMS_PER_LESSON = 7;
