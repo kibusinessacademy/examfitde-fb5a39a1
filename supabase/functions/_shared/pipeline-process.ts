@@ -818,13 +818,18 @@ export async function processPackage(
   const parallelActions = pickParallelActions((steps ?? []) as StepRow[], STEP_ORDER);
   const nextAction = parallelActions.length > 0 ? parallelActions[0] : pickNextAction((steps ?? []) as StepRow[], STEP_ORDER);
 
-  // If we have multiple parallel enqueue actions, fire them all (not just the first)
-  if (parallelActions.length > 1) {
+  // Fire ALL parallel enqueue actions that won't be handled by the main flow.
+  // BUG FIX: Previously started at i=1, assuming parallelActions[0] === first enqueue.
+  // When parallelActions[0] is a "poll" (active job on another branch), enqueue actions
+  // for independent branches (minichecks, handbook) were silently dropped.
+  if (parallelActions.length > 0) {
     const enqueueActions = parallelActions.filter(a => a?.action === "enqueue");
-    if (enqueueActions.length > 1) {
-      console.log(`[runner] 🔀 Parallel branches detected: ${enqueueActions.map(a => (a as any).stepKey).join(", ")}`);
-      // Enqueue all parallel branches beyond the first (first is handled normally below)
-      for (let i = 1; i < enqueueActions.length; i++) {
+    // The main flow below handles nextAction. Skip that one if it's an enqueue.
+    const mainIsEnqueue = nextAction?.action === "enqueue";
+    const startIdx = mainIsEnqueue ? 1 : 0;
+    if (enqueueActions.length > startIdx) {
+      console.log(`[runner] 🔀 Parallel branches detected: ${enqueueActions.map(a => (a as any).stepKey).join(", ")} (main=${nextAction?.action}:${(nextAction as any)?.stepKey})`);
+      for (let i = startIdx; i < enqueueActions.length; i++) {
         const pa = enqueueActions[i] as { action: "enqueue"; stepKey: StepKey };
         try {
           await handleEnqueue(sb, packageId, runnerId, shortId, pa, steps as StepRow[], STEP_ORDER, pkg, mode, stepClassCtx);
