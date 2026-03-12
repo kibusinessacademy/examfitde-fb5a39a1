@@ -39,6 +39,8 @@ export async function assertStepPostConditions(sb: SB, args: {
 
     // ── Additional artifact guard: count tier1_failed lessons (needs_regen) ──
     // Even if realness RPC says "all real", tier1_failed means QC rejected the content
+    // IMPORTANT: Exclude step='mini_check' — those have their own pipeline step
+    // (generate_lesson_minichecks / validate_lesson_minichecks)
     const { data: pkg } = await sb
       .from("course_packages")
       .select("course_id")
@@ -48,9 +50,10 @@ export async function assertStepPostConditions(sb: SB, args: {
     if (pkg?.course_id) {
       const { data: failedLessons } = await sb
         .from("lessons")
-        .select("id, modules!inner(course_id)")
+        .select("id, step, modules!inner(course_id)")
         .eq("modules.course_id", pkg.course_id)
-        .eq("qc_status", "tier1_failed");
+        .eq("qc_status", "tier1_failed")
+        .neq("step", "mini_check");
       tier1Failed = failedLessons?.length ?? 0;
     }
 
