@@ -639,9 +639,9 @@ export async function processPackage(
     }
   }
 
-  // ── ZOMBIE STEP AUTO-FINALIZATION ──
+  // ── ZOMBIE STEP AUTO-FINALIZATION (DAG-aware) ──
   {
-    const ZOMBIE_MIN_AGE_MS = 3 * 60 * 1000; // Phase B: 5m→3m (finalization rules now handle most cases)
+    const ZOMBIE_MIN_AGE_MS = 3 * 60 * 1000;
     const ZOMBIFIABLE_STEPS = new Set([
       "validate_learning_content", "validate_exam_pool", "validate_blueprints",
       "validate_oral_exam", "validate_handbook", "validate_lesson_minichecks",
@@ -649,6 +649,11 @@ export async function processPackage(
       "run_integrity_check", "quality_council",
       "auto_publish", "enqueue_handbook_expand",
     ]);
+    // Build DAG dependency lookup for zombie check
+    const dagDepsZombie = new Map<string, string[]>();
+    for (const node of PIPELINE_GRAPH) {
+      dagDepsZombie.set(node.key, node.dependsOn ?? []);
+    }
     const byKey = new Map<string, StepRow>();
     for (const s of (steps ?? []) as StepRow[]) byKey.set(s.step_key, s);
 
@@ -670,14 +675,15 @@ export async function processPackage(
       const age = Date.now() - startedAt;
       if (age <= ZOMBIE_MIN_AGE_MS) continue;
 
-      const stepIdx = STEP_ORDER.indexOf(k as StepKey);
-      if (stepIdx > 0) {
-        const prevKey = STEP_ORDER[stepIdx - 1];
-        const prev = byKey.get(prevKey);
-        if (!prev || !isTerminalStatus(prev.status)) {
-          console.warn(`[runner] 🧟 ZOMBIE blocked: step ${k} predecessor ${prevKey} is ${prev?.status ?? 'missing'}`);
-          continue;
-        }
+      // DAG-aware predecessor check: ALL DAG predecessors must be done/skipped
+      const deps = dagDepsZombie.get(k) ?? [];
+      const unmetDeps = deps.filter(dep => {
+        const depStep = byKey.get(dep);
+        return !depStep || !isTerminalStatus(depStep.status);
+      });
+      if (unmetDeps.length > 0) {
+        console.warn(`[runner] 🧟 ZOMBIE blocked: step ${k} DAG predecessors not done: ${unmetDeps.join(", ")}`);
+        continue;
       }
 
       console.warn(`[runner] 🧟 ZOMBIE auto-fix: step ${k} for ${shortId} — forcing to done`);
