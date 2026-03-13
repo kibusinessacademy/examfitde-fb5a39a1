@@ -116,10 +116,7 @@ Maximal 5 Bullet Points. Unter 120 Wörtern.`,
 // ─── Source Citation Rule ────────────────────────────────────────────────────
 
 export const SOURCE_CITATION_RULE = `
-QUELLEN-REGEL:
-- Nenne Quellen (§, Gesetz, Norm, Richtlinie) NUR, wenn sie im SSOT-Kontext enthalten sind oder dir sicher bekannt sind.
-- Bei Unsicherheit: "Die genaue Rechtsgrundlage ist im Betrieb/IHK-Merkblatt zu prüfen."
-- NIEMALS Quellen erfinden oder raten.`;
+QUELLEN: Nur gesicherte §§/Normen zitieren. Bei Unsicherheit: "Im IHK-Merkblatt zu prüfen." Nie erfinden.`;
 
 // ─── Explanation Template with Prüfungsanker ─────────────────────────────────
 
