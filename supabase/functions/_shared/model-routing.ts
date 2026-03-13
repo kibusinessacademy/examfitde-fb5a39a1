@@ -40,7 +40,13 @@ export interface ModelChoice {
 }
 
 // ── Hardcoded Fallback Table ──────────────────────────────────
+// ── Tiered Fallback Strategy ──────────────────────────────────
+// COMPLEX intents (reasoning-heavy): Haiku → gpt-5.2 (expensive but accurate)
+// STANDARD intents (structured output): Haiku → gpt-5-mini (70% cheaper than gpt-5.2)
+// SIMPLE intents (classification/summary): Haiku → gpt-5-mini (cost-optimized)
+
 const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
+  // ── COMPLEX: Need strong reasoning ──
   learning_course: [
     { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
@@ -53,19 +59,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
-  oral_exam: [
-    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
-  ],
   handbook: [
-    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
-  ],
-  minicheck: [
-    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
-  ],
-  seo_content: [
     { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
@@ -73,33 +67,7 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
-  council_proposer: [
-    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
-  ],
-  council_validator: [
-    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
-  ],
   quality_audit: [
-    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
-  ],
-  embeddings: [
-    { provider: "openai", model: "text-embedding-3-large" },
-  ],
-  images: [
-    { provider: "openai", model: "gpt-image-1" },
-  ],
-  support: [
-    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
-  ],
-  summary: [
-    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
-  ],
-  repair: [
     { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
@@ -107,13 +75,57 @@ const ROUTING_TABLE: Record<PipelineIntent, ModelChoice[]> = {
     { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
     { provider: "openai", model: "gpt-5.2", is_fallback: true },
   ],
-  blooms_classify: [
+
+  // ── STANDARD: Structured output, moderate complexity ──
+  oral_exam: [
     { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
+    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+  ],
+  minicheck: [
+    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
+    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+  ],
+  seo_content: [
+    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
+    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+  ],
+  council_proposer: [
+    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
+    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+  ],
+  council_validator: [
+    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
+    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
   ],
   curriculum_import: [
     { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
-    { provider: "openai", model: "gpt-5.2", is_fallback: true },
+    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+  ],
+
+  // ── SIMPLE: Classification, summary, low complexity ──
+  support: [
+    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
+    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+  ],
+  summary: [
+    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
+    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+  ],
+  repair: [
+    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
+    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+  ],
+  blooms_classify: [
+    { provider: "anthropic", model: "claude-haiku-4-5-20251001" },
+    { provider: "openai", model: "gpt-5-mini", is_fallback: true },
+  ],
+
+  // ── SPECIAL: Fixed models ──
+  embeddings: [
+    { provider: "openai", model: "text-embedding-3-large" },
+  ],
+  images: [
+    { provider: "openai", model: "gpt-image-1" },
   ],
 };
 
@@ -309,12 +321,12 @@ export function getEscalationModel(
 
   const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
     exam_questions: { provider: "openai", model: "gpt-5.2" },
-    oral_exam: { provider: "openai", model: "gpt-5.2" },
-    minicheck: { provider: "openai", model: "gpt-5.2" },
-    support: { provider: "openai", model: "gpt-5.2" },
-    summary: { provider: "openai", model: "gpt-5.2" },
-    repair: { provider: "openai", model: "gpt-5.2" },
-    blooms_classify: { provider: "openai", model: "gpt-5.2" },
+    oral_exam: { provider: "openai", model: "gpt-5-mini" },
+    minicheck: { provider: "openai", model: "gpt-5-mini" },
+    support: { provider: "openai", model: "gpt-5-mini" },
+    summary: { provider: "openai", model: "gpt-5-mini" },
+    repair: { provider: "openai", model: "gpt-5-mini" },
+    blooms_classify: { provider: "openai", model: "gpt-5-mini" },
   };
 
   return escalationMap[intent] || null;

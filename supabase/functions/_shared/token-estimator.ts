@@ -18,12 +18,19 @@ const PRICING_EUR_PER_M: Record<string, { input: number; output: number }> = {
   "openai/gpt-5-mini":            { input: 0.37,  output: 1.47 },
   "openai/gpt-5-nano":            { input: 0.09,  output: 0.37 },
   "openai/gpt-5.2":               { input: 2.76,  output: 11.0 },
-  // Direct provider models
+  // Direct provider models — Anthropic
+  "claude-haiku-4-5-20251001":    { input: 0.80,  output: 4.00 },
+  "claude-sonnet-4-5-20250929":   { input: 2.76,  output: 13.8 },
+  "claude-sonnet-4-20250514":     { input: 2.76,  output: 13.8 },
+  // Direct provider models — OpenAI
+  "gpt-5.2":                      { input: 2.76,  output: 11.0 },
+  "gpt-5":                        { input: 2.30,  output: 9.20 },
   "gpt-5-mini":                   { input: 0.37,  output: 1.47 },
+  "gpt-5-nano":                   { input: 0.09,  output: 0.37 },
   "gpt-4.1":                      { input: 1.84,  output: 7.36 },
   "gpt-4o-mini":                  { input: 0.14,  output: 0.55 },
-  "claude-sonnet-4-20250514":     { input: 2.76,  output: 13.8 },
-  
+  "text-embedding-3-large":       { input: 0.12,  output: 0.00 },
+  // Direct provider models — Google
   "gemini-2.5-flash":             { input: 0.07,  output: 0.28 },
 };
 

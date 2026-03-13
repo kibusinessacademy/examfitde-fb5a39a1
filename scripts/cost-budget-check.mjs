@@ -33,15 +33,57 @@ async function main() {
 
   const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  // Check ai_usage_log
+  // Check ai_usage_log + llm_cost_events (dual source)
   const usageLogs = await query(
     "ai_usage_log",
     `select=cost_eur,total_tokens,job_type,created_at&created_at=gte.${since}&order=created_at.desc&limit=1000`
   );
 
-  if (!usageLogs || usageLogs.length === 0) {
+  // Also check llm_cost_events (newer cost tracking table)
+  const costEvents = await query(
+    "llm_cost_events",
+    `select=cost_eur,tokens_in,tokens_out,job_type,provider,model,created_at&created_at=gte.${since}&order=created_at.desc&limit=2000`
+  );
+
+  if ((!usageLogs || usageLogs.length === 0) && (!costEvents || costEvents.length === 0)) {
     console.log("⚠️  No AI usage logs found – skipping");
     process.exit(0);
+  }
+
+  // Merge cost events into usage format for unified analysis
+  if (costEvents && costEvents.length > 0) {
+    console.log(`📊 Found ${costEvents.length} entries in llm_cost_events`);
+    
+    // Per-model cost breakdown
+    const modelCosts = {};
+    for (const ev of costEvents) {
+      const key = `${ev.provider}/${ev.model}`;
+      if (!modelCosts[key]) modelCosts[key] = { count: 0, cost: 0, tokens_in: 0, tokens_out: 0 };
+      modelCosts[key].count++;
+      modelCosts[key].cost += ev.cost_eur || 0;
+      modelCosts[key].tokens_in += ev.tokens_in || 0;
+      modelCosts[key].tokens_out += ev.tokens_out || 0;
+    }
+    
+    console.log("\n📋 Cost by Model:");
+    for (const [model, stats] of Object.entries(modelCosts).sort((a, b) => b[1].cost - a[1].cost)) {
+      console.log(`   ${model}: €${stats.cost.toFixed(4)} (${stats.count} calls, ${stats.tokens_in + stats.tokens_out} tokens)`);
+    }
+    
+    // Per-intent cost breakdown
+    const intentCosts = {};
+    for (const ev of costEvents) {
+      const key = ev.job_type || "unknown";
+      if (!intentCosts[key]) intentCosts[key] = { count: 0, cost: 0 };
+      intentCosts[key].count++;
+      intentCosts[key].cost += ev.cost_eur || 0;
+    }
+    
+    console.log("\n📋 Cost by Intent (Top 10):");
+    for (const [intent, stats] of Object.entries(intentCosts).sort((a, b) => b[1].cost - a[1].cost).slice(0, 10)) {
+      console.log(`   ${intent}: €${stats.cost.toFixed(4)} (${stats.count} calls)`);
+    }
+    console.log("");
   }
 
   // Aggregate by day
