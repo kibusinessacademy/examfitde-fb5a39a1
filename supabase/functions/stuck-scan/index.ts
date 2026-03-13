@@ -908,7 +908,80 @@ Deno.serve(async (req) => {
         .from("package_steps")
         .select("step_key", { count: "exact", head: true })
         .eq("package_id", pkg.id)
-        .in("status", ["running", "enqueued", "queued", "failed"]);
+        .in("status", ["running", "enqueued"]);
+
+      const { count: queuedSteps } = await sb
+        .from("package_steps")
+        .select("step_key", { count: "exact", head: true })
+        .eq("package_id", pkg.id)
+        .eq("status", "queued");
+
+      // ── ZOMBIE DETECTION: queued steps but no active work ──
+      // If steps are queued but nobody is processing them (0 active steps,
+      // 0 active jobs, 0 active leases), trigger the pipeline-runner to
+      // re-create jobs. This is the primary zombie recovery mechanism.
+      if ((queuedSteps ?? 0) > 0 && (activeSteps ?? 0) === 0) {
+        const { count: activeJobs } = await sb
+          .from("job_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("package_id", pkg.id)
+          .in("status", ["pending", "processing", "queued"]);
+
+        const { data: activeLease } = await sb
+          .from("package_leases")
+          .select("id")
+          .eq("package_id", pkg.id)
+          .gt("lease_until", new Date().toISOString())
+          .limit(1)
+          .maybeSingle();
+
+        if ((activeJobs ?? 0) === 0 && !activeLease) {
+          // Grace: only act if last step completion was > 3 min ago (runner may be mid-claim)
+          const { data: lastDone } = await sb
+            .from("package_steps")
+            .select("finished_at")
+            .eq("package_id", pkg.id)
+            .eq("status", "done")
+            .order("finished_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const lastDoneAge = lastDone?.finished_at
+            ? (Date.now() - new Date(lastDone.finished_at).getTime()) / 60_000
+            : 999;
+
+          if (lastDoneAge >= 3) {
+            // Trigger pipeline-runner to re-create jobs for this zombie
+            try {
+              const pipelineUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/pipeline-runner`;
+              await fetch(pipelineUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                },
+                body: JSON.stringify({ package_id: pkg.id }),
+              });
+            } catch (_e) { /* fire and forget */ }
+
+            await sb.from("auto_heal_log").insert({
+              action_type: "zombie_recovery",
+              target_type: "course_package",
+              target_id: pkg.id,
+              trigger_source: "stuck-scan",
+              result_status: "applied",
+              result_detail: `Zombie detected: ${queuedSteps} queued steps, 0 jobs, 0 leases, last_done ${Math.round(lastDoneAge)}m ago — triggered pipeline-runner`,
+              metadata: { queued_steps: queuedSteps, last_done_age_min: Math.round(lastDoneAge) },
+            });
+
+            buildingPkgResults.push({ package_id: pkg.id, action: `Zombie healed: ${queuedSteps} queued steps, 0 jobs → pipeline-runner triggered` });
+            continue;
+          }
+        }
+
+        // Has queued steps with active work — skip (normal state)
+        continue;
+      }
 
       if ((activeSteps ?? 0) > 0) continue;
 
@@ -940,7 +1013,6 @@ Deno.serve(async (req) => {
         stuck_reason: "No actionable steps remaining",
       }).eq("id", pkg.id);
       buildingPkgResults.push({ package_id: pkg.id, action: "marked stuck (no actionable steps)" });
-    }
 
     // ══════════════════════════════════════════════════════
     // 4) Alert if stuck packages detected
