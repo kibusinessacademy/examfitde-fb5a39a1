@@ -304,24 +304,28 @@ Deno.serve(async (req) => {
   // The guard checks the FIRST prereq that actually exists as a step
   // in the package — this makes the chain track-aware so EXAM_FIRST
   // packages don't deadlock on missing handbook/learning steps.
+  // PIPELINE_PREREQS must match PIPELINE_GRAPH (SSOT in job-map.ts).
+  // Each entry lists candidate prereqs — the first one that exists in
+  // the package's steps is used. This is track-aware: tracks that lack
+  // certain steps fall through to the next candidate.
+  // ⚠️ DO NOT add cross-branch dependencies here! Use PIPELINE_GRAPH.
   const PIPELINE_PREREQS: Record<string, string[]> = {
     package_generate_exam_pool: ["validate_blueprints"],
     package_validate_exam_pool: ["generate_exam_pool"],
     package_build_ai_tutor_index: ["validate_exam_pool"],
     package_validate_tutor_index: ["build_ai_tutor_index"],
-    package_generate_oral_exam: ["validate_tutor_index"],
+    package_generate_oral_exam: ["validate_exam_pool"],
     package_validate_oral_exam: ["generate_oral_exam"],
-    // MiniChecks run BEFORE elite_harden (so hardening can upgrade them)
-    // Lesson-mode prereq: validate_learning_content (needs lesson content)
-    // Drill-mode prereq: validate_exam_pool (needs blueprints/competencies)
-    package_generate_lesson_minichecks: ["validate_learning_content", "validate_exam_pool"],
+    // MiniChecks branch — parallel to exam/oral/handbook
+    package_generate_lesson_minichecks: ["validate_learning_content"],
     package_validate_lesson_minichecks: ["generate_lesson_minichecks"],
-    // Elite hardening now comes AFTER minichecks
-    package_elite_harden: ["validate_lesson_minichecks", "validate_oral_exam", "validate_tutor_index", "validate_exam_pool"],
-    package_generate_handbook: ["elite_harden", "validate_oral_exam"],
+    // Elite harden — parallel branch from validate_exam_pool (DAG SSOT)
+    package_elite_harden: ["validate_exam_pool"],
+    // Handbook — parallel branch from validate_learning_content (DAG SSOT)
+    package_generate_handbook: ["validate_learning_content"],
     package_validate_handbook: ["generate_handbook"],
-    // Track-aware: integrity_check needs the LAST validation step that exists.
-    package_run_integrity_check: ["validate_handbook", "elite_harden", "validate_lesson_minichecks", "validate_oral_exam", "validate_tutor_index"],
+    // Integrity check converges ALL terminal branches (DAG SSOT)
+    package_run_integrity_check: ["elite_harden", "validate_lesson_minichecks", "validate_handbook_depth", "validate_oral_exam", "validate_tutor_index"],
     package_quality_council: ["run_integrity_check"],
     package_auto_publish: ["quality_council"],
   };
