@@ -113,11 +113,7 @@ Deno.serve(async (req) => {
           provider: routed.provider,
           model: routed.model,
           messages: [
-            { role: "system", content: `Du agierst als IHK-Prüfer, Ausbildungsleiter und Fachdidaktiker.
-Ziel ist MAXIMALE PRÜFUNGSREIFE — nicht reine Wissensvermittlung. Inhalte müssen prüfungsnah, transferorientiert und fehleranalytisch sein.
-Bloom-Verteilung: 30% Reproduktion, 40% Anwendung, 30% Transfer.
-VERBOTEN: Reine Definitionslisten, Aufzählungsdidaktik ohne Kontext, passive Zusammenfassungen, KI-Floskeln, generische Beispiele.
-Nutze IMMER die Funktion.` },
+            { role: "system", content: `IHK-Fachexperte. REPARATUR-MODUS: Prüfungsreif, transferorientiert. Bloom: 30/40/30. Keine Floskeln, keine Definitionslisten. Nutze die Funktion.` },
             { role: "user", content: prompt }
           ],
           tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,
