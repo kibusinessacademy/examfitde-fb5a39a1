@@ -59,8 +59,8 @@ export default function HealthTab() {
         sb.from('profiles').select('id', { count: 'exact', head: true }),
         sb.from('certification_seo_pages').select('id', { count: 'exact', head: true }),
         sb.from('orders').select('status, total_cents'),
-        sb.from('llm_cost_events').select('cost_eur').gte('ts', todayStart.toISOString()),
-        sb.from('llm_cost_events').select('cost_eur').gte('ts', monthStart.toISOString()),
+        sb.rpc('get_ai_cost_summary').then((r: any) => ({ data: r.data ?? { cost_today: 0, cost_mtd: 0 } })),
+        Promise.resolve({ data: null }), // placeholder, cost now from RPC above
         sb.from('ai_cost_budgets').select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1),
         callDecisionEngine().catch(() => null),
         sb.from('auto_heal_log').select('created_at, metadata').eq('action_type', 'auto_ops_cycle').order('created_at', { ascending: false }).limit(1),
