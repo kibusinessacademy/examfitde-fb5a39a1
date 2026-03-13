@@ -141,7 +141,25 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       messages: nonSystemMsgs,
       ...(opts.stream !== undefined && { stream: opts.stream }),
     };
-    if (systemMsg) body.system = systemMsg.content;
+
+    // ── Prompt Caching: wrap system prompt with cache_control ──
+    // Anthropic caches system prompts with ≥1024 tokens, saving ~90% on input costs
+    // for repeated calls with the same system prompt (pipeline, support, tutor).
+    if (systemMsg) {
+      const systemTokenEstimate = Math.ceil(systemMsg.content.length / 4);
+      if (systemTokenEstimate >= 1024) {
+        // Use structured system with cache_control for prompt caching
+        body.system = [
+          {
+            type: "text",
+            text: systemMsg.content,
+            cache_control: { type: "ephemeral" },
+          },
+        ];
+      } else {
+        body.system = systemMsg.content;
+      }
+    }
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
 
     // Anthropic tool support: convert OpenAI tool format → Anthropic format
@@ -164,6 +182,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       headers: {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
+        "anthropic-beta": "prompt-caching-2024-07-31",
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
