@@ -1013,6 +1013,7 @@ Deno.serve(async (req) => {
         stuck_reason: "No actionable steps remaining",
       }).eq("id", pkg.id);
       buildingPkgResults.push({ package_id: pkg.id, action: "marked stuck (no actionable steps)" });
+    }
 
     // ══════════════════════════════════════════════════════
     // 4) Alert if stuck packages detected
