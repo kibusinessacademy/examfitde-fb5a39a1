@@ -91,9 +91,11 @@ Deno.serve(async (req) => {
     }
 
     // 4) Check existing lessons
+    // FIX: Add .limit(5000) to avoid Supabase 1000-row default limit
     const { data: existingLessons } = await sb.from("lessons")
       .select("competency_id, step")
-      .in("module_id", [...lfToModule.values()]);
+      .in("module_id", [...lfToModule.values()])
+      .limit(5000);
 
     const existingSet = new Set(
       (existingLessons ?? []).map((l: { competency_id: string; step: string }) => `${l.competency_id}::${l.step}`)
