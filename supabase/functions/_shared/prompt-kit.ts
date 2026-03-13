@@ -28,10 +28,7 @@ export const DEPTH_SELF_CHECK_V1 = DEPTH_SELF_CHECK;
 // ─── Regulatory Hallucination Guard ──────────────────────────────────────────
 
 export const REGULATORY_GUARD = `
-REGULATORIK-REGEL (KRITISCH):
-- Nenne §§, Fristen und Normen NUR, wenn sie dir aus dem bereitgestellten SSOT-Kontext, Glossar oder allgemeinem Fachwissen sicher bekannt sind.
-- Bei Unsicherheit: Schreibe "Die genaue Rechtsgrundlage ist im Betrieb oder IHK-Merkblatt nachzuprüfen" statt einen § zu erfinden.
-- NIEMALS Paragraphen, Gesetze oder Fristen halluzinieren. Falsche §-Angaben führen zu Auto-Reject.`;
+§-REGEL: Nenne §§/Fristen NUR wenn sicher bekannt. Bei Unsicherheit: "Rechtsgrundlage im IHK-Merkblatt prüfen." Falsche §§ → Auto-Reject.`;
 
 // ─── MiniCheck Taxonomy Template ─────────────────────────────────────────────
 
