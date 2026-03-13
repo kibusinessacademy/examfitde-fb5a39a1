@@ -321,12 +321,12 @@ export function getEscalationModel(
 
   const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
     exam_questions: { provider: "openai", model: "gpt-5.2" },
-    oral_exam: { provider: "openai", model: "gpt-5.2" },
-    minicheck: { provider: "openai", model: "gpt-5.2" },
-    support: { provider: "openai", model: "gpt-5.2" },
-    summary: { provider: "openai", model: "gpt-5.2" },
-    repair: { provider: "openai", model: "gpt-5.2" },
-    blooms_classify: { provider: "openai", model: "gpt-5.2" },
+    oral_exam: { provider: "openai", model: "gpt-5-mini" },
+    minicheck: { provider: "openai", model: "gpt-5-mini" },
+    support: { provider: "openai", model: "gpt-5-mini" },
+    summary: { provider: "openai", model: "gpt-5-mini" },
+    repair: { provider: "openai", model: "gpt-5-mini" },
+    blooms_classify: { provider: "openai", model: "gpt-5-mini" },
   };
 
   return escalationMap[intent] || null;
