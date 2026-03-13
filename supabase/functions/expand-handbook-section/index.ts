@@ -71,8 +71,16 @@ Deno.serve(async (req) => {
   const sectionId = p?.section_id as string;
   const packageId = p?.package_id as string;
 
-  if (!sectionId || !packageId) {
-    return json({ error: "section_id and package_id required" }, 400);
+  if (!packageId) {
+    return json({ error: "package_id required" }, 400);
+  }
+
+  // ── FAN-OUT GUARD: Called without section_id by pipeline-runner for the
+  // expand_handbook step. Return fan_out_skipped so the pipeline completion
+  // guard checks subjob status instead of treating this as a real expansion.
+  if (!sectionId) {
+    console.log(`[expand-handbook-section] Fan-out guard call (no section_id) for package ${packageId.slice(0, 8)}`);
+    return json({ ok: true, fan_out_skipped: true, batch_complete: true });
   }
 
   // 1) Load section with basis_content
