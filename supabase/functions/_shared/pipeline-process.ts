@@ -176,6 +176,9 @@ export async function processPackage(
       "elite_harden",
       "generate_lesson_minichecks",
       "validate_lesson_minichecks",
+      "enqueue_handbook_expand",
+      "expand_handbook",
+      "validate_handbook_depth",
     ];
     const existingKeys = new Set((steps ?? []).map((s: StepRow) => s.step_key));
     const missingElite = ELITE_MANDATORY_STEPS.filter(k => !existingKeys.has(k));
