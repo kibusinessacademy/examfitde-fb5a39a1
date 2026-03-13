@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     }
 
     const existingSet = new Set(
-      (existingVersions || []).map(
+      allExistingVersions.map(
         (v: { lesson_id: string; step_key: string }) => `${v.lesson_id}:${v.step_key}`
       )
     );
