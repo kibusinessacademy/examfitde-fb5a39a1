@@ -72,12 +72,7 @@ VERBOTEN: Reine "Was ist...?"-Fragen ohne Berufsbezug. Offensichtlich falsche Di
 // ─── Anti-KI Style Rules ─────────────────────────────────────────────────────
 
 export const ANTI_KI_RULES = `
-ANTI-KI-REGELN:
-- KEINE Sätze wie "In der heutigen Geschäftswelt...", "Es ist wichtig zu verstehen, dass...", "Grundsätzlich gilt..."
-- KEINE generischen Aufzählungen ohne konkreten Berufsbezug
-- KEINE Wiederholung der Aufgabenstellung in der Antwort
-- KEIN "Lehrbuch-Deutsch" — schreibe wie ein erfahrener Ausbilder im Betrieb
-- Kurze, klare Sätze (max 30 Wörter pro Satz)`;
+STIL: Keine Floskeln ("In der heutigen Geschäftswelt..."). Keine Wiederholungen. Direkt starten. Max 25 Wörter/Satz. Schreibe wie ein Ausbilder, nicht wie ein Lehrbuch.`;
 
 // ─── Role-Specific Output Templates (for AI Tutor) ──────────────────────────
 
