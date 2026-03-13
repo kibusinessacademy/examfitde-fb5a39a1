@@ -3,7 +3,7 @@ import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
 import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
-import { callAIJSON } from "../_shared/ai-client.ts";
+import { callAIJSON, logLLMCostEvent } from "../_shared/ai-client.ts";
 import type { AIProvider } from "../_shared/ai-client.ts";
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import type { ModelChoice } from "../_shared/model-routing.ts";
@@ -679,11 +679,40 @@ async function generateTurboQuestions(
         max_tokens: maxTokens,
         timeout_ms: 45_000,
       });
+      // ── LOG COST EVENT (success) ──
+      const estimatedTokensIn = Math.ceil((system.length + user.length) / 3.5);
+      const estimatedTokensOut = Math.ceil((result.content?.length ?? 200) / 3.5);
+      const costSb = (globalThis as any).__examPoolSb;
+      if (costSb) {
+        await logLLMCostEvent(costSb, {
+          job_type: "package_generate_exam_pool",
+          provider, model,
+          tokens_in: estimatedTokensIn,
+          tokens_out: estimatedTokensOut,
+          package_id: bp.curriculum_id ? undefined : undefined,
+          status: "success",
+          attempt,
+          meta: { blueprint_id: bp.id, count, difficulty, questionType, cognitiveLevel },
+        });
+      }
       break;
     } catch (e: unknown) {
       const errMsg = (e as Error)?.message || String(e);
       const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409");
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
+
+      // ── LOG COST EVENT (fail/retry) ──
+      const costSb = (globalThis as any).__examPoolSb;
+      if (costSb) {
+        await logLLMCostEvent(costSb, {
+          job_type: "package_generate_exam_pool",
+          provider, model,
+          tokens_in: 0, tokens_out: 0,
+          status: isRate || isTimeout ? "retry" : "fail",
+          error_message: errMsg.slice(0, 500),
+          attempt,
+        });
+      }
 
       if (isRate || isTimeout) {
         console.log(`[ExamPool-v5] ${isTimeout ? "Timeout" : "RateLimit"} ${provider}/${model} attempt ${attempt}/3`);
@@ -1060,6 +1089,20 @@ async function enqueueLearningFieldJobs(
 
     if (gap <= 0) {
       console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: target=${proportionalTarget}, existing=${existing} → SKIP (covered)`);
+      skipped++;
+      continue;
+    }
+
+    // ── FAN-OUT DEDUP GUARD: skip if active sub-jobs already exist for this LF ──
+    const { count: activeLfJobs } = await sb.from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("job_type", "package_generate_exam_pool")
+      .eq("package_id", packageId)
+      .in("status", ["pending", "processing"])
+      .contains("payload", { learning_field_filter: lfId, _fan_out: true });
+    
+    if ((activeLfJobs ?? 0) > 0) {
+      console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: ${activeLfJobs} active sub-jobs already exist → SKIP (dedup)`);
       skipped++;
       continue;
     }
