@@ -473,7 +473,7 @@ export const PIPELINE_GRAPH: PipelineNode[] = [
   { key: "validate_exam_pool", dependsOn: ["generate_exam_pool"], requires: ["exam_questions"], produces: ["validated_exam_pool"], weight: 3 },
   { key: "build_ai_tutor_index", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["tutor_index"], weight: 4 },
   { key: "validate_tutor_index", dependsOn: ["build_ai_tutor_index"], requires: ["tutor_index"], produces: ["validated_tutor_index"], weight: 2 },
-  { key: "generate_oral_exam", dependsOn: ["validate_exam_pool"], requires: ["validated_exam_pool"], produces: ["oral_exam"], weight: 5 },
+  { key: "generate_oral_exam", dependsOn: ["validate_tutor_index"], requires: ["validated_tutor_index"], produces: ["oral_exam"], weight: 5 },
   { key: "validate_oral_exam", dependsOn: ["generate_oral_exam"], requires: ["oral_exam"], produces: ["validated_oral_exam"], weight: 2 },
   { key: "generate_lesson_minichecks", dependsOn: ["validate_learning_content"], requires: ["validated_learning_content"], produces: ["lesson_minichecks"], weight: 5 },
   { key: "validate_lesson_minichecks", dependsOn: ["generate_lesson_minichecks"], requires: ["lesson_minichecks"], produces: ["validated_minichecks"], weight: 2 },
