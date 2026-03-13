@@ -107,79 +107,64 @@ function extractBalancedJson(text: string): any | null {
 
 const STEP_PROMPTS: Record<string, { system: string; minChars: number; minWords: number }> = {
   einstieg: {
-    system: `Erstelle eine **aktivierende Einstiegsaktivität** für eine IHK-Prüfungsvorbereitung.
+    system: `Erstelle eine **aktivierende Einstiegsaktivität** (IHK-Prüfungsvorbereitung, 250+ Wörter).
 
-MINDESTUMFANG: 250 Wörter Fließtext. Antworte NIEMALS mit weniger als 250 Wörtern.
+OUTPUT-STRUKTUR (Wortlimits einhalten!):
+1. <h3>Motivierender Titel</h3>
+2. Praxisszenario aus dem Arbeitsalltag (120+ Wörter, konkrete Zahlen/Rollen)
+3. 2-3 Reflexionsfragen als <ul><li>, davon 1 Hypothese ("Was glaubst du, warum...?")
+4. ⭐ IHK-Prüfungstipp + ⚠️ Prüfungsfalle
 
-Struktur:
-- <h3>Motivierender Titel mit konkretem Bezug zum Thema</h3>
-- Konkretes Praxisszenario aus dem typischen ARBEITSALLTAG des Berufs (MINDESTENS 120 Wörter)
-- 2-3 Reflexionsfragen als <ul><li>
-- Bezug zum Vorwissen UND zur IHK-Prüfungsrelevanz
-- ⭐ IHK-Prüfungstipp mit typischer Falle
-- Überleitung zum Lernschritt "Verstehen"
-
-PFLICHT: Realistische, nicht-runde Zahlen. Ausführlich und detailreich.
+Kein passiver Einstieg. Direkt ins Szenario.
 ${DEPTH_SELF_CHECK}
 ${REGULATORY_GUARD}`,
     minChars: 600,
     minWords: 250,
   },
   verstehen: {
-    system: `Erstelle **ausführliches Lernmaterial** für eine IHK-Prüfungsvorbereitung.
+    system: `Erstelle **Lernmaterial** (IHK-Prüfungsvorbereitung, 400+ Wörter).
 
-MINDESTUMFANG: 400 Wörter Fließtext.
+OUTPUT-STRUKTUR:
+1. <h3>Konzept-Titel</h3> + Definition mit Gegenbeispiel (80+ Wörter)
+2. 3 Praxisbeispiele (je 40+ Wörter, verschiedene Schwierigkeitsgrade)
+3. Fachbegriffe als <strong>, Merksätze als <blockquote> mit ⭐
+4. ⭐ IHK-Prüfungstipp ×2 + ⚠️ Prüfungsfallen ×2 (mit Denkfehler-Erklärung)
+5. Bei Rechnung: vollständiger Rechenweg. Bei Recht: konkrete §§.
 
-Struktur:
-- <h3>Konzept-Titel</h3>
-- Klare Definition mit berufsspezifischen Beispielen (mind. 80 Wörter)
-- Mind. 3 praxisnahe Beispiele (verschiedene Schwierigkeitsgrade, je mind. 40 Wörter)
-- Fachbegriffe als <strong>, Merksätze als <blockquote> mit ⭐
-- Gegenbeispiele für typische Fehlannahmen
-
-RECHENAUFGABEN (bei quantitativen Themen): Vollständige Rechenwege, mind. 2 Beispiele.
-REGULATORIK (bei rechtlichen Themen): Konkrete §§-Referenzen, Fristen.
-IHK-PRÜFUNGSBEZUG: ⭐ "IHK-Prüfungstipp: ..." mind. 2x
-
-PFLICHT: Ausführlich und detailreich. Jeder Absatz mind. 3-4 Sätze.
+Bloom: 30% Reproduktion, 40% Anwendung, 30% Transfer.
 ${DEPTH_SELF_CHECK}
 ${REGULATORY_GUARD}`,
     minChars: 1800,
     minWords: 400,
   },
   anwenden: {
-    system: `Erstelle ein **Entscheidungsszenario mit Fallstudie** für eine IHK-Prüfungsvorbereitung.
+    system: `Erstelle ein **Entscheidungsszenario mit Fallstudie** (IHK-Niveau, 350+ Wörter).
 
-MINDESTUMFANG: 350 Wörter.
+OUTPUT-STRUKTUR:
+1. <h3>Fallstudie: [Titel]</h3>
+2. Situationsbeschreibung (100+ Wörter, konkrete Zahlen/Rollen/Parameter)
+3. 3-4 Teilaufgaben mit steigender Komplexität
+4. ≥2 Entscheidungsoptionen mit Pro-Contra + Begründungspflicht
+5. ⚠️ Prüfungsfallen markiert
 
-Struktur:
-- <h3>Fallstudie: [konkreter Titel]</h3>
-- Konkretes Fallbeispiel (mind. 100 Wörter Situationsbeschreibung)
-- SITUATION → AUFGABE (3-4 Teilaufgaben mit steigender Komplexität)
-- Mind. 2 Entscheidungsoptionen mit Pro-Contra
-
-RECHENAUFGABEN (bei quantitativen Themen): Mehrstufige Berechnungen.
-PRÜFUNGSFALLEN: ⚠️ Typische Prüfungsfallen markiert.
-
-PFLICHT: Die Fallstudie muss sich wie eine echte IHK-Prüfungsaufgabe anfühlen.
+Jede Aufgabe ≥2 Denkschritte. Keine 1-Fakt-Aufgaben.
 ${DEPTH_SELF_CHECK}
 ${REGULATORY_GUARD}`,
     minChars: 1400,
     minWords: 350,
   },
   wiederholen: {
-    system: `Erstelle eine **PRÜFUNGSVERDICHTUNG** für eine IHK-Prüfungsvorbereitung.
+    system: `Erstelle eine **PRÜFUNGSVERDICHTUNG** mit Retrieval-Mechanik (300+ Wörter).
 
-MINDESTUMFANG: 300 Wörter.
+OUTPUT-STRUKTUR:
+1. <h3>Prüfungsverdichtung</h3>
+2. 3 Leitfragen (Azubi antwortet vor Lösung)
+3. 5-7 Merksätze mit Fachbegriffen
+4. 1 Abgrenzungstabelle als <table>
+5. 3 Prüfungsfallen mit Korrektur
+6. 2 Transferübungen mit Musterlösung
 
-Struktur:
-- <h3>Prüfungsverdichtung</h3>
-- 5-7 Merksätze mit Fachbegriffen
-- Mind. 4 Prüfungsfallen mit Korrektur
-- Abgrenzungstabelle als <table>
-- Mind. 2 Transferübungen mit Musterlösung
-
-PFLICHT: NUR Verdichtung und Prüfungsvorbereitung, keine erneute Erklärung.
+KEINE erneute Erklärung. NUR Verdichtung + aktive Wiederholung.
 ${DEPTH_SELF_CHECK}`,
     minChars: 1200,
     minWords: 300,
