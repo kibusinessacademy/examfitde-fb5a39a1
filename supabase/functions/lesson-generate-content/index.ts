@@ -2,13 +2,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { isTransientLlmError } from "../_shared/llm/normalize.ts";
-import { processLesson } from "../_shared/lesson-gen-core.ts";
+import { processLesson } from "../_shared/lesson-gen/process-lesson.ts";
 
 /**
- * lesson-generate-content — Single-Unit Worker (v8 modular)
- *
- * Generates exactly ONE lesson-step per invocation.
- * Heavy logic extracted to _shared/lesson-gen-core.ts to prevent bundle timeouts.
+ * lesson-generate-content — Thin orchestrator (~40 lines)
+ * All business logic lives in _shared/lesson-gen/*.ts
  */
 
 const corsHeaders = {
