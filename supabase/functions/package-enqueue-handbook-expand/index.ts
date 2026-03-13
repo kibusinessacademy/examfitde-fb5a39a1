@@ -121,13 +121,14 @@ Deno.serve(async (req) => {
     }
   }
 
-  console.log(`[enqueue-handbook-expand] Enqueued ${jobsToCreate.length} expand jobs for package ${packageId.slice(0, 8)} (${expandable.length} expandable, ${activeJobSectionIds.size} already active)`);
+  console.log(`[enqueue-handbook-expand] Enqueued ${enqueued} expand jobs for package ${packageId.slice(0, 8)} (${expandable.length} expandable, ${activeJobSectionIds.size} already active, ${skippedDuplicates} skipped duplicates)`);
 
   return json({
     ok: true,
     batch_complete: true,
-    enqueued: jobsToCreate.length,
+    enqueued,
     total_expandable: expandable.length,
     already_active: activeJobSectionIds.size,
+    skipped_duplicates: skippedDuplicates,
   });
 });
