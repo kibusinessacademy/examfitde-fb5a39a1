@@ -1093,7 +1093,10 @@ async function enqueueLearningFieldJobs(
       continue;
     }
 
-    // ── FAN-OUT DEDUP GUARD: skip if active sub-jobs already exist for this LF ──
+    // ── FAN-OUT DEDUP GUARD v2: skip if active OR recently completed sub-jobs exist ──
+    // v2 fix: checking only pending/processing caused infinite re-fan-out loops
+    // because completed jobs were invisible to the guard. Now we also check for
+    // jobs completed in the last 15 minutes to prevent re-enqueue storms.
     const { count: activeLfJobs } = await sb.from("job_queue")
       .select("id", { count: "exact", head: true })
       .eq("job_type", "package_generate_exam_pool")
@@ -1102,7 +1105,23 @@ async function enqueueLearningFieldJobs(
       .contains("payload", { learning_field_filter: lfId, _fan_out: true });
     
     if ((activeLfJobs ?? 0) > 0) {
-      console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: ${activeLfJobs} active sub-jobs already exist → SKIP (dedup)`);
+      console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: ${activeLfJobs} active sub-jobs → SKIP (dedup)`);
+      skipped++;
+      continue;
+    }
+
+    // Check for recently completed sub-jobs (cooldown: 15 min)
+    const recentCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { count: recentCompletedLfJobs } = await sb.from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("job_type", "package_generate_exam_pool")
+      .eq("package_id", packageId)
+      .eq("status", "completed")
+      .gte("completed_at", recentCutoff)
+      .contains("payload", { learning_field_filter: lfId, _fan_out: true });
+
+    if ((recentCompletedLfJobs ?? 0) > 0) {
+      console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: ${recentCompletedLfJobs} sub-jobs completed in last 15min → SKIP (cooldown)`);
       skipped++;
       continue;
     }
