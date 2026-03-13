@@ -82,12 +82,15 @@ Deno.serve(async (req) => {
 
     // Check existing drill questions
     const compIds = allComps.map(c => c.id);
+    // FIX: Add .limit(5000) to avoid Supabase 1000-row default limit
+    // Latent bug: will trigger when drill minichecks exceed 1000 per curriculum
     const { data: existing } = await sb
       .from("minicheck_questions")
       .select("competency_id")
       .in("competency_id", compIds)
       .eq("curriculum_id", curriculumId)
-      .eq("mode", "drill");
+      .eq("mode", "drill")
+      .limit(5000);
     const existingSet = new Set((existing || []).map(e => e.competency_id));
 
     const toGenerate = allComps

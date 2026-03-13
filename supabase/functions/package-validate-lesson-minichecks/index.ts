@@ -126,11 +126,19 @@ Deno.serve(async (req) => {
         const lessonIds = lessons!.map(l => l.id);
 
         // Coverage: count ALL minichecks (any status) per lesson — coverage is didactic, not governance
-        const { data: allLessonRows } = await sb
-          .from("minicheck_questions")
-          .select("lesson_id")
-          .in("lesson_id", lessonIds)
-          .eq("mode", "lesson");
+        // FIX: Use chunked loading to avoid Supabase 1000-row default limit
+        // Verkäufer has 3269 lesson minichecks, Industriemech. 2583 — both silently truncated
+        const allLessonRows: Array<{ lesson_id: string }> = [];
+        for (let i = 0; i < lessonIds.length; i += 200) {
+          const chunk = lessonIds.slice(i, i + 200);
+          const { data: chunkRows } = await sb
+            .from("minicheck_questions")
+            .select("lesson_id")
+            .in("lesson_id", chunk)
+            .eq("mode", "lesson")
+            .limit(5000);
+          if (chunkRows) allLessonRows.push(...chunkRows);
+        }
 
         const countByLesson = new Map<string, number>();
         for (const r of allLessonRows || []) {

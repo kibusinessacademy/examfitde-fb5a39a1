@@ -131,11 +131,14 @@ Deno.serve(async (req) => {
 
       const allLfIds = (allLfs || []).map((x: { id: string }) => x.id);
 
+      // FIX: Add .limit(5000) to avoid Supabase 1000-row default limit
+      // Verkäufer has 1067 exam_questions — silently truncated without limit
       const { data: coveredRows } = await sb
         .from("exam_questions")
         .select("learning_field_id")
         .eq("curriculum_id", curriculumId)
-        .in("qc_status", ["approved", "tier1_passed"]);
+        .in("qc_status", ["approved", "tier1_passed"])
+        .limit(5000);
 
       const coveredSet = new Set((coveredRows || []).map((x: any) => x.learning_field_id));
       lfIds = allLfIds.filter((id: string) => !coveredSet.has(id));
