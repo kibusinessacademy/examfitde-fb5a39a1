@@ -77,10 +77,9 @@ export default function HealthTab() {
       const orders = (orderRes.data || []) as { status: string; total_cents: number }[];
       const paidOrders = orders.filter(o => o.status === 'paid');
       setKpis({ seoPages: seoRes.count || 0, ticketsOpen: tickets.filter(t => t.status === 'open').length, ticketsTotal: tickets.length, usersTotal: profileRes.count || 0, ordersPaid: paidOrders.length, revenueCents: paidOrders.reduce((s, o) => s + (o.total_cents || 0), 0) });
-      const todayCosts = (todayCostRes.data || []) as { cost_eur: number }[];
-      const dailyCost = todayCosts.reduce((s, c) => s + (c.cost_eur || 0), 0);
-      const mtdCosts = (mtdCostRes.data || []) as { cost_eur: number }[];
-      const monthSpent = mtdCosts.reduce((s, c) => s + (c.cost_eur || 0), 0);
+      const costSummary = todayCostRes.data as any;
+      const dailyCost = Number(costSummary?.cost_today) || 0;
+      const monthSpent = Number(costSummary?.cost_mtd) || 0;
       const budgetRow = (budgetRes.data || [])[0];
       setBudget({ dailyCost, monthBudget: budgetRow?.budget_eur ?? 200, monthSpent });
       const oh = opsHealthRes?.data;
