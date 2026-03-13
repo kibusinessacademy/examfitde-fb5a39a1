@@ -46,15 +46,24 @@ Deno.serve(async (req) => {
       query = query.eq("modules.course_id", courseId);
     }
 
-    const { data: lessons, error: lessonErr } = await query.limit(1000);
+    // FIX: Increased from 1000 to 5000 — project has 1010+ lessons
+    const { data: lessons, error: lessonErr } = await query.limit(5000);
     if (lessonErr) throw lessonErr;
 
     // Find which lessons already have content_versions
+    // FIX: Use chunked loading — content_versions has 6400+ rows, silently truncated at 1000
     const lessonIds = (lessons || []).map((l: { id: string }) => l.id);
-    const { data: existingVersions } = await supabase
-      .from("content_versions")
-      .select("lesson_id, step_key")
-      .in("lesson_id", lessonIds.length > 0 ? lessonIds : ["__none__"]);
+    const allExistingVersions: Array<{ lesson_id: string; step_key: string }> = [];
+    const chunkIds = lessonIds.length > 0 ? lessonIds : ["__none__"];
+    for (let i = 0; i < chunkIds.length; i += 200) {
+      const chunk = chunkIds.slice(i, i + 200);
+      const { data: chunkVersions } = await supabase
+        .from("content_versions")
+        .select("lesson_id, step_key")
+        .in("lesson_id", chunk)
+        .limit(5000);
+      if (chunkVersions) allExistingVersions.push(...chunkVersions);
+    }
 
     const existingSet = new Set(
       (existingVersions || []).map(
