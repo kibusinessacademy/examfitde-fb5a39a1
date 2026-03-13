@@ -113,8 +113,8 @@ async function fetchCommandData(): Promise<CommandData> {
       .select('id', { count: 'exact', head: true })
       .eq('status', 'completed')
       .gte('completed_at', todayStart.toISOString()),
-    sb.from('llm_cost_events').select('cost_eur').gte('ts', todayStart.toISOString()),
-    sb.from('llm_cost_events').select('cost_eur').gte('ts', monthStart.toISOString()),
+    sb.rpc('get_ai_cost_summary').then((r: any) => r.data ?? { cost_today: 0, cost_mtd: 0 }),
+    Promise.resolve({ data: null }), // placeholder, cost now from RPC above
     sb.from('ai_cost_budgets').select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1),
     sb.rpc('get_building_metrics'),
     sb.from('package_steps')
@@ -140,8 +140,9 @@ async function fetchCommandData(): Promise<CommandData> {
   const jobsProcessing = jobData.filter(j => j.status === 'processing').length;
   const jobsFailed = jobData.filter(j => j.status === 'failed').length;
 
-  const costToday = ((costTodayRes.data || []) as { cost_eur: number }[]).reduce((s, c) => s + (c.cost_eur || 0), 0);
-  const costMtd = ((costMtdRes.data || []) as { cost_eur: number }[]).reduce((s, c) => s + (c.cost_eur || 0), 0);
+  const costSummary = costTodayRes as any;
+  const costToday = Number(costSummary?.cost_today) || 0;
+  const costMtd = Number(costSummary?.cost_mtd) || 0;
   const budgetRow = (budgetRes.data || [])[0];
 
   const contentMetaByPkg = new Map<string, {

@@ -266,6 +266,40 @@ export async function handleEnqueue(
     }
   }
 
+  // ── ACTIVE JOB DEDUP GUARD: prevent infinite re-enqueue loop ──
+  // If there are already pending/processing jobs for this step+package, skip enqueue
+  const { count: activeJobCount } = await sb
+    .from("job_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("job_type", jobType)
+    .eq("package_id", packageId)
+    .in("status", ["pending", "processing"]);
+
+  if ((activeJobCount ?? 0) > 0) {
+    console.log(`[runner] ⏭️ Skipping enqueue for ${stepKey} — ${activeJobCount} active job(s) already exist for ${shortId}`);
+    // Link the step to an existing job if needed
+    if (currentStep?.status === "queued") {
+      const { data: existingJob } = await sb
+        .from("job_queue")
+        .select("id")
+        .eq("job_type", jobType)
+        .eq("package_id", packageId)
+        .in("status", ["pending", "processing"])
+        .limit(1)
+        .maybeSingle();
+      if (existingJob) {
+        await safeQuery(
+          sb.from("package_steps")
+            .update({ status: "enqueued", job_id: existingJob.id, runner_id: runnerId })
+            .eq("package_id", packageId)
+            .eq("step_key", stepKey),
+          "link_active_job",
+        );
+      }
+    }
+    return { packageId, stepKey, skipped: true, reason: "active_jobs_exist", active_jobs: activeJobCount };
+  }
+
   console.log(`[runner] Enqueuing ${jobType} for step ${stepKey} (pkg ${shortId})`);
 
   const payload: Record<string, unknown> = {

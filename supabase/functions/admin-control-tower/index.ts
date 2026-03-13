@@ -455,7 +455,7 @@ async function getDashboard(sb: SB) {
     safeCount(sb, "job_queue", (q: any) => q.eq("status", "processing")),
     safeCount(sb, "job_queue", (q: any) => q.eq("status", "completed").gte("completed_at", todayStart.toISOString())),
     safeCount(sb, "job_queue", (q: any) => q.eq("status", "failed").gte("updated_at", h24)),
-    safeFrom(sb, "llm_cost_events", "cost_eur", (q: any) => q.gte("ts", todayStart.toISOString())),
+    (async () => { try { const { data } = await sb.rpc("get_ai_cost_summary"); return data ?? { cost_today: 0, cost_mtd: 0 }; } catch { return { cost_today: 0, cost_mtd: 0 }; } })(),
     safeFrom(sb, "ai_cost_budgets", "budget_eur,spent_eur", (q: any) => q.order("month", { ascending: false }).limit(1)),
     safeFrom(sb, "ops_package_steps_stuck", "*", (q: any) => q.limit(200)),
     safeFrom(sb, "llm_provider_cooldowns", "provider,model,reason,until_at", (q: any) => q.gt("until_at", now.toISOString())),
@@ -485,7 +485,8 @@ async function getDashboard(sb: SB) {
     safeFrom(sb, "package_steps", "package_id,step_key,status,started_at,finished_at,last_error,meta", (q: any) => q.limit(1000)),
   ]);
 
-  const dailyCost = (costToday as JsonRow[]).reduce((s, c) => s + (Number(c.cost_eur) || 0), 0);
+  const costSummary = costToday as any;
+  const dailyCost = Number(costSummary?.cost_today) || 0;
   const budget = (budgetRow as JsonRow[])[0];
   const revenue30dTotal = (orders30d as JsonRow[]).reduce((s, r) => s + (Number(r.total_amount) || Number(r.amount) || 0), 0);
 

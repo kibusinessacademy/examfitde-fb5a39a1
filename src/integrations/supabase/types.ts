@@ -35476,6 +35476,7 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
+      get_ai_cost_summary: { Args: never; Returns: Json }
       get_b2b_buyer_learner_summary: {
         Args: { p_currency?: string; p_month: string }
         Returns: {
