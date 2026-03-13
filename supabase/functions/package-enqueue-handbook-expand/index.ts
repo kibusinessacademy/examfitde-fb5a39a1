@@ -87,23 +87,38 @@ Deno.serve(async (req) => {
   }
 
   // 4) Enqueue expand jobs for sections without active jobs
+  //    Insert one-by-one to handle unique constraint uq_job_queue_active_package_job
+  //    which only allows ONE active job per (package_id, job_type) combo when
+  //    payload keys like learning_field_filter/lesson_id are absent.
   const jobsToCreate = expandable
-    .filter((s: any) => !activeJobSectionIds.has(s.id))
-    .map((s: any) => ({
+    .filter((s: any) => !activeJobSectionIds.has(s.id));
+
+  let enqueued = 0;
+  let skippedDuplicates = 0;
+
+  for (const s of jobsToCreate) {
+    const { error: insertErr } = await sb.from("job_queue").insert({
       job_type: "handbook_expand_section",
       status: "pending",
       priority: 3,
       payload: {
-        section_id: s.id,
+        section_id: (s as any).id,
         package_id: packageId,
         curriculum_id: curriculumId,
       },
       package_id: packageId,
-    }));
+      idempotency_key: `hb_expand_${packageId}_${(s as any).id}`,
+    });
 
-  if (jobsToCreate.length > 0) {
-    const { error: insertErr } = await sb.from("job_queue").insert(jobsToCreate);
-    if (insertErr) throw new Error(`Job insert: ${insertErr.message}`);
+    if (insertErr) {
+      if (insertErr.message?.includes("duplicate") || insertErr.message?.includes("unique")) {
+        skippedDuplicates++;
+      } else {
+        throw new Error(`Job insert: ${insertErr.message}`);
+      }
+    } else {
+      enqueued++;
+    }
   }
 
   console.log(`[enqueue-handbook-expand] Enqueued ${jobsToCreate.length} expand jobs for package ${packageId.slice(0, 8)} (${expandable.length} expandable, ${activeJobSectionIds.size} already active)`);
