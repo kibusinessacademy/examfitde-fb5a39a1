@@ -485,7 +485,8 @@ async function getDashboard(sb: SB) {
     safeFrom(sb, "package_steps", "package_id,step_key,status,started_at,finished_at,last_error,meta", (q: any) => q.limit(1000)),
   ]);
 
-  const dailyCost = (costToday as JsonRow[]).reduce((s, c) => s + (Number(c.cost_eur) || 0), 0);
+  const costSummary = costToday as any;
+  const dailyCost = Number(costSummary?.cost_today) || 0;
   const budget = (budgetRow as JsonRow[])[0];
   const revenue30dTotal = (orders30d as JsonRow[]).reduce((s, r) => s + (Number(r.total_amount) || Number(r.amount) || 0), 0);
 
