@@ -103,6 +103,7 @@ Deno.serve(async (req) => {
       priority: 3,
       payload: {
         section_id: (s as any).id,
+        lesson_id: (s as any).id,
         package_id: packageId,
         curriculum_id: curriculumId,
       },
