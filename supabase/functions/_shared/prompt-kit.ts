@@ -16,21 +16,14 @@
 // ─── Depth Self-Check (invisible to output) ──────────────────────────────────
 
 export const DEPTH_SELF_CHECK = `
-INTERNE SELBSTPRÜFUNG (nicht sichtbar ausgeben — intern prüfen, ggf. intern regenerieren):
-☐ Sind mind. 30% Transfer/Analyse-Anteile enthalten?
-☐ Ist mindestens 1 mehrstufige Fallvignette integriert?
-☐ Ist mindestens 1 Prüfungsfalle (⚠️) mit Erklärung des Denkfehlers enthalten?
-☐ Enthält mind. 1 ⭐ IHK-Prüfungstipp?
-☐ Enthält mind. 1 echtes Zahlenbeispiel mit realistischen, nicht-runden Zahlen?
-☐ Ist die Wiederholungsphase retrieval-basiert (aktiv, nicht passives Lesen)?
-☐ Enthält mind. 1 Entscheidungssituation mit Begründungspflicht?
-☐ Enthält mind. 1 Transferfrage ("Was wäre wenn...?")?
-☐ Bei Vergleichsthemen: Abgrenzungstabelle vorhanden?
-☐ Fachbegriffe werden erklärt UND im Berufskontext eingeordnet?
-☐ Kein Satz über 30 Wörter? Keine KI-Floskeln?
-☐ Keine reinen Definitionslisten ohne Kontextualisierung?
-☐ Mindestens 40% der Aufgaben in realistischen betrieblichen Szenarien eingebettet?
-Falls eine Pflicht fehlt: Ergänze intern vor der Ausgabe.`;
+SELBSTPRÜFUNG (intern, nicht ausgeben):
+☐ ≥30% Transfer/Analyse ☐ ≥1 Fallvignette ☐ ≥1 ⚠️ Prüfungsfalle mit Denkfehler-Erklärung
+☐ ≥1 ⭐ IHK-Tipp ☐ ≥1 Zahlenbeispiel (realistisch) ☐ ≥1 Transferfrage
+☐ Keine KI-Floskeln, keine Definitionslisten ohne Kontext
+Falls Pflicht fehlt → ergänzen.`;
+
+/** @deprecated Use DEPTH_SELF_CHECK — kept for reference only */
+export const DEPTH_SELF_CHECK_V1 = DEPTH_SELF_CHECK;
 
 // ─── Regulatory Hallucination Guard ──────────────────────────────────────────
 
