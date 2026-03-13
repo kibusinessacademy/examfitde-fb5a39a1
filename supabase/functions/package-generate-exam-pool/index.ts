@@ -679,11 +679,40 @@ async function generateTurboQuestions(
         max_tokens: maxTokens,
         timeout_ms: 45_000,
       });
+      // ── LOG COST EVENT (success) ──
+      const estimatedTokensIn = Math.ceil((system.length + user.length) / 3.5);
+      const estimatedTokensOut = Math.ceil((result.content?.length ?? 200) / 3.5);
+      const costSb = (globalThis as any).__examPoolSb;
+      if (costSb) {
+        await logLLMCostEvent(costSb, {
+          job_type: "package_generate_exam_pool",
+          provider, model,
+          tokens_in: estimatedTokensIn,
+          tokens_out: estimatedTokensOut,
+          package_id: bp.curriculum_id ? undefined : undefined,
+          status: "success",
+          attempt,
+          meta: { blueprint_id: bp.id, count, difficulty, questionType, cognitiveLevel },
+        });
+      }
       break;
     } catch (e: unknown) {
       const errMsg = (e as Error)?.message || String(e);
       const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409");
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
+
+      // ── LOG COST EVENT (fail/retry) ──
+      const costSb = (globalThis as any).__examPoolSb;
+      if (costSb) {
+        await logLLMCostEvent(costSb, {
+          job_type: "package_generate_exam_pool",
+          provider, model,
+          tokens_in: 0, tokens_out: 0,
+          status: isRate || isTimeout ? "retry" : "fail",
+          error_message: errMsg.slice(0, 500),
+          attempt,
+        });
+      }
 
       if (isRate || isTimeout) {
         console.log(`[ExamPool-v5] ${isTimeout ? "Timeout" : "RateLimit"} ${provider}/${model} attempt ${attempt}/3`);
