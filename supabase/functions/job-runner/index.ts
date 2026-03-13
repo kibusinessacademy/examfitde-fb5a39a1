@@ -310,21 +310,32 @@ Deno.serve(async (req) => {
   // certain steps fall through to the next candidate.
   // ⚠️ DO NOT add cross-branch dependencies here! Use PIPELINE_GRAPH.
   const PIPELINE_PREREQS: Record<string, string[]> = {
+    // ── Early chain (safety net — pipeline-process is primary gate) ──
+    package_generate_glossary: ["scaffold_learning_course"],
+    package_generate_learning_content: ["scaffold_learning_course"],
+    package_validate_learning_content: ["generate_learning_content"],
+    package_auto_seed_exam_blueprints: ["validate_learning_content"],
+    package_validate_blueprints: ["auto_seed_exam_blueprints"],
+    // ── Exam branch ──
     package_generate_exam_pool: ["validate_blueprints"],
     package_validate_exam_pool: ["generate_exam_pool"],
+    // ── Tutor branch (from validate_exam_pool) ──
     package_build_ai_tutor_index: ["validate_exam_pool"],
     package_validate_tutor_index: ["build_ai_tutor_index"],
+    // ── Oral exam branch (from validate_exam_pool) ──
     package_generate_oral_exam: ["validate_exam_pool"],
     package_validate_oral_exam: ["generate_oral_exam"],
-    // MiniChecks branch — parallel to exam/oral/handbook
+    // ── MiniChecks branch (from validate_learning_content) ──
     package_generate_lesson_minichecks: ["validate_learning_content"],
     package_validate_lesson_minichecks: ["generate_lesson_minichecks"],
-    // Elite harden — parallel branch from validate_exam_pool (DAG SSOT)
+    // ── Elite harden branch (from validate_exam_pool) ──
     package_elite_harden: ["validate_exam_pool"],
-    // Handbook — parallel branch from validate_learning_content (DAG SSOT)
+    // ── Handbook branch (from validate_learning_content) ──
     package_generate_handbook: ["validate_learning_content"],
     package_validate_handbook: ["generate_handbook"],
-    // Integrity check converges ALL terminal branches (DAG SSOT)
+    package_enqueue_handbook_expand: ["validate_handbook"],
+    package_validate_handbook_depth: ["expand_handbook"],
+    // ── Convergence: integrity check requires ALL 5 terminal branches ──
     package_run_integrity_check: ["elite_harden", "validate_lesson_minichecks", "validate_handbook_depth", "validate_oral_exam", "validate_tutor_index"],
     package_quality_council: ["run_integrity_check"],
     package_auto_publish: ["quality_council"],
