@@ -33,40 +33,19 @@ export const REGULATORY_GUARD = `
 // ─── MiniCheck Taxonomy Template ─────────────────────────────────────────────
 
 export function buildMiniCheckPrompt(professionName: string, context: string): string {
-  return `Erstelle 7-8 IHK-Prüfungsfragen für ${professionName}.
-
+  return `7-8 IHK-Prüfungsfragen für ${professionName}.
 ${context}
 
-SCHWIERIGKEITSVERTEILUNG (PFLICHT):
-- 2× LEICHT (Reproduktion): Definition/Begriff im konkreten Berufskontext von ${professionName}
-- 3× MITTEL (Anwendung): Rechnung/Zuordnung mit Zahlen, Dokumenten oder Prozessschritten aus dem Berufsalltag
-- 2-3× ANSPRUCHSVOLL (Transfer/Analyse): Fehlerdiagnose, beste Maßnahme in komplexer Situation, Mehrschritt-Denken
+VERTEILUNG: 2 leicht (Reproduktion), 3 mittel (Anwendung), 2-3 anspruchsvoll (Transfer).
+Anspruchsvoll = ≥2 Denkschritte + implizite Info.
 
-ANSPRUCHSVOLLE ITEMS MÜSSEN:
-- Mindestens 2 Denkschritte erfordern
-- Mindestens 1 implizite Information enthalten
-- Keine direkte Textübernahme ermöglichen
+PFLICHT: ≥3 Szenariofragen, ≥1 Transferfrage, ≥1 Prüfungsfalle, ≥1 Entscheidungsaufgabe.
 
-PFLICHT-ELEMENTE:
-- Mindestens 3 Fragen mit konkretem Szenario aus dem Berufsalltag von ${professionName}
-- Mindestens 1 Transferfrage ("Was wäre wenn...?")
-- Mindestens 1 typische Prüfungsfalle (häufiger Denkfehler)
-- Mindestens 1 Szenarioaufgabe mit Entscheidung
+DISTRAKTOREN (je 1 Fehlertyp):
+A: Norm/Frist-Verwechslung | B: Prozess-Verwechslung | C: Rechenfehler | D: Praxis-Fehleinschätzung
 
-DISTRAKTOR-TYPEN (jeder Distraktor = genau ein Fehlertyp):
-- Typ A: Norm/Frist-Verwechslung (falscher §, falsche Frist)
-- Typ B: Prozess-Verwechslung (falscher Schritt, falsche Reihenfolge)
-- Typ C: Rechenfehler (falscher Faktor, vergessener Schritt)
-- Typ D: Praxis-Fehleinschätzung (was plausibel klingt aber falsch ist)
-
-ERKLÄRUNGEN (PFLICHT für jede Frage):
-- Warum ist die richtige Antwort korrekt? (1-2 Sätze)
-- Warum ist Option A falsch? (konkreter Fehlertyp + WARUM der Denkfehler entsteht)
-- Warum ist Option B falsch?
-- Warum ist Option C falsch?
-- Abschluss: "Merke: ..." oder "Tipp: ..." (1 Satz Prüfungstipp)
-
-VERBOTEN: Reine "Was ist...?"-Fragen ohne Berufsbezug. Offensichtlich falsche Distraktoren. Mehr als 2 reine Reproduktionsfragen. Definitionsabfragen ohne Kontextualisierung.`;
+ERKLÄRUNG pro Frage: Warum richtig? + Warum jede Option falsch? (Fehlertyp + Denkfehler) + "Merke/Tipp:" (1 Satz).
+Keine "Was ist...?"-Fragen ohne Kontext. Keine offensichtlich falschen Distraktoren.`;
 }
 
 // ─── Anti-KI Style Rules ─────────────────────────────────────────────────────
