@@ -17,96 +17,24 @@ type LessonStep = (typeof LESSON_STEPS)[number];
  */
 function getStepPrompt(step: string, professionName: string): string {
   const prompts: Record<string, string> = {
-    einstieg: `Erstelle eine aktivierende Einstiegsaktivität, die das Vorwissen der Lernenden anspricht und Neugier für das Thema weckt.
-PFLICHT: Nutze ein konkretes Praxisszenario aus dem typischen Arbeitsalltag von ${professionName}.
-Das Szenario muss eine realistische berufliche Situation beschreiben, die ${professionName} tatsächlich so erleben — mit konkreten Akteuren (Kunden, Vorgesetzte, Kollegen), Zahlen und branchenüblichen Fachbegriffen.
+    einstieg: `Aktivierende Einstiegsaktivität für ${professionName}.
+Praxisszenario (konkrete Zahlen/Rollen/Akteure) → 2-3 Reflexionsfragen (1 Hypothese) → ⭐ Prüfungstipp.
+Kein passiver Einstieg, direkt ins Szenario.`,
 
-KOGNITIVE AKTIVIERUNG (PFLICHT):
-- Das Szenario muss eine offene Problemstellung enthalten, die zum Nachdenken zwingt (nicht nur Lesen)
-- 2–3 Reflexionsfragen, die Vorwissen aktivieren UND auf das Kernproblem der Lektion hinführen
-- Mindestens 1 Frage muss eine Hypothese provozieren ("Was glaubst du, warum...?")
+    verstehen: `Lernmaterial für ${professionName}. Bloom: 30% Reproduktion, 40% Anwendung, 30% Transfer.
+Definition + Gegenbeispiel → 1 Fallvignette → 2 Praxisbeispiele (Zahlen!) → ⭐ IHK-Tipp ×2 → ⚠️ 2 Fallen (Denkfehler erklären).
+Transferzwang: 1 Aufgabe die 2 Kompetenzen kombiniert. Keine Definitionslisten ohne Kontext.`,
 
-VERBOTEN: Generische Szenarien wie "in einem Unternehmen" oder "ein Mitarbeiter" ohne Berufsbezug. Keine passiven Einstiege ("Heute lernen wir über..."). Keine reinen Definitionseinstiege.`,
+    anwenden: `Entscheidungsszenario für ${professionName} (keine Beschreibung!).
+Fallbeispiel (Zahlen/Rollen/Parameter) → 2+ Optionen mit Pro-Contra + Begründungspflicht → ⚠️ Prüfungsfallen.
+Jede Aufgabe ≥2 Denkschritte. Azubi muss HANDELN + ENTSCHEIDEN.`,
 
-    verstehen: `Erstelle Lernmaterial zum Verstehen der Konzepte mit klaren Erklärungen, die direkt auf den Berufsalltag von ${professionName} bezogen sind.
+    wiederholen: `Prüfungsverdichtung mit Retrieval für ${professionName}. KEINE Erklärung!
+3 Leitfragen → 3-5 Merksätze → 1 Abgrenzungstabelle → 3 Prüfungsfallen → 2 Formulierungsübungen → Prüfer-Hinweis.`,
 
-BLOOM-VERTEILUNG (PFLICHT):
-- 30 % Reproduktion: Definitionen und Kernbegriffe im Berufskontext von ${professionName}
-- 40 % Anwendung: Konkrete Berechnungen, Zuordnungen oder Prozessschritte mit realistischen Zahlen
-- 30 % Analyse/Transfer: Vergleiche, Abgrenzungen, "Was wäre wenn...?"-Szenarien
-
-PFLICHT-ELEMENTE:
-1. Fachliche Erklärung mit berufsspezifischen Beispielen aus dem Arbeitsalltag von ${professionName}
-2. Nach JEDER Erklärung ein Gegenbeispiel, das typische Fehlannahmen von ${professionName} verdeutlicht
-3. IHK-Prüfungsbezüge: Markiere prüfungsrelevante Inhalte mit ⭐ und formuliere, wie die IHK dieses Thema typischerweise abfragt
-4. Fachbegriffe müssen so erklärt werden, wie sie im Berufsfeld ${professionName} tatsächlich verwendet werden
-5. Mindestens 1 mehrstufige Fallvignette mit mehreren Variablen (konkretes Szenario, nicht abstrakt)
-6. Mindestens 2 typische IHK-Prüfungsfallen mit ⚠️ markiert — inkl. Erklärung, WARUM der Denkfehler entsteht
-
-TRANSFER-ZWANG: Mindestens 1 Aufgabe, bei der Wissen aus mindestens zwei Kompetenzbereichen kombiniert wird.
-
-VERBOTEN: Akademische Definitionen ohne Praxisbezug. Reine Definitionslisten. Aufzählungsdidaktik ohne Kontext. Jeder Absatz muss den Bezug zu ${professionName} herstellen.`,
-
-    anwenden: `Erstelle ein Entscheidungsszenario (KEINE reine Beschreibung) aus dem Berufsalltag von ${professionName}.
-
-SZENARIO-ANFORDERUNGEN (PFLICHT):
-- Mindestens 1 komplexes Szenario mit mehreren Variablen (konkrete Zahlen, Namen, Kontexte)
-- Das Szenario muss eine realistische betriebliche Situation abbilden mit konkreten Entscheidungsparametern
-- Szenarien dürfen NICHT generisch sein ("Ein Kunde kommt…") — sie müssen enthalten: konkrete Zahlen, konkrete Rollen, konkrete Entscheidungsparameter
-
-PFLICHT-ELEMENTE:
-1. Konkretes Fallbeispiel: Ein/e ${professionName} steht vor einer beruflichen Entscheidung mit realistischen Zahlen, Namen und Kontexten
-2. Mindestens 2 Entscheidungsoptionen mit fachlicher Abwägung der Vor- und Nachteile
-3. Typische Prüfungsfallen mit ⚠️ markiert — Fehler, die ${professionName} in der IHK-Prüfung häufig machen, inkl. Erklärung WARUM der Denkfehler entsteht
-4. Der Lernende muss die Entscheidung treffen UND fachlich begründen
-5. Mindestens 1 Entscheidungssituation mit Begründungspflicht (nicht nur "wähle richtig" sondern "begründe warum")
-
-MEHRSCHRITT-DENKEN: Die Aufgabe muss mindestens 2 Denkschritte erfordern. Keine Aufgaben, die mit einer einzigen Faktenkenntnis lösbar sind.
-
-VERBOTEN: Reine Beschreibungen ("So funktioniert X"). Generische Beispiele ohne Praxisbezug. Aufgaben ohne echte Entscheidungstiefe. Der Lernende muss HANDELN und ENTSCHEIDEN.`,
-
-    wiederholen: `Erstelle KEINE erneute Erklärung. Erstelle stattdessen eine PRÜFUNGSVERDICHTUNG mit RETRIEVAL-MECHANIK für ${professionName}:
-
-RETRIEVAL-DESIGN (PFLICHT — keine bloße Zusammenfassung!):
-Die Wiederholungsphase muss aktives Erinnern erzwingen, nicht passives Lesen.
-
-PFLICHT-ELEMENTE:
-1. 3 strukturierte Leitfragen (der Lernende muss selbst antworten, bevor er die Lösung sieht)
-2. 3-5 kompakte Merksätze mit den Fachbegriffen, wie sie in der IHK-Prüfung für ${professionName} erwartet werden
-3. 1 Verknüpfung zu einer anderen Kompetenz ("Dieses Thema hängt zusammen mit...")
-4. 1 typische Verwechslungsgefahr mit Abgrenzungstabelle (ähnliche Begriffe/Konzepte, die ${professionName} verwechseln)
-5. Typische IHK-Prüfungsfallen: 3 häufige Fehler, die ${professionName} in der Prüfung machen, mit Erklärung warum sie falsch sind
-6. 2 Formulierungsübungen: Sätze in IHK-Prüfungssprache umformulieren (vorher/nachher)
-7. Prüfer-Hinweis: Was IHK-Prüfer bei ${professionName} besonders gern nachfragen
-
-VERBOTEN: Erneute Erklärung des Stoffes. Passive Zusammenfassungen ("In dieser Lektion haben wir gelernt..."). Wiederholung ohne Retrieval-Mechanik. NUR Verdichtung und aktive Prüfungsvorbereitung.`,
-
-    mini_check: `Erstelle 7–8 situative Multiple-Choice-Fragen auf IHK-Prüfungsniveau für ${professionName}.
-
-SCHWIERIGKEITSVERTEILUNG (PFLICHT — exakt einhalten):
-- 2 Items: LEICHT (Reproduktion/Grundwissen — Bloom 1-2)
-- 3 Items: MITTEL (Anwendung — Bloom 3)
-- 2–3 Items: ANSPRUCHSVOLL (Transfer/Analyse — Bloom 4-5)
-
-ANSPRUCHSVOLLE ITEMS MÜSSEN:
-- Mehrschritt-Denken erfordern (mind. 2 Denkschritte)
-- Mindestens 1 implizite Information enthalten (nicht alles steht direkt im Text)
-- Keine direkte Textübernahme aus der Lektion ermöglichen
-
-PFLICHT-ELEMENTE:
-1. Mindestens 3 Fragen MÜSSEN ein konkretes Fallbeispiel/Szenario aus dem Berufsalltag von ${professionName} enthalten
-2. Mindestens 1 Transferfrage ("Was wäre wenn...?" / Wissen auf neue Situation übertragen)
-3. Mindestens 1 typische Prüfungsfalle (häufiger Denkfehler von ${professionName})
-4. Mindestens 1 Szenarioaufgabe mit Entscheidung und Begründung
-5. Distraktoren müssen PLAUSIBEL sein — sie bilden typische Denkfehler von ${professionName} ab, nicht offensichtlichen Unsinn
-6. Jede Frage muss berufsspezifisch formuliert sein (nicht generisch übertragbar auf andere Berufe)
-7. Erklärungen müssen den KONKRETEN Denkfehler hinter jedem falschen Distraktor benennen
-
-DISTRAKTOR-QUALITÄT (PFLICHT für jeden Distraktor):
-- Warum ist diese Option verlockend? (psychologischer Fang-Aspekt)
-- Warum ist sie fachlich falsch? (konkreter Fehlertyp)
-
-VERBOTEN: Reine Wissensfragen wie "Was ist...?" ohne beruflichen Kontext. Offensichtlich falsche Distraktoren. Definitionsabfragen ohne Kontextualisierung. Mehr als 2 reine Reproduktionsfragen.`,
+    mini_check: `7-8 MC-Fragen (IHK-Niveau) für ${professionName}.
+Verteilung: 2 leicht (Bloom 1-2), 3 mittel (Bloom 3), 2-3 anspruchsvoll (Bloom 4-5).
+≥3 Szenariofragen, ≥1 Transferfrage, ≥1 Prüfungsfalle. Plausible Distraktoren mit Fehlertyp-Erklärung.`,
   };
   return prompts[step] || prompts.einstieg;
 }

@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `Du bist ein IHK-Fachexperte für ${professionName}. REPARATUR-MODUS: Diese Lektion hat bei vorherigen Generierungsversuchen Fehler verursacht. Generiere den Inhalt besonders sorgfältig und vollständig. Nutze IMMER die bereitgestellte Funktion.`,
+                content: `IHK-Fachexperte für ${professionName}. REPARATUR: Vorherige Versuche fehlgeschlagen. Generiere sorgfältig + vollständig. Nutze die Funktion.`,
               },
               { role: "user", content: repairPrompt },
             ],

@@ -6,49 +6,21 @@ import { getModel } from "../_shared/model-routing.ts";
 import { canonicalStepKey } from "../_shared/step-keys.ts";
 
 const STEP_PROMPTS: Record<string, string> = {
-  einstieg: `Erstelle eine **aktivierende Einstiegsaktivität** (ca. 1000–1500 Zeichen HTML).
-Struktur:
-- <h3>Motivierender Titel</h3>
-- Konkretes Praxisszenario mit realistischen Zahlen, Rollen und Entscheidungsparametern (KEIN generisches "Ein Kunde kommt...")
-- 2-3 Reflexionsfragen, davon mind. 1 Hypothesen-Frage ("Was glaubst du, warum...?")
-- Bezug zum Vorwissen der Azubis
-- Kognitive Aktivierung: Problem muss zum Nachdenken zwingen, nicht nur zum Lesen
-VERBOTEN: Passive Einstiege ("Heute lernen wir..."), reine Definitionseinstiege`,
+  einstieg: `Erstelle eine **aktivierende Einstiegsaktivität** (1000–1500 Zeichen HTML).
+<h3>Motivierender Titel</h3> → Praxisszenario (konkrete Zahlen/Rollen) → 2-3 Reflexionsfragen (1 Hypothese) → ⭐ Prüfungstipp.
+Kein passiver Einstieg. Direkt ins Szenario.`,
 
-  verstehen: `Erstelle **ausführliches Lernmaterial** (ca. 2000–3000 Zeichen HTML).
-Bloom-Verteilung: 30% Reproduktion, 40% Anwendung, 30% Analyse/Transfer
-Struktur:
-- <h3>Konzept-Titel</h3>
-- Klare Definition UND Gegenbeispiel (was es NICHT ist)
-- Mindestens 1 mehrstufige Fallvignette mit mehreren Variablen
-- Mindestens 2 praxisnahe Beispiele mit konkreten Zahlen aus dem Berufsalltag
-- Wichtige Fachbegriffe als <strong>
-- ⭐ IHK-Prüfungstipp + ⚠️ 2 typische Prüfungsfallen mit Erklärung WARUM der Denkfehler entsteht
-- Abgrenzungstabelle bei vergleichbaren Begriffen
-VERBOTEN: Reine Definitionslisten, Aufzählungsdidaktik ohne Kontext`,
+  verstehen: `Erstelle **Lernmaterial** (2000–3000 Zeichen HTML). Bloom: 30/40/30.
+<h3>Konzept</h3> → Definition + Gegenbeispiel → 1 Fallvignette → 2 Praxisbeispiele (Zahlen!) → <strong>Fachbegriffe</strong> → ⭐ Prüfungstipp + ⚠️ 2 Fallen (Denkfehler erklären) → Abgrenzungstabelle bei Vergleichen.
+Keine Definitionslisten ohne Kontext.`,
 
-  anwenden: `Erstelle **praktische Übungsaufgaben** (ca. 1500–2500 Zeichen HTML).
-Struktur:
-- <h3>Praxis-Titel</h3>
-- Realistische Arbeitssituation als Szenario mit konkreten Zahlen, Rollen und Entscheidungsparametern
-- 2-3 konkrete Aufgaben mit steigendem Schwierigkeitsgrad
-- Mindestens 1 Entscheidungssituation mit Begründungspflicht
-- Mindestens 1 Aufgabe mit Mehrschritt-Denken (mind. 2 Denkschritte)
-- ⚠️ Typische Prüfungsfallen markiert
-- Bezug zur beruflichen Praxis (IHK-relevant)
-VERBOTEN: Generische Szenarien, Aufgaben die mit 1 Faktenkenntnis lösbar sind`,
+  anwenden: `Erstelle **Übungsaufgaben** (1500–2500 Zeichen HTML).
+<h3>Praxis-Titel</h3> → Szenario (Zahlen/Rollen) → 2-3 Aufgaben (steigend) → 1 Entscheidung mit Begründung → 1 Mehrschritt-Aufgabe → ⚠️ Prüfungsfallen.
+Keine generischen Szenarien. Jede Aufgabe ≥2 Denkschritte.`,
 
-  wiederholen: `Erstelle **Retrieval-basierte Wiederholungsaktivitäten** (ca. 1200–1800 Zeichen HTML).
-KEINE bloße Zusammenfassung — aktives Erinnern erzwingen!
-Struktur:
-- <h3>Prüfungsverdichtung & aktive Wiederholung</h3>
-- 3 strukturierte Leitfragen (Azubi muss selbst antworten bevor Lösung sichtbar)
-- Die 5 wichtigsten Punkte als nummerierte Merksätze
-- 1 Abgrenzungstabelle (ähnliche Begriffe/Konzepte)
-- 1 Verknüpfung zu anderer Kompetenz ("Hängt zusammen mit...")
-- 1 typische Verwechslungsgefahr mit Erklärung
-- Checkliste: "Ich kann jetzt..."
-VERBOTEN: Passive Zusammenfassungen ("Wir haben gelernt..."), Wiederholung ohne Retrieval-Mechanik`,
+  wiederholen: `Erstelle **Retrieval-Wiederholung** (1200–1800 Zeichen HTML).
+<h3>Prüfungsverdichtung</h3> → 3 Leitfragen → 5 Merksätze → 1 Abgrenzungstabelle → 1 Verwechslungsgefahr → Checkliste "Ich kann jetzt..."
+KEINE passive Zusammenfassung.`,
 };
 
 const MINICHECK_TOOL = {
@@ -141,11 +113,7 @@ Deno.serve(async (req) => {
           provider: routed.provider,
           model: routed.model,
           messages: [
-            { role: "system", content: `Du agierst als IHK-Prüfer, Ausbildungsleiter und Fachdidaktiker.
-Ziel ist MAXIMALE PRÜFUNGSREIFE — nicht reine Wissensvermittlung. Inhalte müssen prüfungsnah, transferorientiert und fehleranalytisch sein.
-Bloom-Verteilung: 30% Reproduktion, 40% Anwendung, 30% Transfer.
-VERBOTEN: Reine Definitionslisten, Aufzählungsdidaktik ohne Kontext, passive Zusammenfassungen, KI-Floskeln, generische Beispiele.
-Nutze IMMER die Funktion.` },
+            { role: "system", content: `IHK-Fachexperte. REPARATUR-MODUS: Prüfungsreif, transferorientiert. Bloom: 30/40/30. Keine Floskeln, keine Definitionslisten. Nutze die Funktion.` },
             { role: "user", content: prompt }
           ],
           tools: [isMiniCheck ? MINICHECK_TOOL : CONTENT_TOOL] as any,

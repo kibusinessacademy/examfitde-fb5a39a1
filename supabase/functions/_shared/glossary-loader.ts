@@ -228,56 +228,52 @@ export async function loadOrGenerateGlossary(
 /**
  * Format glossary for injection into generator prompts.
  * Returns a compact string suitable for system prompt context.
+ * 
+ * @param g - Full glossary
+ * @param scopeLf - Optional: learning field code to filter terms (e.g. "LF3"). 
+ *                  If provided, only terms for that LF + formulas/traps are included.
+ *                  Saves ~40-60% tokens vs full glossary.
  */
-export function formatGlossaryForPrompt(g: ProfessionGlossary): string {
+export function formatGlossaryForPrompt(g: ProfessionGlossary, scopeLf?: string | null): string {
   const parts: string[] = [];
+  parts.push(`\n=== FACHINDEX: ${g.professionName} ===`);
 
-  parts.push(`\n=== FACHTERMINOLOGIE-INDEX: ${g.professionName} ===`);
-
-  // Top terms per learning field (compact)
+  // Terms: scoped to LF if provided, else top 20 across all
   if (g.fachbegriffe) {
-    parts.push("\nFACHBEGRIFFE (nach Lernfeld):");
-    for (const [lf, terms] of Object.entries(g.fachbegriffe)) {
-      parts.push(`  ${lf}: ${(terms as string[]).slice(0, 30).join(", ")}`);
+    if (scopeLf) {
+      // Find matching LF key (fuzzy: "LF3", "Lernfeld 3", etc.)
+      const lfNorm = scopeLf.replace(/\s+/g, "").toLowerCase();
+      const matchKey = Object.keys(g.fachbegriffe).find(k => 
+        k.replace(/\s+/g, "").toLowerCase().includes(lfNorm) || lfNorm.includes(k.replace(/\s+/g, "").toLowerCase())
+      );
+      if (matchKey) {
+        parts.push(`Fachbegriffe (${matchKey}): ${(g.fachbegriffe[matchKey] as string[]).slice(0, 20).join(", ")}`);
+      } else {
+        // Fallback: first 15 terms from any LF
+        const allTerms = Object.values(g.fachbegriffe).flat().slice(0, 15);
+        parts.push(`Fachbegriffe: ${allTerms.join(", ")}`);
+      }
+    } else {
+      // No scope: compact — max 20 terms total
+      const allTerms = Object.values(g.fachbegriffe).flat().slice(0, 20);
+      parts.push(`Fachbegriffe: ${allTerms.join(", ")}`);
     }
   }
 
-  // Formulas
+  // Formulas: max 6 (compact format)
   if (g.formeln?.length) {
-    parts.push("\nPRÜFUNGSRELEVANTE FORMELN:");
-    for (const f of g.formeln.slice(0, 15)) {
-      parts.push(`  • ${f.name}: ${f.formel} → Bsp: ${f.beispiel}`);
-    }
+    parts.push("Formeln: " + g.formeln.slice(0, 6).map(f => `${f.name}: ${f.formel}`).join(" | "));
   }
 
-  // Exam traps
+  // Exam traps: max 6
   if (g.pruefungsfallen?.length) {
-    parts.push("\nTYPISCHE IHK-PRÜFUNGSFALLEN:");
-    for (const t of g.pruefungsfallen.slice(0, 15)) {
-      parts.push(`  ⚠ ${t}`);
-    }
+    parts.push("Prüfungsfallen: " + g.pruefungsfallen.slice(0, 6).join(" | "));
   }
 
-  // Scenarios (compact)
-  if (g.szenarien?.length) {
-    parts.push("\nPRAXISSZENARIEN:");
-    for (const s of g.szenarien.slice(0, 8)) {
-      parts.push(`  📋 ${s.titel}: ${s.beschreibung.slice(0, 120)}… (Akteure: ${s.akteure.join(", ")})`);
-    }
-  }
+  // Skip scenarios + branchenkontext (low value per token — profession name already provides context)
 
-  // Industry specifics
-  if (g.branchenspezifisch) {
-    const b = g.branchenspezifisch;
-    parts.push("\nBRANCHENKONTEXT:");
-    if (b.typische_akteure?.length) parts.push(`  Akteure: ${b.typische_akteure.join(", ")}`);
-    if (b.arbeitsumgebungen?.length) parts.push(`  Umgebungen: ${b.arbeitsumgebungen.join(", ")}`);
-    if (b.dokumente?.length) parts.push(`  Dokumente: ${b.dokumente.join(", ")}`);
-    if (b.werkzeuge_software?.length) parts.push(`  Tools: ${b.werkzeuge_software.join(", ")}`);
-  }
-
-  parts.push("\n=== ENDE FACHTERMINOLOGIE-INDEX ===");
-  parts.push("\nVERWENDE diese Fachbegriffe, Formeln und Szenarien aktiv in deinen Inhalten. Erfinde KEINE branchenfremden Begriffe.");
+  parts.push("=== ENDE FACHINDEX ===");
+  parts.push("Nutze diese Begriffe/Formeln. Keine branchenfremden Begriffe erfinden.");
 
   return parts.join("\n");
 }

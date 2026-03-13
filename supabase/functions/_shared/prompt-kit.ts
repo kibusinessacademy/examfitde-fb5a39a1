@@ -16,78 +16,42 @@
 // ─── Depth Self-Check (invisible to output) ──────────────────────────────────
 
 export const DEPTH_SELF_CHECK = `
-INTERNE SELBSTPRÜFUNG (nicht sichtbar ausgeben — intern prüfen, ggf. intern regenerieren):
-☐ Sind mind. 30% Transfer/Analyse-Anteile enthalten?
-☐ Ist mindestens 1 mehrstufige Fallvignette integriert?
-☐ Ist mindestens 1 Prüfungsfalle (⚠️) mit Erklärung des Denkfehlers enthalten?
-☐ Enthält mind. 1 ⭐ IHK-Prüfungstipp?
-☐ Enthält mind. 1 echtes Zahlenbeispiel mit realistischen, nicht-runden Zahlen?
-☐ Ist die Wiederholungsphase retrieval-basiert (aktiv, nicht passives Lesen)?
-☐ Enthält mind. 1 Entscheidungssituation mit Begründungspflicht?
-☐ Enthält mind. 1 Transferfrage ("Was wäre wenn...?")?
-☐ Bei Vergleichsthemen: Abgrenzungstabelle vorhanden?
-☐ Fachbegriffe werden erklärt UND im Berufskontext eingeordnet?
-☐ Kein Satz über 30 Wörter? Keine KI-Floskeln?
-☐ Keine reinen Definitionslisten ohne Kontextualisierung?
-☐ Mindestens 40% der Aufgaben in realistischen betrieblichen Szenarien eingebettet?
-Falls eine Pflicht fehlt: Ergänze intern vor der Ausgabe.`;
+SELBSTPRÜFUNG (intern, nicht ausgeben):
+☐ ≥30% Transfer/Analyse ☐ ≥1 Fallvignette ☐ ≥1 ⚠️ Prüfungsfalle mit Denkfehler-Erklärung
+☐ ≥1 ⭐ IHK-Tipp ☐ ≥1 Zahlenbeispiel (realistisch) ☐ ≥1 Transferfrage
+☐ Keine KI-Floskeln, keine Definitionslisten ohne Kontext
+Falls Pflicht fehlt → ergänzen.`;
+
+/** @deprecated Use DEPTH_SELF_CHECK — kept for reference only */
+export const DEPTH_SELF_CHECK_V1 = DEPTH_SELF_CHECK;
 
 // ─── Regulatory Hallucination Guard ──────────────────────────────────────────
 
 export const REGULATORY_GUARD = `
-REGULATORIK-REGEL (KRITISCH):
-- Nenne §§, Fristen und Normen NUR, wenn sie dir aus dem bereitgestellten SSOT-Kontext, Glossar oder allgemeinem Fachwissen sicher bekannt sind.
-- Bei Unsicherheit: Schreibe "Die genaue Rechtsgrundlage ist im Betrieb oder IHK-Merkblatt nachzuprüfen" statt einen § zu erfinden.
-- NIEMALS Paragraphen, Gesetze oder Fristen halluzinieren. Falsche §-Angaben führen zu Auto-Reject.`;
+§-REGEL: Nenne §§/Fristen NUR wenn sicher bekannt. Bei Unsicherheit: "Rechtsgrundlage im IHK-Merkblatt prüfen." Falsche §§ → Auto-Reject.`;
 
 // ─── MiniCheck Taxonomy Template ─────────────────────────────────────────────
 
 export function buildMiniCheckPrompt(professionName: string, context: string): string {
-  return `Erstelle 7-8 IHK-Prüfungsfragen für ${professionName}.
-
+  return `7-8 IHK-Prüfungsfragen für ${professionName}.
 ${context}
 
-SCHWIERIGKEITSVERTEILUNG (PFLICHT):
-- 2× LEICHT (Reproduktion): Definition/Begriff im konkreten Berufskontext von ${professionName}
-- 3× MITTEL (Anwendung): Rechnung/Zuordnung mit Zahlen, Dokumenten oder Prozessschritten aus dem Berufsalltag
-- 2-3× ANSPRUCHSVOLL (Transfer/Analyse): Fehlerdiagnose, beste Maßnahme in komplexer Situation, Mehrschritt-Denken
+VERTEILUNG: 2 leicht (Reproduktion), 3 mittel (Anwendung), 2-3 anspruchsvoll (Transfer).
+Anspruchsvoll = ≥2 Denkschritte + implizite Info.
 
-ANSPRUCHSVOLLE ITEMS MÜSSEN:
-- Mindestens 2 Denkschritte erfordern
-- Mindestens 1 implizite Information enthalten
-- Keine direkte Textübernahme ermöglichen
+PFLICHT: ≥3 Szenariofragen, ≥1 Transferfrage, ≥1 Prüfungsfalle, ≥1 Entscheidungsaufgabe.
 
-PFLICHT-ELEMENTE:
-- Mindestens 3 Fragen mit konkretem Szenario aus dem Berufsalltag von ${professionName}
-- Mindestens 1 Transferfrage ("Was wäre wenn...?")
-- Mindestens 1 typische Prüfungsfalle (häufiger Denkfehler)
-- Mindestens 1 Szenarioaufgabe mit Entscheidung
+DISTRAKTOREN (je 1 Fehlertyp):
+A: Norm/Frist-Verwechslung | B: Prozess-Verwechslung | C: Rechenfehler | D: Praxis-Fehleinschätzung
 
-DISTRAKTOR-TYPEN (jeder Distraktor = genau ein Fehlertyp):
-- Typ A: Norm/Frist-Verwechslung (falscher §, falsche Frist)
-- Typ B: Prozess-Verwechslung (falscher Schritt, falsche Reihenfolge)
-- Typ C: Rechenfehler (falscher Faktor, vergessener Schritt)
-- Typ D: Praxis-Fehleinschätzung (was plausibel klingt aber falsch ist)
-
-ERKLÄRUNGEN (PFLICHT für jede Frage):
-- Warum ist die richtige Antwort korrekt? (1-2 Sätze)
-- Warum ist Option A falsch? (konkreter Fehlertyp + WARUM der Denkfehler entsteht)
-- Warum ist Option B falsch?
-- Warum ist Option C falsch?
-- Abschluss: "Merke: ..." oder "Tipp: ..." (1 Satz Prüfungstipp)
-
-VERBOTEN: Reine "Was ist...?"-Fragen ohne Berufsbezug. Offensichtlich falsche Distraktoren. Mehr als 2 reine Reproduktionsfragen. Definitionsabfragen ohne Kontextualisierung.`;
+ERKLÄRUNG pro Frage: Warum richtig? + Warum jede Option falsch? (Fehlertyp + Denkfehler) + "Merke/Tipp:" (1 Satz).
+Keine "Was ist...?"-Fragen ohne Kontext. Keine offensichtlich falschen Distraktoren.`;
 }
 
 // ─── Anti-KI Style Rules ─────────────────────────────────────────────────────
 
 export const ANTI_KI_RULES = `
-ANTI-KI-REGELN:
-- KEINE Sätze wie "In der heutigen Geschäftswelt...", "Es ist wichtig zu verstehen, dass...", "Grundsätzlich gilt..."
-- KEINE generischen Aufzählungen ohne konkreten Berufsbezug
-- KEINE Wiederholung der Aufgabenstellung in der Antwort
-- KEIN "Lehrbuch-Deutsch" — schreibe wie ein erfahrener Ausbilder im Betrieb
-- Kurze, klare Sätze (max 30 Wörter pro Satz)`;
+STIL: Keine Floskeln ("In der heutigen Geschäftswelt..."). Keine Wiederholungen. Direkt starten. Max 25 Wörter/Satz. Schreibe wie ein Ausbilder, nicht wie ein Lehrbuch.`;
 
 // ─── Role-Specific Output Templates (for AI Tutor) ──────────────────────────
 
@@ -131,10 +95,7 @@ Maximal 5 Bullet Points. Unter 120 Wörtern.`,
 // ─── Source Citation Rule ────────────────────────────────────────────────────
 
 export const SOURCE_CITATION_RULE = `
-QUELLEN-REGEL:
-- Nenne Quellen (§, Gesetz, Norm, Richtlinie) NUR, wenn sie im SSOT-Kontext enthalten sind oder dir sicher bekannt sind.
-- Bei Unsicherheit: "Die genaue Rechtsgrundlage ist im Betrieb/IHK-Merkblatt zu prüfen."
-- NIEMALS Quellen erfinden oder raten.`;
+QUELLEN: Nur gesicherte §§/Normen zitieren. Bei Unsicherheit: "Im IHK-Merkblatt zu prüfen." Nie erfinden.`;
 
 // ─── Explanation Template with Prüfungsanker ─────────────────────────────────
 
