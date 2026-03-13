@@ -266,8 +266,8 @@ export async function handleEnqueue(
     }
   }
 
-  // ── ACTIVE JOB DEDUP GUARD: prevent infinite re-enqueue loop ──
-  // If there are already pending/processing jobs for this step+package, skip enqueue
+  // ── ACTIVE JOB DEDUP GUARD v3: prevent infinite re-enqueue loop ──
+  // Check 1: active jobs (pending/processing) for this step+package
   const { count: activeJobCount } = await sb
     .from("job_queue")
     .select("id", { count: "exact", head: true })
@@ -275,8 +275,42 @@ export async function handleEnqueue(
     .eq("package_id", packageId)
     .in("status", ["pending", "processing"]);
 
-  if ((activeJobCount ?? 0) > 0) {
-    console.log(`[runner] ⏭️ Skipping enqueue for ${stepKey} — ${activeJobCount} active job(s) already exist for ${shortId}`);
+  // Check 2: RECENTLY COMPLETED root jobs (last 5 min) — prevents rapid re-fan-out
+  // Root fan-out jobs (e.g. exam_pool) complete instantly, making them invisible to
+  // the active-only check above. This caused 990+ jobs/hour loops.
+  const DEDUP_COOLDOWN_MS = 5 * 60 * 1000;
+  const cooldownCutoff = new Date(Date.now() - DEDUP_COOLDOWN_MS).toISOString();
+  const { count: recentCompletedCount } = await sb
+    .from("job_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("job_type", jobType)
+    .eq("package_id", packageId)
+    .eq("status", "completed")
+    .gte("completed_at", cooldownCutoff);
+
+  // Check 3: Active FAN-OUT sub-jobs (for fan-out job types like exam_pool)
+  // Even if the root job completed, sub-jobs may still be running
+  let activeFanOutCount = 0;
+  if (jobType === "package_generate_exam_pool" || jobType === "package_generate_lesson_minichecks") {
+    const { count: subJobCount } = await sb
+      .from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("job_type", jobType)
+      .eq("package_id", packageId)
+      .in("status", ["pending", "processing"])
+      .not("payload->_fan_out", "is", null);
+    activeFanOutCount = subJobCount ?? 0;
+  }
+
+  const totalActiveOrRecent = (activeJobCount ?? 0) + (recentCompletedCount ?? 0) + activeFanOutCount;
+
+  if (totalActiveOrRecent > 0) {
+    const reason = (activeJobCount ?? 0) > 0
+      ? "active_jobs_exist"
+      : activeFanOutCount > 0
+        ? "active_fanout_sub_jobs"
+        : "recently_completed_cooldown";
+    console.log(`[runner] ⏭️ Skipping enqueue for ${stepKey} — active=${activeJobCount}, recentCompleted=${recentCompletedCount}, fanOutSubs=${activeFanOutCount} for ${shortId} (reason: ${reason})`);
     // Link the step to an existing job if needed
     if (currentStep?.status === "queued") {
       const { data: existingJob } = await sb
@@ -297,7 +331,7 @@ export async function handleEnqueue(
         );
       }
     }
-    return { packageId, stepKey, skipped: true, reason: "active_jobs_exist", active_jobs: activeJobCount };
+    return { packageId, stepKey, skipped: true, reason, active_jobs: activeJobCount, recent_completed: recentCompletedCount, fanout_subs: activeFanOutCount };
   }
 
   console.log(`[runner] Enqueuing ${jobType} for step ${stepKey} (pkg ${shortId})`);
