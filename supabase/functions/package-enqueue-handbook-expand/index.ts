@@ -98,7 +98,6 @@ Deno.serve(async (req) => {
         package_id: packageId,
         curriculum_id: curriculumId,
       },
-      parent_step_key: "expand_handbook",
       package_id: packageId,
     }));
 
