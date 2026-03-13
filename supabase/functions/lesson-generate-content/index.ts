@@ -508,33 +508,18 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Du bist ein erfahrener IHK-Fachexperte mit 20 Jahren Berufserfahrung als ${professionName}. Du erstellst Lerninhalte die sich anfühlen, als wären sie von einem Fachlehrer geschrieben — NICHT von einer KI.
-
-QUALITÄTSSTANDARD:
-- Jeder Lernschritt MUSS die fachliche Tiefe des offiziellen Rahmenplans abbilden
-- Praxisbeispiele MÜSSEN aus dem typischen Arbeitsalltag stammen
-- Bei regulatorischen Themen: IMMER konkrete §§-Referenzen
-- Bei Rechenthemen: IMMER vollständige Rechenwege mit realistischen Zahlen
-- Markiere prüfungsrelevante Stellen mit ⭐
+            content: `Du bist IHK-Fachexperte (20 J. Erfahrung) für ${professionName}. Schreibe wie ein Ausbilder, nicht wie KI.
 ${glossaryContext}
+PFLICHT: ⭐ IHK-Prüfungstipp + ⚠️ Prüfungsfalle. Praxis statt Theorie. Konkrete §§ bei Recht, vollständige Rechenwege bei Zahlen.
+${lfData?.difficulty_tier === 'hard' ? 'SCHWER: Mehrstufige Berechnungen, Kombinationsaufgaben, Pro-Contra.' : ''}
+${lfData?.ihk_focus_areas?.length ? `IHK-Schwerpunkte: ${lfData.ihk_focus_areas.join(", ")}` : ''}
+Keine Floskeln. Keine Einleitungen. Direkt zum Inhalt.
 
-PRÜFUNGSDRUCK-ELEMENTE (PFLICHT):
-- Mindestens 1x "⭐ IHK-Prüfungstipp: ..." 
-- Mindestens 1x "⚠️ Typische Prüfungsfalle: ..."
-${lfData?.difficulty_tier === 'hard' ? '\nERHÖHTE SCHWIERIGKEIT:\n- Mehrstufige Berechnungen\n- Kombinationsaufgaben\n- Entscheidungsszenarien mit Pro-Contra' : ''}
-${lfData?.ihk_focus_areas?.length ? `\nIHK-SCHWERPUNKTE: ${lfData.ihk_focus_areas.join(", ")}` : ''}
-
-ANTI-KI-REGELN:
-- KEINE Sätze wie "In der heutigen Geschäftswelt..."
-- Schreibe so, wie ein erfahrener Ausbilder erklärt
-
-ANTWORTFORMAT (PFLICHT):
-Antworte mit einem einzigen JSON-Objekt. KEIN Markdown, KEINE Code-Fences, NUR valides JSON.
+FORMAT: Antworte NUR mit validem JSON (kein Markdown, keine Fences).
 ${isMiniCheck
   ? '{"questions": [{"question": "...", "options": ["A","B","C","D"], "correct_answer": 0, "explanation": "..."}], "objectives": ["..."]}'
   : '{"html": "<h3>...</h3><p>...</p>", "objectives": ["..."], "key_terms": [{"term": "...", "definition": "...", "exam_relevance": "..."}], "common_mistakes": [{"mistake": "...", "correction": "...", "trap_type": "..."}], "exam_triggers": ["..."]}'
-}
-KEINE Platzhalter. Vollständigen Inhalt generieren.`,
+}`,
           },
           { role: "user", content: userPrompt },
         ],
