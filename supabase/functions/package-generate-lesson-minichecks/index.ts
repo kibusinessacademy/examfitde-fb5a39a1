@@ -239,13 +239,20 @@ Deno.serve(async (req) => {
           }
 
           const lessonIds = allLessons.map(l => l.id);
-          const { data: existing } = await sb
-            .from("minicheck_questions")
-            .select("lesson_id")
-            .in("lesson_id", lessonIds)
-            .eq("curriculum_id", curriculumId)
-            .eq("mode", "lesson");
-          const existingSet = new Set((existing || []).map(e => e.lesson_id));
+          // FIX: Use .limit(5000) to avoid Supabase 1000-row default limit
+          // which caused infinite loops when >142 lessons had minichecks (7 rows each > 1000)
+          const existingSet = new Set<string>();
+          for (let i = 0; i < lessonIds.length; i += 200) {
+            const chunk = lessonIds.slice(i, i + 200);
+            const { data: existing } = await sb
+              .from("minicheck_questions")
+              .select("lesson_id")
+              .in("lesson_id", chunk)
+              .eq("curriculum_id", curriculumId)
+              .eq("mode", "lesson")
+              .limit(5000);
+            for (const e of existing || []) existingSet.add(e.lesson_id);
+          }
 
           for (const lesson of allLessons) {
             if (existingSet.has(lesson.id)) continue;
@@ -293,13 +300,19 @@ Deno.serve(async (req) => {
       if (!allComps?.length) throw new Error("No competencies found");
 
       const compIdsAll = allComps.map(c => c.id);
-      const { data: existingDrills } = await sb
-        .from("minicheck_questions")
-        .select("competency_id")
-        .in("competency_id", compIdsAll)
-        .eq("curriculum_id", curriculumId)
-        .eq("mode", effectiveMode);
-      const existingDrillSet = new Set((existingDrills || []).map(e => e.competency_id));
+      // FIX: Use .limit(5000) to avoid Supabase 1000-row default limit
+      const existingDrillSet = new Set<string>();
+      for (let i = 0; i < compIdsAll.length; i += 200) {
+        const chunk = compIdsAll.slice(i, i + 200);
+        const { data: existingDrills } = await sb
+          .from("minicheck_questions")
+          .select("competency_id")
+          .in("competency_id", chunk)
+          .eq("curriculum_id", curriculumId)
+          .eq("mode", effectiveMode)
+          .limit(5000);
+        for (const e of existingDrills || []) existingDrillSet.add(e.competency_id);
+      }
 
       for (const comp of allComps) {
         if (existingDrillSet.has(comp.id)) continue;
