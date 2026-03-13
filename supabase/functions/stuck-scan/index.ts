@@ -1,7 +1,16 @@
+/**
+ * stuck-scan v4 – Hardened production watchdog (modular)
+ *
+ * Orchestrator only — all heavy logic lives in _shared/stuck-scan-*.ts modules.
+ */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { STEP_TO_JOB_TYPE, inferBackoffSeconds } from "../_shared/job-map.ts";
-import { markStepDone } from "../_shared/steps.ts";
+import { safeRpc } from "../_shared/stuck-scan-helpers.ts";
+import { detectAndFixZombieSteps } from "../_shared/stuck-scan-zombies.ts";
+import { healOrphanProcessing, healEnqueuedDrift, healStatusLag } from "../_shared/stuck-scan-healers.ts";
+import { detectEscalationLoops, detectSystemFreeze } from "../_shared/stuck-scan-escalation.ts";
+import { checkStuckPackages, checkBuildingOrphans } from "../_shared/stuck-scan-packages.ts";
+import { runHygiene, healLeaseNoProgress, sweepPoolMismatches, reviveTransientFailed } from "../_shared/stuck-scan-hygiene.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,60 +24,12 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
-function isPermanentStepFailure(step: any): boolean {
-  const meta = (step?.meta ?? {}) as Record<string, unknown>;
-  const cls = String(meta?.last_error_class ?? "");
-  if (cls === "permanent") return true;
-  const kind = String(meta?.last_error_kind ?? "");
-  if (["check_violation", "not_null_violation", "foreign_key_violation", "rls_denied", "unique_violation"].includes(kind)) return true;
-  const lastErr = String(step?.last_error ?? "");
-  if (lastErr.toUpperCase().includes("SSOT_GUARD")) return true;
-  if (lastErr.toUpperCase().includes("HTTP 422 PERMANENT")) return true;
-  return false;
-}
-
-// inferBackoffSeconds imported from _shared/job-map.ts
-
-async function safeRpc(
-  sb: ReturnType<typeof createClient>,
-  fn: string,
-  params: Record<string, unknown>,
-) {
-  try {
-    const result = await sb.rpc(fn, params);
-    if (result.error) {
-      console.warn(`[stuck-scan] RPC ${fn} returned error:`, result.error.message);
-    }
-    return result;
-  } catch (e) {
-    console.error(`[stuck-scan] RPC ${fn} threw:`, (e as Error).message);
-    return { data: null, error: e };
-  }
-}
-
-/**
- * stuck-scan v4 – Hardened production watchdog
- *
- * Changes from v3:
- * - Stale job requeue uses run_after (not scheduled_at) for correct claim delay
- * - Query filters by min cutoff server-side to reduce data transfer
- * - Zombie detection expanded to running/enqueued/queued with step-scoped cleanup
- * - Escalation breaker adds age guard + failure signature check
- * - System freeze detector alerts when no jobs complete for >2h
- * - Chunked batch updates to avoid edge function timeouts
- */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
   // ── Health endpoint ──
@@ -85,7 +46,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Load policy for timeouts
+    // Load policy
     const { data: policyRow } = await sb
       .from("triage_policy")
       .select("policy_json")
@@ -97,7 +58,7 @@ Deno.serve(async (req) => {
     const heartbeatTimeout = stuckConfig.job_processing_heartbeat_timeout_seconds ?? 600;
     const packageTimeout = stuckConfig.package_no_progress_timeout_minutes ?? 90;
 
-    // Job-type-specific stale thresholds (seconds)
+    // Job-type-specific stale thresholds
     const JOB_TYPE_STALE_OVERRIDES: Record<string, number> = {
       package_generate_exam_pool: 240,
       package_generate_lessons: 300,
@@ -105,10 +66,7 @@ Deno.serve(async (req) => {
       package_elite_harden: 240,
     };
 
-    // ══════════════════════════════════════════════════════
-    // 1) Clean stale processing jobs (heartbeat-based liveness guard)
-    //    Uses last_heartbeat_at as primary signal, falls back to updated_at/locked_at
-    // ══════════════════════════════════════════════════════
+    // ══ 1) Kill stale processing jobs ══
     const now = Date.now();
     const minThreshold = Math.min(
       heartbeatTimeout,
@@ -122,23 +80,20 @@ Deno.serve(async (req) => {
       .eq("status", "processing")
       .or(`last_heartbeat_at.lt.${minCutoffIso},last_heartbeat_at.is.null`);
 
-    const staleJobs = (processingJobs || []).filter((job) => {
+    const staleJobs = (processingJobs || []).filter((job: any) => {
       const threshold = JOB_TYPE_STALE_OVERRIDES[job.job_type] ?? heartbeatTimeout;
       const cutoff = now - threshold * 1000;
-      // Use last_heartbeat_at as primary, fall back to updated_at, then locked_at
       const refTs = job.last_heartbeat_at || job.updated_at || job.locked_at;
       if (!refTs) return false;
       return new Date(refTs).getTime() < cutoff;
     });
 
     let staleCount = 0;
-    let failedFromStale = 0;
+    const failedFromStale = 0;
 
-    // Use the new kill_stale_processing_jobs_v2 RPC for efficient batch processing
     if (staleJobs.length > 0) {
       const packageIds = [...new Set(staleJobs.map((j: any) => j.package_id).filter(Boolean))];
 
-      // Kill stale jobs via RPC (requeues them as pending)
       const { data: killedJobs } = await safeRpc(sb, "kill_stale_processing_jobs_v2", {
         p_heartbeat_timeout_seconds: heartbeatTimeout,
         p_reason: "stuck-scan: stale processing heartbeat",
@@ -150,7 +105,6 @@ Deno.serve(async (req) => {
         console.warn(`[stuck-scan] 🔪 Liveness guard killed ${staleCount} stale processing job(s)`);
       }
 
-      // Release leases for packages with no alive work
       for (const pkgId of packageIds) {
         const { data: released } = await safeRpc(sb, "release_stale_package_lease_v2", {
           p_package_id: pkgId,
@@ -161,7 +115,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Log to auto_heal_log
       await sb.from("auto_heal_log").insert({
         action_type: "job_liveness_guard",
         trigger_source: "stuck-scan",
@@ -169,855 +122,35 @@ Deno.serve(async (req) => {
         target_id: null,
         result_status: "applied",
         result_detail: `Killed ${staleCount} stale processing jobs, checked ${packageIds.length} package leases`,
-        metadata: {
-          killed_count: staleCount,
-          package_ids: packageIds.slice(0, 10),
-          heartbeat_timeout: heartbeatTimeout,
-        },
+        metadata: { killed_count: staleCount, package_ids: packageIds.slice(0, 10), heartbeat_timeout: heartbeatTimeout },
       });
     }
 
-    // ══════════════════════════════════════════════════════
-    // 1b) ZOMBIE STEP DETECTION (with age guard + WHITELIST)
-    // Steps in "running"/"enqueued"/"queued" with meta.ok=true or batch_complete=true
-    // — worker completed but step never finalized.
-    // Only auto-fix if age > 5 minutes (not a fresh step).
-    // CRITICAL: Only whitelist steps are safe to auto-finalize.
-    // Generator steps (generate_*) are NEVER zombifiable because they
-    // run in batches across many invocations — meta.ok=true after one
-    // batch does NOT mean the step is complete. Zombifying them causes
-    // a deadly oscillation loop with the integrity gate.
-    // ══════════════════════════════════════════════════════
-    const ZOMBIE_MIN_AGE_MS = 5 * 60 * 1000;
-    // GUARDRAIL: Only idempotent read-only/meta-only steps may be auto-finalized.
-    // Generator steps (generate_learning_content, generate_exam_pool, etc.) are EXCLUDED
-    // because they run across many invocations and meta.ok=true is per-batch, not per-step.
-    const ZOMBIFIABLE_STEPS = new Set([
-      "validate_learning_content", "validate_exam_pool", "validate_blueprints",
-      "validate_oral_exam", "validate_handbook", "validate_lesson_minichecks",
-      "validate_tutor_index", "run_integrity_check", "quality_council",
-      "auto_publish",
-    ]);
-    const { data: zombieSteps } = await sb
-      .from("package_steps")
-      .select("package_id, step_key, meta, attempts, started_at, status")
-      .in("status", ["running", "enqueued", "queued"]);
+    // ══ 1b) Zombie steps ══
+    const zombieResults = await detectAndFixZombieSteps(sb);
 
-    const zombieResults: Array<{ package_id: string; step_key: string; action: string }> = [];
-    for (const zs of zombieSteps || []) {
-      // GUARDRAIL: Skip non-whitelisted steps entirely
-      if (!ZOMBIFIABLE_STEPS.has(zs.step_key)) continue;
+    // ══ 1b2) Orphan processing ══
+    const orphanResults = await healOrphanProcessing(sb);
 
-      const meta = (zs.meta ?? {}) as Record<string, unknown>;
-      if (meta.ok !== true && meta.batch_complete !== true) continue;
+    // ══ 1b3) Enqueued drift ══
+    const enqueuedDriftResults = await healEnqueuedDrift(sb);
 
-      const age = zs.started_at ? Date.now() - new Date(zs.started_at).getTime() : Infinity;
-      if (age <= ZOMBIE_MIN_AGE_MS) continue;
+    // ══ 1b4) Status lag ══
+    const statusLagResults = await healStatusLag(sb);
 
-      // Race-safety gate: only finalize if NO active jobs remain for this step (via RPC — robust JSONB filter)
-      const jobType = STEP_TO_JOB_TYPE[zs.step_key] ?? null;
-      if (jobType) {
-        const { data: activeJobCnt } = await safeRpc(sb, "count_active_jobs_for_package", {
-          p_package_id: zs.package_id,
-          p_job_type: jobType,
-          p_statuses: ["pending", "processing"],
-        });
-        if ((activeJobCnt ?? 0) > 0) {
-          console.log(`[stuck-scan] Zombie candidate ${zs.step_key} for ${zs.package_id.slice(0, 8)} skipped: ${activeJobCnt} active jobs remain`);
-          continue;
-        }
-      }
+    // ══ 1c) Escalation loops ══
+    const escalationResults = await detectEscalationLoops(sb);
 
-      // ── HOLLOW COMPLETION GUARD: generate_learning_content ──
-      // Before finalizing, verify NO broken lessons remain (content NULL/placeholder/tier1_failed/regenerating).
-      // This is the Edge-side mirror of the DB trigger guard_learning_content_step_done.
-      if (zs.step_key === "generate_learning_content") {
-        const { data: pkg } = await sb.from("course_packages").select("course_id").eq("id", zs.package_id).maybeSingle();
-        if (pkg?.course_id) {
-          const { data: mods } = await sb.from("modules").select("id").eq("course_id", pkg.course_id);
-          const modIds = (mods ?? []).map((m: { id: string }) => m.id);
-          if (modIds.length > 0) {
-            const { count: brokenCount } = await sb
-              .from("lessons")
-              .select("id", { count: "exact", head: true })
-              .in("module_id", modIds)
-              .or("content.is.null,qc_status.eq.tier1_failed,content->>_placeholder.eq.true,content->>_regenerating.eq.true");
-            if ((brokenCount ?? 0) > 0) {
-              console.warn(`[stuck-scan] HOLLOW GUARD: generate_learning_content for ${zs.package_id.slice(0,8)} has ${brokenCount} broken lessons — NOT finalizing, resetting to running`);
-              await sb.from("package_steps").update({
-                status: "running",
-                meta: {
-                  ...meta,
-                  force_running: true,
-                  hollow_guard_blocked_at: new Date().toISOString(),
-                  broken_lessons: brokenCount,
-                  last_progress_note: `HOLLOW_GUARD: ${brokenCount} broken lessons, cannot finalize`,
-                },
-              }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
-              zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: `HOLLOW GUARD: reset to running (${brokenCount} broken lessons)` });
-              continue;
-            }
-          }
-        }
-      }
+    // ══ 1d) System freeze ══
+    const systemFrozen = await detectSystemFreeze(sb);
 
-      // ── HOLLOW COMPLETION GUARD: generate_exam_pool ──
-      // Before finalizing, verify MEANINGFUL question count exists (not just >0).
-      // Previous bug: 10 questions slipped through with min=0, causing HOLLOW_COMPLETION.
-      if (zs.step_key === "generate_exam_pool") {
-        const { data: pkg } = await sb.from("course_packages").select("curriculum_id, meta").eq("id", zs.package_id).maybeSingle();
-        if (pkg?.curriculum_id) {
-          const { count: qCount } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", pkg.curriculum_id);
-          const pkgMeta = (pkg.meta ?? {}) as Record<string, unknown>;
-          const examTarget = Number(pkgMeta?.exam_target ?? 1000);
-          const minRequired = Math.max(50, Math.floor(examTarget * 0.05));
-          if ((qCount ?? 0) < minRequired) {
-            console.warn(`[stuck-scan] HOLLOW GUARD: ${zs.step_key} for ${zs.package_id.slice(0,8)} has ${qCount ?? 0} exam questions (min=${minRequired}) — NOT finalizing, resetting to queued`);
-            await sb.from("package_steps").update({
-              status: "queued",
-              started_at: null,
-              finished_at: null,
-              updated_at: new Date().toISOString(),
-              job_id: null,
-              runner_id: null,
-              last_error: `HOLLOW_COMPLETION: ${qCount ?? 0}/${minRequired} questions`,
-              meta: { ...meta, note: `HOLLOW_GUARD: ${qCount ?? 0}/${minRequired} questions, reset by stuck-scan`, hollow_guard_at: new Date().toISOString(), last_error_class: "permanent", last_error_kind: "hollow_completion" },
-            }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
+    // ══ 2) Stuck packages ══
+    const results = await checkStuckPackages(sb, packageTimeout);
 
-            // Cancel blocking downstream jobs
-            await safeRpc(sb, "cancel_jobs_for_package", {
-              p_package_id: zs.package_id,
-              p_job_type: "package_validate_exam_pool",
-              p_statuses: ["pending", "processing"],
-              p_reason: `HOLLOW_GUARD: ${qCount ?? 0}/${minRequired} questions`,
-            });
+    // ══ 3) Building orphans ══
+    const buildingPkgResults = await checkBuildingOrphans(sb);
 
-            await sb.from("auto_heal_log").insert({
-              action_type: "watchdog_postcondition_guard",
-              trigger_source: "stuck-scan",
-              target_type: "package_step",
-              target_id: zs.package_id,
-              result_status: "blocked_done_heal",
-              result_detail: `HOLLOW_COMPLETION: ${zs.step_key} has ${qCount ?? 0}/${minRequired} questions`,
-              metadata: { step_key: zs.step_key, curriculum_id: pkg.curriculum_id, question_count: qCount ?? 0, min_required: minRequired },
-            });
-
-            zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: `HOLLOW GUARD: reset to queued (${qCount ?? 0}/${minRequired} questions)` });
-            continue;
-          }
-        }
-      }
-
-      // ── HOLLOW COMPLETION GUARD: auto_seed_exam_blueprints ──
-      // Blueprints must exist before marking step done.
-      if (zs.step_key === "auto_seed_exam_blueprints") {
-        const { data: pkg } = await sb.from("course_packages").select("curriculum_id").eq("id", zs.package_id).maybeSingle();
-        if (pkg?.curriculum_id) {
-          const { count: bpCount } = await sb.from("question_blueprints").select("id", { count: "exact", head: true }).eq("curriculum_id", pkg.curriculum_id);
-          if ((bpCount ?? 0) < 1) {
-            console.warn(`[stuck-scan] HOLLOW GUARD: ${zs.step_key} for ${zs.package_id.slice(0,8)} has 0 blueprints — NOT finalizing, resetting to queued`);
-            await sb.from("package_steps").update({
-              status: "queued",
-              started_at: null,
-              finished_at: null,
-              updated_at: new Date().toISOString(),
-              job_id: null,
-              runner_id: null,
-              last_error: "HOLLOW_COMPLETION: 0 blueprints",
-              meta: { ...meta, note: "HOLLOW_GUARD: 0 blueprints, reset by stuck-scan", hollow_guard_at: new Date().toISOString(), last_error_class: "permanent", last_error_kind: "hollow_completion" },
-            }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
-
-            await sb.from("auto_heal_log").insert({
-              action_type: "watchdog_postcondition_guard",
-              trigger_source: "stuck-scan",
-              target_type: "package_step",
-              target_id: zs.package_id,
-              result_status: "blocked_done_heal",
-              result_detail: `HOLLOW_COMPLETION: ${zs.step_key} has 0 blueprints`,
-              metadata: { step_key: zs.step_key, curriculum_id: pkg.curriculum_id, blueprint_count: 0 },
-            });
-
-            zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: "HOLLOW GUARD: reset to queued (0 blueprints)" });
-            continue;
-          }
-        }
-      }
-
-      // 1) Finalize step via SSOT markStepDone (post-condition guards)
-      try {
-        await markStepDone(sb, {
-          packageId: zs.package_id,
-          stepKey: zs.step_key,
-          meta: { finalized_by: "stuck-scan", note: "zombie finalization" },
-        });
-        await sb.from("package_steps").update({ last_error: null })
-          .eq("package_id", zs.package_id).eq("step_key", zs.step_key);
-      } catch (postCondErr: unknown) {
-        const msg = postCondErr instanceof Error ? postCondErr.message : String(postCondErr);
-        console.warn(`[stuck-scan] ⛔ markStepDone BLOCKED for ${zs.step_key} (${zs.package_id.slice(0,8)}): ${msg} — resetting to queued`);
-        await sb.from("package_steps").update({
-          status: "queued", started_at: null, finished_at: null,
-          last_error: `stuck-scan post-condition failed: ${msg.slice(0, 500)}`,
-        }).eq("package_id", zs.package_id).eq("step_key", zs.step_key);
-        zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: "POST_CONDITION_BLOCKED: reset to queued" });
-        continue;
-      }
-
-      // 2) Cancel jobs scoped to this step
-      await safeRpc(sb, "cancel_jobs_for_package", {
-        p_package_id: zs.package_id,
-        p_job_type: jobType,
-        p_statuses: ["pending", "failed"],
-        p_reason: `stuck-scan zombie finalize: cleanup for step ${zs.step_key}`,
-      });
-
-      // 3) Cancel stale processing jobs scoped to this step
-      await safeRpc(sb, "cancel_stale_processing_jobs_for_package", {
-        p_package_id: zs.package_id,
-        p_job_type: jobType,
-        p_stale_minutes: 15,
-        p_reason: `stuck-scan zombie finalize: cleanup stale processing for step ${zs.step_key}`,
-      });
-
-      // 4) Log
-      await sb.from("auto_heal_log").insert({
-        action_type: "zombie_step_auto_finalize",
-        trigger_source: "stuck-scan",
-        target_type: "package_step",
-        target_id: zs.package_id,
-        result_status: "applied",
-        result_detail: `Step ${zs.step_key} was ${zs.status} with meta.ok=${meta.ok}, batch_complete=${meta.batch_complete} for ${Math.round(age / 60000)}min — forced to done + jobs cancelled`,
-        metadata: { step_key: zs.step_key, original_status: zs.status, meta, age_min: Math.round(age / 60000) },
-      });
-
-      zombieResults.push({ package_id: zs.package_id, step_key: zs.step_key, action: `forced to done (was ${zs.status}) + jobs cancelled` });
-    }
-
-    if (zombieResults.length > 0) {
-      console.log(`[stuck-scan] 🧟 Fixed ${zombieResults.length} zombie step(s)`);
-    }
-
-    // ══════════════════════════════════════════════════════
-    // 1b2) ORPHAN-PROCESSING SELF-HEAL
-    // Steps stuck in "processing" with no active jobs for >10min
-    // → reset to "queued" with attempt increment.
-    // This catches the 3 Zombies from the dashboard.
-    // ══════════════════════════════════════════════════════
-    const ORPHAN_MIN_AGE_MS = 10 * 60 * 1000; // 10 minutes
-    const orphanResults: Array<{ package_id: string; step_key: string; action: string }> = [];
-    {
-      const { data: processingSteps } = await sb
-        .from("package_steps")
-        .select("package_id, step_key, started_at, attempts, meta, status")
-        .eq("status", "running")
-        .limit(500); // Performance guard
-
-      for (const ps of processingSteps || []) {
-        // Guard: skip steps without a known job type (virtual steps)
-        const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
-        if (!jobType) continue;
-
-        // Guard: ghost processing (no started_at) — give first attempt a chance
-        const ageMs = ps.started_at ? Date.now() - new Date(ps.started_at).getTime() : null;
-        const isGhostProcessing = !ps.started_at;
-        if (isGhostProcessing && (ps.attempts || 0) === 0) continue; // first attempt still initializing
-        if (ageMs !== null && ageMs <= ORPHAN_MIN_AGE_MS) continue;
-        // Ghost processing with attempts > 0 falls through (treated as orphan)
-
-        // Check if any active jobs exist for this step (direct query — no RPC dependency)
-        if (jobType) {
-          const { count: activeJobCnt } = await sb
-            .from("job_queue")
-            .select("id", { count: "exact", head: true })
-            .eq("package_id", ps.package_id)
-            .eq("job_type", jobType)
-            .in("status", ["pending", "queued", "processing"]);
-          if ((activeJobCnt ?? 0) > 0) continue; // Jobs still active — not orphaned
-        }
-
-        // No active jobs + processing for >10min → orphan, reset to queued
-        const prevMeta = (ps.meta ?? {}) as Record<string, unknown>;
-        const stallCount = Number(prevMeta.stall_count ?? 0) + 1;
-        const newAttempts = (ps.attempts || 0) + 1;
-
-        const ageMin = ageMs !== null ? Math.round(ageMs / 60000) : 0;
-
-        await sb.from("package_steps").update({
-          status: "queued",
-          started_at: null,
-          finished_at: null,
-          attempts: newAttempts,
-          meta: {
-            ...prevMeta,
-            stall_count: stallCount,
-            last_progress_note: `orphan-heal: processing>${ageMin}min, no active jobs`,
-            orphan_healed_at: new Date().toISOString(),
-          },
-        }).eq("package_id", ps.package_id).eq("step_key", ps.step_key);
-
-        await sb.from("auto_heal_log").insert({
-          action_type: "orphan_processing_self_heal",
-          trigger_source: "stuck-scan",
-          target_type: "package_step",
-          target_id: ps.package_id,
-          result_status: "applied",
-          result_detail: `Step ${ps.step_key} was processing for ${ageMin}min with 0 active jobs — reset to queued (attempt ${newAttempts}, stall ${stallCount})`,
-          metadata: { step_key: ps.step_key, age_min: ageMin, stall_count: stallCount },
-        });
-
-        orphanResults.push({ package_id: ps.package_id, step_key: ps.step_key, action: `orphan-heal: reset to queued (${ageMin}min stale)` });
-        console.warn(`[stuck-scan] 🧟‍♂️ Orphan-heal: ${ps.step_key} for ${ps.package_id.slice(0,8)} — processing ${ageMin}min, no jobs → queued`);
-      }
-
-      if (orphanResults.length > 0) {
-        console.log(`[stuck-scan] 🧟‍♂️ Self-healed ${orphanResults.length} orphan-processing step(s)`);
-      }
-    }
-
-    // ══════════════════════════════════════════════════════
-    // 1b3) ENQUEUED-DRIFT SELF-HEAL
-    // Steps stuck in "enqueued" with no active job for >10min
-    // → reset to "queued" so the runner picks them up again.
-    // Root cause: enqueue succeeded but job was cancelled/completed
-    // without updating step status.
-    // ══════════════════════════════════════════════════════
-    const ENQ_DRIFT_MIN_AGE_MS = 10 * 60 * 1000;
-    const enqueuedDriftResults: Array<{ package_id: string; step_key: string; action: string }> = [];
-    {
-      const { data: enqSteps } = await sb
-        .from("package_steps")
-        .select("package_id, step_key, updated_at, attempts, meta, status")
-        .eq("status", "enqueued")
-        .limit(500);
-
-      for (const ps of enqSteps || []) {
-        const ageMs = Date.now() - new Date(ps.updated_at).getTime();
-        if (ageMs <= ENQ_DRIFT_MIN_AGE_MS) continue;
-
-        const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
-        if (!jobType) continue;
-
-        const { count: activeCnt, error: jobErr } = await sb
-          .from("job_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("package_id", ps.package_id)
-          .eq("job_type", jobType)
-          .in("status", ["pending", "queued", "processing"]);
-
-        if (jobErr) {
-          console.error(`[stuck-scan] enqueued-drift job check error: ${jobErr.message}`);
-          continue;
-        }
-        if ((activeCnt ?? 0) > 0) continue;
-
-        const prevMeta = (ps.meta ?? {}) as Record<string, unknown>;
-        const ageMin = Math.round(ageMs / 60000);
-
-        await sb.from("package_steps").update({
-          status: "queued",
-          meta: {
-            ...prevMeta,
-            last_progress_note: `enqueued-drift-heal: no active job for ${ageMin}min`,
-            enqueued_healed_at: new Date().toISOString(),
-          },
-        }).eq("package_id", ps.package_id).eq("step_key", ps.step_key);
-
-        await sb.from("auto_heal_log").insert({
-          action_type: "enqueued_drift_self_heal",
-          trigger_source: "stuck-scan",
-          target_type: "package_step",
-          target_id: ps.package_id,
-          result_status: "applied",
-          result_detail: `Step ${ps.step_key} enqueued ${ageMin}min with 0 active jobs — reset to queued`,
-          metadata: { step_key: ps.step_key, age_min: ageMin },
-        });
-
-        enqueuedDriftResults.push({ package_id: ps.package_id, step_key: ps.step_key, action: `enqueued-drift-heal: reset to queued (${ageMin}min stale)` });
-        console.warn(`[stuck-scan] 📭 Enqueued-drift-heal: ${ps.step_key} for ${ps.package_id.slice(0,8)} — enqueued ${ageMin}min, no jobs → queued`);
-      }
-
-      if (enqueuedDriftResults.length > 0) {
-        console.log(`[stuck-scan] 📭 Self-healed ${enqueuedDriftResults.length} enqueued-drift step(s)`);
-      }
-    }
-
-    // ══════════════════════════════════════════════════════
-    // 1b4) STATUS-LAG SELF-HEAL
-    // Job is processing but step still enqueued → step must be running.
-    // This is a pure sync fix — the job is already running, the step
-    // just didn't get updated (race condition between enqueue and claim).
-    // ══════════════════════════════════════════════════════
-    const statusLagResults: Array<{ package_id: string; step_key: string }> = [];
-    {
-      const { data: lagSteps } = await sb
-        .from("package_steps")
-        .select("package_id, step_key, status, meta")
-        .eq("status", "enqueued")
-        .limit(500);
-
-      for (const ps of lagSteps || []) {
-        const jobType = STEP_TO_JOB_TYPE[ps.step_key] ?? null;
-        if (!jobType) continue;
-
-        const { count: procCnt } = await sb
-          .from("job_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("package_id", ps.package_id)
-          .eq("job_type", jobType)
-          .eq("status", "processing");
-
-        if ((procCnt ?? 0) === 0) continue;
-
-        const prevMeta = (ps.meta ?? {}) as Record<string, unknown>;
-        await sb.from("package_steps").update({
-          status: "running",
-          started_at: new Date().toISOString(),
-          meta: {
-            ...prevMeta,
-            last_progress_note: "status-lag-heal: job processing -> step running",
-            status_lag_healed_at: new Date().toISOString(),
-          },
-        }).eq("package_id", ps.package_id).eq("step_key", ps.step_key);
-
-        await sb.from("auto_heal_log").insert({
-          action_type: "status_lag_self_heal",
-          trigger_source: "stuck-scan",
-          target_type: "package_step",
-          target_id: ps.package_id,
-          result_status: "applied",
-          result_detail: `Step ${ps.step_key} was enqueued but job ${jobType} is processing -> step set to running`,
-          metadata: { step_key: ps.step_key, job_type: jobType },
-        });
-
-        statusLagResults.push({ package_id: ps.package_id, step_key: ps.step_key });
-      }
-
-      if (statusLagResults.length > 0) {
-        console.log(`[stuck-scan] 🧷 Status-lag healed ${statusLagResults.length} step(s)`);
-      }
-    }
-
-    // ══════════════════════════════════════════════════════
-    // 1c) ESCALATION LOOP DETECTION (scoped by step type)
-    // - validate_* steps: skip + notify (safe to skip)
-    // - generate_* / other steps: mark package needs_manual_review (NOT skip)
-    // Guards: age > 10min since last update + failure signal required
-    // ══════════════════════════════════════════════════════
-    const ESCALATION_MAX = 10;
-    // Multi-batch steps run across many invocations — high attempts are NORMAL.
-    // Escalating them cancels pending jobs, forcing the runner to re-create them
-    // in a pointless cycle. Exclude them from escalation entirely; the progress-aware
-    // circuit breaker in the runner handles genuine stalls.
-    const MULTI_BATCH_STEPS = new Set([
-      "generate_learning_content",
-      "generate_exam_pool",
-      "generate_lesson_minichecks",
-      "generate_oral_exam",
-      "generate_handbook",
-    ]);
-
-    const { data: escalatedSteps } = await sb
-      .from("package_steps")
-      .select("package_id, step_key, attempts, status, updated_at, last_error, meta")
-      .gte("attempts", ESCALATION_MAX)
-      .not("status", "in", '("done","skipped","blocked")');
-
-    const escalationResults: Array<{ package_id: string; step_key: string; action: string }> = [];
-    for (const es of escalatedSteps || []) {
-      // ── Multi-batch exclusion: these steps progress across many jobs ──
-      if (MULTI_BATCH_STEPS.has(es.step_key)) {
-        // Check if there were recent completions — if yes, step IS progressing
-        const jobType = STEP_TO_JOB_TYPE[es.step_key] ?? null;
-        if (jobType) {
-          const recentCutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-          const { count: recentCompletions } = await sb
-            .from("job_queue")
-            .select("id", { count: "exact", head: true })
-            .eq("job_type", jobType)
-            .eq("status", "completed")
-            .gte("completed_at", recentCutoff);
-          if ((recentCompletions ?? 0) > 0) {
-            // Step is progressing — skip escalation entirely
-            continue;
-          }
-        }
-      }
-
-      // Age guard: only act on loops that have been stable for a while
-      const updatedAt = es.updated_at ? new Date(es.updated_at).getTime() : 0;
-      const ageMs = updatedAt > 0 ? (Date.now() - updatedAt) : Infinity;
-      if (ageMs < 10 * 60 * 1000) continue;
-
-      // Signature guard: require some failure signal
-      const lastErr = String(es.last_error || "");
-      const metaErr = String(((es.meta ?? {}) as Record<string, unknown>)?.error || "");
-      if (!lastErr && !metaErr) continue;
-
-      const isValidation = es.step_key.startsWith("validate_");
-      const jobType = STEP_TO_JOB_TYPE[es.step_key] ?? null;
-
-      if (isValidation) {
-        // Safe to skip validation steps — content exists, just validation is looping
-        await sb.from("package_steps").update({
-          status: "skipped",
-          finished_at: new Date().toISOString(),
-          last_error: `stuck-scan: escalation breaker after ${es.attempts} attempts`,
-        }).eq("package_id", es.package_id).eq("step_key", es.step_key);
-
-        // Cancel related jobs via RPC (step-scoped)
-        await safeRpc(sb, "cancel_jobs_for_package", {
-          p_package_id: es.package_id,
-          p_job_type: jobType,
-          p_statuses: ["pending", "failed"],
-          p_reason: `stuck-scan escalation breaker: skip ${es.step_key}`,
-        });
-
-        escalationResults.push({ package_id: es.package_id, step_key: es.step_key, action: "skipped (validation loop)" });
-        console.warn(`[stuck-scan] 🛑 Escalation breaker: skipped ${es.step_key} for ${es.package_id.slice(0, 8)} after ${es.attempts} attempts`);
-      } else {
-        // NOT safe to skip generate_* or other critical steps — flag for manual review
-        await sb.from("course_packages").update({
-          stuck_reason: `Escalation loop: step ${es.step_key} has ${es.attempts} attempts — manual review required`,
-        }).eq("id", es.package_id);
-
-        // Cancel related jobs to stop the loop (step-scoped)
-        await safeRpc(sb, "cancel_jobs_for_package", {
-          p_package_id: es.package_id,
-          p_job_type: jobType,
-          p_statuses: ["pending", "failed"],
-          p_reason: `stuck-scan escalation breaker: halt ${es.step_key}`,
-        });
-
-        escalationResults.push({ package_id: es.package_id, step_key: es.step_key, action: "flagged for manual review (non-validation)" });
-        console.warn(`[stuck-scan] 🛑 Escalation: ${es.step_key} for ${es.package_id.slice(0, 8)} flagged for manual review after ${es.attempts} attempts`);
-      }
-    }
-
-    // ══════════════════════════════════════════════════════
-    // 1d) SYSTEM FREEZE DETECTION
-    // If there are NO completed jobs for a long time while pending/processing exist,
-    // alert ops — this indicates a runner crash, cron failure, or queue deadlock.
-    // ══════════════════════════════════════════════════════
-    let systemFrozen = false;
-    {
-      const FREEZE_MINUTES = 120;
-      const ACTIVE_STALL_MINUTES = 20;
-      const nowIso = new Date().toISOString();
-
-      const { data: lastCompleted } = await sb
-        .from("job_queue")
-        .select("completed_at")
-        .eq("status", "completed")
-        .not("completed_at", "is", null)
-        .order("completed_at", { ascending: false })
-        .limit(1);
-
-      const { count: processingCnt } = await sb
-        .from("job_queue")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "processing");
-
-      const { count: readyPendingCnt } = await sb
-        .from("job_queue")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending")
-        .or(`run_after.is.null,run_after.lte.${nowIso}`);
-
-      const { data: lastActive } = await sb
-        .from("job_queue")
-        .select("updated_at")
-        .in("status", ["pending", "queued", "processing"])
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      const activeCnt = (processingCnt ?? 0) + (readyPendingCnt ?? 0);
-      const lastCompletedAt = lastCompleted?.[0]?.completed_at
-        ? new Date(lastCompleted[0].completed_at as string).getTime()
-        : 0;
-      const lastActiveAt = lastActive?.[0]?.updated_at
-        ? new Date(lastActive[0].updated_at as string).getTime()
-        : 0;
-
-      const freezeCutoff = Date.now() - FREEZE_MINUTES * 60_000;
-      const activityCutoff = Date.now() - ACTIVE_STALL_MINUTES * 60_000;
-      const isFrozen =
-        activeCnt > 0 &&
-        (lastCompletedAt === 0 || lastCompletedAt < freezeCutoff) &&
-        (lastActiveAt === 0 || lastActiveAt < activityCutoff);
-
-      if (isFrozen) {
-        systemFrozen = true;
-        const dedupeTitle = `⚫ System-Freeze: keine completed Jobs seit ${FREEZE_MINUTES}min`;
-        const dedupeSince = new Date(Date.now() - 60 * 60_000).toISOString();
-        const dedupeKey = `system_freeze_${new Date().toISOString().slice(0, 13)}`;
-        const { count: existing } = await sb
-          .from("admin_notifications")
-          .select("id", { count: "exact", head: true })
-          .eq("category", "ops")
-          .eq("title", dedupeTitle)
-          .gte("created_at", dedupeSince);
-        if ((existing ?? 0) === 0) {
-          await sb.from("admin_notifications").insert({
-            title: dedupeTitle,
-            body: `Ready-Queue/Processing aktiv (${activeCnt}), aber kein Completion seit >${FREEZE_MINUTES} Min und keine Queue-Aktivität seit >${ACTIVE_STALL_MINUTES} Min. Prüfe Runner + Lease-Hygiene.`,
-            category: "ops",
-            severity: "error",
-            metadata: {
-              dedupe_key: dedupeKey,
-              active_jobs: activeCnt,
-              processing: processingCnt ?? 0,
-              ready_pending: readyPendingCnt ?? 0,
-              last_completed_at: lastCompleted?.[0]?.completed_at ?? null,
-              last_active_at: lastActive?.[0]?.updated_at ?? null,
-            },
-          });
-        }
-      }
-    }
-
-    // ══════════════════════════════════════════════════════
-    // 2) Find building packages with no progress
-    // ══════════════════════════════════════════════════════
-    const stuckSince = new Date(Date.now() - packageTimeout * 60_000).toISOString();
-    const { data: stuckPackages } = await sb
-      .from("course_packages")
-      .select("id, title, last_progress_at, stuck_reason, course_id")
-      .eq("status", "building")
-      .is("published_at", null)
-      .lt("last_progress_at", stuckSince);
-
-    const results: Array<{ package_id: string; retried: number; reason: string }> = [];
-
-    for (const pkg of stuckPackages || []) {
-      // Check package_steps FIRST (SSOT for pipeline state)
-      const { count: activeSteps } = await sb
-        .from("package_steps")
-        .select("step_key", { count: "exact", head: true })
-        .eq("package_id", pkg.id)
-        .in("status", ["running", "enqueued"]);
-
-      if ((activeSteps ?? 0) > 0) {
-        if (pkg.stuck_reason) {
-          await sb.from("course_packages").update({ stuck_reason: null }).eq("id", pkg.id);
-        }
-        results.push({ package_id: pkg.id, retried: 0, reason: `Skipped: ${activeSteps} active steps in package_steps` });
-        continue;
-      }
-
-      // Check active leases
-      const { count: activeLeases } = await sb
-        .from("package_leases")
-        .select("package_id", { count: "exact", head: true })
-        .eq("package_id", pkg.id)
-        .gt("lease_until", new Date().toISOString());
-
-      if ((activeLeases ?? 0) > 0) {
-        if (pkg.stuck_reason) {
-          await sb.from("course_packages").update({ stuck_reason: null }).eq("id", pkg.id);
-        }
-        results.push({ package_id: pkg.id, retried: 0, reason: `Skipped: active lease exists` });
-        continue;
-      }
-
-      // ── Permanent step failures must NOT be retried ───────────────────
-      const { data: failedSteps } = await sb
-        .from("package_steps")
-        .select("step_key, status, meta, last_error")
-        .eq("package_id", pkg.id)
-        .eq("status", "failed");
-
-      const permanentFailed = (failedSteps || []).filter(isPermanentStepFailure);
-      if (permanentFailed.length > 0) {
-        const reason = `Permanent SSOT guard failure in step(s): ${permanentFailed
-          .slice(0, 5)
-          .map((s: any) => s.step_key)
-          .join(", ")}${permanentFailed.length > 5 ? "…" : ""}`;
-        await sb.from("course_packages").update({ stuck_reason: reason }).eq("id", pkg.id);
-        results.push({ package_id: pkg.id, retried: 0, reason: `Marked stuck: ${reason}` });
-        continue;
-      }
-
-      // Check for queued/failed steps that can be retried
-      const { data: candidateSteps } = await sb
-        .from("package_steps")
-        .select("step_key, status, meta, last_error")
-        .eq("package_id", pkg.id)
-        .in("status", ["queued", "failed"]);
-
-      const retryableSteps = (candidateSteps || []).filter((s: any) => {
-        if (s.status === "queued") return true;
-        if (s.status === "failed") return !isPermanentStepFailure(s);
-        return false;
-      });
-
-      if (retryableSteps.length > 0) {
-        if (pkg.stuck_reason) {
-          await sb.from("course_packages").update({ stuck_reason: null }).eq("id", pkg.id);
-        }
-        results.push({ package_id: pkg.id, retried: 0, reason: `Has ${retryableSteps.length} retryable steps — will be picked up by runner` });
-        continue;
-      }
-
-      // Auto-retry recoverable jobs
-      const { data: retried } = await sb.rpc("auto_retry_stuck_package", { p_package_id: pkg.id });
-      const retriedCount = retried ?? 0;
-
-      if (retriedCount === 0) {
-        // Check if ALL steps are done — package should be published
-        const { count: totalSteps } = await sb
-          .from("package_steps")
-          .select("step_key", { count: "exact", head: true })
-          .eq("package_id", pkg.id);
-
-        const { count: doneSteps } = await sb
-          .from("package_steps")
-          .select("step_key", { count: "exact", head: true })
-          .eq("package_id", pkg.id)
-          .in("status", ["done", "skipped"]);
-
-        if ((totalSteps ?? 0) > 0 && (doneSteps ?? 0) === (totalSteps ?? 0)) {
-          await sb.from("course_packages")
-            .update({ status: "published", stuck_reason: null, build_progress: 100 })
-            .eq("id", pkg.id);
-          results.push({ package_id: pkg.id, retried: 0, reason: `All ${totalSteps} steps done — promoted to published` });
-        } else {
-          await sb.rpc("mark_package_stuck", {
-            p_id: pkg.id,
-            p_reason: `No progress for ${packageTimeout}min, no retryable steps or jobs`,
-          });
-          results.push({ package_id: pkg.id, retried: 0, reason: `Marked stuck: no retryable steps or jobs` });
-        }
-      } else {
-        results.push({ package_id: pkg.id, retried: retriedCount, reason: `Auto-retried ${retriedCount} jobs` });
-      }
-    }
-
-    // ══════════════════════════════════════════════════════
-    // 3) Orphan detection
-    // ══════════════════════════════════════════════════════
-    const { data: buildingPkgs } = await sb
-      .from("course_packages")
-      .select("id, title, build_progress, updated_at, course_id")
-      .eq("status", "building")
-      .is("published_at", null)
-      .is("stuck_reason", null);
-
-    const buildingPkgResults: Array<{ package_id: string; action: string }> = [];
-    for (const pkg of buildingPkgs || []) {
-      const { count: activeSteps } = await sb
-        .from("package_steps")
-        .select("step_key", { count: "exact", head: true })
-        .eq("package_id", pkg.id)
-        .in("status", ["running", "enqueued"]);
-
-      const { count: queuedSteps } = await sb
-        .from("package_steps")
-        .select("step_key", { count: "exact", head: true })
-        .eq("package_id", pkg.id)
-        .eq("status", "queued");
-
-      // ── ZOMBIE DETECTION: queued steps but no active work ──
-      // If steps are queued but nobody is processing them (0 active steps,
-      // 0 active jobs, 0 active leases), trigger the pipeline-runner to
-      // re-create jobs. This is the primary zombie recovery mechanism.
-      if ((queuedSteps ?? 0) > 0 && (activeSteps ?? 0) === 0) {
-        const { count: activeJobs } = await sb
-          .from("job_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("package_id", pkg.id)
-          .in("status", ["pending", "processing", "queued"]);
-
-        const { data: activeLease } = await sb
-          .from("package_leases")
-          .select("id")
-          .eq("package_id", pkg.id)
-          .gt("lease_until", new Date().toISOString())
-          .limit(1)
-          .maybeSingle();
-
-        if ((activeJobs ?? 0) === 0 && !activeLease) {
-          // Grace: only act if last step completion was > 3 min ago (runner may be mid-claim)
-          const { data: lastDone } = await sb
-            .from("package_steps")
-            .select("finished_at")
-            .eq("package_id", pkg.id)
-            .eq("status", "done")
-            .order("finished_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          const lastDoneAge = lastDone?.finished_at
-            ? (Date.now() - new Date(lastDone.finished_at).getTime()) / 60_000
-            : 999;
-
-          if (lastDoneAge >= 3) {
-            // Trigger pipeline-runner to re-create jobs for this zombie
-            try {
-              const pipelineUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/pipeline-runner`;
-              await fetch(pipelineUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                },
-                body: JSON.stringify({ package_id: pkg.id }),
-              });
-            } catch (_e) { /* fire and forget */ }
-
-            await sb.from("auto_heal_log").insert({
-              action_type: "zombie_recovery",
-              target_type: "course_package",
-              target_id: pkg.id,
-              trigger_source: "stuck-scan",
-              result_status: "applied",
-              result_detail: `Zombie detected: ${queuedSteps} queued steps, 0 jobs, 0 leases, last_done ${Math.round(lastDoneAge)}m ago — triggered pipeline-runner`,
-              metadata: { queued_steps: queuedSteps, last_done_age_min: Math.round(lastDoneAge) },
-            });
-
-            buildingPkgResults.push({ package_id: pkg.id, action: `Zombie healed: ${queuedSteps} queued steps, 0 jobs → pipeline-runner triggered` });
-            continue;
-          }
-        }
-
-        // Has queued steps with active work — skip (normal state)
-        continue;
-      }
-
-      if ((activeSteps ?? 0) > 0) continue;
-
-      const { count: totalSteps } = await sb
-        .from("package_steps")
-        .select("step_key", { count: "exact", head: true })
-        .eq("package_id", pkg.id);
-
-      const { count: doneSteps } = await sb
-        .from("package_steps")
-        .select("step_key", { count: "exact", head: true })
-        .eq("package_id", pkg.id)
-        .in("status", ["done", "skipped"]);
-
-      if ((totalSteps ?? 0) > 0 && (doneSteps ?? 0) === (totalSteps ?? 0)) {
-        await sb.from("course_packages")
-          .update({ status: "published", build_progress: 100, stuck_reason: null })
-          .eq("id", pkg.id);
-        buildingPkgResults.push({ package_id: pkg.id, action: "All steps done — promoted to published" });
-        continue;
-      }
-
-      if ((totalSteps ?? 0) === 0) {
-        buildingPkgResults.push({ package_id: pkg.id, action: "No steps yet — waiting for runner bootstrap" });
-        continue;
-      }
-
-      await sb.from("course_packages").update({
-        stuck_reason: "No actionable steps remaining",
-      }).eq("id", pkg.id);
-      buildingPkgResults.push({ package_id: pkg.id, action: "marked stuck (no actionable steps)" });
-    }
-
-    // ══════════════════════════════════════════════════════
-    // 4) Alert if stuck packages detected
-    // ══════════════════════════════════════════════════════
+    // ══ 4) Alert ══
     const allStuck = [
       ...results.filter(r => r.reason.includes("Marked stuck")),
       ...buildingPkgResults.filter(o => o.action.includes("stuck")),
@@ -1027,148 +160,16 @@ Deno.serve(async (req) => {
       await sb.from("admin_notifications").insert({
         title: `${allStuck.length} Package(s) stuck/escalated`,
         body: `Pakete ohne Fortschritt, verwaiste Builds oder Eskalations-Loops erkannt.`,
-        category: "ops",
-        severity: "warning",
+        category: "ops", severity: "warning",
         metadata: { details: allStuck },
       });
     }
 
-    // ══════════════════════════════════════════════════════
-    // 5) Scheduled Hygiene – clean orphan leases & non-building jobs
-    // ══════════════════════════════════════════════════════
-    let hygieneResult: Record<string, unknown> = {};
-    try {
-      const { data: hData, error: hErr } = await sb.rpc("ops_hygiene_cleanup", {
-        p_max_lease_cleanup: 50,
-        p_max_job_cleanup: 200,
-      });
-      if (hErr) {
-        console.warn(`[stuck-scan] Hygiene RPC error: ${hErr.message}`);
-      } else {
-        hygieneResult = hData ?? {};
-        if ((hData?.orphan_leases_removed ?? 0) + (hData?.idle_leases_removed ?? 0) + (hData?.non_building_jobs_failed ?? 0) > 0) {
-          console.log(`[stuck-scan] Hygiene: ${JSON.stringify(hData)}`);
-        }
-      }
-    } catch (hEx) {
-      console.warn(`[stuck-scan] Hygiene threw: ${(hEx as Error).message}`);
-    }
-
-    // ══════════════════════════════════════════════════════
-    // 5b) LEASE-NO-PROGRESS HEAL
-    // Active leases where ALL processing jobs are stale → release lease
-    // This prevents WIP-slot blockage when zombie jobs hold a lease
-    // ══════════════════════════════════════════════════════
-    let leaseNoProgressHealed = 0;
-    try {
-      const { data: activeLeases } = await sb
-        .from("package_leases")
-        .select("package_id, runner_id, lease_until")
-        .gt("lease_until", new Date().toISOString());
-
-      for (const lease of activeLeases || []) {
-        const { data: pkgJobs } = await sb
-          .from("job_queue")
-          .select("id, status, updated_at, last_heartbeat_at")
-          .eq("package_id", lease.package_id)
-          .in("status", ["pending", "processing"]);
-
-        const hasAliveWork = (pkgJobs || []).some((j: any) => {
-          if (j.status === "pending") return true;
-          const refTs = j.last_heartbeat_at || j.updated_at;
-          return refTs && new Date(refTs).getTime() > (Date.now() - 10 * 60_000);
-        });
-
-        if (!hasAliveWork) {
-          const { data: released } = await safeRpc(sb, "release_stale_package_lease_v2", {
-            p_package_id: lease.package_id,
-            p_reason: "stuck-scan: lease without alive work",
-          });
-          if (released) {
-            leaseNoProgressHealed++;
-            console.warn(`[stuck-scan] 🔓 LEASE_NO_PROGRESS: released lease for ${String(lease.package_id).slice(0, 8)} (no alive work)`);
-            await sb.from("auto_heal_log").insert({
-              action_type: "lease_no_progress_heal",
-              trigger_source: "stuck-scan",
-              target_type: "package_lease",
-              target_id: lease.package_id,
-              result_status: "applied",
-              result_detail: `Released lease: no alive processing/pending jobs`,
-              metadata: { runner_id: lease.runner_id, total_jobs: (pkgJobs || []).length },
-            });
-          }
-        }
-      }
-      if (leaseNoProgressHealed > 0) {
-        console.log(`[stuck-scan] 🔓 Lease-no-progress healed: ${leaseNoProgressHealed} lease(s) released`);
-      }
-    } catch (leaseErr) {
-      console.warn(`[stuck-scan] Lease-no-progress check error: ${(leaseErr as Error).message}`);
-    }
-
-    // ══════════════════════════════════════════════════════
-    // NIGHTLY POOL-MISMATCH SWEEP
-    // Auto-fix jobs where worker_pool doesn't match SSOT and alert
-    // ══════════════════════════════════════════════════════
-    let poolMismatchFixed = 0;
-    try {
-      // Import pool definitions dynamically to stay in sync with SSOT
-      const { JOB_DEFINITIONS } = await import("../_shared/job-map.ts");
-      const contentJobTypes = Object.entries(JOB_DEFINITIONS)
-        .filter(([_, def]: [string, any]) => def.pool === "content")
-        .map(([k]) => k);
-
-      if (contentJobTypes.length > 0) {
-        // Only fix PENDING jobs (not processing) to avoid race with active workers
-        const { data: mismatched } = await sb
-          .from("job_queue")
-          .select("id, job_type, worker_pool, meta")
-          .eq("status", "pending")
-          .eq("worker_pool", "core")
-          .in("job_type", contentJobTypes)
-          .limit(200);
-
-        if (mismatched && mismatched.length > 0) {
-          for (const row of mismatched) {
-            const mergedMeta = { ...(row.meta as Record<string, unknown> ?? {}), pool_autofixed: true, old_pool: "core", fixed_by: "stuck-scan-sweep" };
-            await sb.from("job_queue").update({
-              worker_pool: "content",
-              meta: mergedMeta,
-              updated_at: new Date().toISOString(),
-            }).eq("id", row.id);
-          }
-          poolMismatchFixed += mismatched.length;
-          const mismatchJobTypes = [...new Set(mismatched.map(r => r.job_type))];
-          const mismatchSampleIds = mismatched.slice(0, 5).map(r => r.id);
-          console.warn(`[stuck-scan] 🔧 POOL_SWEEP: Fixed ${mismatched.length} job(s) from core→content | types=${mismatchJobTypes.join(",")} | samples=${mismatchSampleIds.join(",")}`);
-
-          // Alert if mismatch found (indicates upstream drift)
-          try {
-            await sb.from("admin_notifications").insert({
-              title: "Pool Mismatch Sweep: jobs auto-fixed",
-              body: `${mismatched.length} job(s) were on wrong pool (core instead of content). Auto-fixed. Job types: ${mismatchJobTypes.join(", ")}`,
-              category: "ops",
-              severity: "warn",
-              metadata: { fixed_count: mismatched.length, job_types: mismatchJobTypes, sample_ids: mismatchSampleIds },
-            });
-          } catch (_e) { /* best-effort */ }
-        }
-      }
-    } catch (sweepErr) {
-      console.warn(`[stuck-scan] Pool sweep error: ${(sweepErr as Error).message}`);
-    }
-
-    // ── AUTO-REVIVE: reset transient-failed lesson jobs immediately ──
-    let revivedCount = 0;
-    try {
-      const { data: revived } = await sb.rpc("revive_transient_failed_lesson_jobs", { p_limit: 50 });
-      revivedCount = Array.isArray(revived) ? revived.length : 0;
-      if (revivedCount > 0) {
-        console.log(`[stuck-scan] 🔄 Auto-revived ${revivedCount} transient-failed lesson jobs`);
-      }
-    } catch (reviveErr) {
-      console.warn(`[stuck-scan] revive_transient_failed error: ${(reviveErr as Error).message}`);
-    }
+    // ══ 5) Hygiene ══
+    const hygieneResult = await runHygiene(sb);
+    const leaseNoProgressHealed = await healLeaseNoProgress(sb);
+    const poolMismatchFixed = await sweepPoolMismatches(sb);
+    const revivedCount = await reviveTransientFailed(sb);
 
     console.log(`[stuck-scan] ${results.length} timeout-checked, ${orphanResults.length} orphan-checked, ${buildingPkgResults.length} building-pkg-checked, ${statusLagResults.length} status-lag-healed, ${staleCount} stale jobs killed (liveness guard), ${zombieResults.length} zombie steps fixed, ${escalationResults.length} escalation loops handled, ${revivedCount} transient-failed revived, ${leaseNoProgressHealed} lease-no-progress healed${systemFrozen ? ", ⚫ SYSTEM FREEZE DETECTED" : ""}${poolMismatchFixed > 0 ? `, 🔧 ${poolMismatchFixed} pool mismatches fixed` : ""}`);
 
