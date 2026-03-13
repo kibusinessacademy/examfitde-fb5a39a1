@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
     if (cu?.beruf_id) {
       try {
         const glossary = await loadCachedGlossary(sb, cu.beruf_id, professionName);
-        if (glossary) glossaryContext = formatGlossaryForPrompt(glossary);
+        if (glossary) glossaryContext = formatGlossaryForPrompt(glossary, lfData?.code || null);
       } catch { /* no glossary — proceed */ }
     }
   } catch (e) {
