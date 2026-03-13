@@ -125,6 +125,21 @@ export async function checkBuildingOrphans(sb: SupabaseClient) {
           ? (Date.now() - new Date(lastDone.finished_at).getTime()) / 60_000 : 999;
 
         if (lastDoneAge >= 3) {
+          // ── STRUCTURAL FIX: Reset package to 'queued' directly ──
+          // The old approach only triggered pipeline-runner, but the runner's
+          // acquire_next_package_lease_v2 only picks up 'queued' packages.
+          // Building packages without leases were stuck because the orphan
+          // reclaim's updated_at threshold was constantly refreshed by triggers.
+          // Now we reset to 'queued' directly so the runner can acquire them.
+          await sb.from("course_packages").update({
+            status: "queued",
+            updated_at: new Date(Date.now() - 5 * 60_000).toISOString(), // set old to pass orphan guard
+          }).eq("id", pkg.id).eq("status", "building");
+
+          // Delete any stale leases
+          await sb.from("package_leases").delete().eq("package_id", pkg.id);
+
+          // Also trigger the runner to pick it up immediately
           try {
             const pipelineUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/pipeline-runner`;
             await fetch(pipelineUrl, {
@@ -140,11 +155,11 @@ export async function checkBuildingOrphans(sb: SupabaseClient) {
           await sb.from("auto_heal_log").insert({
             action_type: "zombie_recovery", target_type: "course_package",
             target_id: pkg.id, trigger_source: "stuck-scan", result_status: "applied",
-            result_detail: `Zombie detected: ${queuedSteps} queued steps, 0 jobs, 0 leases, last_done ${Math.round(lastDoneAge)}m ago — triggered pipeline-runner`,
-            metadata: { queued_steps: queuedSteps, last_done_age_min: Math.round(lastDoneAge) },
+            result_detail: `Zombie detected: ${queuedSteps} queued steps, 0 jobs, 0 leases, last_done ${Math.round(lastDoneAge)}m ago — reset to queued + triggered runner`,
+            metadata: { queued_steps: queuedSteps, last_done_age_min: Math.round(lastDoneAge), fix: "direct_requeue_v2" },
           });
 
-          buildingPkgResults.push({ package_id: pkg.id, action: `Zombie healed: ${queuedSteps} queued steps, 0 jobs → pipeline-runner triggered` });
+          buildingPkgResults.push({ package_id: pkg.id, action: `Zombie healed: reset to queued + runner triggered (${queuedSteps} queued steps)` });
           continue;
         }
       }
