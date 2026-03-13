@@ -66,6 +66,79 @@ const COUNCIL_TYPES = [
 import { ALL_PIPELINE_STEPS as TRACK_PIPELINE_STEPS } from '@/hooks/useTrackConfig';
 const BUILD_STEPS = TRACK_PIPELINE_STEPS;
 
+const STATUS_RANK: Record<string, number> = {
+  building: 0,
+  queued: 1,
+  blocked: 2,
+  qa: 3,
+  council_review: 4,
+  published: 5,
+  done: 6,
+  planning: 7,
+  draft: 8,
+  failed: 9,
+  quality_gate_failed: 10,
+};
+
+const GENDER_INCLUSIVE_MARKER_REGEX = /\/(?:-|)(?:in|frau|mann|r|e|n)\b/i;
+
+function hasGenderInclusiveMarker(title: string): boolean {
+  return GENDER_INCLUSIVE_MARKER_REGEX.test(title);
+}
+
+function normalizePackageTitle(title: string): string {
+  return title
+    .replace(/^ExamFit\s*–\s*/i, '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/kaufmann\/-frau/g, 'kaufmann')
+    .replace(/\/(?:-|)(?:in|frau|mann|r|e|n)\b/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function selectPreferredPackage(a: CoursePackage, b: CoursePackage): CoursePackage {
+  const aInclusive = hasGenderInclusiveMarker(a.title);
+  const bInclusive = hasGenderInclusiveMarker(b.title);
+
+  if (aInclusive !== bInclusive) return aInclusive ? a : b;
+
+  const aRank = STATUS_RANK[a.status] ?? 99;
+  const bRank = STATUS_RANK[b.status] ?? 99;
+  if (aRank !== bRank) return aRank < bRank ? a : b;
+
+  const aPriority = Number((a as any).priority ?? Number.MAX_SAFE_INTEGER);
+  const bPriority = Number((b as any).priority ?? Number.MAX_SAFE_INTEGER);
+  if (aPriority !== bPriority) return aPriority < bPriority ? a : b;
+
+  return new Date(a.updated_at).getTime() >= new Date(b.updated_at).getTime() ? a : b;
+}
+
+function dedupeVisiblePackages(rows: CoursePackage[]): CoursePackage[] {
+  const nonArchived = rows.filter((pkg) => pkg.status !== 'archived');
+  const grouped = new Map<string, CoursePackage[]>();
+
+  for (const pkg of nonArchived) {
+    const key = normalizePackageTitle(pkg.title || pkg.id);
+    const bucket = grouped.get(key) || [];
+    bucket.push(pkg);
+    grouped.set(key, bucket);
+  }
+
+  const pickedIds = new Set<string>();
+  for (const group of grouped.values()) {
+    let picked = group[0];
+    for (let i = 1; i < group.length; i++) {
+      picked = selectPreferredPackage(picked, group[i]);
+    }
+    pickedIds.add(picked.id);
+  }
+
+  // Preserve backend ordering (priority + updated_at)
+  return nonArchived.filter((pkg) => pickedIds.has(pkg.id));
+}
+
 export function useCoursePackages() {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -75,6 +148,7 @@ export function useCoursePackages() {
     queryKey: ['course-packages'],
     queryFn: async () => {
       // SSOT: DB-side deduplication via v_admin_visible_course_packages view
+      // + client-side guard against stale/legacy duplicates in cached/native sessions
       const { data, error } = await (supabase as any)
         .from('v_admin_visible_course_packages')
         .select('*')
@@ -82,7 +156,7 @@ export function useCoursePackages() {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as CoursePackage[];
+      return dedupeVisiblePackages((data || []) as CoursePackage[]);
     },
     staleTime: 0,
     refetchOnMount: 'always',
