@@ -1064,6 +1064,20 @@ async function enqueueLearningFieldJobs(
       continue;
     }
 
+    // ── FAN-OUT DEDUP GUARD: skip if active sub-jobs already exist for this LF ──
+    const { count: activeLfJobs } = await sb.from("job_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("job_type", "package_generate_exam_pool")
+      .eq("package_id", packageId)
+      .in("status", ["pending", "processing"])
+      .contains("payload", { learning_field_filter: lfId, _fan_out: true });
+    
+    if ((activeLfJobs ?? 0) > 0) {
+      console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: ${activeLfJobs} active sub-jobs already exist → SKIP (dedup)`);
+      skipped++;
+      continue;
+    }
+
     const priority = existing === 0 ? 0 : 1;
 
     try {
