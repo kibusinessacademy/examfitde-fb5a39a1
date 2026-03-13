@@ -113,8 +113,8 @@ async function fetchCommandData(): Promise<CommandData> {
       .select('id', { count: 'exact', head: true })
       .eq('status', 'completed')
       .gte('completed_at', todayStart.toISOString()),
-    sb.from('llm_cost_events').select('cost_eur').gte('ts', todayStart.toISOString()),
-    sb.from('llm_cost_events').select('cost_eur').gte('ts', monthStart.toISOString()),
+    sb.rpc('get_ai_cost_summary').then((r: any) => r.data ?? { cost_today: 0, cost_mtd: 0 }),
+    Promise.resolve({ data: null }), // placeholder, cost now from RPC above
     sb.from('ai_cost_budgets').select('budget_eur, spent_eur').order('month', { ascending: false }).limit(1),
     sb.rpc('get_building_metrics'),
     sb.from('package_steps')
