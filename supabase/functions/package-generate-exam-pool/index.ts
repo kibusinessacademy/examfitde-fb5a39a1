@@ -741,6 +741,10 @@ async function generateTurboQuestions(
   let rejectedOther = 0;
   const generatedTotal = questions.length;
 
+  // ── OPT-1: Collect rows for batch insert instead of per-question inserts ──
+  const examBatch: any[] = [];
+  const trainingBatch: any[] = [];
+
   for (const q of questions) {
     if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
 
@@ -806,19 +810,16 @@ async function generateTurboQuestions(
     const praxisScore = calculatePraxisScore(q);
     if (praxisScore < 1) {
       console.log(`[ExamPool-v5] REJECTED LOW_PRAXIS (${praxisScore}): "${q.question_text.slice(0, 40)}…"`);
-      continue; // HARD gate: must have at least some context
+      continue;
     }
 
-    // Explanation quality: soft gate (low quality → training pool, not rejected)
     const hasGoodExplanation = hasQualityExplanation(q);
 
-    // Style gate: kill AI-typical phrases
     if (!passesStyleGate(q)) {
       console.log(`[ExamPool-v5] REJECTED AI_STYLE: "${q.question_text.slice(0, 40)}…"`);
       continue;
     }
 
-    // v2: Hallucination risk check on explanation
     const halluRisk = computeHallucinationRisk(
       q.question_text + " " + (q.explanation || ""), [], [],
     );
@@ -828,36 +829,23 @@ async function generateTurboQuestions(
     }
 
     const difficultyValid = validateDifficulty(q);
-    // Difficulty mismatch: soft gate (wrong difficulty → training, not rejected)
-
     const qualityResult = calculateQualityScore(q);
-    // Downgrade to training if explanation or difficulty is weak
     const forceTraining = !hasGoodExplanation || !difficultyValid;
     const assignedPool = forceTraining ? "training" : qualityResult.pool;
-    const status = "draft"; // all go as draft, qc_status differentiates
+    const status = "draft";
 
-    // Map generator cognitive levels to DB enum values
-    // FIX: FORCE the requested cognitive level from distribution instead of
-    // trusting the AI response. The AI almost always returns "understand"
-    // regardless of what was requested, causing a Bloom monoculture.
     const cogLevelMap: Record<string, string> = {
       recall: "remember", apply: "apply", analyze: "analyze", decide: "evaluate",
       remember: "remember", understand: "understand", evaluate: "evaluate", create: "create",
     };
-    // Use the REQUESTED level (from distribution), not AI's self-report
     const forcedCogLevel = (cognitiveLevel || "understand").toLowerCase();
     const mappedCogLevel = cogLevelMap[forcedCogLevel] || forcedCogLevel;
 
-    // ── S4: Resolve propagated fields from blueprint + LF ──
     const SCENARIO_TYPE_MAP: Record<string, string> = {
-      isolated_knowledge: "isolated_knowledge",
-      applied_case: "applied_case",
-      multi_step_case: "multi_step_case",
-      prioritization: "prioritization",
-      error_detection: "error_detection",
-      documentation_analysis: "documentation_analysis",
-      legal_evaluation: "legal_evaluation",
-      communication_scenario: "communication_scenario",
+      isolated_knowledge: "isolated_knowledge", applied_case: "applied_case",
+      multi_step_case: "multi_step_case", prioritization: "prioritization",
+      error_detection: "error_detection", documentation_analysis: "documentation_analysis",
+      legal_evaluation: "legal_evaluation", communication_scenario: "communication_scenario",
     };
     const resolvedScenarioType = bp.exam_context_type && SCENARIO_TYPE_MAP[bp.exam_context_type]
       ? SCENARIO_TYPE_MAP[bp.exam_context_type] : null;
@@ -866,12 +854,10 @@ async function generateTurboQuestions(
     const resolvedTypicalErrors = Array.isArray(bp.typical_errors) && bp.typical_errors.length > 0
       ? bp.typical_errors : (Array.isArray(q.typical_errors) ? q.typical_errors.filter(Boolean).map(String) : []);
 
-    // Normalize trap_tags: lowercase, replace spaces/hyphens with underscore, then match vocabulary
     const normalizedTags: string[] = Array.isArray(q.trap_tags) 
       ? q.trap_tags.map((t: string) => String(t).toLowerCase().replace(/[\s-]+/g, "_").trim())
       : [];
     const rawTrapTags: string[] = normalizedTags.filter((t: string) => ERROR_TAG_VOCABULARY.includes(t as any));
-    // Debug: log filtered-out tags (max 5 unique per run to avoid spam)
     const filteredOut = normalizedTags.filter(t => !ERROR_TAG_VOCABULARY.includes(t as any));
     if (filteredOut.length > 0) {
       if (!((globalThis as any).__filteredTagsLogged)) (globalThis as any).__filteredTagsLogged = new Set();
@@ -883,14 +869,14 @@ async function generateTurboQuestions(
         }
       }
     }
-    // correctIdx already declared above (line ~609)
+
     const rawDistractorMeta: Array<{option_index: number; error_tag: string; why_wrong: string; why_tempting?: string; examiner_intention?: string}> = 
       Array.isArray(q.distractor_meta) ? q.distractor_meta.filter((d: any) => 
         typeof d.option_index === "number" 
         && typeof d.error_tag === "string"
-        && d.option_index !== correctIdx               // must not tag the correct answer
+        && d.option_index !== correctIdx
         && typeof d.why_wrong === "string"
-        && d.why_wrong.length >= 20                    // min explanation depth
+        && d.why_wrong.length >= 20
       ).map((d: any) => ({
         option_index: d.option_index,
         error_tag: d.error_tag,
@@ -899,16 +885,14 @@ async function generateTurboQuestions(
         examiner_intention: typeof d.examiner_intention === "string" && d.examiner_intention.length >= 15 ? d.examiner_intention : null,
       })) : [];
 
-    // ── Resolve final question_type BEFORE gate (so gate uses correct type) ──
     const finalQuestionType = questionType === "best_option" ? "transfer"
       : questionType === "error_detection" ? "transfer"
       : questionType === "risk_assessment" ? "case_study"
       : questionType === "compliance_check" ? "concept"
-      : questionType; // calculation, case_study pass through
+      : questionType;
 
-    // ── Distractor Quality Gate (hard for calculation, soft for others) ──
     const isCalculation = finalQuestionType === "calculation";
-    const requiredMeta = isCalculation ? 3 : 2; // 3 wrong options need meta for calc
+    const requiredMeta = isCalculation ? 3 : 2;
     const distractorGateFailed = rawDistractorMeta.length < requiredMeta;
     
     let qcReason: string | null = null;
@@ -918,56 +902,7 @@ async function generateTurboQuestions(
       else qcReason = "weak_distractors";
     }
 
-    if (distractorGateFailed) {
-      console.log(`[ExamPool-v5] ${qcReason}: ${finalQuestionType} question has ${rawDistractorMeta.length}/${requiredMeta} valid distractor_meta`);
-      
-      // Store gate failure info in distractor_meta for auditability
-      const auditedMeta = {
-        raw: rawDistractorMeta,
-        gate_fail: true,
-        qc_reason: qcReason,
-        required: requiredMeta,
-        actual: rawDistractorMeta.length,
-        source_type: questionType,
-        final_type: finalQuestionType,
-      };
-
-      const { error } = await sb.from("exam_questions").insert({
-        curriculum_id: bp.curriculum_id,
-        learning_field_id: bp.learning_field_id,
-        competency_id: bp.competency_id,
-        blueprint_id: bp.id,
-        question_text: q.question_text,
-        options: q.options,
-        correct_answer: correctIdx,
-        explanation: q.explanation || "",
-        difficulty: difficulty,
-        cognitive_level: mappedCogLevel,
-        question_type: finalQuestionType,
-        trap_tags: rawTrapTags,
-        distractor_meta: auditedMeta,
-        ai_generated: true,
-        status: "training",
-        qc_status: "tier1_failed",
-        // S4: Blueprint propagation
-        exam_part: resolvedExamPart,
-        scenario_type: resolvedScenarioType,
-        time_estimate_seconds: resolvedTimeEstimate,
-        typical_errors: resolvedTypicalErrors.length > 0 ? resolvedTypicalErrors : null,
-      });
-      if (error) {
-        if (error.code === "23505") { /* duplicate, skip */ }
-        else {
-          const r = await handleDbFailure({ supabase: sb }, error);
-          if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
-        }
-      } else {
-        gateFailed++;
-      }
-      continue;
-    }
-
-    const { error } = await sb.from("exam_questions").insert({
+    const baseRow = {
       curriculum_id: bp.curriculum_id,
       learning_field_id: bp.learning_field_id,
       competency_id: bp.competency_id,
@@ -980,36 +915,62 @@ async function generateTurboQuestions(
       cognitive_level: mappedCogLevel,
       question_type: finalQuestionType,
       trap_tags: rawTrapTags,
-      distractor_meta: {
-        raw: rawDistractorMeta,
-        gate_fail: false,
-        qc_reason: null,
-        required: requiredMeta,
-        actual: rawDistractorMeta.length,
-        source_type: questionType,
-        final_type: finalQuestionType,
-      },
       ai_generated: true,
-      status,
-      qc_status: assignedPool === "exam" ? "approved" : "pending",
-      // S4: Blueprint propagation
       exam_part: resolvedExamPart,
       scenario_type: resolvedScenarioType,
       time_estimate_seconds: resolvedTimeEstimate,
       typical_errors: resolvedTypicalErrors.length > 0 ? resolvedTypicalErrors : null,
-    });
+    };
 
-    if (error) {
-      if (error.code === "23505") { /* duplicate, skip */ }
-      else {
-        const r = await handleDbFailure({ supabase: sb }, error);
-        if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
-      }
+    if (distractorGateFailed) {
+      console.log(`[ExamPool-v5] ${qcReason}: ${finalQuestionType} question has ${rawDistractorMeta.length}/${requiredMeta} valid distractor_meta`);
+      trainingBatch.push({
+        ...baseRow,
+        distractor_meta: { raw: rawDistractorMeta, gate_fail: true, qc_reason: qcReason, required: requiredMeta, actual: rawDistractorMeta.length, source_type: questionType, final_type: finalQuestionType },
+        status: "training",
+        qc_status: "tier1_failed",
+      });
+      gateFailed++;
     } else {
+      const targetBatch = assignedPool === "exam" ? examBatch : trainingBatch;
+      targetBatch.push({
+        ...baseRow,
+        distractor_meta: { raw: rawDistractorMeta, gate_fail: false, qc_reason: null, required: requiredMeta, actual: rawDistractorMeta.length, source_type: questionType, final_type: finalQuestionType },
+        status,
+        qc_status: assignedPool === "exam" ? "approved" : "pending",
+      });
       if (assignedPool === "exam") saved++;
       else training++;
     }
   }
+
+  // ── OPT-1: Batch insert all collected rows (exam + training) ──
+  const allRows = [...examBatch, ...trainingBatch];
+  if (allRows.length > 0) {
+    // Insert in chunks of 50 to avoid payload limits
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
+      const chunk = allRows.slice(i, i + BATCH_SIZE);
+      const { error } = await sb.from("exam_questions").insert(chunk);
+      if (error) {
+        if (error.code === "23505") {
+          // Batch had duplicates — fall back to individual inserts for this chunk
+          console.log(`[ExamPool-v5] BATCH_DUP: falling back to individual inserts for ${chunk.length} rows`);
+          for (const row of chunk) {
+            const { error: singleErr } = await sb.from("exam_questions").insert(row);
+            if (singleErr && singleErr.code !== "23505") {
+              const r = await handleDbFailure({ supabase: sb }, singleErr);
+              if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
+            }
+          }
+        } else {
+          const r = await handleDbFailure({ supabase: sb }, error);
+          if (r?.permanent) throw new Error(`SSOT_GUARD_PERMANENT:${r.hintKey || "unknown"}`);
+        }
+      }
+    }
+  }
+
   const acceptedTotal = saved + training + gateFailed;
   const acceptRate = generatedTotal > 0 ? ((acceptedTotal / generatedTotal) * 100).toFixed(1) : "0.0";
   console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, accepted=${acceptedTotal}, saved=${saved}, training=${training}, gateFailed=${gateFailed}, rejectedContamination=${rejectedContamination}, rejectedOther=${rejectedOther}, acceptRate=${acceptRate}%`);
@@ -1061,12 +1022,19 @@ async function enqueueLearningFieldJobs(
 
   const lfIds = Array.from(lfGroups.keys());
   const existingPerLf = new Map<string, number>();
+
+  // ── OPT-2: Single aggregated query instead of N sequential count queries ──
+  const { data: lfCounts } = await sb.rpc("get_exam_question_counts_by_lf", {
+    p_curriculum_id: curriculumId,
+    p_lf_ids: lfIds,
+  }).catch(() => ({ data: null }));
+  
+  if (lfCounts && Array.isArray(lfCounts)) {
+    for (const row of lfCounts) existingPerLf.set(row.learning_field_id, row.cnt);
+  }
+  // Fallback: any LF not in result gets 0
   for (const lfId of lfIds) {
-    const { count } = await sb.from("exam_questions")
-      .select("id", { count: "exact", head: true })
-      .eq("curriculum_id", curriculumId)
-      .eq("learning_field_id", lfId);
-    existingPerLf.set(lfId, count ?? 0);
+    if (!existingPerLf.has(lfId)) existingPerLf.set(lfId, 0);
   }
 
   const lfEntries = Array.from(lfGroups.entries()).sort((a, b) => {
@@ -1084,6 +1052,47 @@ async function enqueueLearningFieldJobs(
   const errors: string[] = [];
   const lf_details: Array<{ lf_id: string; existing: number; target: number; gap: number; skip_reason?: string }> = [];
 
+  // ── OPT-3: Batch load all active + recent jobs for all LFs in 2 queries ──
+  const activeJobsByLf = new Map<string, number>();
+  const productiveCooldownLfs = new Set<string>();
+  const recentJobLfs = new Set<string>();
+  
+  // Query 1: active (pending/processing) fan-out jobs
+  const { data: activeJobs } = await sb.from("job_queue")
+    .select("payload")
+    .eq("job_type", "package_generate_exam_pool")
+    .eq("package_id", packageId)
+    .in("status", ["pending", "processing"])
+    .contains("payload", { _fan_out: true });
+  
+  if (activeJobs) {
+    for (const job of activeJobs) {
+      const lfId = (job.payload as any)?.learning_field_filter;
+      if (lfId) activeJobsByLf.set(lfId, (activeJobsByLf.get(lfId) ?? 0) + 1);
+    }
+  }
+
+  // Query 2: recently completed fan-out jobs (for cooldown check)
+  const recentCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const { data: recentJobs } = await sb.from("job_queue")
+    .select("payload, result")
+    .eq("job_type", "package_generate_exam_pool")
+    .eq("package_id", packageId)
+    .eq("status", "completed")
+    .gte("completed_at", recentCutoff)
+    .contains("payload", { _fan_out: true })
+    .limit(100);
+
+  if (recentJobs) {
+    for (const job of recentJobs) {
+      const lfId = (job.payload as any)?.learning_field_filter;
+      if (!lfId) continue;
+      recentJobLfs.add(lfId);
+      const gen = (job.result as any)?.metrics?.generated ?? (job.result as any)?.generated;
+      if (typeof gen === "number" && gen > 0) productiveCooldownLfs.add(lfId);
+    }
+  }
+
   for (const [lfId, lfBps] of lfEntries) {
     const weight = lfWeights.get(lfId) ?? (1 / lfCount);
     const proportionalTarget = Math.ceil(examTarget * weight);
@@ -1099,15 +1108,9 @@ async function enqueueLearningFieldJobs(
       continue;
     }
 
-    // ── FAN-OUT DEDUP GUARD v2 ──
-    const { count: activeLfJobs } = await sb.from("job_queue")
-      .select("id", { count: "exact", head: true })
-      .eq("job_type", "package_generate_exam_pool")
-      .eq("package_id", packageId)
-      .in("status", ["pending", "processing"])
-      .contains("payload", { learning_field_filter: lfId, _fan_out: true });
-    
-    if ((activeLfJobs ?? 0) > 0) {
+    // ── OPT-3: Batch cooldown+dedup check (pre-loaded above loop) ──
+    const activeLfJobs = activeJobsByLf.get(lfId) ?? 0;
+    if (activeLfJobs > 0) {
       console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: ${activeLfJobs} active sub-jobs → SKIP (dedup)`);
       lfDetail.skip_reason = "dedup";
       lf_details.push(lfDetail);
@@ -1115,24 +1118,8 @@ async function enqueueLearningFieldJobs(
       continue;
     }
 
-    // ── COOLDOWN GUARD v3: only honor cooldown if recent job actually produced questions ──
-    const recentCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    const { data: recentCompletedJobs } = await sb.from("job_queue")
-      .select("id, result")
-      .eq("job_type", "package_generate_exam_pool")
-      .eq("package_id", packageId)
-      .eq("status", "completed")
-      .gte("completed_at", recentCutoff)
-      .contains("payload", { learning_field_filter: lfId, _fan_out: true })
-      .limit(3);
-
-    // v3 FIX: Only respect cooldown if the recent job actually generated new questions.
-    // Previously, a job that reported ok:true but generated:0 would still trigger cooldown,
-    // permanently blocking LFs with existing-but-insufficient questions.
-    const productiveCooldown = (recentCompletedJobs ?? []).some((j: any) => {
-      const gen = j.result?.metrics?.generated ?? j.result?.generated;
-      return typeof gen === "number" && gen > 0;
-    });
+    const productiveCooldown = productiveCooldownLfs.has(lfId);
+    const hadRecentJobs = recentJobLfs.has(lfId);
 
     if (productiveCooldown) {
       console.log(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: productive sub-job in last 15min → SKIP (cooldown)`);
@@ -1142,7 +1129,7 @@ async function enqueueLearningFieldJobs(
       continue;
     }
 
-    if ((recentCompletedJobs ?? []).length > 0 && !productiveCooldown) {
+    if (hadRecentJobs && !productiveCooldown) {
       console.warn(`[ExamPool-v5] LF ${lfId.slice(0, 8)}: recent job(s) completed but generated=0 → IGNORING cooldown (zero-production)`);
     }
 
@@ -1609,8 +1596,10 @@ Deno.serve(async (req) => {
       const maxCallsPerBp = Math.min(callsPerBp, isFanOut ? 2 : 6);
 
       let brokeMidBp = false;
-      for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx++) {
-        // Time checks inside inner loop too
+      
+      // ── OPT-4: Parallel AI calls (2 concurrent) within time budget ──
+      const PARALLEL_AI_CALLS = 2;
+      for (let callIdx = 0; callIdx < maxCallsPerBp; callIdx += PARALLEL_AI_CALLS) {
         if (Date.now() - invocationStart > TIME_BUDGET_MS) {
           console.log(`[ExamPool-v5] TIME_BUDGET inner: breaking mid-blueprint`);
           brokeMidBp = true;
@@ -1622,24 +1611,39 @@ Deno.serve(async (req) => {
           break;
         }
 
-        const globalIdx = (currentBpIndex * maxCallsPerBp + callIdx);
-        const typeIdx = globalIdx % typeEntries.length;
-        const questionType = typeEntries[typeIdx][0];
-        const difficulty = pickDifficulty();
-        const cognitiveLevel = pickCognitiveLevel();
+        // Prepare up to PARALLEL_AI_CALLS concurrent tasks
+        const parallelTasks: Array<{ difficulty: string; cognitiveLevel: string; questionType: string; promise: Promise<any> }> = [];
+        
+        for (let pi = 0; pi < PARALLEL_AI_CALLS && (callIdx + pi) < maxCallsPerBp; pi++) {
+          const globalIdx = (currentBpIndex * maxCallsPerBp + callIdx + pi);
+          const typeIdx = globalIdx % typeEntries.length;
+          const questionType = typeEntries[typeIdx][0];
+          const difficulty = pickDifficulty();
+          const cognitiveLevel = pickCognitiveLevel();
 
-        try {
-          const genResult = await generateTurboQuestions(
-            sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, cognitiveLevel, existingHashes, existingNgramSets, professionName, glossaryContext
-          );
+          parallelTasks.push({
+            difficulty, cognitiveLevel, questionType,
+            promise: generateTurboQuestions(
+              sb, bp, AI_QUESTIONS_PER_CALL, difficulty, questionType, cognitiveLevel,
+              existingHashes, existingNgramSets, professionName, glossaryContext
+            ).catch((e: unknown) => {
+              console.log(`[ExamPool-v5] BP ${bp.id.slice(0, 8)} call ${callIdx + pi} FAIL: ${(e as Error)?.message}`);
+              return { saved: 0, training: 0, gateFailed: 0 };
+            }),
+          });
+        }
+
+        // Await all parallel calls
+        const results = await Promise.all(parallelTasks.map(t => t.promise));
+        
+        for (let ri = 0; ri < results.length; ri++) {
+          const genResult = results[ri];
+          const task = parallelTasks[ri];
           questionsThisChunk += genResult.saved;
           trainingThisChunk += genResult.training;
-          // FIX: Count ALL inserted questions for quota tracking
-          const totalInserted = genResult.saved + genResult.training + genResult.gateFailed;
-          diffMade[difficulty] = (diffMade[difficulty] ?? 0) + totalInserted;
-          cogMade[cognitiveLevel] = (cogMade[cognitiveLevel] ?? 0) + totalInserted;
-        } catch (e: unknown) {
-          console.log(`[ExamPool-v5] BP ${bp.id.slice(0, 8)} call ${callIdx} FAIL: ${(e as Error)?.message}`);
+          const totalInserted = genResult.saved + genResult.training + (genResult.gateFailed ?? 0);
+          diffMade[task.difficulty] = (diffMade[task.difficulty] ?? 0) + totalInserted;
+          cogMade[task.cognitiveLevel] = (cogMade[task.cognitiveLevel] ?? 0) + totalInserted;
         }
       }
 
