@@ -82,10 +82,12 @@ Deno.serve(async (req) => {
     const exportResults: Record<string, { rows: number; error?: string }> = {};
     
     // Ensure backup bucket exists
-    await sb.storage.createBucket("backups", { 
-      public: false,
-      fileSizeLimit: 52428800, // 50MB
-    }).catch(() => { /* bucket may already exist */ });
+    try {
+      await sb.storage.createBucket("backups", { 
+        public: false,
+        fileSizeLimit: 52428800, // 50MB
+      });
+    } catch { /* bucket may already exist */ }
 
     for (const table of EXPORT_TABLES) {
       try {
