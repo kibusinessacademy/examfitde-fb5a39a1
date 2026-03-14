@@ -2187,7 +2187,7 @@ Deno.serve(async (req) => {
           target: examTarget,
           ...resultMeta,
         },
-        { generated: questionsThisChunk, inserted: actualTotal, blueprints_found: bps.length, blueprints_used: bpsProcessed },
+        { generated: generatedThisRun, inserted: insertedThisRun, blueprints_found: bps.length, blueprints_used: bpsProcessed },
       ), 500);
     }
 
