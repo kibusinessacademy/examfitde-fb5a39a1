@@ -244,6 +244,35 @@ Deno.serve(async (req) => {
       return json({ ok: true, status: "dry_run", score, plan, autofix_run_id: run.id }, 200, origin);
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // CRITICAL FIX: Transition package to "building" BEFORE enqueuing jobs.
+    // Without this, OPS_GUARD kills all jobs for non-building packages,
+    // creating a deadlock where auto-gap-close enqueues → OPS_GUARD kills → nothing runs.
+    // ═══════════════════════════════════════════════════════════
+    const { data: pkgState } = await sb.from("course_packages")
+      .select("status")
+      .eq("id", packageId)
+      .single();
+
+    const previousStatus = pkgState?.status;
+    if (previousStatus && previousStatus !== "building") {
+      console.log(`[AutoGap] Transitioning package ${packageId} from '${previousStatus}' → 'building' to allow job execution`);
+      await sb.from("course_packages").update({
+        status: "building",
+        updated_at: new Date().toISOString(),
+      }).eq("id", packageId);
+
+      // Log the transition for audit trail
+      await sb.from("admin_actions").insert({
+        action: "auto_gap_close_status_transition",
+        scope: "course_packages",
+        affected_ids: [packageId],
+        before_state: { status: previousStatus },
+        after_state: { status: "building" },
+        payload: { autofix_run_id: run.id, reason: "OPS_GUARD bypass: package must be building for jobs to run" },
+      });
+    }
+
     // 6) Enqueue gap-closing jobs (with dedup)
     let enqueued = 0;
     for (const action of plan.actions) {
