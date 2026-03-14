@@ -484,6 +484,32 @@ Deno.serve(async (req) => {
           }
         }
       }
+    } else if (effectiveMode === "drill") {
+      // Drill mode: count competencies without minichecks
+      const { data: lfs2 } = await sb.from("learning_fields").select("id").eq("curriculum_id", curriculumId);
+      const lfIds2 = (lfs2 || []).map((lf: any) => lf.id);
+      if (lfIds2.length > 0) {
+        const { data: allComps2 } = await sb.from("competencies").select("id").in("learning_field_id", lfIds2);
+        const compIds2 = (allComps2 || []).map((c: any) => c.id);
+        const coveredSet = new Set<string>();
+        for (let i = 0; i < compIds2.length; i += 200) {
+          const chunk = compIds2.slice(i, i + 200);
+          const { data: covered } = await sb
+            .from("minicheck_questions").select("competency_id")
+            .in("competency_id", chunk)
+            .eq("curriculum_id", curriculumId)
+            .eq("mode", "drill")
+            .limit(5000);
+          for (const c of covered || []) coveredSet.add(c.competency_id);
+        }
+        freshRemaining = compIds2.filter((id: string) => !coveredSet.has(id)).length;
+      }
+    }
+
+    // ── Override batchComplete if DB confirms no remaining targets ──
+    if (freshRemaining === 0) {
+      batchComplete = true;
+      console.log(`[MiniChecks] ✅ DB confirms freshRemaining=0 → batchComplete overridden to true`);
     }
 
     // ── Progress Guard & Meta Logging ──
