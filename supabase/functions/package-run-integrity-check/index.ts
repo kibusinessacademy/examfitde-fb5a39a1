@@ -831,10 +831,12 @@ Deno.serve(async (req) => {
     };
 
     const CURRENT_REPORT_VERSION = "COURSE_READY_v1.5";
+    const CURRENT_REPORT_VERSION_NUM = 15;
     const report = {
       score: gate.score,
       generated_at: new Date().toISOString(),
       gate_version: CURRENT_REPORT_VERSION,
+      version_num: CURRENT_REPORT_VERSION_NUM,
       v3: {
         hard_fail_reasons: gate.hardFails,
         warnings: gate.warnings,
@@ -858,6 +860,7 @@ Deno.serve(async (req) => {
     const updatePayload: Record<string, unknown> = {
       integrity_report: report,
       integrity_report_version: CURRENT_REPORT_VERSION,
+      integrity_report_version_num: CURRENT_REPORT_VERSION_NUM,
       integrity_passed: gate.hardFails.length === 0,
       build_progress: gate.hardFails.length === 0 ? 95 : 80,
     };

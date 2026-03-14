@@ -7268,6 +7268,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           integrity_report_version: string | null
+          integrity_report_version_num: number | null
           is_published: boolean
           is_rebuild: boolean
           last_error: string | null
@@ -7319,6 +7320,7 @@ export type Database = {
           integrity_passed?: boolean
           integrity_report?: Json | null
           integrity_report_version?: string | null
+          integrity_report_version_num?: number | null
           is_published?: boolean
           is_rebuild?: boolean
           last_error?: string | null
@@ -7370,6 +7372,7 @@ export type Database = {
           integrity_passed?: boolean
           integrity_report?: Json | null
           integrity_report_version?: string | null
+          integrity_report_version_num?: number | null
           is_published?: boolean
           is_rebuild?: boolean
           last_error?: string | null
@@ -31436,7 +31439,7 @@ export type Database = {
           exam_target: number | null
           gate_version: string | null
           integrity_passed: boolean | null
-          integrity_report_version: string | null
+          integrity_report_version_num: number | null
           integrity_score: number | null
           needs_production_run: boolean | null
           needs_report_refresh: boolean | null
@@ -31454,7 +31457,7 @@ export type Database = {
           exam_target?: never
           gate_version?: never
           integrity_passed?: boolean | null
-          integrity_report_version?: string | null
+          integrity_report_version_num?: number | null
           integrity_score?: never
           needs_production_run?: never
           needs_report_refresh?: never
@@ -31472,7 +31475,7 @@ export type Database = {
           exam_target?: never
           gate_version?: never
           integrity_passed?: boolean | null
-          integrity_report_version?: string | null
+          integrity_report_version_num?: number | null
           integrity_score?: never
           needs_production_run?: never
           needs_report_refresh?: never
@@ -37091,6 +37094,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           integrity_report_version: string | null
+          integrity_report_version_num: number | null
           is_published: boolean
           is_rebuild: boolean
           last_error: string | null
@@ -37386,6 +37390,7 @@ export type Database = {
           integrity_passed: boolean
           integrity_report: Json | null
           integrity_report_version: string | null
+          integrity_report_version_num: number | null
           is_published: boolean
           is_rebuild: boolean
           last_error: string | null

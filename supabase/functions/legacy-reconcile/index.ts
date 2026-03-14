@@ -14,7 +14,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
  * wenn er zur aktuellen Qualitäts- und Report-Semantik passt."
  */
 
-const CURRENT_REPORT_VERSION = "COURSE_READY_v1.5";
+const CURRENT_REPORT_VERSION_NUM = 15;
 const EXAM_TARGET = 500;
 
 const corsHeaders = {
@@ -55,30 +55,37 @@ Deno.serve(async (req) => {
     // Load package
     const { data: pkg, error: pErr } = await sb
       .from("course_packages")
-      .select("id, title, curriculum_id, integrity_report, integrity_report_version, integrity_passed, status, track")
+      .select("id, title, curriculum_id, integrity_report, integrity_report_version_num, integrity_passed, status, track")
       .eq("id", packageId)
       .single();
     if (pErr || !pkg) return json({ ok: false, error: "package not found" }, 404);
 
     const actions: Array<{ action: string; detail: string; applied: boolean }> = [];
 
-    // ── 1. Stale Integrity Report ──
-    const reportVersion = pkg.integrity_report_version;
-    if (pkg.integrity_report && (!reportVersion || reportVersion < CURRENT_REPORT_VERSION)) {
+    // ── 1. Stale Integrity Report (numeric version) ──
+    const reportVersionNum = Number(pkg.integrity_report_version_num) || 0;
+    if (pkg.integrity_report && reportVersionNum < CURRENT_REPORT_VERSION_NUM) {
       const action = {
         action: "invalidate_stale_report",
-        detail: `version=${reportVersion ?? "null"} < ${CURRENT_REPORT_VERSION}`,
+        detail: `version_num=${reportVersionNum} < ${CURRENT_REPORT_VERSION_NUM}`,
         applied: false,
       };
       if (!dryRun) {
         await sb.from("course_packages").update({
           integrity_passed: false,
-          integrity_report_version: null,
+          integrity_report_version_num: 0,
         }).eq("id", packageId);
-        // Reset integrity step to queued
-        await sb.from("package_steps").update({ status: "queued" })
+        // Only reset step if not currently running
+        const { data: intStep } = await sb.from("package_steps")
+          .select("status")
           .eq("package_id", packageId)
-          .eq("step_key", "run_integrity_check");
+          .eq("step_key", "run_integrity_check")
+          .maybeSingle();
+        if (intStep?.status !== "running" && intStep?.status !== "processing") {
+          await sb.from("package_steps").update({ status: "queued" })
+            .eq("package_id", packageId)
+            .eq("step_key", "run_integrity_check");
+        }
         action.applied = true;
       }
       actions.push(action);
