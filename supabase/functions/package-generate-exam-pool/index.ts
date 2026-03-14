@@ -2182,8 +2182,12 @@ Deno.serve(async (req) => {
       failure_reason: failureReason,
       failure_stage: failureStage,
       llm_calls_attempted: _qualityMetrics.total_llm_calls,
+      llm_calls_successful: _qualityMetrics.successful_llm_calls,
       llm_calls_failed: _qualityMetrics.failed_llm_calls,
+      llm_calls_blocked: _qualityMetrics.blocked_llm_calls,
       empty_responses: _qualityMetrics.empty_responses,
+      models_attempted: _qualityMetrics.models_attempted,
+      models_used: _qualityMetrics.models_used,
     };
 
     // ── HOLLOW COMPLETION GUARD (existing, enhanced) ─────────────────────
