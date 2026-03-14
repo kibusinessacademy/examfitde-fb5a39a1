@@ -360,7 +360,7 @@ export function getEscalationModel(
 
   const escalationMap: Partial<Record<PipelineIntent, ModelChoice>> = {
     exam_questions: { provider: "openai", model: "gpt-5.2" },
-    oral_exam: { provider: "openai", model: "gpt-5-mini" },
+    oral_exam: { provider: "openai", model: "gpt-4o-mini" },
     minicheck: { provider: "openai", model: "gpt-5-mini" },
     support: { provider: "openai", model: "gpt-5-mini" },
     summary: { provider: "openai", model: "gpt-5-mini" },
