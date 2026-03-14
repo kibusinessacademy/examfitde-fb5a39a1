@@ -320,6 +320,7 @@ Deno.serve(async (req) => {
       await sb.from("autofix_runs").update({
         status: "stopped",
         stop_reason: `Max rounds reached (${maxRounds})`,
+        stop_reason_code: "MAX_ROUNDS_EXCEEDED",
       }).eq("id", run.id);
       return json({ ok: false, status: "stopped", score, reason: "max_rounds", autofix_run_id: run.id }, 200, origin);
     }
