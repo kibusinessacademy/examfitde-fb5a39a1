@@ -164,6 +164,7 @@ interface DbRule {
   budget_cap_eur: number | null;
   max_output_tokens: number | null;
   temperature: number | null;
+  ab_weight: number;
 }
 
 let _cache: { ts: number; byIntent: Record<string, ModelChoice[]> } | null = null;
