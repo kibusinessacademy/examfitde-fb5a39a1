@@ -15,8 +15,8 @@
 // Mark each entry with its drift risk level.
 
 export const MODEL_ALIASES = {
-  /** Anthropic cheap+fast fallback. DRIFT-PRONE: "latest" alias may change behavior. */
-  anthropic_cheap_fast: "claude-3-5-haiku-latest",
+  /** Anthropic cheap+fast fallback. Pinned snapshot — stable. */
+  anthropic_cheap_fast: "claude-3-5-haiku-20241022",
 
   /** Anthropic primary (Sonnet). Pinned snapshot — stable. */
   anthropic_primary: "claude-sonnet-4-5-20250929",
