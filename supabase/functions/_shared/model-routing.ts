@@ -195,12 +195,13 @@ async function loadRulesFromDb(): Promise<Record<string, ModelChoice[]>> {
       return {};
     }
 
-    const byIntent: Record<string, ModelChoice[]> = {};
+    const byIntent: Record<string, Array<ModelChoice & { ab_weight: number }>> = {};
     for (const r of data as DbRule[]) {
-      const step: ModelChoice = {
+      const step: ModelChoice & { ab_weight: number } = {
         provider: r.provider as AIProvider,
         model: r.model,
         is_fallback: !!r.is_fallback,
+        ab_weight: r.ab_weight ?? 100,
         ...(r.max_output_tokens ? { max_output_tokens: r.max_output_tokens } : {}),
         ...(typeof r.temperature === "number" ? { temperature: r.temperature } : {}),
         ...(typeof r.budget_cap_eur === "number" ? { budget_cap_eur: r.budget_cap_eur } : {}),
@@ -208,7 +209,42 @@ async function loadRulesFromDb(): Promise<Record<string, ModelChoice[]>> {
       byIntent[r.intent] ??= [];
       byIntent[r.intent].push(step);
     }
-    return byIntent;
+
+    // A/B resolution: group by priority, pick one per priority tier by weight
+    const resolved: Record<string, ModelChoice[]> = {};
+    for (const [intent, rules] of Object.entries(byIntent)) {
+      const byPriority = new Map<number, Array<ModelChoice & { ab_weight: number }>>();
+      for (const r of rules) {
+        const p = (r as any).priority ?? 1;
+        if (!byPriority.has(p)) byPriority.set(p, []);
+        byPriority.get(p)!.push(r);
+      }
+
+      const chain: ModelChoice[] = [];
+      for (const [, candidates] of [...byPriority.entries()].sort((a, b) => a[0] - b[0])) {
+        if (candidates.length === 1) {
+          chain.push(candidates[0]);
+        } else {
+          // Weighted random selection among same-priority candidates
+          const totalWeight = candidates.reduce((s, c) => s + c.ab_weight, 0);
+          const roll = Math.random() * totalWeight;
+          let cumulative = 0;
+          let picked = candidates[0];
+          for (const c of candidates) {
+            cumulative += c.ab_weight;
+            if (roll < cumulative) { picked = c; break; }
+          }
+          chain.push(picked);
+          // Add non-picked as fallbacks
+          for (const c of candidates) {
+            if (c !== picked) chain.push({ ...c, is_fallback: true });
+          }
+          console.log(`[MODEL-ROUTING] A/B: ${intent} → ${picked.provider}/${picked.model} (weight=${picked.ab_weight}/${totalWeight})`);
+        }
+      }
+      resolved[intent] = chain;
+    }
+    return resolved;
   } catch (e) {
     console.warn("[MODEL-ROUTING] DB load exception, using hardcoded:", e);
     return {};
