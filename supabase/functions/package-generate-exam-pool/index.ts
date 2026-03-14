@@ -967,6 +967,8 @@ async function dedupeValidateAndInsert(
     const praxisScore = calculatePraxisScore(q);
     if (praxisScore < 1) {
       console.log(`[ExamPool-v5] REJECTED LOW_PRAXIS (${praxisScore}): "${q.question_text.slice(0, 40)}…"`);
+      _qualityMetrics.candidates_rejected_low_praxis++;
+      _qualityMetrics.rejection_reasons["low_praxis"] = (_qualityMetrics.rejection_reasons["low_praxis"] ?? 0) + 1;
       continue;
     }
 
