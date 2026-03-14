@@ -237,18 +237,20 @@ async function logTurn(sbAdmin: any, params: {
   sourceBlueprintQuestion?: string;
   renderingModel?: string;
 }) {
-  await sbAdmin.rpc("log_oral_exam_turn", {
-    p_session_id: params.sessionId,
-    p_question_id: params.questionId || null,
-    p_user_id: params.userId,
-    p_phase: params.phase,
-    p_role: params.role,
-    p_payload: params.payload || {},
-    p_source_blueprint_id: params.sourceBlueprintId || null,
-    p_source_blueprint_question: params.sourceBlueprintQuestion || null,
-    p_rendered_question: params.renderedQuestion || null,
-    p_rendering_model: params.renderingModel || null,
-  }).catch((e: any) => console.warn("[OralExam] Turn log failed:", e));
+  try {
+    await sbAdmin.rpc("log_oral_exam_turn", {
+      p_session_id: params.sessionId,
+      p_question_id: params.questionId || null,
+      p_user_id: params.userId,
+      p_phase: params.phase,
+      p_role: params.role,
+      p_payload: params.payload || {},
+      p_source_blueprint_id: params.sourceBlueprintId || null,
+      p_source_blueprint_question: params.sourceBlueprintQuestion || null,
+      p_rendered_question: params.renderedQuestion || null,
+      p_rendering_model: params.renderingModel || null,
+    });
+  } catch (e: any) { console.warn("[OralExam] Turn log failed:", e); }
 }
 
 // ── Start Session ──────────────────────────────────────────────

@@ -230,14 +230,16 @@ Deno.serve(async (req) => {
       }
 
       // Create admin notification
-      await sb.from("admin_notifications").insert({
-        title: `⚠️ ${stillFailed} Lektionen benötigen manuelle Nachbearbeitung`,
-        body: `Paket ${packageId.slice(0, 8)}: Auto-Heal konnte ${stillFailed} Lektionen nicht reparieren. Bitte manuell unter Quality → Nachbearbeitung prüfen.`,
-        category: "quality",
-        severity: "warning",
-        entity_type: "course_package",
-        entity_id: packageId,
-      }).catch(() => {});
+      try {
+        await sb.from("admin_notifications").insert({
+          title: `⚠️ ${stillFailed} Lektionen benötigen manuelle Nachbearbeitung`,
+          body: `Paket ${packageId.slice(0, 8)}: Auto-Heal konnte ${stillFailed} Lektionen nicht reparieren. Bitte manuell unter Quality → Nachbearbeitung prüfen.`,
+          category: "quality",
+          severity: "warning",
+          entity_type: "course_package",
+          entity_id: packageId,
+        });
+      } catch { /* best-effort */ }
     }
 
     const allHealed = stillFailed === 0;
