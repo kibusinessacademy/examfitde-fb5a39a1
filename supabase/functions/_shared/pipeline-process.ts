@@ -16,6 +16,7 @@ import {
 import { handleJobFailed } from "./pipeline-handlers.ts";
 import { handleEnqueue } from "./pipeline-handlers.ts";
 import { enqueueJob } from "./enqueue.ts";
+import { updateLoopGuardMeta } from "./loop-guard.ts";
 import { backfillPipelinePool } from "./pipeline-backfill.ts";
 export { backfillPipelinePool } from "./pipeline-backfill.ts";
 
