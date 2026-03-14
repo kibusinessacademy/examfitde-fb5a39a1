@@ -595,7 +595,7 @@ async function verifyStructuralHealth(
   curriculumId: string,
   packageId: string,
 ): Promise<{ ok: boolean; reason?: string; exam: number; oral: number; handbook_sections: number }> {
-  const { count: examN } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
+  const { count: examN } = await sb.from("exam_questions").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId).neq("status", "rejected").not("qc_status", "in", "(tier1_failed,rejected)");
   const { count: oralN } = await sb.from("oral_exam_blueprints").select("id", { count: "exact", head: true }).eq("curriculum_id", curriculumId);
 
   const { data: chapterIds } = await sb.from("handbook_chapters").select("id").eq("curriculum_id", curriculumId);

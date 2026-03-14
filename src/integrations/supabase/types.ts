@@ -2961,6 +2961,13 @@ export type Database = {
             referencedRelation: "v_exam_questions_sanitized"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "blueprint_variants_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       blueprint_versions: {
@@ -11604,6 +11611,13 @@ export type Database = {
             referencedRelation: "v_exam_questions_sanitized"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "exam_question_elite_annotations_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "v_exam_relevant_questions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       exam_questions: {
@@ -11911,6 +11925,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "v_exam_questions_sanitized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
             referencedColumns: ["id"]
           },
         ]
@@ -14768,6 +14789,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lesson_minicheck_questions_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lesson_minicheck_questions_minicheck_id_fkey"
             columns: ["minicheck_id"]
             isOneToOne: false
@@ -16124,6 +16152,13 @@ export type Database = {
             columns: ["exam_question_id"]
             isOneToOne: false
             referencedRelation: "v_exam_questions_sanitized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "minicheck_set_items_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
             referencedColumns: ["id"]
           },
           {
@@ -22606,6 +22641,13 @@ export type Database = {
             referencedRelation: "v_exam_questions_sanitized"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "question_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       question_blueprints: {
@@ -22885,6 +22927,13 @@ export type Database = {
             referencedRelation: "v_exam_questions_sanitized"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "question_discrimination_stats_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "v_exam_relevant_questions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       question_quality_metrics: {
@@ -23014,6 +23063,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "question_skill_map_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "question_skill_map_skill_node_id_fkey"
             columns: ["skill_node_id"]
             isOneToOne: false
@@ -23113,6 +23169,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: true
             referencedRelation: "v_exam_questions_sanitized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_variant_stats_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "v_exam_relevant_questions"
             referencedColumns: ["id"]
           },
         ]
@@ -24966,6 +25029,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "v_exam_questions_sanitized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spaced_repetition_cards_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_exam_relevant_questions"
             referencedColumns: ["id"]
           },
         ]
@@ -33453,6 +33523,210 @@ export type Database = {
           },
         ]
       }
+      v_exam_relevant_questions: {
+        Row: {
+          ai_generated: boolean | null
+          approved_version_id: string | null
+          bloom_level_validated: string | null
+          blueprint_id: string | null
+          canonical_hash: string | null
+          cognitive_level: string | null
+          competency_id: string | null
+          complexity_score: number | null
+          conflict_type: string | null
+          correct_answer: number | null
+          created_at: string | null
+          curriculum_id: string | null
+          difficulty: Database["public"]["Enums"]["question_difficulty"] | null
+          discrimination_tier: string | null
+          distractor_meta: Json | null
+          distractor_types: string[] | null
+          dynamic_scenario: boolean | null
+          elite_level: Database["public"]["Enums"]["elite_level"] | null
+          elite_score: number | null
+          elite_score_breakdown: Json | null
+          exam_part: string | null
+          explanation: string | null
+          global_canonical_hash: string | null
+          id: string | null
+          item_calibrated_at: string | null
+          item_difficulty: number | null
+          item_discrimination: number | null
+          item_guessing: number | null
+          item_usage_count: number | null
+          learning_field_id: string | null
+          multi_variable: boolean | null
+          normalized_hash: string | null
+          options: Json | null
+          qc_status: string | null
+          question_text: string | null
+          question_type: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scenario_type: string | null
+          status: Database["public"]["Enums"]["question_status"] | null
+          time_estimate_seconds: number | null
+          transfer_variant: boolean | null
+          trap_tags: string[] | null
+          typical_errors: Json | null
+          variant_group: string | null
+          variant_label: string | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          approved_version_id?: string | null
+          bloom_level_validated?: string | null
+          blueprint_id?: string | null
+          canonical_hash?: string | null
+          cognitive_level?: string | null
+          competency_id?: string | null
+          complexity_score?: number | null
+          conflict_type?: string | null
+          correct_answer?: number | null
+          created_at?: string | null
+          curriculum_id?: string | null
+          difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
+          discrimination_tier?: string | null
+          distractor_meta?: Json | null
+          distractor_types?: string[] | null
+          dynamic_scenario?: boolean | null
+          elite_level?: Database["public"]["Enums"]["elite_level"] | null
+          elite_score?: number | null
+          elite_score_breakdown?: Json | null
+          exam_part?: string | null
+          explanation?: string | null
+          global_canonical_hash?: string | null
+          id?: string | null
+          item_calibrated_at?: string | null
+          item_difficulty?: number | null
+          item_discrimination?: number | null
+          item_guessing?: number | null
+          item_usage_count?: number | null
+          learning_field_id?: string | null
+          multi_variable?: boolean | null
+          normalized_hash?: string | null
+          options?: Json | null
+          qc_status?: string | null
+          question_text?: string | null
+          question_type?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scenario_type?: string | null
+          status?: Database["public"]["Enums"]["question_status"] | null
+          time_estimate_seconds?: number | null
+          transfer_variant?: boolean | null
+          trap_tags?: string[] | null
+          typical_errors?: Json | null
+          variant_group?: string | null
+          variant_label?: string | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          approved_version_id?: string | null
+          bloom_level_validated?: string | null
+          blueprint_id?: string | null
+          canonical_hash?: string | null
+          cognitive_level?: string | null
+          competency_id?: string | null
+          complexity_score?: number | null
+          conflict_type?: string | null
+          correct_answer?: number | null
+          created_at?: string | null
+          curriculum_id?: string | null
+          difficulty?: Database["public"]["Enums"]["question_difficulty"] | null
+          discrimination_tier?: string | null
+          distractor_meta?: Json | null
+          distractor_types?: string[] | null
+          dynamic_scenario?: boolean | null
+          elite_level?: Database["public"]["Enums"]["elite_level"] | null
+          elite_score?: number | null
+          elite_score_breakdown?: Json | null
+          exam_part?: string | null
+          explanation?: string | null
+          global_canonical_hash?: string | null
+          id?: string | null
+          item_calibrated_at?: string | null
+          item_difficulty?: number | null
+          item_discrimination?: number | null
+          item_guessing?: number | null
+          item_usage_count?: number | null
+          learning_field_id?: string | null
+          multi_variable?: boolean | null
+          normalized_hash?: string | null
+          options?: Json | null
+          qc_status?: string | null
+          question_text?: string | null
+          question_type?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scenario_type?: string | null
+          status?: Database["public"]["Enums"]["question_status"] | null
+          time_estimate_seconds?: number | null
+          transfer_variant?: boolean | null
+          trap_tags?: string[] | null
+          typical_errors?: Json | null
+          variant_group?: string | null
+          variant_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprint_questions_view"
+            referencedColumns: ["blueprint_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_blueprint_fk"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "question_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_learning_field_id_fkey"
+            columns: ["learning_field_id"]
+            isOneToOne: false
+            referencedRelation: "learning_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_executive_decision_summary: {
         Row: {
           done_decisions: number | null
@@ -35408,6 +35682,10 @@ export type Database = {
           count: number
           status: string
         }[]
+      }
+      count_exam_relevant: {
+        Args: { p_curriculum_id: string; p_learning_field_id?: string }
+        Returns: number
       }
       count_global_inflight_lesson_jobs: { Args: never; Returns: number }
       count_leased_building_packages: { Args: never; Returns: number }
