@@ -84,7 +84,7 @@ interface T1Result {
 let questions_total_hint = 0;
 
 function tier1Check(
-  q: { id: string; question_text: string; options: any; correct_answer: number; explanation: string | null; difficulty: string | null },
+  q: { id: string; question_text: string; options: any; correct_answer: number; explanation: string | null; difficulty: string | null; competency_id?: string },
   professionName: string,
   recentNgrams: Array<{ id: string; ngrams: Set<string> }>,
 ): T1Result {
@@ -141,17 +141,22 @@ function tier1Check(
     }
   }
 
-  // Duplicate check via Jaccard — sliding window only
+  // Duplicate check via Jaccard — sliding window, SAME COMPETENCY only.
+  // FIX: Büromanagement calculation questions (Rabatt/Skonto/MwSt) share heavy
+  // structural similarity across competencies but are didactically distinct.
+  // Only flag duplicates within the same competency to avoid false positives.
   if (q.question_text) {
     const ngrams = textNgrams(q.question_text);
     for (const existing of recentNgrams) {
       if (existing.id === q.id) continue;
+      // Skip cross-competency comparison — different competencies = different context
+      if (q.competency_id && existing.competencyId && q.competency_id !== existing.competencyId) continue;
       if (jaccardSim(ngrams, existing.ngrams) >= JACCARD_THRESHOLD) {
         issues.push(`NEAR_DUPLICATE_OF: ${existing.id.slice(0, 8)}`);
         break;
       }
     }
-    recentNgrams.push({ id: q.id, ngrams });
+    recentNgrams.push({ id: q.id, ngrams, competencyId: q.competency_id });
     if (recentNgrams.length > JACCARD_WINDOW) recentNgrams.shift();
   }
 
@@ -329,14 +334,18 @@ Deno.serve(async (req) => {
   let allQuestionsLoaded = false;
 
   if (startPhase === "tier1") {
-    const recentNgrams: Array<{ id: string; ngrams: Set<string> }> = [];
+    const recentNgrams: Array<{ id: string; ngrams: Set<string>; competencyId?: string }> = [];
     let pageAfterId = startAfterId;
 
     while (timeLeft() > 10_000) { // Keep 10s buffer for DB writes
+      // FIX: Only validate 'pending' questions — never re-validate already-processed ones.
+      // Re-validating tier1_failed questions caused infinite QG fail loops because
+      // the same questions kept failing and the pass-rate stayed below 70%.
       let query = sb
         .from("exam_questions")
-        .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id")
+        .select("id, question_text, options, correct_answer, explanation, difficulty, blueprint_id, competency_id")
         .eq("curriculum_id", curriculumId)
+        .eq("qc_status", "pending")
         .order("id")
         .limit(PAGE_SIZE);
 
