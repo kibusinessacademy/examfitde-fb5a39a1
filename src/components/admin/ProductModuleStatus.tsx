@@ -24,6 +24,7 @@ interface ModuleStats {
 interface Props {
   packageId: string;
   courseId: string | null;
+  curriculumId: string | null;
   certificationId: string | null;
   featureFlags?: Record<string, boolean> | null;
 }
