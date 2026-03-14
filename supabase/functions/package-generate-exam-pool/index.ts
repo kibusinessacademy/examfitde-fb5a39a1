@@ -613,20 +613,27 @@ ${masteryInjection || ""}`;
   return { system, user };
 }
 
-// ─── Question Generator (Turbo with quality gates) ───────────────────────────
+// ─── Raw Candidate Generator (AI-only, no dedup/persist — parallel-safe) ────
 
-async function generateTurboQuestions(
+interface RawCandidate {
+  question: any;
+  bp: BlueprintInfo;
+  difficulty: DifficultyKey;
+  questionType: QuestionTypeKey;
+  cognitiveLevel: CognitiveLevelKey;
+  lfData: { title?: string; exam_part?: string } | null;
+}
+
+async function generateRawCandidates(
   sb: ReturnType<typeof createClient>,
   bp: BlueprintInfo,
   count: number,
   difficulty: DifficultyKey,
   questionType: QuestionTypeKey,
   cognitiveLevel: CognitiveLevelKey,
-  existingHashes: Set<string>,
-  existingNgramSets: Set<string>[],
   professionName: string,
   glossaryContext?: string,
-): Promise<{ saved: number; training: number }> {
+): Promise<{ candidates: RawCandidate[]; lfData: { title?: string; exam_part?: string } | null }> {
   let compTitle = bp.name;
   let compDesc = bp.canonical_statement;
   let lfTitle = "";
@@ -679,7 +686,6 @@ async function generateTurboQuestions(
         max_tokens: maxTokens,
         timeout_ms: 45_000,
       });
-      // ── LOG COST EVENT (success) ──
       const estimatedTokensIn = Math.ceil((system.length + user.length) / 3.5);
       const estimatedTokensOut = Math.ceil((result.content?.length ?? 200) / 3.5);
       const costSb = (globalThis as any).__examPoolSb;
@@ -701,7 +707,6 @@ async function generateTurboQuestions(
       const isRate = errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("409");
       const isTimeout = errMsg.includes("timed out") || errMsg.includes("TimeoutError") || errMsg.includes("AbortError");
 
-      // ── LOG COST EVENT (fail/retry) ──
       const costSb = (globalThis as any).__examPoolSb;
       if (costSb) {
         await logLLMCostEvent(costSb, {
@@ -721,34 +726,54 @@ async function generateTurboQuestions(
         continue;
       }
       console.log(`[ExamPool-v5] AI error (${provider}/${model}): ${errMsg}`);
-      return { saved: 0, training: 0, gateFailed: 0 };
+      return { candidates: [], lfData };
     }
   }
 
-  if (!result?.content) return { saved: 0, training: 0, gateFailed: 0 };
+  if (!result?.content) return { candidates: [], lfData };
 
   const parsed = repairJSON(result.content);
   if (!parsed) {
     console.log(`[ExamPool-v5] JSON repair failed for BP ${bp.id.slice(0, 8)}`);
-    return { saved: 0, training: 0, gateFailed: 0 };
+    return { candidates: [], lfData };
   }
 
   const questions = Array.isArray(parsed) ? parsed : [parsed];
+  const candidates: RawCandidate[] = questions.map(q => ({
+    question: q,
+    bp,
+    difficulty,
+    questionType,
+    cognitiveLevel,
+    lfData,
+  }));
+
+  return { candidates, lfData };
+}
+
+// ─── Central Dedup + Validate + Batch Insert (sequential, SSOT-safe) ─────────
+
+async function dedupeValidateAndInsert(
+  sb: ReturnType<typeof createClient>,
+  rawCandidates: RawCandidate[],
+  existingHashes: Set<string>,
+  existingNgramSets: Set<string>[],
+  professionName: string,
+): Promise<{ saved: number; training: number; gateFailed: number; generatedTotal: number; rejectedContamination: number; rejectedOther: number; acceptRate: number }> {
   let saved = 0;
   let training = 0;
   let gateFailed = 0;
   let rejectedContamination = 0;
   let rejectedOther = 0;
-  const generatedTotal = questions.length;
+  const generatedTotal = rawCandidates.length;
 
-  // ── OPT-1: Collect rows for batch insert instead of per-question inserts ──
   const examBatch: any[] = [];
   const trainingBatch: any[] = [];
 
-  for (const q of questions) {
+  for (const { question: q, bp, difficulty, questionType, cognitiveLevel, lfData } of rawCandidates) {
     if (!q.question_text || !Array.isArray(q.options) || q.options.length < 4) continue;
 
-    // HARD GATE: correct_answer must be valid index (audit P1 fix)
+    // HARD GATE: correct_answer must be valid index
     const correctIdx = Array.isArray(q.correct_answer) ? q.correct_answer[0] : (q.correct_answer ?? 0);
     if (typeof correctIdx !== 'number' || correctIdx < 0 || correctIdx >= q.options.length) {
       console.log(`[ExamPool-v5] REJECTED INVALID_INDEX: correct_answer=${q.correct_answer} for ${q.options.length} options`);
@@ -756,7 +781,7 @@ async function generateTurboQuestions(
       continue;
     }
 
-    // HARD GATE: No meta-text / AI editing artifacts (audit P1 fix)
+    // HARD GATE: No meta-text / AI editing artifacts
     const META_REJECT_PATTERNS = [
       /\bich muss\b/i, /\bich ändere\b/i, /\btippfehler\b/i,
       /\bes tut mir leid\b/i, /\bich habe einen fehler\b/i,
@@ -785,12 +810,12 @@ async function generateTurboQuestions(
       continue;
     }
 
-    // Hash dedup
+    // Hash dedup (sequential — safe against intra-batch duplicates)
     const hash = simpleHash(q.question_text);
     if (existingHashes.has(hash)) continue;
     existingHashes.add(hash);
 
-    // Text-similarity dedup (Jaccard n-gram)
+    // Text-similarity dedup (Jaccard n-gram) — sequential, sees all prior additions
     const qNgrams = textNgrams(q.question_text);
     let tooSimilar = false;
     const checkWindow = existingNgramSets.slice(-200);
@@ -806,7 +831,7 @@ async function generateTurboQuestions(
     }
     existingNgramSets.push(qNgrams);
 
-    // ── HARD Quality Gates (v5: reject instead of soft-log) ──
+    // ── HARD Quality Gates ──
     const praxisScore = calculatePraxisScore(q);
     if (praxisScore < 1) {
       console.log(`[ExamPool-v5] REJECTED LOW_PRAXIS (${praxisScore}): "${q.question_text.slice(0, 40)}…"`);
@@ -944,17 +969,15 @@ async function generateTurboQuestions(
     }
   }
 
-  // ── OPT-1: Batch insert all collected rows (exam + training) ──
+  // ── Batch insert all collected rows (exam + training) ──
   const allRows = [...examBatch, ...trainingBatch];
   if (allRows.length > 0) {
-    // Insert in chunks of 50 to avoid payload limits
     const BATCH_SIZE = 50;
     for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
       const chunk = allRows.slice(i, i + BATCH_SIZE);
       const { error } = await sb.from("exam_questions").insert(chunk);
       if (error) {
         if (error.code === "23505") {
-          // Batch had duplicates — fall back to individual inserts for this chunk
           console.log(`[ExamPool-v5] BATCH_DUP: falling back to individual inserts for ${chunk.length} rows`);
           for (const row of chunk) {
             const { error: singleErr } = await sb.from("exam_questions").insert(row);
@@ -975,6 +998,25 @@ async function generateTurboQuestions(
   const acceptRate = generatedTotal > 0 ? ((acceptedTotal / generatedTotal) * 100).toFixed(1) : "0.0";
   console.log(`[ExamPool-v5] YIELD: generated=${generatedTotal}, accepted=${acceptedTotal}, saved=${saved}, training=${training}, gateFailed=${gateFailed}, rejectedContamination=${rejectedContamination}, rejectedOther=${rejectedOther}, acceptRate=${acceptRate}%`);
   return { saved, training, gateFailed, generatedTotal, rejectedContamination, rejectedOther, acceptRate: parseFloat(acceptRate) };
+}
+
+// ─── Legacy wrapper: generate + dedup + insert in one call (for backfill paths) ──
+
+async function generateTurboQuestions(
+  sb: ReturnType<typeof createClient>,
+  bp: BlueprintInfo,
+  count: number,
+  difficulty: DifficultyKey,
+  questionType: QuestionTypeKey,
+  cognitiveLevel: CognitiveLevelKey,
+  existingHashes: Set<string>,
+  existingNgramSets: Set<string>[],
+  professionName: string,
+  glossaryContext?: string,
+): Promise<{ saved: number; training: number; gateFailed: number }> {
+  const { candidates } = await generateRawCandidates(sb, bp, count, difficulty, questionType, cognitiveLevel, professionName, glossaryContext);
+  const result = await dedupeValidateAndInsert(sb, candidates, existingHashes, existingNgramSets, professionName);
+  return { saved: result.saved, training: result.training, gateFailed: result.gateFailed };
 }
 
 function simpleHash(text: string): string {
