@@ -960,7 +960,7 @@ async function dedupeValidateAndInsert(
       trainingBatch.push({
         ...baseRow,
         distractor_meta: { raw: rawDistractorMeta, gate_fail: true, qc_reason: qcReason, required: requiredMeta, actual: rawDistractorMeta.length, source_type: questionType, final_type: finalQuestionType },
-        status: "training",
+        status: "draft",
         qc_status: "tier1_failed",
       });
       gateFailed++;
