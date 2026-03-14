@@ -814,6 +814,9 @@ async function generateRawCandidates(
         console.log(`[ExamPool-v5] ${isTimeout ? "Timeout" : "RateLimit"} ${provider}/${model} attempt ${attempt}/3`);
         if ((globalThis as any).__examPoolSb) await markRateLimited((globalThis as any).__examPoolSb, provider, errMsg);
         exclude.push(`${provider}:${model}`);
+        // Backoff before retry to prevent tight-loop spam during cooldowns
+        const backoffMs = isRate ? 3000 * attempt : 2000 * attempt;
+        await new Promise(r => setTimeout(r, backoffMs));
         continue;
       }
       console.log(`[ExamPool-v5] AI error (${provider}/${model}): ${errMsg}`);
