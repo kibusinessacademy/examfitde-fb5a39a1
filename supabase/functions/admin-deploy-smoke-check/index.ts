@@ -2,7 +2,7 @@
  * admin-deploy-smoke-check
  *
  * Post-deploy validation: queries LIVE llm_cost_events to prove
- * no forbidden models (e.g. Gemini) are running in critical pipelines,
+ * no forbidden models (e.g. Gemini, nano) are running in critical pipelines,
  * and chain_size matches expectations.
  *
  * Auth: x-job-runner-key (internal shared secret)
