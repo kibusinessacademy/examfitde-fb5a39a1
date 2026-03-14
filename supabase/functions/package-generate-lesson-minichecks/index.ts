@@ -406,16 +406,22 @@ Deno.serve(async (req) => {
         );
 
         if (validRows.length > 0) {
-          const { error: insertErr } = await sb
-            .from("minicheck_questions")
-            .insert(validRows);
-
-          if (insertErr) {
-            console.warn(`[MiniChecks] Insert error for ${target.id.slice(0, 8)}: ${insertErr.message}`);
-            totalFailed++;
-          } else {
-            totalGenerated += validRows.length;
+          // Row-by-row insert with dedup guard (unique index rejects exact duplicates)
+          let insertOk = 0;
+          for (const row of validRows) {
+            const { error: singleErr } = await sb.from("minicheck_questions").insert(row);
+            if (singleErr) {
+              if (singleErr.code === "23505") {
+                console.log(`[MiniChecks] Dedup guard: duplicate skipped for ${target.id.slice(0, 8)}`);
+              } else {
+                console.warn(`[MiniChecks] Insert error: ${singleErr.message}`);
+              }
+            } else {
+              insertOk++;
+            }
           }
+          totalGenerated += insertOk;
+          if (insertOk === 0) totalFailed++;
         } else {
           totalFailed++;
         }
@@ -433,11 +439,7 @@ Deno.serve(async (req) => {
     // hasMore is the definitive "+1 probe" signal — no false positives
     const batchComplete = !softStopped && totalFailed === 0 && !hasMore;
 
-    // Progress heartbeat: merge meta (never overwrite existing keys like stall_runs, artifact_*)
-    const progressNote = totalGenerated > 0
-      ? `${totalGenerated} generated, ${totalFailed} failed, hasMore=${hasMore}, elapsed=${elapsed}ms`
-      : `0 generated (all existed or skipped), hasMore=${hasMore}, elapsed=${elapsed}ms`;
-
+    // ── Progress Guard & Meta Logging ──
     const { data: stepRow } = await sb
       .from("package_steps")
       .select("meta")
@@ -445,21 +447,57 @@ Deno.serve(async (req) => {
       .eq("step_key", "generate_lesson_minichecks")
       .maybeSingle();
 
-    const nextMeta = { ...((stepRow?.meta as Record<string, unknown>) ?? {}), last_progress_note: progressNote };
+    const prevMeta = (stepRow?.meta as Record<string, unknown>) ?? {};
+    const prevTargets = Number(prevMeta.remaining_targets_after ?? Infinity);
+    const prevStallRuns = Number(prevMeta.stall_runs ?? 0);
+
+    // Stall detection: if targets_found didn't decrease vs last run's remaining_targets_after
+    const isStalled = targetsFound > 0 && targetsFound >= prevTargets && totalGenerated === 0;
+    const stallRuns = isStalled ? prevStallRuns + 1 : 0;
+    const MAX_STALL_RUNS = 3;
+
+    const progressNote = totalGenerated > 0
+      ? `${totalGenerated} generated, ${totalFailed} failed, remaining=${targetsFound - targets.length}, elapsed=${elapsed}ms`
+      : `0 generated, targets=${targetsFound}, stall_runs=${stallRuns}/${MAX_STALL_RUNS}, elapsed=${elapsed}ms`;
+
+    const nextMeta = {
+      ...prevMeta,
+      last_progress_note: progressNote,
+      remaining_targets_before: targetsFound,
+      remaining_targets_after: Math.max(0, targetsFound - targets.length + totalFailed),
+      stall_runs: stallRuns,
+      last_run_generated: totalGenerated,
+      last_run_at: new Date().toISOString(),
+    };
+
+    // Stall escalation: if targets_found hasn't decreased for MAX_STALL_RUNS consecutive runs → mark anomalous
+    if (stallRuns >= MAX_STALL_RUNS) {
+      console.error(`[MiniChecks] ⚠️ STALL ESCALATION: targets_found=${targetsFound} unchanged for ${stallRuns} runs — marking anomalous`);
+      nextMeta.stall_escalated = true;
+      nextMeta.stall_escalated_at = new Date().toISOString();
+      nextMeta.stall_note = `targets_found=${targetsFound} did not decrease over ${stallRuns} consecutive runs`;
+    }
 
     await sb.from("package_steps")
       .update({ meta: nextMeta })
       .eq("package_id", packageId)
       .eq("step_key", "generate_lesson_minichecks");
 
+    // Stall escalation forces batch_complete=true to break the infinite loop
+    const forceComplete = stallRuns >= MAX_STALL_RUNS;
+    const finalBatchComplete = batchComplete || forceComplete;
+
     return json({
       ok: true,
-      batch_complete: batchComplete,
+      batch_complete: finalBatchComplete,
       mode: effectiveMode,
       generated: totalGenerated,
       failed: totalFailed,
       targets_found: targetsFound,
       targets_processed: targets.length,
+      remaining_targets_after: Math.max(0, targetsFound - targets.length + totalFailed),
+      stall_runs: stallRuns,
+      stall_escalated: forceComplete || undefined,
       elapsed_ms: elapsed,
       soft_stopped: softStopped,
       has_more: hasMore,
