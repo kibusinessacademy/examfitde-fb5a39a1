@@ -284,6 +284,7 @@ export async function callAIJSON(opts: Omit<AIRequestOptions, "stream">): Promis
   toolCalls?: Array<{ function: { name: string; arguments: string } }>;
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
   estimatedUsage?: { tokens_in: number; tokens_out: number; cost_eur: number; estimated: boolean };
+  finish_reason?: string;
 }> {
   try {
     const { raw, ok, status } = await callAI({ ...opts, stream: false });
