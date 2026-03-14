@@ -741,7 +741,7 @@ async function generateRawCandidates(
       result = aiResult;
 
       // ── Observability: track output metrics ──
-      const outputLen = result.content?.length ?? 0;
+      const pkgId = (globalThis as any).__examPoolPackageId || null;
       const tokOut = result.estimatedUsage?.tokens_out ?? Math.ceil(outputLen / 3.5);
       const tokIn = result.estimatedUsage?.tokens_in ?? Math.ceil((system.length + user.length) / 3.5);
 
