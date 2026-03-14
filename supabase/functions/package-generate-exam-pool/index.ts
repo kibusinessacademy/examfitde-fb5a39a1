@@ -976,6 +976,8 @@ async function dedupeValidateAndInsert(
 
     if (!passesStyleGate(q)) {
       console.log(`[ExamPool-v5] REJECTED AI_STYLE: "${q.question_text.slice(0, 40)}…"`);
+      _qualityMetrics.candidates_rejected_ai_style++;
+      _qualityMetrics.rejection_reasons["ai_style"] = (_qualityMetrics.rejection_reasons["ai_style"] ?? 0) + 1;
       continue;
     }
 
