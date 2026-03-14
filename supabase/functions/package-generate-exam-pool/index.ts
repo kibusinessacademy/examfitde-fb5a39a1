@@ -935,6 +935,8 @@ async function dedupeValidateAndInsert(
     if (contam.isContaminated) {
       console.log(`[ExamPool-v5] CONTAMINATION: ${contam.detectedIndustry} in "${q.question_text.slice(0, 50)}"`);
       rejectedContamination++;
+      _qualityMetrics.candidates_rejected_contamination++;
+      _qualityMetrics.rejection_reasons["contamination"] = (_qualityMetrics.rejection_reasons["contamination"] ?? 0) + 1;
       continue;
     }
 
